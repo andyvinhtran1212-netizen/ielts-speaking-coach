@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+  <div class="max-w-6xl mx-auto px-6 py-10">
+    <header class="flex items-center justify-between mb-12">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">IELTS Speaking Coach</h1>
+        <p class="text-sm text-slate-500">AI-powered speaking practice</p>
+      </div>
+      <div id="backend-status" class="text-sm px-3 py-2 rounded-full bg-slate-200 text-slate-700">
+        Backend: checking...
+      </div>
+    </header>
+
+    <section class="grid md:grid-cols-2 gap-10 items-center mb-16">
+      <div>
+        <p class="text-sm font-semibold tracking-wide text-teal-700 uppercase mb-3">
+          Practice smarter
+        </p>
+        <h2 class="text-4xl md:text-5xl font-bold leading-tight mb-5 text-slate-900">
+          Luyện IELTS Speaking với AI Coach
+        </h2>
+        <p class="text-lg text-slate-600 mb-8">
+          Ghi âm → AI chấm bài → xem band score và nhận xét ngay lập tức.
+        </p>
+
+        <div class="flex flex-wrap gap-4">
+          <button
+            id="google-login-btn"
+            class="px-5 py-3 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition"
+          >
+            Đăng nhập bằng Google
+          </button>
+
+          <button
+            id="test-backend-btn"
+            class="px-5 py-3 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium hover:bg-slate-100 transition"
+          >
+            Test backend
+          </button>
+        </div>
+
+        <div id="connection-result" class="mt-6 text-sm text-slate-600"></div>
+      </div>
+
+      <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+        <h3 class="text-xl font-semibold mb-5">Tính năng nổi bật</h3>
+
+        <div class="space-y-4">
+          <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+            <div class="font-semibold mb-1">AI hỏi câu hỏi chuẩn IELTS</div>
+            <div class="text-sm text-slate-600">Tạo câu hỏi Part 1, cue card Part 2 và follow-up Part 3.</div>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+            <div class="font-semibold mb-1">Chấm 4 tiêu chí chuẩn IELTS</div>
+            <div class="text-sm text-slate-600">FC, LR, GRA, P với band score và feedback rõ ràng.</div>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+            <div class="font-semibold mb-1">Lưu kết quả và tải báo cáo</div>
+            <div class="text-sm text-slate-600">Xem lại transcript, feedback, PDF report và audio.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+      <h3 class="text-xl font-semibold mb-4">Bản build hiện tại</h3>
+      <ul class="space-y-2 text-slate-600 text-sm list-disc list-inside">
+        <li>Backend skeleton đã chạy local</li>
+        <li>Frontend landing page đang được build</li>
+        <li>Supabase login và access code sẽ nối ở bước tiếp theo</li>
+      </ul>
+    </section>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script src="./js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "SpeakWise AI",
+  "description": "An AI-powered assistant for English learners to analyze speaking scripts, receive grammar and phrasing feedback in Vietnamese, and practice pronunciation with an improved version of their script.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

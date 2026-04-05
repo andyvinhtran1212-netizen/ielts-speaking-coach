@@ -1,0 +1,7 @@
+{
+  "name": "IELTS Speaking Simulator 2025",
+  "description": "A comprehensive tool for students to practice the full IELTS Speaking test with AI-powered analysis and feedback. The app simulates all three parts of the test, records responses, and provides a detailed performance evaluation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
