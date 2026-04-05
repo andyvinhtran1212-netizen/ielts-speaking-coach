@@ -397,8 +397,39 @@
     }
 
     // ── Navigation ────────────────────────────────────────────
-    function startPractice(part) {
-      window.location.href = `${PRACTICE_URL}?part=${part}`;
+    // Default topics used when the user hasn't chosen one (quick-start flow)
+    var _DEFAULT_TOPICS = {
+      1: 'Daily Life & Personal Interests',
+      2: 'Describing a Person or Experience',
+      3: 'Society, Technology & Modern Issues',
+    };
+
+    async function startPractice(part) {
+      // 'full' test starts as Part 1 until multi-part sessions are supported
+      var resolvedPart = (part === 'full') ? 1 : part;
+      var topic = _DEFAULT_TOPICS[resolvedPart] || 'General';
+
+      // Disable every start button to prevent double-submit during the API call
+      var btns = document.querySelectorAll('.btn-start, .btn-fulltest');
+      btns.forEach(function (b) { b.disabled = true; b.style.opacity = '0.5'; });
+
+      try {
+        var session = await window.api.post('/sessions', {
+          mode: 'practice',
+          part: resolvedPart,
+          topic: topic,
+        });
+
+        var sessionId = session && (session.id || session.session_id);
+        if (!sessionId) {
+          throw new Error('Server không trả về session hợp lệ. Hãy thử lại.');
+        }
+
+        window.location.href = PRACTICE_URL + '?session_id=' + sessionId;
+      } catch (err) {
+        alert('Không thể tạo session: ' + (err.message || 'Lỗi không xác định'));
+        btns.forEach(function (b) { b.disabled = false; b.style.opacity = ''; });
+      }
     }
 
     // ── Logout ────────────────────────────────────────────────

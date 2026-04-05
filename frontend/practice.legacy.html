@@ -56,13 +56,10 @@
       50%       { transform: scaleY(1);   opacity: 1; }
     }
 
-    /* ── Mic button pulse (STATE 3 — Recording) ── */
-    @keyframes mic-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
-      50%       { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
-    }
-    #btn-mic-pulse.recording {
-      animation: mic-pulse 1.4s ease-out infinite;
+    /* ── Recording dot pulse ── */
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1;   transform: scale(1); }
+      50%       { opacity: 0.3; transform: scale(0.7); }
     }
 
     /* ── Spinner (STATE 4 — Processing) ── */
@@ -217,81 +214,96 @@
 
       <!-- Instruction text -->
       <p class="text-xs text-center mb-6" style="color:rgba(255,255,255,0.3);">
-        AI sẽ đọc câu hỏi cho bạn nghe trước khi bắt đầu ghi âm.
+        Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.
       </p>
 
       <button class="btn-primary w-full py-4 text-base"
-              onclick="PracticeApp.startReading()">
-        🎙 Bắt đầu luyện tập
+              onclick="PracticeApp.goToRecording()">
+        🎙 Bắt đầu ghi âm
       </button>
     </div>
 
-    <!-- STATE 2: AI Reading ─────────────────────────────────────────────────── -->
-    <div id="state-reading" class="state flex-1 items-center justify-center flex-col gap-8 px-6 text-center">
+    <!-- STATE: Recording (3 sub-states: idle → recording → recorded) ────────── -->
+    <div id="state-recording" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full">
 
-      <!-- Wave bars -->
-      <div class="wave-bars">
-        <span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span>
-      </div>
-
-      <!-- Label -->
-      <div>
-        <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:#14b8a6;">
-          AI đang đọc câu hỏi...
-        </p>
-        <p id="reading-q-counter" class="text-xs mb-5" style="color:rgba(255,255,255,0.3);"></p>
-        <p id="reading-q-text"
-           class="text-xl font-semibold leading-relaxed max-w-lg"
+      <!-- Question reminder -->
+      <div class="card p-4 mb-5">
+        <p class="text-xs font-bold uppercase tracking-wider mb-2"
+           style="color:rgba(255,255,255,0.3);">Câu hỏi đang trả lời</p>
+        <p id="rec-question"
+           class="text-sm font-semibold leading-relaxed"
            style="color:rgba(255,255,255,0.85);"></p>
       </div>
 
-      <!-- Skip -->
-      <button class="btn-ghost px-6 py-2.5 text-sm font-semibold"
-              onclick="PracticeApp.skipReading()">
-        Bỏ qua → Ghi âm ngay
-      </button>
-    </div>
+      <!-- Error banner (hidden by default) -->
+      <div id="rec-error"
+           class="rounded-xl px-4 py-3 mb-4 text-sm"
+           style="display:none;background:rgba(239,68,68,0.1);
+                  border:1px solid rgba(239,68,68,0.3);color:#f87171;"></div>
 
-    <!-- STATE 3: Recording ──────────────────────────────────────────────────── -->
-    <div id="state-recording" class="state flex-1 items-center justify-center flex-col gap-6 px-6">
-
-      <!-- Timer -->
-      <div class="text-center">
-        <p class="text-xs font-bold uppercase tracking-wider mb-1" style="color:rgba(255,255,255,0.35);">
-          Thời gian còn lại
-        </p>
-        <span id="recording-timer"
-              class="text-5xl font-extrabold tabular-nums"
-              style="letter-spacing:-0.02em;"></span>
+      <!-- ── Sub-state A: idle ─────────────────────────────────────────────── -->
+      <div id="rec-idle">
+        <div class="text-center py-6">
+          <div style="font-size:52px;line-height:1;margin-bottom:16px;">🎙️</div>
+          <p class="text-sm font-medium mb-1" style="color:rgba(255,255,255,0.6);">
+            Sẵn sàng ghi âm
+          </p>
+          <p class="text-xs" style="color:rgba(255,255,255,0.25);">
+            Trình duyệt sẽ yêu cầu quyền truy cập microphone
+          </p>
+        </div>
+        <button class="btn-primary w-full py-4 text-base"
+                onclick="PracticeApp.startRecording()">
+          🎙 Bắt đầu ghi âm
+        </button>
       </div>
 
-      <!-- Waveform canvas -->
-      <canvas id="recording-canvas"
-              width="320" height="64"
-              class="rounded-xl"
-              style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);"></canvas>
+      <!-- ── Sub-state B: recording ────────────────────────────────────────── -->
+      <div id="rec-recording" style="display:none;">
+        <div class="text-center mb-5">
+          <div class="flex items-center justify-center gap-3 mb-3">
+            <span style="width:10px;height:10px;border-radius:50%;background:#f87171;
+                         display:inline-block;animation:pulse-dot 1.2s ease infinite;"></span>
+            <span id="rec-timer"
+                  class="text-5xl font-extrabold tabular-nums"
+                  style="letter-spacing:-0.02em;color:#fff;">0:00</span>
+          </div>
+          <p class="text-xs" style="color:rgba(255,255,255,0.3);">
+            Đang ghi âm — nói rõ ràng vào microphone
+          </p>
+        </div>
+        <canvas id="rec-canvas" width="600" height="56"
+                style="width:100%;border-radius:12px;display:block;margin-bottom:20px;
+                       background:rgba(255,255,255,0.03);
+                       border:1px solid rgba(255,255,255,0.06);"></canvas>
+        <button class="btn-danger w-full py-4 text-sm font-bold"
+                onclick="PracticeApp.stopRecording()">
+          ⏹ Dừng ghi âm
+        </button>
+      </div>
 
-      <!-- Mic button -->
-      <button id="btn-mic-pulse"
-              class="w-20 h-20 rounded-full flex items-center justify-center"
-              style="background:rgba(239,68,68,0.15);border:2px solid rgba(239,68,68,0.5);"
-              disabled>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(248,113,113,1)">
-          <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
-          <path d="M19 10a7 7 0 0 1-14 0M12 19v3M8 22h8"
-                stroke="rgba(248,113,113,1)" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <!-- ── Sub-state C: recorded ─────────────────────────────────────────── -->
+      <div id="rec-recorded" style="display:none;">
+        <div class="text-center py-6">
+          <div style="font-size:52px;line-height:1;margin-bottom:12px;">✅</div>
+          <p class="text-sm font-semibold mb-1" style="color:#4ade80;">Đã ghi âm xong!</p>
+          <p id="rec-duration-display"
+             class="text-xs" style="color:rgba(255,255,255,0.35);"></p>
+        </div>
+        <div class="flex gap-3">
+          <button class="btn-ghost py-3 text-sm font-semibold"
+                  style="flex:1;"
+                  onclick="PracticeApp.resetRecording()">
+            🔄 Ghi lại
+          </button>
+          <button class="btn-primary py-3 text-sm font-bold"
+                  style="flex:2;"
+                  onclick="PracticeApp.submitRecording()">
+            📤 Nộp để chấm điểm
+          </button>
+        </div>
+      </div>
 
-      <p class="text-xs" style="color:rgba(255,255,255,0.3);">🔴 Đang ghi âm...</p>
-
-      <!-- Stop button -->
-      <button class="btn-danger px-8 py-3 text-sm font-bold"
-              onclick="PracticeApp.stopRecording()">
-        ⏹ Dừng và nộp câu trả lời
-      </button>
     </div>
 
     <!-- STATE 4: Processing ─────────────────────────────────────────────────── -->
@@ -311,7 +323,8 @@
       <h2 class="text-lg font-bold mb-6 text-center">Kết quả câu trả lời</h2>
 
       <!-- Band score -->
-      <div id="feedback-band-wrapper" class="hidden flex justify-center mb-4">
+      <div id="feedback-band-wrapper"
+           style="display:none;justify-content:center;margin-bottom:16px;">
         <div>
           <div class="band-circle mx-auto mb-2">
             <span id="feedback-band"></span>
@@ -321,7 +334,8 @@
       </div>
 
       <!-- Per-criterion band pills -->
-      <div id="feedback-bands-row" class="hidden flex justify-center gap-1 mb-6"></div>
+      <div id="feedback-bands-row"
+           style="display:none;justify-content:center;gap:4px;margin-bottom:20px;flex-wrap:wrap;"></div>
 
       <!-- Comments -->
       <div class="card p-5 mb-4">
@@ -332,21 +346,25 @@
       </div>
 
       <!-- Transcript -->
-      <div id="feedback-transcript" class="hidden card p-4 mb-8">
-        <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.2);">
-          Văn bản nhận dạng
-        </p>
+      <div id="feedback-transcript" class="card p-4 mb-8" style="display:none;">
+        <p class="text-xs font-bold uppercase tracking-wider mb-2"
+           style="color:rgba(255,255,255,0.2);">Văn bản nhận dạng</p>
+        <p id="feedback-transcript-text"
+           class="text-xs leading-relaxed"
+           style="color:rgba(255,255,255,0.45);"></p>
       </div>
 
-      <!-- Navigation buttons -->
+      <!-- Navigation buttons (JS controls display) -->
       <div class="flex flex-col gap-3">
         <button id="btn-next-q"
-                class="btn-primary hidden w-full py-3.5 text-sm"
+                class="btn-primary w-full py-3.5 text-sm"
+                style="display:none;"
                 onclick="PracticeApp.nextQuestion()">
           Câu tiếp theo →
         </button>
         <button id="btn-finish"
-                class="btn-primary hidden w-full py-3.5 text-sm"
+                class="btn-primary w-full py-3.5 text-sm"
+                style="display:none;"
                 onclick="PracticeApp.finishSession()">
           Hoàn thành phiên luyện ✓
         </button>
