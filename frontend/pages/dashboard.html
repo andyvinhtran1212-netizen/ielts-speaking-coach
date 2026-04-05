@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy:  { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal:  { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { background: #0a1628; }
+
+    .sidebar-bg { background: #0C2340; border-right: 1px solid rgba(255,255,255,0.06); }
+    .main-bg    { background: #0d1e35; }
+
+    .stat-card  {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .stat-card:hover { border-color: rgba(15,118,110,0.35); background: rgba(15,118,110,0.07); }
+
+    .part-card {
+      background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(15,118,110,0.08) 100%);
+      border: 1px solid rgba(255,255,255,0.09);
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+    }
+    .part-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(20,184,166,0.4);
+      box-shadow: 0 12px 32px rgba(15,118,110,0.2);
+    }
+
+    .btn-start {
+      background: #0F766E;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .btn-start:hover { background: #0d5f58; transform: translateY(-1px); }
+    .btn-start:active { transform: translateY(0); }
+
+    .btn-fulltest {
+      background: linear-gradient(90deg, #0F766E, #0ea5e9);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .btn-fulltest:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .avatar-ring { box-shadow: 0 0 0 2px #0F766E; }
+
+    /* skeleton shimmer */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position:  400px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
+      background-size: 800px 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 6px;
+    }
+
+    /* table row hover */
+    .session-row { transition: background 0.15s; }
+    .session-row:hover { background: rgba(15,118,110,0.08); }
+
+    /* badge */
+    .badge-done    { background: rgba(20,184,166,0.15); color: #14b8a6; }
+    .badge-pending { background: rgba(250,204,21,0.12); color: #fbbf24; }
+
+    /* custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
+  </style>
+</head>
+<body class="text-white font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- ─── HEADER ─────────────────────────────────────────── -->
+  <header class="sidebar-bg sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <!-- Logo -->
+    <div class="flex items-center gap-2.5">
+      <span class="text-xl">🎙️</span>
+      <span class="font-bold text-base tracking-tight">
+        IELTS<span style="color:#14b8a6;">Coach</span>
+      </span>
+    </div>
+
+    <!-- User info -->
+    <div class="flex items-center gap-3">
+      <!-- Name skeleton → replaced by JS -->
+      <div id="user-name-skeleton" class="skeleton h-4 w-28 hidden sm:block"></div>
+      <span id="user-name" class="hidden text-sm font-medium" style="color:rgba(255,255,255,0.85);"></span>
+
+      <!-- Avatar -->
+      <div id="avatar-wrap" class="w-8 h-8 rounded-full overflow-hidden avatar-ring bg-navy-light flex items-center justify-center text-xs font-bold" style="background:#112d52;">
+        <span id="avatar-initials">—</span>
+        <img id="avatar-img" class="hidden w-full h-full object-cover" alt="avatar" />
+      </div>
+
+      <!-- Logout -->
+      <button id="btn-logout"
+              title="Đăng xuất"
+              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition"
+              style="color:rgba(255,255,255,0.45);border:1px solid rgba(255,255,255,0.1);"
+              onmouseover="this.style.color='#f87171';this.style.borderColor='rgba(248,113,113,0.35)'"
+              onmouseout="this.style.color='rgba(255,255,255,0.45)';this.style.borderColor='rgba(255,255,255,0.1)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span class="hidden sm:inline">Đăng xuất</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ─── MAIN ────────────────────────────────────────────── -->
+  <main class="main-bg flex-1 px-6 py-8 max-w-6xl mx-auto w-full">
+
+    <!-- Page title -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold mb-1">Xin chào, <span id="greeting-name" class="text-transparent bg-clip-text" style="background:linear-gradient(90deg,#14b8a6,#38bdf8);-webkit-background-clip:text;">bạn</span>! 👋</h1>
+      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Hãy luyện tập thêm hôm nay để cải thiện band score của bạn.</p>
+    </div>
+
+    <!-- ── PART 1: Quick Stats ──────────────────────────────── -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+
+      <div class="stat-card rounded-2xl p-5">
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Band trung bình</p>
+        <p id="stat-band" class="text-3xl font-extrabold" style="color:#14b8a6;">—</p>
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">Chưa có dữ liệu</p>
+      </div>
+
+      <div class="stat-card rounded-2xl p-5">
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Tổng sessions</p>
+        <p id="stat-total" class="text-3xl font-extrabold text-white">0</p>
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">Kể từ khi tham gia</p>
+      </div>
+
+      <div class="stat-card rounded-2xl p-5">
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Sessions hôm nay</p>
+        <div class="flex items-end gap-1.5">
+          <p id="stat-today" class="text-3xl font-extrabold text-white">0</p>
+          <p class="text-lg font-semibold mb-0.5" style="color:rgba(255,255,255,0.3);">/ 10</p>
+        </div>
+        <div class="mt-2 h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.08);">
+          <div id="today-bar" class="h-full rounded-full transition-all" style="background:#0F766E;width:0%;"></div>
+        </div>
+      </div>
+
+      <div class="stat-card rounded-2xl p-5">
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Chuỗi ngày luyện</p>
+        <div class="flex items-end gap-1.5">
+          <p id="stat-streak" class="text-3xl font-extrabold text-white">0</p>
+          <p class="text-lg font-semibold mb-0.5" style="color:rgba(255,255,255,0.3);">ngày</p>
+        </div>
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">🔥 Duy trì chuỗi!</p>
+      </div>
+
+    </section>
+
+    <!-- ── PART 2: Bắt đầu luyện tập ──────────────────────── -->
+    <section class="mb-10">
+      <h2 class="text-lg font-bold mb-5">Bắt đầu luyện tập</h2>
+
+      <!-- 3 Part cards -->
+      <div class="grid sm:grid-cols-3 gap-4 mb-4">
+
+        <!-- Part 1 -->
+        <div class="part-card rounded-2xl p-6 flex flex-col">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
+                 style="background:rgba(15,118,110,0.2);">💬</div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
+              <h3 class="font-bold text-sm leading-tight">Introduction &amp; Interview</h3>
+            </div>
+          </div>
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+            Trả lời câu hỏi về các chủ đề quen thuộc: gia đình, công việc, sở thích, quê hương.
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</span>
+            <button class="btn-start text-white text-xs font-semibold px-4 py-2 rounded-xl"
+                    onclick="startPractice(1)">Bắt đầu</button>
+          </div>
+        </div>
+
+        <!-- Part 2 -->
+        <div class="part-card rounded-2xl p-6 flex flex-col">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
+                 style="background:rgba(15,118,110,0.2);">🗒️</div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
+              <h3 class="font-bold text-sm leading-tight">Individual Long Turn</h3>
+            </div>
+          </div>
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+            Nói về một chủ đề cho trước (cue card) trong 2 phút sau 1 phút chuẩn bị.
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs" style="color:rgba(255,255,255,0.3);">⏱ 3–4 phút</span>
+            <button class="btn-start text-white text-xs font-semibold px-4 py-2 rounded-xl"
+                    onclick="startPractice(2)">Bắt đầu</button>
+          </div>
+        </div>
+
+        <!-- Part 3 -->
+        <div class="part-card rounded-2xl p-6 flex flex-col">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
+                 style="background:rgba(15,118,110,0.2);">🧠</div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
+              <h3 class="font-bold text-sm leading-tight">Two-way Discussion</h3>
+            </div>
+          </div>
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+            Thảo luận chuyên sâu về các vấn đề xã hội, trừu tượng liên quan đến chủ đề Part 2.
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</span>
+            <button class="btn-start text-white text-xs font-semibold px-4 py-2 rounded-xl"
+                    onclick="startPractice(3)">Bắt đầu</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Full Test button -->
+      <button class="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide"
+              onclick="startPractice('full')">
+        🎯 Full Test — Luyện cả 3 Parts liên tiếp
+      </button>
+    </section>
+
+    <!-- ── PART 3: Session history ──────────────────────────── -->
+    <section>
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-bold">Lịch sử sessions</h2>
+        <span id="history-count" class="text-xs px-2.5 py-1 rounded-full"
+              style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);">0 sessions</span>
+      </div>
+
+      <!-- Table wrapper -->
+      <div class="rounded-2xl overflow-hidden border" style="border-color:rgba(255,255,255,0.08);">
+
+        <!-- Empty state (default) -->
+        <div id="history-empty" class="py-16 text-center">
+          <p class="text-4xl mb-3">📭</p>
+          <p class="font-semibold text-sm mb-1">Bạn chưa có session nào.</p>
+          <p class="text-sm" style="color:rgba(255,255,255,0.4);">Bắt đầu luyện tập ngay để theo dõi tiến độ!</p>
+        </div>
+
+        <!-- Table (hidden until data loaded) -->
+        <div id="history-table-wrap" class="hidden overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr style="background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.07);">
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Ngày</th>
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Part</th>
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Chủ đề</th>
+                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Band</th>
+                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Trạng thái</th>
+                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Xem lại</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody" style="border-top:1px solid rgba(255,255,255,0.05);"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    // ── Config ────────────────────────────────────────────────
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaHJ0cXNwem5lcG12ZXl1cnptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNjgxNjIsImV4cCI6MjA5MDk0NDE2Mn0.xnJ7XLLZFVjbaJtbF8S2sMhFsrHMB6onKNY66ViqWpU';
+    var API_BASE      = 'http://localhost:8000';
+    var INDEX_URL     = '/index.html';
+    var PRACTICE_URL  = '/pages/practice.html';
+
+    // ── Init Supabase (uses api.js helpers — never redeclares `supabase`) ──
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+    var sb = getSupabase();
+
+    // ── Auth guard ────────────────────────────────────────────
+    async function requireAuth() {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) {
+        window.location.href = INDEX_URL;
+        return null;
+      }
+      return session;
+    }
+
+    // ── Render user info ──────────────────────────────────────
+    function renderUser(user) {
+      document.getElementById('user-name-skeleton').classList.add('hidden');
+      const nameEl = document.getElementById('user-name');
+      const displayName = user.display_name || user.full_name || user.email?.split('@')[0] || 'Bạn';
+      nameEl.textContent = displayName;
+      nameEl.classList.remove('hidden');
+
+      document.getElementById('greeting-name').textContent = displayName.split(' ').at(-1);
+
+      if (user.avatar_url) {
+        const img = document.getElementById('avatar-img');
+        img.src = user.avatar_url;
+        img.classList.remove('hidden');
+        document.getElementById('avatar-initials').classList.add('hidden');
+      } else {
+        const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        document.getElementById('avatar-initials').textContent = initials;
+      }
+    }
+
+    // ── Render stats ──────────────────────────────────────────
+    function renderStats(sessions) {
+      document.getElementById('stat-total').textContent = sessions.length;
+
+      const today = new Date().toISOString().slice(0, 10);
+      const todayCount = sessions.filter(s => s.created_at?.slice(0, 10) === today).length;
+      document.getElementById('stat-today').textContent = todayCount;
+      document.getElementById('today-bar').style.width = `${Math.min((todayCount / 10) * 100, 100)}%`;
+
+      const completed = sessions.filter(s => s.band_score != null);
+      if (completed.length > 0) {
+        const avg = completed.reduce((sum, s) => sum + s.band_score, 0) / completed.length;
+        document.getElementById('stat-band').textContent = avg.toFixed(1);
+        document.getElementById('stat-band').nextElementSibling.textContent = `${completed.length} lần chấm`;
+      }
+
+      const days = [...new Set(sessions.map(s => s.created_at?.slice(0, 10)))].sort().reverse();
+      let streak = 0;
+      let cursor = new Date(today);
+      for (const d of days) {
+        if (d === cursor.toISOString().slice(0, 10)) {
+          streak++;
+          cursor.setDate(cursor.getDate() - 1);
+        } else break;
+      }
+      document.getElementById('stat-streak').textContent = streak;
+    }
+
+    // ── Render session history ────────────────────────────────
+    function renderHistory(sessions) {
+      document.getElementById('history-count').textContent = `${sessions.length} sessions`;
+
+      if (sessions.length === 0) return;
+
+      document.getElementById('history-empty').classList.add('hidden');
+      document.getElementById('history-table-wrap').classList.remove('hidden');
+
+      const tbody = document.getElementById('history-tbody');
+      tbody.innerHTML = sessions
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .map(s => {
+          const date = new Date(s.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+          const band = s.band_score != null
+            ? `<span style="color:#14b8a6;font-weight:700;">${s.band_score.toFixed(1)}</span>`
+            : '<span style="color:rgba(255,255,255,0.3);">—</span>';
+          const badge = s.status === 'completed'
+            ? '<span class="badge-done text-xs px-2.5 py-1 rounded-full font-medium">Hoàn thành</span>'
+            : '<span class="badge-pending text-xs px-2.5 py-1 rounded-full font-medium">Đang xử lý</span>';
+          const viewBtn = s.id
+            ? `<a href="/pages/result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
+            : '—';
+          return `
+            <tr class="session-row" style="border-bottom:1px solid rgba(255,255,255,0.04);">
+              <td class="px-5 py-3.5 text-xs" style="color:rgba(255,255,255,0.55);">${date}</td>
+              <td class="px-5 py-3.5 text-xs font-semibold" style="color:#14b8a6;">Part ${s.part || '?'}</td>
+              <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:rgba(255,255,255,0.7);">${s.topic || '—'}</td>
+              <td class="px-5 py-3.5 text-center">${band}</td>
+              <td class="px-5 py-3.5 text-center">${badge}</td>
+              <td class="px-5 py-3.5 text-center">${viewBtn}</td>
+            </tr>`;
+        })
+        .join('');
+    }
+
+    // ── Navigation ────────────────────────────────────────────
+    function startPractice(part) {
+      window.location.href = `${PRACTICE_URL}?part=${part}`;
+    }
+
+    // ── Logout ────────────────────────────────────────────────
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      window.location.href = INDEX_URL;
+    });
+
+    // ── Init ──────────────────────────────────────────────────
+    async function init() {
+      const session = await requireAuth();
+      if (!session) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (res.status === 401) { window.location.href = INDEX_URL; return; }
+        if (res.ok) {
+          const user = await res.json();
+          renderUser(user);
+        }
+      } catch (_) {
+        // Backend unreachable — fall back to Supabase metadata
+        const meta = session.user?.user_metadata || {};
+        renderUser({
+          display_name: meta.full_name || meta.name,
+          email: session.user?.email,
+          avatar_url: meta.avatar_url,
+        });
+      }
+
+      // TODO: replace with real GET /sessions endpoint once implemented
+      renderStats([]);
+      renderHistory([]);
+    }
+
+    init();
+  </script>
+
+</body>
+</html>
