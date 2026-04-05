@@ -5,6 +5,8 @@ from config import settings
 from routers.auth import router as auth_router
 from routers.sessions import router as sessions_router
 from routers.questions import router as questions_router
+from routers.responses import router as responses_router
+from routers.grading import router as grading_router
 
 app = FastAPI(
     title="IELTS Speaking Coach",
@@ -30,6 +32,8 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(questions_router)
+app.include_router(grading_router)   # full pipeline: Whisper + Claude
+app.include_router(responses_router) # legacy: simple audio upload only
 
 
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers
