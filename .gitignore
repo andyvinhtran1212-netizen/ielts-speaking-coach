@@ -1,22 +1,5 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtual environment
-backend/venv/
-venv/
-.venv/
-
-# Secrets
 backend/.env
-.env
-*.env
-
-# macOS
+backend/venv/
+backend/__pycache__/
+*.pyc
 .DS_Store
-
-# Editor
-.vscode/
-.idea/
