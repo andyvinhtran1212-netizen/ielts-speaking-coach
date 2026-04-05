@@ -17,7 +17,7 @@
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1'
       ? 'http://localhost:8000'
-      : 'https://your-app.railway.app';
+      : 'https://ielts-speaking-coach-production.up.railway.app';
 
   async function _getAuthToken() {
     if (!_sb) return null;
