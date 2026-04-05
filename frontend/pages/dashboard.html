@@ -152,7 +152,7 @@
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Sessions hôm nay</p>
         <div class="flex items-end gap-1.5">
           <p id="stat-today" class="text-3xl font-extrabold text-white">0</p>
-          <p class="text-lg font-semibold mb-0.5" style="color:rgba(255,255,255,0.3);">/ 10</p>
+          <p class="text-lg font-semibold mb-0.5" style="color:rgba(255,255,255,0.3);">/ 100</p>
         </div>
         <div class="mt-2 h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.08);">
           <div id="today-bar" class="h-full rounded-full transition-all" style="background:#0F766E;width:0%;"></div>
@@ -293,8 +293,8 @@
     // ── Config ────────────────────────────────────────────────
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaHJ0cXNwem5lcG12ZXl1cnptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNjgxNjIsImV4cCI6MjA5MDk0NDE2Mn0.xnJ7XLLZFVjbaJtbF8S2sMhFsrHMB6onKNY66ViqWpU';
-    var API_BASE      = 'http://localhost:8000';
     var INDEX_URL     = '/index.html';
+    // window.api.base is set by api.js — picks localhost:8000 locally, production URL otherwise.
     var PRACTICE_URL  = '/pages/practice.html';
 
     // ── Init Supabase (uses api.js helpers — never redeclares `supabase`) ──
@@ -339,7 +339,7 @@
       const today = new Date().toISOString().slice(0, 10);
       const todayCount = sessions.filter(s => s.started_at?.slice(0, 10) === today).length;
       document.getElementById('stat-today').textContent = todayCount;
-      document.getElementById('today-bar').style.width = `${Math.min((todayCount / 10) * 100, 100)}%`;
+      document.getElementById('today-bar').style.width = `${Math.min((todayCount / 100) * 100, 100)}%`;
 
       const completed = sessions.filter(s => s.overall_band != null);
       if (completed.length > 0) {
@@ -444,7 +444,7 @@
       if (!session) return;
 
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
+        const res = await fetch(`${window.api.base}/auth/me`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (res.status === 401) { window.location.href = INDEX_URL; return; }

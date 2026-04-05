@@ -1,3 +1,15 @@
+"""
+routers/responses.py — LEGACY audio-upload-only route.
+
+  POST /sessions/{session_id}/responses/{question_id}/audio
+
+This route uploads audio to Supabase Storage but does NOT run Whisper or Claude.
+It is NOT used by the frontend. The official grading pipeline is in grading.py:
+
+  POST /sessions/{session_id}/responses   ← use this one
+
+Kept here in case it is needed for debugging or manual uploads.
+"""
 from fastapi import APIRouter, HTTPException, Header, UploadFile, File
 
 from database import supabase_admin

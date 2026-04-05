@@ -32,8 +32,14 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(questions_router)
-app.include_router(grading_router)   # full pipeline: Whisper + Claude
-app.include_router(responses_router) # legacy: simple audio upload only
+
+# OFFICIAL grading route: POST /sessions/{id}/responses
+#   → full pipeline: Whisper STT + Claude grading, returns band scores + feedback
+app.include_router(grading_router)
+
+# LEGACY audio-only route: POST /sessions/{id}/responses/{question_id}/audio
+#   → upload only, no grading; kept for reference, not used by the frontend
+app.include_router(responses_router)
 
 
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers

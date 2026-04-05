@@ -339,8 +339,12 @@
         fd
       );
     } catch (err) {
+      var errMsg = err.message || 'Lỗi không xác định';
+      if (errMsg === 'Failed to fetch' || errMsg.includes('NetworkError')) {
+        errMsg = 'Không thể kết nối backend. Hãy kiểm tra server đang chạy.';
+      }
       console.error('[practice] grading request failed:', err);
-      data = { _stub: true, _error: err.message };
+      data = { _stub: true, _error: errMsg };
     } finally {
       if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
     }
@@ -577,12 +581,20 @@
       }
 
       if (!questions || questions.length === 0) {
-        showError('Không có câu hỏi nào được tạo. Hãy thử lại.');
+        showError('Không thể tạo câu hỏi. Hãy kiểm tra kết nối mạng và thử lại.');
         return;
       }
 
       _questions  = questions;
       _currentIdx = 0;
+
+      // Show a warning banner if Gemini was unavailable and fallback questions are being used
+      var isFallback = questions.some(function (q) { return q._fallback; });
+      var fallbackBanner = $('prep-fallback-warning');
+      if (fallbackBanner) {
+        fallbackBanner.style.display = isFallback ? '' : 'none';
+      }
+
       _showPrep();
 
     } catch (err) {
