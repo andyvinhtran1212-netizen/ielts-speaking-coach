@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import settings
 from routers.auth import router as auth_router
+from routers.sessions import router as sessions_router
+from routers.questions import router as questions_router
 
 app = FastAPI(
     title="IELTS Speaking Coach",
@@ -26,6 +28,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(sessions_router)
+app.include_router(questions_router)
 
 
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers

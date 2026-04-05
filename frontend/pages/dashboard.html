@@ -337,18 +337,18 @@
       document.getElementById('stat-total').textContent = sessions.length;
 
       const today = new Date().toISOString().slice(0, 10);
-      const todayCount = sessions.filter(s => s.created_at?.slice(0, 10) === today).length;
+      const todayCount = sessions.filter(s => s.started_at?.slice(0, 10) === today).length;
       document.getElementById('stat-today').textContent = todayCount;
       document.getElementById('today-bar').style.width = `${Math.min((todayCount / 10) * 100, 100)}%`;
 
-      const completed = sessions.filter(s => s.band_score != null);
+      const completed = sessions.filter(s => s.overall_band != null);
       if (completed.length > 0) {
-        const avg = completed.reduce((sum, s) => sum + s.band_score, 0) / completed.length;
+        const avg = completed.reduce((sum, s) => sum + s.overall_band, 0) / completed.length;
         document.getElementById('stat-band').textContent = avg.toFixed(1);
         document.getElementById('stat-band').nextElementSibling.textContent = `${completed.length} lần chấm`;
       }
 
-      const days = [...new Set(sessions.map(s => s.created_at?.slice(0, 10)))].sort().reverse();
+      const days = [...new Set(sessions.map(s => s.started_at?.slice(0, 10)))].sort().reverse();
       let streak = 0;
       let cursor = new Date(today);
       for (const d of days) {
@@ -371,11 +371,11 @@
 
       const tbody = document.getElementById('history-tbody');
       tbody.innerHTML = sessions
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))
         .map(s => {
-          const date = new Date(s.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
-          const band = s.band_score != null
-            ? `<span style="color:#14b8a6;font-weight:700;">${s.band_score.toFixed(1)}</span>`
+          const date = new Date(s.started_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+          const band = s.overall_band != null
+            ? `<span style="color:#14b8a6;font-weight:700;">${s.overall_band.toFixed(1)}</span>`
             : '<span style="color:rgba(255,255,255,0.3);">—</span>';
           const badge = s.status === 'completed'
             ? '<span class="badge-done text-xs px-2.5 py-1 rounded-full font-medium">Hoàn thành</span>'
@@ -431,9 +431,16 @@
         });
       }
 
-      // TODO: replace with real GET /sessions endpoint once implemented
-      renderStats([]);
-      renderHistory([]);
+      try {
+        const sessions = await api.get('/sessions');
+        renderStats(sessions);
+        renderHistory(sessions);
+      } catch (err) {
+        // Backend unreachable — show empty state silently
+        renderStats([]);
+        renderHistory([]);
+        console.warn('Could not load sessions:', err.message);
+      }
     }
 
     init();
