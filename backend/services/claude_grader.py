@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # ── Model ──────────────────────────────────────────────────────────────────────
 
-_MODEL = "claude-3-5-sonnet-20241022"
+_MODEL = "claude-haiku-4-5-20251001"
 
 # ── System prompt (cached) ─────────────────────────────────────────────────────
 # Kept verbose on purpose: prompt caching requires ≥ 1 024 tokens.
@@ -90,17 +90,19 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
 ═══════════════════════════════════════════════════
 BAND SCALE
 ═══════════════════════════════════════════════════
-Bands are awarded in 0.5 increments: 3.0 · 3.5 · 4.0 · … · 8.5 · 9.0
+Individual criterion bands (FC, LR, GRA, P) are WHOLE INTEGERS ONLY: 1 2 3 4 5 6 7 8 9
+Do NOT use half-bands for individual criteria (no 5.5, no 6.5, etc.).
+
 Overall band = mean of FC + LR + GRA + P, rounded to nearest 0.5.
-Do NOT round individual criteria bands; assign whichever half-band best fits.
+Overall band MAY be a half-band (e.g. 5.5, 6.5).
 
 ═══════════════════════════════════════════════════
 GRADING APPROACH
 ═══════════════════════════════════════════════════
 1. Read the question and the candidate's transcript carefully.
 2. Identify positive features and weaknesses for EACH criterion.
-3. Assign a band for each criterion independently.
-4. Compute overall_band = round((FC + LR + GRA + P) / 4, nearest 0.5).
+3. Assign a whole integer band for each criterion independently (integers only: 1–9).
+4. Compute overall_band = round((FC + LR + GRA + P) / 4, nearest 0.5). This may be a half-band.
 5. Write specific, actionable feedback (2-4 sentences each criterion).
 6. List 2-3 genuine strengths and 2-3 concrete improvements.
 7. Write an improved_response that demonstrates Band 7+ for the same question.
@@ -112,10 +114,10 @@ OUTPUT FORMAT — STRICT JSON ONLY
 Respond ONLY with this exact JSON object. No markdown, no explanation, no code fences.
 
 {
-  "band_fc":   6.5,
-  "band_lr":   6.0,
-  "band_gra":  6.5,
-  "band_p":    6.0,
+  "band_fc":   6,
+  "band_lr":   6,
+  "band_gra":  7,
+  "band_p":    6,
   "overall_band": 6.5,
   "fc_feedback":  "Your speech flows naturally with good use of...",
   "lr_feedback":  "Good range of vocabulary. Consider using...",
@@ -143,7 +145,8 @@ _REQUIRED_FIELDS: dict[str, type] = {
     "improved_response": str,
 }
 
-_BAND_FIELDS = ("band_fc", "band_lr", "band_gra", "band_p", "overall_band")
+_CRITERION_FIELDS = ("band_fc", "band_lr", "band_gra", "band_p")   # must be integers
+_OVERALL_FIELDS   = ("overall_band",)                               # 0.5 increments OK
 
 # ── Lazy client ────────────────────────────────────────────────────────────────
 
@@ -321,22 +324,32 @@ def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
         if not isinstance(data[key], expected_type):
             return None, f"field '{key}' sai kiểu: expected {expected_type}, got {type(data[key])}"
 
-    # ── Band range & increment check ───────────────────────────────────────────
-    for key in _BAND_FIELDS:
+    # ── Criterion bands: must be whole integers 1–9 (auto-repair halves) ─────────
+    for key in _CRITERION_FIELDS:
         val = float(data[key])
         if not (1.0 <= val <= 9.0):
             return None, f"band '{key}' ngoài phạm vi [1, 9]: {val}"
-        # Must be a multiple of 0.5
-        if round(val * 2) != val * 2:
-            return None, f"band '{key}' không phải bội số của 0.5: {val}"
-        data[key] = val  # normalise to float
+        # Snap to nearest integer; e.g. 6.5 → 7, 5.5 → 6
+        snapped = float(round(val))
+        if snapped != val:
+            logger.debug("criterion band '%s' snapped %.1f → %.0f", key, val, snapped)
+        data[key] = snapped
 
-    # ── Cross-check overall_band ───────────────────────────────────────────────
+    # ── Overall band: snap to nearest 0.5 (never reject — Claude can return 5.25 etc.) ──
+    for key in _OVERALL_FIELDS:
+        val = float(data[key])
+        if not (1.0 <= val <= 9.0):
+            return None, f"band '{key}' ngoài phạm vi [1, 9]: {val}"
+        snapped = _round_band(val)
+        if snapped != val:
+            logger.debug("overall_band snapped %.2f → %.1f", val, snapped)
+        data[key] = snapped
+
+    # ── Cross-check overall_band against criterion mean ────────────────────────
     computed = _round_band(
         (data["band_fc"] + data["band_lr"] + data["band_gra"] + data["band_p"]) / 4
     )
     if abs(computed - data["overall_band"]) > 0.26:
-        # Tolerate small rounding differences; correct silently if off by > 0.25
         logger.debug(
             "overall_band corrected: %.1f → %.1f (mean of criteria)",
             data["overall_band"], computed,
@@ -351,6 +364,6 @@ def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
 
 
 def _round_band(value: float) -> float:
-    """Round to nearest 0.5, clamped to [1.0, 9.0]."""
+    """Round to nearest 0.5, clamped to [1.0, 9.0]. Used for overall_band."""
     rounded = math.floor(value * 2 + 0.5) / 2
     return max(1.0, min(9.0, rounded))

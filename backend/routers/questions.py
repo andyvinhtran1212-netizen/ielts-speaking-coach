@@ -45,8 +45,11 @@ _FALLBACK_PART3 = [
 
 
 def _make_fallback_rows(session_id: str, part: int) -> list[dict]:
-    """Build fallback question rows for the given part (not persisted to DB)."""
-    base = {"session_id": session_id, "part": part, "_fallback": True}
+    """
+    Build fallback question rows for DB insert (no _fallback key — not a DB column).
+    Caller is responsible for tagging returned DB rows with _fallback=True in-memory.
+    """
+    base = {"session_id": session_id, "part": part}
 
     if part == 1:
         return [
@@ -124,6 +127,9 @@ async def generate_questions(
         return existing.data
 
     # ── Call Gemini ────────────────────────────────────────────────────────────
+    is_fallback = False
+    rows: list[dict] = []
+
     try:
         if part == 1:
             raw = await generate_part1_questions(topic, count=_PART1_COUNT)
@@ -176,23 +182,30 @@ async def generate_questions(
     except HTTPException:
         raise
     except Exception as e:
-        # Gemini unavailable — return fallback questions without storing them.
-        # Not persisted so the next load retries Gemini rather than caching stale data.
         print(f"[warn] Gemini failed (part={part}, topic={topic!r}): {e} — using fallback")
-        return _make_fallback_rows(session_id, part)
+        rows = _make_fallback_rows(session_id, part)
+        is_fallback = True
 
     if not rows:
-        # Gemini returned an empty list — same fallback path.
         print(f"[warn] Gemini returned empty list (part={part}, topic={topic!r}) — using fallback")
-        return _make_fallback_rows(session_id, part)
+        rows = _make_fallback_rows(session_id, part)
+        is_fallback = True
 
-    # ── Persist to DB ──────────────────────────────────────────────────────────
+    # ── Persist to DB (always — fallbacks also need real IDs for grading) ──────
     try:
         result = supabase_admin.table("questions").insert(rows).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể lưu câu hỏi: {e}")
 
-    return sorted(result.data, key=lambda q: q["order_num"])
+    saved = sorted(result.data, key=lambda q: q["order_num"])
+
+    # Tag fallback rows in-memory so the frontend banner still works.
+    # _fallback is not a DB column — it's a transient signal for this response only.
+    if is_fallback:
+        for q in saved:
+            q["_fallback"] = True
+
+    return saved
 
 
 # ── GET /sessions/{session_id}/questions ──────────────────────────────────────

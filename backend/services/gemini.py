@@ -1,5 +1,5 @@
 """
-services/gemini.py — IELTS question generation via Gemini 2.0 Flash
+services/gemini.py — IELTS question generation via Gemini 2.0 Flash (gemini-2.0-flash)
 
 Cache table required in Supabase (run once):
 
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
 _model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash-exp",
+    model_name="gemini-2.5-flash",
     generation_config=genai.types.GenerationConfig(
         response_mime_type="application/json",
         temperature=0.9,        # enough variation across requests
@@ -73,7 +73,7 @@ def _cache_get(part: int, topic: str):
             return result.data[0]["questions"]
 
     except Exception as exc:
-        logger.warning("Cache read error (will regenerate): %s", exc)
+        logger.debug("Cache read skipped (table may not exist): %s", exc)
 
     return None
 
@@ -87,7 +87,7 @@ def _cache_set(part: int, topic: str, questions) -> None:
             "questions": questions,
         }).execute()
     except Exception as exc:
-        logger.warning("Cache write error (non-fatal): %s", exc)
+        logger.debug("Cache write skipped (table may not exist): %s", exc)
 
 
 # ── Internal Gemini call ───────────────────────────────────────────────────────

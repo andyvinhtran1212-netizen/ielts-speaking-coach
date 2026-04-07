@@ -7,6 +7,9 @@ from routers.sessions import router as sessions_router
 from routers.questions import router as questions_router
 from routers.responses import router as responses_router
 from routers.grading import router as grading_router
+from routers.tts import router as tts_router
+from routers.export import router as export_router
+from routers.admin import router as admin_router
 
 app = FastAPI(
     title="IELTS Speaking Coach",
@@ -36,6 +39,11 @@ app.include_router(questions_router)
 # OFFICIAL grading route: POST /sessions/{id}/responses
 #   → full pipeline: Whisper STT + Claude grading, returns band scores + feedback
 app.include_router(grading_router)
+app.include_router(tts_router)
+# PDF export router is registered but the endpoint returns 503 until WeasyPrint
+# system deps are installed. To fully re-enable: see routers/export.py.
+app.include_router(export_router)
+app.include_router(admin_router)
 
 # LEGACY audio-only route: POST /sessions/{id}/responses/{question_id}/audio
 #   → upload only, no grading; kept for reference, not used by the frontend

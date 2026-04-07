@@ -16,8 +16,8 @@ Pipeline (sequential, ~15–30 s):
   9. Return grading result
 """
 
+import json
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Form, Header, HTTPException, UploadFile, File
 
@@ -125,7 +125,14 @@ async def grade_response_endpoint(
             audio_url = supabase_admin.storage.from_(_AUDIO_BUCKET).get_public_url(storage_path)
             logger.info("[grading] storage upload OK → %s", storage_path)
         except Exception as e:
+            err_str = str(e)
             logger.error("[grading] storage upload FAILED: %s", e)
+            if "Bucket not found" in err_str:
+                raise HTTPException(
+                    502,
+                    f"Supabase Storage bucket '{_AUDIO_BUCKET}' not found. "
+                    "Create it in the Supabase dashboard (Storage → New bucket) and set it to Public."
+                )
             raise HTTPException(502, f"Không thể lưu file audio: {e}")
 
         # ── STEP 4: Whisper STT ───────────────────────────────────────────────
@@ -162,9 +169,12 @@ async def grade_response_endpoint(
                 "Không nhận dạng được giọng nói. Hãy kiểm tra microphone và thử lại."
             )
 
-        # ── STEP 6: Claude grading ────────────────────────────────────────────
+        # ── STEP 6: Claude grading (non-fatal — degrades gracefully) ─────────
         step = "claude_grade"
         logger.info("[grading] gọi Claude grader (part=%d)...", part)
+
+        grading: dict | None = None
+        grading_error: str | None = None
 
         try:
             grading = await claude_grader.grade_response(
@@ -172,45 +182,32 @@ async def grade_response_endpoint(
                 transcript=transcript,
                 part=part,
             )
+            logger.info("[grading] Claude OK — overall_band=%.1f", grading["overall_band"])
         except Exception as e:
-            logger.error("[grading] Claude grader thất bại: %s", e)
-            raise HTTPException(502, f"Lỗi chấm điểm AI (Claude): {e}")
-
-        logger.info("[grading] Claude OK — overall_band=%.1f", grading["overall_band"])
+            grading_error = str(e)
+            logger.error("[grading] Claude grader thất bại (non-fatal): %s", e)
 
         # ── STEP 7: Upsert response row ───────────────────────────────────────
+        # Only write columns that exist in the current responses schema:
+        #   id, session_id, question_id, user_id, audio_url, transcript,
+        #   feedback (TEXT/JSON), overall_band (FLOAT)
+        # Full grading dict is serialised into the 'feedback' column.
         step = "db_save"
         response_id: str | None = None
 
-        db_row = {
-            "session_id":        session_id,
-            "question_id":       question_id,
-            "user_id":           user_id,
-            "audio_url":         audio_url,
-            "transcript":        transcript,
-            "stt_confidence":    round(confidence, 4),
-            "duration_seconds":  round(duration_sec, 2),
-            # individual band scores
-            "band_fc":           grading["band_fc"],
-            "band_lr":           grading["band_lr"],
-            "band_gra":          grading["band_gra"],
-            "band_p":            grading["band_p"],
-            "overall_band":      grading["overall_band"],
-            # feedback fields
-            "fc_feedback":       grading["fc_feedback"],
-            "lr_feedback":       grading["lr_feedback"],
-            "gra_feedback":      grading["gra_feedback"],
-            "p_feedback":        grading["p_feedback"],
-            "strengths":         grading["strengths"],
-            "improvements":      grading["improvements"],
-            "improved_response": grading["improved_response"],
-            # full Claude JSON for future use / debugging
-            "feedback_json":     grading,
-            "graded_at":         datetime.now(timezone.utc).isoformat(),
+        db_row: dict = {
+            "session_id":  session_id,
+            "question_id": question_id,
+            # user_id intentionally omitted — not a column in the responses table
+            "audio_url":   audio_url,
+            "transcript":  transcript,
         }
 
+        if grading:
+            db_row["overall_band"] = grading["overall_band"]
+            db_row["feedback"]     = json.dumps(grading, ensure_ascii=False)
+
         try:
-            # Check if a response already exists for this question (idempotent upsert)
             existing = (
                 supabase_admin.table("responses")
                 .select("id")
@@ -222,50 +219,49 @@ async def grade_response_endpoint(
 
             if existing.data:
                 response_id = existing.data[0]["id"]
-                res = (
-                    supabase_admin.table("responses")
-                    .update(db_row)
-                    .eq("id", response_id)
-                    .execute()
-                )
+                supabase_admin.table("responses").update(db_row).eq("id", response_id).execute()
             else:
-                res = (
-                    supabase_admin.table("responses")
-                    .insert(db_row)
-                    .execute()
-                )
+                res = supabase_admin.table("responses").insert(db_row).execute()
                 response_id = res.data[0]["id"] if res.data else None
 
             logger.info("[grading] DB save OK — response_id=%s", response_id)
 
         except Exception as e:
-            # Non-fatal: grading succeeded, just couldn't persist
             logger.error("[grading] DB save FAILED (non-fatal): %s", e)
 
-        # ── STEP 8: Increment sessions.tokens_used (best-effort) ──────────────
-        step = "update_tokens"
-        _increment_tokens(session_id, question_text, transcript, grading)
+        # ── STEP 8: Token tracking (only when grading succeeded) ──────────────
+        if grading:
+            step = "update_tokens"
+            _increment_tokens(session_id, question_text, transcript, grading)
 
         # ── STEP 9: Return result ─────────────────────────────────────────────
         logger.info("[grading] pipeline hoàn thành — session=%s question=%s", session_id, question_id)
+
+        if not grading:
+            # Audio + transcript saved; AI grading unavailable — tell the frontend
+            return {
+                "_stub":          True,
+                "_error":         "AI grading is temporarily unavailable. Your recording and transcript were saved.",
+                "response_id":    response_id,
+                "transcript":     transcript,
+                "duration_seconds": round(duration_sec, 2),
+                "stt_confidence": round(confidence, 4),
+            }
 
         return {
             "response_id":       response_id,
             "transcript":        transcript,
             "duration_seconds":  round(duration_sec, 2),
             "stt_confidence":    round(confidence, 4),
-            # Band scores
             "band_fc":           grading["band_fc"],
             "band_lr":           grading["band_lr"],
             "band_gra":          grading["band_gra"],
             "band_p":            grading["band_p"],
             "overall_band":      grading["overall_band"],
-            # Per-criterion feedback
             "fc_feedback":       grading["fc_feedback"],
             "lr_feedback":       grading["lr_feedback"],
             "gra_feedback":      grading["gra_feedback"],
             "p_feedback":        grading["p_feedback"],
-            # Summary
             "strengths":         grading["strengths"],
             "improvements":      grading["improvements"],
             "improved_response": grading["improved_response"],
@@ -321,10 +317,9 @@ def _increment_tokens(
         total  ≈ input + output  (rough: 4 chars ≈ 1 token)
     """
     try:
-        import json as _json
         system_tokens  = 1_300   # SYSTEM_PROMPT ≈ 1 241 tokens (measured)
         input_tokens   = system_tokens + (len(question_text) + len(transcript)) // 4
-        output_tokens  = len(_json.dumps(grading, ensure_ascii=False)) // 4
+        output_tokens  = len(json.dumps(grading, ensure_ascii=False)) // 4
         tokens_used    = input_tokens + output_tokens
 
         supabase_admin.table("sessions").update(
