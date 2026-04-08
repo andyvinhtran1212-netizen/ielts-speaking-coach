@@ -626,12 +626,15 @@
         document.getElementById('meta-date').textContent  = fmtDate(session.started_at || session.created_at);
 
         // ── Band scores ──────────────────────────────────────────────────────
-        var bands;
-        if (session.band_fc != null && session.band_lr != null && session.band_gra != null && session.band_p != null) {
-          bands = { fc: session.band_fc, lr: session.band_lr, gra: session.band_gra, p: session.band_p };
-        } else {
-          bands = aggregateBands(responses);
-        }
+        // Use session columns first (set by PATCH /complete); fall back to
+        // aggregating from responses.feedback for each criterion independently.
+        var aggrBands = aggregateBands(responses);
+        var bands = {
+          fc:  session.band_fc  != null ? session.band_fc  : aggrBands.fc,
+          lr:  session.band_lr  != null ? session.band_lr  : aggrBands.lr,
+          gra: session.band_gra != null ? session.band_gra : aggrBands.gra,
+          p:   session.band_p   != null ? session.band_p   : aggrBands.p,
+        };
 
         renderBand('band-fc',  bands.fc);
         renderBand('band-lr',  bands.lr);
