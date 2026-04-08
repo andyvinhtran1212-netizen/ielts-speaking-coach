@@ -114,6 +114,14 @@ OUTPUT FORMAT — STRICT JSON ONLY
 ═══════════════════════════════════════════════════
 Respond ONLY with this exact JSON object. No markdown, no explanation, no code fences.
 
+STRICT OUTPUT RULES — violations cause grading failure:
+- Your ENTIRE response must be the JSON object: start with `{`, end with `}`, nothing else.
+- NEVER wrap output in ``` or ```json fences.
+- NEVER add any text before or after the JSON.
+- NEVER use literal newline characters inside string values — use the two-character escape \\n instead.
+- NEVER add trailing commas after the last item in any object or array.
+- Use double quotes only. Never use single quotes.
+
 IMPORTANT LANGUAGE RULES:
 - fc_feedback, lr_feedback, gra_feedback, p_feedback: write in VIETNAMESE (tiếng Việt)
 - strengths, improvements: write each item in VIETNAMESE (tiếng Việt)
@@ -131,7 +139,7 @@ IMPORTANT LANGUAGE RULES:
   "p_feedback":   "Dựa trên bản ghi âm, phát âm có vẻ...",
   "strengths":    ["Sử dụng tốt các từ liên kết", "Phát triển chủ đề tự nhiên"],
   "improvements": ["Sử dụng từ vựng phức tạp hơn", "Đa dạng hóa cấu trúc câu"],
-  "improved_response": "Here is an example of a Band 7+ response:\\n[rewritten answer in English]"
+  "improved_response": "Here is an example of a Band 7+ response.\\nSecond sentence here."
 }
 """
 
@@ -193,6 +201,14 @@ OUTPUT FORMAT — STRICT JSON ONLY
 ═══════════════════════════════════════════════════
 Respond ONLY with this exact JSON object. No markdown, no explanation, no code fences.
 
+STRICT OUTPUT RULES — violations cause grading failure:
+- Your ENTIRE response must be the JSON object: start with `{`, end with `}`, nothing else.
+- NEVER wrap output in ``` or ```json fences.
+- NEVER add any text before or after the JSON.
+- NEVER use literal newline characters inside string values — use the two-character escape \\n instead.
+- NEVER add trailing commas after the last item in any object or array.
+- Use double quotes only. Never use single quotes.
+
 {
   "grammar_issues":       ["Lỗi thứ 1", "Lỗi thứ 2"],
   "vocabulary_issues":    ["Vấn đề từ vựng 1", "Vấn đề từ vựng 2"],
@@ -201,7 +217,7 @@ Respond ONLY with this exact JSON object. No markdown, no explanation, no code f
     {"original": "phrase from transcript", "corrected": "better version", "explanation": "giải thích bằng tiếng Việt"}
   ],
   "strengths":   ["Điểm mạnh 1", "Điểm mạnh 2"],
-  "sample_answer": "A complete Band 7 spoken answer here...",
+  "sample_answer": "A complete Band 7 spoken answer here.\\nSecond sentence here.",
   "overall_band": 5.5
 }
 """
@@ -309,9 +325,11 @@ async def grade_response(
     retry_message = (
         user_message
         + "\n\n---\n"
-        + "IMPORTANT: Your previous response could not be parsed. "
-        + "Respond ONLY with the raw JSON object described in the system prompt. "
-        + "No markdown, no code fences (```), no explanation text — pure JSON only."
+        + f"IMPORTANT: Your previous response failed JSON validation ({error}). "
+        + "Start your response with `{` and end with `}` — nothing before, nothing after. "
+        + "Do NOT wrap in ``` or ```json fences. "
+        + "Do NOT use literal newlines inside string values; write \\n instead. "
+        + "Output the raw JSON object only."
     )
 
     raw2 = await _call_claude(client, retry_message, system_prompt=system_prompt,
@@ -322,11 +340,12 @@ async def grade_response(
         logger.info("Claude grader: thành công lần 2 — overall_band=%.1f", result2["overall_band"])
         return result2
 
-    snippet = raw2[:300] if raw2 else "(empty)"
+    # Log a safe preview (first 300 chars, newlines escaped) — no PII in the snippet
+    preview = (raw2 or "")[:300].replace("\n", "\\n")
     raise ValueError(
         f"Claude grader: không thể parse JSON sau 2 lần thử. "
-        f"Lỗi: {error2}. "
-        f"Response snippet: {snippet!r}"
+        f"Lỗi lần 2: {error2}. "
+        f"Response preview: {preview!r}"
     )
 
 
@@ -344,6 +363,144 @@ def _build_user_message(question: str, transcript: str, part: int, band_target: 
         f"Candidate's target band: {band_target}\n\n"
         f"EXAMINER QUESTION:\n{question.strip()}\n\n"
         f"CANDIDATE TRANSCRIPT:\n{transcript.strip()}"
+    )
+
+
+# ── JSON extraction helpers ────────────────────────────────────────────────────
+
+def _extract_json_object(text: str) -> str | None:
+    """
+    Robustly extract the outermost JSON object from arbitrary Claude output.
+
+    Handles:
+    - Code fences anywhere (```json ... ```, ``` ... ```)
+    - Leading/trailing prose ("Here is the result:\n{...}")
+    - Nested objects and arrays
+    Uses brace-counting rather than greedy regex to avoid false matches.
+    """
+    if not text:
+        return None
+
+    # Strip ALL code-fence markers before scanning
+    cleaned = re.sub(r"```(?:json|JSON)?\s*", "", text)
+    cleaned = re.sub(r"```", "", cleaned).strip()
+
+    start = cleaned.find("{")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    i = start
+    while i < len(cleaned):
+        ch = cleaned[i]
+        if in_string:
+            if ch == "\\":
+                i += 2          # skip the escaped character
+                continue
+            if ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return cleaned[start : i + 1]
+        i += 1
+
+    return None     # no balanced { } block found
+
+
+def _fix_json_strings(text: str) -> str:
+    """
+    Replace unescaped control characters (newlines, carriage returns, tabs)
+    *inside JSON string values* with their JSON escape sequences.
+
+    Recovers from Claude emitting literal newlines inside string values —
+    which is invalid JSON but a common LLM failure mode.
+    """
+    result: list[str] = []
+    in_string = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if in_string:
+            if ch == "\\":
+                result.append(ch)
+                i += 1
+                if i < len(text):
+                    result.append(text[i])
+            elif ch == '"':
+                in_string = False
+                result.append(ch)
+            elif ch == "\n":
+                result.append("\\n")
+            elif ch == "\r":
+                result.append("\\r")
+            elif ch == "\t":
+                result.append("\\t")
+            else:
+                result.append(ch)
+        else:
+            if ch == '"':
+                in_string = True
+            result.append(ch)
+        i += 1
+    return "".join(result)
+
+
+def _parse_json_response(raw: str) -> tuple[dict | None, str | None]:
+    """
+    Multi-strategy JSON parser for LLM output.
+
+    Strategies applied in order until one succeeds:
+      1. Extract JSON object → direct json.loads
+      2. Extract JSON object → fix unescaped control chars → json.loads
+      3. Extract JSON object → remove trailing commas → json.loads
+      4. Extract JSON object → both fixes → json.loads
+
+    Returns (parsed_dict, None) on success, (None, error_str) on failure.
+    The error_str includes a safe response preview (no PII — just the first 200 chars).
+    """
+    json_str = _extract_json_object(raw)
+    if json_str is None:
+        preview = (raw or "")[:200].replace("\n", "\\n")
+        return None, f"no JSON object found. Preview: {preview!r}"
+
+    # Strategy 1 — direct parse
+    try:
+        return json.loads(json_str), None
+    except json.JSONDecodeError as e:
+        first_err = str(e)
+
+    # Strategy 2 — fix unescaped control characters inside strings
+    try:
+        return json.loads(_fix_json_strings(json_str)), None
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 3 — remove trailing commas before } or ]
+    no_trailing = re.sub(r",(\s*[}\]])", r"\1", json_str)
+    try:
+        return json.loads(no_trailing), None
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 4 — both fixes combined
+    try:
+        both_fixed = re.sub(r",(\s*[}\]])", r"\1", _fix_json_strings(json_str))
+        return json.loads(both_fixed), None
+    except json.JSONDecodeError:
+        pass
+
+    preview = json_str[:200].replace("\n", "\\n")
+    return None, (
+        f"JSON parse failed after 4 strategies. "
+        f"First error: {first_err}. "
+        f"Snippet: {preview!r}"
     )
 
 
@@ -404,7 +561,7 @@ async def _call_claude(
 
 def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
     """
-    Parse raw text thành dict và validate schema.
+    Parse và validate Claude response cho test mode.
 
     Returns:
         (result_dict, None)   — nếu hợp lệ
@@ -413,21 +570,9 @@ def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
     if not raw or not raw.strip():
         return None, "response rỗng"
 
-    # Strip markdown code fences if Claude wrapped the JSON
-    text = raw.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"\s*```$", "", text)
-    text = text.strip()
-
-    # Find the outermost JSON object in case there's leading/trailing prose
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        return None, "không tìm thấy JSON object trong response"
-
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError as e:
-        return None, f"JSON parse error: {e}"
+    data, err = _parse_json_response(raw)
+    if data is None:
+        return None, err
 
     # ── Field presence & type check ────────────────────────────────────────────
     for key, expected_type in _REQUIRED_FIELDS.items():
@@ -436,18 +581,17 @@ def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
         if not isinstance(data[key], expected_type):
             return None, f"field '{key}' sai kiểu: expected {expected_type}, got {type(data[key])}"
 
-    # ── Criterion bands: must be whole integers 1–9 (auto-repair halves) ─────────
+    # ── Criterion bands: must be whole integers 1–9 (auto-repair halves) ──────
     for key in _CRITERION_FIELDS:
         val = float(data[key])
         if not (1.0 <= val <= 9.0):
             return None, f"band '{key}' ngoài phạm vi [1, 9]: {val}"
-        # Snap to nearest integer; e.g. 6.5 → 7, 5.5 → 6
         snapped = float(round(val))
         if snapped != val:
             logger.debug("criterion band '%s' snapped %.1f → %.0f", key, val, snapped)
         data[key] = snapped
 
-    # ── Overall band: snap to nearest 0.5 (never reject — Claude can return 5.25 etc.) ──
+    # ── Overall band: snap to nearest 0.5 ─────────────────────────────────────
     for key in _OVERALL_FIELDS:
         val = float(data[key])
         if not (1.0 <= val <= 9.0):
@@ -477,7 +621,7 @@ def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
 
 def _parse_and_validate_practice(raw: str) -> tuple[dict | None, str | None]:
     """
-    Parse and validate Claude response for practice mode.
+    Parse và validate Claude response cho practice mode.
 
     Returns:
         (result_dict, None)   — if valid
@@ -486,19 +630,9 @@ def _parse_and_validate_practice(raw: str) -> tuple[dict | None, str | None]:
     if not raw or not raw.strip():
         return None, "response rỗng"
 
-    text = raw.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"\s*```$", "", text)
-    text = text.strip()
-
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        return None, "không tìm thấy JSON object trong response"
-
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError as e:
-        return None, f"JSON parse error: {e}"
+    data, err = _parse_json_response(raw)
+    if data is None:
+        return None, err
 
     for key, expected_type in _REQUIRED_FIELDS_PRACTICE.items():
         if key not in data:
@@ -506,19 +640,16 @@ def _parse_and_validate_practice(raw: str) -> tuple[dict | None, str | None]:
         if not isinstance(data[key], expected_type):
             return None, f"field '{key}' sai kiểu: expected {expected_type}, got {type(data[key])}"
 
-    # Validate and snap overall_band
     val = float(data["overall_band"])
     if not (1.0 <= val <= 9.0):
         return None, f"overall_band ngoài phạm vi [1, 9]: {val}"
     data["overall_band"] = _round_band(val)
 
-    # Ensure list items are strings
     data["grammar_issues"]       = [str(s) for s in data["grammar_issues"]]
     data["vocabulary_issues"]    = [str(s) for s in data["vocabulary_issues"]]
     data["pronunciation_issues"] = [str(s) for s in data.get("pronunciation_issues", [])]
     data["strengths"]            = [str(s) for s in data["strengths"]]
 
-    # Validate corrections shape — keep only well-formed items
     valid_corrections = []
     for c in data.get("corrections", []):
         if isinstance(c, dict) and "original" in c and "corrected" in c and "explanation" in c:
