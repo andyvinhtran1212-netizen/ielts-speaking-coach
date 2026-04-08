@@ -6,8 +6,8 @@
 
   // ── Constants ─────────────────────────────────────────────────────────────────
 
-  // Hard-stop recording after this many seconds per part
-  var MAX_RECORD_SEC = { 1: 60, 2: 150, 3: 90 };
+  // Hard-stop recording after this many seconds per part (silent — not shown to user)
+  var MAX_RECORD_SEC = { 1: 45, 2: 120, 3: 75 };
 
   var P2_PREP_SEC  = 60;   // Part 2 prep countdown (seconds)
   var P2_SPEAK_SEC = 120;  // Part 2 speaking countdown (seconds)
@@ -758,6 +758,11 @@
   var _ttsAudio      = null;   // current HTMLAudioElement for AI TTS playback
   var _ttsGeneration = 0;      // incremented on every _ttsAI() call; stale fetches abort
 
+  // In-memory TTS audio cache (session-scoped, cleared on page unload).
+  // Key: 'q:<questionId>' when available, else 't:<djb2hash>'.
+  // Value: Blob (audio/mpeg) — a fresh blob URL is created per play and revoked after.
+  var _ttsCache = new Map();
+
   // Returns a Promise<object> with the auth headers needed for /tts fetch calls.
   // window.api._apiRequest can't be reused here because it calls .json() on the
   // response, but /tts returns audio/mpeg. We build the headers manually instead.
@@ -797,17 +802,51 @@
     }
   }
 
+  // Cache key: stable per question ID (preferred) or per text content (fallback).
+  function _ttsCacheKey(text, questionId) {
+    if (questionId) return 'q:' + questionId;
+    // djb2-style hash — not cryptographic, just for deduplication
+    var h = 5381;
+    for (var i = 0; i < text.length; i++) {
+      h = ((h << 5) + h) ^ text.charCodeAt(i);
+      h = h & h;
+    }
+    return 't:' + (h >>> 0).toString(16);
+  }
+
+  // Play a Blob as audio. Guards against stale generation. Falls back to browser TTS.
+  function _playTtsBlob(blob, text, gen) {
+    if (gen !== _ttsGeneration || !blob) return;
+    var url = URL.createObjectURL(blob);
+    var audio = new Audio(url);
+    _ttsAudio = audio;
+    audio.onended = function () {
+      URL.revokeObjectURL(url);   // safe: browser finished reading
+      _ttsAudio = null;
+    };
+    audio.onerror = function () {
+      URL.revokeObjectURL(url);
+      _ttsAudio = null;
+    };
+    audio.play().catch(function (err) {
+      _ttsAudio = null;
+      console.warn('[tts] play() rejected, falling back to browser TTS:', err);
+      _tts(text);
+    });
+  }
+
   // Speak text using the backend /tts endpoint (OpenAI nova voice).
-  // Falls back to browser TTS if the user has not yet interacted with the page
-  // (autoplay would be blocked) or if the fetch/play fails.
-  function _ttsAI(text) {
+  // Checks _ttsCache first — a cache hit skips the API call entirely.
+  // Falls back to browser TTS if not yet interacted or if fetch/play fails.
+  // questionId: optional — used as cache key; pass _currentQ.id when available.
+  function _ttsAI(text, questionId) {
     if (!text || !text.trim()) return;
     _stopAITts();
     window.speechSynthesis && window.speechSynthesis.cancel();
 
-    // Bump generation so any in-flight fetch from a previous call knows it is stale.
     var gen = ++_ttsGeneration;
-    console.debug('[tts] _ttsAI gen=%d text="%s"', gen, text.slice(0, 40));
+    var cacheKey = _ttsCacheKey(text, questionId);
+    console.debug('[tts] _ttsAI gen=%d key=%s text="%s"', gen, cacheKey, text.slice(0, 40));
 
     // No user gesture yet → browser will block Audio.play(); use browser TTS instead.
     if (!_userHasInteracted) {
@@ -815,6 +854,14 @@
       return;
     }
 
+    // Cache hit → play from stored Blob; no API call needed.
+    if (_ttsCache.has(cacheKey)) {
+      console.debug('[tts] cache HIT key=%s', cacheKey);
+      _playTtsBlob(_ttsCache.get(cacheKey), text, gen);
+      return;
+    }
+
+    // Cache miss → fetch from backend, cache the Blob, then play.
     var base = window.api && window.api.base ? window.api.base : '';
     _ttsAuthHeaders().then(function (headers) {
       return fetch(base + '/tts', {
@@ -833,26 +880,9 @@
           console.debug('[tts] gen=%d stale (current=%d), discarding', gen, _ttsGeneration);
           return;
         }
-        var url = URL.createObjectURL(blob);
-        var audio = new Audio(url);
-        _ttsAudio = audio;
-
-        audio.onended = function () {
-          URL.revokeObjectURL(url);   // safe: browser finished reading
-          _ttsAudio = null;
-        };
-        audio.onerror = function () {
-          URL.revokeObjectURL(url);
-          _ttsAudio = null;
-        };
-        console.debug('[tts] playing gen=%d', gen);
-        audio.play().catch(function (err) {
-          // play() rejected (e.g. autoplay race) — don't revoke, browser may
-          // still be loading; just null the reference and fall back.
-          _ttsAudio = null;
-          console.warn('[tts] play() rejected, falling back to browser TTS:', err);
-          _tts(text);
-        });
+        _ttsCache.set(cacheKey, blob);
+        console.debug('[tts] cache SET key=%s (%d bytes)', cacheKey, blob.size);
+        _playTtsBlob(blob, text, gen);
       })
       .catch(function (err) {
         console.warn('[tts] AI TTS fetch failed, falling back to browser TTS:', err);
@@ -1008,7 +1038,7 @@
 
     // Switching to listening mid-question → play right away (test_full only)
     if (mode === 'listening' && _currentQ && _testMode === 'test_full') {
-      _ttsAI(_currentQ.question_text || '');
+      _ttsAI(_currentQ.question_text || '', _currentQ.id);
     }
   }
 
@@ -1017,7 +1047,7 @@
     if (!_currentQ || _testMode !== 'test_full') return;
     var btn = $('prep-play-btn');
     if (btn) btn.textContent = '↺ Phát lại';
-    _ttsAI(_currentQ.question_text || '');
+    _ttsAI(_currentQ.question_text || '', _currentQ.id);
   }
 
   // Called by the mode-choice screen buttons at session start.
