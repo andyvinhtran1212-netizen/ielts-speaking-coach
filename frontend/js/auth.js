@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function checkBackendStatus() {
     try {
-      const base = (window.api && window.api.base) || 'http://localhost:8000';
+      const base = window.api.base;
       const response = await fetch(base + "/health");
       if (!response.ok) throw new Error("Backend not reachable");
 
@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function testBackend() {
     connectionResultEl.textContent = "Đang kiểm tra backend...";
     try {
-      const base2 = (window.api && window.api.base) || 'http://localhost:8000';
+      const base2 = window.api.base;
       const [healthRes, topicsRes] = await Promise.all([
         fetch(base2 + "/health"),
         fetch(base2 + "/topics"),

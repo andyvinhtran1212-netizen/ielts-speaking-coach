@@ -305,7 +305,7 @@
       }
     } catch (err) {
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
-        showError('Backend chưa chạy. Hãy mở server local ở cổng 8000 rồi thử lại.');
+        showError('Không kết nối được tới máy chủ. Vui lòng thử lại sau.');
       } else {
         showError(err.message || 'Có lỗi khi kiểm tra tài khoản.');
       }
@@ -413,7 +413,7 @@
           });
         } catch (networkErr) {
           // fetch() itself threw — backend is down or unreachable
-          throw new Error('Backend chưa chạy. Hãy mở server local ở cổng 8000 rồi thử lại.');
+          throw new Error('Không kết nối được tới máy chủ. Vui lòng thử lại sau.');
         }
 
         // Try to read JSON body regardless of status so we can show detail
