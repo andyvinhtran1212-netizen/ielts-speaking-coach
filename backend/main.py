@@ -22,20 +22,23 @@ app = FastAPI(
 )
 
 origins = [
+    # Local development
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    # Production domain — update when deploying:
-    # "https://andyvinhtran1212-netizen.github.io",
+    # Production
+    "https://averlearning.com",
+    "https://www.averlearning.com",
+    "https://ielts-speaking-coach-sage.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth_router)
