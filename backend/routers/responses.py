@@ -10,9 +10,13 @@ It is NOT used by the frontend. The official grading pipeline is in grading.py:
 
 Kept here in case it is needed for debugging or manual uploads.
 """
+import logging
+
 from fastapi import APIRouter, HTTPException, Header, UploadFile, File
 
 from database import supabase_admin
+
+logger = logging.getLogger(__name__)
 from routers.auth import get_supabase_user
 
 router = APIRouter(tags=["responses"])
@@ -73,7 +77,7 @@ async def upload_audio_response(
         audio_url = supabase_admin.storage.from_(_AUDIO_BUCKET).get_public_url(storage_path)
     except Exception as e:
         # Storage might not be set up yet — log and continue without URL
-        print(f"[warn] Storage upload failed ({storage_path}): {e}")
+        logger.warning("[warn] Storage upload failed (%s): %s", storage_path, e)
 
     # Check if a response row already exists for this question
     try:
@@ -116,7 +120,7 @@ async def upload_audio_response(
 
     except Exception as e:
         # responses table might not exist yet — return a stub so the frontend can continue
-        print(f"[warn] Could not persist response to DB: {e}")
+        logger.warning("[warn] Could not persist response to DB: %s", e)
         return {
             "session_id":   session_id,
             "question_id":  question_id,

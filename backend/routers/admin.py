@@ -70,7 +70,12 @@ def _gen_code() -> str:
 # ── Request models ─────────────────────────────────────────────────────────────
 
 class GenerateCodesRequest(BaseModel):
-    count: int = Field(ge=1, le=100, description="Số mã cần tạo (1–100)")
+    count:       int        = Field(ge=1, le=100, description="Số mã cần tạo (1–100)")
+    permissions: list[str]  = Field(default=["all"], description='Danh sách quyền, ví dụ ["all"] hoặc ["practice","test_part"]')
+
+
+class PatchCodeRequest(BaseModel):
+    permissions: list[str] | None = None
 
 
 class CreateTopicRequest(BaseModel):
@@ -215,7 +220,7 @@ async def generate_access_codes(
     await require_admin(authorization)
 
     codes = [_gen_code() for _ in range(body.count)]
-    rows  = [{"code": c, "is_used": False} for c in codes]
+    rows  = [{"code": c, "is_used": False, "permissions": body.permissions} for c in codes]
 
     try:
         result = supabase_admin.table("access_codes").insert(rows).execute()
@@ -235,7 +240,7 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
     try:
         codes_res = (
             supabase_admin.table("access_codes")
-            .select("id, code, is_used, used_by, used_at, created_at")
+            .select("id, code, is_used, is_revoked, used_by, used_at, created_at, permissions")
             .order("created_at", desc=True)
             .execute()
         )
@@ -264,6 +269,89 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
         c["used_by_email"] = email_map.get(c.get("used_by") or "", None)
 
     return codes
+
+
+# ── PATCH /admin/access-codes/{code_id} ───────────────────────────────────────
+
+@router.patch("/access-codes/{code_id}")
+async def patch_access_code(
+    code_id: str,
+    body: PatchCodeRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Update permissions on an existing access code."""
+    await require_admin(authorization)
+
+    update: dict = {}
+    if body.permissions is not None:
+        update["permissions"] = body.permissions
+
+    if not update:
+        raise HTTPException(400, "Không có trường nào để cập nhật")
+
+    try:
+        res = (
+            supabase_admin.table("access_codes")
+            .update(update)
+            .eq("id", code_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi cập nhật access code: {exc}")
+
+    if not res.data:
+        raise HTTPException(404, "Access code không tồn tại")
+
+    return res.data[0]
+
+
+# ── DELETE /admin/access-codes/{code_id} (soft revoke) ────────────────────────
+
+@router.delete("/access-codes/{code_id}", status_code=204)
+async def delete_access_code(
+    code_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Soft-revoke an access code.
+
+    Sets is_revoked=true on the code (preserving audit trail) and also sets
+    is_active=false on every user who activated with this code, immediately
+    blocking them from creating new sessions.
+    """
+    await require_admin(authorization)
+
+    # Fetch the code first so we can cascade by code string
+    try:
+        code_res = (
+            supabase_admin.table("access_codes")
+            .select("id, code, is_revoked")
+            .eq("id", code_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải access code: {exc}")
+
+    if not code_res.data:
+        raise HTTPException(404, "Access code không tồn tại")
+
+    row = code_res.data[0]
+    if row.get("is_revoked"):
+        return  # already revoked — idempotent
+
+    # Mark code as revoked
+    try:
+        supabase_admin.table("access_codes").update({"is_revoked": True}).eq("id", code_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi thu hồi access code: {exc}")
+
+    # Cascade: deactivate all users who used this code
+    try:
+        supabase_admin.table("users").update({"is_active": False}).eq("access_code_used", row["code"]).execute()
+    except Exception as exc:
+        # Non-fatal — log but don't fail the request
+        logger.warning("[warn] Could not cascade-deactivate users for revoked code %s: %s", code_id, exc)
 
 
 # ── GET /admin/topics ──────────────────────────────────────────────────────────
@@ -345,3 +433,109 @@ async def patch_topic(
         raise HTTPException(404, "Topic không tồn tại")
 
     return res.data[0]
+
+
+# ── GET /admin/ai-usage ────────────────────────────────────────────────────────
+
+@router.get("/ai-usage")
+async def get_ai_usage(
+    days: int | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Per-account AI usage summary with cost estimates.
+
+    Query param:
+        days=N   — restrict to the last N days (default: all time)
+
+    Returns:
+        {
+            "overall":  { calls, cost_usd, by_service: {service: {calls, cost_usd}} },
+            "per_user": [ {user_id, email, display_name, calls, cost_usd, by_service} ]
+        }
+    """
+    await require_admin(authorization)
+
+    query = (
+        supabase_admin.table("ai_usage_logs")
+        .select("user_id, service, model, input_tokens, output_tokens, "
+                "audio_seconds, text_chars, cost_usd_est, created_at")
+        .order("created_at", desc=True)
+        .limit(10_000)   # safety cap; enough for an MVP
+    )
+
+    if days is not None:
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=days)
+        ).isoformat()
+        query = query.gte("created_at", cutoff)
+
+    try:
+        res = query.execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải AI usage: {exc}")
+
+    logs = res.data or []
+
+    # Enrich with user info
+    user_ids = list({l["user_id"] for l in logs if l.get("user_id")})
+    user_map: dict[str, dict] = {}
+    if user_ids:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("id, email, display_name")
+                .in_("id", user_ids)
+                .execute()
+            )
+            for u in (ur.data or []):
+                user_map[u["id"]] = {
+                    "email":        u.get("email", ""),
+                    "display_name": u.get("display_name", ""),
+                }
+        except Exception:
+            pass
+
+    # Aggregate
+    overall: dict = {"calls": 0, "cost_usd": 0.0, "by_service": {}}
+    per_user: dict[str, dict] = {}
+
+    for log in logs:
+        uid  = log.get("user_id") or "unknown"
+        svc  = log.get("service", "unknown")
+        cost = float(log.get("cost_usd_est") or 0.0)
+
+        # Overall
+        overall["calls"] += 1
+        overall["cost_usd"] = round(overall["cost_usd"] + cost, 6)
+        if svc not in overall["by_service"]:
+            overall["by_service"][svc] = {"calls": 0, "cost_usd": 0.0}
+        overall["by_service"][svc]["calls"] += 1
+        overall["by_service"][svc]["cost_usd"] = round(
+            overall["by_service"][svc]["cost_usd"] + cost, 6
+        )
+
+        # Per user
+        if uid not in per_user:
+            info = user_map.get(uid, {})
+            per_user[uid] = {
+                "user_id":      uid,
+                "email":        info.get("email", ""),
+                "display_name": info.get("display_name", ""),
+                "calls":        0,
+                "cost_usd":     0.0,
+                "by_service":   {},
+            }
+        per_user[uid]["calls"] += 1
+        per_user[uid]["cost_usd"] = round(per_user[uid]["cost_usd"] + cost, 6)
+        if svc not in per_user[uid]["by_service"]:
+            per_user[uid]["by_service"][svc] = {"calls": 0, "cost_usd": 0.0}
+        per_user[uid]["by_service"][svc]["calls"] += 1
+        per_user[uid]["by_service"][svc]["cost_usd"] = round(
+            per_user[uid]["by_service"][svc]["cost_usd"] + cost, 6
+        )
+
+    return {
+        "overall":  overall,
+        "per_user": sorted(per_user.values(), key=lambda x: x["cost_usd"], reverse=True),
+    }

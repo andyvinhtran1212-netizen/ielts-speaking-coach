@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Header
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 import httpx
 
@@ -105,6 +108,7 @@ async def get_me(authorization: str | None = Header(default=None)):
         "avatar_url": user.get("avatar_url"),
         "role": user.get("role", "user"),
         "is_active": user.get("is_active", False),
+        "permissions": user.get("permissions") or ["practice_single", "practice_part", "practice_full"],
     }
 
 
@@ -168,6 +172,9 @@ async def activate_account(
     if access_code_row.get("is_used"):
         raise HTTPException(status_code=400, detail="Access code này đã được sử dụng rồi")
 
+    if access_code_row.get("is_revoked"):
+        raise HTTPException(status_code=400, detail="Access code này đã bị thu hồi")
+
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     try:
         existing = (
@@ -193,13 +200,13 @@ async def activate_account(
         )
 
     # ── Step 3: activate the user ─────────────────────────────────────────────
-    # NOTE: only update columns that definitely exist in your `users` table.
-    # If you haven't added `access_code_used` yet, remove that line below
-    # and run: ALTER TABLE users ADD COLUMN access_code_used text;
+    # Copy permissions from access_code so they survive code revocation later.
+    code_permissions = access_code_row.get("permissions") or ["practice_single", "practice_part", "practice_full"]
     try:
         supabase_admin.table("users").update({
             "is_active": True,
-            "access_code_used": code,   # remove if column doesn't exist yet
+            "access_code_used": code,
+            "permissions": code_permissions,
         }).eq("id", user_id).execute()
     except Exception as e:
         raise HTTPException(
@@ -220,7 +227,7 @@ async def activate_account(
         }).eq("id", access_code_row["id"]).execute()
     except Exception as e:
         # Non-fatal: user is already activated. Log and continue.
-        print(f"[warn] Could not mark access_code as used: {e}")
+        logger.warning("[warn] Could not mark access_code as used: %s", e)
 
     return {
         "success": True,

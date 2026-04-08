@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/ds.css" />
+  <style>
+    body { background: #0a1628; }
+
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    /* Tabs */
+    .tab-btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.45);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.05); }
+    .tab-btn.active { background: rgba(20,184,166,0.15); color: #14b8a6; }
+
+    /* Table */
+    .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tbl thead tr { background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .tbl thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: rgba(255,255,255,0.4); white-space: nowrap; }
+    .tbl tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.12s; }
+    .tbl tbody tr:hover { background: rgba(15,118,110,0.07); }
+    .tbl tbody td { padding: 10px 14px; color: rgba(255,255,255,0.7); vertical-align: middle; }
+
+    /* Toggle switch */
+    .toggle { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-slider:before {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 3px; top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: #0F766E; }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(16px); }
+
+    /* Buttons */
+    .btn-primary {
+      background: #0F766E; color: #fff;
+      padding: 8px 16px; border-radius: 8px;
+      font-weight: 600; font-size: 13px; cursor: pointer;
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-primary:hover { background: #0d6560; }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.06); color: #e2e8f0;
+      padding: 8px 16px; border-radius: 8px;
+      font-weight: 600; font-size: 13px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+    .btn-danger {
+      background: rgba(239,68,68,0.12); color: #f87171;
+      padding: 5px 10px; border-radius: 6px;
+      font-weight: 600; font-size: 12px; cursor: pointer;
+      border: 1px solid rgba(239,68,68,0.25);
+      transition: background 0.15s;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.22); }
+
+    /* Form inputs */
+    .inp {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #e2e8f0;
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .inp:focus { border-color: #14b8a6; }
+    .inp::placeholder { color: rgba(255,255,255,0.25); }
+    select.inp option { background: #0C2340; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .modal-box {
+      background: #0d1e35;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%; max-width: 440px;
+    }
+
+    /* Badge */
+    .badge-on  { background: rgba(20,184,166,0.15); color: #14b8a6; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .badge-off { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .badge-used { background: rgba(251,191,36,0.12); color: #fbbf24; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+
+    .spinner { width:28px; height:28px; border:3px solid rgba(20,184,166,0.2); border-top-color:#14b8a6; border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .code-mono { font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.05em; color: #14b8a6; font-weight: 700; }
+  </style>
+</head>
+<body class="text-white font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="pages/dashboard.html" class="flex items-center gap-2 text-sm font-medium" style="color:rgba(255,255,255,0.45);" onmouseover="this.style.color='#14b8a6'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Dashboard
+      </a>
+      <span style="color:rgba(255,255,255,0.15);">|</span>
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-base">IELTS<span style="color:#14b8a6;">Coach</span></span>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-md" style="background:rgba(239,68,68,0.18);color:#f87171;">ADMIN</span>
+      </div>
+    </div>
+    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+  </header>
+
+  <!-- Loading -->
+  <div id="state-loading" class="flex flex-col items-center justify-center py-32">
+    <div class="spinner mb-4"></div>
+    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+  </div>
+
+  <!-- Error -->
+  <div id="state-error" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
+    <p class="text-4xl mb-3">🚫</p>
+    <p class="font-semibold text-lg mb-1" style="color:#f87171;">Truy cập bị từ chối</p>
+    <p id="err-msg" class="text-sm mb-6" style="color:rgba(255,255,255,0.4);"></p>
+    <a href="pages/dashboard.html" class="btn-primary inline-block">Quay lại Dashboard</a>
+  </div>
+
+  <!-- Main content -->
+  <div id="state-content" class="hidden flex-1" style="background:#0d1e35;">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+
+      <!-- Page title -->
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold mb-1">Admin Panel</h1>
+        <p class="text-sm" style="color:rgba(255,255,255,0.38);">Quản lý toàn bộ hệ thống IELTS Speaking Coach</p>
+      </div>
+
+      <!-- Tab navigation -->
+      <div class="flex gap-1 mb-6 overflow-x-auto pb-1" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+        <button class="tab-btn active" onclick="switchTab('topics')"       id="tab-btn-topics">📚 Topics</button>
+        <button class="tab-btn"        onclick="switchTab('codes')"        id="tab-btn-codes">🔑 Access Codes</button>
+        <button class="tab-btn"        onclick="switchTab('users')"        id="tab-btn-users">👥 Users</button>
+        <button class="tab-btn"        onclick="switchTab('stats')"        id="tab-btn-stats">📊 Usage Stats</button>
+        <button class="tab-btn"        onclick="switchTab('ai_usage')"     id="tab-btn-ai_usage">💰 AI Cost</button>
+      </div>
+
+      <!-- ── TAB: Topics ──────────────────────────────────────── -->
+      <div id="panel-topics">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-bold text-base">Topics</h2>
+          <button class="btn-primary" onclick="openAddTopicModal()">+ Thêm topic mới</button>
+        </div>
+        <div id="topics-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+        <div id="topics-empty"   class="hidden text-center py-12 text-sm" style="color:rgba(255,255,255,0.35);">Chưa có topic nào. Nhấn "+ Thêm topic mới" để bắt đầu.</div>
+        <div id="topics-table-wrap" class="hidden card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Category</th>
+                  <th>Part</th>
+                  <th>Trạng thái</th>
+                  <th class="text-center">Bật/Tắt</th>
+                  <th class="text-center">Xóa</th>
+                </tr>
+              </thead>
+              <tbody id="topics-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: Access Codes ────────────────────────────────── -->
+      <div id="panel-codes" class="hidden space-y-5">
+        <!-- Generate form -->
+        <div class="card p-5">
+          <h3 class="font-semibold text-sm mb-3" style="color:rgba(255,255,255,0.7);">Tạo mã mới</h3>
+          <div class="flex gap-5 items-start flex-wrap">
+            <div class="min-w-[120px] max-w-[180px]">
+              <label class="block text-xs mb-1" style="color:rgba(255,255,255,0.4);">Số lượng mã</label>
+              <input id="gen-count" type="number" min="1" max="100" value="10" class="inp" placeholder="VD: 10" />
+            </div>
+            <div>
+              <label class="block text-xs mb-2" style="color:rgba(255,255,255,0.4);">Quyền (permissions)</label>
+              <div class="space-y-1.5">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="perm-all" value="all" checked onchange="onPermAllChange(this)" style="accent-color:#14b8a6;" />
+                  <span class="text-xs font-semibold" style="color:#14b8a6;">All / Toàn quyền</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
+                  <input type="checkbox" id="perm-single" value="practice_single" disabled style="accent-color:#14b8a6;" />
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Luyện tập</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
+                  <input type="checkbox" id="perm-part" value="practice_part" disabled style="accent-color:#14b8a6;" />
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Luyện từng Part</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
+                  <input type="checkbox" id="perm-full" value="practice_full" disabled style="accent-color:#14b8a6;" />
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Full Test</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
+                  <input type="checkbox" id="perm-admin" value="admin" disabled style="accent-color:#14b8a6;" />
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Admin</span>
+                </label>
+              </div>
+            </div>
+            <div class="flex flex-col gap-2 pt-5">
+              <button id="btn-gen" class="btn-primary" onclick="generateCodes()">Tạo mã</button>
+              <button class="btn-secondary" onclick="exportCsvCodes()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Export CSV (chưa dùng)
+              </button>
+            </div>
+          </div>
+          <div id="gen-result" class="hidden mt-3 text-sm" style="color:#14b8a6;"></div>
+        </div>
+
+        <!-- Codes table -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span id="codes-count" class="text-xs px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);">0 mã</span>
+          </div>
+          <div id="codes-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+          <div id="codes-empty"   class="hidden text-center py-12 text-sm" style="color:rgba(255,255,255,0.35);">Chưa có access code nào.</div>
+          <div id="codes-table-wrap" class="hidden card overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Mã</th>
+                    <th>Trạng thái</th>
+                    <th>Used by (email)</th>
+                    <th>Thời gian sử dụng</th>
+                    <th>Ngày tạo</th>
+                    <th>Quyền</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="codes-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: Users ───────────────────────────────────────── -->
+      <div id="panel-users" class="hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-bold text-base">Users</h2>
+          <span id="users-count" class="text-xs px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);">0 users</span>
+        </div>
+        <div id="users-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+        <div id="users-empty"   class="hidden text-center py-12 text-sm" style="color:rgba(255,255,255,0.35);">Chưa có user nào.</div>
+        <div id="users-table-wrap" class="hidden card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Tên</th>
+                  <th>Role</th>
+                  <th>Ngày tạo</th>
+                  <th class="text-center">Kích hoạt</th>
+                  <th class="text-center">Sessions hôm nay</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: Usage Stats ─────────────────────────────────── -->
+      <div id="panel-stats" class="hidden">
+        <div id="stats-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+        <div id="stats-content" class="hidden space-y-6">
+
+          <!-- Sessions row -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">Sessions</h3>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Hôm nay</p>
+                <p id="s-today" class="text-3xl font-extrabold" style="color:#14b8a6;">—</p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Tuần này</p>
+                <p id="s-week" class="text-3xl font-extrabold text-white">—</p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Tháng này</p>
+                <p id="s-month" class="text-3xl font-extrabold text-white">—</p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Tổng cộng</p>
+                <p id="s-total" class="text-3xl font-extrabold text-white">—</p>
+                <p id="s-done" class="text-xs mt-1" style="color:rgba(255,255,255,0.3);"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Users row -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">Users</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Tổng users</p>
+                <p id="u-total" class="text-3xl font-extrabold text-white">—</p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Đã kích hoạt</p>
+                <p id="u-active" class="text-3xl font-extrabold" style="color:#14b8a6;">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI cost row -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">AI Usage</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Tokens tiêu thụ (ước tính)</p>
+                <p id="ai-tokens" class="text-2xl font-extrabold text-white">—</p>
+                <p class="text-xs mt-1" style="color:rgba(255,255,255,0.25);">Tổng tích lũy</p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Chi phí AI ước tính</p>
+                <p id="ai-cost" class="text-2xl font-extrabold" style="color:#fbbf24;">—</p>
+                <p class="text-xs mt-1" style="color:rgba(255,255,255,0.25);">~$8 / 1M tokens (Claude Sonnet)</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── TAB: AI Usage ──────────────────────────────────────── -->
+      <div id="panel-ai_usage" class="hidden space-y-6">
+
+        <!-- Filter row -->
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Lọc theo:</label>
+          <select id="ai-usage-days" class="inp" style="width:auto;" onchange="loadAiUsage()">
+            <option value="">Tất cả thời gian</option>
+            <option value="1">Hôm nay</option>
+            <option value="7" selected>7 ngày qua</option>
+            <option value="30">30 ngày qua</option>
+            <option value="90">90 ngày qua</option>
+          </select>
+        </div>
+
+        <div id="ai-usage-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+
+        <div id="ai-usage-content" class="hidden space-y-6">
+
+          <!-- Summary cards -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">Tổng chi phí (ước tính)</h3>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Tổng cộng</p>
+                <p id="aiu-total-cost" class="text-2xl font-extrabold" style="color:#fbbf24;">—</p>
+                <p id="aiu-total-calls" class="text-xs mt-1" style="color:rgba(255,255,255,0.3);"></p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Claude</p>
+                <p id="aiu-claude-cost" class="text-2xl font-extrabold text-white">—</p>
+                <p id="aiu-claude-calls" class="text-xs mt-1" style="color:rgba(255,255,255,0.3);"></p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Gemini</p>
+                <p id="aiu-gemini-cost" class="text-2xl font-extrabold text-white">—</p>
+                <p id="aiu-gemini-calls" class="text-xs mt-1" style="color:rgba(255,255,255,0.3);"></p>
+              </div>
+              <div class="stat-card">
+                <p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">Whisper + TTS</p>
+                <p id="aiu-other-cost" class="text-2xl font-extrabold text-white">—</p>
+                <p id="aiu-other-calls" class="text-xs mt-1" style="color:rgba(255,255,255,0.3);"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-user table -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">Chi phí theo người dùng</h3>
+            <div id="aiu-users-empty" class="hidden text-center py-8 text-sm" style="color:rgba(255,255,255,0.35);">Chưa có dữ liệu sử dụng AI.</div>
+            <div id="aiu-users-wrap" class="hidden card overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th>User ID</th>
+                      <th class="text-right">Claude</th>
+                      <th class="text-right">Gemini</th>
+                      <th class="text-right">Whisper</th>
+                      <th class="text-right">TTS</th>
+                      <th class="text-right">Tổng chi phí</th>
+                    </tr>
+                  </thead>
+                  <tbody id="aiu-users-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-xs" style="color:rgba(255,255,255,0.25);">* Chi phí là ước tính dựa trên giá niêm yết. Số liệu thực tế có thể khác.</p>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Modal: Add Topic ───────────────────────────────────── -->
+  <div id="modal-topic" class="modal-overlay hidden" onclick="closeModalIfBackdrop(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-bold text-base">Thêm topic mới</h3>
+        <button onclick="closeAddTopicModal()" style="color:rgba(255,255,255,0.4);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Title *</label>
+          <input id="new-topic-title" class="inp" placeholder="VD: Technology and Society" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Category</label>
+          <input id="new-topic-category" class="inp" placeholder="VD: Society" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Part *</label>
+          <select id="new-topic-part" class="inp">
+            <option value="1">Part 1 — Introduction &amp; Interview</option>
+            <option value="2">Part 2 — Individual Long Turn</option>
+            <option value="3">Part 3 — Two-way Discussion</option>
+          </select>
+        </div>
+        <div id="modal-err" class="hidden text-xs py-2 px-3 rounded-lg" style="background:rgba(239,68,68,0.12);color:#f87171;"></div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button class="btn-secondary flex-1" onclick="closeAddTopicModal()">Hủy</button>
+        <button id="btn-save-topic" class="btn-primary flex-1" onclick="saveNewTopic()">Lưu topic</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/api.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    var _token = null;
+    var _base  = '';
+
+    // Per-tab load-once flags
+    var _loaded = { topics: false, codes: false, users: false, stats: false, ai_usage: false };
+
+    // Cached data for CSV export
+    var _codesData = [];
+
+    // ── Helpers ────────────────────────────────────────────────
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(dtStr) {
+      if (!dtStr) return '—';
+      var d = new Date(dtStr);
+      return isNaN(d) ? dtStr : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function fmtNum(n) {
+      return n == null ? '—' : Number(n).toLocaleString('vi-VN');
+    }
+
+    function showErr(msg) {
+      document.getElementById('err-msg').textContent = msg;
+      document.getElementById('state-loading').classList.add('hidden');
+      document.getElementById('state-error').classList.remove('hidden');
+    }
+
+    // ── PATCH helper (api.js only exposes get/post) ────────────
+    async function apiPatch(path, body) {
+      var res = await fetch(_base + path, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + _token,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        var e = await res.json().catch(function () { return {}; });
+        throw new Error(e.detail || 'HTTP ' + res.status);
+      }
+      return res.json();
+    }
+
+    async function apiDelete(path) {
+      var res = await fetch(_base + path, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + _token },
+      });
+      if (!res.ok && res.status !== 204) {
+        var e = await res.json().catch(function () { return {}; });
+        throw new Error(e.detail || 'HTTP ' + res.status);
+      }
+    }
+
+    async function apiPost(path, body) {
+      return window.api.post(path, body, _token);
+    }
+
+    async function apiGet(path) {
+      return window.api.get(path, _token);
+    }
+
+    // ── Tab switching ──────────────────────────────────────────
+    var _currentTab = 'topics';
+
+    window.switchTab = function (tab) {
+      ['topics', 'codes', 'users', 'stats', 'ai_usage'].forEach(function (t) {
+        document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+        document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+      });
+      _currentTab = tab;
+      if (!_loaded[tab]) loadTab(tab);
+    };
+
+    function loadTab(tab) {
+      if (tab === 'topics')   loadTopics();
+      if (tab === 'codes')    loadCodes();
+      if (tab === 'users')    loadUsers();
+      if (tab === 'stats')    loadStats();
+      if (tab === 'ai_usage') loadAiUsage();
+    }
+
+    // ── TOPICS ─────────────────────────────────────────────────
+    async function loadTopics() {
+      _loaded.topics = true;
+      document.getElementById('topics-loading').classList.remove('hidden');
+      document.getElementById('topics-table-wrap').classList.add('hidden');
+      document.getElementById('topics-empty').classList.add('hidden');
+
+      try {
+        var topics = await apiGet('/admin/topics');
+        renderTopics(topics);
+      } catch (err) {
+        document.getElementById('topics-loading').classList.add('hidden');
+        document.getElementById('topics-empty').textContent = 'Lỗi: ' + err.message;
+        document.getElementById('topics-empty').classList.remove('hidden');
+      }
+    }
+
+    function renderTopics(topics) {
+      document.getElementById('topics-loading').classList.add('hidden');
+      if (!topics || topics.length === 0) {
+        document.getElementById('topics-empty').classList.remove('hidden');
+        return;
+      }
+      document.getElementById('topics-table-wrap').classList.remove('hidden');
+
+      var tbody = document.getElementById('topics-tbody');
+      tbody.innerHTML = topics.map(function (t) {
+        var partBadge = '<span class="text-xs font-semibold" style="color:#14b8a6;">Part ' + esc(t.part) + '</span>';
+        var statusBadge = t.is_active
+          ? '<span class="badge-on">Active</span>'
+          : '<span class="badge-off">Inactive</span>';
+        var toggleChecked = t.is_active ? 'checked' : '';
+        return '<tr>'
+          + '<td class="font-medium" style="color:#e2e8f0;">' + esc(t.title) + '</td>'
+          + '<td>' + esc(t.category || '—') + '</td>'
+          + '<td>' + partBadge + '</td>'
+          + '<td>' + statusBadge + '</td>'
+          + '<td class="text-center">'
+          +   '<label class="toggle" title="' + (t.is_active ? 'Tắt' : 'Bật') + ' topic">'
+          +     '<input type="checkbox" ' + toggleChecked + ' onchange="toggleTopic(\'' + esc(t.id) + '\', this.checked)">'
+          +     '<span class="toggle-slider"></span>'
+          +   '</label>'
+          + '</td>'
+          + '<td class="text-center">'
+          +   '<button class="btn-danger" onclick="deleteTopic(\'' + esc(t.id) + '\', \'' + esc(t.title) + '\')">Xóa</button>'
+          + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    window.toggleTopic = async function (id, isActive) {
+      try {
+        await apiPatch('/admin/topics/' + id, { is_active: isActive });
+        // Reload silently to sync table
+        var topics = await apiGet('/admin/topics');
+        renderTopics(topics);
+      } catch (err) {
+        alert('Lỗi khi cập nhật topic: ' + err.message);
+        loadTopics(); // reload to restore correct state
+      }
+    };
+
+    window.deleteTopic = async function (id, title) {
+      if (!confirm('Xóa topic "' + title + '"?\n\nHành động này không thể hoàn tác.')) return;
+      try {
+        // Use PATCH to deactivate — we don't expose DELETE in admin.py,
+        // so soft-delete by setting is_active=false and a special flag if needed.
+        // Actually, let's just reload after informing user we'd need a DELETE endpoint.
+        // For now, deactivate instead of hard-delete to keep data integrity.
+        await apiPatch('/admin/topics/' + id, { is_active: false });
+        var topics = await apiGet('/admin/topics');
+        renderTopics(topics);
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      }
+    };
+
+    // Add topic modal
+    window.openAddTopicModal = function () {
+      document.getElementById('new-topic-title').value    = '';
+      document.getElementById('new-topic-category').value = '';
+      document.getElementById('new-topic-part').value     = '1';
+      document.getElementById('modal-err').classList.add('hidden');
+      document.getElementById('modal-topic').classList.remove('hidden');
+      setTimeout(function () { document.getElementById('new-topic-title').focus(); }, 80);
+    };
+
+    window.closeAddTopicModal = function () {
+      document.getElementById('modal-topic').classList.add('hidden');
+    };
+
+    window.closeModalIfBackdrop = function (e) {
+      if (e.target === document.getElementById('modal-topic')) closeAddTopicModal();
+    };
+
+    window.saveNewTopic = async function () {
+      var title    = document.getElementById('new-topic-title').value.trim();
+      var category = document.getElementById('new-topic-category').value.trim();
+      var part     = parseInt(document.getElementById('new-topic-part').value, 10);
+      var errEl    = document.getElementById('modal-err');
+      var btn      = document.getElementById('btn-save-topic');
+
+      if (!title) {
+        errEl.textContent = 'Vui lòng nhập title.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Đang lưu…';
+
+      try {
+        await apiPost('/admin/topics', { title: title, category: category, part: part });
+        closeAddTopicModal();
+        _loaded.topics = false;
+        loadTopics();
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + err.message;
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lưu topic';
+      }
+    };
+
+    // Enter key in modal
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAddTopicModal();
+      if (e.key === 'Enter' && !document.getElementById('modal-topic').classList.contains('hidden')) {
+        saveNewTopic();
+      }
+    });
+
+    // ── ACCESS CODES ───────────────────────────────────────────
+    async function loadCodes() {
+      _loaded.codes = true;
+      document.getElementById('codes-loading').classList.remove('hidden');
+      document.getElementById('codes-table-wrap').classList.add('hidden');
+      document.getElementById('codes-empty').classList.add('hidden');
+
+      try {
+        var codes = await apiGet('/admin/access-codes');
+        _codesData = codes;
+        renderCodes(codes);
+      } catch (err) {
+        document.getElementById('codes-loading').classList.add('hidden');
+        document.getElementById('codes-empty').textContent = 'Lỗi: ' + err.message;
+        document.getElementById('codes-empty').classList.remove('hidden');
+      }
+    }
+
+    function renderCodes(codes) {
+      document.getElementById('codes-loading').classList.add('hidden');
+      document.getElementById('codes-count').textContent = codes.length + ' mã';
+
+      if (!codes || codes.length === 0) {
+        document.getElementById('codes-empty').classList.remove('hidden');
+        return;
+      }
+      document.getElementById('codes-table-wrap').classList.remove('hidden');
+
+      var tbody = document.getElementById('codes-tbody');
+      tbody.innerHTML = codes.map(function (c) {
+        var badge = c.is_revoked
+          ? '<span class="badge-used" style="background:rgba(248,113,113,0.15);color:#f87171;border-color:rgba(248,113,113,0.3);">Đã thu hồi</span>'
+          : c.is_used
+            ? '<span class="badge-used">Đã dùng</span>'
+            : '<span class="badge-on">Chưa dùng</span>';
+        var perms = Array.isArray(c.permissions) ? c.permissions.join(', ') : (c.permissions || 'all');
+        var revokeBtn = c.is_revoked
+          ? '<button disabled title="Đã thu hồi" style="color:rgba(248,113,113,0.4);font-size:13px;padding:2px 6px;border-radius:6px;border:1px solid rgba(248,113,113,0.15);background:transparent;cursor:default;">Thu hồi</button>'
+          : '<button onclick="revokeCode(\'' + esc(c.id) + '\')" title="Thu hồi mã và vô hiệu tài khoản liên quan" style="color:#f87171;font-size:13px;padding:2px 6px;border-radius:6px;border:1px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.08);cursor:pointer;">Thu hồi</button>';
+        var actions = revokeBtn
+          + ' <button onclick="editPermissions(\'' + esc(c.id) + '\',\'' + esc(perms) + '\')" title="Sửa quyền" style="color:#60a5fa;font-size:13px;padding:2px 6px;border-radius:6px;border:1px solid rgba(96,165,250,0.3);background:rgba(96,165,250,0.08);cursor:pointer;margin-left:4px;">Sửa</button>';
+        return '<tr>'
+          + '<td><span class="code-mono">' + esc(c.code) + '</span></td>'
+          + '<td>' + badge + '</td>'
+          + '<td style="color:rgba(255,255,255,0.55);">' + esc(c.used_by_email || '—') + '</td>'
+          + '<td style="color:rgba(255,255,255,0.45);font-size:12px;">' + fmtDate(c.used_at) + '</td>'
+          + '<td style="color:rgba(255,255,255,0.35);font-size:12px;">' + fmtDate(c.created_at) + '</td>'
+          + '<td style="color:rgba(255,255,255,0.55);font-size:12px;">' + esc(perms) + '</td>'
+          + '<td style="white-space:nowrap;">' + actions + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── Permission checkbox helpers ────────────────────────────
+    window.onPermAllChange = function (checkbox) {
+      var isAll = checkbox.checked;
+      document.querySelectorAll('.perm-individual-row input[type=checkbox]').forEach(function (el) {
+        el.disabled = isAll;
+        if (isAll) el.checked = false;
+      });
+      document.querySelectorAll('.perm-individual-label').forEach(function (el) {
+        el.style.color = isAll ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.75)';
+      });
+    };
+
+    function getSelectedPerms() {
+      if (document.getElementById('perm-all').checked) return ['all'];
+      var vals = ['perm-single', 'perm-part', 'perm-full', 'perm-admin']
+        .map(function (id) { return document.getElementById(id); })
+        .filter(function (el) { return el && el.checked; })
+        .map(function (el) { return el.value; });
+      return vals.length ? vals : ['all'];
+    }
+
+    window.generateCodes = async function () {
+      var countEl = document.getElementById('gen-count');
+      var count   = parseInt(countEl.value, 10);
+      var perms   = getSelectedPerms();
+      var btn     = document.getElementById('btn-gen');
+      var resultEl = document.getElementById('gen-result');
+
+      if (!count || count < 1 || count > 100) {
+        alert('Số lượng phải từ 1 đến 100.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Đang tạo…';
+      resultEl.classList.add('hidden');
+
+      try {
+        var res = await apiPost('/admin/access-codes/generate', { count: count, permissions: perms });
+        resultEl.textContent = '✓ Đã tạo ' + res.created + ' mã mới.';
+        resultEl.classList.remove('hidden');
+        // Reload codes list
+        _loaded.codes = false;
+        var codes = await apiGet('/admin/access-codes');
+        _codesData = codes;
+        renderCodes(codes);
+      } catch (err) {
+        alert('Lỗi khi tạo mã: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Tạo mã';
+      }
+    };
+
+    window.exportCsvCodes = function () {
+      var unused = _codesData.filter(function (c) { return !c.is_used; });
+      if (unused.length === 0) {
+        alert('Không có mã chưa dùng để export.');
+        return;
+      }
+      var lines = ['code,created_at'].concat(
+        unused.map(function (c) { return c.code + ',' + (c.created_at || ''); })
+      );
+      var csv  = lines.join('\r\n');
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href   = url;
+      a.download = 'access_codes_unused.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+    };
+
+    window.revokeCode = async function (codeId) {
+      if (!confirm('Thu hồi access code này?\n\nTất cả tài khoản đã kích hoạt bằng mã này sẽ bị vô hiệu hóa ngay lập tức.\nMã sẽ được đánh dấu "Đã thu hồi" (không xóa khỏi DB).')) return;
+      try {
+        await apiDelete('/admin/access-codes/' + codeId);
+        // Update local state: mark as revoked instead of removing
+        _codesData = _codesData.map(function (c) {
+          return c.id === codeId ? Object.assign({}, c, { is_revoked: true }) : c;
+        });
+        renderCodes(_codesData);
+      } catch (err) {
+        alert('Lỗi khi thu hồi mã: ' + err.message);
+      }
+    };
+
+    window.editPermissions = function (codeId, currentPermsStr) {
+      var current = currentPermsStr.split(',').map(function (s) { return s.trim(); });
+      var isAll = current.includes('all') || current.length === 0;
+
+      // Build modal
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
+
+      var PERM_OPTS = [
+        { id: 'ep-single', value: 'practice_single', label: 'Luyện tập' },
+        { id: 'ep-part',   value: 'practice_part',   label: 'Luyện từng Part' },
+        { id: 'ep-full',   value: 'practice_full',   label: 'Full Test' },
+        { id: 'ep-admin',  value: 'admin',            label: 'Admin' },
+      ];
+
+      var rowsHtml = PERM_OPTS.map(function (o) {
+        var checked = !isAll && current.includes(o.value) ? 'checked' : '';
+        var dis = isAll ? 'disabled' : '';
+        var col = isAll ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.75)';
+        return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">'
+          + '<input type="checkbox" id="' + o.id + '" value="' + o.value + '" ' + checked + ' ' + dis + ' style="accent-color:#14b8a6;">'
+          + '<span style="font-size:13px;color:' + col + ';" class="ep-ind-label">' + o.label + '</span>'
+          + '</label>';
+      }).join('');
+
+      overlay.innerHTML = '<div style="background:#0C2340;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;min-width:280px;max-width:360px;width:90%;">'
+        + '<h3 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:16px;">Sửa quyền access code</h3>'
+        + '<div style="margin-bottom:10px;">'
+        + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;">'
+        + '<input type="checkbox" id="ep-all" ' + (isAll ? 'checked' : '') + ' style="accent-color:#14b8a6;">'
+        + '<span style="font-size:13px;font-weight:600;color:#14b8a6;">All / Toàn quyền</span>'
+        + '</label>'
+        + rowsHtml
+        + '</div>'
+        + '<div style="display:flex;gap:10px;margin-top:20px;">'
+        + '<button id="ep-cancel" style="flex:1;padding:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:rgba(255,255,255,0.55);font-size:13px;cursor:pointer;">Hủy</button>'
+        + '<button id="ep-confirm" style="flex:1;padding:8px 0;border-radius:8px;border:none;background:#0F766E;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Lưu</button>'
+        + '</div>'
+        + '</div>';
+
+      document.body.appendChild(overlay);
+
+      // Wire up All toggle inside modal
+      var epAll = document.getElementById('ep-all');
+      epAll.addEventListener('change', function () {
+        var allChecked = epAll.checked;
+        PERM_OPTS.forEach(function (o) {
+          var el = document.getElementById(o.id);
+          el.disabled = allChecked;
+          if (allChecked) el.checked = false;
+        });
+        overlay.querySelectorAll('.ep-ind-label').forEach(function (el) {
+          el.style.color = allChecked ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.75)';
+        });
+      });
+
+      document.getElementById('ep-cancel').addEventListener('click', function () {
+        document.body.removeChild(overlay);
+      });
+
+      document.getElementById('ep-confirm').addEventListener('click', async function () {
+        var perms;
+        if (document.getElementById('ep-all').checked) {
+          perms = ['all'];
+        } else {
+          perms = PERM_OPTS
+            .map(function (o) { return document.getElementById(o.id); })
+            .filter(function (el) { return el.checked; })
+            .map(function (el) { return el.value; });
+          if (perms.length === 0) perms = ['all'];
+        }
+        document.getElementById('ep-confirm').disabled = true;
+        document.getElementById('ep-confirm').textContent = 'Đang lưu…';
+        try {
+          var updated = await apiPatch('/admin/access-codes/' + codeId, { permissions: perms });
+          _codesData = _codesData.map(function (c) { return c.id === codeId ? Object.assign({}, c, { permissions: updated.permissions }) : c; });
+          renderCodes(_codesData);
+          document.body.removeChild(overlay);
+        } catch (err) {
+          alert('Lỗi khi cập nhật quyền: ' + err.message);
+          document.getElementById('ep-confirm').disabled = false;
+          document.getElementById('ep-confirm').textContent = 'Lưu';
+        }
+      });
+    };
+
+    // ── USERS ──────────────────────────────────────────────────
+    async function loadUsers() {
+      _loaded.users = true;
+      document.getElementById('users-loading').classList.remove('hidden');
+      document.getElementById('users-table-wrap').classList.add('hidden');
+      document.getElementById('users-empty').classList.add('hidden');
+
+      try {
+        var users = await apiGet('/admin/users');
+        renderUsers(users);
+      } catch (err) {
+        document.getElementById('users-loading').classList.add('hidden');
+        document.getElementById('users-empty').textContent = 'Lỗi: ' + err.message;
+        document.getElementById('users-empty').classList.remove('hidden');
+      }
+    }
+
+    function renderUsers(users) {
+      document.getElementById('users-loading').classList.add('hidden');
+      document.getElementById('users-count').textContent = users.length + ' users';
+
+      if (!users || users.length === 0) {
+        document.getElementById('users-empty').classList.remove('hidden');
+        return;
+      }
+      document.getElementById('users-table-wrap').classList.remove('hidden');
+
+      var tbody = document.getElementById('users-tbody');
+      tbody.innerHTML = users.map(function (u) {
+        var activeBadge = u.is_active
+          ? '<span class="badge-on">Active</span>'
+          : '<span class="badge-off">Inactive</span>';
+        var roleBadge = u.role === 'admin'
+          ? '<span class="text-xs font-bold px-2 py-0.5 rounded-md" style="background:rgba(239,68,68,0.18);color:#f87171;">admin</span>'
+          : '<span class="text-xs" style="color:rgba(255,255,255,0.35);">user</span>';
+        var todaySessions = u.sessions_today || 0;
+        var todayColor = todaySessions > 0 ? 'color:#14b8a6;font-weight:700;' : 'color:rgba(255,255,255,0.3);';
+        return '<tr>'
+          + '<td style="color:#e2e8f0;">' + esc(u.email || '—') + '</td>'
+          + '<td style="color:rgba(255,255,255,0.6);">' + esc(u.display_name || '—') + '</td>'
+          + '<td>' + roleBadge + '</td>'
+          + '<td style="color:rgba(255,255,255,0.4);font-size:12px;">'
+          +   new Date(u.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })
+          + '</td>'
+          + '<td class="text-center">' + activeBadge + '</td>'
+          + '<td class="text-center" style="' + todayColor + '">' + todaySessions + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── STATS ──────────────────────────────────────────────────
+    async function loadStats() {
+      _loaded.stats = true;
+      document.getElementById('stats-loading').classList.remove('hidden');
+      document.getElementById('stats-content').classList.add('hidden');
+
+      try {
+        var s = await apiGet('/admin/stats');
+        document.getElementById('s-today').textContent = fmtNum(s.sessions_today);
+        document.getElementById('s-week').textContent  = fmtNum(s.sessions_week);
+        document.getElementById('s-month').textContent = fmtNum(s.sessions_month);
+        document.getElementById('s-total').textContent = fmtNum(s.sessions_total);
+        document.getElementById('s-done').textContent  = fmtNum(s.sessions_completed) + ' hoàn thành';
+
+        document.getElementById('u-total').textContent  = fmtNum(s.total_users);
+        document.getElementById('u-active').textContent = fmtNum(s.active_users);
+
+        var toks = s.tokens_total || 0;
+        document.getElementById('ai-tokens').textContent = toks >= 1000000
+          ? (toks / 1000000).toFixed(2) + 'M'
+          : fmtNum(toks);
+
+        document.getElementById('ai-cost').textContent = '$' + (s.cost_usd_estimate || 0).toFixed(4);
+
+        document.getElementById('stats-loading').classList.add('hidden');
+        document.getElementById('stats-content').classList.remove('hidden');
+      } catch (err) {
+        document.getElementById('stats-loading').innerHTML =
+          '<p class="text-sm" style="color:#f87171;">Lỗi: ' + esc(err.message) + '</p>';
+      }
+    }
+
+    // ── AI USAGE ───────────────────────────────────────────────
+    window.loadAiUsage = async function () {
+      _loaded.ai_usage = true;
+      document.getElementById('ai-usage-loading').classList.remove('hidden');
+      document.getElementById('ai-usage-content').classList.add('hidden');
+
+      var days = document.getElementById('ai-usage-days').value;
+      var url  = '/admin/ai-usage' + (days ? '?days=' + days : '');
+
+      try {
+        var data = await apiGet(url);
+        renderAiUsage(data);
+      } catch (err) {
+        document.getElementById('ai-usage-loading').innerHTML =
+          '<p class="text-sm" style="color:#f87171;">Lỗi: ' + esc(err.message) + '</p>';
+      }
+    };
+
+    function renderAiUsage(data) {
+      document.getElementById('ai-usage-loading').classList.add('hidden');
+
+      var overall = data.overall || {};
+      var byService = overall.by_service || {};
+
+      function svcCost(svc)  { return (byService[svc] && byService[svc].cost_usd) || 0; }
+      function svcCalls(svc) { return (byService[svc] && byService[svc].calls)    || 0; }
+
+      var claudeCost  = svcCost('claude');
+      var geminiCost  = svcCost('gemini');
+      var whisperCost = svcCost('whisper');
+      var ttsCost     = svcCost('tts');
+      var otherCost   = whisperCost + ttsCost;
+      var totalCost   = overall.cost_usd || 0;
+      var totalCalls  = overall.calls     || 0;
+
+      document.getElementById('aiu-total-cost').textContent  = '$' + totalCost.toFixed(4);
+      document.getElementById('aiu-total-calls').textContent = fmtNum(totalCalls) + ' lượt gọi';
+      document.getElementById('aiu-claude-cost').textContent  = '$' + claudeCost.toFixed(4);
+      document.getElementById('aiu-claude-calls').textContent = fmtNum(svcCalls('claude')) + ' lượt';
+      document.getElementById('aiu-gemini-cost').textContent  = '$' + geminiCost.toFixed(4);
+      document.getElementById('aiu-gemini-calls').textContent = fmtNum(svcCalls('gemini')) + ' lượt';
+      document.getElementById('aiu-other-cost').textContent   = '$' + otherCost.toFixed(4);
+      document.getElementById('aiu-other-calls').textContent  =
+        fmtNum(svcCalls('whisper')) + ' Whisper / ' + fmtNum(svcCalls('tts')) + ' TTS';
+
+      var perUser = data.per_user || [];
+      if (perUser.length === 0) {
+        document.getElementById('aiu-users-empty').classList.remove('hidden');
+        document.getElementById('aiu-users-wrap').classList.add('hidden');
+      } else {
+        document.getElementById('aiu-users-empty').classList.add('hidden');
+        document.getElementById('aiu-users-wrap').classList.remove('hidden');
+
+        var tbody = document.getElementById('aiu-users-tbody');
+        tbody.innerHTML = perUser.map(function (u) {
+          function uSvc(svc) { return u.by_service && u.by_service[svc]; }
+          function uCost(svc) { return uSvc(svc) ? '$' + uSvc(svc).cost_usd.toFixed(4) : '—'; }
+          // Prefer: display_name → email → truncated user_id
+          var label    = (u.display_name && u.display_name.trim()) || (u.email && u.email.trim()) || ((u.user_id || 'unknown').slice(0, 8) + '…');
+          var subtitle = (u.display_name && u.display_name.trim() && u.email) ? u.email : '';
+          var titleAttr = esc(u.user_id || '');
+          return '<tr>'
+            + '<td title="' + titleAttr + '">'
+            +   '<span class="text-sm font-medium text-white">' + esc(label) + '</span>'
+            +   (subtitle ? '<br><span class="text-xs" style="color:rgba(255,255,255,0.4);">' + esc(subtitle) + '</span>' : '')
+            + '</td>'
+            + '<td class="text-right text-xs">' + uCost('claude')  + '</td>'
+            + '<td class="text-right text-xs">' + uCost('gemini')  + '</td>'
+            + '<td class="text-right text-xs">' + uCost('whisper') + '</td>'
+            + '<td class="text-right text-xs">' + uCost('tts')     + '</td>'
+            + '<td class="text-right text-xs font-bold" style="color:#fbbf24;">$' + (u.cost_usd || 0).toFixed(4) + '</td>'
+            + '</tr>';
+        }).join('');
+      }
+
+      document.getElementById('ai-usage-content').classList.remove('hidden');
+    }
+
+    // ── Init ───────────────────────────────────────────────────
+    async function init() {
+      _base = (window.api && window.api.base) ? window.api.base : '';
+
+      var sb = getSupabase();
+      var { data: { session } } = await sb.auth.getSession();
+      if (!session) {
+        window.location.href = 'index.html';
+        return;
+      }
+      _token = session.access_token;
+
+      // Check admin role via /auth/me
+      try {
+        var me = await apiGet('/auth/me');
+        if (me.role !== 'admin') {
+          showErr('Tài khoản của bạn không có quyền admin. Liên hệ quản trị viên nếu cần.');
+          return;
+        }
+        document.getElementById('header-email').textContent = me.email || '';
+        document.getElementById('header-email').classList.remove('hidden');
+      } catch (err) {
+        showErr('Lỗi xác thực: ' + err.message);
+        return;
+      }
+
+      // Show main content and load first tab
+      document.getElementById('state-loading').classList.add('hidden');
+      document.getElementById('state-content').classList.remove('hidden');
+      loadTopics();
+    }
+
+    init();
+  }());
+  </script>
+</body>
+</html>

@@ -19,6 +19,10 @@
       ? 'http://localhost:8000'
       : 'https://ielts-speaking-coach-production.up.railway.app';
 
+  // Relative path prefix to the app root — works on both localhost and GitHub Pages.
+  // pages/*.html are one level deep; index.html and admin.html are at root level.
+  var _appRoot = /\/pages\/[^/]+$/.test(window.location.pathname) ? '../' : './';
+
   async function _getAuthToken() {
     if (!_sb) return null;
     var result = await _sb.auth.getSession();
@@ -39,7 +43,7 @@
     });
 
     if (response.status === 401) {
-      window.location.href = '/index.html';
+      window.location.href = _appRoot + 'index.html';
       return null;
     }
 
@@ -54,6 +58,10 @@
 
   var api = {
     base: _API_BASE,
+    // url(path) — resolve a same-site page path relative to the app root,
+    // safe on both localhost and GitHub Pages project sites.
+    // Usage: window.api.url('pages/dashboard.html')
+    url:    function (path)        { return _appRoot + path; },
     get:    function (path)        { return _apiRequest('GET',    path); },
     post:   function (path, body)  { return _apiRequest('POST',   path, body); },
     patch:  function (path, body)  { return _apiRequest('PATCH',  path, body); },

@@ -20,6 +20,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
   <style>
     body { background: #0a1628; }
 
@@ -57,6 +58,15 @@
     }
     .btn-fulltest:hover { opacity: 0.9; transform: translateY(-1px); }
 
+    .btn-test {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.3);
+      transition: background 0.15s, transform 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-test:hover { background: rgba(239,68,68,0.22); transform: translateY(-1px); }
+
     .avatar-ring { box-shadow: 0 0 0 2px #0F766E; }
 
     /* skeleton shimmer */
@@ -83,6 +93,164 @@
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
+
+    /* ── Topic Modal ──────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .modal-box {
+      background: #0C2340;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      width: 100%; max-width: 480px;
+      padding: 28px;
+      transform: translateY(12px);
+      transition: transform 0.22s ease;
+    }
+    .modal-backdrop.open .modal-box { transform: translateY(0); }
+
+    .topic-tab {
+      flex: 1; padding: 8px 12px; font-size: 13px; font-weight: 600;
+      border-radius: 10px; border: none; cursor: pointer;
+      background: transparent; color: rgba(255,255,255,0.45);
+      transition: background 0.15s, color 0.15s;
+    }
+    .topic-tab.active {
+      background: rgba(15,118,110,0.25);
+      color: #14b8a6;
+    }
+
+    .topic-input {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px; padding: 10px 14px;
+      color: #fff; font-size: 14px; outline: none;
+      transition: border-color 0.15s;
+    }
+    .topic-input:focus { border-color: rgba(20,184,166,0.5); }
+    .topic-input option { background: #0C2340; }
+
+    .btn-confirm {
+      width: 100%; background: #0F766E; color: #fff;
+      border: none; border-radius: 12px;
+      padding: 12px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background 0.15s, transform 0.12s;
+    }
+    .btn-confirm:hover { background: #0d5f58; transform: translateY(-1px); }
+    .btn-confirm:active { transform: translateY(0); }
+    .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .modal-error {
+      font-size: 12px; color: #f87171;
+      min-height: 18px; margin-top: 6px;
+    }
+
+    /* ── Main Tab Navigation ──────────────────────────────── */
+    .main-tab-nav {
+      background: #0C2340;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 0 24px;
+      display: flex;
+      gap: 2px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .main-tab-nav::-webkit-scrollbar { display: none; }
+    .main-tab-btn {
+      padding: 12px 20px 14px;
+      font-size: 14px; font-weight: 600;
+      color: rgba(255,255,255,0.45);
+      border: none;
+      border-bottom: 3px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      margin-bottom: -1px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+    }
+    .main-tab-btn:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.03); }
+    .main-tab-btn.active { color: #14b8a6; border-bottom-color: #14b8a6; background: rgba(20,184,166,0.06); }
+    .main-tab-label { white-space: nowrap; }
+    .main-tab-sub {
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.3);
+      white-space: nowrap;
+    }
+    .main-tab-btn.active .main-tab-sub { color: rgba(20,184,166,0.6); }
+    .main-tab-btn:hover .main-tab-sub { color: rgba(255,255,255,0.5); }
+    .main-tab-panel { display: none; }
+    .main-tab-panel.active { display: block; }
+
+    /* ── Tab panel cards ──────────────────────────────────── */
+    .option-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .option-card:hover { border-color: rgba(20,184,166,0.2); }
+    .part-select-btn {
+      flex: 1; padding: 12px 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      color: rgba(255,255,255,0.6);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; text-align: center;
+      transition: all 0.15s;
+    }
+    .part-select-btn:hover { border-color: rgba(20,184,166,0.4); color: #14b8a6; }
+    .part-select-btn.selected {
+      background: rgba(15,118,110,0.2);
+      border-color: #14b8a6; color: #14b8a6;
+    }
+    .tab-input {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px; padding: 10px 14px;
+      color: #fff; font-size: 14px; outline: none;
+      transition: border-color 0.15s;
+    }
+    .tab-input:focus { border-color: rgba(20,184,166,0.5); }
+    .tab-input::placeholder { color: rgba(255,255,255,0.28); }
+    .tab-input option { background: #0C2340; }
+    .pbp-part-card {
+      background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(15,118,110,0.08) 100%);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 16px; padding: 20px;
+      cursor: pointer;
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+    }
+    .pbp-part-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(20,184,166,0.35);
+      box-shadow: 0 8px 24px rgba(15,118,110,0.15);
+    }
+    .pbp-part-card.selected {
+      border-color: #14b8a6;
+      background: linear-gradient(145deg, rgba(20,184,166,0.1) 0%, rgba(15,118,110,0.15) 100%);
+      box-shadow: 0 4px 16px rgba(20,184,166,0.2);
+    }
+    .ft-part-row {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 18px 20px;
+    }
+    .tab-error { font-size: 12px; color: #f87171; min-height: 18px; margin-top: 6px; }
   </style>
 </head>
 <body class="text-white font-sans antialiased min-h-screen flex flex-col">
@@ -124,8 +292,31 @@
     </div>
   </header>
 
+  <!-- ─── MAIN TAB NAV ─────────────────────────────────────── -->
+  <nav class="main-tab-nav">
+    <button id="mtab-dashboard" class="main-tab-btn active" onclick="switchMainTab('dashboard')">
+      <span class="main-tab-label">📊 Dashboard</span>
+    </button>
+    <button id="mtab-practice"  class="main-tab-btn"        onclick="switchMainTab('practice')">
+      <span class="main-tab-label">🎯 Luyện tập</span>
+      <span class="main-tab-sub">Tập trung sửa lỗi và luyện tập từng câu</span>
+    </button>
+    <button id="mtab-partbpart" class="main-tab-btn"        onclick="switchMainTab('partbpart')">
+      <span class="main-tab-label">📋 Luyện từng Part</span>
+      <span class="main-tab-sub">Luyện theo từng Part và nhận chấm điểm</span>
+    </button>
+    <button id="mtab-fulltest"  class="main-tab-btn"        onclick="switchMainTab('fulltest')">
+      <span class="main-tab-label">🏆 Full Test</span>
+      <span class="main-tab-sub">Thi thử đầy đủ và nhận band score tổng quan</span>
+    </button>
+  </nav>
+
   <!-- ─── MAIN ────────────────────────────────────────────── -->
-  <main class="main-bg flex-1 px-6 py-8 max-w-6xl mx-auto w-full">
+  <main class="main-bg flex-1">
+
+  <!-- ════ TAB: DASHBOARD ════════════════════════════════════ -->
+  <div id="tab-dashboard" class="main-tab-panel active">
+  <div class="px-6 py-8 max-w-6xl mx-auto w-full">
 
     <!-- Page title -->
     <div class="mb-8">
@@ -170,80 +361,96 @@
 
     </section>
 
-    <!-- ── PART 2: Bắt đầu luyện tập ──────────────────────── -->
+    <!-- ── PART 1.5: Charts ──────────────────────────────────── -->
     <section class="mb-10">
-      <h2 class="text-lg font-bold mb-5">Bắt đầu luyện tập</h2>
+      <h2 class="text-lg font-bold mb-5">Tiến độ &amp; Phân tích</h2>
+      <div class="grid lg:grid-cols-2 gap-4">
 
-      <!-- 3 Part cards -->
-      <div class="grid sm:grid-cols-3 gap-4 mb-4">
-
-        <!-- Part 1 -->
-        <div class="part-card rounded-2xl p-6 flex flex-col">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
-                 style="background:rgba(15,118,110,0.2);">💬</div>
-            <div>
-              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
-              <h3 class="font-bold text-sm leading-tight">Introduction &amp; Interview</h3>
-            </div>
+        <!-- Line chart -->
+        <div class="stat-card rounded-2xl p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:rgba(255,255,255,0.4);">Band Score theo thời gian</p>
+          <div id="line-chart-wrap" style="position:relative;height:220px;">
+            <canvas id="chart-line"></canvas>
           </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
-            Trả lời câu hỏi về các chủ đề quen thuộc: gia đình, công việc, sở thích, quê hương.
+          <p id="line-chart-empty" class="hidden text-center text-sm py-16" style="color:rgba(255,255,255,0.3);">
+            Cần ít nhất 2 sessions để hiện biểu đồ
           </p>
-          <div class="flex items-center justify-between">
-            <span class="text-xs" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</span>
-            <button class="btn-start text-white text-xs font-semibold px-4 py-2 rounded-xl"
-                    onclick="startPractice(1)">Bắt đầu</button>
-          </div>
         </div>
 
-        <!-- Part 2 -->
-        <div class="part-card rounded-2xl p-6 flex flex-col">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
-                 style="background:rgba(15,118,110,0.2);">🗒️</div>
-            <div>
-              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
-              <h3 class="font-bold text-sm leading-tight">Individual Long Turn</h3>
-            </div>
-          </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
-            Nói về một chủ đề cho trước (cue card) trong 2 phút sau 1 phút chuẩn bị.
+        <!-- Radar chart -->
+        <div class="stat-card rounded-2xl p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:rgba(255,255,255,0.4);">
+            Điểm mạnh yếu 4 tiêu chí
+            <span class="ml-1 normal-case font-normal" style="color:rgba(255,255,255,0.22);">5 sessions gần nhất</span>
           </p>
-          <div class="flex items-center justify-between">
-            <span class="text-xs" style="color:rgba(255,255,255,0.3);">⏱ 3–4 phút</span>
-            <button class="btn-start text-white text-xs font-semibold px-4 py-2 rounded-xl"
-                    onclick="startPractice(2)">Bắt đầu</button>
+          <div id="radar-chart-wrap" style="position:relative;height:235px;">
+            <canvas id="chart-radar"></canvas>
           </div>
-        </div>
-
-        <!-- Part 3 -->
-        <div class="part-card rounded-2xl p-6 flex flex-col">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
-                 style="background:rgba(15,118,110,0.2);">🧠</div>
-            <div>
-              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
-              <h3 class="font-bold text-sm leading-tight">Two-way Discussion</h3>
-            </div>
-          </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
-            Thảo luận chuyên sâu về các vấn đề xã hội, trừu tượng liên quan đến chủ đề Part 2.
+          <p id="radar-chart-empty" class="hidden text-center text-sm py-16" style="color:rgba(255,255,255,0.3);">
+            Chưa có dữ liệu tiêu chí chi tiết
           </p>
-          <div class="flex items-center justify-between">
-            <span class="text-xs" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</span>
-            <button class="btn-start text-white text-xs font-semibold px-4 py-2 rounded-xl"
-                    onclick="startPractice(3)">Bắt đầu</button>
-          </div>
         </div>
 
       </div>
+    </section>
 
-      <!-- Full Test button -->
-      <button class="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide"
-              onclick="startPractice('full')">
-        🎯 Full Test — Luyện cả 3 Parts liên tiếp
-      </button>
+    <!-- ── PART 2: Quick Access ───────────────────────────── -->
+    <section class="mb-10">
+      <h2 class="text-lg font-bold mb-5">Bắt đầu luyện tập</h2>
+      <div class="grid sm:grid-cols-3 gap-4 mb-4">
+
+        <!-- Quick: Practice -->
+        <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('practice')">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
+                 style="background:rgba(15,118,110,0.2);">🎯</div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Luyện tập</span>
+              <h3 class="font-bold text-sm leading-tight">Practice</h3>
+            </div>
+          </div>
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+            Nhập câu hỏi riêng hoặc chọn chủ đề từ thư viện. Nhận phản hồi coaching chi tiết.
+          </p>
+          <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
+                  onclick="event.stopPropagation();switchMainTab('practice')">Đến Luyện tập →</button>
+        </div>
+
+        <!-- Quick: Part-by-Part -->
+        <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('partbpart')">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
+                 style="background:rgba(15,118,110,0.2);">📋</div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Luyện từng Part</span>
+              <h3 class="font-bold text-sm leading-tight">Part-by-Part</h3>
+            </div>
+          </div>
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+            Chọn Part 1, 2 hoặc 3. Luyện tập có cấu trúc với đủ số câu hỏi theo từng part.
+          </p>
+          <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
+                  onclick="event.stopPropagation();switchMainTab('partbpart')">Đến Luyện từng Part →</button>
+        </div>
+
+        <!-- Quick: Full Test -->
+        <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('fulltest')">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
+                 style="background:rgba(15,118,110,0.2);">🏆</div>
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Full Test</span>
+              <h3 class="font-bold text-sm leading-tight">IELTS Simulation</h3>
+            </div>
+          </div>
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+            Mô phỏng kỳ thi thật: Part 1 → 2 → 3 liên tiếp. Câu hỏi đọc to, văn bản ẩn.
+          </p>
+          <button class="btn-fulltest text-white text-xs font-semibold py-2.5 rounded-xl w-full"
+                  onclick="event.stopPropagation();switchMainTab('fulltest')">Đến Full Test →</button>
+        </div>
+
+      </div>
     </section>
 
     <!-- ── PART 3: Session history ──────────────────────────── -->
@@ -258,10 +465,14 @@
       <div class="rounded-2xl overflow-hidden border" style="border-color:rgba(255,255,255,0.08);">
 
         <!-- Empty state (default) -->
-        <div id="history-empty" class="py-16 text-center">
-          <p class="text-4xl mb-3">📭</p>
-          <p class="font-semibold text-sm mb-1">Bạn chưa có session nào.</p>
-          <p class="text-sm" style="color:rgba(255,255,255,0.4);">Bắt đầu luyện tập ngay để theo dõi tiến độ!</p>
+        <div id="history-empty" class="ds-empty">
+          <div class="ds-empty-icon">📭</div>
+          <p class="ds-empty-title">Bạn chưa có session nào.</p>
+          <p class="ds-empty-sub">Hoàn thành buổi luyện đầu tiên để theo dõi tiến độ.</p>
+          <button class="btn-start text-white text-sm font-semibold px-6 py-2.5 rounded-xl"
+                  onclick="openTopicModal(1, 'practice')">
+            Bắt đầu ngay →
+          </button>
         </div>
 
         <!-- Table (hidden until data loaded) -->
@@ -284,18 +495,373 @@
       </div>
     </section>
 
+  </div><!-- /inner padding wrapper -->
+  </div><!-- /tab-dashboard -->
+
+
+  <!-- ════ TAB: PRACTICE ═════════════════════════════════════ -->
+  <div id="tab-practice" class="main-tab-panel">
+  <div class="px-6 py-8 max-w-6xl mx-auto w-full">
+
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold mb-1">Luyện tập</h1>
+      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- Option A: Custom question(s) -->
+      <div class="option-card flex flex-col">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">✍️</div>
+          <div>
+            <h3 class="font-bold text-sm">Câu hỏi tùy chỉnh</h3>
+            <p class="text-xs" style="color:rgba(255,255,255,0.4);">Nhập câu hỏi — bỏ qua bước AI tạo</p>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">
+            Câu hỏi <span style="color:rgba(255,255,255,0.3);">(mỗi dòng một câu, tối đa 10)</span>
+          </label>
+          <textarea id="prac-custom-q" rows="5" class="tab-input" style="resize:vertical;min-height:110px;"
+                    placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable experience."
+                    maxlength="2000"></textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Part (để xác định ngữ cảnh)</label>
+          <div class="flex gap-2">
+            <button class="part-select-btn selected" id="prac-part-1" onclick="setPracPart(1)">Part 1</button>
+            <button class="part-select-btn"           id="prac-part-2" onclick="setPracPart(2)">Part 2</button>
+            <button class="part-select-btn"           id="prac-part-3" onclick="setPracPart(3)">Part 3</button>
+          </div>
+        </div>
+
+        <p id="prac-custom-q-error" class="tab-error"></p>
+        <button class="btn-confirm mt-auto" onclick="startPracticeCustomQ(event)">✍️ Bắt đầu luyện tập</button>
+      </div>
+
+      <!-- Option B: Topic from library -->
+      <div class="option-card flex flex-col">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">📚</div>
+          <div>
+            <h3 class="font-bold text-sm">Chủ đề từ thư viện</h3>
+            <p class="text-xs" style="color:rgba(255,255,255,0.4);">AI tạo câu hỏi theo chủ đề</p>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Chọn Part</label>
+          <div class="flex gap-2">
+            <button class="part-select-btn selected" id="prac-tp-part-1" onclick="setPracTopicPart(1)">Part 1</button>
+            <button class="part-select-btn"           id="prac-tp-part-2" onclick="setPracTopicPart(2)">Part 2</button>
+            <button class="part-select-btn"           id="prac-tp-part-3" onclick="setPracTopicPart(3)">Part 3</button>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Chủ đề từ thư viện</label>
+          <div style="position:relative;">
+            <select id="prac-topic-select" class="tab-input" style="appearance:none;padding-right:36px;">
+              <option value="" disabled selected>— Chọn tab để tải... —</option>
+            </select>
+            <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:rgba(255,255,255,0.4);">▾</span>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Hoặc nhập chủ đề tự do</label>
+          <input id="prac-topic-custom" type="text" class="tab-input"
+                 placeholder="Ví dụ: AI technology, Work-life balance..."
+                 maxlength="120" />
+        </div>
+
+        <p id="prac-topic-error" class="tab-error"></p>
+        <button class="btn-confirm mt-auto" onclick="startPracticeTopic(event)">🚀 Bắt đầu tạo câu hỏi</button>
+      </div>
+
+    </div>
+  </div>
+  </div><!-- /tab-practice -->
+
+
+  <!-- ════ TAB: PART-BY-PART ═════════════════════════════════ -->
+  <div id="tab-partbpart" class="main-tab-panel">
+  <div class="px-6 py-8 max-w-6xl mx-auto w-full">
+
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold mb-1">Luyện từng Part</h1>
+      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
+    </div>
+
+    <!-- Part cards -->
+    <div class="grid sm:grid-cols-3 gap-4 mb-6">
+
+      <div class="pbp-part-card" id="pbp-card-1" onclick="selectPbpPart(1)">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">💬</div>
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
+            <h3 class="font-bold text-sm leading-tight">Introduction &amp; Interview</h3>
+          </div>
+        </div>
+        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.5);">
+          3 câu hỏi về chủ đề quen thuộc. Phản hồi coaching chi tiết.
+        </p>
+        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</p>
+      </div>
+
+      <div class="pbp-part-card" id="pbp-card-2" onclick="selectPbpPart(2)">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">🗒️</div>
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
+            <h3 class="font-bold text-sm leading-tight">Individual Long Turn</h3>
+          </div>
+        </div>
+        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.5);">
+          1 cue card, nói 2 phút sau 1 phút chuẩn bị.
+        </p>
+        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.3);">⏱ 3–4 phút</p>
+      </div>
+
+      <div class="pbp-part-card" id="pbp-card-3" onclick="selectPbpPart(3)">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">🧠</div>
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
+            <h3 class="font-bold text-sm leading-tight">Two-way Discussion</h3>
+          </div>
+        </div>
+        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.5);">
+          3 câu hỏi thảo luận chuyên sâu về vấn đề xã hội.
+        </p>
+        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</p>
+      </div>
+
+    </div>
+
+    <!-- Topic section (revealed after part selection) -->
+    <div id="pbp-topic-section" style="display:none;">
+      <div class="option-card">
+        <h3 id="pbp-part-label" class="font-bold text-sm mb-4" style="color:#14b8a6;">Chọn chủ đề</h3>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-3">
+          <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Từ thư viện</label>
+            <div style="position:relative;">
+              <select id="pbp-topic-select" class="tab-input" style="appearance:none;padding-right:36px;">
+                <option value="" disabled selected>— Đang tải... —</option>
+              </select>
+              <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:rgba(255,255,255,0.4);">▾</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Hoặc nhập chủ đề tự do</label>
+            <input id="pbp-topic-custom" type="text" class="tab-input"
+                   placeholder="Ví dụ: Social media, Climate change..."
+                   maxlength="120" />
+          </div>
+        </div>
+
+        <p id="pbp-error" class="tab-error"></p>
+        <button class="btn-confirm w-full mt-2" onclick="startPartByPart(event)">🚀 Bắt đầu luyện tập</button>
+      </div>
+    </div>
+
+  </div>
+  </div><!-- /tab-partbpart -->
+
+
+  <!-- ════ TAB: FULL TEST ═════════════════════════════════════ -->
+  <div id="tab-fulltest" class="main-tab-panel">
+  <div class="px-6 py-8 max-w-6xl mx-auto w-full">
+
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold mb-1">Full Test</h1>
+      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
+    </div>
+
+    <!-- Info banner -->
+    <div class="mb-6 rounded-2xl px-5 py-4 flex items-start gap-3"
+         style="background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.2);">
+      <span class="text-lg flex-shrink-0">🔊</span>
+      <div>
+        <p class="text-sm font-semibold mb-1" style="color:#38bdf8;">Chế độ Listening (mặc định)</p>
+        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.55);">
+          Câu hỏi sẽ được đọc to bởi AI (giọng nói tự nhiên). Văn bản câu hỏi ẩn mặc định — bạn có thể bật hiển thị bất cứ lúc nào. Đánh giá theo 4 tiêu chí IELTS: FC, LR, GRA, Pronunciation.
+        </p>
+      </div>
+    </div>
+
+    <div class="space-y-4 mb-6">
+
+      <!-- Part 1 -->
+      <div class="ft-part-row">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">💬</div>
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
+            <span class="text-xs ml-2" style="color:rgba(255,255,255,0.35);">3 chủ đề × 3 câu = 9 câu</span>
+          </div>
+        </div>
+        <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">
+          3 chủ đề <span style="color:rgba(255,255,255,0.3);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
+        </label>
+        <div class="space-y-2">
+          <input id="ft-p1-topic-1" type="text" class="tab-input"
+                 placeholder="Chủ đề 1 — Ví dụ: Daily Life &amp; Hobbies"
+                 maxlength="120" />
+          <input id="ft-p1-topic-2" type="text" class="tab-input"
+                 placeholder="Chủ đề 2 — Ví dụ: Technology"
+                 maxlength="120" />
+          <input id="ft-p1-topic-3" type="text" class="tab-input"
+                 placeholder="Chủ đề 3 — Ví dụ: Travel &amp; Transport"
+                 maxlength="120" />
+        </div>
+      </div>
+
+      <!-- Part 2 -->
+      <div class="ft-part-row">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">🗒️</div>
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
+            <span class="text-xs ml-2" style="color:rgba(255,255,255,0.35);">1 cue card</span>
+          </div>
+        </div>
+        <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">
+          Chủ đề <span style="color:rgba(255,255,255,0.3);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
+        </label>
+        <input id="ft-p2-topic" type="text" class="tab-input"
+               placeholder="Ví dụ: A person you admire, A memorable journey..."
+               maxlength="120" />
+      </div>
+
+      <!-- Part 3 -->
+      <div class="ft-part-row" style="opacity:0.7;">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+               style="background:rgba(15,118,110,0.2);">🧠</div>
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
+            <span class="text-xs ml-2" style="color:rgba(255,255,255,0.35);">5 câu hỏi</span>
+          </div>
+        </div>
+        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.4);">
+          Tự động tạo từ chủ đề Part 2 — không cần nhập.
+        </p>
+      </div>
+
+    </div>
+
+    <p id="ft-error" class="tab-error mb-3"></p>
+    <button class="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide"
+            onclick="startFullTest(event)">
+      🏆 Bắt đầu Full Test
+    </button>
+
+  </div>
+  </div><!-- /tab-fulltest -->
+
+
   </main>
+
+  <!-- ─── TOPIC MODAL ──────────────────────────────────────────────── -->
+  <div id="topic-modal" class="modal-backdrop" onclick="handleModalBackdropClick(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-base">Chọn chủ đề luyện tập</h2>
+        <button onclick="closeTopicModal()"
+                class="w-8 h-8 flex items-center justify-center rounded-full transition"
+                style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.55);"
+                onmouseover="this.style.background='rgba(255,255,255,0.13)'"
+                onmouseout="this.style.background='rgba(255,255,255,0.07)'">✕</button>
+      </div>
+
+      <!-- Subtitle -->
+      <p id="modal-subtitle" class="text-sm mb-5" style="color:rgba(255,255,255,0.55);">
+        Bạn muốn luyện tập Part 1 với chủ đề nào?
+      </p>
+
+      <!-- Tabs -->
+      <div class="flex gap-1.5 mb-5 p-1 rounded-xl" style="background:rgba(255,255,255,0.05);">
+        <button id="tab-list" class="topic-tab active" onclick="switchTopicTab('list')">
+          📚 Chọn từ danh sách
+        </button>
+        <button id="tab-custom" class="topic-tab" onclick="switchTopicTab('custom')">
+          ✏️ Tự nhập chủ đề
+        </button>
+        <button id="tab-myq" class="topic-tab" onclick="switchTopicTab('myq')">
+          ✍️ Câu hỏi riêng
+        </button>
+      </div>
+
+      <!-- Panel: Chọn từ danh sách -->
+      <div id="panel-list">
+        <label class="block text-xs font-medium mb-2" style="color:rgba(255,255,255,0.5);">Chủ đề đề xuất</label>
+        <div id="topic-select-wrap" style="position:relative;">
+          <select id="topic-select" class="topic-input" style="appearance:none;padding-right:36px;">
+            <option value="" disabled selected>— Đang tải danh sách... —</option>
+          </select>
+          <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:rgba(255,255,255,0.4);">▾</span>
+        </div>
+      </div>
+
+      <!-- Panel: Tự nhập -->
+      <div id="panel-custom" class="hidden">
+        <label class="block text-xs font-medium mb-2" style="color:rgba(255,255,255,0.5);">Nhập chủ đề của bạn</label>
+        <input id="topic-custom-input" type="text" class="topic-input"
+               placeholder="Ví dụ: AI technology, Fast food, Work-life balance..."
+               maxlength="120"
+               onkeydown="if(event.key==='Enter') confirmTopicAndStart()" />
+      </div>
+
+      <!-- Panel: Câu hỏi riêng -->
+      <div id="panel-myq" class="hidden">
+        <label class="block text-xs font-medium mb-2" style="color:rgba(255,255,255,0.5);">Nhập câu hỏi của bạn (mỗi dòng một câu)</label>
+        <textarea id="myq-input" rows="5" class="topic-input" style="resize:vertical;min-height:100px;"
+                  placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable trip you have taken."
+                  maxlength="2000"></textarea>
+        <p class="text-xs mt-1.5" style="color:rgba(255,255,255,0.35);">
+          Tối đa 10 câu hỏi. App sẽ bỏ qua bước tạo câu hỏi AI và đi thẳng vào luyện tập.
+        </p>
+      </div>
+
+      <!-- Error -->
+      <p id="modal-error" class="modal-error"></p>
+
+      <!-- Confirm -->
+      <button id="btn-confirm" class="btn-confirm mt-4" onclick="confirmTopicAndStart()">
+        🚀 Bắt đầu tạo câu hỏi
+      </button>
+
+    </div>
+  </div>
 
   <!-- ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/format.js"></script>
   <script>
     // ── Config ────────────────────────────────────────────────
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
-    var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaHJ0cXNwem5lcG12ZXl1cnptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNjgxNjIsImV4cCI6MjA5MDk0NDE2Mn0.xnJ7XLLZFVjbaJtbF8S2sMhFsrHMB6onKNY66ViqWpU';
-    var INDEX_URL     = '/index.html';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    var INDEX_URL     = '../index.html';
     // window.api.base is set by api.js — picks localhost:8000 locally, production URL otherwise.
-    var PRACTICE_URL  = '/pages/practice.html';
+    var PRACTICE_URL  = 'practice.html';
 
     // ── Init Supabase (uses api.js helpers — never redeclares `supabase`) ──
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
@@ -311,9 +877,60 @@
       return session;
     }
 
+    // ── Permission helpers ────────────────────────────────────
+    var _userPerms = ['practice_single', 'practice_part', 'practice_full']; // safe default until /auth/me loads
+
+    function _hasPermission(scope) {
+      return _userPerms.indexOf('all') !== -1 || _userPerms.indexOf(scope) !== -1;
+    }
+
+    function applyPermissions() {
+      var tabDefs = [
+        { tab: 'practice',  scope: 'practice_single', label: 'Luyện tập' },
+        { tab: 'partbpart', scope: 'practice_part',   label: 'Luyện từng Part' },
+        { tab: 'fulltest',  scope: 'practice_full',   label: 'Full Test' },
+      ];
+
+      tabDefs.forEach(function (def) {
+        var allowed = _hasPermission(def.scope);
+        var btn     = document.getElementById('mtab-' + def.tab);
+        var panel   = document.getElementById('tab-' + def.tab);
+
+        if (btn) {
+          btn.disabled = !allowed;
+          btn.title    = allowed ? '' : 'Tài khoản không có quyền truy cập ' + def.label;
+          btn.style.opacity = allowed ? '' : '0.4';
+          btn.style.cursor  = allowed ? '' : 'not-allowed';
+        }
+
+        // Inject a locked banner inside the panel (once)
+        if (panel && !allowed && !panel.querySelector('.perm-locked-banner')) {
+          var banner = document.createElement('div');
+          banner.className = 'perm-locked-banner';
+          banner.style.cssText = 'margin:32px auto;max-width:400px;text-align:center;padding:28px 20px;border-radius:16px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);';
+          banner.innerHTML = '<div style="font-size:2rem;margin-bottom:8px;">🔒</div>'
+            + '<p style="font-weight:700;margin-bottom:6px;">' + def.label + ' không khả dụng</p>'
+            + '<p style="font-size:13px;color:rgba(255,255,255,0.5);">Gói truy cập của bạn không bao gồm tính năng này. Liên hệ admin để nâng cấp.</p>';
+          panel.insertAdjacentElement('afterbegin', banner);
+        }
+      });
+
+      // Also disable quick-start cards on the dashboard tab
+      if (!_hasPermission('practice_single')) {
+        document.querySelectorAll('[onclick*="practice"]').forEach(function (el) {
+          el.style.pointerEvents = 'none'; el.style.opacity = '0.4';
+        });
+      }
+      if (!_hasPermission('practice_full')) {
+        document.querySelectorAll('[onclick*="fulltest"], .btn-fulltest').forEach(function (el) {
+          el.style.pointerEvents = 'none'; el.style.opacity = '0.4';
+        });
+      }
+    }
+
     // ── Render user info ──────────────────────────────────────
     function renderUser(user) {
-      document.getElementById('user-name-skeleton').classList.add('hidden');
+      document.getElementById('user-name-skeleton').style.display = 'none';
       const nameEl = document.getElementById('user-name');
       const displayName = user.display_name || user.full_name || user.email?.split('@')[0] || 'Bạn';
       nameEl.textContent = displayName;
@@ -330,6 +947,12 @@
         const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
         document.getElementById('avatar-initials').textContent = initials;
       }
+
+      // Apply permissions from /auth/me response
+      if (Array.isArray(user.permissions)) {
+        _userPerms = user.permissions;
+      }
+      applyPermissions();
     }
 
     // ── Render stats ──────────────────────────────────────────
@@ -344,7 +967,7 @@
       const completed = sessions.filter(s => s.overall_band != null);
       if (completed.length > 0) {
         const avg = completed.reduce((sum, s) => sum + s.overall_band, 0) / completed.length;
-        document.getElementById('stat-band').textContent = avg.toFixed(1);
+        document.getElementById('stat-band').textContent = roundHalf(avg).toFixed(1);
         document.getElementById('stat-band').nextElementSibling.textContent = `${completed.length} lần chấm`;
       }
 
@@ -375,13 +998,13 @@
         .map(s => {
           const date = new Date(s.started_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
           const band = s.overall_band != null
-            ? `<span style="color:#14b8a6;font-weight:700;">${s.overall_band.toFixed(1)}</span>`
+            ? `<span style="color:#14b8a6;font-weight:700;">${roundHalf(s.overall_band).toFixed(1)}</span>`
             : '<span style="color:rgba(255,255,255,0.3);">—</span>';
           const badge = s.status === 'completed'
             ? '<span class="badge-done text-xs px-2.5 py-1 rounded-full font-medium">Hoàn thành</span>'
             : '<span class="badge-pending text-xs px-2.5 py-1 rounded-full font-medium">Đang xử lý</span>';
           const viewBtn = s.id
-            ? `<a href="/pages/result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
+            ? `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
             : '—';
           return `
             <tr class="session-row" style="border-bottom:1px solid rgba(255,255,255,0.04);">
@@ -396,26 +1019,356 @@
         .join('');
     }
 
+    // ── Charts ───────────────────────────────────────────────
+    var _chartLine  = null;
+    var _chartRadar = null;
+
+    function renderCharts(sessions) {
+      // Only completed sessions with an overall band, sorted oldest→newest, max 20
+      var completed = sessions
+        .filter(function (s) { return s.status === 'completed' && s.overall_band != null; })
+        .sort(function (a, b) { return new Date(a.started_at) - new Date(b.started_at); })
+        .slice(-20);
+
+      // ── Line chart ────────────────────────────────────────
+      if (completed.length < 2) {
+        document.getElementById('line-chart-wrap').classList.add('hidden');
+        document.getElementById('line-chart-empty').classList.remove('hidden');
+      } else {
+        var labels = completed.map(function (s) {
+          var d = new Date(s.started_at);
+          return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+        });
+
+        function lineDS(label, key, color, dashed) {
+          return {
+            label: label,
+            data: completed.map(function (s) { return s[key] != null ? s[key] : null; }),
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: dashed ? 1.5 : 2.5,
+            borderDash: dashed ? [5, 4] : [],
+            pointRadius: dashed ? 2 : 4,
+            pointHoverRadius: dashed ? 4 : 6,
+            pointBackgroundColor: color,
+            tension: 0.35,
+            spanGaps: true,
+          };
+        }
+
+        var lineCtx = document.getElementById('chart-line').getContext('2d');
+        if (_chartLine) _chartLine.destroy();
+        _chartLine = new Chart(lineCtx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              lineDS('Overall', 'overall_band', '#14b8a6', false),
+              lineDS('FC',      'band_fc',      '#38bdf8', true),
+              lineDS('LR',      'band_lr',      '#a78bfa', true),
+              lineDS('GRA',     'band_gra',     '#fb923c', true),
+              lineDS('P',       'band_p',       '#f472b6', true),
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              y: {
+                min: 0,
+                max: 9,
+                ticks: {
+                  stepSize: 1,
+                  color: 'rgba(255,255,255,0.38)',
+                  font: { size: 11 },
+                },
+                grid: { color: 'rgba(255,255,255,0.06)' },
+                border: { color: 'rgba(255,255,255,0.08)' },
+              },
+              x: {
+                ticks: { color: 'rgba(255,255,255,0.38)', font: { size: 11 }, maxRotation: 0 },
+                grid: { display: false },
+                border: { color: 'rgba(255,255,255,0.08)' },
+              },
+            },
+            plugins: {
+              legend: {
+                labels: {
+                  color: 'rgba(255,255,255,0.55)',
+                  boxWidth: 10,
+                  boxHeight: 10,
+                  font: { size: 11 },
+                  padding: 14,
+                },
+              },
+              tooltip: {
+                backgroundColor: 'rgba(12,35,64,0.95)',
+                titleColor: 'rgba(255,255,255,0.7)',
+                bodyColor: 'rgba(255,255,255,0.85)',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                callbacks: {
+                  label: function (ctx) {
+                    return ctx.dataset.label + ': ' + (ctx.raw != null ? roundHalf(ctx.raw).toFixed(1) : '—');
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      // ── Radar chart ───────────────────────────────────────
+      var last5 = completed.slice(-5).filter(function (s) {
+        return s.band_fc != null || s.band_lr != null || s.band_gra != null || s.band_p != null;
+      });
+
+      if (last5.length === 0) {
+        document.getElementById('radar-chart-wrap').classList.add('hidden');
+        document.getElementById('radar-chart-empty').classList.remove('hidden');
+      } else {
+        function avgCrit(key) {
+          var vals = last5.map(function (s) { return s[key]; }).filter(function (v) { return v != null; });
+          return vals.length ? Math.round((vals.reduce(function (a, b) { return a + b; }, 0) / vals.length) * 10) / 10 : 0;
+        }
+
+        var radarCtx = document.getElementById('chart-radar').getContext('2d');
+        if (_chartRadar) _chartRadar.destroy();
+        _chartRadar = new Chart(radarCtx, {
+          type: 'radar',
+          data: {
+            labels: ['Fluency &\nCoherence', 'Lexical\nResource', 'Grammatical\nRange', 'Pronunciation'],
+            datasets: [{
+              label: 'Band trung bình',
+              data: [avgCrit('band_fc'), avgCrit('band_lr'), avgCrit('band_gra'), avgCrit('band_p')],
+              backgroundColor: 'rgba(20,184,166,0.15)',
+              borderColor: '#14b8a6',
+              borderWidth: 2,
+              pointBackgroundColor: '#14b8a6',
+              pointBorderColor: '#0a1628',
+              pointBorderWidth: 1.5,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              r: {
+                min: 0,
+                max: 9,
+                ticks: {
+                  stepSize: 3,
+                  color: 'rgba(255,255,255,0.35)',
+                  font: { size: 10 },
+                  backdropColor: 'transparent',
+                },
+                grid: { color: 'rgba(255,255,255,0.1)' },
+                angleLines: { color: 'rgba(255,255,255,0.1)' },
+                pointLabels: { color: 'rgba(255,255,255,0.55)', font: { size: 11 } },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(12,35,64,0.95)',
+                bodyColor: 'rgba(255,255,255,0.85)',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                callbacks: {
+                  label: function (ctx) {
+                    return ctx.label.replace('\n', ' ') + ': ' + roundHalf(ctx.raw).toFixed(1);
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+    }
+
+    // ── Topic Modal ───────────────────────────────────────────
+    var _modalPart = 1;
+    var _modalMode = 'practice';
+    var _activeTopicTab = 'list';
+
+    async function openTopicModal(part, mode) {
+      _modalPart = part;
+      _modalMode = mode || 'practice';
+
+      // Reset state
+      document.getElementById('modal-subtitle').textContent =
+        'Bạn muốn luyện tập Part ' + part + ' với chủ đề nào?';
+      document.getElementById('modal-error').textContent = '';
+      document.getElementById('topic-custom-input').value = '';
+      switchTopicTab('list');
+
+      // Load topics from API
+      var select = document.getElementById('topic-select');
+      select.innerHTML = '<option value="" disabled selected>— Đang tải danh sách... —</option>';
+      select.disabled = true;
+
+      var modal = document.getElementById('topic-modal');
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+
+      try {
+        var session = await requireAuth();
+        if (!session) return;
+        var topics = await window.api.get('/topics?part=' + part);
+        select.innerHTML = '';
+        if (!topics || topics.length === 0) {
+          select.innerHTML = '<option value="" disabled selected>— Không có chủ đề nào —</option>';
+          // Automatically switch to custom input if no topics available
+          switchTopicTab('custom');
+        } else {
+          select.innerHTML = '<option value="" disabled selected>— Chọn một chủ đề —</option>';
+          topics.forEach(function (t) {
+            var opt = document.createElement('option');
+            opt.value = t.title;
+            opt.textContent = t.title + (t.category ? ' · ' + t.category : '');
+            select.appendChild(opt);
+          });
+          select.disabled = false;
+        }
+      } catch (err) {
+        select.innerHTML = '<option value="" disabled selected>— Không thể tải danh sách —</option>';
+        switchTopicTab('custom');
+      }
+    }
+
+    function closeTopicModal() {
+      var modal = document.getElementById('topic-modal');
+      modal.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function handleModalBackdropClick(e) {
+      if (e.target === document.getElementById('topic-modal')) closeTopicModal();
+    }
+
+    function switchTopicTab(tab) {
+      _activeTopicTab = tab;
+      document.getElementById('tab-list').classList.toggle('active', tab === 'list');
+      document.getElementById('tab-custom').classList.toggle('active', tab === 'custom');
+      document.getElementById('tab-myq').classList.toggle('active', tab === 'myq');
+      document.getElementById('panel-list').classList.toggle('hidden', tab !== 'list');
+      document.getElementById('panel-custom').classList.toggle('hidden', tab !== 'custom');
+      document.getElementById('panel-myq').classList.toggle('hidden', tab !== 'myq');
+      // Update button label
+      var btn = document.getElementById('btn-confirm');
+      if (btn) btn.textContent = tab === 'myq' ? '✍️ Bắt đầu luyện tập' : '🚀 Bắt đầu tạo câu hỏi';
+      document.getElementById('modal-error').textContent = '';
+    }
+
+    async function confirmTopicAndStart() {
+      var errorEl = document.getElementById('modal-error');
+      var btn     = document.getElementById('btn-confirm');
+      errorEl.textContent = '';
+
+      // ── Custom questions mode ─────────────────────────────────────────────────
+      if (_activeTopicTab === 'myq') {
+        var raw = document.getElementById('myq-input').value.trim();
+        if (!raw) {
+          errorEl.textContent = 'Vui lòng nhập ít nhất một câu hỏi.';
+          return;
+        }
+        var questions = raw.split('\n')
+          .map(function (l) { return l.trim(); })
+          .filter(function (l) { return l.length > 0; })
+          .slice(0, 10);
+        if (questions.length === 0) {
+          errorEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.';
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Đang tạo session...';
+
+        try {
+          var session = await window.api.post('/sessions', {
+            mode: _modalMode,
+            part: _modalPart,
+            topic: 'Custom questions',
+          });
+          var sessionId = session && (session.id || session.session_id);
+          if (!sessionId) throw new Error('Server không trả về session hợp lệ. Hãy thử lại.');
+
+          // Save custom questions — skip AI generation
+          await window.api.post('/sessions/' + sessionId + '/questions/custom', {
+            questions: questions,
+          });
+
+          closeTopicModal();
+          window.location.href = PRACTICE_URL + '?session_id=' + sessionId;
+        } catch (err) {
+          errorEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo session.');
+          btn.disabled = false;
+          btn.textContent = '✍️ Bắt đầu luyện tập';
+        }
+        return;
+      }
+
+      // ── Topic-based modes (list / custom) ─────────────────────────────────────
+      var topic = '';
+      if (_activeTopicTab === 'list') {
+        topic = document.getElementById('topic-select').value;
+      } else {
+        topic = document.getElementById('topic-custom-input').value.trim();
+      }
+
+      if (!topic) {
+        errorEl.textContent =
+          _activeTopicTab === 'list'
+            ? 'Vui lòng chọn một chủ đề từ danh sách.'
+            : 'Vui lòng nhập chủ đề trước khi bắt đầu.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Đang tạo session...';
+
+      try {
+        var session = await window.api.post('/sessions', {
+          mode: _modalMode,
+          part: _modalPart,
+          topic: topic,
+        });
+
+        var sessionId = session && (session.id || session.session_id);
+        if (!sessionId) throw new Error('Server không trả về session hợp lệ. Hãy thử lại.');
+
+        closeTopicModal();
+        window.location.href = PRACTICE_URL + '?session_id=' + sessionId;
+      } catch (err) {
+        errorEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo session.');
+        btn.disabled = false;
+        btn.textContent = '🚀 Bắt đầu tạo câu hỏi';
+      }
+    }
+
     // ── Navigation ────────────────────────────────────────────
-    // Default topics used when the user hasn't chosen one (quick-start flow)
+    // Default topics used by Test/Full-Test (bypass modal)
     var _DEFAULT_TOPICS = {
       1: 'Daily Life & Personal Interests',
       2: 'Describing a Person or Experience',
       3: 'Society, Technology & Modern Issues',
     };
 
-    async function startPractice(part) {
-      // 'full' test starts as Part 1 until multi-part sessions are supported
+    async function startPractice(part, mode) {
+      mode = mode || 'practice';
       var resolvedPart = (part === 'full') ? 1 : part;
       var topic = _DEFAULT_TOPICS[resolvedPart] || 'General';
 
       // Disable every start button to prevent double-submit during the API call
-      var btns = document.querySelectorAll('.btn-start, .btn-fulltest');
+      var btns = document.querySelectorAll('.btn-start, .btn-fulltest, .btn-test');
       btns.forEach(function (b) { b.disabled = true; b.style.opacity = '0.5'; });
 
       try {
         var session = await window.api.post('/sessions', {
-          mode: 'practice',
+          mode: mode,
           part: resolvedPart,
           topic: topic,
         });
@@ -428,7 +1381,7 @@
         window.location.href = PRACTICE_URL + '?session_id=' + sessionId;
       } catch (err) {
         alert('Không thể tạo session: ' + (err.message || 'Lỗi không xác định'));
-        btns.forEach(function (b) { b.disabled = false; b.style.opacity = ''; });
+        btns.forEach(function (b) { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
       }
     }
 
@@ -437,6 +1390,207 @@
       await sb.auth.signOut();
       window.location.href = INDEX_URL;
     });
+
+    // ── Main Tab Navigation ───────────────────────────────────
+    var _activeMainTab = 'dashboard';
+
+    function switchMainTab(tab) {
+      _activeMainTab = tab;
+      ['dashboard', 'practice', 'partbpart', 'fulltest'].forEach(function (t) {
+        var btn   = document.getElementById('mtab-' + t);
+        var panel = document.getElementById('tab-' + t);
+        if (btn)   btn.classList.toggle('active', t === tab);
+        if (panel) panel.classList.toggle('active', t === tab);
+      });
+      // Lazy-load topics when tab first opened
+      if (tab === 'practice')  loadPracTopics(_pracTopicPart);
+      if (tab === 'partbpart') { selectPbpPart(_pbpPart); }
+    }
+
+    // ── Tab 2: Practice ───────────────────────────────────────
+    var _pracPart      = 1;   // custom-question part context
+    var _pracTopicPart = 1;   // topic-based part
+
+    function setPracPart(part) {
+      _pracPart = part;
+      [1, 2, 3].forEach(function (p) {
+        document.getElementById('prac-part-' + p).classList.toggle('selected', p === part);
+      });
+    }
+
+    function setPracTopicPart(part) {
+      _pracTopicPart = part;
+      [1, 2, 3].forEach(function (p) {
+        document.getElementById('prac-tp-part-' + p).classList.toggle('selected', p === part);
+      });
+      loadPracTopics(part);
+    }
+
+    async function loadPracTopics(part) {
+      var select = document.getElementById('prac-topic-select');
+      if (!select) return;
+      select.innerHTML = '<option value="" disabled selected>— Đang tải... —</option>';
+      select.disabled = true;
+      try {
+        var sess = await requireAuth(); if (!sess) return;
+        var topics = await window.api.get('/topics?part=' + part);
+        select.innerHTML = '';
+        if (!topics || topics.length === 0) {
+          select.innerHTML = '<option value="" disabled selected>— Không có chủ đề —</option>';
+        } else {
+          select.innerHTML = '<option value="" disabled selected>— Chọn chủ đề —</option>';
+          topics.forEach(function (t) {
+            var o = document.createElement('option');
+            o.value = t.title;
+            o.textContent = t.title + (t.category ? ' · ' + t.category : '');
+            select.appendChild(o);
+          });
+        }
+        select.disabled = false;
+      } catch (_) {
+        select.innerHTML = '<option value="" disabled selected>— Không thể tải —</option>';
+      }
+    }
+
+    async function startPracticeCustomQ(evt) {
+      var raw   = document.getElementById('prac-custom-q').value.trim();
+      var errEl = document.getElementById('prac-custom-q-error');
+      errEl.textContent = '';
+      if (!raw) { errEl.textContent = 'Vui lòng nhập ít nhất một câu hỏi.'; return; }
+      var questions = raw.split('\n').map(function (l) { return l.trim(); })
+                         .filter(function (l) { return l.length > 0; }).slice(0, 10);
+      if (!questions.length) { errEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.'; return; }
+      var btn = evt.target; btn.disabled = true; btn.textContent = 'Đang tạo...';
+      try {
+        var sess = await window.api.post('/sessions', { mode: 'practice', part: _pracPart, topic: 'Custom questions' });
+        var sid  = sess && (sess.id || sess.session_id);
+        if (!sid) throw new Error('Server không trả về session hợp lệ.');
+        await window.api.post('/sessions/' + sid + '/questions/custom', { questions: questions });
+        window.location.href = PRACTICE_URL + '?session_id=' + sid;
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo session.');
+        btn.disabled = false; btn.textContent = '✍️ Bắt đầu luyện tập';
+      }
+    }
+
+    async function startPracticeTopic(evt) {
+      var errEl     = document.getElementById('prac-topic-error');
+      errEl.textContent = '';
+      var customVal = document.getElementById('prac-topic-custom').value.trim();
+      var selectVal = document.getElementById('prac-topic-select').value;
+      var topic     = customVal || selectVal;
+      if (!topic) { errEl.textContent = 'Vui lòng chọn hoặc nhập chủ đề.'; return; }
+      var btn = evt.target; btn.disabled = true; btn.textContent = 'Đang tạo...';
+      try {
+        var sess = await window.api.post('/sessions', { mode: 'practice', part: _pracTopicPart, topic: topic });
+        var sid  = sess && (sess.id || sess.session_id);
+        if (!sid) throw new Error('Server không trả về session hợp lệ.');
+        window.location.href = PRACTICE_URL + '?session_id=' + sid;
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo session.');
+        btn.disabled = false; btn.textContent = '🚀 Bắt đầu tạo câu hỏi';
+      }
+    }
+
+    // ── Tab 3: Part-by-Part ───────────────────────────────────
+    var _pbpPart = 1;
+    var _pbpTopicsLoaded = false;
+
+    function selectPbpPart(part) {
+      _pbpPart = part;
+      _pbpTopicsLoaded = false;
+      [1, 2, 3].forEach(function (p) {
+        var card = document.getElementById('pbp-card-' + p);
+        if (card) card.classList.toggle('selected', p === part);
+      });
+      var section = document.getElementById('pbp-topic-section');
+      section.style.display = 'block';
+      document.getElementById('pbp-part-label').textContent = 'Chủ đề cho Part ' + part;
+      loadPbpTopics(part);
+    }
+
+    async function loadPbpTopics(part) {
+      var select = document.getElementById('pbp-topic-select');
+      if (!select) return;
+      select.innerHTML = '<option value="" disabled selected>— Đang tải... —</option>';
+      select.disabled = true;
+      try {
+        var sess = await requireAuth(); if (!sess) return;
+        var topics = await window.api.get('/topics?part=' + part);
+        select.innerHTML = '';
+        if (!topics || topics.length === 0) {
+          select.innerHTML = '<option value="" disabled selected>— Không có chủ đề —</option>';
+        } else {
+          select.innerHTML = '<option value="" disabled selected>— Chọn chủ đề —</option>';
+          topics.forEach(function (t) {
+            var o = document.createElement('option');
+            o.value = t.title;
+            o.textContent = t.title + (t.category ? ' · ' + t.category : '');
+            select.appendChild(o);
+          });
+        }
+        select.disabled = false;
+      } catch (_) {
+        select.innerHTML = '<option value="" disabled selected>— Không thể tải —</option>';
+      }
+    }
+
+    async function startPartByPart(evt) {
+      var errEl     = document.getElementById('pbp-error');
+      errEl.textContent = '';
+      var customVal = document.getElementById('pbp-topic-custom').value.trim();
+      var selectVal = document.getElementById('pbp-topic-select').value;
+      var topic     = customVal || selectVal;
+      if (!topic) { errEl.textContent = 'Vui lòng chọn hoặc nhập chủ đề.'; return; }
+      var btn = evt.target; btn.disabled = true; btn.textContent = 'Đang tạo...';
+      try {
+        var sess = await window.api.post('/sessions', { mode: 'test_part', part: _pbpPart, topic: topic });
+        var sid  = sess && (sess.id || sess.session_id);
+        if (!sid) throw new Error('Server không trả về session hợp lệ.');
+        window.location.href = PRACTICE_URL + '?session_id=' + sid;
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo session.');
+        btn.disabled = false; btn.textContent = '🚀 Bắt đầu luyện tập';
+      }
+    }
+
+    // ── Tab 4: Full Test ──────────────────────────────────────
+    async function _randomTopic(part) {
+      try {
+        var sess = await requireAuth(); if (!sess) return null;
+        var topics = await window.api.get('/topics?part=' + part);
+        if (topics && topics.length > 0) {
+          return topics[Math.floor(Math.random() * topics.length)].title;
+        }
+      } catch (_) {}
+      return _DEFAULT_TOPICS[part] || 'General';
+    }
+
+    async function startFullTest(evt) {
+      var errEl  = document.getElementById('ft-error');
+      errEl.textContent = '';
+      var p1In1 = document.getElementById('ft-p1-topic-1').value.trim();
+      var p1In2 = document.getElementById('ft-p1-topic-2').value.trim();
+      var p1In3 = document.getElementById('ft-p1-topic-3').value.trim();
+      var p2Input = document.getElementById('ft-p2-topic').value.trim();
+      var btn = evt.target; btn.disabled = true; btn.textContent = 'Đang chuẩn bị...';
+      try {
+        var t1 = p1In1 || await _randomTopic(1) || _DEFAULT_TOPICS[1];
+        var t2 = p1In2 || await _randomTopic(1) || _DEFAULT_TOPICS[1];
+        var t3 = p1In3 || await _randomTopic(1) || _DEFAULT_TOPICS[1];
+        var p1Topic = [t1, t2, t3].join('|||');
+        var p2Topic = p2Input || await _randomTopic(2) || _DEFAULT_TOPICS[2];
+        // Store Part 2 topic so practice.js can use it when chaining to Part 2
+        try { sessionStorage.setItem('ielts_ft_p2topic', p2Topic); } catch (_) {}
+        var sess = await window.api.post('/sessions', { mode: 'test_full', part: 1, topic: p1Topic });
+        var sid  = sess && (sess.id || sess.session_id);
+        if (!sid) throw new Error('Server không trả về session hợp lệ.');
+        window.location.href = PRACTICE_URL + '?session_id=' + sid;
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + (err.message || 'Không thể tạo session.');
+        btn.disabled = false; btn.textContent = '🏆 Bắt đầu Full Test';
+      }
+    }
 
     // ── Init ──────────────────────────────────────────────────
     async function init() {
@@ -463,9 +1617,13 @@
       }
 
       try {
-        const sessions = await api.get('/sessions');
+        const [sessions, completedSessions] = await Promise.all([
+          api.get('/sessions'),
+          api.get('/sessions?status=completed'),
+        ]);
         renderStats(sessions);
         renderHistory(sessions);
+        renderCharts(completedSessions);
       } catch (err) {
         // Backend unreachable — show empty state silently
         renderStats([]);

@@ -15,9 +15,7 @@ from fastapi.responses import StreamingResponse
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-# PDF DISABLED: WeasyPrint gobject dependency missing on this machine.
-# To re-enable: install system deps (see main.py comment), then uncomment this line.
-# from services.pdf_generator import generate_session_pdf
+from services.pdf_generator import generate_session_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -56,28 +54,24 @@ async def export_session_pdf(
         raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
 
     # ── Generate PDF ───────────────────────────────────────────────────────────
-    # PDF DISABLED: WeasyPrint system dependencies not available.
-    # To re-enable: uncomment the import above and the block below.
-    raise HTTPException(503, "PDF export is temporarily disabled (missing system dependencies)")
+    logger.info("[export] generating PDF for session=%s user=%s", session_id, user_id)
+    try:
+        pdf_bytes = await generate_session_pdf(session_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    except RuntimeError as exc:
+        logger.error("[export] PDF render failed for session=%s: %s", session_id, exc)
+        raise HTTPException(500, f"Không thể tạo PDF: {exc}")
 
-    # logger.info("[export] generating PDF for session=%s user=%s", session_id, user_id)
-    # try:
-    #     pdf_bytes = await generate_session_pdf(session_id)
-    # except ValueError as exc:
-    #     raise HTTPException(404, str(exc))
-    # except RuntimeError as exc:
-    #     logger.error("[export] PDF render failed for session=%s: %s", session_id, exc)
-    #     raise HTTPException(500, f"Không thể tạo PDF: {exc}")
+    # ── Filename ───────────────────────────────────────────────────────────────
+    date_tag = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename = f"IELTS_Report_{date_tag}.pdf"
 
-    # # ── Filename ───────────────────────────────────────────────────────────────
-    # date_tag = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    # filename = f"IELTS_Report_{date_tag}.pdf"
-
-    # return StreamingResponse(
-    #     iter([pdf_bytes]),
-    #     media_type="application/pdf",
-    #     headers={
-    #         "Content-Disposition": f'attachment; filename="{filename}"',
-    #         "Content-Length": str(len(pdf_bytes)),
-    #     },
-    # )
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )

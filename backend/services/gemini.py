@@ -23,12 +23,14 @@ Test:
 
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import google.generativeai as genai
 
 from config import settings
 from database import supabase_admin
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +38,14 @@ logger = logging.getLogger(__name__)
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
+_MODEL_NAME = "gemini-2.5-flash"
+
 _model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
+    model_name=_MODEL_NAME,
     generation_config=genai.types.GenerationConfig(
         response_mime_type="application/json",
-        temperature=0.9,        # enough variation across requests
-        max_output_tokens=1024,
+        temperature=0.7,        # lowered from 0.9 — reduces verbosity, less token pressure
+        max_output_tokens=8192, # raised from 1024 — prevents truncation when thinking is active
     ),
 )
 
@@ -92,40 +96,107 @@ def _cache_set(part: int, topic: str, questions) -> None:
 
 # ── Internal Gemini call ───────────────────────────────────────────────────────
 
-async def _call_gemini(prompt: str):
-    """Send prompt, return parsed JSON (list or dict). Raises on failure."""
+_FENCE_RE = re.compile(r"^```[a-z]*\n?|\n?```$", re.MULTILINE)
+
+
+async def _call_gemini(prompt: str, *, _retry: bool = True,
+                       user_id: str | None = None, session_id: str | None = None):
+    """Send prompt, return parsed JSON (list or dict). Raises ValueError on failure.
+
+    Defensive measures applied in order:
+      1. Strip optional markdown code fences (``` json ... ```)
+      2. Retry once on JSONDecodeError before giving up
+    """
+    logger.debug("[gemini] calling model=%s retry_allowed=%s", _MODEL_NAME, _retry)
+
     response = await _model.generate_content_async(prompt)
 
+    # Log token usage and persist to ai_usage_logs
     try:
-        return json.loads(response.text)
+        usage = response.usage_metadata
+        in_tok  = getattr(usage, "prompt_token_count",     0) or 0
+        out_tok = getattr(usage, "candidates_token_count", 0) or 0
+        logger.debug(
+            "[gemini] tokens — prompt=%s candidates=%s total=%s",
+            in_tok, out_tok,
+            getattr(usage, "total_token_count", "?"),
+        )
+        ai_usage_logger.log_gemini(
+            user_id=user_id,
+            session_id=session_id,
+            model=_MODEL_NAME,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+        )
+    except Exception:
+        pass  # usage_metadata not always present; never block on logging
+
+    text = response.text.strip()
+
+    # Strip markdown code fences the model occasionally wraps output in
+    if text.startswith("```"):
+        text = _FENCE_RE.sub("", text).strip()
+
+    try:
+        return json.loads(text)
     except json.JSONDecodeError as exc:
-        logger.error("Gemini returned non-JSON:\n%s", response.text)
+        preview = text[:200].replace("\n", " ")
+        if _retry:
+            logger.warning(
+                "[gemini] JSON parse failed (will retry once) — preview: %r | error: %s",
+                preview, exc,
+            )
+            return await _call_gemini(prompt, _retry=False, user_id=user_id, session_id=session_id)
+
+        logger.error(
+            "[gemini] JSON parse failed after retry — preview: %r | error: %s",
+            preview, exc,
+        )
         raise ValueError(f"Gemini response was not valid JSON: {exc}") from exc
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-async def generate_part1_questions(topic: str, count: int = 5) -> list[dict]:
+_PART1_FALLBACK_QUESTIONS = [
+    {"question_text": "Do you enjoy spending time outdoors?",                "question_type": "personal"},
+    {"question_text": "How often do you use public transportation?",         "question_type": "time"},
+    {"question_text": "What kind of music do you like listening to?",        "question_type": "personal"},
+    {"question_text": "Do you think technology has improved daily life?",    "question_type": "opinion"},
+    {"question_text": "Where did you grow up, and do you still live there?", "question_type": "place"},
+]
+
+
+async def generate_part1_questions(topic: str, count: int = 3,
+                                   user_id: str | None = None) -> list[dict]:
     """
     Tạo câu hỏi Part 1 IELTS Speaking về topic cho sẵn.
+
+    Guarantees exactly `count` results — retries Gemini once if the first call
+    yields fewer than needed, then pads with safe fallbacks.
 
     Returns list of:
         {
             "question_text":  str,
             "question_type":  "personal" | "opinion" | "comparison" | "time" | "place"
         }
-
-    Example (topic="Technology"):
-        - "Do you use social media every day?"        → personal
-        - "Has technology changed how people communicate?" → opinion
     """
     cached = _cache_get(part=1, topic=topic)
-    if cached is not None:
+    if cached is not None and len(cached) >= count:
         return cached[:count]
 
-    prompt = f"""You are an experienced IELTS Speaking examiner.
+    def _validate(questions) -> list[dict]:
+        return [
+            q for q in (questions or [])
+            if isinstance(q, dict)
+            and isinstance(q.get("question_text"), str)
+            and q["question_text"].strip()
+            and isinstance(q.get("question_type"), str)
+        ]
 
-Create exactly {count} Part 1 questions about the topic: "{topic}".
+    def _build_prompt(n: int) -> str:
+        return f"""You are an experienced IELTS Speaking examiner.
+
+Create exactly {n} Part 1 questions about the topic: "{topic}".
 
 Rules:
 - Each question must be one sentence, natural and conversational.
@@ -143,21 +214,37 @@ Return ONLY a valid JSON array — no markdown, no explanation, nothing else:
   ...
 ]"""
 
-    questions: list[dict] = await _call_gemini(prompt)
+    # First attempt
+    valid = _validate(await _call_gemini(_build_prompt(count), user_id=user_id))
 
-    # Validate shape — keep only well-formed items
-    valid = [
-        q for q in questions
-        if isinstance(q, dict)
-        and isinstance(q.get("question_text"), str)
-        and isinstance(q.get("question_type"), str)
-    ]
+    # Retry if we got fewer than needed
+    if len(valid) < count:
+        deficit = count - len(valid)
+        logger.warning(
+            "[gemini] Part 1 topic=%r: got %d/%d valid questions — retrying for %d more",
+            topic, len(valid), count, deficit,
+        )
+        try:
+            extra = _validate(await _call_gemini(_build_prompt(deficit), user_id=user_id))
+            valid = valid + extra
+        except Exception as exc:
+            logger.warning("[gemini] Part 1 retry failed for topic=%r: %s", topic, exc)
 
-    _cache_set(part=1, topic=topic, questions=valid)
-    return valid[:count]
+    # Pad with safe defaults if still short
+    if len(valid) < count:
+        pad_needed = count - len(valid)
+        logger.warning(
+            "[gemini] Part 1 topic=%r: still %d short after retry — padding with defaults",
+            topic, pad_needed,
+        )
+        valid = valid + _PART1_FALLBACK_QUESTIONS[:pad_needed]
+
+    result = valid[:count]
+    _cache_set(part=1, topic=topic, questions=result)
+    return result
 
 
-async def generate_part2_cuecard(topic: str) -> dict:
+async def generate_part2_cuecard(topic: str, user_id: str | None = None) -> dict:
     """
     Tạo cue card Part 2 IELTS Speaking.
 
@@ -194,7 +281,7 @@ Rules:
 - cue_card_reflection: one clause starting with "and explain why/how/what"
 """
 
-    cuecard: dict = await _call_gemini(prompt)
+    cuecard: dict = await _call_gemini(prompt, user_id=user_id)
 
     # Ensure bullets is a list of exactly 3
     bullets = cuecard.get("cue_card_bullets", [])
@@ -206,7 +293,8 @@ Rules:
     return cuecard
 
 
-async def generate_part3_questions(topic: str, count: int = 3) -> list[dict]:
+async def generate_part3_questions(topic: str, count: int = 3,
+                                   user_id: str | None = None) -> list[dict]:
     """
     Tạo câu hỏi Part 3 IELTS Speaking — abstract, analytical, discussion-based.
 
@@ -227,6 +315,12 @@ Create exactly {count} Part 3 questions related to the topic: "{topic}".
 Part 3 questions must be abstract and analytical — they discuss broader societal issues,
 not personal experiences. They require the candidate to speculate, compare, or argue.
 
+STRICT RULES FOR EACH QUESTION:
+- Each question must be ONE single question — never combine two questions into one sentence.
+- Maximum 15 words per question. Short, direct, clear.
+- Do NOT use "and" to join two separate questions (e.g. "Why X and how does Y?" is WRONG).
+- End with exactly one question mark.
+
 Assign exactly one question_type from: opinion, comparison, prediction, cause_effect, solution.
   opinion      = "Do you think society should...?"
   comparison   = "How has X changed compared to...?"
@@ -240,14 +334,22 @@ Return ONLY a valid JSON array — no markdown, no explanation:
   ...
 ]"""
 
-    questions: list[dict] = await _call_gemini(prompt)
+    questions: list[dict] = await _call_gemini(prompt, user_id=user_id)
 
-    valid = [
-        q for q in questions
-        if isinstance(q, dict)
-        and isinstance(q.get("question_text"), str)
-        and isinstance(q.get("question_type"), str)
-    ]
+    valid = []
+    for q in questions:
+        if not isinstance(q, dict):
+            continue
+        text = q.get("question_text", "")
+        qtype = q.get("question_type", "")
+        if not isinstance(text, str) or not isinstance(qtype, str):
+            continue
+        # Reject questions that are too long (likely compound/merged)
+        word_count = len(text.split())
+        if word_count > 20:
+            logger.warning("[warn] Part 3 question too long (%d words), skipping: %r", word_count, text)
+            continue
+        valid.append(q)
 
     _cache_set(part=3, topic=topic, questions=valid)
     return valid[:count]

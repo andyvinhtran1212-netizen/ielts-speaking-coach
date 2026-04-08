@@ -1,31 +1,151 @@
 """
-services/pdf_generator.py — PDF report generation via WeasyPrint
+services/pdf_generator.py — PDF report via ReportLab (pure Python, zero system deps)
 
 Usage:
     from services.pdf_generator import generate_session_pdf
     pdf_bytes = await generate_session_pdf(session_id)
 
-Requires: weasyprint==62.3  (already in requirements.txt)
+Requires: reportlab==4.4.10  (already in requirements.txt)
 """
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
-from html import escape
+from io import BytesIO
+from xml.sax.saxutils import escape as _esc
 
-from weasyprint import HTML as WeasyHTML
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import (
+    HRFlowable,
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 from database import supabase_admin
 
 logger = logging.getLogger(__name__)
 
-# Criterion display labels (abbrev → full name)
+
+def _round_half(val: float) -> float:
+    """Round to the nearest 0.5 — IELTS display convention (mirrors frontend roundHalf)."""
+    return round(val * 2) / 2
+
+# ── Unicode font registration (required for Vietnamese text) ───────────────────
+# Helvetica (built-in PDF) has no Vietnamese glyphs.  We try to register a
+# system TTF font that covers the full Latin Extended / Vietnamese range.
+# Priority: DejaVu (common on Ubuntu/Railway) → Liberation → Arial Unicode (macOS).
+# Falls back to Helvetica only when no suitable font is found.
+
+_VI_FONT   = "Helvetica"        # regular — overwritten below if a TTF is found
+_VI_FONT_B = "Helvetica-Bold"   # bold    — overwritten below
+
+
+def _init_unicode_font() -> None:
+    global _VI_FONT, _VI_FONT_B
+    candidates = [
+        # Ubuntu / Debian (Railway) — guaranteed after: apt install fonts-dejavu-core
+        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        # Some Ubuntu setups put them here
+        ("/usr/share/fonts/dejavu/DejaVuSans.ttf",
+         "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
+        # Liberation Sans (alternative on Ubuntu)
+        ("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+        # macOS — Arial Unicode ships with Office / macOS
+        ("/Library/Fonts/Arial Unicode.ttf", None),
+    ]
+    for reg_path, bold_path in candidates:
+        if not os.path.exists(reg_path):
+            continue
+        try:
+            pdfmetrics.registerFont(TTFont("VI", reg_path))
+            _VI_FONT = "VI"
+            if bold_path and os.path.exists(bold_path):
+                pdfmetrics.registerFont(TTFont("VI-Bold", bold_path))
+                _VI_FONT_B = "VI-Bold"
+            else:
+                _VI_FONT_B = "VI"   # use regular for bold too — acceptable fallback
+            logger.info("[pdf] unicode font registered: %s", reg_path)
+            return
+        except Exception as exc:
+            logger.warning("[pdf] could not register %s: %s", reg_path, exc)
+    logger.warning(
+        "[pdf] no unicode font found — Vietnamese text will not render correctly. "
+        "On Railway add 'fonts-dejavu-core' to apt packages (see nixpacks.toml)."
+    )
+
+
+_init_unicode_font()   # sets _VI_FONT / _VI_FONT_B before _T is built below
+
+# ── Page geometry ──────────────────────────────────────────────────────────────
+_MARGIN = 2 * cm
+_COL_W  = A4[0] - 2 * _MARGIN          # ≈ 481.9 pt available width
+
+# ── Colour palette ─────────────────────────────────────────────────────────────
+_C = {
+    "teal":     colors.HexColor("#0d9488"),
+    "navy":     colors.HexColor("#0f172a"),
+    "slate":    colors.HexColor("#334155"),
+    "muted":    colors.HexColor("#64748b"),
+    "v_muted":  colors.HexColor("#94a3b8"),
+    "bg_teal":  colors.HexColor("#f0fdfa"),
+    "bg_blue":  colors.HexColor("#eff6ff"),
+    "blue_dk":  colors.HexColor("#1e3a5f"),
+    "blue":     colors.HexColor("#3b82f6"),
+    "border":   colors.HexColor("#e2e8f0"),
+    "row_alt":  colors.HexColor("#f8fafc"),
+}
+
+# ── Criterion config ───────────────────────────────────────────────────────────
 _CRITERIA = [
-    ("band_fc",  "fc_feedback",  "Fluency & Coherence",         "FC"),
-    ("band_lr",  "lr_feedback",  "Lexical Resource",            "LR"),
+    ("band_fc",  "fc_feedback",  "Fluency & Coherence",          "FC"),
+    ("band_lr",  "lr_feedback",  "Lexical Resource",             "LR"),
     ("band_gra", "gra_feedback", "Grammatical Range & Accuracy", "GRA"),
-    ("band_p",   "p_feedback",   "Pronunciation",               "P"),
+    ("band_p",   "p_feedback",   "Pronunciation",                "P"),
 ]
+
+# ── Text styles ────────────────────────────────────────────────────────────────
+def _ps(name, **kw) -> ParagraphStyle:
+    return ParagraphStyle(name, **kw)
+
+_T = {
+    # Purely ASCII labels — Helvetica is fine and guaranteed available
+    "logo":    _ps("logo",    fontName="Helvetica-Bold",    fontSize=17, textColor=_C["teal"],    leading=21),
+    "sub":     _ps("sub",     fontName="Helvetica",         fontSize=9,  textColor=_C["muted"],   leading=12, spaceBefore=2),
+    "bnd_lbl": _ps("bnd_lbl", fontName="Helvetica",         fontSize=8,  textColor=_C["muted"],   alignment=TA_RIGHT, leading=11),
+    "bnd_big": _ps("bnd_big", fontName="Helvetica-Bold",    fontSize=44, textColor=_C["teal"],    alignment=TA_RIGHT, leading=52),
+    "bnd_na":  _ps("bnd_na",  fontName="Helvetica-Bold",    fontSize=32, textColor=_C["v_muted"], alignment=TA_RIGHT, leading=40),
+    "sec":     _ps("sec",     fontName="Helvetica-Bold",    fontSize=12, textColor=_C["navy"],    leading=15),
+    "cr_abbr": _ps("cr_abbr", fontName="Helvetica-Bold",    fontSize=10, textColor=_C["navy"],    leading=13),
+    "cr_full": _ps("cr_full", fontName="Helvetica",         fontSize=8,  textColor=_C["muted"],   leading=10),
+    "cr_bnd":  _ps("cr_bnd",  fontName="Helvetica-Bold",    fontSize=16, textColor=_C["teal"],    alignment=TA_CENTER, leading=20),
+    "cr_na":   _ps("cr_na",   fontName="Helvetica",         fontSize=13, textColor=_C["v_muted"], alignment=TA_CENTER, leading=17),
+    "q_num":   _ps("q_num",   fontName="Helvetica-Bold",    fontSize=8,  textColor=_C["teal"],    leading=11, spaceBefore=2),
+    "q_bnd":   _ps("q_bnd",   fontName="Helvetica-Bold",    fontSize=9,  textColor=_C["teal"],    leading=12, spaceAfter=5),
+    "lbl":     _ps("lbl",     fontName="Helvetica-Bold",    fontSize=8,  textColor=_C["muted"],   leading=11, spaceAfter=2),
+    "no_rsp":  _ps("no_rsp",  fontName="Helvetica-Oblique", fontSize=9,  textColor=_C["v_muted"], leading=13),
+    "ft_gen":  _ps("ft_gen",  fontName="Helvetica",         fontSize=8,  textColor=_C["v_muted"], alignment=TA_CENTER, leading=11),
+    "ft_hd":   _ps("ft_hd",   fontName="Helvetica-Bold",    fontSize=10, textColor=_C["navy"],    leading=14, spaceAfter=4),
+    # Content that may contain Vietnamese — use Unicode-capable font (_VI_FONT)
+    "meta":    _ps("meta",    fontName=_VI_FONT,   fontSize=9,  textColor=_C["slate"],   leading=15),
+    "cr_fb":   _ps("cr_fb",   fontName=_VI_FONT,   fontSize=9,  textColor=_C["slate"],   leading=13),
+    "q_txt":   _ps("q_txt",   fontName=_VI_FONT_B, fontSize=11, textColor=_C["navy"],    leading=15, spaceAfter=5),
+    "trans":   _ps("trans",   fontName=_VI_FONT,   fontSize=10, textColor=_C["slate"],   leading=15),
+    "impr":    _ps("impr",    fontName=_VI_FONT,   fontSize=10, textColor=_C["blue_dk"], leading=15),
+    "ft_li":   _ps("ft_li",   fontName=_VI_FONT,   fontSize=9,  textColor=_C["slate"],   leading=13, leftIndent=8),
+}
 
 
 # ── Public entry point ─────────────────────────────────────────────────────────
@@ -43,7 +163,7 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
 
     Raises:
         ValueError: if session_id does not exist.
-        RuntimeError: if WeasyPrint fails to render.
+        RuntimeError: if ReportLab fails to render.
     """
     # ── 1. Load session ────────────────────────────────────────────────────────
     s_res = (
@@ -102,7 +222,6 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
             all_improvements.extend(fb.get("improvements") or [])
 
     # ── 5. Resolve per-criterion bands and feedback text ───────────────────────
-    #   Priority: session columns → averaged from individual response feedback
     band_vals: dict = {
         "band_fc":  session.get("band_fc"),
         "band_lr":  session.get("band_lr"),
@@ -116,7 +235,6 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
         "p_feedback":   session.get("p_feedback"),
     }
 
-    # If any band is missing, compute average from responses
     if not all(band_vals.values()):
         parsed = [_parse_feedback(r.get("feedback")) for r in (r_res.data or [])]
         parsed = [f for f in parsed if f]
@@ -126,7 +244,6 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
                     vals = [f[key] for f in parsed if f.get(key) is not None]
                     band_vals[key] = round(sum(vals) / len(vals), 1) if vals else None
 
-    # If any feedback text is missing, take from the last graded response
     if not all(fb_texts.values()):
         for r in reversed(r_res.data or []):
             fb = _parse_feedback(r.get("feedback"))
@@ -136,7 +253,7 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
                         fb_texts[key] = fb.get(key, "")
                 break
 
-    # ── 6. Render HTML → PDF ───────────────────────────────────────────────────
+    # ── 6. Assemble render inputs ──────────────────────────────────────────────
     overall_band = session.get("overall_band")
     part_label   = {1: "Part 1", 2: "Part 2", 3: "Part 3"}.get(session.get("part"), "—")
     date_str     = _fmt_date(session.get("started_at") or session.get("completed_at"))
@@ -145,67 +262,199 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
     top_strengths    = list(dict.fromkeys(s for s in all_strengths    if s))[:3]
     top_improvements = list(dict.fromkeys(s for s in all_improvements if s))[:3]
 
-    criteria_html  = _build_criteria_table(band_vals, fb_texts)
-    questions_html = _build_question_sections(questions, responses_by_qid)
-
-    html = _render_html(
-        user_display     = user_display,
-        date_str         = date_str,
-        topic            = session.get("topic", "—"),
-        part_label       = part_label,
-        overall_band     = overall_band,
-        criteria_html    = criteria_html,
-        questions_html   = questions_html,
-        strengths        = top_strengths,
-        improvements     = top_improvements,
-        generated_date   = gen_date,
-    )
-
+    # ── 7. Render PDF ──────────────────────────────────────────────────────────
     try:
-        pdf_bytes: bytes = WeasyHTML(string=html).write_pdf()
+        pdf_bytes = _render_pdf(
+            user_display  = user_display,
+            date_str      = date_str,
+            topic         = session.get("topic", "—"),
+            part_label    = part_label,
+            overall_band  = overall_band,
+            band_vals     = band_vals,
+            fb_texts      = fb_texts,
+            questions     = questions,
+            responses_by_qid = responses_by_qid,
+            strengths     = top_strengths,
+            improvements  = top_improvements,
+            gen_date      = gen_date,
+        )
     except Exception as exc:
-        logger.error("[pdf] WeasyPrint render failed: %s", exc)
+        logger.error("[pdf] ReportLab render failed: %s", exc)
         raise RuntimeError(f"PDF render failed: {exc}") from exc
 
     logger.info("[pdf] rendered %d bytes for session=%s", len(pdf_bytes), session_id)
     return pdf_bytes
 
 
-# ── HTML builders ──────────────────────────────────────────────────────────────
+# ── Top-level renderer ─────────────────────────────────────────────────────────
 
-def _build_criteria_table(band_vals: dict, fb_texts: dict) -> str:
+def _render_pdf(
+    user_display: str,
+    date_str: str,
+    topic: str,
+    part_label: str,
+    overall_band,
+    band_vals: dict,
+    fb_texts: dict,
+    questions: list,
+    responses_by_qid: dict,
+    strengths: list,
+    improvements: list,
+    gen_date: str,
+) -> bytes:
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        rightMargin=_MARGIN,
+        leftMargin=_MARGIN,
+        topMargin=1.8 * cm,
+        bottomMargin=2 * cm,
+    )
+
+    story: list = []
+
+    # ── Header (logo + meta left | band score right) ───────────────────────────
+    meta_xml = (
+        f"<b>Candidate:</b> {_esc(user_display)}<br/>"
+        f"<b>Date:</b> {_esc(date_str)}    <b>Part:</b> {_esc(part_label)}<br/>"
+        f"<b>Topic:</b> {_esc(topic)}"
+    )
+    left_col = [
+        Paragraph("IELTS Speaking Coach", _T["logo"]),
+        Paragraph("Performance Report",   _T["sub"]),
+        Spacer(1, 8),
+        Paragraph(meta_xml, _T["meta"]),
+    ]
+
+    if overall_band is not None:
+        right_col = [
+            Paragraph("Overall Band",              _T["bnd_lbl"]),
+            Paragraph(f"{_round_half(overall_band):.1f}", _T["bnd_big"]),
+        ]
+    else:
+        right_col = [
+            Paragraph("Overall Band", _T["bnd_lbl"]),
+            Paragraph("—",            _T["bnd_na"]),
+        ]
+
+    hdr = Table(
+        [[left_col, right_col]],
+        colWidths=[_COL_W * 0.72, _COL_W * 0.28],
+    )
+    hdr.setStyle(TableStyle([
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 16),
+        ("LINEBELOW",     (0, 0), (-1, -1), 3, _C["teal"]),
+    ]))
+    story.append(hdr)
+    story.append(Spacer(1, 18))
+
+    # ── Score Overview ─────────────────────────────────────────────────────────
+    story.append(_section_title("Score Overview"))
+    story.append(Spacer(1, 8))
+    story.append(_build_criteria_table(band_vals, fb_texts))
+    story.append(Spacer(1, 22))
+
+    # ── Question Details ───────────────────────────────────────────────────────
+    story.append(_section_title("Question Details"))
+    story.append(Spacer(1, 10))
+    for block in _build_question_blocks(questions, responses_by_qid):
+        story.append(block)
+        story.append(Spacer(1, 10))
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 14))
+    story.append(HRFlowable(width=_COL_W, thickness=1, color=_C["border"]))
+    story.append(Spacer(1, 10))
+    story.append(Paragraph(f"Generated by IELTS Speaking Coach · {gen_date}", _T["ft_gen"]))
+    story.append(Spacer(1, 12))
+
+    str_items  = [Paragraph(f"- {_esc(s)}", _T["ft_li"]) for s in strengths]    or [Paragraph("—", _T["ft_li"])]
+    impr_items = [Paragraph(f"- {_esc(s)}", _T["ft_li"]) for s in improvements] or [Paragraph("—", _T["ft_li"])]
+
+    ft = Table(
+        [[
+            [Paragraph("Strengths",      _T["ft_hd"])] + str_items,
+            [Paragraph("Areas to Improve", _T["ft_hd"])] + impr_items,
+        ]],
+        colWidths=[_COL_W * 0.495, _COL_W * 0.495],
+        hAlign="LEFT",
+    )
+    ft.setStyle(TableStyle([
+        ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("LINEBEFORE",   (1, 0), (1, -1), 1, _C["border"]),
+        ("LEFTPADDING",  (1, 0), (1, -1), 14),
+    ]))
+    story.append(ft)
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+# ── Section heading with teal left bar ────────────────────────────────────────
+
+def _section_title(text: str) -> Table:
+    t = Table([[Paragraph(text, _T["sec"])]], colWidths=[_COL_W])
+    t.setStyle(TableStyle([
+        ("LINEBEFORE",    (0, 0), (0, -1), 4, _C["teal"]),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+        ("TOPPADDING",    (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+    ]))
+    return t
+
+
+# ── Criteria table ─────────────────────────────────────────────────────────────
+
+def _build_criteria_table(band_vals: dict, fb_texts: dict) -> Table:
+    W_NAME = 155
+    W_BAND = 58
+    W_FB   = _COL_W - W_NAME - W_BAND
+
     rows = []
     for band_key, fb_key, full_name, abbrev in _CRITERIA:
         band = band_vals.get(band_key)
         fb   = fb_texts.get(fb_key) or ""
+
+        name_cell = [
+            Paragraph(abbrev,    _T["cr_abbr"]),
+            Paragraph(full_name, _T["cr_full"]),
+        ]
         band_cell = (
-            f'<span class="criterion-band">{band:.0f}</span>'
+            Paragraph(f"{_round_half(band):.1f}", _T["cr_bnd"])
             if band is not None
-            else '<span class="criterion-band-na">—</span>'
+            else Paragraph("—", _T["cr_na"])
         )
-        rows.append(
-            f'<tr>'
-            f'<td class="crit-name"><strong>{abbrev}</strong><br>'
-            f'<span class="crit-fullname">{full_name}</span></td>'
-            f'<td class="crit-band">{band_cell}</td>'
-            f'<td class="crit-fb">{escape(fb)}</td>'
-            f'</tr>'
-        )
-    return (
-        '<table class="criteria-table">'
-        '<thead><tr>'
-        '<th style="width:180px;">Criterion</th>'
-        '<th style="width:60px;text-align:center;">Band</th>'
-        '<th>Feedback</th>'
-        '</tr></thead>'
-        '<tbody>' + "".join(rows) + '</tbody>'
-        '</table>'
-    )
+        rows.append([name_cell, band_cell, Paragraph(_esc(fb), _T["cr_fb"])])
+
+    t = Table(rows, colWidths=[W_NAME, W_BAND, W_FB])
+    t.setStyle(TableStyle([
+        ("GRID",          (0, 0), (-1, -1), 0.5, _C["border"]),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+        ("ALIGN",         (1, 0), (1, -1), "CENTER"),
+        ("BACKGROUND",    (0, 1), (-1, 1), _C["row_alt"]),
+        ("BACKGROUND",    (0, 3), (-1, 3), _C["row_alt"]),
+    ]))
+    return t
 
 
-def _build_question_sections(questions: list, responses_by_qid: dict) -> str:
+# ── Per-question blocks ────────────────────────────────────────────────────────
+
+def _build_question_blocks(questions: list, responses_by_qid: dict) -> list:
     if not questions:
-        return '<p style="color:#94a3b8;font-style:italic;">No questions recorded.</p>'
+        return [Paragraph("No questions recorded.", _T["no_rsp"])]
+
+    INNER_W = _COL_W - 28      # 14 pt padding each side inside the box
 
     blocks = []
     for i, q in enumerate(questions, start=1):
@@ -213,256 +462,187 @@ def _build_question_sections(questions: list, responses_by_qid: dict) -> str:
         q_text     = q.get("question_text") or "—"
         response   = responses_by_qid.get(qid)
         transcript = ""
-        band_html  = ""
-        improved   = ""
+        fb         = None
+        q_band     = None
 
         if response:
             transcript = response.get("transcript") or ""
-            overall    = response.get("overall_band")
+            q_band     = response.get("overall_band")
             fb         = _parse_feedback(response.get("feedback"))
 
-            if overall is not None:
-                band_html = f'<div class="q-band">Band {overall:.1f}</div>'
+        # Detect practice vs test mode from the feedback schema
+        is_practice_fb = fb is not None and "grammar_issues" in fb
 
-            if fb:
-                improved = fb.get("improved_response") or ""
+        inner: list = []
+        inner.append(Paragraph(f"QUESTION {i}", _T["q_num"]))
+        inner.append(Paragraph(_esc(q_text), _T["q_txt"]))
 
-        transcript_block = (
-            f'<div class="transcript-label">Transcript</div>'
-            f'<div class="transcript">{escape(transcript)}</div>'
-            if transcript
-            else '<div class="no-response">No recording submitted yet.</div>'
-        )
+        if q_band is not None:
+            inner.append(Paragraph(f"Band {_round_half(q_band):.1f}", _T["q_bnd"]))
 
-        improved_block = (
-            f'<div class="improved-label">Band 7+ Model Answer</div>'
-            f'<div class="improved">{escape(improved)}</div>'
-            if improved
-            else ""
-        )
+        # Transcript block
+        if transcript:
+            inner.append(Paragraph("TRANSCRIPT", _T["lbl"]))
+            trans_t = Table(
+                [[Paragraph(_esc(transcript), _T["trans"])]],
+                colWidths=[INNER_W],
+            )
+            trans_t.setStyle(TableStyle([
+                ("LINEBEFORE",    (0, 0), (0, -1), 3, _C["teal"]),
+                ("BACKGROUND",    (0, 0), (-1, -1), _C["row_alt"]),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+                ("TOPPADDING",    (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ]))
+            inner.append(trans_t)
+            inner.append(Spacer(1, 8))
+        else:
+            inner.append(Paragraph("No recording submitted yet.", _T["no_rsp"]))
 
-        blocks.append(
-            f'<div class="q-block">'
-            f'<div class="q-number">Question {i}</div>'
-            f'<div class="q-text">{escape(q_text)}</div>'
-            f'{band_html}'
-            f'{transcript_block}'
-            f'{improved_block}'
-            f'</div>'
-        )
+        # ── Practice mode: coaching-focused feedback sections ──────────────────
+        if is_practice_fb and fb:
+            # Strengths
+            strengths = fb.get("strengths") or []
+            if strengths:
+                inner.append(Paragraph("STRENGTHS", _T["lbl"]))
+                for s in strengths:
+                    inner.append(Paragraph(f"• {_esc(s)}", _T["ft_li"]))
+                inner.append(Spacer(1, 6))
 
-    return "\n".join(blocks)
+            # Grammar Issues
+            grammar = fb.get("grammar_issues") or []
+            if grammar:
+                inner.append(Paragraph("GRAMMAR ISSUES", _T["lbl"]))
+                for g in grammar:
+                    inner.append(Paragraph(f"• {_esc(g)}", _T["ft_li"]))
+                inner.append(Spacer(1, 6))
 
+            # Vocabulary Issues
+            vocab = fb.get("vocabulary_issues") or []
+            if vocab:
+                inner.append(Paragraph("VOCABULARY ISSUES", _T["lbl"]))
+                for v in vocab:
+                    inner.append(Paragraph(f"• {_esc(v)}", _T["ft_li"]))
+                inner.append(Spacer(1, 6))
 
-# ── Full HTML template ─────────────────────────────────────────────────────────
+            # Pronunciation Issues
+            pronun = fb.get("pronunciation_issues") or []
+            if pronun:
+                inner.append(Paragraph("PRONUNCIATION", _T["lbl"]))
+                for p in pronun:
+                    inner.append(Paragraph(f"• {_esc(p)}", _T["ft_li"]))
+                inner.append(Spacer(1, 6))
 
-def _render_html(
-    user_display: str,
-    date_str: str,
-    topic: str,
-    part_label: str,
-    overall_band,
-    criteria_html: str,
-    questions_html: str,
-    strengths: list,
-    improvements: list,
-    generated_date: str,
-) -> str:
-    overall_text = f"{overall_band:.1f}" if overall_band is not None else "—"
-    band_class   = "band-score" if overall_band is not None else "band-score-na"
+            # Corrections
+            corrections = fb.get("corrections") or []
+            if corrections:
+                inner.append(Paragraph("CORRECTIONS", _T["lbl"]))
+                for c in corrections:
+                    orig  = _esc(c.get("original", ""))
+                    fixed = _esc(c.get("corrected", ""))
+                    expl  = _esc(c.get("explanation", ""))
+                    corr_xml = (
+                        f"<font color='#c0392b'>✗ {orig}</font>"
+                        f"  →  "
+                        f"<font color='#27ae60'>✓ {fixed}</font><br/>"
+                        f"<i>{expl}</i>"
+                    )
+                    corr_t = Table(
+                        [[Paragraph(corr_xml, _T["cr_fb"])]],
+                        colWidths=[INNER_W],
+                    )
+                    corr_t.setStyle(TableStyle([
+                        ("BACKGROUND",    (0, 0), (-1, -1), _C["bg_teal"]),
+                        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+                        ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+                        ("TOPPADDING",    (0, 0), (-1, -1), 6),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ]))
+                    inner.append(corr_t)
+                    inner.append(Spacer(1, 4))
+                inner.append(Spacer(1, 2))
 
-    strengths_li    = "".join(f"<li>{escape(s)}</li>" for s in strengths)    or "<li>—</li>"
-    improvements_li = "".join(f"<li>{escape(s)}</li>" for s in improvements) or "<li>—</li>"
+            # Sample Answer
+            sample = fb.get("sample_answer") or ""
+            if sample:
+                inner.append(Paragraph("SAMPLE ANSWER", _T["lbl"]))
+                sample_t = Table(
+                    [[Paragraph(_esc(sample), _T["impr"])]],
+                    colWidths=[INNER_W],
+                )
+                sample_t.setStyle(TableStyle([
+                    ("LINEBEFORE",    (0, 0), (0, -1), 3, _C["blue"]),
+                    ("BACKGROUND",    (0, 0), (-1, -1), _C["bg_blue"]),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+                    ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 7),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ]))
+                inner.append(sample_t)
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<style>
+        # ── Test mode: IELTS 4-criteria feedback ───────────────────────────────
+        elif fb and not is_practice_fb:
+            # Criterion feedback texts
+            for band_key, fb_key, full_name, abbrev in _CRITERIA:
+                fb_text = fb.get(fb_key) or ""
+                if fb_text:
+                    inner.append(Paragraph(f"{abbrev} — {full_name}", _T["lbl"]))
+                    inner.append(Paragraph(_esc(fb_text), _T["cr_fb"]))
+                    inner.append(Spacer(1, 6))
 
-@page {{
-  size: A4;
-  margin: 1.8cm 2cm 2cm 2cm;
-}}
+            # Strengths
+            strengths = fb.get("strengths") or []
+            if strengths:
+                inner.append(Paragraph("STRENGTHS", _T["lbl"]))
+                for s in strengths:
+                    inner.append(Paragraph(f"• {_esc(s)}", _T["ft_li"]))
+                inner.append(Spacer(1, 6))
 
-* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+            # Improvements
+            improvements = fb.get("improvements") or []
+            if improvements:
+                inner.append(Paragraph("AREAS TO IMPROVE", _T["lbl"]))
+                for imp in improvements:
+                    inner.append(Paragraph(f"• {_esc(imp)}", _T["ft_li"]))
+                inner.append(Spacer(1, 6))
 
-body {{
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 10.5pt;
-  color: #1e293b;
-  line-height: 1.55;
-  background: #ffffff;
-}}
+            # Band 7+ model answer
+            improved = fb.get("improved_response") or ""
+            if improved:
+                inner.append(Paragraph("BAND 7+ MODEL ANSWER", _T["lbl"]))
+                impr_t = Table(
+                    [[Paragraph(_esc(improved), _T["impr"])]],
+                    colWidths=[INNER_W],
+                )
+                impr_t.setStyle(TableStyle([
+                    ("LINEBEFORE",    (0, 0), (0, -1), 3, _C["blue"]),
+                    ("BACKGROUND",    (0, 0), (-1, -1), _C["bg_blue"]),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+                    ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 7),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ]))
+                inner.append(impr_t)
 
-/* ── Header ─────────────────────────────────────────────────────── */
-.header {{
-  display: table;
-  width: 100%;
-  border-bottom: 3px solid #0d9488;
-  padding-bottom: 18px;
-  margin-bottom: 24px;
-}}
-.header-left  {{ display: table-cell; vertical-align: top; }}
-.header-right {{ display: table-cell; vertical-align: top; text-align: right; white-space: nowrap; }}
+        # Bordered box wrapping all inner content
+        box = Table([[inner]], colWidths=[_COL_W])
+        box.setStyle(TableStyle([
+            ("BOX",           (0, 0), (-1, -1), 1, _C["border"]),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 14),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 14),
+            ("TOPPADDING",    (0, 0), (-1, -1), 12),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+        ]))
 
-.logo        {{ font-size: 17pt; font-weight: 700; color: #0d9488; letter-spacing: -0.2px; }}
-.logo-sub    {{ font-size: 8.5pt; color: #64748b; margin-top: 2px; }}
-.meta        {{ margin-top: 12px; font-size: 9.5pt; color: #475569; }}
-.meta-row    {{ margin-bottom: 3px; }}
-.meta-label  {{ font-weight: 700; color: #0f172a; }}
+        # KeepTogether prevents page-break inside short blocks;
+        # long blocks (big transcripts) will naturally flow across pages.
+        blocks.append(KeepTogether([box]))
 
-.band-label  {{ font-size: 8pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; }}
-.band-score  {{ font-size: 48pt; font-weight: 700; color: #0d9488; line-height: 1; }}
-.band-score-na {{ font-size: 36pt; font-weight: 700; color: #94a3b8; line-height: 1; }}
-
-/* ── Section titles ──────────────────────────────────────────────── */
-.section-title {{
-  font-size: 12pt;
-  font-weight: 700;
-  color: #0f172a;
-  border-left: 4px solid #0d9488;
-  padding-left: 9px;
-  margin-top: 26px;
-  margin-bottom: 12px;
-}}
-
-/* ── Criteria table ──────────────────────────────────────────────── */
-.criteria-table {{
-  width: 100%;
-  border-collapse: collapse;
-}}
-.criteria-table thead th {{
-  background: #f0fdfa;
-  color: #0d9488;
-  font-size: 9.5pt;
-  font-weight: 700;
-  padding: 7px 10px;
-  text-align: left;
-  border: 1px solid #ccfbf1;
-}}
-.criteria-table tbody td {{
-  padding: 9px 10px;
-  border: 1px solid #e2e8f0;
-  vertical-align: top;
-  font-size: 10pt;
-}}
-.criteria-table tbody tr:nth-child(even) td {{
-  background: #f8fafc;
-}}
-.crit-name     {{ width: 170px; }}
-.crit-fullname {{ font-size: 8.5pt; color: #64748b; font-weight: normal; }}
-.crit-band     {{ width: 56px; text-align: center; }}
-.criterion-band    {{ font-size: 16pt; font-weight: 700; color: #0d9488; }}
-.criterion-band-na {{ font-size: 14pt; font-weight: 400; color: #94a3b8; }}
-
-/* ── Question blocks ─────────────────────────────────────────────── */
-.q-block {{
-  margin-bottom: 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 5px;
-  padding: 14px 16px;
-  page-break-inside: avoid;
-}}
-.q-number  {{ font-size: 8.5pt; font-weight: 700; color: #0d9488; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }}
-.q-text    {{ font-size: 11.5pt; font-weight: 700; color: #0f172a; margin-bottom: 10px; }}
-.q-band    {{
-  display: inline-block;
-  background: #f0fdfa;
-  border: 1px solid #99f6e4;
-  color: #0d9488;
-  font-size: 9.5pt;
-  font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 20px;
-  margin-bottom: 10px;
-}}
-.transcript-label {{ font-size: 8.5pt; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }}
-.transcript {{
-  font-style: italic;
-  color: #334155;
-  border-left: 3px solid #0d9488;
-  padding: 7px 12px;
-  background: #f8fafc;
-  font-size: 10pt;
-  line-height: 1.6;
-  margin-bottom: 12px;
-}}
-.improved-label {{ font-size: 8.5pt; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }}
-.improved {{
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-left: 3px solid #3b82f6;
-  padding: 7px 12px;
-  font-size: 10pt;
-  color: #1e3a5f;
-  line-height: 1.6;
-}}
-.no-response {{ color: #94a3b8; font-style: italic; font-size: 9.5pt; }}
-
-/* ── Footer ──────────────────────────────────────────────────────── */
-.footer {{
-  margin-top: 32px;
-  padding-top: 14px;
-  border-top: 1px solid #e2e8f0;
-}}
-.footer-generated {{ font-size: 8.5pt; color: #94a3b8; text-align: center; margin-bottom: 14px; }}
-.footer-cols {{ display: table; width: 100%; }}
-.footer-col  {{ display: table-cell; width: 50%; vertical-align: top; padding-right: 16px; }}
-.footer-col:last-child {{ padding-right: 0; padding-left: 12px; border-left: 1px solid #e2e8f0; }}
-.footer-col-title {{ font-size: 10pt; font-weight: 700; color: #0f172a; margin-bottom: 6px; }}
-.footer-col ul {{ padding-left: 15px; font-size: 9.5pt; color: #334155; }}
-.footer-col li {{ margin-bottom: 4px; line-height: 1.4; }}
-
-</style>
-</head>
-<body>
-
-<!-- HEADER -->
-<div class="header">
-  <div class="header-left">
-    <div class="logo">IELTS Speaking Coach</div>
-    <div class="logo-sub">Performance Report</div>
-    <div class="meta">
-      <div class="meta-row"><span class="meta-label">Candidate: </span>{escape(user_display)}</div>
-      <div class="meta-row"><span class="meta-label">Date: </span>{date_str}&nbsp;&nbsp;&nbsp;<span class="meta-label">Part: </span>{part_label}</div>
-      <div class="meta-row"><span class="meta-label">Topic: </span>{escape(topic)}</div>
-    </div>
-  </div>
-  <div class="header-right">
-    <div class="band-label">Overall Band</div>
-    <div class="{band_class}">{overall_text}</div>
-  </div>
-</div>
-
-<!-- SCORE OVERVIEW -->
-<div class="section-title">Score Overview</div>
-{criteria_html}
-
-<!-- QUESTION DETAILS -->
-<div class="section-title">Question Details</div>
-{questions_html}
-
-<!-- FOOTER -->
-<div class="footer">
-  <div class="footer-generated">Generated by IELTS Speaking Coach &middot; {generated_date}</div>
-  <div class="footer-cols">
-    <div class="footer-col">
-      <div class="footer-col-title">&#10003; Strengths</div>
-      <ul>{strengths_li}</ul>
-    </div>
-    <div class="footer-col">
-      <div class="footer-col-title">&#8593; Focus on</div>
-      <ul>{improvements_li}</ul>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>"""
+    return blocks
 
 
-# ── Small utilities ────────────────────────────────────────────────────────────
+# ── Utilities ──────────────────────────────────────────────────────────────────
 
 def _parse_feedback(raw) -> dict | None:
     """Parse the `feedback` column which may be a JSON string or already a dict."""
@@ -477,11 +657,11 @@ def _parse_feedback(raw) -> dict | None:
 
 
 def _fmt_date(dt_str: str | None) -> str:
-    """Format an ISO timestamp string to 'DD MMM YYYY', e.g. '06 Apr 2026'."""
+    """Format an ISO timestamp string to 'D Mon YYYY', e.g. '6 Apr 2026'."""
     if not dt_str:
         return "—"
     try:
         dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-        return dt.strftime("%-d %b %Y")
+        return dt.strftime("%d %b %Y").lstrip("0")
     except ValueError:
         return dt_str[:10]

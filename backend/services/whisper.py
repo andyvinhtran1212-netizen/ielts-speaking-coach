@@ -26,6 +26,7 @@ Test:
     "
 """
 
+import io
 import logging
 import math
 import os
@@ -105,6 +106,63 @@ async def transcribe_audio(audio_file_path: str) -> dict:
     # ── Estimate confidence from segments' avg_logprob ─────────────────────────
     # avg_logprob is in range (−∞, 0]; −0.2 is good, −1.0+ is low confidence.
     # Map to [0, 1]: confidence = exp(avg_logprob), clamped to [0, 1].
+    confidence: float = _estimate_confidence(getattr(response, "segments", None))
+
+    result = {
+        "transcript":       transcript,
+        "duration_seconds": round(duration_seconds, 2),
+        "language":         language,
+        "confidence":       round(confidence, 4),
+    }
+
+    logger.info(
+        "Whisper: xong — %d ký tự, %.1fs, lang=%s, conf=%.2f",
+        len(transcript), duration_seconds, language, confidence,
+    )
+
+    return result
+
+
+async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm") -> dict:
+    """
+    Transcribe audio directly from in-memory bytes — no temp file, no download.
+
+    Preferred over transcribe_from_url when the bytes are already in memory
+    (e.g. freshly uploaded via multipart form). Avoids CDN caching issues that
+    arise when re-uploading to the same Supabase Storage path and then downloading
+    back via the public URL.
+
+    Args:
+        audio_bytes: Raw audio bytes (WebM / MP3 / WAV / OGG / M4A).
+        filename:    Logical filename including extension; passed to the API so
+                     Whisper knows the container format.
+
+    Returns:
+        Same schema as :func:`transcribe_audio`.
+    """
+    client = _get_client()
+
+    size_mb = len(audio_bytes) / (1024 * 1024)
+    logger.info("Whisper: transcribe_from_bytes — %.2f MB, filename=%s", size_mb, filename)
+
+    if size_mb > 24.5:
+        raise ValueError(
+            f"File audio quá lớn ({size_mb:.1f} MB). "
+            "Whisper API giới hạn 25 MB mỗi request."
+        )
+
+    buffer = io.BytesIO(audio_bytes)
+
+    response = await client.audio.transcriptions.create(
+        model="whisper-1",
+        file=(filename, buffer),        # tuple form: (name, file-like) — SDK uses name for Content-Disposition
+        response_format="verbose_json",
+        language="en",
+    )
+
+    transcript = response.text.strip() if response.text else ""
+    duration_seconds: float = getattr(response, "duration", 0.0) or 0.0
+    language: str = getattr(response, "language", "en") or "en"
     confidence: float = _estimate_confidence(getattr(response, "segments", None))
 
     result = {

@@ -15,11 +15,13 @@ Cost: tts-1 = $0.015 / 1K chars  (~1–2 cents per question read-aloud)
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from config import settings
+from routers.auth import get_supabase_user
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +36,16 @@ class TTSRequest(BaseModel):
 
 
 @router.post("/tts")
-async def text_to_speech(body: TTSRequest) -> Response:
+async def text_to_speech(
+    body: TTSRequest,
+    authorization: str | None = Header(default=None),
+) -> Response:
     """
     Convert text to speech via OpenAI TTS. Returns audio/mpeg bytes.
     Used by the practice page to read questions aloud with a natural voice.
     """
+    auth_user = await get_supabase_user(authorization)
+
     if not settings.OPENAI_API_KEY:
         raise HTTPException(503, "OpenAI API key not configured — TTS unavailable")
 
@@ -59,6 +66,13 @@ async def text_to_speech(body: TTSRequest) -> Response:
 
         audio_bytes = response.content
         logger.info("[tts] generated %d bytes for %d chars (voice=%s)", len(audio_bytes), len(body.text), voice)
+
+        ai_usage_logger.log_tts(
+            user_id=auth_user["id"],
+            session_id=None,
+            model="tts-1",
+            text_chars=len(body.text),
+        )
 
         return Response(
             content=audio_bytes,

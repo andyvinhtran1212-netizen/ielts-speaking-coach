@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kết quả — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
+  <style>
+    body { background: #0a1628; }
+
+    .band-high  { color: #14b8a6; }
+    .band-mid   { color: #fbbf24; }
+    .band-low   { color: #f97316; }
+    .band-none  { color: #6b7280; }
+
+    .criterion-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .acc-body { display: none; }
+    .acc-body.open { display: block; }
+    .acc-chevron { transition: transform 0.2s; }
+    .acc-chevron.rotated { transform: rotate(180deg); }
+
+    .transcript-block {
+      border-left: 3px solid #0d9488;
+      background: rgba(13,148,136,0.07);
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      font-style: italic;
+      color: #94a3b8;
+    }
+
+    .improved-block {
+      border-left: 3px solid #3b82f6;
+      background: rgba(59,130,246,0.07);
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      color: #93c5fd;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+    }
+
+    .btn-primary {
+      background: #0F766E;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary:hover { background: #0d6560; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      color: #e2e8f0;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+    .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(20,184,166,0.2);
+      border-top-color: #14b8a6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen">
+
+  <!-- Header -->
+  <header style="background:#0C2340; border-bottom:1px solid rgba(255,255,255,0.06);" class="px-6 py-4">
+    <div class="max-w-3xl mx-auto flex items-center gap-4">
+      <a href="dashboard.html" class="text-teal-light hover:text-teal-light/80 transition-colors flex items-center gap-2 text-sm font-medium" style="color:#14b8a6;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Dashboard
+      </a>
+      <span class="text-slate-600">|</span>
+      <h1 class="text-base font-semibold text-slate-200">Kết quả luyện tập</h1>
+    </div>
+  </header>
+
+  <!-- Loading state -->
+  <div id="state-loading" class="flex flex-col items-center justify-center py-32">
+    <div class="spinner mb-4"></div>
+    <p class="text-slate-400 text-sm">Đang tải kết quả…</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="state-error" class="hidden max-w-3xl mx-auto px-6 py-16 text-center">
+    <p class="text-red-400 text-lg font-semibold mb-2">Không thể tải kết quả</p>
+    <p id="error-msg" class="text-slate-400 text-sm mb-6"></p>
+    <a href="dashboard.html" class="btn-primary">Quay lại Dashboard</a>
+  </div>
+
+  <!-- Content state -->
+  <div id="state-content" class="hidden max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+    <!-- Session meta -->
+    <div class="card p-5">
+      <div class="flex flex-wrap items-center gap-3 mb-1">
+        <span id="meta-part" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" style="background:rgba(20,184,166,0.15);color:#14b8a6;"></span>
+        <span id="meta-topic" class="text-lg font-semibold text-slate-100"></span>
+      </div>
+      <p id="meta-date" class="text-slate-400 text-sm"></p>
+    </div>
+
+    <!-- Overall band + criteria -->
+    <div>
+      <!-- Overall band hero -->
+      <div class="ds-band-hero mb-4 ds-fadein">
+        <div class="ds-section-head" style="margin-bottom:8px;">Band tổng quan</div>
+        <div id="overall-band" class="ds-band-value band-none">—</div>
+        <div class="ds-band-label">Overall Band Score</div>
+      </div>
+      <!-- Criterion grid -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="ds-crit ds-crit-fc">
+          <div id="band-fc" class="ds-crit-score band-none">—</div>
+          <div class="ds-crit-label">Fluency &amp; Coherence</div>
+        </div>
+        <div class="ds-crit ds-crit-lr">
+          <div id="band-lr" class="ds-crit-score band-none">—</div>
+          <div class="ds-crit-label">Lexical Resource</div>
+        </div>
+        <div class="ds-crit ds-crit-gra">
+          <div id="band-gra" class="ds-crit-score band-none">—</div>
+          <div class="ds-crit-label">Grammatical Range</div>
+        </div>
+        <div class="ds-crit ds-crit-p">
+          <div id="band-p" class="ds-crit-score band-none">—</div>
+          <div class="ds-crit-label">Pronunciation</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strengths / Improvements -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="card p-5">
+        <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#14b8a6;">Điểm mạnh</h3>
+        <ul id="strengths-list" class="space-y-2 text-sm text-slate-300"></ul>
+      </div>
+      <div class="card p-5">
+        <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#fbbf24;">Cần cải thiện</h3>
+        <ul id="improvements-list" class="space-y-2 text-sm text-slate-300"></ul>
+      </div>
+    </div>
+
+    <!-- Per-question accordion -->
+    <div>
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Chi tiết từng câu hỏi</h2>
+      <div id="accordion-container" class="space-y-3"></div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex flex-wrap gap-3 justify-center pb-8">
+      <button id="btn-pdf" class="btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </svg>
+        Tải báo cáo PDF
+      </button>
+      <a href="dashboard.html" class="btn-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        Dashboard
+      </a>
+      <button id="btn-retry" class="btn-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Luyện lại chủ đề này
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/format.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    // ── State helpers ──────────────────────────────────────────────────────────
+    function showState(name) {
+      ['loading', 'error', 'content'].forEach(function (s) {
+        var el = document.getElementById('state-' + s);
+        if (el) el.classList.toggle('hidden', s !== name);
+      });
+    }
+
+    function showError(msg) {
+      document.getElementById('error-msg').textContent = msg;
+      showState('error');
+    }
+
+    // ── Band helpers ───────────────────────────────────────────────────────────
+    function bandClass(val) {
+      if (val == null) return 'band-none';
+      if (val >= 7) return 'band-high';
+      if (val >= 6) return 'band-mid';
+      return 'band-low';
+    }
+
+    function renderBand(elId, val) {
+      var el = document.getElementById(elId);
+      if (!el) return;
+      el.className = el.className.replace(/band-\w+/g, '').trim() + ' ' + bandClass(val);
+      el.textContent = val != null ? roundHalf(val).toFixed(1) : '—';
+    }
+
+    // ── Aggregate bands from response feedback ─────────────────────────────────
+    function aggregateBands(responses) {
+      var sums   = { fc: 0, lr: 0, gra: 0, p: 0 };
+      var counts = { fc: 0, lr: 0, gra: 0, p: 0 };
+
+      responses.forEach(function (r) {
+        var fb = parseFeedback(r.feedback);
+        if (!fb) return;
+        ['fc', 'lr', 'gra', 'p'].forEach(function (k) {
+          var v = parseFloat(fb['band_' + k]);
+          if (!isNaN(v)) { sums[k] += v; counts[k]++; }
+        });
+      });
+
+      var result = {};
+      ['fc', 'lr', 'gra', 'p'].forEach(function (k) {
+        result[k] = counts[k] > 0 ? Math.round((sums[k] / counts[k]) * 2) / 2 : null;
+      });
+      return result;
+    }
+
+    // ── Aggregate strengths/improvements across responses ─────────────────────
+    function aggregateLists(responses) {
+      var strengths = [], improvements = [];
+
+      responses.forEach(function (r) {
+        var fb = parseFeedback(r.feedback);
+        if (!fb) return;
+        if (Array.isArray(fb.strengths)) {
+          fb.strengths.forEach(function (s) {
+            if (s && strengths.indexOf(s) === -1) strengths.push(s);
+          });
+        }
+        if (Array.isArray(fb.improvements)) {
+          fb.improvements.forEach(function (s) {
+            if (s && improvements.indexOf(s) === -1) improvements.push(s);
+          });
+        }
+      });
+
+      return { strengths: strengths.slice(0, 5), improvements: improvements.slice(0, 5) };
+    }
+
+    // ── Parse feedback field (JSON string or object) ───────────────────────────
+    function parseFeedback(raw) {
+      if (!raw) return null;
+      if (typeof raw === 'object') return raw;
+      try { return JSON.parse(raw); } catch (e) { return null; }
+    }
+
+    // ── Render list ────────────────────────────────────────────────────────────
+    function renderList(elId, items, iconColor) {
+      var el = document.getElementById(elId);
+      if (!el) return;
+      if (!items || items.length === 0) {
+        el.innerHTML = '<li class="text-slate-500 italic text-xs">Không có dữ liệu</li>';
+        return;
+      }
+      el.innerHTML = items.map(function (item) {
+        return '<li class="flex gap-2">'
+          + '<span style="color:' + iconColor + ';margin-top:2px;flex-shrink:0;">●</span>'
+          + '<span>' + escHtml(item) + '</span>'
+          + '</li>';
+      }).join('');
+    }
+
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ── Accordion body helpers ─────────────────────────────────────────────────
+    function _fbSection(title, items, color) {
+      if (!items || items.length === 0) return '';
+      var lis = items.map(function (item) {
+        return '<li class="flex gap-2">'
+          + '<span style="color:' + color + ';margin-top:2px;flex-shrink:0;">●</span>'
+          + '<span>' + escHtml(item) + '</span>'
+          + '</li>';
+      }).join('');
+      return '<div>'
+        + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:' + color + ';">' + title + '</div>'
+        + '<ul class="space-y-1 text-sm" style="color:rgba(255,255,255,0.75);list-style:none;padding:0;">' + lis + '</ul>'
+        + '</div>';
+    }
+
+    function _fbCorrections(corrections) {
+      if (!corrections || corrections.length === 0) return '';
+      var rows = corrections.map(function (c) {
+        return '<div style="padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:8px;margin-bottom:8px;">'
+          + '<div class="text-sm mb-1" style="color:#f87171;">❌ ' + escHtml(c.original) + '</div>'
+          + '<div class="text-sm mb-1" style="color:#4ade80;">✓ ' + escHtml(c.corrected) + '</div>'
+          + '<div class="text-xs italic" style="color:rgba(255,255,255,0.5);">' + escHtml(c.explanation) + '</div>'
+          + '</div>';
+      }).join('');
+      return '<div>'
+        + '<div class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#fb923c;">Corrections</div>'
+        + rows + '</div>';
+    }
+
+    // ── Accordion ──────────────────────────────────────────────────────────────
+    function buildAccordion(questions, responses) {
+      var byQid = {};
+      responses.forEach(function (r) { byQid[r.question_id] = r; });
+
+      var container = document.getElementById('accordion-container');
+      if (!container) return;
+
+      if (!questions || questions.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-sm">Không có câu hỏi nào.</p>';
+        return;
+      }
+
+      container.innerHTML = questions.map(function (q, idx) {
+        var r  = byQid[q.id];
+        var fb = r ? parseFeedback(r.feedback) : null;
+
+        var isPractice = fb && fb.grammar_issues;
+
+        // ── Header band pills ─────────────────────────────────────────────────
+        var bandHtml = '';
+        if (fb && !isPractice) {
+          ['fc', 'lr', 'gra', 'p'].forEach(function (k) {
+            var v = parseFloat(fb['band_' + k]);
+            if (!isNaN(v)) {
+              var cls = bandClass(v);
+              bandHtml += '<span class="text-xs font-semibold ' + cls + ' mr-2">'
+                + k.toUpperCase() + ': ' + roundHalf(v).toFixed(1) + '</span>';
+            }
+          });
+        } else if (fb && isPractice && fb.overall_band != null) {
+          var cls = bandClass(parseFloat(fb.overall_band));
+          bandHtml = '<span class="text-xs font-semibold ' + cls + ' mr-2">Band: '
+            + roundHalf(parseFloat(fb.overall_band)).toFixed(1) + '</span>'
+            + '<span class="text-xs" style="color:rgba(255,255,255,0.4);">Practice mode</span>';
+        }
+
+        var transcript = (r && r.transcript)          ? escHtml(r.transcript)        : null;
+        var audioUrl   = (r && r.audio_url)           ? r.audio_url                  : null;
+
+        // ── Body content (practice vs test) ──────────────────────────────────
+        var bodyHtml = '';
+
+        if (audioUrl) {
+          bodyHtml += '<div><button onclick="toggleAudio(this, \'' + escHtml(audioUrl) + '\')" data-playing="false" class="btn-secondary text-xs px-3 py-1.5" style="font-size:12px;padding:6px 12px;">'
+            + '<svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-3.5 h-3.5\' fill=\'currentColor\' viewBox=\'0 0 24 24\'><path d=\'M8 5v14l11-7z\'/></svg>'
+            + ' Nghe lại</button></div>';
+        }
+
+        if (transcript) {
+          bodyHtml += '<div>'
+            + '<div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Bản ghi lời nói</div>'
+            + '<div class="transcript-block text-sm">' + transcript + '</div>'
+            + '</div>';
+        }
+
+        if (fb && isPractice) {
+          // Practice mode: coaching sections
+          bodyHtml += _fbSection('Strengths', fb.strengths, '#4ade80');
+          bodyHtml += _fbSection('Grammar Issues', fb.grammar_issues, '#f87171');
+          bodyHtml += _fbSection('Vocabulary Issues', fb.vocabulary_issues, '#fb923c');
+          bodyHtml += _fbSection('Pronunciation', fb.pronunciation_issues, '#a78bfa');
+          bodyHtml += _fbCorrections(fb.corrections);
+          if (fb.sample_answer) {
+            bodyHtml += '<div>'
+              + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:#14b8a6;">Sample Answer</div>'
+              + '<div class="improved-block text-sm">' + escHtml(fb.sample_answer) + '</div>'
+              + '</div>';
+          }
+        } else if (fb && !isPractice) {
+          // Test mode: IELTS 4-criteria
+          ['fc_feedback','lr_feedback','gra_feedback','p_feedback'].forEach(function (key) {
+            var labels = { fc_feedback: 'Fluency &amp; Coherence', lr_feedback: 'Lexical Resource',
+                           gra_feedback: 'Grammar &amp; Accuracy', p_feedback: 'Pronunciation' };
+            if (fb[key]) {
+              bodyHtml += '<div>'
+                + '<div class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#14b8a6;">' + labels[key] + '</div>'
+                + '<div class="text-sm" style="color:rgba(255,255,255,0.75);line-height:1.65;">' + escHtml(fb[key]) + '</div>'
+                + '</div>';
+            }
+          });
+          bodyHtml += _fbSection('Điểm mạnh', fb.strengths, '#4ade80');
+          bodyHtml += _fbSection('Cần cải thiện', fb.improvements, '#fb923c');
+          if (fb.improved_response) {
+            bodyHtml += '<div>'
+              + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:#14b8a6;">Câu trả lời mẫu</div>'
+              + '<div class="improved-block text-sm">' + escHtml(fb.improved_response) + '</div>'
+              + '</div>';
+          }
+        }
+
+        return '<div class="card overflow-hidden">'
+          + '<button onclick="toggleAccordion(' + idx + ')" class="w-full text-left px-5 py-4 flex items-start justify-between gap-3 hover:bg-white/5 transition-colors">'
+          +   '<div class="flex-1">'
+          +     '<div class="text-sm font-semibold text-slate-200 mb-1">' + escHtml(q.question_text || '') + '</div>'
+          +     '<div class="flex flex-wrap gap-1">' + (bandHtml || '<span class="text-xs text-slate-500">Chưa có điểm</span>') + '</div>'
+          +   '</div>'
+          +   '<svg id="chev-' + idx + '" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 acc-chevron shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">'
+          +     '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />'
+          +   '</svg>'
+          + '</button>'
+          + '<div id="acc-body-' + idx + '" class="acc-body px-5 pb-5 space-y-3">'
+          +   bodyHtml
+          + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    // ── Accordion toggle ───────────────────────────────────────────────────────
+    window.toggleAccordion = function (idx) {
+      var body = document.getElementById('acc-body-' + idx);
+      var chev = document.getElementById('chev-' + idx);
+      if (!body) return;
+      var isOpen = body.classList.toggle('open');
+      if (chev) chev.classList.toggle('rotated', isOpen);
+    };
+
+    // ── Audio playback singleton ───────────────────────────────────────────────
+    var _audioEl  = null;
+    var _audioBtn = null;
+
+    function resetAudioBtn(btn) {
+      if (!btn) return;
+      btn.dataset.playing = 'false';
+      btn.innerHTML = '<svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-3.5 h-3.5\' fill=\'currentColor\' viewBox=\'0 0 24 24\'><path d=\'M8 5v14l11-7z\'/></svg> Nghe lại';
+    }
+
+    window.toggleAudio = function (btn, url) {
+      // Stop current audio
+      if (_audioEl) {
+        _audioEl.pause();
+        _audioEl = null;
+        var prevBtn = _audioBtn;
+        _audioBtn = null;
+        if (prevBtn === btn) {
+          resetAudioBtn(prevBtn);
+          return;          // same button → just stop
+        }
+        resetAudioBtn(prevBtn);
+      }
+
+      // Start new audio
+      var audio = new Audio(url);
+      _audioEl  = audio;
+      _audioBtn = btn;
+      btn.dataset.playing = 'true';
+      btn.innerHTML = '<svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-3.5 h-3.5\' fill=\'currentColor\' viewBox=\'0 0 24 24\'><path d=\'M6 19h4V5H6v14zm8-14v14h4V5h-4z\'/></svg> Dừng';
+
+      audio.play().catch(function () {});
+      audio.onended = function () {
+        _audioEl  = null;
+        _audioBtn = null;
+        resetAudioBtn(btn);
+      };
+    };
+
+    // ── PDF download ───────────────────────────────────────────────────────────
+    async function downloadPdf(sessionId, token) {
+      var btn  = document.getElementById('btn-pdf');
+      var orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.textContent = 'Đang tạo PDF…';
+
+      try {
+        var base = (window.api && window.api.base) ? window.api.base : '';
+        var res  = await fetch(base + '/sessions/' + sessionId + '/export/pdf', {
+          headers: { 'Authorization': 'Bearer ' + token },
+        });
+        if (!res.ok) {
+          var body = await res.json().catch(function () { return {}; });
+          throw new Error(body.detail || 'HTTP ' + res.status);
+        }
+        var blob = await res.blob();
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href   = url;
+        a.download = 'IELTS_Report.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      } catch (err) {
+        alert('Không thể tải PDF: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      }
+    }
+
+    // ── Retry same topic ───────────────────────────────────────────────────────
+    async function retrySameTopic(part, topic, token) {
+      var btn  = document.getElementById('btn-retry');
+      btn.disabled = true;
+      btn.textContent = 'Đang tạo phiên…';
+
+      try {
+        var data = await window.api.post('/sessions', { part: part, topic: topic }, token);
+        if (!data || !data.id) throw new Error('Không nhận được session_id');
+        window.location.href = 'practice.html?session_id=' + data.id;
+      } catch (err) {
+        alert('Không thể tạo phiên mới: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Luyện lại chủ đề này';
+      }
+    }
+
+    // ── Format date ────────────────────────────────────────────────────────────
+    function fmtDate(dtStr) {
+      if (!dtStr) return '';
+      var d = new Date(dtStr);
+      if (isNaN(d)) return dtStr;
+      return d.toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    // ── Main ───────────────────────────────────────────────────────────────────
+    async function main() {
+      showState('loading');
+
+      // Auth check
+      var sb = getSupabase();
+      var sessionData = await sb.auth.getSession();
+      var authSession = sessionData && sessionData.data && sessionData.data.session;
+      if (!authSession) {
+        window.location.href = '../index.html';
+        return;
+      }
+      var token = authSession.access_token;
+
+      // Get session_id from URL
+      var params    = new URLSearchParams(window.location.search);
+      var sessionId = params.get('id');
+      if (!sessionId) {
+        showError('Thiếu session ID trong URL.');
+        return;
+      }
+
+      try {
+        var base = (window.api && window.api.base) ? window.api.base : '';
+
+        // Load session + questions in parallel
+        var [session, questions] = await Promise.all([
+          window.api.get('/sessions/' + sessionId, token),
+          window.api.get('/sessions/' + sessionId + '/questions', token),
+        ]);
+
+        // Load responses directly from Supabase
+        // Note: responses are matched to questions by question_id, so ordering is not required.
+        // created_at is not in the responses schema — selecting it causes a 400 from PostgREST.
+        var responsesRes = await sb
+          .from('responses')
+          .select('id, question_id, transcript, feedback, audio_url')
+          .eq('session_id', sessionId);
+        var responses = (responsesRes && responsesRes.data) ? responsesRes.data : [];
+
+        // ── Session meta ─────────────────────────────────────────────────────
+        document.getElementById('meta-part').textContent  = 'Part ' + (session.part || '?');
+        document.getElementById('meta-topic').textContent = session.topic || '';
+        document.getElementById('meta-date').textContent  = fmtDate(session.started_at || session.created_at);
+
+        // ── Band scores ──────────────────────────────────────────────────────
+        var bands;
+        if (session.band_fc != null && session.band_lr != null && session.band_gra != null && session.band_p != null) {
+          bands = { fc: session.band_fc, lr: session.band_lr, gra: session.band_gra, p: session.band_p };
+        } else {
+          bands = aggregateBands(responses);
+        }
+
+        renderBand('band-fc',  bands.fc);
+        renderBand('band-lr',  bands.lr);
+        renderBand('band-gra', bands.gra);
+        renderBand('band-p',   bands.p);
+
+        // Overall = average of non-null criterion bands, rounded to nearest 0.5
+        // Fallback to session.overall_band for practice mode (no criterion bands).
+        var vals = ['fc', 'lr', 'gra', 'p']
+          .map(function (k) { return bands[k]; })
+          .filter(function (v) { return v != null; });
+
+        var overallEl = document.getElementById('overall-band');
+        if (vals.length > 0) {
+          var avg = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+          avg = Math.round(avg * 2) / 2;
+          overallEl.textContent = avg.toFixed(1);
+          overallEl.className   = overallEl.className.replace(/band-\w+/g, '').trim() + ' ' + bandClass(avg);
+        } else if (session.overall_band != null) {
+          var ob = parseFloat(session.overall_band);
+          overallEl.textContent = roundHalf(ob).toFixed(1);
+          overallEl.className   = overallEl.className.replace(/band-\w+/g, '').trim() + ' ' + bandClass(ob);
+        } else {
+          overallEl.textContent = '—';
+        }
+
+        // ── Strengths / improvements ─────────────────────────────────────────
+        var lists = aggregateLists(responses);
+        renderList('strengths-list', lists.strengths, '#14b8a6');
+
+        // Practice-mode feedback has no `improvements` field — hide the card to avoid an empty section.
+        var isPracticeSession = responses.some(function (r) {
+          var fb = parseFeedback(r.feedback);
+          return fb && fb.grammar_issues;
+        });
+        if (isPracticeSession) {
+          var improvCard = document.getElementById('improvements-list').closest('.card');
+          if (improvCard) improvCard.style.display = 'none';
+        } else {
+          renderList('improvements-list', lists.improvements, '#fbbf24');
+        }
+
+        // ── Accordion ────────────────────────────────────────────────────────
+        buildAccordion(questions, responses);
+
+        // ── Button handlers ───────────────────────────────────────────────────
+        document.getElementById('btn-pdf').addEventListener('click', function () {
+          downloadPdf(sessionId, token);
+        });
+        document.getElementById('btn-retry').addEventListener('click', function () {
+          retrySameTopic(session.part, session.topic, token);
+        });
+
+        showState('content');
+
+      } catch (err) {
+        console.error('[result] load error:', err);
+        showError(err.message || 'Lỗi không xác định.');
+      }
+    }
+
+    main();
+  }());
+  </script>
+</body>
+</html>

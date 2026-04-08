@@ -1,3 +1,5 @@
+import json
+import math
 from datetime import date, datetime, timezone
 from typing import Optional
 
@@ -11,6 +13,19 @@ from routers.auth import get_supabase_user
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 _VALID_MODES = {"practice", "test_part", "test_full"}
+
+
+def _round_band(value: float) -> float:
+    """Round to nearest 0.5 — IELTS display convention. Clamps to [1.0, 9.0]."""
+    rounded = math.floor(value * 2 + 0.5) / 2
+    return max(1.0, min(9.0, rounded))
+
+# Maps session mode → required permission scope
+_MODE_SCOPE: dict[str, str] = {
+    "practice":  "practice_single",
+    "test_part": "practice_part",
+    "test_full": "practice_full",
+}
 
 
 # ── Request models ─────────────────────────────────────────────────────────────
@@ -42,7 +57,35 @@ class CreateSessionBody(BaseModel):
         return v.strip()
 
 
-# ── Shared guard: user must be active ─────────────────────────────────────────
+# ── Shared guards ─────────────────────────────────────────────────────────────
+
+def _require_permission(user_id: str, mode: str) -> None:
+    """Assert user holds the scope required for the requested session mode."""
+    required = _MODE_SCOPE.get(mode)
+    if not required:
+        return  # unknown mode — field_validator above will reject it first
+
+    try:
+        r = (
+            supabase_admin.table("users")
+            .select("permissions")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quyền: {e}")
+
+    perms: list = (r.data[0].get("permissions") or []) if r.data else []
+
+    if "all" in perms or required in perms:
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail=f"Tài khoản không có quyền sử dụng chế độ này (cần: {required})",
+    )
+
 
 def _require_active(user_id: str) -> None:
     try:
@@ -75,6 +118,7 @@ async def create_session(
     user_id = auth_user["id"]
 
     _require_active(user_id)
+    _require_permission(user_id, body.mode)
 
     # Daily quota check — count sessions started today (UTC)
     today_start = (
@@ -259,18 +303,73 @@ async def complete_session(
         # Idempotent: already done — return current state so the frontend can continue safely.
         return {**session, "session_id": session["id"]}
 
-    # overall_band = mean of whichever band scores are not null
+    # overall_band = mean of whichever criterion bands are not null (test mode)
     raw_bands = [session.get(k) for k in ("band_fc", "band_lr", "band_gra", "band_p")]
     scored = [b for b in raw_bands if b is not None]
-    overall_band = round(sum(scored) / len(scored), 1) if scored else None
+    overall_band = _round_band(sum(scored) / len(scored)) if scored else None
+
+    # Criterion bands are never written by the grading route — compute them from responses.feedback
+    criteria_bands: dict[str, float | None] = {
+        "band_fc": None, "band_lr": None, "band_gra": None, "band_p": None
+    }
+    try:
+        r_res = (
+            supabase_admin.table("responses")
+            .select("overall_band, feedback")
+            .eq("session_id", session_id)
+            .execute()
+        )
+        responses = r_res.data or []
+
+        # overall_band fallback (practice mode has no criterion bands)
+        if overall_band is None:
+            r_bands = [
+                r["overall_band"] for r in responses
+                if r.get("overall_band") is not None
+            ]
+            if r_bands:
+                overall_band = _round_band(sum(r_bands) / len(r_bands))
+
+        # Parse feedback JSON to aggregate criterion bands (test mode)
+        fc_vals, lr_vals, gra_vals, p_vals = [], [], [], []
+        for r in responses:
+            raw = r.get("feedback")
+            if not raw:
+                continue
+            try:
+                fb = json.loads(raw) if isinstance(raw, str) else raw
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(fb, dict):
+                for vals, key in (
+                    (fc_vals,  "band_fc"),
+                    (lr_vals,  "band_lr"),
+                    (gra_vals, "band_gra"),
+                    (p_vals,   "band_p"),
+                ):
+                    v = fb.get(key)
+                    if v is not None:
+                        try:
+                            vals.append(float(v))
+                        except (TypeError, ValueError):
+                            pass
+
+        if fc_vals:  criteria_bands["band_fc"]  = _round_band(sum(fc_vals)  / len(fc_vals))
+        if lr_vals:  criteria_bands["band_lr"]  = _round_band(sum(lr_vals)  / len(lr_vals))
+        if gra_vals: criteria_bands["band_gra"] = _round_band(sum(gra_vals) / len(gra_vals))
+        if p_vals:   criteria_bands["band_p"]   = _round_band(sum(p_vals)   / len(p_vals))
+
+    except Exception:
+        pass  # best-effort — leave all bands as None
 
     try:
         result = (
             supabase_admin.table("sessions")
             .update({
-                "status": "completed",
+                "status":       "completed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
                 "overall_band": overall_band,
+                **{k: v for k, v in criteria_bands.items() if v is not None},
             })
             .eq("id", session_id)
             .execute()

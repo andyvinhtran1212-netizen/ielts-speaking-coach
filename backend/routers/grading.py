@@ -24,8 +24,9 @@ from fastapi import APIRouter, Form, Header, HTTPException, UploadFile, File
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services import whisper as whisper_svc
+from services.whisper import transcribe_from_bytes
 from services import claude_grader
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ async def grade_response_endpoint(
         try:
             s_res = (
                 supabase_admin.table("sessions")
-                .select("id, part, topic, status")
+                .select("id, part, topic, status, mode")
                 .eq("id", session_id)
                 .eq("user_id", user_id)
                 .limit(1)
@@ -73,6 +74,7 @@ async def grade_response_endpoint(
 
         session = s_res.data[0]
         part: int = session["part"]
+        session_mode: str = session.get("mode", "test") or "test"
 
         step = "load_question"
         try:
@@ -107,9 +109,23 @@ async def grade_response_endpoint(
                 f"File quá lớn ({file_size / (1024*1024):.1f} MB). Giới hạn là 50 MB."
             )
 
-        # ── STEP 3: Upload to Supabase Storage ────────────────────────────────
+        # ── STEP 3: Whisper STT (directly from in-memory bytes) ──────────────
+        # Transcribe BEFORE uploading to storage so we never hit CDN caching:
+        # if the same path is upserted and Whisper downloaded via the public URL,
+        # the CDN could serve the old file for up to an hour.
+        step = "whisper"
+        ext      = _guess_ext(audio_file.filename, audio_file.content_type)
+        filename = f"audio{ext}"
+        logger.info("[grading] gọi Whisper STT (from bytes, %d B)...", file_size)
+
+        try:
+            stt = await transcribe_from_bytes(audio_bytes, filename=filename)
+        except Exception as e:
+            logger.error("[grading] Whisper thất bại: %s", e)
+            raise HTTPException(502, f"Lỗi nhận dạng giọng nói (Whisper): {e}")
+
+        # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
         step = "storage_upload"
-        ext          = _guess_ext(audio_file.filename, audio_file.content_type)
         storage_path = f"{user_id}/{session_id}/{question_id}{ext}"
         audio_url: str | None = None
 
@@ -126,24 +142,13 @@ async def grade_response_endpoint(
             logger.info("[grading] storage upload OK → %s", storage_path)
         except Exception as e:
             err_str = str(e)
-            logger.error("[grading] storage upload FAILED: %s", e)
+            logger.warning("[grading] storage upload FAILED (non-fatal — transcript already done): %s", e)
             if "Bucket not found" in err_str:
-                raise HTTPException(
-                    502,
-                    f"Supabase Storage bucket '{_AUDIO_BUCKET}' not found. "
-                    "Create it in the Supabase dashboard (Storage → New bucket) and set it to Public."
+                logger.error(
+                    "[grading] Supabase Storage bucket '%s' not found. "
+                    "Create it in the Supabase dashboard (Storage → New bucket) and set it to Public.",
+                    _AUDIO_BUCKET,
                 )
-            raise HTTPException(502, f"Không thể lưu file audio: {e}")
-
-        # ── STEP 4: Whisper STT ───────────────────────────────────────────────
-        step = "whisper"
-        logger.info("[grading] gọi Whisper STT...")
-
-        try:
-            stt = await whisper_svc.transcribe_from_url(audio_url)
-        except Exception as e:
-            logger.error("[grading] Whisper thất bại: %s", e)
-            raise HTTPException(502, f"Lỗi nhận dạng giọng nói (Whisper): {e}")
 
         transcript: str   = stt.get("transcript", "").strip()
         duration_sec: float = stt.get("duration_seconds", 0.0)
@@ -152,6 +157,14 @@ async def grade_response_endpoint(
         logger.info(
             "[grading] Whisper OK — %d ký tự, %.1fs, conf=%.2f",
             len(transcript), duration_sec, confidence,
+        )
+
+        # Log Whisper usage (best-effort)
+        ai_usage_logger.log_whisper(
+            user_id=user_id,
+            session_id=session_id,
+            model="whisper-1",
+            audio_seconds=duration_sec,
         )
 
         # ── STEP 5: Duration guard (post-STT so we have the real value) ───────
@@ -181,6 +194,9 @@ async def grade_response_endpoint(
                 question=question_text,
                 transcript=transcript,
                 part=part,
+                mode=session_mode,
+                user_id=user_id,
+                session_id=session_id,
             )
             logger.info("[grading] Claude OK — overall_band=%.1f", grading["overall_band"])
         except Exception as e:
@@ -246,6 +262,24 @@ async def grade_response_endpoint(
                 "transcript":     transcript,
                 "duration_seconds": round(duration_sec, 2),
                 "stt_confidence": round(confidence, 4),
+            }
+
+        # Practice mode returns a different schema than test mode
+        is_practice = (session_mode == "practice")
+
+        if is_practice:
+            return {
+                "response_id":          response_id,
+                "transcript":           transcript,
+                "duration_seconds":     round(duration_sec, 2),
+                "stt_confidence":       round(confidence, 4),
+                "overall_band":         grading["overall_band"],
+                "grammar_issues":       grading["grammar_issues"],
+                "vocabulary_issues":    grading["vocabulary_issues"],
+                "pronunciation_issues": grading.get("pronunciation_issues", []),
+                "corrections":          grading["corrections"],
+                "strengths":            grading["strengths"],
+                "sample_answer":        grading["sample_answer"],
             }
 
         return {

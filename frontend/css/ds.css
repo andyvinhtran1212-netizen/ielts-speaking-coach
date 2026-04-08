@@ -1,0 +1,292 @@
+/*
+ * ds.css — IELTS Speaking Coach shared design system
+ * All classes are prefixed .ds- to avoid conflicts with existing page styles.
+ * Safe to link from any page; no globals are overridden except :root vars.
+ */
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --ds-navy:      #0C2340;
+  --ds-teal:      #0F766E;
+  --ds-teal-lt:   #14b8a6;
+  --ds-bg:        #0a1628;
+  --ds-surface:   rgba(255,255,255,0.04);
+  --ds-border:    rgba(255,255,255,0.08);
+  --ds-text:      rgba(255,255,255,0.85);
+  --ds-muted:     rgba(255,255,255,0.4);
+  --ds-faint:     rgba(255,255,255,0.15);
+
+  /* Criterion colours */
+  --ds-fc:  #38bdf8;   /* sky-400 */
+  --ds-lr:  #a78bfa;   /* violet-400 */
+  --ds-gra: #fb923c;   /* orange-400 */
+  --ds-p:   #f472b6;   /* pink-400 */
+}
+
+/* ── Fade-in animation ─────────────────────────────────────────────────────── */
+@keyframes ds-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ds-fadein { animation: ds-in 0.25s ease both; }
+
+/* ── Question card — highlighted left-border accent ───────────────────────── */
+.ds-question-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 4px solid var(--ds-teal-lt);
+  border-radius: 16px;
+  padding: 20px 24px;
+}
+.ds-question-card .ds-q-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ds-teal-lt);
+  margin-bottom: 10px;
+}
+.ds-question-card .ds-q-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: #fff;
+}
+
+/* ── Cue card ──────────────────────────────────────────────────────────────── */
+.ds-cue-card {
+  background: rgba(15,118,110,0.08);
+  border: 1px solid rgba(20,184,166,0.25);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.ds-cue-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.8);
+  padding: 4px 0;
+}
+.ds-cue-bullet::before {
+  content: '→';
+  color: var(--ds-teal-lt);
+  flex-shrink: 0;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+/* ── Band hero (large overall band display) ────────────────────────────────── */
+.ds-band-hero {
+  background: linear-gradient(135deg, rgba(15,118,110,0.2) 0%, rgba(20,184,166,0.08) 100%);
+  border: 1px solid rgba(20,184,166,0.3);
+  border-radius: 20px;
+  padding: 28px 24px;
+  text-align: center;
+}
+.ds-band-hero .ds-band-value {
+  font-size: 5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ds-teal-lt);
+  letter-spacing: -0.03em;
+}
+.ds-band-hero .ds-band-value.band-high { color: #14b8a6; }
+.ds-band-hero .ds-band-value.band-mid  { color: #fbbf24; }
+.ds-band-hero .ds-band-value.band-low  { color: #f97316; }
+.ds-band-hero .ds-band-value.band-none { color: #6b7280; }
+.ds-band-hero .ds-band-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ds-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+
+/* ── Criterion cards ───────────────────────────────────────────────────────── */
+.ds-crit {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.ds-crit:hover { background: rgba(255,255,255,0.07); }
+
+.ds-crit-fc  { border-top: 3px solid var(--ds-fc);  }
+.ds-crit-lr  { border-top: 3px solid var(--ds-lr);  }
+.ds-crit-gra { border-top: 3px solid var(--ds-gra); }
+.ds-crit-p   { border-top: 3px solid var(--ds-p);   }
+
+.ds-crit .ds-crit-score {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+/* Default colours per criterion — JS band-* classes (higher specificity) will override */
+.ds-crit-fc  > .ds-crit-score.band-none  { color: var(--ds-fc);  }
+.ds-crit-lr  > .ds-crit-score.band-none  { color: var(--ds-lr);  }
+.ds-crit-gra > .ds-crit-score.band-none  { color: var(--ds-gra); }
+.ds-crit-p   > .ds-crit-score.band-none  { color: var(--ds-p);   }
+/* Once JS sets a real band class, use semantic colour */
+.ds-crit-score.band-high { color: #14b8a6; }
+.ds-crit-score.band-mid  { color: #fbbf24; }
+.ds-crit-score.band-low  { color: #f97316; }
+
+.ds-crit .ds-crit-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ds-muted);
+}
+
+/* ── Recording state ring ──────────────────────────────────────────────────── */
+.ds-rec-ring {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(239,68,68,0.08);
+  border: 2px solid rgba(239,68,68,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ds-rec-pulse 2s ease-in-out infinite;
+  margin: 0 auto;
+}
+@keyframes ds-rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.25); }
+  50%       { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────────── */
+.ds-empty {
+  text-align: center;
+  padding: 48px 24px;
+}
+.ds-empty-icon {
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.ds-empty-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 6px;
+}
+.ds-empty-sub {
+  font-size: 0.8125rem;
+  color: var(--ds-muted);
+  margin-bottom: 20px;
+}
+
+/* ── Strength / improvement list items ────────────────────────────────────── */
+.ds-strength-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.8);
+  padding: 4px 0;
+}
+.ds-strength-item::before {
+  content: '✓';
+  color: var(--ds-teal-lt);
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.ds-improve-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.8);
+  padding: 4px 0;
+}
+.ds-improve-item::before {
+  content: '↑';
+  color: #fbbf24;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Progress bar ──────────────────────────────────────────────────────────── */
+.ds-progress-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.ds-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--ds-teal), var(--ds-teal-lt));
+  transition: width 0.4s ease;
+}
+
+/* ── Section heading divider ───────────────────────────────────────────────── */
+.ds-section-head {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ds-muted);
+  margin-bottom: 12px;
+}
+
+/* ── Inline band pill ──────────────────────────────────────────────────────── */
+.ds-band-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.06);
+}
+.ds-band-pill-fc  { color: var(--ds-fc);  border: 1px solid rgba(56,189,248,0.25); }
+.ds-band-pill-lr  { color: var(--ds-lr);  border: 1px solid rgba(167,139,250,0.25); }
+.ds-band-pill-gra { color: var(--ds-gra); border: 1px solid rgba(251,146,60,0.25); }
+.ds-band-pill-p   { color: var(--ds-p);   border: 1px solid rgba(244,114,182,0.25); }
+
+/* ── Toast notification ────────────────────────────────────────────────────── */
+.ds-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(15,118,110,0.95);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}
+.ds-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.ds-toast-error { background: rgba(185,28,28,0.95); }
+
+/* ── Focus ring (accessibility) ────────────────────────────────────────────── */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ds-teal-lt);
+  outline-offset: 2px;
+}

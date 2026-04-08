@@ -20,6 +20,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
 
   <style>
     body { background: #0a1628; }
@@ -102,6 +103,9 @@
     /* ── Custom scrollbar ── */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
+
+    /* ── Part 2 textarea ── */
+    #p2b-notes::placeholder { color: rgba(255,255,255,0.25); }
   </style>
 </head>
 <body class="text-white font-sans antialiased min-h-screen flex flex-col">
@@ -110,7 +114,7 @@
   <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);"
           class="sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <a href="/pages/dashboard.html"
+      <a href="dashboard.html"
          class="text-xs px-3 py-1.5 rounded-lg transition"
          style="color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.1);"
          onmouseover="this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.3)'"
@@ -135,6 +139,13 @@
   <!-- ─── MAIN CONTENT ────────────────────────────────────────────────────────── -->
   <main class="flex-1 flex flex-col">
 
+    <!-- TEST MODE BANNER (hidden in practice mode) -->
+    <div id="test-mode-banner" style="display:none;background:linear-gradient(90deg,rgba(239,68,68,0.18),rgba(220,38,38,0.1));border-bottom:1px solid rgba(239,68,68,0.35);padding:8px 20px;text-align:center;">
+      <span style="color:#f87171;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;">
+        🚨 TEST MODE — KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG
+      </span>
+    </div>
+
     <!-- STATE: Loading ──────────────────────────────────────────────────────── -->
     <div id="state-loading" class="state active flex-1 items-center justify-center flex-col gap-4">
       <div class="spinner"></div>
@@ -146,14 +157,51 @@
       <div class="text-5xl">⚠️</div>
       <h2 class="text-lg font-bold">Đã xảy ra lỗi</h2>
       <p id="error-msg" class="text-sm text-center max-w-xs" style="color:rgba(255,255,255,0.5);"></p>
-      <a href="/pages/dashboard.html"
+      <a href="dashboard.html"
          class="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block">
         Về Dashboard
       </a>
     </div>
 
+    <!-- STATE: Mode Choice ──────────────────────────────────────────────────── -->
+    <div id="state-mode-choice" class="state block-state flex-1 px-5 py-12 max-w-xl mx-auto w-full ds-fadein">
+      <div class="text-center mb-8">
+        <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.3);letter-spacing:.1em;">
+          Câu hỏi sẽ được trình bày như thế nào?
+        </p>
+        <h2 class="text-xl font-bold mb-2">Chọn chế độ câu hỏi</h2>
+        <p class="text-sm" style="color:rgba(255,255,255,0.4);">Lựa chọn này áp dụng cho toàn bộ phiên luyện tập</p>
+      </div>
+      <div class="flex flex-col gap-4">
+        <button onclick="PracticeApp.chooseModeAndStart('visual')"
+                class="w-full text-left px-6 py-6 rounded-2xl font-bold"
+                style="background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);
+                       transition:all 0.15s;cursor:pointer;"
+                onmouseover="this.style.background='rgba(255,255,255,0.09)';this.style.borderColor='rgba(255,255,255,0.25)'"
+                onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)'">
+          <div style="font-size:2rem;margin-bottom:8px;line-height:1;">👁</div>
+          <div style="font-size:1rem;color:#fff;margin-bottom:4px;">Visual</div>
+          <div style="font-size:0.8rem;color:rgba(255,255,255,0.45);font-weight:400;line-height:1.4;">
+            Đọc câu hỏi trực tiếp trên màn hình
+          </div>
+        </button>
+        <button onclick="PracticeApp.chooseModeAndStart('listening')"
+                class="w-full text-left px-6 py-6 rounded-2xl font-bold"
+                style="background:rgba(15,118,110,0.12);border:2px solid rgba(20,184,166,0.3);
+                       transition:all 0.15s;cursor:pointer;"
+                onmouseover="this.style.background='rgba(15,118,110,0.22)';this.style.borderColor='rgba(20,184,166,0.6)'"
+                onmouseout="this.style.background='rgba(15,118,110,0.12)';this.style.borderColor='rgba(20,184,166,0.3)'">
+          <div style="font-size:2rem;margin-bottom:8px;line-height:1;">🔊</div>
+          <div style="font-size:1rem;color:#14b8a6;margin-bottom:4px;">Listening</div>
+          <div style="font-size:0.8rem;color:rgba(255,255,255,0.45);font-weight:400;line-height:1.4;">
+            Nghe câu hỏi phát ra loa — giống phòng thi thật. Câu hỏi sẽ tự phát mỗi lần.
+          </div>
+        </button>
+      </div>
+    </div>
+
     <!-- STATE: Preparation ─────────────────────────────────────────────────── -->
-    <div id="state-prep" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full">
+    <div id="state-prep" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full ds-fadein">
 
       <!-- AI unavailable warning (shown only when Gemini failed and fallback questions are used) -->
       <div id="prep-fallback-warning"
@@ -163,7 +211,7 @@
       </div>
 
       <!-- Part badge + topic -->
-      <div class="flex items-center gap-2 mb-5 flex-wrap">
+      <div class="flex items-center gap-2 mb-4 flex-wrap">
         <span id="prep-part-badge"
               class="text-xs font-bold px-3 py-1 rounded-full"
               style="background:rgba(20,184,166,0.12);color:#14b8a6;"></span>
@@ -175,116 +223,216 @@
               style="color:rgba(255,255,255,0.3);"></span>
       </div>
 
+      <!-- Mode toggle (Part 1 & 3 only; hidden for Part 2 by JS) -->
+      <div id="prep-mode-toggle"
+           class="flex gap-1 mb-4 p-1 rounded-xl"
+           style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+        <button id="prep-mode-visual"
+                class="flex-1 py-1.5 text-xs font-semibold rounded-lg"
+                style="transition:background 0.15s,color 0.15s;"
+                onclick="PracticeApp.setQMode('visual')">
+          👁 Visual
+        </button>
+        <button id="prep-mode-listening"
+                class="flex-1 py-1.5 text-xs font-semibold rounded-lg"
+                style="transition:background 0.15s,color 0.15s;"
+                onclick="PracticeApp.setQMode('listening')">
+          🔊 Listening
+        </button>
+      </div>
+
+      <!-- Listening-mode play/replay bar (hidden in visual mode) -->
+      <div id="prep-listen-bar" style="display:none;" class="mb-4 flex items-center justify-center">
+        <button id="prep-play-btn"
+                class="btn-primary px-7 py-2.5 text-sm font-bold"
+                onclick="PracticeApp.playQuestion()">
+          🔊 Nghe câu hỏi
+        </button>
+      </div>
+
       <!-- Question card -->
-      <div class="card p-6 mb-5">
-        <div class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.3);">
-          Câu hỏi
+      <div id="prep-q-card" class="ds-question-card mb-5 ds-fadein" style="transition:opacity 0.2s;">
+        <div class="ds-q-label">Câu hỏi</div>
+        <!-- prep-text-reveal: hidden in Full Test mode until user taps reveal -->
+        <div id="prep-text-reveal">
+          <p id="prep-q-text" class="ds-q-text"></p>
         </div>
-        <p id="prep-q-text" class="text-lg font-semibold leading-relaxed"></p>
+        <!-- Reveal button: only shown in Full Test mode -->
+        <button id="prep-reveal-btn"
+                style="display:none;"
+                class="w-full text-xs py-2 px-4 rounded-lg font-medium transition"
+                style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.1);"
+                onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+                onmouseout="this.style.background='rgba(255,255,255,0.06)'"
+                onclick="PracticeApp.revealQuestionText()">
+          👁 Hiện câu hỏi
+        </button>
       </div>
 
       <!-- Cue card (Part 2 only) -->
-      <div id="prep-cue" class="hidden cue-card p-5 mb-6">
+      <div id="prep-cue" class="hidden ds-cue-card mb-6">
         <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#14b8a6;">
           📋 Cue Card — Hãy nói về:
         </p>
-        <ul id="prep-cue-bullets" class="space-y-2 text-sm mb-3"
-            style="color:rgba(255,255,255,0.75);list-style:none;padding:0;"></ul>
+        <div id="prep-cue-bullets" class="mb-3"></div>
         <p id="prep-cue-reflection" class="text-sm italic" style="color:rgba(255,255,255,0.45);"></p>
       </div>
 
-      <!-- Instruction -->
-      <p class="text-xs text-center mb-6" style="color:rgba(255,255,255,0.3);">
+      <!-- Instruction (text swapped by JS based on mode) -->
+      <p id="prep-instruction" class="text-xs text-center mb-6" style="color:rgba(255,255,255,0.3);">
         Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.
       </p>
 
-      <button class="btn-primary w-full py-4 text-base"
+      <button id="prep-start-btn" class="btn-primary w-full py-4 text-base"
               onclick="PracticeApp.goToRecording()">
         🎙 Bắt đầu ghi âm
       </button>
+
+      <!-- ── Inline recording controls (shown after clicking start) ──────── -->
+      <div id="inline-rec-section" style="display:none;margin-top:16px;">
+
+        <!-- Error banner -->
+        <div id="rec-error"
+             class="rounded-xl px-4 py-3 mb-4 text-sm"
+             style="display:none;background:rgba(239,68,68,0.1);
+                    border:1px solid rgba(239,68,68,0.3);color:#f87171;"></div>
+
+        <!-- Sub-state A: idle (shown on re-record; recording starts immediately on first click) -->
+        <div id="rec-idle" style="display:none;">
+          <div class="text-center py-4">
+            <div class="ds-rec-ring mb-3" style="border-color:rgba(20,184,166,0.35);background:rgba(20,184,166,0.06);animation:none;">
+              <span style="font-size:2rem;">🎙️</span>
+            </div>
+            <p class="text-sm font-medium mb-1" style="color:rgba(255,255,255,0.6);">Sẵn sàng ghi âm</p>
+          </div>
+          <button class="btn-primary w-full py-4 text-base"
+                  onclick="PracticeApp.startRecording()">
+            🎙 Bắt đầu ghi âm
+          </button>
+        </div>
+
+        <!-- Sub-state B: recording -->
+        <div id="rec-recording" style="display:none;">
+          <div class="text-center mb-4">
+            <div class="flex items-center justify-center gap-3 mb-2">
+              <span style="width:10px;height:10px;border-radius:50%;background:#f87171;
+                           display:inline-block;animation:pulse-dot 1.2s ease infinite;"></span>
+              <span id="rec-timer"
+                    class="text-5xl font-extrabold tabular-nums"
+                    style="letter-spacing:-0.02em;color:#fff;">0:00</span>
+            </div>
+            <p class="text-xs" style="color:rgba(255,255,255,0.3);">
+              Đang ghi âm — nói rõ ràng vào microphone
+            </p>
+          </div>
+          <canvas id="rec-canvas" width="600" height="56"
+                  style="width:100%;border-radius:12px;display:block;margin-bottom:16px;
+                         background:rgba(255,255,255,0.03);
+                         border:1px solid rgba(255,255,255,0.06);"></canvas>
+          <button class="btn-danger w-full py-4 text-sm font-bold"
+                  onclick="PracticeApp.stopRecording()">
+            ⏹ Dừng ghi âm
+          </button>
+        </div>
+
+        <!-- Sub-state C: recorded -->
+        <div id="rec-recorded" style="display:none;">
+          <div class="text-center py-4">
+            <div style="font-size:48px;line-height:1;margin-bottom:10px;">✅</div>
+            <p class="text-sm font-semibold mb-1" style="color:#4ade80;">Đã ghi âm xong!</p>
+            <p id="rec-duration-display"
+               class="text-xs" style="color:rgba(255,255,255,0.35);"></p>
+          </div>
+          <div class="flex gap-3">
+            <button class="btn-ghost py-3 text-sm font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.resetRecording()">
+              🔄 Ghi lại
+            </button>
+            <button class="btn-primary py-3 text-sm font-bold"
+                    style="flex:2;"
+                    onclick="PracticeApp.submitRecording()">
+              📤 Nộp để chấm điểm
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /inline-rec-section -->
     </div>
 
-    <!-- STATE: Recording (3 sub-states: idle → recording → recorded) ────────── -->
-    <div id="state-recording" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full">
+    <!-- STATE: P2-A — Cue Card ──────────────────────────────────────────────── -->
+    <div id="state-p2a" class="state block-state flex-1 px-5 py-6 max-w-xl mx-auto w-full">
+      <div class="flex items-center gap-2 mb-5">
+        <span class="part-badge">Part 2</span>
+        <span id="p2a-topic" class="text-sm" style="color:rgba(255,255,255,0.45);"></span>
+      </div>
+      <div class="card p-5 mb-5" style="border:1px solid rgba(20,184,166,0.25);">
+        <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#14b8a6;">Cue Card</p>
+        <p id="p2a-question"
+           class="text-base font-semibold mb-4"
+           style="color:rgba(255,255,255,0.9);line-height:1.6;"></p>
+        <ul id="p2a-bullets" class="space-y-2 mb-3" style="list-style:none;padding:0;margin:0;"></ul>
+        <p id="p2a-reflection" class="text-sm" style="color:rgba(255,255,255,0.55);font-style:italic;"></p>
+      </div>
+      <p class="text-xs text-center mb-5" style="color:rgba(255,255,255,0.3);">
+        Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.
+      </p>
+      <button class="btn-primary w-full py-4 text-sm font-bold"
+              onclick="PracticeApp.startP2Prep()">
+        ▶ Bắt đầu 1 phút chuẩn bị
+      </button>
+    </div>
 
-      <!-- Question reminder -->
+    <!-- STATE: P2-B — Prep countdown ───────────────────────────────────────── -->
+    <div id="state-p2b" class="state block-state flex-1 px-5 py-6 max-w-xl mx-auto w-full">
+      <p class="text-xs font-bold uppercase tracking-wider text-center mb-3"
+         style="color:rgba(255,255,255,0.3);">Thời gian chuẩn bị</p>
+      <p id="p2b-timer"
+         class="text-6xl font-extrabold tabular-nums text-center mb-6"
+         style="letter-spacing:-0.03em;color:#f97316;">1:00</p>
+      <div class="card p-4 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wider mb-2"
+           style="color:rgba(255,255,255,0.3);">Câu hỏi</p>
+        <p id="p2b-question" class="text-sm"
+           style="color:rgba(255,255,255,0.7);line-height:1.6;"></p>
+      </div>
       <div class="card p-4 mb-5">
         <p class="text-xs font-bold uppercase tracking-wider mb-2"
-           style="color:rgba(255,255,255,0.3);">Câu hỏi đang trả lời</p>
-        <p id="rec-question"
-           class="text-sm font-semibold leading-relaxed"
-           style="color:rgba(255,255,255,0.85);"></p>
+           style="color:rgba(255,255,255,0.3);">Ghi chú của bạn</p>
+        <textarea id="p2b-notes" rows="4"
+                  placeholder="Ghi nhanh ý chính, từ vựng quan trọng..."
+                  style="width:100%;background:transparent;border:none;outline:none;
+                         color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;
+                         resize:none;font-family:inherit;"></textarea>
       </div>
+      <button class="btn-ghost w-full py-3 text-sm font-semibold"
+              onclick="PracticeApp.startP2SpeakingEarly()">
+        Bỏ qua → Bắt đầu nói ngay
+      </button>
+    </div>
 
-      <!-- Error banner (hidden by default) -->
-      <div id="rec-error"
-           class="rounded-xl px-4 py-3 mb-4 text-sm"
-           style="display:none;background:rgba(239,68,68,0.1);
-                  border:1px solid rgba(239,68,68,0.3);color:#f87171;"></div>
-
-      <!-- ── Sub-state A: idle ────────────────────────────────────────────── -->
-      <div id="rec-idle">
-        <div class="text-center py-6">
-          <div style="font-size:52px;line-height:1;margin-bottom:16px;">🎙️</div>
-          <p class="text-sm font-medium mb-1" style="color:rgba(255,255,255,0.6);">
-            Sẵn sàng ghi âm
-          </p>
-          <p class="text-xs" style="color:rgba(255,255,255,0.25);">
-            Trình duyệt sẽ yêu cầu quyền truy cập microphone
-          </p>
+    <!-- STATE: P2-C — Speaking (2-min countdown) ────────────────────────────── -->
+    <div id="state-p2c" class="state block-state flex-1 px-5 py-6 max-w-xl mx-auto w-full">
+      <div class="text-center mb-6">
+        <div class="flex items-center justify-center gap-3 mb-2">
+          <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;
+                       display:inline-block;animation:pulse-dot 1.2s ease infinite;"></span>
+          <span id="p2c-timer"
+                class="text-5xl font-extrabold tabular-nums"
+                style="letter-spacing:-0.02em;color:#fff;">2:00</span>
         </div>
-        <button class="btn-primary w-full py-4 text-base"
-                onclick="PracticeApp.startRecording()">
-          🎙 Bắt đầu ghi âm
-        </button>
+        <p class="text-xs" style="color:rgba(255,255,255,0.3);">
+          Đang ghi âm — nói về chủ đề trên cue card
+        </p>
       </div>
-
-      <!-- ── Sub-state B: recording ───────────────────────────────────────── -->
-      <div id="rec-recording" style="display:none;">
-        <div class="text-center mb-5">
-          <div class="flex items-center justify-center gap-3 mb-3">
-            <span style="width:10px;height:10px;border-radius:50%;background:#f87171;
-                         display:inline-block;animation:pulse-dot 1.2s ease infinite;"></span>
-            <span id="rec-timer"
-                  class="text-5xl font-extrabold tabular-nums"
-                  style="letter-spacing:-0.02em;color:#fff;">0:00</span>
-          </div>
-          <p class="text-xs" style="color:rgba(255,255,255,0.3);">
-            Đang ghi âm — nói rõ ràng vào microphone
-          </p>
-        </div>
-        <canvas id="rec-canvas" width="600" height="56"
-                style="width:100%;border-radius:12px;display:block;margin-bottom:20px;
-                       background:rgba(255,255,255,0.03);
-                       border:1px solid rgba(255,255,255,0.06);"></canvas>
-        <button class="btn-danger w-full py-4 text-sm font-bold"
-                onclick="PracticeApp.stopRecording()">
-          ⏹ Dừng ghi âm
-        </button>
-      </div>
-
-      <!-- ── Sub-state C: recorded ────────────────────────────────────────── -->
-      <div id="rec-recorded" style="display:none;">
-        <div class="text-center py-6">
-          <div style="font-size:52px;line-height:1;margin-bottom:12px;">✅</div>
-          <p class="text-sm font-semibold mb-1" style="color:#4ade80;">Đã ghi âm xong!</p>
-          <p id="rec-duration-display"
-             class="text-xs" style="color:rgba(255,255,255,0.35);"></p>
-        </div>
-        <div class="flex gap-3">
-          <button class="btn-ghost py-3 text-sm font-semibold"
-                  style="flex:1;"
-                  onclick="PracticeApp.resetRecording()">
-            🔄 Ghi lại
-          </button>
-          <button class="btn-primary py-3 text-sm font-bold"
-                  style="flex:2;"
-                  onclick="PracticeApp.submitRecording()">
-            📤 Nộp để chấm điểm
-          </button>
-        </div>
-      </div>
-
+      <canvas id="p2c-canvas" width="600" height="56"
+              style="width:100%;border-radius:12px;display:block;margin-bottom:20px;
+                     background:rgba(255,255,255,0.03);
+                     border:1px solid rgba(255,255,255,0.06);"></canvas>
+      <button class="btn-danger w-full py-4 text-sm font-bold"
+              onclick="PracticeApp.stopP2SpeakingEarly()">
+        ⏹ Dừng sớm
+      </button>
     </div>
 
     <!-- STATE: Processing ───────────────────────────────────────────────────── -->
@@ -299,18 +447,16 @@
     </div>
 
     <!-- STATE: Feedback ─────────────────────────────────────────────────────── -->
-    <div id="state-feedback" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full">
+    <div id="state-feedback" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full ds-fadein">
 
-      <h2 class="text-lg font-bold mb-6 text-center">Kết quả câu trả lời</h2>
+      <h2 class="text-lg font-bold mb-5 text-center">Kết quả câu trả lời</h2>
 
-      <!-- Overall band circle -->
+      <!-- Overall band hero -->
       <div id="feedback-band-wrapper"
-           style="display:none;justify-content:center;margin-bottom:16px;">
-        <div>
-          <div class="band-circle mx-auto mb-2">
-            <span id="feedback-band"></span>
-          </div>
-          <p class="text-xs text-center" style="color:rgba(255,255,255,0.35);">Band Score</p>
+           style="display:none;margin-bottom:16px;">
+        <div class="ds-band-hero">
+          <div class="ds-section-head" style="margin-bottom:6px;">Band Score</div>
+          <div id="feedback-band" class="ds-band-value"></div>
         </div>
       </div>
 
@@ -352,6 +498,44 @@
       </div>
     </div>
 
+    <!-- STATE: Break (Full Test inter-part pause) ───────────────────────────── -->
+    <div id="state-break" class="state flex-1 items-center justify-center flex-col gap-4 px-6 text-center">
+      <p id="break-part-label" class="text-sm font-semibold uppercase tracking-wider"
+         style="color:#14b8a6;"></p>
+      <p id="break-timer" class="font-bold" style="color:#f97316;font-size:5rem;line-height:1;">30</p>
+      <p class="text-sm" style="color:rgba(255,255,255,0.5);">Phần tiếp theo sẽ bắt đầu tự động</p>
+    </div>
+
+    <!-- STATE: Test Results ──────────────────────────────────────────────────── -->
+    <div id="state-test-results" class="state block-state flex-1 px-5 py-8 max-w-2xl mx-auto w-full">
+      <h2 class="text-xl font-bold mb-2 text-center">Kết quả bài Test</h2>
+      <p class="text-xs text-center mb-6" style="color:rgba(255,255,255,0.4);">Tổng hợp tất cả câu trả lời trong buổi test</p>
+
+      <!-- Overall band -->
+      <div id="test-overall-wrap" class="card p-6 mb-6 text-center" style="border:1px solid rgba(20,184,166,0.3);">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#14b8a6;">Overall Band (trung bình)</p>
+        <div id="test-overall-band" class="text-6xl font-bold" style="color:#14b8a6;">—</div>
+      </div>
+
+      <!-- Per-question results -->
+      <div id="test-results-list" class="flex flex-col gap-4 mb-8"></div>
+
+      <!-- Export PDF -->
+      <button id="btn-export-pdf"
+              onclick="PracticeApp.downloadPDFs(this)"
+              class="w-full py-3 rounded-2xl font-bold text-sm mb-3"
+              style="background:rgba(20,184,166,0.15);color:#14b8a6;border:1px solid rgba(20,184,166,0.3);transition:all 0.15s;">
+        📄 Tải xuống báo cáo PDF
+      </button>
+
+      <!-- Back to dashboard -->
+      <button onclick="PracticeApp.finishSession()"
+              class="w-full py-3 rounded-2xl font-bold text-sm"
+              style="background:#0F766E;color:#fff;">
+        Về Dashboard →
+      </button>
+    </div>
+
   </main>
 
   <!-- ─── SCRIPTS ──────────────────────────────────────────────────────────────── -->
@@ -360,7 +544,7 @@
   <script src="../js/practice.js"></script>
   <script>
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
-    var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaHJ0cXNwem5lcG12ZXl1cnptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNjgxNjIsImV4cCI6MjA5MDk0NDE2Mn0.xnJ7XLLZFVjbaJtbF8S2sMhFsrHMB6onKNY66ViqWpU';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
 
