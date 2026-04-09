@@ -130,6 +130,35 @@
       prog.textContent = (_currentIdx + 1) + ' / ' + _questions.length;
       prog.classList.remove('hidden');
     }
+
+    // Progress bar — only shown in test modes
+    var barWrap  = $('progress-bar-wrap');
+    var barFill  = $('progress-bar-fill');
+    var barLabel = $('progress-bar-label');
+    if (barWrap && barFill && barLabel) {
+      if (_testMode) {
+        barWrap.style.display = '';
+        var pct, labelText;
+        if (_testMode === 'test_full') {
+          // Cumulative questions before each part starts (Part 1: 9q, Part 2: 1q, Part 3: 5q → total 15)
+          var _FT_BEFORE = { 1: 0, 2: 9, 3: 10 };
+          var _FT_TOTAL  = 15;
+          var currentPart        = _ftCurrentPart || _sessionData.part;
+          var doneBeforeThisPart = _FT_BEFORE[currentPart] || 0;
+          var overallDone        = doneBeforeThisPart + (_currentIdx + 1);
+          pct = Math.round((overallDone / _FT_TOTAL) * 100);
+          labelText = 'Part ' + currentPart + ' / 3  ·  Câu ' + (_currentIdx + 1) + ' / ' + _questions.length + '  ·  Tổng: ' + overallDone + ' / ' + _FT_TOTAL;
+        } else {
+          // test_part
+          pct = _questions.length > 0 ? Math.round((_currentIdx + 1) / _questions.length * 100) : 0;
+          labelText = 'Câu ' + (_currentIdx + 1) + ' / ' + _questions.length;
+        }
+        barFill.style.width = pct + '%';
+        barLabel.textContent = labelText;
+      } else {
+        barWrap.style.display = 'none';
+      }
+    }
   }
 
   // ── STATE: Prep ───────────────────────────────────────────────────────────────
@@ -986,9 +1015,9 @@
   function _applyQModeUI() {
     var isListening = (_qMode === 'listening');
 
-    // Hide mode toggle entirely in test modes — mode is locked
+    // Mode toggle is never useful — all flows force their mode programmatically
     var toggleWrap = $('prep-mode-toggle');
-    if (toggleWrap) toggleWrap.style.display = _testMode ? 'none' : '';
+    if (toggleWrap) toggleWrap.style.display = 'none';
 
     // Toggle button highlight
     var vBtn = $('prep-mode-visual');

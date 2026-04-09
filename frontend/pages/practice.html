@@ -146,6 +146,18 @@
       </span>
     </div>
 
+    <!-- PROGRESS BAR (test modes only — controlled by JS) -->
+    <div id="progress-bar-wrap" style="display:none;">
+      <div id="progress-bar-label"
+           style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.35);
+                  padding:5px 20px 3px;text-align:center;letter-spacing:0.01em;"></div>
+      <div style="height:2px;background:rgba(255,255,255,0.06);">
+        <div id="progress-bar-fill"
+             style="height:100%;background:linear-gradient(90deg,#0F766E,#14b8a6);
+                    transition:width 0.35s ease;width:0%;"></div>
+      </div>
+    </div>
+
     <!-- STATE: Loading ──────────────────────────────────────────────────────── -->
     <div id="state-loading" class="state active flex-1 items-center justify-center flex-col gap-4">
       <div class="spinner"></div>
