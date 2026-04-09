@@ -115,6 +115,73 @@ def _make_fallback_rows(session_id: str, part: int, is_full_test: bool = False) 
     ]
 
 
+# ── Library helper ────────────────────────────────────────────────────────────
+
+def _load_from_library(
+    topic: str,
+    part: int,
+    session_id: str,
+    is_full_test: bool,
+    mode: str,
+) -> list[dict]:
+    """
+    Try to load pre-generated questions from the admin topic library.
+    Returns a list of question rows ready to insert into the questions table,
+    or [] if the topic is not in the library / not enough questions.
+    """
+    try:
+        # Look up the topic by title (case-insensitive)
+        t_res = (
+            supabase_admin.table("topics")
+            .select("id")
+            .eq("part", part)
+            .ilike("title", topic.strip())
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        if not t_res.data:
+            return []
+
+        topic_id = t_res.data[0]["id"]
+
+        # Load library questions for this topic/part
+        q_res = (
+            supabase_admin.table("topic_questions")
+            .select("*")
+            .eq("topic_id", topic_id)
+            .eq("part", part)
+            .eq("is_active", True)
+            .order("order_num")
+            .execute()
+        )
+        lib_qs = q_res.data or []
+
+        required = {1: _PART1_COUNT, 2: 1, 3: _PART3_COUNT}.get(part, _PART1_COUNT)
+        if len(lib_qs) < required:
+            return []
+
+        rows: list[dict] = []
+        for i, q in enumerate(lib_qs[:required]):
+            row: dict = {
+                "session_id":          session_id,
+                "part":                part,
+                "order_num":           i + 1,
+                "question_text":       q["question_text"],
+                "question_type":       q.get("question_type") or "personal",
+                "cue_card_bullets":    q.get("cue_card_bullets"),
+                "cue_card_reflection": q.get("cue_card_reflection"),
+            }
+            rows.append(row)
+
+        logger.info("[library] Loaded %d questions from library for part=%d topic=%r", len(rows), part, topic)
+        return rows
+
+    except Exception as exc:
+        logger.warning("[library] Library lookup failed: %s", exc)
+        return []
+
+
 # ── POST /sessions/{session_id}/questions/generate ────────────────────────────
 
 @router.post("/sessions/{session_id}/questions/generate")
@@ -165,6 +232,19 @@ async def generate_questions(
 
     if existing.data:
         return existing.data
+
+    # ── Check topic library first ──────────────────────────────────────────────
+    # If the topic exists in the admin-managed library and has pre-generated
+    # questions, use those instead of calling Gemini.
+    if not is_full_test and part in (1, 2, 3):
+        library_rows = _load_from_library(topic, part, session_id, is_full_test, mode)
+        if library_rows:
+            try:
+                result = supabase_admin.table("questions").insert(library_rows).execute()
+                return sorted(result.data, key=lambda q: q["order_num"])
+            except Exception as e:
+                # Library insert failed — fall through to Gemini
+                logger.warning("[warn] Library insert failed: %s — falling back to Gemini", e)
 
     # ── Call Gemini ────────────────────────────────────────────────────────────
     is_fallback = False

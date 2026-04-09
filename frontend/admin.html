@@ -149,6 +149,61 @@
     @keyframes spin { to { transform:rotate(360deg); } }
 
     .code-mono { font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.05em; color: #14b8a6; font-weight: 700; }
+
+    /* Library sub-tabs */
+    .tlib-tab {
+      padding: 7px 18px; border-radius: 9px;
+      font-size: 13px; font-weight: 600;
+      color: rgba(255,255,255,0.4); cursor: pointer;
+      transition: background 0.15s, color 0.15s; white-space: nowrap;
+    }
+    .tlib-tab:hover  { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.05); }
+    .tlib-tab.active { background: rgba(20,184,166,0.18); color: #14b8a6; }
+
+    /* Topic card (library) */
+    .topic-card {
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .topic-card:hover { border-color: rgba(20,184,166,0.25); }
+    .topic-card-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 18px; cursor: pointer;
+    }
+    .topic-card-body {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 16px 18px;
+    }
+    .q-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .q-row:last-child { border-bottom: none; }
+    .q-text-edit {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: rgba(255,255,255,0.8); font-size: 13px; line-height: 1.5;
+      resize: none; min-height: 22px; overflow: hidden;
+      font-family: inherit;
+    }
+    .q-text-edit:focus {
+      background: rgba(255,255,255,0.04); border-radius: 6px; padding: 2px 6px; margin: -2px -6px;
+    }
+    .btn-icon {
+      background: transparent; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.25); padding: 3px 5px; border-radius: 5px;
+      font-size: 13px; transition: color 0.15s, background 0.15s; flex-shrink: 0;
+    }
+    .btn-icon:hover { color: #f87171; background: rgba(239,68,68,0.1); }
+    .cue-field {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 8px; padding: 8px 12px; color: #e2e8f0; font-size: 13px;
+      width: 100%; outline: none; resize: none;
+      font-family: inherit; transition: border-color 0.15s;
+    }
+    .cue-field:focus { border-color: #14b8a6; }
   </style>
 </head>
 <body class="text-white font-sans antialiased min-h-screen flex flex-col">
@@ -206,29 +261,32 @@
 
       <!-- ── TAB: Topics ──────────────────────────────────────── -->
       <div id="panel-topics">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-bold text-base">Topics</h2>
-          <button class="btn-primary" onclick="openAddTopicModal()">+ Thêm topic mới</button>
-        </div>
-        <div id="topics-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
-        <div id="topics-empty"   class="hidden text-center py-12 text-sm" style="color:rgba(255,255,255,0.35);">Chưa có topic nào. Nhấn "+ Thêm topic mới" để bắt đầu.</div>
-        <div id="topics-table-wrap" class="hidden card overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Category</th>
-                  <th>Part</th>
-                  <th>Trạng thái</th>
-                  <th class="text-center">Bật/Tắt</th>
-                  <th class="text-center">Xóa</th>
-                </tr>
-              </thead>
-              <tbody id="topics-tbody"></tbody>
-            </table>
+
+        <!-- Part 1 / Part 2 sub-tabs -->
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex gap-1 p-1 rounded-xl" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);">
+            <button id="tlib-tab-1" class="tlib-tab active" onclick="switchLibTab(1)">Part 1 — Interview</button>
+            <button id="tlib-tab-2" class="tlib-tab"        onclick="switchLibTab(2)">Part 2 — Cue Card</button>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn-secondary" onclick="openBulkModal()">📋 Bulk add</button>
+            <button class="btn-primary"   onclick="openAddTopicModal()">+ Thêm topic</button>
           </div>
         </div>
+
+        <div id="topics-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+        <div id="topics-empty"   class="hidden text-center py-12 text-sm" style="color:rgba(255,255,255,0.35);">Chưa có topic nào. Nhấn "+ Thêm topic" để bắt đầu.</div>
+
+        <!-- Part 1 panel -->
+        <div id="tlib-panel-1" class="space-y-3">
+          <div id="p1-topic-list"></div>
+        </div>
+
+        <!-- Part 2 panel -->
+        <div id="tlib-panel-2" class="hidden space-y-3">
+          <div id="p2-topic-list"></div>
+        </div>
+
       </div>
 
       <!-- ── TAB: Access Codes ────────────────────────────────── -->
@@ -476,15 +534,11 @@
   </div>
 
   <!-- ── Modal: Add Topic ───────────────────────────────────── -->
-  <div id="modal-topic" class="modal-overlay hidden" onclick="closeModalIfBackdrop(event)">
+  <div id="modal-topic" class="modal-overlay hidden" onclick="if(event.target===this)closeAddTopicModal()">
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between mb-5">
         <h3 class="font-bold text-base">Thêm topic mới</h3>
-        <button onclick="closeAddTopicModal()" style="color:rgba(255,255,255,0.4);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
+        <button onclick="closeAddTopicModal()" style="color:rgba(255,255,255,0.4);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">✕</button>
       </div>
       <div class="space-y-4">
         <div>
@@ -492,22 +546,94 @@
           <input id="new-topic-title" class="inp" placeholder="VD: Technology and Society" />
         </div>
         <div>
-          <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Category</label>
-          <input id="new-topic-category" class="inp" placeholder="VD: Society" />
-        </div>
-        <div>
           <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Part *</label>
           <select id="new-topic-part" class="inp">
-            <option value="1">Part 1 — Introduction &amp; Interview</option>
-            <option value="2">Part 2 — Individual Long Turn</option>
-            <option value="3">Part 3 — Two-way Discussion</option>
+            <option value="1">Part 1 — Interview</option>
+            <option value="2">Part 2 — Cue Card</option>
           </select>
         </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="new-topic-autogen" checked style="accent-color:#14b8a6;" />
+          <span class="text-xs" style="color:rgba(255,255,255,0.6);">Tự động tạo câu hỏi bằng AI sau khi lưu</span>
+        </label>
         <div id="modal-err" class="hidden text-xs py-2 px-3 rounded-lg" style="background:rgba(239,68,68,0.12);color:#f87171;"></div>
       </div>
       <div class="flex gap-3 mt-6">
         <button class="btn-secondary flex-1" onclick="closeAddTopicModal()">Hủy</button>
         <button id="btn-save-topic" class="btn-primary flex-1" onclick="saveNewTopic()">Lưu topic</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Bulk Add ─────────────────────────────────────── -->
+  <div id="modal-bulk" class="modal-overlay hidden" onclick="if(event.target===this)closeBulkModal()">
+    <div class="modal-box" style="max-width:520px;" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-base">Bulk add topics</h3>
+        <button onclick="closeBulkModal()" style="color:rgba(255,255,255,0.4);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Part *</label>
+          <select id="bulk-part" class="inp">
+            <option value="1">Part 1 — Interview</option>
+            <option value="2">Part 2 — Cue Card</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Danh sách topics (mỗi dòng 1 topic)</label>
+          <textarea id="bulk-lines" rows="8" class="inp" style="resize:vertical;min-height:140px;font-size:13px;" placeholder="Technology and Society&#10;Health and Wellbeing&#10;Environment&#10;Education&#10;Transport"></textarea>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="bulk-autogen" style="accent-color:#14b8a6;" />
+          <span class="text-xs" style="color:rgba(255,255,255,0.6);">Tự động tạo câu hỏi AI cho tất cả topics (chậm hơn)</span>
+        </label>
+        <div id="bulk-err" class="hidden text-xs py-2 px-3 rounded-lg" style="background:rgba(239,68,68,0.12);color:#f87171;"></div>
+        <div id="bulk-progress" class="hidden text-xs" style="color:#14b8a6;"></div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button class="btn-secondary flex-1" onclick="closeBulkModal()">Hủy</button>
+        <button id="btn-bulk-save" class="btn-primary flex-1" onclick="saveBulkTopics()">Thêm tất cả</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Edit Question ────────────────────────────────── -->
+  <div id="modal-edit-q" class="modal-overlay hidden" onclick="if(event.target===this)closeEditQModal()">
+    <div class="modal-box" style="max-width:500px;" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-base" id="edit-q-title">Sửa câu hỏi</h3>
+        <button onclick="closeEditQModal()" style="color:rgba(255,255,255,0.4);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Câu hỏi *</label>
+          <textarea id="edit-q-text" rows="3" class="inp" style="resize:vertical;"></textarea>
+        </div>
+        <!-- Cue card fields (Part 2 only) -->
+        <div id="edit-q-cue-wrap" class="hidden space-y-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Bullet 1</label>
+            <input id="edit-q-b1" class="inp" placeholder="Who you went with" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Bullet 2</label>
+            <input id="edit-q-b2" class="inp" placeholder="What you did there" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Bullet 3</label>
+            <input id="edit-q-b3" class="inp" placeholder="How you felt about it" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1.5" style="color:rgba(255,255,255,0.55);">Reflection</label>
+            <input id="edit-q-refl" class="inp" placeholder="and explain why this was important to you." />
+          </div>
+        </div>
+        <div id="edit-q-err" class="hidden text-xs py-2 px-3 rounded-lg" style="background:rgba(239,68,68,0.12);color:#f87171;"></div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button class="btn-secondary flex-1" onclick="closeEditQModal()">Hủy</button>
+        <button id="btn-edit-q-save" class="btn-primary flex-1" onclick="saveEditQ()">Lưu</button>
       </div>
     </div>
   </div>
@@ -612,87 +738,213 @@
     }
 
     // ── TOPICS ─────────────────────────────────────────────────
+    var _currentLibTab  = 1;
+    var _topicsCache    = [];
+    var _questionsCache = {}; // topicId → [questions]
+
+    window.switchLibTab = function (n) {
+      _currentLibTab = n;
+      document.getElementById('tlib-panel-1').classList.toggle('hidden', n !== 1);
+      document.getElementById('tlib-panel-2').classList.toggle('hidden', n !== 2);
+      document.getElementById('tlib-tab-1').classList.toggle('active', n === 1);
+      document.getElementById('tlib-tab-2').classList.toggle('active', n === 2);
+    };
+
     async function loadTopics() {
       _loaded.topics = true;
-      document.getElementById('topics-loading').classList.remove('hidden');
-      document.getElementById('topics-table-wrap').classList.add('hidden');
-      document.getElementById('topics-empty').classList.add('hidden');
+      var loadEl  = document.getElementById('topics-loading');
+      var emptyEl = document.getElementById('topics-empty');
+      loadEl.classList.remove('hidden');
+      emptyEl.classList.add('hidden');
+      document.getElementById('p1-topic-list').innerHTML = '';
+      document.getElementById('p2-topic-list').innerHTML = '';
 
       try {
         var topics = await apiGet('/admin/topics');
-        renderTopics(topics);
+        _topicsCache = topics || [];
+        loadEl.classList.add('hidden');
+
+        if (!topics || topics.length === 0) {
+          emptyEl.classList.remove('hidden');
+          return;
+        }
+        renderTopicList(topics.filter(function (t) { return t.part === 1; }), document.getElementById('p1-topic-list'));
+        renderTopicList(topics.filter(function (t) { return t.part === 2; }), document.getElementById('p2-topic-list'));
       } catch (err) {
-        document.getElementById('topics-loading').classList.add('hidden');
-        document.getElementById('topics-empty').textContent = 'Lỗi: ' + err.message;
-        document.getElementById('topics-empty').classList.remove('hidden');
+        loadEl.classList.add('hidden');
+        emptyEl.textContent = 'Lỗi: ' + err.message;
+        emptyEl.classList.remove('hidden');
       }
     }
 
-    function renderTopics(topics) {
-      document.getElementById('topics-loading').classList.add('hidden');
-      if (!topics || topics.length === 0) {
-        document.getElementById('topics-empty').classList.remove('hidden');
+    function renderTopicList(topics, container) {
+      if (!topics.length) {
+        container.innerHTML = '<p class="text-sm text-center py-8" style="color:rgba(255,255,255,0.3);">Chưa có topic nào.</p>';
         return;
       }
-      document.getElementById('topics-table-wrap').classList.remove('hidden');
-
-      var tbody = document.getElementById('topics-tbody');
-      tbody.innerHTML = topics.map(function (t) {
-        var partBadge = '<span class="text-xs font-semibold" style="color:#14b8a6;">Part ' + esc(t.part) + '</span>';
-        var statusBadge = t.is_active
-          ? '<span class="badge-on">Active</span>'
-          : '<span class="badge-off">Inactive</span>';
-        var toggleChecked = t.is_active ? 'checked' : '';
-        return '<tr>'
-          + '<td class="font-medium" style="color:#e2e8f0;">' + esc(t.title) + '</td>'
-          + '<td>' + esc(t.category || '—') + '</td>'
-          + '<td>' + partBadge + '</td>'
-          + '<td>' + statusBadge + '</td>'
-          + '<td class="text-center">'
-          +   '<label class="toggle" title="' + (t.is_active ? 'Tắt' : 'Bật') + ' topic">'
-          +     '<input type="checkbox" ' + toggleChecked + ' onchange="toggleTopic(\'' + esc(t.id) + '\', this.checked)">'
-          +     '<span class="toggle-slider"></span>'
-          +   '</label>'
-          + '</td>'
-          + '<td class="text-center">'
-          +   '<button class="btn-danger" onclick="deleteTopic(\'' + esc(t.id) + '\', \'' + esc(t.title) + '\')">Xóa</button>'
-          + '</td>'
-          + '</tr>';
-      }).join('');
+      container.innerHTML = topics.map(buildTopicCardHtml).join('');
     }
+
+    function buildTopicCardHtml(t) {
+      var rotatedLabel = t.last_rotated_at
+        ? '<span class="text-xs ml-2" style="color:rgba(255,255,255,0.3);">Cập nhật: ' + fmtDate(t.last_rotated_at) + '</span>'
+        : '<span class="text-xs ml-2" style="color:rgba(255,255,255,0.2);">Chưa tạo câu hỏi</span>';
+      var dimStyle = t.is_active ? '' : ' style="opacity:0.5;"';
+      return '<div class="topic-card"' + dimStyle + ' id="tcard-' + esc(t.id) + '">'
+        + '<div class="topic-card-header" onclick="toggleTopicExpand(\'' + esc(t.id) + '\')">'
+        +   '<div class="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">'
+        +     '<span class="font-semibold text-sm truncate" style="color:#e2e8f0;">' + esc(t.title) + '</span>'
+        +     rotatedLabel
+        +   '</div>'
+        +   '<div class="flex items-center gap-2 flex-shrink-0" onclick="event.stopPropagation()">'
+        +     '<button class="btn-icon" id="tcard-rot-' + esc(t.id) + '" title="Tạo lại câu hỏi bằng AI" onclick="rotateTopic(\'' + esc(t.id) + '\')">↻ Tạo</button>'
+        +     '<label class="toggle" title="' + (t.is_active ? 'Tắt' : 'Bật') + ' topic">'
+        +       '<input type="checkbox" ' + (t.is_active ? 'checked' : '') + ' onchange="toggleTopic(\'' + esc(t.id) + '\', this.checked)">'
+        +       '<span class="toggle-slider"></span>'
+        +     '</label>'
+        +     '<button class="btn-icon" style="color:#f87171;" title="Xóa topic" onclick="deleteTopic(\'' + esc(t.id) + '\', \'' + esc(t.title) + '\')">✕</button>'
+        +   '</div>'
+        +   '<svg class="w-4 h-4 flex-shrink-0 transition-transform" id="tcard-chev-' + esc(t.id) + '" style="color:rgba(255,255,255,0.3);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>'
+        + '</div>'
+        + '<div class="topic-card-body hidden" id="tcard-body-' + esc(t.id) + '">'
+        +   '<div id="tcard-qs-' + esc(t.id) + '" class="space-y-1 mb-3">'
+        +     '<div class="flex justify-center py-3"><div class="spinner" style="width:18px;height:18px;border-width:2px;"></div></div>'
+        +   '</div>'
+        +   '<button class="btn-secondary text-xs py-1.5" onclick="openAddQModal(\'' + esc(t.id) + '\', ' + t.part + ')">+ Thêm câu hỏi</button>'
+        + '</div>'
+        + '</div>';
+    }
+
+    window.toggleTopicExpand = async function (topicId) {
+      var body    = document.getElementById('tcard-body-' + topicId);
+      var chevron = document.getElementById('tcard-chev-' + topicId);
+      var isOpen  = !body.classList.contains('hidden');
+      if (isOpen) {
+        body.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+        return;
+      }
+      body.classList.remove('hidden');
+      chevron.style.transform = 'rotate(180deg)';
+      if (!_questionsCache[topicId]) {
+        await loadTopicQuestions(topicId);
+      } else {
+        var t = _topicsCache.find(function (x) { return x.id === topicId; }) || {};
+        renderTopicQuestions(topicId, _questionsCache[topicId], t.part || 1);
+      }
+    };
+
+    async function loadTopicQuestions(topicId) {
+      var t = _topicsCache.find(function (x) { return x.id === topicId; }) || {};
+      try {
+        var qs = await apiGet('/admin/topics/' + topicId + '/questions');
+        _questionsCache[topicId] = qs;
+        renderTopicQuestions(topicId, qs, t.part || 1);
+      } catch (err) {
+        document.getElementById('tcard-qs-' + topicId).innerHTML =
+          '<p class="text-xs py-2" style="color:#f87171;">Lỗi tải câu hỏi: ' + esc(err.message) + '</p>';
+      }
+    }
+
+    function renderTopicQuestions(topicId, qs, topicPart) {
+      var container = document.getElementById('tcard-qs-' + topicId);
+      if (!qs || qs.length === 0) {
+        container.innerHTML = '<p class="text-xs py-2" style="color:rgba(255,255,255,0.3);">Chưa có câu hỏi. Nhấn "↻ Tạo" để sinh câu hỏi bằng AI.</p>';
+        return;
+      }
+      var html = '';
+      if (topicPart === 2) {
+        var cuecardQs = qs.filter(function (q) { return q.part === 2; });
+        var part3Qs   = qs.filter(function (q) { return q.part === 3; });
+        if (cuecardQs.length) {
+          html += '<p class="text-xs font-bold mb-1.5" style="color:rgba(255,255,255,0.4);">Cue Card (Part 2)</p>';
+          html += cuecardQs.map(function (q) { return buildQRowHtml(topicId, q); }).join('');
+        }
+        if (part3Qs.length) {
+          html += '<p class="text-xs font-bold mt-3 mb-1.5" style="color:rgba(255,255,255,0.4);">Follow-up Questions (Part 3)</p>';
+          html += part3Qs.map(function (q) { return buildQRowHtml(topicId, q); }).join('');
+        }
+      } else {
+        html = qs.map(function (q) { return buildQRowHtml(topicId, q); }).join('');
+      }
+      container.innerHTML = html;
+    }
+
+    function buildQRowHtml(topicId, q) {
+      return '<div class="q-row">'
+        + '<span class="text-xs flex-shrink-0" style="color:rgba(255,255,255,0.25);min-width:20px;">' + esc(q.order_num) + '.</span>'
+        + '<span class="q-text-edit flex-1">' + esc(q.question_text) + '</span>'
+        + '<button class="btn-icon text-xs" title="Sửa" onclick="openEditQModal(\'' + esc(topicId) + '\', \'' + esc(q.id) + '\')">✏</button>'
+        + '<button class="btn-icon text-xs" style="color:#f87171;" title="Xóa" onclick="deleteTopicQuestion(\'' + esc(topicId) + '\', \'' + esc(q.id) + '\')">✕</button>'
+        + '</div>';
+    }
+
+    window.rotateTopic = async function (topicId) {
+      var btn = document.getElementById('tcard-rot-' + topicId);
+      var origText = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+      try {
+        await apiPost('/admin/topics/' + topicId + '/generate-questions', {});
+        _questionsCache[topicId] = null;
+        // Reload topics to get updated last_rotated_at, then refresh card
+        var topics = await apiGet('/admin/topics');
+        _topicsCache = topics || [];
+        var t = _topicsCache.find(function (x) { return x.id === topicId; });
+        if (t) {
+          var card = document.getElementById('tcard-' + topicId);
+          if (card) {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = buildTopicCardHtml(t);
+            card.parentNode.replaceChild(tmp.firstChild, card);
+          }
+        }
+        // Re-expand to show new questions
+        await window.toggleTopicExpand(topicId);
+      } catch (err) {
+        alert('Lỗi khi tạo câu hỏi: ' + err.message);
+        if (btn) { btn.disabled = false; btn.textContent = origText; }
+      }
+    };
 
     window.toggleTopic = async function (id, isActive) {
       try {
         await apiPatch('/admin/topics/' + id, { is_active: isActive });
-        // Reload silently to sync table
-        var topics = await apiGet('/admin/topics');
-        renderTopics(topics);
+        var card = document.getElementById('tcard-' + id);
+        if (card) card.style.opacity = isActive ? '' : '0.5';
       } catch (err) {
         alert('Lỗi khi cập nhật topic: ' + err.message);
-        loadTopics(); // reload to restore correct state
+        loadTopics();
       }
     };
 
     window.deleteTopic = async function (id, title) {
-      if (!confirm('Xóa topic "' + title + '"?\n\nHành động này không thể hoàn tác.')) return;
+      if (!confirm('Xóa topic "' + title + '"?\n\nHành động này sẽ xóa toàn bộ câu hỏi trong library và không thể hoàn tác.')) return;
       try {
-        // Use PATCH to deactivate — we don't expose DELETE in admin.py,
-        // so soft-delete by setting is_active=false and a special flag if needed.
-        // Actually, let's just reload after informing user we'd need a DELETE endpoint.
-        // For now, deactivate instead of hard-delete to keep data integrity.
-        await apiPatch('/admin/topics/' + id, { is_active: false });
-        var topics = await apiGet('/admin/topics');
-        renderTopics(topics);
+        await apiDelete('/admin/topics/' + id);
+        var card = document.getElementById('tcard-' + id);
+        if (card) card.remove();
+        _topicsCache = _topicsCache.filter(function (t) { return t.id !== id; });
+        delete _questionsCache[id];
+      } catch (err) {
+        alert('Lỗi khi xóa topic: ' + err.message);
+      }
+    };
+
+    window.deleteTopicQuestion = async function (topicId, qId) {
+      if (!confirm('Xóa câu hỏi này?')) return;
+      try {
+        await apiDelete('/admin/topics/' + topicId + '/questions/' + qId);
+        _questionsCache[topicId] = null;
+        await loadTopicQuestions(topicId);
       } catch (err) {
         alert('Lỗi: ' + err.message);
       }
     };
 
-    // Add topic modal
+    // ── Add Topic Modal ────────────────────────────────────────
     window.openAddTopicModal = function () {
-      document.getElementById('new-topic-title').value    = '';
-      document.getElementById('new-topic-category').value = '';
-      document.getElementById('new-topic-part').value     = '1';
+      document.getElementById('new-topic-title').value = '';
+      document.getElementById('new-topic-part').value  = String(_currentLibTab === 2 ? 2 : 1);
       document.getElementById('modal-err').classList.add('hidden');
       document.getElementById('modal-topic').classList.remove('hidden');
       setTimeout(function () { document.getElementById('new-topic-title').focus(); }, 80);
@@ -702,32 +954,32 @@
       document.getElementById('modal-topic').classList.add('hidden');
     };
 
-    window.closeModalIfBackdrop = function (e) {
-      if (e.target === document.getElementById('modal-topic')) closeAddTopicModal();
-    };
-
     window.saveNewTopic = async function () {
-      var title    = document.getElementById('new-topic-title').value.trim();
-      var category = document.getElementById('new-topic-category').value.trim();
-      var part     = parseInt(document.getElementById('new-topic-part').value, 10);
-      var errEl    = document.getElementById('modal-err');
-      var btn      = document.getElementById('btn-save-topic');
+      var title   = document.getElementById('new-topic-title').value.trim();
+      var part    = parseInt(document.getElementById('new-topic-part').value, 10);
+      var autogen = document.getElementById('new-topic-autogen').checked;
+      var errEl   = document.getElementById('modal-err');
+      var btn     = document.getElementById('btn-save-topic');
 
       if (!title) {
         errEl.textContent = 'Vui lòng nhập title.';
         errEl.classList.remove('hidden');
         return;
       }
-
       errEl.classList.add('hidden');
       btn.disabled = true;
       btn.textContent = 'Đang lưu…';
 
       try {
-        await apiPost('/admin/topics', { title: title, category: category, part: part });
+        var newTopic = await apiPost('/admin/topics', { title: title, part: part, category: '' });
         closeAddTopicModal();
-        _loaded.topics = false;
-        loadTopics();
+        _topicsCache.push(newTopic);
+        var listEl = document.getElementById('p' + part + '-topic-list');
+        var emptyP = listEl.querySelector('p');
+        if (emptyP) emptyP.remove();
+        listEl.insertAdjacentHTML('beforeend', buildTopicCardHtml(newTopic));
+        switchLibTab(part);
+        if (autogen) await window.rotateTopic(newTopic.id);
       } catch (err) {
         errEl.textContent = 'Lỗi: ' + err.message;
         errEl.classList.remove('hidden');
@@ -737,11 +989,181 @@
       }
     };
 
-    // Enter key in modal
+    // ── Bulk Add Modal ─────────────────────────────────────────
+    window.openBulkModal = function () {
+      document.getElementById('bulk-lines').value = '';
+      document.getElementById('bulk-err').classList.add('hidden');
+      document.getElementById('bulk-progress').classList.add('hidden');
+      document.getElementById('modal-bulk').classList.remove('hidden');
+      setTimeout(function () { document.getElementById('bulk-lines').focus(); }, 80);
+    };
+
+    window.closeBulkModal = function () {
+      document.getElementById('modal-bulk').classList.add('hidden');
+    };
+
+    window.saveBulkTopics = async function () {
+      var lines   = document.getElementById('bulk-lines').value;
+      var part    = parseInt(document.getElementById('bulk-part').value, 10);
+      var autogen = document.getElementById('bulk-autogen').checked;
+      var errEl   = document.getElementById('bulk-err');
+      var progEl  = document.getElementById('bulk-progress');
+      var btn     = document.getElementById('btn-bulk-save');
+
+      var titles = lines.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      if (!titles.length) {
+        errEl.textContent = 'Vui lòng nhập ít nhất 1 topic.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Đang thêm…';
+
+      try {
+        var res = await apiPost('/admin/topics/bulk', { part: part, lines: lines });
+        var created = res.created || [];
+        progEl.textContent = '✓ Đã tạo ' + created.length + ' topics.';
+        progEl.classList.remove('hidden');
+
+        var listEl = document.getElementById('p' + part + '-topic-list');
+        var emptyP = listEl.querySelector('p');
+        if (emptyP) emptyP.remove();
+        created.forEach(function (t) {
+          _topicsCache.push(t);
+          listEl.insertAdjacentHTML('beforeend', buildTopicCardHtml(t));
+        });
+
+        if (autogen && created.length) {
+          for (var i = 0; i < created.length; i++) {
+            progEl.textContent = 'Đang sinh câu hỏi ' + (i + 1) + '/' + created.length + '…';
+            try { await apiPost('/admin/topics/' + created[i].id + '/generate-questions', {}); } catch (e) { /* continue */ }
+          }
+          progEl.textContent = '✓ Hoàn tất! Đã tạo ' + created.length + ' topics với câu hỏi AI.';
+          var topics = await apiGet('/admin/topics');
+          _topicsCache = topics || [];
+          renderTopicList(topics.filter(function (t) { return t.part === 1; }), document.getElementById('p1-topic-list'));
+          renderTopicList(topics.filter(function (t) { return t.part === 2; }), document.getElementById('p2-topic-list'));
+        }
+
+        switchLibTab(part);
+        setTimeout(closeBulkModal, 1500);
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + err.message;
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Thêm tất cả';
+      }
+    };
+
+    // ── Edit / Add Question Modal ──────────────────────────────
+    var _editQTopicId   = null;
+    var _editQId        = null;
+    var _editQTopicPart = 1;
+
+    window.openAddQModal = function (topicId, topicPart) {
+      _editQTopicId   = topicId;
+      _editQId        = null;
+      _editQTopicPart = topicPart;
+      document.getElementById('edit-q-title').textContent = 'Thêm câu hỏi';
+      document.getElementById('edit-q-text').value        = '';
+      document.getElementById('edit-q-cue-wrap').classList.toggle('hidden', topicPart !== 2);
+      document.getElementById('edit-q-b1').value          = '';
+      document.getElementById('edit-q-b2').value          = '';
+      document.getElementById('edit-q-b3').value          = '';
+      document.getElementById('edit-q-refl').value        = '';
+      document.getElementById('edit-q-err').classList.add('hidden');
+      document.getElementById('modal-edit-q').classList.remove('hidden');
+      setTimeout(function () { document.getElementById('edit-q-text').focus(); }, 80);
+    };
+
+    window.openEditQModal = function (topicId, qId) {
+      var qs = _questionsCache[topicId] || [];
+      var q  = qs.find(function (x) { return x.id === qId; });
+      if (!q) return;
+      var t  = _topicsCache.find(function (x) { return x.id === topicId; }) || {};
+
+      _editQTopicId   = topicId;
+      _editQId        = qId;
+      _editQTopicPart = t.part || 1;
+
+      document.getElementById('edit-q-title').textContent = 'Sửa câu hỏi';
+      document.getElementById('edit-q-text').value = q.question_text || '';
+
+      var isCue = q.question_type === 'cuecard';
+      document.getElementById('edit-q-cue-wrap').classList.toggle('hidden', !isCue);
+      if (isCue) {
+        var bullets = Array.isArray(q.cue_card_bullets) ? q.cue_card_bullets : [];
+        document.getElementById('edit-q-b1').value   = bullets[0] || '';
+        document.getElementById('edit-q-b2').value   = bullets[1] || '';
+        document.getElementById('edit-q-b3').value   = bullets[2] || '';
+        document.getElementById('edit-q-refl').value = q.cue_card_reflection || '';
+      }
+
+      document.getElementById('edit-q-err').classList.add('hidden');
+      document.getElementById('modal-edit-q').classList.remove('hidden');
+      setTimeout(function () { document.getElementById('edit-q-text').focus(); }, 80);
+    };
+
+    window.closeEditQModal = function () {
+      document.getElementById('modal-edit-q').classList.add('hidden');
+      _editQTopicId = null;
+      _editQId      = null;
+    };
+
+    window.saveEditQ = async function () {
+      var text  = document.getElementById('edit-q-text').value.trim();
+      var errEl = document.getElementById('edit-q-err');
+      var btn   = document.getElementById('btn-edit-q-save');
+
+      if (!text) {
+        errEl.textContent = 'Câu hỏi không được để trống.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      var body = { question_text: text };
+      var isCueVisible = !document.getElementById('edit-q-cue-wrap').classList.contains('hidden');
+      if (isCueVisible) {
+        var b1 = document.getElementById('edit-q-b1').value.trim();
+        var b2 = document.getElementById('edit-q-b2').value.trim();
+        var b3 = document.getElementById('edit-q-b3').value.trim();
+        body.cue_card_bullets    = [b1, b2, b3].filter(Boolean);
+        body.cue_card_reflection = document.getElementById('edit-q-refl').value.trim() || null;
+      }
+
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Đang lưu…';
+
+      try {
+        if (_editQId) {
+          await apiPatch('/admin/topics/' + _editQTopicId + '/questions/' + _editQId, body);
+        } else {
+          body.part          = _editQTopicPart;
+          body.question_type = isCueVisible ? 'cuecard' : 'personal';
+          body.order_num     = ((_questionsCache[_editQTopicId] || []).length + 1);
+          await apiPost('/admin/topics/' + _editQTopicId + '/questions', body);
+        }
+        closeEditQModal();
+        _questionsCache[_editQTopicId] = null;
+        await loadTopicQuestions(_editQTopicId);
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + err.message;
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lưu';
+      }
+    };
+
+    // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeAddTopicModal();
-      if (e.key === 'Enter' && !document.getElementById('modal-topic').classList.contains('hidden')) {
-        saveNewTopic();
+      if (e.key === 'Escape') {
+        closeAddTopicModal();
+        closeBulkModal();
+        closeEditQModal();
       }
     });
 

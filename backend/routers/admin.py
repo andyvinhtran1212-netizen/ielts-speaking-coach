@@ -3,16 +3,8 @@ routers/admin.py — Admin-only management endpoints
 
 All routes under /admin/ require role = "admin" in the users table.
 
-Required Supabase table (run once if not yet created):
-
-    CREATE TABLE IF NOT EXISTS topics (
-        id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-        title       text        NOT NULL,
-        category    text        NOT NULL DEFAULT '',
-        part        smallint    NOT NULL CHECK (part IN (1, 2, 3)),
-        is_active   boolean     NOT NULL DEFAULT true,
-        created_at  timestamptz NOT NULL DEFAULT now()
-    );
+Required Supabase tables (run migration 002 if not yet applied):
+    See backend/migrations/002_topic_question_library.sql
 """
 
 import logging
@@ -25,6 +17,11 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.gemini import (
+    generate_part1_questions,
+    generate_part2_cuecard,
+    generate_part3_questions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,15 +77,36 @@ class PatchCodeRequest(BaseModel):
 
 class CreateTopicRequest(BaseModel):
     title:    str
-    category: str = ""
+    category: str = ""   # kept for DB compat, not shown in UI
     part:     int = Field(ge=1, le=3)
 
 
 class PatchTopicRequest(BaseModel):
     title:     str | None = None
-    category:  str | None = None
     part:      int | None = Field(default=None, ge=1, le=3)
     is_active: bool | None = None
+
+
+class BulkAddTopicsRequest(BaseModel):
+    part:  int = Field(ge=1, le=3)
+    lines: str  # newline-separated topic titles
+
+
+class CreateTopicQuestionRequest(BaseModel):
+    part:                int   = Field(ge=1, le=3)
+    question_text:       str
+    question_type:       str   = ""
+    order_num:           int   = 0
+    cue_card_bullets:    list[str] | None = None
+    cue_card_reflection: str | None       = None
+
+
+class UpdateTopicQuestionRequest(BaseModel):
+    question_text:       str | None       = None
+    question_type:       str | None       = None
+    order_num:           int | None       = None
+    cue_card_bullets:    list[str] | None = None
+    cue_card_reflection: str | None       = None
 
 
 # ── GET /admin/users ───────────────────────────────────────────────────────────
@@ -433,6 +451,273 @@ async def patch_topic(
         raise HTTPException(404, "Topic không tồn tại")
 
     return res.data[0]
+
+
+# ── DELETE /admin/topics/{topic_id} ───────────────────────────────────────────
+
+@router.delete("/topics/{topic_id}", status_code=204)
+async def delete_topic(
+    topic_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Hard-delete a topic and its library questions (cascade via FK)."""
+    await require_admin(authorization)
+    try:
+        supabase_admin.table("topics").delete().eq("id", topic_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi xóa topic: {exc}")
+
+
+# ── POST /admin/topics/bulk ────────────────────────────────────────────────────
+
+@router.post("/topics/bulk", status_code=201)
+async def bulk_add_topics(
+    body: BulkAddTopicsRequest,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Thêm hàng loạt topics cho một Part.
+    Body: { part: 1|2|3, lines: "Topic A\\nTopic B\\nTopic C" }
+    """
+    await require_admin(authorization)
+
+    titles = [l.strip() for l in body.lines.splitlines() if l.strip()]
+    if not titles:
+        raise HTTPException(400, "Không có dòng nào hợp lệ")
+
+    rows = [{"title": t, "category": "", "part": body.part, "is_active": True} for t in titles]
+    try:
+        res = supabase_admin.table("topics").insert(rows).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi thêm topics: {exc}")
+
+    return {"created": len(res.data or []), "topics": res.data or []}
+
+
+# ── GET /admin/topics/{topic_id}/questions ─────────────────────────────────────
+
+@router.get("/topics/{topic_id}/questions")
+async def list_topic_questions(
+    topic_id: str,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    try:
+        res = (
+            supabase_admin.table("topic_questions")
+            .select("*")
+            .eq("topic_id", topic_id)
+            .order("part")
+            .order("order_num")
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải questions: {exc}")
+    return res.data or []
+
+
+# ── POST /admin/topics/{topic_id}/questions ────────────────────────────────────
+
+@router.post("/topics/{topic_id}/questions", status_code=201)
+async def create_topic_question(
+    topic_id: str,
+    body: CreateTopicQuestionRequest,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+
+    # Auto order_num if not provided
+    order = body.order_num
+    if order == 0:
+        try:
+            cnt = (
+                supabase_admin.table("topic_questions")
+                .select("id", count="exact")
+                .eq("topic_id", topic_id)
+                .eq("part", body.part)
+                .execute()
+            )
+            order = (cnt.count or 0) + 1
+        except Exception:
+            order = 1
+
+    row = {
+        "topic_id":            topic_id,
+        "part":                body.part,
+        "order_num":           order,
+        "question_text":       body.question_text.strip(),
+        "question_type":       body.question_type,
+        "cue_card_bullets":    body.cue_card_bullets,
+        "cue_card_reflection": body.cue_card_reflection,
+    }
+    try:
+        res = supabase_admin.table("topic_questions").insert(row).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tạo question: {exc}")
+    return res.data[0]
+
+
+# ── PATCH /admin/topics/{topic_id}/questions/{question_id} ────────────────────
+
+@router.patch("/topics/{topic_id}/questions/{question_id}")
+async def update_topic_question(
+    topic_id: str,
+    question_id: str,
+    body: UpdateTopicQuestionRequest,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+
+    update: dict = {}
+    if body.question_text       is not None: update["question_text"]       = body.question_text.strip()
+    if body.question_type       is not None: update["question_type"]       = body.question_type
+    if body.order_num           is not None: update["order_num"]           = body.order_num
+    if body.cue_card_bullets    is not None: update["cue_card_bullets"]    = body.cue_card_bullets
+    if body.cue_card_reflection is not None: update["cue_card_reflection"] = body.cue_card_reflection
+
+    if not update:
+        raise HTTPException(400, "Không có trường nào để cập nhật")
+
+    try:
+        res = (
+            supabase_admin.table("topic_questions")
+            .update(update)
+            .eq("id", question_id)
+            .eq("topic_id", topic_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi cập nhật question: {exc}")
+
+    if not res.data:
+        raise HTTPException(404, "Question không tồn tại")
+    return res.data[0]
+
+
+# ── DELETE /admin/topics/{topic_id}/questions/{question_id} ───────────────────
+
+@router.delete("/topics/{topic_id}/questions/{question_id}", status_code=204)
+async def delete_topic_question(
+    topic_id: str,
+    question_id: str,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    try:
+        supabase_admin.table("topic_questions").delete().eq("id", question_id).eq("topic_id", topic_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi xóa question: {exc}")
+
+
+# ── POST /admin/topics/{topic_id}/generate-questions ──────────────────────────
+
+@router.post("/topics/{topic_id}/generate-questions")
+async def generate_topic_questions(
+    topic_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Gọi Gemini để tạo câu hỏi cho topic và lưu vào library.
+    - Part 1 topic → tạo 7 câu hỏi Part 1
+    - Part 2 topic → tạo 1 cue card (Part 2) + 5 câu hỏi Part 3 liên quan
+    Xóa questions cũ trước khi lưu mới (regenerate).
+    """
+    auth_user = await require_admin(authorization)
+
+    try:
+        t_res = supabase_admin.table("topics").select("id, title, part").eq("id", topic_id).limit(1).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải topic: {exc}")
+
+    if not t_res.data:
+        raise HTTPException(404, "Topic không tồn tại")
+
+    topic = t_res.data[0]
+    title = topic["title"]
+    part  = topic["part"]
+    user_id = auth_user["id"]
+
+    # Delete existing library questions for this topic
+    try:
+        supabase_admin.table("topic_questions").delete().eq("topic_id", topic_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi xóa questions cũ: {exc}")
+
+    rows: list[dict] = []
+
+    if part == 1:
+        qs = await generate_part1_questions(title, count=7, user_id=user_id)
+        for i, q in enumerate(qs):
+            rows.append({
+                "topic_id":     topic_id,
+                "part":         1,
+                "order_num":    i + 1,
+                "question_text":  q["question_text"],
+                "question_type":  q.get("question_type", "personal"),
+            })
+
+    elif part == 2:
+        # Cue card
+        cuecard = await generate_part2_cuecard(title, user_id=user_id)
+        rows.append({
+            "topic_id":            topic_id,
+            "part":                2,
+            "order_num":           1,
+            "question_text":       cuecard["question_text"],
+            "question_type":       "cuecard",
+            "cue_card_bullets":    cuecard.get("cue_card_bullets"),
+            "cue_card_reflection": cuecard.get("cue_card_reflection"),
+        })
+        # Part 3 linked questions
+        p3qs = await generate_part3_questions(title, count=5, user_id=user_id)
+        for i, q in enumerate(p3qs):
+            rows.append({
+                "topic_id":     topic_id,
+                "part":         3,
+                "order_num":    i + 1,
+                "question_text":  q["question_text"],
+                "question_type":  q.get("question_type", "opinion"),
+            })
+
+    elif part == 3:
+        qs = await generate_part3_questions(title, count=5, user_id=user_id)
+        for i, q in enumerate(qs):
+            rows.append({
+                "topic_id":     topic_id,
+                "part":         3,
+                "order_num":    i + 1,
+                "question_text":  q["question_text"],
+                "question_type":  q.get("question_type", "opinion"),
+            })
+
+    if rows:
+        try:
+            supabase_admin.table("topic_questions").insert(rows).execute()
+        except Exception as exc:
+            raise HTTPException(500, f"Lỗi khi lưu questions: {exc}")
+
+    # Update last_rotated_at
+    try:
+        supabase_admin.table("topics").update(
+            {"last_rotated_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", topic_id).execute()
+    except Exception:
+        pass
+
+    # Return all saved questions
+    try:
+        saved = (
+            supabase_admin.table("topic_questions")
+            .select("*")
+            .eq("topic_id", topic_id)
+            .order("part")
+            .order("order_num")
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải questions đã lưu: {exc}")
+
+    return {"topic_id": topic_id, "questions": saved.data or []}
 
 
 # ── GET /admin/ai-usage ────────────────────────────────────────────────────────
