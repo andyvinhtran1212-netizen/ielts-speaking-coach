@@ -410,7 +410,7 @@
             </div>
           </div>
           <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
-            Tự chọn chủ đề hoặc nhập câu hỏi bất kỳ. Sau mỗi lần nói, nhận ngay nhận xét và gợi ý cải thiện.
+            Tự chọn chủ đề hoặc nhập câu hỏi riêng. Luyện từng câu và nhận nhận xét ngay sau mỗi lần trả lời.
           </p>
           <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
                   onclick="event.stopPropagation();switchMainTab('practice')">Đến Luyện tập →</button>
@@ -427,7 +427,7 @@
             </div>
           </div>
           <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
-            Chọn Part muốn luyện, trả lời đúng số câu theo chuẩn IELTS. Nhận chấm điểm 4 tiêu chí cuối buổi.
+            Luyện theo từng Part của IELTS Speaking với đúng cấu trúc câu hỏi. Kết thúc mỗi buổi, bạn sẽ nhận đánh giá theo 4 tiêu chí.
           </p>
           <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
                   onclick="event.stopPropagation();switchMainTab('partbpart')">Đến Luyện từng Part →</button>
@@ -444,7 +444,7 @@
             </div>
           </div>
           <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
-            Làm liên tiếp cả ba Part như thi thật. Câu hỏi được đọc to, văn bản ẩn — không nghỉ giữa chừng.
+            Mô phỏng trọn vẹn bài thi IELTS Speaking từ Part 1 đến Part 3. Phù hợp để luyện tâm lý phòng thi và theo dõi band score tổng thể.
           </p>
           <button class="btn-fulltest text-white text-xs font-semibold py-2.5 rounded-xl w-full"
                   onclick="event.stopPropagation();switchMainTab('fulltest')">Đến Full Test →</button>
@@ -484,7 +484,6 @@
                 <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Part</th>
                 <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Chủ đề</th>
                 <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Band</th>
-                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Trạng thái</th>
                 <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Xem lại</th>
               </tr>
             </thead>
@@ -985,6 +984,7 @@
 
     // ── Render session history ────────────────────────────────
     function renderHistory(sessions) {
+      // sessions is already filtered to completed-only by the caller
       document.getElementById('history-count').textContent = `${sessions.length} sessions`;
 
       if (sessions.length === 0) return;
@@ -1000,9 +1000,6 @@
           const band = s.overall_band != null
             ? `<span style="color:#14b8a6;font-weight:700;">${roundHalf(s.overall_band).toFixed(1)}</span>`
             : '<span style="color:rgba(255,255,255,0.3);">—</span>';
-          const badge = s.status === 'completed'
-            ? '<span class="badge-done text-xs px-2.5 py-1 rounded-full font-medium">Hoàn thành</span>'
-            : '<span class="badge-pending text-xs px-2.5 py-1 rounded-full font-medium">Đang xử lý</span>';
           const viewBtn = s.id
             ? `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
             : '—';
@@ -1012,7 +1009,6 @@
               <td class="px-5 py-3.5 text-xs font-semibold" style="color:#14b8a6;">Part ${s.part || '?'}</td>
               <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:rgba(255,255,255,0.7);">${s.topic || '—'}</td>
               <td class="px-5 py-3.5 text-center">${band}</td>
-              <td class="px-5 py-3.5 text-center">${badge}</td>
               <td class="px-5 py-3.5 text-center">${viewBtn}</td>
             </tr>`;
         })
@@ -1622,7 +1618,7 @@
           api.get('/sessions?status=completed'),
         ]);
         renderStats(sessions);
-        renderHistory(sessions);
+        renderHistory(completedSessions);
         renderCharts(completedSessions);
       } catch (err) {
         // Backend unreachable — show empty state silently
