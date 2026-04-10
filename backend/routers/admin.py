@@ -824,3 +824,255 @@ async def get_ai_usage(
         "overall":  overall,
         "per_user": sorted(per_user.values(), key=lambda x: x["cost_usd"], reverse=True),
     }
+
+
+# ── GET /admin/sessions ────────────────────────────────────────────────────────
+
+@router.get("/sessions")
+async def admin_list_sessions(
+    authorization: str | None = Header(default=None),
+    user_id:    str | None = None,
+    mode:       str | None = None,
+    status:     str | None = None,
+    error_code: str | None = None,
+    has_error:  bool | None = None,
+    date_from:  str | None = None,  # ISO date string, e.g. "2024-01-01"
+    date_to:    str | None = None,
+    limit:      int = 50,
+    offset:     int = 0,
+):
+    """
+    List all sessions across users (admin only).
+    Supports filtering by user_id, mode, status, error_code, has_error, date range.
+    Returns sessions enriched with user email.
+    """
+    await require_admin(authorization)
+
+    q = (
+        supabase_admin.table("sessions")
+        .select(
+            "id, user_id, mode, part, topic, status, started_at, completed_at, "
+            "overall_band, band_fc, band_lr, band_gra, band_p, "
+            "error_code, error_message, failed_step, last_error_at, pdf_status"
+        )
+        .order("started_at", desc=True)
+        .range(offset, offset + limit - 1)
+    )
+
+    if user_id:    q = q.eq("user_id", user_id)
+    if mode:       q = q.eq("mode", mode)
+    if status:     q = q.eq("status", status)
+    if error_code: q = q.eq("error_code", error_code)
+    if has_error is True:
+        q = q.filter("error_code", "not.is", "null")
+    elif has_error is False:
+        q = q.is_("error_code", "null")
+    if date_from:  q = q.gte("started_at", date_from)
+    if date_to:    q = q.lte("started_at", date_to + "T23:59:59Z")
+
+    try:
+        res = q.execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải sessions: {exc}")
+
+    sessions = res.data or []
+
+    # Enrich with user email
+    uids = list({s["user_id"] for s in sessions if s.get("user_id")})
+    email_map: dict[str, str] = {}
+    if uids:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("id, email, display_name")
+                .in_("id", uids)
+                .execute()
+            )
+            for u in (ur.data or []):
+                email_map[u["id"]] = u.get("email") or ""
+        except Exception:
+            pass
+
+    for s in sessions:
+        s["user_email"] = email_map.get(s.get("user_id") or "", "")
+
+    return sessions
+
+
+# ── GET /admin/sessions/{session_id} ──────────────────────────────────────────
+
+@router.get("/sessions/{session_id}")
+async def admin_get_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Full session detail for admin: session row + questions + responses.
+    Does NOT enforce user_id ownership — admin can see any session.
+    """
+    await require_admin(authorization)
+
+    # Session row
+    try:
+        s_res = (
+            supabase_admin.table("sessions")
+            .select("*")
+            .eq("id", session_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải session: {exc}")
+
+    if not s_res.data:
+        raise HTTPException(404, "Session không tồn tại")
+
+    session = s_res.data[0]
+
+    # Enrich with user email
+    uid = session.get("user_id")
+    session["user_email"] = ""
+    if uid:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("email, display_name")
+                .eq("id", uid)
+                .limit(1)
+                .execute()
+            )
+            if ur.data:
+                session["user_email"]        = ur.data[0].get("email") or ""
+                session["user_display_name"] = ur.data[0].get("display_name") or ""
+        except Exception:
+            pass
+
+    # Questions
+    try:
+        q_res = (
+            supabase_admin.table("questions")
+            .select("*")
+            .eq("session_id", session_id)
+            .order("order_num")
+            .execute()
+        )
+        questions = q_res.data or []
+    except Exception:
+        questions = []
+
+    # Responses (includes transcript, feedback, band scores, status fields)
+    try:
+        r_res = (
+            supabase_admin.table("responses")
+            .select(
+                "id, question_id, transcript, overall_band, feedback, "
+                "audio_url, audio_storage_path, grading_status, stt_status"
+            )
+            .eq("session_id", session_id)
+            .execute()
+        )
+        responses = r_res.data or []
+    except Exception:
+        responses = []
+
+    return {
+        **session,
+        "session_id": session["id"],
+        "questions":  questions,
+        "responses":  responses,
+    }
+
+
+# ── GET /admin/alerts ──────────────────────────────────────────────────────────
+
+@router.get("/alerts")
+async def admin_get_alerts(
+    authorization: str | None = Header(default=None),
+    limit: int = 30,
+):
+    """
+    Return recently failed sessions and responses for the admin alert panel.
+    Groups into session-level errors (stt_failed, etc.) and response-level
+    grading failures.
+    """
+    await require_admin(authorization)
+
+    # Session-level errors (last `limit` sessions with error_code set)
+    try:
+        se_res = (
+            supabase_admin.table("sessions")
+            .select(
+                "id, user_id, mode, part, topic, error_code, error_message, "
+                "failed_step, last_error_at, started_at, status"
+            )
+            .filter("error_code", "not.is", "null")
+            .order("last_error_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        session_errors = se_res.data or []
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải session errors: {exc}")
+
+    # Response-level grading failures (last `limit` rows)
+    try:
+        re_res = (
+            supabase_admin.table("responses")
+            .select("id, session_id, question_id, grading_status, stt_status")
+            .eq("grading_status", "failed")
+            .limit(limit)
+            .execute()
+        )
+        grading_failures = re_res.data or []
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải grading failures: {exc}")
+
+    # Enrich both lists with user email (collect all user_ids at once)
+    session_error_ids = {s.get("user_id") for s in session_errors if s.get("user_id")}
+    grading_session_ids = {r.get("session_id") for r in grading_failures if r.get("session_id")}
+
+    # For grading failures we need to look up session → user_id
+    user_id_for_session: dict[str, str] = {}
+    if grading_session_ids:
+        try:
+            gs_res = (
+                supabase_admin.table("sessions")
+                .select("id, user_id")
+                .in_("id", list(grading_session_ids))
+                .execute()
+            )
+            for row in (gs_res.data or []):
+                user_id_for_session[row["id"]] = row.get("user_id") or ""
+        except Exception:
+            pass
+
+    all_user_ids = session_error_ids | set(user_id_for_session.values())
+    email_map: dict[str, str] = {}
+    if all_user_ids:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("id, email")
+                .in_("id", list(all_user_ids))
+                .execute()
+            )
+            for u in (ur.data or []):
+                email_map[u["id"]] = u.get("email") or ""
+        except Exception:
+            pass
+
+    for s in session_errors:
+        s["user_email"] = email_map.get(s.get("user_id") or "", "")
+
+    for r in grading_failures:
+        uid = user_id_for_session.get(r.get("session_id") or "", "")
+        r["user_email"] = email_map.get(uid, "")
+
+    # Exclude sessions that are already in session_errors to avoid duplication
+    session_error_ids_set = {s["id"] for s in session_errors}
+    grading_failures = [r for r in grading_failures if r.get("session_id") not in session_error_ids_set]
+
+    return {
+        "session_errors":   session_errors,
+        "grading_failures": grading_failures,
+    }

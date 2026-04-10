@@ -18,6 +18,7 @@ Pipeline (sequential, ~15–30 s):
 
 import json
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Form, Header, HTTPException, UploadFile, File
 
@@ -34,6 +35,24 @@ router = APIRouter(tags=["grading"])
 
 _AUDIO_BUCKET  = "audio-responses"
 _MAX_BYTES     = 50 * 1024 * 1024   # 50 MB hard limit before upload
+
+
+def _mark_session_error(
+    session_id: str,
+    error_code: str,
+    failed_step: str,
+    error_message: str,
+) -> None:
+    """Best-effort: record error state on the session row for admin monitoring."""
+    try:
+        supabase_admin.table("sessions").update({
+            "error_code":    error_code,
+            "error_message": error_message[:500],
+            "failed_step":   failed_step,
+            "last_error_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", session_id).execute()
+    except Exception as ex:
+        logger.warning("[grading] _mark_session_error failed (non-fatal): %s", ex)
 
 
 # ── POST /sessions/{session_id}/responses ─────────────────────────────────────
@@ -122,6 +141,7 @@ async def grade_response_endpoint(
             stt = await transcribe_from_bytes(audio_bytes, filename=filename)
         except Exception as e:
             logger.error("[grading] Whisper thất bại: %s", e)
+            _mark_session_error(session_id, "stt_failed", "whisper", str(e))
             raise HTTPException(502, f"Lỗi nhận dạng giọng nói (Whisper): {e}")
 
         # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
@@ -212,11 +232,16 @@ async def grade_response_endpoint(
         response_id: str | None = None
 
         db_row: dict = {
-            "session_id":  session_id,
-            "question_id": question_id,
+            "session_id":         session_id,
+            "question_id":        question_id,
             # user_id intentionally omitted — not a column in the responses table
-            "audio_url":   audio_url,
-            "transcript":  transcript,
+            "audio_url":          audio_url,
+            # storage_path is the bucket-relative path; used by /audio-urls to generate signed URLs.
+            # Only set when upload succeeded (audio_url is not None).
+            "audio_storage_path": storage_path if audio_url else None,
+            "transcript":         transcript,
+            "stt_status":         "completed",
+            "grading_status":     "completed" if grading else "failed",
         }
 
         if grading:

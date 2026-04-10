@@ -257,6 +257,8 @@
         <button class="tab-btn"        onclick="switchTab('users')"        id="tab-btn-users">👥 Users</button>
         <button class="tab-btn"        onclick="switchTab('stats')"        id="tab-btn-stats">📊 Usage Stats</button>
         <button class="tab-btn"        onclick="switchTab('ai_usage')"     id="tab-btn-ai_usage">💰 AI Cost</button>
+        <button class="tab-btn"        onclick="switchTab('sessions')"     id="tab-btn-sessions">🗂 Sessions</button>
+        <button class="tab-btn"        onclick="switchTab('alerts')"       id="tab-btn-alerts">🚨 Alerts</button>
       </div>
 
       <!-- ── TAB: Topics ──────────────────────────────────────── -->
@@ -530,6 +532,150 @@
 
       </div>
 
+      <!-- ── TAB: Sessions ──────────────────────────────────────── -->
+      <div id="panel-sessions" class="hidden">
+        <!-- Filters -->
+        <div class="card p-4 mb-4">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div>
+              <label class="block text-xs mb-1" style="color:rgba(255,255,255,0.4);">Email / User ID</label>
+              <input id="sf-email" class="inp" style="min-width:180px;" placeholder="Tìm email…" />
+            </div>
+            <div>
+              <label class="block text-xs mb-1" style="color:rgba(255,255,255,0.4);">Mode</label>
+              <select id="sf-mode" class="inp">
+                <option value="">— Tất cả —</option>
+                <option value="practice">Practice</option>
+                <option value="test_part">Test Part</option>
+                <option value="test_full">Test Full</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs mb-1" style="color:rgba(255,255,255,0.4);">Status</label>
+              <select id="sf-status" class="inp">
+                <option value="">— Tất cả —</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs mb-1" style="color:rgba(255,255,255,0.4);">Lỗi</label>
+              <select id="sf-error" class="inp">
+                <option value="">— Tất cả —</option>
+                <option value="has_error">Có lỗi</option>
+                <option value="stt_failed">STT Failed</option>
+                <option value="grading_failed">Grading Failed</option>
+                <option value="save_failed">Save Failed</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs mb-1" style="color:rgba(255,255,255,0.4);">Từ ngày</label>
+              <input id="sf-date-from" type="date" class="inp" />
+            </div>
+            <div>
+              <label class="block text-xs mb-1" style="color:rgba(255,255,255,0.4);">Đến ngày</label>
+              <input id="sf-date-to" type="date" class="inp" />
+            </div>
+            <button class="btn-primary" onclick="loadSessions(true)">Tìm kiếm</button>
+            <button class="btn-secondary" onclick="resetSessionFilters()">Reset</button>
+          </div>
+        </div>
+
+        <div id="sessions-loading" class="flex justify-center py-12 hidden"><div class="spinner"></div></div>
+        <div id="sessions-empty" class="hidden text-center py-12 text-sm" style="color:rgba(255,255,255,0.35);">Không tìm thấy session nào.</div>
+        <div id="sessions-table-wrap" class="hidden card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Session ID</th>
+                  <th>User</th>
+                  <th>Mode</th>
+                  <th>Topic</th>
+                  <th>Band</th>
+                  <th>Status</th>
+                  <th>Lỗi</th>
+                  <th>Bắt đầu</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="sessions-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="flex justify-center mt-4">
+          <button id="btn-sessions-more" class="btn-secondary hidden" onclick="loadSessionsMore()">Tải thêm</button>
+        </div>
+      </div>
+
+      <!-- ── TAB: Alerts ─────────────────────────────────────────── -->
+      <div id="panel-alerts" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Cảnh báo lỗi gần đây</h3>
+          <button class="btn-secondary text-xs" onclick="loadAlerts(true)">↺ Làm mới</button>
+        </div>
+        <div id="alerts-loading" class="flex justify-center py-12 hidden"><div class="spinner"></div></div>
+
+        <!-- Session-level errors -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">Lỗi cấp Session</h4>
+          <div id="alerts-sessions-empty" class="hidden text-center py-6 text-sm" style="color:rgba(255,255,255,0.35);">Không có lỗi session nào.</div>
+          <div id="alerts-sessions-wrap" class="hidden card overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Session ID</th>
+                    <th>User</th>
+                    <th>Loại lỗi</th>
+                    <th>Bước lỗi</th>
+                    <th>Thông báo</th>
+                    <th>Thời gian</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="alerts-sessions-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Response-level grading failures -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">Lỗi Grading (cấp Response)</h4>
+          <div id="alerts-grading-empty" class="hidden text-center py-6 text-sm" style="color:rgba(255,255,255,0.35);">Không có grading failure nào.</div>
+          <div id="alerts-grading-wrap" class="hidden card overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Response ID</th>
+                    <th>Session ID</th>
+                    <th>User</th>
+                    <th>Grading</th>
+                    <th>STT</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="alerts-grading-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Modal: Session Detail ──────────────────────────────── -->
+  <div id="modal-session" class="modal-overlay hidden" onclick="if(event.target===this)closeSessionModal()">
+    <div class="modal-box" style="max-width:760px;max-height:85vh;overflow-y:auto;" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-bold text-base">Chi tiết Session</h3>
+        <button onclick="closeSessionModal()" style="color:rgba(255,255,255,0.4);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">✕</button>
+      </div>
+      <div id="session-detail-loading" class="flex justify-center py-8"><div class="spinner"></div></div>
+      <div id="session-detail-content" class="hidden space-y-5"></div>
     </div>
   </div>
 
@@ -653,7 +799,7 @@
     var _base  = '';
 
     // Per-tab load-once flags
-    var _loaded = { topics: false, codes: false, users: false, stats: false, ai_usage: false };
+    var _loaded = { topics: false, codes: false, users: false, stats: false, ai_usage: false, sessions: false, alerts: false };
 
     // Cached data for CSV export
     var _codesData = [];
@@ -721,7 +867,7 @@
     var _currentTab = 'topics';
 
     window.switchTab = function (tab) {
-      ['topics', 'codes', 'users', 'stats', 'ai_usage'].forEach(function (t) {
+      ['topics', 'codes', 'users', 'stats', 'ai_usage', 'sessions', 'alerts'].forEach(function (t) {
         document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
         document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
       });
@@ -735,6 +881,8 @@
       if (tab === 'users')    loadUsers();
       if (tab === 'stats')    loadStats();
       if (tab === 'ai_usage') loadAiUsage();
+      if (tab === 'sessions') loadSessions(true);
+      if (tab === 'alerts')   loadAlerts();
     }
 
     // ── TOPICS ─────────────────────────────────────────────────
@@ -1553,6 +1701,320 @@
       }
 
       document.getElementById('ai-usage-content').classList.remove('hidden');
+    }
+
+    // ── SESSIONS ───────────────────────────────────────────────
+    var _sessionsData   = [];
+    var _sessionsOffset = 0;
+    var _sessionsLimit  = 50;
+    var _sessionsEmailIndex = {}; // email → user_id for filter
+
+    function _errorLabel(code) {
+      var map = { stt_failed: 'STT', grading_failed: 'Grading', save_failed: 'DB Save', pdf_failed: 'PDF' };
+      if (!code) return '';
+      var label = map[code] || code;
+      return '<span style="background:rgba(239,68,68,0.15);color:#f87171;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;">' + esc(label) + '</span>';
+    }
+
+    function _bandBadge(band) {
+      if (band == null) return '<span style="color:rgba(255,255,255,0.3);">—</span>';
+      var color = band >= 7 ? '#4ade80' : band >= 5.5 ? '#fbbf24' : '#f87171';
+      return '<span style="color:' + color + ';font-weight:700;">' + band + '</span>';
+    }
+
+    window.resetSessionFilters = function () {
+      document.getElementById('sf-email').value     = '';
+      document.getElementById('sf-mode').value      = '';
+      document.getElementById('sf-status').value    = '';
+      document.getElementById('sf-error').value     = '';
+      document.getElementById('sf-date-from').value = '';
+      document.getElementById('sf-date-to').value   = '';
+      loadSessions(true);
+    };
+
+    window.loadSessions = async function (reset) {
+      _loaded.sessions = true;
+      if (reset) { _sessionsOffset = 0; _sessionsData = []; }
+
+      var loadEl    = document.getElementById('sessions-loading');
+      var emptyEl   = document.getElementById('sessions-empty');
+      var tableWrap = document.getElementById('sessions-table-wrap');
+      var moreBtn   = document.getElementById('btn-sessions-more');
+
+      loadEl.classList.remove('hidden');
+      emptyEl.classList.add('hidden');
+      if (reset) tableWrap.classList.add('hidden');
+
+      // Build query string
+      var emailVal    = (document.getElementById('sf-email').value || '').trim();
+      var modeVal     = document.getElementById('sf-mode').value;
+      var statusVal   = document.getElementById('sf-status').value;
+      var errorVal    = document.getElementById('sf-error').value;
+      var dateFromVal = document.getElementById('sf-date-from').value;
+      var dateToVal   = document.getElementById('sf-date-to').value;
+
+      var params = 'limit=' + _sessionsLimit + '&offset=' + _sessionsOffset;
+      if (modeVal)    params += '&mode='    + encodeURIComponent(modeVal);
+      if (statusVal)  params += '&status='  + encodeURIComponent(statusVal);
+      if (errorVal === 'has_error') {
+        params += '&has_error=true';
+      } else if (errorVal) {
+        params += '&error_code=' + encodeURIComponent(errorVal);
+      }
+      if (dateFromVal) params += '&date_from=' + encodeURIComponent(dateFromVal);
+      if (dateToVal)   params += '&date_to='   + encodeURIComponent(dateToVal);
+
+      // If email typed, try to resolve to user_id first
+      if (emailVal) {
+        // Try to find user_id from the users already loaded (or just pass as user_id if UUID)
+        var isUuid = /^[0-9a-f-]{36}$/i.test(emailVal);
+        if (isUuid) {
+          params += '&user_id=' + encodeURIComponent(emailVal);
+        } else {
+          // Search among users tab cache — or fetch users list
+          try {
+            var usersRes = await apiGet('/admin/users');
+            var matched  = (usersRes || []).filter(function (u) {
+              return (u.email || '').toLowerCase().includes(emailVal.toLowerCase());
+            });
+            if (matched.length === 1) {
+              params += '&user_id=' + encodeURIComponent(matched[0].id);
+            } else if (matched.length > 1) {
+              // Multiple matches — filter client-side after load
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }
+
+      try {
+        var data = await apiGet('/admin/sessions?' + params);
+        loadEl.classList.add('hidden');
+
+        if (!data || data.length === 0) {
+          if (reset) emptyEl.classList.remove('hidden');
+          moreBtn.classList.add('hidden');
+          return;
+        }
+
+        _sessionsData = reset ? data : _sessionsData.concat(data);
+        _sessionsOffset += data.length;
+        moreBtn.classList.toggle('hidden', data.length < _sessionsLimit);
+        renderSessions(reset);
+
+      } catch (err) {
+        loadEl.classList.add('hidden');
+        alert('Lỗi tải sessions: ' + err.message);
+      }
+    };
+
+    function renderSessions(reset) {
+      var tbody    = document.getElementById('sessions-tbody');
+      var tableWrap = document.getElementById('sessions-table-wrap');
+      var rows = (reset ? _sessionsData : _sessionsData.slice(_sessionsOffset - _sessionsData.length));
+      var html = (reset ? '' : tbody.innerHTML);
+
+      rows.forEach(function (s) {
+        var shortId = s.id ? s.id.slice(0, 8) : '—';
+        html += '<tr>'
+          + '<td><span class="font-mono text-xs" style="color:rgba(255,255,255,0.5);">' + esc(shortId) + '…</span></td>'
+          + '<td class="text-xs">' + esc(s.user_email || s.user_id || '—') + '</td>'
+          + '<td><span class="badge">' + esc(s.mode || '—') + '</span></td>'
+          + '<td class="text-xs" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(s.topic || '—') + '</td>'
+          + '<td class="text-center">' + _bandBadge(s.overall_band) + '</td>'
+          + '<td><span class="badge">' + esc(s.status || '—') + '</span></td>'
+          + '<td>' + _errorLabel(s.error_code) + '</td>'
+          + '<td class="text-xs" style="color:rgba(255,255,255,0.45);">' + fmtDate(s.started_at) + '</td>'
+          + '<td><button class="btn-secondary text-xs py-1 px-2" onclick="openSessionDetail(\'' + esc(s.id) + '\')">Xem</button></td>'
+          + '</tr>';
+      });
+
+      tbody.innerHTML = html;
+      tableWrap.classList.remove('hidden');
+    }
+
+    window.loadSessionsMore = function () {
+      loadSessions(false);
+    };
+
+    // ── SESSION DETAIL MODAL ───────────────────────────────────
+    window.openSessionDetail = async function (sessionId) {
+      document.getElementById('modal-session').classList.remove('hidden');
+      document.getElementById('session-detail-loading').classList.remove('hidden');
+      document.getElementById('session-detail-content').classList.add('hidden');
+      document.getElementById('session-detail-content').innerHTML = '';
+
+      try {
+        var s = await apiGet('/admin/sessions/' + sessionId);
+        renderSessionDetail(s);
+      } catch (err) {
+        document.getElementById('session-detail-loading').classList.add('hidden');
+        document.getElementById('session-detail-content').innerHTML =
+          '<p style="color:#f87171;">Lỗi: ' + esc(err.message) + '</p>';
+        document.getElementById('session-detail-content').classList.remove('hidden');
+      }
+    };
+
+    window.closeSessionModal = function () {
+      document.getElementById('modal-session').classList.add('hidden');
+    };
+
+    function renderSessionDetail(s) {
+      var qs = s.questions || [];
+      var rs = s.responses || [];
+      var respMap = {};
+      rs.forEach(function (r) { respMap[r.question_id] = r; });
+
+      var html = '';
+
+      // Meta row
+      html += '<div class="grid grid-cols-2 gap-3 text-sm">'
+        + '<div><span style="color:rgba(255,255,255,0.4);">Session ID</span><br><span class="font-mono text-xs">' + esc(s.id) + '</span></div>'
+        + '<div><span style="color:rgba(255,255,255,0.4);">User</span><br>' + esc(s.user_email || s.user_id || '—') + '</div>'
+        + '<div><span style="color:rgba(255,255,255,0.4);">Mode / Part</span><br>' + esc(s.mode) + ' / Part ' + esc(s.part) + '</div>'
+        + '<div><span style="color:rgba(255,255,255,0.4);">Status</span><br><span class="badge">' + esc(s.status) + '</span></div>'
+        + '<div><span style="color:rgba(255,255,255,0.4);">Topic</span><br>' + esc(s.topic || '—') + '</div>'
+        + '<div><span style="color:rgba(255,255,255,0.4);">Overall Band</span><br>' + _bandBadge(s.overall_band) + '</div>'
+        + '</div>';
+
+      // Criteria bands
+      if (s.band_fc || s.band_lr || s.band_gra || s.band_p) {
+        html += '<div class="grid grid-cols-4 gap-2 text-center">'
+          + '<div class="card p-2"><p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">FC</p>'  + _bandBadge(s.band_fc)  + '</div>'
+          + '<div class="card p-2"><p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">LR</p>'  + _bandBadge(s.band_lr)  + '</div>'
+          + '<div class="card p-2"><p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">GRA</p>' + _bandBadge(s.band_gra) + '</div>'
+          + '<div class="card p-2"><p class="text-xs mb-1" style="color:rgba(255,255,255,0.4);">P</p>'   + _bandBadge(s.band_p)   + '</div>'
+          + '</div>';
+      }
+
+      // Error info (if any)
+      if (s.error_code) {
+        html += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:12px;">'
+          + '<p class="text-xs font-bold mb-1" style="color:#f87171;">Lỗi: ' + esc(s.error_code) + ' @ ' + esc(s.failed_step) + '</p>'
+          + '<p class="text-xs" style="color:rgba(255,255,255,0.55);">' + esc(s.error_message || '') + '</p>'
+          + '<p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">' + fmtDate(s.last_error_at) + '</p>'
+          + '</div>';
+      }
+
+      // Q&A pairs
+      if (qs.length === 0) {
+        html += '<p class="text-sm" style="color:rgba(255,255,255,0.35);">Không có câu hỏi.</p>';
+      } else {
+        html += '<div class="space-y-4">';
+        qs.forEach(function (q, idx) {
+          var r = respMap[q.id];
+          html += '<div class="card p-4">'
+            + '<p class="text-xs font-bold mb-1" style="color:rgba(255,255,255,0.4);">Q' + (idx+1) + '</p>'
+            + '<p class="text-sm mb-2">' + esc(q.question_text) + '</p>';
+
+          if (r) {
+            // Status badges
+            var gStatus = r.grading_status || 'completed';
+            var gColor  = gStatus === 'failed' ? '#f87171' : '#4ade80';
+            html += '<p class="text-xs mb-2" style="color:rgba(255,255,255,0.4);">'
+              + 'Grading: <span style="color:' + gColor + ';font-weight:600;">' + esc(gStatus) + '</span>'
+              + ' | Band: ' + _bandBadge(r.overall_band)
+              + '</p>';
+
+            if (r.transcript) {
+              html += '<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;margin-top:6px;">'
+                + '<p class="text-xs mb-1" style="color:rgba(255,255,255,0.35);">Transcript</p>'
+                + '<p class="text-xs leading-relaxed">' + esc(r.transcript) + '</p>'
+                + '</div>';
+            }
+
+            if (r.audio_url || r.audio_storage_path) {
+              html += '<div class="mt-2">'
+                + '<audio controls class="w-full" style="height:32px;" src="' + esc(r.audio_url || '') + '"></audio>'
+                + '</div>';
+            }
+          } else {
+            html += '<p class="text-xs" style="color:rgba(255,255,255,0.3);">Chưa có câu trả lời.</p>';
+          }
+
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      var contentEl = document.getElementById('session-detail-content');
+      contentEl.innerHTML = html;
+      document.getElementById('session-detail-loading').classList.add('hidden');
+      contentEl.classList.remove('hidden');
+    }
+
+    // ── ALERTS ─────────────────────────────────────────────────
+    window.loadAlerts = async function (force) {
+      if (!force) _loaded.alerts = true;
+      var loadEl = document.getElementById('alerts-loading');
+      loadEl.classList.remove('hidden');
+
+      try {
+        var data = await apiGet('/admin/alerts?limit=30');
+        loadEl.classList.add('hidden');
+        renderAlerts(data);
+      } catch (err) {
+        loadEl.classList.add('hidden');
+        alert('Lỗi tải alerts: ' + err.message);
+      }
+    };
+
+    function renderAlerts(data) {
+      var sessionErrors   = data.session_errors   || [];
+      var gradingFailures = data.grading_failures || [];
+
+      // Session errors table
+      var sWrap  = document.getElementById('alerts-sessions-wrap');
+      var sEmpty = document.getElementById('alerts-sessions-empty');
+      if (sessionErrors.length === 0) {
+        sEmpty.classList.remove('hidden');
+        sWrap.classList.add('hidden');
+      } else {
+        sEmpty.classList.add('hidden');
+        sWrap.classList.remove('hidden');
+        var html = '';
+        sessionErrors.forEach(function (s) {
+          var shortId = (s.id || '').slice(0, 8) + '…';
+          html += '<tr>'
+            + '<td><span class="font-mono text-xs" style="color:rgba(255,255,255,0.5);">' + esc(shortId) + '</span></td>'
+            + '<td class="text-xs">' + esc(s.user_email || s.user_id || '—') + '</td>'
+            + '<td>' + _errorLabel(s.error_code) + '</td>'
+            + '<td class="text-xs font-mono">' + esc(s.failed_step || '—') + '</td>'
+            + '<td class="text-xs" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,0.45);">' + esc(s.error_message || '—') + '</td>'
+            + '<td class="text-xs" style="color:rgba(255,255,255,0.45);">' + fmtDate(s.last_error_at) + '</td>'
+            + '<td><button class="btn-secondary text-xs py-1 px-2" onclick="openSessionDetail(\'' + esc(s.id) + '\')">Xem</button></td>'
+            + '</tr>';
+        });
+        document.getElementById('alerts-sessions-tbody').innerHTML = html;
+      }
+
+      // Grading failures table
+      var gWrap  = document.getElementById('alerts-grading-wrap');
+      var gEmpty = document.getElementById('alerts-grading-empty');
+      if (gradingFailures.length === 0) {
+        gEmpty.classList.remove('hidden');
+        gWrap.classList.add('hidden');
+      } else {
+        gEmpty.classList.add('hidden');
+        gWrap.classList.remove('hidden');
+        var gHtml = '';
+        gradingFailures.forEach(function (r) {
+          var shortRId = (r.id || '').slice(0, 8) + '…';
+          var shortSId = (r.session_id || '').slice(0, 8) + '…';
+          var gStatus = r.grading_status || '—';
+          var sStatus = r.stt_status || '—';
+          var gColor  = gStatus === 'failed' ? '#f87171' : '#4ade80';
+          var sColor  = sStatus === 'failed' ? '#f87171' : '#4ade80';
+          gHtml += '<tr>'
+            + '<td><span class="font-mono text-xs" style="color:rgba(255,255,255,0.5);">' + esc(shortRId) + '</span></td>'
+            + '<td><span class="font-mono text-xs" style="color:rgba(255,255,255,0.5);">' + esc(shortSId) + '</span></td>'
+            + '<td class="text-xs">' + esc(r.user_email || '—') + '</td>'
+            + '<td><span style="color:' + gColor + ';font-size:11px;font-weight:600;">' + esc(gStatus) + '</span></td>'
+            + '<td><span style="color:' + sColor + ';font-size:11px;font-weight:600;">' + esc(sStatus) + '</span></td>'
+            + '<td><button class="btn-secondary text-xs py-1 px-2" onclick="openSessionDetail(\'' + esc(r.session_id) + '\')">Xem</button></td>'
+            + '</tr>';
+        });
+        document.getElementById('alerts-grading-tbody').innerHTML = gHtml;
+      }
     }
 
     // ── Init ───────────────────────────────────────────────────
