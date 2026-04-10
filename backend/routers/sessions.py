@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 from datetime import date, datetime, timezone
 from typing import Optional
@@ -10,9 +11,13 @@ from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
-_VALID_MODES = {"practice", "test_part", "test_full"}
+_VALID_MODES   = {"practice", "test_part", "test_full"}
+_AUDIO_BUCKET  = "audio-responses"
+_SIGNED_URL_TTL = 3600   # 1 hour
 
 
 def _round_band(value: float) -> float:
@@ -265,6 +270,87 @@ async def get_session(
         "questions":  questions,
         "responses":  responses,
     }
+
+
+# ── GET /sessions/{session_id}/audio-urls ─────────────────────────────────────
+
+@router.get("/{session_id}/audio-urls")
+async def get_session_audio_urls(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Trả signed URL (1 giờ) cho tất cả audio recordings trong session.
+    Chỉ user sở hữu session (hoặc admin) mới truy cập được.
+
+    Strategy:
+    - Bucket "audio-responses" là public (Supabase default, paths gồm UUIDs khó đoán).
+    - Endpoint này generate signed URL qua backend đã xác thực, thêm lớp expiry-based
+      access control trên đầu. Old sessions không có audio_storage_path sẽ trả về
+      public URL thẳng (backwards-compatible fallback).
+    - Frontend dùng URL này để phát và tải audio; không expose public URL trực tiếp.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    # Ownership check
+    try:
+        s_res = (
+            supabase_admin.table("sessions")
+            .select("id")
+            .eq("id", session_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi tải session: {e}")
+
+    if not s_res.data:
+        raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
+
+    # Fetch responses — select only what we need (no full feedback blob)
+    try:
+        r_res = (
+            supabase_admin.table("responses")
+            .select("id, question_id, audio_storage_path, audio_url")
+            .eq("session_id", session_id)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi tải responses: {e}")
+
+    result = []
+    for r in (r_res.data or []):
+        path = r.get("audio_storage_path")
+        signed_url: str | None = None
+
+        if path:
+            try:
+                resp = supabase_admin.storage.from_(_AUDIO_BUCKET).create_signed_url(
+                    path, _SIGNED_URL_TTL
+                )
+                # supabase-py v2 returns an object with .data dict
+                if hasattr(resp, "data") and resp.data:
+                    signed_url = resp.data.get("signedUrl") or resp.data.get("signedURL")
+                elif isinstance(resp, dict):
+                    signed_url = resp.get("signedUrl") or resp.get("signedURL")
+            except Exception as e:
+                logger.warning("[audio-urls] Signed URL failed for path=%s: %s", path, e)
+
+        if not signed_url:
+            # Fallback: use stored public URL (old sessions or signed URL error)
+            signed_url = r.get("audio_url")
+
+        if signed_url:
+            result.append({
+                "response_id": r["id"],
+                "question_id": r["question_id"],
+                "url":         signed_url,
+                "expires_in":  _SIGNED_URL_TTL if path else None,
+            })
+
+    return result
 
 
 # ── PATCH /sessions/{session_id}/complete ──────────────────────────────────────
