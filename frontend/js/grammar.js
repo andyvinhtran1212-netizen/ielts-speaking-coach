@@ -184,15 +184,31 @@
   }
 
   // ── Search ────────────────────────────────────────────────────────────────
-  function setupSearch(inputId, onSubmit) {
+  // setupSearch(inputId, onSubmit)                     — 2-arg legacy form
+  // setupSearch(inputId, btnId, onSubmit)              — 3-arg form with button
+  function setupSearch(inputId, btnIdOrSubmit, onSubmit) {
     var input = document.getElementById(inputId);
     if (!input) return;
+
+    var submit = typeof btnIdOrSubmit === 'function' ? btnIdOrSubmit : onSubmit;
+    var btnId  = typeof btnIdOrSubmit === 'string'   ? btnIdOrSubmit : null;
+
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
         var q = input.value.trim();
-        if (q.length >= 2) onSubmit(q);
+        if (q.length >= 2) submit(q);
       }
     });
+
+    if (btnId) {
+      var btn = document.getElementById(btnId);
+      if (btn) {
+        btn.addEventListener('click', function () {
+          var q = input.value.trim();
+          if (q.length >= 2) submit(q);
+        });
+      }
+    }
   }
 
   function redirectToSearch(q) {
@@ -210,9 +226,17 @@
       _showSection('search-results');
       var searchEl = document.getElementById('search-results-title');
       if (searchEl) searchEl.textContent = 'Kết quả cho "' + searchQuery + '"';
+      var listEl = document.getElementById('search-results-list');
+      if (listEl) listEl.innerHTML = '<p class="text-white/40 text-sm col-span-3">Đang tìm kiếm...</p>';
       try {
         var results = await fetchGrammarAPI('/search?q=' + encodeURIComponent(searchQuery));
-        renderFeaturedCards(results, 'search-results-list');
+        if (!results || results.length === 0) {
+          if (listEl) listEl.innerHTML =
+            '<p class="text-white/50 text-sm col-span-3">Không tìm thấy kết quả cho "<strong class=\'text-white/80\'>' +
+            searchQuery + '</strong>". Thử từ khóa khác như <em>present perfect</em>, <em>conditionals</em>.</p>';
+        } else {
+          renderFeaturedCards(results, 'search-results-list');
+        }
       } catch (err) {
         _showError('search-results-list', err.message);
       }
