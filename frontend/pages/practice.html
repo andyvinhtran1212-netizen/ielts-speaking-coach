@@ -485,12 +485,28 @@
       </div>
 
       <!-- Transcript -->
-      <div id="feedback-transcript" class="card p-4 mb-8" style="display:none;">
+      <div id="feedback-transcript" class="card p-4 mb-4" style="display:none;">
         <p class="text-xs font-bold uppercase tracking-wider mb-2"
            style="color:rgba(255,255,255,0.2);">Văn bản nhận dạng</p>
         <p id="feedback-transcript-text"
            class="text-xs leading-relaxed"
            style="color:rgba(255,255,255,0.45);"></p>
+      </div>
+
+      <!-- Audio replay / download (JS-populated, only shown when local recording available) -->
+      <div id="feedback-audio-section" style="display:none;margin-bottom:20px;">
+        <div class="flex gap-2">
+          <button class="btn-ghost py-2.5 text-xs font-semibold"
+                  style="flex:1;"
+                  onclick="PracticeApp.replayAudio()">
+            🔊 Nghe lại
+          </button>
+          <button class="btn-ghost py-2.5 text-xs font-semibold"
+                  style="flex:1;"
+                  onclick="PracticeApp.downloadAudio()">
+            ⬇ Tải audio
+          </button>
+        </div>
       </div>
 
       <!-- Navigation buttons (JS controls display) -->

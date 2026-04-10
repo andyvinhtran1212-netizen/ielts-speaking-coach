@@ -68,6 +68,9 @@
   // Deferred grading: answers collected during test flow, processed in batch at end of part
   var _pendingTestAnswers = [];  // [{questionId, blob, questionText, part}]
 
+  // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
+  var _feedbackAudioUrl = null;
+
   // Question mode for Part 1 & 3 — 'visual' (read on screen) | 'listening' (hear via TTS)
   // Persisted in sessionStorage so the choice survives across questions in the same tab session.
   var _qMode = (function () {
@@ -589,6 +592,22 @@
       }
     }
 
+    // ── Audio replay / download ──────────────────────────────────────────────
+    // Revoke any URL from the previous question before creating a new one
+    if (_feedbackAudioUrl) {
+      URL.revokeObjectURL(_feedbackAudioUrl);
+      _feedbackAudioUrl = null;
+    }
+    var audioSection = $('feedback-audio-section');
+    if (audioSection) {
+      if (_recordedBlob) {
+        _feedbackAudioUrl = URL.createObjectURL(_recordedBlob);
+        audioSection.style.display = '';
+      } else {
+        audioSection.style.display = 'none';
+      }
+    }
+
     // ── Next / Finish buttons ────────────────────────────────────────────────
     var isLast    = (_currentIdx >= _questions.length - 1);
     var btnNext   = $('btn-next-q');
@@ -602,6 +621,29 @@
     }
 
     showState('feedback');
+  }
+
+  // ── Audio replay / download (practice feedback screen) ───────────────────────
+
+  function _replayAudio() {
+    if (!_feedbackAudioUrl) return;
+    var audio = new Audio(_feedbackAudioUrl);
+    audio.play().catch(function (e) {
+      console.warn('[audio] replay failed:', e);
+    });
+  }
+
+  function _downloadAudio() {
+    if (!_feedbackAudioUrl || !_recordedBlob) return;
+    var mime = _recordedBlob.type || 'audio/webm';
+    var ext  = mime.split('/')[1].split(';')[0] || 'webm';
+    var ts   = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+    var a    = document.createElement('a');
+    a.href   = _feedbackAudioUrl;
+    a.download = 'ielts_answer_' + ts + '.' + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   // ── Feedback render helpers ───────────────────────────────────────────────────
@@ -1605,6 +1647,9 @@
     if (_stream) { _stream.getTracks().forEach(function (t) { t.stop(); }); _stream = null; }
     if (_audioCtx) { try { _audioCtx.close(); } catch (_) {} _audioCtx = null; }
 
+    // Release feedback audio blob URL
+    if (_feedbackAudioUrl) { URL.revokeObjectURL(_feedbackAudioUrl); _feedbackAudioUrl = null; }
+
     try {
       await window.api.patch('/sessions/' + _sessionId + '/complete', {});
     } catch (err) {
@@ -1855,6 +1900,9 @@
     playQuestion:         _playQuestion,
     chooseModeAndStart:   _chooseModeAndStart,
     revealQuestionText:   _revealQuestionText,
+    // Audio replay / download on feedback screen
+    replayAudio:          _replayAudio,
+    downloadAudio:        _downloadAudio,
     // PDF export
     downloadPDFs:         _downloadPDFs,
     // exposed for state-break skip button (optional future use)
