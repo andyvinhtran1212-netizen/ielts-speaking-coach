@@ -13,6 +13,7 @@ from routers.grading import router as grading_router
 from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
+from routers.grammar import router as grammar_router
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ app.include_router(tts_router)
 # system deps are installed. To fully re-enable: see routers/export.py.
 app.include_router(export_router)
 app.include_router(admin_router)
+app.include_router(grammar_router)
 
 # LEGACY audio-only route: POST /sessions/{id}/responses/{question_id}/audio
 #   → upload only, no grading; kept for reference, not used by the frontend
