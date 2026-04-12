@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lộ trình học — Grammar Wiki — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
+  <style>
+    body { background: #0a1628; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
+  </style>
+</head>
+<body class="text-white min-h-screen font-sans antialiased">
+
+  <!-- Top nav -->
+  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: rgba(10,22,40,0.92); backdrop-filter: blur(12px);">
+    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div id="breadcrumb" class="flex items-center text-sm text-white/40 flex-wrap gap-0">
+        <a href="../grammar.html" class="hover:text-teal-light transition-colors">Grammar Wiki</a>
+        <span class="mx-2 text-white/20">›</span>
+        <span class="text-white/80">Lộ trình</span>
+      </div>
+      <a href="../pages/dashboard.html" class="text-xs text-white/30 hover:text-white/60 transition-colors">Dashboard</a>
+    </div>
+  </nav>
+
+  <!-- Skeleton -->
+  <div id="roadmap-skeleton" class="max-w-3xl mx-auto px-4 py-8">
+    <div class="skeleton h-8 w-64 rounded-lg mb-2"></div>
+    <div class="skeleton h-4 w-40 rounded mb-10"></div>
+    <div class="space-y-6">
+      <div class="flex gap-5"><div class="skeleton w-10 h-10 rounded-full flex-shrink-0"></div><div class="flex-1"><div class="skeleton h-5 w-48 rounded mb-2"></div><div class="skeleton h-4 w-full rounded mb-2"></div><div class="skeleton h-4 w-3/4 rounded"></div></div></div>
+      <div class="flex gap-5"><div class="skeleton w-10 h-10 rounded-full flex-shrink-0"></div><div class="flex-1"><div class="skeleton h-5 w-40 rounded mb-2"></div><div class="skeleton h-4 w-full rounded mb-2"></div><div class="skeleton h-4 w-2/3 rounded"></div></div></div>
+      <div class="flex gap-5"><div class="skeleton w-10 h-10 rounded-full flex-shrink-0"></div><div class="flex-1"><div class="skeleton h-5 w-52 rounded mb-2"></div><div class="skeleton h-4 w-full rounded"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div id="roadmap-container" class="hidden max-w-3xl mx-auto px-4 py-8 ds-fadein">
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 id="roadmap-title" class="text-2xl font-extrabold text-white mb-1"></h1>
+      <p id="roadmap-subtitle" class="text-sm text-white/40"></p>
+    </div>
+
+    <!-- Step list -->
+    <div id="roadmap-steps" class="mb-10"></div>
+
+    <!-- Footer CTA -->
+    <div class="border-t border-white/6 pt-6">
+      <a id="roadmap-cat-link" href="../grammar.html" class="text-sm text-teal-light hover:underline"></a>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/grammar.js"></script>
+  <script>
+    grammarWiki.loadGrammarRoadmap();
+  </script>
+</body>
+</html>

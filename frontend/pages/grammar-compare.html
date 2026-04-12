@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Grammar — IELTS Speaking Coach</title>
+  <title>So sánh — Grammar Wiki — IELTS Speaking Coach</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -24,31 +24,22 @@
   <style>
     body { background: #0a1628; }
 
-    /* Sticky TOC sidebar */
-    .toc-sidebar {
-      position: sticky;
-      top: 72px;
-      max-height: calc(100vh - 90px);
-      overflow-y: auto;
-    }
-
-    /* Article typography */
+    /* Article body styles (duplicated from grammar-article.html) */
     .article-body {
       color: rgba(255,255,255,0.85);
       line-height: 1.75;
       font-size: 15px;
     }
     .article-body h2 {
-      font-size: 1.35rem; font-weight: 700; color: #fff;
+      font-size: 1.2rem; font-weight: 700; color: #fff;
       margin-top: 2rem; margin-bottom: 0.75rem;
       padding-bottom: 0.4rem;
       border-bottom: 1px solid rgba(255,255,255,0.08);
       scroll-margin-top: 80px;
     }
     .article-body h3 {
-      font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.9);
+      font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.9);
       margin-top: 1.5rem; margin-bottom: 0.5rem;
-      scroll-margin-top: 80px;
     }
     .article-body p { margin-bottom: 1rem; }
     .article-body ul, .article-body ol {
@@ -69,9 +60,7 @@
       border-radius: 12px; padding: 16px 20px;
       overflow-x: auto; margin-bottom: 1rem;
     }
-    .article-body pre code {
-      background: none; padding: 0; font-size: 0.875rem;
-    }
+    .article-body pre code { background: none; padding: 0; font-size: 0.875rem; }
     .article-body table {
       width: 100%; border-collapse: collapse; margin-bottom: 1.25rem;
       font-size: 0.9rem; display: block; overflow-x: auto;
@@ -95,13 +84,16 @@
       border-radius: 0 10px 10px 0;
       color: rgba(255,255,255,0.75);
     }
-    .article-body a {
-      color: #14b8a6;
-      text-decoration: underline;
-      text-decoration-color: rgba(20,184,166,0.35);
-      text-underline-offset: 2px;
-    }
+    .article-body a { color: #14b8a6; text-decoration: underline; text-decoration-color: rgba(20,184,166,0.35); }
     .article-body a:hover { text-decoration-color: #14b8a6; }
+
+    /* Column divider */
+    .compare-col {
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 24px;
+      background: rgba(255,255,255,0.02);
+    }
 
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -115,75 +107,51 @@
     <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
       <div id="breadcrumb" class="flex items-center text-sm text-white/40 flex-wrap gap-0">
         <a href="../grammar.html" class="hover:text-teal-light transition-colors">Grammar Wiki</a>
+        <span class="mx-2 text-white/20">›</span>
+        <span class="text-white/80">So sánh</span>
       </div>
-      <div class="flex items-center gap-3">
-        <a href="../pages/dashboard.html" class="text-xs text-white/30 hover:text-white/60 transition-colors">Dashboard</a>
-      </div>
+      <a href="../pages/dashboard.html" class="text-xs text-white/30 hover:text-white/60 transition-colors">Dashboard</a>
     </div>
   </nav>
 
-  <!-- Skeleton loader (shown while article loads) -->
-  <div id="article-skeleton" class="max-w-7xl mx-auto px-4 py-8">
-    <div class="skeleton h-8 w-64 rounded-lg mb-4"></div>
-    <div class="skeleton h-5 w-40 rounded mb-6"></div>
-    <div class="skeleton h-4 w-full rounded mb-2"></div>
-    <div class="skeleton h-4 w-5/6 rounded mb-2"></div>
-    <div class="skeleton h-4 w-4/5 rounded mb-6"></div>
-    <div class="skeleton h-4 w-full rounded mb-2"></div>
-    <div class="skeleton h-4 w-3/4 rounded mb-2"></div>
+  <!-- Skeleton -->
+  <div id="compare-skeleton" class="max-w-7xl mx-auto px-4 py-8">
+    <div class="skeleton h-8 w-96 rounded-lg mb-8"></div>
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div class="space-y-3">
+        <div class="skeleton h-6 w-48 rounded mb-4"></div>
+        <div class="skeleton h-4 w-full rounded"></div>
+        <div class="skeleton h-4 w-5/6 rounded"></div>
+        <div class="skeleton h-4 w-4/5 rounded"></div>
+      </div>
+      <div class="space-y-3">
+        <div class="skeleton h-6 w-48 rounded mb-4"></div>
+        <div class="skeleton h-4 w-full rounded"></div>
+        <div class="skeleton h-4 w-5/6 rounded"></div>
+        <div class="skeleton h-4 w-4/5 rounded"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Article container (hidden until loaded) -->
-  <div id="article-container" class="hidden max-w-7xl mx-auto px-4 py-8 ds-fadein">
-    <div class="flex gap-8 items-start">
+  <!-- Main content -->
+  <div id="compare-container" class="hidden max-w-7xl mx-auto px-4 py-8 ds-fadein">
 
-      <!-- ── Main content ────────────────────────────────────────────────── -->
-      <article class="flex-1 min-w-0">
+    <!-- Header -->
+    <h1 id="compare-title" class="text-2xl font-extrabold mb-8"></h1>
 
-        <!-- Header -->
-        <div class="mb-8">
-          <div class="flex items-center gap-2 mb-3">
-            <span id="article-level"></span>
-          </div>
-          <h1 id="article-title" class="text-3xl font-extrabold text-white mb-3"></h1>
-          <div id="article-meta" class="flex items-center gap-3 text-sm text-white/35"></div>
-        </div>
-
-        <!-- Article body -->
-        <div id="article-body" class="article-body mb-10"></div>
-
-        <!-- Compare with -->
-        <section id="compare-section" class="mb-8 hidden">
-          <p class="text-xs font-semibold uppercase tracking-widest text-white/25 mb-3">So sánh với</p>
-          <div id="compare-links" class="flex flex-wrap gap-2"></div>
-        </section>
-
-        <!-- Related pages -->
-        <section id="related-section" class="mb-8">
-          <p class="text-xs font-semibold uppercase tracking-widest text-white/25 mb-3">Bài liên quan</p>
-          <div id="related-pages" class="flex flex-wrap gap-2"></div>
-        </section>
-
-        <!-- Prev / Next -->
-        <div id="prev-next" class="border-t border-white/6 pt-6"></div>
-
-      </article>
-
-      <!-- ── TOC sidebar ─────────────────────────────────────────────────── -->
-      <aside class="hidden lg:block w-56 flex-shrink-0">
-        <div class="toc-sidebar">
-          <div id="toc-container"></div>
-        </div>
-      </aside>
-
+    <!-- Two-column layout -->
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div id="compare-left" class="compare-col"></div>
+      <div id="compare-right" class="compare-col"></div>
     </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="../js/api.js"></script>
   <script src="../js/grammar.js"></script>
   <script>
-    grammarWiki.loadGrammarArticle();
+    grammarWiki.loadGrammarCompare();
   </script>
 </body>
 </html>

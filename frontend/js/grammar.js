@@ -40,6 +40,19 @@
            level.charAt(0).toUpperCase() + level.slice(1) + '</span>';
   }
 
+  // ── Category badge ────────────────────────────────────────────────────────
+  function categoryBadge(cat) {
+    if (!cat) return '';
+    return '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ' +
+           'bg-white/8 text-white/50">' + _prettifySlug(cat) + '</span>';
+  }
+
+  // ── Prettify slug ─────────────────────────────────────────────────────────
+  function _prettifySlug(slug) {
+    if (!slug) return '';
+    return slug.replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
   // ── Category card ─────────────────────────────────────────────────────────
   function renderCategoryCards(categories, containerId) {
     var el = document.getElementById(containerId);
@@ -93,6 +106,105 @@
              '<span>' + (a.reading_time || 1) + ' phút</span>' +
              '</div></a>';
     }).join('');
+  }
+
+  // ── Search result cards (with category badge) ─────────────────────────────
+  function renderSearchCards(articles, containerId, query) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (!articles || articles.length === 0) {
+      var q = query ? '"<strong class="text-white/80">' + query + '</strong>"' : 'này';
+      el.innerHTML =
+        '<div class="col-span-3 py-12 text-center">' +
+        '<p class="text-white/40 mb-2">Không tìm thấy kết quả cho ' + q + '</p>' +
+        '<p class="text-white/30 text-sm">Thử từ khóa khác: ' +
+        '<a href="?q=present+perfect" class="text-teal-light hover:underline">present perfect</a>, ' +
+        '<a href="?q=conditionals" class="text-teal-light hover:underline">conditionals</a>, ' +
+        '<a href="?q=passive" class="text-teal-light hover:underline">passive voice</a>' +
+        '</p></div>';
+      return;
+    }
+    el.innerHTML = articles.map(function (a) {
+      return '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+             'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
+             'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
+             '<div class="flex items-start justify-between gap-2 mb-1">' +
+             '<h4 class="font-semibold text-white text-sm leading-snug">' + a.title + '</h4>' +
+             levelBadge(a.level) +
+             '</div>' +
+             '<p class="text-xs text-white/50 line-clamp-2 mb-3">' + (a.summary || '') + '</p>' +
+             '<div class="flex items-center gap-2">' +
+             categoryBadge(a.category) +
+             '<span class="text-xs text-white/25">' + (a.reading_time || 1) + ' phút</span>' +
+             '</div></a>';
+    }).join('');
+  }
+
+  // ── Roadmap step list ─────────────────────────────────────────────────────
+  function renderRoadmapSteps(articles, containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (!articles || articles.length === 0) {
+      el.innerHTML = '<p class="text-white/40 text-sm py-8 text-center">Chưa có bài nào trong lộ trình này.</p>';
+      return;
+    }
+    el.innerHTML = '<div class="relative">' +
+      // Connector line
+      '<div class="absolute left-5 top-10 bottom-10 w-0.5 bg-white/6"></div>' +
+      articles.map(function (a, i) {
+        return '<div class="relative flex gap-5 mb-6 last:mb-0">' +
+          // Step circle
+          '<div class="flex-shrink-0 w-10 h-10 rounded-full bg-teal/15 border border-teal/30 ' +
+          'flex items-center justify-center z-10">' +
+          '<span class="text-sm font-bold text-teal-light">' + (i + 1) + '</span>' +
+          '</div>' +
+          // Content
+          '<div class="flex-1 pt-1 pb-6">' +
+          '<div class="flex items-start gap-2 mb-1">' +
+          '<h3 class="font-semibold text-white leading-snug">' + a.title + '</h3>' +
+          levelBadge(a.level) +
+          '</div>' +
+          '<p class="text-sm text-white/50 mb-3 leading-relaxed">' + (a.summary || '') + '</p>' +
+          '<div class="flex items-center gap-3">' +
+          '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+          'class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-teal/15 text-teal-light ' +
+          'text-sm font-medium hover:bg-teal/25 transition-colors">Học ngay →</a>' +
+          '<span class="text-xs text-white/25">' + (a.reading_time || 1) + ' phút</span>' +
+          '</div>' +
+          '</div></div>';
+      }).join('') +
+      '</div>';
+  }
+
+  // ── Compare links for article page ────────────────────────────────────────
+  function renderCompareLinks(compareWith, currentSlug, containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (!compareWith || compareWith.length === 0) return;
+    el.innerHTML = compareWith.map(function (otherSlug) {
+      var compareSlug = currentSlug + '-vs-' + otherSlug;
+      return '<a href="' + _url('pages/grammar-compare.html') + '?slug=' + compareSlug + '" ' +
+             'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/25 ' +
+             'bg-teal/[0.06] text-sm text-teal-light hover:border-teal/50 hover:bg-teal/[0.12] transition-all">' +
+             'So sánh với ' + _prettifySlug(otherSlug) + ' →</a>';
+    }).join('');
+  }
+
+  // ── Render one compare column ─────────────────────────────────────────────
+  function _renderCompareColumn(article, containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML =
+      '<div class="mb-4 flex items-center gap-2">' +
+      levelBadge(article.level) +
+      categoryBadge(article.category) +
+      '<span class="text-xs text-white/30">' + (article.reading_time || 1) + ' phút</span>' +
+      '</div>' +
+      '<h2 class="text-xl font-bold text-white mb-2">' + article.title + '</h2>' +
+      (article.summary ? '<p class="text-sm text-white/55 mb-4 leading-relaxed">' + article.summary + '</p>' : '') +
+      '<a href="' + _url('pages/grammar-article.html') + '?category=' + article.category + '&slug=' + article.slug + '" ' +
+      'class="inline-flex items-center gap-1.5 text-sm text-teal-light hover:underline mb-6">Đọc bài đầy đủ →</a>' +
+      '<div class="article-body">' + (article.html || '') + '</div>';
   }
 
   // ── TOC renderer ──────────────────────────────────────────────────────────
@@ -212,7 +324,7 @@
   }
 
   function redirectToSearch(q) {
-    window.location.href = _url('grammar.html') + '?q=' + encodeURIComponent(q);
+    window.location.href = _url('pages/grammar-search.html') + '?q=' + encodeURIComponent(q);
   }
 
   // ── Home page loader ───────────────────────────────────────────────────────
@@ -221,25 +333,9 @@
     var searchQuery = params.get('q');
     var categoryFilter = params.get('category');
 
-    // Search results mode
+    // Search results mode — redirect to dedicated search page
     if (searchQuery) {
-      _showSection('search-results');
-      var searchEl = document.getElementById('search-results-title');
-      if (searchEl) searchEl.textContent = 'Kết quả cho "' + searchQuery + '"';
-      var listEl = document.getElementById('search-results-list');
-      if (listEl) listEl.innerHTML = '<p class="text-white/40 text-sm col-span-3">Đang tìm kiếm...</p>';
-      try {
-        var results = await fetchGrammarAPI('/search?q=' + encodeURIComponent(searchQuery));
-        if (!results || results.length === 0) {
-          if (listEl) listEl.innerHTML =
-            '<p class="text-white/50 text-sm col-span-3">Không tìm thấy kết quả cho "<strong class=\'text-white/80\'>' +
-            searchQuery + '</strong>". Thử từ khóa khác như <em>present perfect</em>, <em>conditionals</em>.</p>';
-        } else {
-          renderFeaturedCards(results, 'search-results-list');
-        }
-      } catch (err) {
-        _showError('search-results-list', err.message);
-      }
+      window.location.replace(_url('pages/grammar-search.html') + '?q=' + encodeURIComponent(searchQuery));
       return;
     }
 
@@ -321,6 +417,14 @@
       // Related pages
       renderRelatedPages(article.related_pages || [], 'related-pages');
 
+      // Compare links
+      if (article.compare_with && article.compare_with.length > 0) {
+        renderCompareLinks(article.compare_with, article.slug, 'compare-links');
+        _show('compare-section');
+      } else {
+        _hide('compare-section');
+      }
+
       // Prev/Next
       renderPrevNext(article.prev_article, article.next_article, 'prev-next');
 
@@ -332,6 +436,156 @@
       _showError('article-container', 'Không tải được bài: ' + err.message);
       _show('article-container');
     }
+  }
+
+  // ── Search page loader ────────────────────────────────────────────────────
+  async function loadGrammarSearch() {
+    var params = new URLSearchParams(window.location.search);
+    var q = params.get('q') || '';
+
+    // Pre-fill input
+    var input = document.getElementById('search-input');
+    if (input && q) input.value = q;
+
+    var headingEl = document.getElementById('search-heading');
+    var countEl   = document.getElementById('search-count');
+    var listEl    = document.getElementById('search-results-list');
+
+    if (!q) {
+      if (headingEl) headingEl.textContent = 'Tìm kiếm Grammar';
+      if (countEl)   countEl.textContent = '';
+      if (listEl)    listEl.innerHTML = '<p class="text-white/40 text-sm col-span-3 py-8 text-center">Nhập từ khóa để tìm kiếm.</p>';
+      _show('search-container');
+      _hide('search-skeleton');
+      return;
+    }
+
+    if (headingEl) headingEl.textContent = 'Kết quả cho "' + q + '"';
+    if (listEl)    listEl.innerHTML = '<p class="text-white/40 text-sm col-span-3">Đang tìm kiếm...</p>';
+
+    try {
+      var results = await fetchGrammarAPI('/search?q=' + encodeURIComponent(q));
+      if (countEl) {
+        countEl.textContent = results && results.length
+          ? results.length + ' kết quả'
+          : '';
+      }
+      renderSearchCards(results, 'search-results-list', q);
+    } catch (err) {
+      if (countEl) countEl.textContent = '';
+      _showError('search-results-list', err.message);
+    }
+
+    _show('search-container');
+    _hide('search-skeleton');
+  }
+
+  // ── Roadmap page loader ───────────────────────────────────────────────────
+  async function loadGrammarRoadmap() {
+    var params = new URLSearchParams(window.location.search);
+    var slug = params.get('slug');
+
+    if (!slug) {
+      _hide('roadmap-skeleton');
+      _show('roadmap-container');
+      _showError('roadmap-steps', 'Thiếu tham số slug.');
+      return;
+    }
+
+    try {
+      var data = await fetchGrammarAPI('/roadmap/' + slug);
+
+      // Page title
+      document.title = (data.title || slug) + ' — Lộ trình học — Grammar Wiki';
+
+      // Breadcrumb
+      var bcEl = document.getElementById('breadcrumb');
+      if (bcEl) {
+        bcEl.innerHTML =
+          '<a href="' + _url('grammar.html') + '" class="hover:text-teal-light transition-colors">Grammar Wiki</a>' +
+          '<span class="mx-2 text-white/20">›</span>' +
+          '<a href="' + _url('grammar.html') + '?category=' + slug + '" class="hover:text-teal-light transition-colors capitalize">' +
+          (data.title || _prettifySlug(slug)) + '</a>' +
+          '<span class="mx-2 text-white/20">›</span>' +
+          '<span class="text-white/80">Lộ trình</span>';
+      }
+
+      // Heading
+      var titleEl = document.getElementById('roadmap-title');
+      if (titleEl) titleEl.textContent = 'Lộ trình: ' + (data.title || _prettifySlug(slug));
+
+      var subtitleEl = document.getElementById('roadmap-subtitle');
+      if (subtitleEl) {
+        subtitleEl.textContent = (data.articles ? data.articles.length : 0) + ' bài học theo thứ tự từ cơ bản đến nâng cao';
+      }
+
+      // Roadmap link for category view
+      var catLinkEl = document.getElementById('roadmap-cat-link');
+      if (catLinkEl) {
+        catLinkEl.href = _url('grammar.html') + '?category=' + slug;
+        catLinkEl.textContent = 'Xem tất cả bài ' + (data.title || _prettifySlug(slug)) + ' →';
+      }
+
+      renderRoadmapSteps(data.articles || [], 'roadmap-steps');
+    } catch (err) {
+      _showError('roadmap-steps',
+        err.message.includes('404') || err.message.includes('not found')
+          ? 'Không tìm thấy lộ trình "' + slug + '". <a href="' + _url('grammar.html') + '" class="text-teal-light underline">Về Grammar Wiki</a>'
+          : err.message);
+    }
+
+    _hide('roadmap-skeleton');
+    _show('roadmap-container');
+  }
+
+  // ── Compare page loader ───────────────────────────────────────────────────
+  async function loadGrammarCompare() {
+    var params = new URLSearchParams(window.location.search);
+    var slug = params.get('slug');
+
+    if (!slug) {
+      _hide('compare-skeleton');
+      _show('compare-container');
+      _showError('compare-left', 'Thiếu tham số slug.');
+      return;
+    }
+
+    try {
+      var data = await fetchGrammarAPI('/compare/' + slug);
+
+      // Page title
+      var pageTitle = data.left.title + ' vs ' + data.right.title;
+      document.title = pageTitle + ' — Grammar Wiki';
+
+      // Breadcrumb
+      var bcEl = document.getElementById('breadcrumb');
+      if (bcEl) {
+        bcEl.innerHTML =
+          '<a href="' + _url('grammar.html') + '" class="hover:text-teal-light transition-colors">Grammar Wiki</a>' +
+          '<span class="mx-2 text-white/20">›</span>' +
+          '<span class="text-white/80">So sánh</span>';
+      }
+
+      // Heading
+      var titleEl = document.getElementById('compare-title');
+      if (titleEl) {
+        titleEl.innerHTML =
+          '<span class="text-white">' + data.left.title + '</span>' +
+          '<span class="text-white/30 mx-3 font-normal">vs</span>' +
+          '<span class="text-teal-light">' + data.right.title + '</span>';
+      }
+
+      _renderCompareColumn(data.left,  'compare-left');
+      _renderCompareColumn(data.right, 'compare-right');
+    } catch (err) {
+      _showError('compare-left',
+        err.message.includes('404') || err.message.includes('not found')
+          ? 'Không tìm thấy dữ liệu so sánh. <a href="' + _url('grammar.html') + '" class="text-teal-light underline">Về Grammar Wiki</a>'
+          : err.message);
+    }
+
+    _hide('compare-skeleton');
+    _show('compare-container');
   }
 
   // ── Utility ───────────────────────────────────────────────────────────────
@@ -354,17 +608,24 @@
 
   // ── Public API ─────────────────────────────────────────────────────────────
   window.grammarWiki = {
-    fetchGrammarAPI:    fetchGrammarAPI,
-    loadGrammarHome:    loadGrammarHome,
-    loadGrammarArticle: loadGrammarArticle,
-    renderCategoryCards: renderCategoryCards,
-    renderFeaturedCards: renderFeaturedCards,
-    renderRelatedPages:  renderRelatedPages,
-    renderTOC:           renderTOC,
-    renderBreadcrumb:    renderBreadcrumb,
-    renderPrevNext:      renderPrevNext,
-    setupSearch:         setupSearch,
-    redirectToSearch:    redirectToSearch,
-    levelBadge:          levelBadge,
+    fetchGrammarAPI:      fetchGrammarAPI,
+    loadGrammarHome:      loadGrammarHome,
+    loadGrammarArticle:   loadGrammarArticle,
+    loadGrammarSearch:    loadGrammarSearch,
+    loadGrammarRoadmap:   loadGrammarRoadmap,
+    loadGrammarCompare:   loadGrammarCompare,
+    renderCategoryCards:  renderCategoryCards,
+    renderFeaturedCards:  renderFeaturedCards,
+    renderSearchCards:    renderSearchCards,
+    renderRoadmapSteps:   renderRoadmapSteps,
+    renderCompareLinks:   renderCompareLinks,
+    renderRelatedPages:   renderRelatedPages,
+    renderTOC:            renderTOC,
+    renderBreadcrumb:     renderBreadcrumb,
+    renderPrevNext:       renderPrevNext,
+    setupSearch:          setupSearch,
+    redirectToSearch:     redirectToSearch,
+    levelBadge:           levelBadge,
+    categoryBadge:        categoryBadge,
   };
 })();
