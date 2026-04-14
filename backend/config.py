@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Google Cloud TTS
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 
+    # Azure Cognitive Services — Pronunciation Assessment
+    AZURE_SPEECH_KEY: str = ""
+    AZURE_SPEECH_REGION: str = ""   # e.g. "eastus", "southeastasia"
+
     # App config
     MAX_SESSIONS_PER_USER_PER_DAY: int = 10
     MAX_AUDIO_DURATION_SECONDS: int = 300

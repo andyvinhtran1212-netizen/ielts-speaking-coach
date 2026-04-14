@@ -14,6 +14,7 @@ from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.grammar import router as grammar_router
+from routers.pronunciation import router as pronunciation_router
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ app.include_router(tts_router)
 app.include_router(export_router)
 app.include_router(admin_router)
 app.include_router(grammar_router)
+app.include_router(pronunciation_router)
 
 # LEGACY audio-only route: POST /sessions/{id}/responses/{question_id}/audio
 #   → upload only, no grading; kept for reference, not used by the frontend
