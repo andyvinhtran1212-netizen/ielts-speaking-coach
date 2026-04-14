@@ -28,6 +28,7 @@ Azure docs:
 import base64
 import json
 import logging
+import subprocess
 from typing import Optional
 
 import httpx
@@ -39,18 +40,73 @@ logger = logging.getLogger(__name__)
 _API_TIMEOUT = 90  # generous — 2-3 min audio can take ~30 s to process
 
 
+# ── Audio conversion ───────────────────────────────────────────────────────────
+
+def _convert_to_wav(audio_bytes: bytes) -> bytes | None:
+    """
+    Convert any browser audio (WebM/Opus, OGG, MP4, etc.) to WAV PCM 16 kHz
+    mono 16-bit using ffmpeg via stdin→stdout (no temp files).
+
+    WAV PCM is the most reliably decoded format by the Azure Speech REST API;
+    WebM containers can cause InitialSilenceTimeout even when the audio is valid.
+
+    Returns converted WAV bytes, or None if ffmpeg is unavailable or fails.
+    Callers should fall back to the original bytes when None is returned.
+    """
+    try:
+        proc = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", "pipe:0",         # read from stdin
+                "-ar", "16000",         # 16 kHz — Azure Speech optimal sample rate
+                "-ac", "1",             # mono
+                "-sample_fmt", "s16",   # 16-bit signed PCM
+                "-f", "wav",
+                "pipe:1",               # write to stdout
+            ],
+            input=audio_bytes,
+            capture_output=True,
+            timeout=30,
+        )
+        if proc.returncode == 0 and len(proc.stdout) > 44:   # 44 = WAV header size
+            logger.info(
+                "[azure_pron] ffmpeg WAV conversion OK: %d B → %d B",
+                len(audio_bytes), len(proc.stdout),
+            )
+            return proc.stdout
+        else:
+            logger.warning(
+                "[azure_pron] ffmpeg returned code %d  stderr=%s",
+                proc.returncode,
+                proc.stderr.decode(errors="replace")[:300],
+            )
+            return None
+    except FileNotFoundError:
+        logger.warning("[azure_pron] ffmpeg not found in PATH — skipping WAV conversion")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.warning("[azure_pron] ffmpeg conversion timed out (>30 s)")
+        return None
+    except Exception as exc:
+        logger.warning("[azure_pron] ffmpeg conversion error: %s", exc)
+        return None
+
+
 # ── Assessment config ──────────────────────────────────────────────────────────
 
 def _assessment_header(reference_text: str = "") -> str:
     """Build the base64-encoded Pronunciation-Assessment header value."""
     config = {
-        "ReferenceText":  reference_text,
-        "GradingSystem":  "HundredMark",
-        "Granularity":    "Word",          # Word-level accuracy per token
-        "Dimension":      "Comprehensive", # Returns all 4 sub-scores
-        "EnableMiscue":   False,           # True only for strict reading assessment
+        "ReferenceText":          reference_text,
+        "GradingSystem":          "HundredMark",
+        "Granularity":            "Word",          # Word-level accuracy per token
+        "Dimension":              "Comprehensive", # Returns all 4 sub-scores (PronScore, Fluency, Accuracy, Completeness)
+        "EnableMiscue":           False,           # True only for strict reading assessment
+        "EnableProsodyAssessment": True,           # Required for FluencyScore via REST API
     }
-    return base64.b64encode(json.dumps(config).encode()).decode()
+    encoded = base64.b64encode(json.dumps(config, separators=(",", ":")).encode()).decode()
+    print(f"[PRON] assessment_header config={json.dumps(config)}  encoded_len={len(encoded)}", flush=True)
+    return encoded
 
 
 # ── Normalizer ─────────────────────────────────────────────────────────────────
@@ -85,28 +141,36 @@ def _normalize(azure_response: dict) -> dict:
         }
 
     best = nbest[0]
-    pa   = best.get("PronunciationAssessment", {})
 
-    pron_score   = pa.get("PronScore")
-    fluency      = pa.get("FluencyScore")
-    accuracy     = pa.get("AccuracyScore")
-    completeness = pa.get("CompletenessScore")
+    # Scores are flat on NBest[0] (not nested under PronunciationAssessment)
+    pron_score   = best.get("PronScore")
+    fluency      = best.get("FluencyScore")
+    accuracy     = best.get("AccuracyScore")
+    completeness = best.get("CompletenessScore")
+    prosody      = best.get("ProsodyScore")   # present when EnableProsodyAssessment=True
 
-    # Word-level: collect all words, flag mispronounced ones
+    print(
+        f"[PRON] scores: PronScore={pron_score}  Fluency={fluency}  "
+        f"Accuracy={accuracy}  Completeness={completeness}  Prosody={prosody}",
+        flush=True,
+    )
+
+    # Word-level: fields are flat on each word object (not nested under PronunciationAssessment)
     raw_words     = best.get("Words", [])
     words         = []
     mispronounced = []
 
     for w in raw_words:
-        word_pa  = w.get("PronunciationAssessment", {})
-        acc      = word_pa.get("AccuracyScore")
-        err      = word_pa.get("ErrorType", "None")
+        acc      = w.get("AccuracyScore")
+        err      = w.get("ErrorType", "None")
+        feedback = w.get("Feedback")          # present when EnableProsodyAssessment=True
         word_str = w.get("Word", "")
 
         words.append({
             "word":           word_str,
             "accuracy_score": acc,
             "error_type":     err,
+            "feedback":       feedback,
         })
 
         if (err and err != "None") or (acc is not None and acc < 60):
@@ -122,6 +186,7 @@ def _normalize(azure_response: dict) -> dict:
         "fluency_score":        _r(fluency),
         "accuracy_score":       _r(accuracy),
         "completeness_score":   _r(completeness),
+        "prosody_score":        _r(prosody),
         "words":                words,
         "short_summary":        summary,
         "raw_payload":          azure_response,
@@ -199,23 +264,37 @@ async def assess_pronunciation(
         f"?language={locale}&format=detailed"
     )
 
+    # Convert to WAV PCM before sending — WAV is universally decoded by Azure
+    # without container-parsing issues that cause InitialSilenceTimeout on WebM.
+    wav_bytes = _convert_to_wav(audio_bytes)
+    if wav_bytes:
+        send_bytes        = wav_bytes
+        send_content_type = "audio/wav"
+        print(f"[PRON] WAV conversion OK: {content_type} {len(audio_bytes)}B → WAV {len(wav_bytes)}B", flush=True)
+    else:
+        # ffmpeg unavailable or failed — fall back to original bytes
+        send_bytes        = audio_bytes
+        send_content_type = content_type
+        print(f"[PRON] WAV conversion SKIPPED — sending original {content_type} {len(audio_bytes)}B", flush=True)
+
     headers = {
         "Ocp-Apim-Subscription-Key": key,
-        "Content-Type":              content_type,
+        "Content-Type":              send_content_type,
         "Pronunciation-Assessment":  _assessment_header(reference_text),
-        "Transfer-Encoding":         "chunked",
+        # NOTE: No Transfer-Encoding header — httpx sets Content-Length automatically
+        # for pre-buffered bytes. Adding chunked here conflicted with Content-Length
+        # and caused Azure to misparse the audio container start.
     }
 
-    logger.info(
-        "[azure_pron] POST %d bytes  locale=%s  ref_text_len=%d",
-        len(audio_bytes), locale, len(reference_text),
-    )
+    print(f"[PRON] → Azure POST {len(send_bytes)}B  content_type={send_content_type}  locale={locale}", flush=True)
 
     async with httpx.AsyncClient(timeout=_API_TIMEOUT) as client:
-        resp = await client.post(url, headers=headers, content=audio_bytes)
+        resp = await client.post(url, headers=headers, content=send_bytes)
+
+    print(f"[PRON] ← Azure HTTP {resp.status_code}  response_size={len(resp.content)}B", flush=True)
 
     if resp.status_code != 200:
-        logger.error("[azure_pron] API error %d: %s", resp.status_code, resp.text[:300])
+        print(f"[PRON] Azure API error {resp.status_code}: {resp.text[:300]}", flush=True)
         raise RuntimeError(
             f"Azure trả về lỗi {resp.status_code}: {resp.text[:200]}"
         )
@@ -223,7 +302,27 @@ async def assess_pronunciation(
     try:
         data = resp.json()
     except Exception as exc:
+        print(f"[PRON] Non-JSON response: {resp.text[:200]}", flush=True)
         raise RuntimeError(f"Azure response không phải JSON hợp lệ: {exc}") from exc
 
-    logger.info("[azure_pron] OK  RecognitionStatus=%s", data.get("RecognitionStatus", "?"))
+    recognition_status = data.get("RecognitionStatus", "MISSING")
+    nbest = data.get("NBest", [])
+    display_text = data.get("DisplayText", "")
+
+    print(f"[PRON] RecognitionStatus={recognition_status}  NBest={len(nbest)}  DisplayText={display_text[:60]!r}", flush=True)
+
+    if nbest:
+        best = nbest[0]
+        # Scores are flat on NBest[0] (confirmed from actual Azure response shape)
+        print(
+            f"[PRON] NBest[0] PronScore={best.get('PronScore')}  Fluency={best.get('FluencyScore')}  "
+            f"Accuracy={best.get('AccuracyScore')}  Completeness={best.get('CompletenessScore')}  "
+            f"Prosody={best.get('ProsodyScore')}  Words={len(best.get('Words', []))}",
+            flush=True,
+        )
+    else:
+        safe_keys = {k: (v if not isinstance(v, (dict, list)) else type(v).__name__) for k, v in data.items()}
+        print(f"[PRON] NBest EMPTY — full response shape: {safe_keys}", flush=True)
+        logger.warning("[azure_pron] NBest is empty. Full response shape: %s", safe_keys)
+
     return _normalize(data)

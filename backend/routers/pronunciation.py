@@ -84,12 +84,25 @@ async def assess_response_pronunciation(
     storage_path: str | None = response.get("audio_storage_path")
     public_url:   str | None = response.get("audio_url")
 
+    print(
+        f"[PRON] response={response_id}  storage_path={storage_path!r}  "
+        f"public_url={bool(public_url)}  existing_status={response.get('pronunciation_status')!r}",
+        flush=True,
+    )
+    logger.info(
+        "[pronunciation] response=%s  storage_path=%r  public_url=%r  existing_status=%r",
+        response_id, storage_path, public_url, response.get("pronunciation_status"),
+    )
+
     if not storage_path and not public_url:
         raise HTTPException(422, "Response này chưa có file audio. Hãy ghi âm trước.")
 
     # ── 3. Download audio bytes ───────────────────────────────────────────────
     audio_bytes: bytes | None = None
     content_type = "audio/webm"   # default; refined from storage path below
+
+    audio_source = "storage_path" if storage_path else "public_url"
+    logger.info("[pronunciation] audio_source=%s  content_type_before_inference=%s", audio_source, content_type)
 
     # Infer content-type from storage path extension
     if storage_path:
@@ -124,9 +137,11 @@ async def assess_response_pronunciation(
                 if dl.status_code == 200:
                     audio_bytes = dl.content
                     logger.info(
-                        "[pronunciation] downloaded %d B via signed URL for response=%s",
-                        len(audio_bytes), response_id,
+                        "[pronunciation] downloaded %d B via signed URL for response=%s  content_type=%s",
+                        len(audio_bytes), response_id, content_type,
                     )
+                else:
+                    logger.warning("[pronunciation] signed URL download returned HTTP %d", dl.status_code)
         except Exception as e:
             logger.warning("[pronunciation] signed URL download failed: %s", e)
 
@@ -138,8 +153,8 @@ async def assess_response_pronunciation(
             if dl.status_code == 200:
                 audio_bytes = dl.content
                 logger.info(
-                    "[pronunciation] downloaded %d B via public URL for response=%s",
-                    len(audio_bytes), response_id,
+                    "[pronunciation] downloaded %d B via public URL for response=%s  content_type=%s",
+                    len(audio_bytes), response_id, content_type,
                 )
         except Exception as e:
             logger.warning("[pronunciation] public URL download failed: %s", e)
@@ -148,6 +163,11 @@ async def assess_response_pronunciation(
         raise HTTPException(502, "Không thể tải file audio để đánh giá phát âm.")
 
     # ── 4. Azure Pronunciation Assessment ────────────────────────────────────
+    print(f"[PRON] audio downloaded: {len(audio_bytes)}B  inferred_type={content_type}  source={audio_source}", flush=True)
+    logger.info(
+        "[pronunciation] sending to Azure: %d bytes  content_type=%s  source=%s",
+        len(audio_bytes), content_type, audio_source,
+    )
     try:
         result = await azure_pronunciation.assess_pronunciation(
             audio_bytes=audio_bytes,
@@ -191,6 +211,7 @@ async def assess_response_pronunciation(
         "fluency_score":         result.get("fluency_score"),
         "accuracy_score":        result.get("accuracy_score"),
         "completeness_score":    result.get("completeness_score"),
+        "prosody_score":         result.get("prosody_score"),
         "short_summary":         result.get("short_summary", []),
         "words":                 result.get("words", []),
         "provider":              "azure",
