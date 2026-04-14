@@ -9,7 +9,7 @@ summary: >
 level: beginner
 tags: [tenses, beginner, ielts, past, irregular-verbs]
 prerequisites: [parts-of-speech, sentence-elements, present-simple]
-related_pages: [present-simple, present-continuous, present-perfect, past-continuous]
+related_pages: [present-simple, present-continuous, present-perfect]
 compare_with: [present-perfect]
 order: 3
 last_updated: 2026-04-10

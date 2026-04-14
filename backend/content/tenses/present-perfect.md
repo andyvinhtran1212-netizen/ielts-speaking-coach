@@ -9,7 +9,7 @@ summary: >
 level: intermediate
 tags: [tenses, intermediate, ielts, perfect, aspect]
 prerequisites: [parts-of-speech, sentence-elements, present-simple, past-simple]
-related_pages: [past-simple, present-continuous, past-perfect, future-perfect]
+related_pages: [past-simple, present-continuous]
 compare_with: [past-simple]
 order: 4
 last_updated: 2026-04-10

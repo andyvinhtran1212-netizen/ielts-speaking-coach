@@ -620,7 +620,175 @@
       }
     }
 
+    // ── Grammar Resources ────────────────────────────────────────────────────
+    _showGrammarResources(data);
+
     showState('feedback');
+  }
+
+  // ── Grammar Resources v2 ─────────────────────────────────────────────────────
+
+  // Keyword index: slug → keywords only (domain knowledge, never changes)
+  var _GR_KW = [
+    { slug: 'articles',              kw: ['article', ' a ', ' an ', ' the ', 'definite', 'indefinite', 'mạo từ'] },
+    { slug: 'present-perfect',       kw: ['present perfect', 'have been', 'has been', 'have + past participle', 'for and since', 'already', 'just', 'yet'] },
+    { slug: 'present-continuous',    kw: ['present continuous', 'present progressive', 'is + v-ing', 'are + v-ing', 'am + v-ing'] },
+    { slug: 'present-simple',        kw: ['present simple', 'simple present', 'third person', 's-form', 'frequency adverb'] },
+    { slug: 'past-simple',           kw: ['past simple', 'simple past', 'past tense', 'irregular verb', 'regular verb', 'v2'] },
+    { slug: 'future-forms',          kw: ['future', 'going to', "won't", 'will be'] },
+    { slug: 'gerund',                kw: ['gerund', 'v-ing form', '-ing form', 'enjoy', 'avoid', 'finish', 'after preposition'] },
+    { slug: 'infinitive',            kw: ['to-infinitive', 'to infinitive', 'want to', 'hope to', 'plan to', 'decide to', 'need to'] },
+    { slug: 'bare-infinitive',       kw: ['bare infinitive', 'modal verb', 'after modal', 'can swim', 'should study', 'must use'] },
+    { slug: 'gerund-vs-infinitive',  kw: ['gerund or infinitive', 'gerund vs infinitive', 'stop doing', 'stop to', 'remember doing', 'remember to', 'try doing', 'try to'] },
+    { slug: 'adjectives',            kw: ['adjective', 'describing noun', 'attributive', 'predicative'] },
+    { slug: 'adverbs',               kw: ['adverb', 'adverbs', 'manner adverb', 'frequency adverb', 'adverbial'] },
+    { slug: 'adjective-vs-adverb',   kw: ['adjective or adverb', 'adjective vs adverb', 'adjective instead of adverb', 'good or well', 'linking verb', 'look good', 'feel bad', 'sounds great'] },
+    { slug: 'sentence-elements',     kw: ['subject', 'subject-verb agreement', 'verb agreement', 'sentence element', 'subject and verb'] },
+    { slug: 'countable-vs-uncountable', kw: ['countable', 'uncountable', 'count noun', 'mass noun', 'much or many', 'little or few'] },
+    { slug: 'singular-vs-plural',    kw: ['singular', 'plural', 'singular verb', 'plural verb', 'verb agreement'] },
+    { slug: 'compound-sentence',     kw: ['compound sentence', 'coordinating conjunction', 'fanboys', 'run-on sentence'] },
+    { slug: 'complex-sentence',      kw: ['complex sentence', 'subordinate', 'subordinating conjunction', 'relative clause', 'because', 'although', 'even though'] },
+  ];
+
+  // Fallback metadata (used if API fetch fails or hasn't resolved yet)
+  var _GR_META_FALLBACK = {
+    'articles':              { category: 'advanced',           title: 'Articles (a / an / the)',   summary: 'Dùng đúng mạo từ trong mọi ngữ cảnh' },
+    'present-perfect':       { category: 'tenses',             title: 'Present Perfect',            summary: 'Hiện tại hoàn thành — cấu trúc, cách dùng và phân biệt với past simple' },
+    'present-continuous':    { category: 'tenses',             title: 'Present Continuous',         summary: 'Thì hiện tại tiếp diễn — hành động đang xảy ra hoặc kế hoạch tương lai' },
+    'present-simple':        { category: 'tenses',             title: 'Present Simple',             summary: 'Thì hiện tại đơn — thói quen, sự thật và trạng thái thường trực' },
+    'past-simple':           { category: 'tenses',             title: 'Past Simple',                summary: 'Thì quá khứ đơn — sự kiện và hành động đã hoàn thành' },
+    'future-forms':          { category: 'tenses',             title: 'Future Forms',               summary: 'Các dạng tương lai — will, going to và present continuous' },
+    'gerund':                { category: 'verb-patterns',      title: 'Gerund (V-ing)',             summary: 'Danh động từ — khi nào dùng V-ing thay vì to-infinitive' },
+    'infinitive':            { category: 'verb-patterns',      title: 'To-Infinitive',              summary: 'Động từ nguyên thể có "to" — cấu trúc và cách dùng' },
+    'bare-infinitive':       { category: 'verb-patterns',      title: 'Bare Infinitive',            summary: 'Động từ nguyên thể không có "to" — sau modal verbs và let/make' },
+    'gerund-vs-infinitive':  { category: 'verb-patterns',      title: 'Gerund vs. Infinitive',      summary: 'Khi nào dùng V-ing, khi nào dùng to-V — và các động từ có nghĩa khác nhau' },
+    'adjectives':            { category: 'modifiers',          title: 'Adjectives',                 summary: 'Tính từ — vị trí, thứ tự và cách dùng trong tiếng Anh' },
+    'adverbs':               { category: 'modifiers',          title: 'Adverbs',                    summary: 'Trạng từ — các loại và vị trí đúng trong câu' },
+    'adjective-vs-adverb':   { category: 'modifiers',          title: 'Adjective vs. Adverb',       summary: 'Phân biệt tính từ và trạng từ — lỗi phổ biến nhất trong speaking' },
+    'sentence-elements':     { category: 'foundations',        title: 'Sentence Elements',          summary: 'Các thành phần câu cơ bản — subject, verb, object, complement' },
+    'countable-vs-uncountable': { category: 'foundations',     title: 'Countable vs. Uncountable',  summary: 'Danh từ đếm được và không đếm được — dùng how much hay how many?' },
+    'singular-vs-plural':    { category: 'foundations',        title: 'Singular & Plural',          summary: 'Số ít và số nhiều — cách chia động từ cho đúng' },
+    'compound-sentence':     { category: 'sentence-structures', title: 'Compound Sentence',         summary: 'Câu ghép — nối hai mệnh đề độc lập bằng coordinating conjunctions' },
+    'complex-sentence':      { category: 'sentence-structures', title: 'Complex Sentence',          summary: 'Câu phức — mệnh đề chính và mệnh đề phụ thuộc' },
+  };
+
+  // Dynamic metadata fetched from /api/grammar/categories (slug → {category, title, summary})
+  var _grArticleIndex = null; // null = not yet fetched; {} = fetched (may be empty on error)
+
+  // Eager-fetch article index so it's ready when feedback is shown
+  function _fetchGrArticleIndex() {
+    var base = (window.api && window.api.base) ? window.api.base : '';
+    fetch(base + '/api/grammar/categories')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var idx = {};
+        if (data && Array.isArray(data.categories)) {
+          data.categories.forEach(function (cat) {
+            if (Array.isArray(cat.articles)) {
+              cat.articles.forEach(function (art) {
+                idx[art.slug] = { category: art.category, title: art.title, summary: art.summary };
+              });
+            }
+          });
+        }
+        _grArticleIndex = idx;
+      })
+      .catch(function () { _grArticleIndex = {}; });
+  }
+
+  // Resolve metadata for a slug: prefer live index, fall back to hardcoded
+  function _grMeta(slug) {
+    var live = _grArticleIndex && _grArticleIndex[slug];
+    if (live && live.category) return live;
+    return _GR_META_FALLBACK[slug] || null;
+  }
+
+  // Build PRIMARY text (grammar_issues + corrections) — weighted ×3
+  // Build SECONDARY text (gra_feedback + improvements) — weighted ×1
+  // Exclude: sample_answer, strengths, lr_feedback, p_feedback, fc_feedback
+  function _grTexts(data) {
+    if (!data || data._stub) return { primary: '', secondary: '' };
+    var pri = [], sec = [];
+    var addArr = function (dest, arr) {
+      if (Array.isArray(arr)) arr.forEach(function (s) { if (s) dest.push(String(s)); });
+    };
+    var addStr = function (dest, s) { if (s) dest.push(String(s)); };
+
+    addArr(pri, data.grammar_issues);
+    if (Array.isArray(data.corrections)) {
+      data.corrections.forEach(function (c) {
+        addStr(pri, c.explanation); addStr(pri, c.original); addStr(pri, c.corrected);
+      });
+    }
+    addStr(sec, data.gra_feedback);
+    addArr(sec, data.improvements);
+    addStr(sec, data.improved_response);
+
+    return {
+      primary:   pri.join(' ').toLowerCase(),
+      secondary: sec.join(' ').toLowerCase(),
+    };
+  }
+
+  // Score each keyword entry against primary (×3) + secondary (×1) texts
+  function _matchGrArticles(primary, secondary, maxCount) {
+    if (!primary && !secondary) return [];
+    var scored = [];
+    _GR_KW.forEach(function (entry) {
+      var score = 0;
+      entry.kw.forEach(function (kw) {
+        var k = kw.toLowerCase();
+        if (primary   && primary.indexOf(k)   !== -1) score += 3;
+        if (secondary && secondary.indexOf(k) !== -1) score += 1;
+      });
+      if (score > 0) {
+        var meta = _grMeta(entry.slug);
+        if (meta) scored.push({ slug: entry.slug, meta: meta, score: score });
+      }
+    });
+    scored.sort(function (a, b) { return b.score - a.score; });
+    return scored.slice(0, maxCount);
+  }
+
+  function _grammarCardHtml(slug, meta) {
+    var href = 'grammar-article.html?category=' + meta.category + '&slug=' + slug;
+    var cat  = meta.category.replace(/-/g, ' ');
+    return '<a href="' + href + '" target="_blank" rel="noopener"'
+      + ' style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;'
+      + 'background:rgba(20,184,166,0.06);border:1px solid rgba(20,184,166,0.2);'
+      + 'border-radius:14px;text-decoration:none;'
+      + 'transition:border-color 0.15s,background 0.15s;"'
+      + ' onmouseover="this.style.borderColor=\'rgba(20,184,166,0.45)\';this.style.background=\'rgba(20,184,166,0.1)\'"'
+      + ' onmouseout="this.style.borderColor=\'rgba(20,184,166,0.2)\';this.style.background=\'rgba(20,184,166,0.06)\'">'
+      + '<div style="flex:1;min-width:0;">'
+      + '<p style="font-size:13px;font-weight:600;color:#e2e8f0;margin:0 0 3px;'
+      + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
+      + '<p style="font-size:12px;color:rgba(255,255,255,0.45);margin:0 0 7px;line-height:1.4;">'
+      + _esc(meta.summary) + '</p>'
+      + '<span style="font-size:11px;font-weight:600;text-transform:uppercase;'
+      + 'letter-spacing:.06em;color:rgba(255,255,255,0.25);">' + _esc(cat) + '</span>'
+      + '</div>'
+      + '<span style="flex-shrink:0;font-size:11px;font-weight:700;color:#14b8a6;'
+      + 'background:rgba(20,184,166,0.14);border-radius:8px;padding:5px 10px;'
+      + 'white-space:nowrap;align-self:center;">Học ngay →</span>'
+      + '</a>';
+  }
+
+  function _showGrammarResources(data) {
+    var wrap  = $('grammar-resources');
+    var cards = $('grammar-resources-cards');
+    if (!wrap || !cards) return;
+
+    var texts   = _grTexts(data);
+    var matched = _matchGrArticles(texts.primary, texts.secondary, 3);
+
+    if (!matched.length) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    cards.innerHTML = matched.map(function (m) { return _grammarCardHtml(m.slug, m.meta); }).join('');
+    wrap.style.display = '';
   }
 
   // ── Audio replay / download (practice feedback screen) ───────────────────────
@@ -1715,6 +1883,9 @@
 
   async function init() {
     showState('loading');
+
+    // Kick off grammar article index fetch in background (ready before feedback shown)
+    _fetchGrArticleIndex();
 
     var sb = window.getSupabase && window.getSupabase();
     if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }

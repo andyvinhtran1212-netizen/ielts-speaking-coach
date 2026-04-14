@@ -9,7 +9,7 @@ summary: >
 level: beginner
 tags: [tenses, beginner, ielts, progressive, continuous]
 prerequisites: [parts-of-speech, sentence-elements, present-simple]
-related_pages: [present-simple, past-simple, future-forms, stative-verbs]
+related_pages: [present-simple, past-simple, future-forms]
 compare_with: [present-simple]
 order: 2
 last_updated: 2026-04-10
