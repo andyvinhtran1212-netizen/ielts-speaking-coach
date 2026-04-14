@@ -63,7 +63,15 @@ def _init_unicode_font() -> None:
         # Liberation Sans (alternative on Ubuntu)
         ("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
          "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
-        # macOS — Arial Unicode ships with Office / macOS
+        # macOS Homebrew — Apple Silicon (brew install font-dejavu)
+        ("/opt/homebrew/share/fonts/dejavu-fonts/DejaVuSans.ttf",
+         "/opt/homebrew/share/fonts/dejavu-fonts/DejaVuSans-Bold.ttf"),
+        # macOS Homebrew — Intel
+        ("/usr/local/share/fonts/dejavu-fonts/DejaVuSans.ttf",
+         "/usr/local/share/fonts/dejavu-fonts/DejaVuSans-Bold.ttf"),
+        # macOS system — ships with macOS 10.14+ (no Office required)
+        ("/System/Library/Fonts/Supplemental/Arial Unicode.ttf", None),
+        # macOS — older system path / Office install
         ("/Library/Fonts/Arial Unicode.ttf", None),
     ]
     for reg_path, bold_path in candidates:
@@ -251,6 +259,7 @@ async def generate_session_pdf(session_id: str, db=None) -> bytes:
                 for key in fb_texts:
                     if not fb_texts[key]:
                         fb_texts[key] = fb.get(key, "")
+            if all(fb_texts.values()):
                 break
 
     # ── 6. Assemble render inputs ──────────────────────────────────────────────
