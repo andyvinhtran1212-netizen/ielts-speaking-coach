@@ -165,6 +165,16 @@ _PART1_FALLBACK_QUESTIONS = [
     {"question_text": "Where did you grow up, and do you still live there?", "question_type": "place"},
 ]
 
+_PART3_FALLBACK_QUESTIONS = [
+    {"question_text": "How has this changed in recent years?",                  "question_type": "comparison"},
+    {"question_text": "Do you think this will be different in the future?",     "question_type": "prediction"},
+    {"question_text": "Why do some people hold a different view on this?",      "question_type": "opinion"},
+    {"question_text": "What role does government play in addressing this?",     "question_type": "solution"},
+    {"question_text": "How does this issue affect younger generations?",        "question_type": "cause_effect"},
+    {"question_text": "Why is this topic significant in modern society?",       "question_type": "opinion"},
+    {"question_text": "How do different cultures approach this differently?",   "question_type": "comparison"},
+]
+
 
 async def generate_part1_questions(topic: str, count: int = 3,
                                    user_id: str | None = None) -> list[dict]:
@@ -305,7 +315,7 @@ async def generate_part3_questions(topic: str, count: int = 3,
         }
     """
     cached = _cache_get(part=3, topic=topic)
-    if cached is not None:
+    if cached is not None and len(cached) >= count:
         return cached[:count]
 
     prompt = f"""You are an experienced IELTS Speaking examiner.
@@ -317,7 +327,7 @@ not personal experiences. They require the candidate to speculate, compare, or a
 
 STRICT RULES FOR EACH QUESTION:
 - Each question must be ONE single question — never combine two questions into one sentence.
-- Maximum 15 words per question. Short, direct, clear.
+- Maximum 20 words per question. Short, direct, clear.
 - Do NOT use "and" to join two separate questions (e.g. "Why X and how does Y?" is WRONG).
 - End with exactly one question mark.
 
@@ -336,20 +346,59 @@ Return ONLY a valid JSON array — no markdown, no explanation:
 
     questions: list[dict] = await _call_gemini(prompt, user_id=user_id)
 
-    valid = []
-    for q in questions:
-        if not isinstance(q, dict):
-            continue
-        text = q.get("question_text", "")
-        qtype = q.get("question_type", "")
-        if not isinstance(text, str) or not isinstance(qtype, str):
-            continue
-        # Reject questions that are too long (likely compound/merged)
-        word_count = len(text.split())
-        if word_count > 20:
-            logger.warning("[warn] Part 3 question too long (%d words), skipping: %r", word_count, text)
-            continue
-        valid.append(q)
+    def _filter(raw) -> list[dict]:
+        result = []
+        for q in (raw or []):
+            if not isinstance(q, dict):
+                continue
+            text = q.get("question_text", "")
+            qtype = q.get("question_type", "")
+            if not isinstance(text, str) or not isinstance(qtype, str):
+                continue
+            word_count = len(text.split())
+            if word_count > 20:
+                logger.warning(
+                    "[warn] Part 3 question too long (%d words), skipping: %r",
+                    word_count, text,
+                )
+                continue
+            result.append(q)
+        return result
 
-    _cache_set(part=3, topic=topic, questions=valid)
+    valid = _filter(questions)
+
+    # Retry once for the deficit when filtering removed questions
+    if len(valid) < count:
+        deficit = count - len(valid)
+        logger.warning(
+            "[gemini] Part 3 topic=%r: got %d/%d valid questions — retrying for %d more",
+            topic, len(valid), count, deficit,
+        )
+        try:
+            extra_raw = await _call_gemini(prompt, user_id=user_id)
+            existing_texts = {q["question_text"] for q in valid}
+            for q in _filter(extra_raw):
+                if q["question_text"] not in existing_texts:
+                    valid.append(q)
+                    existing_texts.add(q["question_text"])
+                if len(valid) >= count:
+                    break
+        except Exception as exc:
+            logger.warning("[gemini] Part 3 retry failed for topic=%r: %s", topic, exc)
+
+    # Pad with safe defaults if still short
+    if len(valid) < count:
+        pad_needed = count - len(valid)
+        logger.warning(
+            "[gemini] Part 3 topic=%r: still %d short after retry — padding with defaults",
+            topic, pad_needed,
+        )
+        existing_texts = {q["question_text"] for q in valid}
+        for fb in _PART3_FALLBACK_QUESTIONS:
+            if len(valid) >= count:
+                break
+            if fb["question_text"] not in existing_texts:
+                valid.append(fb)
+
+    _cache_set(part=3, topic=topic, questions=valid[:count])
     return valid[:count]
