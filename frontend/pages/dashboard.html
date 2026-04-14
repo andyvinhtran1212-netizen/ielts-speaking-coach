@@ -486,6 +486,7 @@
               <tr style="background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.07);">
                 <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Ngày</th>
                 <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Part</th>
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Chế độ</th>
                 <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Chủ đề</th>
                 <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Band</th>
                 <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Xem lại</th>
@@ -968,10 +969,15 @@
       document.getElementById('today-bar').style.width = `${Math.min((todayCount / 100) * 100, 100)}%`;
 
       const completed = sessions.filter(s => s.overall_band != null);
-      if (completed.length > 0) {
-        const avg = completed.reduce((sum, s) => sum + s.overall_band, 0) / completed.length;
+      const testCompleted = completed.filter(s => s.mode && s.mode !== 'practice');
+      const bandSource = testCompleted.length > 0 ? testCompleted : completed;
+      if (bandSource.length > 0) {
+        const avg = bandSource.reduce((sum, s) => sum + s.overall_band, 0) / bandSource.length;
         document.getElementById('stat-band').textContent = roundHalf(avg).toFixed(1);
-        document.getElementById('stat-band').nextElementSibling.textContent = `${completed.length} lần chấm`;
+        const label = testCompleted.length > 0
+          ? `${testCompleted.length} bài test`
+          : `${completed.length} lần chấm`;
+        document.getElementById('stat-band').nextElementSibling.textContent = label;
       }
 
       const days = [...new Set(sessions.map(s => s.started_at?.slice(0, 10)))].sort().reverse();
@@ -996,6 +1002,10 @@
       document.getElementById('history-empty').classList.add('hidden');
       document.getElementById('history-table-wrap').classList.remove('hidden');
 
+      const modeLabel = { practice: 'Luyện tập', test_part: 'Part Test', test_full: 'Full Test' };
+      const modeColor = { practice: 'rgba(20,184,166,0.15)', test_part: 'rgba(56,189,248,0.15)', test_full: 'rgba(251,146,60,0.15)' };
+      const modeTxt   = { practice: '#14b8a6', test_part: '#38bdf8', test_full: '#fb923c' };
+
       const tbody = document.getElementById('history-tbody');
       tbody.innerHTML = sessions
         .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))
@@ -1007,10 +1017,13 @@
           const viewBtn = s.id
             ? `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
             : '—';
+          const mode = s.mode || 'practice';
+          const modeBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${modeColor[mode] || modeColor.practice};color:${modeTxt[mode] || modeTxt.practice};font-weight:600;">${modeLabel[mode] || mode}</span>`;
           return `
             <tr class="session-row" style="border-bottom:1px solid rgba(255,255,255,0.04);">
               <td class="px-5 py-3.5 text-xs" style="color:rgba(255,255,255,0.55);">${date}</td>
               <td class="px-5 py-3.5 text-xs font-semibold" style="color:#14b8a6;">Part ${s.part || '?'}</td>
+              <td class="px-5 py-3.5 text-xs">${modeBadge}</td>
               <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:rgba(255,255,255,0.7);">${s.topic || '—'}</td>
               <td class="px-5 py-3.5 text-center">${band}</td>
               <td class="px-5 py-3.5 text-center">${viewBtn}</td>
@@ -1120,9 +1133,9 @@
       }
 
       // ── Radar chart ───────────────────────────────────────
-      var last5 = completed.slice(-5).filter(function (s) {
+      var last5 = completed.filter(function (s) {
         return s.band_fc != null || s.band_lr != null || s.band_gra != null || s.band_p != null;
-      });
+      }).slice(-5);
 
       if (last5.length === 0) {
         document.getElementById('radar-chart-wrap').classList.add('hidden');
@@ -1618,8 +1631,8 @@
 
       try {
         const [sessions, completedSessions] = await Promise.all([
-          api.get('/sessions'),
-          api.get('/sessions?status=completed'),
+          api.get('/sessions?limit=200'),
+          api.get('/sessions?status=completed&limit=200'),
         ]);
         renderStats(sessions);
         renderHistory(completedSessions);

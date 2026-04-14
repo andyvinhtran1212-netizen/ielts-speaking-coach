@@ -246,6 +246,13 @@
 
     showState('prep');
     _applyQModeUI();   // render toggle + controls for current mode
+
+    // Auto-play question in listening mode (exam simulation for test_full).
+    // _ttsAI falls back to browser TTS automatically if the user hasn't yet
+    // interacted with this page (first question), so no silence ever occurs.
+    if (_qMode === 'listening' && _currentQ) {
+      _ttsAI(_currentQ.question_text || '', _currentQ.id);
+    }
   }
 
   // Called by prep button "Bắt đầu ghi âm"
@@ -626,50 +633,50 @@
     showState('feedback');
   }
 
-  // ── Grammar Resources v2 ─────────────────────────────────────────────────────
+  // ── Grammar Resources v3 ─────────────────────────────────────────────────────
 
-  // Keyword index: slug → keywords only (domain knowledge, never changes)
+  // Keyword index: slug + Vietnamese topic label + keywords
   var _GR_KW = [
-    { slug: 'articles',              kw: ['article', ' a ', ' an ', ' the ', 'definite', 'indefinite', 'mạo từ'] },
-    { slug: 'present-perfect',       kw: ['present perfect', 'have been', 'has been', 'have + past participle', 'for and since', 'already', 'just', 'yet'] },
-    { slug: 'present-continuous',    kw: ['present continuous', 'present progressive', 'is + v-ing', 'are + v-ing', 'am + v-ing'] },
-    { slug: 'present-simple',        kw: ['present simple', 'simple present', 'third person', 's-form', 'frequency adverb'] },
-    { slug: 'past-simple',           kw: ['past simple', 'simple past', 'past tense', 'irregular verb', 'regular verb', 'v2'] },
-    { slug: 'future-forms',          kw: ['future', 'going to', "won't", 'will be'] },
-    { slug: 'gerund',                kw: ['gerund', 'v-ing form', '-ing form', 'enjoy', 'avoid', 'finish', 'after preposition'] },
-    { slug: 'infinitive',            kw: ['to-infinitive', 'to infinitive', 'want to', 'hope to', 'plan to', 'decide to', 'need to'] },
-    { slug: 'bare-infinitive',       kw: ['bare infinitive', 'modal verb', 'after modal', 'can swim', 'should study', 'must use'] },
-    { slug: 'gerund-vs-infinitive',  kw: ['gerund or infinitive', 'gerund vs infinitive', 'stop doing', 'stop to', 'remember doing', 'remember to', 'try doing', 'try to'] },
-    { slug: 'adjectives',            kw: ['adjective', 'describing noun', 'attributive', 'predicative'] },
-    { slug: 'adverbs',               kw: ['adverb', 'adverbs', 'manner adverb', 'frequency adverb', 'adverbial'] },
-    { slug: 'adjective-vs-adverb',   kw: ['adjective or adverb', 'adjective vs adverb', 'adjective instead of adverb', 'good or well', 'linking verb', 'look good', 'feel bad', 'sounds great'] },
-    { slug: 'sentence-elements',     kw: ['subject', 'subject-verb agreement', 'verb agreement', 'sentence element', 'subject and verb'] },
-    { slug: 'countable-vs-uncountable', kw: ['countable', 'uncountable', 'count noun', 'mass noun', 'much or many', 'little or few'] },
-    { slug: 'singular-vs-plural',    kw: ['singular', 'plural', 'singular verb', 'plural verb', 'verb agreement'] },
-    { slug: 'compound-sentence',     kw: ['compound sentence', 'coordinating conjunction', 'fanboys', 'run-on sentence'] },
-    { slug: 'complex-sentence',      kw: ['complex sentence', 'subordinate', 'subordinating conjunction', 'relative clause', 'because', 'although', 'even though'] },
+    { slug: 'articles',              topic: 'mạo từ',                  kw: ['article', ' a ', ' an ', ' the ', 'definite', 'indefinite', 'mạo từ'] },
+    { slug: 'present-perfect',       topic: 'thì hiện tại hoàn thành', kw: ['present perfect', 'have been', 'has been', 'have + past participle', 'for and since', 'already', 'just', 'yet'] },
+    { slug: 'present-continuous',    topic: 'thì hiện tại tiếp diễn',  kw: ['present continuous', 'present progressive', 'is + v-ing', 'are + v-ing', 'am + v-ing'] },
+    { slug: 'present-simple',        topic: 'thì hiện tại đơn',        kw: ['present simple', 'simple present', 'third person', 's-form', 'frequency adverb'] },
+    { slug: 'past-simple',           topic: 'thì quá khứ đơn',         kw: ['past simple', 'simple past', 'past tense', 'irregular verb', 'regular verb', 'v2'] },
+    { slug: 'future-forms',          topic: 'thì tương lai',            kw: ['future', 'going to', "won't", 'will be'] },
+    { slug: 'gerund',                topic: 'danh động từ',             kw: ['gerund', 'v-ing form', '-ing form', 'enjoy', 'avoid', 'finish', 'after preposition'] },
+    { slug: 'infinitive',            topic: 'to-infinitive',            kw: ['to-infinitive', 'to infinitive', 'want to', 'hope to', 'plan to', 'decide to', 'need to'] },
+    { slug: 'bare-infinitive',       topic: 'bare infinitive',          kw: ['bare infinitive', 'modal verb', 'after modal', 'can swim', 'should study', 'must use'] },
+    { slug: 'gerund-vs-infinitive',  topic: 'gerund và infinitive',     kw: ['gerund or infinitive', 'gerund vs infinitive', 'stop doing', 'stop to', 'remember doing', 'remember to', 'try doing', 'try to'] },
+    { slug: 'adjectives',            topic: 'tính từ',                  kw: ['adjective', 'describing noun', 'attributive', 'predicative'] },
+    { slug: 'adverbs',               topic: 'trạng từ',                 kw: ['adverb', 'adverbs', 'manner adverb', 'frequency adverb', 'adverbial'] },
+    { slug: 'adjective-vs-adverb',   topic: 'tính từ và trạng từ',     kw: ['adjective or adverb', 'adjective vs adverb', 'adjective instead of adverb', 'good or well', 'linking verb', 'look good', 'feel bad', 'sounds great'] },
+    { slug: 'sentence-elements',     topic: 'thành phần câu',           kw: ['subject', 'subject-verb agreement', 'verb agreement', 'sentence element', 'subject and verb'] },
+    { slug: 'countable-vs-uncountable', topic: 'danh từ đếm được',     kw: ['countable', 'uncountable', 'count noun', 'mass noun', 'much or many', 'little or few'] },
+    { slug: 'singular-vs-plural',    topic: 'số ít / số nhiều',        kw: ['singular', 'plural', 'singular verb', 'plural verb', 'verb agreement'] },
+    { slug: 'compound-sentence',     topic: 'câu ghép',                 kw: ['compound sentence', 'coordinating conjunction', 'fanboys', 'run-on sentence'] },
+    { slug: 'complex-sentence',      topic: 'câu phức',                 kw: ['complex sentence', 'subordinate', 'subordinating conjunction', 'relative clause', 'because', 'although', 'even though'] },
   ];
 
   // Fallback metadata (used if API fetch fails or hasn't resolved yet)
   var _GR_META_FALLBACK = {
-    'articles':              { category: 'advanced',           title: 'Articles (a / an / the)',   summary: 'Dùng đúng mạo từ trong mọi ngữ cảnh' },
-    'present-perfect':       { category: 'tenses',             title: 'Present Perfect',            summary: 'Hiện tại hoàn thành — cấu trúc, cách dùng và phân biệt với past simple' },
-    'present-continuous':    { category: 'tenses',             title: 'Present Continuous',         summary: 'Thì hiện tại tiếp diễn — hành động đang xảy ra hoặc kế hoạch tương lai' },
-    'present-simple':        { category: 'tenses',             title: 'Present Simple',             summary: 'Thì hiện tại đơn — thói quen, sự thật và trạng thái thường trực' },
-    'past-simple':           { category: 'tenses',             title: 'Past Simple',                summary: 'Thì quá khứ đơn — sự kiện và hành động đã hoàn thành' },
-    'future-forms':          { category: 'tenses',             title: 'Future Forms',               summary: 'Các dạng tương lai — will, going to và present continuous' },
-    'gerund':                { category: 'verb-patterns',      title: 'Gerund (V-ing)',             summary: 'Danh động từ — khi nào dùng V-ing thay vì to-infinitive' },
-    'infinitive':            { category: 'verb-patterns',      title: 'To-Infinitive',              summary: 'Động từ nguyên thể có "to" — cấu trúc và cách dùng' },
-    'bare-infinitive':       { category: 'verb-patterns',      title: 'Bare Infinitive',            summary: 'Động từ nguyên thể không có "to" — sau modal verbs và let/make' },
-    'gerund-vs-infinitive':  { category: 'verb-patterns',      title: 'Gerund vs. Infinitive',      summary: 'Khi nào dùng V-ing, khi nào dùng to-V — và các động từ có nghĩa khác nhau' },
-    'adjectives':            { category: 'modifiers',          title: 'Adjectives',                 summary: 'Tính từ — vị trí, thứ tự và cách dùng trong tiếng Anh' },
-    'adverbs':               { category: 'modifiers',          title: 'Adverbs',                    summary: 'Trạng từ — các loại và vị trí đúng trong câu' },
-    'adjective-vs-adverb':   { category: 'modifiers',          title: 'Adjective vs. Adverb',       summary: 'Phân biệt tính từ và trạng từ — lỗi phổ biến nhất trong speaking' },
-    'sentence-elements':     { category: 'foundations',        title: 'Sentence Elements',          summary: 'Các thành phần câu cơ bản — subject, verb, object, complement' },
-    'countable-vs-uncountable': { category: 'foundations',     title: 'Countable vs. Uncountable',  summary: 'Danh từ đếm được và không đếm được — dùng how much hay how many?' },
-    'singular-vs-plural':    { category: 'foundations',        title: 'Singular & Plural',          summary: 'Số ít và số nhiều — cách chia động từ cho đúng' },
-    'compound-sentence':     { category: 'sentence-structures', title: 'Compound Sentence',         summary: 'Câu ghép — nối hai mệnh đề độc lập bằng coordinating conjunctions' },
-    'complex-sentence':      { category: 'sentence-structures', title: 'Complex Sentence',          summary: 'Câu phức — mệnh đề chính và mệnh đề phụ thuộc' },
+    'articles':              { category: 'advanced',            title: 'Articles (a / an / the)',    summary: 'Dùng đúng mạo từ trong mọi ngữ cảnh' },
+    'present-perfect':       { category: 'tenses',              title: 'Present Perfect',             summary: 'Hiện tại hoàn thành — cấu trúc, cách dùng và phân biệt với past simple' },
+    'present-continuous':    { category: 'tenses',              title: 'Present Continuous',          summary: 'Thì hiện tại tiếp diễn — hành động đang xảy ra hoặc kế hoạch tương lai' },
+    'present-simple':        { category: 'tenses',              title: 'Present Simple',              summary: 'Thì hiện tại đơn — thói quen, sự thật và trạng thái thường trực' },
+    'past-simple':           { category: 'tenses',              title: 'Past Simple',                 summary: 'Thì quá khứ đơn — sự kiện và hành động đã hoàn thành' },
+    'future-forms':          { category: 'tenses',              title: 'Future Forms',                summary: 'Các dạng tương lai — will, going to và present continuous' },
+    'gerund':                { category: 'verb-patterns',       title: 'Gerund (V-ing)',              summary: 'Danh động từ — khi nào dùng V-ing thay vì to-infinitive' },
+    'infinitive':            { category: 'verb-patterns',       title: 'To-Infinitive',               summary: 'Động từ nguyên thể có "to" — cấu trúc và cách dùng' },
+    'bare-infinitive':       { category: 'verb-patterns',       title: 'Bare Infinitive',             summary: 'Động từ nguyên thể không có "to" — sau modal verbs và let/make' },
+    'gerund-vs-infinitive':  { category: 'verb-patterns',       title: 'Gerund vs. Infinitive',       summary: 'Khi nào dùng V-ing, khi nào dùng to-V — và các động từ có nghĩa khác nhau' },
+    'adjectives':            { category: 'modifiers',           title: 'Adjectives',                  summary: 'Tính từ — vị trí, thứ tự và cách dùng trong tiếng Anh' },
+    'adverbs':               { category: 'modifiers',           title: 'Adverbs',                     summary: 'Trạng từ — các loại và vị trí đúng trong câu' },
+    'adjective-vs-adverb':   { category: 'modifiers',           title: 'Adjective vs. Adverb',        summary: 'Phân biệt tính từ và trạng từ — lỗi phổ biến nhất trong speaking' },
+    'sentence-elements':     { category: 'foundations',         title: 'Sentence Elements',           summary: 'Các thành phần câu cơ bản — subject, verb, object, complement' },
+    'countable-vs-uncountable': { category: 'foundations',      title: 'Countable vs. Uncountable',   summary: 'Danh từ đếm được và không đếm được — dùng how much hay how many?' },
+    'singular-vs-plural':    { category: 'foundations',         title: 'Singular & Plural',           summary: 'Số ít và số nhiều — cách chia động từ cho đúng' },
+    'compound-sentence':     { category: 'sentence-structures', title: 'Compound Sentence',           summary: 'Câu ghép — nối hai mệnh đề độc lập bằng coordinating conjunctions' },
+    'complex-sentence':      { category: 'sentence-structures', title: 'Complex Sentence',            summary: 'Câu phức — mệnh đề chính và mệnh đề phụ thuộc' },
   };
 
   // Dynamic metadata fetched from /api/grammar/categories (slug → {category, title, summary})
@@ -703,91 +710,152 @@
     return _GR_META_FALLBACK[slug] || null;
   }
 
-  // Build PRIMARY text (grammar_issues + corrections) — weighted ×3
-  // Build SECONDARY text (gra_feedback + improvements) — weighted ×1
-  // Exclude: sample_answer, strengths, lr_feedback, p_feedback, fc_feedback
-  function _grTexts(data) {
-    if (!data || data._stub) return { primary: '', secondary: '' };
-    var pri = [], sec = [];
-    var addArr = function (dest, arr) {
-      if (Array.isArray(arr)) arr.forEach(function (s) { if (s) dest.push(String(s)); });
-    };
-    var addStr = function (dest, s) { if (s) dest.push(String(s)); };
+  // ── Grammar Resources Tracker ─────────────────────────────────────────────────
+  // sessionStorage-based; structured for easy backend/dashboard integration later
+  var _GR_TRACKER = {
+    _key: 'gr_shown_v1',
+    track: function (matches) {
+      try {
+        var hist = this._load();
+        var ts = Date.now();
+        matches.forEach(function (m) {
+          if (!hist[m.slug]) hist[m.slug] = { first: ts, count: 0, viewed: false };
+          hist[m.slug].count += 1;
+          hist[m.slug].last = ts;
+        });
+        sessionStorage.setItem(this._key, JSON.stringify(hist));
+      } catch (e) {}
+    },
+    markViewed: function (slug) {
+      try {
+        var hist = this._load();
+        if (hist[slug]) { hist[slug].viewed = true; sessionStorage.setItem(this._key, JSON.stringify(hist)); }
+      } catch (e) {}
+    },
+    getHistory: function () { return this._load(); },
+    _load: function () {
+      try { return JSON.parse(sessionStorage.getItem(this._key) || '{}'); } catch (e) { return {}; }
+    },
+  };
 
-    addArr(pri, data.grammar_issues);
+  // Collect feedback text into 4 weighted buckets
+  // grammar_issues ×4 | corrections ×3 | improvements ×2 | gra_feedback ×1
+  // Excluded: sample_answer, strengths, lr_feedback, p_feedback, fc_feedback, vocabulary_issues
+  function _grTexts(data) {
+    if (!data || data._stub) return { gi: '', co: '', im: '', gf: '' };
+    var gi = [], co = [], im = [], gf = [];
+    if (Array.isArray(data.grammar_issues)) data.grammar_issues.forEach(function (s) { if (s) gi.push(String(s)); });
     if (Array.isArray(data.corrections)) {
       data.corrections.forEach(function (c) {
-        addStr(pri, c.explanation); addStr(pri, c.original); addStr(pri, c.corrected);
+        if (c.explanation) co.push(String(c.explanation));
+        if (c.original)    co.push(String(c.original));
+        if (c.corrected)   co.push(String(c.corrected));
       });
     }
-    addStr(sec, data.gra_feedback);
-    addArr(sec, data.improvements);
-    addStr(sec, data.improved_response);
-
+    if (Array.isArray(data.improvements)) data.improvements.forEach(function (s) { if (s) im.push(String(s)); });
+    if (data.improved_response) im.push(String(data.improved_response));
+    if (data.gra_feedback) gf.push(String(data.gra_feedback));
     return {
-      primary:   pri.join(' ').toLowerCase(),
-      secondary: sec.join(' ').toLowerCase(),
+      gi: gi.join(' ').toLowerCase(),
+      co: co.join(' ').toLowerCase(),
+      im: im.join(' ').toLowerCase(),
+      gf: gf.join(' ').toLowerCase(),
     };
   }
 
-  // Score each keyword entry against primary (×3) + secondary (×1) texts
-  function _matchGrArticles(primary, secondary, maxCount) {
-    if (!primary && !secondary) return [];
+  // Score each keyword entry across 4 buckets; track which bucket drove the match
+  function _matchGrArticles(texts, maxCount) {
+    if (!texts.gi && !texts.co && !texts.im && !texts.gf) return [];
     var scored = [];
     _GR_KW.forEach(function (entry) {
-      var score = 0;
+      var sgi = 0, sco = 0, sim = 0, sgf = 0;
       entry.kw.forEach(function (kw) {
         var k = kw.toLowerCase();
-        if (primary   && primary.indexOf(k)   !== -1) score += 3;
-        if (secondary && secondary.indexOf(k) !== -1) score += 1;
+        if (texts.gi && texts.gi.indexOf(k) !== -1) sgi += 4;
+        if (texts.co && texts.co.indexOf(k) !== -1) sco += 3;
+        if (texts.im && texts.im.indexOf(k) !== -1) sim += 2;
+        if (texts.gf && texts.gf.indexOf(k) !== -1) sgf += 1;
       });
-      if (score > 0) {
+      var total = sgi + sco + sim + sgf;
+      if (total > 0) {
         var meta = _grMeta(entry.slug);
-        if (meta) scored.push({ slug: entry.slug, meta: meta, score: score });
+        if (meta) {
+          var buckets = [{ f: 'gi', s: sgi }, { f: 'co', s: sco }, { f: 'im', s: sim }, { f: 'gf', s: sgf }];
+          var topField = buckets.reduce(function (best, cur) { return cur.s > best.s ? cur : best; }).f;
+          scored.push({ slug: entry.slug, meta: meta, score: total, topField: topField, topic: entry.topic || '' });
+        }
       }
     });
     scored.sort(function (a, b) { return b.score - a.score; });
     return scored.slice(0, maxCount);
   }
 
-  function _grammarCardHtml(slug, meta) {
-    var href = 'grammar-article.html?category=' + meta.category + '&slug=' + slug;
-    var cat  = meta.category.replace(/-/g, ' ');
+  // Human-readable reason text explaining why an article was matched
+  function _grReason(topField, topic) {
+    var t = topic ? ' về ' + topic : '';
+    if (topField === 'gi') return 'Gợi ý vì bài có lỗi ngữ pháp' + t;
+    if (topField === 'co') return 'Gợi ý vì có correction liên quan' + t;
+    if (topField === 'im') return 'Gợi ý để cải thiện' + t;
+    return 'Gợi ý dựa trên grammar feedback' + t;
+  }
+
+  // Card HTML: primary = full treatment with summary, secondary = compact muted
+  function _grammarCardHtml(match, isPrimary) {
+    var slug   = match.slug, meta = match.meta;
+    var href   = 'grammar-article.html?category=' + meta.category + '&slug=' + slug;
+    var reason = _grReason(match.topField, match.topic);
+
+    if (isPrimary) {
+      return '<a href="' + href + '" target="_blank" rel="noopener"'
+        + ' style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;'
+        + 'background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.28);'
+        + 'border-left:3px solid #14b8a6;border-radius:14px;text-decoration:none;'
+        + 'transition:background 0.15s;"'
+        + ' onmouseover="this.style.background=\'rgba(20,184,166,0.12)\'"'
+        + ' onmouseout="this.style.background=\'rgba(20,184,166,0.07)\'">'
+        + '<div style="flex:1;min-width:0;">'
+        + '<p style="font-size:13px;font-weight:600;color:#e2e8f0;margin:0 0 3px;'
+        + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
+        + '<p style="font-size:12px;color:rgba(255,255,255,0.45);margin:0 0 6px;line-height:1.4;">'
+        + _esc(meta.summary) + '</p>'
+        + '<p style="font-size:11px;color:rgba(20,184,166,0.7);margin:0;">' + _esc(reason) + '</p>'
+        + '</div>'
+        + '<span style="flex-shrink:0;font-size:11px;font-weight:700;color:#14b8a6;'
+        + 'background:rgba(20,184,166,0.14);border-radius:8px;padding:5px 10px;'
+        + 'white-space:nowrap;align-self:center;">Học ngay →</span>'
+        + '</a>';
+    }
     return '<a href="' + href + '" target="_blank" rel="noopener"'
-      + ' style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;'
-      + 'background:rgba(20,184,166,0.06);border:1px solid rgba(20,184,166,0.2);'
-      + 'border-radius:14px;text-decoration:none;'
-      + 'transition:border-color 0.15s,background 0.15s;"'
-      + ' onmouseover="this.style.borderColor=\'rgba(20,184,166,0.45)\';this.style.background=\'rgba(20,184,166,0.1)\'"'
-      + ' onmouseout="this.style.borderColor=\'rgba(20,184,166,0.2)\';this.style.background=\'rgba(20,184,166,0.06)\'">'
+      + ' style="display:flex;align-items:center;gap:10px;padding:10px 14px;'
+      + 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
+      + 'border-radius:12px;text-decoration:none;transition:border-color 0.15s,background 0.15s;"'
+      + ' onmouseover="this.style.borderColor=\'rgba(20,184,166,0.25)\';this.style.background=\'rgba(20,184,166,0.05)\'"'
+      + ' onmouseout="this.style.borderColor=\'rgba(255,255,255,0.07)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
       + '<div style="flex:1;min-width:0;">'
-      + '<p style="font-size:13px;font-weight:600;color:#e2e8f0;margin:0 0 3px;'
+      + '<p style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);margin:0 0 2px;'
       + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
-      + '<p style="font-size:12px;color:rgba(255,255,255,0.45);margin:0 0 7px;line-height:1.4;">'
-      + _esc(meta.summary) + '</p>'
-      + '<span style="font-size:11px;font-weight:600;text-transform:uppercase;'
-      + 'letter-spacing:.06em;color:rgba(255,255,255,0.25);">' + _esc(cat) + '</span>'
+      + '<p style="font-size:11px;color:rgba(255,255,255,0.3);margin:0;">' + _esc(reason) + '</p>'
       + '</div>'
-      + '<span style="flex-shrink:0;font-size:11px;font-weight:700;color:#14b8a6;'
-      + 'background:rgba(20,184,166,0.14);border-radius:8px;padding:5px 10px;'
-      + 'white-space:nowrap;align-self:center;">Học ngay →</span>'
+      + '<span style="flex-shrink:0;font-size:11px;color:rgba(255,255,255,0.25);">→</span>'
       + '</a>';
   }
 
+  // Practice: show 1 Quick Grammar Tip (top match only, primary styling)
   function _showGrammarResources(data) {
     var wrap  = $('grammar-resources');
     var cards = $('grammar-resources-cards');
     if (!wrap || !cards) return;
 
     var texts   = _grTexts(data);
-    var matched = _matchGrArticles(texts.primary, texts.secondary, 3);
+    var matched = _matchGrArticles(texts, 1);
 
     if (!matched.length) {
       wrap.style.display = 'none';
       return;
     }
 
-    cards.innerHTML = matched.map(function (m) { return _grammarCardHtml(m.slug, m.meta); }).join('');
+    _GR_TRACKER.track(matched);
+    cards.innerHTML = _grammarCardHtml(matched[0], true);
     wrap.style.display = '';
   }
 
@@ -1301,7 +1369,7 @@
       window.speechSynthesis && window.speechSynthesis.cancel();
     }
     _applyQModeUI();
-    _showPrep();   // _showPrep() calls _ttsAI() when _qMode === 'listening'
+    _showPrep();   // _showPrep() auto-plays TTS when _qMode === 'listening'
   }
 
   // ── END Question mode ─────────────────────────────────────────────────────────

@@ -185,8 +185,9 @@ async def list_sessions(
     authorization: str | None = Header(default=None),
     status: Optional[str] = Query(default=None, description="Lọc theo status: in_progress | completed"),
     part: Optional[int] = Query(default=None, description="Lọc theo part: 1 | 2 | 3"),
+    limit: int = Query(default=20, ge=1, le=200, description="Số lượng sessions tối đa trả về"),
 ):
-    """Trả 20 sessions gần nhất của user, tùy chọn lọc theo status và part."""
+    """Trả sessions gần nhất của user, tùy chọn lọc theo status và part."""
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
@@ -196,7 +197,7 @@ async def list_sessions(
             .select("*")
             .eq("user_id", user_id)
             .order("started_at", desc=True)
-            .limit(20)
+            .limit(limit)
         )
         if status is not None:
             q = q.eq("status", status)
