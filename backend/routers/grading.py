@@ -93,7 +93,7 @@ async def grade_response_endpoint(
 
         session = s_res.data[0]
         part: int = session["part"]
-        session_mode: str = session.get("mode", "test") or "test"
+        session_mode: str = session.get("mode", "practice") or "practice"
 
         step = "load_question"
         try:
