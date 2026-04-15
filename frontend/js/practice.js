@@ -1778,20 +1778,26 @@
 
   function _finishTestAndShowResults() {
     // Complete ALL part sessions best-effort (fire and forget).
-    // _ftAllSessionIds contains all session IDs created during this full test.
-    // Falls back to the current session if none tracked (test_part or edge case).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
     toComplete.forEach(function (sid) {
       window.api.patch('/sessions/' + sid + '/complete', {}).catch(function () {});
     });
 
+    if (_testMode === 'test_full' && _ftAllSessionIds.length > 0) {
+      // Redirect to dedicated full-test result page
+      var p1 = _ftAllSessionIds[0] || '';
+      var p2 = _ftAllSessionIds[1] || '';
+      var p3 = _ftAllSessionIds[2] || '';
+      var url = '/pages/full-test-result.html?p1=' + encodeURIComponent(p1);
+      if (p2) url += '&p2=' + encodeURIComponent(p2);
+      if (p3) url += '&p3=' + encodeURIComponent(p3);
+      window.location.href = url;
+      return;
+    }
+
+    // test_part or edge case — show inline results as before
     _renderTestResults();
     showState('test-results');
-
-    // Trigger full-test pronunciation asynchronously (non-blocking)
-    if (_testMode === 'test_full') {
-      _fetchAndRenderFullPron();
-    }
   }
 
   function _renderTestResults() {

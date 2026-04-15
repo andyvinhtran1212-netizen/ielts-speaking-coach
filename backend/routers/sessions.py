@@ -1,7 +1,8 @@
 import json
 import logging
 import math
-from datetime import date, datetime, timezone
+from collections import Counter
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Header, Query
@@ -211,6 +212,104 @@ async def list_sessions(
     return result.data
 
 
+# ── GET /sessions/stats ────────────────────────────────────────────────────────
+
+@router.get("/stats")
+async def get_session_stats(
+    limit: int = Query(default=10, ge=1, le=100),
+    authorization: str | None = Header(default=None),
+):
+    """
+    Trả thống kê tổng hợp và danh sách sessions gần nhất (completed).
+    Dùng cho dashboard: stat cards + chart data.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    # Recent completed sessions for chart / last_topic
+    try:
+        s_res = (
+            supabase_admin.table("sessions")
+            .select("id, started_at, mode, part, topic, band_fc, band_lr, band_gra, band_p, overall_band, status")
+            .eq("user_id", user_id)
+            .eq("status", "completed")
+            .order("started_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        sessions = s_res.data or []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi tải sessions: {e}")
+
+    # total_sessions (all statuses)
+    try:
+        total_res = (
+            supabase_admin.table("sessions")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        total_sessions = total_res.count if total_res.count is not None else len(total_res.data or [])
+    except Exception:
+        total_sessions = 0
+
+    # avg_band_30d — average overall_band for completed sessions in last 30 days
+    try:
+        thirty_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        band_res = (
+            supabase_admin.table("sessions")
+            .select("overall_band")
+            .eq("user_id", user_id)
+            .eq("status", "completed")
+            .gte("started_at", thirty_ago)
+            .execute()
+        )
+        bands = [
+            r["overall_band"]
+            for r in (band_res.data or [])
+            if r.get("overall_band") is not None
+        ]
+        avg_band_30d = round(sum(bands) / len(bands), 1) if bands else None
+    except Exception:
+        avg_band_30d = None
+
+    # current_streak — consecutive days with at least one session (any status)
+    current_streak = 0
+    try:
+        streak_res = (
+            supabase_admin.table("sessions")
+            .select("started_at")
+            .eq("user_id", user_id)
+            .order("started_at", desc=True)
+            .limit(365)
+            .execute()
+        )
+        day_set = {
+            r["started_at"][:10]
+            for r in (streak_res.data or [])
+            if r.get("started_at")
+        }
+        cursor = date.today()
+        while cursor.isoformat() in day_set:
+            current_streak += 1
+            cursor -= timedelta(days=1)
+    except Exception:
+        pass
+
+    last_session = sessions[0] if sessions else None
+
+    return {
+        "sessions": sessions,
+        "summary": {
+            "total_sessions": total_sessions,
+            "avg_band_30d":   avg_band_30d,
+            "current_streak": current_streak,
+            "last_topic":     last_session.get("topic") if last_session else None,
+            "last_session_at": last_session.get("started_at") if last_session else None,
+        },
+    }
+
+
 # ── GET /sessions/{session_id} ─────────────────────────────────────────────────
 
 @router.get("/{session_id}")
@@ -352,6 +451,180 @@ async def get_session_audio_urls(
             })
 
     return result
+
+
+# ── GET /sessions/{session_id}/full-test-summary ───────────────────────────────
+
+@router.get("/{session_id}/full-test-summary")
+async def get_full_test_summary(
+    session_id: str,
+    p2_id: Optional[str] = Query(default=None, description="Part 2 session ID"),
+    p3_id: Optional[str] = Query(default=None, description="Part 3 session ID"),
+    authorization: str | None = Header(default=None),
+):
+    """
+    Tổng hợp kết quả Full Test từ tối đa 3 part sessions.
+    session_id = Part 1 session ID (bắt buộc).
+    p2_id, p3_id = Part 2 & 3 session IDs (tuỳ chọn, truyền qua query params).
+
+    Tính toán từ responses.feedback JSON:
+      - Criterion bands (band_fc/lr/gra/p) → trung bình toàn bộ responses
+      - Strengths / improvements → gộp + đếm tần suất
+      - Grammar issues → gộp + đếm tần suất (top 5)
+      - Per-part summary: band_avg, key_feedback (strength + improvement đầu tiên)
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    all_ids = [sid for sid in [session_id, p2_id, p3_id] if sid]
+
+    # Ownership check — load all sessions at once
+    try:
+        s_res = (
+            supabase_admin.table("sessions")
+            .select("id, part, topic, started_at, band_fc, band_lr, band_gra, band_p, overall_band, status")
+            .in_("id", all_ids)
+            .eq("user_id", user_id)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi tải sessions: {e}")
+
+    sessions_by_id = {s["id"]: s for s in (s_res.data or [])}
+    if session_id not in sessions_by_id:
+        raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
+
+    # Question counts per session
+    try:
+        q_res = (
+            supabase_admin.table("questions")
+            .select("id, session_id")
+            .in_("session_id", all_ids)
+            .execute()
+        )
+        qcount = Counter(q["session_id"] for q in (q_res.data or []))
+    except Exception:
+        qcount = Counter()
+
+    # Responses for all sessions
+    try:
+        resp_res = (
+            supabase_admin.table("responses")
+            .select("id, session_id, question_id, overall_band, feedback")
+            .in_("session_id", all_ids)
+            .execute()
+        )
+        all_responses = resp_res.data or []
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi tải responses: {e}")
+
+    # Aggregate criterion bands, strengths, improvements, grammar across all responses
+    fc_vals: list[float] = []
+    lr_vals: list[float] = []
+    gra_vals: list[float] = []
+    p_vals: list[float] = []
+    all_strengths: list[str] = []
+    all_improvements: list[str] = []
+    all_grammar: list[str] = []
+
+    # Per-session data for part breakdown
+    per_session_bands: dict[str, list[float]] = {sid: [] for sid in all_ids}
+    per_session_first_feedback: dict[str, dict] = {}
+
+    for r in all_responses:
+        sid = r.get("session_id")
+        ob = r.get("overall_band")
+        if ob is not None and sid in per_session_bands:
+            per_session_bands[sid].append(float(ob))
+
+        raw_fb = r.get("feedback")
+        if not raw_fb:
+            continue
+        try:
+            fb = json.loads(raw_fb) if isinstance(raw_fb, str) else raw_fb
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(fb, dict):
+            continue
+
+        # Criterion bands
+        for vals, key in [
+            (fc_vals,  "band_fc"),
+            (lr_vals,  "band_lr"),
+            (gra_vals, "band_gra"),
+            (p_vals,   "band_p"),
+        ]:
+            v = fb.get(key)
+            if v is not None:
+                try:
+                    vals.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+
+        all_strengths.extend(fb.get("strengths") or [])
+        all_improvements.extend(fb.get("improvements") or [])
+        all_grammar.extend(fb.get("grammar_issues") or [])
+
+        # Keep first response-with-feedback per session for key_feedback
+        if sid and sid not in per_session_first_feedback:
+            strs = fb.get("strengths") or []
+            imps = fb.get("improvements") or []
+            if strs or imps:
+                per_session_first_feedback[sid] = {
+                    "strength":    strs[0] if strs else None,
+                    "improvement": imps[0] if imps else None,
+                }
+
+    # Compute overall criterion bands
+    band_fc  = _round_band(sum(fc_vals)  / len(fc_vals))  if fc_vals  else None
+    band_lr  = _round_band(sum(lr_vals)  / len(lr_vals))  if lr_vals  else None
+    band_gra = _round_band(sum(gra_vals) / len(gra_vals)) if gra_vals else None
+    band_p   = _round_band(sum(p_vals)   / len(p_vals))   if p_vals   else None
+
+    scored = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
+    overall_band = _round_band(sum(scored) / len(scored)) if scored else None
+
+    # Top strengths / improvements (most frequent, max 3 each)
+    top_strengths    = [s for s, _ in Counter(all_strengths).most_common(3)]
+    top_improvements = [s for s, _ in Counter(all_improvements).most_common(3)]
+    top_grammar      = [s for s, _ in Counter(all_grammar).most_common(5)]
+
+    # Per-part breakdown
+    part_map = {1: session_id, 2: p2_id, 3: p3_id}
+    parts = []
+    for part_num in (1, 2, 3):
+        sid = part_map[part_num]
+        if not sid or sid not in sessions_by_id:
+            continue
+        sess = sessions_by_id[sid]
+        bands = per_session_bands.get(sid, [])
+        band_avg = round(sum(bands) / len(bands), 1) if bands else None
+        parts.append({
+            "part":            part_num,
+            "session_id":      sid,
+            "topic":           sess.get("topic"),
+            "questions_count": qcount.get(sid, 0),
+            "band_avg":        band_avg,
+            "key_feedback":    per_session_first_feedback.get(sid),
+        })
+
+    # started_at from Part 1 session
+    started_at = sessions_by_id.get(session_id, {}).get("started_at")
+
+    return {
+        "overall_band":       overall_band,
+        "band_fc":            band_fc,
+        "band_lr":            band_lr,
+        "band_gra":           band_gra,
+        "band_p":             band_p,
+        "parts":              parts,
+        "top_strengths":      top_strengths,
+        "top_improvements":   top_improvements,
+        "top_grammar_issues": top_grammar,
+        "pron_overall":       None,   # fetch separately via POST /pronunciation/full
+        "pron_breakdown":     None,
+        "started_at":         started_at,
+    }
 
 
 # ── PATCH /sessions/{session_id}/complete ──────────────────────────────────────
