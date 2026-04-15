@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thiết lập tài khoản — Aver Learning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A5C', light: '#2a5280', dark: '#12293f' },
+            teal: { DEFAULT: '#0D7377', light: '#14a8ae', dark: '#095457' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #1B3A5C 0%, #2a5280 60%, #095457 100%); min-height: 100vh; }
+
+    /* Progress bar */
+    #progress-fill { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+    /* Step panel slide animation */
+    .step-panel { display: none; }
+    .step-panel.active { display: block; animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(18px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .step-panel.slide-back.active { animation: slideBack 0.3s ease-out; }
+    @keyframes slideBack {
+      from { opacity: 0; transform: translateX(-18px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Option cards */
+    .opt-card {
+      border: 2px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s, transform 0.15s;
+    }
+    .opt-card:hover { border-color: rgba(13,115,119,0.55); background: rgba(13,115,119,0.12); transform: translateY(-1px); }
+    .opt-card.selected { border-color: #0D7377; background: rgba(13,115,119,0.22); }
+    .opt-card.selected .check-icon { opacity: 1; transform: scale(1); }
+    .check-icon { opacity: 0; transform: scale(0.6); transition: opacity 0.18s, transform 0.18s; }
+
+    /* Form inputs */
+    .form-input {
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      color: #fff;
+      padding: 11px 14px;
+      font-size: 0.9rem;
+      width: 100%;
+      transition: border-color 0.18s;
+      -webkit-appearance: none;
+    }
+    .form-input:focus { outline: none; border-color: #0D7377; background: rgba(13,115,119,0.1); }
+    .form-input option { background: #1B3A5C; color: #fff; }
+
+    /* Buttons */
+    .btn-primary {
+      background: linear-gradient(135deg, #0D7377, #14a8ae);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 12px 28px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.18s, transform 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .btn-back {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.7);
+      font-size: 0.88rem;
+      padding: 11px 22px;
+      border-radius: 10px;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+    .btn-back:hover { background: rgba(255,255,255,0.13); }
+
+    /* Error */
+    #error-banner { display: none; }
+  </style>
+</head>
+<body class="text-white font-sans antialiased flex flex-col min-h-screen">
+
+  <!-- Top nav -->
+  <nav class="px-6 py-4 flex items-center gap-2">
+    <span class="text-xl">🎙️</span>
+    <span class="font-bold text-base tracking-tight">Aver<span style="color:#14a8ae;">Learning</span></span>
+  </nav>
+
+  <!-- Main card -->
+  <main class="flex-1 flex items-center justify-center px-4 pb-12">
+    <div class="w-full max-w-lg">
+
+      <!-- Card -->
+      <div class="rounded-2xl p-8 sm:p-10"
+           style="background:rgba(255,255,255,0.05);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 8px 40px rgba(0,0,0,0.3);">
+
+        <!-- Progress -->
+        <div class="mb-8">
+          <div class="flex justify-between items-center mb-2">
+            <span id="step-label" class="text-xs font-semibold uppercase tracking-widest" style="color:#14a8ae;">Bước 1 / 3</span>
+            <span id="step-pct" class="text-xs" style="color:rgba(255,255,255,0.4);">33%</span>
+          </div>
+          <div class="h-1.5 rounded-full" style="background:rgba(255,255,255,0.1);">
+            <div id="progress-fill" class="h-1.5 rounded-full" style="width:33%;background:linear-gradient(90deg,#0D7377,#14a8ae);"></div>
+          </div>
+        </div>
+
+        <!-- Error banner -->
+        <div id="error-banner" class="mb-4 px-4 py-3 rounded-xl text-sm" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;"></div>
+
+        <!-- ── STEP 1 ── -->
+        <div id="step-1" class="step-panel active">
+          <h1 class="text-2xl font-bold mb-1">Chào mừng đến Aver Learning! 👋</h1>
+          <p class="text-sm mb-7" style="color:rgba(255,255,255,0.5);">Chúng mình cần biết thêm về bạn để lên lịch luyện tập phù hợp nhất.</p>
+
+          <div class="space-y-5">
+            <!-- Target band -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.55);">Mục tiêu band score</label>
+              <select id="target-band" class="form-input">
+                <option value="">-- Chọn band mục tiêu --</option>
+                <option value="5.0">5.0</option>
+                <option value="5.5">5.5</option>
+                <option value="6.0">6.0</option>
+                <option value="6.5">6.5</option>
+                <option value="7.0">7.0</option>
+                <option value="7.5">7.5</option>
+                <option value="8.0">8.0</option>
+              </select>
+            </div>
+
+            <!-- Exam date -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.55);">
+                Ngày thi dự kiến <span style="color:rgba(255,255,255,0.3);">(tuỳ chọn)</span>
+              </label>
+              <input id="exam-date" type="date" class="form-input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ── STEP 2 ── -->
+        <div id="step-2" class="step-panel">
+          <h2 class="text-xl font-bold mb-1">Trình độ hiện tại của bạn? 📊</h2>
+          <p class="text-sm mb-6" style="color:rgba(255,255,255,0.5);">Chọn mức phù hợp nhất — AI sẽ điều chỉnh câu hỏi theo trình độ của bạn.</p>
+
+          <div class="space-y-3" id="level-cards">
+            <div class="opt-card p-4 flex items-center gap-4" data-value="beginner">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">🌱</div>
+              <div class="flex-1">
+                <p class="font-semibold text-sm">Mới bắt đầu</p>
+                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Chưa quen với IELTS Speaking, cần câu hỏi đơn giản và gợi ý nhiều</p>
+              </div>
+              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+
+            <div class="opt-card p-4 flex items-center gap-4" data-value="intermediate">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">📚</div>
+              <div class="flex-1">
+                <p class="font-semibold text-sm">Trung cấp (Band 5–6)</p>
+                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Có thể giao tiếp cơ bản, đang hướng tới band 6.0–6.5</p>
+              </div>
+              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+
+            <div class="opt-card p-4 flex items-center gap-4" data-value="upper_intermediate">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">🚀</div>
+              <div class="flex-1">
+                <p class="font-semibold text-sm">Trên trung cấp (Band 6–7)</p>
+                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Giao tiếp tốt, muốn nâng cao từ vựng và cấu trúc câu phức tạp hơn</p>
+              </div>
+              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+
+            <div class="opt-card p-4 flex items-center gap-4" data-value="advanced">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">🏆</div>
+              <div class="flex-1">
+                <p class="font-semibold text-sm">Nâng cao (Band 7+)</p>
+                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Sử dụng tiếng Anh thành thạo, cần câu hỏi chuyên sâu và phản hồi tinh tế</p>
+              </div>
+              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── STEP 3 ── -->
+        <div id="step-3" class="step-panel">
+          <h2 class="text-xl font-bold mb-1">Chọn chủ đề đầu tiên 🎯</h2>
+          <p class="text-sm mb-6" style="color:rgba(255,255,255,0.5);">Bạn sẽ luyện với chủ đề này ngay sau khi hoàn tất. Có thể đổi chủ đề bất cứ lúc nào.</p>
+
+          <div class="grid grid-cols-1 gap-3" id="topic-cards">
+
+            <div class="opt-card p-5 flex items-start gap-4" data-value="work">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background:rgba(255,255,255,0.08);">💼</div>
+              <div class="flex-1">
+                <p class="font-semibold">Công việc & Nghề nghiệp</p>
+                <p class="text-xs mt-1 leading-relaxed" style="color:rgba(255,255,255,0.45);">Kế hoạch career, môi trường làm việc, kỹ năng nghề nghiệp — phù hợp với hầu hết thí sinh IELTS</p>
+              </div>
+              <svg class="check-icon w-5 h-5 shrink-0 mt-1" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+
+            <div class="opt-card p-5 flex items-start gap-4" data-value="technology">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background:rgba(255,255,255,0.08);">💻</div>
+              <div class="flex-1">
+                <p class="font-semibold">Công nghệ & Xã hội số</p>
+                <p class="text-xs mt-1 leading-relaxed" style="color:rgba(255,255,255,0.45);">AI, mạng xã hội, tác động của công nghệ — chủ đề xuất hiện nhiều trong đề thi gần đây</p>
+              </div>
+              <svg class="check-icon w-5 h-5 shrink-0 mt-1" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+
+            <div class="opt-card p-5 flex items-start gap-4" data-value="education">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background:rgba(255,255,255,0.08);">🎓</div>
+              <div class="flex-1">
+                <p class="font-semibold">Giáo dục & Học tập</p>
+                <p class="text-xs mt-1 leading-relaxed" style="color:rgba(255,255,255,0.45);">Hệ thống giáo dục, phương pháp học, du học — quen thuộc và dễ triển khai ý tưởng</p>
+              </div>
+              <svg class="check-icon w-5 h-5 shrink-0 mt-1" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Navigation buttons -->
+        <div class="mt-8 flex items-center" id="nav-row">
+          <button id="btn-back" class="btn-back hidden">← Quay lại</button>
+          <div class="flex-1"></div>
+          <button id="btn-next" class="btn-primary">Tiếp theo →</button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/api.js"></script>
+  <script>
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+    var sb = getSupabase();
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    var currentStep   = 1;
+    var goingBack     = false;
+    var selectedLevel = null;
+    var selectedTopic = null;
+
+    var stepData = {
+      targetBand: null,
+      examDate:   null,
+      selfLevel:  null,
+      topic:      null,
+    };
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    var stepLabel    = document.getElementById('step-label');
+    var stepPct      = document.getElementById('step-pct');
+    var progressFill = document.getElementById('progress-fill');
+    var btnNext      = document.getElementById('btn-next');
+    var btnBack      = document.getElementById('btn-back');
+    var errorBanner  = document.getElementById('error-banner');
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.style.display = 'block';
+    }
+    function clearError() {
+      errorBanner.style.display = 'none';
+      errorBanner.textContent = '';
+    }
+
+    function updateProgress(step) {
+      var pct = Math.round((step / 3) * 100);
+      stepLabel.textContent = 'Bước ' + step + ' / 3';
+      stepPct.textContent   = pct + '%';
+      progressFill.style.width = pct + '%';
+    }
+
+    function showStep(n, back) {
+      document.querySelectorAll('.step-panel').forEach(function(p) {
+        p.classList.remove('active', 'slide-back');
+      });
+      var panel = document.getElementById('step-' + n);
+      if (back) panel.classList.add('slide-back');
+      panel.classList.add('active');
+      updateProgress(n);
+
+      // Back button visibility
+      if (n === 1) {
+        btnBack.classList.add('hidden');
+      } else {
+        btnBack.classList.remove('hidden');
+      }
+
+      // Next button label
+      if (n === 3) {
+        btnNext.textContent = '🚀 Bắt đầu luyện tập ngay';
+      } else {
+        btnNext.textContent = 'Tiếp theo →';
+      }
+    }
+
+    // ── Option card selection ─────────────────────────────────────────────────
+    function initCardGroup(containerId, onSelect) {
+      document.getElementById(containerId).querySelectorAll('.opt-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+          document.getElementById(containerId).querySelectorAll('.opt-card').forEach(function(c) {
+            c.classList.remove('selected');
+          });
+          card.classList.add('selected');
+          onSelect(card.dataset.value);
+          clearError();
+        });
+      });
+    }
+
+    initCardGroup('level-cards', function(v) { selectedLevel = v; });
+    initCardGroup('topic-cards', function(v) { selectedTopic = v; });
+
+    // ── Validate current step ─────────────────────────────────────────────────
+    function validateStep(step) {
+      clearError();
+      if (step === 1) {
+        var band = document.getElementById('target-band').value;
+        if (!band) { showError('Vui lòng chọn band score mục tiêu.'); return false; }
+        stepData.targetBand = parseFloat(band);
+        stepData.examDate   = document.getElementById('exam-date').value || null;
+        return true;
+      }
+      if (step === 2) {
+        if (!selectedLevel) { showError('Vui lòng chọn trình độ của bạn.'); return false; }
+        stepData.selfLevel = selectedLevel;
+        return true;
+      }
+      if (step === 3) {
+        if (!selectedTopic) { showError('Vui lòng chọn ít nhất một chủ đề.'); return false; }
+        stepData.topic = selectedTopic;
+        return true;
+      }
+      return true;
+    }
+
+    // ── Next button ───────────────────────────────────────────────────────────
+    btnNext.addEventListener('click', async function() {
+      if (!validateStep(currentStep)) return;
+
+      if (currentStep < 3) {
+        currentStep++;
+        showStep(currentStep, false);
+        return;
+      }
+
+      // Step 3 submit
+      await submitOnboarding();
+    });
+
+    // ── Back button ───────────────────────────────────────────────────────────
+    btnBack.addEventListener('click', function() {
+      if (currentStep > 1) {
+        currentStep--;
+        showStep(currentStep, true);
+        clearError();
+      }
+    });
+
+    // ── Submit ────────────────────────────────────────────────────────────────
+    async function submitOnboarding() {
+      btnNext.disabled    = true;
+      btnNext.textContent = 'Đang lưu…';
+
+      try {
+        var data = await window.api.patch('/auth/profile', {
+          target_band:          stepData.targetBand,
+          exam_date:            stepData.examDate,
+          self_level:           stepData.selfLevel,
+          preferred_topics:     [stepData.topic],
+          onboarding_completed: true,
+        });
+
+        // Redirect to practice with selected topic
+        window.location.href = 'pages/dashboard.html?first_topic=' + encodeURIComponent(stepData.topic);
+      } catch (err) {
+        showError(err.message || 'Không thể lưu thông tin. Vui lòng thử lại.');
+        btnNext.disabled    = false;
+        btnNext.textContent = '🚀 Bắt đầu luyện tập ngay';
+      }
+    }
+
+    // ── Guard: redirect if already onboarded, or if not logged in ────────────
+    async function init() {
+      var { data: { session } } = await sb.auth.getSession();
+
+      if (!session) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      try {
+        var user = await window.api.get('/auth/me');
+        if (user && user.onboarding_completed) {
+          window.location.href = 'pages/dashboard.html';
+        }
+        // else: stay on this page
+      } catch (e) {
+        // non-fatal — let user proceed
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -17,6 +17,14 @@ class ActivateRequest(BaseModel):
     access_code: str
 
 
+class ProfileUpdate(BaseModel):
+    target_band: float | None = None
+    exam_date: str | None = None          # ISO date string "YYYY-MM-DD"
+    self_level: str | None = None
+    preferred_topics: list[str] | None = None
+    onboarding_completed: bool | None = None
+
+
 # ── Shared helper ─────────────────────────────────────────────────────────────
 
 async def get_supabase_user(authorization: str | None):
@@ -109,6 +117,11 @@ async def get_me(authorization: str | None = Header(default=None)):
         "role": user.get("role", "user"),
         "is_active": user.get("is_active", False),
         "permissions": user.get("permissions") or ["practice_single", "practice_part", "practice_full"],
+        "onboarding_completed": user.get("onboarding_completed", False),
+        "target_band": user.get("target_band"),
+        "exam_date": str(user["exam_date"]) if user.get("exam_date") else None,
+        "self_level": user.get("self_level"),
+        "preferred_topics": user.get("preferred_topics") or [],
     }
 
 
@@ -232,4 +245,64 @@ async def activate_account(
     return {
         "success": True,
         "message": "Tài khoản đã được kích hoạt!",
+    }
+
+
+# ── PATCH /auth/profile ───────────────────────────────────────────────────────
+
+@router.patch("/profile")
+async def update_profile(
+    payload: ProfileUpdate,
+    authorization: str | None = Header(default=None),
+):
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    updates: dict = {}
+    if payload.target_band is not None:
+        updates["target_band"] = payload.target_band
+    if payload.exam_date is not None:
+        updates["exam_date"] = payload.exam_date
+    if payload.self_level is not None:
+        valid_levels = {"beginner", "intermediate", "upper_intermediate", "advanced"}
+        if payload.self_level not in valid_levels:
+            raise HTTPException(
+                status_code=400,
+                detail=f"self_level không hợp lệ. Phải là: {', '.join(valid_levels)}",
+            )
+        updates["self_level"] = payload.self_level
+    if payload.preferred_topics is not None:
+        updates["preferred_topics"] = payload.preferred_topics
+    if payload.onboarding_completed is not None:
+        updates["onboarding_completed"] = payload.onboarding_completed
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="Không có trường nào để cập nhật.")
+
+    try:
+        result = (
+            supabase_admin.table("users")
+            .update(updates)
+            .eq("id", user_id)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật profile: {e}")
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
+
+    user = result.data[0]
+    return {
+        "id": user["id"],
+        "email": user.get("email"),
+        "display_name": user.get("display_name"),
+        "avatar_url": user.get("avatar_url"),
+        "role": user.get("role", "user"),
+        "is_active": user.get("is_active", False),
+        "onboarding_completed": user.get("onboarding_completed", False),
+        "target_band": user.get("target_band"),
+        "exam_date": str(user["exam_date"]) if user.get("exam_date") else None,
+        "self_level": user.get("self_level"),
+        "preferred_topics": user.get("preferred_topics") or [],
     }

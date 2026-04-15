@@ -235,7 +235,8 @@
     // ── Config ────────────────────────────────────────────────
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
-    var DASHBOARD_URL = 'pages/dashboard.html';
+    var DASHBOARD_URL   = 'pages/dashboard.html';
+  var ONBOARDING_URL  = 'onboarding.html';
     // window.api.base is set by api.js — picks localhost:8000 locally, production URL otherwise.
 
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
@@ -284,10 +285,8 @@
   // ── Check active → redirect or show modal ─────────────────
   async function checkActiveAndRedirect(token) {
     try {
-      const res = await fetch(`${window.api.base}/auth/check-active`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await fetch(`${window.api.base}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json().catch(() => ({}));
@@ -296,12 +295,18 @@
         throw new Error(data.detail || 'Không thể kiểm tra trạng thái tài khoản.');
       }
 
-      if (data.is_active) {
-        window.location.href = DASHBOARD_URL;
-      } else {
+      if (!data.is_active) {
         hideLoading();
         if (modalOverlay) modalOverlay.classList.remove('hidden');
         if (accessCodeInput) accessCodeInput.focus();
+        return;
+      }
+
+      // Active user — check onboarding
+      if (!data.onboarding_completed) {
+        window.location.href = ONBOARDING_URL;
+      } else {
+        window.location.href = DASHBOARD_URL;
       }
     } catch (err) {
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
@@ -430,7 +435,7 @@
         }
 
         setTimeout(() => {
-          window.location.href = DASHBOARD_URL;
+          window.location.href = ONBOARDING_URL;
         }, 1200);
       } catch (err) {
         if (activateError) {
