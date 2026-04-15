@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Pricing page hidden pre-launch: redirect visitors to home -->
+  <script>window.location.replace('/');</script>
+  <title>Bảng giá — averlearning IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              DEFAULT: '#1B3A5C',
+              50:  '#EFF4F9',
+              100: '#D0E0EF',
+              200: '#A1C1DF',
+              600: '#162F4A',
+              700: '#102437',
+            },
+            teal: {
+              DEFAULT: '#0D7377',
+              50:  '#E8F6F6',
+              100: '#C4E8E9',
+              200: '#89D1D2',
+              300: '#4FBABC',
+              400: '#1FA4A7',
+              600: '#0A5C60',
+              700: '#074548',
+            },
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+        },
+      },
+    }
+  </script>
+  <style>
+    .nav-link::after {
+      content: '';
+      display: block;
+      height: 2px;
+      width: 0;
+      background: #0D7377;
+      transition: width 0.2s ease;
+    }
+    .nav-link:hover::after { width: 100%; }
+
+    /* Toggle pill */
+    .toggle-pill {
+      transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* Card active ring */
+    .card-popular {
+      background: linear-gradient(135deg, #0D7377 0%, #0a5c60 100%);
+    }
+
+    /* Comparison table zebra */
+    .table-row-alt:nth-child(even) { background: #f8fafc; }
+
+    /* FAQ accordion */
+    .faq-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.2s ease;
+    }
+    .faq-body.open {
+      max-height: 300px;
+    }
+    .faq-chevron {
+      transition: transform 0.25s ease;
+    }
+    .faq-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    /* Hero gradient bar */
+    .hero-bg {
+      background: linear-gradient(135deg, #1B3A5C 0%, #0D3D52 40%, #0D7377 100%);
+    }
+
+    /* Yearly savings badge */
+    @keyframes pop-in {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .savings-badge { animation: pop-in 0.2s ease-out forwards; }
+
+    /* Card hover lift (free & intensive) */
+    .card-lift {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-lift:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(27,58,92,0.10);
+    }
+  </style>
+</head>
+<body class="font-sans text-slate-800 antialiased bg-white">
+
+  <!-- ─── NAVBAR ─────────────────────────────────────────────────── -->
+  <nav class="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-navy flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+          </svg>
+        </div>
+        <span class="font-bold text-navy text-lg tracking-tight">averlearning</span>
+      </a>
+
+      <div class="hidden md:flex items-center gap-8">
+        <a href="/pages/grammar-wiki.html" class="nav-link text-sm font-medium text-slate-600 hover:text-navy transition-colors pb-1">Grammar Wiki</a>
+        <a href="/#features" class="nav-link text-sm font-medium text-slate-600 hover:text-navy transition-colors pb-1">Tính năng</a>
+        <a href="/pricing.html" class="text-sm font-semibold text-teal border-b-2 border-teal pb-1">Bảng giá</a>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <a href="/login.html" class="hidden sm:inline-flex text-sm font-medium text-navy hover:text-teal transition-colors px-3 py-2">
+          Đăng nhập
+        </a>
+        <a href="/login.html" class="inline-flex items-center gap-1.5 bg-teal text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors shadow-sm">
+          Dùng thử miễn phí
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── PAGE HEADER ───────────────────────────────────────────── -->
+  <section class="hero-bg pt-28 pb-16 md:pt-36 md:pb-20 relative overflow-hidden">
+    <!-- Grid pattern -->
+    <div class="absolute inset-0 opacity-5 pointer-events-none"
+         style="background-image: linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px); background-size: 40px 40px;">
+    </div>
+
+    <div class="relative max-w-3xl mx-auto px-4 sm:px-6 text-center">
+      <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
+        <span class="w-2 h-2 rounded-full bg-teal-300 animate-pulse"></span>
+        <span class="text-white/80 text-sm font-medium">Không cần thẻ tín dụng · Huỷ bất kỳ lúc nào</span>
+      </div>
+
+      <h1 class="text-4xl sm:text-5xl font-extrabold text-white leading-tight mb-5 tracking-tight">
+        Chọn gói phù hợp<br/>với bạn
+      </h1>
+      <p class="text-lg text-white/70 mb-10 max-w-xl mx-auto leading-relaxed">
+        Bắt đầu miễn phí, nâng cấp khi cần. Mọi gói đều có AI feedback ngay sau mỗi câu trả lời.
+      </p>
+
+      <!-- Monthly / Yearly toggle -->
+      <div class="inline-flex items-center gap-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-2 py-2">
+        <button id="btn-monthly"
+                class="px-5 py-2 rounded-xl text-sm font-semibold transition-colors bg-white text-navy shadow-sm">
+          Hàng tháng
+        </button>
+        <button id="btn-yearly"
+                class="px-5 py-2 rounded-xl text-sm font-semibold transition-colors text-white/70 hover:text-white">
+          Hàng năm
+          <span id="yearly-badge"
+                class="ml-2 inline-block bg-teal-400 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            -20%
+          </span>
+        </button>
+      </div>
+
+      <!-- Yearly saving note (hidden by default) -->
+      <p id="yearly-note" class="hidden mt-4 text-teal-200 text-sm font-medium savings-badge">
+        Tiết kiệm tới <strong>1.194.000đ</strong> mỗi năm so với thanh toán hàng tháng
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── PRICING CARDS ─────────────────────────────────────────── -->
+  <section class="bg-slate-50 py-16 md:py-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-3 gap-8 items-stretch">
+
+        <!-- FREE -->
+        <div class="card-lift bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col p-8">
+          <div class="mb-6">
+            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Miễn phí</p>
+            <div class="flex items-end gap-1.5">
+              <span class="text-5xl font-extrabold text-navy">0</span>
+              <span class="text-slate-400 font-medium mb-2">đ</span>
+            </div>
+            <p class="text-slate-400 text-sm mt-1">mãi mãi</p>
+          </div>
+
+          <ul class="space-y-3 flex-1 mb-8 text-sm">
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <span><strong class="text-slate-800">3 buổi/ngày</strong> (tối đa ~90 buổi/tháng)</span>
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              AI feedback cơ bản (Part 1, 2, 3)
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Grammar Wiki (đọc, tìm kiếm)
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Lịch sử <strong class="text-slate-800">7 ngày</strong>
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-400">
+              <svg class="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              Full Test mode
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-400">
+              <svg class="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              Chấm điểm phát âm chi tiết
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-400">
+              <svg class="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              Xuất báo cáo PDF
+            </li>
+          </ul>
+
+          <a href="/login.html"
+             class="block text-center border-2 border-navy text-navy font-bold py-3 rounded-xl hover:bg-navy hover:text-white transition-colors text-sm">
+            Bắt đầu miễn phí
+          </a>
+        </div>
+
+        <!-- STUDENT (popular) -->
+        <div class="card-popular rounded-2xl shadow-xl flex flex-col p-8 relative overflow-hidden">
+          <!-- Popular badge -->
+          <div class="absolute top-0 right-0 bg-white/20 text-white text-xs font-bold px-4 py-2 rounded-bl-2xl tracking-wide">
+            Phổ biến nhất
+          </div>
+
+          <div class="mb-6">
+            <p class="text-xs font-bold uppercase tracking-widest text-teal-200 mb-3">Học viên</p>
+            <div class="flex items-end gap-1.5">
+              <span id="price-student" class="text-5xl font-extrabold text-white">299K</span>
+              <span class="text-teal-200 font-medium mb-2">/tháng</span>
+            </div>
+            <p id="price-student-sub" class="text-teal-200 text-sm mt-1">thanh toán hàng tháng</p>
+            <p id="price-student-yearly-note" class="hidden text-teal-100 text-xs mt-1.5 font-medium">
+              Thanh toán 2.870.400đ/năm (tiết kiệm 717.600đ)
+            </p>
+          </div>
+
+          <ul class="space-y-3 flex-1 mb-8 text-sm">
+            <li class="flex items-start gap-2.5 text-teal-50">
+              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <span><strong class="text-white">Không giới hạn</strong> buổi luyện</span>
+            </li>
+            <li class="flex items-start gap-2.5 text-teal-50">
+              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              AI feedback <strong class="text-white">chi tiết đầy đủ</strong> (4 tiêu chí)
+            </li>
+            <li class="flex items-start gap-2.5 text-teal-50">
+              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <strong class="text-white">Full Test mode</strong> (3 parts liên tiếp)
+            </li>
+            <li class="flex items-start gap-2.5 text-teal-50">
+              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Chấm điểm phát âm từng từ
+            </li>
+            <li class="flex items-start gap-2.5 text-teal-50">
+              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Grammar Wiki đầy đủ
+            </li>
+            <li class="flex items-start gap-2.5 text-teal-50">
+              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Lịch sử <strong class="text-white">không giới hạn</strong>
+            </li>
+            <li class="flex items-start gap-2.5 text-teal-200 opacity-60">
+              <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              Xuất báo cáo PDF
+            </li>
+          </ul>
+
+          <a href="https://zalo.me/0000000000" target="_blank" rel="noopener"
+             class="block text-center bg-white text-teal font-bold py-3 rounded-xl hover:bg-teal-50 transition-colors shadow-sm text-sm">
+            Mua ngay — nhắn Zalo
+            <svg class="w-4 h-4 inline-block ml-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          <p class="text-center text-teal-200 text-xs mt-3 opacity-70">Nhận access code sau khi xác nhận thanh toán</p>
+        </div>
+
+        <!-- INTENSIVE -->
+        <div class="card-lift bg-white rounded-2xl border-2 border-navy shadow-sm flex flex-col p-8 relative">
+          <!-- Badge -->
+          <div class="absolute top-0 right-0 bg-navy text-white text-xs font-bold px-4 py-2 rounded-bl-2xl tracking-wide">
+            Luyện thi cấp tốc
+          </div>
+
+          <div class="mb-6">
+            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Intensive</p>
+            <div class="flex items-end gap-1.5">
+              <span id="price-intensive" class="text-5xl font-extrabold text-navy">499K</span>
+              <span class="text-slate-400 font-medium mb-2">/tháng</span>
+            </div>
+            <p id="price-intensive-sub" class="text-slate-400 text-sm mt-1">thanh toán hàng tháng</p>
+            <p id="price-intensive-yearly-note" class="hidden text-teal text-xs mt-1.5 font-medium">
+              Thanh toán 4.790.400đ/năm (tiết kiệm 1.197.600đ)
+            </p>
+          </div>
+
+          <ul class="space-y-3 flex-1 mb-8 text-sm">
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <span>Tất cả tính năng <strong class="text-slate-800">Học viên</strong></span>
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <strong class="text-slate-800">Xuất báo cáo PDF</strong> đầy đủ
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Đề thi theo chủ đề mục tiêu
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Phân tích tiến độ theo tuần
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <strong class="text-slate-800">Hỗ trợ ưu tiên</strong> qua Zalo
+            </li>
+            <li class="flex items-start gap-2.5 text-slate-600">
+              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Lịch sử không giới hạn + export
+            </li>
+          </ul>
+
+          <a href="https://zalo.me/0000000000" target="_blank" rel="noopener"
+             class="block text-center border-2 border-navy text-navy font-bold py-3 rounded-xl hover:bg-navy hover:text-white transition-colors text-sm">
+            Liên hệ tư vấn
+            <svg class="w-4 h-4 inline-block ml-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          <p class="text-center text-slate-400 text-xs mt-3">Nhận access code sau khi xác nhận thanh toán</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── COMPARISON TABLE ──────────────────────────────────────── -->
+  <section class="bg-white py-16 md:py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <span class="inline-block text-teal text-sm font-bold uppercase tracking-widest mb-3">Chi tiết</span>
+        <h2 class="text-3xl font-extrabold text-navy">So sánh tính năng</h2>
+      </div>
+
+      <!-- Desktop table -->
+      <div class="hidden md:block rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200">
+              <th class="py-4 px-6 text-left font-semibold text-slate-500 w-2/5">Tính năng</th>
+              <th class="py-4 px-6 text-center font-semibold text-slate-500">
+                <div class="text-slate-400 font-bold uppercase tracking-widest text-xs">Miễn phí</div>
+              </th>
+              <th class="py-4 px-6 text-center font-semibold bg-teal/5">
+                <div class="text-teal font-bold uppercase tracking-widest text-xs">Học viên</div>
+              </th>
+              <th class="py-4 px-6 text-center font-semibold text-slate-500">
+                <div class="text-navy font-bold uppercase tracking-widest text-xs">Intensive</div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Sessions -->
+            <tr class="table-row-alt border-b border-slate-100">
+              <td class="py-4 px-6 text-slate-700 font-medium">Buổi luyện/tháng</td>
+              <td class="py-4 px-6 text-center text-slate-500">~90 (3/ngày)</td>
+              <td class="py-4 px-6 text-center bg-teal/5 font-semibold text-teal">Không giới hạn</td>
+              <td class="py-4 px-6 text-center font-semibold text-navy">Không giới hạn</td>
+            </tr>
+            <!-- AI feedback -->
+            <tr class="table-row-alt border-b border-slate-100">
+              <td class="py-4 px-6 text-slate-700 font-medium">AI feedback (4 tiêu chí IELTS)</td>
+              <td class="py-4 px-6 text-center text-slate-400 text-xs">Cơ bản</td>
+              <td class="py-4 px-6 text-center bg-teal/5">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+            </tr>
+            <!-- Full Test -->
+            <tr class="table-row-alt border-b border-slate-100">
+              <td class="py-4 px-6 text-slate-700 font-medium">Full Test mode (Part 1+2+3)</td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center bg-teal/5">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+            </tr>
+            <!-- Pronunciation -->
+            <tr class="table-row-alt border-b border-slate-100">
+              <td class="py-4 px-6 text-slate-700 font-medium">Chấm điểm phát âm chi tiết</td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center bg-teal/5">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+            </tr>
+            <!-- Grammar Wiki -->
+            <tr class="table-row-alt border-b border-slate-100">
+              <td class="py-4 px-6 text-slate-700 font-medium">Grammar Wiki</td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center bg-teal/5">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+            </tr>
+            <!-- PDF Export -->
+            <tr class="table-row-alt border-b border-slate-100">
+              <td class="py-4 px-6 text-slate-700 font-medium">Xuất báo cáo PDF</td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center bg-teal/5">
+                <svg class="w-5 h-5 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+            </tr>
+            <!-- History -->
+            <tr class="table-row-alt border-b border-slate-100">
+              <td class="py-4 px-6 text-slate-700 font-medium">Lịch sử buổi luyện</td>
+              <td class="py-4 px-6 text-center text-slate-500">7 ngày</td>
+              <td class="py-4 px-6 text-center bg-teal/5 font-semibold text-teal">Không giới hạn</td>
+              <td class="py-4 px-6 text-center font-semibold text-navy">Không giới hạn + export</td>
+            </tr>
+            <!-- Priority support -->
+            <tr class="table-row-alt">
+              <td class="py-4 px-6 text-slate-700 font-medium">Hỗ trợ ưu tiên</td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center bg-teal/5">
+                <svg class="w-5 h-5 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </td>
+              <td class="py-4 px-6 text-center">
+                <svg class="w-5 h-5 text-teal mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile: stacked feature lists per tier -->
+      <div class="md:hidden space-y-6">
+        <!-- FREE mobile -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div class="bg-slate-50 px-5 py-3 border-b border-slate-200">
+            <p class="font-bold text-slate-500 text-xs uppercase tracking-widest">Miễn phí</p>
+          </div>
+          <div class="px-5 py-4 space-y-3 text-sm text-slate-600">
+            <div class="flex justify-between"><span>Buổi luyện/tháng</span><span class="font-medium text-slate-800">~90</span></div>
+            <div class="flex justify-between"><span>AI feedback</span><span class="text-slate-400 text-xs">Cơ bản</span></div>
+            <div class="flex justify-between"><span>Full Test mode</span><svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></div>
+            <div class="flex justify-between"><span>Phát âm chi tiết</span><svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></div>
+            <div class="flex justify-between"><span>Grammar Wiki</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>PDF Export</span><svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></div>
+            <div class="flex justify-between"><span>Lịch sử</span><span class="text-slate-500">7 ngày</span></div>
+            <div class="flex justify-between"><span>Hỗ trợ ưu tiên</span><svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></div>
+          </div>
+        </div>
+        <!-- STUDENT mobile -->
+        <div class="bg-white rounded-2xl border-2 border-teal overflow-hidden">
+          <div class="bg-teal px-5 py-3">
+            <p class="font-bold text-white text-xs uppercase tracking-widest">Học viên — Phổ biến nhất</p>
+          </div>
+          <div class="px-5 py-4 space-y-3 text-sm text-slate-600">
+            <div class="flex justify-between"><span>Buổi luyện/tháng</span><span class="font-semibold text-teal">Không giới hạn</span></div>
+            <div class="flex justify-between"><span>AI feedback</span><span class="font-semibold text-teal">Chi tiết đầy đủ</span></div>
+            <div class="flex justify-between"><span>Full Test mode</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>Phát âm chi tiết</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>Grammar Wiki</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>PDF Export</span><svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></div>
+            <div class="flex justify-between"><span>Lịch sử</span><span class="font-semibold text-teal">Không giới hạn</span></div>
+            <div class="flex justify-between"><span>Hỗ trợ ưu tiên</span><svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></div>
+          </div>
+        </div>
+        <!-- INTENSIVE mobile -->
+        <div class="bg-white rounded-2xl border-2 border-navy overflow-hidden">
+          <div class="bg-navy px-5 py-3">
+            <p class="font-bold text-white text-xs uppercase tracking-widest">Intensive</p>
+          </div>
+          <div class="px-5 py-4 space-y-3 text-sm text-slate-600">
+            <div class="flex justify-between"><span>Buổi luyện/tháng</span><span class="font-semibold text-navy">Không giới hạn</span></div>
+            <div class="flex justify-between"><span>AI feedback</span><span class="font-semibold text-navy">Chi tiết đầy đủ</span></div>
+            <div class="flex justify-between"><span>Full Test mode</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>Phát âm chi tiết</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>Grammar Wiki</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>PDF Export</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+            <div class="flex justify-between"><span>Lịch sử</span><span class="font-semibold text-navy">Không giới hạn + export</span></div>
+            <div class="flex justify-between"><span>Hỗ trợ ưu tiên</span><svg class="w-4 h-4 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FAQ ───────────────────────────────────────────────────── -->
+  <section class="bg-slate-50 py-16 md:py-20">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <span class="inline-block text-teal text-sm font-bold uppercase tracking-widest mb-3">FAQ</span>
+        <h2 class="text-3xl font-extrabold text-navy">Câu hỏi thường gặp</h2>
+      </div>
+
+      <div class="space-y-3" id="faq-list">
+
+        <!-- FAQ 1 -->
+        <div class="faq-item bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <button class="faq-trigger w-full flex items-center justify-between px-6 py-5 text-left">
+            <span class="font-semibold text-navy text-base">Thanh toán như thế nào?</span>
+            <svg class="faq-chevron w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="faq-body">
+            <div class="px-6 pb-5 text-slate-600 leading-relaxed text-sm">
+              Hiện tại chúng mình chưa có cổng thanh toán tự động. Bạn nhắn Zalo để xác nhận gói muốn mua, sau đó chuyển khoản ngân hàng và nhận <strong>access code</strong> trong vòng 15 phút. Chúng mình sẽ tích hợp thanh toán tự động sớm nhất có thể.
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 2 -->
+        <div class="faq-item bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <button class="faq-trigger w-full flex items-center justify-between px-6 py-5 text-left">
+            <span class="font-semibold text-navy text-base">Access code là gì? Dùng như thế nào?</span>
+            <svg class="faq-chevron w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="faq-body">
+            <div class="px-6 pb-5 text-slate-600 leading-relaxed text-sm">
+              Access code là mã kích hoạt tài khoản — dạng <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-xs">IELTS-XXXX-XXXX</code>. Sau khi đăng nhập bằng Google, hệ thống sẽ yêu cầu nhập mã này để mở khoá tính năng. Mỗi mã có thể dùng một lần và gắn với tài khoản Google của bạn.
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 3 -->
+        <div class="faq-item bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <button class="faq-trigger w-full flex items-center justify-between px-6 py-5 text-left">
+            <span class="font-semibold text-navy text-base">Có hoàn tiền nếu không hài lòng không?</span>
+            <svg class="faq-chevron w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="faq-body">
+            <div class="px-6 pb-5 text-slate-600 leading-relaxed text-sm">
+              Có. Nếu bạn dùng trong <strong>vòng 7 ngày đầu</strong> mà cảm thấy sản phẩm không phù hợp, nhắn Zalo và chúng mình sẽ hoàn tiền 100% không hỏi thêm. Sau 7 ngày sẽ không áp dụng chính sách hoàn tiền.
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 4 -->
+        <div class="faq-item bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <button class="faq-trigger w-full flex items-center justify-between px-6 py-5 text-left">
+            <span class="font-semibold text-navy text-base">Gói Miễn phí có giới hạn thời gian không?</span>
+            <svg class="faq-chevron w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="faq-body">
+            <div class="px-6 pb-5 text-slate-600 leading-relaxed text-sm">
+              Không — gói Miễn phí là <strong>mãi mãi</strong>, không bị khoá sau 7 hay 14 ngày. Giới hạn duy nhất là 3 buổi luyện mỗi ngày. Bạn có thể dùng thử thoải mái trước khi quyết định nâng cấp.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA CUỐI ──────────────────────────────────────────────── -->
+  <section class="bg-navy py-16 md:py-20 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-5 pointer-events-none"
+         style="background-image: linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px); background-size: 40px 40px;">
+    </div>
+    <div class="relative max-w-2xl mx-auto px-4 sm:px-6 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-teal/20 flex items-center justify-center mx-auto mb-6">
+        <!-- Zalo icon placeholder -->
+        <svg class="w-7 h-7 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+      </div>
+      <h2 class="text-3xl font-extrabold text-white mb-4">Vẫn còn thắc mắc?</h2>
+      <p class="text-white/60 text-lg mb-8 leading-relaxed">
+        Nhắn Zalo — chúng mình trả lời trong vòng 15 phút (8:00–22:00 hàng ngày).
+      </p>
+      <a href="https://zalo.me/0000000000" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-3 bg-teal text-white font-bold px-8 py-4 rounded-xl hover:bg-teal-600 transition-colors shadow-lg text-base">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+        Nhắn Zalo ngay
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </a>
+      <p class="mt-5 text-white/30 text-sm">
+        Hoặc bắt đầu ngay với gói miễn phí —
+        <a href="/login.html" class="text-teal-300 hover:text-teal-200 underline underline-offset-2 transition-colors">đăng ký tại đây</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ────────────────────────────────────────────────── -->
+  <footer class="bg-navy-700 py-10" style="background:#102437;">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-4 gap-8 mb-8">
+        <div class="md:col-span-2">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-teal flex items-center justify-center">
+              <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+              </svg>
+            </div>
+            <span class="font-bold text-white text-lg tracking-tight">averlearning</span>
+          </div>
+          <p class="text-white/40 text-sm leading-relaxed max-w-xs">
+            Nền tảng luyện IELTS Speaking với AI — phản hồi tức thì, chính xác và mang tính sư phạm.
+          </p>
+        </div>
+        <div>
+          <p class="text-white/30 text-xs font-bold uppercase tracking-widest mb-4">Tính năng</p>
+          <ul class="space-y-2.5">
+            <li><a href="/#features" class="text-white/50 text-sm hover:text-white transition-colors">AI Feedback</a></li>
+            <li><a href="/#features" class="text-white/50 text-sm hover:text-white transition-colors">Chấm điểm phát âm</a></li>
+            <li><a href="/pages/grammar-wiki.html" class="text-white/50 text-sm hover:text-white transition-colors">Grammar Wiki</a></li>
+            <li><a href="/pricing.html" class="text-white/50 text-sm hover:text-white transition-colors">Bảng giá</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="text-white/30 text-xs font-bold uppercase tracking-widest mb-4">Tài khoản</p>
+          <ul class="space-y-2.5">
+            <li><a href="/login.html" class="text-white/50 text-sm hover:text-white transition-colors">Đăng nhập</a></li>
+            <li><a href="/login.html" class="text-white/50 text-sm hover:text-white transition-colors">Đăng ký</a></li>
+            <li><a href="https://zalo.me/0000000000" class="text-white/50 text-sm hover:text-white transition-colors">Liên hệ / Hỗ trợ</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-white/10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3">
+        <p class="text-white/25 text-sm">© 2025 averlearning. Mọi quyền được bảo lưu.</p>
+        <p class="text-white/15 text-xs">Powered by Claude AI · Whisper STT · Azure Pronunciation</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ─── SCRIPTS ───────────────────────────────────────────────── -->
+  <script>
+    // ── Monthly / Yearly toggle ─────────────────────────────────
+    const btnMonthly   = document.getElementById('btn-monthly');
+    const btnYearly    = document.getElementById('btn-yearly');
+    const yearlyNote   = document.getElementById('yearly-note');
+
+    const priceStudent        = document.getElementById('price-student');
+    const priceStudentSub     = document.getElementById('price-student-sub');
+    const priceStudentYNote   = document.getElementById('price-student-yearly-note');
+
+    const priceIntensive      = document.getElementById('price-intensive');
+    const priceIntensiveSub   = document.getElementById('price-intensive-sub');
+    const priceIntensiveYNote = document.getElementById('price-intensive-yearly-note');
+
+    // Prices (raw numbers for formatting)
+    const PRICES = {
+      student:   { monthly: 299000, yearly: 239200 },   // 299000 * 0.8 = 239200
+      intensive: { monthly: 499000, yearly: 399200 },   // 499000 * 0.8 = 399200
+    };
+
+    function formatPrice(n) {
+      // 299000 → "299K", 239200 → "239.2K" → "239K" (round to nearest 100)
+      if (n >= 1000) {
+        const k = n / 1000;
+        // If it's a round number, show without decimal
+        return Number.isInteger(k) ? k + 'K' : k.toFixed(1).replace(/\.0$/, '') + 'K';
+      }
+      return n.toLocaleString('vi-VN') + 'đ';
+    }
+
+    let isYearly = false;
+
+    function setMonthly() {
+      isYearly = false;
+      // Toggle styles
+      btnMonthly.classList.add('bg-white', 'text-navy', 'shadow-sm');
+      btnMonthly.classList.remove('text-white/70');
+      btnYearly.classList.remove('bg-white', 'text-navy', 'shadow-sm');
+      btnYearly.classList.add('text-white/70');
+      // Hide yearly note
+      yearlyNote.classList.add('hidden');
+      // Student
+      priceStudent.textContent = formatPrice(PRICES.student.monthly);
+      priceStudentSub.textContent = 'thanh toán hàng tháng';
+      priceStudentYNote.classList.add('hidden');
+      // Intensive
+      priceIntensive.textContent = formatPrice(PRICES.intensive.monthly);
+      priceIntensiveSub.textContent = 'thanh toán hàng tháng';
+      priceIntensiveYNote.classList.add('hidden');
+    }
+
+    function setYearly() {
+      isYearly = true;
+      // Toggle styles
+      btnYearly.classList.add('bg-white', 'text-navy', 'shadow-sm');
+      btnYearly.classList.remove('text-white/70');
+      btnMonthly.classList.remove('bg-white', 'text-navy', 'shadow-sm');
+      btnMonthly.classList.add('text-white/70');
+      // Show yearly note
+      yearlyNote.classList.remove('hidden');
+      // Student
+      priceStudent.textContent = formatPrice(PRICES.student.yearly);
+      priceStudentSub.textContent = 'quy theo tháng, thanh toán năm';
+      priceStudentYNote.classList.remove('hidden');
+      // Intensive
+      priceIntensive.textContent = formatPrice(PRICES.intensive.yearly);
+      priceIntensiveSub.textContent = 'quy theo tháng, thanh toán năm';
+      priceIntensiveYNote.classList.remove('hidden');
+    }
+
+    btnMonthly.addEventListener('click', setMonthly);
+    btnYearly.addEventListener('click', setYearly);
+
+    // ── FAQ accordion ───────────────────────────────────────────
+    document.querySelectorAll('.faq-trigger').forEach(trigger => {
+      trigger.addEventListener('click', () => {
+        const item    = trigger.closest('.faq-item');
+        const body    = item.querySelector('.faq-body');
+        const chevron = item.querySelector('.faq-chevron');
+        const isOpen  = body.classList.contains('open');
+
+        // Close all
+        document.querySelectorAll('.faq-body').forEach(b => b.classList.remove('open'));
+        document.querySelectorAll('.faq-chevron').forEach(c => c.classList.remove('open'));
+
+        // Open clicked (if it wasn't already open)
+        if (!isOpen) {
+          body.classList.add('open');
+          chevron.classList.add('open');
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
