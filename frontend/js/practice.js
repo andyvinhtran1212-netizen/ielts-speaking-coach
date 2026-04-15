@@ -649,7 +649,7 @@
             + 'border:1px solid rgba(20,184,166,0.15);border-radius:12px;'
             + 'display:flex;align-items:center;gap:10px;">'
             + '<div class="spinner" style="width:16px;height:16px;border-width:2px;flex-shrink:0;"></div>'
-            + '<p style="font-size:11px;color:rgba(255,255,255,0.35);margin:0;">Đang đánh giá phát âm...</p>'
+            + '<p style="font-size:11px;color:rgba(255,255,255,0.35);margin:0;">Đang phân tích phát âm...</p>'
             + '</div>';
         }
         pronSection.style.display = '';
@@ -1937,7 +1937,7 @@
       '<div style="margin-top:14px;padding:14px;background:rgba(20,184,166,0.05);'
       + 'border:1px solid rgba(20,184,166,0.2);border-radius:12px;">'
       + '<p style="font-size:10px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
-      + 'letter-spacing:.08em;margin:0 0 10px;">Phát âm (Azure AI)</p>'
+      + 'letter-spacing:.08em;margin:0 0 10px;">Nhận xét phát âm</p>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
       + _pronChip('Tổng thể',   pronData.pronunciation_score)
       + _pronChip('Lưu loát',   pronData.fluency_score)
@@ -1994,7 +1994,7 @@
       var lowConfHtml = s.low_confidence_sample
         ? '<p style="font-size:10px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);'
           + 'border-radius:6px;padding:4px 8px;color:#fbbf24;margin:6px 0 0;">'
-          + '⚠ Audio ngắn — kết quả có thể chưa chính xác</p>'
+          + '⚠ Phần trả lời khá ngắn — nhận xét mang tính tham khảo, bạn nên luyện nói dài hơn để được đánh giá chính xác hơn</p>'
         : '';
 
       var words = (s.words || [])
@@ -2082,7 +2082,7 @@
       '<div style="border:1px solid rgba(20,184,166,0.2);border-radius:14px;padding:20px 16px;'
       + 'text-align:center;">'
       + '<div class="spinner" style="width:24px;height:24px;border-width:2px;margin:0 auto 10px;"></div>'
-      + '<p style="font-size:12px;color:rgba(255,255,255,0.4);margin:0;">Đang đánh giá phát âm toàn bài...</p>'
+      + '<p style="font-size:12px;color:rgba(255,255,255,0.4);margin:0;">Đang phân tích phát âm toàn bài...</p>'
       + '</div>';
 
     var base = (window.api && window.api.base) ? window.api.base : '';
@@ -2114,7 +2114,7 @@
           '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 16px;'
           + 'text-align:center;">'
           + '<p style="font-size:12px;color:rgba(255,255,255,0.3);margin:0;font-style:italic;">'
-          + 'Không thể tải đánh giá phát âm — kiểm tra kết nối và thử lại.</p>'
+          + 'Lần này chưa lấy được nhận xét phát âm — bạn thử lại sau nhé.</p>'
           + '</div>';
         el.style.display = '';
       });
@@ -2153,7 +2153,7 @@
         if (pronResult) {
           pronResult.innerHTML =
             '<p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px;font-style:italic;">'
-            + 'Không thể đánh giá phát âm lần này.</p>';
+            + 'Lần này chưa có nhận xét phát âm — bạn tiếp tục luyện tập nhé.</p>';
         }
       });
   }

@@ -135,7 +135,7 @@ def _normalize(azure_response: dict) -> dict:
             "completeness_score":   None,
             "words":                [],
             "short_summary":        [
-                "Không đánh giá được phát âm. Kiểm tra chất lượng âm thanh và thử lại."
+                "Lần này chưa thu được đủ dữ liệu để nhận xét phát âm — bạn thử nói to và rõ hơn một chút nhé."
             ],
             "raw_payload": azure_response,
         }
@@ -204,26 +204,24 @@ def _build_summary(
 
     if pron is not None:
         if pron >= 80:
-            lines.append(f"Phát âm tổng quan tốt (điểm: {pron:.0f}/100).")
+            lines.append("Phát âm của bạn khá tốt — người nghe hoàn toàn có thể hiểu rõ ý bạn muốn truyền đạt.")
         elif pron >= 65:
-            lines.append(
-                f"Phát âm ở mức trung bình ({pron:.0f}/100) — còn nhiều cơ hội cải thiện."
-            )
+            lines.append("Bạn đã truyền đạt khá rõ ý, tuy nhiên sẽ tốt hơn nếu chú ý thêm đến độ rõ của từng từ.")
         else:
-            lines.append(f"Phát âm cần cải thiện đáng kể ({pron:.0f}/100).")
+            lines.append("Hãy chú ý làm rõ từng âm khi nói — luyện chậm trước, sau đó tăng tốc dần sẽ giúp ích nhiều.")
 
     if fluency is not None and fluency < 65:
-        lines.append("Độ lưu loát còn hạn chế — thử nói rõ ràng, đừng ngập ngừng.")
+        lines.append("Bạn có thể luyện thêm cách nói liên tục, tránh dừng lại giữa chừng để câu nói nghe tự nhiên hơn.")
     elif fluency is not None and fluency >= 80 and pron is not None and pron >= 80:
-        lines.append("Nói trôi chảy, ít bị ngắt quãng.")
+        lines.append("Tốc độ và nhịp nói khá tự nhiên — đây là điểm cộng lớn trong IELTS Speaking.")
 
     if mispronounced:
         sample = mispronounced[:4]
         joined = ", ".join(f'"{w}"' for w in sample)
-        lines.append(f"Chú ý phát âm các từ: {joined}.")
+        lines.append(f"Bạn nên dành thêm thời gian luyện phát âm các từ: {joined}.")
 
     if not lines:
-        lines.append("Chưa đủ dữ liệu để đưa ra nhận xét cụ thể.")
+        lines.append("Nhìn chung phần trả lời khá ổn — hãy tiếp tục duy trì phong cách nói tự nhiên này.")
 
     return lines[:3]
 
