@@ -2266,7 +2266,7 @@
 
     var result = await sb.auth.getSession();
     if (!result.data.session) {
-      window.location.href = window.api.url('index.html');
+      window.location.href = window.api.url('login.html');
       return;
     }
 

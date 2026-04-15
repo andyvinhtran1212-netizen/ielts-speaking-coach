@@ -922,7 +922,7 @@
       var sessionData = await sb.auth.getSession();
       var authSession = sessionData && sessionData.data && sessionData.data.session;
       if (!authSession) {
-        window.location.href = '../index.html';
+        window.location.href = '../login.html';
         return;
       }
       var token = authSession.access_token;

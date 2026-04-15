@@ -2024,7 +2024,7 @@
       var sb = getSupabase();
       var { data: { session } } = await sb.auth.getSession();
       if (!session) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return;
       }
       _token = session.access_token;

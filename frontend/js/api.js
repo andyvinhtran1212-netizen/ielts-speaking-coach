@@ -43,7 +43,7 @@
     });
 
     if (response.status === 401) {
-      window.location.href = _appRoot + 'index.html';
+      window.location.href = _appRoot + 'login.html';
       return null;
     }
 

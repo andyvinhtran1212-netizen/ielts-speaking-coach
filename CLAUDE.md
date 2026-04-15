@@ -4,7 +4,8 @@
 
 | What                  | File                                    |
 |-----------------------|-----------------------------------------|
-| Login / activation    | `frontend/index.html`                   |
+| **Landing page**      | **`frontend/index.html`** ← public root |
+| Login / activation    | `frontend/login.html`                   |
 | Dashboard             | `frontend/pages/dashboard.html`         |
 | **Practice page**     | **`frontend/pages/practice.html`** ← real one |
 | Practice JS logic     | `frontend/js/practice.js`               |
@@ -78,9 +79,21 @@ Recording has 3 sub-states managed by `_showRecSub(name)`:
 
 ---
 
+## Skills (invoke with /skill-name)
+
+| Skill | Path | When to use |
+|-------|------|-------------|
+| `/new-feature` | `.claude/skills/new-feature/SKILL.md` | Thêm tính năng mới: migration + service + router + frontend |
+| `/db-migrate` | `.claude/skills/db-migrate/SKILL.md` | Tạo migration SQL mới, auto-detect số thứ tự |
+| `/api-route` | `.claude/skills/api-route/SKILL.md` | Scaffold FastAPI route theo đúng auth/Supabase pattern |
+| `/review` | `.claude/skills/review/SKILL.md` | Review code trước commit/deploy: security, schema, AI calls |
+
+---
+
 ## Known limitations / future work
 
-- Full Test mode (`startPractice('full')`) currently starts Part 1 only. Multi-part chaining not yet implemented.
+- Full Test multi-part chaining: **đã implement** — 3 sessions riêng (p1/p2/p3), frontend chain qua `_ftAllSessionIds`.
+- PDF export: endpoint tồn tại nhưng trả 503 cho đến khi WeasyPrint system deps được cài trên Railway.
 - `sessions.tokens_used` column must exist in Supabase for token tracking to work.
 - `audio-responses` bucket must be public in Supabase Storage.
 - The `/ 100` sessions-today display in the dashboard is hardcoded — update if `MAX_SESSIONS_PER_USER_PER_DAY` changes.
