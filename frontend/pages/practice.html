@@ -522,6 +522,13 @@
         </div>
       </div>
 
+      <!-- Pronunciation Assessment (practice mode: auto-triggered inline) -->
+      <div id="pronunciation-section" style="display:none;margin-bottom:20px;">
+        <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:20px;">
+          <div id="pron-result-block"></div>
+        </div>
+      </div>
+
       <!-- Navigation buttons (JS controls display) -->
       <div class="flex flex-col gap-3">
         <button id="btn-next-q"
@@ -559,7 +566,10 @@
       </div>
 
       <!-- Per-question results -->
-      <div id="test-results-list" class="flex flex-col gap-4 mb-8"></div>
+      <div id="test-results-list" class="flex flex-col gap-4 mb-6"></div>
+
+      <!-- Full-test Pronunciation Assessment block (populated async by JS) -->
+      <div id="full-pron-block" style="display:none;margin-bottom:24px;"></div>
 
       <!-- Export PDF -->
       <button id="btn-export-pdf"

@@ -71,6 +71,9 @@
   // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
   var _feedbackAudioUrl = null;
 
+  // response_id of the most recently graded response (practice mode — used for pron assessment)
+  var _currentResponseId = null;
+
   // Question mode for Part 1 & 3 — 'visual' (read on screen) | 'listening' (hear via TTS)
   // Persisted in sessionStorage so the choice survives across questions in the same tab session.
   var _qMode = (function () {
@@ -514,10 +517,14 @@
         part:         _sessionData.part,
         questionText: _currentQ ? (_currentQ.question_text || '') : '',
         response:     data,
+        sessionId:    _sessionId,
       });
       _advanceTestMode();
       return;
     }
+
+    // ── Capture response_id for on-demand pronunciation ───────────────────────
+    _currentResponseId = (data && data.response_id) ? data.response_id : null;
 
     // ── Overall band circle ──────────────────────────────────────────────────
     var bandWrapper = $('feedback-band-wrapper');
@@ -629,6 +636,29 @@
 
     // ── Grammar Resources ────────────────────────────────────────────────────
     _showGrammarResources(data);
+
+    // ── Pronunciation: auto-trigger (practice mode only) ─────────────────────
+    var pronSection = $('pronunciation-section');
+    var pronResult  = $('pron-result-block');
+    if (pronSection) {
+      if (_currentResponseId && _recordedBlob) {
+        // Show loading skeleton immediately so feedback page is complete on render
+        if (pronResult) {
+          pronResult.innerHTML =
+            '<div style="margin-top:14px;padding:12px 14px;background:rgba(20,184,166,0.04);'
+            + 'border:1px solid rgba(20,184,166,0.15);border-radius:12px;'
+            + 'display:flex;align-items:center;gap:10px;">'
+            + '<div class="spinner" style="width:16px;height:16px;border-width:2px;flex-shrink:0;"></div>'
+            + '<p style="font-size:11px;color:rgba(255,255,255,0.35);margin:0;">Đang đánh giá phát âm...</p>'
+            + '</div>';
+        }
+        pronSection.style.display = '';
+        // Fire and forget — does not block feedback rendering
+        assessSinglePronunciation(null);
+      } else {
+        pronSection.style.display = 'none';
+      }
+    }
 
     showState('feedback');
   }
@@ -1728,6 +1758,7 @@
             part:         item.part,
             questionText: item.questionText,
             response:     data,
+            sessionId:    item.sessionId,
           });
         })
         .catch(function (err) {
@@ -1736,6 +1767,7 @@
             part:         item.part,
             questionText: item.questionText,
             response:     { _stub: true, _error: err.message || 'Lỗi không xác định' },
+            sessionId:    item.sessionId,
           });
         })
         .then(function () { gradeNext(); });
@@ -1755,6 +1787,11 @@
 
     _renderTestResults();
     showState('test-results');
+
+    // Trigger full-test pronunciation asynchronously (non-blocking)
+    if (_testMode === 'test_full') {
+      _fetchAndRenderFullPron();
+    }
   }
 
   function _renderTestResults() {
@@ -1850,6 +1887,275 @@
       feedbackHtml +
       transcriptHtml +
       '</div>';
+  }
+
+  // ── Pronunciation Assessment ──────────────────────────────────────────────────
+
+  /**
+   * Compact score chip: label (Vietnamese) + value/100 or "—"
+   */
+  function _pronChip(label, value) {
+    var display = (value != null) ? Math.round(value) : '—';
+    var color   = (value != null && value >= 75) ? '#4ade80'
+                : (value != null && value >= 55) ? '#14b8a6'
+                : (value != null)               ? '#fb923c'
+                :                                 'rgba(255,255,255,0.3)';
+    return '<div style="display:inline-flex;flex-direction:column;align-items:center;'
+      + 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);'
+      + 'border-radius:10px;padding:6px 10px;min-width:64px;">'
+      + '<span style="font-size:18px;font-weight:800;color:' + color + ';line-height:1;">' + display + '</span>'
+      + '<span style="font-size:9px;color:rgba(255,255,255,0.35);text-transform:uppercase;'
+      + 'letter-spacing:.06em;margin-top:3px;">' + _esc(label) + '</span>'
+      + '</div>';
+  }
+
+  /**
+   * Render single-response pronunciation result into a container element.
+   * pronData: the API response from /pronunciation
+   */
+  function _renderPronBlock(el, pronData) {
+    if (!el) return;
+    var summary = (pronData.short_summary || []).map(function (s) {
+      return '<li style="margin-bottom:4px;">' + _esc(s) + '</li>';
+    }).join('');
+
+    var words = (pronData.words || [])
+      .filter(function (w) { return w.error_type && w.error_type !== 'None'; })
+      .slice(0, 6);
+    var wordHtml = words.length
+      ? '<p style="font-size:11px;color:rgba(255,255,255,0.4);margin:10px 0 4px;">Từ cần chú ý:</p>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        + words.map(function (w) {
+            return '<span style="background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.3);'
+              + 'border-radius:6px;padding:2px 8px;font-size:11px;color:#fb923c;">'
+              + _esc(w.word) + '</span>';
+          }).join('')
+        + '</div>'
+      : '';
+
+    el.innerHTML =
+      '<div style="margin-top:14px;padding:14px;background:rgba(20,184,166,0.05);'
+      + 'border:1px solid rgba(20,184,166,0.2);border-radius:12px;">'
+      + '<p style="font-size:10px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
+      + 'letter-spacing:.08em;margin:0 0 10px;">Phát âm (Azure AI)</p>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
+      + _pronChip('Tổng thể',   pronData.pronunciation_score)
+      + _pronChip('Lưu loát',   pronData.fluency_score)
+      + _pronChip('Chính xác',  pronData.accuracy_score)
+      + _pronChip('Đầy đủ',     pronData.completeness_score)
+      + _pronChip('Ngữ điệu',   pronData.prosody_score)
+      + '</div>'
+      + (summary ? '<ul style="font-size:12px;color:rgba(255,255,255,0.6);'
+          + 'padding-left:16px;margin:0 0 4px;line-height:1.6;">' + summary + '</ul>' : '')
+      + wordHtml
+      + '</div>';
+  }
+
+  /**
+   * Render full-test pronunciation block into #full-pron-block.
+   * fullData: response from POST /sessions/{id}/pronunciation/full
+   */
+  function _renderFullPronBlock(el, fullData) {
+    if (!el) return;
+
+    var overallScore = fullData.overall_pron_score;
+    var overallColor = (overallScore != null && overallScore >= 75) ? '#4ade80'
+                     : (overallScore != null && overallScore >= 55) ? '#14b8a6'
+                     : (overallScore != null)                       ? '#fb923c'
+                     :                                                'rgba(255,255,255,0.4)';
+
+    var partDefs = [
+      { key: 'part1', label: 'Phần 1', note: '1 câu trả lời' },
+      { key: 'part2', label: 'Phần 2', note: '1 đoạn nói dài' },
+      { key: 'part3', label: 'Phần 3', note: '1 câu trả lời' },
+    ];
+
+    var partsHtml = partDefs.map(function (def) {
+      var s = fullData.samples && fullData.samples[def.key];
+      if (!s) {
+        return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);'
+          + 'border-radius:10px;padding:12px 14px;margin-bottom:10px;">'
+          + '<p style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);margin:0 0 4px;">'
+          + _esc(def.label) + '</p>'
+          + '<p style="font-size:11px;color:rgba(255,255,255,0.25);margin:0;font-style:italic;">Không có dữ liệu</p>'
+          + '</div>';
+      }
+
+      // Segment line for Part 2
+      var segHtml = '';
+      if (def.key === 'part2') {
+        if (s.audio_start_s != null && s.audio_end_s != null) {
+          segHtml = '<p style="font-size:10px;color:rgba(255,255,255,0.3);margin:2px 0 0;">'
+            + '⏱ Đoạn phân tích: ' + Math.round(s.audio_start_s) + 's – ' + Math.round(s.audio_end_s) + 's'
+            + '</p>';
+        }
+      }
+
+      var lowConfHtml = s.low_confidence_sample
+        ? '<p style="font-size:10px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);'
+          + 'border-radius:6px;padding:4px 8px;color:#fbbf24;margin:6px 0 0;">'
+          + '⚠ Audio ngắn — kết quả có thể chưa chính xác</p>'
+        : '';
+
+      var words = (s.words || [])
+        .filter(function (w) { return w.error_type && w.error_type !== 'None'; })
+        .slice(0, 5);
+      var wordHtml = words.length
+        ? '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;">'
+          + words.map(function (w) {
+              return '<span style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.25);'
+                + 'border-radius:5px;padding:1px 7px;font-size:10px;color:#fb923c;">'
+                + _esc(w.word) + '</span>';
+            }).join('')
+          + '</div>'
+        : '';
+
+      return '<div style="background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);'
+        + 'border-radius:10px;padding:12px 14px;margin-bottom:10px;">'
+        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'
+          + '<div style="flex:1;min-width:0;">'
+            + '<p style="font-size:11px;font-weight:700;color:#14b8a6;margin:0 0 2px;">' + _esc(def.label) + '</p>'
+            + '<p style="font-size:10px;color:rgba(255,255,255,0.35);margin:0;line-height:1.4;">'
+            + _esc(s.selection_reason) + '</p>'
+            + segHtml
+          + '</div>'
+          + '<div style="text-align:center;flex-shrink:0;">'
+            + '<div style="font-size:24px;font-weight:800;color:' + overallColor + ';line-height:1;">'
+            + (s.pronunciation_score != null ? Math.round(s.pronunciation_score) : '—') + '</div>'
+            + '<div style="font-size:8px;color:rgba(255,255,255,0.3);text-transform:uppercase;">/ 100</div>'
+          + '</div>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">'
+        + _pronChip('Lưu loát',  s.fluency_score)
+        + _pronChip('Chính xác', s.accuracy_score)
+        + _pronChip('Đầy đủ',    s.completeness_score)
+        + _pronChip('Ngữ điệu',  s.prosody_score)
+        + '</div>'
+        + lowConfHtml
+        + wordHtml
+        + '</div>';
+    }).join('');
+
+    var assessed = fullData.samples_assessed || 0;
+    var subtitle = assessed >= 3 ? '3 mẫu đại diện (Phần 1 + 2 + 3)'
+                 : assessed > 0  ? assessed + '/3 phần có dữ liệu'
+                 :                 'Không đủ dữ liệu';
+
+    el.innerHTML =
+      '<div style="border:1px solid rgba(20,184,166,0.25);border-radius:14px;overflow:hidden;">'
+      + '<div style="background:rgba(20,184,166,0.08);padding:14px 16px;display:flex;'
+        + 'align-items:center;justify-content:space-between;gap:10px;">'
+        + '<div>'
+          + '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
+            + 'letter-spacing:.08em;margin:0 0 2px;">Đánh giá phát âm toàn bài</p>'
+          + '<p style="font-size:10px;color:rgba(255,255,255,0.35);margin:0;">' + _esc(subtitle) + '</p>'
+        + '</div>'
+        + '<div style="text-align:center;">'
+          + '<div style="font-size:32px;font-weight:900;color:' + overallColor + ';line-height:1;">'
+          + (overallScore != null ? Math.round(overallScore) : '—') + '</div>'
+          + '<div style="font-size:9px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.05em;">/100</div>'
+        + '</div>'
+      + '</div>'
+      + '<div style="padding:14px 16px;">' + partsHtml + '</div>'
+      + '</div>';
+
+    el.style.display = '';
+  }
+
+  /**
+   * Async: call pronunciation/full, render into #full-pron-block.
+   * Uses _ftAllSessionIds[0] as primary session, rest as extra_session_ids.
+   * Non-blocking — shows spinner while loading.
+   */
+  function _fetchAndRenderFullPron() {
+    var el = $('full-pron-block');
+    if (!el) return;
+
+    if (!_ftAllSessionIds.length) return;
+
+    var primarySid = _ftAllSessionIds[0];
+    var extraSids  = _ftAllSessionIds.slice(1);
+
+    // Show loading state
+    el.style.display = '';
+    el.innerHTML =
+      '<div style="border:1px solid rgba(20,184,166,0.2);border-radius:14px;padding:20px 16px;'
+      + 'text-align:center;">'
+      + '<div class="spinner" style="width:24px;height:24px;border-width:2px;margin:0 auto 10px;"></div>'
+      + '<p style="font-size:12px;color:rgba(255,255,255,0.4);margin:0;">Đang đánh giá phát âm toàn bài...</p>'
+      + '</div>';
+
+    var base = (window.api && window.api.base) ? window.api.base : '';
+
+    var sb = window.getSupabase ? window.getSupabase() : null;
+    var sessionPromise = sb ? sb.auth.getSession() : Promise.resolve({ data: {} });
+
+    sessionPromise.then(function (result) {
+      var token = result.data.session ? result.data.session.access_token : null;
+      return fetch(base + '/sessions/' + primarySid + '/pronunciation/full', {
+        method:  'POST',
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          token ? { 'Authorization': 'Bearer ' + token } : {}
+        ),
+        body: JSON.stringify({ extra_session_ids: extraSids }),
+      });
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        _renderFullPronBlock(el, data);
+      })
+      .catch(function (err) {
+        console.warn('[practice] full pron fetch failed:', err);
+        el.innerHTML =
+          '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 16px;'
+          + 'text-align:center;">'
+          + '<p style="font-size:12px;color:rgba(255,255,255,0.3);margin:0;font-style:italic;">'
+          + 'Không thể tải đánh giá phát âm — kiểm tra kết nối và thử lại.</p>'
+          + '</div>';
+        el.style.display = '';
+      });
+  }
+
+  /**
+   * Auto-triggered pronunciation assessment for practice mode (single response).
+   * Called automatically from _showFeedback when response_id + audio are available.
+   * btn param is unused (kept for API compatibility) — pass null.
+   */
+  function assessSinglePronunciation(btn) {
+    if (!_currentResponseId || !_sessionId) return;
+
+    var pronResult = $('pron-result-block');
+
+    var base = (window.api && window.api.base) ? window.api.base : '';
+    var sb = window.getSupabase ? window.getSupabase() : null;
+    var sessionPromise = sb ? sb.auth.getSession() : Promise.resolve({ data: {} });
+
+    sessionPromise.then(function (result) {
+      var token = result.data.session ? result.data.session.access_token : null;
+      return fetch(base + '/sessions/' + _sessionId + '/responses/' + _currentResponseId + '/pronunciation', {
+        method:  'POST',
+        headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+      });
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        _renderPronBlock(pronResult, data);
+      })
+      .catch(function (err) {
+        console.warn('[practice] single pron failed:', err);
+        if (pronResult) {
+          pronResult.innerHTML =
+            '<p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px;font-style:italic;">'
+            + 'Không thể đánh giá phát âm lần này.</p>';
+        }
+      });
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────────
@@ -2142,6 +2448,8 @@
     // Audio replay / download on feedback screen
     replayAudio:          _replayAudio,
     downloadAudio:        _downloadAudio,
+    // On-demand pronunciation assessment (practice mode)
+    assessSinglePronunciation: assessSinglePronunciation,
     // PDF export
     downloadPDFs:         _downloadPDFs,
     // exposed for state-break skip button (optional future use)
