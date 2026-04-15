@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Luyện tập Ghi âm — IELTS Speaking Coach</title>
+  <title>Luyện tập Ghi âm — Aver Learning</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -122,7 +122,7 @@
         ← Dashboard
       </a>
       <span class="font-bold text-sm tracking-tight">
-        IELTS<span style="color:#14b8a6;">Coach</span>
+        Aver<span style="color:#14b8a6;">Learning</span>
       </span>
     </div>
 
@@ -130,9 +130,7 @@
       <span id="hdr-info"
             class="hidden text-xs font-medium truncate"
             style="color:rgba(255,255,255,0.5);max-width:200px;"></span>
-      <span id="hdr-progress"
-            class="hidden text-xs font-bold px-2.5 py-1 rounded-full"
-            style="background:rgba(20,184,166,0.12);color:#14b8a6;white-space:nowrap;"></span>
+      <span id="hdr-progress" class="hidden ds-badge ds-badge-teal" style="white-space:nowrap;"></span>
     </div>
   </header>
 
@@ -216,17 +214,14 @@
     <div id="state-prep" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full ds-fadein">
 
       <!-- AI unavailable warning (shown only when Gemini failed and fallback questions are used) -->
-      <div id="prep-fallback-warning"
-           style="display:none;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.25);
-                  border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#fbbf24;">
+      <div id="prep-fallback-warning" class="ds-callout"
+           style="display:none;background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.25);border-left-color:#fbbf24;color:#fbbf24;margin-bottom:14px;">
         ⚠️ AI chưa sẵn sàng — đang dùng câu hỏi dự phòng. Chất lượng có thể thấp hơn bình thường.
       </div>
 
       <!-- Part badge + topic -->
       <div class="flex items-center gap-2 mb-4 flex-wrap">
-        <span id="prep-part-badge"
-              class="text-xs font-bold px-3 py-1 rounded-full"
-              style="background:rgba(20,184,166,0.12);color:#14b8a6;"></span>
+        <span id="prep-part-badge" class="ds-badge ds-badge-teal"></span>
         <span id="prep-topic"
               class="text-sm font-medium"
               style="color:rgba(255,255,255,0.55);"></span>
@@ -304,10 +299,8 @@
       <div id="inline-rec-section" style="display:none;margin-top:16px;">
 
         <!-- Error banner -->
-        <div id="rec-error"
-             class="rounded-xl px-4 py-3 mb-4 text-sm"
-             style="display:none;background:rgba(239,68,68,0.1);
-                    border:1px solid rgba(239,68,68,0.3);color:#f87171;"></div>
+        <div id="rec-error" class="ds-callout"
+             style="display:none;background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.3);border-left-color:#f87171;color:#f87171;margin-bottom:16px;"></div>
 
         <!-- Sub-state A: idle (shown on re-record; recording starts immediately on first click) -->
         <div id="rec-idle" style="display:none;">
@@ -375,7 +368,7 @@
     <!-- STATE: P2-A — Cue Card ──────────────────────────────────────────────── -->
     <div id="state-p2a" class="state block-state flex-1 px-5 py-6 max-w-xl mx-auto w-full">
       <div class="flex items-center gap-2 mb-5">
-        <span class="part-badge">Part 2</span>
+        <span class="ds-badge ds-badge-teal">Part 2</span>
         <span id="p2a-topic" class="text-sm" style="color:rgba(255,255,255,0.45);"></span>
       </div>
       <div class="card p-5 mb-5" style="border:1px solid rgba(20,184,166,0.25);">

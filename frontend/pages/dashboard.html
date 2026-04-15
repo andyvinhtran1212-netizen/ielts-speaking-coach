@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard — IELTS Speaking Coach</title>
+  <title>Dashboard — Aver Learning</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -259,9 +259,8 @@
   <header class="sidebar-bg sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
     <!-- Logo -->
     <div class="flex items-center gap-2.5">
-      <span class="text-xl">🎙️</span>
       <span class="font-bold text-base tracking-tight">
-        IELTS<span style="color:#14b8a6;">Coach</span>
+        Aver<span style="color:#14b8a6;">Learning</span>
       </span>
     </div>
 
@@ -332,9 +331,9 @@
     <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Band trung bình</p>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Band TB 30 ngày</p>
         <p id="stat-band" class="text-3xl font-extrabold" style="color:#14b8a6;">—</p>
-        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">Chưa có dữ liệu</p>
+        <p id="stat-band-sub" class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">Chưa có dữ liệu</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
@@ -344,18 +343,13 @@
       </div>
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Sessions hôm nay</p>
-        <div class="flex items-end gap-1.5">
-          <p id="stat-today" class="text-3xl font-extrabold text-white">0</p>
-          <p class="text-lg font-semibold mb-0.5" style="color:rgba(255,255,255,0.3);">/ 100</p>
-        </div>
-        <div class="mt-2 h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.08);">
-          <div id="today-bar" class="h-full rounded-full transition-all" style="background:#0F766E;width:0%;"></div>
-        </div>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Buổi học gần nhất</p>
+        <p id="stat-last-date" class="text-xl font-extrabold text-white">—</p>
+        <p id="stat-last-topic" class="text-xs mt-1 truncate" style="color:rgba(255,255,255,0.3);">Chưa có buổi học nào</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Chuỗi ngày luyện</p>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Streak hiện tại</p>
         <div class="flex items-end gap-1.5">
           <p id="stat-streak" class="text-3xl font-extrabold text-white">0</p>
           <p class="text-lg font-semibold mb-0.5" style="color:rgba(255,255,255,0.3);">ngày</p>
@@ -365,14 +359,31 @@
 
     </section>
 
+    <!-- ── "Luyện tiếp ngay" CTA ──────────────────────────────── -->
+    <div id="continue-cta" class="hidden mb-8 flex items-center justify-between rounded-2xl px-6 py-4" style="background:linear-gradient(135deg,rgba(15,118,110,0.25),rgba(14,116,144,0.2));border:1px solid rgba(20,184,166,0.2);">
+      <div>
+        <p class="text-sm font-semibold text-white">Tiếp tục luyện tập</p>
+        <p id="cta-topic-label" class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Chủ đề gần nhất</p>
+      </div>
+      <a id="continue-cta-link" href="practice.html" class="btn-primary text-sm">Luyện tiếp ngay →</a>
+    </div>
+
+    <!-- ── Empty state (no sessions yet) ─────────────────────── -->
+    <div id="dashboard-empty" class="hidden mb-10 rounded-2xl ds-empty" style="border:1px dashed rgba(255,255,255,0.1);">
+      <div class="ds-empty-icon">🎙️</div>
+      <p class="ds-empty-title">Bắt đầu buổi học đầu tiên</p>
+      <p class="ds-empty-sub">Hoàn thành ít nhất một session để xem thống kê và biểu đồ tiến độ.</p>
+      <button onclick="switchMainTab('practice')" class="btn-start text-white text-sm font-semibold px-5 py-2.5 rounded-xl">Luyện tập ngay →</button>
+    </div>
+
     <!-- ── PART 1.5: Charts ──────────────────────────────────── -->
-    <section class="mb-10">
-      <h2 class="text-lg font-bold mb-5">Tiến độ &amp; Phân tích</h2>
+    <section id="charts-section" class="mb-10">
+      <h2 class="text-lg font-bold mb-5">Tiến độ của bạn</h2>
       <div class="grid lg:grid-cols-2 gap-4">
 
         <!-- Line chart -->
         <div class="stat-card rounded-2xl p-5">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-4" style="color:rgba(255,255,255,0.4);">Band Score theo thời gian</p>
+          <p class="ds-section-head">Band Score theo thời gian</p>
           <div id="line-chart-wrap" style="position:relative;height:220px;">
             <canvas id="chart-line"></canvas>
           </div>
@@ -383,8 +394,7 @@
 
         <!-- Radar chart -->
         <div class="stat-card rounded-2xl p-5">
-          <p class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:rgba(255,255,255,0.4);">
-            Điểm mạnh yếu 4 tiêu chí
+          <p class="ds-section-head mb-1">Điểm mạnh yếu 4 tiêu chí
             <span class="ml-1 normal-case font-normal" style="color:rgba(255,255,255,0.22);">5 sessions gần nhất</span>
           </p>
           <div id="radar-chart-wrap" style="position:relative;height:235px;">
@@ -461,8 +471,7 @@
     <section>
       <div class="flex items-center justify-between mb-5">
         <h2 class="text-lg font-bold">Lịch sử sessions</h2>
-        <span id="history-count" class="text-xs px-2.5 py-1 rounded-full"
-              style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);">0 sessions</span>
+        <span id="history-count" class="ds-badge">0 sessions</span>
       </div>
 
       <!-- Table wrapper -->
@@ -960,36 +969,44 @@
     }
 
     // ── Render stats ──────────────────────────────────────────
-    function renderStats(sessions) {
-      document.getElementById('stat-total').textContent = sessions.length;
+    function renderStats(summary, sessions) {
+      // Total sessions
+      document.getElementById('stat-total').textContent = summary.total_sessions ?? 0;
 
-      const today = new Date().toISOString().slice(0, 10);
-      const todayCount = sessions.filter(s => s.started_at?.slice(0, 10) === today).length;
-      document.getElementById('stat-today').textContent = todayCount;
-      document.getElementById('today-bar').style.width = `${Math.min((todayCount / 100) * 100, 100)}%`;
-
-      const completed = sessions.filter(s => s.overall_band != null);
-      const testCompleted = completed.filter(s => s.mode && s.mode !== 'practice');
-      const bandSource = testCompleted.length > 0 ? testCompleted : completed;
-      if (bandSource.length > 0) {
-        const avg = bandSource.reduce((sum, s) => sum + s.overall_band, 0) / bandSource.length;
-        document.getElementById('stat-band').textContent = roundHalf(avg).toFixed(1);
-        const label = testCompleted.length > 0
-          ? `${testCompleted.length} bài test`
-          : `${completed.length} lần chấm`;
-        document.getElementById('stat-band').nextElementSibling.textContent = label;
+      // Band TB 30 ngày
+      if (summary.avg_band_30d != null) {
+        document.getElementById('stat-band').textContent = roundHalf(summary.avg_band_30d).toFixed(1);
+        document.getElementById('stat-band-sub').textContent = '30 ngày gần nhất';
       }
 
-      const days = [...new Set(sessions.map(s => s.started_at?.slice(0, 10)))].sort().reverse();
-      let streak = 0;
-      let cursor = new Date(today);
-      for (const d of days) {
-        if (d === cursor.toISOString().slice(0, 10)) {
-          streak++;
-          cursor.setDate(cursor.getDate() - 1);
-        } else break;
+      // Buổi học gần nhất
+      if (summary.last_session_at) {
+        const d = new Date(summary.last_session_at);
+        document.getElementById('stat-last-date').textContent =
+          d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        document.getElementById('stat-last-topic').textContent = summary.last_topic || '—';
       }
-      document.getElementById('stat-streak').textContent = streak;
+
+      // Streak
+      document.getElementById('stat-streak').textContent = summary.current_streak ?? 0;
+
+      // Empty state
+      if ((summary.total_sessions ?? 0) === 0) {
+        document.getElementById('dashboard-empty').classList.remove('hidden');
+        document.getElementById('charts-section').classList.add('hidden');
+      } else {
+        document.getElementById('dashboard-empty').classList.add('hidden');
+        document.getElementById('charts-section').classList.remove('hidden');
+      }
+
+      // "Luyện tiếp ngay" CTA
+      if (summary.last_topic) {
+        const cta = document.getElementById('continue-cta');
+        cta.classList.remove('hidden');
+        document.getElementById('cta-topic-label').textContent = summary.last_topic;
+        document.getElementById('continue-cta-link').href =
+          'practice.html?topic=' + encodeURIComponent(summary.last_topic);
+      }
     }
 
     // ── Render session history ────────────────────────────────
@@ -1076,11 +1093,10 @@
           data: {
             labels: labels,
             datasets: [
-              lineDS('Overall', 'overall_band', '#14b8a6', false),
-              lineDS('FC',      'band_fc',      '#38bdf8', true),
-              lineDS('LR',      'band_lr',      '#a78bfa', true),
-              lineDS('GRA',     'band_gra',     '#fb923c', true),
-              lineDS('P',       'band_p',       '#f472b6', true),
+              lineDS('FC',  'band_fc',  '#38bdf8', false),
+              lineDS('LR',  'band_lr',  '#fb923c', false),
+              lineDS('GRA', 'band_gra', '#a78bfa', false),
+              lineDS('P',   'band_p',   '#ef4444', false),
             ],
           },
           options: {
@@ -1630,16 +1646,16 @@
       }
 
       try {
-        const [sessions, completedSessions] = await Promise.all([
-          api.get('/sessions?limit=200'),
+        const [statsData, completedSessions] = await Promise.all([
+          api.get('/sessions/stats?limit=20'),
           api.get('/sessions?status=completed&limit=200'),
         ]);
-        renderStats(sessions);
+        renderStats(statsData.summary, statsData.sessions);
         renderHistory(completedSessions);
-        renderCharts(completedSessions);
+        renderCharts(statsData.sessions);
       } catch (err) {
         // Backend unreachable — show empty state silently
-        renderStats([]);
+        renderStats({ total_sessions: 0, avg_band_30d: null, current_streak: 0, last_topic: null, last_session_at: null }, []);
         renderHistory([]);
         console.warn('Could not load sessions:', err.message);
       }
