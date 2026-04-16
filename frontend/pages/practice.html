@@ -518,7 +518,15 @@
       <!-- Pronunciation Assessment (practice mode: auto-triggered inline) -->
       <div id="pronunciation-section" style="display:none;margin-bottom:20px;">
         <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:20px;">
-          <div id="pron-result-block"></div>
+          <p style="font-size:10px;font-weight:700;color:#14b8a6;text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px;">Phân tích phát âm chuyên sâu</p>
+          <p style="font-size:11px;color:rgba(255,255,255,0.32);line-height:1.6;margin:0 0 14px;">Ngoài nhận xét chung ở trên, hệ thống cũng phân tích kỹ hơn phần phát âm để bạn biết nên luyện thêm ở đâu.</p>
+          <!-- Loading state — separate from result, toggled independently -->
+          <div id="pron-loading-block" style="display:none;padding:12px 14px;background:rgba(20,184,166,0.04);border:1px solid rgba(20,184,166,0.12);border-radius:12px;align-items:center;gap:10px;">
+            <div class="spinner" style="width:14px;height:14px;border-width:2px;flex-shrink:0;"></div>
+            <p style="font-size:11px;color:rgba(255,255,255,0.38);margin:0;">Đang phân tích bài nói của bạn...</p>
+          </div>
+          <!-- Result block — shown only when assessment is ready -->
+          <div id="pron-result-block" style="display:none;"></div>
         </div>
       </div>
 
@@ -562,7 +570,11 @@
       <div id="test-results-list" class="flex flex-col gap-4 mb-6"></div>
 
       <!-- Full-test Pronunciation Assessment block (populated async by JS) -->
-      <div id="full-pron-block" style="display:none;margin-bottom:24px;"></div>
+      <div id="full-pron-section" style="display:none;margin-bottom:24px;">
+        <p style="font-size:10px;font-weight:700;color:#14b8a6;text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px;">Phân tích phát âm chuyên sâu</p>
+        <p style="font-size:11px;color:rgba(255,255,255,0.32);line-height:1.6;margin:0 0 12px;">Dựa trên các bài nói của bạn trong cả ba phần, hệ thống tổng hợp nhận xét phát âm để bạn thấy rõ điểm cần luyện thêm.</p>
+        <div id="full-pron-block"></div>
+      </div>
 
       <!-- Export PDF -->
       <button id="btn-export-pdf"

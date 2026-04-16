@@ -573,6 +573,7 @@
       } else if (data && data.grammar_issues) {
         // ── Practice mode coaching feedback ──────────────────────────────────
         commentsEl.innerHTML =
+          '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
           _listBlock('Strengths', data.strengths, '#4ade80') +
           _listBlock('Grammar Issues', data.grammar_issues, '#f87171') +
           _listBlock('Vocabulary Issues', data.vocabulary_issues, '#fb923c') +
@@ -581,6 +582,7 @@
       } else if (data && data.fc_feedback) {
         // ── Test mode formal IELTS feedback ──────────────────────────────────
         commentsEl.innerHTML =
+          '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
           _criterionBlock('Fluency &amp; Coherence', data.fc_feedback)  +
           _criterionBlock('Lexical Resource',        data.lr_feedback)  +
           _criterionBlock('Grammar &amp; Accuracy',  data.gra_feedback) +
@@ -639,24 +641,20 @@
 
     // ── Pronunciation: auto-trigger (practice mode only) ─────────────────────
     var pronSection = $('pronunciation-section');
+    var pronLoading = $('pron-loading-block');
     var pronResult  = $('pron-result-block');
     if (pronSection) {
       if (_currentResponseId && _recordedBlob) {
-        // Show loading skeleton immediately so feedback page is complete on render
-        if (pronResult) {
-          pronResult.innerHTML =
-            '<div style="margin-top:14px;padding:12px 14px;background:rgba(20,184,166,0.04);'
-            + 'border:1px solid rgba(20,184,166,0.15);border-radius:12px;'
-            + 'display:flex;align-items:center;gap:10px;">'
-            + '<div class="spinner" style="width:16px;height:16px;border-width:2px;flex-shrink:0;"></div>'
-            + '<p style="font-size:11px;color:rgba(255,255,255,0.35);margin:0;">Đang phân tích phát âm...</p>'
-            + '</div>';
-        }
+        // Show loading, hide result — states are mutually exclusive
+        if (pronLoading) { pronLoading.style.display = 'flex'; }
+        if (pronResult)  { pronResult.style.display = 'none'; pronResult.innerHTML = ''; }
         pronSection.style.display = '';
         // Fire and forget — does not block feedback rendering
         assessSinglePronunciation(null);
       } else {
         pronSection.style.display = 'none';
+        if (pronLoading) { pronLoading.style.display = 'none'; }
+        if (pronResult)  { pronResult.style.display = 'none'; }
       }
     }
 
@@ -917,12 +915,36 @@
   var _pillColorMap = { FC: 'fc', LR: 'lr', GRA: 'gra', P: 'p' };
   function _bandPill(label, value) {
     var cls = _pillColorMap[label] || 'fc';
-    return '<div style="display:inline-flex;flex-direction:column;align-items:center;'
+    return '<div data-criterion="' + label + '" style="display:inline-flex;flex-direction:column;align-items:center;'
       + 'border-radius:10px;padding:6px 14px;margin:0 3px;" class="ds-band-pill ds-band-pill-' + cls + '">'
       + '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;'
       + 'margin-bottom:2px;opacity:0.6;">' + label + '</span>'
       + '<span style="font-size:20px;font-weight:700;">'
       + (Math.round(parseFloat(value) * 2) / 2).toFixed(1) + '</span></div>';
+  }
+
+  function _reliabilityNote(data) {
+    // Use score_confidence (multi-signal) when available; fall back to assessment_confidence.
+    var conf = (data && data.score_confidence) || (data && data.assessment_confidence);
+    if (!conf || conf === 'high') return '';
+
+    var isLow = conf === 'low';
+    var borderColor = isLow ? '#f87171' : '#fbbf24';
+    var bgColor     = isLow ? 'rgba(248,113,113,0.06)' : 'rgba(251,191,36,0.06)';
+    var bdColor     = isLow ? 'rgba(248,113,113,0.22)' : 'rgba(251,191,36,0.22)';
+
+    var msg = isLow
+      ? 'Âm thanh ghi âm có chất lượng hạn chế — điểm số và nhận xét lần này chỉ mang tính tham khảo. '
+        + 'Hãy thử ghi âm lại ở nơi yên tĩnh hơn hoặc nói to và rõ hơn để nhận được đánh giá chính xác hơn.'
+      : 'Một số phần nhận xét có thể cần xem như gợi ý tham khảo — chất lượng âm thanh hoặc tốc độ nói '
+        + 'có thể ảnh hưởng nhẹ đến độ chính xác của đánh giá.';
+
+    return '<div style="background:' + bgColor + ';border:1px solid ' + bdColor + ';'
+      + 'border-left:3px solid ' + borderColor + ';border-radius:10px;'
+      + 'padding:11px 14px;margin-bottom:14px;'
+      + 'font-size:12.5px;line-height:1.6;color:rgba(255,255,255,0.6);">'
+      + msg
+      + '</div>';
   }
 
   function _criterionBlock(title, text) {
@@ -1940,10 +1962,8 @@
       : '';
 
     el.innerHTML =
-      '<div style="margin-top:14px;padding:14px;background:rgba(20,184,166,0.05);'
+      '<div style="padding:14px 16px;background:rgba(20,184,166,0.05);'
       + 'border:1px solid rgba(20,184,166,0.2);border-radius:12px;">'
-      + '<p style="font-size:10px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
-      + 'letter-spacing:.08em;margin:0 0 10px;">Nhận xét phát âm</p>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
       + _pronChip('Tổng thể',   pronData.pronunciation_score)
       + _pronChip('Lưu loát',   pronData.fluency_score)
@@ -1951,8 +1971,8 @@
       + _pronChip('Đầy đủ',     pronData.completeness_score)
       + _pronChip('Ngữ điệu',   pronData.prosody_score)
       + '</div>'
-      + (summary ? '<ul style="font-size:12px;color:rgba(255,255,255,0.6);'
-          + 'padding-left:16px;margin:0 0 4px;line-height:1.6;">' + summary + '</ul>' : '')
+      + (summary ? '<ul style="font-size:12px;color:rgba(255,255,255,0.62);'
+          + 'padding-left:16px;margin:0 0 4px;line-height:1.7;">' + summary + '</ul>' : '')
       + wordHtml
       + '</div>';
   }
@@ -2053,7 +2073,7 @@
         + 'align-items:center;justify-content:space-between;gap:10px;">'
         + '<div>'
           + '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
-            + 'letter-spacing:.08em;margin:0 0 2px;">Đánh giá phát âm toàn bài</p>'
+            + 'letter-spacing:.08em;margin:0 0 2px;">Phân tích phát âm chuyên sâu</p>'
           + '<p style="font-size:10px;color:rgba(255,255,255,0.35);margin:0;">' + _esc(subtitle) + '</p>'
         + '</div>'
         + '<div style="text-align:center;">'
@@ -2074,7 +2094,8 @@
    * Non-blocking — shows spinner while loading.
    */
   function _fetchAndRenderFullPron() {
-    var el = $('full-pron-block');
+    var el      = $('full-pron-block');
+    var section = $('full-pron-section');
     if (!el) return;
 
     if (!_ftAllSessionIds.length) return;
@@ -2082,13 +2103,13 @@
     var primarySid = _ftAllSessionIds[0];
     var extraSids  = _ftAllSessionIds.slice(1);
 
-    // Show loading state
-    el.style.display = '';
+    // Show wrapper section + loading state inside the block
+    if (section) { section.style.display = ''; }
     el.innerHTML =
-      '<div style="border:1px solid rgba(20,184,166,0.2);border-radius:14px;padding:20px 16px;'
+      '<div style="border:1px solid rgba(20,184,166,0.15);border-radius:14px;padding:20px 16px;'
       + 'text-align:center;">'
-      + '<div class="spinner" style="width:24px;height:24px;border-width:2px;margin:0 auto 10px;"></div>'
-      + '<p style="font-size:12px;color:rgba(255,255,255,0.4);margin:0;">Đang phân tích phát âm toàn bài...</p>'
+      + '<div class="spinner" style="width:22px;height:22px;border-width:2px;margin:0 auto 10px;"></div>'
+      + '<p style="font-size:12px;color:rgba(255,255,255,0.38);margin:0;">Đang tổng hợp phân tích phát âm cho toàn bài...</p>'
       + '</div>';
 
     var base = (window.api && window.api.base) ? window.api.base : '';
@@ -2113,14 +2134,29 @@
       })
       .then(function (data) {
         _renderFullPronBlock(el, data);
+        // Surface aggregate confidence as a contextual note below the full pron block
+        if (data && data.overall_confidence && data.overall_confidence !== 'high') {
+          var confHtml = _reliabilityNote({ score_confidence: data.overall_confidence });
+          if (confHtml) {
+            var noteEl = document.createElement('div');
+            noteEl.innerHTML = confHtml;
+            el.appendChild(noteEl.firstChild);
+          }
+        }
+        // Post-hoc band adjustment: update overall band in full-test summary
+        if (data && data.final_overall_band != null) {
+          var overallEl = $('test-overall-band');
+          if (overallEl) {
+            overallEl.textContent = parseFloat(data.final_overall_band).toFixed(1);
+          }
+        }
       })
       .catch(function (err) {
         console.warn('[practice] full pron fetch failed:', err);
         el.innerHTML =
-          '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 16px;'
-          + 'text-align:center;">'
-          + '<p style="font-size:12px;color:rgba(255,255,255,0.3);margin:0;font-style:italic;">'
-          + 'Lần này chưa lấy được nhận xét phát âm — bạn thử lại sau nhé.</p>'
+          '<div style="border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:14px 16px;">'
+          + '<p style="font-size:12px;color:rgba(255,255,255,0.28);margin:0;line-height:1.6;font-style:italic;">'
+          + 'Chưa tổng hợp được phân tích phát âm cho bài này — nếu muốn xem kết quả, bạn thử lại sau nhé.</p>'
           + '</div>';
         el.style.display = '';
       });
@@ -2134,7 +2170,12 @@
   function assessSinglePronunciation(btn) {
     if (!_currentResponseId || !_sessionId) return;
 
-    var pronResult = $('pron-result-block');
+    var pronLoading = $('pron-loading-block');
+    var pronResult  = $('pron-result-block');
+
+    // Guard: ensure loading is visible, result is hidden (in case called externally)
+    if (pronLoading) { pronLoading.style.display = 'flex'; }
+    if (pronResult)  { pronResult.style.display = 'none'; }
 
     var base = (window.api && window.api.base) ? window.api.base : '';
     var sb = window.getSupabase ? window.getSupabase() : null;
@@ -2152,14 +2193,48 @@
         return r.json();
       })
       .then(function (data) {
+        // Hide loading, render result
+        if (pronLoading) { pronLoading.style.display = 'none'; }
         _renderPronBlock(pronResult, data);
+        if (pronResult)  { pronResult.style.display = ''; }
+
+        // If pronunciation signals updated score_confidence, refresh the note in-place
+        if (data && data.score_confidence) {
+          var confNote = document.getElementById('score-confidence-note');
+          if (confNote) {
+            confNote.innerHTML = _reliabilityNote({ score_confidence: data.score_confidence });
+          }
+        }
+        // Post-hoc band adjustment: update overall band circle if pronunciation improved it
+        if (data && data.final_overall_band != null) {
+          var bandEl = $('feedback-band');
+          if (bandEl) {
+            bandEl.textContent = parseFloat(data.final_overall_band).toFixed(1);
+          }
+        }
+        // Post-hoc band adjustment: update P criterion pill if in test mode
+        if (data && data.final_band_p != null) {
+          var bandsRow = $('feedback-bands-row');
+          if (bandsRow && bandsRow.style.display !== 'none') {
+            // Replace only the P pill — re-render the whole row preserving FC/LR/GRA
+            var pills = bandsRow.querySelectorAll('[data-criterion]');
+            pills.forEach(function (pill) {
+              if (pill.getAttribute('data-criterion') === 'P') {
+                pill.outerHTML = _bandPill('P', data.final_band_p);
+              }
+            });
+          }
+        }
       })
       .catch(function (err) {
         console.warn('[practice] single pron failed:', err);
+        // Hide loading, show gentle fallback in result block
+        if (pronLoading) { pronLoading.style.display = 'none'; }
         if (pronResult) {
           pronResult.innerHTML =
-            '<p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px;font-style:italic;">'
-            + 'Lần này chưa có nhận xét phát âm — bạn tiếp tục luyện tập nhé.</p>';
+            '<p style="font-size:12px;color:rgba(255,255,255,0.28);line-height:1.6;font-style:italic;">'
+            + 'Chưa phân tích được phát âm lần này — thử nói to và rõ hơn một chút ở câu tiếp theo nhé.</p>';
+          pronResult.style.display = '';
         }
       });
   }
@@ -2204,7 +2279,7 @@
       console.warn('[practice] session complete failed:', err.message);
     }
 
-    window.location.href = window.api.url('pages/dashboard.html') + '?completed=1';
+    window.location.href = window.api.url('pages/result.html') + '?id=' + encodeURIComponent(_sessionId);
   }
 
   // ── Waveform visualiser ───────────────────────────────────────────────────────
