@@ -65,41 +65,6 @@
       border-radius: 16px;
     }
 
-    .btn-primary {
-      background: #0F766E;
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background 0.15s;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-primary:hover { background: #0d6560; }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.06);
-      color: #e2e8f0;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      border: 1px solid rgba(255,255,255,0.1);
-      transition: background 0.15s;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-    .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
-
     .spinner {
       width: 40px; height: 40px;
       border: 3px solid rgba(20,184,166,0.2);
@@ -947,14 +912,25 @@
           });
         }
 
-        // Load responses directly from Supabase
-        // Note: responses are matched to questions by question_id, so ordering is not required.
-        // created_at is not in the responses schema — selecting it causes a 400 from PostgREST.
-        var responsesRes = await sb
-          .from('responses')
-          .select('id, question_id, transcript, feedback, audio_url, pronunciation_score, pronunciation_fluency, pronunciation_accuracy, pronunciation_status')
-          .eq('session_id', sessionId);
-        var responses = (responsesRes && responsesRes.data) ? responsesRes.data : [];
+        // Use responses already fetched by GET /sessions/{id} (admin key, bypasses RLS).
+        // Direct Supabase anon-key queries are blocked: responses has no user_id column
+        // so RLS cannot verify ownership, returning an empty array even on HTTP 200.
+        var responses = Array.isArray(session.responses) ? session.responses : [];
+
+        // Diagnostic logging — check browser DevTools console to see raw data
+        console.log('[result] session.id=', sessionId,
+          '| session.overall_band=', session.overall_band,
+          '| session.responses count=', responses.length,
+          '| questions count=', questions ? questions.length : 0);
+        if (responses.length > 0) {
+          console.log('[result] first response sample:', {
+            question_id: responses[0].question_id,
+            feedback_type: typeof responses[0].feedback,
+            overall_band: responses[0].overall_band,
+          });
+        } else {
+          console.warn('[result] session.responses is EMPTY — responses were not saved to DB or GET /sessions/{id} failed to load them');
+        }
 
         // ── Session meta ─────────────────────────────────────────────────────
         document.getElementById('meta-part').textContent  = 'Part ' + (session.part || '?');

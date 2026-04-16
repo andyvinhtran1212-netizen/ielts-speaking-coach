@@ -28,6 +28,7 @@ from routers.auth import get_supabase_user
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
 from services import ai_usage_logger
+from services.transcript_reliability import classify_reliability
 
 logger = logging.getLogger(__name__)
 
@@ -170,21 +171,30 @@ async def grade_response_endpoint(
                     _AUDIO_BUCKET,
                 )
 
-        transcript: str   = stt.get("transcript", "").strip()
-        duration_sec: float = stt.get("duration_seconds", 0.0)
-        confidence: float   = stt.get("confidence", 0.0)
+        transcript: str       = stt.get("transcript", "").strip()
+        duration_sec: float   = stt.get("duration_seconds", 0.0)
+        confidence: float     = stt.get("confidence", 0.0)
+        transcript_model: str = stt.get("transcript_model", "whisper-1")
+        stt_segments: list    = stt.get("segments", [])
 
         logger.info(
-            "[grading] Whisper OK — %d ký tự, %.1fs, conf=%.2f",
-            len(transcript), duration_sec, confidence,
+            "[grading] Whisper OK — %d ký tự, %.1fs, conf=%.2f, segments=%d",
+            len(transcript), duration_sec, confidence, len(stt_segments),
         )
 
         # Log Whisper usage (best-effort)
         ai_usage_logger.log_whisper(
             user_id=user_id,
             session_id=session_id,
-            model="whisper-1",
+            model=transcript_model,
             audio_seconds=duration_sec,
+        )
+
+        # ── Reliability classification ─────────────────────────────────────────
+        reliability = classify_reliability(transcript, stt_segments, duration_sec)
+        logger.info(
+            "[grading] transcript reliability: %s (score=%.3f)",
+            reliability["reliability_label"], reliability["reliability_score"],
         )
 
         # ── STEP 5: Duration guard (post-STT so we have the real value) ───────
@@ -209,6 +219,8 @@ async def grade_response_endpoint(
         grading: dict | None = None
         grading_error: str | None = None
 
+        word_count = len(transcript.split()) if transcript else 0
+
         try:
             grading = await claude_grader.grade_response(
                 question=question_text,
@@ -217,11 +229,18 @@ async def grade_response_endpoint(
                 mode=session_mode,
                 user_id=user_id,
                 session_id=session_id,
+                reliability=reliability,
+                duration_seconds=duration_sec,
+                word_count=word_count,
             )
             logger.info("[grading] Claude OK — overall_band=%.1f", grading["overall_band"])
         except Exception as e:
             grading_error = str(e)
             logger.error("[grading] Claude grader thất bại (non-fatal): %s", e)
+
+        # ── Score confidence (multi-signal) ───────────────────────────────────
+        score_confidence = _compute_score_confidence(reliability, duration_sec)
+        logger.info("[grading] score_confidence: %s", score_confidence)
 
         # ── STEP 7: Upsert response row ───────────────────────────────────────
         # Only write columns that exist in the current responses schema:
@@ -232,23 +251,34 @@ async def grade_response_endpoint(
         response_id: str | None = None
 
         db_row: dict = {
-            "session_id":         session_id,
-            "question_id":        question_id,
+            "session_id":                  session_id,
+            "question_id":                 question_id,
             # user_id intentionally omitted — not a column in the responses table
-            "audio_url":          audio_url,
+            "audio_url":                   audio_url,
             # storage_path is the bucket-relative path; used by /audio-urls to generate signed URLs.
             # Only set when upload succeeded (audio_url is not None).
-            "audio_storage_path": storage_path if audio_url else None,
-            "transcript":         transcript,
-            "stt_status":         "completed",
-            "grading_status":     "completed" if grading else "failed",
+            "audio_storage_path":          storage_path if audio_url else None,
+            "transcript":                  transcript,
+            "raw_transcript_text":         transcript,     # verbatim copy; reserved for future cleaning pass
+            "transcript_model":            transcript_model,
+            "transcript_reliability":      reliability["reliability_label"],
+            "transcript_reliability_score": reliability["reliability_score"],
+            "transcript_logprobs":         json.dumps(stt_segments, ensure_ascii=False) if stt_segments else None,
+            "assessment_confidence":       reliability["reliability_label"],
+            "score_confidence":            score_confidence,
+            "stt_status":                  "completed",
+            "grading_status":              "completed" if grading else "failed",
         }
 
         if grading:
             db_row["overall_band"] = grading["overall_band"]
             db_row["feedback"]     = json.dumps(grading, ensure_ascii=False)
 
-        try:
+        # Columns guaranteed to exist in the base schema (no migrations needed)
+        _CORE_COLUMNS = {"session_id", "question_id", "audio_url", "transcript",
+                         "feedback", "overall_band", "stt_status", "grading_status"}
+
+        def _upsert_response(row: dict) -> str | None:
             existing = (
                 supabase_admin.table("responses")
                 .select("id")
@@ -257,18 +287,27 @@ async def grade_response_endpoint(
                 .limit(1)
                 .execute()
             )
-
             if existing.data:
-                response_id = existing.data[0]["id"]
-                supabase_admin.table("responses").update(db_row).eq("id", response_id).execute()
+                rid = existing.data[0]["id"]
+                supabase_admin.table("responses").update(row).eq("id", rid).execute()
+                return rid
             else:
-                res = supabase_admin.table("responses").insert(db_row).execute()
-                response_id = res.data[0]["id"] if res.data else None
+                res = supabase_admin.table("responses").insert(row).execute()
+                return res.data[0]["id"] if res.data else None
 
-            logger.info("[grading] DB save OK — response_id=%s", response_id)
-
+        try:
+            response_id = _upsert_response(db_row)
+            logger.info("[grading] DB save OK (full row) — response_id=%s", response_id)
         except Exception as e:
-            logger.error("[grading] DB save FAILED (non-fatal): %s", e)
+            logger.warning("[grading] DB save failed with full row (%s) — retrying with core columns only", e)
+            # Retry with only the guaranteed base-schema columns so the response is still
+            # persisted even if optional migration columns (006/007/008) are not yet applied.
+            core_row = {k: v for k, v in db_row.items() if k in _CORE_COLUMNS}
+            try:
+                response_id = _upsert_response(core_row)
+                logger.info("[grading] DB save OK (core row) — response_id=%s — run migrations 006/007/008 to persist full metadata", response_id)
+            except Exception as e2:
+                logger.error("[grading] DB save FAILED even with core row: %s", e2)
 
         # ── STEP 8: Token tracking (only when grading succeeded) ──────────────
         if grading:
@@ -278,15 +317,19 @@ async def grade_response_endpoint(
         # ── STEP 9: Return result ─────────────────────────────────────────────
         logger.info("[grading] pipeline hoàn thành — session=%s question=%s", session_id, question_id)
 
+        assessment_confidence = reliability["reliability_label"]
+
         if not grading:
             # Audio + transcript saved; AI grading unavailable — tell the frontend
             return {
-                "_stub":          True,
-                "_error":         "AI grading is temporarily unavailable. Your recording and transcript were saved.",
-                "response_id":    response_id,
-                "transcript":     transcript,
-                "duration_seconds": round(duration_sec, 2),
-                "stt_confidence": round(confidence, 4),
+                "_stub":               True,
+                "_error":              "AI grading is temporarily unavailable. Your recording and transcript were saved.",
+                "response_id":         response_id,
+                "transcript":          transcript,
+                "duration_seconds":    round(duration_sec, 2),
+                "stt_confidence":      round(confidence, 4),
+                "assessment_confidence": assessment_confidence,
+                "score_confidence":    score_confidence,
             }
 
         # Practice mode returns a different schema than test mode
@@ -294,36 +337,40 @@ async def grade_response_endpoint(
 
         if is_practice:
             return {
-                "response_id":          response_id,
-                "transcript":           transcript,
-                "duration_seconds":     round(duration_sec, 2),
-                "stt_confidence":       round(confidence, 4),
-                "overall_band":         grading["overall_band"],
-                "grammar_issues":       grading["grammar_issues"],
-                "vocabulary_issues":    grading["vocabulary_issues"],
-                "pronunciation_issues": grading.get("pronunciation_issues", []),
-                "corrections":          grading["corrections"],
-                "strengths":            grading["strengths"],
-                "sample_answer":        grading["sample_answer"],
+                "response_id":           response_id,
+                "transcript":            transcript,
+                "duration_seconds":      round(duration_sec, 2),
+                "stt_confidence":        round(confidence, 4),
+                "assessment_confidence": assessment_confidence,
+                "score_confidence":      score_confidence,
+                "overall_band":          grading["overall_band"],
+                "grammar_issues":        grading["grammar_issues"],
+                "vocabulary_issues":     grading["vocabulary_issues"],
+                "pronunciation_issues":  grading.get("pronunciation_issues", []),
+                "corrections":           grading["corrections"],
+                "strengths":             grading["strengths"],
+                "sample_answer":         grading["sample_answer"],
             }
 
         return {
-            "response_id":       response_id,
-            "transcript":        transcript,
-            "duration_seconds":  round(duration_sec, 2),
-            "stt_confidence":    round(confidence, 4),
-            "band_fc":           grading["band_fc"],
-            "band_lr":           grading["band_lr"],
-            "band_gra":          grading["band_gra"],
-            "band_p":            grading["band_p"],
-            "overall_band":      grading["overall_band"],
-            "fc_feedback":       grading["fc_feedback"],
-            "lr_feedback":       grading["lr_feedback"],
-            "gra_feedback":      grading["gra_feedback"],
-            "p_feedback":        grading["p_feedback"],
-            "strengths":         grading["strengths"],
-            "improvements":      grading["improvements"],
-            "improved_response": grading["improved_response"],
+            "response_id":           response_id,
+            "transcript":            transcript,
+            "duration_seconds":      round(duration_sec, 2),
+            "stt_confidence":        round(confidence, 4),
+            "assessment_confidence": assessment_confidence,
+            "score_confidence":      score_confidence,
+            "band_fc":               grading["band_fc"],
+            "band_lr":               grading["band_lr"],
+            "band_gra":              grading["band_gra"],
+            "band_p":                grading["band_p"],
+            "overall_band":          grading["overall_band"],
+            "fc_feedback":           grading["fc_feedback"],
+            "lr_feedback":           grading["lr_feedback"],
+            "gra_feedback":          grading["gra_feedback"],
+            "p_feedback":            grading["p_feedback"],
+            "strengths":             grading["strengths"],
+            "improvements":          grading["improvements"],
+            "improved_response":     grading["improved_response"],
         }
 
     except HTTPException:
@@ -334,6 +381,24 @@ async def grade_response_endpoint(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _compute_score_confidence(reliability: dict, duration_sec: float) -> str:
+    """
+    Compute overall score_confidence from transcript reliability + duration signal.
+
+    Rules (most restrictive wins):
+      low  → reliability_label == "low"
+           OR duration < 10s (too short to assess meaningfully)
+      high → reliability_label == "high" AND 20 <= duration <= 180
+      medium → everything else
+    """
+    label = reliability.get("reliability_label", "high")
+    if label == "low" or duration_sec < 10.0:
+        return "low"
+    if label == "high" and 20.0 <= duration_sec <= 180.0:
+        return "high"
+    return "medium"
+
 
 def _guess_ext(filename: str | None, content_type: str | None) -> str:
     """Trả extension phù hợp để lưu trên Storage."""

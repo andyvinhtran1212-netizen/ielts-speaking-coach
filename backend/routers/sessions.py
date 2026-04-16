@@ -360,8 +360,10 @@ async def get_session(
             .eq("session_id", session_id)
             .execute()
         )
-        responses = r_result.data
-    except Exception:
+        responses = r_result.data or []
+        logger.info("[get_session] %s responses loaded for session=%s", len(responses), session_id)
+    except Exception as exc:
+        logger.error("[get_session] responses query FAILED for session=%s: %s", session_id, exc)
         responses = []
 
     return {
