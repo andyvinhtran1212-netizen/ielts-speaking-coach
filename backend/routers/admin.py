@@ -67,12 +67,16 @@ def _gen_code() -> str:
 # ── Request models ─────────────────────────────────────────────────────────────
 
 class GenerateCodesRequest(BaseModel):
-    count:       int        = Field(ge=1, le=100, description="Số mã cần tạo (1–100)")
-    permissions: list[str]  = Field(default=["all"], description='Danh sách quyền, ví dụ ["all"] hoặc ["practice","test_part"]')
+    count:         int              = Field(ge=1, le=100, description="Số mã cần tạo (1–100)")
+    permissions:   list[str]        = Field(default=["all"], description='Danh sách quyền, ví dụ ["all"] hoặc ["practice","test_part"]')
+    session_limit: int | None       = Field(default=None, ge=1, description="Giới hạn số sessions (null = không giới hạn)")
+    expires_at:    str | None       = Field(default=None, description="Ngày hết hạn ISO 8601 (null = không hết hạn)")
 
 
 class PatchCodeRequest(BaseModel):
-    permissions: list[str] | None = None
+    permissions:   list[str] | None = None
+    session_limit: int | None       = None
+    expires_at:    str | None       = None
 
 
 class CreateTopicRequest(BaseModel):
@@ -238,7 +242,12 @@ async def generate_access_codes(
     await require_admin(authorization)
 
     codes = [_gen_code() for _ in range(body.count)]
-    rows  = [{"code": c, "is_used": False, "permissions": body.permissions} for c in codes]
+    row_base: dict = {"is_used": False, "is_active": True, "permissions": body.permissions}
+    if body.session_limit is not None:
+        row_base["session_limit"] = body.session_limit
+    if body.expires_at is not None:
+        row_base["expires_at"] = body.expires_at
+    rows = [{**row_base, "code": c} for c in codes]
 
     try:
         result = supabase_admin.table("access_codes").insert(rows).execute()
@@ -252,13 +261,13 @@ async def generate_access_codes(
 
 @router.get("/access-codes")
 async def list_access_codes(authorization: str | None = Header(default=None)):
-    """List all access codes, enriched with the email of the user who used each one."""
+    """List all access codes, enriched with assigned user count."""
     await require_admin(authorization)
 
     try:
         codes_res = (
             supabase_admin.table("access_codes")
-            .select("id, code, is_used, is_revoked, used_by, used_at, created_at, permissions")
+            .select("id, code, is_used, is_revoked, is_active, used_by, used_at, created_at, permissions, session_limit, expires_at")
             .order("created_at", desc=True)
             .execute()
         )
@@ -267,24 +276,29 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
 
     codes = codes_res.data or []
 
-    # Enrich: look up email for each used_by user_id
-    user_ids = list({c["used_by"] for c in codes if c.get("used_by")})
-    email_map: dict[str, str] = {}
-    if user_ids:
-        try:
-            users_res = (
-                supabase_admin.table("users")
-                .select("id, email")
-                .in_("id", user_ids)
-                .execute()
-            )
-            for u in (users_res.data or []):
-                email_map[u["id"]] = u.get("email") or ""
-        except Exception:
-            pass
+    if not codes:
+        return codes
+
+    code_ids = [c["id"] for c in codes]
+
+    # Count active assignments per code
+    assigned_counts: dict[str, int] = {}
+    try:
+        asgn_res = (
+            supabase_admin.table("user_code_assignments")
+            .select("code_id")
+            .in_("code_id", code_ids)
+            .eq("is_active", True)
+            .execute()
+        )
+        for row in (asgn_res.data or []):
+            cid = row["code_id"]
+            assigned_counts[cid] = assigned_counts.get(cid, 0) + 1
+    except Exception:
+        pass
 
     for c in codes:
-        c["used_by_email"] = email_map.get(c.get("used_by") or "", None)
+        c["assigned_user_count"] = assigned_counts.get(c["id"], 0)
 
     return codes
 
@@ -300,9 +314,13 @@ async def patch_access_code(
     """Update permissions on an existing access code."""
     await require_admin(authorization)
 
+    # Use model_fields_set to distinguish "field omitted" vs "field set to null"
+    set_fields = body.model_fields_set
     update: dict = {}
-    if body.permissions is not None:
-        update["permissions"] = body.permissions
+    if "permissions"   in set_fields: update["permissions"]   = body.permissions
+    if "session_limit" in set_fields: update["session_limit"] = body.session_limit
+    if "expires_at"    in set_fields: update["expires_at"]    = body.expires_at
+    if "is_active"     in set_fields: update["is_active"]     = body.is_active
 
     if not update:
         raise HTTPException(400, "Không có trường nào để cập nhật")
@@ -333,13 +351,12 @@ async def delete_access_code(
     """
     Soft-revoke an access code.
 
-    Sets is_revoked=true on the code (preserving audit trail) and also sets
-    is_active=false on every user who activated with this code, immediately
-    blocking them from creating new sessions.
+    Blocked if any active user assignments exist — admin must remove all users first.
+    Sets is_revoked=true on the code (preserving audit trail).
     """
     await require_admin(authorization)
 
-    # Fetch the code first so we can cascade by code string
+    # Fetch the code first
     try:
         code_res = (
             supabase_admin.table("access_codes")
@@ -358,18 +375,187 @@ async def delete_access_code(
     if row.get("is_revoked"):
         return  # already revoked — idempotent
 
+    # Block if active user assignments exist
+    try:
+        active_res = (
+            supabase_admin.table("user_code_assignments")
+            .select("id", count="exact")
+            .eq("code_id", code_id)
+            .eq("is_active", True)
+            .execute()
+        )
+        active_count = active_res.count or 0
+    except Exception:
+        active_count = 0
+
+    if active_count > 0:
+        raise HTTPException(
+            400,
+            f"Không thể thu hồi: còn {active_count} user đang dùng mã này. "
+            "Hãy gỡ tất cả user khỏi mã trước."
+        )
+
     # Mark code as revoked
     try:
-        supabase_admin.table("access_codes").update({"is_revoked": True}).eq("id", code_id).execute()
+        supabase_admin.table("access_codes").update({"is_revoked": True, "is_active": False}).eq("id", code_id).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi thu hồi access code: {exc}")
 
-    # Cascade: deactivate all users who used this code
+
+# ── GET /admin/access-codes/{code_id} ─────────────────────────────────────────
+
+@router.get("/access-codes/{code_id}")
+async def get_access_code_detail(
+    code_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Return code metadata + list of assigned users."""
+    await require_admin(authorization)
+
     try:
-        supabase_admin.table("users").update({"is_active": False}).eq("access_code_used", row["code"]).execute()
+        code_res = (
+            supabase_admin.table("access_codes")
+            .select("id, code, is_used, is_revoked, is_active, used_by, used_at, created_at, permissions, session_limit, expires_at")
+            .eq("id", code_id)
+            .limit(1)
+            .execute()
+        )
     except Exception as exc:
-        # Non-fatal — log but don't fail the request
-        logger.warning("[warn] Could not cascade-deactivate users for revoked code %s: %s", code_id, exc)
+        raise HTTPException(500, f"Lỗi khi tải access code: {exc}")
+
+    if not code_res.data:
+        raise HTTPException(404, "Access code không tồn tại")
+
+    code = code_res.data[0]
+
+    # Fetch assignments
+    try:
+        asgn_res = (
+            supabase_admin.table("user_code_assignments")
+            .select("id, user_id, assigned_at, is_active")
+            .eq("code_id", code_id)
+            .order("assigned_at", desc=True)
+            .execute()
+        )
+        assignments = asgn_res.data or []
+    except Exception:
+        assignments = []
+
+    # Enrich with user emails
+    user_ids = [a["user_id"] for a in assignments]
+    user_map: dict[str, dict] = {}
+    if user_ids:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("id, email, display_name")
+                .in_("id", user_ids)
+                .execute()
+            )
+            for u in (ur.data or []):
+                user_map[u["id"]] = {"email": u.get("email", ""), "display_name": u.get("display_name", "")}
+        except Exception:
+            pass
+
+    for a in assignments:
+        info = user_map.get(a["user_id"], {})
+        a["email"]        = info.get("email", "")
+        a["display_name"] = info.get("display_name", "")
+
+    code["assignments"] = assignments
+    return code
+
+
+# ── DELETE /admin/access-codes/{code_id}/users/{user_id} ──────────────────────
+
+@router.delete("/access-codes/{code_id}/users/{user_id}", status_code=204)
+async def remove_user_from_code(
+    code_id: str,
+    user_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Deactivate a user's assignment to a code.
+    Never deletes session history. Does NOT deactivate the user account.
+    """
+    await require_admin(authorization)
+
+    try:
+        res = (
+            supabase_admin.table("user_code_assignments")
+            .update({"is_active": False})
+            .eq("code_id", code_id)
+            .eq("user_id", user_id)
+            .eq("is_active", True)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi gỡ user khỏi code: {exc}")
+
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy assignment này")
+
+
+# ── DELETE /admin/access-codes/{code_id}/remove (hard delete) ─────────────────
+
+@router.delete("/access-codes/{code_id}/remove", status_code=204)
+async def hard_delete_access_code(
+    code_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Hard-delete an access code from the database.
+    Blocked if any active user assignments exist.
+    Cascades to delete all assignments for this code first (since no active ones exist).
+    """
+    await require_admin(authorization)
+
+    # Verify code exists
+    try:
+        code_res = (
+            supabase_admin.table("access_codes")
+            .select("id")
+            .eq("id", code_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải access code: {exc}")
+
+    if not code_res.data:
+        raise HTTPException(404, "Access code không tồn tại")
+
+    # Block if active assignments exist
+    try:
+        active_res = (
+            supabase_admin.table("user_code_assignments")
+            .select("id", count="exact")
+            .eq("code_id", code_id)
+            .eq("is_active", True)
+            .execute()
+        )
+        active_count = active_res.count or 0
+    except Exception:
+        active_count = 0
+
+    if active_count > 0:
+        raise HTTPException(
+            400,
+            f"Không thể xóa: còn {active_count} user đang dùng mã này. "
+            "Hãy gỡ tất cả user khỏi mã trước (trong Chi tiết → Gỡ khỏi code)."
+        )
+
+    # Delete all (inactive) assignments first
+    try:
+        supabase_admin.table("user_code_assignments").delete().eq("code_id", code_id).execute()
+    except Exception:
+        pass
+
+    # Hard-delete the code
+    try:
+        supabase_admin.table("access_codes").delete().eq("id", code_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi xóa access code: {exc}")
 
 
 # ── GET /admin/topics ──────────────────────────────────────────────────────────

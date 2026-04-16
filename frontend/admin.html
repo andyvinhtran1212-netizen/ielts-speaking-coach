@@ -326,6 +326,24 @@
                 </label>
               </div>
             </div>
+            <!-- Session limit -->
+            <div>
+              <label class="block text-xs mb-2" style="color:rgba(255,255,255,0.4);">Giới hạn sessions</label>
+              <label class="flex items-center gap-2 cursor-pointer mb-2">
+                <input type="checkbox" id="gen-limit-enabled" style="accent-color:#14b8a6;" onchange="document.getElementById('gen-limit-val').disabled=!this.checked;" />
+                <span class="text-xs" style="color:rgba(255,255,255,0.65);">Có giới hạn</span>
+              </label>
+              <input id="gen-limit-val" type="number" min="1" value="30" disabled class="inp" style="width:100px;" placeholder="VD: 30" />
+            </div>
+            <!-- Expiry -->
+            <div>
+              <label class="block text-xs mb-2" style="color:rgba(255,255,255,0.4);">Hết hạn lúc</label>
+              <label class="flex items-center gap-2 cursor-pointer mb-2">
+                <input type="checkbox" id="gen-expiry-enabled" style="accent-color:#14b8a6;" onchange="document.getElementById('gen-expiry-val').disabled=!this.checked;" />
+                <span class="text-xs" style="color:rgba(255,255,255,0.65);">Có hạn dùng</span>
+              </label>
+              <input id="gen-expiry-val" type="date" disabled class="inp" style="width:140px;" />
+            </div>
             <div class="flex flex-col gap-2 pt-5">
               <button id="btn-gen" class="btn-primary" onclick="generateCodes()">Tạo mã</button>
               <button class="btn-secondary" onclick="exportCsvCodes()">
@@ -353,9 +371,10 @@
                   <tr>
                     <th>Mã</th>
                     <th>Trạng thái</th>
-                    <th>Used by (email)</th>
-                    <th>Thời gian sử dụng</th>
+                    <th class="text-center">Users</th>
                     <th>Ngày tạo</th>
+                    <th>Giới hạn sessions</th>
+                    <th>Hết hạn</th>
                     <th>Quyền</th>
                     <th></th>
                   </tr>
@@ -1346,24 +1365,33 @@
       var tbody = document.getElementById('codes-tbody');
       tbody.innerHTML = codes.map(function (c) {
         var badge = c.is_revoked
-          ? '<span class="badge-used" style="background:rgba(248,113,113,0.15);color:#f87171;border-color:rgba(248,113,113,0.3);">Đã thu hồi</span>'
+          ? '<span class="badge-used" style="background:rgba(248,113,113,0.15);color:#f87171;">Đã thu hồi</span>'
           : c.is_used
             ? '<span class="badge-used">Đã dùng</span>'
             : '<span class="badge-on">Chưa dùng</span>';
         var perms = Array.isArray(c.permissions) ? c.permissions.join(', ') : (c.permissions || 'all');
-        var revokeBtn = c.is_revoked
-          ? '<button disabled title="Đã thu hồi" style="color:rgba(248,113,113,0.4);font-size:13px;padding:2px 6px;border-radius:6px;border:1px solid rgba(248,113,113,0.15);background:transparent;cursor:default;">Thu hồi</button>'
-          : '<button onclick="revokeCode(\'' + esc(c.id) + '\')" title="Thu hồi mã và vô hiệu tài khoản liên quan" style="color:#f87171;font-size:13px;padding:2px 6px;border-radius:6px;border:1px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.08);cursor:pointer;">Thu hồi</button>';
-        var actions = revokeBtn
-          + ' <button onclick="editPermissions(\'' + esc(c.id) + '\',\'' + esc(perms) + '\')" title="Sửa quyền" style="color:#60a5fa;font-size:13px;padding:2px 6px;border-radius:6px;border:1px solid rgba(96,165,250,0.3);background:rgba(96,165,250,0.08);cursor:pointer;margin-left:4px;">Sửa</button>';
+        var userCount = c.assigned_user_count || 0;
+        var userBadge = userCount > 0
+          ? '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(20,184,166,0.18);color:#14b8a6;font-weight:700;font-size:12px;">' + userCount + '</span>'
+          : '<span style="color:rgba(255,255,255,0.25);font-size:12px;">—</span>';
+        var limitTxt = c.session_limit != null ? c.session_limit + ' sessions' : '<span style="color:rgba(255,255,255,0.25);">Không giới hạn</span>';
+        var expiryTxt = c.expires_at ? fmtDate(c.expires_at) : '<span style="color:rgba(255,255,255,0.25);">Không hết hạn</span>';
+        var BTN = 'font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;margin:2px;white-space:nowrap;font-weight:600;';
+        var detailBtn  = '<button onclick="viewCodeDetail(\'' + esc(c.id) + '\')" style="' + BTN + 'color:#a78bfa;border:1px solid rgba(167,139,250,0.35);background:rgba(167,139,250,0.1);">Chi tiết</button>';
+        var editBtn    = '<button onclick="editCode(\'' + esc(c.id) + '\')" style="' + BTN + 'color:#60a5fa;border:1px solid rgba(96,165,250,0.35);background:rgba(96,165,250,0.1);">Sửa</button>';
+        var revokeBtn  = c.is_revoked
+          ? '<button disabled style="' + BTN + 'color:rgba(248,113,113,0.35);border:1px solid rgba(248,113,113,0.12);background:transparent;cursor:default;opacity:0.5;">Thu hồi</button>'
+          : '<button onclick="revokeCode(\'' + esc(c.id) + '\')" style="' + BTN + 'color:#f87171;border:1px solid rgba(248,113,113,0.35);background:rgba(248,113,113,0.1);">Thu hồi</button>';
+        var deleteBtn  = '<button onclick="deleteCode(\'' + esc(c.id) + '\',this)" style="' + BTN + 'color:#fbbf24;border:1px solid rgba(251,191,36,0.35);background:rgba(251,191,36,0.08);">Xóa mã</button>';
         return '<tr>'
           + '<td><span class="code-mono">' + esc(c.code) + '</span></td>'
           + '<td>' + badge + '</td>'
-          + '<td style="color:rgba(255,255,255,0.55);">' + esc(c.used_by_email || '—') + '</td>'
-          + '<td style="color:rgba(255,255,255,0.45);font-size:12px;">' + fmtDate(c.used_at) + '</td>'
+          + '<td class="text-center">' + userBadge + '</td>'
           + '<td style="color:rgba(255,255,255,0.35);font-size:12px;">' + fmtDate(c.created_at) + '</td>'
+          + '<td style="font-size:12px;">' + limitTxt + '</td>'
+          + '<td style="font-size:12px;">' + expiryTxt + '</td>'
           + '<td style="color:rgba(255,255,255,0.55);font-size:12px;">' + esc(perms) + '</td>'
-          + '<td style="white-space:nowrap;">' + actions + '</td>'
+          + '<td style="white-space:nowrap;">' + detailBtn + editBtn + revokeBtn + deleteBtn + '</td>'
           + '</tr>';
       }).join('');
     }
@@ -1401,15 +1429,28 @@
         return;
       }
 
+      var payload = { count: count, permissions: perms };
+
+      var limitEnabled = document.getElementById('gen-limit-enabled').checked;
+      if (limitEnabled) {
+        var limitVal = parseInt(document.getElementById('gen-limit-val').value, 10);
+        if (limitVal >= 1) payload.session_limit = limitVal;
+      }
+
+      var expiryEnabled = document.getElementById('gen-expiry-enabled').checked;
+      if (expiryEnabled) {
+        var expiryVal = document.getElementById('gen-expiry-val').value;
+        if (expiryVal) payload.expires_at = expiryVal + 'T23:59:59Z';
+      }
+
       btn.disabled = true;
       btn.textContent = 'Đang tạo…';
       resultEl.classList.add('hidden');
 
       try {
-        var res = await apiPost('/admin/access-codes/generate', { count: count, permissions: perms });
+        var res = await apiPost('/admin/access-codes/generate', payload);
         resultEl.textContent = '✓ Đã tạo ' + res.created + ' mã mới.';
         resultEl.classList.remove('hidden');
-        // Reload codes list
         _loaded.codes = false;
         var codes = await apiGet('/admin/access-codes');
         _codesData = codes;
@@ -1444,16 +1485,118 @@
     };
 
     window.revokeCode = async function (codeId) {
-      if (!confirm('Thu hồi access code này?\n\nTất cả tài khoản đã kích hoạt bằng mã này sẽ bị vô hiệu hóa ngay lập tức.\nMã sẽ được đánh dấu "Đã thu hồi" (không xóa khỏi DB).')) return;
+      if (!confirm('Thu hồi access code này?\n\nMã sẽ được đánh dấu "Đã thu hồi" (không xóa khỏi DB).\nLưu ý: nếu còn user đang dùng mã này, bạn cần gỡ họ trước.')) return;
       try {
         await apiDelete('/admin/access-codes/' + codeId);
-        // Update local state: mark as revoked instead of removing
         _codesData = _codesData.map(function (c) {
-          return c.id === codeId ? Object.assign({}, c, { is_revoked: true }) : c;
+          return c.id === codeId ? Object.assign({}, c, { is_revoked: true, is_active: false }) : c;
         });
         renderCodes(_codesData);
       } catch (err) {
         alert('Lỗi khi thu hồi mã: ' + err.message);
+      }
+    };
+
+    window.viewCodeDetail = async function (codeId) {
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.style.zIndex = '60';
+      overlay.innerHTML = '<div class="modal-box" style="max-width:520px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
+        + '<h3 style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.85);">Chi tiết access code</h3>'
+        + '<button id="cd-close" style="background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:18px;line-height:1;">&#x2715;</button>'
+        + '</div>'
+        + '<div id="cd-body" style="min-height:80px;display:flex;align-items:center;justify-content:center;">'
+        + '<div class="spinner"></div>'
+        + '</div>'
+        + '</div>';
+
+      document.body.appendChild(overlay);
+
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) document.body.removeChild(overlay); });
+      document.getElementById('cd-close').addEventListener('click', function () { document.body.removeChild(overlay); });
+
+      try {
+        var detail = await apiGet('/admin/access-codes/' + codeId);
+        var assignments = detail.assignments || [];
+        var perms = Array.isArray(detail.permissions) ? detail.permissions.join(', ') : (detail.permissions || 'all');
+
+        var metaHtml = '<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;">'
+          + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">MÃ</span><span class="code-mono">' + esc(detail.code) + '</span></div>'
+          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">TRẠNG THÁI</span>'
+          + (detail.is_revoked ? '<span class="badge-used" style="background:rgba(248,113,113,0.15);color:#f87171;">Đã thu hồi</span>'
+            : detail.is_used ? '<span class="badge-used">Đã dùng</span>'
+            : '<span class="badge-on">Chưa dùng</span>') + '</div>'
+          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">GIỚI HẠN SESSIONS</span><span style="color:rgba(255,255,255,0.7);">' + (detail.session_limit != null ? detail.session_limit : 'Không giới hạn') + '</span></div>'
+          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">HẾT HẠN</span><span style="color:rgba(255,255,255,0.7);">' + (detail.expires_at ? fmtDate(detail.expires_at) : 'Không hết hạn') + '</span></div>'
+          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">QUYỀN</span><span style="color:rgba(255,255,255,0.7);">' + esc(perms) + '</span></div>'
+          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">NGÀY TẠO</span><span style="color:rgba(255,255,255,0.7);font-size:12px;">' + fmtDate(detail.created_at) + '</span></div>'
+          + '</div>'
+          + '</div>';
+
+        var userRowsHtml;
+        if (assignments.length === 0) {
+          userRowsHtml = '<p style="text-align:center;color:rgba(255,255,255,0.3);font-size:13px;padding:16px 0;">Chưa có user nào dùng mã này.</p>';
+        } else {
+          userRowsHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+            + '<thead><tr style="border-bottom:1px solid rgba(255,255,255,0.07);">'
+            + '<th style="text-align:left;padding:6px 10px;font-size:11px;font-weight:600;text-transform:uppercase;color:rgba(255,255,255,0.35);">Email</th>'
+            + '<th style="text-align:left;padding:6px 10px;font-size:11px;font-weight:600;text-transform:uppercase;color:rgba(255,255,255,0.35);">Ngày gán</th>'
+            + '<th style="text-align:left;padding:6px 10px;font-size:11px;font-weight:600;text-transform:uppercase;color:rgba(255,255,255,0.35);">Trạng thái</th>'
+            + '<th></th>'
+            + '</tr></thead><tbody>'
+            + assignments.map(function (a) {
+                var activeBadge = a.is_active
+                  ? '<span class="badge-on">Active</span>'
+                  : '<span class="badge-off">Đã gỡ</span>';
+                var removeBtn = a.is_active
+                  ? '<button onclick="removeUserFromCode(\'' + esc(codeId) + '\',\'' + esc(a.user_id) + '\',this)" style="color:#f87171;font-size:12px;padding:2px 8px;border-radius:6px;border:1px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.08);cursor:pointer;white-space:nowrap;">Gỡ khỏi code</button>'
+                  : '';
+                return '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">'
+                  + '<td style="padding:8px 10px;color:rgba(255,255,255,0.65);">' + esc(a.email || a.user_id) + '</td>'
+                  + '<td style="padding:8px 10px;color:rgba(255,255,255,0.35);font-size:12px;">' + fmtDate(a.assigned_at) + '</td>'
+                  + '<td style="padding:8px 10px;">' + activeBadge + '</td>'
+                  + '<td style="padding:8px 10px;">' + removeBtn + '</td>'
+                  + '</tr>';
+              }).join('')
+            + '</tbody></table>';
+        }
+
+        var usersSection = '<div>'
+          + '<p style="font-size:11px;font-weight:600;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:8px;">Users (' + assignments.length + ')</p>'
+          + userRowsHtml
+          + '</div>';
+
+        document.getElementById('cd-body').innerHTML = metaHtml + usersSection;
+      } catch (err) {
+        document.getElementById('cd-body').innerHTML = '<p style="color:#f87171;font-size:13px;">Lỗi: ' + esc(err.message) + '</p>';
+      }
+    };
+
+    window.removeUserFromCode = async function (codeId, userId, btn) {
+      if (!confirm('Gỡ user này khỏi code?\n\nLịch sử session của họ sẽ không bị xóa.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Đang gỡ…';
+      try {
+        await apiDelete('/admin/access-codes/' + codeId + '/users/' + userId);
+        // Update count in _codesData
+        _codesData = _codesData.map(function (c) {
+          if (c.id !== codeId) return c;
+          return Object.assign({}, c, { assigned_user_count: Math.max(0, (c.assigned_user_count || 1) - 1) });
+        });
+        renderCodes(_codesData);
+        // Update the row in the detail modal
+        var row = btn.closest('tr');
+        if (row) {
+          var statusCell = row.cells[2];
+          if (statusCell) statusCell.innerHTML = '<span class="badge-off">Đã gỡ</span>';
+          btn.remove();
+        }
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Gỡ khỏi code';
       }
     };
 
@@ -1541,6 +1684,189 @@
           document.getElementById('ep-confirm').textContent = 'Lưu';
         }
       });
+    };
+
+    // ── EDIT CODE ──────────────────────────────────────────────
+    window.editCode = function (codeId) {
+      var c = (_codesData || []).find(function (x) { return x.id === codeId; });
+      if (!c) { alert('Không tìm thấy code.'); return; }
+
+      var PERM_OPTS = [
+        { id: 'ec-single', value: 'practice_single', label: 'Luyện tập' },
+        { id: 'ec-part',   value: 'practice_part',   label: 'Luyện từng Part' },
+        { id: 'ec-full',   value: 'practice_full',   label: 'Full Test' },
+        { id: 'ec-admin',  value: 'admin',            label: 'Admin' },
+      ];
+
+      var currentPerms = Array.isArray(c.permissions) ? c.permissions : (c.permissions || 'all').split(',').map(function(s){return s.trim();});
+      var isAll = currentPerms.includes('all') || currentPerms.length === 0;
+      var hasLimit = typeof c.session_limit === 'number' && c.session_limit !== null;
+      var hasExpiry = !!c.expires_at;
+      var expiryDate = hasExpiry ? c.expires_at.substring(0, 10) : '';
+      var isActive = c.is_active !== false;
+
+      var permRows = PERM_OPTS.map(function (o) {
+        var checked = !isAll && currentPerms.includes(o.value) ? 'checked' : '';
+        var dis = isAll ? 'disabled' : '';
+        return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:5px;">'
+          + '<input type="checkbox" id="' + o.id + '" value="' + o.value + '" ' + checked + ' ' + dis + ' style="accent-color:#14b8a6;">'
+          + '<span style="font-size:13px;color:rgba(255,255,255,0.75);" class="ec-ind-label">' + o.label + '</span>'
+          + '</label>';
+      }).join('');
+
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;overflow-y:auto;';
+      overlay.innerHTML = '<div style="background:#0C2340;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;min-width:320px;max-width:420px;width:92%;margin:auto;">'
+        + '<h3 style="font-size:15px;font-weight:700;color:#fff;margin-bottom:20px;">Sửa access code</h3>'
+
+        /* Permissions */
+        + '<div style="margin-bottom:16px;">'
+        + '<div style="font-size:12px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Quyền truy cập</div>'
+        + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;">'
+        + '<input type="checkbox" id="ec-all" ' + (isAll ? 'checked' : '') + ' style="accent-color:#14b8a6;">'
+        + '<span style="font-size:13px;font-weight:600;color:#14b8a6;">All / Toàn quyền</span>'
+        + '</label>'
+        + permRows
+        + '</div>'
+
+        /* Session limit */
+        + '<div style="margin-bottom:16px;">'
+        + '<div style="font-size:12px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Giới hạn sessions</div>'
+        + '<div style="display:flex;align-items:center;gap:10px;">'
+        + '<input type="checkbox" id="ec-limit-enabled" ' + (hasLimit ? 'checked' : '') + ' style="accent-color:#14b8a6;">'
+        + '<label for="ec-limit-enabled" style="font-size:13px;color:rgba(255,255,255,0.6);">Giới hạn số sessions</label>'
+        + '</div>'
+        + '<input id="ec-limit-val" type="number" min="1" value="' + (hasLimit ? c.session_limit : 30) + '" ' + (hasLimit ? '' : 'disabled') + ' style="margin-top:8px;width:120px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-size:13px;">'
+        + '</div>'
+
+        /* Expiry */
+        + '<div style="margin-bottom:16px;">'
+        + '<div style="font-size:12px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Ngày hết hạn</div>'
+        + '<div style="display:flex;align-items:center;gap:10px;">'
+        + '<input type="checkbox" id="ec-expiry-enabled" ' + (hasExpiry ? 'checked' : '') + ' style="accent-color:#14b8a6;">'
+        + '<label for="ec-expiry-enabled" style="font-size:13px;color:rgba(255,255,255,0.6);">Có ngày hết hạn</label>'
+        + '</div>'
+        + '<input id="ec-expiry-val" type="date" value="' + expiryDate + '" ' + (hasExpiry ? '' : 'disabled') + ' style="margin-top:8px;width:160px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-size:13px;color-scheme:dark;">'
+        + '</div>'
+
+        /* is_active */
+        + '<div style="margin-bottom:20px;">'
+        + '<div style="font-size:12px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Trạng thái</div>'
+        + '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;">'
+        + '<input type="checkbox" id="ec-is-active" ' + (isActive ? 'checked' : '') + ' style="accent-color:#14b8a6;">'
+        + '<span style="font-size:13px;color:rgba(255,255,255,0.75);">Kích hoạt (is_active)</span>'
+        + '</label>'
+        + '</div>'
+
+        /* Buttons */
+        + '<div style="display:flex;gap:10px;">'
+        + '<button id="ec-cancel" style="flex:1;padding:9px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:rgba(255,255,255,0.55);font-size:13px;cursor:pointer;">Hủy</button>'
+        + '<button id="ec-save" style="flex:1;padding:9px 0;border-radius:8px;border:none;background:#0F766E;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Lưu</button>'
+        + '</div>'
+        + '</div>';
+
+      document.body.appendChild(overlay);
+
+      /* Wire permissions All toggle */
+      var ecAll = document.getElementById('ec-all');
+      ecAll.addEventListener('change', function () {
+        var allOn = ecAll.checked;
+        PERM_OPTS.forEach(function (o) {
+          var el = document.getElementById(o.id);
+          el.disabled = allOn;
+          if (allOn) el.checked = false;
+        });
+        overlay.querySelectorAll('.ec-ind-label').forEach(function (el) {
+          el.style.color = allOn ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.75)';
+        });
+      });
+
+      /* Wire limit toggle */
+      document.getElementById('ec-limit-enabled').addEventListener('change', function () {
+        document.getElementById('ec-limit-val').disabled = !this.checked;
+      });
+
+      /* Wire expiry toggle */
+      document.getElementById('ec-expiry-enabled').addEventListener('change', function () {
+        document.getElementById('ec-expiry-val').disabled = !this.checked;
+      });
+
+      document.getElementById('ec-cancel').addEventListener('click', function () {
+        document.body.removeChild(overlay);
+      });
+
+      document.getElementById('ec-save').addEventListener('click', async function () {
+        var saveBtn = this;
+        /* Build permissions */
+        var perms;
+        if (document.getElementById('ec-all').checked) {
+          perms = ['all'];
+        } else {
+          perms = PERM_OPTS
+            .map(function (o) { return document.getElementById(o.id); })
+            .filter(function (el) { return el.checked; })
+            .map(function (el) { return el.value; });
+          if (perms.length === 0) perms = ['all'];
+        }
+
+        /* Build payload */
+        var payload = { permissions: perms };
+
+        var limitEnabled = document.getElementById('ec-limit-enabled').checked;
+        payload.session_limit = limitEnabled ? parseInt(document.getElementById('ec-limit-val').value, 10) || null : null;
+
+        var expiryEnabled = document.getElementById('ec-expiry-enabled').checked;
+        var expiryVal = document.getElementById('ec-expiry-val').value;
+        payload.expires_at = expiryEnabled && expiryVal ? expiryVal + 'T00:00:00Z' : null;
+
+        payload.is_active = document.getElementById('ec-is-active').checked;
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Đang lưu…';
+        try {
+          var updated = await apiPatch('/admin/access-codes/' + codeId, payload);
+          _codesData = _codesData.map(function (x) {
+            return x.id === codeId ? Object.assign({}, x, updated) : x;
+          });
+          renderCodes(_codesData);
+          document.body.removeChild(overlay);
+        } catch (err) {
+          alert('Lỗi khi lưu: ' + err.message);
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Lưu';
+        }
+      });
+    };
+
+    // ── DELETE CODE (hard-delete) ───────────────────────────────
+    window.deleteCode = async function (codeId, btn) {
+      var c = (_codesData || []).find(function (x) { return x.id === codeId; });
+      var codeName = c ? (c.code || codeId) : codeId;
+      var activeUsers = c ? (c.assigned_user_count || 0) : '?';
+
+      if (activeUsers > 0) {
+        alert('Không thể xóa mã "' + codeName + '".\n\nMã này đang có ' + activeUsers + ' user kích hoạt.\nVào "Chi tiết" → gỡ hết users trước rồi mới xóa được.');
+        return;
+      }
+
+      if (!confirm('Xóa vĩnh viễn mã "' + codeName + '"?\n\nHành động này không thể hoàn tác.')) return;
+
+      var origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Đang xóa…';
+
+      try {
+        await apiDelete('/admin/access-codes/' + codeId + '/remove');
+        _codesData = _codesData.filter(function (x) { return x.id !== codeId; });
+        renderCodes(_codesData);
+      } catch (err) {
+        var msg = err.message || 'Lỗi không xác định';
+        // Try to parse JSON body for a cleaner message
+        try { msg = JSON.parse(msg).detail || msg; } catch (_) {}
+        alert('Không thể xóa: ' + msg);
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
     };
 
     // ── USERS ──────────────────────────────────────────────────
