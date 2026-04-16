@@ -58,6 +58,15 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 5: usually maintains flow; some hesitation; limited range of discourse markers
    - Band 4: cannot speak at length; repetitive; basic connectives only (and, but, because)
 
+   SPEECH RATE SIGNAL: You will be given duration_seconds and word_count.
+   Use these to estimate speaking rate (words per second):
+   - < 1.0 w/s: very slow or many long pauses — likely Band 4-5 FC
+   - 1.0–1.5 w/s: measured pace, may be careful or hesitant — Band 5-6 FC
+   - 1.5–2.5 w/s: natural IELTS pace — consistent with Band 6-8 FC
+   - 2.5–3.5 w/s: fluent and confident — consistent with Band 7-9 FC
+   - > 3.5 w/s: very fast or possible transcript error — use with caution
+   If duration_seconds is unavailable, assess FC from transcript patterns only.
+
 2. LEXICAL RESOURCE (LR)
    Measures: vocabulary range, precision, collocations, idiomatic expressions, paraphrase.
    - Band 9: uses vocabulary with full flexibility; idiomatic language naturally used
@@ -77,10 +86,13 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 4: basic sentence forms only; errors are frequent and cause strain
 
 4. PRONUNCIATION (P)
-   Note — since you are grading from transcript only, assess patterns that are
-   visible in writing: word-choice typical of non-native speakers, phonological
-   spelling errors visible in the transcript, rhythm markers (commas, sentence length),
-   and infer from complexity of language used. Be transparent about this limitation.
+   Note — since you are grading from transcript only, you cannot directly assess
+   phonetic accuracy. Infer patterns visible in writing: word-choice typical of
+   non-native speakers, phonological spelling errors, rhythm markers (comma density,
+   sentence length, self-corrections), and complexity of language attempted.
+   IMPORTANT: Your P band will always carry lower confidence than FC/LR/GRA because
+   you cannot hear the audio. Be transparent about this in p_feedback. Default to
+   a moderate band (5–6) unless the transcript reveals strong evidence otherwise.
    - Band 9: intelligible throughout; uses features of connected speech naturally
    - Band 8: easy to understand; uses range of phonological features effectively
    - Band 7: generally easy to understand; some strain; L1 accent evident
@@ -272,13 +284,16 @@ def _get_client() -> anthropic.AsyncAnthropic:
 # ── Public function ────────────────────────────────────────────────────────────
 
 async def grade_response(
-    question:     str,
-    transcript:   str,
-    part:         int,
-    band_target:  float = 6.5,
-    mode:         str   = "test",
-    user_id:      str | None = None,
-    session_id:   str | None = None,
+    question:         str,
+    transcript:       str,
+    part:             int,
+    band_target:      float = 6.5,
+    mode:             str   = "test",
+    user_id:          str | None = None,
+    session_id:       str | None = None,
+    reliability:      dict | None = None,
+    duration_seconds: float | None = None,
+    word_count:       int | None = None,
 ) -> dict:
     """
     Chấm 1 câu trả lời IELTS Speaking.
@@ -307,7 +322,11 @@ async def grade_response(
     system_prompt = SYSTEM_PROMPT_PRACTICE if is_practice else SYSTEM_PROMPT
     validator     = _parse_and_validate_practice if is_practice else _parse_and_validate
 
-    user_message = _build_user_message(question, transcript, part, band_target)
+    user_message = _build_user_message(
+        question, transcript, part, band_target, reliability,
+        duration_seconds=duration_seconds,
+        word_count=word_count,
+    )
     client       = _get_client()
 
     # ── Attempt 1 ─────────────────────────────────────────────────────────────
@@ -325,7 +344,7 @@ async def grade_response(
     retry_message = (
         user_message
         + "\n\n---\n"
-        + f"IMPORTANT: Your previous response failed JSON validation ({error}). "
+        + f"IMPORTANT: Your previous response failed JSON validation ({error}). "  # noqa: E501
         + "Start your response with `{` and end with `}` — nothing before, nothing after. "
         + "Do NOT wrap in ``` or ```json fences. "
         + "Do NOT use literal newlines inside string values; write \\n instead. "
@@ -351,19 +370,69 @@ async def grade_response(
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
-def _build_user_message(question: str, transcript: str, part: int, band_target: float) -> str:
+def _build_user_message(
+    question: str,
+    transcript: str,
+    part: int,
+    band_target: float,
+    reliability: dict | None = None,
+    duration_seconds: float | None = None,
+    word_count: int | None = None,
+) -> str:
     part_context = {
         1: "Part 1 (Introduction & Interview — short personal answers, ~1–2 min total)",
         2: "Part 2 (Long Turn — 1–2 min monologue on a cue card topic)",
         3: "Part 3 (Discussion — abstract, analytical answers, ~4–5 min total)",
     }.get(part, f"Part {part}")
 
-    return (
+    msg = (
         f"IELTS Speaking {part_context}\n"
         f"Candidate's target band: {band_target}\n\n"
+    )
+
+    # ── Speaking metrics (FC signal) ─────────────────────────────────────────────
+    if duration_seconds is not None and word_count is not None and duration_seconds > 0:
+        wps = round(word_count / duration_seconds, 2)
+        msg += (
+            f"SPEAKING METRICS:\n"
+            f"  Duration:   {duration_seconds:.1f}s\n"
+            f"  Words:      {word_count}\n"
+            f"  Rate:       {wps} words/sec\n\n"
+        )
+    elif duration_seconds is not None:
+        msg += f"SPEAKING METRICS:\n  Duration: {duration_seconds:.1f}s\n\n"
+
+    msg += (
         f"EXAMINER QUESTION:\n{question.strip()}\n\n"
         f"CANDIDATE TRANSCRIPT:\n{transcript.strip()}"
     )
+
+    # ── Transcript reliability signal ────────────────────────────────────────────
+    if reliability:
+        label   = reliability.get("reliability_label", "high")
+        score   = reliability.get("reliability_score", 1.0)
+        reasons = reliability.get("reasons", [])
+
+        if label == "low":
+            msg += (
+                f"\n\n⚠ TRANSCRIPT RELIABILITY: LOW (score: {score:.2f})\n"
+                "Reasons: " + ("; ".join(reasons) if reasons else "unknown") + "\n"
+                "IMPORTANT: The STT transcript is likely unreliable — the audio may have been "
+                "noisy, cut off, or spoken too quietly. "
+                "Assign lower band scores for GRA and LR, and state explicitly in gra_feedback "
+                "and lr_feedback that the assessment is limited by transcription quality. "
+                "Do NOT invent grammar errors that may be STT artefacts."
+            )
+        elif label == "medium":
+            msg += (
+                f"\n\n⚠ TRANSCRIPT RELIABILITY: MEDIUM (score: {score:.2f})\n"
+                "Note: Some transcript segments have reduced confidence. "
+                "Exercise caution with GRA and LR — acknowledge minor uncertainty in feedback "
+                "where relevant, but do not dramatically downgrade scores."
+            )
+        # High reliability: no note needed — don't pollute the prompt
+
+    return msg
 
 
 # ── JSON extraction helpers ────────────────────────────────────────────────────

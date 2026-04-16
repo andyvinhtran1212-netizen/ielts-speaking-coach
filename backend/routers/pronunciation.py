@@ -30,6 +30,9 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel
+
+import math
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
@@ -41,6 +44,10 @@ from services.pronunciation_sampling import (
     select_part2_sample,
     select_part3_sample,
 )
+
+
+class FullPronRequest(BaseModel):
+    extra_session_ids: list[str] = []
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +132,87 @@ async def _download_audio_bytes(
             logger.warning("[pronunciation] public URL download failed: %s", e)
 
     raise HTTPException(502, f"Không thể tải file audio cho response {response_id}.")
+
+
+# ── Multi-signal score_confidence helper ──────────────────────────────────────
+
+def _compute_multi_signal_confidence(
+    reliability_label: str,
+    duration_sec: float,
+    pronunciation_score: Optional[float],
+) -> str:
+    """
+    Compute score_confidence using all available signals post-grading:
+      transcript reliability, speaking duration, and Azure pronunciation score.
+
+    Called after pronunciation assessment completes; overwrites the
+    reliability+duration-only value stored at initial grading time.
+
+      "low"    — unreliable transcript OR too short OR pronunciation_score < 35
+      "high"   — reliability=high AND normal duration AND pronunciation_score >= 65
+      "medium" — everything else
+    """
+    if reliability_label == "low" or duration_sec < 10.0:
+        return "low"
+    if pronunciation_score is not None and pronunciation_score < 35:
+        return "low"
+    if (
+        reliability_label == "high"
+        and 20.0 <= duration_sec <= 180.0
+        and (pronunciation_score is None or pronunciation_score >= 65)
+    ):
+        return "high"
+    return "medium"
+
+
+# ── Band adjustment helpers ───────────────────────────────────────────────────
+
+def _round_band(value: float) -> float:
+    """Round to nearest 0.5, clamp to [1.0, 9.0]. Mirrors sessions.py logic."""
+    rounded = math.floor(value * 2 + 0.5) / 2
+    return max(1.0, min(9.0, rounded))
+
+
+def _compute_adjusted_band_p(
+    band_p_original: float,
+    pronunciation_score: float,
+    fluency_score: Optional[float],
+    reliability_label: str,
+) -> float:
+    """
+    Post-hoc adjust the P criterion band using Azure pronunciation signals.
+
+    Strategy: 40% dampened delta with cap based on transcript reliability.
+      - Scale Azure 0–100 scores to IELTS 1–9 band scale.
+      - Blend pronunciation + fluency equally when both are available.
+      - Apply only 40% of the raw delta (dampening factor to prevent score shock).
+      - Cap the total adjustment: ±0.5 (low) | ±0.75 (medium) | ±1.0 (high).
+    """
+    # Azure 0-100 → IELTS 1-9 linear scaling
+    pron_band = 1.0 + (pronunciation_score / 100.0) * 8.0
+    if fluency_score is not None:
+        fluency_band = 1.0 + (fluency_score / 100.0) * 8.0
+        pron_band = 0.5 * pron_band + 0.5 * fluency_band
+
+    delta = pron_band - band_p_original
+
+    # Max adjustment grows with transcript reliability
+    max_delta = {"low": 0.5, "medium": 0.75}.get(reliability_label, 1.0)
+
+    # 40% dampening — only partially trust the pronunciation signal
+    adjustment = max(-max_delta, min(max_delta, delta * 0.4))
+
+    return _round_band(band_p_original + adjustment)
+
+
+def _compute_final_overall_band(
+    band_fc: float,
+    band_lr: float,
+    band_gra: float,
+    final_band_p: float,
+) -> float:
+    """Recompute overall band as a simple average of all 4 criteria."""
+    return _round_band((band_fc + band_lr + band_gra + final_band_p) / 4.0)
 
 
 # ── Shared DB upsert helper ────────────────────────────────────────────────────
@@ -237,7 +325,93 @@ async def assess_response_pronunciation(
     # ── 5. Persist to DB ─────────────────────────────────────────────────────
     _upsert_pronunciation(response_id, result)
 
-    # ── 6. Return normalized result ──────────────────────────────────────────
+    # ── 6. Load response metadata + feedback for post-hoc adjustment ─────────
+    updated_confidence: Optional[str] = None
+    final_band_p:       Optional[float] = None
+    final_overall_band: Optional[float] = None
+
+    try:
+        meta_res = (
+            supabase_admin.table("responses")
+            .select("transcript_reliability, duration_seconds, feedback, overall_band")
+            .eq("id", response_id)
+            .limit(1)
+            .execute()
+        )
+        meta = (meta_res.data or [{}])[0]
+        reliability_label = meta.get("transcript_reliability") or "high"
+        duration_sec_meta = float(meta.get("duration_seconds") or 0.0)
+        pron_score        = result.get("pronunciation_score")
+        fluency_score_raw = result.get("fluency_score")
+
+        # Update multi-signal score_confidence
+        updated_confidence = _compute_multi_signal_confidence(
+            reliability_label, duration_sec_meta, pron_score
+        )
+
+        # Attempt to compute final_band_p and final_overall_band
+        # Requires: pronunciation_score available + feedback JSON with band_p (test mode only)
+        confidence_update: dict = {"score_confidence": updated_confidence}
+
+        if pron_score is not None:
+            raw_feedback = meta.get("feedback")
+            if raw_feedback:
+                try:
+                    feedback_obj = _json.loads(raw_feedback) if isinstance(raw_feedback, str) else raw_feedback
+                    band_p_orig = feedback_obj.get("band_p")
+                    if band_p_orig is not None:
+                        # Test mode: adjust P criterion band
+                        final_band_p = _compute_adjusted_band_p(
+                            float(band_p_orig),
+                            pron_score,
+                            fluency_score_raw,
+                            reliability_label,
+                        )
+                        band_fc  = feedback_obj.get("band_fc")
+                        band_lr  = feedback_obj.get("band_lr")
+                        band_gra = feedback_obj.get("band_gra")
+                        if band_fc is not None and band_lr is not None and band_gra is not None:
+                            final_overall_band = _compute_final_overall_band(
+                                float(band_fc), float(band_lr), float(band_gra), final_band_p
+                            )
+                        confidence_update["final_band_p"] = final_band_p
+                        if final_overall_band is not None:
+                            confidence_update["final_overall_band"] = final_overall_band
+                        logger.info(
+                            "[pronunciation] band_p %s → %s  overall %s → %s  response=%s",
+                            band_p_orig, final_band_p,
+                            feedback_obj.get("overall_band"), final_overall_band,
+                            response_id,
+                        )
+                    else:
+                        # Practice mode: no band_p; apply a proportional tweak to overall_band
+                        overall_orig = meta.get("overall_band")
+                        if overall_orig is not None:
+                            pron_band_equiv = 1.0 + (pron_score / 100.0) * 8.0
+                            if fluency_score_raw is not None:
+                                pron_band_equiv = 0.5 * pron_band_equiv + 0.5 * (1.0 + (fluency_score_raw / 100.0) * 8.0)
+                            # P criterion ≈ 25% weight; apply 40% of that delta → 10% net effect
+                            delta = (pron_band_equiv - float(overall_orig)) * 0.25 * 0.4
+                            max_delta = {"low": 0.25, "medium": 0.375}.get(reliability_label, 0.5)
+                            adjustment = max(-max_delta, min(max_delta, delta))
+                            final_overall_band = _round_band(float(overall_orig) + adjustment)
+                            confidence_update["final_overall_band"] = final_overall_band
+                            logger.info(
+                                "[pronunciation] practice overall %s → %s  response=%s",
+                                overall_orig, final_overall_band, response_id,
+                            )
+                except Exception as fe:
+                    logger.warning("[pronunciation] feedback parse for band adjustment failed (non-fatal): %s", fe)
+
+        supabase_admin.table("responses").update(confidence_update).eq("id", response_id).execute()
+        logger.info(
+            "[pronunciation] score_confidence → %r  response=%s",
+            updated_confidence, response_id,
+        )
+    except Exception as e:
+        logger.warning("[pronunciation] post-hoc update failed (non-fatal): %s", e)
+
+    # ── 7. Return normalized result ──────────────────────────────────────────
     return {
         "response_id":           response_id,
         "pronunciation_score":   result.get("pronunciation_score"),
@@ -249,6 +423,9 @@ async def assess_response_pronunciation(
         "words":                 result.get("words", []),
         "provider":              "azure",
         "locale":                "en-US",
+        "score_confidence":      updated_confidence,
+        "final_band_p":          final_band_p,
+        "final_overall_band":    final_overall_band,
     }
 
 
@@ -257,11 +434,15 @@ async def assess_response_pronunciation(
 @router.post("/sessions/{session_id}/pronunciation/full")
 async def assess_full_test_pronunciation(
     session_id: str,
+    body: FullPronRequest = FullPronRequest(),
     authorization: str | None = Header(default=None),
 ):
     """
     Assess pronunciation for a full-test session by selecting one representative
     sample from each of Parts 1, 2, and 3.
+
+    Full-test mode spreads responses across 3 separate sessions (one per part).
+    Pass the other session IDs via the JSON body as extra_session_ids.
 
     Selection rules:
       - Part 1: prefer duration >= 12s; random among qualifiers; longest fallback
@@ -272,31 +453,33 @@ async def assess_full_test_pronunciation(
         session_id, overall_pron_score (average of available samples),
         samples: {part1, part2, part3} — each with scores + metadata
     """
-    # ── 1. Auth + session ownership ──────────────────────────────────────────
+    # ── 1. Auth + ownership for ALL sessions ─────────────────────────────────
     auth_user = await get_supabase_user(authorization)
     user_id   = auth_user["id"]
+
+    all_session_ids = list({session_id} | set(body.extra_session_ids))
 
     try:
         s_res = (
             supabase_admin.table("sessions")
             .select("id")
-            .eq("id", session_id)
+            .in_("id", all_session_ids)
             .eq("user_id", user_id)
-            .limit(1)
             .execute()
         )
     except Exception as e:
         raise HTTPException(500, f"Lỗi khi tải session: {e}")
 
-    if not s_res.data:
+    found_ids = {r["id"] for r in (s_res.data or [])}
+    if session_id not in found_ids:
         raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
 
-    # ── 2. Load responses + questions (join in Python) ────────────────────────
+    # ── 2. Load responses from ALL sessions + questions (join in Python) ──────
     try:
         resp_res = (
             supabase_admin.table("responses")
             .select("id, question_id, audio_storage_path, audio_url, duration_seconds")
-            .eq("session_id", session_id)
+            .in_("session_id", list(found_ids))
             .execute()
         )
     except Exception as e:
@@ -330,7 +513,7 @@ async def assess_full_test_pronunciation(
             by_part[part].append(r)
 
     print(
-        f"[PRON/full] session={session_id}  "
+        f"[PRON/full] sessions={all_session_ids}  "
         f"part1={len(by_part[1])} part2={len(by_part[2])} part3={len(by_part[3])}",
         flush=True,
     )
@@ -438,18 +621,101 @@ async def assess_full_test_pronunciation(
     ]
     overall = round(sum(pron_scores) / len(pron_scores), 1) if pron_scores else None
 
+    # Aggregate confidence from overall pronunciation score
+    overall_confidence: Optional[str] = None
+    if overall is not None:
+        if overall < 35:
+            overall_confidence = "low"
+        elif overall >= 65:
+            overall_confidence = "high"
+        else:
+            overall_confidence = "medium"
+
+    # ── 5b. Compute aggregate final_band_p across all sampled responses ──────
+    # Load band_p and reliability from each sampled response's feedback JSON.
+    # Apply the same dampened-delta logic; average the final_band_p values.
+    agg_final_band_p:       Optional[float] = None
+    agg_final_overall_band: Optional[float] = None
+
+    if overall is not None:
+        sampled_response_ids = [
+            r["response_id"] for r in results.values()
+            if r is not None and r.get("response_id")
+        ]
+        if sampled_response_ids:
+            try:
+                fb_res = (
+                    supabase_admin.table("responses")
+                    .select("id, feedback, overall_band, transcript_reliability, duration_seconds")
+                    .in_("id", sampled_response_ids)
+                    .execute()
+                )
+                fb_rows = {row["id"]: row for row in (fb_res.data or [])}
+
+                adjusted_p_values: list[float] = []
+                fc_vals, lr_vals, gra_vals = [], [], []
+
+                for part_key, r in results.items():
+                    if r is None:
+                        continue
+                    rid = r.get("response_id")
+                    if not rid or rid not in fb_rows:
+                        continue
+                    row      = fb_rows[rid]
+                    rel      = row.get("transcript_reliability") or "high"
+                    pron_s   = r.get("pronunciation_score")
+                    flu_s    = r.get("fluency_score")
+
+                    raw_fb = row.get("feedback")
+                    if raw_fb and pron_s is not None:
+                        try:
+                            fb_obj = _json.loads(raw_fb) if isinstance(raw_fb, str) else raw_fb
+                            bp = fb_obj.get("band_p")
+                            if bp is not None:
+                                adj = _compute_adjusted_band_p(float(bp), pron_s, flu_s, rel)
+                                adjusted_p_values.append(adj)
+                                if fb_obj.get("band_fc") is not None:
+                                    fc_vals.append(float(fb_obj["band_fc"]))
+                                if fb_obj.get("band_lr") is not None:
+                                    lr_vals.append(float(fb_obj["band_lr"]))
+                                if fb_obj.get("band_gra") is not None:
+                                    gra_vals.append(float(fb_obj["band_gra"]))
+                        except Exception:
+                            pass
+
+                if adjusted_p_values:
+                    agg_final_band_p = _round_band(sum(adjusted_p_values) / len(adjusted_p_values))
+                    if fc_vals and lr_vals and gra_vals:
+                        avg_fc  = sum(fc_vals)  / len(fc_vals)
+                        avg_lr  = sum(lr_vals)  / len(lr_vals)
+                        avg_gra = sum(gra_vals) / len(gra_vals)
+                        agg_final_overall_band = _compute_final_overall_band(
+                            avg_fc, avg_lr, avg_gra, agg_final_band_p
+                        )
+                    logger.info(
+                        "[pronunciation/full] agg_final_band_p=%.1f  agg_final_overall=%.1f",
+                        agg_final_band_p or 0,
+                        agg_final_overall_band or 0,
+                    )
+            except Exception as e:
+                logger.warning("[pronunciation/full] aggregate band adjustment failed (non-fatal): %s", e)
+
     print(
         f"[PRON/full] done  session={session_id}  "
-        f"overall={overall}  samples_assessed={len(pron_scores)}/3",
+        f"overall={overall}  confidence={overall_confidence}  samples_assessed={len(pron_scores)}/3  "
+        f"final_band_p={agg_final_band_p}  final_overall={agg_final_overall_band}",
         flush=True,
     )
 
     return {
-        "session_id":        session_id,
-        "overall_pron_score": overall,
-        "samples_assessed":  len(pron_scores),
-        "provider":          "azure",
-        "locale":            "en-US",
+        "session_id":              session_id,
+        "overall_pron_score":      overall,
+        "overall_confidence":      overall_confidence,
+        "samples_assessed":        len(pron_scores),
+        "provider":                "azure",
+        "locale":                  "en-US",
+        "final_band_p":            agg_final_band_p,
+        "final_overall_band":      agg_final_overall_band,
         "samples": {
             "part1": results.get("part1"),
             "part2": results.get("part2"),

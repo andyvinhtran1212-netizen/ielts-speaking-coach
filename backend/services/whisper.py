@@ -16,6 +16,8 @@ Usage:
             "duration_seconds":  42.1,
             "language":          "en",
             "confidence":        0.95,   # estimated from avg_logprob of segments
+            "transcript_model":  "whisper-1",
+            "segments":          [{"start":0.0,"end":3.2,"text":"...","avg_logprob":-0.18,"no_speech_prob":0.01}],
         }
 
 Test:
@@ -42,6 +44,15 @@ logger = logging.getLogger(__name__)
 
 # Lazy client — instantiated on first call so import never raises even if key is missing.
 _client: AsyncOpenAI | None = None
+
+# Verbatim transcription prompt: biases Whisper to preserve speech disfluencies,
+# fillers (uh, um, er), hesitations, repetitions, and broken grammar as-is.
+# Whisper uses this as style context so including disfluent examples matters.
+_VERBATIM_PROMPT = (
+    "Uh, um, er, I mean, you know, like, well, so... "
+    "Transcribe every word exactly as spoken, including all hesitations, "
+    "repetitions, and self-corrections. Do not fix grammar."
+)
 
 
 def _get_client() -> AsyncOpenAI:
@@ -92,6 +103,7 @@ async def transcribe_audio(audio_file_path: str) -> dict:
             file=f,
             response_format="verbose_json",   # trả thêm metadata: segments, duration, language
             language="en",                    # chỉ định tiếng Anh để tăng độ chính xác IELTS
+            prompt=_VERBATIM_PROMPT,          # bias toward preserving fillers/disfluencies
         )
 
     # ── Extract transcript ─────────────────────────────────────────────────────
@@ -103,21 +115,26 @@ async def transcribe_audio(audio_file_path: str) -> dict:
     # ── Extract language ───────────────────────────────────────────────────────
     language: str = getattr(response, "language", "en") or "en"
 
+    raw_segments = getattr(response, "segments", None)
+
     # ── Estimate confidence from segments' avg_logprob ─────────────────────────
     # avg_logprob is in range (−∞, 0]; −0.2 is good, −1.0+ is low confidence.
     # Map to [0, 1]: confidence = exp(avg_logprob), clamped to [0, 1].
-    confidence: float = _estimate_confidence(getattr(response, "segments", None))
+    confidence: float = _estimate_confidence(raw_segments)
+    segments: list[dict] = _extract_segments(raw_segments)
 
     result = {
-        "transcript":       transcript,
-        "duration_seconds": round(duration_seconds, 2),
-        "language":         language,
-        "confidence":       round(confidence, 4),
+        "transcript":        transcript,
+        "duration_seconds":  round(duration_seconds, 2),
+        "language":          language,
+        "confidence":        round(confidence, 4),
+        "transcript_model":  "whisper-1",
+        "segments":          segments,
     }
 
     logger.info(
-        "Whisper: xong — %d ký tự, %.1fs, lang=%s, conf=%.2f",
-        len(transcript), duration_seconds, language, confidence,
+        "Whisper: xong — %d ký tự, %.1fs, lang=%s, conf=%.2f, segments=%d",
+        len(transcript), duration_seconds, language, confidence, len(segments),
     )
 
     return result
@@ -158,23 +175,28 @@ async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm"
         file=(filename, buffer),        # tuple form: (name, file-like) — SDK uses name for Content-Disposition
         response_format="verbose_json",
         language="en",
+        prompt=_VERBATIM_PROMPT,        # bias toward preserving fillers/disfluencies
     )
 
     transcript = response.text.strip() if response.text else ""
     duration_seconds: float = getattr(response, "duration", 0.0) or 0.0
     language: str = getattr(response, "language", "en") or "en"
-    confidence: float = _estimate_confidence(getattr(response, "segments", None))
+    raw_segments = getattr(response, "segments", None)
+    confidence: float = _estimate_confidence(raw_segments)
+    segments: list[dict] = _extract_segments(raw_segments)
 
     result = {
-        "transcript":       transcript,
-        "duration_seconds": round(duration_seconds, 2),
-        "language":         language,
-        "confidence":       round(confidence, 4),
+        "transcript":        transcript,
+        "duration_seconds":  round(duration_seconds, 2),
+        "language":          language,
+        "confidence":        round(confidence, 4),
+        "transcript_model":  "whisper-1",
+        "segments":          segments,
     }
 
     logger.info(
-        "Whisper: xong — %d ký tự, %.1fs, lang=%s, conf=%.2f",
-        len(transcript), duration_seconds, language, confidence,
+        "Whisper: xong — %d ký tự, %.1fs, lang=%s, conf=%.2f, segments=%d",
+        len(transcript), duration_seconds, language, confidence, len(segments),
     )
 
     return result
@@ -233,6 +255,38 @@ async def transcribe_from_url(audio_url: str) -> dict:
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
+
+def _extract_segments(segments) -> list[dict]:
+    """
+    Extract per-segment metadata from verbose_json response into a serialisable list.
+
+    Each item: {"start": float, "end": float, "text": str,
+                 "avg_logprob": float, "no_speech_prob": float}
+    Used downstream by transcript_reliability.classify_reliability().
+    """
+    if not segments:
+        return []
+
+    result = []
+    for seg in segments:
+        if isinstance(seg, dict):
+            result.append({
+                "start":          float(seg.get("start") or 0),
+                "end":            float(seg.get("end") or 0),
+                "text":           str(seg.get("text") or "").strip(),
+                "avg_logprob":    float(seg.get("avg_logprob") or 0),
+                "no_speech_prob": float(seg.get("no_speech_prob") or 0),
+            })
+        else:
+            result.append({
+                "start":          float(getattr(seg, "start", 0) or 0),
+                "end":            float(getattr(seg, "end", 0) or 0),
+                "text":           str(getattr(seg, "text", "") or "").strip(),
+                "avg_logprob":    float(getattr(seg, "avg_logprob", 0) or 0),
+                "no_speech_prob": float(getattr(seg, "no_speech_prob", 0) or 0),
+            })
+    return result
+
 
 def _estimate_confidence(segments) -> float:
     """
