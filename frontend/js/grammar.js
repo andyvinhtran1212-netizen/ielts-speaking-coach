@@ -64,9 +64,11 @@
     el.innerHTML = categories.filter(function (cat) {
       return cat && cat.slug && cat.title;
     }).map(function (cat) {
-      return '<a href="' + _url('grammar.html') + '?category=' + cat.slug + '" ' +
-             'class="cat-card group block p-5 rounded-2xl border border-white/8 ' +
-             'bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
+      var href = _url('grammar.html') + '?category=' + cat.slug;
+      return '<div class="cat-card group block p-5 rounded-2xl border border-white/8 ' +
+             'bg-white/[0.03]" tabindex="0" role="link" ' +
+             'onclick="window.location.href=\'' + href + '\'" ' +
+             'onkeydown="if(event.key===\'Enter\'||event.key===\' \')window.location.href=\'' + href + '\'">' +
              '<div class="flex items-center gap-3 mb-3">' +
              '<div class="w-9 h-9 rounded-xl bg-teal/15 flex items-center justify-center flex-shrink-0">' +
              '<svg class="w-5 h-5 text-teal-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
@@ -76,13 +78,15 @@
              '<p class="text-xs text-white/40">' + cat.article_count + ' bài</p></div>' +
              '</div>' +
              (cat.articles && cat.articles.length
-               ? '<ul class="space-y-1">' + cat.articles.slice(0, 3).map(function (a) {
-                   return '<li class="text-sm text-white/55 hover:text-white/90 truncate">' +
+               ? '<ul class="space-y-1">' + cat.articles.filter(function (a) {
+                   return a && a.slug && a.title && a.category;
+                 }).slice(0, 3).map(function (a) {
+                   return '<li class="text-sm text-white/55 hover:text-white/90 truncate" onclick="event.stopPropagation()">' +
                           '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '">' +
                           a.title + '</a></li>';
                  }).join('') + '</ul>'
                : '') +
-             '</a>';
+             '</div>';
     }).join('');
   }
 
