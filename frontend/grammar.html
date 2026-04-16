@@ -175,6 +175,27 @@
     #category-cards > *:nth-child(4), #featured-list > *:nth-child(4) { animation-delay: 0.18s; }
     #category-cards > *:nth-child(5), #featured-list > *:nth-child(5) { animation-delay: 0.24s; }
     #category-cards > *:nth-child(6), #featured-list > *:nth-child(6) { animation-delay: 0.30s; }
+
+    /* Group cards */
+    .group-card {
+      position: relative; overflow: hidden;
+      transition: box-shadow 0.2s ease;
+    }
+    .group-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+
+    /* Article row in group card */
+    .group-article-row { transition: background 0.15s; border-radius: 6px; }
+    .group-article-row:hover { background: rgba(255,255,255,0.04); }
+
+    /* Stagger group cards */
+    #groups-list > * { animation: fadeUp 0.4s ease both; }
+    #groups-list > *:nth-child(2) { animation-delay: 0.05s; }
+    #groups-list > *:nth-child(3) { animation-delay: 0.10s; }
+    #groups-list > *:nth-child(4) { animation-delay: 0.15s; }
+    #groups-list > *:nth-child(5) { animation-delay: 0.20s; }
+    #groups-list > *:nth-child(6) { animation-delay: 0.25s; }
+    #groups-list > *:nth-child(7) { animation-delay: 0.30s; }
+    #groups-list > *:nth-child(8) { animation-delay: 0.35s; }
   </style>
 </head>
 <body class="text-white min-h-screen font-sans antialiased">
@@ -195,7 +216,7 @@
       <div class="flex items-center gap-3">
         <span class="ds-badge"><span id="total-articles">...</span> bài</span>
         <span class="text-white/15">·</span>
-        <span class="ds-badge"><span id="total-categories">...</span> chủ đề</span>
+        <span class="ds-badge">8 nhóm chủ đề</span>
       </div>
     </div>
   </nav>
@@ -234,13 +255,13 @@
 
       <!-- CTA buttons -->
       <div class="flex flex-wrap gap-3 justify-center">
-        <a href="#categories" class="btn-cta btn-primary">
+        <a href="#groups-section" class="btn-cta btn-primary">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
           </svg>
-          Bắt đầu từ đầu
+          Khám phá hệ thống
         </a>
-        <a href="#categories" class="btn-cta btn-outline">Duyệt chủ đề</a>
+        <a href="#groups-section" class="btn-cta btn-outline">Xem 8 nhóm chủ đề</a>
         <a href="pages/grammar-search.html?q=ielts" class="btn-cta btn-outline">Grammar cho IELTS</a>
       </div>
     </div>
@@ -270,18 +291,24 @@
     <!-- ── HOME CONTENT ─────────────────────────────────────────────────── -->
     <div id="home-content" class="hidden ds-fadein">
 
-      <!-- Categories -->
-      <section id="categories" class="mb-14">
-        <p class="section-head">Chủ đề</p>
-        <div id="category-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <!-- skeleton -->
-          <div class="skeleton h-32 rounded-2xl"></div>
-          <div class="skeleton h-32 rounded-2xl"></div>
-          <div class="skeleton h-32 rounded-2xl"></div>
+      <!-- ── GROUPS — Primary navigation (8 topic clusters) ─────────────── -->
+      <section id="groups-section" class="mb-16">
+        <div class="flex items-center justify-between mb-5">
+          <p class="section-head">Khám phá theo nhóm chủ đề</p>
+          <span class="text-xs text-white/25 hidden sm:block">
+            <span id="groups-complete-count">...</span> bài hoàn chỉnh · <span id="groups-planned-count">...</span> sắp ra mắt
+          </span>
+        </div>
+        <div id="groups-list" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <!-- Skeleton placeholders -->
+          <div class="skeleton h-56 rounded-2xl"></div>
+          <div class="skeleton h-56 rounded-2xl"></div>
+          <div class="skeleton h-56 rounded-2xl"></div>
+          <div class="skeleton h-56 rounded-2xl"></div>
         </div>
       </section>
 
-      <!-- Featured articles -->
+      <!-- ── FEATURED ARTICLES ────────────────────────────────────────────── -->
       <section class="mb-14">
         <p class="section-head">Bài nổi bật</p>
         <div id="featured-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -291,7 +318,18 @@
         </div>
       </section>
 
-      <!-- Roadmap CTA -->
+      <!-- ── CATEGORIES (compact reference grid) ─────────────────────────── -->
+      <section id="categories" class="mb-14">
+        <p class="section-head">Duyệt theo thư mục bài</p>
+        <div id="category-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- skeleton -->
+          <div class="skeleton h-32 rounded-2xl"></div>
+          <div class="skeleton h-32 rounded-2xl"></div>
+          <div class="skeleton h-32 rounded-2xl"></div>
+        </div>
+      </section>
+
+      <!-- ── ROADMAP CTA ───────────────────────────────────────────────────── -->
       <section class="mb-14">
         <p class="section-head">Roadmap học tập</p>
         <div class="roadmap-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-5">

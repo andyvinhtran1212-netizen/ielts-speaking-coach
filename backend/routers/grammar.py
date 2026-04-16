@@ -89,3 +89,13 @@ async def search(q: str = Query("", description="Search query (min 2 chars)")):
     Returns up to 20 results ranked by relevance score.
     """
     return grammar_service.search(q)
+
+
+@router.get("/groups")
+async def get_groups():
+    """
+    Return the 8 conceptual topic groups with enriched article lists.
+    Each article has a resolved status: complete | updating | planned.
+    Planned articles have no MD file yet — they should be shown but not linked.
+    """
+    return grammar_service.get_groups()

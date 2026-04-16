@@ -1,0 +1,109 @@
+# Grammar Wiki — Master Groups Manifest
+# Each group defines the articles that belong to it.
+# Articles with no matching MD file are automatically marked as "planned" by the backend.
+
+groups:
+
+  - slug: foundations
+    title: "Nền tảng"
+    description: "Hiểu đúng về từ loại, thành phần câu, danh từ — cơ sở của mọi kỹ năng ngữ pháp."
+    color: teal
+    articles:
+      - { slug: parts-of-speech,         category: foundations, title: "Parts of Speech — Từ loại" }
+      - { slug: sentence-elements,        category: foundations, title: "Sentence Elements — Thành phần câu" }
+      - { slug: phrase-vs-clause,         category: foundations, title: "Phrase vs. Clause — Cụm từ và Mệnh đề" }
+      - { slug: singular-vs-plural,       category: foundations, title: "Singular vs. Plural — Số ít và Số nhiều" }
+      - { slug: countable-vs-uncountable, category: foundations, title: "Countable vs. Uncountable Nouns" }
+      - { slug: articles,                 category: advanced,    title: "Articles — a, an, the" }
+      - { slug: word-order,               category: foundations, title: "Word Order — Trật tự từ trong câu" }
+      - { slug: there-is-there-are,       category: foundations, title: "There is / There are" }
+
+  - slug: parts-of-speech
+    title: "Từ loại chi tiết"
+    description: "Đi sâu vào từng loại từ: tính từ, trạng từ, danh từ, động từ, giới từ và cách dùng đúng."
+    color: blue
+    articles:
+      - { slug: adjectives,         category: modifiers,       title: "Adjectives — Tính từ" }
+      - { slug: adverbs,            category: modifiers,       title: "Adverbs — Trạng từ" }
+      - { slug: adjective-vs-adverb, category: modifiers,      title: "Adjective vs. Adverb — Tính từ hay Trạng từ?" }
+      - { slug: nouns,              category: parts-of-speech, title: "Nouns — Danh từ" }
+      - { slug: verbs,              category: parts-of-speech, title: "Verbs — Động từ" }
+      - { slug: prepositions,       category: parts-of-speech, title: "Prepositions — Giới từ" }
+      - { slug: pronouns,           category: parts-of-speech, title: "Pronouns — Đại từ" }
+      - { slug: conjunctions,       category: parts-of-speech, title: "Conjunctions — Liên từ" }
+
+  - slug: sentence-structures
+    title: "Cấu trúc câu"
+    description: "Từ câu đơn đến câu phức — xây dựng câu đúng, đa dạng và có chiều sâu ngữ nghĩa."
+    color: violet
+    articles:
+      - { slug: simple-sentence,   category: sentence-structures, title: "Simple Sentence — Câu đơn" }
+      - { slug: compound-sentence, category: sentence-structures, title: "Compound Sentence — Câu ghép" }
+      - { slug: complex-sentence,  category: sentence-structures, title: "Complex Sentence — Câu phức" }
+      - { slug: relative-clauses,  category: sentence-structures, title: "Relative Clauses — Mệnh đề quan hệ" }
+      - { slug: passive-voice,     category: sentence-structures, title: "Passive Voice — Câu bị động" }
+      - { slug: reported-speech,   category: sentence-structures, title: "Reported Speech — Câu tường thuật" }
+      - { slug: cleft-sentences,   category: sentence-structures, title: "Cleft Sentences — Câu chẻ" }
+      - { slug: inversion,         category: sentence-structures, title: "Inversion — Đảo ngữ" }
+
+  - slug: tenses
+    title: "Thì động từ"
+    description: "Tất cả các thì tiếng Anh — cấu trúc, cách dùng và phân biệt rõ ràng từng thì."
+    color: amber
+    articles:
+      - { slug: present-simple,              category: tenses, title: "Present Simple" }
+      - { slug: present-continuous,          category: tenses, title: "Present Continuous" }
+      - { slug: present-perfect,             category: tenses, title: "Present Perfect" }
+      - { slug: present-perfect-continuous,  category: tenses, title: "Present Perfect Continuous" }
+      - { slug: past-simple,                 category: tenses, title: "Past Simple" }
+      - { slug: past-continuous,             category: tenses, title: "Past Continuous" }
+      - { slug: past-perfect,                category: tenses, title: "Past Perfect" }
+      - { slug: future-forms,                category: tenses, title: "Future Forms — will / be going to" }
+
+  - slug: verb-patterns
+    title: "Mẫu động từ"
+    description: "Gerund, infinitive, modal verbs — biết chính xác khi nào dùng gì và tại sao."
+    color: emerald
+    articles:
+      - { slug: gerund,              category: verb-patterns, title: "Gerund — V-ing dùng như danh từ" }
+      - { slug: infinitive,          category: verb-patterns, title: "To-Infinitive" }
+      - { slug: bare-infinitive,     category: verb-patterns, title: "Bare Infinitive — Nguyên thể không to" }
+      - { slug: gerund-vs-infinitive, category: verb-patterns, title: "Gerund vs. Infinitive" }
+      - { slug: modal-verbs,         category: verb-patterns, title: "Modal Verbs — Động từ khuyết thiếu" }
+      - { slug: phrasal-verbs,       category: verb-patterns, title: "Phrasal Verbs — Cụm động từ" }
+      - { slug: causative-verbs,     category: verb-patterns, title: "Causative — have / get / make" }
+      - { slug: wish-hope,           category: verb-patterns, title: "Wish & Hope" }
+
+  - slug: grammar-for-meaning
+    title: "Ngữ pháp theo chức năng"
+    description: "Dùng ngữ pháp để so sánh, nhấn mạnh, kết nối ý — các cấu trúc cốt lõi trong IELTS Writing."
+    color: rose
+    articles:
+      - { slug: comparison,          category: grammar-for-meaning, title: "Comparison — So sánh hơn và nhất" }
+      - { slug: quantifiers,         category: grammar-for-meaning, title: "Quantifiers — Từ chỉ số lượng" }
+      - { slug: conditionals,        category: grammar-for-meaning, title: "Conditionals — Câu điều kiện" }
+      - { slug: emphasis-inversion,  category: grammar-for-meaning, title: "Emphasis & Inversion — Nhấn mạnh" }
+      - { slug: discourse-markers,   category: grammar-for-meaning, title: "Discourse Markers — Liên kết ý" }
+      - { slug: hedging-language,    category: grammar-for-meaning, title: "Hedging Language — Diễn đạt thận trọng" }
+
+  - slug: ielts-grammar-lab
+    title: "IELTS Grammar Lab"
+    description: "Cấu trúc câu nâng cao và ngữ pháp thực chiến dành riêng cho IELTS Speaking & Writing Band 7+."
+    color: sky
+    articles:
+      - { slug: ielts-task2-grammar,          category: ielts-grammar-lab, title: "Grammar cho IELTS Writing Task 2" }
+      - { slug: advanced-sentence-patterns,   category: ielts-grammar-lab, title: "Advanced Sentence Patterns" }
+      - { slug: band7-structures,             category: ielts-grammar-lab, title: "Band 7+ Grammar Structures" }
+      - { slug: speaking-part23-grammar,      category: ielts-grammar-lab, title: "Grammar cho Speaking Part 2 & 3" }
+      - { slug: linking-devices,              category: ielts-grammar-lab, title: "Linking Devices — Nối câu, nối đoạn" }
+
+  - slug: error-clinic
+    title: "Error Clinic"
+    description: "Những lỗi ngữ pháp người Việt mắc nhiều nhất — phân tích nguyên nhân và cách sửa đúng."
+    color: orange
+    articles:
+      - { slug: subject-verb-agreement, category: error-clinic, title: "Subject-Verb Agreement — Chia động từ" }
+      - { slug: article-errors,         category: error-clinic, title: "Lỗi dùng mạo từ a / an / the" }
+      - { slug: preposition-errors,     category: error-clinic, title: "Lỗi dùng giới từ" }
+      - { slug: tense-consistency,      category: error-clinic, title: "Tense Consistency — Nhất quán thì" }
+      - { slug: word-form-errors,       category: error-clinic, title: "Word Form Errors — Sai dạng từ" }

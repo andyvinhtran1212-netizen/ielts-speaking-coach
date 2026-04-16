@@ -47,6 +47,14 @@
            'bg-white/8 text-white/50">' + _prettifySlug(cat) + '</span>';
   }
 
+  // ── Updating status badge ─────────────────────────────────────────────────
+  function updatingBadge() {
+    return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ' +
+           'bg-amber-500/15 text-amber-400">' +
+           '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>' +
+           'Đang cập nhật</span>';
+  }
+
   // ── Prettify slug ─────────────────────────────────────────────────────────
   function _prettifySlug(slug) {
     if (!slug) return '';
@@ -81,7 +89,11 @@
                ? '<ul class="space-y-1">' + cat.articles.filter(function (a) {
                    return a && a.slug && a.title && a.category;
                  }).slice(0, 3).map(function (a) {
-                   return '<li class="text-sm text-white/55 hover:text-white/90 truncate" onclick="event.stopPropagation()">' +
+                   var dot = a.status === 'updating'
+                     ? '<span class="w-1.5 h-1.5 rounded-full bg-amber-400/70 inline-block mr-1 flex-shrink-0"></span>'
+                     : '';
+                   return '<li class="flex items-center text-sm text-white/55 hover:text-white/90 truncate" onclick="event.stopPropagation()">' +
+                          dot +
                           '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '">' +
                           a.title + '</a></li>';
                  }).join('') + '</ul>'
@@ -101,12 +113,13 @@
     el.innerHTML = articles.filter(function (a) {
       return a && a.slug && a.title && a.category;
     }).map(function (a) {
+      var isUpdating = a.status === 'updating';
       return '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
              'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
              'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
              '<div class="flex items-start justify-between gap-2 mb-1">' +
              '<h4 class="font-semibold text-white text-sm leading-snug">' + a.title + '</h4>' +
-             levelBadge(a.level) +
+             (isUpdating ? updatingBadge() : levelBadge(a.level)) +
              '</div>' +
              '<p class="text-xs text-white/50 line-clamp-2 mb-2">' + (a.summary || '') + '</p>' +
              '<div class="flex items-center gap-3 text-xs text-white/30">' +
@@ -133,12 +146,13 @@
       return;
     }
     el.innerHTML = articles.map(function (a) {
+      var isUpdating = a.status === 'updating';
       return '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
              'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
              'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
              '<div class="flex items-start justify-between gap-2 mb-1">' +
              '<h4 class="font-semibold text-white text-sm leading-snug">' + a.title + '</h4>' +
-             levelBadge(a.level) +
+             (isUpdating ? updatingBadge() : levelBadge(a.level)) +
              '</div>' +
              '<p class="text-xs text-white/50 line-clamp-2 mb-3">' + (a.summary || '') + '</p>' +
              '<div class="flex items-center gap-2">' +
@@ -160,28 +174,122 @@
       // Connector line
       '<div class="absolute left-5 top-10 bottom-10 w-0.5 bg-white/6"></div>' +
       articles.map(function (a, i) {
+        var isUpdating = a.status === 'updating';
         return '<div class="relative flex gap-5 mb-6 last:mb-0">' +
           // Step circle
-          '<div class="flex-shrink-0 w-10 h-10 rounded-full bg-teal/15 border border-teal/30 ' +
-          'flex items-center justify-center z-10">' +
-          '<span class="text-sm font-bold text-teal-light">' + (i + 1) + '</span>' +
+          '<div class="flex-shrink-0 w-10 h-10 rounded-full ' +
+          (isUpdating ? 'bg-white/5 border border-white/10' : 'bg-teal/15 border border-teal/30') +
+          ' flex items-center justify-center z-10">' +
+          '<span class="text-sm font-bold ' + (isUpdating ? 'text-white/30' : 'text-teal-light') + '">' + (i + 1) + '</span>' +
           '</div>' +
           // Content
           '<div class="flex-1 pt-1 pb-6">' +
           '<div class="flex items-start gap-2 mb-1">' +
-          '<h3 class="font-semibold text-white leading-snug">' + a.title + '</h3>' +
-          levelBadge(a.level) +
+          '<h3 class="font-semibold ' + (isUpdating ? 'text-white/50' : 'text-white') + ' leading-snug">' + a.title + '</h3>' +
+          (isUpdating ? updatingBadge() : levelBadge(a.level)) +
           '</div>' +
           '<p class="text-sm text-white/50 mb-3 leading-relaxed">' + (a.summary || '') + '</p>' +
           '<div class="flex items-center gap-3">' +
           '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
-          'class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-teal/15 text-teal-light ' +
-          'text-sm font-medium hover:bg-teal/25 transition-colors">Học ngay →</a>' +
+          'class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg ' +
+          (isUpdating ? 'bg-white/5 text-white/30 cursor-default' : 'bg-teal/15 text-teal-light hover:bg-teal/25') +
+          ' text-sm font-medium transition-colors">' +
+          (isUpdating ? 'Sắp ra mắt' : 'Học ngay →') +
+          '</a>' +
           '<span class="text-xs text-white/25">' + (a.reading_time || 1) + ' phút</span>' +
           '</div>' +
           '</div></div>';
       }).join('') +
       '</div>';
+  }
+
+  // ── Group color palette (inline styles — immune to Tailwind JIT) ─────────
+  var _groupPalette = {
+    teal:    { hex: '#14b8a6', bg: 'rgba(20,184,166,0.07)',   border: 'rgba(20,184,166,0.22)',  dim: 'rgba(20,184,166,0.45)'  },
+    blue:    { hex: '#60a5fa', bg: 'rgba(96,165,250,0.07)',   border: 'rgba(96,165,250,0.22)',  dim: 'rgba(96,165,250,0.45)'  },
+    violet:  { hex: '#a78bfa', bg: 'rgba(167,139,250,0.07)',  border: 'rgba(167,139,250,0.22)', dim: 'rgba(167,139,250,0.45)' },
+    amber:   { hex: '#fbbf24', bg: 'rgba(251,191,36,0.07)',   border: 'rgba(251,191,36,0.22)',  dim: 'rgba(251,191,36,0.45)'  },
+    emerald: { hex: '#34d399', bg: 'rgba(52,211,153,0.07)',   border: 'rgba(52,211,153,0.22)',  dim: 'rgba(52,211,153,0.45)'  },
+    rose:    { hex: '#fb7185', bg: 'rgba(251,113,133,0.07)',  border: 'rgba(251,113,133,0.22)', dim: 'rgba(251,113,133,0.45)' },
+    sky:     { hex: '#38bdf8', bg: 'rgba(56,189,248,0.07)',   border: 'rgba(56,189,248,0.22)',  dim: 'rgba(56,189,248,0.45)'  },
+    orange:  { hex: '#fb923c', bg: 'rgba(251,146,60,0.07)',   border: 'rgba(251,146,60,0.22)',  dim: 'rgba(251,146,60,0.45)'  },
+  };
+
+  // ── 8-Group overview cards ─────────────────────────────────────────────────
+  function renderGroups(groups, containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (!groups || groups.length === 0) {
+      el.innerHTML = '<p class="text-white/40 text-sm col-span-2">Chưa có dữ liệu nhóm chủ đề.</p>';
+      return;
+    }
+
+    el.innerHTML = groups.map(function (g) {
+      var pal = _groupPalette[g.color] || _groupPalette.teal;
+
+      // Article list rows
+      var rows = (g.articles || []).map(function (a) {
+        if (a.status === 'planned') {
+          return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
+                 '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:rgba(255,255,255,0.12)"></span>' +
+                 '<span class="text-sm text-white/28 flex-1 truncate">' + a.title + '</span>' +
+                 '<span class="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0" ' +
+                 'style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.28)">Sắp ra mắt</span>' +
+                 '</div>';
+        } else if (a.status === 'updating') {
+          return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
+                 '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:#fbbf24"></span>' +
+                 '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+                 'class="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate">' + a.title + '</a>' +
+                 '<span class="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0" ' +
+                 'style="background:rgba(251,191,36,0.15);color:#fbbf24">Đang cập nhật</span>' +
+                 '</div>';
+        } else {
+          return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
+                 '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:' + pal.hex + '"></span>' +
+                 '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+                 'class="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate">' + a.title + '</a>' +
+                 '</div>';
+        }
+      }).join('');
+
+      var pct = g.article_count > 0 ? Math.round(g.complete_count / g.article_count * 100) : 0;
+
+      return '<div class="group-card rounded-2xl p-5 border" ' +
+             'style="background:' + pal.bg + ';border-color:' + pal.border + '">' +
+
+             // ── Card header ──
+             '<div class="flex items-start gap-3 mb-4">' +
+             '<div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" ' +
+             'style="background:' + pal.bg + ';border:1px solid ' + pal.border + '">' +
+             '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" ' +
+             'style="color:' + pal.hex + '">' +
+             '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" ' +
+             'd="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13' +
+             'C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13' +
+             'C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13' +
+             'C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>' +
+             '</svg></div>' +
+             '<div class="flex-1 min-w-0">' +
+             '<div class="flex items-center justify-between gap-2 mb-0.5">' +
+             '<h3 class="font-semibold text-white text-base leading-tight">' + g.title + '</h3>' +
+             '<span class="text-xs flex-shrink-0 px-2 py-0.5 rounded-full font-medium" ' +
+             'style="background:' + pal.bg + ';color:' + pal.hex + ';border:1px solid ' + pal.border + '">' +
+             g.complete_count + '/' + g.article_count + '</span>' +
+             '</div>' +
+             '<p class="text-xs text-white/40 leading-relaxed">' + (g.description || '') + '</p>' +
+             '</div></div>' +
+
+             // ── Progress bar ──
+             '<div class="h-0.5 rounded-full mb-4 overflow-hidden" style="background:rgba(255,255,255,0.06)">' +
+             '<div class="h-full rounded-full transition-all" style="width:' + pct + '%;background:' + pal.hex + '"></div>' +
+             '</div>' +
+
+             // ── Article rows ──
+             '<div class="space-y-0.5">' + rows + '</div>' +
+
+             '</div>';
+    }).join('');
   }
 
   // ── Compare links for article page ────────────────────────────────────────
@@ -364,17 +472,39 @@
 
     // Full home page
     _showSection('home-content');
-    try {
-      var data = await fetchGrammarAPI('/home');
+
+    // Fetch groups and home data in parallel
+    var groupsPromise = fetchGrammarAPI('/groups').catch(function() { return []; });
+    var homePromise   = fetchGrammarAPI('/home').catch(function(err) { return { _err: err.message }; });
+
+    var groups = await groupsPromise;
+    var data   = await homePromise;
+
+    // Render groups section
+    if (Array.isArray(groups) && groups.length) {
+      renderGroups(groups, 'groups-list');
+
+      // Update summary counters
+      var totalComplete = 0, totalPlanned = 0;
+      groups.forEach(function(g) {
+        totalComplete += (g.complete_count || 0);
+        totalPlanned  += (g.article_count || 0) - (g.complete_count || 0);
+      });
+      var gcEl = document.getElementById('groups-complete-count');
+      var gpEl = document.getElementById('groups-planned-count');
+      if (gcEl) gcEl.textContent = totalComplete;
+      if (gpEl) gpEl.textContent = totalPlanned;
+    }
+
+    // Render home data (categories + featured)
+    if (data._err) {
+      _showError('category-cards', data._err);
+      _showError('featured-list', data._err);
+    } else {
       renderCategoryCards(data.categories || [], 'category-cards');
       renderFeaturedCards(data.featured_articles || [], 'featured-list');
       var totalEl = document.getElementById('total-articles');
       if (totalEl) totalEl.textContent = data.total_articles || 0;
-      var totalCatEl = document.getElementById('total-categories');
-      if (totalCatEl) totalCatEl.textContent = data.total_categories || 0;
-    } catch (err) {
-      _showError('category-cards', err.message);
-      _showError('featured-list', err.message);
     }
   }
 
@@ -403,7 +533,11 @@
       if (titleEl) titleEl.textContent = article.title;
 
       var levelEl = document.getElementById('article-level');
-      if (levelEl) levelEl.innerHTML = levelBadge(article.level);
+      if (levelEl) {
+        levelEl.innerHTML = article.status === 'updating'
+          ? updatingBadge()
+          : levelBadge(article.level);
+      }
 
       var metaEl = document.getElementById('article-meta');
       if (metaEl) {
@@ -413,14 +547,38 @@
           (article.last_updated ? '<span>· Cập nhật: ' + article.last_updated + '</span>' : '');
       }
 
-      // TOC
-      renderTOC(article.toc || [], 'toc-container');
+      // TOC — hide sidebar for updating articles (no body to navigate)
+      if (article.status === 'updating') {
+        var tocContainer = document.getElementById('toc-container');
+        if (tocContainer) {
+          var tocAside = tocContainer.closest('aside');
+          if (tocAside) tocAside.style.display = 'none';
+        }
+      } else {
+        renderTOC(article.toc || [], 'toc-container');
+      }
 
       // Article body
       var bodyEl = document.getElementById('article-body');
       if (bodyEl) {
-        bodyEl.classList.add('article-body');
-        bodyEl.innerHTML = article.html || '';
+        if (article.status === 'updating') {
+          bodyEl.innerHTML =
+            '<div class="my-8 p-6 rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] text-center">' +
+            '<div class="w-12 h-12 rounded-full bg-amber-500/15 flex items-center justify-center mx-auto mb-4">' +
+            '<svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" ' +
+            'd="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>' +
+            '</svg></div>' +
+            '<h3 class="text-base font-semibold text-white/80 mb-2">Bài viết đang được hoàn thiện</h3>' +
+            '<p class="text-sm text-white/50 max-w-md mx-auto leading-relaxed">' +
+            'Nội dung chi tiết cho chủ đề này đang được biên soạn. ' +
+            'Bạn có thể xem các bài viết liên quan bên dưới trong thời gian chờ đợi.' +
+            '</p>' +
+            '</div>';
+        } else {
+          bodyEl.classList.add('article-body');
+          bodyEl.innerHTML = article.html || '';
+        }
       }
 
       // Related pages

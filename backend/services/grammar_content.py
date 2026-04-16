@@ -17,7 +17,8 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-CONTENT_DIR = Path(__file__).parent.parent / "content"
+CONTENT_DIR  = Path(__file__).parent.parent / "content"
+GROUPS_FILE  = CONTENT_DIR / "_groups.yaml"
 
 _MD_EXTENSIONS   = ["tables", "fenced_code", "toc", "attr_list"]
 _MD_EXT_CONFIGS  = {
@@ -123,6 +124,11 @@ class GrammarContentService:
         word_count   = len(re.sub(r"<[^>]+>", " ", html).split())
         reading_time = max(1, round(word_count / 200))
 
+        status = fm.get("status", "complete")
+        # Normalise — only allow known values
+        if status not in ("complete", "updating"):
+            status = "complete"
+
         return {
             "slug":          slug,
             "category":      category,
@@ -135,6 +141,7 @@ class GrammarContentService:
             "compare_with":  fm.get("compare_with") or [],
             "order":         fm.get("order", 999),
             "last_updated":  str(fm.get("last_updated", "")),
+            "status":        status,
             "html":          html,
             "toc":           toc,
             "reading_time":  reading_time,
@@ -155,6 +162,7 @@ class GrammarContentService:
             "order":        a["order"],
             "reading_time": a["reading_time"],
             "last_updated": a["last_updated"],
+            "status":       a.get("status", "complete"),
         }
 
     def _resolve_related(self, slugs: list[str]) -> list[dict]:
@@ -248,6 +256,70 @@ class GrammarContentService:
     def get_roadmap(self, slug: str) -> Optional[dict]:
         """Ordered article list for a category — used as a learning roadmap."""
         return self.get_category(slug)
+
+    def get_groups(self) -> list[dict]:
+        """
+        Return the 8 conceptual groups from _groups.yaml, each enriched with
+        per-article status resolved from the live article index.
+
+        Article statuses:
+          - 'complete'  — MD file exists, status=complete
+          - 'updating'  — MD file exists, status=updating
+          - 'planned'   — listed in manifest but no MD file yet (not linked)
+        """
+        if not GROUPS_FILE.exists():
+            logger.warning("[grammar] groups manifest not found: %s", GROUPS_FILE)
+            return []
+
+        raw: dict = yaml.safe_load(GROUPS_FILE.read_text(encoding="utf-8")) or {}
+        result: list[dict] = []
+
+        for g in raw.get("groups", []):
+            enriched: list[dict] = []
+            complete_count = 0
+
+            for art in g.get("articles", []):
+                slug     = art["slug"]
+                category = art["category"]
+                title    = art.get("title", _prettify(slug))
+                existing = self.articles_by_slug.get(slug)
+
+                if existing:
+                    status = existing.get("status", "complete")
+                    if status == "complete":
+                        complete_count += 1
+                    enriched.append({
+                        "slug":         slug,
+                        "category":     existing["category"],
+                        "title":        existing["title"],
+                        "level":        existing.get("level", ""),
+                        "status":       status,
+                        "reading_time": existing.get("reading_time", 1),
+                        "summary":      existing.get("summary", ""),
+                    })
+                else:
+                    enriched.append({
+                        "slug":         slug,
+                        "category":     category,
+                        "title":        title,
+                        "level":        "",
+                        "status":       "planned",
+                        "reading_time": None,
+                        "summary":      "",
+                    })
+
+            result.append({
+                "slug":           g["slug"],
+                "title":          g["title"],
+                "description":    g.get("description", ""),
+                "color":          g.get("color", "teal"),
+                "article_count":  len(enriched),
+                "complete_count": complete_count,
+                "articles":       enriched,
+            })
+
+        logger.info("[grammar] loaded %d groups", len(result))
+        return result
 
     def get_compare(self, slug: str) -> Optional[dict]:
         """
