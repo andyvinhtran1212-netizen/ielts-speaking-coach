@@ -61,7 +61,9 @@
       el.innerHTML = '<p class="text-white/40 text-sm">Chưa có chủ đề nào.</p>';
       return;
     }
-    el.innerHTML = categories.map(function (cat) {
+    el.innerHTML = categories.filter(function (cat) {
+      return cat && cat.slug && cat.title;
+    }).map(function (cat) {
       return '<a href="' + _url('grammar.html') + '?category=' + cat.slug + '" ' +
              'class="cat-card group block p-5 rounded-2xl border border-white/8 ' +
              'bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
@@ -92,7 +94,9 @@
       el.innerHTML = '<p class="text-white/40 text-sm">Chưa có bài nào.</p>';
       return;
     }
-    el.innerHTML = articles.map(function (a) {
+    el.innerHTML = articles.filter(function (a) {
+      return a && a.slug && a.title && a.category;
+    }).map(function (a) {
       return '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
              'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
              'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
@@ -366,6 +370,7 @@
       if (totalCatEl) totalCatEl.textContent = data.total_categories || 0;
     } catch (err) {
       _showError('category-cards', err.message);
+      _showError('featured-list', err.message);
     }
   }
 
