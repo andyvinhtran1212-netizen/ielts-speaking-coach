@@ -56,6 +56,63 @@ def _mark_session_error(
         logger.warning("[grading] _mark_session_error failed (non-fatal): %s", ex)
 
 
+def _round_band(v: float) -> float:
+    """Round to nearest 0.5."""
+    return round(v * 2) / 2
+
+
+def _apply_heuristic_caps(grading: dict, word_count: int, part: int) -> dict:
+    """
+    Post-Claude heuristic adjustments.
+    Caps FC (and sometimes LR/GRA) for short responses, then recomputes overall_band.
+    Claude has strict calibration rules in the prompt, but this acts as a safety net.
+    """
+    grading = dict(grading)  # don't mutate the original
+
+    # Thresholds: (very_short_cap, min_words_cap, min_words)
+    thresholds = {
+        1: (3, 5, 40),   # Part 1: <15w→cap3, 15-39w→cap5
+        2: (3, 5, 100),  # Part 2: <40w→cap3, 40-99w→cap5
+        3: (4, 5, 50),   # Part 3: <20w→cap4, 20-49w→cap5
+    }
+    very_short_limits = {1: 15, 2: 40, 3: 20}
+    short_limits      = {1: 40, 2: 100, 3: 50}
+
+    very_short_cap, short_cap, _ = thresholds.get(part, (3, 5, 40))
+    very_short_threshold = very_short_limits.get(part, 15)
+    short_threshold      = short_limits.get(part, 40)
+
+    fc = grading.get("band_fc")
+    if fc is not None:
+        if word_count < very_short_threshold and fc > very_short_cap:
+            logger.info(
+                "[grading] heuristic cap: word_count=%d < %d → band_fc %s→%s",
+                word_count, very_short_threshold, fc, very_short_cap,
+            )
+            grading["band_fc"] = float(very_short_cap)
+            # Also cap LR and GRA for very short responses — insufficient sample
+            for k in ("band_lr", "band_gra"):
+                if grading.get(k) is not None and grading[k] > 5:
+                    grading[k] = 5.0
+        elif word_count < short_threshold and fc > short_cap:
+            logger.info(
+                "[grading] heuristic cap: word_count=%d < %d → band_fc %s→%s",
+                word_count, short_threshold, fc, short_cap,
+            )
+            grading["band_fc"] = float(short_cap)
+
+    # Recompute overall_band from (possibly capped) criterion bands
+    crit_vals = [
+        float(grading[k])
+        for k in ("band_fc", "band_lr", "band_gra", "band_p")
+        if grading.get(k) is not None
+    ]
+    if crit_vals:
+        grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
+
+    return grading
+
+
 # ── POST /sessions/{session_id}/responses ─────────────────────────────────────
 
 @router.post("/sessions/{session_id}/responses")
@@ -233,7 +290,9 @@ async def grade_response_endpoint(
                 duration_seconds=duration_sec,
                 word_count=word_count,
             )
-            logger.info("[grading] Claude OK — overall_band=%.1f", grading["overall_band"])
+            logger.info("[grading] Claude OK — overall_band=%.1f (pre-cap)", grading["overall_band"])
+            grading = _apply_heuristic_caps(grading, word_count, part)
+            logger.info("[grading] post-cap overall_band=%.1f", grading["overall_band"])
         except Exception as e:
             grading_error = str(e)
             logger.error("[grading] Claude grader thất bại (non-fatal): %s", e)
@@ -266,6 +325,7 @@ async def grade_response_endpoint(
             "transcript_logprobs":         json.dumps(stt_segments, ensure_ascii=False) if stt_segments else None,
             "assessment_confidence":       reliability["reliability_label"],
             "score_confidence":            score_confidence,
+            "duration_seconds":            round(duration_sec, 2) if duration_sec else None,
             "stt_status":                  "completed",
             "grading_status":              "completed" if grading else "failed",
         }
@@ -274,7 +334,10 @@ async def grade_response_endpoint(
             db_row["overall_band"] = grading["overall_band"]
             db_row["feedback"]     = json.dumps(grading, ensure_ascii=False)
 
-        # Columns guaranteed to exist in the base schema (no migrations needed)
+        # Columns guaranteed to exist in the base schema (no migrations needed).
+        # duration_seconds is intentionally excluded: the column may be INTEGER on
+        # some deployments (pre-migration-011), and sending a float would fail the
+        # core-row retry that is the last line of defence for saving the response.
         _CORE_COLUMNS = {"session_id", "question_id", "audio_url", "transcript",
                          "feedback", "overall_band", "stt_status", "grading_status"}
 
