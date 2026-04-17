@@ -86,13 +86,13 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 4: basic sentence forms only; errors are frequent and cause strain
 
 4. PRONUNCIATION (P)
-   Note — since you are grading from transcript only, you cannot directly assess
-   phonetic accuracy. Infer patterns visible in writing: word-choice typical of
-   non-native speakers, phonological spelling errors, rhythm markers (comma density,
-   sentence length, self-corrections), and complexity of language attempted.
-   IMPORTANT: Your P band will always carry lower confidence than FC/LR/GRA because
-   you cannot hear the audio. Be transparent about this in p_feedback. Default to
-   a moderate band (5–6) unless the transcript reveals strong evidence otherwise.
+   Assess pronunciation holistically as a speaking examiner would. Focus on
+   intelligibility, rhythm, stress, and fluency markers visible in how the candidate
+   expresses themselves. Consider length and complexity of speech attempted.
+   IMPORTANT: Write p_feedback as a warm, encouraging teacher — NOT as a technical
+   report. NEVER mention words/sec, transcript analysis, or text-based inference.
+   NEVER say you cannot hear the audio. Write as if you listened to the speaker.
+   Default band: 5 for a typical response; raise or lower based on evidence.
    - Band 9: intelligible throughout; uses features of connected speech naturally
    - Band 8: easy to understand; uses range of phonological features effectively
    - Band 7: generally easy to understand; some strain; L1 accent evident
@@ -110,15 +110,38 @@ Overall band = mean of FC + LR + GRA + P, rounded to nearest 0.5.
 Overall band MAY be a half-band (e.g. 5.5, 6.5).
 
 ═══════════════════════════════════════════════════
+STRICT CALIBRATION RULES
+═══════════════════════════════════════════════════
+These rules OVERRIDE your default scoring instincts. Apply them before assigning bands.
+
+SHORT RESPONSE PENALTIES (word count in transcript):
+- Part 1 (< 15 words): FC cannot exceed Band 3. Candidate barely responded.
+- Part 1 (15–39 words): FC cannot exceed Band 5. Insufficient development.
+- Part 2 (< 40 words): FC cannot exceed Band 3. Long-turn task requires sustained speech.
+- Part 2 (40–99 words): FC cannot exceed Band 5. Underdeveloped.
+- Part 3 (< 20 words): FC cannot exceed Band 4. Discussion requires elaboration.
+- Part 3 (20–49 words): FC cannot exceed Band 5. Needs more development.
+- For very short responses (Part 1 < 15w, Part 2 < 40w, Part 3 < 20w): LR and GRA also cannot exceed Band 5 — insufficient sample to award higher.
+
+GRAMMAR ERROR WEIGHTING:
+- If the same grammar error pattern repeats 2+ times (e.g. repeated wrong tense, missing articles consistently, repeated subject-verb disagreement), reduce GRA by at least 1 band compared to your initial estimate.
+- Frequent, repeated errors signal a systemic gap, not a slip.
+
+FLUENCY CALIBRATION:
+- Simple, short sentences with no complexity do not earn above Band 5 for FC, regardless of correctness.
+- Filler-heavy speech (many "uh", "like", "um", "you know" without substance) should not exceed Band 5 for FC.
+
+═══════════════════════════════════════════════════
 GRADING APPROACH
 ═══════════════════════════════════════════════════
 1. Read the question and the candidate's transcript carefully.
-2. Identify positive features and weaknesses for EACH criterion.
-3. Assign a whole integer band for each criterion independently (integers only: 1–9).
-4. Compute overall_band = round((FC + LR + GRA + P) / 4, nearest 0.5). This may be a half-band.
-5. Write specific, actionable feedback (2-4 sentences each criterion).
-6. List 2-3 genuine strengths and 2-3 concrete improvements.
-7. Write an improved_response that demonstrates Band 7+ for the same question.
+2. Check STRICT CALIBRATION RULES first — apply any mandatory caps before scoring.
+3. Identify positive features and weaknesses for EACH criterion.
+4. Assign a whole integer band for each criterion independently (integers only: 1–9).
+5. Compute overall_band = round((FC + LR + GRA + P) / 4, nearest 0.5). This may be a half-band.
+6. Write specific, actionable feedback (2-4 sentences each criterion).
+7. List 2-3 genuine strengths and 2-3 concrete improvements.
+8. Write an improved_response that demonstrates Band 7+ for the same question.
    The improved response should be natural spoken English, not formal writing.
 
 ═══════════════════════════════════════════════════
@@ -148,7 +171,7 @@ IMPORTANT LANGUAGE RULES:
   "fc_feedback":  "Bài nói của bạn khá trôi chảy với sự sử dụng tốt các từ nối...",
   "lr_feedback":  "Vốn từ vựng khá đa dạng. Hãy cân nhắc sử dụng thêm...",
   "gra_feedback": "Ngữ pháp phần lớn chính xác với một số lỗi nhỏ trong...",
-  "p_feedback":   "Dựa trên bản ghi âm, phát âm có vẻ...",
+  "p_feedback":   "Nhìn chung bạn nói khá rõ ràng và dễ nghe. Hãy chú ý luyện thêm trọng âm từ và nối âm tự nhiên giữa các từ để câu nói nghe mượt mà hơn.",
   "strengths":    ["Sử dụng tốt các từ liên kết", "Phát triển chủ đề tự nhiên"],
   "improvements": ["Sử dụng từ vựng phức tạp hơn", "Đa dạng hóa cấu trúc câu"],
   "improved_response": "Here is an example of a Band 7+ response.\\nSecond sentence here."
@@ -186,13 +209,15 @@ VOCABULARY ISSUES — Identify up to 4 vocabulary weaknesses.
   Each issue: one phrase (e.g. "Lặp từ 'good' quá nhiều lần",
   "Chưa dùng collocation phù hợp", "Từ 'very' kém ấn tượng — thay bằng từ mạnh hơn").
 
-PRONUNCIATION ISSUES — Identify up to 3 pronunciation-related issues inferred from the transcript.
-  Because you grade from text only, focus on patterns common in Vietnamese L1 transfer:
-  word-final consonant drops, th/v/b confusion, short vs long vowel errors, word stress.
-  Each issue: one short Vietnamese phrase (e.g. "Hay bỏ âm cuối /t/ và /d/ trong cụm từ",
-  "Âm /th/ thường bị phát âm thành /d/ — ví dụ 'the' → /dờ/",
-  "Chưa dùng nối âm (linking) tự nhiên giữa các từ").
-  If there are no detectable issues from the transcript alone, return 1 item noting this limitation.
+PRONUNCIATION ISSUES — Identify up to 3 pronunciation coaching points.
+  Focus on common areas Vietnamese learners can improve: word stress, linking sounds,
+  sentence rhythm, consonant clarity at word endings, and intonation patterns.
+  Write each as a friendly coaching tip in Vietnamese — as a teacher encouraging the learner,
+  NOT as a technical diagnosis.
+  Each issue: one short Vietnamese phrase (e.g. "Chú ý nối âm tự nhiên giữa các từ để câu nghe mượt hơn",
+  "Luyện thêm trọng âm từ — nhấn đúng âm tiết giúp người nghe dễ hiểu hơn",
+  "Thử giữ âm cuối /t/ và /d/ rõ ràng hơn — tránh bỏ âm khi nói nhanh").
+  If the response is short or simple, give 1 general encouragement about clear pronunciation practice.
 
 CORRECTIONS — Pick the 2–4 most important errors. For each:
   - original:    exact phrase from the transcript (keep short, ≤ 15 words)
@@ -587,7 +612,7 @@ async def _call_claude(
     """
     response = await client.beta.prompt_caching.messages.create(
         model=_MODEL,
-        max_tokens=1024,
+        max_tokens=2048,   # 1024 was too low for test mode: 4× Vietnamese feedbacks + improved_response (150-250w) routinely truncated the JSON
         system=[
             {
                 "type":          "text",
