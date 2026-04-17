@@ -1474,16 +1474,36 @@ async def admin_regrade_response(
         raise HTTPException(404, "Câu hỏi không tồn tại")
     question_text = q_res.data[0]["question_text"]
 
-    logger.info("[admin/regrade-response] response=%s session=%s by=%s", response_id, resp["session_id"], admin_email)
+    session_id = resp["session_id"]
+    logger.info("[admin/regrade-response] response=%s session=%s by=%s", response_id, session_id, admin_email)
 
     result = await _run_regrade_response(resp, session, question_text, admin_email)
 
+    # Recompute and persist session-level bands so Session History reflects the update.
+    bands = _regrade_compute_session_bands(session_id)
+    session_updated = False
+    if bands["overall_band"] is not None:
+        now = datetime.now(timezone.utc).isoformat()
+        sess_update: dict = {**bands, "status": "completed"}
+        try:
+            supabase_admin.table("sessions").update({
+                **sess_update,
+                "last_regraded_at": now,
+                "last_regraded_by": admin_email,
+            }).eq("id", session_id).execute()
+        except Exception:
+            supabase_admin.table("sessions").update(sess_update).eq("id", session_id).execute()
+        session_updated = True
+        logger.info("[admin/regrade-response] session bands updated session=%s overall_band=%s", session_id, bands["overall_band"])
+
     return {
-        "ok":           True,
-        "response_id":  response_id,
-        "session_id":   resp["session_id"],
-        "overall_band": result["overall_band"],
-        "re_transcribed": result["re_transcribed"],
+        "ok":              True,
+        "response_id":     response_id,
+        "session_id":      session_id,
+        "overall_band":    result["overall_band"],
+        "re_transcribed":  result["re_transcribed"],
+        "session_updated": session_updated,
+        "session_band":    bands["overall_band"],
     }
 
 
