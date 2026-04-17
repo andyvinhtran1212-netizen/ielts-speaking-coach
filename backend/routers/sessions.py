@@ -42,12 +42,6 @@ class CreateSessionBody(BaseModel):
     part: int
     topic: str
 
-
-class FinalizeFullTestBody(BaseModel):
-    p1_id: str
-    p2_id: Optional[str] = None
-    p3_id: Optional[str] = None
-
     @field_validator("mode")
     @classmethod
     def validate_mode(cls, v):
@@ -68,6 +62,12 @@ class FinalizeFullTestBody(BaseModel):
         if not v.strip():
             raise ValueError("topic không được để trống")
         return v.strip()
+
+
+class FinalizeFullTestBody(BaseModel):
+    p1_id: str
+    p2_id: Optional[str] = None
+    p3_id: Optional[str] = None
 
 
 # ── Shared guards ─────────────────────────────────────────────────────────────
