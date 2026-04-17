@@ -7,12 +7,15 @@ Required Supabase tables (run migration 002 if not yet applied):
     See backend/migrations/002_topic_question_library.sql
 """
 
+import asyncio
+import json
 import logging
+import math
 import random
 import string
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
@@ -22,6 +25,8 @@ from services.gemini import (
     generate_part2_cuecard,
     generate_part3_questions,
 )
+from services.claude_grader import grade_response as _claude_grade
+from services.whisper import transcribe_from_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -1262,3 +1267,393 @@ async def admin_get_alerts(
         "session_errors":   session_errors,
         "grading_failures": grading_failures,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REGRADE FLOW
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_REGRADE_AUDIO_BUCKET = "audio-responses"
+
+
+def _regrade_round_band(v: float) -> float:
+    rounded = math.floor(v * 2 + 0.5) / 2
+    return max(1.0, min(9.0, rounded))
+
+
+def _regrade_apply_heuristic_caps(grading: dict, word_count: int, part: int) -> dict:
+    """Mirror of grading.py _apply_heuristic_caps — keeps regrade calibration consistent."""
+    grading = dict(grading)
+    thresholds      = {1: (3, 5, 40), 2: (3, 5, 100), 3: (4, 5, 50)}
+    very_short_lims = {1: 15, 2: 40, 3: 20}
+    short_lims      = {1: 40, 2: 100, 3: 50}
+    very_short_cap, short_cap, _ = thresholds.get(part, (3, 5, 40))
+    vt = very_short_lims.get(part, 15)
+    st = short_lims.get(part, 40)
+    fc = grading.get("band_fc")
+    if fc is not None:
+        if word_count < vt and fc > very_short_cap:
+            grading["band_fc"] = float(very_short_cap)
+            for k in ("band_lr", "band_gra"):
+                if grading.get(k) is not None and grading[k] > 5:
+                    grading[k] = 5.0
+        elif word_count < st and fc > short_cap:
+            grading["band_fc"] = float(short_cap)
+    crit = [float(grading[k]) for k in ("band_fc", "band_lr", "band_gra", "band_p") if grading.get(k) is not None]
+    if crit:
+        grading["overall_band"] = _regrade_round_band(sum(crit) / len(crit))
+    return grading
+
+
+def _regrade_compute_session_bands(session_id: str) -> dict:
+    """
+    Read all response feedback for a session, compute aggregate band scores.
+    Returns dict with overall_band, band_fc/lr/gra/p (or None if missing data).
+    """
+    r_res = (
+        supabase_admin.table("responses")
+        .select("overall_band, feedback")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    responses = r_res.data or []
+    fc_v, lr_v, gra_v, p_v = [], [], [], []
+    for r in responses:
+        raw = r.get("feedback")
+        if not raw:
+            continue
+        try:
+            fb = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(fb, dict):
+            continue
+        for lst, key in ((fc_v, "band_fc"), (lr_v, "band_lr"), (gra_v, "band_gra"), (p_v, "band_p")):
+            v = fb.get(key)
+            if v is not None:
+                try:
+                    lst.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+    band_fc  = _regrade_round_band(sum(fc_v)  / len(fc_v))  if fc_v  else None
+    band_lr  = _regrade_round_band(sum(lr_v)  / len(lr_v))  if lr_v  else None
+    band_gra = _regrade_round_band(sum(gra_v) / len(gra_v)) if gra_v else None
+    band_p   = _regrade_round_band(sum(p_v)   / len(p_v))   if p_v   else None
+    crit = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
+    overall = _regrade_round_band(sum(crit) / len(crit)) if crit else None
+    return {"overall_band": overall, "band_fc": band_fc, "band_lr": band_lr, "band_gra": band_gra, "band_p": band_p}
+
+
+async def _run_regrade_response(
+    resp: dict,
+    session: dict,
+    question_text: str,
+    admin_email: str,
+) -> dict:
+    """
+    Core regrade logic for one response dict already loaded from DB.
+    Returns {overall_band, re_transcribed, error}.
+    Raises HTTPException on non-recoverable errors.
+    """
+    part     = session["part"]
+    mode     = session.get("mode", "practice") or "practice"
+    user_id  = session["user_id"]
+    response_id = resp["id"]
+
+    transcript = (resp.get("transcript") or "").strip()
+    word_count = len(transcript.split()) if transcript else 0
+    re_transcribed = False
+
+    if word_count < 3:
+        # Try re-transcribing from stored audio
+        audio_path = resp.get("audio_storage_path")
+        if not audio_path:
+            raise HTTPException(422, f"Response {response_id}: không có transcript và không có audio path")
+        try:
+            audio_bytes = await asyncio.to_thread(
+                supabase_admin.storage.from_(_REGRADE_AUDIO_BUCKET).download,
+                audio_path,
+            )
+        except Exception as e:
+            raise HTTPException(502, f"Response {response_id}: không thể tải audio — {e}")
+
+        ext = ("." + audio_path.rsplit(".", 1)[-1]) if "." in audio_path else ".webm"
+        stt = await transcribe_from_bytes(audio_bytes, filename=f"audio{ext}")
+        transcript = stt.get("transcript", "").strip()
+        if not transcript:
+            raise HTTPException(422, f"Response {response_id}: Whisper không nhận dạng được giọng nói")
+        word_count = len(transcript.split())
+        re_transcribed = True
+
+    reliability = {"reliability_label": "high", "reliability_score": 0.9}
+    grading = await _claude_grade(
+        question=question_text,
+        transcript=transcript,
+        part=part,
+        mode=mode,
+        user_id=user_id,
+        session_id=resp["session_id"],
+        reliability=reliability,
+        word_count=word_count,
+    )
+    grading = _regrade_apply_heuristic_caps(grading, word_count, part)
+
+    now = datetime.now(timezone.utc).isoformat()
+    old_count = resp.get("regrade_count") or 0
+
+    update: dict = {
+        "feedback":       json.dumps(grading, ensure_ascii=False),
+        "overall_band":   grading["overall_band"],
+        "grading_status": "completed",
+    }
+    if re_transcribed:
+        update["transcript"] = transcript
+
+    # Best-effort: save regrade metadata (columns may not exist on old deployments)
+    try:
+        full_update = {
+            **update,
+            "last_regraded_at": now,
+            "last_regraded_by": admin_email,
+            "regrade_count":    old_count + 1,
+        }
+        supabase_admin.table("responses").update(full_update).eq("id", response_id).execute()
+    except Exception:
+        supabase_admin.table("responses").update(update).eq("id", response_id).execute()
+
+    return {"overall_band": grading["overall_band"], "re_transcribed": re_transcribed}
+
+
+# ── POST /admin/responses/{response_id}/regrade ───────────────────────────────
+
+@router.post("/responses/{response_id}/regrade")
+async def admin_regrade_response(
+    response_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Chấm lại một response cụ thể.
+    Dùng transcript hiện có (nếu đủ dài), hoặc re-transcribe từ audio nếu cần.
+    """
+    admin = await require_admin(authorization)
+    admin_email = admin.get("email", "admin")
+
+    # Load response
+    r_res = (
+        supabase_admin.table("responses")
+        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status")
+        .eq("id", response_id)
+        .limit(1)
+        .execute()
+    )
+    if not r_res.data:
+        raise HTTPException(404, "Response không tồn tại")
+    resp = r_res.data[0]
+
+    # Load session
+    s_res = (
+        supabase_admin.table("sessions")
+        .select("id, part, mode, user_id")
+        .eq("id", resp["session_id"])
+        .limit(1)
+        .execute()
+    )
+    if not s_res.data:
+        raise HTTPException(404, "Session không tồn tại")
+    session = s_res.data[0]
+
+    # Load question
+    q_res = (
+        supabase_admin.table("questions")
+        .select("question_text")
+        .eq("id", resp["question_id"])
+        .limit(1)
+        .execute()
+    )
+    if not q_res.data:
+        raise HTTPException(404, "Câu hỏi không tồn tại")
+    question_text = q_res.data[0]["question_text"]
+
+    logger.info("[admin/regrade-response] response=%s session=%s by=%s", response_id, resp["session_id"], admin_email)
+
+    result = await _run_regrade_response(resp, session, question_text, admin_email)
+
+    return {
+        "ok":           True,
+        "response_id":  response_id,
+        "session_id":   resp["session_id"],
+        "overall_band": result["overall_band"],
+        "re_transcribed": result["re_transcribed"],
+    }
+
+
+# ── POST /admin/sessions/{session_id}/regrade ─────────────────────────────────
+
+@router.post("/sessions/{session_id}/regrade")
+async def admin_regrade_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Chấm lại toàn bộ session.
+    Ưu tiên regrade các response bị fail hoặc thiếu overall_band.
+    Sau đó recompute session-level bands.
+    """
+    admin = await require_admin(authorization)
+    admin_email = admin.get("email", "admin")
+
+    # Load session
+    s_res = (
+        supabase_admin.table("sessions")
+        .select("id, part, mode, user_id, status")
+        .eq("id", session_id)
+        .limit(1)
+        .execute()
+    )
+    if not s_res.data:
+        raise HTTPException(404, "Session không tồn tại")
+    session = s_res.data[0]
+
+    # Load questions
+    q_res = (
+        supabase_admin.table("questions")
+        .select("id, question_text")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    question_map = {q["id"]: q["question_text"] for q in (q_res.data or [])}
+
+    # Load all responses for this session
+    r_res = (
+        supabase_admin.table("responses")
+        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status, overall_band")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    all_responses = r_res.data or []
+
+    # Determine which responses need regrading
+    def _needs_regrade(r: dict) -> bool:
+        if r.get("grading_status") == "failed":
+            return True
+        if r.get("overall_band") is None:
+            return True
+        return False
+
+    to_regrade = [r for r in all_responses if _needs_regrade(r)]
+    skip_count = len(all_responses) - len(to_regrade)
+
+    logger.info("[admin/regrade-session] session=%s total=%d to_regrade=%d skip=%d by=%s",
+                session_id, len(all_responses), len(to_regrade), skip_count, admin_email)
+
+    regraded, failed_ids, failed_errors = 0, [], []
+    for resp in to_regrade:
+        qid = resp.get("question_id")
+        question_text = question_map.get(qid)
+        if not question_text:
+            failed_ids.append(resp["id"])
+            failed_errors.append(f"{resp['id']}: question_text not found")
+            continue
+        try:
+            await _run_regrade_response(resp, session, question_text, admin_email)
+            regraded += 1
+        except HTTPException as exc:
+            failed_ids.append(resp["id"])
+            failed_errors.append(f"{resp['id']}: {exc.detail}")
+        except Exception as exc:
+            failed_ids.append(resp["id"])
+            failed_errors.append(f"{resp['id']}: {exc}")
+
+    # Recompute session-level bands from all responses (including already-good ones)
+    bands = _regrade_compute_session_bands(session_id)
+    now = datetime.now(timezone.utc).isoformat()
+
+    session_update: dict = {
+        **bands,
+        "status": "completed",
+    }
+    try:
+        full_sess_update = {
+            **session_update,
+            "last_regraded_at": now,
+            "last_regraded_by": admin_email,
+            "regrade_count":    ((supabase_admin.table("sessions").select("regrade_count").eq("id", session_id).limit(1).execute().data or [{}])[0].get("regrade_count") or 0) + 1,
+        }
+        supabase_admin.table("sessions").update(full_sess_update).eq("id", session_id).execute()
+    except Exception:
+        supabase_admin.table("sessions").update(session_update).eq("id", session_id).execute()
+
+    return {
+        "ok":               True,
+        "session_id":       session_id,
+        "regraded":         regraded,
+        "skipped":          skip_count,
+        "failed":           len(failed_ids),
+        "failed_details":   failed_errors[:5],   # cap for response size
+        "overall_band":     bands["overall_band"],
+        "band_fc":          bands["band_fc"],
+        "band_lr":          bands["band_lr"],
+        "band_gra":         bands["band_gra"],
+        "band_p":           bands["band_p"],
+    }
+
+
+# ── POST /admin/sessions/{session_id}/rebuild-summary ─────────────────────────
+
+@router.post("/sessions/{session_id}/rebuild-summary")
+async def admin_rebuild_summary(
+    session_id: str,
+    p2_id: str | None = Query(default=None, description="Part 2 session ID (for test_full)"),
+    p3_id: str | None = Query(default=None, description="Part 3 session ID (for test_full)"),
+    authorization: str | None = Header(default=None),
+):
+    """
+    Tổng hợp lại kết quả từ response data hiện có mà không rerun grading.
+    Dùng cho full test hoặc session bị fail ở bước aggregate.
+    Cập nhật overall_band / band_fc/lr/gra/p cho tất cả sessions liên quan.
+    """
+    admin = await require_admin(authorization)
+    admin_email = admin.get("email", "admin")
+
+    all_ids = [sid for sid in [session_id, p2_id, p3_id] if sid]
+
+    # Verify sessions exist
+    s_res = (
+        supabase_admin.table("sessions")
+        .select("id, mode, status")
+        .in_("id", all_ids)
+        .execute()
+    )
+    found_ids = {s["id"] for s in (s_res.data or [])}
+    missing = [sid for sid in all_ids if sid not in found_ids]
+    if missing:
+        raise HTTPException(404, f"Session không tồn tại: {missing}")
+
+    logger.info("[admin/rebuild-summary] sessions=%s by=%s", all_ids, admin_email)
+
+    now = datetime.now(timezone.utc).isoformat()
+    results = []
+
+    for sid in all_ids:
+        bands = _regrade_compute_session_bands(sid)
+        if bands["overall_band"] is None:
+            results.append({"session_id": sid, "ok": False, "error": "Không có đủ dữ liệu response để tính band"})
+            continue
+
+        sess_update: dict = {
+            **bands,
+            "status": "completed",
+        }
+        try:
+            full_update = {
+                **sess_update,
+                "last_regraded_at": now,
+                "last_regraded_by": admin_email,
+            }
+            supabase_admin.table("sessions").update(full_update).eq("id", sid).execute()
+        except Exception:
+            supabase_admin.table("sessions").update(sess_update).eq("id", sid).execute()
+
+        results.append({"session_id": sid, "ok": True, **bands})
+
+    return {"ok": True, "sessions": results}

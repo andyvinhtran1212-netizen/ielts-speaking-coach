@@ -2202,6 +2202,17 @@
         + '<div><span style="color:rgba(255,255,255,0.4);">Overall Band</span><br>' + _bandBadge(s.overall_band) + '</div>'
         + '</div>';
 
+      // Session-level action bar
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        + '<button class="btn-secondary text-xs py-1 px-3" onclick="regradeSession(\'' + esc(s.id) + '\')">Chấm lại session</button>'
+        + '<button class="btn-secondary text-xs py-1 px-3" onclick="rebuildSummary(\'' + esc(s.id) + '\')">Tổng hợp lại kết quả</button>';
+      if (s.mode === 'test_full') {
+        var p2 = (s.p2_session_id || '');
+        var p3 = (s.p3_session_id || '');
+        html += '<button class="btn-secondary text-xs py-1 px-3" onclick="rebuildSummary(\'' + esc(s.id) + '\',\'' + esc(p2) + '\',\'' + esc(p3) + '\')">Tổng hợp lại full test</button>';
+      }
+      html += '</div>';
+
       // Criteria bands
       if (s.band_fc || s.band_lr || s.band_gra || s.band_p) {
         html += '<div class="grid grid-cols-4 gap-2 text-center">'
@@ -2253,6 +2264,10 @@
                 + '<audio controls class="w-full" style="height:32px;" src="' + esc(r.audio_url || '') + '"></audio>'
                 + '</div>';
             }
+
+            html += '<div class="mt-2">'
+              + '<button class="btn-secondary text-xs py-1 px-2" onclick="regradeResponse(\'' + esc(r.id) + '\',\'' + esc(s.id) + '\')">Chấm lại câu này</button>'
+              + '</div>';
           } else {
             html += '<p class="text-xs" style="color:rgba(255,255,255,0.3);">Chưa có câu trả lời.</p>';
           }
@@ -2307,7 +2322,10 @@
             + '<td class="text-xs font-mono">' + esc(s.failed_step || '—') + '</td>'
             + '<td class="text-xs" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,0.45);">' + esc(s.error_message || '—') + '</td>'
             + '<td class="text-xs" style="color:rgba(255,255,255,0.45);">' + fmtDate(s.last_error_at) + '</td>'
-            + '<td><button class="btn-secondary text-xs py-1 px-2" onclick="openSessionDetail(\'' + esc(s.id) + '\')">Xem</button></td>'
+            + '<td style="white-space:nowrap;">'
+            + '<button class="btn-secondary text-xs py-1 px-2" onclick="openSessionDetail(\'' + esc(s.id) + '\')">Xem</button> '
+            + '<button class="btn-secondary text-xs py-1 px-2" onclick="regradeSession(\'' + esc(s.id) + '\')">Chấm lại</button>'
+            + '</td>'
             + '</tr>';
         });
         document.getElementById('alerts-sessions-tbody').innerHTML = html;
@@ -2336,12 +2354,68 @@
             + '<td class="text-xs">' + esc(r.user_email || '—') + '</td>'
             + '<td><span style="color:' + gColor + ';font-size:11px;font-weight:600;">' + esc(gStatus) + '</span></td>'
             + '<td><span style="color:' + sColor + ';font-size:11px;font-weight:600;">' + esc(sStatus) + '</span></td>'
-            + '<td><button class="btn-secondary text-xs py-1 px-2" onclick="openSessionDetail(\'' + esc(r.session_id) + '\')">Xem</button></td>'
+            + '<td style="white-space:nowrap;">'
+            + '<button class="btn-secondary text-xs py-1 px-2" onclick="openSessionDetail(\'' + esc(r.session_id) + '\')">Xem</button> '
+            + '<button class="btn-secondary text-xs py-1 px-2" onclick="regradeResponse(\'' + esc(r.id) + '\',\'' + esc(r.session_id) + '\')">Chấm lại</button>'
+            + '</td>'
             + '</tr>';
         });
         document.getElementById('alerts-grading-tbody').innerHTML = gHtml;
       }
     }
+
+    // ── REGRADE ACTIONS ────────────────────────────────────────
+    window.regradeResponse = async function (responseId, sessionId) {
+      if (!confirm('Chấm lại câu trả lời này? Kết quả cũ sẽ bị ghi đè.')) return;
+      try {
+        var btn = event && event.target;
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang chấm…'; }
+        await apiPost('/admin/responses/' + responseId + '/regrade', {});
+        alert('Chấm lại thành công!');
+        if (sessionId) openSessionDetail(sessionId);
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Chấm lại câu này'; }
+      }
+    };
+
+    window.regradeSession = async function (sessionId) {
+      if (!confirm('Chấm lại toàn bộ session này? Các câu bị lỗi sẽ được chấm lại.')) return;
+      var btn = event && event.target;
+      var origText = btn ? btn.textContent : '';
+      try {
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang chấm…'; }
+        var result = await apiPost('/admin/sessions/' + sessionId + '/regrade', {});
+        alert('Chấm lại xong: ' + (result.regraded || 0) + ' câu thành công, ' + (result.failed || 0) + ' câu lỗi.');
+        openSessionDetail(sessionId);
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = origText || 'Chấm lại session'; }
+      }
+    };
+
+    window.rebuildSummary = async function (sessionId, p2Id, p3Id) {
+      if (!confirm('Tổng hợp lại band scores cho session này?')) return;
+      var btn = event && event.target;
+      var origText = btn ? btn.textContent : '';
+      try {
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang tổng hợp…'; }
+        var url = '/admin/sessions/' + sessionId + '/rebuild-summary';
+        var params = [];
+        if (p2Id) params.push('p2_id=' + encodeURIComponent(p2Id));
+        if (p3Id) params.push('p3_id=' + encodeURIComponent(p3Id));
+        if (params.length) url += '?' + params.join('&');
+        var result = await apiPost(url, {});
+        alert('Tổng hợp xong! Overall band: ' + (result.overall_band || '—'));
+        openSessionDetail(sessionId);
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = origText || 'Tổng hợp lại kết quả'; }
+      }
+    };
 
     // ── Init ───────────────────────────────────────────────────
     async function init() {
