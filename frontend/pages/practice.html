@@ -547,6 +547,62 @@
       </div>
     </div>
 
+    <!-- STATE: Full Test Completion ─────────────────────────────────────────── -->
+    <div id="state-completion" class="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center">
+
+      <!-- Check icon -->
+      <div style="width:72px;height:72px;border-radius:50%;background:rgba(20,184,166,0.12);border:2px solid rgba(20,184,166,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
+        <svg style="width:32px;height:32px;" fill="none" viewBox="0 0 24 24" stroke="#14b8a6" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+
+      <h2 style="font-size:1.25rem;font-weight:700;color:#e2e8f0;margin-bottom:8px;">Bạn đã hoàn thành Full Test!</h2>
+      <p style="font-size:0.875rem;color:rgba(255,255,255,0.5);margin-bottom:28px;max-width:360px;line-height:1.65;">
+        Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.
+      </p>
+
+      <!-- Info card -->
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px 22px;max-width:360px;width:100%;margin-bottom:28px;text-align:left;">
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
+          <div style="width:28px;height:28px;border-radius:8px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
+            <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="#14b8a6" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <p style="font-size:0.8rem;font-weight:600;color:#e2e8f0;margin:0 0 3px;">Kết quả sẽ có trong ít phút</p>
+            <p style="font-size:0.75rem;color:rgba(255,255,255,0.45);line-height:1.55;margin:0;">Thường trong vòng 10–15 phút, band score và nhận xét đầy đủ sẽ xuất hiện tại <strong style="color:rgba(255,255,255,0.7);">Lịch sử sessions</strong> trên Dashboard.</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="width:28px;height:28px;border-radius:8px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
+            <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="#14b8a6" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <p style="font-size:0.8rem;font-weight:600;color:#e2e8f0;margin:0 0 3px;">Bạn không cần ngồi chờ ở đây</p>
+            <p style="font-size:0.75rem;color:rgba(255,255,255,0.45);line-height:1.55;margin:0;">Hệ thống sẽ xử lý phần còn lại. Bạn có thể về Dashboard hoặc luyện thêm ngay bây giờ.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTAs -->
+      <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px;">
+        <a href="dashboard.html"
+           style="display:block;padding:14px;border-radius:14px;font-size:0.875rem;font-weight:700;background:#0F766E;color:#fff;text-decoration:none;text-align:center;"
+           onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+          Về Dashboard
+        </a>
+        <a href="dashboard.html#history"
+           style="display:block;padding:14px;border-radius:14px;font-size:0.875rem;font-weight:600;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);text-decoration:none;text-align:center;border:1px solid rgba(255,255,255,0.1);"
+           onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+          Xem Lịch sử sessions
+        </a>
+      </div>
+    </div>
+
     <!-- STATE: Break (Full Test inter-part pause) ───────────────────────────── -->
     <div id="state-break" class="state flex-1 items-center justify-center flex-col gap-4 px-6 text-center">
       <p id="break-part-label" class="text-sm font-semibold uppercase tracking-wider"

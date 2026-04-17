@@ -68,6 +68,7 @@
   // Deferred grading: answers collected during test flow, processed in batch at end of part
   var _pendingTestAnswers = [];  // [{questionId, blob, questionText, part}]
 
+
   // Blob URL for the current practice-mode recording (used for replay/download on feedback screen)
   var _feedbackAudioUrl = null;
 
@@ -86,7 +87,7 @@
 
   // ── Top-level state management ────────────────────────────────────────────────
 
-  var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'break', 'test-results'];
+  var _ALL_STATES = ['loading', 'error', 'mode-choice', 'prep', 'p2a', 'p2b', 'p2c', 'processing', 'feedback', 'break', 'test-results', 'completion'];
 
   function showState(name) {
     _ALL_STATES.forEach(function (s) {
@@ -439,8 +440,14 @@
       return;
     }
 
-    // Test modes: defer grading — collect answer and advance immediately
-    if (_testMode) {
+    // Test modes: advance immediately (no grading spinner)
+    if (_testMode === 'test_full') {
+      // Eager upload — fire and forget; backend finalize handles aggregation
+      _submitGradingEager(_sessionId, questionId, _recordedBlob);
+      _advanceTestMode();
+      return;
+    }
+    if (_testMode === 'test_part') {
       _pendingTestAnswers.push({
         sessionId:    _sessionId,
         questionId:   questionId,
@@ -1539,8 +1546,14 @@
       _recordedBlob = new Blob(_audioChunks, { type: type });
       var questionId = _currentQ && (_currentQ.id || _currentQ.question_id);
 
-      // Test modes: defer grading
-      if (_testMode) {
+      // Test modes: advance immediately (no grading spinner)
+      if (_testMode === 'test_full') {
+        // Eager upload — fire and forget; backend finalize handles aggregation
+        _submitGradingEager(_sessionId, questionId, _recordedBlob);
+        _advanceTestMode();
+        return;
+      }
+      if (_testMode === 'test_part') {
         _pendingTestAnswers.push({
           sessionId:    _sessionId,
           questionId:   questionId,
@@ -1626,6 +1639,18 @@
 
   // ── Test Mode logic ───────────────────────────────────────────────────────────
 
+  // Fire a single grading request immediately (eager upload for test_full).
+  // Returns a Promise that resolves/rejects when the upload completes.
+  function _submitGradingEager(sessionId, questionId, blob) {
+    var fd = new FormData();
+    fd.append('question_id', questionId);
+    fd.append('audio_file', blob, 'response.webm');
+    return window.api.upload('/sessions/' + sessionId + '/responses', fd)
+      .catch(function (err) {
+        console.warn('[practice] eager grading failed for q', questionId, err);
+      });
+  }
+
   function _advanceTestMode() {
     var isLastQ = (_currentIdx >= _questions.length - 1);
 
@@ -1646,15 +1671,38 @@
       // Full Test: do NOT grade between parts — go directly to next part
       var nextPart = _ftCurrentPart + 1;
       if (nextPart > 3) {
-        // All parts done — now grade everything and show results
-        _processPendingAnswers(function () {
-          _finishTestAndShowResults();
-        });
+        // All parts done — fire grading in background, show completion screen immediately
+        _fireAndForgetFullTestGrading();
       } else {
         // Transition directly to next part, no break screen, no mid-test grading
         _startNextPartInFullTest(nextPart);
       }
     }
+  }
+
+  // Called when the last Part 3 question is submitted in test_full mode.
+  // Calls the backend finalize endpoint — server handles all aggregation.
+  // Browser is free to close immediately after this returns.
+  function _fireAndForgetFullTestGrading() {
+    // Show completion screen immediately — no waiting
+    showState('completion');
+
+    // Tell backend to finalize: it marks sessions 'submitted', then polls DB until
+    // all eager-upload grading requests complete, then aggregates band scores.
+    var p1 = _ftAllSessionIds[0] || _sessionId;
+    var p2 = _ftAllSessionIds[1] || null;
+    var p3 = _ftAllSessionIds[2] || null;
+
+    var body = { p1_id: p1 };
+    if (p2) body.p2_id = p2;
+    if (p3) body.p3_id = p3;
+
+    window.api.post('/sessions/finalize-full-test', body)
+      .catch(function (err) {
+        console.warn('[practice] finalize-full-test failed (non-fatal):', err);
+        // Completion screen still shown. Sessions remain in_progress but
+        // graded responses are saved — admin can manually complete them.
+      });
   }
 
   function _showBreak(nextPart) {

@@ -1011,10 +1011,11 @@
 
     // ── Render session history ────────────────────────────────
     function renderHistory(sessions) {
-      // sessions is already filtered to completed-only by the caller
-      document.getElementById('history-count').textContent = `${sessions.length} sessions`;
+      // sessions includes completed, submitted, analysis_failed — filter out bare in_progress
+      const visible = sessions.filter(s => s.status !== 'in_progress');
+      document.getElementById('history-count').textContent = `${visible.length} sessions`;
 
-      if (sessions.length === 0) return;
+      if (visible.length === 0) return;
 
       document.getElementById('history-empty').classList.add('hidden');
       document.getElementById('history-table-wrap').classList.remove('hidden');
@@ -1024,15 +1025,23 @@
       const modeTxt   = { practice: '#14b8a6', test_part: '#38bdf8', test_full: '#fb923c' };
 
       const tbody = document.getElementById('history-tbody');
-      tbody.innerHTML = sessions
+      tbody.innerHTML = visible
         .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))
         .map(s => {
           const date = new Date(s.started_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+          const isPending = s.status === 'submitted' || (s.status === 'completed' && s.overall_band == null && s.mode === 'test_full');
+          const isFailed  = s.status === 'analysis_failed';
           const band = s.overall_band != null
             ? `<span style="color:#14b8a6;font-weight:700;">${roundHalf(s.overall_band).toFixed(1)}</span>`
-            : '<span style="color:rgba(255,255,255,0.3);">—</span>';
+            : isPending
+              ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(251,146,60,0.12);color:#fb923c;font-weight:600;white-space:nowrap;">Đang phân tích</span>`
+              : isFailed
+                ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(239,68,68,0.1);color:#f87171;font-weight:600;white-space:nowrap;">Lỗi phân tích</span>`
+                : '<span style="color:rgba(255,255,255,0.3);">—</span>';
           const viewBtn = s.id
-            ? `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
+            ? (isPending || isFailed)
+              ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.08);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
+              : `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
             : '—';
           const mode = s.mode || 'practice';
           const modeBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${modeColor[mode] || modeColor.practice};color:${modeTxt[mode] || modeTxt.practice};font-weight:600;">${modeLabel[mode] || mode}</span>`;
@@ -1646,12 +1655,12 @@
       }
 
       try {
-        const [statsData, completedSessions] = await Promise.all([
+        const [statsData, allSessions] = await Promise.all([
           api.get('/sessions/stats?limit=20'),
-          api.get('/sessions?status=completed&limit=200'),
+          api.get('/sessions?limit=200'),
         ]);
         renderStats(statsData.summary, statsData.sessions);
-        renderHistory(completedSessions);
+        renderHistory(allSessions);
         renderCharts(statsData.sessions);
       } catch (err) {
         // Backend unreachable — show empty state silently

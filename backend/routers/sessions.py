@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import math
@@ -5,7 +6,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Header, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
 from pydantic import BaseModel, field_validator
 
 from config import settings
@@ -40,6 +41,12 @@ class CreateSessionBody(BaseModel):
     mode: str
     part: int
     topic: str
+
+
+class FinalizeFullTestBody(BaseModel):
+    p1_id: str
+    p2_id: Optional[str] = None
+    p3_id: Optional[str] = None
 
     @field_validator("mode")
     @classmethod
@@ -629,6 +636,212 @@ async def get_full_test_summary(
     }
 
 
+# ── Internal helpers for backend-driven finalization ──────────────────────────
+
+def _complete_session_internal(session_id: str) -> None:
+    """
+    Compute and persist band scores for one session without requiring an HTTP auth context.
+    Used by the background task that finalizes a full test after all grading is done.
+    Mirrors the logic in complete_session() but is synchronous and auth-free.
+    """
+    s_res = (
+        supabase_admin.table("sessions")
+        .select("*")
+        .eq("id", session_id)
+        .limit(1)
+        .execute()
+    )
+    if not s_res.data:
+        raise ValueError(f"Session {session_id} not found")
+    session = s_res.data[0]
+
+    if session.get("status") == "completed" and session.get("overall_band") is not None:
+        return  # already fully computed — nothing to do
+
+    r_res = (
+        supabase_admin.table("responses")
+        .select("overall_band, feedback")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    responses = r_res.data or []
+
+    fc_vals, lr_vals, gra_vals, p_vals, r_bands = [], [], [], [], []
+    for r in responses:
+        ob = r.get("overall_band")
+        if ob is not None:
+            r_bands.append(float(ob))
+        raw = r.get("feedback")
+        if not raw:
+            continue
+        try:
+            fb = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(fb, dict):
+            for vals, key in (
+                (fc_vals,  "band_fc"),
+                (lr_vals,  "band_lr"),
+                (gra_vals, "band_gra"),
+                (p_vals,   "band_p"),
+            ):
+                v = fb.get(key)
+                if v is not None:
+                    try:
+                        vals.append(float(v))
+                    except (TypeError, ValueError):
+                        pass
+
+    criteria_bands: dict = {
+        "band_fc":  _round_band(sum(fc_vals)  / len(fc_vals))  if fc_vals  else None,
+        "band_lr":  _round_band(sum(lr_vals)  / len(lr_vals))  if lr_vals  else None,
+        "band_gra": _round_band(sum(gra_vals) / len(gra_vals)) if gra_vals else None,
+        "band_p":   _round_band(sum(p_vals)   / len(p_vals))   if p_vals   else None,
+    }
+    scored = [v for v in criteria_bands.values() if v is not None]
+    overall_band = (
+        _round_band(sum(scored) / len(scored)) if scored
+        else (_round_band(sum(r_bands) / len(r_bands)) if r_bands else None)
+    )
+
+    update_payload: dict = {
+        "status": "completed",
+        "overall_band": overall_band,
+        **{k: v for k, v in criteria_bands.items() if v is not None},
+    }
+    if not session.get("completed_at"):
+        update_payload["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    supabase_admin.table("sessions").update(update_payload).eq("id", session_id).execute()
+    logger.info("[finalize_ft] session=%s completed — overall_band=%s", session_id, overall_band)
+
+
+def _check_all_responses_saved(session_ids: list) -> bool:
+    """Return True when every question in each session has a saved response row."""
+    for sid in session_ids:
+        try:
+            q_res = (
+                supabase_admin.table("questions")
+                .select("id", count="exact")
+                .eq("session_id", sid)
+                .execute()
+            )
+            r_res = (
+                supabase_admin.table("responses")
+                .select("id", count="exact")
+                .eq("session_id", sid)
+                .execute()
+            )
+            n_q = q_res.count or 0
+            n_r = r_res.count or 0
+            if n_r < n_q:
+                logger.info("[finalize_ft] session=%s: %d/%d responses saved", sid, n_r, n_q)
+                return False
+        except Exception as e:
+            logger.warning("[finalize_ft] poll error for session=%s: %s", sid, e)
+            return False
+    return True
+
+
+async def _bg_finalize_full_test(session_ids: list) -> None:
+    """
+    Background task: poll DB every 8 s until all responses are saved (max 90 s),
+    then aggregate band scores and mark each session 'completed'.
+    Runs entirely on the server — browser tab can close safely after calling the endpoint.
+    """
+    max_wait  = 90
+    poll_sec  = 8
+    elapsed   = 0
+
+    logger.info("[finalize_ft] background task started for sessions=%s", session_ids)
+
+    while elapsed < max_wait:
+        await asyncio.sleep(poll_sec)
+        elapsed += poll_sec
+        all_ready = await asyncio.to_thread(_check_all_responses_saved, session_ids)
+        if all_ready:
+            logger.info("[finalize_ft] all responses saved after %ds — completing sessions", elapsed)
+            break
+    else:
+        logger.warning(
+            "[finalize_ft] timeout after %ds — completing with whatever responses exist", max_wait
+        )
+
+    for sid in session_ids:
+        try:
+            await asyncio.to_thread(_complete_session_internal, sid)
+        except Exception as e:
+            logger.error("[finalize_ft] complete failed for session=%s: %s", sid, e)
+            try:
+                await asyncio.to_thread(
+                    lambda s=sid: supabase_admin.table("sessions")
+                    .update({"status": "analysis_failed"})
+                    .eq("id", s)
+                    .execute()
+                )
+            except Exception:
+                pass
+
+
+# ── POST /sessions/finalize-full-test ─────────────────────────────────────────
+# NOTE: This route MUST be declared before /{session_id} routes so FastAPI does
+# not treat the literal "finalize-full-test" as a session_id path parameter.
+
+@router.post("/finalize-full-test")
+async def finalize_full_test(
+    body: FinalizeFullTestBody,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Trigger backend-driven finalization of a Full Test.
+
+    1. Verifies the caller owns all provided session IDs.
+    2. Marks every session as 'submitted' immediately (visible in history as "Đang phân tích").
+    3. Returns {accepted: true} right away — the browser is done.
+    4. A background task polls until all eager-upload grading requests complete in the DB,
+       then calls the complete logic for each session (aggregates band scores, sets 'completed').
+
+    The browser tab can close at any point after calling this endpoint — the server
+    handles everything from here.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    all_ids = [sid for sid in [body.p1_id, body.p2_id, body.p3_id] if sid]
+    if not all_ids:
+        raise HTTPException(400, "Cần ít nhất một session ID (p1_id)")
+
+    # Ownership check — all sessions must belong to this user
+    try:
+        s_res = (
+            supabase_admin.table("sessions")
+            .select("id, mode")
+            .in_("id", all_ids)
+            .eq("user_id", user_id)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra sessions: {e}")
+
+    found_ids = {s["id"] for s in (s_res.data or [])}
+    missing = [sid for sid in all_ids if sid not in found_ids]
+    if missing:
+        raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {missing}")
+
+    # Mark all sessions 'submitted' immediately — history shows "Đang phân tích"
+    try:
+        supabase_admin.table("sessions").update({"status": "submitted"}).in_("id", all_ids).execute()
+    except Exception as e:
+        logger.warning("[finalize_ft] failed to mark submitted (non-fatal): %s", e)
+
+    # Schedule the background aggregation — browser can safely close after this returns
+    background_tasks.add_task(_bg_finalize_full_test, all_ids)
+
+    logger.info("[finalize_ft] accepted for sessions=%s user=%s", all_ids, user_id)
+    return {"accepted": True, "session_ids": all_ids}
+
+
 # ── PATCH /sessions/{session_id}/complete ──────────────────────────────────────
 
 @router.patch("/{session_id}/complete")
@@ -661,9 +874,12 @@ async def complete_session(
 
     session = s_result.data[0]
 
-    if session["status"] == "completed":
-        # Idempotent: already done — return current state so the frontend can continue safely.
+    if session["status"] == "completed" and session.get("overall_band") is not None:
+        # Idempotent: already done with a valid band — return current state.
         return {**session, "session_id": session["id"]}
+    if session["status"] == "completed":
+        # Already completed but band is null (e.g. prior DB save failure) — fall through to recompute.
+        logger.info("[complete_session] re-computing band for already-completed session=%s (overall_band was null)", session_id)
 
     # overall_band = mean of whichever criterion bands are not null (test mode)
     raw_bands = [session.get(k) for k in ("band_fc", "band_lr", "band_gra", "band_p")]
@@ -724,15 +940,19 @@ async def complete_session(
     except Exception:
         pass  # best-effort — leave all bands as None
 
+    update_payload: dict = {
+        "status":       "completed",
+        "overall_band": overall_band,
+        **{k: v for k, v in criteria_bands.items() if v is not None},
+    }
+    # Only set completed_at if not already set (avoid overwriting original completion time)
+    if not session.get("completed_at"):
+        update_payload["completed_at"] = datetime.now(timezone.utc).isoformat()
+
     try:
         result = (
             supabase_admin.table("sessions")
-            .update({
-                "status":       "completed",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-                "overall_band": overall_band,
-                **{k: v for k, v in criteria_bands.items() if v is not None},
-            })
+            .update(update_payload)
             .eq("id", session_id)
             .execute()
         )
