@@ -14,8 +14,12 @@ GET /api/grammar/compare/{slug}             → two articles side-by-side
 GET /api/grammar/search?q=...              → keyword search (≤20 results)
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from datetime import datetime, timezone
 
+from fastapi import APIRouter, Header, HTTPException, Query
+
+from database import supabase_admin
+from routers.auth import get_supabase_user
 from services.grammar_content import grammar_service
 
 router = APIRouter(prefix="/api/grammar", tags=["grammar"])
@@ -89,6 +93,35 @@ async def search(q: str = Query("", description="Search query (min 2 chars)")):
     Returns up to 20 results ranked by relevance score.
     """
     return grammar_service.search(q)
+
+
+@router.patch("/recommendations/{rec_id}/clicked")
+async def mark_recommendation_clicked(
+    rec_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Mark a grammar recommendation as clicked by the user."""
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    try:
+        result = (
+            supabase_admin.table("grammar_recommendations")
+            .update({
+                "was_clicked": True,
+                "clicked_at":  datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("id", rec_id)
+            .eq("user_id", user_id)   # ownership guard
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi cập nhật recommendation: {e}")
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Recommendation không tồn tại")
+
+    return {"ok": True}
 
 
 @router.get("/groups")

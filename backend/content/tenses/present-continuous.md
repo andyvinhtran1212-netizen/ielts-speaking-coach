@@ -44,15 +44,17 @@ Present Continuous dùng để diễn tả:
 ```
 Subject + am/is/are + V-ing
 ```
+
+| Chủ ngữ | Khẳng định | Phủ định | Nghi vấn |
+|---------|-----------|---------|---------|
+| I | am studying | am not studying | Am I studying? |
+| He / She / It | is working | is not working | Is he/she/it working? |
+| You / We / They | are preparing | are not preparing | Are you/we/they preparing? |
+
+**Ví dụ:**
 - I **am studying** English right now.
 - She **is working** from home this week.
 - They **are preparing** for the IELTS exam.
-
-| Chủ ngữ | Trợ động từ |
-|---------|------------|
-| I | am |
-| He / She / It / Tên riêng | is |
-| You / We / They | are |
 
 ### Câu phủ định
 ```

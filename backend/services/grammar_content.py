@@ -257,6 +257,129 @@ class GrammarContentService:
         """Ordered article list for a category — used as a learning roadmap."""
         return self.get_category(slug)
 
+    def find_best_match(self, issue: str) -> dict | None:
+        """
+        Find the best-matching grammar wiki article for a Vietnamese grammar issue string.
+
+        Uses keyword overlap scoring (no embeddings needed at this stage):
+        - Title match scores highest
+        - Tag match scores next
+        - Body text match gives a small boost
+
+        Vietnamese → English keyword mappings allow matching Claude's Vietnamese
+        issue descriptions against English article titles/tags.
+
+        Returns { slug, category, title, score } if best score > 0.3, else None.
+        """
+        if not issue or not self.search_index:
+            return None
+
+        issue_lower = issue.lower()
+
+        # ── Vietnamese → English keyword map ────────────────────────────────────
+        # Each Vietnamese term maps to one or more English tokens to search for.
+        _VI_EN: list[tuple[str, list[str]]] = [
+            # Tenses
+            ("quá khứ đơn",          ["past simple", "simple past"]),
+            ("hiện tại đơn",         ["present simple", "simple present"]),
+            ("hiện tại tiếp diễn",   ["present continuous", "present progressive"]),
+            ("quá khứ tiếp diễn",    ["past continuous", "past progressive"]),
+            ("hiện tại hoàn thành",  ["present perfect"]),
+            ("quá khứ hoàn thành",   ["past perfect"]),
+            ("tương lai",            ["future", "will", "going to"]),
+            # Articles
+            ("mạo từ",               ["article", "articles"]),
+            ("thiếu the",            ["article", "the"]),
+            ("thiếu a",              ["article", "a", "an"]),
+            # Subject-verb
+            ("chủ ngữ",              ["subject"]),
+            ("chủ vị",               ["subject verb"]),
+            ("động từ",              ["verb"]),
+            ("chia động từ",         ["subject verb agreement", "verb form"]),
+            # Prepositions
+            ("giới từ",              ["preposition", "prepositions"]),
+            # Conditionals
+            ("câu điều kiện",        ["conditional", "conditionals", "if clause"]),
+            # Relative clauses
+            ("mệnh đề quan hệ",      ["relative clause", "relative clauses", "who which"]),
+            ("mệnh đề",              ["clause"]),
+            # Passive
+            ("bị động",              ["passive", "passive voice"]),
+            # Countable/uncountable
+            ("danh từ đếm được",     ["countable", "uncountable", "noun"]),
+            ("danh từ không đếm",    ["uncountable", "noun"]),
+            ("danh từ",              ["noun", "nouns"]),
+            # Plural
+            ("số nhiều",             ["plural", "plurals"]),
+            # Modals
+            ("động từ khuyết thiếu", ["modal", "modals", "can could"]),
+            ("can",                  ["modal", "can could"]),
+            ("should",               ["modal", "should"]),
+            ("must",                 ["modal", "must have to"]),
+            # Comparison
+            ("so sánh",              ["comparison", "comparative", "superlative"]),
+            # Collocation / vocabulary
+            ("collocation",          ["collocation", "collocations"]),
+            ("từ vựng",              ["vocabulary", "word choice"]),
+            ("lặp từ",               ["vocabulary", "word choice", "repetition"]),
+            # Linking words
+            ("từ nối",               ["linking words", "connectives", "discourse"]),
+            ("liên từ",              ["conjunction", "conjunctions", "linking"]),
+            # Pronouns
+            ("đại từ",               ["pronoun", "pronouns"]),
+            # Word order
+            ("trật tự từ",           ["word order"]),
+            # Gerund/infinitive
+            ("danh động từ",         ["gerund", "gerund infinitive"]),
+            ("to-infinitive",        ["infinitive", "gerund infinitive"]),
+        ]
+
+        # Build extra search tokens from the issue text via the mapping
+        extra_tokens: list[str] = []
+        for vi_term, en_terms in _VI_EN:
+            if vi_term in issue_lower:
+                extra_tokens.extend(en_terms)
+
+        # Also include raw issue words (catches English terms Claude might include,
+        # e.g. "past simple", "the", slug-like words)
+        raw_words = re.findall(r"[a-z]{3,}", issue_lower)
+
+        all_tokens = set(extra_tokens + raw_words)
+        if not all_tokens:
+            return None
+
+        best_score = 0.0
+        best_item: dict | None = None
+
+        for item in self.search_index:
+            score = 0.0
+            title_lower = item["title"].lower()
+            tags_lower  = " ".join(item.get("tags", [])).lower()
+            body_text   = item["text"]  # already lowercased at load time
+
+            for token in all_tokens:
+                if token in title_lower:   score += 0.5
+                if token in tags_lower:    score += 0.3
+                if token in body_text:     score += 0.05
+
+            # Normalise by number of tokens to keep score in 0–1 range
+            if all_tokens:
+                score = min(1.0, score / max(len(all_tokens), 1))
+
+            if score > best_score:
+                best_score = score
+                best_item = item
+
+        if best_score < 0.3 or best_item is None:
+            return None
+
+        return {
+            "slug":     best_item["slug"],
+            "category": best_item["category"],
+            "title":    best_item["title"],
+            "score":    round(best_score, 3),
+        }
+
     def get_groups(self) -> list[dict]:
         """
         Return the 8 conceptual groups from _groups.yaml, each enriched with
