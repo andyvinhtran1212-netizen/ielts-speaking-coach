@@ -582,7 +582,7 @@
         commentsEl.innerHTML =
           '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
           _listBlock('Strengths', data.strengths, '#4ade80') +
-          _listBlock('Grammar Issues', data.grammar_issues, '#f87171') +
+          _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
           _listBlock('Vocabulary Issues', data.vocabulary_issues, '#fb923c') +
           _correctionsBlock(data.corrections) +
           (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : '');
@@ -972,6 +972,29 @@
     return '<div style="margin-bottom:14px;">' +
       '<p style="font-size:11px;font-weight:700;color:' + color + ';text-transform:uppercase;' +
       'letter-spacing:.06em;margin:0 0 6px;">' + title + '</p>' +
+      '<ul style="list-style:none;padding:0;margin:0;">' + lis + '</ul></div>';
+  }
+
+  function _grammarIssuesBlock(issues, recs) {
+    if (!issues || !issues.length) return '';
+    var recMap = {};
+    (recs || []).forEach(function (r) { if (r.issue) recMap[r.issue] = r; });
+    var lis = issues.map(function (issue) {
+      var rec = recMap[issue];
+      var link = rec && rec.rec_id
+        ? ' <a href="/frontend/pages/grammar.html?category=' + encodeURIComponent(rec.category) +
+          '&slug=' + encodeURIComponent(rec.slug) + '" target="_blank" rel="noopener" ' +
+          'data-rec-id="' + _esc(rec.rec_id) + '" ' +
+          'style="font-size:11px;color:#14b8a6;text-decoration:none;white-space:nowrap;" ' +
+          'onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})">' +
+          '→ Học bài: ' + _esc(rec.title) + '</a>'
+        : '';
+      return '<li style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:5px;">' +
+        '<span style="color:#f87171;margin-right:6px;">›</span>' + _esc(issue) + link + '</li>';
+    }).join('');
+    return '<div style="margin-bottom:14px;">' +
+      '<p style="font-size:11px;font-weight:700;color:#f87171;text-transform:uppercase;' +
+      'letter-spacing:.06em;margin:0 0 6px;">Grammar Issues</p>' +
       '<ul style="list-style:none;padding:0;margin:0;">' + lis + '</ul></div>';
   }
 
@@ -1931,7 +1954,7 @@
       feedbackHtml =
         '<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;">' +
         _listBlock('Strengths',          data.strengths,             '#4ade80') +
-        _listBlock('Grammar Issues',     data.grammar_issues,        '#f87171') +
+        _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
         _listBlock('Vocabulary Issues',  data.vocabulary_issues,     '#fb923c') +
         _correctionsBlock(data.corrections) +
         (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : '') +

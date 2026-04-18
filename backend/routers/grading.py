@@ -377,6 +377,19 @@ async def grade_response_endpoint(
             step = "update_tokens"
             _increment_tokens(session_id, question_text, transcript, grading)
 
+        # Practice mode returns a different schema than test mode
+        is_practice = (session_mode == "practice")
+
+        # ── STEP 8b: Save grammar recommendations (practice mode only) ────────
+        if grading and is_practice and response_id:
+            saved_recs = _save_grammar_recommendations(
+                grading.get("grammar_recommendations") or [],
+                user_id=user_id,
+                session_id=session_id,
+                response_id=response_id,
+            )
+            grading["grammar_recommendations"] = saved_recs
+
         # ── STEP 9: Return result ─────────────────────────────────────────────
         logger.info("[grading] pipeline hoàn thành — session=%s question=%s", session_id, question_id)
 
@@ -395,24 +408,22 @@ async def grade_response_endpoint(
                 "score_confidence":    score_confidence,
             }
 
-        # Practice mode returns a different schema than test mode
-        is_practice = (session_mode == "practice")
-
         if is_practice:
             return {
-                "response_id":           response_id,
-                "transcript":            transcript,
-                "duration_seconds":      round(duration_sec, 2),
-                "stt_confidence":        round(confidence, 4),
-                "assessment_confidence": assessment_confidence,
-                "score_confidence":      score_confidence,
-                "overall_band":          grading["overall_band"],
-                "grammar_issues":        grading["grammar_issues"],
-                "vocabulary_issues":     grading["vocabulary_issues"],
-                "pronunciation_issues":  grading.get("pronunciation_issues", []),
-                "corrections":           grading["corrections"],
-                "strengths":             grading["strengths"],
-                "sample_answer":         grading["sample_answer"],
+                "response_id":              response_id,
+                "transcript":               transcript,
+                "duration_seconds":         round(duration_sec, 2),
+                "stt_confidence":           round(confidence, 4),
+                "assessment_confidence":    assessment_confidence,
+                "score_confidence":         score_confidence,
+                "overall_band":             grading["overall_band"],
+                "grammar_issues":           grading["grammar_issues"],
+                "vocabulary_issues":        grading["vocabulary_issues"],
+                "pronunciation_issues":     grading.get("pronunciation_issues", []),
+                "corrections":              grading["corrections"],
+                "strengths":               grading["strengths"],
+                "sample_answer":            grading["sample_answer"],
+                "grammar_recommendations":  grading.get("grammar_recommendations") or [],
             }
 
         return {
@@ -486,6 +497,47 @@ def _guess_ext(filename: str | None, content_type: str | None) -> str:
         if mime_base in _mime_map:
             return _mime_map[mime_base]
     return ".webm"   # safe default
+
+
+def _save_grammar_recommendations(
+    recs: list[dict],
+    *,
+    user_id: str,
+    session_id: str,
+    response_id: str,
+) -> list[dict]:
+    """
+    Persist grammar_recommendations rows for a graded practice response.
+    Best-effort — returns enriched recs with `rec_id` on success, original list on failure.
+    Non-fatal if the table doesn't exist yet (pre-migration).
+    """
+    if not recs:
+        return recs
+    try:
+        rows = [
+            {
+                "user_id":              user_id,
+                "session_id":           session_id,
+                "response_id":          response_id,
+                "grammar_issue":        r["issue"],
+                "recommended_slug":     r["slug"],
+                "recommended_category": r["category"],
+                "recommended_title":    r["title"],
+                "similarity_score":     r["score"],
+            }
+            for r in recs
+        ]
+        result = supabase_admin.table("grammar_recommendations").insert(rows).execute()
+        logger.info("[grading] saved %d grammar_recommendations for response=%s", len(rows), response_id)
+        # Merge saved IDs back into recs so they can be sent to the frontend
+        saved = result.data or []
+        enriched = []
+        for orig, saved_row in zip(recs, saved):
+            enriched.append({**orig, "rec_id": saved_row.get("id")})
+        return enriched
+    except Exception as e:
+        logger.debug("[grading] grammar_recommendations save skipped (non-fatal): %s", e)
+        return recs
 
 
 def _increment_tokens(
