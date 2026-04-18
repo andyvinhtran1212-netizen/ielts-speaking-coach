@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hồ sơ — AverLearning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Scripts: supabase CDN → api.js → credentials + init (same order as all other pages) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #0C2340; color: #fff; min-height: 100vh; }
+
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .field-input {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: #fff;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field-input:focus { border-color: rgba(20,184,166,0.6); }
+    .field-input[readonly] { color: rgba(255,255,255,0.35); cursor: default; }
+    .field-input::placeholder { color: rgba(255,255,255,0.2); }
+
+    /* Band selector */
+    .band-btn {
+      flex: 1;
+      padding: 8px 4px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.45);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .band-btn:hover { border-color: rgba(20,184,166,0.4); color: rgba(255,255,255,0.8); }
+    .band-btn.active { background: rgba(20,184,166,0.18); border-color: #14b8a6; color: #14b8a6; }
+
+    /* Level radio */
+    .level-card {
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: rgba(255,255,255,0.03);
+    }
+    .level-card:hover { border-color: rgba(20,184,166,0.35); }
+    .level-card.active { border-color: #14b8a6; background: rgba(20,184,166,0.1); }
+    .level-card input { display: none; }
+
+    /* Slider */
+    .goal-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.12);
+      outline: none;
+    }
+    .goal-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #14b8a6;
+      cursor: pointer;
+      box-shadow: 0 0 0 3px rgba(20,184,166,0.2);
+    }
+    .goal-slider::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #14b8a6;
+      cursor: pointer;
+      border: none;
+    }
+
+    /* Stat card */
+    .stat-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    /* Save button */
+    .btn-save {
+      background: linear-gradient(135deg, #0D7377, #14b8a6);
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 11px 32px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-save:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0D7377;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 22px;
+      border-radius: 100px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      white-space: nowrap;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Avatar initials */
+    .avatar-ring { box-shadow: 0 0 0 2px #0F766E; }
+
+    /* Skeleton */
+    @keyframes shimmer { 0%,100%{opacity:.35} 50%{opacity:.7} }
+    .skeleton { background: rgba(255,255,255,0.08); border-radius: 8px; animation: shimmer 1.4s infinite; }
+  </style>
+</head>
+<body>
+
+  <!-- ─── HEADER ───────────────────────────────────────────────── -->
+  <header class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between"
+          style="background:#081829;border-bottom:1px solid rgba(255,255,255,0.07);">
+    <a href="dashboard.html" class="flex items-center gap-2 text-sm font-medium"
+       style="color:rgba(255,255,255,0.55);"
+       onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.55)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Dashboard
+    </a>
+    <span class="font-bold text-base tracking-tight">
+      Aver<span style="color:#14b8a6;">Learning</span>
+    </span>
+    <!-- Avatar placeholder -->
+    <div id="header-avatar"
+         class="w-8 h-8 rounded-full avatar-ring flex items-center justify-center text-xs font-bold"
+         style="background:#112d52;">
+      <span id="header-initials">—</span>
+    </div>
+  </header>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────────── -->
+  <main class="max-w-2xl mx-auto px-4 py-10 space-y-6">
+
+    <!-- Page title -->
+    <div>
+      <h1 class="text-xl font-bold tracking-tight">Hồ sơ học viên</h1>
+      <p class="text-sm mt-1" style="color:rgba(255,255,255,0.4);">Cập nhật thông tin và mục tiêu luyện thi của bạn.</p>
+    </div>
+
+    <!-- ── IDENTITY CARD ─────────────────────────────────────── -->
+    <div class="card p-6 flex items-center gap-5">
+      <!-- Avatar -->
+      <div id="profile-avatar"
+           class="w-16 h-16 rounded-full avatar-ring flex-shrink-0 flex items-center justify-center text-xl font-bold"
+           style="background:#112d52;">
+        <span id="profile-initials">—</span>
+        <img id="profile-avatar-img" class="hidden w-full h-full object-cover rounded-full" alt="avatar" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <p id="profile-display-name" class="font-semibold text-base truncate">—</p>
+        <p id="profile-email" class="text-sm mt-0.5 truncate" style="color:rgba(255,255,255,0.4);">—</p>
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.25);">
+          Tham gia: <span id="profile-joined">—</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- ── STATS (readonly) ───────────────────────────────────── -->
+    <div class="grid grid-cols-3 gap-3">
+      <div class="stat-card">
+        <p class="text-xs mb-1" style="color:rgba(255,255,255,0.35);">Tổng sessions</p>
+        <p id="stat-sessions" class="text-2xl font-bold" style="color:#14b8a6;">—</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-xs mb-1" style="color:rgba(255,255,255,0.35);">Band trung bình</p>
+        <p id="stat-avg-band" class="text-2xl font-bold" style="color:#14b8a6;">—</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-xs mb-1" style="color:rgba(255,255,255,0.35);">Mục tiêu/tuần</p>
+        <p id="stat-weekly" class="text-2xl font-bold" style="color:#14b8a6;">—</p>
+      </div>
+    </div>
+
+    <!-- ── LEARNING FORM ──────────────────────────────────────── -->
+    <form id="profile-form" class="card p-6 space-y-6" onsubmit="return false;">
+
+      <h2 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Thông tin cá nhân</h2>
+
+      <!-- Display name -->
+      <div>
+        <label class="field-label" for="inp-display-name">Tên hiển thị</label>
+        <input id="inp-display-name" type="text" class="field-input" maxlength="100"
+               placeholder="Nhập tên của bạn…" />
+      </div>
+
+      <!-- Email (readonly) -->
+      <div>
+        <label class="field-label">Email</label>
+        <input id="inp-email" type="email" class="field-input" readonly />
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);" />
+      <h2 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Mục tiêu luyện thi</h2>
+
+      <!-- Target band -->
+      <div>
+        <label class="field-label">Band mục tiêu</label>
+        <div id="band-btns" class="flex gap-1.5">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Exam date -->
+      <div>
+        <label class="field-label" for="inp-exam-date">Ngày thi dự kiến</label>
+        <input id="inp-exam-date" type="date" class="field-input"
+               style="color-scheme:dark;" />
+      </div>
+
+      <!-- Self level -->
+      <div>
+        <label class="field-label">Trình độ hiện tại</label>
+        <div class="grid grid-cols-2 gap-2" id="level-options">
+          <label class="level-card" data-level="beginner">
+            <input type="radio" name="self_level" value="beginner" />
+            <p class="text-sm font-semibold">Mới bắt đầu</p>
+            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 3.0–4.5</p>
+          </label>
+          <label class="level-card" data-level="intermediate">
+            <input type="radio" name="self_level" value="intermediate" />
+            <p class="text-sm font-semibold">Trung bình</p>
+            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 5.0–5.5</p>
+          </label>
+          <label class="level-card" data-level="upper_intermediate">
+            <input type="radio" name="self_level" value="upper_intermediate" />
+            <p class="text-sm font-semibold">Khá</p>
+            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 6.0–6.5</p>
+          </label>
+          <label class="level-card" data-level="advanced">
+            <input type="radio" name="self_level" value="advanced" />
+            <p class="text-sm font-semibold">Nâng cao</p>
+            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 7.0+</p>
+          </label>
+        </div>
+      </div>
+
+      <!-- Weekly goal slider -->
+      <div>
+        <label class="field-label">Mục tiêu luyện tập — <span id="goal-display">5</span> sessions/tuần</label>
+        <input id="inp-weekly-goal" type="range" min="1" max="14" value="5" class="goal-slider" />
+        <div class="flex justify-between text-xs mt-1" style="color:rgba(255,255,255,0.25);">
+          <span>1</span><span>7</span><span>14</span>
+        </div>
+      </div>
+
+      <!-- Save -->
+      <div class="flex items-center justify-end gap-4 pt-2">
+        <button type="button" class="btn-save" id="btn-save" onclick="saveProfile()">
+          Lưu thay đổi
+        </button>
+      </div>
+    </form>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast">✓ Đã lưu thành công</div>
+
+  <script>
+  (function () {
+    // ── Helpers ──────────────────────────────────────────────────
+    function fmtDate(s) {
+      if (!s) return '—';
+      try { return new Date(s).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }); }
+      catch { return s; }
+    }
+
+    function showToast(msg, isError) {
+      var t = document.getElementById('toast');
+      t.textContent = msg || '✓ Đã lưu thành công';
+      t.style.background = isError ? '#dc2626' : '#0D7377';
+      t.classList.add('show');
+      setTimeout(function () { t.classList.remove('show'); }, 2800);
+    }
+
+    // ── Band buttons ─────────────────────────────────────────────
+    var BANDS = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0];
+    var _selectedBand = null;
+
+    function renderBandBtns(current) {
+      var wrap = document.getElementById('band-btns');
+      wrap.innerHTML = '';
+      BANDS.forEach(function (b) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'band-btn' + (b === current ? ' active' : '');
+        btn.textContent = b.toFixed(1);
+        btn.onclick = function () {
+          _selectedBand = b;
+          wrap.querySelectorAll('.band-btn').forEach(function (el) { el.classList.remove('active'); });
+          btn.classList.add('active');
+        };
+        wrap.appendChild(btn);
+      });
+      _selectedBand = current;
+    }
+
+    // ── Level cards ──────────────────────────────────────────────
+    function setLevel(val) {
+      document.querySelectorAll('#level-options .level-card').forEach(function (el) {
+        var isMatch = el.dataset.level === val;
+        el.classList.toggle('active', isMatch);
+        var radio = el.querySelector('input[type=radio]');
+        if (radio) radio.checked = isMatch;
+      });
+    }
+
+    document.querySelectorAll('#level-options .level-card').forEach(function (el) {
+      el.addEventListener('click', function () { setLevel(el.dataset.level); });
+    });
+
+    // ── Weekly goal slider ───────────────────────────────────────
+    var slider = document.getElementById('inp-weekly-goal');
+    var goalDisplay = document.getElementById('goal-display');
+    slider.addEventListener('input', function () { goalDisplay.textContent = slider.value; });
+
+    // ── Render profile data ──────────────────────────────────────
+    function renderProfile(p) {
+      var displayName = p.display_name || p.email.split('@')[0];
+      var initials = displayName.split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+
+      // Header avatar
+      document.getElementById('header-initials').textContent = initials;
+
+      // Identity card
+      document.getElementById('profile-initials').textContent = initials;
+      document.getElementById('profile-display-name').textContent = displayName;
+      document.getElementById('profile-email').textContent = p.email || '—';
+      document.getElementById('profile-joined').textContent = fmtDate(p.joined_at);
+
+      if (p.avatar_url) {
+        var img = document.getElementById('profile-avatar-img');
+        img.src = p.avatar_url;
+        img.classList.remove('hidden');
+        document.getElementById('profile-initials').classList.add('hidden');
+      }
+
+      // Stats
+      var stats = p.stats || {};
+      document.getElementById('stat-sessions').textContent = stats.total_sessions != null ? stats.total_sessions : '—';
+      document.getElementById('stat-avg-band').textContent = stats.avg_band != null ? stats.avg_band.toFixed(1) : '—';
+      document.getElementById('stat-weekly').textContent = (p.weekly_goal || 5) + '/tuần';
+
+      // Form fields
+      document.getElementById('inp-display-name').value = p.display_name || '';
+      document.getElementById('inp-email').value = p.email || '';
+      document.getElementById('inp-exam-date').value = p.exam_date || '';
+
+      renderBandBtns(p.target_band ? parseFloat(p.target_band) : null);
+      if (p.self_level) setLevel(p.self_level);
+
+      var goal = p.weekly_goal || 5;
+      slider.value = goal;
+      goalDisplay.textContent = goal;
+    }
+
+    // ── Save ─────────────────────────────────────────────────────
+    window.saveProfile = async function () {
+      var btn = document.getElementById('btn-save');
+      btn.disabled = true;
+      btn.textContent = 'Đang lưu…';
+
+      var selectedLevel = document.querySelector('#level-options input[type=radio]:checked');
+
+      var payload = {
+        display_name:  document.getElementById('inp-display-name').value.trim() || null,
+        target_band:   _selectedBand,
+        exam_date:     document.getElementById('inp-exam-date').value || null,
+        self_level:    selectedLevel ? selectedLevel.value : null,
+        weekly_goal:   parseInt(slider.value, 10),
+      };
+
+      // Strip null values so PATCH only updates provided fields
+      Object.keys(payload).forEach(function (k) {
+        if (payload[k] === null) delete payload[k];
+      });
+
+      try {
+        await window.api.patch('/auth/profile', payload);
+        showToast('✓ Đã lưu thành công');
+
+        // Update display name in identity card immediately
+        if (payload.display_name) {
+          var dn = payload.display_name;
+          document.getElementById('profile-display-name').textContent = dn;
+          var initials = dn.split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+          document.getElementById('profile-initials').textContent = initials;
+          document.getElementById('header-initials').textContent = initials;
+        }
+        if (payload.weekly_goal) {
+          document.getElementById('stat-weekly').textContent = payload.weekly_goal + '/tuần';
+        }
+      } catch (err) {
+        showToast('Lỗi: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lưu thay đổi';
+      }
+    };
+
+    // ── Init ─────────────────────────────────────────────────────
+    async function init() {
+      var sb = getSupabase();
+      var { data: { session } } = await sb.auth.getSession();
+      if (!session) { window.location.href = '../login.html'; return; }
+
+      try {
+        var profile = await window.api.get('/auth/profile');
+        renderProfile(profile);
+      } catch (err) {
+        console.error('Could not load profile:', err.message);
+        // Fallback: try /auth/me
+        try {
+          var me = await window.api.get('/auth/me');
+          renderProfile(Object.assign({ stats: {} }, me));
+        } catch (e2) {
+          showToast('Không thể tải hồ sơ: ' + e2.message, true);
+        }
+      }
+    }
+
+    init();
+  }());
+  </script>
+</body>
+</html>

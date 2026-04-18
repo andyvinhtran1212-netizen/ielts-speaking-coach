@@ -23,6 +23,10 @@ class ProfileUpdate(BaseModel):
     self_level: str | None = None
     preferred_topics: list[str] | None = None
     onboarding_completed: bool | None = None
+    display_name: str | None = None
+    timezone: str | None = None
+    weekly_goal: int | None = None        # 1–14 sessions/week
+    notification_email: bool | None = None
 
 
 # ── Shared helper ─────────────────────────────────────────────────────────────
@@ -147,6 +151,70 @@ async def check_active(authorization: str | None = Header(default=None)):
         return {"is_active": False}
 
     return {"is_active": bool(result.data[0].get("is_active", False))}
+
+
+# ── GET /auth/profile ─────────────────────────────────────────────────────────
+
+@router.get("/profile")
+async def get_profile(authorization: str | None = Header(default=None)):
+    """Return the full user profile including extended fields from migration 013."""
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    try:
+        result = (
+            supabase_admin.table("users")
+            .select("*")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi tải profile: {e}")
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
+
+    user = result.data[0]
+
+    # Aggregate session stats for the profile page
+    stats = {"total_sessions": 0, "avg_band": None, "joined_at": None}
+    try:
+        s_res = (
+            supabase_admin.table("sessions")
+            .select("overall_band, started_at")
+            .eq("user_id", user_id)
+            .eq("status", "completed")
+            .execute()
+        )
+        sessions = s_res.data or []
+        stats["total_sessions"] = len(sessions)
+        bands = [s["overall_band"] for s in sessions if s.get("overall_band") is not None]
+        if bands:
+            stats["avg_band"] = round(sum(bands) / len(bands) * 2) / 2  # round to 0.5
+    except Exception:
+        pass  # non-fatal — stats are display-only
+
+    joined = user.get("joined_at") or user.get("created_at")
+
+    return {
+        "id": user["id"],
+        "email": user.get("email"),
+        "display_name": user.get("display_name"),
+        "avatar_url": user.get("avatar_url"),
+        "role": user.get("role", "user"),
+        "is_active": user.get("is_active", False),
+        "onboarding_completed": user.get("onboarding_completed", False),
+        "target_band": user.get("target_band"),
+        "exam_date": str(user["exam_date"]) if user.get("exam_date") else None,
+        "self_level": user.get("self_level"),
+        "preferred_topics": user.get("preferred_topics") or [],
+        "timezone": user.get("timezone") or "Asia/Ho_Chi_Minh",
+        "weekly_goal": user.get("weekly_goal") or 5,
+        "notification_email": user.get("notification_email", True),
+        "joined_at": str(joined) if joined else None,
+        "stats": stats,
+    }
 
 
 # ── POST /auth/activate ───────────────────────────────────────────────────────
@@ -275,6 +343,14 @@ async def update_profile(
         updates["preferred_topics"] = payload.preferred_topics
     if payload.onboarding_completed is not None:
         updates["onboarding_completed"] = payload.onboarding_completed
+    if payload.display_name is not None:
+        updates["display_name"] = payload.display_name.strip()[:100]
+    if payload.timezone is not None:
+        updates["timezone"] = payload.timezone
+    if payload.weekly_goal is not None:
+        updates["weekly_goal"] = max(1, min(14, payload.weekly_goal))
+    if payload.notification_email is not None:
+        updates["notification_email"] = payload.notification_email
 
     if not updates:
         raise HTTPException(status_code=400, detail="Không có trường nào để cập nhật.")
@@ -305,4 +381,7 @@ async def update_profile(
         "exam_date": str(user["exam_date"]) if user.get("exam_date") else None,
         "self_level": user.get("self_level"),
         "preferred_topics": user.get("preferred_topics") or [],
+        "timezone": user.get("timezone") or "Asia/Ho_Chi_Minh",
+        "weekly_goal": user.get("weekly_goal") or 5,
+        "notification_email": user.get("notification_email", True),
     }

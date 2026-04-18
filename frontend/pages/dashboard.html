@@ -270,26 +270,51 @@
       <div id="user-name-skeleton" class="skeleton h-4 w-28 hidden sm:block"></div>
       <span id="user-name" class="hidden text-sm font-medium" style="color:rgba(255,255,255,0.85);"></span>
 
-      <!-- Avatar -->
-      <div id="avatar-wrap" class="w-8 h-8 rounded-full overflow-hidden avatar-ring bg-navy-light flex items-center justify-center text-xs font-bold" style="background:#112d52;">
-        <span id="avatar-initials">—</span>
-        <img id="avatar-img" class="hidden w-full h-full object-cover" alt="avatar" />
+      <!-- Avatar + dropdown -->
+      <div class="relative" id="avatar-dropdown-wrap">
+        <button id="avatar-wrap"
+                onclick="document.getElementById('avatar-menu').classList.toggle('hidden')"
+                class="w-8 h-8 rounded-full overflow-hidden avatar-ring bg-navy-light flex items-center justify-center text-xs font-bold cursor-pointer focus:outline-none"
+                style="background:#112d52;">
+          <span id="avatar-initials">—</span>
+          <img id="avatar-img" class="hidden w-full h-full object-cover" alt="avatar" />
+        </button>
+        <!-- Dropdown menu -->
+        <div id="avatar-menu"
+             class="hidden absolute right-0 mt-2 w-44 rounded-xl shadow-xl z-50"
+             style="background:#112d52;border:1px solid rgba(255,255,255,0.1);">
+          <a href="profile.html"
+             class="flex items-center gap-2 px-4 py-2.5 text-sm rounded-t-xl transition"
+             style="color:rgba(255,255,255,0.8);"
+             onmouseover="this.style.background='rgba(255,255,255,0.06)'"
+             onmouseout="this.style.background=''">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            Hồ sơ
+          </a>
+          <div style="height:1px;background:rgba(255,255,255,0.07);margin:0 12px;"></div>
+          <button id="btn-logout"
+                  class="flex w-full items-center gap-2 px-4 py-2.5 text-sm rounded-b-xl transition"
+                  style="color:rgba(255,255,255,0.45);"
+                  onmouseover="this.style.color='#f87171'"
+                  onmouseout="this.style.color='rgba(255,255,255,0.45)'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Đăng xuất
+          </button>
+        </div>
       </div>
-
-      <!-- Logout -->
-      <button id="btn-logout"
-              title="Đăng xuất"
-              class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition"
-              style="color:rgba(255,255,255,0.45);border:1px solid rgba(255,255,255,0.1);"
-              onmouseover="this.style.color='#f87171';this.style.borderColor='rgba(248,113,113,0.35)'"
-              onmouseout="this.style.color='rgba(255,255,255,0.45)';this.style.borderColor='rgba(255,255,255,0.1)'">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-        <span class="hidden sm:inline">Đăng xuất</span>
-      </button>
     </div>
   </header>
+  <script>
+    // Close avatar dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      var wrap = document.getElementById('avatar-dropdown-wrap');
+      if (wrap && !wrap.contains(e.target)) {
+        document.getElementById('avatar-menu').classList.add('hidden');
+      }
+    });
+  </script>
 
   <!-- ─── MAIN TAB NAV ─────────────────────────────────────── -->
   <nav class="main-tab-nav">
