@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, sentence-elements]
 related_pages: [sentence-elements, simple-sentence, compound-sentence, complex-sentence]
 compare_with: []
 order: 3
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 **Phrase** = nhóm từ có nghĩa nhưng **thiếu chủ ngữ hoặc vị ngữ** (hoặc cả hai), không thể đứng độc lập thành câu. **Clause** = nhóm từ **có đủ chủ ngữ và vị ngữ**, có thể đứng độc lập hoặc phụ thuộc vào mệnh đề khác.
 
@@ -48,7 +49,7 @@ Một nhóm từ **có đủ chủ ngữ (S) và vị ngữ (V)**. Có hai loạ
 - **Independent clause (Mệnh đề độc lập):** Có thể đứng một mình thành câu hoàn chỉnh
 - **Dependent clause (Mệnh đề phụ):** Có S + V nhưng không đứng độc lập được — cần mệnh đề chính
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### Các loại Phrase
 
@@ -72,7 +73,7 @@ Một nhóm từ **có đủ chủ ngữ (S) và vị ngữ (V)**. Có hai loạ
 | **Dependent adjective clause** | Mô tả noun; bắt đầu bằng who, which, that, where | *The student **who studies hard** will succeed.* |
 | **Dependent adverb clause** | Mô tả verb/adj/adverb; bắt đầu bằng because, when, if, although... | ***Because she studies hard**, she succeeds.* |
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Phrases bổ sung chi tiết trong câu
 
@@ -117,7 +118,7 @@ Mỗi câu hoàn chỉnh phải có ít nhất một independent clause:
 - **Although it was raining**, they continued the match.
 - **If governments invest in education**, inequality will decrease.
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 ### Dấu hiệu nhận ra Dependent Clause
 
@@ -163,7 +164,7 @@ Phân tích:
 - "**what concerns people most**" → Noun clause (subject)
 - "**how it's being used**" → Noun clause (tân ngữ sau *but*)
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Sentence Fragment — dùng dependent clause như câu độc lập
 
@@ -211,7 +212,7 @@ Tiếng Việt rất linh hoạt về cấu trúc câu — bạn có thể nói 
 3. Nếu có cả hai → **clause**; nếu thiếu một trong hai → **phrase**
 4. Nếu là clause nhưng bắt đầu bằng *because, although, when, if, who, which...* → **dependent clause** → không đứng một mình
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Phrases tạo câu tự nhiên và phong phú
 
@@ -227,7 +228,7 @@ Thay vì nhiều câu ngắn rời rạc, dùng phrases để kết nối:
 
 Câu Band 7+ chứa: 1 dependent adverb clause + 1 relative clause + 1 adjective phrase + 1 relative clause.
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Xác định: Phrase, Independent Clause, hay Dependent Clause?
 
@@ -266,12 +267,6 @@ Câu Band 7+ chứa: 1 dependent adverb clause + 1 relative clause + 1 adjective
 3. ✅ Đúng rồi
 4. Fragment → "**Walking home from work, I called my mother.**"
 5. Run-on → "Technology is advancing rapidly**, and** people are adapting."
-
-## Bài liên quan
-- [Sentence Elements](/pages/grammar-article.html?category=foundations&slug=sentence-elements)
-- [Simple Sentence](/pages/grammar-article.html?category=sentence-structures&slug=simple-sentence)
-- [Compound Sentence](/pages/grammar-article.html?category=sentence-structures&slug=compound-sentence)
-- [Complex Sentence](/pages/grammar-article.html?category=sentence-structures&slug=complex-sentence)
 
 ## Tóm tắt nhanh
 1. **Phrase** = nhóm từ, thiếu S hoặc V (hoặc cả hai), không đứng độc lập

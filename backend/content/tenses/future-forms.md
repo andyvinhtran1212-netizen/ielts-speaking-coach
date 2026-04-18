@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, sentence-elements, present-simple, present-cont
 related_pages: [present-simple, present-continuous, present-perfect]
 compare_with: []
 order: 5
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 Tiếng Anh không có một "thì tương lai" duy nhất — bạn cần chọn giữa **will**, **be going to**, và **Present Continuous** tuỳ theo *ý định là gì* (quyết định bộc phát, kế hoạch có sẵn, hay lịch trình cụ thể).
 
@@ -40,7 +41,7 @@ Trong IELTS Speaking:
 | **be going to** | Kế hoạch / dự định đã có sẵn / dự đoán có bằng chứng |
 | **Present Continuous** | Lịch trình, hẹn hò, sắp xếp cụ thể đã được xác nhận |
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### will
 
@@ -78,7 +79,7 @@ Subject + am/is/are + V-ing (+ future time expression)
 
 > **Lưu ý quan trọng:** Present Continuous cho tương lai luôn đi kèm với **thời gian cụ thể** hoặc **ngữ cảnh rõ ràng** là tương lai — nếu không sẽ nhầm với hành động đang xảy ra.
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. will — Quyết định bộc phát (Spontaneous Decisions)
 
@@ -140,7 +141,7 @@ Khi bạn **đã sắp xếp cụ thể** với người khác — có lịch, c
 
 **Dấu hiệu:** Thường có thời gian cụ thể (*tomorrow, on Friday, at 3pm*); liên quan đến sắp xếp với người khác.
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 | Dạng | Dấu hiệu thường gặp |
 |------|---------------------|
@@ -182,7 +183,7 @@ Khi bạn **đã sắp xếp cụ thể** với người khác — có lịch, c
 
 **(Speaking Part 3)** "I think technology **will continue to** transform the workplace over the coming decades. Remote work **will likely become** the norm rather than the exception. However, I believe face-to-face interaction **will always have** a place — it**'s going to be** a question of balance."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Dùng "will" cho mọi tình huống tương lai
 
@@ -275,7 +276,7 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 5. **Dự đoán dựa trên bằng chứng thấy ngay trước mắt?** → **be going to**
    - "He**'s going to faint** — look at his face!"
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Mẫu câu hữu ích
 
@@ -301,7 +302,7 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 - "**Unless** action is taken now, pollution **will continue** to worsen."
 - "The policy **is due to come** into effect next year." *(Formal alternative)*
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Chọn đúng dạng
 
@@ -344,11 +345,6 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 3. "She**'s going to** start a new job." (going to, không phải go to)
 4. "I**'m going to study** law." (thiếu "to")
 5. "I**'m going to go** to the gym tomorrow." (kế hoạch đã có → going to tự nhiên hơn)
-
-## Bài liên quan
-- [Present Simple](/pages/grammar-article.html?category=tenses&slug=present-simple)
-- [Present Continuous](/pages/grammar-article.html?category=tenses&slug=present-continuous)
-- [Present Perfect](/pages/grammar-article.html?category=tenses&slug=present-perfect)
 
 ## Tóm tắt nhanh
 1. **will** = quyết định bộc phát + dự đoán (không có bằng chứng) + lời hứa/đề nghị

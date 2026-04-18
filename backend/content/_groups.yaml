@@ -91,11 +91,11 @@ groups:
     description: "Cấu trúc câu nâng cao và ngữ pháp thực chiến dành riêng cho IELTS Speaking & Writing Band 7+."
     color: sky
     articles:
-      - { slug: ielts-task2-grammar,          category: ielts-grammar-lab, title: "Grammar cho IELTS Writing Task 2" }
-      - { slug: advanced-sentence-patterns,   category: ielts-grammar-lab, title: "Advanced Sentence Patterns" }
-      - { slug: band7-structures,             category: ielts-grammar-lab, title: "Band 7+ Grammar Structures" }
-      - { slug: speaking-part23-grammar,      category: ielts-grammar-lab, title: "Grammar cho Speaking Part 2 & 3" }
-      - { slug: linking-devices,              category: ielts-grammar-lab, title: "Linking Devices — Nối câu, nối đoạn" }
+      - { slug: grammar-in-task1,              category: ielts-grammar-lab, title: "Grammar cho IELTS Writing Task 1" }
+      - { slug: grammar-in-task2,              category: ielts-grammar-lab, title: "Grammar cho IELTS Writing Task 2" }
+      - { slug: grammar-in-speaking,          category: ielts-grammar-lab, title: "Grammar cho IELTS Speaking" }
+      - { slug: common-ielts-grammar-mistakes, category: ielts-grammar-lab, title: "10 lỗi ngữ pháp hay gặp nhất" }
+      - { slug: grammar-for-band7plus,        category: ielts-grammar-lab, title: "Grammar cho Band 7+" }
 
   - slug: error-clinic
     title: "Error Clinic"

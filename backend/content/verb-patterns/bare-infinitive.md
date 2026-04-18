@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, sentence-elements, infinitive]
 related_pages: [infinitive, gerund-vs-infinitive, gerund]
 compare_with: [infinitive]
 order: 3
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 **Bare infinitive** là động từ nguyên thể **không có "to"** — xuất hiện sau modal verbs (can, will, should, must...), sau let/make, và trong một số cấu trúc cố định; khác với to-infinitive ở chỗ "to" bị bỏ đi hoàn toàn.
 
@@ -42,7 +43,7 @@ Người học Việt Nam hay mắc lỗi ở đây vì hay dịch word-for-word
 
 > **Quy tắc đơn giản:** Nếu trước động từ đã có modal verb (can, will, should, must, may, might...) — bỏ "to". Dùng bare infinitive.
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ```
 Modal verb + bare infinitive (base verb — không thêm -s, -ed, -ing)
@@ -62,7 +63,7 @@ Modal verb + subject + bare infinitive?
 - You **should not ignore** this problem.
 - **Can** you **help** me?
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Bare infinitive sau Modal Verbs
 
@@ -160,7 +161,7 @@ see / hear / watch / feel / notice + object + V-ing (hành động đang xảy r
 - We **watched the sun set** over the mountains.
 - I **felt my heart beat** faster.
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 | Dùng bare infinitive khi... | Ví dụ |
 |-----------------------------|-------|
@@ -190,7 +191,7 @@ see / hear / watch / feel / notice + object + V-ing (hành động đang xảy r
 
 **(Writing Task 2)** "Governments **must take** immediate steps to address climate change. They **should invest** in renewable energy and **may need to introduce** stricter regulations. Citizens **can also contribute** by making more sustainable choices."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Thêm "to" sau modal verbs
 
@@ -255,7 +256,7 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 - Nhìn thấy "let someone" hoặc "make someone"? → Bare infinitive
 - Nhìn thấy "had better" / "would rather"? → Bare infinitive
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Mẫu câu hữu ích
 
@@ -280,7 +281,7 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 - "This trend **may continue** in the coming decades."
 - "The situation **could worsen** without immediate action."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Điền đúng: Bare infinitive hay To-infinitive?
 
@@ -319,11 +320,6 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 3. She can **speak** three languages.
 4. He was made **to wait** outside.
 5. I used to **play** football at school.
-
-## Bài liên quan
-- [To-Infinitive](/pages/grammar-article.html?category=verb-patterns&slug=infinitive)
-- [Gerund vs. Infinitive](/pages/grammar-article.html?category=verb-patterns&slug=gerund-vs-infinitive)
-- [Gerund](/pages/grammar-article.html?category=verb-patterns&slug=gerund)
 
 ## Tóm tắt nhanh
 1. Bare infinitive = **động từ nguyên thể không có "to"**

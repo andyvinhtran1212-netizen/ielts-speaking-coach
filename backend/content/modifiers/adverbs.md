@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, adjectives]
 related_pages: [adjectives, adjective-vs-adverb, sentence-elements]
 compare_with: [adjective-vs-adverb]
 order: 2
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 **Adverb (trạng từ)** là từ bổ sung thông tin về *cách thức, mức độ, tần suất, thời gian, địa điểm* cho động từ, tính từ, hoặc cả câu — và nó có thể đứng ở nhiều vị trí trong câu tuỳ thuộc vào loại adverb.
 
@@ -54,7 +55,7 @@ Nhưng không phải tất cả adverbs đều kết thúc bằng -ly:
 > - ❌ SAI: She speaks *friendlily*.
 > - ✅ ĐÚNG: She speaks *in a friendly way*.
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Manner Adverbs (Trạng từ chỉ cách thức)
 
@@ -198,7 +199,7 @@ Sentence adverb, + subject + verb...
 > - ✅ ĐÚNG: The plan was good. **However**, it was too expensive.
 > - ✅ ĐÚNG: The plan was good; **however**, it was too expensive.
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 | Loại adverb | Câu hỏi tương ứng | Ví dụ adverbs |
 |-------------|-------------------|---------------|
@@ -230,7 +231,7 @@ Sentence adverb, + subject + verb...
 **(Writing Task 2 — sentence adverbs):**
 "Technology has transformed the way we communicate. **Consequently**, people are spending more time online than ever before. **However**, this trend comes with significant drawbacks. **Furthermore**, research **consistently** shows that excessive screen time **negatively** affects mental health."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Đặt frequency adverb SAI vị trí
 
@@ -299,7 +300,7 @@ Trong tiếng Anh, cần phân biệt rõ:
 - Sau "be": She **is always** on time.
 - Sau auxiliary: He **has never** been late.
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Mẫu câu hữu ích
 
@@ -325,7 +326,7 @@ Trong tiếng Anh, cần phân biệt rõ:
 - "The data **strongly** suggests a correlation between the two factors."
 - "While **generally** effective, this policy has **occasionally** produced unintended consequences."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Chọn đúng: Tính từ hay Adverb?
 
@@ -373,11 +374,6 @@ Trong tiếng Anh, cần phân biệt rõ:
 3. He speaks **in a friendly way**. (hoặc: He is **friendly** when he speaks.)
 4. The problem is **much more** complicated than we thought.
 5. I **usually** drink coffee in the morning.
-
-## Bài liên quan
-- [Adjectives](/pages/grammar-article.html?category=modifiers&slug=adjectives)
-- [Adjective vs. Adverb](/pages/grammar-article.html?category=modifiers&slug=adjective-vs-adverb)
-- [Sentence Elements](/pages/grammar-article.html?category=foundations&slug=sentence-elements)
 
 ## Tóm tắt nhanh
 1. Adverb bổ nghĩa cho **động từ, tính từ, adverb khác, hoặc cả câu**

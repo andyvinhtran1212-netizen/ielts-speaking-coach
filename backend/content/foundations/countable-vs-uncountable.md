@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, sentence-elements]
 related_pages: [parts-of-speech, singular-vs-plural, phrase-vs-clause]
 compare_with: [singular-vs-plural]
 order: 4
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 **Countable noun** = danh từ có thể đếm được, có dạng số nhiều (*book → books*). **Uncountable noun** = danh từ không đếm được, không có dạng số nhiều (*water, advice, information*).
 
@@ -49,7 +50,7 @@ Danh từ chỉ những thứ **không thể tách thành đơn vị rời rạc
 - *advice, information, knowledge* → Khái niệm trừu tượng, không đếm được
 - *furniture, luggage, equipment* → Tập hợp, dùng như một khối
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### Countable Nouns
 
@@ -82,7 +83,7 @@ Danh từ chỉ những thứ **không thể tách thành đơn vị rời rạc
 
 \**Data* đang dần được chấp nhận là countable trong văn phong thông thường, nhưng trong học thuật vẫn là uncountable.
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Quantifiers — từ chỉ số lượng
 
@@ -139,7 +140,7 @@ Nhiều danh từ có thể là cả hai tùy ngữ cảnh, với **nghĩa khác
 | **chicken** | *I like chicken.* (thịt gà) | *The farm has 20 chickens.* (con gà) |
 | **glass** | *The table is made of glass.* (chất liệu kính) | *Give me a glass of water.* (cái ly) |
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 ### Nhận ra Countable Noun
 - Có thể đặt *a/an* phía trước: *a problem, an opportunity*
@@ -187,7 +188,7 @@ Phân tích:
 
 **(Speaking Part 3):** "I think young people today have **access to a lot of information**, but they sometimes lack the **knowledge** to evaluate it critically. It only takes **a few minutes** to find **research** on any topic online."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Thêm -s vào uncountable nouns
 
@@ -252,7 +253,7 @@ Tiếng Việt **không phân biệt countable/uncountable** — "những thông
 
 **Câu hỏi tự kiểm tra:** Thử đặt *"one ___"* trước từ đó — nếu nghe tự nhiên (*one book, one idea*) → countable; nếu nghe kỳ (*one water, one advice*) → uncountable.
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Tránh lỗi cơ bản
 
@@ -272,7 +273,7 @@ Khi nói về con số và số lượng:
 
 Sự thay đổi: *researches → research*, *many furnitures → much of the furniture*, *comforts → comfort* — 3 lỗi countable/uncountable phổ biến được sửa.
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Phân loại: Countable (C) hay Uncountable (U)?
 
@@ -317,11 +318,6 @@ Sự thay đổi: *researches → research*, *many furnitures → much of the fu
 4. ❌ *informations* sai → đúng: "Do you have any **information** about the event?" (uncountable, không có -s)
 5. *some* advice (uncountable — không dùng *a advice*)
 6. *little* progress (uncountable)
-
-## Bài liên quan
-- [Parts of Speech](/pages/grammar-article.html?category=foundations&slug=parts-of-speech)
-- [Singular vs. Plural](/pages/grammar-article.html?category=foundations&slug=singular-vs-plural)
-- [Phrase vs. Clause](/pages/grammar-article.html?category=foundations&slug=phrase-vs-clause)
 
 ## Tóm tắt nhanh
 1. **Countable** = có thể đếm, có dạng số nhiều, dùng được với *a/an*

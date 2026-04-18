@@ -12,10 +12,11 @@ prerequisites: [parts-of-speech, sentence-elements, present-simple, past-simple]
 related_pages: [past-simple, present-continuous]
 compare_with: [past-simple]
 order: 4
+status: complete
 last_updated: 2026-04-10
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 Present Perfect dùng khi hành động xảy ra trong quá khứ **nhưng vẫn còn liên quan đến hiện tại** — bạn quan tâm đến kết quả, trải nghiệm, hoặc tình trạng *hiện tại*, không phải thời điểm cụ thể trong quá khứ.
 
@@ -39,7 +40,7 @@ Present Perfect diễn tả:
 3. **Tình trạng kéo dài từ quá khứ đến nay** (dùng with *since/for*)
 4. **Thành tựu hoặc sự thay đổi** tính đến hiện tại
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### Câu khẳng định
 ```
@@ -122,7 +123,7 @@ Have/Has + Subject + Past Participle ...?
 | see → seen | give → given |
 | take → taken | write → written |
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Trải nghiệm trong cuộc đời (Life Experience)
 
@@ -169,7 +170,7 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 - Attitudes toward education **have changed** dramatically over the past decade.
 - Technology **has transformed** the way we communicate.
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 | Dấu hiệu | Vị trí | Ví dụ |
 |----------|--------|-------|
@@ -206,7 +207,7 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 
 **(Writing Task 2)** "Over the past two decades, urbanisation has transformed cities across Southeast Asia. Millions of people have moved from rural areas to cities in search of better opportunities."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Dùng Present Perfect với thời gian cụ thể — lỗi phổ biến nhất
 
@@ -289,7 +290,7 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 4. Tình trạng từ quá khứ đến nay? → **Present Perfect + since/for**
 5. Hành động trong quá khứ, kể câu chuyện → **Past Simple**
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking
 - **Part 1:** "I've been studying English for about eight years, but I've only recently started focusing on speaking."
@@ -301,7 +302,7 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 - **Task 2 (body):** "Research has shown that regular exercise significantly reduces stress levels."
 - **Task 1 (describe trend):** "The graph shows that smartphone usage has increased dramatically since 2010."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Chọn đúng: Present Perfect hay Past Simple?
 
@@ -343,11 +344,6 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 2. Have you **finished** (V3, không phải nguyên thể)
 3. She has **gone** (V3 of go, không phải went)
 4. We **haven't seen** each other for three years (tình trạng kéo dài đến hiện tại)
-
-## Bài liên quan
-- [Past Simple](/pages/grammar-article.html?category=tenses&slug=past-simple)
-- [Present Continuous](/pages/grammar-article.html?category=tenses&slug=present-continuous)
-- [Present Simple](/pages/grammar-article.html?category=tenses&slug=present-simple)
 
 ## Tóm tắt nhanh
 1. Cấu trúc: Subject + **have/has** + **V3 (Past Participle)**

@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, sentence-elements]
 related_pages: [parts-of-speech, sentence-elements, gerund]
 compare_with: []
 order: 1
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 Adjective là từ **mô tả tính chất của danh từ** — nó trả lời câu hỏi *What kind? Which one? How many? How much?* và giúp người nghe hình dung rõ hơn về người, vật, nơi chốn, hay cảm xúc bạn đang nhắc đến.
 
@@ -44,7 +45,7 @@ Người học Việt Nam hay mắc hai lỗi chính:
 Adjective **không thay đổi** theo số ít / số nhiều trong tiếng Anh:
 - a **tall** tree → two **tall** trees *(không phải "talls")*
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### Vị trí 1: Đứng trước danh từ (Attributive position)
 
@@ -101,7 +102,7 @@ Subject + Linking Verb + Adjective
 - The film **seemed** *quite long*.
 - Her voice **sounded** *familiar*.
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Mô tả con người
 
@@ -150,7 +151,7 @@ Subject + Linking Verb + Adjective
 - "I felt **incredibly nervous** but also **excited** before my first IELTS exam."
 - "It was an **eye-opening** experience that made me much more **appreciative** of what I have."
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 Khi nào bạn đang dùng adjective (không phải adverb)?
 
@@ -188,7 +189,7 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 
 **(Writing Task 2)** "**Rapid** urbanisation has led to a range of **serious** environmental problems. **Dense** urban populations place **enormous** pressure on **natural** resources."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Dùng adjective thay adverb khi mô tả động từ
 
@@ -288,7 +289,7 @@ Tiếng Việt và tiếng Anh có hai khác biệt lớn về tính từ:
 3. Từ mô tả **động từ** (cách thức thực hiện)? → **Adverb** (thêm -ly)
 4. Từ mô tả một adjective khác? → **Adverb**: *incredibly **beautiful***, *quite **tired***
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Nâng band bằng adjectives phong phú
 
@@ -314,7 +315,7 @@ Tiếng Việt và tiếng Anh có hai khác biệt lớn về tính từ:
 - "A **comprehensive** approach is needed to address these **complex** challenges."
 - "**Renewable** energy sources offer a more **sustainable** alternative."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Chọn: Adjective hay Adverb?
 
@@ -360,11 +361,6 @@ Dùng 3 adjectives để mô tả:
 3. He speaks very **quickly**. *(mô tả speaks → adverb)*
 4. They are two **big** dogs. *(adjective không thêm -s)*
 5. I have a **beautiful old Vietnamese** vase. *(opinion → age → origin)*
-
-## Bài liên quan
-- [Parts of Speech](/pages/grammar-article.html?category=foundations&slug=parts-of-speech)
-- [Sentence Elements](/pages/grammar-article.html?category=foundations&slug=sentence-elements)
-- [Gerund](/pages/grammar-article.html?category=verb-patterns&slug=gerund)
 
 ## Tóm tắt nhanh
 1. Adjective = từ **mô tả danh từ** — trả lời *What kind? Which?*

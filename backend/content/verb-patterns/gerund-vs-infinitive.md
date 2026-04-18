@@ -14,10 +14,11 @@ prerequisites: [gerund, infinitive, bare-infinitive]
 related_pages: [gerund, infinitive, bare-infinitive, adjectives]
 compare_with: []
 order: 4
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 Gerund (V-ing) và to-infinitive đều có thể đứng sau động từ, nhưng mỗi động từ chỉ chấp nhận **một trong hai** — hoặc cả hai nhưng với **nghĩa khác nhau** — và không có quy tắc lý giải hoàn toàn, chỉ cần học theo nhóm.
 
@@ -40,7 +41,7 @@ Band 7+: dùng đúng nhất quán, kể cả nhóm đổi nghĩa
 | **Ví dụ** | swimming, learning, going | to swim, to learn, to go |
 | **Cảm giác** | Hướng về hành động chung chung, đã xảy ra, hoặc thực tế | Hướng về hành động cụ thể, tương lai, hoặc tiềm năng |
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Động từ chỉ đi với GERUND
 
@@ -212,7 +213,7 @@ Một số động từ chấp nhận cả gerund và to-infinitive với nghĩa
 > - ❌ Awkward: I **was beginning crying**.
 > - ✅ Better: I **was beginning to cry**.
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 **→ Gerund:**
 
@@ -252,7 +253,7 @@ Một số động từ chấp nhận cả gerund và to-infinitive với nghĩa
 **(Writing Task 2):**
 "Many people **prefer working** from home, while others **choose to commute** to an office. Those who **enjoy collaborating** with colleagues tend **to prefer** office environments, whereas individuals who **struggle to focus** in busy spaces often **find working** remotely more productive. **Forcing** employees **to return** to the office without considering their preferences risks **reducing** overall productivity."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Dùng gerund sau want/hope/plan/decide
 
@@ -317,7 +318,7 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 - Gerund = hành động như một *thực thể* — bạn thích nó, ghét nó, tránh nó
 - To-infinitive = hành động như một *mục tiêu* — bạn muốn đạt được nó, quyết định làm nó
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Cụm từ hữu ích
 
@@ -346,7 +347,7 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 - "Governments need **to consider** the long-term impact of **allowing** unchecked development."
 - "**Investing** in public transport while **encouraging** people **to use** it more frequently could significantly reduce emissions."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Chọn đúng: Gerund hay To-infinitive?
 
@@ -387,11 +388,6 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 4. **drinking** (stop + gerund = bỏ hẳn)
 5. **sleeping** (try + gerund = thử xem có hiệu quả không)
 6. **to use** (try + to-inf = cố gắng dùng, nhưng thất bại)
-
-## Bài liên quan
-- [Gerund](/pages/grammar-article.html?category=verb-patterns&slug=gerund)
-- [To-Infinitive](/pages/grammar-article.html?category=verb-patterns&slug=infinitive)
-- [Bare Infinitive](/pages/grammar-article.html?category=verb-patterns&slug=bare-infinitive)
 
 ## Tóm tắt nhanh
 1. **Chỉ Gerund:** enjoy, avoid, mind, finish, keep, suggest, consider, miss, practise, admit, deny, risk

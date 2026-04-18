@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, adjectives, adverbs]
 related_pages: [adjectives, adverbs, sentence-elements, parts-of-speech]
 compare_with: [adverbs]
 order: 3
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 **Adjective** mô tả **danh từ** (noun/pronoun); **adverb** mô tả **động từ, tính từ, hoặc adverb khác** — và cách phân biệt nhanh nhất là hỏi: từ này đang mô tả *vật/người* hay mô tả *hành động/tính chất/mức độ*?
 
@@ -40,7 +41,7 @@ Trong IELTS:
 | **Vị trí thường gặp** | Trước danh từ / sau linking verb | Sau động từ, trước tính từ |
 | **Ví dụ** | a **quick** decision | She decided **quickly** |
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### Từ Adjective sang Adverb
 
@@ -88,7 +89,7 @@ Trong IELTS:
 > - **near** (adj/adv) = gần (khoảng cách)
 > - **nearly** (adv) = gần như (= almost) → "I **nearly** fell asleep."
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. Adjective sau Linking Verbs
 
@@ -208,7 +209,7 @@ adverb + adjective + noun
 **(Writing Task 2):**
 "**Highly** educated workers are **significantly** more productive than those with limited training. This has led to a **rapidly** growing gap between **skilled** and unskilled labour. **Consequently**, governments need to invest more **heavily** in vocational education."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Dùng adjective thay adverb sau action verb
 
@@ -294,7 +295,7 @@ Từ này đứng trước danh từ → ADJECTIVE (không + -ly)
 Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 ```
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Cách dùng phổ biến
 
@@ -320,7 +321,7 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 - "The situation has **gradually** improved over the past decade."
 - "Many people **genuinely** believe that technology will solve this problem."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Chọn đúng
 
@@ -365,12 +366,6 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 4. I worked **hard** all week. ("hardly" = almost not — sai nghĩa)
 5. She seems **nervous** before exams. (linking verb "seems" → adjective)
 6. The exam was **surprisingly** difficult. (bổ nghĩa cho adjective → adverb)
-
-## Bài liên quan
-- [Adjectives](/pages/grammar-article.html?category=modifiers&slug=adjectives)
-- [Adverbs](/pages/grammar-article.html?category=modifiers&slug=adverbs)
-- [Parts of Speech](/pages/grammar-article.html?category=foundations&slug=parts-of-speech)
-- [Sentence Elements](/pages/grammar-article.html?category=foundations&slug=sentence-elements)
 
 ## Tóm tắt nhanh
 1. **Adjective** → mô tả **danh từ**: a *careful* driver, she is *beautiful*

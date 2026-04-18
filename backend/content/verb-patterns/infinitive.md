@@ -13,10 +13,11 @@ prerequisites: [parts-of-speech, sentence-elements, gerund]
 related_pages: [gerund, bare-infinitive, gerund-vs-infinitive, adjectives]
 compare_with: [gerund-vs-infinitive]
 order: 2
+status: complete
 last_updated: 2026-04-13
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 **To-infinitive** = **to + động từ nguyên thể** — được dùng sau một số động từ nhất định, để diễn tả mục đích, và sau nhiều tính từ; khác với gerund (V-ing) ở chỗ nó hướng về *hành động sẽ xảy ra hoặc kết quả mong muốn*.
 
@@ -49,7 +50,7 @@ Trong IELTS Speaking và Writing, bạn cần to-infinitive để:
 > - "I walk **to** school." → to = giới từ (chỉ hướng)
 > - "I want **to go** to school." → to go = to-infinitive (sau want)
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ```
 to + base verb (không thay đổi theo chủ ngữ hay thời)
@@ -76,7 +77,7 @@ to + have + past participle
 - She claims **to have met** him before.
 - I'm lucky **to have had** such a great teacher.
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### 1. To-infinitive sau động từ (Verb + to-infinitive)
 
@@ -180,7 +181,7 @@ wh-word + to + base verb
 - I've been wondering **whether to apply** for the job.
 - We need to decide **when to start**.
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 | Dùng to-infinitive khi... | Ví dụ |
 |--------------------------|-------|
@@ -209,7 +210,7 @@ wh-word + to + base verb
 
 **(Writing Task 2)** "Governments need **to invest** in public transport **to reduce** traffic congestion. It is also essential **to encourage** citizens **to consider** more sustainable options. Failing **to address** this issue now will have long-term consequences."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Dùng gerund thay to-infinitive sau want/hope/plan/decide
 
@@ -284,7 +285,7 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 4. **Mục đích** (để làm gì) → to-infinitive
 5. **It is + adj + ???** → to-infinitive
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking — Mẫu câu hữu ích
 
@@ -317,7 +318,7 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 - "Young people tend **to prefer** digital communication."
 - "This approach appears **to be** more effective than previous methods."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Điền đúng dạng: To-infinitive hay Gerund?
 
@@ -356,12 +357,6 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 3. It's important **to practise** every day.
 4. I study English **to get** a better job.
 5. We plan **to move** to a larger apartment.
-
-## Bài liên quan
-- [Gerund](/pages/grammar-article.html?category=verb-patterns&slug=gerund)
-- [Bare Infinitive](/pages/grammar-article.html?category=verb-patterns&slug=bare-infinitive)
-- [Gerund vs. Infinitive](/pages/grammar-article.html?category=verb-patterns&slug=gerund-vs-infinitive)
-- [Adjectives](/pages/grammar-article.html?category=modifiers&slug=adjectives)
 
 ## Tóm tắt nhanh
 1. To-infinitive = **to + động từ nguyên thể**: to go, to learn, to speak

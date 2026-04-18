@@ -12,10 +12,11 @@ prerequisites: [parts-of-speech, sentence-elements, present-simple]
 related_pages: [parts-of-speech, sentence-elements]
 compare_with: []
 order: 1
+status: complete
 last_updated: 2026-04-10
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 **A/An** dùng khi giới thiệu danh từ đếm được số ít lần đầu tiên hoặc nói về loại chung; **the** dùng khi cả người nói và người nghe đều biết đối tượng nào đang được nhắc đến; **không có mạo từ (zero article)** dùng với danh từ không đếm được và danh từ số nhiều nói chung.
 
@@ -39,7 +40,7 @@ Tiếng Anh có ba loại mạo từ:
 | **the** | Definite article | Cả hai bên đều biết đang nói về cái gì |
 | *(zero)* | Zero article | Danh từ không đếm được / số nhiều nói chung |
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### A hay An? — Quy tắc âm thanh, không phải chữ cái
 
@@ -57,7 +58,7 @@ Chọn **a** hay **an** dựa trên **âm đầu tiên của từ tiếp theo**,
 - **a European** — "E" đọc là /j/ (phụ âm) → dùng **a**
 - **an MBA** — đọc chữ cái "M" = /ɛm/ (nguyên âm) → dùng **an**
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### A / An — Mạo từ không xác định
 
@@ -185,7 +186,7 @@ So sánh:
 - **in hospital / in prison / in bed**
 - **go to school / go to church / go to prison**
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 | Dùng A/An | Dùng The | Zero Article |
 |-----------|---------|--------------|
@@ -214,7 +215,7 @@ So sánh:
 
 **(Writing Task 2)** "**Tourism** is **a** growing industry that brings **an** enormous economic benefit to developing countries. However, **the** environmental impact of mass tourism cannot be ignored."
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Bỏ mạo từ trước danh từ đếm được số ít
 
@@ -263,7 +264,7 @@ Khi gặp danh từ, hỏi 3 câu:
 2. **Người nghe biết cái này cụ thể là gì không?** Nếu có → **the**; Nếu không → **a/an**
 3. **Nói về loại chung không?** Nếu có → **zero article**
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking
 - Khi kể chuyện: "I met **a** man on the train. **The** man told me an interesting story about his life."
@@ -275,7 +276,7 @@ Khi gặp danh từ, hỏi 3 câu:
 - Dùng **the** khi nói về điều đã giới thiệu trước đó hoặc duy nhất: "**The** government should invest more in **the** education sector."
 - Tránh lặp "the" quá nhiều — không phải mọi danh từ đều cần "the".
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Điền a, an, the, hoặc ø (zero article)
 
@@ -308,10 +309,6 @@ Khi gặp danh từ, hỏi 3 câu:
 3. She bought **an** umbrella (h câm, âm đầu = nguyên âm)
 4. **Happiness** is more important than **money**. (danh từ trừu tượng nói chung)
 5. He wants to become **a** doctor. (nghề nghiệp = a/an, không phải the)
-
-## Bài liên quan
-- [Parts of Speech](/pages/grammar-article.html?category=foundations&slug=parts-of-speech)
-- [Sentence Elements](/pages/grammar-article.html?category=foundations&slug=sentence-elements)
 
 ## Tóm tắt nhanh
 1. **A/An** — danh từ đếm được số ít, lần đầu nhắc, không xác định; **a** trước phụ âm, **an** trước nguyên âm (theo âm thanh, không phải chữ cái)

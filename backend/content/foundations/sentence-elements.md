@@ -12,10 +12,11 @@ prerequisites: [parts-of-speech]
 related_pages: [parts-of-speech, present-simple, present-continuous]
 compare_with: []
 order: 2
+status: complete
 last_updated: 2026-04-10
 ---
 
-## Một câu tóm tắt
+## Tóm tắt
 
 Mọi câu tiếng Anh đều được tạo thành từ các **thành phần câu** (sentence elements): Subject (chủ ngữ), Verb (động từ), Object (tân ngữ), Complement (bổ ngữ), và Adverbial (trạng ngữ). Biết vai trò của từng thành phần giúp bạn không bao giờ xây câu sai cơ bản.
 
@@ -38,7 +39,7 @@ Những lỗi này làm giảm điểm **Grammatical Range & Accuracy** đáng k
 | Complement | C | Bổ ngữ | *What/Who is the subject?* |
 | Adverbial | A | Trạng ngữ | *When/Where/How/Why?* |
 
-## Cấu trúc (Form)
+## Cấu trúc
 
 ### 5 mẫu câu cơ bản trong tiếng Anh
 
@@ -130,7 +131,7 @@ Trạng ngữ bổ nghĩa cho cả câu hoặc động từ — có thể di chu
 - Mục đích: *I study **to improve my IELTS score**.*
 - Lý do: *She stayed home **because she was sick**.*
 
-## Cách dùng chính
+## Cách dùng phổ biến
 
 ### Phân tích câu phức tạp
 
@@ -159,7 +160,7 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
 - **Complex:** [S + V + O] + [conjunction + S + V]: *I drink coffee **because** I need to stay awake.*
 - **Compound-Complex:** Kết hợp cả hai: *I love coffee **because** it wakes me up, **but** I limit myself to two cups a day.*
 
-## Dấu hiệu nhận biết (Signal Words)
+## Dấu hiệu nhận biết
 
 | Thành phần | Cách nhận biết |
 |-----------|---------------|
@@ -191,7 +192,7 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
 - Liên từ: although
 - Mệnh đề 2: S=the cost of living, V=can be, C=quite high
 
-## Lỗi thường gặp (Common Mistakes)
+## Lỗi thường gặp
 
 ### Lỗi 1: Thiếu chủ ngữ (ảnh hưởng từ tiếng Việt)
 
@@ -246,7 +247,7 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
 2. Câu này có Verb chưa?
 3. Verb này cần Object không? (transitive verbs cần, intransitive verbs không)
 
-## Ứng dụng trong Speaking/Writing
+## Ứng dụng trong IELTS
 
 ### IELTS Speaking
 - **Part 1:** Thực hành câu S+V+O+A: "I usually spend my evenings **[reading]** **[in my room]**."
@@ -259,7 +260,7 @@ Khi gặp câu dài và phức tạp, hãy tìm theo thứ tự:
   - ❌ Simple: "Education is important. Many people need education. Education helps people."
   - ✅ Complex: "Education **plays a crucial role** in personal development, **as it equips** individuals **with** the skills and knowledge **needed to succeed in** a competitive society."
 
-## Bài tập ngắn (Mini Practice)
+## Bài tập luyện
 
 ### Xác định thành phần câu
 
@@ -294,12 +295,6 @@ Phân tích 5 thành phần (S/V/O/C/A) của các câu sau:
 3. **It is** very difficult to understand this concept.
 4. **There** are many beautiful beaches in Vietnam.
 5. She made her mother **proud**. (bỏ "of" — hoặc: She made her mother **proud of her**.)
-
-## Bài liên quan
-- [Parts of Speech](/pages/grammar-article.html?category=foundations&slug=parts-of-speech)
-- [Present Simple](/pages/grammar-article.html?category=tenses&slug=present-simple)
-- [Present Continuous](/pages/grammar-article.html?category=tenses&slug=present-continuous)
-- [Past Simple](/pages/grammar-article.html?category=tenses&slug=past-simple)
 
 ## Tóm tắt nhanh
 1. 5 thành phần câu: Subject, Verb, Object, Complement, Adverbial
