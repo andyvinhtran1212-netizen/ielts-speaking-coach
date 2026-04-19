@@ -251,6 +251,71 @@
       border-radius: 14px; padding: 18px 20px;
     }
     .tab-error { font-size: 12px; color: #f87171; min-height: 18px; margin-top: 6px; }
+
+    /* ── Grammar Dashboard Section ───────────────────────── */
+    .grammar-section {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 24px;
+    }
+    .grammar-sub-title {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 10px;
+    }
+    .grammar-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(15,118,110,0.18);
+      border: 1px solid rgba(20,184,166,0.25);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 12px; font-weight: 600; color: #14b8a6;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
+      cursor: pointer;
+    }
+    .grammar-pill:hover { background: rgba(15,118,110,0.3); border-color: rgba(20,184,166,0.5); }
+    .grammar-pill-sub {
+      display: block;
+      font-size: 11px; font-weight: 400;
+      color: rgba(255,255,255,0.35);
+      margin-top: 1px;
+    }
+    .grammar-weak-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .grammar-weak-item:hover { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+    .grammar-weak-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: #f87171;
+    }
+    .grammar-recent-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .grammar-recent-item:hover { background: rgba(255,255,255,0.05); }
+    .grammar-saved-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+    }
+    .grammar-empty-text {
+      font-size: 12px; color: rgba(255,255,255,0.3);
+      text-align: center; padding: 14px 0;
+    }
   </style>
 </head>
 <body class="text-white font-sans antialiased min-h-screen flex flex-col">
@@ -489,6 +554,63 @@
                   onclick="event.stopPropagation();switchMainTab('fulltest')">Đến Full Test →</button>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ── PART 2b: Grammar Dashboard ──────────────────────── -->
+    <section id="grammar-dashboard-section" class="grammar-section mb-8">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="text-lg font-bold">Ngữ pháp của bạn</h2>
+          <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Dựa trên phản hồi từ các buổi luyện</p>
+        </div>
+        <a href="/pages/grammar.html" class="text-xs font-semibold" style="color:#14b8a6;">Xem tất cả →</a>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div id="grammar-loading" class="space-y-3">
+        <div class="skeleton h-4 w-32 mb-4"></div>
+        <div class="flex gap-2 flex-wrap">
+          <div class="skeleton h-7 w-28 rounded-full"></div>
+          <div class="skeleton h-7 w-24 rounded-full"></div>
+          <div class="skeleton h-7 w-32 rounded-full"></div>
+        </div>
+      </div>
+
+      <!-- Loaded content (hidden until data arrives) -->
+      <div id="grammar-content" class="hidden space-y-6">
+
+        <!-- Focus this week -->
+        <div id="grammar-focus-wrap">
+          <p class="grammar-sub-title">Cần luyện tuần này</p>
+          <div id="grammar-focus-pills" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Weak areas -->
+        <div id="grammar-weak-wrap">
+          <p class="grammar-sub-title">Điểm yếu thường gặp</p>
+          <div id="grammar-weak-list" class="space-y-2"></div>
+        </div>
+
+        <!-- Recently viewed -->
+        <div id="grammar-recent-wrap">
+          <p class="grammar-sub-title">Đã xem gần đây</p>
+          <div id="grammar-recent-list" class="space-y-0.5"></div>
+        </div>
+
+        <!-- Saved articles -->
+        <div id="grammar-saved-wrap">
+          <p class="grammar-sub-title">Bài đã lưu</p>
+          <div id="grammar-saved-list" class="space-y-2"></div>
+        </div>
+
+      </div>
+
+      <!-- New-user empty state -->
+      <div id="grammar-empty" class="hidden text-center py-6">
+        <div class="text-3xl mb-3">📚</div>
+        <p class="text-sm font-semibold mb-1">Chưa có dữ liệu ngữ pháp</p>
+        <p class="text-xs" style="color:rgba(255,255,255,0.4);">Hoàn thành một buổi luyện để nhận phản hồi ngữ pháp cá nhân hoá.</p>
       </div>
     </section>
 
@@ -1693,6 +1815,143 @@
         renderHistory([]);
         console.warn('Could not load sessions:', err.message);
       }
+
+      loadGrammarDashboard();
+    }
+
+    // ── Grammar Dashboard ────────────────────────────────────
+    async function loadGrammarDashboard() {
+      const $loading = document.getElementById('grammar-loading');
+      const $content = document.getElementById('grammar-content');
+      const $empty   = document.getElementById('grammar-empty');
+
+      try {
+        const data = await api.get('/api/grammar/dashboard-data');
+
+        $loading.classList.add('hidden');
+
+        const hasAny =
+          (data.grammar_focus_this_week?.length > 0) ||
+          (data.weak_areas?.length > 0) ||
+          (data.recently_viewed?.length > 0) ||
+          (data.saved_articles?.length > 0);
+
+        if (!hasAny) {
+          $empty.classList.remove('hidden');
+          return;
+        }
+
+        $content.classList.remove('hidden');
+
+        // Build article URL using category + slug (article page requires both)
+        function grammarUrl(slug, category) {
+          var base = window.api.url('pages/grammar-article.html');
+          if (category) return base + '?category=' + encodeURIComponent(category) + '&slug=' + encodeURIComponent(slug);
+          return base + '?slug=' + encodeURIComponent(slug); // fallback (article page will show error, but won't break)
+        }
+
+        // Focus this week
+        const focusPills = document.getElementById('grammar-focus-pills');
+        const focusWrap  = document.getElementById('grammar-focus-wrap');
+        if (data.grammar_focus_this_week?.length > 0) {
+          data.grammar_focus_this_week.forEach(item => {
+            (item.articles || []).forEach(art => {
+              const a = document.createElement('a');
+              a.className = 'grammar-pill';
+              a.href = grammarUrl(art.slug, art.category);
+              a.innerHTML = `<span>📖</span><span>${escHtml(art.title)}</span>`;
+              focusPills.appendChild(a);
+            });
+            if (!item.articles?.length) {
+              const a = document.createElement('a');
+              a.className = 'grammar-pill';
+              a.href = grammarUrl(item.tag, item.category);
+              a.innerHTML = `<span>📖</span><span>${escHtml(item.label_vi || item.tag)}</span>`;
+              focusPills.appendChild(a);
+            }
+          });
+          if (!focusPills.children.length) focusWrap.classList.add('hidden');
+        } else {
+          focusWrap.classList.add('hidden');
+        }
+
+        // Weak areas
+        const weakList = document.getElementById('grammar-weak-list');
+        const weakWrap = document.getElementById('grammar-weak-wrap');
+        if (data.weak_areas?.length > 0) {
+          data.weak_areas.slice(0, 5).forEach(item => {
+            const a = document.createElement('a');
+            a.className = 'grammar-weak-item';
+            a.href = grammarUrl(item.tag, item.category);
+            a.innerHTML = `
+              <span class="grammar-weak-dot"></span>
+              <span class="text-sm font-medium flex-1" style="color:rgba(255,255,255,0.8);">${escHtml(item.label_vi || item.tag)}</span>
+              <span class="text-xs" style="color:rgba(255,255,255,0.3);">${item.occurrence_count}× lỗi</span>`;
+            weakList.appendChild(a);
+          });
+        } else {
+          weakWrap.classList.add('hidden');
+        }
+
+        // Recently viewed
+        const recentList = document.getElementById('grammar-recent-list');
+        const recentWrap = document.getElementById('grammar-recent-wrap');
+        if (data.recently_viewed?.length > 0) {
+          data.recently_viewed.forEach(item => {
+            const a = document.createElement('a');
+            a.className = 'grammar-recent-item';
+            a.href = grammarUrl(item.slug, item.category);
+            a.innerHTML = `
+              <span class="text-sm" style="color:rgba(255,255,255,0.55);">↗</span>
+              <span class="text-sm flex-1" style="color:rgba(255,255,255,0.75);">${escHtml(item.title || item.slug)}</span>
+              <span class="text-xs" style="color:rgba(255,255,255,0.25);">${fmtRelTime(item.last_viewed_at)}</span>`;
+            recentList.appendChild(a);
+          });
+        } else {
+          recentWrap.classList.add('hidden');
+        }
+
+        // Saved articles
+        const savedList = document.getElementById('grammar-saved-list');
+        const savedWrap = document.getElementById('grammar-saved-wrap');
+        if (data.saved_articles?.length > 0) {
+          data.saved_articles.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'grammar-saved-item';
+            const artUrl = grammarUrl(item.slug, item.category);
+            div.innerHTML = `
+              <a href="${artUrl}" class="text-sm flex-1" style="color:rgba(255,255,255,0.8);text-decoration:none;">
+                🔖 ${escHtml(item.title || item.slug)}
+              </a>
+              <span class="text-xs" style="color:rgba(255,255,255,0.3);">${fmtRelTime(item.saved_at)}</span>`;
+            savedList.appendChild(div);
+          });
+        } else {
+          savedWrap.classList.add('hidden');
+        }
+
+      } catch (err) {
+        // Grammar section is optional — hide gracefully on error
+        $loading.classList.add('hidden');
+        document.getElementById('grammar-dashboard-section').classList.add('hidden');
+        console.warn('Grammar dashboard unavailable:', err.message);
+      }
+    }
+
+    function escHtml(str) {
+      return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function fmtRelTime(isoStr) {
+      if (!isoStr) return '';
+      const diff = Date.now() - new Date(isoStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 60) return mins <= 1 ? 'vừa xong' : `${mins} phút trước`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs} giờ trước`;
+      const days = Math.floor(hrs / 24);
+      if (days < 30) return `${days} ngày trước`;
+      return `${Math.floor(days / 30)} tháng trước`;
     }
 
     init();

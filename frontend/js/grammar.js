@@ -598,11 +598,66 @@
       // Show content, hide skeleton
       _show('article-container');
       _hide('article-skeleton');
+
+      // ── Track view (fire-and-forget, auth optional) ──────────
+      _trackArticleView(slug);
+
+      // ── Save / unsave button ─────────────────────────────────
+      _initSaveButton(slug);
+
     } catch (err) {
       _hide('article-skeleton');
       _showError('article-container', 'Không tải được bài: ' + err.message);
       _show('article-container');
     }
+  }
+
+  async function _trackArticleView(slug) {
+    // Only track for authenticated users — avoids 401-redirect for anonymous visitors
+    // (api.js redirects to login on any 401, so we must guard before calling it)
+    if (!window.getSupabase) return;
+    var sb = window.getSupabase();
+    if (!sb) return;
+    try {
+      var sessionResult = await sb.auth.getSession();
+      if (!sessionResult.data.session) return; // anonymous visitor — skip silently
+      await window.api.post('/api/grammar/articles/' + encodeURIComponent(slug) + '/view', { viewed_from: 'direct' });
+    } catch (_) { /* network error — ignore */ }
+  }
+
+  async function _initSaveButton(slug) {
+    var metaEl = document.getElementById('article-meta');
+    if (!metaEl || !window.api || !window.api.post) return;
+
+    // Create button
+    var btn = document.createElement('button');
+    btn.id = 'save-article-btn';
+    btn.style.cssText = 'margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);transition:all 0.15s;';
+    btn.innerHTML = '🔖 Lưu bài';
+    metaEl.appendChild(btn);
+
+    // Optimistic state helpers
+    function _setSaved(saved) {
+      btn.dataset.saved = saved ? '1' : '0';
+      btn.innerHTML = saved ? '🔖 Đã lưu' : '🔖 Lưu bài';
+      btn.style.color = saved ? '#14b8a6' : 'rgba(255,255,255,0.55)';
+      btn.style.borderColor = saved ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.15)';
+      btn.style.background = saved ? 'rgba(15,118,110,0.18)' : 'rgba(255,255,255,0.05)';
+    }
+
+    btn.addEventListener('click', async function () {
+      var isSaved = btn.dataset.saved === '1';
+      _setSaved(!isSaved); // optimistic toggle
+      try {
+        if (isSaved) {
+          await window.api.delete('/api/grammar/articles/' + encodeURIComponent(slug) + '/save');
+        } else {
+          await window.api.post('/api/grammar/articles/' + encodeURIComponent(slug) + '/save', {});
+        }
+      } catch (_) {
+        _setSaved(isSaved); // revert on error
+      }
+    });
   }
 
   // ── Search page loader ────────────────────────────────────────────────────
