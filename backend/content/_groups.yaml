@@ -17,6 +17,12 @@ groups:
       - { slug: articles,                 category: advanced,    title: "Articles — a, an, the" }
       - { slug: word-order,               category: foundations, title: "Word Order — Trật tự từ trong câu" }
       - { slug: there-is-there-are,       category: foundations, title: "There is / There are" }
+      - { slug: there-is-vs-it-is,        category: foundations, title: "There is vs. It is — Giới thiệu sự tồn tại hay mô tả?" }
+      - { slug: few-a-few-little-a-little, category: foundations, title: "Few / A few / Little / A little — Phân biệt từ chỉ số lượng nhỏ" }
+      - { slug: other-another-the-other-others, category: foundations, title: "Other / Another / The Other / Others — Phân biệt 4 cấu trúc dễ nhầm" }
+      - { slug: zero-article,               category: foundations, title: "Zero Article — Khi nào không dùng mạo từ" }
+      - { slug: articles-with-places-and-names, category: foundations, title: "Articles with Places and Names — Mạo từ với địa danh và tên riêng" }
+      - { slug: some-any-no,                category: foundations, title: "Some / Any / No — Phân biệt và cách dùng đúng" }
 
   - slug: parts-of-speech
     title: "Từ loại chi tiết"
@@ -73,6 +79,7 @@ groups:
       - { slug: phrasal-verbs,       category: verb-patterns, title: "Phrasal Verbs — Cụm động từ" }
       - { slug: causative-verbs,     category: verb-patterns, title: "Causative — have / get / make" }
       - { slug: wish-hope,           category: verb-patterns, title: "Wish & Hope" }
+      - { slug: used-to-be-used-to-get-used-to, category: verb-patterns, title: "Used to / Be used to / Get used to — Ba cấu trúc khác nhau hoàn toàn" }
 
   - slug: grammar-for-meaning
     title: "Ngữ pháp theo chức năng"
@@ -85,6 +92,10 @@ groups:
       - { slug: emphasis-inversion,  category: grammar-for-meaning, title: "Emphasis & Inversion — Nhấn mạnh" }
       - { slug: discourse-markers,   category: grammar-for-meaning, title: "Discourse Markers — Liên kết ý" }
       - { slug: hedging-language,    category: grammar-for-meaning, title: "Hedging Language — Diễn đạt thận trọng" }
+      - { slug: because-vs-because-of, category: grammar-for-meaning, title: "Because vs. Because of — Liên từ hay Giới từ?" }
+      - { slug: despite-vs-in-spite-of, category: grammar-for-meaning, title: "Despite vs. In spite of — Dù cho / Mặc dù" }
+      - { slug: so-vs-such,            category: grammar-for-meaning, title: "So vs. Such — Nhấn mạnh mức độ đúng cách" }
+      - { slug: academic-hedging,      category: grammar-for-meaning, title: "Academic Hedging — Diễn đạt thận trọng trong học thuật" }
 
   - slug: ielts-grammar-lab
     title: "IELTS Grammar Lab"
@@ -96,6 +107,21 @@ groups:
       - { slug: grammar-in-speaking,          category: ielts-grammar-lab, title: "Grammar cho IELTS Speaking" }
       - { slug: common-ielts-grammar-mistakes, category: ielts-grammar-lab, title: "10 lỗi ngữ pháp hay gặp nhất" }
       - { slug: grammar-for-band7plus,        category: ielts-grammar-lab, title: "Grammar cho Band 7+" }
+      - { slug: making-answers-longer-naturally, category: ielts-grammar-lab, title: "Making Answers Longer Naturally — Kéo dài câu trả lời Speaking tự nhiên" }
+      - { slug: adding-reasons-clearly,       category: ielts-grammar-lab, title: "Adding Reasons Clearly — Đưa ra lý do rõ ràng trong IELTS" }
+      - { slug: giving-examples-naturally,    category: ielts-grammar-lab, title: "Giving Examples Naturally — Đưa ví dụ tự nhiên trong IELTS" }
+      - { slug: strong-vs-cautious-opinions,  category: ielts-grammar-lab, title: "Strong vs. Cautious Opinions — Thể hiện quan điểm đúng mức độ" }
+      - { slug: comparing-ideas-in-speaking,  category: ielts-grammar-lab, title: "Comparing Ideas in Speaking — So sánh ý tưởng tự nhiên trong IELTS" }
+      - { slug: talking-about-past-experiences, category: ielts-grammar-lab, title: "Talking About Past Experiences — Kể về trải nghiệm trong IELTS Speaking" }
+      - { slug: talking-about-future-plans,   category: ielts-grammar-lab, title: "Talking About Future Plans — Diễn đạt kế hoạch tương lai trong IELTS" }
+      - { slug: task1-trend-grammar,          category: ielts-grammar-lab, title: "Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1" }
+      - { slug: task1-comparison-grammar,     category: ielts-grammar-lab, title: "Task 1 Comparison Grammar — Ngữ pháp so sánh trong Writing Task 1" }
+      - { slug: agreeing-and-disagreeing-naturally, category: ielts-grammar-lab, title: "Agreeing and Disagreeing Naturally — Đồng ý và Phản đối tự nhiên trong IELTS" }
+      - { slug: conditionals-in-speaking,    category: ielts-grammar-lab, title: "Conditionals in Speaking — Dùng câu điều kiện tự nhiên trong IELTS Speaking" }
+      - { slug: task1-process-grammar,       category: ielts-grammar-lab, title: "Task 1 Process Grammar — Ngữ pháp mô tả quy trình trong Writing Task 1" }
+      - { slug: task1-map-grammar,           category: ielts-grammar-lab, title: "Task 1 Map Grammar — Ngữ pháp mô tả bản đồ trong Writing Task 1" }
+      - { slug: task2-opinion-essay-grammar, category: ielts-grammar-lab, title: "Task 2 Opinion Essay Grammar — Ngữ pháp bài luận quan điểm trong IELTS Writing" }
+      - { slug: task2-cause-effect-grammar,  category: ielts-grammar-lab, title: "Task 2 Cause & Effect Grammar — Ngữ pháp nguyên nhân và kết quả trong IELTS Writing" }
 
   - slug: error-clinic
     title: "Error Clinic"
@@ -107,3 +133,7 @@ groups:
       - { slug: preposition-errors,     category: error-clinic, title: "Lỗi dùng giới từ" }
       - { slug: tense-consistency,      category: error-clinic, title: "Tense Consistency — Nhất quán thì" }
       - { slug: word-form-errors,       category: error-clinic, title: "Word Form Errors — Sai dạng từ" }
+      - { slug: do-vs-make,             category: error-clinic, title: "Do vs. Make — Khi nào dùng do, khi nào dùng make?" }
+      - { slug: say-tell-speak-talk,    category: error-clinic, title: "Say / Tell / Speak / Talk — Bốn động từ nói" }
+      - { slug: overusing-i-think,      category: error-clinic, title: "Overusing 'I think' — Đừng lặp 'I think' mãi một cách" }
+      - { slug: informal-grammar-in-academic-writing, category: error-clinic, title: "Informal Grammar in Academic Writing — Tránh ngôn ngữ không trang trọng trong IELTS" }
