@@ -15,6 +15,13 @@ compare_with: [double-subject-errors]
 order: 17
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance: [6.0, 6.5, 7.0]
+common_error_tags: [pronoun_error]
+speaking_relevance: high
+writing_relevance: high
+next_articles: [double-subject-errors, missing-subjects, avoiding-repetitive-sentence-openings]
+pathways: [fix-common-mistakes, band-6-to-7]
 ---
 
 ## Tóm tắt

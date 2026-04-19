@@ -16,6 +16,13 @@ compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance: [6.0, 6.5, 7.0]
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: high
+next_articles: [gerund-vs-infinitive, modal-verbs, used-to-be-used-to-get-used-to]
+pathways: [grammar-for-ielts-speaking, grammar-for-ielts-writing, band-6-to-7]
 ---
 
 ## Tóm tắt

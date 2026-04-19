@@ -16,6 +16,13 @@ compare_with: [strong-vs-cautious-opinions]
 order: 10
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance: [7.0, 7.5, 8.0]
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles: [hedging-language, strong-vs-cautious-opinions, grammar-in-task2]
+pathways: [grammar-for-ielts-speaking, grammar-for-ielts-writing, band-6-to-7]
 ---
 
 ## Tóm tắt

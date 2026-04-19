@@ -16,6 +16,13 @@ compare_with: [agreeing-and-disagreeing-naturally]
 order: 26
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance: [6.0, 6.5, 7.0]
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: medium
+next_articles: [expressing-uncertainty, strong-vs-cautious-opinions, adding-contrast-naturally]
+pathways: [grammar-for-ielts-speaking, band-6-to-7]
 ---
 
 ## Tóm tắt

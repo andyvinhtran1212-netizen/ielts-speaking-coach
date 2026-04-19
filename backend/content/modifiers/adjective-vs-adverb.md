@@ -15,6 +15,13 @@ compare_with: [adverbs]
 order: 3
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance: [6.0, 6.5, 7.0]
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles: [adjectives, adverbs, sentence-elements]
+pathways: [grammar-for-ielts-speaking, grammar-for-ielts-writing, band-6-to-7]
 ---
 
 ## Tóm tắt
