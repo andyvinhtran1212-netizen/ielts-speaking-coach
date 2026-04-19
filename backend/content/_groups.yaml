@@ -23,6 +23,10 @@ groups:
       - { slug: zero-article,               category: foundations, title: "Zero Article — Khi nào không dùng mạo từ" }
       - { slug: articles-with-places-and-names, category: foundations, title: "Articles with Places and Names — Mạo từ với địa danh và tên riêng" }
       - { slug: some-any-no,                category: foundations, title: "Some / Any / No — Phân biệt và cách dùng đúng" }
+      - { slug: articles-a-an-sound-rules,  category: foundations, title: "A vs. An — Quy tắc dựa trên âm, không dựa trên chữ cái" }
+      - { slug: many-much-a-lot-of,         category: foundations, title: "Many / Much / A lot of — Phân biệt từ chỉ số lượng lớn" }
+      - { slug: this-that-these-those-in-use, category: foundations, title: "This / That / These / Those in Use — Dùng thế nào cho đúng và tự nhiên" }
+      - { slug: noun-phrase-basics,         category: foundations, title: "Noun Phrase Basics — Cấu trúc cụm danh từ cơ bản" }
 
   - slug: parts-of-speech
     title: "Từ loại chi tiết"
@@ -51,6 +55,12 @@ groups:
       - { slug: reported-speech,   category: sentence-structures, title: "Reported Speech — Câu tường thuật" }
       - { slug: cleft-sentences,   category: sentence-structures, title: "Cleft Sentences — Câu chẻ" }
       - { slug: inversion,         category: sentence-structures, title: "Inversion — Đảo ngữ" }
+      - { slug: adding-contrast-naturally,             category: sentence-structures, title: "Adding Contrast Naturally — Thêm ý tương phản tự nhiên trong nói và viết" }
+      - { slug: adding-results-clearly,                category: sentence-structures, title: "Adding Results Clearly — Diễn đạt kết quả và hệ quả rõ ràng" }
+      - { slug: combining-two-short-sentences,         category: sentence-structures, title: "Combining Two Short Sentences — Nối câu ngắn thành câu dài tự nhiên" }
+      - { slug: avoiding-repetitive-sentence-openings, category: sentence-structures, title: "Avoiding Repetitive Sentence Openings — Đa dạng hóa cách mở đầu câu" }
+      - { slug: adding-conditions-naturally,           category: sentence-structures, title: "Adding Conditions Naturally — Thêm điều kiện vào câu một cách tự nhiên" }
+      - { slug: from-simple-to-complex-sentences,      category: sentence-structures, title: "From Simple to Complex Sentences — Nâng cấp câu đơn từng bước" }
 
   - slug: tenses
     title: "Thì động từ"
@@ -80,6 +90,12 @@ groups:
       - { slug: causative-verbs,     category: verb-patterns, title: "Causative — have / get / make" }
       - { slug: wish-hope,           category: verb-patterns, title: "Wish & Hope" }
       - { slug: used-to-be-used-to-get-used-to, category: verb-patterns, title: "Used to / Be used to / Get used to — Ba cấu trúc khác nhau hoàn toàn" }
+      - { slug: remember-doing-vs-remember-to-do, category: verb-patterns, title: "Remember doing vs. Remember to do — Nhớ điều đã xảy ra hay nhớ phải làm gì?" }
+      - { slug: stop-doing-vs-stop-to-do,         category: verb-patterns, title: "Stop doing vs. Stop to do — Dừng hẳn hay dừng lại để làm?" }
+      - { slug: try-doing-vs-try-to-do,           category: verb-patterns, title: "Try doing vs. Try to do — Thử xem có được không hay cố gắng làm?" }
+      - { slug: forget-doing-vs-forget-to-do,     category: verb-patterns, title: "Forget doing vs. Forget to do — Quên việc đã làm hay quên phải làm gì?" }
+      - { slug: regret-doing-vs-regret-to-do,     category: verb-patterns, title: "Regret doing vs. Regret to do — Hối tiếc về quá khứ hay tiếc phải thông báo?" }
+      - { slug: need-doing-vs-need-to-be-done,    category: verb-patterns, title: "Need doing vs. Need to be done — Hai cách nói cùng nghĩa, dùng sao cho tự nhiên?" }
 
   - slug: grammar-for-meaning
     title: "Ngữ pháp theo chức năng"
@@ -96,6 +112,7 @@ groups:
       - { slug: despite-vs-in-spite-of, category: grammar-for-meaning, title: "Despite vs. In spite of — Dù cho / Mặc dù" }
       - { slug: so-vs-such,            category: grammar-for-meaning, title: "So vs. Such — Nhấn mạnh mức độ đúng cách" }
       - { slug: academic-hedging,      category: grammar-for-meaning, title: "Academic Hedging — Diễn đạt thận trọng trong học thuật" }
+      - { slug: although-though-even-though, category: grammar-for-meaning, title: "Although / Though / Even Though — Diễn đạt sự tương phản và nhượng bộ" }
 
   - slug: ielts-grammar-lab
     title: "IELTS Grammar Lab"
@@ -122,6 +139,20 @@ groups:
       - { slug: task1-map-grammar,           category: ielts-grammar-lab, title: "Task 1 Map Grammar — Ngữ pháp mô tả bản đồ trong Writing Task 1" }
       - { slug: task2-opinion-essay-grammar, category: ielts-grammar-lab, title: "Task 2 Opinion Essay Grammar — Ngữ pháp bài luận quan điểm trong IELTS Writing" }
       - { slug: task2-cause-effect-grammar,  category: ielts-grammar-lab, title: "Task 2 Cause & Effect Grammar — Ngữ pháp nguyên nhân và kết quả trong IELTS Writing" }
+      - { slug: task2-problem-solution-grammar, category: ielts-grammar-lab, title: "Task 2 Problem-Solution Grammar — Ngữ pháp bài luận vấn đề và giải pháp" }
+      - { slug: balanced-arguments-grammar,     category: ielts-grammar-lab, title: "Balanced Arguments Grammar — Ngữ pháp trình bày lập luận cân bằng trong IELTS" }
+      - { slug: expressing-preferences-naturally, category: ielts-grammar-lab, title: "Expressing Preferences Naturally — Thể hiện sở thích tự nhiên trong IELTS Speaking" }
+      - { slug: expressing-uncertainty,          category: ielts-grammar-lab, title: "Expressing Uncertainty — Diễn đạt sự không chắc chắn trong IELTS Speaking" }
+      - { slug: talking-about-habits-and-routines, category: ielts-grammar-lab, title: "Talking About Habits and Routines — Kể về thói quen trong IELTS Speaking" }
+      - { slug: softening-disagreement-politely,    category: ielts-grammar-lab, title: "Softening Disagreement Politely — Phản đối lịch sự trong IELTS Speaking" }
+      - { slug: task2-introduction-grammar,          category: ielts-grammar-lab, title: "Task 2 Introduction Grammar — Ngữ pháp viết mở bài IELTS Writing Task 2" }
+      - { slug: task2-conclusion-grammar,            category: ielts-grammar-lab, title: "Task 2 Conclusion Grammar — Ngữ pháp viết kết bài IELTS Writing Task 2" }
+      - { slug: overview-sentence-grammar,           category: ielts-grammar-lab, title: "Overview Sentence Grammar — Ngữ pháp viết câu tổng quan trong IELTS Writing Task 1" }
+      - { slug: percentages-and-proportions,         category: ielts-grammar-lab, title: "Percentages and Proportions — Ngữ pháp mô tả tỷ lệ và tỷ phần trong IELTS Task 1" }
+      - { slug: rankings-and-extremes,               category: ielts-grammar-lab, title: "Rankings and Extremes — Ngữ pháp mô tả vị trí cao nhất, thấp nhất trong IELTS Task 1" }
+      - { slug: avoiding-repetition-in-task2,        category: ielts-grammar-lab, title: "Avoiding Repetition in Task 2 — Đa dạng hóa cấu trúc câu trong IELTS Writing Task 2" }
+      - { slug: speculating-about-the-future,        category: ielts-grammar-lab, title: "Speculating About the Future — Suy đoán và dự đoán tương lai trong IELTS" }
+      - { slug: talking-about-changes-over-time,     category: ielts-grammar-lab, title: "Talking About Changes Over Time — Diễn đạt sự thay đổi theo thời gian trong IELTS" }
 
   - slug: error-clinic
     title: "Error Clinic"
@@ -137,3 +168,12 @@ groups:
       - { slug: say-tell-speak-talk,    category: error-clinic, title: "Say / Tell / Speak / Talk — Bốn động từ nói" }
       - { slug: overusing-i-think,      category: error-clinic, title: "Overusing 'I think' — Đừng lặp 'I think' mãi một cách" }
       - { slug: informal-grammar-in-academic-writing, category: error-clinic, title: "Informal Grammar in Academic Writing — Tránh ngôn ngữ không trang trọng trong IELTS" }
+      - { slug: affect-vs-effect,           category: error-clinic, title: "Affect vs. Effect — Động từ hay Danh từ?" }
+      - { slug: economic-vs-economical,     category: error-clinic, title: "Economic vs. Economical — Hai tính từ, hai nghĩa hoàn toàn khác" }
+      - { slug: historic-vs-historical,     category: error-clinic, title: "Historic vs. Historical — Sự kiện lịch sử hay thuộc về lịch sử?" }
+      - { slug: run-on-sentences,           category: error-clinic, title: "Run-On Sentences — Câu chạy liên tục không có dấu dừng" }
+      - { slug: sentence-fragments,         category: error-clinic, title: "Sentence Fragments — Câu không hoàn chỉnh" }
+      - { slug: missing-subjects,           category: error-clinic, title: "Missing Subjects — Lỗi thiếu chủ ngữ" }
+      - { slug: missing-main-verbs,         category: error-clinic, title: "Missing Main Verbs — Lỗi thiếu động từ chính" }
+      - { slug: wrong-pronoun-reference,    category: error-clinic, title: "Wrong Pronoun Reference — Lỗi đại từ tham chiếu sai hoặc mơ hồ" }
+      - { slug: double-subject-errors,      category: error-clinic, title: "Double Subject Errors — Lỗi lặp chủ ngữ" }
