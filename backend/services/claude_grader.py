@@ -28,6 +28,7 @@ import anthropic
 
 from config import settings
 from services import ai_usage_logger
+from services.grammar_content import grammar_service
 
 logger = logging.getLogger(__name__)
 
@@ -361,6 +362,8 @@ async def grade_response(
 
     if result is not None:
         logger.info("Claude grader: thành công lần 1 — overall_band=%.1f", result["overall_band"])
+        if is_practice:
+            _attach_grammar_recommendations(result)
         return result
 
     # ── Attempt 2 (retry with explicit correction nudge) ──────────────────────
@@ -382,6 +385,8 @@ async def grade_response(
 
     if result2 is not None:
         logger.info("Claude grader: thành công lần 2 — overall_band=%.1f", result2["overall_band"])
+        if is_practice:
+            _attach_grammar_recommendations(result2)
         return result2
 
     # Log a safe preview (first 300 chars, newlines escaped) — no PII in the snippet
@@ -761,3 +766,27 @@ def _round_band(value: float) -> float:
     """Round to nearest 0.5, clamped to [1.0, 9.0]. Used for overall_band."""
     rounded = math.floor(value * 2 + 0.5) / 2
     return max(1.0, min(9.0, rounded))
+
+
+def _attach_grammar_recommendations(result: dict) -> None:
+    """
+    Mutate a practice-mode grading result in-place:
+    For each grammar_issue, find the best-matching wiki article and attach
+    a `grammar_recommendations` list to the dict.
+
+    Each item: { issue, slug, category, title, score }
+    Items with no match (score <= 0.3) are excluded.
+    """
+    issues: list[str] = result.get("grammar_issues") or []
+    recs: list[dict] = []
+    for issue in issues:
+        match = grammar_service.find_best_match(issue)
+        if match:
+            recs.append({
+                "issue":    issue,
+                "slug":     match["slug"],
+                "category": match["category"],
+                "title":    match["title"],
+                "score":    match["score"],
+            })
+    result["grammar_recommendations"] = recs

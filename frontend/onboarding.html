@@ -10,8 +10,8 @@
       theme: {
         extend: {
           colors: {
-            navy: { DEFAULT: '#1B3A5C', light: '#2a5280', dark: '#12293f' },
-            teal: { DEFAULT: '#0D7377', light: '#14a8ae', dark: '#095457' },
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
         },
@@ -20,8 +20,9 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/ds.css" />
   <style>
-    body { background: linear-gradient(135deg, #1B3A5C 0%, #2a5280 60%, #095457 100%); min-height: 100vh; }
+    body { background: linear-gradient(135deg, #0C2340 0%, #112d52 60%, #0d5f58 100%); min-height: 100vh; }
 
     /* Progress bar */
     #progress-fill { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -47,8 +48,8 @@
       cursor: pointer;
       transition: border-color 0.18s, background 0.18s, transform 0.15s;
     }
-    .opt-card:hover { border-color: rgba(13,115,119,0.55); background: rgba(13,115,119,0.12); transform: translateY(-1px); }
-    .opt-card.selected { border-color: #0D7377; background: rgba(13,115,119,0.22); }
+    .opt-card:hover { border-color: rgba(15,118,110,0.55); background: rgba(15,118,110,0.12); transform: translateY(-1px); }
+    .opt-card.selected { border-color: #0F766E; background: rgba(15,118,110,0.22); }
     .opt-card.selected .check-icon { opacity: 1; transform: scale(1); }
     .check-icon { opacity: 0; transform: scale(0.6); transition: opacity 0.18s, transform 0.18s; }
 
@@ -64,12 +65,12 @@
       transition: border-color 0.18s;
       -webkit-appearance: none;
     }
-    .form-input:focus { outline: none; border-color: #0D7377; background: rgba(13,115,119,0.1); }
-    .form-input option { background: #1B3A5C; color: #fff; }
+    .form-input:focus { outline: none; border-color: #0F766E; background: rgba(15,118,110,0.1); }
+    .form-input option { background: #0C2340; color: #fff; }
 
     /* Buttons */
     .btn-primary {
-      background: linear-gradient(135deg, #0D7377, #14a8ae);
+      background: linear-gradient(135deg, #0F766E, #14b8a6);
       color: #fff;
       font-weight: 600;
       font-size: 0.9rem;
@@ -120,7 +121,7 @@
             <span id="step-pct" class="text-xs" style="color:rgba(255,255,255,0.4);">33%</span>
           </div>
           <div class="h-1.5 rounded-full" style="background:rgba(255,255,255,0.1);">
-            <div id="progress-fill" class="h-1.5 rounded-full" style="width:33%;background:linear-gradient(90deg,#0D7377,#14a8ae);"></div>
+            <div id="progress-fill" class="h-1.5 rounded-full" style="width:33%;background:linear-gradient(90deg,#0F766E,#14b8a6);"></div>
           </div>
         </div>
 

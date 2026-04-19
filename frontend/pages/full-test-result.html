@@ -102,30 +102,6 @@
     }
     .grammar-item:last-child { border-bottom: none; }
 
-    /* Buttons */
-    .btn-primary {
-      background: #0F766E; color: #fff;
-      padding: 10px 20px; border-radius: 10px;
-      font-weight: 600; font-size: 14px;
-      cursor: pointer; transition: background 0.15s;
-      text-decoration: none;
-      display: inline-flex; align-items: center; gap: 8px;
-    }
-    .btn-primary:hover { background: #0d6560; }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.06); color: #e2e8f0;
-      padding: 10px 20px; border-radius: 10px;
-      font-weight: 600; font-size: 14px;
-      cursor: pointer;
-      border: 1px solid rgba(255,255,255,0.1);
-      transition: background 0.15s;
-      text-decoration: none;
-      display: inline-flex; align-items: center; gap: 8px;
-    }
-    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-    .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
-
     /* Fade-in animation */
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(14px); }
@@ -273,12 +249,13 @@
   </div>
 
   <!-- ── Scripts ── -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
   <script>
     'use strict';
 
-    var SUPABASE_URL  = 'https://jycqbrdtqqxxjxirhxhw.supabase.co';
-    var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5Y3FicmR0cXF4eGp4aXJoeGh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU0MDkxODMsImV4cCI6MjA2MDk4NTE4M30.TlUQ8tLHMfAu_P5O5vvQoTpxFKYuRMqiQKoR9c--N4c';
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
     window.initSupabase(SUPABASE_URL, SUPABASE_ANON);
 
     // ── Parse URL params ───────────────────────────────────────

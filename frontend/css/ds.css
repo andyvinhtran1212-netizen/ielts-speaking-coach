@@ -290,3 +290,110 @@ select:focus-visible {
   outline: 2px solid var(--ds-teal-lt);
   outline-offset: 2px;
 }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+/* ── Canonical buttons ──────────────────────────────────────────────────────── */
+.btn-primary {
+  background: var(--ds-teal);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, transform 0.1s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.btn-primary:hover { background: #0d5f58; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: background 0.15s, border-color 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); }
+.btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Form inputs ────────────────────────────────────────────────────────────── */
+.ds-form-input {
+  background: rgba(255,255,255,0.07);
+  border: 1.5px solid rgba(255,255,255,0.14);
+  border-radius: 10px;
+  color: #fff;
+  padding: 11px 14px;
+  font-size: 0.9rem;
+  width: 100%;
+  transition: border-color 0.18s, background 0.18s;
+  -webkit-appearance: none;
+}
+.ds-form-input:focus {
+  outline: none;
+  border-color: var(--ds-teal);
+  background: rgba(15,118,110,0.1);
+}
+
+/* ── Modal backdrop ─────────────────────────────────────────────────────────── */
+.ds-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Badge / chip ───────────────────────────────────────────────────────────── */
+.ds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.06);
+  color: var(--ds-muted);
+  border: 1px solid var(--ds-border);
+}
+.ds-badge-teal  { background: rgba(15,118,110,0.18); color: var(--ds-teal-lt); border-color: rgba(20,184,166,0.25); }
+.ds-badge-sky   { background: rgba(56,189,248,0.1);  color: var(--ds-fc);      border-color: rgba(56,189,248,0.2); }
+.ds-badge-amber { background: rgba(251,191,36,0.1);  color: #fbbf24;           border-color: rgba(251,191,36,0.2); }
+.ds-badge-red   { background: rgba(239,68,68,0.1);   color: #f87171;           border-color: rgba(239,68,68,0.2); }
+
+/* ── Callout block ──────────────────────────────────────────────────────────── */
+.ds-callout {
+  background: rgba(15,118,110,0.08);
+  border: 1px solid rgba(20,184,166,0.2);
+  border-left: 3px solid var(--ds-teal-lt);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.8);
+  line-height: 1.6;
+}
