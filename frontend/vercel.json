@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/grammar/:category/:slug", "destination": "/pages/grammar-article.html" }
+  ]
+}

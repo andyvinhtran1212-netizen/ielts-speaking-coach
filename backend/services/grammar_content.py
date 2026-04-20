@@ -220,8 +220,9 @@ class GrammarContentService:
         if not a or a["category"] != category:
             return None
 
-        # Resolve related_pages slugs → objects
-        related = self._resolve_related(a["related_pages"])
+        # Resolve related_pages and next_articles slugs → objects
+        related       = self._resolve_related(a["related_pages"])
+        next_articles = self._resolve_related(a.get("next_articles") or [])
 
         # Prev / next within the same category
         cat_list = self.articles_by_category.get(category, [])
@@ -231,9 +232,10 @@ class GrammarContentService:
 
         return {
             **a,
-            "related_pages": related,
-            "prev_article":  prev_art,
-            "next_article":  next_art,
+            "related_pages":  related,
+            "next_articles":  next_articles,
+            "prev_article":   prev_art,
+            "next_article":   next_art,
         }
 
     def get_category(self, slug: str) -> Optional[dict]:
