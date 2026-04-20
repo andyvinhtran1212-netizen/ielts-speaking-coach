@@ -982,7 +982,7 @@
     var lis = issues.map(function (issue) {
       var rec = recMap[issue];
       var link = rec && rec.rec_id
-        ? ' <a href="/frontend/pages/grammar.html?category=' + encodeURIComponent(rec.category) +
+        ? ' <a href="/grammar.html?category=' + encodeURIComponent(rec.category) +
           '&slug=' + encodeURIComponent(rec.slug) + '" target="_blank" rel="noopener" ' +
           'data-rec-id="' + _esc(rec.rec_id) + '" ' +
           'style="font-size:11px;color:#14b8a6;text-decoration:none;white-space:nowrap;" ' +
