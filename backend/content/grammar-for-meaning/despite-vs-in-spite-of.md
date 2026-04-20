@@ -2,20 +2,55 @@
 title: Despite vs. In spite of — Diễn đạt sự tương phản
 slug: despite-vs-in-spite-of
 category: grammar-for-meaning
-summary: >
-  "Despite" và "in spite of" có nghĩa hoàn toàn giống nhau — cả hai đều
-  diễn đạt sự tương phản theo nghĩa "mặc dù / dù cho". Điểm khác biệt duy
-  nhất là hình thức: "in spite of" = ba từ, "despite" = một từ, nhưng cả hai
-  đều cần noun/noun phrase đi theo sau, không phải mệnh đề. Phân biệt chúng
-  với "although/even though" là kỹ năng quan trọng trong IELTS Writing.
+summary: '"Despite" và "in spite of" có nghĩa hoàn toàn giống nhau — cả hai đều diễn đạt sự tương phản theo nghĩa "mặc dù / dù cho". Điểm khác biệt duy nhất là hình thức: "in spite of" = ba từ, "despite" = một từ, nhưng cả hai đều cần noun/noun phrase đi theo sau, không phải mệnh đề. Phân biệt chúng với "although/even though" là kỹ năng quan trọng trong IELTS Writing.
+
+  '
 level: intermediate
-tags: [grammar-for-meaning, despite-vs-in-spite-of, contrast, conjunctions, prepositions, intermediate, ielts, writing, concession]
-prerequisites: [conjunctions, sentence-elements, complex-sentence, prepositions]
-related_pages: [conjunctions, complex-sentence, discourse-markers, because-vs-because-of]
-compare_with: [because-vs-because-of]
+tags:
+- grammar-for-meaning
+- despite-vs-in-spite-of
+- contrast
+- conjunctions
+- prepositions
+- intermediate
+- ielts
+- writing
+- concession
+prerequisites:
+- conjunctions
+- sentence-elements
+- complex-sentence
+- prepositions
+related_pages:
+- conjunctions
+- complex-sentence
+- discourse-markers
+- because-vs-because-of
+compare_with:
+- because-vs-because-of
 order: 8
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+- no_compound_sentences
+- wrong_connector
+- wrong_preposition
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- conjunctions
+- complex-sentence
+- discourse-markers
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

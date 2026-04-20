@@ -2,19 +2,51 @@
 title: So vs. Such — Nhấn mạnh mức độ đúng cách
 slug: so-vs-such
 category: grammar-for-meaning
-summary: >
-  "So" và "such" đều dùng để nhấn mạnh mức độ (rất, đến mức nào đó), nhưng
-  cấu trúc đi sau khác nhau hoàn toàn: "so" theo sau là tính từ hoặc trạng từ,
-  còn "such" theo sau là cụm danh từ. Nhầm hai cấu trúc này là lỗi phổ biến
-  và bị trừ điểm trong cả Writing lẫn Speaking IELTS.
+summary: '"So" và "such" đều dùng để nhấn mạnh mức độ (rất, đến mức nào đó), nhưng cấu trúc đi sau khác nhau hoàn toàn: "so" theo sau là tính từ hoặc trạng từ, còn "such" theo sau là cụm danh từ. Nhầm hai cấu trúc này là lỗi phổ biến và bị trừ điểm trong cả Writing lẫn Speaking IELTS.
+
+  '
 level: intermediate
-tags: [grammar-for-meaning, so-vs-such, emphasis, degree, intermediate, ielts, writing, speaking]
-prerequisites: [adjectives, adverbs, nouns, sentence-elements]
-related_pages: [comparison, discourse-markers, emphasis-inversion, hedging-language]
-compare_with: [emphasis-inversion]
+tags:
+- grammar-for-meaning
+- so-vs-such
+- emphasis
+- degree
+- intermediate
+- ielts
+- writing
+- speaking
+prerequisites:
+- adjectives
+- adverbs
+- nouns
+- sentence-elements
+related_pages:
+- comparison
+- discourse-markers
+- emphasis-inversion
+- hedging-language
+compare_with:
+- emphasis-inversion
 order: 9
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- comparison
+- discourse-markers
+- emphasis-inversion
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,20 +2,51 @@
 title: Regret doing vs. Regret to do — Hối tiếc về quá khứ hay tiếc phải thông báo?
 slug: regret-doing-vs-regret-to-do
 category: verb-patterns
-summary: >
-  "Regret doing" và "regret to do" là cặp cấu trúc khác nhau hoàn toàn về ngữ
-  cảnh. "Regret doing" = hối tiếc, ân hận về việc đã làm trong quá khứ.
-  "Regret to do" = tiếc phải làm điều gì đó — thường trong văn viết trang trọng
-  khi thông báo tin xấu. Bài này giải thích cả hai và hướng dẫn dùng đúng
-  trong từng tình huống.
+summary: '"Regret doing" và "regret to do" là cặp cấu trúc khác nhau hoàn toàn về ngữ cảnh. "Regret doing" = hối tiếc, ân hận về việc đã làm trong quá khứ. "Regret to do" = tiếc phải làm điều gì đó — thường trong văn viết trang trọng khi thông báo tin xấu. Bài này giải thích cả hai và hướng dẫn dùng đúng trong từng tình huống.
+
+  '
 level: intermediate
-tags: [verb-patterns, regret, gerund-vs-infinitive, common-mistakes, intermediate, ielts, grammar, formal-writing, speaking]
-prerequisites: [gerund, infinitive, gerund-vs-infinitive]
-related_pages: [gerund-vs-infinitive, forget-doing-vs-forget-to-do, remember-doing-vs-remember-to-do, academic-hedging]
-compare_with: [forget-doing-vs-forget-to-do]
+tags:
+- verb-patterns
+- regret
+- gerund-vs-infinitive
+- common-mistakes
+- intermediate
+- ielts
+- grammar
+- formal-writing
+- speaking
+prerequisites:
+- gerund
+- infinitive
+- gerund-vs-infinitive
+related_pages:
+- gerund-vs-infinitive
+- forget-doing-vs-forget-to-do
+- remember-doing-vs-remember-to-do
+- academic-hedging
+compare_with:
+- forget-doing-vs-forget-to-do
 order: 14
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund-vs-infinitive
+- forget-doing-vs-forget-to-do
+- remember-doing-vs-remember-to-do
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

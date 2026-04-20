@@ -2,18 +2,59 @@
 title: From Simple to Complex Sentences — Nâng cấp câu đơn từng bước
 slug: from-simple-to-complex-sentences
 category: sentence-structures
-summary: >
-  Bài học cốt lõi để nâng Band IELTS: làm thế nào để biến một câu đơn thông
-  thường thành một câu phức có chiều sâu, chính xác và thuyết phục. Bài này
-  hướng dẫn từng bước — thêm lý do, thêm tương phản, thêm relative clause,
-  kết hợp thành câu phức — với nhiều ví dụ before/after transformation thực tế.
+summary: 'Bài học cốt lõi để nâng Band IELTS: làm thế nào để biến một câu đơn thông thường thành một câu phức có chiều sâu, chính xác và thuyết phục. Bài này hướng dẫn từng bước — thêm lý do, thêm tương phản, thêm relative clause, kết hợp thành câu phức — với nhiều ví dụ before/after transformation thực tế.
+
+  '
 level: intermediate
-tags: [sentence-structures, complex-sentence, compound-sentence, relative-clauses, clause, upgrade, intermediate, ielts, speaking, writing, band7]
-prerequisites: [simple-sentence, compound-sentence, complex-sentence, relative-clauses, adding-contrast-naturally, adding-results-clearly]
-related_pages: [complex-sentence, relative-clauses, adding-contrast-naturally, adding-conditions-naturally, avoiding-repetition-in-task2, avoiding-repetitive-sentence-openings, combining-two-short-sentences]
+tags:
+- sentence-structures
+- complex-sentence
+- compound-sentence
+- relative-clauses
+- clause
+- upgrade
+- intermediate
+- ielts
+- speaking
+- writing
+- band7
+prerequisites:
+- simple-sentence
+- compound-sentence
+- complex-sentence
+- relative-clauses
+- adding-contrast-naturally
+- adding-results-clearly
+related_pages:
+- complex-sentence
+- relative-clauses
+- adding-contrast-naturally
+- adding-conditions-naturally
+- avoiding-repetition-in-task2
+- avoiding-repetitive-sentence-openings
+- combining-two-short-sentences
 order: 14
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- no_complex_sentences
+- no_compound_sentences
+- simple_sentence_overuse
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- complex-sentence
+- relative-clauses
+- adding-contrast-naturally
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

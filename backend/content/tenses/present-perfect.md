@@ -2,18 +2,45 @@
 title: Present Perfect
 slug: present-perfect
 category: tenses
-summary: >
-  Thì hiện tại hoàn thành nối quá khứ với hiện tại — dùng khi hành động
-  xảy ra trong quá khứ nhưng còn liên quan đến bây giờ. Đây là thì gây
-  nhầm lẫn nhất giữa người học Việt Nam và thường xuất hiện trong IELTS.
+summary: 'Thì hiện tại hoàn thành nối quá khứ với hiện tại — dùng khi hành động xảy ra trong quá khứ nhưng còn liên quan đến bây giờ. Đây là thì gây nhầm lẫn nhất giữa người học Việt Nam và thường xuất hiện trong IELTS.
+
+  '
 level: intermediate
-tags: [tenses, intermediate, ielts, perfect, aspect]
-prerequisites: [parts-of-speech, sentence-elements, present-simple, past-simple]
-related_pages: [past-simple, present-continuous]
-compare_with: [past-simple]
+tags:
+- tenses
+- intermediate
+- ielts
+- perfect
+- aspect
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- present-simple
+- past-simple
+related_pages:
+- past-simple
+- present-continuous
+compare_with:
+- past-simple
 order: 4
 status: complete
 last_updated: 2026-04-10
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- past-simple
+- present-continuous
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

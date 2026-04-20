@@ -2,19 +2,55 @@
 title: Avoiding Repetition in Task 2 — Đa dạng hóa cấu trúc câu trong IELTS Writing Task 2
 slug: avoiding-repetition-in-task2
 category: ielts-grammar-lab
-summary: >
-  Lặp cùng một cấu trúc câu là một trong những lý do phổ biến nhất khiến
-  bài Task 2 bị giới hạn dưới Band 6 về Grammatical Range and Accuracy.
-  Bài này không tập trung vào từ vựng mà vào grammar variation: thay đổi
-  cách mở đầu câu, dùng noun phrases, passive, relative clauses, và
-  participle structures — với before/after examples rõ ràng.
+summary: 'Lặp cùng một cấu trúc câu là một trong những lý do phổ biến nhất khiến bài Task 2 bị giới hạn dưới Band 6 về Grammatical Range and Accuracy. Bài này không tập trung vào từ vựng mà vào grammar variation: thay đổi cách mở đầu câu, dùng noun phrases, passive, relative clauses, và participle structures — với before/after examples rõ ràng.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task2, writing-task2, grammar-range, variation, passive, relative-clauses, advanced, ielts, writing, band7]
-prerequisites: [complex-sentence, passive-voice, relative-clauses, cleft-sentences, task2-opinion-essay-grammar]
-related_pages: [task2-opinion-essay-grammar, cleft-sentences, passive-voice, relative-clauses, avoiding-repetitive-sentence-openings, grammar-for-band7plus]
+tags:
+- ielts-grammar-lab
+- task2
+- writing-task2
+- grammar-range
+- variation
+- passive
+- relative-clauses
+- advanced
+- ielts
+- writing
+- band7
+prerequisites:
+- complex-sentence
+- passive-voice
+- relative-clauses
+- cleft-sentences
+- task2-opinion-essay-grammar
+related_pages:
+- task2-opinion-essay-grammar
+- cleft-sentences
+- passive-voice
+- relative-clauses
+- avoiding-repetitive-sentence-openings
+- grammar-for-band7plus
 order: 32
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- no_complex_sentences
+- passive_voice_error
+- vocabulary_repetition
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task2-opinion-essay-grammar
+- cleft-sentences
+- passive-voice
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

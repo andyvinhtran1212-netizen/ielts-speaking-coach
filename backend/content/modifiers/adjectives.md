@@ -2,19 +2,43 @@
 title: Adjectives (Tính từ)
 slug: adjectives
 category: modifiers
-summary: >
-  Adjectives mô tả và bổ nghĩa cho danh từ — nêu tính chất, đặc điểm,
-  cảm xúc, kích thước, màu sắc. Đứng trước noun hoặc sau linking verbs.
-  Đây là công cụ thiết yếu để nói chuyện sinh động và tự nhiên trong
-  IELTS Speaking, nhưng người học Việt Nam hay nhầm với adverbs.
+summary: 'Adjectives mô tả và bổ nghĩa cho danh từ — nêu tính chất, đặc điểm, cảm xúc, kích thước, màu sắc. Đứng trước noun hoặc sau linking verbs. Đây là công cụ thiết yếu để nói chuyện sinh động và tự nhiên trong IELTS Speaking, nhưng người học Việt Nam hay nhầm với adverbs.
+
+  '
 level: beginner
-tags: [modifiers, adjectives, beginner, ielts, descriptive, grammar]
-prerequisites: [parts-of-speech, sentence-elements]
-related_pages: [parts-of-speech, sentence-elements, gerund]
+tags:
+- modifiers
+- adjectives
+- beginner
+- ielts
+- descriptive
+- grammar
+prerequisites:
+- parts-of-speech
+- sentence-elements
+related_pages:
+- parts-of-speech
+- sentence-elements
+- gerund
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-13
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- sentence-elements
+- gerund
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

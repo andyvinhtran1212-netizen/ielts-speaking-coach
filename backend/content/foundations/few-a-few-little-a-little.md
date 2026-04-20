@@ -2,22 +2,44 @@
 title: Few / A few / Little / A little — Phân biệt từ chỉ số lượng nhỏ
 slug: few-a-few-little-a-little
 category: foundations
-summary: >
-  "Few", "a few", "little", và "a little" đều nói về số lượng nhỏ, nhưng
-  mang sắc thái hoàn toàn khác nhau. "Few" và "little" (không có "a") mang
-  nghĩa tiêu cực — gần như không có gì. "A few" và "a little" (có "a") mang
-  nghĩa tích cực — có một ít, đủ dùng. Ngoài ra, "few/a few" dùng với danh
-  từ đếm được (số nhiều), còn "little/a little" dùng với danh từ không đếm
-  được. Nhầm lẫn bốn từ này là lỗi phổ biến của người học tiếng Anh ở mọi
-  trình độ.
+summary: '"Few", "a few", "little", và "a little" đều nói về số lượng nhỏ, nhưng mang sắc thái hoàn toàn khác nhau. "Few" và "little" (không có "a") mang nghĩa tiêu cực — gần như không có gì. "A few" và "a little" (có "a") mang nghĩa tích cực — có một ít, đủ dùng. Ngoài ra, "few/a few" dùng với danh từ đếm được (số nhiều), còn "little/a little" dùng với danh từ không đếm được. Nhầm lẫn bốn từ này là lỗi phổ biến của người học tiếng Anh ở mọi trình độ.
+
+  '
 level: beginner
-tags: [foundations, few-a-few-little-a-little, quantifiers, beginner, countable-uncountable, determiners, ielts]
-prerequisites: [countable-vs-uncountable, articles, singular-vs-plural, parts-of-speech]
-related_pages: [countable-vs-uncountable, quantifiers, articles]
+tags:
+- foundations
+- few-a-few-little-a-little
+- quantifiers
+- beginner
+- countable-uncountable
+- determiners
+- ielts
+prerequisites:
+- countable-vs-uncountable
+- articles
+- singular-vs-plural
+- parts-of-speech
+related_pages:
+- countable-vs-uncountable
+- quantifiers
+- articles
 compare_with: []
 order: 9
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- countable-vs-uncountable
+- quantifiers
+- articles
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

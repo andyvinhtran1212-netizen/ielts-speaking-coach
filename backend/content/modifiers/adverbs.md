@@ -2,19 +2,46 @@
 title: Adverbs (Trạng từ)
 slug: adverbs
 category: modifiers
-summary: >
-  Adverb là từ bổ nghĩa cho động từ, tính từ, trạng từ khác, hoặc cả câu.
-  Không như danh từ và động từ, adverb có thể đứng ở nhiều vị trí khác nhau
-  trong câu. Người học Việt Nam thường đặt adverb sai chỗ — đặc biệt là
-  frequency adverbs và manner adverbs — ảnh hưởng đến điểm Grammar trong IELTS.
+summary: 'Adverb là từ bổ nghĩa cho động từ, tính từ, trạng từ khác, hoặc cả câu. Không như danh từ và động từ, adverb có thể đứng ở nhiều vị trí khác nhau trong câu. Người học Việt Nam thường đặt adverb sai chỗ — đặc biệt là frequency adverbs và manner adverbs — ảnh hưởng đến điểm Grammar trong IELTS.
+
+  '
 level: beginner-intermediate
-tags: [modifiers, adverbs, beginner-intermediate, ielts, grammar, word-order]
-prerequisites: [parts-of-speech, adjectives]
-related_pages: [adjectives, adjective-vs-adverb, sentence-elements]
-compare_with: [adjective-vs-adverb]
+tags:
+- modifiers
+- adverbs
+- beginner-intermediate
+- ielts
+- grammar
+- word-order
+prerequisites:
+- parts-of-speech
+- adjectives
+related_pages:
+- adjectives
+- adjective-vs-adverb
+- sentence-elements
+compare_with:
+- adjective-vs-adverb
 order: 2
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- word_order_error
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- adjectives
+- adjective-vs-adverb
+- sentence-elements
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

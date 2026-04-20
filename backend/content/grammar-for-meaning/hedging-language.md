@@ -2,20 +2,50 @@
 title: Hedging Language — Diễn đạt thận trọng và không chắc chắn
 slug: hedging-language
 category: grammar-for-meaning
-summary: >
-  Hedging language là cách dùng ngôn ngữ để thể hiện mức độ không chắc chắn,
-  tránh khẳng định tuyệt đối, hoặc trình bày quan điểm một cách thận trọng:
-  "it seems that", "tends to", "is likely to", "may", "could", "apparently"...
-  Đây là đặc trưng của văn phong học thuật và là yếu tố phân biệt Band 6 với
-  Band 7+ trong IELTS Writing.
+summary: 'Hedging language là cách dùng ngôn ngữ để thể hiện mức độ không chắc chắn, tránh khẳng định tuyệt đối, hoặc trình bày quan điểm một cách thận trọng: "it seems that", "tends to", "is likely to", "may", "could", "apparently"... Đây là đặc trưng của văn phong học thuật và là yếu tố phân biệt Band 6 với Band 7+ trong IELTS Writing.
+
+  '
 level: advanced
-tags: [grammar-for-meaning, hedging, academic-language, advanced, ielts, modal-verbs, writing, speaking]
-prerequisites: [modal-verbs, verb-patterns, sentence-elements, present-simple]
-related_pages: [modal-verbs, discourse-markers, conditionals, emphasis-inversion]
+tags:
+- grammar-for-meaning
+- hedging
+- academic-language
+- advanced
+- ielts
+- modal-verbs
+- writing
+- speaking
+prerequisites:
+- modal-verbs
+- verb-patterns
+- sentence-elements
+- present-simple
+related_pages:
+- modal-verbs
+- discourse-markers
+- conditionals
+- emphasis-inversion
 compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-18
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- modal_verb_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- modal-verbs
+- discourse-markers
+- conditionals
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,18 +2,49 @@
 title: Overview Sentence Grammar — Ngữ pháp viết câu tổng quan trong IELTS Writing Task 1
 slug: overview-sentence-grammar
 category: ielts-grammar-lab
-summary: >
-  Câu overview là câu quan trọng nhất trong IELTS Writing Task 1 — nó mô tả
-  xu hướng tổng thể mà không đi vào số liệu chi tiết. Bài này dạy các cấu
-  trúc ngữ pháp đặc trưng để viết overview cho chart, table, process và map:
-  overall trends, highest/lowest, general changes, và dominant features.
+summary: 'Câu overview là câu quan trọng nhất trong IELTS Writing Task 1 — nó mô tả xu hướng tổng thể mà không đi vào số liệu chi tiết. Bài này dạy các cấu trúc ngữ pháp đặc trưng để viết overview cho chart, table, process và map: overall trends, highest/lowest, general changes, và dominant features.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, task1, writing-task1, overview, general-trend, intermediate, ielts, writing, band7]
-prerequisites: [task1-trend-grammar, task1-comparison-grammar, passive-voice, comparison]
-related_pages: [task1-trend-grammar, task1-comparison-grammar, percentages-and-proportions, rankings-and-extremes, grammar-in-task1]
+tags:
+- ielts-grammar-lab
+- task1
+- writing-task1
+- overview
+- general-trend
+- intermediate
+- ielts
+- writing
+- band7
+prerequisites:
+- task1-trend-grammar
+- task1-comparison-grammar
+- passive-voice
+- comparison
+related_pages:
+- task1-trend-grammar
+- task1-comparison-grammar
+- percentages-and-proportions
+- rankings-and-extremes
+- grammar-in-task1
 order: 29
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task1-trend-grammar
+- task1-comparison-grammar
+- percentages-and-proportions
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

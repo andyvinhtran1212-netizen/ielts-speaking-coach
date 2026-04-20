@@ -2,19 +2,51 @@
 title: Task 2 Conclusion Grammar — Ngữ pháp viết kết bài IELTS Writing Task 2
 slug: task2-conclusion-grammar
 category: ielts-grammar-lab
-summary: >
-  Kết bài Task 2 không phải chỉ là lặp lại mở bài. Nó cần tổng hợp lập luận,
-  khẳng định lại quan điểm bằng ngôn ngữ mới, và kết thúc rõ ràng không đưa
-  ý mới. Bài này dạy các cấu trúc ngữ pháp cụ thể để viết kết bài gọn, mạnh,
-  và tự nhiên — kèm so sánh weak vs strong conclusion language.
+summary: 'Kết bài Task 2 không phải chỉ là lặp lại mở bài. Nó cần tổng hợp lập luận, khẳng định lại quan điểm bằng ngôn ngữ mới, và kết thúc rõ ràng không đưa ý mới. Bài này dạy các cấu trúc ngữ pháp cụ thể để viết kết bài gọn, mạnh, và tự nhiên — kèm so sánh weak vs strong conclusion language.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, task2, writing-task2, conclusion, restate, summarise, intermediate, ielts, writing, band7]
-prerequisites: [complex-sentence, discourse-markers, task2-introduction-grammar, task2-opinion-essay-grammar]
-related_pages: [task2-introduction-grammar, task2-opinion-essay-grammar, task2-cause-effect-grammar, grammar-in-task2]
-compare_with: [task2-introduction-grammar]
+tags:
+- ielts-grammar-lab
+- task2
+- writing-task2
+- conclusion
+- restate
+- summarise
+- intermediate
+- ielts
+- writing
+- band7
+prerequisites:
+- complex-sentence
+- discourse-markers
+- task2-introduction-grammar
+- task2-opinion-essay-grammar
+related_pages:
+- task2-introduction-grammar
+- task2-opinion-essay-grammar
+- task2-cause-effect-grammar
+- grammar-in-task2
+compare_with:
+- task2-introduction-grammar
 order: 28
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task2-introduction-grammar
+- task2-opinion-essay-grammar
+- task2-cause-effect-grammar
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

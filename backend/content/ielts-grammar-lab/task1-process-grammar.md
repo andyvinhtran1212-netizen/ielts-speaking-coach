@@ -2,19 +2,53 @@
 title: Task 1 Process Grammar — Ngữ pháp mô tả quy trình trong Writing Task 1
 slug: task1-process-grammar
 category: ielts-grammar-lab
-summary: >
-  Dạng bài Process Diagram trong IELTS Writing Task 1 yêu cầu mô tả các bước
-  của một quy trình theo đúng trình tự và sử dụng bị động câu đúng cách.
-  Bài này cung cấp đầy đủ cấu trúc: passive voice, sequencing language, câu
-  chủ động khi phù hợp, cách viết overview cho process, và ví dụ câu hoàn chỉnh.
+summary: 'Dạng bài Process Diagram trong IELTS Writing Task 1 yêu cầu mô tả các bước của một quy trình theo đúng trình tự và sử dụng bị động câu đúng cách. Bài này cung cấp đầy đủ cấu trúc: passive voice, sequencing language, câu chủ động khi phù hợp, cách viết overview cho process, và ví dụ câu hoàn chỉnh.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task1, writing-task1, process-diagram, passive-voice, sequencing, advanced, ielts, writing, band7]
-prerequisites: [passive-voice, present-simple, past-simple, discourse-markers, sentence-structures]
-related_pages: [task1-trend-grammar, task1-comparison-grammar, passive-voice, grammar-in-task1, discourse-markers]
-compare_with: [task1-trend-grammar]
+tags:
+- ielts-grammar-lab
+- task1
+- writing-task1
+- process-diagram
+- passive-voice
+- sequencing
+- advanced
+- ielts
+- writing
+- band7
+prerequisites:
+- passive-voice
+- present-simple
+- past-simple
+- discourse-markers
+- sentence-structures
+related_pages:
+- task1-trend-grammar
+- task1-comparison-grammar
+- passive-voice
+- grammar-in-task1
+- discourse-markers
+compare_with:
+- task1-trend-grammar
 order: 17
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- passive_voice_error
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task1-trend-grammar
+- task1-comparison-grammar
+- passive-voice
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

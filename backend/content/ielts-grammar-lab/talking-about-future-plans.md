@@ -2,20 +2,52 @@
 title: Talking About Future Plans — Diễn đạt kế hoạch tương lai trong IELTS
 slug: talking-about-future-plans
 category: ielts-grammar-lab
-summary: >
-  Tiếng Anh có nhiều cách diễn đạt tương lai, mỗi cách mang sắc thái khác
-  nhau: "will" cho quyết định tức thì hay dự đoán, "be going to" cho kế hoạch
-  đã có sẵn, Present Continuous cho sắp xếp cụ thể, và các cấu trúc như
-  "hope/plan/intend to" cho ý định và mong muốn. Bài này làm rõ từng cấu
-  trúc với ví dụ IELTS Speaking thực tế.
+summary: 'Tiếng Anh có nhiều cách diễn đạt tương lai, mỗi cách mang sắc thái khác nhau: "will" cho quyết định tức thì hay dự đoán, "be going to" cho kế hoạch đã có sẵn, Present Continuous cho sắp xếp cụ thể, và các cấu trúc như "hope/plan/intend to" cho ý định và mong muốn. Bài này làm rõ từng cấu trúc với ví dụ IELTS Speaking thực tế.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, future-forms, will, be-going-to, future-plans, speaking, intermediate, ielts, part1, part2]
-prerequisites: [future-forms, modal-verbs, present-continuous, tense-consistency]
-related_pages: [future-forms, talking-about-past-experiences, making-answers-longer-naturally, grammar-in-speaking]
-compare_with: [talking-about-past-experiences]
+tags:
+- ielts-grammar-lab
+- future-forms
+- will
+- be-going-to
+- future-plans
+- speaking
+- intermediate
+- ielts
+- part1
+- part2
+prerequisites:
+- future-forms
+- modal-verbs
+- present-continuous
+- tense-consistency
+related_pages:
+- future-forms
+- talking-about-past-experiences
+- making-answers-longer-naturally
+- grammar-in-speaking
+compare_with:
+- talking-about-past-experiences
 order: 12
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- future-forms
+- talking-about-past-experiences
+- making-answers-longer-naturally
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,19 +2,45 @@
 title: A vs. An — Quy tắc dựa trên âm, không dựa trên chữ cái
 slug: articles-a-an-sound-rules
 category: foundations
-summary: >
-  Người học hay nhầm "a" và "an" vì nghĩ rằng quy tắc dựa trên chữ cái đầu
-  (nguyên âm hay phụ âm). Thực ra quy tắc dựa trên ÂM — âm đầu tiên khi đọc
-  to. Bài này giải thích đầy đủ, bao gồm các trường hợp dễ nhầm nhất: a
-  university, an hour, a one-day trip, an MBA — kèm bảng phát âm và bài tập.
+summary: 'Người học hay nhầm "a" và "an" vì nghĩ rằng quy tắc dựa trên chữ cái đầu (nguyên âm hay phụ âm). Thực ra quy tắc dựa trên ÂM — âm đầu tiên khi đọc to. Bài này giải thích đầy đủ, bao gồm các trường hợp dễ nhầm nhất: a university, an hour, a one-day trip, an MBA — kèm bảng phát âm và bài tập.
+
+  '
 level: beginner
-tags: [foundations, articles, a-an, pronunciation, sound-rules, beginner, ielts, grammar]
-prerequisites: [parts-of-speech, nouns]
-related_pages: [articles, zero-article, some-any-no]
-compare_with: [articles]
+tags:
+- foundations
+- articles
+- a-an
+- pronunciation
+- sound-rules
+- beginner
+- ielts
+- grammar
+prerequisites:
+- parts-of-speech
+- nouns
+related_pages:
+- articles
+- zero-article
+- some-any-no
+compare_with:
+- articles
 order: 15
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- missing_article
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- articles
+- zero-article
+- some-any-no
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

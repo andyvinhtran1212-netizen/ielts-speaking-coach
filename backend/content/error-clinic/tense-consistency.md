@@ -2,19 +2,54 @@
 title: Tense Consistency — Nhất quán thì trong bài viết
 slug: tense-consistency
 category: error-clinic
-summary: >
-  Tense consistency (nhất quán thì) là nguyên tắc dùng thì động từ một cách
-  logic và nhất quán trong toàn bài. Người học thường đột ngột chuyển từ thì
-  này sang thì khác mà không có lý do, gây rối cho người đọc. Đây là lỗi ảnh
-  hưởng đến Grammatical Accuracy và Coherence trong IELTS Writing.
+summary: 'Tense consistency (nhất quán thì) là nguyên tắc dùng thì động từ một cách logic và nhất quán trong toàn bài. Người học thường đột ngột chuyển từ thì này sang thì khác mà không có lý do, gây rối cho người đọc. Đây là lỗi ảnh hưởng đến Grammatical Accuracy và Coherence trong IELTS Writing.
+
+  '
 level: intermediate
-tags: [error-clinic, tense-consistency, intermediate, ielts, grammar, tenses, common-errors, writing]
-prerequisites: [present-simple, past-simple, present-perfect, future-forms, sentence-elements, reported-speech]
-related_pages: [present-simple, past-simple, present-perfect, future-forms, reported-speech, conditionals]
+tags:
+- error-clinic
+- tense-consistency
+- intermediate
+- ielts
+- grammar
+- tenses
+- common-errors
+- writing
+prerequisites:
+- present-simple
+- past-simple
+- present-perfect
+- future-forms
+- sentence-elements
+- reported-speech
+related_pages:
+- present-simple
+- past-simple
+- present-perfect
+- future-forms
+- reported-speech
+- conditionals
 compare_with: []
 order: 4
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- tense_inconsistency
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- present-simple
+- past-simple
+- present-perfect
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

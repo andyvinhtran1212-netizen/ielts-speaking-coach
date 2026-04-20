@@ -2,19 +2,51 @@
 title: Talking About Habits and Routines — Kể về thói quen trong IELTS Speaking
 slug: talking-about-habits-and-routines
 category: ielts-grammar-lab
-summary: >
-  Câu hỏi về thói quen và thói quen hàng ngày xuất hiện rất thường xuyên
-  trong IELTS Speaking Part 1. Người học thường chỉ dùng "I usually..." và
-  "I always..." lặp đi lặp lại. Bài này cung cấp nhiều cách nói về thói
-  quen hiện tại, thói quen trong quá khứ, và sự thay đổi thói quen — kèm
-  cách phát triển câu trả lời Part 1 tự nhiên và đủ dài.
+summary: 'Câu hỏi về thói quen và thói quen hàng ngày xuất hiện rất thường xuyên trong IELTS Speaking Part 1. Người học thường chỉ dùng "I usually..." và "I always..." lặp đi lặp lại. Bài này cung cấp nhiều cách nói về thói quen hiện tại, thói quen trong quá khứ, và sự thay đổi thói quen — kèm cách phát triển câu trả lời Part 1 tự nhiên và đủ dài.
+
+  '
 level: beginner
-tags: [ielts-grammar-lab, habits, routines, speaking, part1, present-simple, used-to, beginner, ielts, speaking]
-prerequisites: [present-simple, present-continuous, past-simple, used-to-be-used-to-get-used-to, adverbs]
-related_pages: [making-answers-longer-naturally, adding-reasons-clearly, expressing-preferences-naturally, talking-about-past-experiences]
+tags:
+- ielts-grammar-lab
+- habits
+- routines
+- speaking
+- part1
+- present-simple
+- used-to
+- beginner
+- ielts
+- speaking
+prerequisites:
+- present-simple
+- present-continuous
+- past-simple
+- used-to-be-used-to-get-used-to
+- adverbs
+related_pages:
+- making-answers-longer-naturally
+- adding-reasons-clearly
+- expressing-preferences-naturally
+- talking-about-past-experiences
 order: 25
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- gerund_infinitive_confusion
+- wrong_tense
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- making-answers-longer-naturally
+- adding-reasons-clearly
+- expressing-preferences-naturally
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
 ---
 
 ## Tóm tắt

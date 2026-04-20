@@ -2,19 +2,52 @@
 title: Need doing vs. Need to be done — Hai cách nói cùng nghĩa, dùng sao cho tự nhiên?
 slug: need-doing-vs-need-to-be-done
 category: verb-patterns
-summary: >
-  "The room needs cleaning" và "The room needs to be cleaned" có nghĩa gần như
-  giống nhau — cả hai đều nói rằng phòng cần được dọn dẹp. Bài này giải thích
-  sự khác biệt nhỏ về phong cách, độ tự nhiên, và cách dùng đúng ngữ cảnh cho
-  từng cấu trúc.
+summary: '"The room needs cleaning" và "The room needs to be cleaned" có nghĩa gần như giống nhau — cả hai đều nói rằng phòng cần được dọn dẹp. Bài này giải thích sự khác biệt nhỏ về phong cách, độ tự nhiên, và cách dùng đúng ngữ cảnh cho từng cấu trúc.
+
+  '
 level: intermediate
-tags: [verb-patterns, need, gerund-vs-infinitive, passive, grammar, intermediate, ielts, writing, speaking]
-prerequisites: [gerund, infinitive, passive-voice, gerund-vs-infinitive]
-related_pages: [gerund-vs-infinitive, passive-voice, causative-verbs, gerund]
-compare_with: [gerund-vs-infinitive]
+tags:
+- verb-patterns
+- need
+- gerund-vs-infinitive
+- passive
+- grammar
+- intermediate
+- ielts
+- writing
+- speaking
+prerequisites:
+- gerund
+- infinitive
+- passive-voice
+- gerund-vs-infinitive
+related_pages:
+- gerund-vs-infinitive
+- passive-voice
+- causative-verbs
+- gerund
+compare_with:
+- gerund-vs-infinitive
 order: 15
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+- passive_voice_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund-vs-infinitive
+- passive-voice
+- causative-verbs
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

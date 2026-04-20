@@ -2,20 +2,45 @@
 title: Nouns — Danh từ
 slug: nouns
 category: parts-of-speech
-summary: >
-  Danh từ là từ chỉ người, vật, nơi chốn, ý niệm hoặc trạng thái. Đây là
-  từ loại phổ biến nhất trong tiếng Anh và là thành phần trung tâm của mọi
-  câu. Hiểu đúng danh từ — đặc biệt là sự khác biệt giữa đếm được / không
-  đếm được và cách dùng mạo từ — là nền tảng để tránh lỗi phổ biến nhất
-  trong IELTS.
+summary: 'Danh từ là từ chỉ người, vật, nơi chốn, ý niệm hoặc trạng thái. Đây là từ loại phổ biến nhất trong tiếng Anh và là thành phần trung tâm của mọi câu. Hiểu đúng danh từ — đặc biệt là sự khác biệt giữa đếm được / không đếm được và cách dùng mạo từ — là nền tảng để tránh lỗi phổ biến nhất trong IELTS.
+
+  '
 level: beginner
-tags: [parts-of-speech, nouns, beginner, ielts, countable, uncountable, articles, grammar-basics]
-prerequisites: [parts-of-speech]
-related_pages: [parts-of-speech, countable-vs-uncountable, singular-vs-plural, articles]
-compare_with: [countable-vs-uncountable]
+tags:
+- parts-of-speech
+- nouns
+- beginner
+- ielts
+- countable
+- uncountable
+- articles
+- grammar-basics
+prerequisites:
+- parts-of-speech
+related_pages:
+- parts-of-speech
+- countable-vs-uncountable
+- singular-vs-plural
+- articles
+compare_with:
+- countable-vs-uncountable
 order: 1
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- missing_article
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- countable-vs-uncountable
+- singular-vs-plural
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

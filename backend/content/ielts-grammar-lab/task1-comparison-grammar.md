@@ -2,19 +2,51 @@
 title: Task 1 Comparison Grammar — Ngữ pháp so sánh trong Writing Task 1
 slug: task1-comparison-grammar
 category: ielts-grammar-lab
-summary: >
-  Trong IELTS Writing Task 1, so sánh số liệu giữa các danh mục, quốc gia,
-  hoặc thời kỳ là kỹ năng không thể thiếu. Bài này tập trung vào các cấu
-  trúc so sánh chuẩn — higher/lower than, more/less than, the highest/lowest,
-  compared with, by contrast, whereas — kèm ví dụ chart-style sentences thực tế.
+summary: 'Trong IELTS Writing Task 1, so sánh số liệu giữa các danh mục, quốc gia, hoặc thời kỳ là kỹ năng không thể thiếu. Bài này tập trung vào các cấu trúc so sánh chuẩn — higher/lower than, more/less than, the highest/lowest, compared with, by contrast, whereas — kèm ví dụ chart-style sentences thực tế.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task1, writing-task1, comparison, advanced, ielts, writing, band7, grammar-for-meaning]
-prerequisites: [comparison, adjectives, adverbs, past-simple, present-perfect]
-related_pages: [task1-trend-grammar, comparison, discourse-markers, grammar-in-task1]
-compare_with: [task1-trend-grammar]
+tags:
+- ielts-grammar-lab
+- task1
+- writing-task1
+- comparison
+- advanced
+- ielts
+- writing
+- band7
+- grammar-for-meaning
+prerequisites:
+- comparison
+- adjectives
+- adverbs
+- past-simple
+- present-perfect
+related_pages:
+- task1-trend-grammar
+- comparison
+- discourse-markers
+- grammar-in-task1
+compare_with:
+- task1-trend-grammar
 order: 14
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- comparatives_error
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task1-trend-grammar
+- comparison
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

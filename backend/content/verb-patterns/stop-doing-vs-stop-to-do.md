@@ -2,19 +2,52 @@
 title: Stop doing vs. Stop to do — Dừng hẳn hay dừng lại để làm?
 slug: stop-doing-vs-stop-to-do
 category: verb-patterns
-summary: >
-  "Stop doing" và "stop to do" là hai cấu trúc nghe có vẻ giống nhau nhưng nghĩa
-  hoàn toàn ngược nhau. "Stop doing" = dừng hẳn một hành động. "Stop to do" = dừng
-  lại (việc đang làm) để thực hiện một hành động khác. Nhầm hai cấu trúc này có
-  thể khiến câu nói trái nghĩa.
+summary: '"Stop doing" và "stop to do" là hai cấu trúc nghe có vẻ giống nhau nhưng nghĩa hoàn toàn ngược nhau. "Stop doing" = dừng hẳn một hành động. "Stop to do" = dừng lại (việc đang làm) để thực hiện một hành động khác. Nhầm hai cấu trúc này có thể khiến câu nói trái nghĩa.
+
+  '
 level: intermediate
-tags: [verb-patterns, stop, gerund-vs-infinitive, common-mistakes, intermediate, ielts, grammar, speaking, writing]
-prerequisites: [gerund, infinitive, gerund-vs-infinitive]
-related_pages: [gerund-vs-infinitive, remember-doing-vs-remember-to-do, try-doing-vs-try-to-do, forget-doing-vs-forget-to-do]
-compare_with: [remember-doing-vs-remember-to-do, try-doing-vs-try-to-do]
+tags:
+- verb-patterns
+- stop
+- gerund-vs-infinitive
+- common-mistakes
+- intermediate
+- ielts
+- grammar
+- speaking
+- writing
+prerequisites:
+- gerund
+- infinitive
+- gerund-vs-infinitive
+related_pages:
+- gerund-vs-infinitive
+- remember-doing-vs-remember-to-do
+- try-doing-vs-try-to-do
+- forget-doing-vs-forget-to-do
+compare_with:
+- remember-doing-vs-remember-to-do
+- try-doing-vs-try-to-do
 order: 11
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund-vs-infinitive
+- remember-doing-vs-remember-to-do
+- try-doing-vs-try-to-do
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

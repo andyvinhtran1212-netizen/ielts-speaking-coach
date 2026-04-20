@@ -2,20 +2,52 @@
 title: Run-On Sentences — Câu chạy liên tục không có dấu dừng
 slug: run-on-sentences
 category: error-clinic
-summary: >
-  Câu chạy (run-on sentence) xảy ra khi hai hoặc nhiều mệnh đề độc lập được
-  nối trực tiếp mà không có dấu câu hoặc liên từ phù hợp. Đây là lỗi ảnh
-  hưởng đến cả Writing lẫn cách đặt câu trong Speaking. Bài này giải thích
-  câu chạy là gì và dạy bốn cách sửa thực tế: dấu chấm, liên từ, từ phụ, và
-  mệnh đề quan hệ.
+summary: 'Câu chạy (run-on sentence) xảy ra khi hai hoặc nhiều mệnh đề độc lập được nối trực tiếp mà không có dấu câu hoặc liên từ phù hợp. Đây là lỗi ảnh hưởng đến cả Writing lẫn cách đặt câu trong Speaking. Bài này giải thích câu chạy là gì và dạy bốn cách sửa thực tế: dấu chấm, liên từ, từ phụ, và mệnh đề quan hệ.
+
+  '
 level: intermediate
-tags: [error-clinic, run-on-sentences, punctuation, conjunctions, sentence-structure, intermediate, ielts, writing, speaking]
-prerequisites: [simple-sentence, compound-sentence, complex-sentence, conjunctions]
-related_pages: [sentence-fragments, combining-two-short-sentences, adding-contrast-naturally, adding-results-clearly]
-compare_with: [sentence-fragments]
+tags:
+- error-clinic
+- run-on-sentences
+- punctuation
+- conjunctions
+- sentence-structure
+- intermediate
+- ielts
+- writing
+- speaking
+prerequisites:
+- simple-sentence
+- compound-sentence
+- complex-sentence
+- conjunctions
+related_pages:
+- sentence-fragments
+- combining-two-short-sentences
+- adding-contrast-naturally
+- adding-results-clearly
+compare_with:
+- sentence-fragments
 order: 13
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+- wrong_connector
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- sentence-fragments
+- combining-two-short-sentences
+- adding-contrast-naturally
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

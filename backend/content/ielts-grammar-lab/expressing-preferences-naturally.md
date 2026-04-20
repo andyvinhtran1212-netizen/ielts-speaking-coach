@@ -2,18 +2,48 @@
 title: Expressing Preferences Naturally — Thể hiện sở thích tự nhiên trong IELTS Speaking
 slug: expressing-preferences-naturally
 category: ielts-grammar-lab
-summary: >
-  Trong IELTS Speaking Part 1 và Part 2, bạn thường được hỏi về sở thích cá nhân:
-  "Which do you prefer?", "Do you like X or Y?", "What's your favourite...?".
-  Bài này dạy nhiều cách diễn đạt sở thích từ đơn giản đến tinh tế — tránh lặp
-  "I like" và "I prefer" — kèm cách giải thích lý do một cách tự nhiên.
+summary: 'Trong IELTS Speaking Part 1 và Part 2, bạn thường được hỏi về sở thích cá nhân: "Which do you prefer?", "Do you like X or Y?", "What''s your favourite...?". Bài này dạy nhiều cách diễn đạt sở thích từ đơn giản đến tinh tế — tránh lặp "I like" và "I prefer" — kèm cách giải thích lý do một cách tự nhiên.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, preferences, speaking, part1, part2, intermediate, ielts, speaking]
-prerequisites: [present-simple, gerund, infinitive, gerund-vs-infinitive, modal-verbs]
-related_pages: [making-answers-longer-naturally, adding-reasons-clearly, expressing-uncertainty, strong-vs-cautious-opinions]
+tags:
+- ielts-grammar-lab
+- preferences
+- speaking
+- part1
+- part2
+- intermediate
+- ielts
+- speaking
+prerequisites:
+- present-simple
+- gerund
+- infinitive
+- gerund-vs-infinitive
+- modal-verbs
+related_pages:
+- making-answers-longer-naturally
+- adding-reasons-clearly
+- expressing-uncertainty
+- strong-vs-cautious-opinions
 order: 23
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- making-answers-longer-naturally
+- adding-reasons-clearly
+- expressing-uncertainty
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

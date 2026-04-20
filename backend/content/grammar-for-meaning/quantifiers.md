@@ -2,20 +2,55 @@
 title: Quantifiers — Từ chỉ số lượng
 slug: quantifiers
 category: grammar-for-meaning
-summary: >
-  Quantifiers là từ chỉ số lượng dùng trước danh từ: many, much, few, little,
-  some, any, a lot of, plenty of, several, a great deal of... Quy tắc cốt lõi
-  là phân biệt danh từ đếm được (countable) và không đếm được (uncountable)
-  để chọn quantifier đúng. Đây là nguồn lỗi phổ biến trong IELTS Writing và
-  là điểm ngữ pháp cần nắm vững để đạt Band 6+.
+summary: 'Quantifiers là từ chỉ số lượng dùng trước danh từ: many, much, few, little, some, any, a lot of, plenty of, several, a great deal of... Quy tắc cốt lõi là phân biệt danh từ đếm được (countable) và không đếm được (uncountable) để chọn quantifier đúng. Đây là nguồn lỗi phổ biến trong IELTS Writing và là điểm ngữ pháp cần nắm vững để đạt Band 6+.
+
+  '
 level: intermediate
-tags: [grammar-for-meaning, quantifiers, intermediate, ielts, grammar, much, many, few, little, some, any]
-prerequisites: [parts-of-speech, nouns, countable-vs-uncountable, adjectives, sentence-elements]
-related_pages: [countable-vs-uncountable, articles, nouns, adjectives]
-compare_with: [articles, countable-vs-uncountable]
+tags:
+- grammar-for-meaning
+- quantifiers
+- intermediate
+- ielts
+- grammar
+- much
+- many
+- few
+- little
+- some
+- any
+prerequisites:
+- parts-of-speech
+- nouns
+- countable-vs-uncountable
+- adjectives
+- sentence-elements
+related_pages:
+- countable-vs-uncountable
+- articles
+- nouns
+- adjectives
+compare_with:
+- articles
+- countable-vs-uncountable
 order: 2
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- countable-vs-uncountable
+- articles
+- nouns
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

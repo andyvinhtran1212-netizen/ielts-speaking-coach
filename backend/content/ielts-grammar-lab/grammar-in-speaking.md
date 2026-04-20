@@ -2,19 +2,48 @@
 title: Grammar cho IELTS Speaking
 slug: grammar-in-speaking
 category: ielts-grammar-lab
-summary: >
-  Hướng dẫn thực chiến về cách dùng ngữ pháp trong IELTS Speaking:
-  tạo range ngữ pháp (Grammatical Range and Accuracy) qua 3 Parts,
-  sử dụng thì đa dạng, modal verbs, conditionals và discourse markers
-  trong ngôn ngữ nói tự nhiên.
+summary: 'Hướng dẫn thực chiến về cách dùng ngữ pháp trong IELTS Speaking: tạo range ngữ pháp (Grammatical Range and Accuracy) qua 3 Parts, sử dụng thì đa dạng, modal verbs, conditionals và discourse markers trong ngôn ngữ nói tự nhiên.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, speaking, intermediate, ielts, grammatical-range, accuracy, fluency]
-prerequisites: [tenses, modal-verbs, conditionals, discourse-markers]
-related_pages: [modal-verbs, conditionals, discourse-markers, tenses]
-compare_with: [grammar-in-task2]
+tags:
+- ielts-grammar-lab
+- speaking
+- intermediate
+- ielts
+- grammatical-range
+- accuracy
+- fluency
+prerequisites:
+- tenses
+- modal-verbs
+- conditionals
+- discourse-markers
+related_pages:
+- modal-verbs
+- conditionals
+- discourse-markers
+- tenses
+compare_with:
+- grammar-in-task2
 order: 3
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- modal-verbs
+- conditionals
+- discourse-markers
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

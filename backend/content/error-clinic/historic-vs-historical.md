@@ -2,20 +2,49 @@
 title: Historic vs. Historical — Sự kiện lịch sử hay thuộc về lịch sử?
 slug: historic-vs-historical
 category: error-clinic
-summary: >
-  Historic và historical đều có nghĩa liên quan đến lịch sử nhưng không
-  thể dùng thay thế nhau. Historic = quan trọng, nổi tiếng trong lịch sử
-  (có ý nghĩa lịch sử lớn). Historical = thuộc về lịch sử, liên quan đến
-  lịch sử (về mặt học thuật hoặc thực tế). Bài này giải thích đầy đủ với
-  ví dụ và các cặp từ tương tự như classic/classical, electric/electrical.
+summary: 'Historic và historical đều có nghĩa liên quan đến lịch sử nhưng không thể dùng thay thế nhau. Historic = quan trọng, nổi tiếng trong lịch sử (có ý nghĩa lịch sử lớn). Historical = thuộc về lịch sử, liên quan đến lịch sử (về mặt học thuật hoặc thực tế). Bài này giải thích đầy đủ với ví dụ và các cặp từ tương tự như classic/classical, electric/electrical.
+
+  '
 level: intermediate
-tags: [error-clinic, historic, historical, adjective-confusion, word-choice, intermediate, ielts, writing, vocabulary]
-prerequisites: [parts-of-speech, adjectives, word-form-errors]
-related_pages: [word-form-errors, economic-vs-economical, affect-vs-effect]
-compare_with: [economic-vs-economical]
+tags:
+- error-clinic
+- historic
+- historical
+- adjective-confusion
+- word-choice
+- intermediate
+- ielts
+- writing
+- vocabulary
+prerequisites:
+- parts-of-speech
+- adjectives
+- word-form-errors
+related_pages:
+- word-form-errors
+- economic-vs-economical
+- affect-vs-effect
+compare_with:
+- economic-vs-economical
 order: 12
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- collocation_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- word-form-errors
+- economic-vs-economical
+- affect-vs-effect
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

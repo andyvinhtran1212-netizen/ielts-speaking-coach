@@ -2,18 +2,49 @@
 title: Missing Main Verbs — Lỗi thiếu động từ chính
 slug: missing-main-verbs
 category: error-clinic
-summary: >
-  Câu có chủ ngữ nhưng thiếu động từ chính là một lỗi nghiêm trọng khiến câu
-  không hoàn chỉnh. Bài này phân tích ba kiểu thiếu main verb phổ biến nhất,
-  trong đó có lỗi nhầm V-ing/V-ed là main verb và lỗi bỏ động từ "be".
+summary: 'Câu có chủ ngữ nhưng thiếu động từ chính là một lỗi nghiêm trọng khiến câu không hoàn chỉnh. Bài này phân tích ba kiểu thiếu main verb phổ biến nhất, trong đó có lỗi nhầm V-ing/V-ed là main verb và lỗi bỏ động từ "be".
+
+  '
 level: beginner
-tags: [error-clinic, missing-main-verbs, sentence-structure, grammar, beginner, ielts, writing, speaking]
-prerequisites: [sentence-elements, simple-sentence, parts-of-speech]
-related_pages: [sentence-fragments, missing-subjects, double-subject-errors, simple-sentence]
-compare_with: [sentence-fragments, missing-subjects]
+tags:
+- error-clinic
+- missing-main-verbs
+- sentence-structure
+- grammar
+- beginner
+- ielts
+- writing
+- speaking
+prerequisites:
+- sentence-elements
+- simple-sentence
+- parts-of-speech
+related_pages:
+- sentence-fragments
+- missing-subjects
+- double-subject-errors
+- simple-sentence
+compare_with:
+- sentence-fragments
+- missing-subjects
 order: 16
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- subject_verb_disagreement
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- sentence-fragments
+- missing-subjects
+- double-subject-errors
+pathways:
+- grammar-for-beginners
+- fix-common-mistakes
 ---
 
 ## Tóm tắt

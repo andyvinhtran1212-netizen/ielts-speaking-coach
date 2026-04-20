@@ -2,18 +2,48 @@
 title: Percentages and Proportions — Ngữ pháp mô tả tỷ lệ và tỷ phần trong IELTS Task 1
 slug: percentages-and-proportions
 category: ielts-grammar-lab
-summary: >
-  Trong IELTS Writing Task 1, mô tả tỷ lệ phần trăm và tỷ phần là kỹ năng
-  thiết yếu. Bài này dạy các cấu trúc ngữ pháp cụ thể để mô tả percentages,
-  proportions, fractions và shares — với các verbs đặc trưng như account for,
-  make up, stand at, represent — kèm ví dụ Task 1 thực tế.
+summary: 'Trong IELTS Writing Task 1, mô tả tỷ lệ phần trăm và tỷ phần là kỹ năng thiết yếu. Bài này dạy các cấu trúc ngữ pháp cụ thể để mô tả percentages, proportions, fractions và shares — với các verbs đặc trưng như account for, make up, stand at, represent — kèm ví dụ Task 1 thực tế.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, task1, writing-task1, percentages, proportions, data-description, intermediate, ielts, writing]
-prerequisites: [task1-trend-grammar, task1-comparison-grammar, overview-sentence-grammar]
-related_pages: [overview-sentence-grammar, rankings-and-extremes, task1-trend-grammar, task1-comparison-grammar, grammar-in-task1]
+tags:
+- ielts-grammar-lab
+- task1
+- writing-task1
+- percentages
+- proportions
+- data-description
+- intermediate
+- ielts
+- writing
+prerequisites:
+- task1-trend-grammar
+- task1-comparison-grammar
+- overview-sentence-grammar
+related_pages:
+- overview-sentence-grammar
+- rankings-and-extremes
+- task1-trend-grammar
+- task1-comparison-grammar
+- grammar-in-task1
 order: 30
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- overview-sentence-grammar
+- rankings-and-extremes
+- task1-trend-grammar
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,18 +2,51 @@
 title: Grammar cho IELTS Writing Task 2
 slug: grammar-in-task2
 category: ielts-grammar-lab
-summary: >
-  Hướng dẫn thực chiến về cách dùng ngữ pháp trong IELTS Writing Task 2:
-  câu điều kiện để lập luận giả định, modal verbs để hedging, relative clauses
-  để viết câu phức, discourse markers để tổ chức đoạn văn mạch lạc.
+summary: 'Hướng dẫn thực chiến về cách dùng ngữ pháp trong IELTS Writing Task 2: câu điều kiện để lập luận giả định, modal verbs để hedging, relative clauses để viết câu phức, discourse markers để tổ chức đoạn văn mạch lạc.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, task2, writing, intermediate, ielts, conditionals, modal-verbs, hedging]
-prerequisites: [conditionals, modal-verbs, relative-clauses, discourse-markers]
-related_pages: [conditionals, modal-verbs, discourse-markers, hedging-language, passive-voice]
+tags:
+- ielts-grammar-lab
+- task2
+- writing
+- intermediate
+- ielts
+- conditionals
+- modal-verbs
+- hedging
+prerequisites:
+- conditionals
+- modal-verbs
+- relative-clauses
+- discourse-markers
+related_pages:
+- conditionals
+- modal-verbs
+- discourse-markers
+- hedging-language
+- passive-voice
 compare_with: []
 order: 2
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- modal_verb_error
+- no_complex_sentences
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- conditionals
+- modal-verbs
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

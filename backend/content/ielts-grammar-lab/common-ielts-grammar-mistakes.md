@@ -2,18 +2,50 @@
 title: 10 lỗi ngữ pháp hay gặp nhất trong IELTS
 slug: common-ielts-grammar-mistakes
 category: ielts-grammar-lab
-summary: >
-  Tổng hợp 10 lỗi ngữ pháp phổ biến nhất mà thí sinh Việt Nam thường mắc
-  trong IELTS Writing và Speaking: sai subject-verb agreement, dùng sai thì,
-  nhầm article, sai word form, sai preposition, và nhiều hơn nữa.
+summary: 'Tổng hợp 10 lỗi ngữ pháp phổ biến nhất mà thí sinh Việt Nam thường mắc trong IELTS Writing và Speaking: sai subject-verb agreement, dùng sai thì, nhầm article, sai word form, sai preposition, và nhiều hơn nữa.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, common-errors, intermediate, ielts, writing, speaking, error-analysis]
-prerequisites: [subject-verb-agreement, tenses, article-errors, word-form-errors]
-related_pages: [subject-verb-agreement, article-errors, preposition-errors, tense-consistency, word-form-errors]
+tags:
+- ielts-grammar-lab
+- common-errors
+- intermediate
+- ielts
+- writing
+- speaking
+- error-analysis
+prerequisites:
+- subject-verb-agreement
+- tenses
+- article-errors
+- word-form-errors
+related_pages:
+- subject-verb-agreement
+- article-errors
+- preposition-errors
+- tense-consistency
+- word-form-errors
 compare_with: []
 order: 4
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- subject-verb-agreement
+- article-errors
+- preposition-errors
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

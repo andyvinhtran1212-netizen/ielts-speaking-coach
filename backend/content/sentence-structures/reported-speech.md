@@ -2,20 +2,51 @@
 title: Reported Speech — Câu tường thuật
 slug: reported-speech
 category: sentence-structures
-summary: >
-  Reported Speech (Indirect Speech) là cách thuật lại những gì người khác
-  đã nói mà không trích dẫn nguyên văn. Khi tường thuật, thì động từ thường
-  lùi về quá khứ (backshift), đại từ và trạng từ thời gian/nơi chốn thay
-  đổi. Đây là cấu trúc quan trọng trong IELTS Writing Task 2 khi trích dẫn
-  quan điểm và trong Speaking khi kể lại câu chuyện.
+summary: 'Reported Speech (Indirect Speech) là cách thuật lại những gì người khác đã nói mà không trích dẫn nguyên văn. Khi tường thuật, thì động từ thường lùi về quá khứ (backshift), đại từ và trạng từ thời gian/nơi chốn thay đổi. Đây là cấu trúc quan trọng trong IELTS Writing Task 2 khi trích dẫn quan điểm và trong Speaking khi kể lại câu chuyện.
+
+  '
 level: intermediate
-tags: [sentence-structures, reported-speech, intermediate, ielts, grammar, indirect-speech, backshift]
-prerequisites: [parts-of-speech, verbs, tenses, past-simple, sentence-elements, conjunctions]
-related_pages: [past-perfect, past-simple, tenses, complex-sentence]
+tags:
+- sentence-structures
+- reported-speech
+- intermediate
+- ielts
+- grammar
+- indirect-speech
+- backshift
+prerequisites:
+- parts-of-speech
+- verbs
+- tenses
+- past-simple
+- sentence-elements
+- conjunctions
+related_pages:
+- past-perfect
+- past-simple
+- tenses
+- complex-sentence
 compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- past-perfect
+- past-simple
+- present-perfect
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

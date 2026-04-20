@@ -2,18 +2,39 @@
 title: Sentence Elements (Thành phần câu)
 slug: sentence-elements
 category: foundations
-summary: >
-  Hiểu Subject, Verb, Object, Complement và Adverbial là chìa khoá
-  để xây câu tiếng Anh đúng và mạch lạc — đặc biệt quan trọng cho
-  IELTS Speaking khi cần diễn đạt ý phức tạp.
+summary: 'Hiểu Subject, Verb, Object, Complement và Adverbial là chìa khoá để xây câu tiếng Anh đúng và mạch lạc — đặc biệt quan trọng cho IELTS Speaking khi cần diễn đạt ý phức tạp.
+
+  '
 level: beginner
-tags: [foundations, beginner, ielts, sentence-structure, grammar-basics]
-prerequisites: [parts-of-speech]
-related_pages: [parts-of-speech, present-simple, present-continuous]
+tags:
+- foundations
+- beginner
+- ielts
+- sentence-structure
+- grammar-basics
+prerequisites:
+- parts-of-speech
+related_pages:
+- parts-of-speech
+- present-simple
+- present-continuous
 compare_with: []
 order: 2
 status: complete
 last_updated: 2026-04-10
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- parts-of-speech
+- present-simple
+- present-continuous
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

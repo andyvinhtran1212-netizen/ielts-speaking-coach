@@ -2,20 +2,50 @@
 title: Past Continuous — Thì Quá khứ tiếp diễn
 slug: past-continuous
 category: tenses
-summary: >
-  Past Continuous (was/were + V-ing) diễn tả hành động đang xảy ra tại một
-  thời điểm cụ thể trong quá khứ. Thường dùng để mô tả bối cảnh, hành động
-  bị gián đoạn, hoặc hai hành động song song xảy ra cùng lúc. Kết hợp với
-  Past Simple tạo ra cấu trúc câu phong phú và tự nhiên trong IELTS Writing
-  và Speaking.
+summary: 'Past Continuous (was/were + V-ing) diễn tả hành động đang xảy ra tại một thời điểm cụ thể trong quá khứ. Thường dùng để mô tả bối cảnh, hành động bị gián đoạn, hoặc hai hành động song song xảy ra cùng lúc. Kết hợp với Past Simple tạo ra cấu trúc câu phong phú và tự nhiên trong IELTS Writing và Speaking.
+
+  '
 level: beginner
-tags: [tenses, past-continuous, beginner, ielts, grammar, past, progressive]
-prerequisites: [parts-of-speech, verbs, present-continuous, past-simple]
-related_pages: [past-simple, past-perfect, present-continuous, complex-sentence]
-compare_with: [past-simple, past-perfect]
+tags:
+- tenses
+- past-continuous
+- beginner
+- ielts
+- grammar
+- past
+- progressive
+prerequisites:
+- parts-of-speech
+- verbs
+- present-continuous
+- past-simple
+related_pages:
+- past-simple
+- past-perfect
+- present-continuous
+- complex-sentence
+compare_with:
+- past-simple
+- past-perfect
 order: 6
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- past-simple
+- past-perfect
+- present-continuous
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

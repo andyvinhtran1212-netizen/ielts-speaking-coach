@@ -2,20 +2,53 @@
 title: Informal Grammar in Academic Writing — Tránh ngôn ngữ không trang trọng trong IELTS
 slug: informal-grammar-in-academic-writing
 category: error-clinic
-summary: >
-  Một trong những lỗi phổ biến nhất trong IELTS Writing là dùng ngữ pháp và
-  từ vựng không đủ trang trọng — contractions (can't, don't), colloquial
-  phrases (a lot of, kind of), câu hỏi tu từ không phù hợp, và viết tắt.
-  Bài này liệt kê đầy đủ các lỗi informal phổ biến và cung cấp phiên bản
-  academic tương đương cho từng trường hợp.
+summary: 'Một trong những lỗi phổ biến nhất trong IELTS Writing là dùng ngữ pháp và từ vựng không đủ trang trọng — contractions (can''t, don''t), colloquial phrases (a lot of, kind of), câu hỏi tu từ không phù hợp, và viết tắt. Bài này liệt kê đầy đủ các lỗi informal phổ biến và cung cấp phiên bản academic tương đương cho từng trường hợp.
+
+  '
 level: intermediate
-tags: [error-clinic, informal-language, academic-writing, contractions, colloquial, intermediate, ielts, writing, register]
-prerequisites: [modal-verbs, discourse-markers, complex-sentence, quantifiers]
-related_pages: [grammar-in-task2, academic-hedging, discourse-markers, word-form-errors]
-compare_with: [academic-hedging]
+tags:
+- error-clinic
+- informal-language
+- academic-writing
+- contractions
+- colloquial
+- intermediate
+- ielts
+- writing
+- register
+prerequisites:
+- modal-verbs
+- discourse-markers
+- complex-sentence
+- quantifiers
+related_pages:
+- grammar-in-task2
+- academic-hedging
+- discourse-markers
+- word-form-errors
+compare_with:
+- academic-hedging
 order: 9
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- collocation_error
+- wrong_connector
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- grammar-in-task2
+- academic-hedging
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

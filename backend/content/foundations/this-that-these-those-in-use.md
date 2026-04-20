@@ -2,20 +2,47 @@
 title: This / That / These / Those in Use — Dùng thế nào cho đúng và tự nhiên
 slug: this-that-these-those-in-use
 category: foundations
-summary: >
-  This, that, these, those không chỉ là chỉ thị "gần/xa" đơn giản. Trong thực
-  tế, chúng được dùng để chỉ lại ý đã nói, giới thiệu chủ đề mới, phân biệt
-  hai đối tượng, và tạo mạch lạc trong văn bản. Bài này giải thích đầy đủ
-  cách dùng thực tế — bao gồm cả discourse reference và các cụm giao tiếp
-  thông dụng trong Speaking.
+summary: 'This, that, these, those không chỉ là chỉ thị "gần/xa" đơn giản. Trong thực tế, chúng được dùng để chỉ lại ý đã nói, giới thiệu chủ đề mới, phân biệt hai đối tượng, và tạo mạch lạc trong văn bản. Bài này giải thích đầy đủ cách dùng thực tế — bao gồm cả discourse reference và các cụm giao tiếp thông dụng trong Speaking.
+
+  '
 level: beginner
-tags: [foundations, this-that, demonstratives, discourse, reference, beginner, ielts, speaking, writing, grammar]
-prerequisites: [parts-of-speech, nouns, singular-vs-plural]
-related_pages: [noun-phrase-basics, articles, pronouns]
-compare_with: [articles]
+tags:
+- foundations
+- this-that
+- demonstratives
+- discourse
+- reference
+- beginner
+- ielts
+- speaking
+- writing
+- grammar
+prerequisites:
+- parts-of-speech
+- nouns
+- singular-vs-plural
+related_pages:
+- noun-phrase-basics
+- articles
+- pronouns
+compare_with:
+- articles
 order: 17
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- noun-phrase-basics
+- articles
+- pronouns
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

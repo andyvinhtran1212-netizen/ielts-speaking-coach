@@ -2,18 +2,50 @@
 title: Double Subject Errors — Lỗi lặp chủ ngữ
 slug: double-subject-errors
 category: error-clinic
-summary: >
-  Lỗi lặp chủ ngữ xảy ra khi người học viết cả danh từ lẫn đại từ cho cùng một
-  chủ ngữ trong cùng một câu — chẳng hạn "My father he works hard." Đây là lỗi
-  ảnh hưởng trực tiếp từ cấu trúc tiếng Việt và cần được loại bỏ hoàn toàn.
+summary: 'Lỗi lặp chủ ngữ xảy ra khi người học viết cả danh từ lẫn đại từ cho cùng một chủ ngữ trong cùng một câu — chẳng hạn "My father he works hard." Đây là lỗi ảnh hưởng trực tiếp từ cấu trúc tiếng Việt và cần được loại bỏ hoàn toàn.
+
+  '
 level: beginner
-tags: [error-clinic, double-subject, pronouns, grammar, beginner, ielts, speaking, writing, vietnamese-learners]
-prerequisites: [sentence-elements, simple-sentence, pronouns]
-related_pages: [missing-subjects, wrong-pronoun-reference, sentence-fragments, simple-sentence]
-compare_with: [missing-subjects, wrong-pronoun-reference]
+tags:
+- error-clinic
+- double-subject
+- pronouns
+- grammar
+- beginner
+- ielts
+- speaking
+- writing
+- vietnamese-learners
+prerequisites:
+- sentence-elements
+- simple-sentence
+- pronouns
+related_pages:
+- missing-subjects
+- wrong-pronoun-reference
+- sentence-fragments
+- simple-sentence
+compare_with:
+- missing-subjects
+- wrong-pronoun-reference
 order: 18
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- pronoun_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- missing-subjects
+- wrong-pronoun-reference
+- sentence-fragments
+pathways:
+- grammar-for-beginners
+- fix-common-mistakes
 ---
 
 ## Tóm tắt

@@ -2,20 +2,50 @@
 title: Discourse Markers — Liên kết ý trong bài nói và bài viết
 slug: discourse-markers
 category: grammar-for-meaning
-summary: >
-  Discourse markers (còn gọi là linking words hay cohesive devices) là những
-  từ và cụm từ dùng để kết nối ý, tổ chức bài nói/viết một cách mạch lạc:
-  firstly, however, in contrast, as a result, in conclusion... Đây là thành
-  phần quan trọng để đạt điểm Coherence and Cohesion cao trong IELTS Writing
-  và Fluency trong Speaking.
+summary: 'Discourse markers (còn gọi là linking words hay cohesive devices) là những từ và cụm từ dùng để kết nối ý, tổ chức bài nói/viết một cách mạch lạc: firstly, however, in contrast, as a result, in conclusion... Đây là thành phần quan trọng để đạt điểm Coherence and Cohesion cao trong IELTS Writing và Fluency trong Speaking.
+
+  '
 level: intermediate
-tags: [grammar-for-meaning, discourse-markers, linking-words, cohesive-devices, intermediate, ielts, writing, speaking, cohesion]
-prerequisites: [parts-of-speech, conjunctions, sentence-elements, complex-sentence]
-related_pages: [conjunctions, complex-sentence, sentence-elements]
+tags:
+- grammar-for-meaning
+- discourse-markers
+- linking-words
+- cohesive-devices
+- intermediate
+- ielts
+- writing
+- speaking
+- cohesion
+prerequisites:
+- parts-of-speech
+- conjunctions
+- sentence-elements
+- complex-sentence
+related_pages:
+- conjunctions
+- complex-sentence
+- sentence-elements
 compare_with: []
 order: 3
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- conjunctions
+- complex-sentence
+- sentence-elements
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

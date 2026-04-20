@@ -2,18 +2,51 @@
 title: Rankings and Extremes — Ngữ pháp mô tả vị trí cao nhất, thấp nhất và xếp hạng trong IELTS Task 1
 slug: rankings-and-extremes
 category: ielts-grammar-lab
-summary: >
-  Khi mô tả biểu đồ và bảng số liệu trong IELTS Task 1, người học cần mô tả
-  giá trị cao nhất, thấp nhất, đứng đầu và đứng cuối. Bài này dạy các cấu
-  trúc ngữ pháp cụ thể: highest/lowest, most/least, topped the list, ranked
-  first/last, peak and trough — với ví dụ thực tế từ bar chart và table.
+summary: 'Khi mô tả biểu đồ và bảng số liệu trong IELTS Task 1, người học cần mô tả giá trị cao nhất, thấp nhất, đứng đầu và đứng cuối. Bài này dạy các cấu trúc ngữ pháp cụ thể: highest/lowest, most/least, topped the list, ranked first/last, peak and trough — với ví dụ thực tế từ bar chart và table.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, task1, writing-task1, rankings, extremes, superlatives, data-description, intermediate, ielts, writing]
-prerequisites: [task1-trend-grammar, percentages-and-proportions, comparison, overview-sentence-grammar]
-related_pages: [percentages-and-proportions, overview-sentence-grammar, task1-comparison-grammar, grammar-in-task1, rankings-and-extremes]
+tags:
+- ielts-grammar-lab
+- task1
+- writing-task1
+- rankings
+- extremes
+- superlatives
+- data-description
+- intermediate
+- ielts
+- writing
+prerequisites:
+- task1-trend-grammar
+- percentages-and-proportions
+- comparison
+- overview-sentence-grammar
+related_pages:
+- percentages-and-proportions
+- overview-sentence-grammar
+- task1-comparison-grammar
+- grammar-in-task1
+- rankings-and-extremes
 order: 31
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- comparatives_error
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- percentages-and-proportions
+- overview-sentence-grammar
+- task1-comparison-grammar
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

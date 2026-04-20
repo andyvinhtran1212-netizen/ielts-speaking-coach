@@ -2,27 +2,52 @@
 title: Academic Hedging — Diễn đạt thận trọng trong học thuật
 slug: academic-hedging
 category: grammar-for-meaning
-summary: >
-  Hedging — dùng ngôn ngữ thận trọng để tránh khẳng định tuyệt đối —
-  là đặc trưng quan trọng của văn phong học thuật. Bài này giải thích
-  tại sao hedging quan trọng trong IELTS Writing Task 2 và formal English,
-  cung cấp đầy đủ mẫu câu từ modal verbs đến cấu trúc như "appears to",
-  "tends to", "can be argued that", và so sánh giữa câu strong vs hedged.
+summary: 'Hedging — dùng ngôn ngữ thận trọng để tránh khẳng định tuyệt đối — là đặc trưng quan trọng của văn phong học thuật. Bài này giải thích tại sao hedging quan trọng trong IELTS Writing Task 2 và formal English, cung cấp đầy đủ mẫu câu từ modal verbs đến cấu trúc như "appears to", "tends to", "can be argued that", và so sánh giữa câu strong vs hedged.
+
+  '
 level: advanced
-tags: [grammar-for-meaning, academic-hedging, hedging, modal-verbs, academic-writing, writing, advanced, ielts, band7, task2]
-prerequisites: [modal-verbs, complex-sentence, discourse-markers, conditionals]
-related_pages: [hedging-language, strong-vs-cautious-opinions, grammar-in-task2, discourse-markers]
-compare_with: [strong-vs-cautious-opinions]
+tags:
+- grammar-for-meaning
+- academic-hedging
+- hedging
+- modal-verbs
+- academic-writing
+- writing
+- advanced
+- ielts
+- band7
+- task2
+prerequisites:
+- modal-verbs
+- complex-sentence
+- discourse-markers
+- conditionals
+related_pages:
+- hedging-language
+- strong-vs-cautious-opinions
+- grammar-in-task2
+- discourse-markers
+compare_with:
+- strong-vs-cautious-opinions
 order: 10
 status: complete
 last_updated: 2026-04-19
 difficulty: advanced
-band_relevance: [7.0, 7.5, 8.0]
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
 common_error_tags: []
 speaking_relevance: medium
 writing_relevance: high
-next_articles: [hedging-language, strong-vs-cautious-opinions, grammar-in-task2]
-pathways: [grammar-for-ielts-speaking, grammar-for-ielts-writing, band-6-to-7]
+next_articles:
+- hedging-language
+- strong-vs-cautious-opinions
+- grammar-in-task2
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,20 +2,47 @@
 title: Say / Tell / Speak / Talk — Phân biệt bốn động từ "nói"
 slug: say-tell-speak-talk
 category: error-clinic
-summary: >
-  "Say", "tell", "speak", và "talk" đều có nghĩa là "nói" nhưng dùng trong
-  những ngữ cảnh rất khác nhau. Sự khác biệt chính nằm ở: có cần tân ngữ
-  chỉ người nghe hay không, dùng câu trực tiếp hay gián tiếp, mức độ trang
-  trọng và cấu trúc ngữ pháp đi kèm. Đây là lỗi collocation cực phổ biến
-  trong cả Speaking và Writing IELTS.
+summary: '"Say", "tell", "speak", và "talk" đều có nghĩa là "nói" nhưng dùng trong những ngữ cảnh rất khác nhau. Sự khác biệt chính nằm ở: có cần tân ngữ chỉ người nghe hay không, dùng câu trực tiếp hay gián tiếp, mức độ trang trọng và cấu trúc ngữ pháp đi kèm. Đây là lỗi collocation cực phổ biến trong cả Speaking và Writing IELTS.
+
+  '
 level: intermediate
-tags: [error-clinic, say-tell-speak-talk, collocations, intermediate, common-errors, verbs, ielts, reported-speech]
-prerequisites: [verbs, parts-of-speech, reported-speech]
-related_pages: [reported-speech, verbs, do-vs-make]
+tags:
+- error-clinic
+- say-tell-speak-talk
+- collocations
+- intermediate
+- common-errors
+- verbs
+- ielts
+- reported-speech
+prerequisites:
+- verbs
+- parts-of-speech
+- reported-speech
+related_pages:
+- reported-speech
+- verbs
+- do-vs-make
 compare_with: []
 order: 7
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- collocation_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- reported-speech
+- verbs
+- do-vs-make
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

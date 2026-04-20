@@ -2,19 +2,48 @@
 title: Bare Infinitive (Động từ nguyên thể không có "to")
 slug: bare-infinitive
 category: verb-patterns
-summary: >
-  Bare infinitive là động từ nguyên thể được dùng mà không có "to" phía trước.
-  Nó xuất hiện sau modal verbs (can, will, should...), sau let/make/help, và
-  trong một số cấu trúc đặc biệt. Lỗi phổ biến nhất của người học là thêm "to"
-  không cần thiết vào sau các trường hợp này.
+summary: 'Bare infinitive là động từ nguyên thể được dùng mà không có "to" phía trước. Nó xuất hiện sau modal verbs (can, will, should...), sau let/make/help, và trong một số cấu trúc đặc biệt. Lỗi phổ biến nhất của người học là thêm "to" không cần thiết vào sau các trường hợp này.
+
+  '
 level: intermediate
-tags: [verb-patterns, bare-infinitive, modal-verbs, intermediate, ielts, grammar]
-prerequisites: [parts-of-speech, sentence-elements, infinitive]
-related_pages: [infinitive, gerund-vs-infinitive, gerund]
-compare_with: [infinitive]
+tags:
+- verb-patterns
+- bare-infinitive
+- modal-verbs
+- intermediate
+- ielts
+- grammar
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- infinitive
+related_pages:
+- infinitive
+- gerund-vs-infinitive
+- gerund
+compare_with:
+- infinitive
 order: 3
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+- modal_verb_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- infinitive
+- gerund-vs-infinitive
+- gerund
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

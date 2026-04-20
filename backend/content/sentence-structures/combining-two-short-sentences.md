@@ -2,19 +2,53 @@
 title: Combining Two Short Sentences — Nối câu ngắn thành câu dài tự nhiên
 slug: combining-two-short-sentences
 category: sentence-structures
-summary: >
-  Nhiều người học trả lời IELTS Speaking bằng những câu quá ngắn và rời rạc:
-  "I like coffee. It tastes good. I drink it every morning." Bài này dạy cách
-  nối hai câu ngắn thành một câu dài hơn và tự nhiên hơn bằng các công cụ
-  thực tế: and/but, because, relative clauses, và participial phrases — kèm
-  nhiều ví dụ before/after rõ ràng.
+summary: 'Nhiều người học trả lời IELTS Speaking bằng những câu quá ngắn và rời rạc: "I like coffee. It tastes good. I drink it every morning." Bài này dạy cách nối hai câu ngắn thành một câu dài hơn và tự nhiên hơn bằng các công cụ thực tế: and/but, because, relative clauses, và participial phrases — kèm nhiều ví dụ before/after rõ ràng.
+
+  '
 level: beginner
-tags: [sentence-structures, combining-sentences, relative-clauses, because, conjunctions, beginner, ielts, speaking, writing]
-prerequisites: [simple-sentence, compound-sentence, complex-sentence, relative-clauses, conjunctions]
-related_pages: [adding-contrast-naturally, adding-results-clearly, avoiding-repetitive-sentence-openings, relative-clauses]
+tags:
+- sentence-structures
+- combining-sentences
+- relative-clauses
+- because
+- conjunctions
+- beginner
+- ielts
+- speaking
+- writing
+prerequisites:
+- simple-sentence
+- compound-sentence
+- complex-sentence
+- relative-clauses
+- conjunctions
+related_pages:
+- adding-contrast-naturally
+- adding-results-clearly
+- avoiding-repetitive-sentence-openings
+- relative-clauses
 order: 11
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- no_complex_sentences
+- no_compound_sentences
+- simple_sentence_overuse
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- adding-contrast-naturally
+- adding-results-clearly
+- avoiding-repetitive-sentence-openings
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

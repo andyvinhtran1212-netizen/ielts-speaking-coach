@@ -2,19 +2,49 @@
 title: Economic vs. Economical — Hai tính từ, hai nghĩa hoàn toàn khác
 slug: economic-vs-economical
 category: error-clinic
-summary: >
-  Economic và economical đều có gốc từ "economy" nhưng nghĩa hoàn toàn
-  khác nhau. Economic = thuộc về kinh tế (liên quan đến nền kinh tế).
-  Economical = tiết kiệm, không lãng phí. Nhầm hai từ này trong IELTS
-  Writing là lỗi Lexical Resource rõ ràng và thường gặp.
+summary: 'Economic và economical đều có gốc từ "economy" nhưng nghĩa hoàn toàn khác nhau. Economic = thuộc về kinh tế (liên quan đến nền kinh tế). Economical = tiết kiệm, không lãng phí. Nhầm hai từ này trong IELTS Writing là lỗi Lexical Resource rõ ràng và thường gặp.
+
+  '
 level: intermediate
-tags: [error-clinic, economic, economical, adjective-confusion, word-choice, intermediate, ielts, writing, vocabulary]
-prerequisites: [parts-of-speech, adjectives, word-form-errors]
-related_pages: [word-form-errors, historic-vs-historical, affect-vs-effect]
-compare_with: [historic-vs-historical]
+tags:
+- error-clinic
+- economic
+- economical
+- adjective-confusion
+- word-choice
+- intermediate
+- ielts
+- writing
+- vocabulary
+prerequisites:
+- parts-of-speech
+- adjectives
+- word-form-errors
+related_pages:
+- word-form-errors
+- historic-vs-historical
+- affect-vs-effect
+compare_with:
+- historic-vs-historical
 order: 11
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- collocation_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- word-form-errors
+- historic-vs-historical
+- affect-vs-effect
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

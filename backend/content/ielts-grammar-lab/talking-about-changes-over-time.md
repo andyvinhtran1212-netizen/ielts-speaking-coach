@@ -2,19 +2,56 @@
 title: Talking About Changes Over Time — Diễn đạt sự thay đổi theo thời gian trong IELTS Speaking và Writing
 slug: talking-about-changes-over-time
 category: ielts-grammar-lab
-summary: >
-  Nói về sự thay đổi theo thời gian là kỹ năng cốt lõi trong cả IELTS Speaking
-  Part 3 (so sánh hiện tại và quá khứ) và Writing Task 1/Task 2 (mô tả xu hướng
-  và diễn giải thay đổi). Bài này dạy cấu trúc cho: used to / now, has become,
-  has changed significantly, compared with the past, over the last few years
-  — kèm ví dụ thực tế cho cả hai kỹ năng.
+summary: 'Nói về sự thay đổi theo thời gian là kỹ năng cốt lõi trong cả IELTS Speaking Part 3 (so sánh hiện tại và quá khứ) và Writing Task 1/Task 2 (mô tả xu hướng và diễn giải thay đổi). Bài này dạy cấu trúc cho: used to / now, has become, has changed significantly, compared with the past, over the last few years — kèm ví dụ thực tế cho cả hai kỹ năng.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, change, time, used-to, present-perfect, past-simple, intermediate, ielts, speaking, writing, task1, task2]
-prerequisites: [present-perfect, past-simple, tenses, task1-trend-grammar, talking-about-past-experiences]
-related_pages: [speculating-about-the-future, task1-trend-grammar, talking-about-past-experiences, talking-about-future-plans, grammar-in-task1, grammar-in-task2]
+tags:
+- ielts-grammar-lab
+- change
+- time
+- used-to
+- present-perfect
+- past-simple
+- intermediate
+- ielts
+- speaking
+- writing
+- task1
+- task2
+prerequisites:
+- present-perfect
+- past-simple
+- tenses
+- task1-trend-grammar
+- talking-about-past-experiences
+related_pages:
+- speculating-about-the-future
+- task1-trend-grammar
+- talking-about-past-experiences
+- talking-about-future-plans
+- grammar-in-task1
+- grammar-in-task2
 order: 34
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+- wrong_tense
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- speculating-about-the-future
+- task1-trend-grammar
+- talking-about-past-experiences
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

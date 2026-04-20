@@ -2,21 +2,53 @@
 title: Inversion — Đảo ngữ
 slug: inversion
 category: sentence-structures
-summary: >
-  Inversion (đảo ngữ) là cấu trúc đặt trợ động từ hoặc một phần động từ
-  lên trước chủ ngữ để tạo hiệu ứng nhấn mạnh hoặc theo sau các cụm từ đặc
-  biệt. Inversion thường gặp sau các trạng ngữ phủ định (Never, Rarely,
-  Hardly...), cấu trúc "Not only...but also", và trong câu điều kiện trang
-  trọng (Should/Were/Had + subject). Đây là điểm ngữ pháp nâng cao đặc
-  trưng của Band 7+ trong IELTS Writing.
+summary: 'Inversion (đảo ngữ) là cấu trúc đặt trợ động từ hoặc một phần động từ lên trước chủ ngữ để tạo hiệu ứng nhấn mạnh hoặc theo sau các cụm từ đặc biệt. Inversion thường gặp sau các trạng ngữ phủ định (Never, Rarely, Hardly...), cấu trúc "Not only...but also", và trong câu điều kiện trang trọng (Should/Were/Had + subject). Đây là điểm ngữ pháp nâng cao đặc trưng của Band 7+ trong IELTS Writing.
+
+  '
 level: advanced
-tags: [sentence-structures, inversion, advanced, ielts, grammar, emphasis, formal, negative-adverbials]
-prerequisites: [parts-of-speech, sentence-elements, word-order, modal-verbs, conditionals, past-perfect]
-related_pages: [emphasis-inversion, conditionals, cleft-sentences, complex-sentence]
-compare_with: [cleft-sentences, emphasis-inversion]
+tags:
+- sentence-structures
+- inversion
+- advanced
+- ielts
+- grammar
+- emphasis
+- formal
+- negative-adverbials
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- word-order
+- modal-verbs
+- conditionals
+- past-perfect
+related_pages:
+- emphasis-inversion
+- conditionals
+- cleft-sentences
+- complex-sentence
+compare_with:
+- cleft-sentences
+- emphasis-inversion
 order: 8
 status: complete
 last_updated: 2026-04-18
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- word_order_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- emphasis-inversion
+- conditionals
+- cleft-sentences
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

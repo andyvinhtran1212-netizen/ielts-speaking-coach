@@ -2,19 +2,55 @@
 title: Adding Conditions Naturally — Thêm điều kiện vào câu một cách tự nhiên
 slug: adding-conditions-naturally
 category: sentence-structures
-summary: >
-  Thêm điều kiện vào câu là cách nâng cấp từ câu đơn lên câu phức có chiều
-  sâu phân tích. Bài này dạy cách dùng if, unless, as long as, provided that,
-  và in case — từ cơ bản đến nâng cao — với ví dụ từ đơn giản đến các cấu
-  trúc phù hợp cho IELTS Speaking và Writing Band 7+.
+summary: 'Thêm điều kiện vào câu là cách nâng cấp từ câu đơn lên câu phức có chiều sâu phân tích. Bài này dạy cách dùng if, unless, as long as, provided that, và in case — từ cơ bản đến nâng cao — với ví dụ từ đơn giản đến các cấu trúc phù hợp cho IELTS Speaking và Writing Band 7+.
+
+  '
 level: intermediate
-tags: [sentence-structures, conditionals, if, unless, provided-that, as-long-as, in-case, intermediate, ielts, speaking, writing]
-prerequisites: [complex-sentence, conditionals, compound-sentence]
-related_pages: [conditionals-in-speaking, complex-sentence, from-simple-to-complex-sentences, speculating-about-the-future, adding-contrast-naturally]
-compare_with: [conditionals-in-speaking]
+tags:
+- sentence-structures
+- conditionals
+- if
+- unless
+- provided-that
+- as-long-as
+- in-case
+- intermediate
+- ielts
+- speaking
+- writing
+prerequisites:
+- complex-sentence
+- conditionals
+- compound-sentence
+related_pages:
+- conditionals-in-speaking
+- complex-sentence
+- from-simple-to-complex-sentences
+- speculating-about-the-future
+- adding-contrast-naturally
+compare_with:
+- conditionals-in-speaking
 order: 13
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+- no_complex_sentences
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- conditionals-in-speaking
+- complex-sentence
+- from-simple-to-complex-sentences
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

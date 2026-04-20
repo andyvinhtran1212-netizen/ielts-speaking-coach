@@ -2,20 +2,53 @@
 title: Passive Voice — Câu bị động
 slug: passive-voice
 category: sentence-structures
-summary: >
-  Câu bị động (Passive Voice) dùng khi ta muốn nhấn mạnh vào hành động hoặc
-  đối tượng bị tác động, thay vì người thực hiện. Cấu trúc: be + past
-  participle. Dùng phổ biến trong văn viết học thuật, báo cáo khoa học, và
-  IELTS Writing Task 1. Người Việt hay gặp khó khăn vì tiếng Việt thường bỏ
-  qua sự phân biệt này.
+summary: 'Câu bị động (Passive Voice) dùng khi ta muốn nhấn mạnh vào hành động hoặc đối tượng bị tác động, thay vì người thực hiện. Cấu trúc: be + past participle. Dùng phổ biến trong văn viết học thuật, báo cáo khoa học, và IELTS Writing Task 1. Người Việt hay gặp khó khăn vì tiếng Việt thường bỏ qua sự phân biệt này.
+
+  '
 level: intermediate
-tags: [sentence-structures, passive-voice, intermediate, ielts, writing, academic, be-verb, past-participle]
-prerequisites: [parts-of-speech, sentence-elements, verbs, present-simple, past-simple]
-related_pages: [verbs, sentence-elements, present-simple, past-simple, present-perfect, modal-verbs]
+tags:
+- sentence-structures
+- passive-voice
+- intermediate
+- ielts
+- writing
+- academic
+- be-verb
+- past-participle
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- verbs
+- present-simple
+- past-simple
+related_pages:
+- verbs
+- sentence-elements
+- present-simple
+- past-simple
+- present-perfect
+- modal-verbs
 compare_with: []
 order: 3
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- passive_voice_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- verbs
+- sentence-elements
+- present-simple
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

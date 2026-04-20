@@ -2,20 +2,47 @@
 title: Making Answers Longer Naturally — Kéo dài câu trả lời Speaking một cách tự nhiên
 slug: making-answers-longer-naturally
 category: ielts-grammar-lab
-summary: >
-  Một trong những kỹ năng quan trọng nhất trong IELTS Speaking là khả năng
-  mở rộng câu trả lời — không phải nói nhiều hơn, mà nói thêm một cách có
-  cấu trúc và tự nhiên. Bài này hướng dẫn các patterns cụ thể để kéo dài
-  câu trả lời bằng cách thêm lý do, ví dụ, chi tiết, đối lập, và kết nối
-  cá nhân — giúp câu trả lời nghe fluent, không bị gượng, và đạt Band 7+.
+summary: 'Một trong những kỹ năng quan trọng nhất trong IELTS Speaking là khả năng mở rộng câu trả lời — không phải nói nhiều hơn, mà nói thêm một cách có cấu trúc và tự nhiên. Bài này hướng dẫn các patterns cụ thể để kéo dài câu trả lời bằng cách thêm lý do, ví dụ, chi tiết, đối lập, và kết nối cá nhân — giúp câu trả lời nghe fluent, không bị gượng, và đạt Band 7+.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, making-answers-longer, speaking, fluency, advanced, ielts, speaking-strategies, band7]
-prerequisites: [conjunctions, complex-sentence, discourse-markers, conditionals]
-related_pages: [adding-reasons-clearly, giving-examples-naturally, discourse-markers, grammar-in-speaking]
+tags:
+- ielts-grammar-lab
+- making-answers-longer
+- speaking
+- fluency
+- advanced
+- ielts
+- speaking-strategies
+- band7
+prerequisites:
+- conjunctions
+- complex-sentence
+- discourse-markers
+- conditionals
+related_pages:
+- adding-reasons-clearly
+- giving-examples-naturally
+- discourse-markers
+- grammar-in-speaking
 compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- adding-reasons-clearly
+- giving-examples-naturally
+- discourse-markers
+pathways:
+- grammar-for-ielts-speaking
 ---
 
 ## Tóm tắt

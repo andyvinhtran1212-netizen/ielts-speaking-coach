@@ -2,18 +2,45 @@
 title: Past Simple
 slug: past-simple
 category: tenses
-summary: >
-  Thì quá khứ đơn diễn tả hành động đã xảy ra và kết thúc trong quá khứ.
-  Đây là thì không thể thiếu khi kể chuyện trong IELTS Speaking Part 2
-  và khi viết về xu hướng lịch sử trong Writing Task 1.
+summary: 'Thì quá khứ đơn diễn tả hành động đã xảy ra và kết thúc trong quá khứ. Đây là thì không thể thiếu khi kể chuyện trong IELTS Speaking Part 2 và khi viết về xu hướng lịch sử trong Writing Task 1.
+
+  '
 level: beginner
-tags: [tenses, beginner, ielts, past, irregular-verbs]
-prerequisites: [parts-of-speech, sentence-elements, present-simple]
-related_pages: [present-simple, present-continuous, present-perfect]
-compare_with: [present-perfect]
+tags:
+- tenses
+- beginner
+- ielts
+- past
+- irregular-verbs
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- present-simple
+related_pages:
+- present-simple
+- present-continuous
+- present-perfect
+compare_with:
+- present-perfect
 order: 3
 status: complete
 last_updated: 2026-04-10
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- present-simple
+- present-continuous
+- present-perfect
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

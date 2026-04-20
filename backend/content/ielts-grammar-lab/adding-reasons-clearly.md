@@ -2,21 +2,51 @@
 title: Adding Reasons Clearly — Đưa ra lý do rõ ràng trong IELTS
 slug: adding-reasons-clearly
 category: ielts-grammar-lab
-summary: >
-  Đưa ra lý do là kỹ năng cốt lõi trong cả IELTS Speaking và Writing.
-  Bài này tổng hợp các grammar patterns cụ thể để diễn đạt nguyên nhân
-  — từ cơ bản (because) đến nâng cao (given that, on the grounds that,
-  seeing as) — và hướng dẫn cách xây dựng luận điểm có lý do thuyết phục
-  trong cả hai kỹ năng. Biết nhiều cách đưa lý do khác nhau giúp tránh
-  lặp từ và tăng điểm Grammatical Range.
+summary: 'Đưa ra lý do là kỹ năng cốt lõi trong cả IELTS Speaking và Writing. Bài này tổng hợp các grammar patterns cụ thể để diễn đạt nguyên nhân — từ cơ bản (because) đến nâng cao (given that, on the grounds that, seeing as) — và hướng dẫn cách xây dựng luận điểm có lý do thuyết phục trong cả hai kỹ năng. Biết nhiều cách đưa lý do khác nhau giúp tránh lặp từ và tăng điểm Grammatical Range.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, adding-reasons, cause-effect, intermediate, ielts, writing, speaking, conjunctions, grammar]
-prerequisites: [conjunctions, complex-sentence, discourse-markers, because-vs-because-of]
-related_pages: [because-vs-because-of, discourse-markers, making-answers-longer-naturally, giving-examples-naturally]
+tags:
+- ielts-grammar-lab
+- adding-reasons
+- cause-effect
+- intermediate
+- ielts
+- writing
+- speaking
+- conjunctions
+- grammar
+prerequisites:
+- conjunctions
+- complex-sentence
+- discourse-markers
+- because-vs-because-of
+related_pages:
+- because-vs-because-of
+- discourse-markers
+- making-answers-longer-naturally
+- giving-examples-naturally
 compare_with: []
 order: 7
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+- no_compound_sentences
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- because-vs-because-of
+- discourse-markers
+- making-answers-longer-naturally
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

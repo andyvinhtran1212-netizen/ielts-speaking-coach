@@ -2,19 +2,51 @@
 title: Try doing vs. Try to do — Thử xem có được không hay cố gắng làm?
 slug: try-doing-vs-try-to-do
 category: verb-patterns
-summary: >
-  "Try doing" và "try to do" khác nhau ở mức độ và mục đích. "Try doing" = thử
-  một phương pháp/cách tiếp cận mới xem có hiệu quả không. "Try to do" = nỗ
-  lực để thực hiện điều gì đó, thường gặp khó khăn. Hiểu đúng hai cấu trúc này
-  giúp diễn đạt ý chính xác hơn nhiều.
+summary: '"Try doing" và "try to do" khác nhau ở mức độ và mục đích. "Try doing" = thử một phương pháp/cách tiếp cận mới xem có hiệu quả không. "Try to do" = nỗ lực để thực hiện điều gì đó, thường gặp khó khăn. Hiểu đúng hai cấu trúc này giúp diễn đạt ý chính xác hơn nhiều.
+
+  '
 level: intermediate
-tags: [verb-patterns, try, gerund-vs-infinitive, common-mistakes, intermediate, ielts, grammar, speaking, writing]
-prerequisites: [gerund, infinitive, gerund-vs-infinitive]
-related_pages: [gerund-vs-infinitive, stop-doing-vs-stop-to-do, remember-doing-vs-remember-to-do, regret-doing-vs-regret-to-do]
-compare_with: [stop-doing-vs-stop-to-do]
+tags:
+- verb-patterns
+- try
+- gerund-vs-infinitive
+- common-mistakes
+- intermediate
+- ielts
+- grammar
+- speaking
+- writing
+prerequisites:
+- gerund
+- infinitive
+- gerund-vs-infinitive
+related_pages:
+- gerund-vs-infinitive
+- stop-doing-vs-stop-to-do
+- remember-doing-vs-remember-to-do
+- regret-doing-vs-regret-to-do
+compare_with:
+- stop-doing-vs-stop-to-do
 order: 12
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund-vs-infinitive
+- stop-doing-vs-stop-to-do
+- remember-doing-vs-remember-to-do
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

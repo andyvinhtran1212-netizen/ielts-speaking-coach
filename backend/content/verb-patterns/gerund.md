@@ -2,19 +2,47 @@
 title: Gerund (V-ing dùng như danh từ)
 slug: gerund
 category: verb-patterns
-summary: >
-  Gerund là động từ thêm -ing và được dùng như một danh từ trong câu —
-  làm chủ ngữ, tân ngữ, hoặc đứng sau giới từ. Đây là cấu trúc cực kỳ
-  phổ biến trong IELTS Speaking và Writing nhưng hay bị người học Việt
-  Nam nhầm với Present Continuous hoặc thay bằng infinitive.
+summary: 'Gerund là động từ thêm -ing và được dùng như một danh từ trong câu — làm chủ ngữ, tân ngữ, hoặc đứng sau giới từ. Đây là cấu trúc cực kỳ phổ biến trong IELTS Speaking và Writing nhưng hay bị người học Việt Nam nhầm với Present Continuous hoặc thay bằng infinitive.
+
+  '
 level: intermediate
-tags: [verb-patterns, gerund, intermediate, ielts, noun, preposition]
-prerequisites: [parts-of-speech, sentence-elements, present-continuous]
-related_pages: [present-continuous, adjectives, future-forms]
+tags:
+- verb-patterns
+- gerund
+- intermediate
+- ielts
+- noun
+- preposition
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- present-continuous
+related_pages:
+- present-continuous
+- adjectives
+- future-forms
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+- wrong_preposition
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- present-continuous
+- adjectives
+- future-forms
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

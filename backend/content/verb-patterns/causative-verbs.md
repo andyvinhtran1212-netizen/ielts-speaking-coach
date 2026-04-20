@@ -2,20 +2,54 @@
 title: Causative Verbs — have / get / make / let
 slug: causative-verbs
 category: verb-patterns
-summary: >
-  Causative verbs (have, get, make, let, help) diễn tả việc một người khiến
-  hoặc cho phép người/vật khác thực hiện một hành động. Cấu trúc causative
-  phân biệt rõ qua dạng động từ theo sau: bare infinitive, to-infinitive,
-  hoặc V3. Đây là điểm ngữ pháp quan trọng trong IELTS Writing Task 2 và
-  Speaking khi thảo luận về trách nhiệm, chính sách, giáo dục.
+summary: 'Causative verbs (have, get, make, let, help) diễn tả việc một người khiến hoặc cho phép người/vật khác thực hiện một hành động. Cấu trúc causative phân biệt rõ qua dạng động từ theo sau: bare infinitive, to-infinitive, hoặc V3. Đây là điểm ngữ pháp quan trọng trong IELTS Writing Task 2 và Speaking khi thảo luận về trách nhiệm, chính sách, giáo dục.
+
+  '
 level: intermediate
-tags: [verb-patterns, causative-verbs, intermediate, ielts, grammar, have, get, make, let, help]
-prerequisites: [parts-of-speech, verbs, infinitive, bare-infinitive, sentence-elements]
-related_pages: [infinitive, bare-infinitive, modal-verbs, passive-voice]
-compare_with: [infinitive, bare-infinitive]
+tags:
+- verb-patterns
+- causative-verbs
+- intermediate
+- ielts
+- grammar
+- have
+- get
+- make
+- let
+- help
+prerequisites:
+- parts-of-speech
+- verbs
+- infinitive
+- bare-infinitive
+- sentence-elements
+related_pages:
+- infinitive
+- bare-infinitive
+- modal-verbs
+- passive-voice
+compare_with:
+- infinitive
+- bare-infinitive
 order: 7
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- infinitive
+- bare-infinitive
+- modal-verbs
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

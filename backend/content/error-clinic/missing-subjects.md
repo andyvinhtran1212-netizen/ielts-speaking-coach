@@ -2,19 +2,50 @@
 title: Missing Subjects — Lỗi thiếu chủ ngữ
 slug: missing-subjects
 category: error-clinic
-summary: >
-  Thiếu chủ ngữ là một trong những lỗi cơ bản nhất nhưng lại rất phổ biến với
-  người học tiếng Việt — vì tiếng Việt thường bỏ chủ ngữ khi ngữ cảnh đã rõ.
-  Bài này phân tích ba kiểu thiếu chủ ngữ hay gặp nhất, giải thích nguyên nhân,
-  và dạy cách nhận biết + sửa đúng.
+summary: 'Thiếu chủ ngữ là một trong những lỗi cơ bản nhất nhưng lại rất phổ biến với người học tiếng Việt — vì tiếng Việt thường bỏ chủ ngữ khi ngữ cảnh đã rõ. Bài này phân tích ba kiểu thiếu chủ ngữ hay gặp nhất, giải thích nguyên nhân, và dạy cách nhận biết + sửa đúng.
+
+  '
 level: beginner
-tags: [error-clinic, missing-subjects, sentence-structure, grammar, beginner, ielts, speaking, writing, vietnamese-learners]
-prerequisites: [sentence-elements, simple-sentence]
-related_pages: [sentence-fragments, missing-main-verbs, double-subject-errors, simple-sentence]
-compare_with: [sentence-fragments, double-subject-errors]
+tags:
+- error-clinic
+- missing-subjects
+- sentence-structure
+- grammar
+- beginner
+- ielts
+- speaking
+- writing
+- vietnamese-learners
+prerequisites:
+- sentence-elements
+- simple-sentence
+related_pages:
+- sentence-fragments
+- missing-main-verbs
+- double-subject-errors
+- simple-sentence
+compare_with:
+- sentence-fragments
+- double-subject-errors
 order: 15
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- subject_verb_disagreement
+- pronoun_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- sentence-fragments
+- missing-main-verbs
+- double-subject-errors
+pathways:
+- grammar-for-beginners
+- fix-common-mistakes
 ---
 
 ## Tóm tắt

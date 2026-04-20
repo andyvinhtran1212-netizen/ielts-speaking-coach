@@ -2,19 +2,50 @@
 title: Task 2 Problem-Solution Grammar — Ngữ pháp bài luận vấn đề và giải pháp
 slug: task2-problem-solution-grammar
 category: ielts-grammar-lab
-summary: >
-  Bài luận Problem-Solution là một trong những dạng phổ biến nhất trong
-  IELTS Writing Task 2. Bài này cung cấp ngữ pháp và cấu trúc câu đặc thù
-  cho từng phần: giới thiệu vấn đề, phân tích nguyên nhân, đề xuất giải pháp,
-  và dự báo kết quả — kèm full template và ví dụ câu Band 7+.
+summary: 'Bài luận Problem-Solution là một trong những dạng phổ biến nhất trong IELTS Writing Task 2. Bài này cung cấp ngữ pháp và cấu trúc câu đặc thù cho từng phần: giới thiệu vấn đề, phân tích nguyên nhân, đề xuất giải pháp, và dự báo kết quả — kèm full template và ví dụ câu Band 7+.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task2, problem-solution, essay-grammar, advanced, ielts, writing, band7]
-prerequisites: [complex-sentence, passive-voice, modal-verbs, discourse-markers, task2-cause-effect-grammar]
-related_pages: [task2-cause-effect-grammar, task2-opinion-essay-grammar, discourse-markers, hedging-language, balanced-arguments-grammar]
-compare_with: [task2-opinion-essay-grammar]
+tags:
+- ielts-grammar-lab
+- task2
+- problem-solution
+- essay-grammar
+- advanced
+- ielts
+- writing
+- band7
+prerequisites:
+- complex-sentence
+- passive-voice
+- modal-verbs
+- discourse-markers
+- task2-cause-effect-grammar
+related_pages:
+- task2-cause-effect-grammar
+- task2-opinion-essay-grammar
+- discourse-markers
+- hedging-language
+- balanced-arguments-grammar
+compare_with:
+- task2-opinion-essay-grammar
 order: 21
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task2-cause-effect-grammar
+- task2-opinion-essay-grammar
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

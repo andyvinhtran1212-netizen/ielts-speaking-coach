@@ -2,18 +2,36 @@
 title: Parts of Speech (Từ loại)
 slug: parts-of-speech
 category: foundations
-summary: >
-  Từ loại là nền tảng của mọi câu tiếng Anh.
-  Hiểu đúng noun, verb, adjective, adverb, pronoun, preposition, conjunction
-  giúp bạn phân tích và xây dựng câu chính xác trong IELTS.
+summary: 'Từ loại là nền tảng của mọi câu tiếng Anh. Hiểu đúng noun, verb, adjective, adverb, pronoun, preposition, conjunction giúp bạn phân tích và xây dựng câu chính xác trong IELTS.
+
+  '
 level: beginner
-tags: [foundations, beginner, ielts, vocabulary, grammar-basics]
+tags:
+- foundations
+- beginner
+- ielts
+- vocabulary
+- grammar-basics
 prerequisites: []
-related_pages: [sentence-elements, present-simple]
+related_pages:
+- sentence-elements
+- present-simple
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-10
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- sentence-elements
+- present-simple
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

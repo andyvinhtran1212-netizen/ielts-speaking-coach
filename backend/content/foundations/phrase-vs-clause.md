@@ -2,19 +2,43 @@
 title: Phrase vs. Clause (Cụm từ và Mệnh đề)
 slug: phrase-vs-clause
 category: foundations
-summary: >
-  Phrase là nhóm từ có nghĩa nhưng không đủ chủ ngữ và vị ngữ. Clause
-  là nhóm từ có đủ chủ ngữ và vị ngữ. Phân biệt hai khái niệm này giúp
-  bạn hiểu tại sao một câu là đúng hay sai ngữ pháp và xây dựng câu
-  phức tạp hơn một cách tự tin.
+summary: 'Phrase là nhóm từ có nghĩa nhưng không đủ chủ ngữ và vị ngữ. Clause là nhóm từ có đủ chủ ngữ và vị ngữ. Phân biệt hai khái niệm này giúp bạn hiểu tại sao một câu là đúng hay sai ngữ pháp và xây dựng câu phức tạp hơn một cách tự tin.
+
+  '
 level: beginner
-tags: [foundations, beginner, ielts, grammar-basics, syntax, clause, phrase]
-prerequisites: [parts-of-speech, sentence-elements]
-related_pages: [sentence-elements, simple-sentence, compound-sentence, complex-sentence]
+tags:
+- foundations
+- beginner
+- ielts
+- grammar-basics
+- syntax
+- clause
+- phrase
+prerequisites:
+- parts-of-speech
+- sentence-elements
+related_pages:
+- sentence-elements
+- simple-sentence
+- compound-sentence
+- complex-sentence
 compare_with: []
 order: 3
 status: complete
 last_updated: 2026-04-13
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- sentence-elements
+- simple-sentence
+- compound-sentence
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

@@ -2,20 +2,49 @@
 title: Some / Any / No — Phân biệt và cách dùng đúng
 slug: some-any-no
 category: foundations
-summary: >
-  Some, any và no là ba từ chỉ số lượng không xác định dễ nhầm lẫn nhất trong
-  tiếng Anh. Quy tắc cơ bản: some dùng trong câu khẳng định, any trong câu
-  phủ định và câu hỏi, no thay thế not any. Bài này giải thích đầy đủ các
-  trường hợp ngoại lệ, hợp chất (someone/anyone/no one, something/anything/nothing,
-  somewhere/anywhere/nowhere), và lỗi người Việt hay gặp nhất.
+summary: 'Some, any và no là ba từ chỉ số lượng không xác định dễ nhầm lẫn nhất trong tiếng Anh. Quy tắc cơ bản: some dùng trong câu khẳng định, any trong câu phủ định và câu hỏi, no thay thế not any. Bài này giải thích đầy đủ các trường hợp ngoại lệ, hợp chất (someone/anyone/no one, something/anything/nothing, somewhere/anywhere/nowhere), và lỗi người Việt hay gặp nhất.
+
+  '
 level: intermediate
-tags: [foundations, some, any, no, quantifiers, determiners, intermediate, ielts, grammar]
-prerequisites: [nouns, countable-vs-uncountable, singular-vs-plural]
-related_pages: [quantifiers, articles, zero-article, countable-vs-uncountable]
-compare_with: [quantifiers]
+tags:
+- foundations
+- some
+- any
+- 'no'
+- quantifiers
+- determiners
+- intermediate
+- ielts
+- grammar
+prerequisites:
+- nouns
+- countable-vs-uncountable
+- singular-vs-plural
+related_pages:
+- quantifiers
+- articles
+- zero-article
+- countable-vs-uncountable
+compare_with:
+- quantifiers
 order: 14
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- quantifiers
+- articles
+- zero-article
+pathways:
+- grammar-for-beginners
+- band-6-to-7
 ---
 
 ## Tóm tắt

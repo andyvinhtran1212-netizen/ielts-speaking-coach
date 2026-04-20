@@ -2,20 +2,53 @@
 title: Present Perfect Continuous — Thì Hiện tại hoàn thành tiếp diễn
 slug: present-perfect-continuous
 category: tenses
-summary: >
-  Present Perfect Continuous (have/has been + V-ing) nhấn mạnh hành động đã
-  bắt đầu trong quá khứ, đang còn tiếp diễn hoặc vừa mới kết thúc, và có
-  kết quả hoặc dấu vết ở hiện tại. Khác với Present Perfect ở chỗ nó tập
-  trung vào quá trình kéo dài, không phải kết quả. Đây là thì thường gây
-  nhầm lẫn nhất với Present Perfect đơn.
+summary: 'Present Perfect Continuous (have/has been + V-ing) nhấn mạnh hành động đã bắt đầu trong quá khứ, đang còn tiếp diễn hoặc vừa mới kết thúc, và có kết quả hoặc dấu vết ở hiện tại. Khác với Present Perfect ở chỗ nó tập trung vào quá trình kéo dài, không phải kết quả. Đây là thì thường gây nhầm lẫn nhất với Present Perfect đơn.
+
+  '
 level: intermediate
-tags: [tenses, present-perfect-continuous, intermediate, ielts, grammar, perfect, progressive, duration]
-prerequisites: [parts-of-speech, verbs, present-perfect, present-continuous, past-simple]
-related_pages: [present-perfect, past-continuous, past-perfect, verb-patterns]
-compare_with: [present-perfect, present-continuous]
+tags:
+- tenses
+- present-perfect-continuous
+- intermediate
+- ielts
+- grammar
+- perfect
+- progressive
+- duration
+prerequisites:
+- parts-of-speech
+- verbs
+- present-perfect
+- present-continuous
+- past-simple
+related_pages:
+- present-perfect
+- past-continuous
+- past-perfect
+- verb-patterns
+compare_with:
+- present-perfect
+- present-continuous
 order: 4
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- present-perfect
+- past-continuous
+- past-perfect
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

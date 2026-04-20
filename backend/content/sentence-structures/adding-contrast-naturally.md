@@ -2,20 +2,55 @@
 title: Adding Contrast Naturally — Thêm ý tương phản tự nhiên trong nói và viết
 slug: adding-contrast-naturally
 category: sentence-structures
-summary: >
-  Khi trả lời câu hỏi IELTS hoặc viết luận, người học thường chỉ đưa một
-  phía của vấn đề. Thêm ý tương phản (contrast) giúp câu trả lời có chiều
-  sâu hơn, thể hiện tư duy phân tích, và tăng điểm Coherence. Bài này dạy
-  các công cụ tương phản cốt lõi: but, however, while/whereas, on the other
-  hand — với trọng tâm là speaking answers tự nhiên.
-level: beginner
-tags: [sentence-structures, contrast, but, however, while, whereas, discourse-markers, beginner, ielts, speaking, writing]
-prerequisites: [compound-sentence, complex-sentence, conjunctions, discourse-markers]
-related_pages: [adding-results-clearly, combining-two-short-sentences, discourse-markers, although-though-even-though, balanced-arguments-grammar]
-compare_with: [although-though-even-though]
+summary: 'Khi trả lời câu hỏi IELTS hoặc viết luận, người học thường chỉ đưa một phía của vấn đề. Thêm ý tương phản (contrast) giúp câu trả lời có chiều sâu hơn, thể hiện tư duy phân tích, và tăng điểm Coherence. Bài này dạy các công cụ tương phản cốt lõi: but, however, while/whereas, on the other hand — với trọng tâm là speaking answers tự nhiên.
+
+  '
+level: intermediate
+tags:
+- sentence-structures
+- contrast
+- but
+- however
+- while
+- whereas
+- discourse-markers
+- beginner
+- ielts
+- speaking
+- writing
+prerequisites:
+- compound-sentence
+- complex-sentence
+- conjunctions
+- discourse-markers
+related_pages:
+- adding-results-clearly
+- combining-two-short-sentences
+- discourse-markers
+- although-though-even-though
+- balanced-arguments-grammar
+compare_with:
+- although-though-even-though
 order: 9
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- adding-results-clearly
+- combining-two-short-sentences
+- discourse-markers
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

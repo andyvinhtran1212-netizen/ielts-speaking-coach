@@ -2,19 +2,45 @@
 title: Singular vs. Plural (Số ít và Số nhiều)
 slug: singular-vs-plural
 category: foundations
-summary: >
-  Singular là dạng số ít (one), plural là dạng số nhiều (two or more). Ngoài
-  quy tắc thêm -s/-es, tiếng Anh có nhiều dạng bất quy tắc và danh từ đặc
-  biệt. Sử dụng đúng số ít/số nhiều ảnh hưởng trực tiếp đến sự hoà hợp
-  chủ-vị (subject-verb agreement) trong mọi câu.
+summary: 'Singular là dạng số ít (one), plural là dạng số nhiều (two or more). Ngoài quy tắc thêm -s/-es, tiếng Anh có nhiều dạng bất quy tắc và danh từ đặc biệt. Sử dụng đúng số ít/số nhiều ảnh hưởng trực tiếp đến sự hoà hợp chủ-vị (subject-verb agreement) trong mọi câu.
+
+  '
 level: beginner
-tags: [foundations, beginner, ielts, grammar-basics, nouns, plural, subject-verb-agreement]
-prerequisites: [parts-of-speech, sentence-elements, countable-vs-uncountable]
-related_pages: [parts-of-speech, countable-vs-uncountable, sentence-elements]
-compare_with: [countable-vs-uncountable]
+tags:
+- foundations
+- beginner
+- ielts
+- grammar-basics
+- nouns
+- plural
+- subject-verb-agreement
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- countable-vs-uncountable
+related_pages:
+- parts-of-speech
+- countable-vs-uncountable
+- sentence-elements
+compare_with:
+- countable-vs-uncountable
 order: 5
 status: complete
 last_updated: 2026-04-13
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- subject_verb_disagreement
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- countable-vs-uncountable
+- sentence-elements
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

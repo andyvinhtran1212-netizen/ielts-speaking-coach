@@ -2,20 +2,49 @@
 title: Lỗi dùng giới từ — Preposition Errors
 slug: preposition-errors
 category: error-clinic
-summary: >
-  Giới từ (prepositions) là một trong những phần khó nhất và hay bị dùng sai
-  nhất trong tiếng Anh. Người Việt thường dịch trực tiếp từ tiếng Việt
-  ("phụ thuộc vào" → depend "on" không phải "to"), hoặc nhầm giữa các giới từ
-  thời gian (at/on/in), giới từ vị trí (at/on/in), và các collocations cố định.
-  Đây là nguồn lỗi phổ biến thứ 2 sau article errors trong IELTS Writing.
+summary: 'Giới từ (prepositions) là một trong những phần khó nhất và hay bị dùng sai nhất trong tiếng Anh. Người Việt thường dịch trực tiếp từ tiếng Việt ("phụ thuộc vào" → depend "on" không phải "to"), hoặc nhầm giữa các giới từ thời gian (at/on/in), giới từ vị trí (at/on/in), và các collocations cố định. Đây là nguồn lỗi phổ biến thứ 2 sau article errors trong IELTS Writing.
+
+  '
 level: intermediate
-tags: [error-clinic, prepositions, preposition-errors, intermediate, ielts, grammar, collocations, common-errors]
-prerequisites: [parts-of-speech, prepositions, sentence-elements]
-related_pages: [prepositions, adjectives, verbs, nouns]
+tags:
+- error-clinic
+- prepositions
+- preposition-errors
+- intermediate
+- ielts
+- grammar
+- collocations
+- common-errors
+prerequisites:
+- parts-of-speech
+- prepositions
+- sentence-elements
+related_pages:
+- prepositions
+- adjectives
+- verbs
+- nouns
 compare_with: []
 order: 3
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_preposition
+- missing_preposition
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- prepositions
+- adjectives
+- verbs
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

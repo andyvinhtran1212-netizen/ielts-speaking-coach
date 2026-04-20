@@ -2,20 +2,52 @@
 title: Conditionals — Câu điều kiện
 slug: conditionals
 category: grammar-for-meaning
-summary: >
-  Câu điều kiện diễn tả điều kiện và kết quả: nếu X thì Y. Có 4 loại chính:
-  điều kiện loại 0 (sự thật), loại 1 (thực tế tương lai), loại 2 (giả định
-  hiện tại), và loại 3 (giả định quá khứ). Đây là cấu trúc ngữ pháp phức tạp
-  nhất và hay bị dùng sai thì nhất — nhưng cũng là cấu trúc ghi điểm cao nhất
-  trong IELTS.
+summary: 'Câu điều kiện diễn tả điều kiện và kết quả: nếu X thì Y. Có 4 loại chính: điều kiện loại 0 (sự thật), loại 1 (thực tế tương lai), loại 2 (giả định hiện tại), và loại 3 (giả định quá khứ). Đây là cấu trúc ngữ pháp phức tạp nhất và hay bị dùng sai thì nhất — nhưng cũng là cấu trúc ghi điểm cao nhất trong IELTS.
+
+  '
 level: intermediate
-tags: [grammar-for-meaning, conditionals, intermediate, ielts, if-clauses, subjunctive, hypothetical]
-prerequisites: [parts-of-speech, sentence-elements, verbs, present-simple, past-simple, modal-verbs]
-related_pages: [verbs, modal-verbs, complex-sentence, conjunctions, wish-hope]
+tags:
+- grammar-for-meaning
+- conditionals
+- intermediate
+- ielts
+- if-clauses
+- subjunctive
+- hypothetical
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- verbs
+- present-simple
+- past-simple
+- modal-verbs
+related_pages:
+- verbs
+- modal-verbs
+- complex-sentence
+- conjunctions
+- wish-hope
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- no_complex_sentences
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- verbs
+- modal-verbs
+- complex-sentence
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

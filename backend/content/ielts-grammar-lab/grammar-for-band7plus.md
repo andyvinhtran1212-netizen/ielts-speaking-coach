@@ -2,18 +2,53 @@
 title: Grammar cho Band 7+
 slug: grammar-for-band7plus
 category: ielts-grammar-lab
-summary: >
-  Những cấu trúc ngữ pháp nâng cao giúp đạt Band 7+ trong IELTS:
-  inversion để nhấn mạnh, cleft sentences, complex noun phrases, mixed
-  conditionals, advanced passive constructions, và hedging language tinh tế.
+summary: 'Những cấu trúc ngữ pháp nâng cao giúp đạt Band 7+ trong IELTS: inversion để nhấn mạnh, cleft sentences, complex noun phrases, mixed conditionals, advanced passive constructions, và hedging language tinh tế.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, band7, advanced, ielts, inversion, cleft, complex-grammar, hedging]
-prerequisites: [conditionals, passive-voice, relative-clauses, modal-verbs, discourse-markers]
-related_pages: [inversion, cleft-sentences, hedging-language, conditionals, passive-voice]
-compare_with: [grammar-in-task2]
+tags:
+- ielts-grammar-lab
+- band7
+- advanced
+- ielts
+- inversion
+- cleft
+- complex-grammar
+- hedging
+prerequisites:
+- conditionals
+- passive-voice
+- relative-clauses
+- modal-verbs
+- discourse-markers
+related_pages:
+- inversion
+- cleft-sentences
+- hedging-language
+- conditionals
+- passive-voice
+compare_with:
+- grammar-in-task2
 order: 5
 status: complete
 last_updated: 2026-04-18
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- word_order_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- inversion
+- cleft-sentences
+- hedging-language
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

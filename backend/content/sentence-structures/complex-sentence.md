@@ -2,19 +2,50 @@
 title: Complex Sentence (Câu phức)
 slug: complex-sentence
 category: sentence-structures
-summary: >
-  Complex sentence gồm một independent clause và ít nhất một dependent clause,
-  nối bằng subordinating conjunction (because, although, when, if...) hoặc
-  relative pronoun (who, which, that). Đây là cấu trúc cốt lõi để đạt Band
-  7+ trong IELTS Writing và thể hiện ngữ pháp nâng cao.
+summary: 'Complex sentence gồm một independent clause và ít nhất một dependent clause, nối bằng subordinating conjunction (because, although, when, if...) hoặc relative pronoun (who, which, that). Đây là cấu trúc cốt lõi để đạt Band 7+ trong IELTS Writing và thể hiện ngữ pháp nâng cao.
+
+  '
 level: intermediate
-tags: [sentence-structures, intermediate, ielts, grammar, complex-sentence, subordination, relative-clause, adverb-clause]
-prerequisites: [parts-of-speech, sentence-elements, phrase-vs-clause, compound-sentence]
-related_pages: [phrase-vs-clause, compound-sentence, simple-sentence]
-compare_with: [compound-sentence]
+tags:
+- sentence-structures
+- intermediate
+- ielts
+- grammar
+- complex-sentence
+- subordination
+- relative-clause
+- adverb-clause
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- phrase-vs-clause
+- compound-sentence
+related_pages:
+- phrase-vs-clause
+- compound-sentence
+- simple-sentence
+compare_with:
+- compound-sentence
 order: 3
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- no_complex_sentences
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- phrase-vs-clause
+- compound-sentence
+- simple-sentence
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

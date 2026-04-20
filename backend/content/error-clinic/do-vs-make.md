@@ -2,20 +2,44 @@
 title: Do vs. Make — Phân biệt "làm" trong tiếng Anh
 slug: do-vs-make
 category: error-clinic
-summary: >
-  "Do" và "make" đều có nghĩa là "làm" trong tiếng Việt, nhưng tiếng Anh
-  dùng chúng hoàn toàn khác nhau. "Do" gắn với hoạt động, công việc, nhiệm
-  vụ; còn "make" gắn với tạo ra thứ gì đó, đưa ra quyết định, hoặc gây ra
-  kết quả. Đây là một trong những lỗi collocations phổ biến nhất của người
-  học tiếng Anh nói chung và người Việt nói riêng.
+summary: '"Do" và "make" đều có nghĩa là "làm" trong tiếng Việt, nhưng tiếng Anh dùng chúng hoàn toàn khác nhau. "Do" gắn với hoạt động, công việc, nhiệm vụ; còn "make" gắn với tạo ra thứ gì đó, đưa ra quyết định, hoặc gây ra kết quả. Đây là một trong những lỗi collocations phổ biến nhất của người học tiếng Anh nói chung và người Việt nói riêng.
+
+  '
 level: beginner
-tags: [error-clinic, do-vs-make, collocations, beginner, common-errors, verbs, ielts]
-prerequisites: [verbs, parts-of-speech]
-related_pages: [verbs, word-form-errors, phrasal-verbs]
+tags:
+- error-clinic
+- do-vs-make
+- collocations
+- beginner
+- common-errors
+- verbs
+- ielts
+prerequisites:
+- verbs
+- parts-of-speech
+related_pages:
+- verbs
+- word-form-errors
+- phrasal-verbs
 compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- collocation_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- verbs
+- word-form-errors
+- phrasal-verbs
+pathways:
+- grammar-for-beginners
+- fix-common-mistakes
 ---
 
 ## Tóm tắt

@@ -2,20 +2,52 @@
 title: Wish & Hope — Ước muốn và Hy vọng
 slug: wish-hope
 category: verb-patterns
-summary: >
-  "Wish" và "hope" đều diễn tả ước muốn nhưng dùng rất khác nhau: "hope"
-  dùng với điều CÓ THỂ xảy ra (followed by present/future tenses), còn
-  "wish" dùng với điều KHÔNG THỰC hoặc KHÓ XẢY RA (followed by past/perfect
-  tenses). Đây là điểm ngữ pháp tinh tế thường bị người học nhầm lẫn và
-  quan trọng trong IELTS Speaking Part 2/3 và Writing Task 2.
+summary: '"Wish" và "hope" đều diễn tả ước muốn nhưng dùng rất khác nhau: "hope" dùng với điều CÓ THỂ xảy ra (followed by present/future tenses), còn "wish" dùng với điều KHÔNG THỰC hoặc KHÓ XẢY RA (followed by past/perfect tenses). Đây là điểm ngữ pháp tinh tế thường bị người học nhầm lẫn và quan trọng trong IELTS Speaking Part 2/3 và Writing Task 2.
+
+  '
 level: intermediate
-tags: [verb-patterns, wish, hope, subjunctive, intermediate, ielts, grammar, hypothetical]
-prerequisites: [parts-of-speech, verbs, modal-verbs, conditionals, present-simple, past-simple]
-related_pages: [conditionals, modal-verbs, gerund, infinitive]
-compare_with: [conditionals]
+tags:
+- verb-patterns
+- wish
+- hope
+- subjunctive
+- intermediate
+- ielts
+- grammar
+- hypothetical
+prerequisites:
+- parts-of-speech
+- verbs
+- modal-verbs
+- conditionals
+- present-simple
+- past-simple
+related_pages:
+- conditionals
+- modal-verbs
+- gerund
+- infinitive
+compare_with:
+- conditionals
 order: 8
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- conditionals
+- modal-verbs
+- gerund
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,20 +2,52 @@
 title: Conditionals in Speaking — Dùng câu điều kiện tự nhiên trong IELTS Speaking
 slug: conditionals-in-speaking
 category: ielts-grammar-lab
-summary: >
-  Câu điều kiện (conditionals) là một trong những cấu trúc ngữ pháp quan trọng
-  nhất để đạt Band 7+ trong IELTS Speaking. Bài này tập trung vào cách dùng
-  tự nhiên — không phải học thuộc lòng quy tắc — bao gồm: mixed conditionals,
-  real-time hedging bằng "if", trả lời giả định Part 3, và speculating về
-  tương lai hay quá khứ trong Part 2.
+summary: 'Câu điều kiện (conditionals) là một trong những cấu trúc ngữ pháp quan trọng nhất để đạt Band 7+ trong IELTS Speaking. Bài này tập trung vào cách dùng tự nhiên — không phải học thuộc lòng quy tắc — bao gồm: mixed conditionals, real-time hedging bằng "if", trả lời giả định Part 3, và speculating về tương lai hay quá khứ trong Part 2.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, speaking, conditionals, if-clauses, hypothetical, advanced, ielts, band7, grammar-for-meaning]
-prerequisites: [conditionals, modal-verbs, past-simple, past-perfect, complex-sentence]
-related_pages: [conditionals, grammar-in-speaking, strong-vs-cautious-opinions, hedging-language]
-compare_with: [conditionals]
+tags:
+- ielts-grammar-lab
+- speaking
+- conditionals
+- if-clauses
+- hypothetical
+- advanced
+- ielts
+- band7
+- grammar-for-meaning
+prerequisites:
+- conditionals
+- modal-verbs
+- past-simple
+- past-perfect
+- complex-sentence
+related_pages:
+- conditionals
+- grammar-in-speaking
+- strong-vs-cautious-opinions
+- hedging-language
+compare_with:
+- conditionals
 order: 16
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- no_complex_sentences
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- conditionals
+- grammar-in-speaking
+- strong-vs-cautious-opinions
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,20 +2,48 @@
 title: Gerund vs. Infinitive (Khi nào dùng V-ing, khi nào dùng to + V?)
 slug: gerund-vs-infinitive
 category: verb-patterns
-summary: >
-  Gerund (V-ing) và to-infinitive đều đứng sau động từ, nhưng không thể
-  hoán đổi cho nhau. Mỗi động từ tiếng Anh có xu hướng riêng: "enjoy cooking"
-  nhưng "want to cook". Bài này hệ thống hoá toàn bộ các nhóm động từ, nêu
-  các trường hợp đổi nghĩa khi dùng cả hai, và giúp bạn quyết định đúng
-  trong mọi tình huống Speaking/Writing.
+summary: 'Gerund (V-ing) và to-infinitive đều đứng sau động từ, nhưng không thể hoán đổi cho nhau. Mỗi động từ tiếng Anh có xu hướng riêng: "enjoy cooking" nhưng "want to cook". Bài này hệ thống hoá toàn bộ các nhóm động từ, nêu các trường hợp đổi nghĩa khi dùng cả hai, và giúp bạn quyết định đúng trong mọi tình huống Speaking/Writing.
+
+  '
 level: intermediate
-tags: [verb-patterns, gerund, infinitive, intermediate, ielts, grammar, common-mistakes]
-prerequisites: [gerund, infinitive, bare-infinitive]
-related_pages: [gerund, infinitive, bare-infinitive, adjectives]
+tags:
+- verb-patterns
+- gerund
+- infinitive
+- intermediate
+- ielts
+- grammar
+- common-mistakes
+prerequisites:
+- gerund
+- infinitive
+- bare-infinitive
+related_pages:
+- gerund
+- infinitive
+- bare-infinitive
+- adjectives
 compare_with: []
 order: 4
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund
+- infinitive
+- bare-infinitive
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,20 +2,47 @@
 title: Giving Examples Naturally — Đưa ví dụ tự nhiên trong IELTS
 slug: giving-examples-naturally
 category: ielts-grammar-lab
-summary: >
-  Đưa ví dụ là kỹ năng thiết yếu trong IELTS Speaking Part 3 và Writing
-  Task 2 — nhưng nếu dùng sai cách sẽ nghe gượng và giảm điểm Coherence.
-  Bài này hướng dẫn các patterns và connectors để đưa ví dụ một cách tự
-  nhiên, đa dạng, và thuyết phục — bao gồm phân biệt register phù hợp
-  giữa Speaking (informal) và Writing (formal).
+summary: 'Đưa ví dụ là kỹ năng thiết yếu trong IELTS Speaking Part 3 và Writing Task 2 — nhưng nếu dùng sai cách sẽ nghe gượng và giảm điểm Coherence. Bài này hướng dẫn các patterns và connectors để đưa ví dụ một cách tự nhiên, đa dạng, và thuyết phục — bao gồm phân biệt register phù hợp giữa Speaking (informal) và Writing (formal).
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, giving-examples, exemplification, intermediate, ielts, writing, speaking, cohesion]
-prerequisites: [conjunctions, discourse-markers, complex-sentence]
-related_pages: [discourse-markers, making-answers-longer-naturally, adding-reasons-clearly, grammar-in-speaking]
+tags:
+- ielts-grammar-lab
+- giving-examples
+- exemplification
+- intermediate
+- ielts
+- writing
+- speaking
+- cohesion
+prerequisites:
+- conjunctions
+- discourse-markers
+- complex-sentence
+related_pages:
+- discourse-markers
+- making-answers-longer-naturally
+- adding-reasons-clearly
+- grammar-in-speaking
 compare_with: []
 order: 8
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- discourse-markers
+- making-answers-longer-naturally
+- adding-reasons-clearly
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

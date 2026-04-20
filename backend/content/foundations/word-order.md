@@ -2,19 +2,45 @@
 title: Word Order — Trật tự từ trong câu tiếng Anh
 slug: word-order
 category: foundations
-summary: >
-  Tiếng Anh có trật tự từ cố định hơn tiếng Việt rất nhiều. Đặt từ sai vị
-  trí có thể làm câu sai ngữ pháp hoặc nghe rất lạ. Bài này giải thích trật
-  tự cơ bản S-V-O, cách đặt trạng từ, tính từ, và những bẫy trật tự từ người
-  Việt thường gặp nhất.
+summary: 'Tiếng Anh có trật tự từ cố định hơn tiếng Việt rất nhiều. Đặt từ sai vị trí có thể làm câu sai ngữ pháp hoặc nghe rất lạ. Bài này giải thích trật tự cơ bản S-V-O, cách đặt trạng từ, tính từ, và những bẫy trật tự từ người Việt thường gặp nhất.
+
+  '
 level: beginner
-tags: [foundations, word-order, beginner, ielts, grammar-basics, syntax, adjectives, adverbs]
-prerequisites: [parts-of-speech, sentence-elements]
-related_pages: [sentence-elements, adjectives, adverbs, simple-sentence]
+tags:
+- foundations
+- word-order
+- beginner
+- ielts
+- grammar-basics
+- syntax
+- adjectives
+- adverbs
+prerequisites:
+- parts-of-speech
+- sentence-elements
+related_pages:
+- sentence-elements
+- adjectives
+- adverbs
+- simple-sentence
 compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- word_order_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- sentence-elements
+- adjectives
+- adverbs
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

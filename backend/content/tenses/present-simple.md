@@ -2,17 +2,43 @@
 title: Present Simple
 slug: present-simple
 category: tenses
-summary: >
-  Thì hiện tại đơn diễn tả hành động lặp đi lặp lại,
-  thói quen, sự thật hiển nhiên và lịch trình cố định.
+summary: 'Thì hiện tại đơn diễn tả hành động lặp đi lặp lại, thói quen, sự thật hiển nhiên và lịch trình cố định.
+
+  '
 level: beginner
-tags: [tenses, beginner, ielts, foundation]
-prerequisites: [parts-of-speech, sentence-elements]
-related_pages: [present-continuous, past-simple, future-forms]
-compare_with: [present-continuous]
+tags:
+- tenses
+- beginner
+- ielts
+- foundation
+prerequisites:
+- parts-of-speech
+- sentence-elements
+related_pages:
+- present-continuous
+- past-simple
+- future-forms
+compare_with:
+- present-continuous
 order: 1
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- present-continuous
+- past-simple
+- future-forms
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

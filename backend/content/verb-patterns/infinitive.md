@@ -2,19 +2,48 @@
 title: To-Infinitive (Động từ nguyên thể có "to")
 slug: infinitive
 category: verb-patterns
-summary: >
-  To-infinitive là cấu trúc "to + động từ nguyên thể" (to go, to learn, to speak).
-  Nó được dùng sau nhiều động từ phổ biến, để diễn tả mục đích, và sau tính từ.
-  Đây là một trong hai dạng phi định ngữ quan trọng nhất — cùng với gerund —
-  và là nguồn gây nhầm lẫn thường xuyên cho người học Việt Nam.
+summary: 'To-infinitive là cấu trúc "to + động từ nguyên thể" (to go, to learn, to speak). Nó được dùng sau nhiều động từ phổ biến, để diễn tả mục đích, và sau tính từ. Đây là một trong hai dạng phi định ngữ quan trọng nhất — cùng với gerund — và là nguồn gây nhầm lẫn thường xuyên cho người học Việt Nam.
+
+  '
 level: intermediate
-tags: [verb-patterns, infinitive, to-infinitive, intermediate, ielts, grammar]
-prerequisites: [parts-of-speech, sentence-elements, gerund]
-related_pages: [gerund, bare-infinitive, gerund-vs-infinitive, adjectives]
-compare_with: [gerund-vs-infinitive]
+tags:
+- verb-patterns
+- infinitive
+- to-infinitive
+- intermediate
+- ielts
+- grammar
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- gerund
+related_pages:
+- gerund
+- bare-infinitive
+- gerund-vs-infinitive
+- adjectives
+compare_with:
+- gerund-vs-infinitive
 order: 2
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund
+- bare-infinitive
+- gerund-vs-infinitive
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

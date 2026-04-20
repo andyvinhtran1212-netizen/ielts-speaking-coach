@@ -2,19 +2,49 @@
 title: Affect vs. Effect — Động từ hay Danh từ?
 slug: affect-vs-effect
 category: error-clinic
-summary: >
-  Affect và effect là cặp từ gây nhầm lẫn hàng đầu trong tiếng Anh — cả
-  người bản ngữ lẫn người học đều hay sai. Quy tắc cốt lõi: affect (thường)
-  là động từ, effect (thường) là danh từ. Bài này giải thích đầy đủ hai dạng
-  chính, hai dạng hiếm gặp, và các cụm thường dùng trong IELTS.
+summary: 'Affect và effect là cặp từ gây nhầm lẫn hàng đầu trong tiếng Anh — cả người bản ngữ lẫn người học đều hay sai. Quy tắc cốt lõi: affect (thường) là động từ, effect (thường) là danh từ. Bài này giải thích đầy đủ hai dạng chính, hai dạng hiếm gặp, và các cụm thường dùng trong IELTS.
+
+  '
 level: intermediate
-tags: [error-clinic, affect, effect, verb-noun-confusion, word-choice, intermediate, ielts, grammar, writing]
-prerequisites: [parts-of-speech, nouns, verbs]
-related_pages: [word-form-errors, economic-vs-economical, historic-vs-historical]
-compare_with: [word-form-errors]
+tags:
+- error-clinic
+- affect
+- effect
+- verb-noun-confusion
+- word-choice
+- intermediate
+- ielts
+- grammar
+- writing
+prerequisites:
+- parts-of-speech
+- nouns
+- verbs
+related_pages:
+- word-form-errors
+- economic-vs-economical
+- historic-vs-historical
+compare_with:
+- word-form-errors
 order: 10
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- collocation_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- word-form-errors
+- economic-vs-economical
+- historic-vs-historical
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

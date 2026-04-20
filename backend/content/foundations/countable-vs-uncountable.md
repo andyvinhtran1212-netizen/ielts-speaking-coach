@@ -2,19 +2,44 @@
 title: Countable vs. Uncountable Nouns (Danh từ đếm được và không đếm được)
 slug: countable-vs-uncountable
 category: foundations
-summary: >
-  Countable nouns có dạng số nhiều và dùng được với a/an. Uncountable nouns
-  không có số nhiều và không dùng với a/an. Phân biệt đúng hai loại này giúp
-  tránh lỗi mạo từ và số nhiều — hai trong những lỗi phổ biến nhất của người
-  học IELTS.
+summary: 'Countable nouns có dạng số nhiều và dùng được với a/an. Uncountable nouns không có số nhiều và không dùng với a/an. Phân biệt đúng hai loại này giúp tránh lỗi mạo từ và số nhiều — hai trong những lỗi phổ biến nhất của người học IELTS.
+
+  '
 level: beginner
-tags: [foundations, beginner, ielts, grammar-basics, nouns, articles, quantifiers]
-prerequisites: [parts-of-speech, sentence-elements]
-related_pages: [parts-of-speech, singular-vs-plural, phrase-vs-clause]
-compare_with: [singular-vs-plural]
+tags:
+- foundations
+- beginner
+- ielts
+- grammar-basics
+- nouns
+- articles
+- quantifiers
+prerequisites:
+- parts-of-speech
+- sentence-elements
+related_pages:
+- parts-of-speech
+- singular-vs-plural
+- phrase-vs-clause
+compare_with:
+- singular-vs-plural
 order: 4
 status: complete
 last_updated: 2026-04-13
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- missing_article
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- singular-vs-plural
+- phrase-vs-clause
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

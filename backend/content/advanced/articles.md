@@ -2,18 +2,42 @@
 title: Articles — A, An, The (Mạo từ)
 slug: articles
 category: advanced
-summary: >
-  Mạo từ (a, an, the) là từ loại khó nhất trong tiếng Anh vì tiếng Việt
-  không có khái niệm tương đương. Bài này giải thích khi nào dùng a/an,
-  khi nào dùng the, và khi nào không dùng gì cả (zero article).
+summary: 'Mạo từ (a, an, the) là từ loại khó nhất trong tiếng Anh vì tiếng Việt không có khái niệm tương đương. Bài này giải thích khi nào dùng a/an, khi nào dùng the, và khi nào không dùng gì cả (zero article).
+
+  '
 level: intermediate
-tags: [advanced, intermediate, ielts, determiners, articles, nouns]
-prerequisites: [parts-of-speech, sentence-elements, present-simple]
-related_pages: [parts-of-speech, sentence-elements]
+tags:
+- advanced
+- intermediate
+- ielts
+- determiners
+- articles
+- nouns
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- present-simple
+related_pages:
+- parts-of-speech
+- sentence-elements
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-10
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_article
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- parts-of-speech
+- sentence-elements
+pathways:
+- band-6-to-7
 ---
 
 ## Tóm tắt

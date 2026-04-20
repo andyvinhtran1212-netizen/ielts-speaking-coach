@@ -2,19 +2,55 @@
 title: Task 1 Map Grammar — Ngữ pháp mô tả bản đồ trong Writing Task 1
 slug: task1-map-grammar
 category: ielts-grammar-lab
-summary: >
-  Dạng bài Map trong IELTS Writing Task 1 yêu cầu mô tả vị trí địa lý, sự
-  thay đổi qua thời gian, hoặc so sánh hai khu vực. Bài này cung cấp đầy đủ
-  ngôn ngữ vị trí (prepositions of place), cấu trúc thay đổi (was replaced by,
-  has been built), cách viết Overview cho map, và ví dụ câu hoàn chỉnh.
+summary: 'Dạng bài Map trong IELTS Writing Task 1 yêu cầu mô tả vị trí địa lý, sự thay đổi qua thời gian, hoặc so sánh hai khu vực. Bài này cung cấp đầy đủ ngôn ngữ vị trí (prepositions of place), cấu trúc thay đổi (was replaced by, has been built), cách viết Overview cho map, và ví dụ câu hoàn chỉnh.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task1, writing-task1, map, location, prepositions, passive-voice, advanced, ielts, writing, band7]
-prerequisites: [prepositions, passive-voice, past-simple, present-perfect, discourse-markers]
-related_pages: [task1-process-grammar, task1-comparison-grammar, prepositions, grammar-in-task1, passive-voice]
-compare_with: [task1-process-grammar]
+tags:
+- ielts-grammar-lab
+- task1
+- writing-task1
+- map
+- location
+- prepositions
+- passive-voice
+- advanced
+- ielts
+- writing
+- band7
+prerequisites:
+- prepositions
+- passive-voice
+- past-simple
+- present-perfect
+- discourse-markers
+related_pages:
+- task1-process-grammar
+- task1-comparison-grammar
+- prepositions
+- grammar-in-task1
+- passive-voice
+compare_with:
+- task1-process-grammar
 order: 18
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- passive_voice_error
+- wrong_preposition
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task1-process-grammar
+- task1-comparison-grammar
+- prepositions
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

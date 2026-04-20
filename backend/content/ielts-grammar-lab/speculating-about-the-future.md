@@ -2,18 +2,52 @@
 title: Speculating About the Future — Suy đoán và dự đoán tương lai trong IELTS Speaking và Writing
 slug: speculating-about-the-future
 category: ielts-grammar-lab
-summary: >
-  Trong IELTS Speaking Part 3 và Writing Task 2, thí sinh thường được hỏi về
-  tương lai: xu hướng, hậu quả, dự báo. Bài này dạy các cấu trúc ngữ pháp
-  để suy đoán tương lai một cách tự nhiên — từ will, may/might, is likely to,
-  there is a chance that, đến could possibly — kèm ví dụ cho cả speaking và writing.
+summary: 'Trong IELTS Speaking Part 3 và Writing Task 2, thí sinh thường được hỏi về tương lai: xu hướng, hậu quả, dự báo. Bài này dạy các cấu trúc ngữ pháp để suy đoán tương lai một cách tự nhiên — từ will, may/might, is likely to, there is a chance that, đến could possibly — kèm ví dụ cho cả speaking và writing.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, future, speculation, prediction, will, might, likely, intermediate, ielts, speaking, writing]
-prerequisites: [future-forms, modal-verbs, hedging-language, academic-hedging, strong-vs-cautious-opinions]
-related_pages: [talking-about-changes-over-time, talking-about-future-plans, strong-vs-cautious-opinions, academic-hedging, conditionals-in-speaking]
+tags:
+- ielts-grammar-lab
+- future
+- speculation
+- prediction
+- will
+- might
+- likely
+- intermediate
+- ielts
+- speaking
+- writing
+prerequisites:
+- future-forms
+- modal-verbs
+- hedging-language
+- academic-hedging
+- strong-vs-cautious-opinions
+related_pages:
+- talking-about-changes-over-time
+- talking-about-future-plans
+- strong-vs-cautious-opinions
+- academic-hedging
+- conditionals-in-speaking
 order: 33
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- talking-about-changes-over-time
+- talking-about-future-plans
+- strong-vs-cautious-opinions
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

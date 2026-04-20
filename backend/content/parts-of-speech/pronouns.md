@@ -2,19 +2,45 @@
 title: Pronouns — Đại từ
 slug: pronouns
 category: parts-of-speech
-summary: >
-  Đại từ thay thế cho danh từ để tránh lặp lại. Tiếng Anh có nhiều loại
-  đại từ khác nhau: nhân xưng, sở hữu, phản thân, chỉ định, bất định...
-  Dùng sai đại từ — nhất là nhầm "he/she", sai dạng sở hữu, hoặc dùng
-  "they" chỉ người không rõ giới tính — là lỗi thường gặp trong IELTS.
+summary: 'Đại từ thay thế cho danh từ để tránh lặp lại. Tiếng Anh có nhiều loại đại từ khác nhau: nhân xưng, sở hữu, phản thân, chỉ định, bất định... Dùng sai đại từ — nhất là nhầm "he/she", sai dạng sở hữu, hoặc dùng "they" chỉ người không rõ giới tính — là lỗi thường gặp trong IELTS.
+
+  '
 level: beginner
-tags: [parts-of-speech, pronouns, beginner, ielts, grammar-basics, subject, object, possessive]
-prerequisites: [parts-of-speech, nouns]
-related_pages: [parts-of-speech, nouns, sentence-elements, word-order]
+tags:
+- parts-of-speech
+- pronouns
+- beginner
+- ielts
+- grammar-basics
+- subject
+- object
+- possessive
+prerequisites:
+- parts-of-speech
+- nouns
+related_pages:
+- parts-of-speech
+- nouns
+- sentence-elements
+- word-order
 compare_with: []
 order: 4
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- pronoun_error
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- nouns
+- sentence-elements
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

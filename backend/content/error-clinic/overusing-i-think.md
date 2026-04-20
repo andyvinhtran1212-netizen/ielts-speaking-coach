@@ -2,21 +2,47 @@
 title: Overusing "I think" — Đừng lặp "I think" mãi một cách
 slug: overusing-i-think
 category: error-clinic
-summary: >
-  "I think" là cụm từ hữu ích nhưng nếu lặp đi lặp lại trong IELTS Speaking,
-  câu trả lời sẽ nghe đơn điệu, thiếu tự tin, và giảm điểm Lexical Resource.
-  Bài này chỉ ra tại sao "I think" lặp lại làm yếu câu trả lời, cung cấp
-  hơn 10 patterns thay thế được phân loại theo mức độ tự tin và trang trọng,
-  và hướng dẫn cách xen kẽ chúng để câu trả lời nghe tự nhiên, đa dạng, và
-  thuyết phục hơn trong mọi phần thi IELTS Speaking.
+summary: '"I think" là cụm từ hữu ích nhưng nếu lặp đi lặp lại trong IELTS Speaking, câu trả lời sẽ nghe đơn điệu, thiếu tự tin, và giảm điểm Lexical Resource. Bài này chỉ ra tại sao "I think" lặp lại làm yếu câu trả lời, cung cấp hơn 10 patterns thay thế được phân loại theo mức độ tự tin và trang trọng, và hướng dẫn cách xen kẽ chúng để câu trả lời nghe tự nhiên, đa dạng, và thuyết phục hơn trong mọi phần thi IELTS Speaking.
+
+  '
 level: beginner
-tags: [error-clinic, overusing-i-think, opinion-phrases, beginner, ielts, speaking, lexical-resource, fluency]
-prerequisites: [parts-of-speech, discourse-markers, making-answers-longer-naturally]
-related_pages: [making-answers-longer-naturally, discourse-markers, adding-reasons-clearly, giving-examples-naturally]
+tags:
+- error-clinic
+- overusing-i-think
+- opinion-phrases
+- beginner
+- ielts
+- speaking
+- lexical-resource
+- fluency
+prerequisites:
+- parts-of-speech
+- discourse-markers
+- making-answers-longer-naturally
+related_pages:
+- making-answers-longer-naturally
+- discourse-markers
+- adding-reasons-clearly
+- giving-examples-naturally
 compare_with: []
 order: 8
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- vocabulary_repetition
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- making-answers-longer-naturally
+- discourse-markers
+- adding-reasons-clearly
+pathways:
+- grammar-for-beginners
+- fix-common-mistakes
 ---
 
 ## Tóm tắt

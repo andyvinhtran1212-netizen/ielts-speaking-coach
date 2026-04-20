@@ -2,20 +2,54 @@
 title: Task 2 Cause & Effect Grammar — Ngữ pháp nguyên nhân và kết quả trong IELTS Writing
 slug: task2-cause-effect-grammar
 category: ielts-grammar-lab
-summary: >
-  Diễn đạt nguyên nhân và kết quả là kỹ năng ngôn ngữ cốt lõi trong IELTS
-  Writing Task 2, đặc biệt với dạng bài "Discuss causes and effects" hoặc
-  "What are the reasons for and solutions to...". Bài này phân loại rõ ràng
-  cấu trúc nguyên nhân (because, due to, owing to, as a result of) và kết
-  quả (therefore, consequently, lead to, result in) kèm ví dụ thực tế Band 7+.
+summary: 'Diễn đạt nguyên nhân và kết quả là kỹ năng ngôn ngữ cốt lõi trong IELTS Writing Task 2, đặc biệt với dạng bài "Discuss causes and effects" hoặc "What are the reasons for and solutions to...". Bài này phân loại rõ ràng cấu trúc nguyên nhân (because, due to, owing to, as a result of) và kết quả (therefore, consequently, lead to, result in) kèm ví dụ thực tế Band 7+.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task2, writing-task2, cause-effect, connectors, discourse-markers, advanced, ielts, writing, band7, grammar-for-meaning]
-prerequisites: [complex-sentence, discourse-markers, because-vs-because-of, passive-voice, conditionals]
-related_pages: [task2-opinion-essay-grammar, grammar-in-task2, discourse-markers, because-vs-because-of, academic-hedging]
-compare_with: [task2-opinion-essay-grammar]
+tags:
+- ielts-grammar-lab
+- task2
+- writing-task2
+- cause-effect
+- connectors
+- discourse-markers
+- advanced
+- ielts
+- writing
+- band7
+- grammar-for-meaning
+prerequisites:
+- complex-sentence
+- discourse-markers
+- because-vs-because-of
+- passive-voice
+- conditionals
+related_pages:
+- task2-opinion-essay-grammar
+- grammar-in-task2
+- discourse-markers
+- because-vs-because-of
+- academic-hedging
+compare_with:
+- task2-opinion-essay-grammar
 order: 20
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- missing_connector
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task2-opinion-essay-grammar
+- grammar-in-task2
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

@@ -2,20 +2,53 @@
 title: Although / Though / Even Though — Diễn đạt sự tương phản và nhượng bộ
 slug: although-though-even-though
 category: grammar-for-meaning
-summary: >
-  Although, though và even though đều diễn đạt sự tương phản (contrast) và
-  nhượng bộ (concession) — "dù rằng", "mặc dù". Chúng gần nghĩa nhau nhưng
-  khác về mức độ nhấn mạnh, vị trí trong câu, và mức độ trang trọng. Bài này
-  cũng so sánh với however, despite, in spite of, và while/whereas để giúp
-  người học chọn đúng công cụ trong mỗi ngữ cảnh.
+summary: 'Although, though và even though đều diễn đạt sự tương phản (contrast) và nhượng bộ (concession) — "dù rằng", "mặc dù". Chúng gần nghĩa nhau nhưng khác về mức độ nhấn mạnh, vị trí trong câu, và mức độ trang trọng. Bài này cũng so sánh với however, despite, in spite of, và while/whereas để giúp người học chọn đúng công cụ trong mỗi ngữ cảnh.
+
+  '
 level: intermediate
-tags: [grammar-for-meaning, although, though, even-though, concession, contrast, intermediate, ielts, writing, speaking]
-prerequisites: [complex-sentence, conjunctions, discourse-markers, despite-vs-in-spite-of]
-related_pages: [despite-vs-in-spite-of, discourse-markers, because-vs-because-of, conditionals]
-compare_with: [despite-vs-in-spite-of]
+tags:
+- grammar-for-meaning
+- although
+- though
+- even-though
+- concession
+- contrast
+- intermediate
+- ielts
+- writing
+- speaking
+prerequisites:
+- complex-sentence
+- conjunctions
+- discourse-markers
+- despite-vs-in-spite-of
+related_pages:
+- despite-vs-in-spite-of
+- discourse-markers
+- because-vs-because-of
+- conditionals
+compare_with:
+- despite-vs-in-spite-of
 order: 11
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- despite-vs-in-spite-of
+- discourse-markers
+- because-vs-because-of
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

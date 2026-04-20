@@ -2,19 +2,50 @@
 title: Task 1 Trend Grammar — Ngữ pháp mô tả xu hướng trong Writing Task 1
 slug: task1-trend-grammar
 category: ielts-grammar-lab
-summary: >
-  IELTS Writing Task 1 yêu cầu mô tả chính xác các xu hướng trong biểu đồ:
-  tăng, giảm, dao động, ổn định, đạt đỉnh, chạm đáy. Bài này cung cấp đầy đủ
-  từ vựng và cấu trúc ngữ pháp — danh từ, động từ, trạng từ, tính từ — để
-  viết mô tả xu hướng chính xác, đa dạng và đạt Band 7+.
+summary: 'IELTS Writing Task 1 yêu cầu mô tả chính xác các xu hướng trong biểu đồ: tăng, giảm, dao động, ổn định, đạt đỉnh, chạm đáy. Bài này cung cấp đầy đủ từ vựng và cấu trúc ngữ pháp — danh từ, động từ, trạng từ, tính từ — để viết mô tả xu hướng chính xác, đa dạng và đạt Band 7+.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task1, writing-task1, trends, vocabulary, advanced, ielts, writing, band7]
-prerequisites: [past-simple, present-perfect, nouns, adjectives, adverbs]
-related_pages: [task1-comparison-grammar, grammar-in-task1, comparison, discourse-markers]
-compare_with: [task1-comparison-grammar]
+tags:
+- ielts-grammar-lab
+- task1
+- writing-task1
+- trends
+- vocabulary
+- advanced
+- ielts
+- writing
+- band7
+prerequisites:
+- past-simple
+- present-perfect
+- nouns
+- adjectives
+- adverbs
+related_pages:
+- task1-comparison-grammar
+- grammar-in-task1
+- comparison
+- discourse-markers
+compare_with:
+- task1-comparison-grammar
 order: 13
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task1-comparison-grammar
+- grammar-in-task1
+- comparison
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

@@ -2,19 +2,54 @@
 title: Adding Results Clearly — Diễn đạt kết quả và hệ quả rõ ràng
 slug: adding-results-clearly
 category: sentence-structures
-summary: >
-  Khi giải thích hoặc phân tích trong IELTS Speaking và Writing, người học
-  thường chỉ nêu nguyên nhân mà quên diễn đạt kết quả. Bài này dạy các công
-  cụ diễn đạt hệ quả từ đơn giản đến phức tạp: so, therefore, as a result,
-  this means that, which leads to — kèm ví dụ speaking và writing thực tế.
-level: beginner
-tags: [sentence-structures, results, so, therefore, as-a-result, consequence, discourse-markers, beginner, ielts, speaking, writing]
-prerequisites: [compound-sentence, complex-sentence, conjunctions, discourse-markers]
-related_pages: [adding-contrast-naturally, combining-two-short-sentences, discourse-markers, task2-cause-effect-grammar]
-compare_with: [task2-cause-effect-grammar]
+summary: 'Khi giải thích hoặc phân tích trong IELTS Speaking và Writing, người học thường chỉ nêu nguyên nhân mà quên diễn đạt kết quả. Bài này dạy các công cụ diễn đạt hệ quả từ đơn giản đến phức tạp: so, therefore, as a result, this means that, which leads to — kèm ví dụ speaking và writing thực tế.
+
+  '
+level: intermediate
+tags:
+- sentence-structures
+- results
+- so
+- therefore
+- as-a-result
+- consequence
+- discourse-markers
+- beginner
+- ielts
+- speaking
+- writing
+prerequisites:
+- compound-sentence
+- complex-sentence
+- conjunctions
+- discourse-markers
+related_pages:
+- adding-contrast-naturally
+- combining-two-short-sentences
+- discourse-markers
+- task2-cause-effect-grammar
+compare_with:
+- task2-cause-effect-grammar
 order: 10
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- adding-contrast-naturally
+- combining-two-short-sentences
+- discourse-markers
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

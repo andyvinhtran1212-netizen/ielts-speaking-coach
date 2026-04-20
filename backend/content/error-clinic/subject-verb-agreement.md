@@ -2,20 +2,51 @@
 title: Subject-Verb Agreement — Sự hoà hợp giữa Chủ ngữ và Động từ
 slug: subject-verb-agreement
 category: error-clinic
-summary: >
-  Chủ ngữ và động từ phải "hoà hợp" với nhau về số ít / số nhiều. Nghe có vẻ
-  đơn giản, nhưng tiếng Anh có rất nhiều bẫy: chủ ngữ phức tạp, danh từ tập
-  hợp, đại từ bất định (everyone, nobody), cấu trúc "there is/are", và các
-  trường hợp đặc biệt khác. Đây là một trong những lỗi ngữ pháp phổ biến nhất
-  trong IELTS Writing.
+summary: 'Chủ ngữ và động từ phải "hoà hợp" với nhau về số ít / số nhiều. Nghe có vẻ đơn giản, nhưng tiếng Anh có rất nhiều bẫy: chủ ngữ phức tạp, danh từ tập hợp, đại từ bất định (everyone, nobody), cấu trúc "there is/are", và các trường hợp đặc biệt khác. Đây là một trong những lỗi ngữ pháp phổ biến nhất trong IELTS Writing.
+
+  '
 level: intermediate
-tags: [error-clinic, subject-verb-agreement, intermediate, ielts, grammar, singular, plural, common-errors]
-prerequisites: [parts-of-speech, nouns, verbs, pronouns, sentence-elements]
-related_pages: [nouns, verbs, pronouns, there-is-there-are, countable-vs-uncountable]
+tags:
+- error-clinic
+- subject-verb-agreement
+- intermediate
+- ielts
+- grammar
+- singular
+- plural
+- common-errors
+prerequisites:
+- parts-of-speech
+- nouns
+- verbs
+- pronouns
+- sentence-elements
+related_pages:
+- nouns
+- verbs
+- pronouns
+- there-is-there-are
+- countable-vs-uncountable
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- subject_verb_disagreement
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- nouns
+- verbs
+- pronouns
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

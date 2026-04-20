@@ -2,27 +2,48 @@
 title: Phrasal Verbs — Cụm động từ
 slug: phrasal-verbs
 category: verb-patterns
-summary: >
-  Phrasal verbs là tổ hợp động từ + tiểu từ (preposition hoặc adverb) tạo
-  thành ý nghĩa mới, thường khác hoàn toàn với nghĩa của từng từ riêng lẻ.
-  Đây là một trong những thách thức lớn nhất với người học tiếng Anh —
-  nhưng cũng là yếu tố quan trọng để đạt Lexical Resource cao trong IELTS
-  Speaking và Writing.
+summary: 'Phrasal verbs là tổ hợp động từ + tiểu từ (preposition hoặc adverb) tạo thành ý nghĩa mới, thường khác hoàn toàn với nghĩa của từng từ riêng lẻ. Đây là một trong những thách thức lớn nhất với người học tiếng Anh — nhưng cũng là yếu tố quan trọng để đạt Lexical Resource cao trong IELTS Speaking và Writing.
+
+  '
 level: intermediate
-tags: [verb-patterns, phrasal-verbs, intermediate, ielts, grammar, vocabulary, idioms]
-prerequisites: [parts-of-speech, verbs, prepositions, sentence-elements]
-related_pages: [verbs, prepositions, adjectives, adverbs]
+tags:
+- verb-patterns
+- phrasal-verbs
+- intermediate
+- ielts
+- grammar
+- vocabulary
+- idioms
+prerequisites:
+- parts-of-speech
+- verbs
+- prepositions
+- sentence-elements
+related_pages:
+- verbs
+- prepositions
+- adjectives
+- adverbs
 compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-18
 difficulty: intermediate
-band_relevance: [6.0, 6.5, 7.0]
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
 common_error_tags: []
 speaking_relevance: high
 writing_relevance: high
-next_articles: [gerund-vs-infinitive, modal-verbs, used-to-be-used-to-get-used-to]
-pathways: [grammar-for-ielts-speaking, grammar-for-ielts-writing, band-6-to-7]
+next_articles:
+- gerund-vs-infinitive
+- modal-verbs
+- used-to-be-used-to-get-used-to
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

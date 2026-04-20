@@ -2,19 +2,49 @@
 title: Sentence Fragments — Câu không hoàn chỉnh
 slug: sentence-fragments
 category: error-clinic
-summary: >
-  Sentence fragment (câu không hoàn chỉnh) là câu thiếu chủ ngữ, thiếu động
-  từ chính, hoặc là mệnh đề phụ đứng một mình. Đây là lỗi khiến Writing mất
-  điểm nặng và khiến bài nói nghe không rõ ràng. Bài này dạy cách nhận biết
-  ba loại fragment phổ biến nhất và sửa chúng đúng cách.
+summary: 'Sentence fragment (câu không hoàn chỉnh) là câu thiếu chủ ngữ, thiếu động từ chính, hoặc là mệnh đề phụ đứng một mình. Đây là lỗi khiến Writing mất điểm nặng và khiến bài nói nghe không rõ ràng. Bài này dạy cách nhận biết ba loại fragment phổ biến nhất và sửa chúng đúng cách.
+
+  '
 level: intermediate
-tags: [error-clinic, sentence-fragments, grammar, sentence-structure, intermediate, ielts, writing, speaking]
-prerequisites: [simple-sentence, complex-sentence, conjunctions, relative-clauses]
-related_pages: [run-on-sentences, combining-two-short-sentences, complex-sentence]
-compare_with: [run-on-sentences]
+tags:
+- error-clinic
+- sentence-fragments
+- grammar
+- sentence-structure
+- intermediate
+- ielts
+- writing
+- speaking
+prerequisites:
+- simple-sentence
+- complex-sentence
+- conjunctions
+- relative-clauses
+related_pages:
+- run-on-sentences
+- combining-two-short-sentences
+- complex-sentence
+compare_with:
+- run-on-sentences
 order: 14
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- no_complex_sentences
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- run-on-sentences
+- combining-two-short-sentences
+- complex-sentence
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

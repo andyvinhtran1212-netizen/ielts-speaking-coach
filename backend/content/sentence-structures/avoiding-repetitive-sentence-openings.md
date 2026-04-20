@@ -2,19 +2,52 @@
 title: Avoiding Repetitive Sentence Openings — Đa dạng hóa cách mở đầu câu
 slug: avoiding-repetitive-sentence-openings
 category: sentence-structures
-summary: >
-  Một trong những lỗi gây mất điểm Grammatical Range and Accuracy nhất trong
-  IELTS Speaking là mở đầu mọi câu bằng cùng một cấu trúc: "I think...", "I
-  also...", "It is...", "There is...". Bài này cung cấp nhiều cách mở đầu
-  câu đa dạng và tự nhiên, đặc biệt hữu ích cho Speaking Part 2 và Part 3.
-level: beginner
-tags: [sentence-structures, sentence-openings, variety, grammatical-range, fluency, beginner, ielts, speaking]
-prerequisites: [simple-sentence, complex-sentence, word-order, adverbs, discourse-markers]
-related_pages: [combining-two-short-sentences, adding-contrast-naturally, avoiding-overusing-i-think, discourse-markers]
-compare_with: [overusing-i-think]
+summary: 'Một trong những lỗi gây mất điểm Grammatical Range and Accuracy nhất trong IELTS Speaking là mở đầu mọi câu bằng cùng một cấu trúc: "I think...", "I also...", "It is...", "There is...". Bài này cung cấp nhiều cách mở đầu câu đa dạng và tự nhiên, đặc biệt hữu ích cho Speaking Part 2 và Part 3.
+
+  '
+level: intermediate
+tags:
+- sentence-structures
+- sentence-openings
+- variety
+- grammatical-range
+- fluency
+- beginner
+- ielts
+- speaking
+prerequisites:
+- simple-sentence
+- complex-sentence
+- word-order
+- adverbs
+- discourse-markers
+related_pages:
+- combining-two-short-sentences
+- adding-contrast-naturally
+- avoiding-overusing-i-think
+- discourse-markers
+compare_with:
+- overusing-i-think
 order: 12
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- vocabulary_repetition
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- combining-two-short-sentences
+- adding-contrast-naturally
+- overusing-i-think
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,20 +2,47 @@
 title: Conjunctions — Liên từ
 slug: conjunctions
 category: parts-of-speech
-summary: >
-  Liên từ nối các từ, cụm từ, hoặc mệnh đề lại với nhau. Có ba loại chính:
-  liên từ kết hợp (and, but, or, so...), liên từ phụ (because, although,
-  when, if...), và cặp liên từ tương quan (both...and, either...or...).
-  Dùng đúng liên từ giúp câu phức tạp và mạch lạc hơn — điều này quan trọng
-  để đạt điểm cao Grammatical Range trong IELTS.
+summary: 'Liên từ nối các từ, cụm từ, hoặc mệnh đề lại với nhau. Có ba loại chính: liên từ kết hợp (and, but, or, so...), liên từ phụ (because, although, when, if...), và cặp liên từ tương quan (both...and, either...or...). Dùng đúng liên từ giúp câu phức tạp và mạch lạc hơn — điều này quan trọng để đạt điểm cao Grammatical Range trong IELTS.
+
+  '
 level: beginner
-tags: [parts-of-speech, conjunctions, beginner, ielts, grammar-basics, clauses, cohesion]
-prerequisites: [parts-of-speech, sentence-elements, simple-sentence]
-related_pages: [parts-of-speech, sentence-elements, simple-sentence, compound-sentence, complex-sentence, discourse-markers]
+tags:
+- parts-of-speech
+- conjunctions
+- beginner
+- ielts
+- grammar-basics
+- clauses
+- cohesion
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- simple-sentence
+related_pages:
+- parts-of-speech
+- sentence-elements
+- simple-sentence
+- compound-sentence
+- complex-sentence
+- discourse-markers
 compare_with: []
 order: 6
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- no_compound_sentences
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- sentence-elements
+- simple-sentence
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

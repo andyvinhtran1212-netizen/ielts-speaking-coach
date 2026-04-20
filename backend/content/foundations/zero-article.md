@@ -2,19 +2,52 @@
 title: Zero Article — Khi nào không dùng mạo từ
 slug: zero-article
 category: foundations
-summary: >
-  Không phải lúc nào cũng cần mạo từ. "Zero article" — tức là không dùng a/an/the —
-  áp dụng cho danh từ số nhiều mang nghĩa chung, danh từ không đếm được mang nghĩa
-  chung, các bữa ăn, môn thể thao, ngôn ngữ, môn học, và một số cụm thành ngữ
-  cố định. Bài này giải thích rõ từng trường hợp và so sánh với khi cần dùng "the".
+summary: 'Không phải lúc nào cũng cần mạo từ. "Zero article" — tức là không dùng a/an/the — áp dụng cho danh từ số nhiều mang nghĩa chung, danh từ không đếm được mang nghĩa chung, các bữa ăn, môn thể thao, ngôn ngữ, môn học, và một số cụm thành ngữ cố định. Bài này giải thích rõ từng trường hợp và so sánh với khi cần dùng "the".
+
+  '
 level: intermediate
-tags: [foundations, zero-article, articles, a-an-the, intermediate, ielts, writing, speaking, grammar]
-prerequisites: [articles, nouns, countable-vs-uncountable, singular-vs-plural]
-related_pages: [articles, articles-with-places-and-names, countable-vs-uncountable, article-errors]
-compare_with: [articles, articles-with-places-and-names]
+tags:
+- foundations
+- zero-article
+- articles
+- a-an-the
+- intermediate
+- ielts
+- writing
+- speaking
+- grammar
+prerequisites:
+- articles
+- nouns
+- countable-vs-uncountable
+- singular-vs-plural
+related_pages:
+- articles
+- articles-with-places-and-names
+- countable-vs-uncountable
+- article-errors
+compare_with:
+- articles
+- articles-with-places-and-names
 order: 12
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_article
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- articles
+- articles-with-places-and-names
+- countable-vs-uncountable
+pathways:
+- grammar-for-beginners
+- band-6-to-7
 ---
 
 ## Tóm tắt

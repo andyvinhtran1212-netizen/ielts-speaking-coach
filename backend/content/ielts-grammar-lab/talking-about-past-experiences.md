@@ -2,19 +2,54 @@
 title: Talking About Past Experiences — Kể về trải nghiệm trong IELTS Speaking
 slug: talking-about-past-experiences
 category: ielts-grammar-lab
-summary: >
-  IELTS Speaking Part 2 gần như luôn yêu cầu kể về một trải nghiệm trong quá
-  khứ. Bài này hướng dẫn cách dùng đúng Past Simple, Past Continuous, và
-  Present Perfect khi kể chuyện, cách sắp xếp sự kiện theo trình tự tự nhiên,
-  và các mẫu câu giúp câu chuyện nghe sinh động và đạt Band 7+.
+summary: 'IELTS Speaking Part 2 gần như luôn yêu cầu kể về một trải nghiệm trong quá khứ. Bài này hướng dẫn cách dùng đúng Past Simple, Past Continuous, và Present Perfect khi kể chuyện, cách sắp xếp sự kiện theo trình tự tự nhiên, và các mẫu câu giúp câu chuyện nghe sinh động và đạt Band 7+.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, past-experiences, past-simple, past-continuous, present-perfect, storytelling, speaking, intermediate, ielts, part2]
-prerequisites: [past-simple, past-continuous, past-perfect, present-perfect, tense-consistency]
-related_pages: [past-simple, past-continuous, present-perfect, making-answers-longer-naturally, grammar-in-speaking]
-compare_with: [talking-about-future-plans]
+tags:
+- ielts-grammar-lab
+- past-experiences
+- past-simple
+- past-continuous
+- present-perfect
+- storytelling
+- speaking
+- intermediate
+- ielts
+- part2
+prerequisites:
+- past-simple
+- past-continuous
+- past-perfect
+- present-perfect
+- tense-consistency
+related_pages:
+- past-simple
+- past-continuous
+- present-perfect
+- making-answers-longer-naturally
+- grammar-in-speaking
+compare_with:
+- talking-about-future-plans
 order: 11
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- past-simple
+- past-continuous
+- present-perfect
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

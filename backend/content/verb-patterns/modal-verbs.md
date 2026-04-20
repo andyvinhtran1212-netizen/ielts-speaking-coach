@@ -2,20 +2,52 @@
 title: Modal Verbs — Động từ khuyết thiếu
 slug: modal-verbs
 category: verb-patterns
-summary: >
-  Modal verbs (can, could, may, might, will, would, shall, should, must, ought
-  to, need to, have to) diễn tả khả năng, khả năng xảy ra, sự cho phép, nghĩa
-  vụ, và lời khuyên. Chúng là công cụ quan trọng để diễn đạt sắc thái trong
-  tiếng Anh — đặc biệt trong IELTS Speaking và Writing khi muốn hedging ý kiến
-  hoặc đưa ra đề xuất.
+summary: 'Modal verbs (can, could, may, might, will, would, shall, should, must, ought to, need to, have to) diễn tả khả năng, khả năng xảy ra, sự cho phép, nghĩa vụ, và lời khuyên. Chúng là công cụ quan trọng để diễn đạt sắc thái trong tiếng Anh — đặc biệt trong IELTS Speaking và Writing khi muốn hedging ý kiến hoặc đưa ra đề xuất.
+
+  '
 level: intermediate
-tags: [verb-patterns, modal-verbs, intermediate, ielts, ability, possibility, obligation, advice, hedging]
-prerequisites: [parts-of-speech, verbs, sentence-elements, present-simple]
-related_pages: [verbs, sentence-elements, conditionals, passive-voice, hedging-language]
+tags:
+- verb-patterns
+- modal-verbs
+- intermediate
+- ielts
+- ability
+- possibility
+- obligation
+- advice
+- hedging
+prerequisites:
+- parts-of-speech
+- verbs
+- sentence-elements
+- present-simple
+related_pages:
+- verbs
+- sentence-elements
+- conditionals
+- passive-voice
+- hedging-language
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- modal_verb_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- verbs
+- sentence-elements
+- conditionals
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

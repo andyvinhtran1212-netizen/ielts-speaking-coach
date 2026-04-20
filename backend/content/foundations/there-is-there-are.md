@@ -2,19 +2,43 @@
 title: There is / There are — Cấu trúc giới thiệu sự tồn tại
 slug: there-is-there-are
 category: foundations
-summary: >
-  "There is" và "there are" là cấu trúc dùng để giới thiệu sự tồn tại của
-  người hoặc vật ở một nơi nào đó. Đây là cấu trúc cực kỳ phổ biến trong
-  giao tiếp hằng ngày và IELTS Speaking, nhưng người học hay chia sai số ít/
-  số nhiều và nhầm "there" với "their/they're".
+summary: '"There is" và "there are" là cấu trúc dùng để giới thiệu sự tồn tại của người hoặc vật ở một nơi nào đó. Đây là cấu trúc cực kỳ phổ biến trong giao tiếp hằng ngày và IELTS Speaking, nhưng người học hay chia sai số ít/ số nhiều và nhầm "there" với "their/they''re".
+
+  '
 level: beginner
-tags: [foundations, beginner, ielts, there-is, there-are, grammar-basics, existence]
-prerequisites: [parts-of-speech, sentence-elements, singular-vs-plural]
-related_pages: [singular-vs-plural, countable-vs-uncountable, sentence-elements]
+tags:
+- foundations
+- beginner
+- ielts
+- there-is
+- there-are
+- grammar-basics
+- existence
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- singular-vs-plural
+related_pages:
+- singular-vs-plural
+- countable-vs-uncountable
+- sentence-elements
 compare_with: []
 order: 7
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- singular-vs-plural
+- countable-vs-uncountable
+- sentence-elements
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

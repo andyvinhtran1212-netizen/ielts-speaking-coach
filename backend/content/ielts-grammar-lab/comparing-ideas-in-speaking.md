@@ -2,19 +2,53 @@
 title: Comparing Ideas in Speaking — So sánh ý tưởng tự nhiên trong IELTS
 slug: comparing-ideas-in-speaking
 category: ielts-grammar-lab
-summary: >
-  Biết cách so sánh hai ý tưởng, hai lựa chọn, hoặc hai thời kỳ là kỹ năng
-  cốt lõi trong IELTS Speaking Part 2 và Part 3. Bài này cung cấp đầy đủ
-  các cấu trúc so sánh — từ comparative forms cơ bản đến patterns đối lập
-  phức tạp — kèm mẫu câu thực tế, tự nhiên cho Speaking.
+summary: 'Biết cách so sánh hai ý tưởng, hai lựa chọn, hoặc hai thời kỳ là kỹ năng cốt lõi trong IELTS Speaking Part 2 và Part 3. Bài này cung cấp đầy đủ các cấu trúc so sánh — từ comparative forms cơ bản đến patterns đối lập phức tạp — kèm mẫu câu thực tế, tự nhiên cho Speaking.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, comparing, contrast, comparison, speaking, intermediate, ielts, band7, discourse-markers]
-prerequisites: [comparison, discourse-markers, adjectives, adverbs, complex-sentence]
-related_pages: [comparison, discourse-markers, making-answers-longer-naturally, grammar-in-speaking]
-compare_with: [comparison]
+tags:
+- ielts-grammar-lab
+- comparing
+- contrast
+- comparison
+- speaking
+- intermediate
+- ielts
+- band7
+- discourse-markers
+prerequisites:
+- comparison
+- discourse-markers
+- adjectives
+- adverbs
+- complex-sentence
+related_pages:
+- comparison
+- discourse-markers
+- making-answers-longer-naturally
+- grammar-in-speaking
+compare_with:
+- comparison
 order: 10
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- comparatives_error
+- missing_connector
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- comparison
+- discourse-markers
+- making-answers-longer-naturally
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

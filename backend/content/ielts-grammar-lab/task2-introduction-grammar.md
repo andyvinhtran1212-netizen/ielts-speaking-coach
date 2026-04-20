@@ -2,19 +2,52 @@
 title: Task 2 Introduction Grammar — Ngữ pháp viết mở bài IELTS Writing Task 2
 slug: task2-introduction-grammar
 category: ielts-grammar-lab
-summary: >
-  Mở bài Task 2 chỉ cần hai việc: diễn giải lại chủ đề (paraphrase) và nêu
-  rõ quan điểm (thesis statement). Bài này tập trung vào các cấu trúc ngữ pháp
-  cụ thể để làm tốt cả hai — tránh sao chép đề bài, nêu lập trường chắc chắn
-  hoặc trung lập tùy dạng, và tạo ấn tượng ban đầu với examiner.
+summary: 'Mở bài Task 2 chỉ cần hai việc: diễn giải lại chủ đề (paraphrase) và nêu rõ quan điểm (thesis statement). Bài này tập trung vào các cấu trúc ngữ pháp cụ thể để làm tốt cả hai — tránh sao chép đề bài, nêu lập trường chắc chắn hoặc trung lập tùy dạng, và tạo ấn tượng ban đầu với examiner.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, task2, writing-task2, introduction, paraphrase, thesis, intermediate, ielts, writing, band7]
-prerequisites: [complex-sentence, passive-voice, discourse-markers, task2-opinion-essay-grammar]
-related_pages: [task2-conclusion-grammar, task2-opinion-essay-grammar, task2-cause-effect-grammar, task2-problem-solution-grammar, grammar-in-task2]
-compare_with: [task2-conclusion-grammar]
+tags:
+- ielts-grammar-lab
+- task2
+- writing-task2
+- introduction
+- paraphrase
+- thesis
+- intermediate
+- ielts
+- writing
+- band7
+prerequisites:
+- complex-sentence
+- passive-voice
+- discourse-markers
+- task2-opinion-essay-grammar
+related_pages:
+- task2-conclusion-grammar
+- task2-opinion-essay-grammar
+- task2-cause-effect-grammar
+- task2-problem-solution-grammar
+- grammar-in-task2
+compare_with:
+- task2-conclusion-grammar
 order: 27
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task2-conclusion-grammar
+- task2-opinion-essay-grammar
+- task2-cause-effect-grammar
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

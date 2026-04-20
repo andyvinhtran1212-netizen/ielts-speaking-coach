@@ -2,19 +2,53 @@
 title: Task 2 Opinion Essay Grammar — Ngữ pháp bài luận quan điểm trong IELTS Writing
 slug: task2-opinion-essay-grammar
 category: ielts-grammar-lab
-summary: >
-  Bài luận "To what extent do you agree?" và "Do you agree or disagree?" là
-  dạng phổ biến nhất trong IELTS Writing Task 2. Bài này cung cấp các cấu
-  trúc ngữ pháp để trình bày quan điểm rõ ràng, xây dựng luận điểm logic,
-  và viết mở bài - thân bài - kết bài với từ vựng và cấu trúc Band 7+.
+summary: 'Bài luận "To what extent do you agree?" và "Do you agree or disagree?" là dạng phổ biến nhất trong IELTS Writing Task 2. Bài này cung cấp các cấu trúc ngữ pháp để trình bày quan điểm rõ ràng, xây dựng luận điểm logic, và viết mở bài - thân bài - kết bài với từ vựng và cấu trúc Band 7+.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, task2, writing-task2, opinion-essay, agree-disagree, advanced, ielts, writing, band7, grammar-for-meaning]
-prerequisites: [complex-sentence, relative-clauses, conditionals, discourse-markers, hedging-language, passive-voice]
-related_pages: [task2-cause-effect-grammar, grammar-in-task2, discourse-markers, academic-hedging, strong-vs-cautious-opinions]
-compare_with: [task2-cause-effect-grammar]
+tags:
+- ielts-grammar-lab
+- task2
+- writing-task2
+- opinion-essay
+- agree-disagree
+- advanced
+- ielts
+- writing
+- band7
+- grammar-for-meaning
+prerequisites:
+- complex-sentence
+- relative-clauses
+- conditionals
+- discourse-markers
+- hedging-language
+- passive-voice
+related_pages:
+- task2-cause-effect-grammar
+- grammar-in-task2
+- discourse-markers
+- academic-hedging
+- strong-vs-cautious-opinions
+compare_with:
+- task2-cause-effect-grammar
 order: 19
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- task2-cause-effect-grammar
+- grammar-in-task2
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

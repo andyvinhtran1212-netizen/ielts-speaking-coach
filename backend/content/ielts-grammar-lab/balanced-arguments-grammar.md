@@ -2,20 +2,54 @@
 title: Balanced Arguments Grammar — Ngữ pháp trình bày lập luận cân bằng trong IELTS
 slug: balanced-arguments-grammar
 category: ielts-grammar-lab
-summary: >
-  Bài luận "discuss both views" và "to what extent do you agree" thường đòi
-  hỏi lập luận cân bằng: trình bày cả hai phía trước khi đưa ra kết luận.
-  Bài này cung cấp ngữ pháp đặc thù cho các cấu trúc "on one hand...on the
-  other hand", "while X, Y", "proponents argue...critics contend", concession
-  language, và cách kết hợp tất cả thành bài viết Band 7+ mạch lạc.
+summary: 'Bài luận "discuss both views" và "to what extent do you agree" thường đòi hỏi lập luận cân bằng: trình bày cả hai phía trước khi đưa ra kết luận. Bài này cung cấp ngữ pháp đặc thù cho các cấu trúc "on one hand...on the other hand", "while X, Y", "proponents argue...critics contend", concession language, và cách kết hợp tất cả thành bài viết Band 7+ mạch lạc.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, balanced-arguments, discuss-both-views, concession, contrast, advanced, ielts, writing, band7]
-prerequisites: [complex-sentence, although-though-even-though, discourse-markers, hedging-language, conditionals]
-related_pages: [although-though-even-though, task2-opinion-essay-grammar, task2-problem-solution-grammar, discourse-markers, hedging-language]
-compare_with: [task2-opinion-essay-grammar]
+tags:
+- ielts-grammar-lab
+- balanced-arguments
+- discuss-both-views
+- concession
+- contrast
+- advanced
+- ielts
+- writing
+- band7
+prerequisites:
+- complex-sentence
+- although-though-even-though
+- discourse-markers
+- hedging-language
+- conditionals
+related_pages:
+- although-though-even-though
+- task2-opinion-essay-grammar
+- task2-problem-solution-grammar
+- discourse-markers
+- hedging-language
+compare_with:
+- task2-opinion-essay-grammar
 order: 22
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- missing_connector
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- although-though-even-though
+- task2-opinion-essay-grammar
+- task2-problem-solution-grammar
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,27 +2,52 @@
 title: Softening Disagreement Politely — Phản đối lịch sự trong IELTS Speaking
 slug: softening-disagreement-politely
 category: ielts-grammar-lab
-summary: >
-  Trong IELTS Speaking Part 3, examiner đôi khi đưa ra một quan điểm để kiểm
-  tra phản ứng của bạn. Nhiều người hoặc đồng ý hoàn toàn (mất cơ hội thể
-  hiện tư duy), hoặc phản đối thẳng thừng (nghe không lịch sự và thiếu
-  mềm mại). Bài này dạy cách không đồng ý một cách lịch sự, tự nhiên, và
-  thuyết phục — kỹ năng thiết yếu cho Band 7+ Speaking.
+summary: 'Trong IELTS Speaking Part 3, examiner đôi khi đưa ra một quan điểm để kiểm tra phản ứng của bạn. Nhiều người hoặc đồng ý hoàn toàn (mất cơ hội thể hiện tư duy), hoặc phản đối thẳng thừng (nghe không lịch sự và thiếu mềm mại). Bài này dạy cách không đồng ý một cách lịch sự, tự nhiên, và thuyết phục — kỹ năng thiết yếu cho Band 7+ Speaking.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, disagreement, softening, politeness, speaking, part3, intermediate, ielts, speaking]
-prerequisites: [modal-verbs, hedging-language, discourse-markers, expressing-uncertainty, adding-contrast-naturally]
-related_pages: [expressing-uncertainty, strong-vs-cautious-opinions, adding-contrast-naturally, balanced-arguments-grammar, agreeing-and-disagreeing-naturally]
-compare_with: [agreeing-and-disagreeing-naturally]
+tags:
+- ielts-grammar-lab
+- disagreement
+- softening
+- politeness
+- speaking
+- part3
+- intermediate
+- ielts
+- speaking
+prerequisites:
+- modal-verbs
+- hedging-language
+- discourse-markers
+- expressing-uncertainty
+- adding-contrast-naturally
+related_pages:
+- expressing-uncertainty
+- strong-vs-cautious-opinions
+- adding-contrast-naturally
+- balanced-arguments-grammar
+- agreeing-and-disagreeing-naturally
+compare_with:
+- agreeing-and-disagreeing-naturally
 order: 26
 status: complete
 last_updated: 2026-04-19
 difficulty: intermediate
-band_relevance: [6.0, 6.5, 7.0]
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
 common_error_tags: []
 speaking_relevance: high
 writing_relevance: medium
-next_articles: [expressing-uncertainty, strong-vs-cautious-opinions, adding-contrast-naturally]
-pathways: [grammar-for-ielts-speaking, band-6-to-7]
+next_articles:
+- expressing-uncertainty
+- strong-vs-cautious-opinions
+- adding-contrast-naturally
+pathways:
+- grammar-for-ielts-speaking
+- band-6-to-7
 ---
 
 ## Tóm tắt

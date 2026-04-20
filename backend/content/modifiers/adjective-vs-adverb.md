@@ -2,26 +2,48 @@
 title: Adjective vs. Adverb (Tính từ hay Trạng từ?)
 slug: adjective-vs-adverb
 category: modifiers
-summary: >
-  Adjective bổ nghĩa cho danh từ ("a fast car"), còn adverb bổ nghĩa cho
-  động từ, tính từ, hoặc cả câu ("She drives fast"). Nhầm lẫn giữa hai loại
-  này — đặc biệt dùng "quick" thay vì "quickly" — là lỗi Grammar rất phổ
-  biến trong IELTS Speaking và Writing của người học Việt Nam.
+summary: 'Adjective bổ nghĩa cho danh từ ("a fast car"), còn adverb bổ nghĩa cho động từ, tính từ, hoặc cả câu ("She drives fast"). Nhầm lẫn giữa hai loại này — đặc biệt dùng "quick" thay vì "quickly" — là lỗi Grammar rất phổ biến trong IELTS Speaking và Writing của người học Việt Nam.
+
+  '
 level: beginner-intermediate
-tags: [modifiers, adjective, adverb, beginner-intermediate, ielts, grammar, common-mistakes]
-prerequisites: [parts-of-speech, adjectives, adverbs]
-related_pages: [adjectives, adverbs, sentence-elements, parts-of-speech]
-compare_with: [adverbs]
+tags:
+- modifiers
+- adjective
+- adverb
+- beginner-intermediate
+- ielts
+- grammar
+- common-mistakes
+prerequisites:
+- parts-of-speech
+- adjectives
+- adverbs
+related_pages:
+- adjectives
+- adverbs
+- sentence-elements
+- parts-of-speech
+compare_with:
+- adverbs
 order: 3
 status: complete
 last_updated: 2026-04-13
 difficulty: intermediate
-band_relevance: [6.0, 6.5, 7.0]
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
 common_error_tags: []
 speaking_relevance: medium
 writing_relevance: medium
-next_articles: [adjectives, adverbs, sentence-elements]
-pathways: [grammar-for-ielts-speaking, grammar-for-ielts-writing, band-6-to-7]
+next_articles:
+- adjectives
+- adverbs
+- sentence-elements
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

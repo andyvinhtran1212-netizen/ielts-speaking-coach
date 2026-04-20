@@ -2,19 +2,46 @@
 title: Other / Another / The Other / Others — Phân biệt 4 cấu trúc dễ nhầm
 slug: other-another-the-other-others
 category: foundations
-summary: >
-  "Another", "other", "the other", "others" và "the others" là nhóm từ cực dễ
-  nhầm nhưng lại xuất hiện hầu như trong mọi bài thi IELTS. Mỗi từ mang nghĩa
-  khác nhau và đòi hỏi cấu trúc khác nhau. Bài này phân tích từng từ rõ ràng
-  với bảng so sánh và ví dụ thực tế.
+summary: '"Another", "other", "the other", "others" và "the others" là nhóm từ cực dễ nhầm nhưng lại xuất hiện hầu như trong mọi bài thi IELTS. Mỗi từ mang nghĩa khác nhau và đòi hỏi cấu trúc khác nhau. Bài này phân tích từng từ rõ ràng với bảng so sánh và ví dụ thực tế.
+
+  '
 level: beginner
-tags: [foundations, other-another, determiners, pronouns, beginner, ielts, speaking, writing]
-prerequisites: [nouns, singular-vs-plural, articles]
-related_pages: [quantifiers, pronouns, few-a-few-little-a-little]
-compare_with: [few-a-few-little-a-little]
+tags:
+- foundations
+- other-another
+- determiners
+- pronouns
+- beginner
+- ielts
+- speaking
+- writing
+prerequisites:
+- nouns
+- singular-vs-plural
+- articles
+related_pages:
+- quantifiers
+- pronouns
+- few-a-few-little-a-little
+compare_with:
+- few-a-few-little-a-little
 order: 10
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- pronoun_error
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- quantifiers
+- pronouns
+- few-a-few-little-a-little
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

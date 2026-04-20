@@ -2,20 +2,53 @@
 title: Word Form Errors — Sai dạng từ
 slug: word-form-errors
 category: error-clinic
-summary: >
-  Word form errors (lỗi sai dạng từ) xảy ra khi dùng sai từ loại: viết "beauty"
-  (danh từ) thay vì "beautiful" (tính từ), hoặc "success" thay vì "successful".
-  Người Việt hay mắc lỗi này vì tiếng Việt không biến đổi dạng từ theo chức năng
-  ngữ pháp. Đây là lỗi cực kỳ phổ biến, ảnh hưởng đến cả Lexical Resource lẫn
-  Grammatical Accuracy trong IELTS Writing và Speaking.
+summary: 'Word form errors (lỗi sai dạng từ) xảy ra khi dùng sai từ loại: viết "beauty" (danh từ) thay vì "beautiful" (tính từ), hoặc "success" thay vì "successful". Người Việt hay mắc lỗi này vì tiếng Việt không biến đổi dạng từ theo chức năng ngữ pháp. Đây là lỗi cực kỳ phổ biến, ảnh hưởng đến cả Lexical Resource lẫn Grammatical Accuracy trong IELTS Writing và Speaking.
+
+  '
 level: intermediate
-tags: [error-clinic, word-form, word-form-errors, intermediate, ielts, grammar, lexical-resource, common-errors]
-prerequisites: [parts-of-speech, adjectives, adverbs, nouns, verbs, sentence-elements]
-related_pages: [parts-of-speech, adjectives, adverbs, nouns, verbs, adjective-vs-adverb]
+tags:
+- error-clinic
+- word-form
+- word-form-errors
+- intermediate
+- ielts
+- grammar
+- lexical-resource
+- common-errors
+prerequisites:
+- parts-of-speech
+- adjectives
+- adverbs
+- nouns
+- verbs
+- sentence-elements
+related_pages:
+- parts-of-speech
+- adjectives
+- adverbs
+- nouns
+- verbs
+- adjective-vs-adverb
 compare_with: []
 order: 5
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- collocation_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- parts-of-speech
+- adjectives
+- adverbs
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

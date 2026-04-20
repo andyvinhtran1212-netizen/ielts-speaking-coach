@@ -2,21 +2,52 @@
 title: Used to / Be used to / Get used to — Ba cấu trúc khác nhau hoàn toàn
 slug: used-to-be-used-to-get-used-to
 category: verb-patterns
-summary: >
-  Ba cấu trúc chứa "used to" có hình thức giống nhau nhưng ý nghĩa và ngữ
-  pháp hoàn toàn khác biệt. "Used to + V" nói về thói quen hoặc trạng thái
-  trong quá khứ (nay không còn). "Be used to + V-ing/noun" nghĩa là quen với
-  điều gì (trạng thái hiện tại). "Get used to + V-ing/noun" nghĩa là dần quen
-  với điều gì (quá trình thay đổi). Nhầm ba cấu trúc này là lỗi ngữ pháp
-  nghiêm trọng thường gặp trong IELTS.
+summary: 'Ba cấu trúc chứa "used to" có hình thức giống nhau nhưng ý nghĩa và ngữ pháp hoàn toàn khác biệt. "Used to + V" nói về thói quen hoặc trạng thái trong quá khứ (nay không còn). "Be used to + V-ing/noun" nghĩa là quen với điều gì (trạng thái hiện tại). "Get used to + V-ing/noun" nghĩa là dần quen với điều gì (quá trình thay đổi). Nhầm ba cấu trúc này là lỗi ngữ pháp nghiêm trọng thường gặp trong IELTS.
+
+  '
 level: intermediate
-tags: [verb-patterns, used-to-be-used-to-get-used-to, past-habits, intermediate, ielts, common-errors, grammar]
-prerequisites: [verbs, gerund, infinitive, modal-verbs, past-simple, present-simple]
-related_pages: [gerund, infinitive, gerund-vs-infinitive, wish-hope, past-simple]
+tags:
+- verb-patterns
+- used-to-be-used-to-get-used-to
+- past-habits
+- intermediate
+- ielts
+- common-errors
+- grammar
+prerequisites:
+- verbs
+- gerund
+- infinitive
+- modal-verbs
+- past-simple
+- present-simple
+related_pages:
+- gerund
+- infinitive
+- gerund-vs-infinitive
+- wish-hope
+- past-simple
 compare_with: []
 order: 9
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund
+- infinitive
+- gerund-vs-infinitive
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

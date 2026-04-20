@@ -2,19 +2,52 @@
 title: Relative Clauses — Mệnh đề quan hệ
 slug: relative-clauses
 category: sentence-structures
-summary: >
-  Mệnh đề quan hệ (Relative Clause) dùng để mô tả hoặc xác định danh từ đứng
-  trước, bắt đầu bằng who, which, that, whose, where, when. Có hai loại: xác
-  định (defining) và không xác định (non-defining). Dùng đúng mệnh đề quan hệ
-  là dấu hiệu của Grammatical Range cao trong IELTS.
+summary: 'Mệnh đề quan hệ (Relative Clause) dùng để mô tả hoặc xác định danh từ đứng trước, bắt đầu bằng who, which, that, whose, where, when. Có hai loại: xác định (defining) và không xác định (non-defining). Dùng đúng mệnh đề quan hệ là dấu hiệu của Grammatical Range cao trong IELTS.
+
+  '
 level: intermediate
-tags: [sentence-structures, relative-clauses, intermediate, ielts, grammar, clauses, who, which, that, whose]
-prerequisites: [parts-of-speech, sentence-elements, pronouns, complex-sentence]
-related_pages: [pronouns, complex-sentence, sentence-elements, conjunctions]
+tags:
+- sentence-structures
+- relative-clauses
+- intermediate
+- ielts
+- grammar
+- clauses
+- who
+- which
+- that
+- whose
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- pronouns
+- complex-sentence
+related_pages:
+- pronouns
+- complex-sentence
+- sentence-elements
+- conjunctions
 compare_with: []
 order: 4
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- no_complex_sentences
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- pronouns
+- complex-sentence
+- sentence-elements
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

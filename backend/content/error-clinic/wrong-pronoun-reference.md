@@ -2,26 +2,49 @@
 title: Wrong Pronoun Reference — Lỗi đại từ tham chiếu sai hoặc mơ hồ
 slug: wrong-pronoun-reference
 category: error-clinic
-summary: >
-  Lỗi đại từ tham chiếu xảy ra khi "it", "they", "this", "that", "he", "she"
-  không rõ đang chỉ đến ai hoặc cái gì. Lỗi này khiến câu văn mơ hồ, người
-  đọc/nghe hiểu sai ý, và bị trừ điểm cohesion trong IELTS. Bài này dạy cách
-  nhận biết và viết lại cho rõ ràng.
+summary: 'Lỗi đại từ tham chiếu xảy ra khi "it", "they", "this", "that", "he", "she" không rõ đang chỉ đến ai hoặc cái gì. Lỗi này khiến câu văn mơ hồ, người đọc/nghe hiểu sai ý, và bị trừ điểm cohesion trong IELTS. Bài này dạy cách nhận biết và viết lại cho rõ ràng.
+
+  '
 level: intermediate
-tags: [error-clinic, pronoun-reference, pronouns, grammar, intermediate, ielts, writing, cohesion]
-prerequisites: [pronouns, sentence-elements, simple-sentence]
-related_pages: [double-subject-errors, missing-subjects, discourse-markers, cohesion]
-compare_with: [double-subject-errors]
+tags:
+- error-clinic
+- pronoun-reference
+- pronouns
+- grammar
+- intermediate
+- ielts
+- writing
+- cohesion
+prerequisites:
+- pronouns
+- sentence-elements
+- simple-sentence
+related_pages:
+- double-subject-errors
+- missing-subjects
+- discourse-markers
+- cohesion
+compare_with:
+- double-subject-errors
 order: 17
 status: complete
 last_updated: 2026-04-19
 difficulty: intermediate
-band_relevance: [6.0, 6.5, 7.0]
-common_error_tags: [pronoun_error]
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- pronoun_error
 speaking_relevance: high
 writing_relevance: high
-next_articles: [double-subject-errors, missing-subjects, avoiding-repetitive-sentence-openings]
-pathways: [fix-common-mistakes, band-6-to-7]
+next_articles:
+- double-subject-errors
+- missing-subjects
+- avoiding-repetitive-sentence-openings
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

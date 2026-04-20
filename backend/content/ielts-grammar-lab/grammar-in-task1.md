@@ -2,18 +2,51 @@
 title: Grammar cho IELTS Writing Task 1
 slug: grammar-in-task1
 category: ielts-grammar-lab
-summary: >
-  Hướng dẫn thực chiến về cách dùng ngữ pháp trong IELTS Writing Task 1:
-  thì động từ phù hợp với loại biểu đồ, cấu trúc so sánh để mô tả dữ liệu,
-  câu bị động cho process diagrams, và các cấu trúc thay thế để tránh lặp từ.
+summary: 'Hướng dẫn thực chiến về cách dùng ngữ pháp trong IELTS Writing Task 1: thì động từ phù hợp với loại biểu đồ, cấu trúc so sánh để mô tả dữ liệu, câu bị động cho process diagrams, và các cấu trúc thay thế để tránh lặp từ.
+
+  '
 level: intermediate
-tags: [ielts-grammar-lab, task1, writing, intermediate, ielts, tenses, passive, comparison]
-prerequisites: [tenses, passive-voice, comparison, subject-verb-agreement]
-related_pages: [passive-voice, comparison, discourse-markers, subject-verb-agreement]
+tags:
+- ielts-grammar-lab
+- task1
+- writing
+- intermediate
+- ielts
+- tenses
+- passive
+- comparison
+prerequisites:
+- tenses
+- passive-voice
+- comparison
+- subject-verb-agreement
+related_pages:
+- passive-voice
+- comparison
+- discourse-markers
+- subject-verb-agreement
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- comparatives_error
+- passive_voice_error
+- wrong_tense
+speaking_relevance: medium
+writing_relevance: high
+next_articles:
+- passive-voice
+- comparison
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

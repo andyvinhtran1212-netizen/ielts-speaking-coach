@@ -2,20 +2,53 @@
 title: Cleft Sentences — Câu chẻ
 slug: cleft-sentences
 category: sentence-structures
-summary: >
-  Cleft sentences là cách tách câu để nhấn mạnh một thành phần cụ thể. Có
-  hai loại chính: it-cleft ("It is X that/who...") và wh-cleft ("What I
-  need is..."). Cấu trúc này giúp kiểm soát thông tin nổi bật trong câu —
-  đây là một trong những kỹ thuật ngữ pháp nâng cao đặc trưng của văn phong
-  học thuật trong IELTS Writing Band 7+.
+summary: 'Cleft sentences là cách tách câu để nhấn mạnh một thành phần cụ thể. Có hai loại chính: it-cleft ("It is X that/who...") và wh-cleft ("What I need is..."). Cấu trúc này giúp kiểm soát thông tin nổi bật trong câu — đây là một trong những kỹ thuật ngữ pháp nâng cao đặc trưng của văn phong học thuật trong IELTS Writing Band 7+.
+
+  '
 level: advanced
-tags: [sentence-structures, cleft-sentences, advanced, ielts, grammar, emphasis, focus, it-cleft, wh-cleft]
-prerequisites: [parts-of-speech, sentence-elements, complex-sentence, relative-clauses, word-order]
-related_pages: [relative-clauses, complex-sentence, inversion, emphasis-inversion]
-compare_with: [inversion, emphasis-inversion]
+tags:
+- sentence-structures
+- cleft-sentences
+- advanced
+- ielts
+- grammar
+- emphasis
+- focus
+- it-cleft
+- wh-cleft
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- complex-sentence
+- relative-clauses
+- word-order
+related_pages:
+- relative-clauses
+- complex-sentence
+- inversion
+- emphasis-inversion
+compare_with:
+- inversion
+- emphasis-inversion
 order: 7
 status: complete
 last_updated: 2026-04-18
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- word_order_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- relative-clauses
+- complex-sentence
+- inversion
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

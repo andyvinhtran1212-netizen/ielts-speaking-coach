@@ -2,20 +2,50 @@
 title: Comparatives & Superlatives — So sánh
 slug: comparison
 category: grammar-for-meaning
-summary: >
-  So sánh hơn (comparative) và so sánh nhất (superlative) là cách nói X hơn
-  Y hoặc X là nhất trong nhóm. Cấu trúc thay đổi theo độ dài tính từ:
-  -er/-est cho tính từ ngắn, more/most cho tính từ dài. Dùng đúng cấu trúc
-  so sánh giúp mô tả dữ liệu trong IELTS Writing Task 1 và phân tích xu hướng
-  trong Task 2 chính xác hơn.
-level: beginner
-tags: [grammar-for-meaning, comparison, comparatives, superlatives, beginner, ielts, adjectives, adverbs]
-prerequisites: [parts-of-speech, adjectives, adverbs, sentence-elements]
-related_pages: [adjectives, adverbs, modifiers, sentence-elements]
+summary: 'So sánh hơn (comparative) và so sánh nhất (superlative) là cách nói X hơn Y hoặc X là nhất trong nhóm. Cấu trúc thay đổi theo độ dài tính từ: -er/-est cho tính từ ngắn, more/most cho tính từ dài. Dùng đúng cấu trúc so sánh giúp mô tả dữ liệu trong IELTS Writing Task 1 và phân tích xu hướng trong Task 2 chính xác hơn.
+
+  '
+level: intermediate
+tags:
+- grammar-for-meaning
+- comparison
+- comparatives
+- superlatives
+- beginner
+- ielts
+- adjectives
+- adverbs
+prerequisites:
+- parts-of-speech
+- adjectives
+- adverbs
+- sentence-elements
+related_pages:
+- adjectives
+- adverbs
+- modifiers
+- sentence-elements
 compare_with: []
 order: 2
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- comparatives_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- adjectives
+- adverbs
+- comparing-ideas-in-speaking
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

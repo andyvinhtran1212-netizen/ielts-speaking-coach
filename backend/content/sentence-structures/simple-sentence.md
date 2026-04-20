@@ -2,18 +2,45 @@
 title: Simple Sentence (Câu đơn)
 slug: simple-sentence
 category: sentence-structures
-summary: >
-  Câu đơn là đơn vị cơ bản nhất của tiếng Anh — một mệnh đề độc lập với
-  đầy đủ chủ ngữ và vị ngữ. Hiểu cấu trúc câu đơn là nền tảng để xây dựng
-  câu phức tạp và tránh câu cụt (fragment) hay câu dính (run-on).
+summary: 'Câu đơn là đơn vị cơ bản nhất của tiếng Anh — một mệnh đề độc lập với đầy đủ chủ ngữ và vị ngữ. Hiểu cấu trúc câu đơn là nền tảng để xây dựng câu phức tạp và tránh câu cụt (fragment) hay câu dính (run-on).
+
+  '
 level: beginner
-tags: [sentence-structures, beginner, ielts, grammar-basics, syntax]
-prerequisites: [parts-of-speech, sentence-elements]
-related_pages: [parts-of-speech, sentence-elements, present-simple, present-continuous]
+tags:
+- sentence-structures
+- beginner
+- ielts
+- grammar-basics
+- syntax
+prerequisites:
+- parts-of-speech
+- sentence-elements
+related_pages:
+- parts-of-speech
+- sentence-elements
+- present-simple
+- present-continuous
 compare_with: []
 order: 1
 status: complete
 last_updated: 2026-04-10
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- simple_sentence_overuse
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- parts-of-speech
+- sentence-elements
+- present-simple
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

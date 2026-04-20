@@ -2,19 +2,48 @@
 title: Compound Sentence (Câu ghép)
 slug: compound-sentence
 category: sentence-structures
-summary: >
-  Compound sentence là câu gồm hai hoặc nhiều independent clauses nối với nhau
-  bằng coordinating conjunction (FANBOYS), semicolon, hoặc conjunctive adverb.
-  Đây là bước đầu tiên để thoát khỏi câu đơn đơn điệu và đạt Band 6+ trong
-  IELTS Writing.
+summary: 'Compound sentence là câu gồm hai hoặc nhiều independent clauses nối với nhau bằng coordinating conjunction (FANBOYS), semicolon, hoặc conjunctive adverb. Đây là bước đầu tiên để thoát khỏi câu đơn đơn điệu và đạt Band 6+ trong IELTS Writing.
+
+  '
 level: beginner-intermediate
-tags: [sentence-structures, intermediate, ielts, grammar, compound-sentence, conjunctions, fanboys]
-prerequisites: [parts-of-speech, sentence-elements, phrase-vs-clause]
-related_pages: [phrase-vs-clause, complex-sentence, simple-sentence]
-compare_with: [complex-sentence]
+tags:
+- sentence-structures
+- intermediate
+- ielts
+- grammar
+- compound-sentence
+- conjunctions
+- fanboys
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- phrase-vs-clause
+related_pages:
+- phrase-vs-clause
+- complex-sentence
+- simple-sentence
+compare_with:
+- complex-sentence
 order: 2
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- no_compound_sentences
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- phrase-vs-clause
+- complex-sentence
+- simple-sentence
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

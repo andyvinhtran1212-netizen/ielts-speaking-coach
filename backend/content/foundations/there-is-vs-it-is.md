@@ -2,20 +2,47 @@
 title: There is / There are vs. It is — Giới thiệu sự tồn tại hay mô tả?
 slug: there-is-vs-it-is
 category: foundations
-summary: >
-  "There is/are" và "It is" đều bắt đầu bằng một chủ ngữ hình thức, nhưng
-  mục đích hoàn toàn khác nhau: "there is/are" dùng để giới thiệu sự tồn tại
-  của ai đó/cái gì đó, còn "it is" dùng để mô tả, nhận diện, hoặc nói về
-  hoàn cảnh/thời gian/thời tiết. Nhầm hai cấu trúc này là lỗi cơ bản nhưng
-  rất phổ biến.
+summary: '"There is/are" và "It is" đều bắt đầu bằng một chủ ngữ hình thức, nhưng mục đích hoàn toàn khác nhau: "there is/are" dùng để giới thiệu sự tồn tại của ai đó/cái gì đó, còn "it is" dùng để mô tả, nhận diện, hoặc nói về hoàn cảnh/thời gian/thời tiết. Nhầm hai cấu trúc này là lỗi cơ bản nhưng rất phổ biến.
+
+  '
 level: beginner
-tags: [foundations, there-is-there-are, it-is, existential, dummy-subject, beginner, ielts, speaking, writing]
-prerequisites: [sentence-elements, present-simple, word-order]
-related_pages: [there-is-there-are, sentence-elements, word-order, phrase-vs-clause]
-compare_with: [there-is-there-are]
+tags:
+- foundations
+- there-is-there-are
+- it-is
+- existential
+- dummy-subject
+- beginner
+- ielts
+- speaking
+- writing
+prerequisites:
+- sentence-elements
+- present-simple
+- word-order
+related_pages:
+- there-is-there-are
+- sentence-elements
+- word-order
+- phrase-vs-clause
+compare_with:
+- there-is-there-are
 order: 11
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- there-is-there-are
+- sentence-elements
+- word-order
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

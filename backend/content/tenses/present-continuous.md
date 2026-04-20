@@ -2,18 +2,45 @@
 title: Present Continuous
 slug: present-continuous
 category: tenses
-summary: >
-  Thì hiện tại tiếp diễn diễn tả hành động đang xảy ra lúc nói,
-  tình huống tạm thời, và xu hướng đang thay đổi — đặc biệt hữu ích
-  trong IELTS Speaking khi mô tả tranh hoặc nói về xu hướng xã hội.
+summary: 'Thì hiện tại tiếp diễn diễn tả hành động đang xảy ra lúc nói, tình huống tạm thời, và xu hướng đang thay đổi — đặc biệt hữu ích trong IELTS Speaking khi mô tả tranh hoặc nói về xu hướng xã hội.
+
+  '
 level: beginner
-tags: [tenses, beginner, ielts, progressive, continuous]
-prerequisites: [parts-of-speech, sentence-elements, present-simple]
-related_pages: [present-simple, past-simple, future-forms]
-compare_with: [present-simple]
+tags:
+- tenses
+- beginner
+- ielts
+- progressive
+- continuous
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- present-simple
+related_pages:
+- present-simple
+- past-simple
+- future-forms
+compare_with:
+- present-simple
 order: 2
 status: complete
 last_updated: 2026-04-10
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- present-simple
+- past-simple
+- future-forms
+pathways:
+- grammar-for-beginners
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
 ---
 
 ## Tóm tắt

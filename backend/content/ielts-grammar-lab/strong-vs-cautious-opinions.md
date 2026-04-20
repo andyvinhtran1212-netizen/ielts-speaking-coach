@@ -2,19 +2,51 @@
 title: Strong vs. Cautious Opinions — Thể hiện quan điểm đúng mức độ
 slug: strong-vs-cautious-opinions
 category: ielts-grammar-lab
-summary: >
-  Trong IELTS Speaking và Writing Task 2, việc biết khi nào nên khẳng định
-  mạnh và khi nào nên dùng ngôn ngữ thận trọng là kỹ năng quan trọng để
-  đạt Band 7+. Bài này cung cấp đầy đủ mẫu câu cho cả hai loại — từ các
-  cấu trúc khẳng định dứt khoát đến các cấu trúc hedging tinh tế.
+summary: 'Trong IELTS Speaking và Writing Task 2, việc biết khi nào nên khẳng định mạnh và khi nào nên dùng ngôn ngữ thận trọng là kỹ năng quan trọng để đạt Band 7+. Bài này cung cấp đầy đủ mẫu câu cho cả hai loại — từ các cấu trúc khẳng định dứt khoát đến các cấu trúc hedging tinh tế.
+
+  '
 level: advanced
-tags: [ielts-grammar-lab, opinions, hedging, strong-opinion, cautious-opinion, speaking, writing, advanced, band7]
-prerequisites: [modal-verbs, discourse-markers, hedging-language, complex-sentence]
-related_pages: [academic-hedging, making-answers-longer-naturally, grammar-in-speaking, grammar-in-task2]
-compare_with: [academic-hedging]
+tags:
+- ielts-grammar-lab
+- opinions
+- hedging
+- strong-opinion
+- cautious-opinion
+- speaking
+- writing
+- advanced
+- band7
+prerequisites:
+- modal-verbs
+- discourse-markers
+- hedging-language
+- complex-sentence
+related_pages:
+- academic-hedging
+- making-answers-longer-naturally
+- grammar-in-speaking
+- grammar-in-task2
+compare_with:
+- academic-hedging
 order: 9
 status: complete
 last_updated: 2026-04-19
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: medium
+next_articles:
+- academic-hedging
+- making-answers-longer-naturally
+- grammar-in-speaking
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

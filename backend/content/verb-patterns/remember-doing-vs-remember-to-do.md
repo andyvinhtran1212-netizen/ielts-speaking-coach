@@ -2,19 +2,51 @@
 title: Remember doing vs. Remember to do — Nhớ điều đã xảy ra hay nhớ phải làm gì?
 slug: remember-doing-vs-remember-to-do
 category: verb-patterns
-summary: >
-  "Remember doing" và "remember to do" là hai cấu trúc hoàn toàn khác nhau về
-  nghĩa. "Remember doing" = nhớ lại việc đã xảy ra trong quá khứ. "Remember
-  to do" = nhớ (trong hiện tại/tương lai) rằng cần phải làm gì. Nhầm hai cấu
-  trúc này là viết câu sai nghĩa hoàn toàn.
+summary: '"Remember doing" và "remember to do" là hai cấu trúc hoàn toàn khác nhau về nghĩa. "Remember doing" = nhớ lại việc đã xảy ra trong quá khứ. "Remember to do" = nhớ (trong hiện tại/tương lai) rằng cần phải làm gì. Nhầm hai cấu trúc này là viết câu sai nghĩa hoàn toàn.
+
+  '
 level: intermediate
-tags: [verb-patterns, remember, gerund-vs-infinitive, common-mistakes, intermediate, ielts, grammar, speaking, writing]
-prerequisites: [gerund, infinitive, gerund-vs-infinitive]
-related_pages: [gerund-vs-infinitive, forget-doing-vs-forget-to-do, stop-doing-vs-stop-to-do, try-doing-vs-try-to-do]
-compare_with: [forget-doing-vs-forget-to-do]
+tags:
+- verb-patterns
+- remember
+- gerund-vs-infinitive
+- common-mistakes
+- intermediate
+- ielts
+- grammar
+- speaking
+- writing
+prerequisites:
+- gerund
+- infinitive
+- gerund-vs-infinitive
+related_pages:
+- gerund-vs-infinitive
+- forget-doing-vs-forget-to-do
+- stop-doing-vs-stop-to-do
+- try-doing-vs-try-to-do
+compare_with:
+- forget-doing-vs-forget-to-do
 order: 10
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- gerund_infinitive_confusion
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- gerund-vs-infinitive
+- forget-doing-vs-forget-to-do
+- stop-doing-vs-stop-to-do
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

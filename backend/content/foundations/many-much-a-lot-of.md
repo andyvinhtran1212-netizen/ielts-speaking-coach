@@ -2,20 +2,47 @@
 title: Many / Much / A lot of — Phân biệt từ chỉ số lượng lớn
 slug: many-much-a-lot-of
 category: foundations
-summary: >
-  Many, much và a lot of đều diễn đạt "nhiều", nhưng dùng sai ngữ cảnh là
-  lỗi rất phổ biến. Quy tắc cốt lõi: many dùng với danh từ đếm được số
-  nhiều, much dùng với danh từ không đếm được, còn a lot of dùng được cả
-  hai nhưng mang tính informal hơn. Bài này bao phủ đầy đủ: too many/much,
-  so many/much, how many/much, và các cụm liên quan.
+summary: 'Many, much và a lot of đều diễn đạt "nhiều", nhưng dùng sai ngữ cảnh là lỗi rất phổ biến. Quy tắc cốt lõi: many dùng với danh từ đếm được số nhiều, much dùng với danh từ không đếm được, còn a lot of dùng được cả hai nhưng mang tính informal hơn. Bài này bao phủ đầy đủ: too many/much, so many/much, how many/much, và các cụm liên quan.
+
+  '
 level: beginner
-tags: [foundations, quantifiers, many, much, a-lot-of, countable-vs-uncountable, beginner, ielts, grammar]
-prerequisites: [countable-vs-uncountable, nouns, singular-vs-plural]
-related_pages: [quantifiers, countable-vs-uncountable, some-any-no, few-a-few-little-a-little]
-compare_with: [few-a-few-little-a-little]
+tags:
+- foundations
+- quantifiers
+- many
+- much
+- a-lot-of
+- countable-vs-uncountable
+- beginner
+- ielts
+- grammar
+prerequisites:
+- countable-vs-uncountable
+- nouns
+- singular-vs-plural
+related_pages:
+- quantifiers
+- countable-vs-uncountable
+- some-any-no
+- few-a-few-little-a-little
+compare_with:
+- few-a-few-little-a-little
 order: 16
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- quantifiers
+- countable-vs-uncountable
+- some-any-no
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

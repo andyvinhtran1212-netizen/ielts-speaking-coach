@@ -2,19 +2,48 @@
 title: Future Forms (will / be going to / Present Continuous)
 slug: future-forms
 category: tenses
-summary: >
-  Tiếng Anh có nhiều cách diễn đạt tương lai — will, be going to, và
-  Present Continuous — và mỗi cách mang một sắc thái nghĩa khác nhau.
-  Biết chọn đúng giúp câu nói của bạn nghe tự nhiên và thuyết phục hơn
-  hẳn trong IELTS Speaking.
+summary: 'Tiếng Anh có nhiều cách diễn đạt tương lai — will, be going to, và Present Continuous — và mỗi cách mang một sắc thái nghĩa khác nhau. Biết chọn đúng giúp câu nói của bạn nghe tự nhiên và thuyết phục hơn hẳn trong IELTS Speaking.
+
+  '
 level: intermediate
-tags: [tenses, future, intermediate, ielts, will, going-to, plans]
-prerequisites: [parts-of-speech, sentence-elements, present-simple, present-continuous]
-related_pages: [present-simple, present-continuous, present-perfect]
+tags:
+- tenses
+- future
+- intermediate
+- ielts
+- will
+- going-to
+- plans
+prerequisites:
+- parts-of-speech
+- sentence-elements
+- present-simple
+- present-continuous
+related_pages:
+- present-simple
+- present-continuous
+- present-perfect
 compare_with: []
 order: 5
 status: complete
 last_updated: 2026-04-13
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- present-simple
+- present-continuous
+- present-perfect
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

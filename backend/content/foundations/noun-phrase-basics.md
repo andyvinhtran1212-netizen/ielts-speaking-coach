@@ -2,20 +2,50 @@
 title: Noun Phrase Basics — Cấu trúc cụm danh từ cơ bản
 slug: noun-phrase-basics
 category: foundations
-summary: >
-  Cụm danh từ (noun phrase) là đơn vị ngữ pháp quan trọng nhất trong tiếng
-  Anh. Cấu trúc đầy đủ gồm determiner + adjective(s) + noun + modifier.
-  Người Việt thường sắp xếp sai thứ tự, thiếu mạo từ, hoặc dùng danh từ đơn
-  lẻ thay vì noun phrase đầy đủ. Bài này xây dựng từ đơn giản đến phức tạp
-  với nhiều ví dụ thực tế.
+summary: 'Cụm danh từ (noun phrase) là đơn vị ngữ pháp quan trọng nhất trong tiếng Anh. Cấu trúc đầy đủ gồm determiner + adjective(s) + noun + modifier. Người Việt thường sắp xếp sai thứ tự, thiếu mạo từ, hoặc dùng danh từ đơn lẻ thay vì noun phrase đầy đủ. Bài này xây dựng từ đơn giản đến phức tạp với nhiều ví dụ thực tế.
+
+  '
 level: beginner
-tags: [foundations, noun-phrase, determiner, adjective-order, modifier, beginner, ielts, grammar, structure]
-prerequisites: [parts-of-speech, nouns, adjectives, articles, singular-vs-plural]
-related_pages: [adjectives, articles, pronouns, quantifiers, this-that-these-those-in-use]
-compare_with: [articles]
+tags:
+- foundations
+- noun-phrase
+- determiner
+- adjective-order
+- modifier
+- beginner
+- ielts
+- grammar
+- structure
+prerequisites:
+- parts-of-speech
+- nouns
+- adjectives
+- articles
+- singular-vs-plural
+related_pages:
+- adjectives
+- articles
+- pronouns
+- quantifiers
+- this-that-these-those-in-use
+compare_with:
+- articles
 order: 18
 status: complete
 last_updated: 2026-04-19
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- adjectives
+- articles
+- pronouns
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

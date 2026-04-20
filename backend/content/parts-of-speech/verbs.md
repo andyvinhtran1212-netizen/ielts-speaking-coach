@@ -2,19 +2,45 @@
 title: Verbs — Động từ
 slug: verbs
 category: parts-of-speech
-summary: >
-  Động từ là linh hồn của mọi câu tiếng Anh — không có động từ, không có câu.
-  Bài này giải thích các loại động từ chính (action, stative, linking, modal,
-  auxiliary), cách chia theo thì và ngôi, và những lỗi người học Việt Nam hay
-  gặp nhất với động từ.
+summary: 'Động từ là linh hồn của mọi câu tiếng Anh — không có động từ, không có câu. Bài này giải thích các loại động từ chính (action, stative, linking, modal, auxiliary), cách chia theo thì và ngôi, và những lỗi người học Việt Nam hay gặp nhất với động từ.
+
+  '
 level: beginner
-tags: [parts-of-speech, verbs, beginner, ielts, grammar-basics, tenses, action-verbs, stative-verbs]
-prerequisites: [parts-of-speech, sentence-elements]
-related_pages: [parts-of-speech, sentence-elements, present-simple, present-continuous, past-simple]
+tags:
+- parts-of-speech
+- verbs
+- beginner
+- ielts
+- grammar-basics
+- tenses
+- action-verbs
+- stative-verbs
+prerequisites:
+- parts-of-speech
+- sentence-elements
+related_pages:
+- parts-of-speech
+- sentence-elements
+- present-simple
+- present-continuous
+- past-simple
 compare_with: []
 order: 2
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags: []
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- sentence-elements
+- present-simple
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

@@ -2,20 +2,53 @@
 title: Past Perfect — Thì Quá khứ hoàn thành
 slug: past-perfect
 category: tenses
-summary: >
-  Past Perfect (had + V3) diễn tả hành động đã xảy ra và hoàn thành TRƯỚC
-  một hành động khác trong quá khứ. Đây là thì "quá khứ của quá khứ", giúp
-  sắp xếp trình tự thời gian rõ ràng khi kể chuyện. Thường gặp trong IELTS
-  Writing Task 2 và Speaking khi phân tích nguyên nhân-kết quả hoặc điều
-  kiện loại 3.
-level: beginner
-tags: [tenses, past-perfect, beginner, ielts, grammar, past, perfect, sequence]
-prerequisites: [parts-of-speech, verbs, past-simple, present-perfect]
-related_pages: [past-simple, past-continuous, present-perfect, reported-speech, conditionals]
-compare_with: [past-simple, present-perfect]
+summary: 'Past Perfect (had + V3) diễn tả hành động đã xảy ra và hoàn thành TRƯỚC một hành động khác trong quá khứ. Đây là thì "quá khứ của quá khứ", giúp sắp xếp trình tự thời gian rõ ràng khi kể chuyện. Thường gặp trong IELTS Writing Task 2 và Speaking khi phân tích nguyên nhân-kết quả hoặc điều kiện loại 3.
+
+  '
+level: intermediate
+tags:
+- tenses
+- past-perfect
+- beginner
+- ielts
+- grammar
+- past
+- perfect
+- sequence
+prerequisites:
+- parts-of-speech
+- verbs
+- past-simple
+- present-perfect
+related_pages:
+- past-simple
+- past-continuous
+- present-perfect
+- reported-speech
+- conditionals
+compare_with:
+- past-simple
+- present-perfect
 order: 7
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- wrong_tense
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- past-simple
+- past-continuous
+- present-perfect
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

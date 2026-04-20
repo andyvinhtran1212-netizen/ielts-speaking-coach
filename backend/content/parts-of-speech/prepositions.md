@@ -2,20 +2,47 @@
 title: Prepositions — Giới từ
 slug: prepositions
 category: parts-of-speech
-summary: >
-  Giới từ là những từ nhỏ nhưng cực kỳ quan trọng: in, on, at, to, for, with,
-  by, of, about, from... Chúng nối danh từ, đại từ, hoặc cụm từ với phần còn
-  lại của câu, diễn tả vị trí, thời gian, hướng, nguyên nhân, và nhiều quan
-  hệ khác. Người Việt học tiếng Anh hay dùng sai giới từ vì tiếng Việt thường
-  bỏ qua chúng hoặc dùng khác hoàn toàn.
+summary: 'Giới từ là những từ nhỏ nhưng cực kỳ quan trọng: in, on, at, to, for, with, by, of, about, from... Chúng nối danh từ, đại từ, hoặc cụm từ với phần còn lại của câu, diễn tả vị trí, thời gian, hướng, nguyên nhân, và nhiều quan hệ khác. Người Việt học tiếng Anh hay dùng sai giới từ vì tiếng Việt thường bỏ qua chúng hoặc dùng khác hoàn toàn.
+
+  '
 level: beginner
-tags: [parts-of-speech, prepositions, beginner, ielts, grammar-basics, time, place, direction]
-prerequisites: [parts-of-speech, nouns, sentence-elements]
-related_pages: [parts-of-speech, nouns, adjectives, adverbs, sentence-elements]
+tags:
+- parts-of-speech
+- prepositions
+- beginner
+- ielts
+- grammar-basics
+- time
+- place
+- direction
+prerequisites:
+- parts-of-speech
+- nouns
+- sentence-elements
+related_pages:
+- parts-of-speech
+- nouns
+- adjectives
+- adverbs
+- sentence-elements
 compare_with: []
 order: 5
 status: complete
 last_updated: 2026-04-18
+difficulty: beginner
+band_relevance:
+- '5.0'
+- '6.0'
+common_error_tags:
+- wrong_preposition
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- parts-of-speech
+- nouns
+- adjectives
+pathways:
+- grammar-for-beginners
 ---
 
 ## Tóm tắt

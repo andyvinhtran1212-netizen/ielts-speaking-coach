@@ -2,20 +2,52 @@
 title: Emphasis & Inversion — Nhấn mạnh trong tiếng Anh
 slug: emphasis-inversion
 category: grammar-for-meaning
-summary: >
-  Emphasis (nhấn mạnh) là tập hợp các cấu trúc ngữ pháp dùng để làm nổi bật
-  thông tin quan trọng: câu chẻ (cleft), đảo ngữ (inversion), các từ nhấn
-  mạnh (do/does/did, indeed, very, it is...that), và cấu trúc "Not only...but
-  also". Dùng đúng các cấu trúc nhấn mạnh là đặc trưng của văn phong học
-  thuật nâng cao trong IELTS Band 7+.
+summary: 'Emphasis (nhấn mạnh) là tập hợp các cấu trúc ngữ pháp dùng để làm nổi bật thông tin quan trọng: câu chẻ (cleft), đảo ngữ (inversion), các từ nhấn mạnh (do/does/did, indeed, very, it is...that), và cấu trúc "Not only...but also". Dùng đúng các cấu trúc nhấn mạnh là đặc trưng của văn phong học thuật nâng cao trong IELTS Band 7+.
+
+  '
 level: advanced
-tags: [grammar-for-meaning, emphasis, inversion, advanced, ielts, cleft, focus, not-only-but-also]
-prerequisites: [sentence-elements, word-order, cleft-sentences, inversion, conjunctions]
-related_pages: [cleft-sentences, inversion, discourse-markers, complex-sentence]
-compare_with: [cleft-sentences, inversion]
+tags:
+- grammar-for-meaning
+- emphasis
+- inversion
+- advanced
+- ielts
+- cleft
+- focus
+- not-only-but-also
+prerequisites:
+- sentence-elements
+- word-order
+- cleft-sentences
+- inversion
+- conjunctions
+related_pages:
+- cleft-sentences
+- inversion
+- discourse-markers
+- complex-sentence
+compare_with:
+- cleft-sentences
+- inversion
 order: 4
 status: complete
 last_updated: 2026-04-18
+difficulty: advanced
+band_relevance:
+- '7.0'
+- '7.5'
+- '8.0'
+common_error_tags:
+- word_order_error
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- cleft-sentences
+- inversion
+- discourse-markers
+pathways:
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt

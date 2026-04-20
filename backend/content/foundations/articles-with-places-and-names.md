@@ -2,20 +2,50 @@
 title: Articles with Places and Names — Mạo từ với địa danh và tên riêng
 slug: articles-with-places-and-names
 category: foundations
-summary: >
-  Dùng "the" với địa danh hay không là một trong những lỗi mạo từ phổ biến
-  nhất trong IELTS Writing. Không có quy tắc logic hoàn hảo, nhưng có những
-  nhóm rõ ràng để học thuộc: sông, đại dương, dãy núi thường có "the"; quốc
-  gia, hồ, đường phố đơn thường không có "the". Bài này cung cấp bảng đầy đủ
-  và các mẫu ví dụ thực tế.
+summary: 'Dùng "the" với địa danh hay không là một trong những lỗi mạo từ phổ biến nhất trong IELTS Writing. Không có quy tắc logic hoàn hảo, nhưng có những nhóm rõ ràng để học thuộc: sông, đại dương, dãy núi thường có "the"; quốc gia, hồ, đường phố đơn thường không có "the". Bài này cung cấp bảng đầy đủ và các mẫu ví dụ thực tế.
+
+  '
 level: intermediate
-tags: [foundations, articles, the, places, proper-nouns, geography, intermediate, ielts, writing]
-prerequisites: [articles, zero-article, nouns, countable-vs-uncountable]
-related_pages: [articles, zero-article, article-errors]
-compare_with: [zero-article]
+tags:
+- foundations
+- articles
+- the
+- places
+- proper-nouns
+- geography
+- intermediate
+- ielts
+- writing
+prerequisites:
+- articles
+- zero-article
+- nouns
+- countable-vs-uncountable
+related_pages:
+- articles
+- zero-article
+- article-errors
+compare_with:
+- zero-article
 order: 13
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_article
+speaking_relevance: medium
+writing_relevance: medium
+next_articles:
+- articles
+- zero-article
+- article-errors
+pathways:
+- grammar-for-beginners
+- band-6-to-7
 ---
 
 ## Tóm tắt

@@ -2,19 +2,51 @@
 title: Lỗi dùng mạo từ a / an / the — Article Errors
 slug: article-errors
 category: error-clinic
-summary: >
-  Mạo từ (articles) là một trong những phần ngữ pháp khó nhất với người Việt vì
-  tiếng Việt không có hệ thống mạo từ. Người học thường bỏ sót "the" khi cần,
-  thêm "the" khi không nên, hoặc nhầm "a" với "an". Đây là lỗi cực kỳ phổ biến
-  trong IELTS Writing và Writing Assessment dùng để đánh giá Grammatical Accuracy.
+summary: 'Mạo từ (articles) là một trong những phần ngữ pháp khó nhất với người Việt vì tiếng Việt không có hệ thống mạo từ. Người học thường bỏ sót "the" khi cần, thêm "the" khi không nên, hoặc nhầm "a" với "an". Đây là lỗi cực kỳ phổ biến trong IELTS Writing và Writing Assessment dùng để đánh giá Grammatical Accuracy.
+
+  '
 level: intermediate
-tags: [error-clinic, articles, article-errors, intermediate, ielts, grammar, a-an-the, common-errors]
-prerequisites: [parts-of-speech, nouns, countable-vs-uncountable, singular-vs-plural]
-related_pages: [articles, nouns, countable-vs-uncountable, singular-vs-plural, there-is-there-are]
+tags:
+- error-clinic
+- articles
+- article-errors
+- intermediate
+- ielts
+- grammar
+- a-an-the
+- common-errors
+prerequisites:
+- parts-of-speech
+- nouns
+- countable-vs-uncountable
+- singular-vs-plural
+related_pages:
+- articles
+- nouns
+- countable-vs-uncountable
+- singular-vs-plural
+- there-is-there-are
 compare_with: []
 order: 2
 status: complete
 last_updated: 2026-04-18
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_article
+- wrong_article
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- articles
+- nouns
+- countable-vs-uncountable
+pathways:
+- fix-common-mistakes
+- band-6-to-7
 ---
 
 ## Tóm tắt

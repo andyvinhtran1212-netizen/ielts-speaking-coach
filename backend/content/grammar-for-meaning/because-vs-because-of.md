@@ -2,19 +2,54 @@
 title: Because vs. Because of — Nối nguyên nhân đúng cách
 slug: because-vs-because-of
 category: grammar-for-meaning
-summary: >
-  "Because" và "because of" đều diễn đạt nguyên nhân, nhưng cấu trúc đi sau
-  hoàn toàn khác nhau: "because" nối một mệnh đề (subject + verb), còn
-  "because of" nối một cụm danh từ (noun phrase). Nhầm hai cấu trúc này là
-  lỗi ngữ pháp rất phổ biến trong IELTS Writing và Speaking.
-level: beginner
-tags: [grammar-for-meaning, because-vs-because-of, conjunctions, prepositions, beginner, ielts, cause-effect, writing, speaking]
-prerequisites: [conjunctions, sentence-elements, complex-sentence, prepositions]
-related_pages: [conjunctions, complex-sentence, discourse-markers, despite-vs-in-spite-of]
-compare_with: [despite-vs-in-spite-of]
+summary: '"Because" và "because of" đều diễn đạt nguyên nhân, nhưng cấu trúc đi sau hoàn toàn khác nhau: "because" nối một mệnh đề (subject + verb), còn "because of" nối một cụm danh từ (noun phrase). Nhầm hai cấu trúc này là lỗi ngữ pháp rất phổ biến trong IELTS Writing và Speaking.
+
+  '
+level: intermediate
+tags:
+- grammar-for-meaning
+- because-vs-because-of
+- conjunctions
+- prepositions
+- beginner
+- ielts
+- cause-effect
+- writing
+- speaking
+prerequisites:
+- conjunctions
+- sentence-elements
+- complex-sentence
+- prepositions
+related_pages:
+- conjunctions
+- complex-sentence
+- discourse-markers
+- despite-vs-in-spite-of
+compare_with:
+- despite-vs-in-spite-of
 order: 7
 status: complete
 last_updated: 2026-04-19
+difficulty: intermediate
+band_relevance:
+- '6.0'
+- '6.5'
+- '7.0'
+common_error_tags:
+- missing_connector
+- no_compound_sentences
+- wrong_preposition
+speaking_relevance: high
+writing_relevance: high
+next_articles:
+- conjunctions
+- complex-sentence
+- discourse-markers
+pathways:
+- grammar-for-ielts-speaking
+- grammar-for-ielts-writing
+- band-6-to-7
 ---
 
 ## Tóm tắt
