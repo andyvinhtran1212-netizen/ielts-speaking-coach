@@ -1869,8 +1869,7 @@
         // Returns null when category is missing — callers must skip element creation.
         function grammarUrl(slug, category) {
           if (!category || !slug) return null;
-          var base = window.api.url('pages/grammar-article.html');
-          return base + '?category=' + encodeURIComponent(category) + '&slug=' + encodeURIComponent(slug);
+          return '/grammar/' + encodeURIComponent(category) + '/' + encodeURIComponent(slug);
         }
 
         // Focus this week

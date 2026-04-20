@@ -837,7 +837,7 @@
   // Card HTML: primary = full treatment with summary, secondary = compact muted
   function _grammarCardHtml(match, isPrimary) {
     var slug   = match.slug, meta = match.meta;
-    var href   = 'grammar-article.html?category=' + meta.category + '&slug=' + slug;
+    var href   = '/grammar/' + encodeURIComponent(meta.category) + '/' + encodeURIComponent(slug);
     var reason = _grReason(match.topField, match.topic);
 
     if (isPrimary) {

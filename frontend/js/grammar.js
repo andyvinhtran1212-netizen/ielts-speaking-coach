@@ -22,9 +22,23 @@
   }
 
   // ── Resolve page-relative app root ────────────────────────────────────────
-  var _appRoot = /\/pages\/[^/]+$/.test(window.location.pathname) ? '../' : './';
+  var _appRoot;
+  if (/\/grammar\/[^/]+\/[^/]+/.test(window.location.pathname)) {
+    _appRoot = '/';
+  } else if (/\/pages\/[^/]+$/.test(window.location.pathname)) {
+    _appRoot = '../';
+  } else {
+    _appRoot = './';
+  }
 
   function _url(path) { return _appRoot + path; }
+
+  // ── Clean grammar article URL ─────────────────────────────────────────────
+  // Returns an absolute path: /grammar/:category/:slug
+  // This matches the Vercel rewrite: /grammar/:category/:slug → /pages/grammar-article.html
+  function _articleUrl(category, slug) {
+    return '/grammar/' + encodeURIComponent(category) + '/' + encodeURIComponent(slug);
+  }
 
   // ── Level badge ───────────────────────────────────────────────────────────
   var _levelColors = {
@@ -94,7 +108,7 @@
                      : '';
                    return '<li class="flex items-center text-sm text-white/55 hover:text-white/90 truncate" onclick="event.stopPropagation()">' +
                           dot +
-                          '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '">' +
+                          '<a href="' + _articleUrl(a.category, a.slug) + '">' +
                           a.title + '</a></li>';
                  }).join('') + '</ul>'
                : '') +
@@ -114,7 +128,7 @@
       return a && a.slug && a.title && a.category;
     }).map(function (a) {
       var isUpdating = a.status === 'updating';
-      return '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+      return '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
              'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
              'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
              '<div class="flex items-start justify-between gap-2 mb-1">' +
@@ -147,7 +161,7 @@
     }
     el.innerHTML = articles.map(function (a) {
       var isUpdating = a.status === 'updating';
-      return '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+      return '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
              'class="block p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
              'hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200">' +
              '<div class="flex items-start justify-between gap-2 mb-1">' +
@@ -190,7 +204,7 @@
           '</div>' +
           '<p class="text-sm text-white/50 mb-3 leading-relaxed">' + (a.summary || '') + '</p>' +
           '<div class="flex items-center gap-3">' +
-          '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+          '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
           'class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg ' +
           (isUpdating ? 'bg-white/5 text-white/30 cursor-default' : 'bg-teal/15 text-teal-light hover:bg-teal/25') +
           ' text-sm font-medium transition-colors">' +
@@ -239,7 +253,7 @@
         } else if (a.status === 'updating') {
           return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
                  '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:#fbbf24"></span>' +
-                 '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+                 '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
                  'class="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate">' + a.title + '</a>' +
                  '<span class="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0" ' +
                  'style="background:rgba(251,191,36,0.15);color:#fbbf24">Đang cập nhật</span>' +
@@ -247,7 +261,7 @@
         } else {
           return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
                  '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:' + pal.hex + '"></span>' +
-                 '<a href="' + _url('pages/grammar-article.html') + '?category=' + a.category + '&slug=' + a.slug + '" ' +
+                 '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
                  'class="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate">' + a.title + '</a>' +
                  '</div>';
         }
@@ -318,7 +332,7 @@
       '</div>' +
       '<h2 class="text-xl font-bold text-white mb-2">' + article.title + '</h2>' +
       (article.summary ? '<p class="text-sm text-white/55 mb-4 leading-relaxed">' + article.summary + '</p>' : '') +
-      '<a href="' + _url('pages/grammar-article.html') + '?category=' + article.category + '&slug=' + article.slug + '" ' +
+      '<a href="' + _articleUrl(article.category, article.slug) + '" ' +
       'class="inline-flex items-center gap-1.5 text-sm text-teal-light hover:underline mb-6">Đọc bài đầy đủ →</a>' +
       '<div class="article-body">' + (article.html || '') + '</div>';
   }
@@ -381,7 +395,7 @@
       return;
     }
     el.innerHTML = pages.map(function (p) {
-      return '<a href="' + _url('pages/grammar-article.html') + '?category=' + p.category + '&slug=' + p.slug + '" ' +
+      return '<a href="' + _articleUrl(p.category, p.slug) + '" ' +
              'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 ' +
              'bg-white/[0.04] text-sm text-white/70 hover:border-teal/40 hover:text-teal-light transition-all">' +
              p.title + '</a>';
@@ -394,14 +408,14 @@
     if (!el) return;
     var html = '<div class="flex gap-3">';
     if (prev) {
-      html += '<a href="' + _url('pages/grammar-article.html') + '?category=' + prev.category + '&slug=' + prev.slug + '" ' +
+      html += '<a href="' + _articleUrl(prev.category, prev.slug) + '" ' +
               'class="flex-1 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-teal/40 ' +
               'hover:bg-teal/[0.07] transition-all group">' +
               '<p class="text-xs text-white/30 mb-1">← Bài trước</p>' +
               '<p class="text-sm font-medium text-white/80 group-hover:text-white">' + prev.title + '</p></a>';
     }
     if (next) {
-      html += '<a href="' + _url('pages/grammar-article.html') + '?category=' + next.category + '&slug=' + next.slug + '" ' +
+      html += '<a href="' + _articleUrl(next.category, next.slug) + '" ' +
               'class="flex-1 p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:border-teal/40 ' +
               'hover:bg-teal/[0.07] transition-all group text-right">' +
               '<p class="text-xs text-white/30 mb-1">Bài tiếp →</p>' +
@@ -510,9 +524,12 @@
 
   // ── Article page loader ───────────────────────────────────────────────────
   async function loadGrammarArticle() {
-    var params = new URLSearchParams(window.location.search);
-    var category = params.get('category');
-    var slug = params.get('slug');
+    // Support both clean URLs (/grammar/:category/:slug via Vercel rewrite)
+    // and legacy query params (?category=X&slug=Y) for backwards compat.
+    var pathMatch = window.location.pathname.match(/\/grammar\/([^/]+)\/([^/]+)/);
+    var params    = new URLSearchParams(window.location.search);
+    var category  = pathMatch ? decodeURIComponent(pathMatch[1]) : params.get('category');
+    var slug      = pathMatch ? decodeURIComponent(pathMatch[2]) : params.get('slug');
 
     if (!category || !slug) {
       _showError('article-container', 'Thiếu tham số category hoặc slug.');
@@ -522,8 +539,20 @@
     try {
       var article = await fetchGrammarAPI('/article/' + category + '/' + slug);
 
-      // Page title
-      document.title = article.title + ' — Grammar Wiki';
+      // ── SEO meta tags ──────────────────────────────────────────
+      var pageTitle = article.title + ' — IELTS Grammar | Aver Learning';
+      var metaDesc  = 'Học ' + article.title + ' để cải thiện IELTS Speaking và Writing. ' +
+                      'Ví dụ thực tế, bài tập, và lời giải thích dễ hiểu.';
+      document.title = pageTitle;
+
+      var descEl = document.getElementById('meta-description');
+      if (descEl) descEl.setAttribute('content', metaDesc);
+      var ogTitleEl = document.getElementById('og-title');
+      if (ogTitleEl) ogTitleEl.setAttribute('content', article.title + ' — Aver Learning');
+      var ogDescEl = document.getElementById('og-description');
+      if (ogDescEl) ogDescEl.setAttribute('content', metaDesc);
+      var canonEl = document.getElementById('canonical-url');
+      if (canonEl) canonEl.setAttribute('href', 'https://averlearning.com' + _articleUrl(category, slug));
 
       // Breadcrumb
       renderBreadcrumb(category, article.title, 'breadcrumb');
@@ -581,6 +610,9 @@
         }
       }
 
+      // Next articles (pathway suggestions)
+      renderNextArticles(article.next_articles || [], 'next-articles-list', 'next-articles-section');
+
       // Related pages
       renderRelatedPages(article.related_pages || [], 'related-pages');
 
@@ -605,10 +637,95 @@
       // ── Save / unsave button ─────────────────────────────────
       _initSaveButton(slug);
 
+      // ── Guest CTA ────────────────────────────────────────────
+      _initGuestCTA(article.title);
+
     } catch (err) {
       _hide('article-skeleton');
       _showError('article-container', 'Không tải được bài: ' + err.message);
       _show('article-container');
+    }
+  }
+
+  // ── Next articles (pathway suggestions) ──────────────────────────────────
+  function renderNextArticles(articles, listId, sectionId) {
+    if (!articles || articles.length === 0) return;
+    var el = document.getElementById(listId);
+    if (!el) return;
+    var items = articles.slice(0, 3);
+    el.innerHTML = items.map(function (a) {
+      return '<a href="' + _articleUrl(a.category, a.slug) + '" ' +
+             'class="flex items-center gap-4 p-4 rounded-xl border border-white/8 bg-white/[0.03] ' +
+             'hover:border-teal/40 hover:bg-teal/[0.07] transition-all group">' +
+             '<div class="flex-shrink-0 w-9 h-9 rounded-xl bg-teal/12 border border-teal/20 ' +
+             'flex items-center justify-center">' +
+             '<svg class="w-4 h-4 text-teal-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+             '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>' +
+             '</svg></div>' +
+             '<div class="flex-1 min-w-0">' +
+             '<p class="text-sm font-semibold text-white/85 group-hover:text-white truncate">' + a.title + '</p>' +
+             '<p class="text-xs text-white/35 capitalize">' + (a.category || '').replace(/-/g, ' ') + '</p>' +
+             '</div>' +
+             '<span class="text-xs text-teal-light opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">Học ngay →</span>' +
+             '</a>';
+    }).join('');
+    _show(sectionId);
+  }
+
+  // ── Guest CTA: sticky bar + modal after 2nd article ──────────────────────
+  var _guestCTAInited = false;
+  var _guestModalTimer = null;
+
+  async function _initGuestCTA(articleTitle) {
+    // Guard: safe to call multiple times within the same page lifecycle
+    if (_guestCTAInited) return;
+    _guestCTAInited = true;
+
+    // Only show for unauthenticated visitors
+    if (!window.getSupabase) return;
+    var sb = window.getSupabase();
+    if (!sb) return;
+    try {
+      var sessionResult = await sb.auth.getSession();
+      if (sessionResult.data && sessionResult.data.session) return; // logged in — no CTA
+    } catch (_) { return; }
+
+    // Show sticky bar
+    var bar = document.getElementById('guest-cta-bar');
+    if (bar) bar.classList.remove('hidden');
+
+    // Track read count in localStorage — show modal on 2nd article
+    var key = '_aver_grammar_reads';
+    var count = parseInt(localStorage.getItem(key) || '0') + 1;
+    localStorage.setItem(key, String(count));
+
+    if (count >= 2) {
+      var overlay = document.getElementById('guest-modal-overlay');
+      var titleEl = document.getElementById('guest-modal-title');
+      var dismiss = document.getElementById('guest-modal-dismiss');
+      if (!overlay) return;
+
+      if (titleEl) {
+        titleEl.textContent = 'Bạn đang đọc bài ngữ pháp về "' + articleTitle + '"';
+      }
+
+      // Show modal after a short reading delay (8s) — cancel any pending timer first
+      if (_guestModalTimer !== null) clearTimeout(_guestModalTimer);
+      _guestModalTimer = setTimeout(function () {
+        overlay.classList.remove('hidden');
+      }, 8000);
+
+      function _dismissModal() {
+        overlay.classList.add('hidden');
+        // Reset so modal doesn't re-appear immediately on next article
+        localStorage.setItem(key, '0');
+      }
+
+      // { once: true } ensures listeners self-remove after first fire
+      if (dismiss) dismiss.addEventListener('click', _dismissModal, { once: true });
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) _dismissModal();
+      }, { once: true });
     }
   }
 

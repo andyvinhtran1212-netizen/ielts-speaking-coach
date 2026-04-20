@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Grammar — IELTS Speaking Coach</title>
+  <title>Grammar — IELTS Grammar | Aver Learning</title>
+  <meta name="description" id="meta-description" content="Học ngữ pháp tiếng Anh để cải thiện IELTS Speaking và Writing. Ví dụ thực tế, bài tập, và lời giải thích dễ hiểu.">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Aver Learning">
+  <meta property="og:title" id="og-title" content="Grammar Wiki — Aver Learning">
+  <meta property="og:description" id="og-description" content="Học ngữ pháp tiếng Anh để cải thiện IELTS Speaking và Writing.">
+  <link rel="canonical" id="canonical-url" href="https://averlearning.com/grammar">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -21,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../css/ds.css" />
+  <link rel="stylesheet" href="/css/ds.css" />
   <style>
     body {
       background: #07111f;
@@ -183,10 +189,10 @@
   <nav class="sticky top-0 z-30 border-b border-white/5" style="background: rgba(10,22,40,0.92); backdrop-filter: blur(12px);">
     <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
       <div id="breadcrumb" class="flex items-center text-sm text-white/40 flex-wrap gap-0">
-        <a href="../grammar.html" class="hover:text-teal-light transition-colors">Grammar Wiki</a>
+        <a href="/grammar.html" class="hover:text-teal-light transition-colors">Grammar Wiki</a>
       </div>
       <div class="flex items-center gap-3">
-        <a href="../pages/dashboard.html" class="text-xs text-white/30 hover:text-white/60 transition-colors">Dashboard</a>
+        <a href="/pages/dashboard.html" class="text-xs text-white/30 hover:text-white/60 transition-colors">Dashboard</a>
       </div>
     </div>
   </nav>
@@ -227,6 +233,12 @@
           <div id="compare-links" class="flex flex-wrap gap-2"></div>
         </section>
 
+        <!-- Next articles (pathway suggestions) -->
+        <section id="next-articles-section" class="mb-8 hidden">
+          <p class="section-label">Học tiếp theo</p>
+          <div id="next-articles-list" class="flex flex-col gap-3"></div>
+        </section>
+
         <!-- Related pages -->
         <section id="related-section" class="mb-8">
           <p class="section-label">Bài liên quan</p>
@@ -248,9 +260,54 @@
     </div>
   </div>
 
+  <!-- Guest CTA: sticky bottom bar (hidden for logged-in users) -->
+  <div id="guest-cta-bar" class="hidden fixed bottom-0 left-0 right-0 z-40 border-t border-teal/20"
+       style="background:rgba(7,17,31,0.97);backdrop-filter:blur(14px);">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <p class="text-sm text-white/70 leading-snug">
+        Luyện IELTS Speaking với AI — nhận feedback ngay lập tức
+      </p>
+      <a href="/login.html"
+         class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold
+                bg-teal text-white hover:bg-teal-light transition-colors whitespace-nowrap">
+        Dùng thử miễn phí →
+      </a>
+    </div>
+  </div>
+
+  <!-- Guest modal: shown after reading 2 articles -->
+  <div id="guest-modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+       style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+    <div class="w-full max-w-sm rounded-2xl border border-white/10 p-6 text-center"
+         style="background:#0d1f35;">
+      <div class="w-12 h-12 rounded-full bg-teal/15 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-6 h-6 text-teal-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347A3.5 3.5 0 0112 15.5a3.5 3.5 0 01-2.071-.653l-.347-.347z"/>
+        </svg>
+      </div>
+      <h3 id="guest-modal-title" class="text-base font-semibold text-white mb-2">
+        Bạn đang đọc bài ngữ pháp
+      </h3>
+      <p class="text-sm text-white/55 mb-5 leading-relaxed">
+        Muốn biết mình có dùng đúng trong IELTS Speaking không? Thử luyện với AI để nhận feedback ngay.
+      </p>
+      <div class="flex flex-col gap-2">
+        <a href="/login.html"
+           class="block w-full py-2.5 rounded-xl text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors">
+          Luyện Speaking ngay
+        </a>
+        <button id="guest-modal-dismiss"
+                class="block w-full py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 transition-colors">
+          Tiếp tục đọc
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="../js/api.js"></script>
-  <script src="../js/grammar.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/grammar.js"></script>
   <script>
     grammarWiki.loadGrammarArticle();
 
