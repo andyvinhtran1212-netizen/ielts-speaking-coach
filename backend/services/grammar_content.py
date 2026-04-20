@@ -32,10 +32,12 @@ _MD_EXT_CONFIGS  = {
 class GrammarContentService:
     def __init__(self):
         # ── Indexes ──────────────────────────────────────────────────────────
-        self.articles_by_slug:     dict[str, dict]       = {}  # slug → full article
-        self.articles_by_category: dict[str, list[dict]] = {}  # category → [article, …]
-        self.all_categories:       list[dict]            = []
-        self.search_index:         list[dict]            = []
+        self.articles_by_slug:      dict[str, dict]       = {}  # slug → full article
+        self.articles_by_category:  dict[str, list[dict]] = {}  # category → [article, …]
+        self.articles_by_error_tag: dict[str, list[dict]] = {}  # error_tag → [article, …]
+        self.articles_by_pathway:   dict[str, list[dict]] = {}  # pathway → [article, …]
+        self.all_categories:        list[dict]            = []
+        self.search_index:          list[dict]            = []
         self._load_all()
 
     # ── Loader ───────────────────────────────────────────────────────────────
@@ -54,10 +56,14 @@ class GrammarContentService:
             except Exception as exc:
                 logger.error("[grammar] failed to parse %s: %s", md_file, exc)
 
-        # slug and category indexes
+        # slug, category, error_tag, and pathway indexes
         for a in articles:
             self.articles_by_slug[a["slug"]] = a
             self.articles_by_category.setdefault(a["category"], []).append(a)
+            for tag in a.get("common_error_tags") or []:
+                self.articles_by_error_tag.setdefault(tag, []).append(a)
+            for pathway in a.get("pathways") or []:
+                self.articles_by_pathway.setdefault(pathway, []).append(a)
 
         # Sort each category by order, then title
         for cat in self.articles_by_category:
@@ -130,22 +136,29 @@ class GrammarContentService:
             status = "complete"
 
         return {
-            "slug":          slug,
-            "category":      category,
-            "title":         title,
-            "summary":       (fm.get("summary") or "").strip(),
-            "level":         fm.get("level", ""),
-            "tags":          fm.get("tags") or [],
-            "prerequisites": fm.get("prerequisites") or [],
-            "related_pages": fm.get("related_pages") or [],
-            "compare_with":  fm.get("compare_with") or [],
-            "order":         fm.get("order", 999),
-            "last_updated":  str(fm.get("last_updated", "")),
-            "status":        status,
-            "html":          html,
-            "toc":           toc,
-            "reading_time":  reading_time,
-            "word_count":    word_count,
+            "slug":              slug,
+            "category":          category,
+            "title":             title,
+            "summary":           (fm.get("summary") or "").strip(),
+            "level":             fm.get("level", ""),
+            "difficulty":        fm.get("difficulty", ""),
+            "band_relevance":    fm.get("band_relevance") or [],
+            "common_error_tags": [str(t) for t in (fm.get("common_error_tags") or []) if t is not None],
+            "speaking_relevance": fm.get("speaking_relevance", ""),
+            "writing_relevance": fm.get("writing_relevance", ""),
+            "next_articles":     [str(t) for t in (fm.get("next_articles") or []) if t is not None],
+            "pathways":          [str(t) for t in (fm.get("pathways") or []) if t is not None],
+            "tags":              [str(t) for t in (fm.get("tags") or []) if t is not None],
+            "prerequisites":     [str(t) for t in (fm.get("prerequisites") or []) if t is not None],
+            "related_pages":     [str(t) for t in (fm.get("related_pages") or []) if t is not None],
+            "compare_with":      [str(t) for t in (fm.get("compare_with") or []) if t is not None],
+            "order":             fm.get("order", 999),
+            "last_updated":      str(fm.get("last_updated", "")),
+            "status":            status,
+            "html":              html,
+            "toc":               toc,
+            "reading_time":      reading_time,
+            "word_count":        word_count,
         }
 
     # ── Internal helpers ─────────────────────────────────────────────────────
@@ -153,16 +166,22 @@ class GrammarContentService:
     def _summary(self, a: dict) -> dict:
         """Lightweight article card (no HTML body)."""
         return {
-            "slug":         a["slug"],
-            "category":     a["category"],
-            "title":        a["title"],
-            "summary":      a["summary"],
-            "level":        a["level"],
-            "tags":         a["tags"],
-            "order":        a["order"],
-            "reading_time": a["reading_time"],
-            "last_updated": a["last_updated"],
-            "status":       a.get("status", "complete"),
+            "slug":              a["slug"],
+            "category":         a["category"],
+            "title":            a["title"],
+            "summary":          a["summary"],
+            "level":            a["level"],
+            "difficulty":       a.get("difficulty", ""),
+            "band_relevance":   a.get("band_relevance") or [],
+            "speaking_relevance": a.get("speaking_relevance", ""),
+            "writing_relevance": a.get("writing_relevance", ""),
+            "pathways":         a.get("pathways") or [],
+            "common_error_tags": a.get("common_error_tags") or [],
+            "tags":             a["tags"],
+            "order":            a["order"],
+            "reading_time":     a["reading_time"],
+            "last_updated":     a["last_updated"],
+            "status":           a.get("status", "complete"),
         }
 
     def _resolve_related(self, slugs: list[str]) -> list[dict]:
@@ -226,6 +245,11 @@ class GrammarContentService:
             "articles": [self._summary(a) for a in arts],
         }
 
+    def get_article_by_slug(self, slug: str) -> Optional[dict]:
+        """Return article summary by slug alone (no category required)."""
+        a = self.articles_by_slug.get(slug)
+        return self._summary(a) if a else None
+
     def search(self, query: str) -> list[dict]:
         """Keyword search across title, summary, tags, and body text."""
         q = query.lower().strip()
@@ -237,7 +261,7 @@ class GrammarContentService:
             score = 0
             if q in item["title"].lower():                               score += 10
             if q in item["summary"].lower():                             score += 5
-            if any(q in tag.lower() for tag in item.get("tags", [])):   score += 3
+            if any(q in str(tag).lower() for tag in item.get("tags", []) if tag is not None):   score += 3
             if q in item["text"]:                                        score += 1
             if score:
                 results.append((score, item))
@@ -354,7 +378,7 @@ class GrammarContentService:
         for item in self.search_index:
             score = 0.0
             title_lower = item["title"].lower()
-            tags_lower  = " ".join(item.get("tags", [])).lower()
+            tags_lower  = " ".join(str(t) for t in item.get("tags", []) if t is not None).lower()
             body_text   = item["text"]  # already lowercased at load time
 
             for token in all_tokens:
@@ -379,6 +403,16 @@ class GrammarContentService:
             "title":    best_item["title"],
             "score":    round(best_score, 3),
         }
+
+    def get_articles_by_error_tag(self, tag: str) -> list[dict]:
+        """Return article summaries that address a specific common_error_tag."""
+        arts = self.articles_by_error_tag.get(tag, [])
+        return [self._summary(a) for a in arts]
+
+    def get_articles_by_pathway(self, pathway: str) -> list[dict]:
+        """Return article summaries for a given learning pathway slug."""
+        arts = self.articles_by_pathway.get(pathway, [])
+        return [self._summary(a) for a in arts]
 
     def get_groups(self) -> list[dict]:
         """
