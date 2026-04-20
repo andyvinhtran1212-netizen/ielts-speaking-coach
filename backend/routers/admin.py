@@ -1506,9 +1506,13 @@ async def admin_regrade_response(
     result = await _run_regrade_response(resp, session, question_text, admin_email)
 
     # Recompute and persist session-level bands so Session History reflects the update.
+    # Use the same canonical gate as complete_session(): only block if ALL band values are None.
     bands = _regrade_compute_session_bands(session_id)
     session_updated = False
-    if bands["overall_band"] is not None:
+    all_band_vals = [bands.get("overall_band")] + [
+        bands.get(k) for k in ("band_fc", "band_lr", "band_gra", "band_p")
+    ]
+    if not all(v is None for v in all_band_vals):
         now = datetime.now(timezone.utc).isoformat()
         sess_update: dict = {**bands, "status": "completed"}
         try:

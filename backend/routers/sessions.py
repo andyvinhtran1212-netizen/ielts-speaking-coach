@@ -826,9 +826,9 @@ def _complete_session_internal(session_id: str) -> None:
 def _check_all_responses_graded(session_ids: list) -> bool:
     """
     Return True when every question in each session has a *graded* response row.
-    A response is considered graded when grading_status='completed' OR overall_band IS NOT NULL.
-    Existence of a response row alone is not sufficient — audio may have been uploaded
-    but the AI grading pipeline may not have finished yet.
+    A response is considered graded when grading_status='completed' AND overall_band IS NOT NULL.
+    Both conditions must hold — status='completed' with a null band indicates a failed DB write,
+    and a non-null band without status='completed' indicates an incomplete grading run.
     """
     for sid in session_ids:
         try:
@@ -848,7 +848,7 @@ def _check_all_responses_graded(session_ids: list) -> bool:
             responses = r_res.data or []
             graded = [
                 r for r in responses
-                if r.get("grading_status") == "completed" or r.get("overall_band") is not None
+                if r.get("grading_status") == "completed" and r.get("overall_band") is not None
             ]
             n_graded = len(graded)
             if n_graded < n_q:
@@ -866,6 +866,11 @@ async def _bg_finalize_full_test(session_ids: list) -> None:
     """
     Background task: poll DB every 8 s until all responses are saved (max 90 s),
     then aggregate band scores and mark each session 'completed'.
+
+    If the first 90 s poll window times out, a one-shot 120 s grace period is attempted
+    before giving up. This handles slow Whisper/Claude pipelines that finish slightly
+    after the primary wait window without needing manual admin recovery.
+
     Runs entirely on the server — browser tab can close safely after calling the endpoint.
     """
     max_wait  = 90
@@ -883,8 +888,16 @@ async def _bg_finalize_full_test(session_ids: list) -> None:
             break
     else:
         logger.warning(
-            "[finalize_ft] timeout after %ds — completing with whatever responses exist", max_wait
+            "[finalize_ft] primary timeout after %ds — entering 120s grace period", max_wait
         )
+        await asyncio.sleep(120)
+        all_ready = await asyncio.to_thread(_check_all_responses_graded, session_ids)
+        if all_ready:
+            logger.info("[finalize_ft] all responses saved during grace period — completing sessions")
+        else:
+            logger.warning(
+                "[finalize_ft] grace period exhausted — completing with whatever responses exist"
+            )
 
     for sid in session_ids:
         try:
