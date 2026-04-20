@@ -23,7 +23,6 @@ related_pages:
 - double-subject-errors
 - missing-subjects
 - discourse-markers
-- cohesion
 compare_with:
 - double-subject-errors
 order: 17

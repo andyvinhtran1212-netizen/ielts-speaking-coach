@@ -547,25 +547,40 @@ def _increment_tokens(
     grading: dict,
 ) -> None:
     """
-    Ước tính số tokens đã dùng và cộng vào sessions.tokens_used.
+    Ước tính số tokens đã dùng và CỘNG DỒN vào sessions.tokens_used.
     Hoàn toàn best-effort — không raise nếu cột chưa tồn tại.
 
     Ước tính:
         input  = system_prompt (~1 300) + question + transcript
         output = grading JSON
         total  ≈ input + output  (rough: 4 chars ≈ 1 token)
+
+    Uses read-then-write to accumulate across multiple responses in one session.
+    A small race window exists for concurrent submissions but is acceptable given
+    this is best-effort tracking.
     """
     try:
         system_tokens  = 1_300   # SYSTEM_PROMPT ≈ 1 241 tokens (measured)
         input_tokens   = system_tokens + (len(question_text) + len(transcript)) // 4
         output_tokens  = len(json.dumps(grading, ensure_ascii=False)) // 4
-        tokens_used    = input_tokens + output_tokens
+        new_tokens     = input_tokens + output_tokens
+
+        # Read current accumulated value before adding
+        sess_row = (
+            supabase_admin.table("sessions")
+            .select("tokens_used")
+            .eq("id", session_id)
+            .limit(1)
+            .execute()
+        )
+        current = (sess_row.data or [{}])[0].get("tokens_used") or 0
+        total   = int(current) + new_tokens
 
         supabase_admin.table("sessions").update(
-            {"tokens_used": tokens_used}
+            {"tokens_used": total}
         ).eq("id", session_id).execute()
 
-        logger.debug("[grading] tokens_used est. %d → session %s", tokens_used, session_id)
+        logger.debug("[grading] tokens_used +%d → %d total for session %s", new_tokens, total, session_id)
 
     except Exception as e:
         logger.debug("[grading] tokens_used update skipped (non-fatal): %s", e)

@@ -1151,8 +1151,30 @@
         const cta = document.getElementById('continue-cta');
         cta.classList.remove('hidden');
         document.getElementById('cta-topic-label').textContent = summary.last_topic;
-        document.getElementById('continue-cta-link').href =
-          'practice.html?topic=' + encodeURIComponent(summary.last_topic);
+        const ctaLink = document.getElementById('continue-cta-link');
+        ctaLink.removeAttribute('href');
+        ctaLink.style.cursor = 'pointer';
+        ctaLink.onclick = async function(e) {
+          e.preventDefault();
+          ctaLink.textContent = 'Đang tạo phiên…';
+          ctaLink.style.pointerEvents = 'none';
+          try {
+            const session = await requireAuth();
+            if (!session) return;
+            const token = session.access_token;
+            const data = await window.api.post('/sessions', {
+              mode:  summary.last_mode || 'practice',
+              part:  summary.last_part || 1,
+              topic: summary.last_topic,
+            }, token);
+            if (!data || !data.session_id) throw new Error('Không nhận được session_id');
+            window.location.href = 'practice.html?session_id=' + data.session_id;
+          } catch (err) {
+            alert('Không thể tạo phiên: ' + err.message);
+            ctaLink.textContent = 'Luyện tiếp ngay';
+            ctaLink.style.pointerEvents = '';
+          }
+        };
       }
     }
 
@@ -1843,11 +1865,12 @@
 
         $content.classList.remove('hidden');
 
-        // Build article URL using category + slug (article page requires both)
+        // Build article URL using category + slug (article page requires both).
+        // Returns null when category is missing — callers must skip element creation.
         function grammarUrl(slug, category) {
+          if (!category || !slug) return null;
           var base = window.api.url('pages/grammar-article.html');
-          if (category) return base + '?category=' + encodeURIComponent(category) + '&slug=' + encodeURIComponent(slug);
-          return base + '?slug=' + encodeURIComponent(slug); // fallback (article page will show error, but won't break)
+          return base + '?category=' + encodeURIComponent(category) + '&slug=' + encodeURIComponent(slug);
         }
 
         // Focus this week
@@ -1856,16 +1879,20 @@
         if (data.grammar_focus_this_week?.length > 0) {
           data.grammar_focus_this_week.forEach(item => {
             (item.articles || []).forEach(art => {
+              const url = grammarUrl(art.slug, art.category);
+              if (!url) return;
               const a = document.createElement('a');
               a.className = 'grammar-pill';
-              a.href = grammarUrl(art.slug, art.category);
+              a.href = url;
               a.innerHTML = `<span>📖</span><span>${escHtml(art.title)}</span>`;
               focusPills.appendChild(a);
             });
             if (!item.articles?.length) {
+              const url = grammarUrl(item.tag, item.category);
+              if (!url) return;
               const a = document.createElement('a');
               a.className = 'grammar-pill';
-              a.href = grammarUrl(item.tag, item.category);
+              a.href = url;
               a.innerHTML = `<span>📖</span><span>${escHtml(item.label_vi || item.tag)}</span>`;
               focusPills.appendChild(a);
             }
@@ -1880,15 +1907,18 @@
         const weakWrap = document.getElementById('grammar-weak-wrap');
         if (data.weak_areas?.length > 0) {
           data.weak_areas.slice(0, 5).forEach(item => {
+            const url = grammarUrl(item.tag, item.category);
+            if (!url) return;
             const a = document.createElement('a');
             a.className = 'grammar-weak-item';
-            a.href = grammarUrl(item.tag, item.category);
+            a.href = url;
             a.innerHTML = `
               <span class="grammar-weak-dot"></span>
               <span class="text-sm font-medium flex-1" style="color:rgba(255,255,255,0.8);">${escHtml(item.label_vi || item.tag)}</span>
               <span class="text-xs" style="color:rgba(255,255,255,0.3);">${item.occurrence_count}× lỗi</span>`;
             weakList.appendChild(a);
           });
+          if (!weakList.children.length) weakWrap.classList.add('hidden');
         } else {
           weakWrap.classList.add('hidden');
         }
@@ -1898,15 +1928,18 @@
         const recentWrap = document.getElementById('grammar-recent-wrap');
         if (data.recently_viewed?.length > 0) {
           data.recently_viewed.forEach(item => {
+            const url = grammarUrl(item.slug, item.category);
+            if (!url) return;
             const a = document.createElement('a');
             a.className = 'grammar-recent-item';
-            a.href = grammarUrl(item.slug, item.category);
+            a.href = url;
             a.innerHTML = `
               <span class="text-sm" style="color:rgba(255,255,255,0.55);">↗</span>
               <span class="text-sm flex-1" style="color:rgba(255,255,255,0.75);">${escHtml(item.title || item.slug)}</span>
               <span class="text-xs" style="color:rgba(255,255,255,0.25);">${fmtRelTime(item.last_viewed_at)}</span>`;
             recentList.appendChild(a);
           });
+          if (!recentList.children.length) recentWrap.classList.add('hidden');
         } else {
           recentWrap.classList.add('hidden');
         }
@@ -1916,9 +1949,10 @@
         const savedWrap = document.getElementById('grammar-saved-wrap');
         if (data.saved_articles?.length > 0) {
           data.saved_articles.forEach(item => {
+            const artUrl = grammarUrl(item.slug, item.category);
+            if (!artUrl) return;
             const div = document.createElement('div');
             div.className = 'grammar-saved-item';
-            const artUrl = grammarUrl(item.slug, item.category);
             div.innerHTML = `
               <a href="${artUrl}" class="text-sm flex-1" style="color:rgba(255,255,255,0.8);text-decoration:none;">
                 🔖 ${escHtml(item.title || item.slug)}
@@ -1926,6 +1960,7 @@
               <span class="text-xs" style="color:rgba(255,255,255,0.3);">${fmtRelTime(item.saved_at)}</span>`;
             savedList.appendChild(div);
           });
+          if (!savedList.children.length) savedWrap.classList.add('hidden');
         } else {
           savedWrap.classList.add('hidden');
         }

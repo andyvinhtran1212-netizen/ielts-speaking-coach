@@ -22,7 +22,6 @@ prerequisites:
 - present-simple
 - past-simple
 - discourse-markers
-- sentence-structures
 related_pages:
 - task1-trend-grammar
 - task1-comparison-grammar

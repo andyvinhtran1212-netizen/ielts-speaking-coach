@@ -23,7 +23,6 @@ prerequisites:
 related_pages:
 - adjectives
 - adverbs
-- modifiers
 - sentence-elements
 compare_with: []
 order: 2

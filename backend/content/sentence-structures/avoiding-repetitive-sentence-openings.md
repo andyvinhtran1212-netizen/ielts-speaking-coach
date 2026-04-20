@@ -24,7 +24,7 @@ prerequisites:
 related_pages:
 - combining-two-short-sentences
 - adding-contrast-naturally
-- avoiding-overusing-i-think
+- overusing-i-think
 - discourse-markers
 compare_with:
 - overusing-i-think

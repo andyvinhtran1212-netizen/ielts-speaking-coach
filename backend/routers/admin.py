@@ -94,6 +94,7 @@ class PatchTopicRequest(BaseModel):
     title:     str | None = None
     part:      int | None = Field(default=None, ge=1, le=3)
     is_active: bool | None = None
+    category:  str | None = None
 
 
 class BulkAddTopicsRequest(BaseModel):
@@ -1309,16 +1310,23 @@ def _regrade_compute_session_bands(session_id: str) -> dict:
     """
     Read all response feedback for a session, compute aggregate band scores.
     Returns dict with overall_band, band_fc/lr/gra/p (or None if missing data).
+
+    Canonical P precedence: use final_band_p (pronunciation-adjusted) when set,
+    fall back to feedback.band_p. After a regrade, final_band_p is cleared on the
+    regraded response so the fresh AI grade is used directly.
     """
     r_res = (
         supabase_admin.table("responses")
-        .select("overall_band, feedback")
+        .select("overall_band, final_band_p, feedback")
         .eq("session_id", session_id)
         .execute()
     )
     responses = r_res.data or []
-    fc_v, lr_v, gra_v, p_v = [], [], [], []
+    fc_v, lr_v, gra_v, p_v, r_bands = [], [], [], [], []
     for r in responses:
+        ob = r.get("overall_band")
+        if ob is not None:
+            r_bands.append(float(ob))
         raw = r.get("feedback")
         if not raw:
             continue
@@ -1328,11 +1336,22 @@ def _regrade_compute_session_bands(session_id: str) -> dict:
             continue
         if not isinstance(fb, dict):
             continue
-        for lst, key in ((fc_v, "band_fc"), (lr_v, "band_lr"), (gra_v, "band_gra"), (p_v, "band_p")):
+        for lst, key in ((fc_v, "band_fc"), (lr_v, "band_lr"), (gra_v, "band_gra")):
             v = fb.get(key)
             if v is not None:
                 try:
                     lst.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+        # P criterion: pronunciation-adjusted when available, else raw AI grade
+        final_p = r.get("final_band_p")
+        if final_p is not None:
+            p_v.append(float(final_p))
+        else:
+            v = fb.get("band_p")
+            if v is not None:
+                try:
+                    p_v.append(float(v))
                 except (TypeError, ValueError):
                     pass
     band_fc  = _regrade_round_band(sum(fc_v)  / len(fc_v))  if fc_v  else None
@@ -1340,7 +1359,10 @@ def _regrade_compute_session_bands(session_id: str) -> dict:
     band_gra = _regrade_round_band(sum(gra_v) / len(gra_v)) if gra_v else None
     band_p   = _regrade_round_band(sum(p_v)   / len(p_v))   if p_v   else None
     crit = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
-    overall = _regrade_round_band(sum(crit) / len(crit)) if crit else None
+    overall = (
+        _regrade_round_band(sum(crit) / len(crit)) if crit
+        else (_regrade_round_band(sum(r_bands) / len(r_bands)) if r_bands else None)
+    )
     return {"overall_band": overall, "band_fc": band_fc, "band_lr": band_lr, "band_gra": band_gra, "band_p": band_p}
 
 
@@ -1402,9 +1424,13 @@ async def _run_regrade_response(
     old_count = resp.get("regrade_count") or 0
 
     update: dict = {
-        "feedback":       json.dumps(grading, ensure_ascii=False),
-        "overall_band":   grading["overall_band"],
-        "grading_status": "completed",
+        "feedback":           json.dumps(grading, ensure_ascii=False),
+        "overall_band":       grading["overall_band"],
+        "grading_status":     "completed",
+        # Clear stale pronunciation-adjusted fields — the new AI grade supersedes them.
+        # User must re-run pronunciation assessment to get updated adjusted scores.
+        "final_band_p":       None,
+        "final_overall_band": None,
     }
     if re_transcribed:
         update["transcript"] = transcript
@@ -1441,7 +1467,7 @@ async def admin_regrade_response(
     # Load response
     r_res = (
         supabase_admin.table("responses")
-        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status")
+        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status, regrade_count")
         .eq("id", response_id)
         .limit(1)
         .execute()
@@ -1512,12 +1538,20 @@ async def admin_regrade_response(
 @router.post("/sessions/{session_id}/regrade")
 async def admin_regrade_session(
     session_id: str,
+    force: bool = Query(default=False, description="force=true: regrade ALL responses; force=false (default): repair only failed/missing responses"),
     authorization: str | None = Header(default=None),
 ):
     """
-    Chấm lại toàn bộ session.
-    Ưu tiên regrade các response bị fail hoặc thiếu overall_band.
-    Sau đó recompute session-level bands.
+    Repair or fully regrade a session.
+
+    force=False (default): partial repair — only regrade responses where
+      grading_status == 'failed' OR overall_band is None.
+      Use this to recover from grading failures without re-running good responses.
+
+    force=True: full regrade — regrade ALL responses regardless of current status.
+      Use this when you want to apply updated grading logic to an entire session.
+
+    In both cases, session-level bands are recomputed from all responses afterward.
     """
     admin = await require_admin(authorization)
     admin_email = admin.get("email", "admin")
@@ -1546,7 +1580,7 @@ async def admin_regrade_session(
     # Load all responses for this session
     r_res = (
         supabase_admin.table("responses")
-        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status, overall_band")
+        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status, overall_band, regrade_count")
         .eq("session_id", session_id)
         .execute()
     )
@@ -1554,6 +1588,8 @@ async def admin_regrade_session(
 
     # Determine which responses need regrading
     def _needs_regrade(r: dict) -> bool:
+        if force:
+            return True  # full regrade — include all responses
         if r.get("grading_status") == "failed":
             return True
         if r.get("overall_band") is None:
@@ -1584,14 +1620,28 @@ async def admin_regrade_session(
             failed_ids.append(resp["id"])
             failed_errors.append(f"{resp['id']}: {exc}")
 
+    # force=True with any failures: the session contains a mix of fresh and stale
+    # scores — do NOT finalize it as a clean completed session.
+    force_partial_failure = force and len(failed_ids) > 0
+
     # Recompute session-level bands from all responses (including already-good ones)
     bands = _regrade_compute_session_bands(session_id)
     now = datetime.now(timezone.utc).isoformat()
 
-    session_update: dict = {
-        **bands,
-        "status": "completed",
-    }
+    if force_partial_failure:
+        # Mark session as degraded so the admin knows it needs attention.
+        # Do NOT restore status="completed" — the band scores are untrustworthy
+        # because some responses kept their old scores.
+        session_update: dict = {
+            **bands,
+            "status": "grading_failed",
+        }
+    else:
+        session_update = {
+            **bands,
+            "status": "completed",
+        }
+
     try:
         full_sess_update = {
             **session_update,
@@ -1604,7 +1654,8 @@ async def admin_regrade_session(
         supabase_admin.table("sessions").update(session_update).eq("id", session_id).execute()
 
     return {
-        "ok":               True,
+        "ok":               not force_partial_failure,
+        "partial_failure":  force_partial_failure,
         "session_id":       session_id,
         "regraded":         regraded,
         "skipped":          skip_count,

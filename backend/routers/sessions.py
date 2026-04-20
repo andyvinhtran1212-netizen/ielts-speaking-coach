@@ -27,6 +27,115 @@ def _round_band(value: float) -> float:
     rounded = math.floor(value * 2 + 0.5) / 2
     return max(1.0, min(9.0, rounded))
 
+
+def _compute_session_bands(session_id: str) -> dict:
+    """
+    Canonical aggregate: fetch all responses for session and compute band scores.
+
+    Canonical field precedence (P criterion):
+      - Use ``responses.final_band_p`` (pronunciation-adjusted) when set.
+      - Fall back to ``responses.feedback.band_p`` (raw AI grade) otherwise.
+
+    Canonical overall per response:
+      - ``responses.final_overall_band``: pronunciation-adjusted overall for this response.
+        Set by the pronunciation service ONLY — admin regrade clears it.
+        Meaning:
+          • Practice mode: pronunciation-tweaked overall (P-weighted delta applied to overall_band).
+          • Test mode: avg(FC, LR, GRA, final_band_p) recomputed after pronunciation.
+        This value is an intermediate artifact; it feeds _compute_session_bands but is
+        never exposed as the session-level truth.  ``sessions.overall_band`` is the truth
+        after finalization.
+      - Falls back to ``responses.overall_band`` (raw AI overall) when not set.
+
+    Session-level truth (written by update_session_bands / complete_session):
+      - ``sessions.overall_band``  — canonical session overall (the authoritative value).
+      - ``sessions.band_fc/lr/gra/p`` — canonical per-criterion averages.
+
+    FC / LR / GRA always come from ``feedback.*`` (pronunciation does not adjust them).
+    """
+    r_res = (
+        supabase_admin.table("responses")
+        .select("overall_band, final_band_p, final_overall_band, feedback")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    responses = r_res.data or []
+
+    fc_vals, lr_vals, gra_vals, p_vals, r_bands = [], [], [], [], []
+    for r in responses:
+        # Overall-band fallback (practice mode — no criterion bands in feedback)
+        final_ob = r.get("final_overall_band")
+        ob = final_ob if final_ob is not None else r.get("overall_band")
+        if ob is not None:
+            r_bands.append(float(ob))
+
+        raw = r.get("feedback")
+        if not raw:
+            continue
+        try:
+            fb = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(fb, dict):
+            continue
+
+        for vals, key in ((fc_vals, "band_fc"), (lr_vals, "band_lr"), (gra_vals, "band_gra")):
+            v = fb.get(key)
+            if v is not None:
+                try:
+                    vals.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+
+        # P criterion: pronunciation-adjusted when available, else raw AI grade
+        final_p = r.get("final_band_p")
+        if final_p is not None:
+            p_vals.append(float(final_p))
+        else:
+            v = fb.get("band_p")
+            if v is not None:
+                try:
+                    p_vals.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+
+    criteria_bands: dict = {
+        "band_fc":  _round_band(sum(fc_vals)  / len(fc_vals))  if fc_vals  else None,
+        "band_lr":  _round_band(sum(lr_vals)  / len(lr_vals))  if lr_vals  else None,
+        "band_gra": _round_band(sum(gra_vals) / len(gra_vals)) if gra_vals else None,
+        "band_p":   _round_band(sum(p_vals)   / len(p_vals))   if p_vals   else None,
+    }
+    scored = [v for v in criteria_bands.values() if v is not None]
+    overall_band = (
+        _round_band(sum(scored) / len(scored)) if scored
+        else (_round_band(sum(r_bands) / len(r_bands)) if r_bands else None)
+    )
+    return {"overall_band": overall_band, **criteria_bands}
+
+
+def update_session_bands(session_id: str) -> None:
+    """
+    Re-aggregate band scores for a session and persist them (no status change).
+    Called by the pronunciation endpoint after writing final_band_p so that the
+    session aggregate immediately reflects pronunciation-adjusted scores.
+    Safe to call on completed or in-progress sessions.
+    """
+    try:
+        bands = _compute_session_bands(session_id)
+    except Exception as e:
+        logger.warning("[update_session_bands] compute failed session=%s: %s", session_id, e)
+        return
+
+    payload = {k: v for k, v in bands.items() if v is not None}
+    if not payload:
+        return
+    try:
+        supabase_admin.table("sessions").update(payload).eq("id", session_id).execute()
+        logger.info("[update_session_bands] session=%s bands=%s", session_id, payload)
+    except Exception as e:
+        logger.warning("[update_session_bands] write failed session=%s: %s", session_id, e)
+
+
 # Maps session mode → required permission scope
 _MODE_SCOPE: dict[str, str] = {
     "practice":  "practice_single",
@@ -312,6 +421,8 @@ async def get_session_stats(
             "avg_band_30d":   avg_band_30d,
             "current_streak": current_streak,
             "last_topic":     last_session.get("topic") if last_session else None,
+            "last_part":      last_session.get("part") if last_session else None,
+            "last_mode":      last_session.get("mode") if last_session else None,
             "last_session_at": last_session.get("started_at") if last_session else None,
         },
     }
@@ -527,55 +638,79 @@ async def get_full_test_summary(
     except Exception as e:
         raise HTTPException(500, f"Lỗi khi tải responses: {e}")
 
-    # Aggregate criterion bands, strengths, improvements, grammar across all responses
+    # ── Canonical band fast-path ──────────────────────────────────────────────
+    # When ALL requested sessions are completed with a non-null overall_band,
+    # use the persisted session-level canonical bands (which reflect any
+    # pronunciation adjustments written by update_session_bands).  This avoids
+    # re-reading raw responses.feedback which would ignore final_band_p/final_overall_band.
+    completed_sessions = [
+        s for s in sessions_by_id.values()
+        if s.get("status") == "completed" and s.get("overall_band") is not None
+    ]
+    use_persisted_bands = len(completed_sessions) == len(all_ids)
+
+    if use_persisted_bands:
+        # Aggregate criterion bands from persisted session rows (already canonical).
+        fc_vals_s  = [float(s["band_fc"])  for s in completed_sessions if s.get("band_fc")  is not None]
+        lr_vals_s  = [float(s["band_lr"])  for s in completed_sessions if s.get("band_lr")  is not None]
+        gra_vals_s = [float(s["band_gra"]) for s in completed_sessions if s.get("band_gra") is not None]
+        p_vals_s   = [float(s["band_p"])   for s in completed_sessions if s.get("band_p")   is not None]
+
+        band_fc  = _round_band(sum(fc_vals_s)  / len(fc_vals_s))  if fc_vals_s  else None
+        band_lr  = _round_band(sum(lr_vals_s)  / len(lr_vals_s))  if lr_vals_s  else None
+        band_gra = _round_band(sum(gra_vals_s) / len(gra_vals_s)) if gra_vals_s else None
+        band_p   = _round_band(sum(p_vals_s)   / len(p_vals_s))   if p_vals_s   else None
+
+        scored = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
+        overall_band = _round_band(sum(scored) / len(scored)) if scored else None
+
+    # Always compute qualitative data (strengths/improvements/grammar) from responses,
+    # and per-part band_avg using the canonical per-session overall_band when available.
+    all_strengths: list[str] = []
+    all_improvements: list[str] = []
+    all_grammar: list[str] = []
+    per_session_first_feedback: dict[str, dict] = {}
+
+    # For criterion-band computation when NOT using persisted path
     fc_vals: list[float] = []
     lr_vals: list[float] = []
     gra_vals: list[float] = []
     p_vals: list[float] = []
-    all_strengths: list[str] = []
-    all_improvements: list[str] = []
-    all_grammar: list[str] = []
-
-    # Per-session data for part breakdown
-    per_session_bands: dict[str, list[float]] = {sid: [] for sid in all_ids}
-    per_session_first_feedback: dict[str, dict] = {}
 
     for r in all_responses:
         sid = r.get("session_id")
-        ob = r.get("overall_band")
-        if ob is not None and sid in per_session_bands:
-            per_session_bands[sid].append(float(ob))
 
         raw_fb = r.get("feedback")
-        if not raw_fb:
-            continue
-        try:
-            fb = json.loads(raw_fb) if isinstance(raw_fb, str) else raw_fb
-        except (json.JSONDecodeError, TypeError):
-            continue
-        if not isinstance(fb, dict):
-            continue
+        fb: dict = {}
+        if raw_fb:
+            try:
+                fb = json.loads(raw_fb) if isinstance(raw_fb, str) else raw_fb
+                if not isinstance(fb, dict):
+                    fb = {}
+            except (json.JSONDecodeError, TypeError):
+                fb = {}
 
-        # Criterion bands
-        for vals, key in [
-            (fc_vals,  "band_fc"),
-            (lr_vals,  "band_lr"),
-            (gra_vals, "band_gra"),
-            (p_vals,   "band_p"),
-        ]:
-            v = fb.get(key)
-            if v is not None:
-                try:
-                    vals.append(float(v))
-                except (TypeError, ValueError):
-                    pass
+        if not use_persisted_bands:
+            # Criterion bands from raw feedback (pre-pronunciation values)
+            for vals, key in [
+                (fc_vals,  "band_fc"),
+                (lr_vals,  "band_lr"),
+                (gra_vals, "band_gra"),
+                (p_vals,   "band_p"),
+            ]:
+                v = fb.get(key)
+                if v is not None:
+                    try:
+                        vals.append(float(v))
+                    except (TypeError, ValueError):
+                        pass
 
         all_strengths.extend(fb.get("strengths") or [])
         all_improvements.extend(fb.get("improvements") or [])
         all_grammar.extend(fb.get("grammar_issues") or [])
 
         # Keep first response-with-feedback per session for key_feedback
-        if sid and sid not in per_session_first_feedback:
+        if sid and sid not in per_session_first_feedback and fb:
             strs = fb.get("strengths") or []
             imps = fb.get("improvements") or []
             if strs or imps:
@@ -584,14 +719,15 @@ async def get_full_test_summary(
                     "improvement": imps[0] if imps else None,
                 }
 
-    # Compute overall criterion bands
-    band_fc  = _round_band(sum(fc_vals)  / len(fc_vals))  if fc_vals  else None
-    band_lr  = _round_band(sum(lr_vals)  / len(lr_vals))  if lr_vals  else None
-    band_gra = _round_band(sum(gra_vals) / len(gra_vals)) if gra_vals else None
-    band_p   = _round_band(sum(p_vals)   / len(p_vals))   if p_vals   else None
+    if not use_persisted_bands:
+        # Compute criterion bands from raw feedback fallback
+        band_fc  = _round_band(sum(fc_vals)  / len(fc_vals))  if fc_vals  else None
+        band_lr  = _round_band(sum(lr_vals)  / len(lr_vals))  if lr_vals  else None
+        band_gra = _round_band(sum(gra_vals) / len(gra_vals)) if gra_vals else None
+        band_p   = _round_band(sum(p_vals)   / len(p_vals))   if p_vals   else None
 
-    scored = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
-    overall_band = _round_band(sum(scored) / len(scored)) if scored else None
+        scored = [b for b in [band_fc, band_lr, band_gra, band_p] if b is not None]
+        overall_band = _round_band(sum(scored) / len(scored)) if scored else None
 
     # Top strengths / improvements (most frequent, max 3 each)
     top_strengths    = [s for s, _ in Counter(all_strengths).most_common(3)]
@@ -606,8 +742,17 @@ async def get_full_test_summary(
         if not sid or sid not in sessions_by_id:
             continue
         sess = sessions_by_id[sid]
-        bands = per_session_bands.get(sid, [])
-        band_avg = round(sum(bands) / len(bands), 1) if bands else None
+        # Use persisted session overall_band for per-part avg when available (canonical truth),
+        # otherwise fall back to the mean of raw response overall_band values.
+        if use_persisted_bands and sess.get("overall_band") is not None:
+            band_avg = float(sess["overall_band"])
+        else:
+            resp_bands = [
+                float(r["overall_band"])
+                for r in all_responses
+                if r.get("session_id") == sid and r.get("overall_band") is not None
+            ]
+            band_avg = round(sum(resp_bands) / len(resp_bands), 1) if resp_bands else None
         parts.append({
             "part":            part_num,
             "session_id":      sid,
@@ -658,51 +803,13 @@ def _complete_session_internal(session_id: str) -> None:
     if session.get("status") == "completed" and session.get("overall_band") is not None:
         return  # already fully computed — nothing to do
 
-    r_res = (
-        supabase_admin.table("responses")
-        .select("overall_band, feedback")
-        .eq("session_id", session_id)
-        .execute()
-    )
-    responses = r_res.data or []
+    try:
+        bands = _compute_session_bands(session_id)
+    except Exception as e:
+        raise ValueError(f"Could not compute bands for session {session_id}: {e}")
 
-    fc_vals, lr_vals, gra_vals, p_vals, r_bands = [], [], [], [], []
-    for r in responses:
-        ob = r.get("overall_band")
-        if ob is not None:
-            r_bands.append(float(ob))
-        raw = r.get("feedback")
-        if not raw:
-            continue
-        try:
-            fb = json.loads(raw) if isinstance(raw, str) else raw
-        except (json.JSONDecodeError, TypeError):
-            continue
-        if isinstance(fb, dict):
-            for vals, key in (
-                (fc_vals,  "band_fc"),
-                (lr_vals,  "band_lr"),
-                (gra_vals, "band_gra"),
-                (p_vals,   "band_p"),
-            ):
-                v = fb.get(key)
-                if v is not None:
-                    try:
-                        vals.append(float(v))
-                    except (TypeError, ValueError):
-                        pass
-
-    criteria_bands: dict = {
-        "band_fc":  _round_band(sum(fc_vals)  / len(fc_vals))  if fc_vals  else None,
-        "band_lr":  _round_band(sum(lr_vals)  / len(lr_vals))  if lr_vals  else None,
-        "band_gra": _round_band(sum(gra_vals) / len(gra_vals)) if gra_vals else None,
-        "band_p":   _round_band(sum(p_vals)   / len(p_vals))   if p_vals   else None,
-    }
-    scored = [v for v in criteria_bands.values() if v is not None]
-    overall_band = (
-        _round_band(sum(scored) / len(scored)) if scored
-        else (_round_band(sum(r_bands) / len(r_bands)) if r_bands else None)
-    )
+    overall_band = bands["overall_band"]
+    criteria_bands = {k: v for k, v in bands.items() if k != "overall_band"}
 
     update_payload: dict = {
         "status": "completed",
@@ -716,8 +823,13 @@ def _complete_session_internal(session_id: str) -> None:
     logger.info("[finalize_ft] session=%s completed — overall_band=%s", session_id, overall_band)
 
 
-def _check_all_responses_saved(session_ids: list) -> bool:
-    """Return True when every question in each session has a saved response row."""
+def _check_all_responses_graded(session_ids: list) -> bool:
+    """
+    Return True when every question in each session has a *graded* response row.
+    A response is considered graded when grading_status='completed' OR overall_band IS NOT NULL.
+    Existence of a response row alone is not sufficient — audio may have been uploaded
+    but the AI grading pipeline may not have finished yet.
+    """
     for sid in session_ids:
         try:
             q_res = (
@@ -728,14 +840,21 @@ def _check_all_responses_saved(session_ids: list) -> bool:
             )
             r_res = (
                 supabase_admin.table("responses")
-                .select("id", count="exact")
+                .select("id, grading_status, overall_band")
                 .eq("session_id", sid)
                 .execute()
             )
             n_q = q_res.count or 0
-            n_r = r_res.count or 0
-            if n_r < n_q:
-                logger.info("[finalize_ft] session=%s: %d/%d responses saved", sid, n_r, n_q)
+            responses = r_res.data or []
+            graded = [
+                r for r in responses
+                if r.get("grading_status") == "completed" or r.get("overall_band") is not None
+            ]
+            n_graded = len(graded)
+            if n_graded < n_q:
+                logger.info(
+                    "[finalize_ft] session=%s: %d/%d responses graded", sid, n_graded, n_q
+                )
                 return False
         except Exception as e:
             logger.warning("[finalize_ft] poll error for session=%s: %s", sid, e)
@@ -758,7 +877,7 @@ async def _bg_finalize_full_test(session_ids: list) -> None:
     while elapsed < max_wait:
         await asyncio.sleep(poll_sec)
         elapsed += poll_sec
-        all_ready = await asyncio.to_thread(_check_all_responses_saved, session_ids)
+        all_ready = await asyncio.to_thread(_check_all_responses_graded, session_ids)
         if all_ready:
             logger.info("[finalize_ft] all responses saved after %ds — completing sessions", elapsed)
             break
@@ -881,64 +1000,27 @@ async def complete_session(
         # Already completed but band is null (e.g. prior DB save failure) — fall through to recompute.
         logger.info("[complete_session] re-computing band for already-completed session=%s (overall_band was null)", session_id)
 
-    # overall_band = mean of whichever criterion bands are not null (test mode)
-    raw_bands = [session.get(k) for k in ("band_fc", "band_lr", "band_gra", "band_p")]
-    scored = [b for b in raw_bands if b is not None]
-    overall_band = _round_band(sum(scored) / len(scored)) if scored else None
-
-    # Criterion bands are never written by the grading route — compute them from responses.feedback
-    criteria_bands: dict[str, float | None] = {
-        "band_fc": None, "band_lr": None, "band_gra": None, "band_p": None
-    }
+    # Compute canonical bands from responses (prefers final_band_p when available)
     try:
-        r_res = (
-            supabase_admin.table("responses")
-            .select("overall_band, feedback")
-            .eq("session_id", session_id)
-            .execute()
+        bands = _compute_session_bands(session_id)
+    except Exception as e:
+        logger.warning("[complete_session] band compute failed session=%s: %s", session_id, e)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot complete session — band computation failed: {e}",
         )
-        responses = r_res.data or []
 
-        # overall_band fallback (practice mode has no criterion bands)
-        if overall_band is None:
-            r_bands = [
-                r["overall_band"] for r in responses
-                if r.get("overall_band") is not None
-            ]
-            if r_bands:
-                overall_band = _round_band(sum(r_bands) / len(r_bands))
+    overall_band   = bands["overall_band"]
+    criteria_bands = {k: v for k, v in bands.items() if k != "overall_band"}
 
-        # Parse feedback JSON to aggregate criterion bands (test mode)
-        fc_vals, lr_vals, gra_vals, p_vals = [], [], [], []
-        for r in responses:
-            raw = r.get("feedback")
-            if not raw:
-                continue
-            try:
-                fb = json.loads(raw) if isinstance(raw, str) else raw
-            except (json.JSONDecodeError, TypeError):
-                continue
-            if isinstance(fb, dict):
-                for vals, key in (
-                    (fc_vals,  "band_fc"),
-                    (lr_vals,  "band_lr"),
-                    (gra_vals, "band_gra"),
-                    (p_vals,   "band_p"),
-                ):
-                    v = fb.get(key)
-                    if v is not None:
-                        try:
-                            vals.append(float(v))
-                        except (TypeError, ValueError):
-                            pass
-
-        if fc_vals:  criteria_bands["band_fc"]  = _round_band(sum(fc_vals)  / len(fc_vals))
-        if lr_vals:  criteria_bands["band_lr"]  = _round_band(sum(lr_vals)  / len(lr_vals))
-        if gra_vals: criteria_bands["band_gra"] = _round_band(sum(gra_vals) / len(gra_vals))
-        if p_vals:   criteria_bands["band_p"]   = _round_band(sum(p_vals)   / len(p_vals))
-
-    except Exception:
-        pass  # best-effort — leave all bands as None
+    # Gate: do not mark completed if no usable canonical bands exist.
+    all_band_vals = [overall_band] + list(criteria_bands.values())
+    if all(v is None for v in all_band_vals):
+        raise HTTPException(
+            status_code=422,
+            detail="Cannot complete session — no usable band scores found in responses. "
+                   "Ensure all responses have been graded before calling this endpoint.",
+        )
 
     update_payload: dict = {
         "status":       "completed",

@@ -178,6 +178,7 @@ class GrammarContentService:
             "pathways":         a.get("pathways") or [],
             "common_error_tags": a.get("common_error_tags") or [],
             "tags":             a["tags"],
+            "next_articles":    a.get("next_articles") or [],
             "order":            a["order"],
             "reading_time":     a["reading_time"],
             "last_updated":     a["last_updated"],
@@ -185,15 +186,16 @@ class GrammarContentService:
         }
 
     def _resolve_related(self, slugs: list[str]) -> list[dict]:
-        """Turn a list of slugs into [{slug, title, category}] objects."""
+        """Turn a list of slugs into [{slug, title, category}] objects.
+        Unresolved slugs are silently skipped — stubs with empty category
+        produce broken links on the frontend.
+        """
         out = []
         for s in slugs:
             a = self.articles_by_slug.get(s)
             if a:
                 out.append({"slug": a["slug"], "title": a["title"], "category": a["category"]})
-            else:
-                # Slug not yet in content — return a stub so the frontend can still render a link
-                out.append({"slug": s, "title": _prettify(s), "category": ""})
+            # else: skip — unresolved slugs have no valid category and cannot be linked
         return out
 
     # ── Public API ───────────────────────────────────────────────────────────

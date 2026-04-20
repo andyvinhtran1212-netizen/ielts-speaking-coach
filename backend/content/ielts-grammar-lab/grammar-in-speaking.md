@@ -15,7 +15,6 @@ tags:
 - accuracy
 - fluency
 prerequisites:
-- tenses
 - modal-verbs
 - conditionals
 - discourse-markers
@@ -23,7 +22,6 @@ related_pages:
 - modal-verbs
 - conditionals
 - discourse-markers
-- tenses
 compare_with:
 - grammar-in-task2
 order: 3

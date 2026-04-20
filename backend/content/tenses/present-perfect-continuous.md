@@ -25,7 +25,6 @@ related_pages:
 - present-perfect
 - past-continuous
 - past-perfect
-- verb-patterns
 compare_with:
 - present-perfect
 - present-continuous

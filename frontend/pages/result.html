@@ -686,8 +686,8 @@
 
       try {
         var data = await window.api.post('/sessions', { part: part, topic: topic }, token);
-        if (!data || !data.id) throw new Error('Không nhận được session_id');
-        window.location.href = 'practice.html?session_id=' + data.id;
+        if (!data || !data.session_id) throw new Error('Không nhận được session_id');
+        window.location.href = 'practice.html?session_id=' + data.session_id;
       } catch (err) {
         alert('Không thể tạo phiên mới: ' + err.message);
         btn.disabled = false;

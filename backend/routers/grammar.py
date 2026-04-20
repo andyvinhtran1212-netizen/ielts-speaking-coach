@@ -153,10 +153,12 @@ async def track_article_view(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
-    # Resolve article metadata from in-memory service
+    # Validate slug exists in the content index
     article = grammar_service.get_article_by_slug(slug)
-    title    = article.get("title")    if article else None
-    category = article.get("category") if article else None
+    if not article:
+        raise HTTPException(status_code=404, detail=f"Article '{slug}' not found")
+    title    = article.get("title")
+    category = article.get("category")
 
     try:
         existing = (
@@ -202,7 +204,9 @@ async def save_article(
     user_id = auth_user["id"]
 
     article = grammar_service.get_article_by_slug(slug)
-    title = article.get("title") if article else slug
+    if not article:
+        raise HTTPException(status_code=404, detail=f"Article '{slug}' not found")
+    title = article.get("title")
 
     try:
         supabase_admin.table("saved_articles").upsert({
@@ -277,6 +281,14 @@ async def get_dashboard_data(
             .limit(5)
             .execute()
         )
+        # Fetch all viewed slugs (no limit) for exclusion logic — only top-5 is
+        # not enough to avoid recommending articles the user has already read.
+        all_views_res = (
+            supabase_admin.table("article_views")
+            .select("article_slug")
+            .eq("user_id", user_id)
+            .execute()
+        )
         saved_res = (
             supabase_admin.table("saved_articles")
             .select("article_slug, article_title, saved_at")
@@ -292,8 +304,8 @@ async def get_dashboard_data(
 
     # ── grammar_focus_this_week ───────────────────────────────────────────────
     slug_counts_14 = Counter(r["recommended_slug"] for r in recs_14 if r.get("recommended_slug"))
-    # Get viewed slugs to exclude articles already read
-    viewed_slugs = {v["article_slug"] for v in (views_res.data or [])}
+    # All viewed slugs (full history) for exclusion — not just top-5 display rows
+    viewed_slugs = {v["article_slug"] for v in (all_views_res.data or [])}
 
     grammar_focus = []
     for slug, count in slug_counts_14.most_common(10):

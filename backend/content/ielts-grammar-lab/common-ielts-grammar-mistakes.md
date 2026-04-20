@@ -16,7 +16,6 @@ tags:
 - error-analysis
 prerequisites:
 - subject-verb-agreement
-- tenses
 - article-errors
 - word-form-errors
 related_pages:

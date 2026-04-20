@@ -17,7 +17,6 @@ tags:
 - speaking
 prerequisites:
 - modal-verbs
-- verb-patterns
 - sentence-elements
 - present-simple
 related_pages:

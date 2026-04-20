@@ -16,7 +16,6 @@ tags:
 - passive
 - comparison
 prerequisites:
-- tenses
 - passive-voice
 - comparison
 - subject-verb-agreement

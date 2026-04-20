@@ -17,14 +17,12 @@ tags:
 prerequisites:
 - parts-of-speech
 - verbs
-- tenses
 - past-simple
 - sentence-elements
 - conjunctions
 related_pages:
 - past-perfect
 - past-simple
-- tenses
 - complex-sentence
 compare_with: []
 order: 6

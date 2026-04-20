@@ -539,7 +539,7 @@
 
         var sids = [_p1, _p2, _p3].filter(Boolean);
         await Promise.allSettled(sids.map(async function(sid) {
-          var resp = await fetch(window.api.base + '/sessions/' + encodeURIComponent(sid) + '/pdf', {
+          var resp = await fetch(window.api.base + '/sessions/' + encodeURIComponent(sid) + '/export/pdf', {
             headers: token ? { 'Authorization': 'Bearer ' + token } : {},
           });
           if (!resp.ok) throw new Error('HTTP ' + resp.status);

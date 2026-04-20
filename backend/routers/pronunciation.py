@@ -36,6 +36,7 @@ import math
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from routers.sessions import update_session_bands
 from services import azure_pronunciation
 from services.pronunciation_sampling import (
     SelectedSample,
@@ -408,6 +409,25 @@ async def assess_response_pronunciation(
             "[pronunciation] score_confidence → %r  response=%s",
             updated_confidence, response_id,
         )
+
+        # Propagate adjusted scores into the session aggregate immediately so
+        # dashboard / history read pronunciation-adjusted bands, not the stale raw AI grade.
+        # Use OR: practice mode sets final_overall_band only (no band_p criterion in practice feedback);
+        # test mode sets final_band_p.  Either signal means a re-aggregate is needed.
+        if final_band_p is not None or final_overall_band is not None:
+            try:
+                s_check = (
+                    supabase_admin.table("sessions")
+                    .select("status")
+                    .eq("id", session_id)
+                    .limit(1)
+                    .execute()
+                )
+                if (s_check.data or [{}])[0].get("status") == "completed":
+                    update_session_bands(session_id)
+            except Exception as _se:
+                logger.warning("[pronunciation] session re-aggregate failed (non-fatal): %s", _se)
+
     except Exception as e:
         logger.warning("[pronunciation] post-hoc update failed (non-fatal): %s", e)
 
@@ -674,6 +694,17 @@ async def assess_full_test_pronunciation(
                             if bp is not None:
                                 adj = _compute_adjusted_band_p(float(bp), pron_s, flu_s, rel)
                                 adjusted_p_values.append(adj)
+                                # Persist final_band_p to this response row so session
+                                # re-aggregate can use the canonical field.
+                                try:
+                                    supabase_admin.table("responses").update(
+                                        {"final_band_p": adj}
+                                    ).eq("id", rid).execute()
+                                except Exception as _we:
+                                    logger.warning(
+                                        "[pronunciation/full] write final_band_p failed response=%s: %s",
+                                        rid, _we,
+                                    )
                                 if fb_obj.get("band_fc") is not None:
                                     fc_vals.append(float(fb_obj["band_fc"]))
                                 if fb_obj.get("band_lr") is not None:
@@ -697,13 +728,52 @@ async def assess_full_test_pronunciation(
                         agg_final_band_p or 0,
                         agg_final_overall_band or 0,
                     )
+
+                    # Re-aggregate each session in the full-test group so session-level bands
+                    # reflect pronunciation-adjusted scores on the dashboard and history.
+                    all_session_ids = [session_id] + body.extra_session_ids
+                    for _sid in all_session_ids:
+                        try:
+                            _s_check = (
+                                supabase_admin.table("sessions")
+                                .select("status")
+                                .eq("id", _sid)
+                                .limit(1)
+                                .execute()
+                            )
+                            if (_s_check.data or [{}])[0].get("status") == "completed":
+                                update_session_bands(_sid)
+                        except Exception as _se:
+                            logger.warning(
+                                "[pronunciation/full] session re-aggregate failed session=%s (non-fatal): %s",
+                                _sid, _se,
+                            )
+
             except Exception as e:
                 logger.warning("[pronunciation/full] aggregate band adjustment failed (non-fatal): %s", e)
+
+    # Read back the canonical session-level overall_band now that update_session_bands
+    # has written it.  This is the authoritative value; agg_final_overall_band is an
+    # intermediate per-response artifact and must not be presented as session truth.
+    session_overall_band: Optional[float] = None
+    try:
+        _s_row = (
+            supabase_admin.table("sessions")
+            .select("overall_band")
+            .eq("id", session_id)
+            .limit(1)
+            .execute()
+        )
+        _val = (_s_row.data or [{}])[0].get("overall_band")
+        if _val is not None:
+            session_overall_band = float(_val)
+    except Exception as _re:
+        logger.warning("[pronunciation/full] failed to read back session overall_band (non-fatal): %s", _re)
 
     print(
         f"[PRON/full] done  session={session_id}  "
         f"overall={overall}  confidence={overall_confidence}  samples_assessed={len(pron_scores)}/3  "
-        f"final_band_p={agg_final_band_p}  final_overall={agg_final_overall_band}",
+        f"final_band_p={agg_final_band_p}  session_overall_band={session_overall_band}",
         flush=True,
     )
 
@@ -715,7 +785,10 @@ async def assess_full_test_pronunciation(
         "provider":                "azure",
         "locale":                  "en-US",
         "final_band_p":            agg_final_band_p,
-        "final_overall_band":      agg_final_overall_band,
+        # Canonical session-level truth: sourced from sessions.overall_band after
+        # update_session_bands() has run.  final_overall_band (per-response intermediate)
+        # is intentionally not returned here to avoid ambiguity at session scope.
+        "overall_band":            session_overall_band,
         "samples": {
             "part1": results.get("part1"),
             "part2": results.get("part2"),

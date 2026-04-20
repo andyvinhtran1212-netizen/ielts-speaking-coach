@@ -1,13 +1,9 @@
 """
 routers/questions.py — Question generation + retrieval endpoints
 
-Required Supabase migration (run once if not yet applied):
-
-    ALTER TABLE questions
-        ADD COLUMN IF NOT EXISTS subtopic text;
-
-This column stores the per-question subtopic label for Full Test Part 1,
-enabling data-driven group display on the frontend (3 topics × 3 questions = 9).
+The ``questions.subtopic`` column is added by migration 016_add_questions_subtopic.sql.
+It stores the per-question subtopic label for Full Test Part 1
+(3 subtopics × 3 questions = 9 per full-test session).
 """
 
 import logging

@@ -22,7 +22,6 @@ tags:
 prerequisites:
 - present-perfect
 - past-simple
-- tenses
 - task1-trend-grammar
 - talking-about-past-experiences
 related_pages:
