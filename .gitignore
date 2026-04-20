@@ -14,3 +14,14 @@ Thumbs.db
 
 ## Claude Code local config (per-machine, not project-wide)
 .claude/settings.local.json
+
+.agents/
+.claude/
+.obsidian/
+frontend/.claude/
+frontend/graphify-out/
+frontend/js/graphify-out/
+CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md
+frontend/CLAUDE.md
+frontend/app_rules_master.md
+frontend/known_bugs_and_failures.md
