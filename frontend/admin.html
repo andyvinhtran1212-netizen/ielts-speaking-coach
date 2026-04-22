@@ -427,6 +427,9 @@
           <div id="topics-feedback" class="topics-feedback hidden"></div>
 
           <div id="topics-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+          <div id="topics-load-error" class="hidden text-sm py-3 px-4 rounded-xl" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.22);">
+            Không thể tải danh sách topics lúc này.
+          </div>
 
           <div id="topics-table-wrap" class="topics-table-wrap hidden">
             <table class="tbl">
@@ -709,7 +712,7 @@
             </div>
           </div>
 
-          <p class="text-xs" style="color:rgba(255,255,255,0.25);">* Chi phí là ước tính dựa trên giá niêm yết. Số liệu thực tế có thể khác.</p>
+          <p id="aiu-meta-note" class="text-xs" style="color:rgba(255,255,255,0.25);">* Chi phí là ước tính dựa trên giá niêm yết. Số liệu thực tế có thể khác.</p>
         </div>
 
       </div>
@@ -738,6 +741,7 @@
                 <option value="">— Tất cả —</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
+                <option value="grading_failed">Grading Failed</option>
               </select>
             </div>
             <div>
@@ -796,6 +800,7 @@
           <h3 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Cảnh báo lỗi gần đây</h3>
           <button class="btn-secondary text-xs" onclick="loadAlerts(true)">↺ Làm mới</button>
         </div>
+        <div id="alerts-status" class="hidden text-xs py-2 px-3 rounded-lg" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.68);border:1px solid rgba(255,255,255,0.08);"></div>
         <div id="alerts-loading" class="flex justify-center py-12 hidden"><div class="spinner"></div></div>
 
         <!-- Session-level errors -->
@@ -1079,6 +1084,7 @@
     var _editingTopicId = null;
     var _topicActionBusy = {};
     var _topicsBulkBusy = false;
+    var _topicsLoadFailed = false;
 
     window.switchLibTab = function (n) {
       _currentLibTab = n;
@@ -1211,17 +1217,29 @@
 
     function renderTopicsTable() {
       var loadEl = document.getElementById('topics-loading');
+      var loadErrEl = document.getElementById('topics-load-error');
       var emptyEl = document.getElementById('topics-empty');
       var tableWrap = document.getElementById('topics-table-wrap');
       var tbody = document.getElementById('topics-table-body');
       var visibleTopics = getVisibleTopics();
       pruneSelectionToVisible(visibleTopics);
-
-      document.getElementById('topics-summary-chip').textContent = visibleTopics.length + (visibleTopics.length === 1 ? ' topic' : ' topics');
-      document.getElementById('topics-summary-muted').textContent =
-        'Showing ' + visibleTopics.length + ' topics in ' + getCurrentPartLabel(_currentLibTab) + (_topicSearch ? ' matching "' + _topicSearch + '"' : '.');
+      var summaryChip = document.getElementById('topics-summary-chip');
+      var summaryMuted = document.getElementById('topics-summary-muted');
 
       loadEl.classList.add('hidden');
+      loadErrEl.classList.toggle('hidden', !_topicsLoadFailed);
+      if (_topicsLoadFailed) {
+        summaryChip.textContent = 'Load failed';
+        summaryMuted.textContent = 'Không thể xác nhận dữ liệu topics hiện tại vì lần tải gần nhất bị lỗi.';
+        tbody.innerHTML = '';
+        tableWrap.classList.add('hidden');
+        emptyEl.classList.add('hidden');
+        updateTopicSelectionUI([]);
+        return;
+      }
+      summaryChip.textContent = visibleTopics.length + (visibleTopics.length === 1 ? ' topic' : ' topics');
+      summaryMuted.textContent =
+        'Showing ' + visibleTopics.length + ' topics in ' + getCurrentPartLabel(_currentLibTab) + (_topicSearch ? ' matching "' + _topicSearch + '"' : '.');
       if (!visibleTopics.length) {
         tbody.innerHTML = '';
         tableWrap.classList.add('hidden');
@@ -1248,16 +1266,19 @@
 
     async function loadTopics() {
       _loaded.topics = true;
+      _topicsLoadFailed = false;
       document.getElementById('topics-loading').classList.remove('hidden');
+      document.getElementById('topics-load-error').classList.add('hidden');
       document.getElementById('topics-empty').classList.add('hidden');
       document.getElementById('topics-table-wrap').classList.add('hidden');
 
       try {
         var topics = await apiGet('/admin/topics');
         _topicsCache = topics || [];
+        _topicsLoadFailed = false;
         renderTopicsTable();
       } catch (err) {
-        _topicsCache = [];
+        _topicsLoadFailed = true;
         renderTopicsTable();
         setTopicsFeedback('error', 'Lỗi khi tải topics: ' + err.message);
       }
@@ -2424,6 +2445,7 @@
 
       var overall = data.overall || {};
       var byService = overall.by_service || {};
+      var meta = data.meta || {};
 
       function svcCost(svc)  { return (byService[svc] && byService[svc].cost_usd) || 0; }
       function svcCalls(svc) { return (byService[svc] && byService[svc].calls)    || 0; }
@@ -2476,6 +2498,14 @@
         }).join('');
       }
 
+      var metaNote = '* Chi phí là ước tính dựa trên giá niêm yết. Số liệu thực tế có thể khác.';
+      if (meta.truncated) {
+        metaNote += ' Lưu ý: tổng hợp hiện chỉ dựa trên ' + fmtNum(meta.returned_rows || 0)
+          + '/' + fmtNum(meta.total_matching_rows || meta.returned_rows || 0)
+          + ' log gần nhất do giới hạn truy vấn admin.';
+      }
+      document.getElementById('aiu-meta-note').textContent = metaNote;
+
       document.getElementById('ai-usage-content').classList.remove('hidden');
     }
 
@@ -2484,6 +2514,30 @@
     var _sessionsOffset = 0;
     var _sessionsLimit  = 50;
     var _sessionsEmailIndex = {}; // email → user_id for filter
+    var _sessionsLastPage = [];
+
+    function setAlertsStatus(type, message) {
+      var el = document.getElementById('alerts-status');
+      if (!message) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        el.style.background = 'rgba(255,255,255,0.06)';
+        el.style.color = 'rgba(255,255,255,0.68)';
+        el.style.borderColor = 'rgba(255,255,255,0.08)';
+        return;
+      }
+      el.textContent = message;
+      el.classList.remove('hidden');
+      if (type === 'error') {
+        el.style.background = 'rgba(239,68,68,0.12)';
+        el.style.color = '#fca5a5';
+        el.style.borderColor = 'rgba(239,68,68,0.22)';
+      } else {
+        el.style.background = 'rgba(255,255,255,0.06)';
+        el.style.color = 'rgba(255,255,255,0.68)';
+        el.style.borderColor = 'rgba(255,255,255,0.08)';
+      }
+    }
 
     function _errorLabel(code) {
       var map = { stt_failed: 'STT', grading_failed: 'Grading', save_failed: 'DB Save', pdf_failed: 'PDF' };
@@ -2510,7 +2564,7 @@
 
     window.loadSessions = async function (reset) {
       _loaded.sessions = true;
-      if (reset) { _sessionsOffset = 0; _sessionsData = []; }
+      if (reset) { _sessionsOffset = 0; _sessionsData = []; _sessionsLastPage = []; }
 
       var loadEl    = document.getElementById('sessions-loading');
       var emptyEl   = document.getElementById('sessions-empty');
@@ -2520,6 +2574,7 @@
       loadEl.classList.remove('hidden');
       emptyEl.classList.add('hidden');
       if (reset) tableWrap.classList.add('hidden');
+      emptyEl.textContent = 'Không tìm thấy session nào.';
 
       // Build query string
       var emailVal    = (document.getElementById('sf-email').value || '').trim();
@@ -2547,18 +2602,41 @@
         if (isUuid) {
           params += '&user_id=' + encodeURIComponent(emailVal);
         } else {
-          // Search among users tab cache — or fetch users list
           try {
             var usersRes = await apiGet('/admin/users');
+            var emailNeedle = emailVal.toLowerCase();
             var matched  = (usersRes || []).filter(function (u) {
-              return (u.email || '').toLowerCase().includes(emailVal.toLowerCase());
+              return (u.email || '').toLowerCase().includes(emailNeedle);
             });
-            if (matched.length === 1) {
+            var exactMatched = matched.filter(function (u) {
+              return (u.email || '').toLowerCase() === emailNeedle;
+            });
+            if (exactMatched.length === 1) {
+              params += '&user_id=' + encodeURIComponent(exactMatched[0].id);
+            } else if (matched.length === 1) {
               params += '&user_id=' + encodeURIComponent(matched[0].id);
-            } else if (matched.length > 1) {
-              // Multiple matches — filter client-side after load
+            } else {
+              loadEl.classList.add('hidden');
+              moreBtn.classList.add('hidden');
+              tableWrap.classList.add('hidden');
+              _sessionsData = [];
+              _sessionsLastPage = [];
+              emptyEl.textContent = matched.length > 1
+                ? 'Có nhiều user khớp với email này. Hãy nhập email đầy đủ hơn hoặc dùng User ID.'
+                : 'Không tìm thấy user nào khớp với email đã nhập.';
+              emptyEl.classList.remove('hidden');
+              return;
             }
-          } catch (e) { /* ignore */ }
+          } catch (e) {
+            loadEl.classList.add('hidden');
+            moreBtn.classList.add('hidden');
+            tableWrap.classList.add('hidden');
+            _sessionsData = [];
+            _sessionsLastPage = [];
+            emptyEl.textContent = 'Không thể tra cứu user cho bộ lọc email: ' + e.message;
+            emptyEl.classList.remove('hidden');
+            return;
+          }
         }
       }
 
@@ -2572,21 +2650,35 @@
           return;
         }
 
-        _sessionsData = reset ? data : _sessionsData.concat(data);
+        _sessionsLastPage = data;
+        if (reset) {
+          _sessionsData = data.slice();
+        } else {
+          var seenSessionIds = {};
+          _sessionsData.forEach(function (row) { seenSessionIds[row.id] = true; });
+          data.forEach(function (row) {
+            if (!seenSessionIds[row.id]) {
+              _sessionsData.push(row);
+              seenSessionIds[row.id] = true;
+            }
+          });
+        }
         _sessionsOffset += data.length;
         moreBtn.classList.toggle('hidden', data.length < _sessionsLimit);
         renderSessions(reset);
 
       } catch (err) {
         loadEl.classList.add('hidden');
-        alert('Lỗi tải sessions: ' + err.message);
+        emptyEl.textContent = 'Lỗi tải sessions: ' + err.message;
+        emptyEl.classList.remove('hidden');
+        moreBtn.classList.add('hidden');
       }
     };
 
     function renderSessions(reset) {
       var tbody    = document.getElementById('sessions-tbody');
       var tableWrap = document.getElementById('sessions-table-wrap');
-      var rows = (reset ? _sessionsData : _sessionsData.slice(_sessionsOffset - _sessionsData.length));
+      var rows = reset ? _sessionsData : _sessionsLastPage;
       var html = (reset ? '' : tbody.innerHTML);
 
       rows.forEach(function (s) {
@@ -2709,10 +2801,12 @@
                 + '</div>';
             }
 
-            if (r.audio_url || r.audio_storage_path) {
+            if (r.audio_playback_url) {
               html += '<div class="mt-2">'
-                + '<audio controls class="w-full" style="height:32px;" src="' + esc(r.audio_url || '') + '"></audio>'
+                + '<audio controls class="w-full" style="height:32px;" src="' + esc(r.audio_playback_url) + '"></audio>'
                 + '</div>';
+            } else if (r.audio_storage_path || r.audio_url) {
+              html += '<p class="text-xs mt-2" style="color:rgba(255,255,255,0.35);">Có bản ghi audio trong storage nhưng chưa có URL phát lại khả dụng cho admin.</p>';
             }
 
             html += '<div class="mt-2">'
@@ -2738,14 +2832,16 @@
       if (!force) _loaded.alerts = true;
       var loadEl = document.getElementById('alerts-loading');
       loadEl.classList.remove('hidden');
+      setAlertsStatus('', '');
 
       try {
         var data = await apiGet('/admin/alerts?limit=30');
         loadEl.classList.add('hidden');
         renderAlerts(data);
+        setAlertsStatus('info', 'Đã làm mới Alerts lúc ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.');
       } catch (err) {
         loadEl.classList.add('hidden');
-        alert('Lỗi tải alerts: ' + err.message);
+        setAlertsStatus('error', 'Không thể làm mới Alerts: ' + err.message + '. Dữ liệu đang hiển thị có thể đã cũ.');
       }
     };
 
@@ -2837,7 +2933,21 @@
       try {
         if (btn) { btn.disabled = true; btn.textContent = 'Đang chấm…'; }
         var result = await apiPost('/admin/sessions/' + sessionId + '/regrade', {});
-        alert('Chấm lại xong: ' + (result.regraded || 0) + ' câu thành công, ' + (result.failed || 0) + ' câu lỗi.');
+        var message;
+        if (result.partial_failure) {
+          message = 'Regrade hoàn tất một phần: ' + (result.regraded || 0) + ' câu thành công, '
+            + (result.failed || 0) + ' câu lỗi. Session đã bị đánh dấu degraded/grading_failed và cần kiểm tra lại.';
+        } else if (result.ok) {
+          message = 'Regrade thành công: ' + (result.regraded || 0) + ' câu được chấm lại'
+            + ((result.skipped || 0) ? ', ' + (result.skipped || 0) + ' câu được giữ nguyên.' : '.');
+        } else {
+          message = 'Regrade không hoàn tất sạch sẽ: ' + (result.regraded || 0) + ' câu thành công, '
+            + (result.failed || 0) + ' câu lỗi.';
+        }
+        if (result.failed_details && result.failed_details.length) {
+          message += '\n\nChi tiết lỗi:\n- ' + result.failed_details.join('\n- ');
+        }
+        alert(message);
         openSessionDetail(sessionId);
       } catch (err) {
         alert('Lỗi: ' + err.message);
@@ -2858,7 +2968,22 @@
         if (p3Id) params.push('p3_id=' + encodeURIComponent(p3Id));
         if (params.length) url += '?' + params.join('&');
         var result = await apiPost(url, {});
-        alert('Tổng hợp xong! Overall band: ' + (result.overall_band || '—'));
+        var sessions = Array.isArray(result.sessions) ? result.sessions : [];
+        var okSessions = sessions.filter(function (item) { return item.ok; });
+        var failedSessions = sessions.filter(function (item) { return !item.ok; });
+        var summary = okSessions.map(function (item) {
+          return item.session_id + ': overall ' + (item.overall_band == null ? '—' : item.overall_band);
+        }).join('\n');
+        var message = failedSessions.length
+          ? 'Tổng hợp hoàn tất một phần: ' + okSessions.length + '/' + sessions.length + ' session cập nhật thành công.'
+          : 'Tổng hợp thành công cho ' + okSessions.length + ' session.';
+        if (summary) message += '\n\nKết quả:\n' + summary;
+        if (failedSessions.length) {
+          message += '\n\nSession chưa tổng hợp được:\n- ' + failedSessions.map(function (item) {
+            return item.session_id + ': ' + (item.error || 'Lỗi không xác định');
+          }).join('\n- ');
+        }
+        alert(message);
         openSessionDetail(sessionId);
       } catch (err) {
         alert('Lỗi: ' + err.message);

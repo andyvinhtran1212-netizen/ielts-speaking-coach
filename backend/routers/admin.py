@@ -146,10 +146,7 @@ def _topic_question_insert_rows(rows: list[dict]) -> list[dict]:
 
 def _require_db_engine() -> AsyncEngine:
     if _db_engine is None:
-        raise HTTPException(
-            500,
-            "Rotate failure-safe mode requires DATABASE_URL to be configured on the backend.",
-        )
+        raise HTTPException(500, "DATABASE_URL is not configured.")
     return _db_engine
 
 
@@ -232,6 +229,94 @@ async def _replace_topic_questions_transactionally(topic_id: str, rows: list[dic
     return inserted_rows
 
 
+async def _replace_topic_questions_with_visibility_swap(
+    topic_id: str,
+    rows: list[dict],
+    existing_rows: list[dict],
+) -> list[dict]:
+    if not rows:
+        raise HTTPException(500, "Không tạo được bộ câu hỏi mới để thay thế bộ hiện tại.")
+
+    staged_rows = []
+    for row in rows:
+        staged_row = dict(row)
+        staged_row["is_active"] = False
+        staged_rows.append(staged_row)
+
+    try:
+        inserted_res = supabase_admin.table("topic_questions").insert(staged_rows).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi lưu questions mới: {exc}")
+
+    inserted_rows = inserted_res.data or []
+    inserted_ids = [row["id"] for row in inserted_rows if row.get("id")]
+    old_ids = [row["id"] for row in (existing_rows or []) if row.get("id")]
+
+    try:
+        if old_ids:
+            supabase_admin.table("topic_questions").update({"is_active": False}).in_("id", old_ids).execute()
+    except Exception as exc:
+        try:
+            if inserted_ids:
+                supabase_admin.table("topic_questions").delete().in_("id", inserted_ids).execute()
+        except Exception:
+            logger.warning("[admin.topics] failed to remove staged rotate rows topic=%s", topic_id, exc_info=True)
+        raise HTTPException(
+            500,
+            "Lỗi khi thay thế bộ câu hỏi. Hệ thống đã giữ nguyên bộ câu hỏi trước đó.",
+        ) from exc
+
+    try:
+        if inserted_ids:
+            supabase_admin.table("topic_questions").update({"is_active": True}).in_("id", inserted_ids).execute()
+    except Exception as exc:
+        try:
+            if old_ids:
+                supabase_admin.table("topic_questions").update({"is_active": True}).in_("id", old_ids).execute()
+        except Exception:
+            logger.error("[admin.topics] failed to reactivate old questions topic=%s", topic_id, exc_info=True)
+        try:
+            if inserted_ids:
+                supabase_admin.table("topic_questions").delete().in_("id", inserted_ids).execute()
+        except Exception:
+            logger.warning("[admin.topics] failed to clean staged rotate rows topic=%s", topic_id, exc_info=True)
+        raise HTTPException(
+            500,
+            "Lỗi khi thay thế bộ câu hỏi. Hệ thống đã giữ nguyên bộ câu hỏi trước đó.",
+        ) from exc
+
+    try:
+        supabase_admin.table("topic_questions").delete().eq("topic_id", topic_id).eq("is_active", False).execute()
+    except Exception:
+        logger.warning("[admin.topics] failed to clean inactive rotate rows topic=%s", topic_id, exc_info=True)
+
+    return [{**row, "is_active": True} for row in inserted_rows]
+
+
+async def _replace_topic_questions_failure_safe(
+    topic_id: str,
+    rows: list[dict],
+    existing_rows: list[dict],
+) -> list[dict]:
+    if _db_engine is not None:
+        return await _replace_topic_questions_transactionally(topic_id, rows)
+    return await _replace_topic_questions_with_visibility_swap(topic_id, rows, existing_rows)
+
+
+def _sign_storage_url(bucket: str, storage_path: str | None) -> str | None:
+    if not storage_path:
+        return None
+    try:
+        resp = supabase_admin.storage.from_(bucket).create_signed_url(storage_path, 3600)
+        if hasattr(resp, "data") and resp.data:
+            return resp.data.get("signedUrl") or resp.data.get("signedURL")
+        if isinstance(resp, dict):
+            return resp.get("signedUrl") or resp.get("signedURL")
+    except Exception:
+        logger.warning("[admin.audio] failed to sign storage path=%s", storage_path, exc_info=True)
+    return None
+
+
 # ── Request models ─────────────────────────────────────────────────────────────
 
 class GenerateCodesRequest(BaseModel):
@@ -245,6 +330,7 @@ class PatchCodeRequest(BaseModel):
     permissions:   list[str] | None = None
     session_limit: int | None       = None
     expires_at:    str | None       = None
+    is_active:     bool | None      = None
 
 
 class CreateTopicRequest(BaseModel):
@@ -310,6 +396,7 @@ def _serialize_topics_with_metadata(topics: list[dict]) -> list[dict]:
                 supabase_admin.table("topic_questions")
                 .select("topic_id, created_at")
                 .in_("topic_id", topic_ids)
+                .eq("is_active", True)
                 .execute()
             )
             for q in (q_res.data or []):
@@ -373,6 +460,7 @@ async def _generate_questions_for_topic(
             supabase_admin.table("topic_questions")
             .select("*", count="exact")
             .eq("topic_id", topic_id)
+            .eq("is_active", True)
             .execute()
         )
     except Exception as exc:
@@ -428,7 +516,7 @@ async def _generate_questions_for_topic(
 
     if rows:
         if replace_existing:
-            saved_rows = await _replace_topic_questions_transactionally(topic_id, rows)
+            saved_rows = await _replace_topic_questions_failure_safe(topic_id, rows, existing_rows)
         else:
             try:
                 supabase_admin.table("topic_questions").insert(rows).execute()
@@ -451,6 +539,7 @@ async def _generate_questions_for_topic(
                 supabase_admin.table("topic_questions")
                 .select("*")
                 .eq("topic_id", topic_id)
+                .eq("is_active", True)
                 .order("part")
                 .order("order_num")
                 .execute()
@@ -1139,6 +1228,7 @@ async def list_topic_questions(
             supabase_admin.table("topic_questions")
             .select("*")
             .eq("topic_id", topic_id)
+            .eq("is_active", True)
             .order("part")
             .order("order_num")
             .execute()
@@ -1167,6 +1257,7 @@ async def create_topic_question(
                 .select("id", count="exact")
                 .eq("topic_id", topic_id)
                 .eq("part", body.part)
+                .eq("is_active", True)
                 .execute()
             )
             order = (cnt.count or 0) + 1
@@ -1393,8 +1484,7 @@ async def get_ai_usage(
 
     query = (
         supabase_admin.table("ai_usage_logs")
-        .select("user_id, service, model, input_tokens, output_tokens, "
-                "audio_seconds, text_chars, cost_usd_est, created_at")
+        .select("user_id, service, model, input_tokens, output_tokens, audio_seconds, text_chars, cost_usd_est, created_at", count="exact")
         .order("created_at", desc=True)
         .limit(10_000)   # safety cap; enough for an MVP
     )
@@ -1411,6 +1501,9 @@ async def get_ai_usage(
         raise HTTPException(500, f"Lỗi khi tải AI usage: {exc}")
 
     logs = res.data or []
+    total_matching = res.count if isinstance(res.count, int) else None
+    capped_limit = 10_000
+    truncated = bool(total_matching is not None and total_matching > len(logs))
 
     # Enrich with user info
     user_ids = list({l["user_id"] for l in logs if l.get("user_id")})
@@ -1473,6 +1566,12 @@ async def get_ai_usage(
     return {
         "overall":  overall,
         "per_user": sorted(per_user.values(), key=lambda x: x["cost_usd"], reverse=True),
+        "meta": {
+            "query_limit": capped_limit,
+            "returned_rows": len(logs),
+            "total_matching_rows": total_matching,
+            "truncated": truncated,
+        },
     }
 
 
@@ -1506,6 +1605,7 @@ async def admin_list_sessions(
             "error_code, error_message, failed_step, last_error_at, pdf_status"
         )
         .order("started_at", desc=True)
+        .order("id", desc=True)
         .range(offset, offset + limit - 1)
     )
 
@@ -1625,6 +1725,11 @@ async def admin_get_session(
     except Exception:
         responses = []
 
+    for response in responses:
+        playback_url = _sign_storage_url(_REGRADE_AUDIO_BUCKET, response.get("audio_storage_path"))
+        response["audio_playback_url"] = playback_url
+        response["audio_available"] = bool(response.get("audio_playback_url"))
+
     return {
         **session,
         "session_id": session["id"],
@@ -1655,14 +1760,22 @@ async def admin_get_alerts(
                 "id, user_id, mode, part, topic, error_code, error_message, "
                 "failed_step, last_error_at, started_at, status"
             )
-            .filter("error_code", "not.is", "null")
+            .or_("error_code.not.is.null,status.eq.grading_failed")
             .order("last_error_at", desc=True)
+            .order("started_at", desc=True)
+            .order("id", desc=True)
             .limit(limit)
             .execute()
         )
         session_errors = se_res.data or []
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải session errors: {exc}")
+
+    for session_error in session_errors:
+        if not session_error.get("error_code") and session_error.get("status") == "grading_failed":
+            session_error["error_code"] = "grading_failed"
+            session_error["error_message"] = session_error.get("error_message") or "Session ở trạng thái degraded sau admin regrade."
+            session_error["failed_step"] = session_error.get("failed_step") or "admin_regrade_session"
 
     # Response-level grading failures (last `limit` rows)
     try:
@@ -1972,7 +2085,14 @@ async def admin_regrade_response(
     ]
     if not all(v is None for v in all_band_vals):
         now = datetime.now(timezone.utc).isoformat()
-        sess_update: dict = {**bands, "status": "completed"}
+        sess_update: dict = {
+            **bands,
+            "status": "completed",
+            "error_code": None,
+            "error_message": None,
+            "failed_step": None,
+            "last_error_at": None,
+        }
         try:
             supabase_admin.table("sessions").update({
                 **sess_update,
@@ -2097,11 +2217,22 @@ async def admin_regrade_session(
         session_update: dict = {
             **bands,
             "status": "grading_failed",
+            "error_code": "grading_failed",
+            "error_message": (
+                f"Admin regrade chỉ hoàn tất một phần: {regraded} response thành công, "
+                f"{len(failed_ids)} response lỗi."
+            ),
+            "failed_step": "admin_regrade_session",
+            "last_error_at": now,
         }
     else:
         session_update = {
             **bands,
             "status": "completed",
+            "error_code": None,
+            "error_message": None,
+            "failed_step": None,
+            "last_error_at": None,
         }
 
     try:
