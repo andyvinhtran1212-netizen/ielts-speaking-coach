@@ -24,7 +24,6 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     HRFlowable,
-    KeepTogether,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -153,6 +152,9 @@ _T = {
     "trans":   _ps("trans",   fontName=_VI_FONT,   fontSize=10, textColor=_C["slate"],   leading=15),
     "impr":    _ps("impr",    fontName=_VI_FONT,   fontSize=10, textColor=_C["blue_dk"], leading=15),
     "ft_li":   _ps("ft_li",   fontName=_VI_FONT,   fontSize=9,  textColor=_C["slate"],   leading=13, leftIndent=8),
+    "corr_orig": _ps("corr_orig", fontName=_VI_FONT,   fontSize=9,  textColor=colors.HexColor("#c0392b"), leading=13, leftIndent=8),
+    "corr_fix":  _ps("corr_fix",  fontName=_VI_FONT,   fontSize=9,  textColor=colors.HexColor("#27ae60"), leading=13, leftIndent=8),
+    "corr_exp":  _ps("corr_exp",  fontName=_VI_FONT,   fontSize=9,  textColor=_C["muted"], leading=13, leftIndent=16, italic=True),
 }
 
 
@@ -463,8 +465,6 @@ def _build_question_blocks(questions: list, responses_by_qid: dict) -> list:
     if not questions:
         return [Paragraph("No questions recorded.", _T["no_rsp"])]
 
-    INNER_W = _COL_W - 28      # 14 pt padding each side inside the box
-
     blocks = []
     for i, q in enumerate(questions, start=1):
         qid        = q.get("id")
@@ -482,113 +482,82 @@ def _build_question_blocks(questions: list, responses_by_qid: dict) -> list:
         # Detect practice vs test mode from the feedback schema
         is_practice_fb = fb is not None and "grammar_issues" in fb
 
-        inner: list = []
-        inner.append(Paragraph(f"QUESTION {i}", _T["q_num"]))
-        inner.append(Paragraph(_esc(q_text), _T["q_txt"]))
+        block: list = []
+        if i > 1:
+            block.append(HRFlowable(width="100%", thickness=1, color=_C["border"]))
+            block.append(Spacer(1, 10))
+
+        block.append(Paragraph(f"QUESTION {i}", _T["q_num"]))
+        block.append(Paragraph(_esc(q_text), _T["q_txt"]))
 
         if q_band is not None:
-            inner.append(Paragraph(f"Band {_round_half(q_band):.1f}", _T["q_bnd"]))
+            block.append(Paragraph(f"Band {_round_half(q_band):.1f}", _T["q_bnd"]))
 
         # Transcript block
         if transcript:
-            inner.append(Paragraph("TRANSCRIPT", _T["lbl"]))
-            trans_t = Table(
-                [[Paragraph(_esc(transcript), _T["trans"])]],
-                colWidths=[INNER_W],
-            )
-            trans_t.setStyle(TableStyle([
-                ("LINEBEFORE",    (0, 0), (0, -1), 3, _C["teal"]),
-                ("BACKGROUND",    (0, 0), (-1, -1), _C["row_alt"]),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 12),
-                ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-                ("TOPPADDING",    (0, 0), (-1, -1), 7),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-            ]))
-            inner.append(trans_t)
-            inner.append(Spacer(1, 8))
+            block.append(Paragraph("TRANSCRIPT", _T["lbl"]))
+            block.append(Paragraph(_esc(transcript), _T["trans"]))
+            block.append(Spacer(1, 8))
         else:
-            inner.append(Paragraph("No recording submitted yet.", _T["no_rsp"]))
+            block.append(Paragraph("No recording submitted yet.", _T["no_rsp"]))
 
         # ── Practice mode: coaching-focused feedback sections ──────────────────
         if is_practice_fb and fb:
             # Strengths
             strengths = fb.get("strengths") or []
             if strengths:
-                inner.append(Paragraph("STRENGTHS", _T["lbl"]))
+                block.append(Paragraph("STRENGTHS", _T["lbl"]))
                 for s in strengths:
-                    inner.append(Paragraph(f"• {_esc(s)}", _T["ft_li"]))
-                inner.append(Spacer(1, 6))
+                    block.append(Paragraph(f"• {_esc(s)}", _T["ft_li"]))
+                block.append(Spacer(1, 6))
 
             # Grammar Issues
             grammar = fb.get("grammar_issues") or []
             if grammar:
-                inner.append(Paragraph("GRAMMAR ISSUES", _T["lbl"]))
+                block.append(Paragraph("GRAMMAR ISSUES", _T["lbl"]))
                 for g in grammar:
-                    inner.append(Paragraph(f"• {_esc(g)}", _T["ft_li"]))
-                inner.append(Spacer(1, 6))
+                    block.append(Paragraph(f"• {_esc(g)}", _T["ft_li"]))
+                block.append(Spacer(1, 6))
 
             # Vocabulary Issues
             vocab = fb.get("vocabulary_issues") or []
             if vocab:
-                inner.append(Paragraph("VOCABULARY ISSUES", _T["lbl"]))
+                block.append(Paragraph("VOCABULARY ISSUES", _T["lbl"]))
                 for v in vocab:
-                    inner.append(Paragraph(f"• {_esc(v)}", _T["ft_li"]))
-                inner.append(Spacer(1, 6))
+                    block.append(Paragraph(f"• {_esc(v)}", _T["ft_li"]))
+                block.append(Spacer(1, 6))
 
             # Pronunciation Issues
             pronun = fb.get("pronunciation_issues") or []
             if pronun:
-                inner.append(Paragraph("PRONUNCIATION", _T["lbl"]))
+                block.append(Paragraph("PRONUNCIATION", _T["lbl"]))
                 for p in pronun:
-                    inner.append(Paragraph(f"• {_esc(p)}", _T["ft_li"]))
-                inner.append(Spacer(1, 6))
+                    block.append(Paragraph(f"• {_esc(p)}", _T["ft_li"]))
+                block.append(Spacer(1, 6))
 
             # Corrections
             corrections = fb.get("corrections") or []
             if corrections:
-                inner.append(Paragraph("CORRECTIONS", _T["lbl"]))
+                block.append(Paragraph("CORRECTIONS", _T["lbl"]))
                 for c in corrections:
                     orig  = _esc(c.get("original", ""))
                     fixed = _esc(c.get("corrected", ""))
                     expl  = _esc(c.get("explanation", ""))
-                    corr_xml = (
-                        f"<font color='#c0392b'>✗ {orig}</font>"
-                        f"  →  "
-                        f"<font color='#27ae60'>✓ {fixed}</font><br/>"
-                        f"<i>{expl}</i>"
-                    )
-                    corr_t = Table(
-                        [[Paragraph(corr_xml, _T["cr_fb"])]],
-                        colWidths=[INNER_W],
-                    )
-                    corr_t.setStyle(TableStyle([
-                        ("BACKGROUND",    (0, 0), (-1, -1), _C["bg_teal"]),
-                        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
-                        ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-                        ("TOPPADDING",    (0, 0), (-1, -1), 6),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                    ]))
-                    inner.append(corr_t)
-                    inner.append(Spacer(1, 4))
-                inner.append(Spacer(1, 2))
+                    if orig:
+                        block.append(Paragraph(f"✗ {orig}", _T["corr_orig"]))
+                    if fixed:
+                        block.append(Paragraph(f"✓ {fixed}", _T["corr_fix"]))
+                    if expl:
+                        block.append(Paragraph(expl, _T["corr_exp"]))
+                    block.append(Spacer(1, 4))
+                block.append(Spacer(1, 2))
 
             # Sample Answer
             sample = fb.get("sample_answer") or ""
             if sample:
-                inner.append(Paragraph("SAMPLE ANSWER", _T["lbl"]))
-                sample_t = Table(
-                    [[Paragraph(_esc(sample), _T["impr"])]],
-                    colWidths=[INNER_W],
-                )
-                sample_t.setStyle(TableStyle([
-                    ("LINEBEFORE",    (0, 0), (0, -1), 3, _C["blue"]),
-                    ("BACKGROUND",    (0, 0), (-1, -1), _C["bg_blue"]),
-                    ("LEFTPADDING",   (0, 0), (-1, -1), 12),
-                    ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-                    ("TOPPADDING",    (0, 0), (-1, -1), 7),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                ]))
-                inner.append(sample_t)
+                block.append(Paragraph("SAMPLE ANSWER", _T["lbl"]))
+                block.append(Paragraph(_esc(sample), _T["impr"]))
+                block.append(Spacer(1, 6))
 
         # ── Test mode: IELTS 4-criteria feedback ───────────────────────────────
         elif fb and not is_practice_fb:
@@ -596,57 +565,34 @@ def _build_question_blocks(questions: list, responses_by_qid: dict) -> list:
             for band_key, fb_key, full_name, abbrev in _CRITERIA:
                 fb_text = fb.get(fb_key) or ""
                 if fb_text:
-                    inner.append(Paragraph(f"{abbrev} — {full_name}", _T["lbl"]))
-                    inner.append(Paragraph(_esc(fb_text), _T["cr_fb"]))
-                    inner.append(Spacer(1, 6))
+                    block.append(Paragraph(f"{abbrev} — {full_name}", _T["lbl"]))
+                    block.append(Paragraph(_esc(fb_text), _T["cr_fb"]))
+                    block.append(Spacer(1, 6))
 
             # Strengths
             strengths = fb.get("strengths") or []
             if strengths:
-                inner.append(Paragraph("STRENGTHS", _T["lbl"]))
+                block.append(Paragraph("STRENGTHS", _T["lbl"]))
                 for s in strengths:
-                    inner.append(Paragraph(f"• {_esc(s)}", _T["ft_li"]))
-                inner.append(Spacer(1, 6))
+                    block.append(Paragraph(f"• {_esc(s)}", _T["ft_li"]))
+                block.append(Spacer(1, 6))
 
             # Improvements
             improvements = fb.get("improvements") or []
             if improvements:
-                inner.append(Paragraph("AREAS TO IMPROVE", _T["lbl"]))
+                block.append(Paragraph("AREAS TO IMPROVE", _T["lbl"]))
                 for imp in improvements:
-                    inner.append(Paragraph(f"• {_esc(imp)}", _T["ft_li"]))
-                inner.append(Spacer(1, 6))
+                    block.append(Paragraph(f"• {_esc(imp)}", _T["ft_li"]))
+                block.append(Spacer(1, 6))
 
             # Band 7+ model answer
             improved = fb.get("improved_response") or ""
             if improved:
-                inner.append(Paragraph("BAND 7+ MODEL ANSWER", _T["lbl"]))
-                impr_t = Table(
-                    [[Paragraph(_esc(improved), _T["impr"])]],
-                    colWidths=[INNER_W],
-                )
-                impr_t.setStyle(TableStyle([
-                    ("LINEBEFORE",    (0, 0), (0, -1), 3, _C["blue"]),
-                    ("BACKGROUND",    (0, 0), (-1, -1), _C["bg_blue"]),
-                    ("LEFTPADDING",   (0, 0), (-1, -1), 12),
-                    ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-                    ("TOPPADDING",    (0, 0), (-1, -1), 7),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                ]))
-                inner.append(impr_t)
+                block.append(Paragraph("BAND 7+ MODEL ANSWER", _T["lbl"]))
+                block.append(Paragraph(_esc(improved), _T["impr"]))
+                block.append(Spacer(1, 6))
 
-        # Bordered box wrapping all inner content
-        box = Table([[inner]], colWidths=[_COL_W])
-        box.setStyle(TableStyle([
-            ("BOX",           (0, 0), (-1, -1), 1, _C["border"]),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 14),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 14),
-            ("TOPPADDING",    (0, 0), (-1, -1), 12),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
-        ]))
-
-        # KeepTogether prevents page-break inside short blocks;
-        # long blocks (big transcripts) will naturally flow across pages.
-        blocks.append(KeepTogether([box]))
+        blocks.extend(block)
 
     return blocks
 
