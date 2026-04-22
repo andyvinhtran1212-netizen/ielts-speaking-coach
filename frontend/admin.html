@@ -1189,24 +1189,30 @@
 
       try {
         var res = await apiPost('/admin/topics/bulk', { part: part, lines: lines });
-        var created = res.created || [];
-        progEl.textContent = '✓ Đã tạo ' + created.length + ' topics.';
+        var createdTopics = Array.isArray(res.topics)
+          ? res.topics
+          : (Array.isArray(res.created) ? res.created : []);
+        var createdCount = typeof res.created_count === 'number'
+          ? res.created_count
+          : (typeof res.created === 'number' ? res.created : createdTopics.length);
+
+        progEl.textContent = '✓ Đã tạo ' + createdCount + ' topics.';
         progEl.classList.remove('hidden');
 
         var listEl = document.getElementById('p' + part + '-topic-list');
         var emptyP = listEl.querySelector('p');
         if (emptyP) emptyP.remove();
-        created.forEach(function (t) {
+        createdTopics.forEach(function (t) {
           _topicsCache.push(t);
           listEl.insertAdjacentHTML('beforeend', buildTopicCardHtml(t));
         });
 
-        if (autogen && created.length) {
-          for (var i = 0; i < created.length; i++) {
-            progEl.textContent = 'Đang sinh câu hỏi ' + (i + 1) + '/' + created.length + '…';
-            try { await apiPost('/admin/topics/' + created[i].id + '/generate-questions', {}); } catch (e) { /* continue */ }
+        if (autogen && createdTopics.length) {
+          for (var i = 0; i < createdTopics.length; i++) {
+            progEl.textContent = 'Đang sinh câu hỏi ' + (i + 1) + '/' + createdTopics.length + '…';
+            try { await apiPost('/admin/topics/' + createdTopics[i].id + '/generate-questions', {}); } catch (e) { /* continue */ }
           }
-          progEl.textContent = '✓ Hoàn tất! Đã tạo ' + created.length + ' topics với câu hỏi AI.';
+          progEl.textContent = '✓ Hoàn tất! Đã tạo ' + createdCount + ' topics với câu hỏi AI.';
           var topics = await apiGet('/admin/topics');
           _topicsCache = topics || [];
           renderTopicList(topics.filter(function (t) { return t.part === 1; }), document.getElementById('p1-topic-list'));

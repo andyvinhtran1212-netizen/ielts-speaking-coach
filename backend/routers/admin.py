@@ -683,7 +683,13 @@ async def bulk_add_topics(
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi thêm topics: {exc}")
 
-    return {"created": len(res.data or []), "topics": res.data or []}
+    topics = res.data or []
+    created_count = len(topics)
+    return {
+        "created": created_count,
+        "created_count": created_count,
+        "topics": topics,
+    }
 
 
 # ── GET /admin/topics/{topic_id}/questions ─────────────────────────────────────
