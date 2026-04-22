@@ -160,22 +160,143 @@
     .tlib-tab:hover  { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.05); }
     .tlib-tab.active { background: rgba(20,184,166,0.18); color: #14b8a6; }
 
-    /* Topic card (library) */
-    .topic-card {
+    .topics-admin-card {
       background: rgba(255,255,255,0.035);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
       overflow: hidden;
-      transition: border-color 0.15s;
     }
-    .topic-card:hover { border-color: rgba(20,184,166,0.25); }
-    .topic-card-header {
-      display: flex; align-items: center; gap: 10px;
-      padding: 14px 18px; cursor: pointer;
+    .topics-toolbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
     }
-    .topic-card-body {
-      border-top: 1px solid rgba(255,255,255,0.06);
-      padding: 16px 18px;
+    .topics-toolbar-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .topics-summary-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 999px;
+      background: rgba(20,184,166,0.12); color: #99f6e4;
+      font-size: 12px; font-weight: 700;
+      border: 1px solid rgba(20,184,166,0.2);
+    }
+    .topics-summary-muted {
+      color: rgba(255,255,255,0.42);
+      font-size: 12px;
+    }
+    .topics-toolbar-actions {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .topics-search {
+      min-width: 220px;
+      max-width: 320px;
+    }
+    .topics-selection-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.82); font-size: 12px; font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .topics-bulk-toolbar {
+      position: sticky; top: 72px; z-index: 15;
+      margin: 14px 20px 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(15,118,110,0.18);
+      border: 1px solid rgba(20,184,166,0.25);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    }
+    .topics-bulk-actions {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .topics-feedback {
+      margin: 14px 20px 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 12px; line-height: 1.55;
+      white-space: pre-wrap;
+    }
+    .topics-feedback.success {
+      background: rgba(20,184,166,0.12);
+      border: 1px solid rgba(20,184,166,0.22);
+      color: #99f6e4;
+    }
+    .topics-feedback.error {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.22);
+      color: #fca5a5;
+    }
+    .topics-table-wrap {
+      overflow-x: auto;
+      padding: 14px 20px 18px;
+    }
+    .topic-row-selected {
+      background: rgba(20,184,166,0.08);
+    }
+    .topic-title-btn {
+      background: transparent; border: none; cursor: pointer; text-align: left;
+      color: #e2e8f0; font-weight: 600; font-size: 13px; width: 100%;
+    }
+    .topic-title-btn:hover { color: #99f6e4; }
+    .topic-submeta {
+      display: block; margin-top: 4px; font-size: 11px; color: rgba(255,255,255,0.35);
+    }
+    .status-badge {
+      display: inline-flex; align-items: center;
+      padding: 4px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .status-no_questions {
+      background: rgba(251,191,36,0.12); color: #fbbf24; border-color: rgba(251,191,36,0.18);
+    }
+    .status-generated {
+      background: rgba(20,184,166,0.12); color: #5eead4; border-color: rgba(20,184,166,0.2);
+    }
+    .status-has_questions {
+      background: rgba(59,130,246,0.12); color: #93c5fd; border-color: rgba(59,130,246,0.18);
+    }
+    .status-inactive {
+      background: rgba(148,163,184,0.12); color: #cbd5e1; border-color: rgba(148,163,184,0.18);
+    }
+    .topic-actions {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .btn-row {
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.78);
+      border: 1px solid rgba(255,255,255,0.09);
+      padding: 6px 10px; border-radius: 8px;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-row:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.16); }
+    .btn-row:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row.teal {
+      background: rgba(20,184,166,0.12); color: #99f6e4; border-color: rgba(20,184,166,0.2);
+    }
+    .btn-row.warn {
+      background: rgba(251,191,36,0.12); color: #fbbf24; border-color: rgba(251,191,36,0.18);
+    }
+    .btn-row.danger {
+      background: rgba(239,68,68,0.12); color: #fca5a5; border-color: rgba(239,68,68,0.2);
+    }
+    .topic-detail-row td {
+      padding: 0 !important;
+      background: rgba(255,255,255,0.02);
+    }
+    .topic-detail-panel {
+      padding: 16px 18px 18px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .topics-empty-state {
+      padding: 44px 20px;
+      text-align: center;
+      color: rgba(255,255,255,0.4);
+      font-size: 13px;
     }
     .q-row {
       display: flex; align-items: flex-start; gap: 8px;
@@ -264,11 +385,11 @@
       <!-- ── TAB: Topics ──────────────────────────────────────── -->
       <div id="panel-topics">
 
-        <!-- Part 1 / Part 2 sub-tabs -->
         <div class="flex items-center justify-between mb-5">
           <div class="flex gap-1 p-1 rounded-xl" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);">
             <button id="tlib-tab-1" class="tlib-tab active" onclick="switchLibTab(1)">Part 1 — Interview</button>
             <button id="tlib-tab-2" class="tlib-tab"        onclick="switchLibTab(2)">Part 2 — Cue Card</button>
+            <button id="tlib-tab-3" class="tlib-tab"        onclick="switchLibTab(3)">Part 3 — Discussion</button>
           </div>
           <div class="flex gap-2">
             <button class="btn-secondary" onclick="openBulkModal()">📋 Bulk add</button>
@@ -276,17 +397,59 @@
           </div>
         </div>
 
-        <div id="topics-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
-        <div id="topics-empty"   class="hidden text-center py-12 text-sm" style="color:rgba(255,255,255,0.35);">Chưa có topic nào. Nhấn "+ Thêm topic" để bắt đầu.</div>
+        <div class="topics-admin-card">
+          <div class="topics-toolbar">
+            <div class="topics-toolbar-meta">
+              <span id="topics-summary-chip" class="topics-summary-chip">0 topics</span>
+              <span id="topics-summary-muted" class="topics-summary-muted">Quản lý topic theo dạng bảng để thao tác hàng loạt an toàn hơn.</span>
+            </div>
+            <div class="topics-toolbar-actions">
+              <input id="topic-search" class="inp topics-search" placeholder="Tìm theo tên topic…" oninput="onTopicSearchInput(this.value)" />
+              <button class="btn-secondary" onclick="selectAllVisibleTopics()">Select all visible</button>
+              <button class="btn-secondary" onclick="clearTopicSelection()">Clear selection</button>
+              <span id="topics-selection-chip" class="topics-selection-chip">0 selected</span>
+            </div>
+          </div>
 
-        <!-- Part 1 panel -->
-        <div id="tlib-panel-1" class="space-y-3">
-          <div id="p1-topic-list"></div>
-        </div>
+          <div id="topics-bulk-toolbar" class="topics-bulk-toolbar hidden">
+            <div class="topics-toolbar-meta">
+              <span id="topics-bulk-label" class="topics-summary-chip">0 selected</span>
+              <span class="topics-summary-muted">Bulk actions only apply to the rows currently selected in this view.</span>
+            </div>
+            <div class="topics-bulk-actions">
+              <button id="btn-bulk-generate" class="btn-row teal" onclick="bulkGenerateTopics()">Generate questions</button>
+              <button id="btn-bulk-rotate" class="btn-row warn" onclick="bulkRotateTopics()">Rotate questions</button>
+              <button id="btn-bulk-delete" class="btn-row danger" onclick="bulkDeleteTopics()">Delete selected</button>
+              <button class="btn-row" onclick="clearTopicSelection()">Clear selection</button>
+            </div>
+          </div>
 
-        <!-- Part 2 panel -->
-        <div id="tlib-panel-2" class="hidden space-y-3">
-          <div id="p2-topic-list"></div>
+          <div id="topics-feedback" class="topics-feedback hidden"></div>
+
+          <div id="topics-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
+
+          <div id="topics-table-wrap" class="topics-table-wrap hidden">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th style="width:42px;">
+                    <input id="topic-select-all" type="checkbox" style="accent-color:#14b8a6;" onchange="toggleSelectAllVisible(this.checked)" />
+                  </th>
+                  <th>Topic name</th>
+                  <th>Part</th>
+                  <th>Question count</th>
+                  <th>Status</th>
+                  <th>Last updated</th>
+                  <th>Row actions</th>
+                </tr>
+              </thead>
+              <tbody id="topics-table-body"></tbody>
+            </table>
+          </div>
+
+          <div id="topics-empty" class="hidden topics-empty-state">
+            Chưa có topic nào trong bộ lọc hiện tại. Hãy thêm topic mới hoặc đổi bộ lọc tìm kiếm.
+          </div>
         </div>
 
       </div>
@@ -702,7 +865,7 @@
   <div id="modal-topic" class="modal-overlay hidden" onclick="if(event.target===this)closeAddTopicModal()">
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between mb-5">
-        <h3 class="font-bold text-base">Thêm topic mới</h3>
+        <h3 id="modal-topic-title" class="font-bold text-base">Thêm topic mới</h3>
         <button onclick="closeAddTopicModal()" style="color:rgba(255,255,255,0.4);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">✕</button>
       </div>
       <div class="space-y-4">
@@ -715,9 +878,10 @@
           <select id="new-topic-part" class="inp">
             <option value="1">Part 1 — Interview</option>
             <option value="2">Part 2 — Cue Card</option>
+            <option value="3">Part 3 — Discussion</option>
           </select>
         </div>
-        <label class="flex items-center gap-2 cursor-pointer">
+        <label id="new-topic-autogen-wrap" class="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" id="new-topic-autogen" checked style="accent-color:#14b8a6;" />
           <span class="text-xs" style="color:rgba(255,255,255,0.6);">Tự động tạo câu hỏi bằng AI sau khi lưu</span>
         </label>
@@ -743,6 +907,7 @@
           <select id="bulk-part" class="inp">
             <option value="1">Part 1 — Interview</option>
             <option value="2">Part 2 — Cue Card</option>
+            <option value="3">Part 3 — Discussion</option>
           </select>
         </div>
         <div>
@@ -908,96 +1073,231 @@
     var _currentLibTab  = 1;
     var _topicsCache    = [];
     var _questionsCache = {}; // topicId → [questions]
+    var _selectedTopicIds = {};
+    var _expandedTopicId = null;
+    var _topicSearch = '';
+    var _editingTopicId = null;
+    var _topicActionBusy = {};
+    var _topicsBulkBusy = false;
 
     window.switchLibTab = function (n) {
       _currentLibTab = n;
-      document.getElementById('tlib-panel-1').classList.toggle('hidden', n !== 1);
-      document.getElementById('tlib-panel-2').classList.toggle('hidden', n !== 2);
       document.getElementById('tlib-tab-1').classList.toggle('active', n === 1);
       document.getElementById('tlib-tab-2').classList.toggle('active', n === 2);
+      document.getElementById('tlib-tab-3').classList.toggle('active', n === 3);
+      renderTopicsTable();
     };
+
+    function getCurrentPartLabel(part) {
+      if (part === 1) return 'Part 1';
+      if (part === 2) return 'Part 2';
+      if (part === 3) return 'Part 3';
+      return '—';
+    }
+
+    function getVisibleTopics() {
+      var needle = (_topicSearch || '').trim().toLowerCase();
+      return (_topicsCache || []).filter(function (t) {
+        if (t.part !== _currentLibTab) return false;
+        if (!needle) return true;
+        return String(t.title || '').toLowerCase().indexOf(needle) !== -1;
+      });
+    }
+
+    function pruneSelectionToVisible(visibleTopics) {
+      var visibleMap = {};
+      (visibleTopics || []).forEach(function (t) { visibleMap[t.id] = true; });
+      Object.keys(_selectedTopicIds).forEach(function (topicId) {
+        if (!visibleMap[topicId]) delete _selectedTopicIds[topicId];
+      });
+    }
+
+    function getSelectedVisibleTopicIds() {
+      var visibleMap = {};
+      getVisibleTopics().forEach(function (t) { visibleMap[t.id] = true; });
+      return Object.keys(_selectedTopicIds).filter(function (topicId) { return visibleMap[topicId]; });
+    }
+
+    function setTopicsFeedback(type, message) {
+      var el = document.getElementById('topics-feedback');
+      if (!message) {
+        el.className = 'topics-feedback hidden';
+        el.textContent = '';
+        return;
+      }
+      el.textContent = message;
+      el.className = 'topics-feedback ' + (type === 'error' ? 'error' : 'success');
+    }
+
+    function formatBulkErrors(errors) {
+      if (!errors || !errors.length) return '';
+      return errors.slice(0, 4).map(function (err) {
+        var label = err.topic_title || err.topic_id || 'Unknown topic';
+        return '- ' + label + ': ' + err.message;
+      }).join('\n');
+    }
+
+    function updateTopicSelectionUI(visibleTopics) {
+      var selectedIds = getSelectedVisibleTopicIds();
+      var selectedCount = selectedIds.length;
+      var visibleCount = (visibleTopics || []).length;
+      document.getElementById('topics-selection-chip').textContent = selectedCount + ' selected';
+      document.getElementById('topics-bulk-label').textContent = selectedCount + ' selected';
+      var bulkBar = document.getElementById('topics-bulk-toolbar');
+      bulkBar.classList.toggle('hidden', selectedCount === 0);
+
+      var selectAll = document.getElementById('topic-select-all');
+      selectAll.checked = visibleCount > 0 && selectedCount === visibleCount;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < visibleCount;
+    }
+
+    function buildTopicRowHtml(t) {
+      var isSelected = !!_selectedTopicIds[t.id];
+      var isExpanded = _expandedTopicId === t.id;
+      var rowBusy = _topicsBulkBusy || !!_topicActionBusy[t.id];
+      var statusClass = 'status-' + esc(t.status || 'no_questions');
+      var lastUpdated = t.last_updated_at ? fmtDate(t.last_updated_at) : '—';
+      var questionLabel = t.question_count === 1 ? '1 question' : (t.question_count || 0) + ' questions';
+      var titleMeta = t.last_rotated_at
+        ? 'Last rotated ' + fmtDate(t.last_rotated_at)
+        : (t.question_count > 0 ? 'Library questions added manually' : 'No generated set yet');
+      var html = ''
+        + '<tr class="' + (isSelected ? 'topic-row-selected' : '') + '" id="topic-row-' + esc(t.id) + '">'
+        +   '<td><input type="checkbox" style="accent-color:#14b8a6;" ' + (isSelected ? 'checked ' : '') + 'onchange="toggleTopicSelection(\'' + esc(t.id) + '\', this.checked)"></td>'
+        +   '<td>'
+        +     '<button class="topic-title-btn" onclick="toggleTopicDetails(\'' + esc(t.id) + '\')">' + esc(t.title) + '</button>'
+        +     '<span class="topic-submeta">' + esc(titleMeta) + '</span>'
+        +   '</td>'
+        +   '<td>' + esc(getCurrentPartLabel(t.part)) + '</td>'
+        +   '<td>' + esc(questionLabel) + '</td>'
+        +   '<td><span class="status-badge ' + statusClass + '">' + esc(t.status_label || 'Unknown') + '</span></td>'
+        +   '<td>' + esc(lastUpdated) + '</td>'
+        +   '<td>'
+        +     '<div class="topic-actions">'
+        +       '<button class="btn-row" ' + (rowBusy ? 'disabled ' : '') + 'onclick="openEditTopicModal(\'' + esc(t.id) + '\')">Edit</button>'
+        +       '<button class="btn-row teal" ' + (rowBusy ? 'disabled ' : '') + 'onclick="generateTopic(\'' + esc(t.id) + '\')">Generate</button>'
+        +       '<button class="btn-row warn" ' + (rowBusy ? 'disabled ' : '') + 'onclick="rotateTopic(\'' + esc(t.id) + '\')">Rotate</button>'
+        +       '<label class="toggle" title="' + (t.is_active ? 'Tắt' : 'Bật') + ' topic">'
+        +         '<input type="checkbox" ' + (t.is_active ? 'checked ' : '') + (rowBusy ? 'disabled ' : '') + 'onchange="toggleTopic(\'' + esc(t.id) + '\', this.checked)">'
+        +         '<span class="toggle-slider"></span>'
+        +       '</label>'
+        +       '<button class="btn-row danger" ' + (rowBusy ? 'disabled ' : '') + 'onclick="deleteTopic(\'' + esc(t.id) + '\')">Delete</button>'
+        +     '</div>'
+        +   '</td>'
+        + '</tr>';
+
+      if (isExpanded) {
+        html += ''
+          + '<tr class="topic-detail-row">'
+          +   '<td colspan="7">'
+          +     '<div class="topic-detail-panel">'
+          +       '<div class="flex items-center justify-between gap-3 mb-3 flex-wrap">'
+          +         '<div>'
+          +           '<p class="text-xs font-bold" style="color:rgba(255,255,255,0.42);">Question library</p>'
+          +           '<p class="text-xs mt-1" style="color:rgba(255,255,255,0.32);">Generate only works when the topic has no questions. Rotate replaces the current library set with a fresh generated set.</p>'
+          +         '</div>'
+          +         '<button class="btn-secondary text-xs py-1.5" onclick="openAddQModal(\'' + esc(t.id) + '\', ' + t.part + ')">+ Thêm câu hỏi</button>'
+          +       '</div>'
+          +       '<div id="topic-detail-qs-' + esc(t.id) + '" class="space-y-1">'
+          +         '<div class="flex justify-center py-3"><div class="spinner" style="width:18px;height:18px;border-width:2px;"></div></div>'
+          +       '</div>'
+          +     '</div>'
+          +   '</td>'
+          + '</tr>';
+      }
+
+      return html;
+    }
+
+    function renderTopicsTable() {
+      var loadEl = document.getElementById('topics-loading');
+      var emptyEl = document.getElementById('topics-empty');
+      var tableWrap = document.getElementById('topics-table-wrap');
+      var tbody = document.getElementById('topics-table-body');
+      var visibleTopics = getVisibleTopics();
+      pruneSelectionToVisible(visibleTopics);
+
+      document.getElementById('topics-summary-chip').textContent = visibleTopics.length + (visibleTopics.length === 1 ? ' topic' : ' topics');
+      document.getElementById('topics-summary-muted').textContent =
+        'Showing ' + visibleTopics.length + ' topics in ' + getCurrentPartLabel(_currentLibTab) + (_topicSearch ? ' matching "' + _topicSearch + '"' : '.');
+
+      loadEl.classList.add('hidden');
+      if (!visibleTopics.length) {
+        tbody.innerHTML = '';
+        tableWrap.classList.add('hidden');
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.classList.add('hidden');
+        tableWrap.classList.remove('hidden');
+        tbody.innerHTML = visibleTopics.map(buildTopicRowHtml).join('');
+        if (_expandedTopicId) {
+          var expandedTopic = visibleTopics.find(function (t) { return t.id === _expandedTopicId; });
+          if (expandedTopic) {
+            if (_questionsCache[_expandedTopicId]) {
+              renderTopicQuestions(_expandedTopicId, _questionsCache[_expandedTopicId], expandedTopic.part || 1);
+            } else {
+              loadTopicQuestions(_expandedTopicId);
+            }
+          } else {
+            _expandedTopicId = null;
+          }
+        }
+      }
+      updateTopicSelectionUI(visibleTopics);
+    }
 
     async function loadTopics() {
       _loaded.topics = true;
-      var loadEl  = document.getElementById('topics-loading');
-      var emptyEl = document.getElementById('topics-empty');
-      loadEl.classList.remove('hidden');
-      emptyEl.classList.add('hidden');
-      document.getElementById('p1-topic-list').innerHTML = '';
-      document.getElementById('p2-topic-list').innerHTML = '';
+      document.getElementById('topics-loading').classList.remove('hidden');
+      document.getElementById('topics-empty').classList.add('hidden');
+      document.getElementById('topics-table-wrap').classList.add('hidden');
 
       try {
         var topics = await apiGet('/admin/topics');
         _topicsCache = topics || [];
-        loadEl.classList.add('hidden');
-
-        if (!topics || topics.length === 0) {
-          emptyEl.classList.remove('hidden');
-          return;
-        }
-        renderTopicList(topics.filter(function (t) { return t.part === 1; }), document.getElementById('p1-topic-list'));
-        renderTopicList(topics.filter(function (t) { return t.part === 2; }), document.getElementById('p2-topic-list'));
+        renderTopicsTable();
       } catch (err) {
-        loadEl.classList.add('hidden');
-        emptyEl.textContent = 'Lỗi: ' + err.message;
-        emptyEl.classList.remove('hidden');
+        _topicsCache = [];
+        renderTopicsTable();
+        setTopicsFeedback('error', 'Lỗi khi tải topics: ' + err.message);
       }
     }
 
-    function renderTopicList(topics, container) {
-      if (!topics.length) {
-        container.innerHTML = '<p class="text-sm text-center py-8" style="color:rgba(255,255,255,0.3);">Chưa có topic nào.</p>';
-        return;
-      }
-      container.innerHTML = topics.map(buildTopicCardHtml).join('');
-    }
+    window.onTopicSearchInput = function (value) {
+      _topicSearch = value || '';
+      renderTopicsTable();
+    };
 
-    function buildTopicCardHtml(t) {
-      var rotatedLabel = t.last_rotated_at
-        ? '<span class="text-xs ml-2" style="color:rgba(255,255,255,0.3);">Cập nhật: ' + fmtDate(t.last_rotated_at) + '</span>'
-        : '<span class="text-xs ml-2" style="color:rgba(255,255,255,0.2);">Chưa tạo câu hỏi</span>';
-      var dimStyle = t.is_active ? '' : ' style="opacity:0.5;"';
-      return '<div class="topic-card"' + dimStyle + ' id="tcard-' + esc(t.id) + '">'
-        + '<div class="topic-card-header" onclick="toggleTopicExpand(\'' + esc(t.id) + '\')">'
-        +   '<div class="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">'
-        +     '<span class="font-semibold text-sm truncate" style="color:#e2e8f0;">' + esc(t.title) + '</span>'
-        +     rotatedLabel
-        +   '</div>'
-        +   '<div class="flex items-center gap-2 flex-shrink-0" onclick="event.stopPropagation()">'
-        +     '<button class="btn-icon" id="tcard-rot-' + esc(t.id) + '" title="Tạo lại câu hỏi bằng AI" onclick="rotateTopic(\'' + esc(t.id) + '\')">↻ Tạo</button>'
-        +     '<label class="toggle" title="' + (t.is_active ? 'Tắt' : 'Bật') + ' topic">'
-        +       '<input type="checkbox" ' + (t.is_active ? 'checked' : '') + ' onchange="toggleTopic(\'' + esc(t.id) + '\', this.checked)">'
-        +       '<span class="toggle-slider"></span>'
-        +     '</label>'
-        +     '<button class="btn-icon" style="color:#f87171;" title="Xóa topic" onclick="deleteTopic(\'' + esc(t.id) + '\', \'' + esc(t.title) + '\')">✕</button>'
-        +   '</div>'
-        +   '<svg class="w-4 h-4 flex-shrink-0 transition-transform" id="tcard-chev-' + esc(t.id) + '" style="color:rgba(255,255,255,0.3);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>'
-        + '</div>'
-        + '<div class="topic-card-body hidden" id="tcard-body-' + esc(t.id) + '">'
-        +   '<div id="tcard-qs-' + esc(t.id) + '" class="space-y-1 mb-3">'
-        +     '<div class="flex justify-center py-3"><div class="spinner" style="width:18px;height:18px;border-width:2px;"></div></div>'
-        +   '</div>'
-        +   '<button class="btn-secondary text-xs py-1.5" onclick="openAddQModal(\'' + esc(t.id) + '\', ' + t.part + ')">+ Thêm câu hỏi</button>'
-        + '</div>'
-        + '</div>';
-    }
+    window.toggleTopicSelection = function (topicId, checked) {
+      if (checked) _selectedTopicIds[topicId] = true;
+      else delete _selectedTopicIds[topicId];
+      updateTopicSelectionUI(getVisibleTopics());
+      renderTopicsTable();
+    };
 
-    window.toggleTopicExpand = async function (topicId) {
-      var body    = document.getElementById('tcard-body-' + topicId);
-      var chevron = document.getElementById('tcard-chev-' + topicId);
-      var isOpen  = !body.classList.contains('hidden');
-      if (isOpen) {
-        body.classList.add('hidden');
-        chevron.style.transform = 'rotate(0deg)';
-        return;
-      }
-      body.classList.remove('hidden');
-      chevron.style.transform = 'rotate(180deg)';
-      if (!_questionsCache[topicId]) {
+    window.toggleSelectAllVisible = function (checked) {
+      var visibleTopics = getVisibleTopics();
+      visibleTopics.forEach(function (t) {
+        if (checked) _selectedTopicIds[t.id] = true;
+        else delete _selectedTopicIds[t.id];
+      });
+      renderTopicsTable();
+    };
+
+    window.selectAllVisibleTopics = function () {
+      toggleSelectAllVisible(true);
+    };
+
+    window.clearTopicSelection = function () {
+      _selectedTopicIds = {};
+      renderTopicsTable();
+    };
+
+    window.toggleTopicDetails = async function (topicId) {
+      _expandedTopicId = _expandedTopicId === topicId ? null : topicId;
+      renderTopicsTable();
+      if (_expandedTopicId === topicId && !_questionsCache[topicId]) {
         await loadTopicQuestions(topicId);
-      } else {
-        var t = _topicsCache.find(function (x) { return x.id === topicId; }) || {};
-        renderTopicQuestions(topicId, _questionsCache[topicId], t.part || 1);
       }
     };
 
@@ -1008,13 +1308,16 @@
         _questionsCache[topicId] = qs;
         renderTopicQuestions(topicId, qs, t.part || 1);
       } catch (err) {
-        document.getElementById('tcard-qs-' + topicId).innerHTML =
+        var target = document.getElementById('topic-detail-qs-' + topicId);
+        if (!target) return;
+        target.innerHTML =
           '<p class="text-xs py-2" style="color:#f87171;">Lỗi tải câu hỏi: ' + esc(err.message) + '</p>';
       }
     }
 
     function renderTopicQuestions(topicId, qs, topicPart) {
-      var container = document.getElementById('tcard-qs-' + topicId);
+      var container = document.getElementById('topic-detail-qs-' + topicId);
+      if (!container) return;
       if (!qs || qs.length === 0) {
         container.innerHTML = '<p class="text-xs py-2" style="color:rgba(255,255,255,0.3);">Chưa có câu hỏi. Nhấn "↻ Tạo" để sinh câu hỏi bằng AI.</p>';
         return;
@@ -1046,54 +1349,73 @@
         + '</div>';
     }
 
-    window.rotateTopic = async function (topicId) {
-      var btn = document.getElementById('tcard-rot-' + topicId);
-      var origText = btn ? btn.textContent : '';
-      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    async function runSingleTopicAction(topicId, actionLabel, requestFn, successMessage) {
+      _topicActionBusy[topicId] = actionLabel;
+      renderTopicsTable();
       try {
-        await apiPost('/admin/topics/' + topicId + '/generate-questions', {});
+        await requestFn();
         _questionsCache[topicId] = null;
-        // Reload topics to get updated last_rotated_at, then refresh card
-        var topics = await apiGet('/admin/topics');
-        _topicsCache = topics || [];
-        var t = _topicsCache.find(function (x) { return x.id === topicId; });
-        if (t) {
-          var card = document.getElementById('tcard-' + topicId);
-          if (card) {
-            var tmp = document.createElement('div');
-            tmp.innerHTML = buildTopicCardHtml(t);
-            card.parentNode.replaceChild(tmp.firstChild, card);
-          }
-        }
-        // Re-expand to show new questions
-        await window.toggleTopicExpand(topicId);
+        _expandedTopicId = topicId;
+        await loadTopics();
+        setTopicsFeedback('success', successMessage);
       } catch (err) {
-        alert('Lỗi khi tạo câu hỏi: ' + err.message);
-        if (btn) { btn.disabled = false; btn.textContent = origText; }
+        setTopicsFeedback('error', 'Lỗi: ' + err.message);
+      } finally {
+        delete _topicActionBusy[topicId];
+        renderTopicsTable();
       }
+    }
+
+    window.generateTopic = async function (topicId) {
+      await runSingleTopicAction(
+        topicId,
+        'generate',
+        function () { return apiPost('/admin/topics/' + topicId + '/generate-questions', { mode: 'missing_only' }); },
+        'Đã tạo bộ câu hỏi mới cho topic được chọn.'
+      );
+    };
+
+    window.rotateTopic = async function (topicId) {
+      await runSingleTopicAction(
+        topicId,
+        'rotate',
+        function () { return apiPost('/admin/topics/' + topicId + '/rotate-questions', {}); },
+        'Đã rotate bộ câu hỏi: hệ thống thay thế toàn bộ library questions hiện tại bằng bộ mới.'
+      );
     };
 
     window.toggleTopic = async function (id, isActive) {
+      _topicActionBusy[id] = 'toggle';
+      renderTopicsTable();
       try {
         await apiPatch('/admin/topics/' + id, { is_active: isActive });
-        var card = document.getElementById('tcard-' + id);
-        if (card) card.style.opacity = isActive ? '' : '0.5';
+        await loadTopics();
       } catch (err) {
-        alert('Lỗi khi cập nhật topic: ' + err.message);
-        loadTopics();
+        setTopicsFeedback('error', 'Lỗi khi cập nhật topic: ' + err.message);
+      } finally {
+        delete _topicActionBusy[id];
+        renderTopicsTable();
       }
     };
 
-    window.deleteTopic = async function (id, title) {
+    window.deleteTopic = async function (id) {
+      var topic = _topicsCache.find(function (t) { return t.id === id; }) || {};
+      var title = topic.title || id;
       if (!confirm('Xóa topic "' + title + '"?\n\nHành động này sẽ xóa toàn bộ câu hỏi trong library và không thể hoàn tác.')) return;
+      _topicActionBusy[id] = 'delete';
+      renderTopicsTable();
       try {
         await apiDelete('/admin/topics/' + id);
-        var card = document.getElementById('tcard-' + id);
-        if (card) card.remove();
-        _topicsCache = _topicsCache.filter(function (t) { return t.id !== id; });
+        delete _selectedTopicIds[id];
         delete _questionsCache[id];
+        if (_expandedTopicId === id) _expandedTopicId = null;
+        await loadTopics();
+        setTopicsFeedback('success', 'Đã xóa topic và toàn bộ library questions liên quan.');
       } catch (err) {
-        alert('Lỗi khi xóa topic: ' + err.message);
+        setTopicsFeedback('error', 'Lỗi khi xóa topic: ' + err.message);
+      } finally {
+        delete _topicActionBusy[id];
+        renderTopicsTable();
       }
     };
 
@@ -1102,16 +1424,38 @@
       try {
         await apiDelete('/admin/topics/' + topicId + '/questions/' + qId);
         _questionsCache[topicId] = null;
+        _expandedTopicId = topicId;
+        await loadTopics();
         await loadTopicQuestions(topicId);
+        setTopicsFeedback('success', 'Đã xóa câu hỏi khỏi library của topic.');
       } catch (err) {
-        alert('Lỗi: ' + err.message);
+        setTopicsFeedback('error', 'Lỗi: ' + err.message);
       }
     };
 
     // ── Add Topic Modal ────────────────────────────────────────
     window.openAddTopicModal = function () {
+      _editingTopicId = null;
+      document.getElementById('modal-topic-title').textContent = 'Thêm topic mới';
+      document.getElementById('btn-save-topic').textContent = 'Lưu topic';
       document.getElementById('new-topic-title').value = '';
-      document.getElementById('new-topic-part').value  = String(_currentLibTab === 2 ? 2 : 1);
+      document.getElementById('new-topic-part').value  = String(_currentLibTab);
+      document.getElementById('new-topic-autogen-wrap').classList.remove('hidden');
+      document.getElementById('new-topic-autogen').checked = true;
+      document.getElementById('modal-err').classList.add('hidden');
+      document.getElementById('modal-topic').classList.remove('hidden');
+      setTimeout(function () { document.getElementById('new-topic-title').focus(); }, 80);
+    };
+
+    window.openEditTopicModal = function (topicId) {
+      var topic = _topicsCache.find(function (x) { return x.id === topicId; });
+      if (!topic) return;
+      _editingTopicId = topicId;
+      document.getElementById('modal-topic-title').textContent = 'Sửa topic';
+      document.getElementById('btn-save-topic').textContent = 'Lưu thay đổi';
+      document.getElementById('new-topic-title').value = topic.title || '';
+      document.getElementById('new-topic-part').value = String(topic.part || 1);
+      document.getElementById('new-topic-autogen-wrap').classList.add('hidden');
       document.getElementById('modal-err').classList.add('hidden');
       document.getElementById('modal-topic').classList.remove('hidden');
       setTimeout(function () { document.getElementById('new-topic-title').focus(); }, 80);
@@ -1119,6 +1463,7 @@
 
     window.closeAddTopicModal = function () {
       document.getElementById('modal-topic').classList.add('hidden');
+      _editingTopicId = null;
     };
 
     window.saveNewTopic = async function () {
@@ -1127,6 +1472,8 @@
       var autogen = document.getElementById('new-topic-autogen').checked;
       var errEl   = document.getElementById('modal-err');
       var btn     = document.getElementById('btn-save-topic');
+      var isEditing = !!_editingTopicId;
+      var editingTopicId = _editingTopicId;
 
       if (!title) {
         errEl.textContent = 'Vui lòng nhập title.';
@@ -1138,27 +1485,34 @@
       btn.textContent = 'Đang lưu…';
 
       try {
-        var newTopic = await apiPost('/admin/topics', { title: title, part: part, category: '' });
+        var newTopic;
+        if (isEditing) {
+          newTopic = await apiPatch('/admin/topics/' + editingTopicId, { title: title, part: part });
+        } else {
+          newTopic = await apiPost('/admin/topics', { title: title, part: part, category: '' });
+        }
         closeAddTopicModal();
-        _topicsCache.push(newTopic);
-        var listEl = document.getElementById('p' + part + '-topic-list');
-        var emptyP = listEl.querySelector('p');
-        if (emptyP) emptyP.remove();
-        listEl.insertAdjacentHTML('beforeend', buildTopicCardHtml(newTopic));
         switchLibTab(part);
-        if (autogen) await window.rotateTopic(newTopic.id);
+        await loadTopics();
+        if (isEditing) {
+          setTopicsFeedback('success', 'Đã cập nhật topic.');
+        } else {
+          setTopicsFeedback('success', 'Đã tạo topic mới.');
+          if (autogen) await window.rotateTopic(newTopic.id);
+        }
       } catch (err) {
         errEl.textContent = 'Lỗi: ' + err.message;
         errEl.classList.remove('hidden');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Lưu topic';
+        btn.textContent = isEditing ? 'Lưu thay đổi' : 'Lưu topic';
       }
     };
 
     // ── Bulk Add Modal ─────────────────────────────────────────
     window.openBulkModal = function () {
       document.getElementById('bulk-lines').value = '';
+      document.getElementById('bulk-part').value = String(_currentLibTab);
       document.getElementById('bulk-err').classList.add('hidden');
       document.getElementById('bulk-progress').classList.add('hidden');
       document.getElementById('modal-bulk').classList.remove('hidden');
@@ -1198,29 +1552,36 @@
 
         progEl.textContent = '✓ Đã tạo ' + createdCount + ' topics.';
         progEl.classList.remove('hidden');
-
-        var listEl = document.getElementById('p' + part + '-topic-list');
-        var emptyP = listEl.querySelector('p');
-        if (emptyP) emptyP.remove();
-        createdTopics.forEach(function (t) {
-          _topicsCache.push(t);
-          listEl.insertAdjacentHTML('beforeend', buildTopicCardHtml(t));
-        });
+        await loadTopics();
 
         if (autogen && createdTopics.length) {
-          for (var i = 0; i < createdTopics.length; i++) {
-            progEl.textContent = 'Đang sinh câu hỏi ' + (i + 1) + '/' + createdTopics.length + '…';
-            try { await apiPost('/admin/topics/' + createdTopics[i].id + '/generate-questions', {}); } catch (e) { /* continue */ }
+          progEl.textContent = 'Đang sinh câu hỏi AI cho ' + createdTopics.length + ' topics…';
+          var bulkGen = await apiPost('/admin/topics/bulk-generate-questions', {
+            topic_ids: createdTopics.map(function (t) { return t.id; }),
+            mode: 'missing_only'
+          });
+          var bulkErrText = formatBulkErrors(bulkGen.errors || []);
+          if ((bulkGen.success_count || 0) === createdTopics.length && !(bulkGen.failed_ids || []).length) {
+            progEl.textContent = '✓ Hoàn tất! Đã tạo ' + createdCount + ' topics. Sinh AI thành công cho ' + (bulkGen.success_count || 0) + ' topics.';
+          } else if ((bulkGen.success_count || 0) > 0) {
+            progEl.textContent = 'Hoàn tất một phần: đã tạo ' + createdCount + ' topics, sinh AI thành công cho ' + (bulkGen.success_count || 0) + '/' + createdTopics.length + ' topics.' + (bulkErrText ? '\n' + bulkErrText : '');
+            errEl.textContent = progEl.textContent;
+            errEl.classList.remove('hidden');
+          } else {
+            progEl.textContent = 'Sinh AI thất bại cho toàn bộ ' + createdTopics.length + ' topics đã tạo.' + (bulkErrText ? '\n' + bulkErrText : '');
+            errEl.textContent = progEl.textContent;
+            errEl.classList.remove('hidden');
           }
-          progEl.textContent = '✓ Hoàn tất! Đã tạo ' + createdCount + ' topics với câu hỏi AI.';
-          var topics = await apiGet('/admin/topics');
-          _topicsCache = topics || [];
-          renderTopicList(topics.filter(function (t) { return t.part === 1; }), document.getElementById('p1-topic-list'));
-          renderTopicList(topics.filter(function (t) { return t.part === 2; }), document.getElementById('p2-topic-list'));
+          await loadTopics();
         }
 
         switchLibTab(part);
-        setTimeout(closeBulkModal, 1500);
+        if (errEl.classList.contains('hidden')) {
+          setTopicsFeedback('success', progEl.textContent);
+          setTimeout(closeBulkModal, 1500);
+        } else {
+          setTopicsFeedback('error', progEl.textContent);
+        }
       } catch (err) {
         errEl.textContent = 'Lỗi: ' + err.message;
         errEl.classList.remove('hidden');
@@ -1228,6 +1589,86 @@
         btn.disabled = false;
         btn.textContent = 'Thêm tất cả';
       }
+    };
+
+    function setBulkButtonsDisabled(disabled) {
+      ['btn-bulk-generate', 'btn-bulk-rotate', 'btn-bulk-delete'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = disabled;
+      });
+    }
+
+    async function runBulkTopicAction(opts) {
+      var selectedIds = getSelectedVisibleTopicIds();
+      if (!selectedIds.length) {
+        setTopicsFeedback('error', 'Chưa chọn topic nào trong bảng hiện tại.');
+        return;
+      }
+      if (opts.confirmText && !confirm(opts.confirmText.replace('{count}', String(selectedIds.length)))) return;
+
+      _topicsBulkBusy = true;
+      setBulkButtonsDisabled(true);
+      renderTopicsTable();
+      setTopicsFeedback('success', opts.progressText.replace('{count}', String(selectedIds.length)));
+
+      try {
+        var res = await apiPost(opts.url, opts.body(selectedIds));
+        _selectedTopicIds = {};
+        (res.failed_ids || []).forEach(function (topicId) { _selectedTopicIds[topicId] = true; });
+        if (opts.clearQuestionsCache) _questionsCache = {};
+        await loadTopics();
+        var message = opts.successMessage(res);
+        var errorText = formatBulkErrors(res.errors || []);
+        if (res.failed_ids && res.failed_ids.length) {
+          setTopicsFeedback('error', message + (errorText ? '\n' + errorText : ''));
+        } else {
+          setTopicsFeedback('success', message);
+        }
+      } catch (err) {
+        setTopicsFeedback('error', 'Lỗi khi chạy bulk action: ' + err.message);
+      } finally {
+        _topicsBulkBusy = false;
+        setBulkButtonsDisabled(false);
+        renderTopicsTable();
+      }
+    }
+
+    window.bulkGenerateTopics = async function () {
+      await runBulkTopicAction({
+        url: '/admin/topics/bulk-generate-questions',
+        body: function (topicIds) { return { topic_ids: topicIds, mode: 'missing_only' }; },
+        progressText: 'Đang tạo câu hỏi cho {count} topics chưa có bộ câu hỏi…',
+        successMessage: function (res) {
+          return 'Generate hoàn tất: ' + (res.success_count || 0) + '/' + (res.processed_count || 0) + ' topics được tạo câu hỏi. Topics đã có sẵn câu hỏi sẽ bị bỏ qua.';
+        },
+        clearQuestionsCache: true
+      });
+    };
+
+    window.bulkRotateTopics = async function () {
+      await runBulkTopicAction({
+        url: '/admin/topics/bulk-rotate-questions',
+        body: function (topicIds) { return { topic_ids: topicIds }; },
+        confirmText: 'Rotate {count} topics đã chọn?\n\nHành động này sẽ thay thế toàn bộ library questions hiện tại của từng topic bằng một bộ mới do AI tạo.',
+        progressText: 'Đang rotate bộ câu hỏi cho {count} topics…',
+        successMessage: function (res) {
+          return 'Rotate hoàn tất: ' + (res.success_count || 0) + '/' + (res.processed_count || 0) + ' topics đã được thay bộ câu hỏi mới.';
+        },
+        clearQuestionsCache: true
+      });
+    };
+
+    window.bulkDeleteTopics = async function () {
+      await runBulkTopicAction({
+        url: '/admin/topics/bulk-delete',
+        body: function (topicIds) { return { topic_ids: topicIds }; },
+        confirmText: 'Xóa {count} topics đã chọn?\n\nViệc này sẽ hard-delete topic và cascade xóa toàn bộ library questions liên quan. Không thể hoàn tác.',
+        progressText: 'Đang xóa {count} topics…',
+        successMessage: function (res) {
+          return 'Delete hoàn tất: đã xóa ' + (res.deleted_count || 0) + '/' + (res.processed_count || 0) + ' topics.';
+        },
+        clearQuestionsCache: true
+      });
     };
 
     // ── Edit / Add Question Modal ──────────────────────────────
@@ -1321,7 +1762,10 @@
         }
         closeEditQModal();
         _questionsCache[_editQTopicId] = null;
+        _expandedTopicId = _editQTopicId;
+        await loadTopics();
         await loadTopicQuestions(_editQTopicId);
+        setTopicsFeedback('success', _editQId ? 'Đã cập nhật câu hỏi.' : 'Đã thêm câu hỏi mới vào topic.');
       } catch (err) {
         errEl.textContent = 'Lỗi: ' + err.message;
         errEl.classList.remove('hidden');

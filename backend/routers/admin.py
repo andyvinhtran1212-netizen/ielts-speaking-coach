@@ -17,7 +17,10 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.gemini import (
@@ -31,6 +34,11 @@ from services.whisper import transcribe_from_bytes
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+_db_engine: AsyncEngine | None = (
+    create_async_engine(settings.DATABASE_URL)
+    if settings.DATABASE_URL
+    else None
+)
 
 
 # ── Auth guard ─────────────────────────────────────────────────────────────────
@@ -69,6 +77,161 @@ def _gen_code() -> str:
     )
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _uniq_topic_ids(topic_ids: list[str]) -> list[str]:
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for raw in topic_ids or []:
+        topic_id = (raw or "").strip()
+        if not topic_id or topic_id in seen:
+            continue
+        seen.add(topic_id)
+        cleaned.append(topic_id)
+    return cleaned
+
+
+def _parse_iso(dt_str: str | None) -> datetime | None:
+    if not dt_str:
+        return None
+    try:
+        return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _max_iso(*values: str | None) -> str | None:
+    parsed = [_parse_iso(v) for v in values if v]
+    parsed = [v for v in parsed if v is not None]
+    if not parsed:
+        return None
+    return max(parsed).isoformat()
+
+
+def _topic_status(topic: dict, question_count: int) -> tuple[str, str]:
+    if not topic.get("is_active", True):
+        return "inactive", "Inactive"
+    if question_count <= 0:
+        return "no_questions", "No questions"
+    if topic.get("last_rotated_at"):
+        return "generated", "Generated"
+    return "has_questions", "Has questions"
+
+
+def _touch_topic(topic_id: str) -> None:
+    try:
+        supabase_admin.table("topics").update({"updated_at": _utc_now_iso()}).eq("id", topic_id).execute()
+    except Exception:
+        logger.warning("[admin.topics] failed to update updated_at for topic=%s", topic_id, exc_info=True)
+
+
+def _topic_question_insert_rows(rows: list[dict]) -> list[dict]:
+    restore_rows: list[dict] = []
+    for row in rows or []:
+        restore = {
+            "topic_id": row.get("topic_id"),
+            "part": row.get("part"),
+            "order_num": row.get("order_num", 0),
+            "question_text": row.get("question_text", ""),
+            "question_type": row.get("question_type", ""),
+            "cue_card_bullets": row.get("cue_card_bullets"),
+            "cue_card_reflection": row.get("cue_card_reflection"),
+            "is_active": row.get("is_active", True),
+        }
+        restore_rows.append(restore)
+    return restore_rows
+
+
+def _require_db_engine() -> AsyncEngine:
+    if _db_engine is None:
+        raise HTTPException(
+            500,
+            "Rotate failure-safe mode requires DATABASE_URL to be configured on the backend.",
+        )
+    return _db_engine
+
+
+async def _replace_topic_questions_transactionally(topic_id: str, rows: list[dict]) -> list[dict]:
+    if not rows:
+        raise HTTPException(500, "Không tạo được bộ câu hỏi mới để thay thế bộ hiện tại.")
+
+    engine = _require_db_engine()
+    inserted_rows: list[dict] = []
+    insert_sql = text(
+        """
+        INSERT INTO topic_questions (
+            topic_id,
+            part,
+            order_num,
+            question_text,
+            question_type,
+            cue_card_bullets,
+            cue_card_reflection,
+            is_active
+        ) VALUES (
+            :topic_id,
+            :part,
+            :order_num,
+            :question_text,
+            :question_type,
+            CAST(:cue_card_bullets AS jsonb),
+            :cue_card_reflection,
+            TRUE
+        )
+        RETURNING
+            id,
+            topic_id,
+            part,
+            order_num,
+            question_text,
+            question_type,
+            cue_card_bullets,
+            cue_card_reflection,
+            is_active,
+            created_at
+        """
+    )
+
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("DELETE FROM topic_questions WHERE topic_id = :topic_id"),
+                {"topic_id": topic_id},
+            )
+            for row in rows:
+                params = {
+                    "topic_id": row.get("topic_id"),
+                    "part": row.get("part"),
+                    "order_num": row.get("order_num", 0),
+                    "question_text": row.get("question_text", ""),
+                    "question_type": row.get("question_type", ""),
+                    "cue_card_bullets": (
+                        json.dumps(row.get("cue_card_bullets"))
+                        if row.get("cue_card_bullets") is not None
+                        else None
+                    ),
+                    "cue_card_reflection": row.get("cue_card_reflection"),
+                }
+                result = await conn.execute(insert_sql, params)
+                inserted_rows.extend([dict(record._mapping) for record in result.fetchall()])
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "[admin.topics] transactional rotate failed topic=%s",
+            topic_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            500,
+            "Lỗi khi thay thế bộ câu hỏi. Hệ thống đã giữ nguyên bộ câu hỏi trước đó.",
+        ) from exc
+
+    return inserted_rows
+
+
 # ── Request models ─────────────────────────────────────────────────────────────
 
 class GenerateCodesRequest(BaseModel):
@@ -102,6 +265,19 @@ class BulkAddTopicsRequest(BaseModel):
     lines: str  # newline-separated topic titles
 
 
+class GenerateTopicQuestionsRequest(BaseModel):
+    mode: str = Field(default="replace_all", description="missing_only | replace_all")
+
+
+class BulkTopicIdsRequest(BaseModel):
+    topic_ids: list[str]
+
+
+class BulkGenerateTopicsRequest(BaseModel):
+    topic_ids: list[str]
+    mode: str = Field(default="missing_only", description="missing_only | replace_all")
+
+
 class CreateTopicQuestionRequest(BaseModel):
     part:                int   = Field(ge=1, le=3)
     question_text:       str
@@ -117,6 +293,185 @@ class UpdateTopicQuestionRequest(BaseModel):
     order_num:           int | None       = None
     cue_card_bullets:    list[str] | None = None
     cue_card_reflection: str | None       = None
+
+
+def _serialize_topics_with_metadata(topics: list[dict]) -> list[dict]:
+    rows = topics or []
+    if not rows:
+        return []
+
+    topic_ids = [t["id"] for t in rows if t.get("id")]
+    question_counts: dict[str, int] = {}
+    latest_question_at: dict[str, str] = {}
+
+    if topic_ids:
+        try:
+            q_res = (
+                supabase_admin.table("topic_questions")
+                .select("topic_id, created_at")
+                .in_("topic_id", topic_ids)
+                .execute()
+            )
+            for q in (q_res.data or []):
+                topic_id = q.get("topic_id")
+                if not topic_id:
+                    continue
+                question_counts[topic_id] = question_counts.get(topic_id, 0) + 1
+                latest_question_at[topic_id] = _max_iso(
+                    latest_question_at.get(topic_id),
+                    q.get("created_at"),
+                ) or latest_question_at.get(topic_id)
+        except Exception:
+            logger.warning("[admin.topics] failed to aggregate question metadata", exc_info=True)
+
+    enriched: list[dict] = []
+    for topic in rows:
+        item = dict(topic)
+        topic_id = item.get("id")
+        count = question_counts.get(topic_id, 0)
+        status_code, status_label = _topic_status(item, count)
+        item["question_count"] = count
+        item["status"] = status_code
+        item["status_label"] = status_label
+        item["last_question_created_at"] = latest_question_at.get(topic_id)
+        item["last_updated_at"] = _max_iso(
+            item.get("updated_at"),
+            item.get("last_rotated_at"),
+            latest_question_at.get(topic_id),
+        )
+        enriched.append(item)
+
+    return enriched
+
+
+async def _generate_questions_for_topic(
+    topic_id: str,
+    user_id: str,
+    *,
+    replace_existing: bool,
+) -> dict:
+    try:
+        t_res = (
+            supabase_admin.table("topics")
+            .select("id, title, part")
+            .eq("id", topic_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải topic: {exc}")
+
+    if not t_res.data:
+        raise HTTPException(404, "Topic không tồn tại")
+
+    topic = t_res.data[0]
+    title = topic["title"]
+    part = topic["part"]
+
+    try:
+        existing_res = (
+            supabase_admin.table("topic_questions")
+            .select("*", count="exact")
+            .eq("topic_id", topic_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi kiểm tra questions hiện tại: {exc}")
+
+    existing_count = existing_res.count or len(existing_res.data or [])
+    existing_rows = existing_res.data or []
+    if existing_count > 0 and not replace_existing:
+        raise HTTPException(409, "Topic đã có câu hỏi. Dùng Rotate để thay thế bộ câu hỏi hiện tại.")
+
+    rows: list[dict] = []
+
+    if part == 1:
+        qs = await generate_part1_questions(title, count=7, user_id=user_id)
+        for i, q in enumerate(qs):
+            rows.append({
+                "topic_id": topic_id,
+                "part": 1,
+                "order_num": i + 1,
+                "question_text": q["question_text"],
+                "question_type": q.get("question_type", "personal"),
+            })
+    elif part == 2:
+        cuecard = await generate_part2_cuecard(title, user_id=user_id)
+        rows.append({
+            "topic_id": topic_id,
+            "part": 2,
+            "order_num": 1,
+            "question_text": cuecard["question_text"],
+            "question_type": "cuecard",
+            "cue_card_bullets": cuecard.get("cue_card_bullets"),
+            "cue_card_reflection": cuecard.get("cue_card_reflection"),
+        })
+        p3qs = await generate_part3_questions(title, count=5, user_id=user_id)
+        for i, q in enumerate(p3qs):
+            rows.append({
+                "topic_id": topic_id,
+                "part": 3,
+                "order_num": i + 1,
+                "question_text": q["question_text"],
+                "question_type": q.get("question_type", "opinion"),
+            })
+    elif part == 3:
+        qs = await generate_part3_questions(title, count=5, user_id=user_id)
+        for i, q in enumerate(qs):
+            rows.append({
+                "topic_id": topic_id,
+                "part": 3,
+                "order_num": i + 1,
+                "question_text": q["question_text"],
+                "question_type": q.get("question_type", "opinion"),
+            })
+
+    if rows:
+        if replace_existing:
+            saved_rows = await _replace_topic_questions_transactionally(topic_id, rows)
+        else:
+            try:
+                supabase_admin.table("topic_questions").insert(rows).execute()
+            except Exception as exc:
+                raise HTTPException(500, f"Lỗi khi lưu questions: {exc}")
+            saved_rows = None
+    else:
+        saved_rows = None
+
+    if replace_existing:
+        try:
+            supabase_admin.table("topics").update({"last_rotated_at": _utc_now_iso()}).eq("id", topic_id).execute()
+        except Exception:
+            logger.warning("[admin.topics] failed to update last_rotated_at topic=%s", topic_id, exc_info=True)
+    _touch_topic(topic_id)
+
+    if saved_rows is None:
+        try:
+            saved = (
+                supabase_admin.table("topic_questions")
+                .select("*")
+                .eq("topic_id", topic_id)
+                .order("part")
+                .order("order_num")
+                .execute()
+            )
+            saved_rows = saved.data or []
+        except Exception as exc:
+            raise HTTPException(500, f"Lỗi khi tải questions đã lưu: {exc}")
+
+    saved_rows = sorted(
+        saved_rows or [],
+        key=lambda row: (row.get("part") or 0, row.get("order_num") or 0, row.get("created_at") or ""),
+    )
+
+    return {
+        "topic_id": topic_id,
+        "topic_title": title,
+        "mode": "replace_all" if replace_existing else "missing_only",
+        "replaced_existing": replace_existing,
+        "question_count": len(saved_rows),
+        "questions": saved_rows,
+    }
 
 
 # ── GET /admin/users ───────────────────────────────────────────────────────────
@@ -581,7 +936,7 @@ async def list_topics(authorization: str | None = Header(default=None)):
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải topics: {exc}")
 
-    return res.data or []
+    return _serialize_topics_with_metadata(res.data or [])
 
 
 # ── POST /admin/topics ─────────────────────────────────────────────────────────
@@ -607,7 +962,7 @@ async def create_topic(
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tạo topic: {exc}")
 
-    return res.data[0]
+    return _serialize_topics_with_metadata(res.data or [])[0]
 
 
 # ── PATCH /admin/topics/{topic_id} ────────────────────────────────────────────
@@ -642,7 +997,7 @@ async def patch_topic(
     if not res.data:
         raise HTTPException(404, "Topic không tồn tại")
 
-    return res.data[0]
+    return _serialize_topics_with_metadata(res.data or [])[0]
 
 
 # ── DELETE /admin/topics/{topic_id} ───────────────────────────────────────────
@@ -658,6 +1013,85 @@ async def delete_topic(
         supabase_admin.table("topics").delete().eq("id", topic_id).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi xóa topic: {exc}")
+
+
+@router.post("/topics/bulk-delete")
+async def bulk_delete_topics(
+    body: BulkTopicIdsRequest,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+
+    topic_ids = _uniq_topic_ids(body.topic_ids)
+    if not topic_ids:
+        raise HTTPException(400, "Không có topic IDs hợp lệ")
+
+    try:
+        existing = (
+            supabase_admin.table("topics")
+            .select("id, title")
+            .in_("id", topic_ids)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải topics: {exc}")
+
+    existing_rows = existing.data or []
+    title_by_id = {row["id"]: (row.get("title") or row["id"]) for row in existing_rows if row.get("id")}
+    existing_ids = [row["id"] for row in existing_rows if row.get("id")]
+    missing_ids = [topic_id for topic_id in topic_ids if topic_id not in existing_ids]
+    errors = [
+        {
+            "topic_id": topic_id,
+            "topic_title": None,
+            "message": "Topic không tồn tại",
+            "code": "not_found",
+        }
+        for topic_id in missing_ids
+    ]
+
+    deleted_ids: list[str] = []
+    failed_ids = list(missing_ids)
+
+    if existing_ids:
+        try:
+            supabase_admin.table("topics").delete().in_("id", existing_ids).execute()
+            remaining = (
+                supabase_admin.table("topics")
+                .select("id")
+                .in_("id", existing_ids)
+                .execute()
+            )
+            remaining_ids = {row["id"] for row in (remaining.data or []) if row.get("id")}
+            deleted_ids = [topic_id for topic_id in existing_ids if topic_id not in remaining_ids]
+            undeleted_ids = [topic_id for topic_id in existing_ids if topic_id in remaining_ids]
+            failed_ids.extend(undeleted_ids)
+            errors.extend([
+                {
+                    "topic_id": topic_id,
+                    "topic_title": title_by_id.get(topic_id),
+                    "message": "Topic chưa được xóa hoàn tất",
+                    "code": "delete_not_confirmed",
+                }
+                for topic_id in undeleted_ids
+            ])
+        except Exception as exc:
+            failed_ids.extend(existing_ids)
+            errors.append({
+                "topic_id": None,
+                "topic_title": None,
+                "message": f"Lỗi khi xóa topics: {exc}",
+                "code": "delete_failed",
+            })
+
+    return {
+        "processed_count": len(topic_ids),
+        "deleted_count": len(deleted_ids),
+        "deleted_ids": deleted_ids,
+        "failed_ids": failed_ids,
+        "errors": errors,
+        "delete_semantics": "Deleting a topic hard-deletes the topic and cascades to all of its library questions.",
+    }
 
 
 # ── POST /admin/topics/bulk ────────────────────────────────────────────────────
@@ -683,7 +1117,7 @@ async def bulk_add_topics(
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi thêm topics: {exc}")
 
-    topics = res.data or []
+    topics = _serialize_topics_with_metadata(res.data or [])
     created_count = len(topics)
     return {
         "created": created_count,
@@ -752,6 +1186,7 @@ async def create_topic_question(
         res = supabase_admin.table("topic_questions").insert(row).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tạo question: {exc}")
+    _touch_topic(topic_id)
     return res.data[0]
 
 
@@ -789,6 +1224,7 @@ async def update_topic_question(
 
     if not res.data:
         raise HTTPException(404, "Question không tồn tại")
+    _touch_topic(topic_id)
     return res.data[0]
 
 
@@ -805,6 +1241,7 @@ async def delete_topic_question(
         supabase_admin.table("topic_questions").delete().eq("id", question_id).eq("topic_id", topic_id).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi xóa question: {exc}")
+    _touch_topic(topic_id)
 
 
 # ── POST /admin/topics/{topic_id}/generate-questions ──────────────────────────
@@ -812,110 +1249,125 @@ async def delete_topic_question(
 @router.post("/topics/{topic_id}/generate-questions")
 async def generate_topic_questions(
     topic_id: str,
+    body: GenerateTopicQuestionsRequest | None = None,
     authorization: str | None = Header(default=None),
 ):
     """
-    Gọi Gemini để tạo câu hỏi cho topic và lưu vào library.
-    - Part 1 topic → tạo 7 câu hỏi Part 1
-    - Part 2 topic → tạo 1 cue card (Part 2) + 5 câu hỏi Part 3 liên quan
-    Xóa questions cũ trước khi lưu mới (regenerate).
+    Generate questions for a topic.
+    - mode=missing_only: only create when the topic has no questions yet.
+    - mode=replace_all: delete current questions, then generate a fresh set.
     """
     auth_user = await require_admin(authorization)
+    mode = (body.mode if body else "replace_all").strip().lower()
+    if mode not in {"missing_only", "replace_all"}:
+        raise HTTPException(400, "mode phải là missing_only hoặc replace_all")
 
+    return await _generate_questions_for_topic(
+        topic_id,
+        auth_user["id"],
+        replace_existing=(mode == "replace_all"),
+    )
+
+
+@router.post("/topics/{topic_id}/rotate-questions")
+async def rotate_topic_questions(
+    topic_id: str,
+    authorization: str | None = Header(default=None),
+):
+    auth_user = await require_admin(authorization)
+    return await _generate_questions_for_topic(
+        topic_id,
+        auth_user["id"],
+        replace_existing=True,
+    )
+
+
+@router.post("/topics/bulk-generate-questions")
+async def bulk_generate_topic_questions(
+    body: BulkGenerateTopicsRequest,
+    authorization: str | None = Header(default=None),
+):
+    auth_user = await require_admin(authorization)
+
+    topic_ids = _uniq_topic_ids(body.topic_ids)
+    if not topic_ids:
+        raise HTTPException(400, "Không có topic IDs hợp lệ")
+
+    mode = (body.mode or "missing_only").strip().lower()
+    if mode not in {"missing_only", "replace_all"}:
+        raise HTTPException(400, "mode phải là missing_only hoặc replace_all")
+
+    title_by_id: dict[str, str | None] = {}
     try:
-        t_res = supabase_admin.table("topics").select("id, title, part").eq("id", topic_id).limit(1).execute()
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải topic: {exc}")
-
-    if not t_res.data:
-        raise HTTPException(404, "Topic không tồn tại")
-
-    topic = t_res.data[0]
-    title = topic["title"]
-    part  = topic["part"]
-    user_id = auth_user["id"]
-
-    # Delete existing library questions for this topic
-    try:
-        supabase_admin.table("topic_questions").delete().eq("topic_id", topic_id).execute()
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi xóa questions cũ: {exc}")
-
-    rows: list[dict] = []
-
-    if part == 1:
-        qs = await generate_part1_questions(title, count=7, user_id=user_id)
-        for i, q in enumerate(qs):
-            rows.append({
-                "topic_id":     topic_id,
-                "part":         1,
-                "order_num":    i + 1,
-                "question_text":  q["question_text"],
-                "question_type":  q.get("question_type", "personal"),
-            })
-
-    elif part == 2:
-        # Cue card
-        cuecard = await generate_part2_cuecard(title, user_id=user_id)
-        rows.append({
-            "topic_id":            topic_id,
-            "part":                2,
-            "order_num":           1,
-            "question_text":       cuecard["question_text"],
-            "question_type":       "cuecard",
-            "cue_card_bullets":    cuecard.get("cue_card_bullets"),
-            "cue_card_reflection": cuecard.get("cue_card_reflection"),
-        })
-        # Part 3 linked questions
-        p3qs = await generate_part3_questions(title, count=5, user_id=user_id)
-        for i, q in enumerate(p3qs):
-            rows.append({
-                "topic_id":     topic_id,
-                "part":         3,
-                "order_num":    i + 1,
-                "question_text":  q["question_text"],
-                "question_type":  q.get("question_type", "opinion"),
-            })
-
-    elif part == 3:
-        qs = await generate_part3_questions(title, count=5, user_id=user_id)
-        for i, q in enumerate(qs):
-            rows.append({
-                "topic_id":     topic_id,
-                "part":         3,
-                "order_num":    i + 1,
-                "question_text":  q["question_text"],
-                "question_type":  q.get("question_type", "opinion"),
-            })
-
-    if rows:
-        try:
-            supabase_admin.table("topic_questions").insert(rows).execute()
-        except Exception as exc:
-            raise HTTPException(500, f"Lỗi khi lưu questions: {exc}")
-
-    # Update last_rotated_at
-    try:
-        supabase_admin.table("topics").update(
-            {"last_rotated_at": datetime.now(timezone.utc).isoformat()}
-        ).eq("id", topic_id).execute()
-    except Exception:
-        pass
-
-    # Return all saved questions
-    try:
-        saved = (
-            supabase_admin.table("topic_questions")
-            .select("*")
-            .eq("topic_id", topic_id)
-            .order("part")
-            .order("order_num")
+        t_res = (
+            supabase_admin.table("topics")
+            .select("id, title")
+            .in_("id", topic_ids)
             .execute()
         )
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải questions đã lưu: {exc}")
+        title_by_id = {
+            row["id"]: row.get("title")
+            for row in (t_res.data or [])
+            if row.get("id")
+        }
+    except Exception:
+        logger.warning("[admin.topics] failed to load topic titles for bulk action", exc_info=True)
 
-    return {"topic_id": topic_id, "questions": saved.data or []}
+    success_ids: list[str] = []
+    failed_ids: list[str] = []
+    errors: list[dict] = []
+
+    for topic_id in topic_ids:
+        try:
+            await _generate_questions_for_topic(
+                topic_id,
+                auth_user["id"],
+                replace_existing=(mode == "replace_all"),
+            )
+            success_ids.append(topic_id)
+        except HTTPException as exc:
+            failed_ids.append(topic_id)
+            errors.append({
+                "topic_id": topic_id,
+                "topic_title": title_by_id.get(topic_id),
+                "message": exc.detail,
+                "code": "already_has_questions" if exc.status_code == 409 else "request_failed",
+                "status_code": exc.status_code,
+            })
+        except Exception as exc:
+            failed_ids.append(topic_id)
+            errors.append({
+                "topic_id": topic_id,
+                "topic_title": title_by_id.get(topic_id),
+                "message": str(exc),
+                "code": "unexpected_error",
+                "status_code": 500,
+            })
+
+    return {
+        "processed_count": len(topic_ids),
+        "success_count": len(success_ids),
+        "success_ids": success_ids,
+        "failed_ids": failed_ids,
+        "errors": errors,
+        "mode": mode,
+        "semantics": (
+            "Generate creates questions only for topics that do not already have any library questions."
+            if mode == "missing_only"
+            else "Rotate replaces the current library questions with a fresh generated set."
+        ),
+    }
+
+
+@router.post("/topics/bulk-rotate-questions")
+async def bulk_rotate_topic_questions(
+    body: BulkTopicIdsRequest,
+    authorization: str | None = Header(default=None),
+):
+    return await bulk_generate_topic_questions(
+        BulkGenerateTopicsRequest(topic_ids=body.topic_ids, mode="replace_all"),
+        authorization=authorization,
+    )
 
 
 # ── GET /admin/ai-usage ────────────────────────────────────────────────────────
