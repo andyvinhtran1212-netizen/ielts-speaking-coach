@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 _db_engine: AsyncEngine | None = (
-    create_async_engine(settings.DATABASE_URL)
-    if settings.DATABASE_URL
+    create_async_engine(settings.ASYNC_DATABASE_URL)
+    if settings.ASYNC_DATABASE_URL
     else None
 )
 

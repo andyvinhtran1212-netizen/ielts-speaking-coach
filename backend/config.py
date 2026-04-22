@@ -32,6 +32,19 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
+    @property
+    def ASYNC_DATABASE_URL(self) -> str:
+        url = (self.DATABASE_URL or "").strip()
+        if not url:
+            return ""
+        if url.startswith("postgresql+asyncpg://"):
+            return url
+        if url.startswith("postgres://"):
+            return "postgresql+asyncpg://" + url[len("postgres://"):]
+        if url.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + url[len("postgresql://"):]
+        return url
+
 
 @lru_cache()
 def get_settings() -> Settings:
