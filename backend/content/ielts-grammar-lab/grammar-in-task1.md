@@ -27,7 +27,7 @@ related_pages:
 compare_with: []
 order: 1
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -40,9 +40,9 @@ common_error_tags:
 speaking_relevance: medium
 writing_relevance: high
 next_articles:
-- passive-voice
-- comparison
-- discourse-markers
+- grammar-in-task2
+- common-ielts-grammar-mistakes
+- percentages-and-proportions
 pathways:
 - grammar-for-ielts-writing
 - band-6-to-7

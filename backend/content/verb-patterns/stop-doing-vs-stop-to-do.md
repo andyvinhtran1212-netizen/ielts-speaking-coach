@@ -30,7 +30,7 @@ compare_with:
 - try-doing-vs-try-to-do
 order: 11
 status: complete
-last_updated: 2026-04-19
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -133,6 +133,21 @@ To-infinitive ở đây là **mục đích** (purpose), không phải tân ngữ
 |-------------|-------------|
 | They stopped **talking**. | They stopped **to talk**. |
 | *(Họ im lặng — cuộc trò chuyện kết thúc)* | *(Họ dừng lại (đang đi/làm gì đó) để nói chuyện)* |
+
+---
+
+## Lưu ý đặc biệt — Cả hai đều đúng ngữ pháp, chỉ khác nghĩa
+
+Điểm khiến "stop doing/to do" nguy hiểm hơn nhiều cặp gerund/infinitive khác: **cả hai câu đều hoàn toàn đúng ngữ pháp**. Không có lỗi cú pháp để phát hiện — chỉ có lỗi về nghĩa.
+
+| Câu | Đúng ngữ pháp? | Nghĩa |
+|-----|---------------|-------|
+| "She stopped smoking." | ✅ | Cô ấy **bỏ** thuốc lá — không hút nữa |
+| "She stopped to smoke." | ✅ | Cô ấy dừng lại **để hút** thuốc — vẫn đang hút |
+
+Examiner đọc câu sai nghĩa mà không sai grammar — nghĩa là điểm bị trừ vì **Task Response** (sai ý), không phải vì lỗi cú pháp.
+
+**Nguyên tắc thực hành:** Khi muốn mô tả ai đó **bỏ hẳn** một thói quen → gerund (`stopped smoking`). Khi muốn mô tả **dừng giữa chừng** để làm việc khác → to-infinitive (`stopped to smoke`). Viết ngược lại tạo ra câu đúng grammar nhưng sai hoàn toàn về nghĩa.
 
 ---
 

@@ -32,7 +32,7 @@ compare_with:
 - task2-cause-effect-grammar
 order: 10
 status: complete
-last_updated: 2026-04-19
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -45,7 +45,7 @@ writing_relevance: high
 next_articles:
 - adding-contrast-naturally
 - combining-two-short-sentences
-- discourse-markers
+- task2-cause-effect-grammar
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

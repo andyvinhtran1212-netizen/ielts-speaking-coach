@@ -26,7 +26,7 @@ compare_with:
 - grammar-in-task2
 order: 3
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -253,6 +253,33 @@ Nhiều thí sinh trả lời mọi câu hỏi bằng Present Simple dù tình h
 | Đưa ra hai mặt | "**On the one hand**, X. **On the other**, Y. **Personally**, I **would argue** that..." |
 | Lập luận giả định | "**If** we **were to** solve this problem, we **would need to** first understand the root causes." |
 | Nhìn lại quá khứ | "Looking back, **if** more resources **had been invested** earlier, the situation today **might be** very different." |
+
+---
+
+## Band 6 → Band 7: Upgrade Drill
+
+Band 6 thường đúng grammar nhưng thiếu variety — câu ngắn, cùng một thì, ít cấu trúc phức. Bốn thao tác sau đủ để nâng một câu trả lời Band 6 lên Band 7:
+
+1. **Thêm relative clause** — bổ sung thông tin sau noun
+2. **Thêm modal hoặc hedging** — tránh tuyệt đối hóa
+3. **Thêm discourse marker** — tạo cấu trúc và flow
+4. **Đổi hoặc kết hợp thì** — khi ngữ cảnh cho phép
+
+### Ví dụ Upgrade:
+
+| Band 6 | Band 7 |
+|--------|--------|
+| "I think technology is very useful." | "I **would argue** that technology **has become** an indispensable part of modern life — particularly **when it comes to** communication and instant access to information." |
+| "The environment is a big problem." | "Environmental degradation **is undoubtedly** one of the most pressing challenges we face, **a problem that, if left unaddressed, could have** irreversible consequences for future generations." |
+| "Young people use social media a lot." | "Young people **tend to** spend considerable time on social media, **which** I think **reflects** a broader need for connection — **though** there **are** growing concerns about the impact on mental health." |
+
+### Bài tự luyện — Upgrade những câu Band 6 sau:
+
+1. "People like to travel a lot these days."
+2. "Education is important for everyone."
+3. "Cities are becoming more crowded."
+
+*(Gợi ý: thêm ít nhất 1 relative clause, 1 modal/hedge, 1 discourse marker)*
 
 ---
 

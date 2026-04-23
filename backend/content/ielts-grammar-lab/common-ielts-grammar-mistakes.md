@@ -27,7 +27,7 @@ related_pages:
 compare_with: []
 order: 4
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -40,6 +40,8 @@ next_articles:
 - subject-verb-agreement
 - article-errors
 - preposition-errors
+- conditionals
+- passive-voice
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

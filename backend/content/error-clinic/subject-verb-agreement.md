@@ -30,7 +30,7 @@ related_pages:
 compare_with: []
 order: 1
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -38,7 +38,7 @@ band_relevance:
 - '7.0'
 common_error_tags:
 - subject_verb_disagreement
-speaking_relevance: high
+speaking_relevance: medium
 writing_relevance: high
 next_articles:
 - nouns

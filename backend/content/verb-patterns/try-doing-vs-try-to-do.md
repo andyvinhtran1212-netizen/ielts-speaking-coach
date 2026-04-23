@@ -29,7 +29,7 @@ compare_with:
 - stop-doing-vs-stop-to-do
 order: 12
 status: complete
-last_updated: 2026-04-19
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -156,6 +156,22 @@ Dùng khi bạn **nỗ lực thực hiện** một việc gì đó — thường
 ### IELTS Speaking Part 3 — Thảo luận:
 
 "Many schools have tried **using** technology in the classroom, but results are mixed. Teachers try **to integrate** digital tools effectively, but without proper training, this can be difficult."
+
+---
+
+### IELTS Band 7+ — Mẫu câu kết hợp cả hai cấu trúc
+
+Dùng cả hai trong cùng một đoạn để tạo grammatical range và phân biệt rõ ý (giải pháp thực tế vs nỗ lực khó khăn):
+
+**Speaking Part 3 — Về chính sách môi trường:**
+
+> "Governments **have tried to** reduce carbon emissions for decades, but with limited success. **Perhaps they should try** introducing carbon taxes more aggressively — several countries **have tried** implementing such policies and seen measurable improvements."
+
+**Writing Task 2 — Về cải thiện giáo dục:**
+
+> "Many educators **have tried to** integrate technology into the classroom, yet simply **trying** is not enough without proper training. Schools that **tried using** structured digital programmes alongside traditional teaching generally found that outcomes improved considerably."
+
+Chú ý: `tried to reduce` / `tried to integrate` = nỗ lực, hàm ý khó khăn; `try introducing` / `tried using` = thử nghiệm giải pháp cụ thể.
 
 ---
 

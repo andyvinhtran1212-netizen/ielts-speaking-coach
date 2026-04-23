@@ -28,7 +28,7 @@ related_pages:
 compare_with: []
 order: 3
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
@@ -39,9 +39,9 @@ common_error_tags:
 speaking_relevance: high
 writing_relevance: high
 next_articles:
-- conjunctions
-- complex-sentence
-- sentence-elements
+- grammar-in-speaking
+- task2-opinion-essay-grammar
+- task2-conclusion-grammar
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

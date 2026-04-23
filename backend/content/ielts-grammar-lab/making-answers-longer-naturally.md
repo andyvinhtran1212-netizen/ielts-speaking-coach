@@ -28,7 +28,7 @@ related_pages:
 compare_with: []
 order: 6
 status: complete
-last_updated: 2026-04-19
+last_updated: 2026-04-23
 difficulty: advanced
 band_relevance:
 - '7.0'
@@ -40,7 +40,7 @@ writing_relevance: medium
 next_articles:
 - adding-reasons-clearly
 - giving-examples-naturally
-- discourse-markers
+- grammar-in-speaking
 pathways:
 - grammar-for-ielts-speaking
 ---

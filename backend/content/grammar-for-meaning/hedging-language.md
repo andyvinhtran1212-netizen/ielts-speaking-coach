@@ -27,7 +27,7 @@ related_pages:
 compare_with: []
 order: 6
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: advanced
 band_relevance:
 - '7.0'
@@ -38,9 +38,9 @@ common_error_tags:
 speaking_relevance: high
 writing_relevance: high
 next_articles:
-- modal-verbs
-- discourse-markers
 - conditionals
+- grammar-in-task2
+- grammar-in-speaking
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
