@@ -881,14 +881,22 @@
     var cards = $('grammar-resources-cards');
     if (!wrap || !cards) return;
 
-    var texts   = _grTexts(data);
-    var matched = _matchGrArticles(texts, 1);
-
-    if (!matched.length) {
-      wrap.style.display = 'none';
+    // Primary path: use backend grammar_recommendations when available
+    var recs = Array.isArray(data.grammar_recommendations) ? data.grammar_recommendations : [];
+    if (recs.length) {
+      var rec  = recs[0];
+      var meta = _grMeta(rec.slug) || { category: rec.category, title: rec.title, summary: '' };
+      var match = { slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue };
+      _GR_TRACKER.track([match]);
+      cards.innerHTML = _grammarCardHtml(match, true);
+      wrap.style.display = '';
       return;
     }
 
+    // Fallback: keyword matching via _GR_KW (test mode / no recs)
+    var texts   = _grTexts(data);
+    var matched = _matchGrArticles(texts, 1);
+    if (!matched.length) { wrap.style.display = 'none'; return; }
     _GR_TRACKER.track(matched);
     cards.innerHTML = _grammarCardHtml(matched[0], true);
     wrap.style.display = '';
@@ -981,14 +989,18 @@
     (recs || []).forEach(function (r) { if (r.issue) recMap[r.issue] = r; });
     var lis = issues.map(function (issue) {
       var rec = recMap[issue];
-      var link = rec && rec.rec_id
-        ? ' <a href="/grammar.html?category=' + encodeURIComponent(rec.category) +
-          '&slug=' + encodeURIComponent(rec.slug) + '" target="_blank" rel="noopener" ' +
-          'data-rec-id="' + _esc(rec.rec_id) + '" ' +
-          'style="font-size:11px;color:#14b8a6;text-decoration:none;white-space:nowrap;" ' +
-          'onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})">' +
-          '→ Học bài: ' + _esc(rec.title) + '</a>'
-        : '';
+      var link = '';
+      if (rec && rec.slug && rec.category) {
+        var recHref = '/grammar.html?category=' + encodeURIComponent(rec.category)
+          + '&slug=' + encodeURIComponent(rec.slug);
+        var recClick = rec.rec_id
+          ? ' data-rec-id="' + _esc(rec.rec_id) + '"'
+            + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"'
+          : '';
+        link = ' <a href="' + recHref + '" target="_blank" rel="noopener"' + recClick
+          + ' style="font-size:11px;color:#14b8a6;text-decoration:none;white-space:nowrap;">'
+          + '→ Học bài: ' + _esc(rec.title) + '</a>';
+      }
       return '<li style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:5px;">' +
         '<span style="color:#f87171;margin-right:6px;">›</span>' + _esc(issue) + link + '</li>';
     }).join('');

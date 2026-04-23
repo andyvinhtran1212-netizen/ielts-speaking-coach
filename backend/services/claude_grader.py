@@ -142,8 +142,10 @@ GRADING APPROACH
 5. Compute overall_band = round((FC + LR + GRA + P) / 4, nearest 0.5). This may be a half-band.
 6. Write specific, actionable feedback (2-4 sentences each criterion).
 7. List 2-3 genuine strengths and 2-3 concrete improvements.
-8. Write an improved_response that demonstrates Band 7+ for the same question.
-   The improved response should be natural spoken English, not formal writing.
+8. Write an improved_response that preserves the candidate's key ideas and stance,
+   demonstrating Band 7+ grammar, vocabulary, and coherence. Do not invent a completely
+   different response — build from what the candidate said. The improved response should
+   be natural spoken English, not formal writing.
 
 ═══════════════════════════════════════════════════
 OUTPUT FORMAT — STRICT JSON ONLY
@@ -205,10 +207,21 @@ WHAT TO ANALYSE
 GRAMMAR ISSUES — Identify up to 5 grammar mistakes visible in the transcript.
   Each issue: one short phrase describing the pattern (e.g. "Thiếu mạo từ 'the'",
   "Sai thì quá khứ đơn", "Thiếu chủ ngữ trong mệnh đề").
+  IMPORTANT — Article/determiner false-positive guard: Before flagging "Thiếu mạo từ"
+  or any missing-article/determiner issue, inspect the full noun phrase in the transcript.
+  If the noun phrase already contains any determiner — a, an, the, this, that, these,
+  those, my, your, his, her, our, their, some, any, each, every, either, neither, or a
+  number — do NOT flag a missing article. Only flag if the noun phrase truly has no
+  determiner at all.
 
 VOCABULARY ISSUES — Identify up to 4 vocabulary weaknesses.
   Each issue: one phrase (e.g. "Lặp từ 'good' quá nhiều lần",
   "Chưa dùng collocation phù hợp", "Từ 'very' kém ấn tượng — thay bằng từ mạnh hơn").
+  IMPORTANT — Lexical consistency guard: Only flag a vocabulary issue when there is a
+  clear problem — wrong meaning, clearly awkward collocation, wrong register, or repeated
+  overuse of the same word. Do NOT flag a word simply because a fancier synonym exists.
+  If the word is natural and appropriate in context, leave it. This prevents contradictory
+  corrections across sessions.
 
 PRONUNCIATION ISSUES — Identify up to 3 pronunciation coaching points.
   Focus on common areas Vietnamese learners can improve: word stress, linking sounds,
@@ -230,6 +243,10 @@ STRENGTHS — 2–3 genuine things the learner did well (tiếng Việt).
 SAMPLE ANSWER — Write a complete Band 7 spoken answer to the same question.
   - Natural, conversational, ≈ 60–120 words for Part 1, ≈ 150–200 for Part 2/3.
   - English only. Show, do not tell.
+  - IMPORTANT — Content relevance guard: The sample answer must be grounded in the
+    candidate's own response. Preserve their key ideas, stance, and topic direction —
+    do not invent an entirely different answer. If the candidate expressed a clear opinion
+    or gave specific examples, build the sample answer around those same points at Band 7.
 
 OVERALL BAND — Honest estimate of current band level (nearest 0.5, range 1–9).
   Base this on fluency, vocabulary, grammar, and intelligibility holistically.
@@ -363,7 +380,10 @@ async def grade_response(
     if result is not None:
         logger.info("Claude grader: thành công lần 1 — overall_band=%.1f", result["overall_band"])
         if is_practice:
+            await _post_process_practice_result(result, transcript, question, client)
             _attach_grammar_recommendations(result)
+        else:
+            await _post_process_test_result(result, transcript, question, client)
         return result
 
     # ── Attempt 2 (retry with explicit correction nudge) ──────────────────────
@@ -386,7 +406,10 @@ async def grade_response(
     if result2 is not None:
         logger.info("Claude grader: thành công lần 2 — overall_band=%.1f", result2["overall_band"])
         if is_practice:
+            await _post_process_practice_result(result2, transcript, question, client)
             _attach_grammar_recommendations(result2)
+        else:
+            await _post_process_test_result(result2, transcript, question, client)
         return result2
 
     # Log a safe preview (first 300 chars, newlines escaped) — no PII in the snippet
@@ -768,6 +791,305 @@ def _round_band(value: float) -> float:
     return max(1.0, min(9.0, rounded))
 
 
+# ── Code-level feedback post-processing guards ────────────────────────────────
+
+_DETERMINERS = frozenset({
+    "a", "an", "the", "this", "that", "these", "those",
+    "my", "your", "his", "her", "our", "their", "its",
+    "some", "any", "each", "every", "either", "neither",
+    "no", "both", "all", "half",
+    # Quantifiers that also cover noun phrases
+    "many", "several", "most", "another", "other", "much",
+    "few", "little", "more", "less", "enough",
+})
+
+_ARTICLE_ISSUE_KEYWORDS = (
+    "mạo từ", "thiếu the", "thiếu a ", "thiếu an ",
+    "missing article", "missing determiner",
+)
+
+_STOPWORDS = frozenset({
+    "i", "me", "my", "we", "our", "you", "your", "he", "him", "his", "she",
+    "her", "it", "its", "they", "them", "their", "what", "which", "who",
+    "this", "that", "these", "those", "am", "is", "are", "was", "were", "be",
+    "been", "being", "have", "has", "had", "do", "does", "did", "will",
+    "would", "shall", "should", "may", "might", "must", "can", "could",
+    "a", "an", "the", "and", "but", "if", "or", "because", "as", "until",
+    "while", "of", "at", "by", "for", "with", "about", "to", "from", "in",
+    "on", "so", "than", "too", "very", "just", "also", "not", "no", "more",
+    "then", "when", "where", "how", "all", "both", "each", "up", "out",
+    "only", "over", "after", "before", "off", "into", "other",
+})
+
+_RELEVANCE_THRESHOLD = 0.15
+
+# Indicators that a correction is a genuine error (not just style preference).
+# Also covers substitution language that implies a real usage rule.
+_CORRECTION_KEEP_INDICATORS = frozenset({
+    # Explicit error markers
+    "sai", "lỗi", "thiếu", "thừa", "incorrect", "wrong", "missing", "error",
+    "awkward", "unnatural", "inappropriate",
+    # Vietnamese substitution/usage-rule language (e.g. "Dùng well thay vì good")
+    "thay vì", "nên dùng", "không phù hợp", "cách dùng", "khi bổ nghĩa",
+    "đứng sau", "đứng trước", "theo sau", "trước danh từ", "sau động từ",
+})
+
+# Markers that a vocabulary issue is a genuine weakness (not a synonym suggestion).
+_VOCAB_GENUINE_FLAGS = (
+    "lặp", "lặp lại", "sai", "lỗi", "thiếu", "kém ấn tượng",
+    "không phù hợp", "chưa dùng", "chưa sử dụng",
+    "quá nhiều lần", "quá đơn giản", "overuse", "repetiti", "wrong",
+)
+# Pure synonym-preference framing — drop these vocabulary issues.
+_VOCAB_STYLE_ONLY_FLAGS = (
+    "có thể dùng", "alternatively", "thay thế được", "also possible",
+)
+
+
+def _content_words(text: str) -> set[str]:
+    """Return lowercase alpha content words, excluding stopwords."""
+    words = re.findall(r"[a-z]+", text.lower())
+    return {w for w in words if w not in _STOPWORDS and len(w) > 2}
+
+
+def _validate_sample_relevance(transcript: str, sample: str) -> float:
+    """Overlap ratio of transcript content words present in the sample answer."""
+    trans_words = _content_words(transcript)
+    if not trans_words:
+        return 1.0
+    return len(trans_words & _content_words(sample)) / len(trans_words)
+
+
+def _filter_false_article_flags(grammar_issues: list[str], transcript: str) -> list[str]:
+    """
+    Remove article/determiner issues where the flagged noun already has a
+    determiner in the transcript, indicating a false positive from Claude.
+
+    Handles:
+    - Single-word quoted nouns ('book', "car")
+    - Multi-word quoted phrases ('my old house', "the main reason")
+    - Possessive noun phrases ('John's', "the teacher's")
+    """
+    transcript_lower = transcript.lower()
+    det_pattern_str = r"\b(?:" + "|".join(re.escape(d) for d in _DETERMINERS) + r")\b"
+    # Per-type alternations so apostrophes inside possessives don't close spans early.
+    # Straight single-quote branch allows internal ' only when followed by s+word-boundary
+    # (covers John's) while still closing on ' followed by space/end (students' → "students").
+    _QUOTE_RE = re.compile(
+        r'"([^"]{1,60})"'                           # straight double quotes
+        r"|\u201c([^\u201d]{1,60})\u201d"           # curly double quotes " "
+        r"|\u2018([^\u2019]{1,60})\u2019"           # curly single quotes ' '
+        r"|'((?:[^']|'(?=s\b)){1,60})'"             # straight single quotes; 's allowed inside
+    )
+    _PREPS_PAT = r"(?:of|with|in|for|on|at|from|by|to|about|into|over|near|nearby)"
+    filtered = []
+    for issue in grammar_issues:
+        issue_lower = issue.lower()
+        if not any(kw in issue_lower for kw in _ARTICLE_ISSUE_KEYWORDS):
+            filtered.append(issue)
+            continue
+
+        quoted_phrases = [
+            next(g for g in m.groups() if g is not None).strip().lower()
+            for m in _QUOTE_RE.finditer(issue)
+        ]
+        if not quoted_phrases:
+            filtered.append(issue)
+            continue
+
+        phrase = quoted_phrases[-1]  # use last quoted phrase as the target
+
+        words = phrase.split()
+
+        # Case 1: phrase contains a possessive (e.g. "John's car", "students' opinions",
+        # "teacher's").  Matches both 's and bare ' (plural possessives).
+        poss_m = re.search(r"(\w+)'s?(?:\s|$)", phrase)
+        if poss_m:
+            poss_root = poss_m.group(1)
+            if re.search(r"\b" + re.escape(poss_root) + r"'", transcript_lower):
+                logger.debug(
+                    "article false-positive guard: dropped '%s' (possessive '%s' in transcript)",
+                    issue[:80], phrase,
+                )
+                continue
+            filtered.append(issue)
+            continue
+
+        # Case 2: phrase already starts with a determiner — already covered
+        head_noun = words[-1] if words else phrase
+        head_noun = re.sub(r"[^\w]", "", head_noun)
+
+        if words and words[0] in _DETERMINERS:
+            logger.debug(
+                "article false-positive guard: dropped '%s' (phrase '%s' already has determiner)",
+                issue[:80], phrase,
+            )
+            continue
+
+        # Case 3: head noun directly preceded by a determiner (≤2 adjectives between).
+        # Preposition-boundary lookahead prevents cross-phrase false suppression:
+        # "a city with museum" — "with" blocks suppression of the museum flag.
+        pattern = (
+            det_pattern_str
+            + r"\s+(?:(?!" + _PREPS_PAT + r"\b)\w+\s+){0,2}\b"
+            + re.escape(head_noun) + r"\b"
+        )
+        if re.search(pattern, transcript_lower):
+            logger.debug(
+                "article false-positive guard: dropped '%s' (noun '%s' already covered)",
+                issue[:80], head_noun,
+            )
+            continue
+
+        filtered.append(issue)
+    return filtered
+
+
+def _filter_style_corrections(corrections: list[dict]) -> list[dict]:
+    """
+    Drop corrections that appear to be synonym-preference suggestions rather
+    than genuine errors (no error-indicator words in explanation, short original).
+    """
+    filtered = []
+    for c in corrections:
+        explanation = c.get("explanation", "").lower()
+        original = c.get("original", "").strip()
+        if any(kw in explanation for kw in _CORRECTION_KEEP_INDICATORS):
+            filtered.append(c)
+            continue
+        if len(original.split()) >= 2:
+            filtered.append(c)
+            continue
+        logger.debug(
+            "style-correction guard: dropped '%s' → '%s' (no error indicators)",
+            original, c.get("corrected", ""),
+        )
+    return filtered
+
+
+def _filter_style_vocab_issues(vocab_issues: list[str]) -> list[str]:
+    """
+    Drop vocabulary suggestions that are pure synonym preferences rather than
+    genuine weaknesses (overuse, wrong word, inappropriately informal, etc.).
+    """
+    filtered = []
+    for issue in vocab_issues:
+        issue_lower = issue.lower()
+        if any(flag in issue_lower for flag in _VOCAB_STYLE_ONLY_FLAGS):
+            logger.debug("vocab style-only guard: dropped '%s...'", issue[:60])
+            continue
+        filtered.append(issue)
+    return filtered
+
+
+async def _regen_grounded_answer(
+    client: "anthropic.AsyncAnthropic",
+    transcript: str,
+    question: str,
+) -> str | None:
+    """
+    Regenerate a sample answer that stays grounded in the candidate's own response.
+    Called when the initial sample_answer or improved_response drifts too far from
+    the transcript (overlap ratio below _RELEVANCE_THRESHOLD).
+    """
+    prompt = (
+        f"Question: {question}\n\n"
+        f"Candidate's response: {transcript}\n\n"
+        "Write a short improved version of the candidate's answer that stays closely "
+        "connected to what they actually said — correcting grammar and vocabulary while "
+        "keeping the same topic, examples, and ideas. "
+        "Output only the improved answer text, no preamble."
+    )
+    try:
+        msg = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            temperature=0.2,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = msg.content[0].text.strip() if msg.content else ""
+        return text or None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_regen_grounded_answer failed: %s", exc)
+        return None
+
+
+async def _post_process_practice_result(
+    result: dict,
+    transcript: str,
+    question: str,
+    client: "anthropic.AsyncAnthropic",
+) -> None:
+    """
+    Apply code-level feedback quality guards to a practice result in-place.
+
+    1. Article false-positive guard
+    2. Style correction filter
+    3. Vocabulary style-only filter
+    4. Sample relevance check — regenerate grounded answer if sample drifts
+    """
+    if result.get("grammar_issues"):
+        result["grammar_issues"] = _filter_false_article_flags(
+            result["grammar_issues"], transcript
+        )
+
+    if result.get("corrections"):
+        result["corrections"] = _filter_style_corrections(result["corrections"])
+
+    if result.get("vocabulary_issues"):
+        result["vocabulary_issues"] = _filter_style_vocab_issues(result["vocabulary_issues"])
+
+    sample = result.get("sample_answer") or ""
+    if sample and transcript:
+        overlap = _validate_sample_relevance(transcript, sample)
+        if overlap < _RELEVANCE_THRESHOLD:
+            logger.warning(
+                "sample_answer relevance low (%.2f < %.2f) — regenerating grounded answer",
+                overlap, _RELEVANCE_THRESHOLD,
+            )
+            new_sample = await _regen_grounded_answer(client, transcript, question)
+            if new_sample:
+                new_overlap = _validate_sample_relevance(transcript, new_sample)
+                if new_overlap >= _RELEVANCE_THRESHOLD:
+                    result["sample_answer"] = new_sample
+                else:
+                    logger.warning(
+                        "regen sample_answer still low (%.2f) — removing", new_overlap
+                    )
+                    result.pop("sample_answer", None)
+            else:
+                result.pop("sample_answer", None)
+
+
+async def _post_process_test_result(
+    result: dict,
+    transcript: str,
+    question: str,
+    client: "anthropic.AsyncAnthropic",
+) -> None:
+    """Apply code-level guards to a test-mode grading result in-place."""
+    improved = result.get("improved_response") or ""
+    if improved and transcript:
+        overlap = _validate_sample_relevance(transcript, improved)
+        if overlap < _RELEVANCE_THRESHOLD:
+            logger.warning(
+                "improved_response relevance low (%.2f < %.2f) — regenerating",
+                overlap, _RELEVANCE_THRESHOLD,
+            )
+            new_improved = await _regen_grounded_answer(client, transcript, question)
+            if new_improved:
+                new_overlap = _validate_sample_relevance(transcript, new_improved)
+                if new_overlap >= _RELEVANCE_THRESHOLD:
+                    result["improved_response"] = new_improved
+                else:
+                    logger.warning(
+                        "regen improved_response still low (%.2f) — removing", new_overlap
+                    )
+                    result.pop("improved_response", None)
+            else:
+                result.pop("improved_response", None)
+
+
 def _attach_grammar_recommendations(result: dict) -> None:
     """
     Mutate a practice-mode grading result in-place:
@@ -776,17 +1098,40 @@ def _attach_grammar_recommendations(result: dict) -> None:
 
     Each item: { issue, slug, category, title, score }
     Items with no match (score <= 0.3) are excluded.
+    Article-family articles are capped at 1 across all slugs (title-based detection).
     """
     issues: list[str] = result.get("grammar_issues") or []
     recs: list[dict] = []
+    seen_slugs: set[str] = set()
+    _ARTICLE_FAMILY_SLUGS = frozenset({
+        "articles", "article-errors", "articles-a-an-the",
+        "definite-article", "indefinite-article",
+        "articles-a-an-sound-rules",
+    })
+    article_family_count = 0
     for issue in issues:
         match = grammar_service.find_best_match(issue)
-        if match:
-            recs.append({
-                "issue":    issue,
-                "slug":     match["slug"],
-                "category": match["category"],
-                "title":    match["title"],
-                "score":    match["score"],
-            })
+        if not match:
+            continue
+        slug = match["slug"]
+        if slug in seen_slugs:
+            continue
+        title_lower = match["title"].lower()
+        is_article_family = (
+            slug in _ARTICLE_FAMILY_SLUGS
+            or "article" in title_lower
+            or "determiner" in title_lower
+        )
+        if is_article_family:
+            if article_family_count >= 1:
+                continue
+            article_family_count += 1
+        seen_slugs.add(slug)
+        recs.append({
+            "issue":    issue,
+            "slug":     slug,
+            "category": match["category"],
+            "title":    match["title"],
+            "score":    match["score"],
+        })
     result["grammar_recommendations"] = recs

@@ -330,6 +330,34 @@
         + '</div>';
     }
 
+    function _fbGrammarIssues(issues, recs) {
+      if (!issues || issues.length === 0) return '';
+      var recMap = {};
+      if (recs && recs.length) {
+        recs.forEach(function (r) { recMap[r.issue] = r; });
+      }
+      var lis = issues.map(function (issue) {
+        var rec = recMap[issue];
+        var issueHtml = escHtml(issue);
+        var linkHtml = '';
+        if (rec && rec.slug && rec.category) {
+          var href = '/grammar.html?category=' + encodeURIComponent(rec.category)
+            + '&slug=' + encodeURIComponent(rec.slug);
+          linkHtml = ' <a href="' + href + '" style="color:#818cf8;font-size:11px;'
+            + 'text-decoration:underline;opacity:0.85;" target="_blank">'
+            + '→ ' + escHtml(rec.title || rec.slug) + '</a>';
+        }
+        return '<li class="flex gap-2">'
+          + '<span style="color:#f87171;margin-top:2px;flex-shrink:0;">●</span>'
+          + '<span>' + issueHtml + linkHtml + '</span>'
+          + '</li>';
+      }).join('');
+      return '<div>'
+        + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:#f87171;">Grammar Issues</div>'
+        + '<ul class="space-y-1 text-sm" style="color:rgba(255,255,255,0.75);list-style:none;padding:0;">' + lis + '</ul>'
+        + '</div>';
+    }
+
     function _fbCorrections(corrections) {
       if (!corrections || corrections.length === 0) return '';
       var rows = corrections.map(function (c) {
@@ -426,7 +454,7 @@
         } else if (fb && isPractice) {
           // Practice mode: coaching sections
           bodyHtml += _fbSection('Strengths', fb.strengths, '#4ade80');
-          bodyHtml += _fbSection('Grammar Issues', fb.grammar_issues, '#f87171');
+          bodyHtml += _fbGrammarIssues(fb.grammar_issues, fb.grammar_recommendations);
           bodyHtml += _fbSection('Vocabulary Issues', fb.vocabulary_issues, '#fb923c');
           bodyHtml += _fbSection('Pronunciation', fb.pronunciation_issues, '#a78bfa');
           bodyHtml += _fbCorrections(fb.corrections);
@@ -869,6 +897,27 @@
       var wrap  = document.getElementById('grammar-resources');
       var cards = document.getElementById('grammar-resources-cards');
       if (!wrap || !cards) return;
+
+      // Primary path: collect grammar_recommendations from all responses (deduped by slug)
+      var seen = {};
+      var recMatches = [];
+      responses.forEach(function (r) {
+        var fb   = parseFeedback(r.feedback);
+        var recs = Array.isArray(fb.grammar_recommendations) ? fb.grammar_recommendations : [];
+        recs.forEach(function (rec) {
+          if (!rec.slug || seen[rec.slug]) return;
+          seen[rec.slug] = true;
+          var meta = _grMeta(rec.slug) || { category: rec.category, title: rec.title, summary: '' };
+          recMatches.push({ slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue });
+        });
+      });
+      if (recMatches.length) {
+        cards.innerHTML = recMatches.slice(0, 3).map(function (m, i) { return _grammarCardHtml(m, i === 0); }).join('');
+        wrap.style.display = '';
+        return;
+      }
+
+      // Fallback: keyword matching via _GR_KW (test mode / no recs)
       var texts   = _grTextsFromResponses(responses);
       var matched = _matchGrArticles(texts, 3);
       if (!matched.length) { wrap.style.display = 'none'; return; }

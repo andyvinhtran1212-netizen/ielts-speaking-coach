@@ -297,12 +297,37 @@ class GrammarContentService:
         Vietnamese → English keyword mappings allow matching Claude's Vietnamese
         issue descriptions against English article titles/tags.
 
-        Returns { slug, category, title, score } if best score > 0.3, else None.
+        Returns { slug, category, title, score } if best score > 0.35, else None.
         """
         if not issue or not self.search_index:
             return None
 
         issue_lower = issue.lower()
+
+        # ── Direct slug map — known phrases bypass scoring entirely ─────────────
+        # Ordered longest-first so longer phrases take priority over sub-phrases.
+        _DIRECT_MAP: list[tuple[str, str]] = [
+            ("dùng a thay vì an",  "articles-a-an-sound-rules"),
+            ("dùng an thay vì a",  "articles-a-an-sound-rules"),
+            ("a thay vì an",       "articles-a-an-sound-rules"),
+            ("an thay vì a",       "articles-a-an-sound-rules"),
+            ("sai a/an",           "articles-a-an-sound-rules"),
+            ("âm đầu",             "articles-a-an-sound-rules"),
+            ("missing determiner", "article-errors"),
+            ("thiếu mạo từ",       "article-errors"),
+            ("sai thì",            "tense-consistency"),
+        ]
+        for phrase, target_slug in _DIRECT_MAP:
+            if phrase in issue_lower:
+                item = next((x for x in self.search_index if x["slug"] == target_slug), None)
+                if item:
+                    return {
+                        "slug":     item["slug"],
+                        "category": item["category"],
+                        "title":    item["title"],
+                        "score":    1.0,
+                    }
+                break  # phrase matched but slug missing from index — fall through
 
         # ── Vietnamese → English keyword map ────────────────────────────────────
         # Each Vietnamese term maps to one or more English tokens to search for.
@@ -351,7 +376,7 @@ class GrammarContentService:
             ("từ vựng",              ["vocabulary", "word choice"]),
             ("lặp từ",               ["vocabulary", "word choice", "repetition"]),
             # Linking words
-            ("từ nối",               ["linking words", "connectives", "discourse"]),
+            ("từ nối",               ["discourse", "markers", "cohesion", "linking"]),
             ("liên từ",              ["conjunction", "conjunctions", "linking"]),
             # Pronouns
             ("đại từ",               ["pronoun", "pronouns"]),
@@ -360,6 +385,25 @@ class GrammarContentService:
             # Gerund/infinitive
             ("danh động từ",         ["gerund", "gerund infinitive"]),
             ("to-infinitive",        ["infinitive", "gerund infinitive"]),
+            # Sentence completeness / fragments
+            ("thiếu động từ chính",  ["verb", "main verb", "missing", "sentence-structure"]),
+            ("thiếu chủ ngữ",        ["subject", "sentence-structure"]),
+            ("câu không hoàn chỉnh", ["sentence-structure"]),
+            ("cấu trúc câu",         ["sentence-structure", "clause", "compound"]),
+            # Generic tense errors
+            ("sai thì",              ["tense", "verb tense", "tenses"]),
+            ("thì động từ",          ["tense", "verb tense", "tenses"]),
+            # Cohesion / linking
+            ("thiếu từ nối",         ["discourse", "markers", "cohesion", "linking"]),
+            ("thiếu liên từ",        ["conjunction", "linking"]),
+            # Article a/an sound-rule errors
+            ("dùng a thay vì an",    ["sound", "a-an", "articles"]),
+            ("a thay vì an",         ["sound", "a-an", "articles"]),
+            ("an thay vì a",         ["sound", "a-an", "articles"]),
+            ("dùng an thay vì a",    ["sound", "a-an", "articles"]),
+            ("sai a/an",             ["sound", "a-an", "articles"]),
+            # Missing determiner
+            ("missing determiner",   ["article", "articles", "determiner"]),
         ]
 
         # Build extra search tokens from the issue text via the mapping
@@ -380,25 +424,29 @@ class GrammarContentService:
         best_item: dict | None = None
 
         for item in self.search_index:
-            score = 0.0
             title_lower = item["title"].lower()
             tags_lower  = " ".join(str(t) for t in item.get("tags", []) if t is not None).lower()
             body_text   = item["text"]  # already lowercased at load time
 
+            title_score = 0.0
+            tag_score   = 0.0
+            body_score  = 0.0
             for token in all_tokens:
-                if token in title_lower:   score += 0.5
-                if token in tags_lower:    score += 0.3
-                if token in body_text:     score += 0.05
+                if token in title_lower: title_score += 0.5
+                if token in tags_lower:  tag_score   += 0.3
+                if token in body_text:   body_score  += 0.05
 
-            # Normalise by number of tokens to keep score in 0–1 range
-            if all_tokens:
-                score = min(1.0, score / max(len(all_tokens), 1))
+            # Require at least one title or tag hit — discard body-only matches
+            if title_score == 0.0 and tag_score == 0.0:
+                continue
+
+            score = min(1.0, (title_score + tag_score + body_score) / max(len(all_tokens), 1))
 
             if score > best_score:
                 best_score = score
                 best_item = item
 
-        if best_score < 0.3 or best_item is None:
+        if best_score < 0.35 or best_item is None:
             return None
 
         return {
