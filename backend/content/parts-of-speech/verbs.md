@@ -27,7 +27,7 @@ related_pages:
 compare_with: []
 order: 2
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -121,6 +121,38 @@ Diễn tả khả năng, nghĩa vụ, sự cho phép:
 - She **can** speak three languages.
 
 → Xem bài [Modal Verbs](/grammar/verb-patterns/modal-verbs) để học chi tiết.
+
+## PHẦN QUYẾT ĐỊNH: Stative hay Action?
+
+Câu hỏi thực tế nhất khi dùng verb trong câu: *"Tôi có dùng -ing được không?"*
+
+### Kiểm tra nhanh:
+
+> Thử đặt câu với **am/is/are + verb-ing**. Nếu nghĩa trở nên vô lý hoặc câu không có hành động đang xảy ra — đây là stative verb, không dùng -ing.
+
+- "I **am running**." → đang chạy, có nghĩa → action ✅
+- "I **am knowing** the answer." → vô lý → stative, dùng "I **know**" ✅
+
+### Động từ vừa là stative vừa là action (tùy nghĩa):
+
+| Động từ | Nghĩa stative (không dùng -ing) | Nghĩa action (dùng -ing được) |
+|---------|--------------------------------|------------------------------|
+| **have** | I **have** a car. *(sở hữu)* | I **am having** lunch. *(đang ăn)* |
+| **think** | I **think** it's right. *(ý kiến)* | I **am thinking** about it. *(đang suy nghĩ)* |
+| **see** | I **see** your point. *(hiểu)* | I **am seeing** a specialist. *(đang gặp)* |
+| **taste** | This **tastes** great. *(cảm nhận)* | I **am tasting** the sauce. *(đang nếm)* |
+| **look** | She **looks** tired. *(linking verb)* | She **is looking** at me. *(đang nhìn)* |
+
+> **Nguyên tắc chốt:** Nếu động từ mô tả **trạng thái** (sở hữu, cảm xúc, nhận thức) → không dùng -ing. Nếu mô tả **hành động đang diễn ra** → dùng -ing được.
+
+### Khi nào dùng linking verb thay vì action verb?
+
+Các động từ *look, smell, taste, sound, feel* có thể là linking hoặc action tùy ngữ cảnh:
+
+- **Linking** (+ adjective mô tả chủ ngữ): *The soup **tastes** delicious.* → adjective ✅
+- **Action** (+ tân ngữ, hành động cụ thể): *She **is tasting** the soup.* → đang thực hiện ✅
+
+Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → linking verb. Nếu có **tân ngữ** rõ ràng → action verb.
 
 ## Dạng động từ (Verb Forms)
 

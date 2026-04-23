@@ -26,7 +26,7 @@ related_pages:
 compare_with: []
 order: 4
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -212,6 +212,43 @@ Dùng đại từ để tránh lặp từ, tạo mạch văn tự nhiên:
 **Sở hữu trong học thuật:**
 - *A good leader recognises the limits of **his or her** authority.*
 - *A good leader recognises the limits of **their** authority.* (ngày càng phổ biến hơn)
+
+## Đại từ và Cohesion trong IELTS Writing
+
+Dùng đại từ đúng cách tạo ra **cohesion** — mạch văn liền mạch giữa các câu. Đây là tiêu chí chấm điểm riêng trong cả Task 1 và Task 2.
+
+### Nguyên tắc 1: Antecedent phải rõ ràng
+
+Mỗi đại từ phải chỉ đến đúng một danh từ đã nhắc trước đó. Nếu không rõ, người đọc sẽ hiểu nhầm:
+
+- ❌ "The government and the public disagree. **They** think it is unfair." *(They = ai?)*
+- ✅ "The government and the public disagree. **The public** think it is unfair."
+
+### Nguyên tắc 2: "This/These" + noun phrase — summary reference
+
+Thay vì dùng "this" một mình (mơ hồ), kết hợp với noun phrase để vừa nối ý vừa làm rõ nghĩa:
+
+| ❌ Mơ hồ | ✅ Cụ thể và học thuật hơn |
+|---------|--------------------------|
+| "This is a problem." | "**This growing inequality** is a problem." |
+| "This shows that..." | "**This trend** shows that..." |
+| "These are concerning." | "**These developments** are concerning." |
+
+Kỹ thuật này xuất hiện thường xuyên trong văn Task 2 Band 7+ và được gọi là **summary reference**.
+
+### Nguyên tắc 3: "It" để tránh lặp chủ ngữ
+
+Sau khi nhắc một danh từ lần đầu, dùng *it* (số ít) hoặc *they/them* (số nhiều) để tiếp nối — không cần nhắc lại danh từ đó:
+
+> "Education is widely regarded as the foundation of social development. **It** equips individuals with the skills they need to contribute to society. Without **it**, many communities struggle to break cycles of poverty."
+
+### Ví dụ đoạn Task 2 — cohesion qua đại từ:
+
+> "Social media has transformed the way people communicate. **It** has made instant contact possible across vast distances, and **this connectivity** has had profound effects on both personal relationships and global commerce. However, **its** impact is not uniformly positive: many argue that **it** fosters superficial interaction at the expense of deeper connection."
+
+- **It** (×3) → thay thế "social media" sau lần nhắc đầu
+- **this connectivity** → summary reference, tóm tắt và nối ý vừa nói
+- **its** → possessive, kéo chủ thể về trong câu kết
 
 ## Bài tập luyện
 

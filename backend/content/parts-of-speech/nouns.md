@@ -26,7 +26,7 @@ compare_with:
 - countable-vs-uncountable
 order: 1
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -115,6 +115,42 @@ Hai từ hoặc hơn kết hợp thành một danh từ mới:
 - *toothbrush, football, bedroom, coffee shop, air conditioning*
 
 Một số viết liền, một số có dấu gạch ngang, một số viết tách — không có quy tắc cố định.
+
+## PHẦN QUYẾT ĐỊNH: Đếm được hay không đếm được?
+
+Đây là câu hỏi quyết định mạo từ, số nhiều, và động từ chia — sai ở đây kéo theo nhiều lỗi khác.
+
+### Kiểm tra nhanh:
+
+> **"Có thể nói *one ___, two ___s* không?"**
+> - *one book, two books* → ✅ Đếm được
+> - *one information, two informations* → ❌ Không đếm được → dùng *some information / a piece of information*
+
+### Danh từ không đếm được hay bị dùng sai nhất:
+
+| Danh từ | ❌ Sai phổ biến | ✅ Đúng |
+|---------|----------------|---------|
+| advice | ~~advices~~ | some advice / a piece of advice |
+| information | ~~informations~~ | some information |
+| furniture | ~~furnitures~~ | some furniture / a piece of furniture |
+| luggage / baggage | ~~luggages~~ | some luggage |
+| traffic | ~~traffics~~ | heavy traffic |
+| research | ~~researches~~ | some research / a study |
+| knowledge | ~~knowledges~~ | a great deal of knowledge |
+| progress | ~~progresses~~ | significant progress |
+| equipment | ~~equipments~~ | some equipment |
+| work | ~~works~~ *(khi = công việc)* | a lot of work |
+
+### Danh từ vừa đếm được vừa không đếm được (tùy nghĩa):
+
+| Danh từ | Không đếm được | Đếm được |
+|---------|---------------|----------|
+| **experience** | She has a lot of **experience**. *(kinh nghiệm nói chung)* | It was an interesting **experience**. *(một trải nghiệm cụ thể)* |
+| **work** | I have a lot of **work** to do. *(công việc)* | The museum displays many famous **works**. *(tác phẩm)* |
+| **coffee** | Do you like **coffee**? *(thức uống)* | I'd like **a coffee**, please. *(một ly)* |
+| **time** | There isn't enough **time**. *(thời gian)* | I've visited there many **times**. *(lần)* |
+
+> **Gợi nhớ cho IELTS:** Khi không chắc, dùng *some* hoặc *a lot of* — cả hai dùng được với countable lẫn uncountable và tránh rủi ro thêm -s sai.
 
 ## Vị trí của Noun trong câu
 
