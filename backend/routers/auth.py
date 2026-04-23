@@ -310,6 +310,17 @@ async def activate_account(
         # Non-fatal: user is already activated. Log and continue.
         logger.warning("[warn] Could not mark access_code as used: %s", e)
 
+    # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
+    try:
+        supabase_admin.table("user_code_assignments").upsert({
+            "user_id":     user_id,
+            "code_id":     access_code_row["id"],
+            "assigned_at": now_iso,
+            "is_active":   True,
+        }, on_conflict="user_id,code_id").execute()
+    except Exception as e:
+        logger.warning("[warn] Could not create user_code_assignment: %s", e)
+
     return {
         "success": True,
         "message": "Tài khoản đã được kích hoạt!",

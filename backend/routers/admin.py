@@ -731,24 +731,75 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
 
     code_ids = [c["id"] for c in codes]
 
-    # Count active assignments per code
-    assigned_counts: dict[str, int] = {}
+    # Fetch active assignments (user_id + code_id) in one query; derive count + identity.
+    code_user_ids: dict[str, list[str]] = {}  # code_id → [user_id, ...]
     try:
         asgn_res = (
             supabase_admin.table("user_code_assignments")
-            .select("code_id")
+            .select("code_id, user_id")
             .in_("code_id", code_ids)
             .eq("is_active", True)
             .execute()
         )
         for row in (asgn_res.data or []):
             cid = row["code_id"]
-            assigned_counts[cid] = assigned_counts.get(cid, 0) + 1
-    except Exception:
-        pass
+            code_user_ids.setdefault(cid, []).append(row["user_id"])
+    except Exception as exc:
+        logger.warning("list_access_codes: assignment lookup failed: %s", exc)
+        for c in codes:
+            c["association_lookup_failed"] = True
+        return codes
+
+    # Fallback: codes with used_by set but no active assignment rows (pre-migration data).
+    fallback_uid: dict[str, str] = {}  # code_id → used_by user_id
+    for c in codes:
+        if not code_user_ids.get(c["id"]) and c.get("is_used") and c.get("used_by"):
+            fallback_uid[c["id"]] = c["used_by"]
+
+    # Single users lookup covering both assignment UIDs and fallback UIDs.
+    user_info: dict[str, dict] = {}
+    all_uids = list(
+        {uid for uids in code_user_ids.values() for uid in uids}
+        | set(fallback_uid.values())
+    )
+    if all_uids:
+        try:
+            ur = (
+                supabase_admin.table("users")
+                .select("id, email, display_name")
+                .in_("id", all_uids)
+                .execute()
+            )
+            for u in (ur.data or []):
+                user_info[u["id"]] = {
+                    "user_id": u["id"],
+                    "name":    u.get("display_name") or "",
+                    "email":   u.get("email") or "",
+                }
+        except Exception as exc:
+            logger.warning("list_access_codes: user lookup failed: %s", exc)
 
     for c in codes:
-        c["assigned_user_count"] = assigned_counts.get(c["id"], 0)
+        uids = code_user_ids.get(c["id"], [])
+        if uids:
+            c["assigned_user_count"] = len(uids)
+            c["assigned_users"] = [
+                dict(user_info.get(uid, {"user_id": uid, "name": "", "email": ""}),
+                     is_fallback_used_by=False, removable=True)
+                for uid in uids
+            ]
+        elif c["id"] in fallback_uid:
+            # Legacy: code was redeemed but no assignment row exists.
+            # Show the redeemer but do not offer a remove action — there is no row to deactivate.
+            uid = fallback_uid[c["id"]]
+            c["assigned_user_count"] = 1
+            c["assigned_users"] = [
+                dict(user_info.get(uid, {"user_id": uid, "name": "", "email": ""}),
+                     is_fallback_used_by=True, removable=False)
+            ]
+        else:
+            c["assigned_user_count"] = 0
+            c["assigned_users"] = []
 
     return codes
 
@@ -891,8 +942,27 @@ async def get_access_code_detail(
     except Exception:
         assignments = []
 
-    # Enrich with user emails
-    user_ids = [a["user_id"] for a in assignments]
+    # Fallback: if no ACTIVE assignment rows exist but access_codes.used_by is set,
+    # synthesize a read-only entry — covers both legacy codes (no rows ever) and codes
+    # where the only assignment was deactivated by remove-user.
+    has_active = any(a.get("is_active") for a in assignments)
+    if not has_active and code.get("used_by"):
+        assignments = [{
+            "id":                  None,
+            "user_id":             code["used_by"],
+            "assigned_at":         code.get("used_at"),
+            "is_active":           True,
+            "is_fallback_used_by": True,
+            "removable":           False,
+        }]
+    else:
+        # Real rows: mark as removable when active, not a fallback.
+        for a in assignments:
+            a.setdefault("is_fallback_used_by", False)
+            a.setdefault("removable", bool(a.get("is_active")))
+
+    # Enrich assignments with user name/email in a single lookup.
+    user_ids = list({a["user_id"] for a in assignments})
     user_map: dict[str, dict] = {}
     if user_ids:
         try:
@@ -903,9 +973,12 @@ async def get_access_code_detail(
                 .execute()
             )
             for u in (ur.data or []):
-                user_map[u["id"]] = {"email": u.get("email", ""), "display_name": u.get("display_name", "")}
-        except Exception:
-            pass
+                user_map[u["id"]] = {
+                    "email":        u.get("email") or "",
+                    "display_name": u.get("display_name") or "",
+                }
+        except Exception as exc:
+            logger.warning("get_access_code_detail: user lookup failed: %s", exc)
 
     for a in assignments:
         info = user_map.get(a["user_id"], {})
@@ -944,6 +1017,8 @@ async def remove_user_from_code(
 
     if not res.data:
         raise HTTPException(404, "Không tìm thấy assignment này")
+    # access_codes.used_by / used_at / is_used are intentionally NOT cleared here.
+    # Redemption history must remain immutable so the code cannot be reused.
 
 
 # ── DELETE /admin/access-codes/{code_id}/remove (hard delete) ─────────────────
