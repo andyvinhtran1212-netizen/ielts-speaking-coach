@@ -28,14 +28,14 @@ related_pages:
 - grammar-in-task1
 order: 30
 status: complete
-last_updated: 2026-04-19
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
 - '6.5'
 - '7.0'
 common_error_tags: []
-speaking_relevance: medium
+speaking_relevance: low
 writing_relevance: high
 next_articles:
 - overview-sentence-grammar
@@ -180,6 +180,35 @@ While [A] made up [X]%, [B] accounted for only [Y]%.
 - "**The share of** mobile internet users **was nearly double that of** desktop users by 2020."
 - "**While** food and beverages **made up** 40% of spending, entertainment **accounted for** only 8%."
 - "**The proportion of** female graduates **was 15 percentage points higher** than that of male graduates."
+
+---
+
+## PHẦN 5: CHỌN CẤU TRÚC NÀO — Decision Logic
+
+Biết nhiều cấu trúc là tốt, nhưng cần biết chọn cái nào cho đúng ngữ cảnh.
+
+| Tình huống | Cấu trúc phù hợp |
+|-----------|-----------------|
+| Mô tả một phần trong tổng thể (proportion of a whole) | **account for / make up / represent** |
+| Báo cáo con số tại một thời điểm cụ thể | **stood at** |
+| Nhấn mạnh vai trò / ý nghĩa của nhóm trong bối cảnh | **represent / constitute** |
+| Văn phong học thuật trang trọng | **constitute / comprise** (thay vì make up) |
+| Muốn tránh lặp sau khi đã dùng "accounted for" | **made up / stood at / represented** |
+
+### Từ data thô → câu mô tả
+
+Cho pie chart: *Coal 35% / Gas 28% / Electricity 20% / Renewables 5%*
+
+**Bước 1 — Xác định vai trò của từng category:**
+- Coal = phần lớn nhất → ưu tiên "accounted for" hoặc "topped"
+- Renewables = phần nhỏ nhất → "comprised only" hoặc "represented a small fraction"
+- Gas / Electricity = vị trí giữa với số cụ thể → "made up" hoặc "stood at"
+
+**Bước 2 — Viết và tránh lặp verb:**
+
+> "Coal **accounted for** the largest share at approximately 35%, while gas **made up** a further 28%. Electricity **stood at** around 20%, and renewables **comprised** only a small fraction of the total at 5%."
+
+Mỗi category dùng một verb khác — đây là cách tránh lặp và tăng điểm Lexical Resource.
 
 ---
 

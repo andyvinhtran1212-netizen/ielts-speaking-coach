@@ -26,7 +26,7 @@ related_pages:
 compare_with: []
 order: 6
 status: complete
-last_updated: 2026-04-18
+last_updated: 2026-04-23
 difficulty: beginner
 band_relevance:
 - '5.0'
@@ -52,6 +52,8 @@ Trật tự từ trong tiếng Anh **không linh hoạt như tiếng Việt**. N
 Tiếng Việt cho phép linh hoạt khá nhiều: "Hôm nay tôi đi học" và "Tôi hôm nay đi học" đều được. Tiếng Anh thì không — "Today I go to school" là được, nhưng "I today go to school" thì không tự nhiên, và "I go today to school" thì sai hẳn.
 
 Người học Việt Nam thường xếp từ theo thói quen tiếng Việt, dẫn đến câu nghe kỳ hoặc sai ngữ pháp.
+
+> **Phân biệt: sai ngữ pháp vs. không tự nhiên.** Không phải mọi lỗi trật tự từ đều giống nhau. Một số vị trí là **sai ngữ pháp** — người bản ngữ không dùng trong bất kỳ ngữ cảnh nào. Một số khác chỉ là **không tự nhiên (marked)** — đúng ngữ pháp nhưng nghe lạ trong giao tiếp thông thường, đôi khi chỉ xuất hiện trong văn viết trang trọng hoặc khi muốn nhấn mạnh đặc biệt. Biết được sự khác nhau này giúp bạn không bị hoang mang khi gặp các ngoại lệ.
 
 ## Quy tắc cốt lõi: S-V-O
 
@@ -117,21 +119,21 @@ Subject + be / modal + [always/usually/...] + ...
 
 ### Trạng từ thời gian và nơi chốn
 
-Nơi chốn → Thời gian (không ngược lại):
+Nơi chốn → Thời gian (thường tự nhiên hơn theo thứ tự này):
 
 ```
 Verb + Place + Time
 ```
 
-- I studied **at the library** (**yesterday**). ✅
-- I studied yesterday at the library. ❌ (không tự nhiên)
+- I studied **at the library** **yesterday**. ✅ (tự nhiên nhất)
+- I studied yesterday at the library. *(ngữ pháp đúng, nhưng ít tự nhiên — place thường đứng gần verb hơn time)*
 
 ### Trạng từ cách thức (Manner adverbs)
 
 Đứng **sau động từ / tân ngữ**:
 
-- She spoke **clearly**. ✅
-- She clearly spoke. ❌ (nhấn mạnh đặc biệt mới dùng)
+- She spoke **clearly**. ✅ (tự nhiên)
+- She clearly spoke. *(ngữ pháp đúng, nhưng không tự nhiên trong văn nói thông thường — chỉ gặp trong văn viết hoặc khi nhấn mạnh đặc biệt vào trạng từ)*
 
 ## Câu hỏi — đảo trợ động từ lên trước
 
@@ -186,7 +188,7 @@ Wh-word + Trợ động từ + Subject + Main Verb?
 
 - ❌ I study every day at school.
 - ✅ I study **at school** every day.
-- **Tại sao:** Nơi chốn luôn gần động từ hơn thời gian.
+- **Tại sao:** Nơi chốn thường đứng gần động từ hơn thời gian.
 
 ## Mẹo cho IELTS Speaking
 

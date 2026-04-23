@@ -32,14 +32,14 @@ compare_with:
 - task2-conclusion-grammar
 order: 27
 status: complete
-last_updated: 2026-04-19
+last_updated: 2026-04-23
 difficulty: intermediate
 band_relevance:
 - '6.0'
 - '6.5'
 - '7.0'
 common_error_tags: []
-speaking_relevance: medium
+speaking_relevance: low
 writing_relevance: high
 next_articles:
 - task2-conclusion-grammar
@@ -165,6 +165,30 @@ Câu 3: Thesis statement — quan điểm rõ ràng
 **Đề:** *"Some people think that children should be taught to compete, while others believe cooperation is more important."*
 
 > "**The question of whether** competitive or collaborative values should be instilled in children from an early age **is one that** has long divided educators and parents. **On one hand**, competition can drive motivation and personal achievement. **On the other**, cooperation is widely seen as essential for building harmonious communities. **This essay will discuss both perspectives before arguing that** a balanced approach, one that nurtures both skills, is the most effective approach to children's development."
+
+---
+
+## PHẦN 4: CẢNH BÁO TEMPLATE — Khi mẫu câu giúp và khi không
+
+Các cấu trúc trong bài này là **scaffold hữu ích**, không phải công thức bảo đảm điểm cao. Examiner đọc hàng trăm bài dùng "This essay will argue that..." và "In recent years, X has become..." mỗi năm — những cấu trúc này không tạo ấn tượng xấu, nhưng cũng không tạo ấn tượng tốt. Điều quyết định band là **nội dung và lập trường**, không phải vỏ câu.
+
+### Dấu hiệu intro bị "template hóa" quá mức:
+
+- ❌ Thesis lặp lại chủ đề mà không nêu được lập trường: *"This essay will discuss the advantages and disadvantages."*
+- ❌ Paraphrase chỉ thay từ đồng nghĩa, giữ nguyên cấu trúc câu đề bài
+- ❌ Intro đúng form nhưng thesis không cụ thể — examiner đọc xong không biết bạn nghĩ gì
+
+### Làm cho thesis tự nhiên và thuyết phục hơn:
+
+Thêm **điều kiện, phạm vi, hoặc góc nhìn** vào thesis — thay vì chỉ nêu lập trường đơn giản:
+
+| Mẫu template | Cụ thể hơn |
+|-------------|-----------|
+| "I agree that technology is beneficial." | "Technology is broadly beneficial, **though its impact depends heavily on how it is used and by whom**." |
+| "This essay will argue that education should be free." | "Free higher education is a worthwhile goal, **provided governments address the systemic underfunding it would create**." |
+| "There are advantages and disadvantages." | "**While the short-term benefits are clear**, the long-term consequences deserve considerably more scrutiny." |
+
+> Examiner không đánh giá bạn vì dùng hay không dùng "This essay will argue that" — họ đánh giá bạn vì lập trường sau đó có **rõ ràng, có thuyết phục, và nhất quán với thân bài** không.
 
 ---
 
