@@ -36,9 +36,9 @@ common_error_tags:
 speaking_relevance: medium
 writing_relevance: medium
 next_articles:
-- parts-of-speech
 - countable-vs-uncountable
 - singular-vs-plural
+- articles
 pathways:
 - grammar-for-beginners
 ---

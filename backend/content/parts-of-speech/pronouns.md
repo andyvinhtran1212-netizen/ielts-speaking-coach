@@ -36,9 +36,8 @@ common_error_tags:
 speaking_relevance: medium
 writing_relevance: medium
 next_articles:
-- parts-of-speech
-- nouns
-- sentence-elements
+- relative-clauses
+- wrong-pronoun-reference
 pathways:
 - grammar-for-beginners
 ---
@@ -157,7 +156,7 @@ Nối mệnh đề quan hệ với danh từ đứng trước:
 - The book **that/which** I borrowed was very interesting.
 - The man **whose** car was stolen reported it to the police.
 
-→ Xem bài [Relative Clauses](/pages/grammar-article.html?category=sentence-structures&slug=relative-clauses) để học chi tiết.
+→ Xem bài [Relative Clauses](/grammar/sentence-structures/relative-clauses) để học chi tiết.
 
 ## Lỗi thường gặp
 

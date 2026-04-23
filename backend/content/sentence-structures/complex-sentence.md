@@ -39,9 +39,9 @@ common_error_tags:
 speaking_relevance: high
 writing_relevance: high
 next_articles:
-- phrase-vs-clause
-- compound-sentence
-- simple-sentence
+- relative-clauses
+- conditionals
+- from-simple-to-complex-sentences
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

@@ -292,8 +292,8 @@ adverb + adjective + noun
 ## So sánh với
 
 Bài này tổng hợp từ:
-- [Adjectives](/pages/grammar-article.html?category=modifiers&slug=adjectives) — học về tính từ
-- [Adverbs](/pages/grammar-article.html?category=modifiers&slug=adverbs) — học về trạng từ
+- [Adjectives](/grammar/modifiers/adjectives) — học về tính từ
+- [Adverbs](/grammar/modifiers/adverbs) — học về trạng từ
 
 **Bảng phân biệt tổng quát:**
 

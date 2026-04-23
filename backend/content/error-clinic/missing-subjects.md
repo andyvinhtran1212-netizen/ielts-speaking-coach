@@ -35,8 +35,7 @@ band_relevance:
 - '5.0'
 - '6.0'
 common_error_tags:
-- subject_verb_disagreement
-- pronoun_error
+- omitted_subject
 speaking_relevance: high
 writing_relevance: high
 next_articles:

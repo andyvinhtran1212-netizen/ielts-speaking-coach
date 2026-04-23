@@ -321,7 +321,7 @@ Một số động từ chấp nhận cả gerund và to-infinitive với nghĩa
 
 ## So sánh với
 
-Bài này tổng hợp từ [Gerund](/pages/grammar-article.html?category=verb-patterns&slug=gerund) và [To-Infinitive](/pages/grammar-article.html?category=verb-patterns&slug=infinitive). Đọc hai bài đó trước để hiểu từng khái niệm riêng lẻ.
+Bài này tổng hợp từ [Gerund](/grammar/verb-patterns/gerund) và [To-Infinitive](/grammar/verb-patterns/infinitive). Đọc hai bài đó trước để hiểu từng khái niệm riêng lẻ.
 
 **Bảng tổng hợp nhanh:**
 

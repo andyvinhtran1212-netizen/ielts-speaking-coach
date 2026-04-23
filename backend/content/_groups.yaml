@@ -14,7 +14,7 @@ groups:
       - { slug: phrase-vs-clause,         category: foundations, title: "Phrase vs. Clause — Cụm từ và Mệnh đề" }
       - { slug: singular-vs-plural,       category: foundations, title: "Singular vs. Plural — Số ít và Số nhiều" }
       - { slug: countable-vs-uncountable, category: foundations, title: "Countable vs. Uncountable Nouns" }
-      - { slug: articles,                 category: advanced,    title: "Articles — a, an, the" }
+      - { slug: articles,                 category: foundations, title: "Articles — a, an, the" }
       - { slug: word-order,               category: foundations, title: "Word Order — Trật tự từ trong câu" }
       - { slug: there-is-there-are,       category: foundations, title: "There is / There are" }
       - { slug: there-is-vs-it-is,        category: foundations, title: "There is vs. It is — Giới thiệu sự tồn tại hay mô tả?" }

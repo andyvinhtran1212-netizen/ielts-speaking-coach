@@ -28,7 +28,7 @@ related_pages:
 - strong-vs-cautious-opinions
 - hedging-language
 compare_with:
-- conditionals
+- grammar-in-speaking
 order: 16
 status: complete
 last_updated: 2026-04-19
@@ -42,9 +42,9 @@ common_error_tags:
 speaking_relevance: high
 writing_relevance: medium
 next_articles:
-- conditionals
 - grammar-in-speaking
 - strong-vs-cautious-opinions
+- speculating-about-the-future
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7

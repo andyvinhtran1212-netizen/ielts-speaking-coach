@@ -694,7 +694,7 @@
 
   // Fallback metadata (used if API fetch fails or hasn't resolved yet)
   var _GR_META_FALLBACK = {
-    'articles':              { category: 'advanced',            title: 'Articles (a / an / the)',    summary: 'Dùng đúng mạo từ trong mọi ngữ cảnh' },
+    'articles':              { category: 'foundations',         title: 'Articles (a / an / the)',    summary: 'Dùng đúng mạo từ trong mọi ngữ cảnh' },
     'present-perfect':       { category: 'tenses',              title: 'Present Perfect',             summary: 'Hiện tại hoàn thành — cấu trúc, cách dùng và phân biệt với past simple' },
     'present-continuous':    { category: 'tenses',              title: 'Present Continuous',          summary: 'Thì hiện tại tiếp diễn — hành động đang xảy ra hoặc kế hoạch tương lai' },
     'present-simple':        { category: 'tenses',              title: 'Present Simple',              summary: 'Thì hiện tại đơn — thói quen, sự thật và trạng thái thường trực' },

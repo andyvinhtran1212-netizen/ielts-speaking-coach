@@ -310,7 +310,7 @@ Sentence adverb, + subject + verb...
 
 ## So sánh với
 
-Xem thêm bài [Adjective vs. Adverb](/pages/grammar-article.html?category=modifiers&slug=adjective-vs-adverb) để hiểu rõ sự khác biệt và cách chọn đúng trong từng ngữ cảnh.
+Xem thêm bài [Adjective vs. Adverb](/grammar/modifiers/adjective-vs-adverb) để hiểu rõ sự khác biệt và cách chọn đúng trong từng ngữ cảnh.
 
 ## Lưu ý cho người học Việt Nam
 

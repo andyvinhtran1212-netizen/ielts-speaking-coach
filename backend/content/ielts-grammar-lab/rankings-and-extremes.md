@@ -27,7 +27,6 @@ related_pages:
 - overview-sentence-grammar
 - task1-comparison-grammar
 - grammar-in-task1
-- rankings-and-extremes
 order: 31
 status: complete
 last_updated: 2026-04-19
@@ -41,9 +40,8 @@ common_error_tags:
 speaking_relevance: medium
 writing_relevance: high
 next_articles:
-- percentages-and-proportions
-- overview-sentence-grammar
 - task1-comparison-grammar
+- grammar-in-task1
 pathways:
 - grammar-for-ielts-writing
 - band-6-to-7

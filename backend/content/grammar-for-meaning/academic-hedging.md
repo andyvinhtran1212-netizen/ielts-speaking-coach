@@ -15,7 +15,6 @@ tags:
 - writing
 - advanced
 - ielts
-- band7
 - task2
 prerequisites:
 - modal-verbs

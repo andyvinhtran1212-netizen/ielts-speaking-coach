@@ -36,9 +36,9 @@ common_error_tags: []
 speaking_relevance: medium
 writing_relevance: medium
 next_articles:
-- parts-of-speech
-- sentence-elements
 - present-simple
+- present-continuous
+- past-simple
 pathways:
 - grammar-for-beginners
 ---
@@ -120,7 +120,7 @@ Diễn tả khả năng, nghĩa vụ, sự cho phép:
 - You **should** practice every day.
 - She **can** speak three languages.
 
-→ Xem bài [Modal Verbs](/pages/grammar-article.html?category=verb-patterns&slug=modal-verbs) để học chi tiết.
+→ Xem bài [Modal Verbs](/grammar/verb-patterns/modal-verbs) để học chi tiết.
 
 ## Dạng động từ (Verb Forms)
 
