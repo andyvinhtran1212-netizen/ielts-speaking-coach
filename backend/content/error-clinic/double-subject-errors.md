@@ -40,9 +40,8 @@ common_error_tags:
 speaking_relevance: high
 writing_relevance: high
 next_articles:
-- missing-subjects
-- wrong-pronoun-reference
 - sentence-fragments
+- relative-clauses
 pathways:
 - grammar-for-beginners
 - fix-common-mistakes
