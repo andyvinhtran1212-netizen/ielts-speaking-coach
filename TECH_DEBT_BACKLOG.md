@@ -173,3 +173,13 @@ it must be updated in two places.
 - This backlog intentionally excludes issues already treated as fixed in the recent stabilization pass.
 - This is a prioritization list, not a promise to solve everything immediately.
 - Production smoke tests should be run before starting a new major feature pass.
+
+---
+
+## Phase B follow-up (post-merge, non-blocking)
+- Make `backend/scripts/setup_phase_b_test_env.sh` more ergonomic and fail-fast
+- Improve repeatability of staging/live verification workflow
+- Improve analytics/cost-observability polish for vocab extraction
+- Review CI path for running staging-backed RLS checks safely
+- Clean up pytest async loop-scope warning
+- Review Supabase client deprecation warnings (`timeout`, `verify`)
