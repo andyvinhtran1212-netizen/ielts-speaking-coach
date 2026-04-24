@@ -25,3 +25,11 @@ CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md
 frontend/CLAUDE.md
 frontend/app_rules_master.md
 frontend/known_bugs_and_failures.md
+.env.staging
+backend/.env.staging
+
+# Backup / temp files
+*.backup*
+*.bak
+*.tmp
+backend/prod_schema_only.sql
