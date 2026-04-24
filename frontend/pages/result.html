@@ -91,6 +91,15 @@
     </div>
   </header>
 
+  <!-- Vocab toast (shown when vocab bank has new items) -->
+  <div id="vocab-toast" class="hidden fixed bottom-6 right-6 z-50 max-w-xs">
+    <a href="my-vocabulary.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium shadow-lg no-underline"
+       style="background:#0d5f58; border:1px solid rgba(20,184,166,0.3); color:#ccfbf1; text-decoration:none;">
+      <span>✨</span>
+      <span id="vocab-toast-text">New words added to your vocab bank</span>
+    </a>
+  </div>
+
   <!-- Loading state -->
   <div id="state-loading" class="flex flex-col items-center justify-center py-32">
     <div class="spinner mb-4"></div>
@@ -1085,9 +1094,47 @@
 
         showState('content');
 
+        // Poll vocab bank for new items added by background extraction
+        _pollVocabToast(token, sessionId);
+
       } catch (err) {
         console.error('[result] load error:', err);
         showError(err.message || 'Lỗi không xác định.');
+      }
+    }
+
+    async function _pollVocabToast(token, sessionId) {
+      const BASE = window.api ? window.api.base : (() => {
+        const h = location.hostname;
+        return (h === 'localhost' || h === '127.0.0.1')
+          ? 'http://localhost:8000'
+          : 'https://ielts-speaking-coach-production.up.railway.app';
+      })();
+
+      // Poll after 8s then 18s (background task typically takes 3-8s)
+      const delays = [8000, 18000];
+      let shown = false;
+
+      for (const delay of delays) {
+        if (shown) break;
+        await new Promise(r => setTimeout(r, delay));
+        try {
+          const res = await fetch(`${BASE}/api/vocabulary/bank/stats`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) break;
+          const stats = await res.json();
+          if (stats.total > 0 && !shown) {
+            shown = true;
+            const toast = document.getElementById('vocab-toast');
+            const text = document.getElementById('vocab-toast-text');
+            if (toast && text) {
+              text.textContent = `${stats.total} words in your vocab bank`;
+              toast.classList.remove('hidden');
+              setTimeout(() => toast.classList.add('hidden'), 6000);
+            }
+          }
+        } catch (_) { break; }
       }
     }
 

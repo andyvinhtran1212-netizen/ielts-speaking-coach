@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vocab Bank — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
+  <style>
+    body { background: #0a1628; }
+
+    .vocab-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 16px;
+      transition: border-color 0.15s;
+    }
+    .vocab-card:hover { border-color: rgba(20,184,166,0.25); }
+
+    .source-badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .badge-used_well    { background: rgba(20,184,166,0.12); color: #5eead4; border: 1px solid rgba(20,184,166,0.2); }
+    .badge-needs_review { background: rgba(251,146,60,0.12); color: #fb923c; border: 1px solid rgba(251,146,60,0.2); }
+    .badge-upgrade_suggested { background: rgba(168,85,247,0.12); color: #c084fc; border: 1px solid rgba(168,85,247,0.2); }
+    .badge-manual       { background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.2); }
+
+    .filter-btn {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { border-color: rgba(20,184,166,0.3); color: rgba(255,255,255,0.8); }
+    .filter-btn.active { background: rgba(20,184,166,0.15); border-color: rgba(20,184,166,0.4); color: #5eead4; }
+
+    .mastery-btn {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      border: 1px solid;
+      transition: all 0.15s;
+    }
+    .mastery-learning { border-color: rgba(251,191,36,0.3); color: #fbbf24; background: rgba(251,191,36,0.08); }
+    .mastery-mastered  { border-color: rgba(20,184,166,0.3); color: #5eead4; background: rgba(20,184,166,0.08); }
+
+    .report-btn {
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .report-btn:hover { color: rgba(239,68,68,0.7); }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(20,184,166,0.2);
+      border-top-color: #14b8a6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state { color: rgba(255,255,255,0.3); }
+
+    #add-form { display: none; }
+    #add-form.open { display: block; }
+  </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen">
+
+  <!-- Header -->
+  <header style="background:#0C2340; border-bottom:1px solid rgba(255,255,255,0.06);" class="px-6 py-4">
+    <div class="max-w-3xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="dashboard.html" class="text-sm font-medium flex items-center gap-1 hover:opacity-80" style="color:#14b8a6; text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Dashboard
+        </a>
+        <span class="text-slate-600">|</span>
+        <h1 class="text-base font-semibold text-slate-200">My Vocab Bank</h1>
+      </div>
+      <button onclick="toggleAddForm()" class="text-sm font-medium px-4 py-1.5 rounded-lg"
+              style="background:rgba(20,184,166,0.15); border:1px solid rgba(20,184,166,0.3); color:#14b8a6;">
+        + Add word
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+
+    <!-- Stats bar -->
+    <div id="stats-bar" class="hidden flex items-center gap-6 mb-5 text-sm">
+      <span class="text-slate-400">Total: <strong id="stat-total" class="text-white">0</strong></span>
+      <span class="text-slate-400">Learning: <strong id="stat-learning" class="text-amber-300">0</strong></span>
+      <span class="text-slate-400">Mastered: <strong id="stat-mastered" class="text-teal-light">0</strong></span>
+    </div>
+
+    <!-- Manual add form -->
+    <div id="add-form" class="mb-5 p-4 rounded-xl" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);">
+      <h3 class="text-sm font-semibold text-slate-300 mb-3">Add a word manually</h3>
+      <div class="flex flex-col gap-3">
+        <input id="add-headword" type="text" placeholder="Word or phrase *"
+               class="w-full px-3 py-2 rounded-lg text-sm text-white placeholder-slate-500"
+               style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);" />
+        <input id="add-context" type="text" placeholder="Example sentence (optional)"
+               class="w-full px-3 py-2 rounded-lg text-sm text-white placeholder-slate-500"
+               style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);" />
+        <div class="flex gap-2">
+          <button onclick="submitAddWord()" class="px-4 py-1.5 text-sm font-medium rounded-lg"
+                  style="background:rgba(20,184,166,0.2); border:1px solid rgba(20,184,166,0.4); color:#14b8a6;">
+            Save
+          </button>
+          <button onclick="toggleAddForm()" class="px-4 py-1.5 text-sm text-slate-400 hover:text-white rounded-lg"
+                  style="border:1px solid rgba(255,255,255,0.1);">
+            Cancel
+          </button>
+        </div>
+        <p id="add-error" class="text-xs text-red-400 hidden"></p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-2 mb-5">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" data-filter="used_well" onclick="setFilter('used_well', this)">Used well</button>
+      <button class="filter-btn" data-filter="needs_review" onclick="setFilter('needs_review', this)">Needs review</button>
+      <button class="filter-btn" data-filter="upgrade_suggested" onclick="setFilter('upgrade_suggested', this)">Upgrade</button>
+      <button class="filter-btn" data-filter="manual" onclick="setFilter('manual', this)">Manual</button>
+      <button class="filter-btn" data-filter="learning" onclick="setFilter('learning', this)">Learning</button>
+      <button class="filter-btn" data-filter="mastered" onclick="setFilter('mastered', this)">Mastered</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="state-loading" class="flex justify-center py-16">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Feature not available -->
+    <div id="state-disabled" class="hidden text-center py-16 empty-state">
+      <p class="text-lg font-medium mb-2">Vocab Bank is not enabled</p>
+      <p class="text-sm">This feature is available in the upcoming update.</p>
+    </div>
+
+    <!-- Error -->
+    <div id="state-error" class="hidden text-center py-16 empty-state">
+      <p class="text-sm">Failed to load your vocab bank. Please refresh.</p>
+    </div>
+
+    <!-- Empty -->
+    <div id="state-empty" class="hidden text-center py-16 empty-state">
+      <p class="text-lg font-medium mb-2">No words yet</p>
+      <p class="text-sm">Practice speaking and words will appear here automatically.</p>
+    </div>
+
+    <!-- Card list -->
+    <div id="vocab-list" class="hidden flex flex-col gap-3"></div>
+
+  </main>
+
+  <!-- Report modal -->
+  <div id="report-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+       style="background:rgba(0,0,0,0.7);">
+    <div class="w-full max-w-sm rounded-2xl p-5" style="background:#0c1f36; border:1px solid rgba(255,255,255,0.1);">
+      <h3 class="text-sm font-semibold text-white mb-3">Report incorrect word?</h3>
+      <p class="text-xs text-slate-400 mb-4">This helps us improve extraction quality. The word will be removed from your bank.</p>
+      <textarea id="report-reason" rows="2" placeholder="Optional reason..."
+                class="w-full px-3 py-2 rounded-lg text-sm text-white placeholder-slate-500 mb-3 resize-none"
+                style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);"></textarea>
+      <div class="flex gap-2">
+        <button onclick="submitReport()" class="flex-1 py-2 text-sm font-medium rounded-lg"
+                style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#f87171;">
+          Report & Remove
+        </button>
+        <button onclick="closeReport()" class="flex-1 py-2 text-sm text-slate-400 rounded-lg"
+                style="border:1px solid rgba(255,255,255,0.1);">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/my-vocabulary.js"></script>
+</body>
+</html>

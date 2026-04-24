@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     MAX_SESSIONS_PER_USER_PER_DAY: int = 10
     MAX_AUDIO_DURATION_SECONDS: int = 300
 
+    # Vocab Bank feature flags
+    VOCAB_ANALYSIS_ENABLED: bool = False
+    VOCAB_ANALYSIS_MODEL: str = "claude-haiku-4-5-20251001"
+    VOCAB_MIN_TRANSCRIPT_WORDS: int = 30
+    VOCAB_MAX_PER_CATEGORY: int = 3
+    VOCAB_BANK_FEATURE_FLAG_ENABLED: bool = False
+
     class Config:
         env_file = ".env"
 

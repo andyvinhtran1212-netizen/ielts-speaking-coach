@@ -18,9 +18,10 @@ Pipeline (sequential, ~15–30 s):
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Form, Header, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Form, Header, HTTPException, UploadFile, File
 
 from config import settings
 from database import supabase_admin
@@ -121,6 +122,7 @@ async def grade_response_endpoint(
     question_id: str       = Form(..., description="UUID of the question being answered"),
     audio_file:  UploadFile = File(..., description="Audio recording (MP3 / WAV / WebM / OGG)"),
     authorization: str | None = Header(default=None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     """
     Nhận file ghi âm, chạy pipeline Whisper → Claude, trả kết quả chấm điểm đầy đủ.
@@ -390,6 +392,17 @@ async def grade_response_endpoint(
             )
             grading["grammar_recommendations"] = saved_recs
 
+        # ── STEP 8c: Schedule vocab extraction (background, failure-isolated) ──
+        vocab_analysis_enabled = os.environ.get("VOCAB_ANALYSIS_ENABLED", "false").lower() == "true"
+        if vocab_analysis_enabled and transcript and response_id:
+            background_tasks.add_task(
+                _run_vocab_extraction,
+                transcript=transcript,
+                response_id=response_id,
+                user_id=user_id,
+                session_id=session_id,
+            )
+
         # ── STEP 9: Return result ─────────────────────────────────────────────
         logger.info("[grading] pipeline hoàn thành — session=%s question=%s", session_id, question_id)
 
@@ -584,3 +597,102 @@ def _increment_tokens(
 
     except Exception as e:
         logger.debug("[grading] tokens_used update skipped (non-fatal): %s", e)
+
+
+async def _run_vocab_extraction(
+    transcript: str,
+    response_id: str,
+    user_id: str,
+    session_id: str,
+) -> None:
+    """
+    Background task: extract vocab from transcript and persist to user_vocabulary.
+    Entirely failure-isolated — any exception is logged and swallowed.
+    """
+    try:
+        from services.vocab_extractor import extract_vocab
+        from services.vocab_guards import run_all_guards
+
+        # Per-user feature flag check
+        flag_row = (
+            supabase_admin.table("users")
+            .select("feature_flags")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        feature_flags = (flag_row.data or [{}])[0].get("feature_flags") or {}
+        if feature_flags.get("vocab_enabled") is False:
+            logger.debug("[vocab_bg] user %s has vocab_enabled=false — skip", user_id)
+            return
+
+        result = await extract_vocab(transcript, response_id, user_id, session_id)
+        if result is None:
+            return
+
+        # Fetch existing headwords for guard 6
+        existing_rows = (
+            supabase_admin.table("user_vocabulary")
+            .select("headword")
+            .eq("user_id", user_id)
+            .eq("is_archived", False)
+            .execute()
+        )
+        existing_headwords = [r["headword"].lower() for r in (existing_rows.data or [])]
+
+        rows_to_insert = []
+        max_per_category = int(os.environ.get("VOCAB_MAX_PER_CATEGORY", "3"))
+
+        category_map = [
+            ("used_well", result.used_well),
+            ("needs_review", result.needs_review),
+            ("upgrade_suggested", result.upgrade_suggested),
+        ]
+
+        for source_type, items in category_map:
+            count = 0
+            for item in items:
+                if count >= max_per_category:
+                    break
+                item_dict = item.model_dump()
+                passed, failed_guard = run_all_guards(
+                    item_dict, transcript, source_type, existing_headwords
+                )
+                if not passed:
+                    logger.debug("[vocab_bg] guard rejected '%s': %s", item.headword, failed_guard)
+                    continue
+
+                rows_to_insert.append({
+                    "user_id":         user_id,
+                    "session_id":      session_id,
+                    "response_id":     response_id,
+                    "headword":        item.headword,
+                    "context_sentence": item.context_sentence,
+                    "category":        item.category,
+                    "source_type":     source_type,
+                    "reason":          item.reason[:200] if item.reason else None,
+                    "original_word":   item.original_word if source_type == "upgrade_suggested" else None,
+                    "mastery_status":  "learning",
+                    "is_archived":     False,
+                })
+                existing_headwords.append(item.headword.lower())
+                count += 1
+
+        if not rows_to_insert:
+            logger.info("[vocab_bg] no items passed guards for response=%s", response_id)
+            return
+
+        # Upsert — skip on unique conflict (headword already in bank)
+        supabase_admin.table("user_vocabulary").upsert(
+            rows_to_insert,
+            on_conflict="user_id,headword",
+            ignore_duplicates=True,
+        ).execute()
+
+        logger.info(
+            "[vocab_bg] persisted %d vocab items for user=%s response=%s",
+            len(rows_to_insert), user_id, response_id,
+        )
+
+    except Exception as e:
+        logger.error("[vocab_bg] extraction failed (non-fatal): %s", e)

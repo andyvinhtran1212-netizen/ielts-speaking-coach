@@ -380,6 +380,7 @@
         <button class="tab-btn"        onclick="switchTab('ai_usage')"     id="tab-btn-ai_usage">💰 AI Cost</button>
         <button class="tab-btn"        onclick="switchTab('sessions')"     id="tab-btn-sessions">🗂 Sessions</button>
         <button class="tab-btn"        onclick="switchTab('alerts')"       id="tab-btn-alerts">🚨 Alerts</button>
+        <button class="tab-btn"        onclick="switchTab('vocab_monitor')" id="tab-btn-vocab_monitor">📖 Vocab</button>
       </div>
 
       <!-- ── TAB: Topics ──────────────────────────────────────── -->
@@ -851,6 +852,55 @@
         </div>
       </div>
 
+      <!-- Vocab Monitor panel -->
+      <div id="panel-vocab_monitor" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Vocab Bank — Monitoring</h3>
+          <button class="btn-secondary text-xs" onclick="loadVocabMonitor(true)">↺ Refresh</button>
+        </div>
+
+        <!-- FP report stats -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">False Positive Reports</h4>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="card p-4 text-center">
+              <div id="vocab-fp-total" class="text-2xl font-bold text-white">—</div>
+              <div class="text-xs mt-1" style="color:rgba(255,255,255,0.4);">Total FP reports</div>
+            </div>
+            <div class="card p-4 text-center">
+              <div id="vocab-fp-rate" class="text-2xl font-bold text-amber-300">—</div>
+              <div class="text-xs mt-1" style="color:rgba(255,255,255,0.4);">FP rate (gate &lt;10%)</div>
+            </div>
+            <div class="card p-4 text-center">
+              <div id="vocab-bank-total" class="text-2xl font-bold" style="color:#5eead4;">—</div>
+              <div class="text-xs mt-1" style="color:rgba(255,255,255,0.4);">Total bank entries</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Per-user feature flag toggle -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.38);">Per-User Feature Flag — vocab_enabled</h4>
+          <p class="text-xs mb-3" style="color:rgba(255,255,255,0.4);">
+            Global env: <code>VOCAB_BANK_FEATURE_FLAG_ENABLED</code> and <code>VOCAB_ANALYSIS_ENABLED</code>
+          </p>
+          <div class="flex gap-2 mb-3">
+            <input id="vocab-flag-user-id" type="text" placeholder="User ID (uuid)"
+                   class="flex-1 px-3 py-2 rounded-lg text-sm text-white placeholder-slate-500"
+                   style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);" />
+            <button onclick="setVocabFlag(true)" class="px-3 py-2 text-xs font-medium rounded-lg"
+                    style="background:rgba(20,184,166,0.15); border:1px solid rgba(20,184,166,0.3); color:#14b8a6;">
+              Enable
+            </button>
+            <button onclick="setVocabFlag(false)" class="px-3 py-2 text-xs font-medium rounded-lg"
+                    style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#f87171;">
+              Disable
+            </button>
+          </div>
+          <div id="vocab-flag-result" class="text-xs hidden px-3 py-2 rounded-lg" style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.6);"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -988,7 +1038,7 @@
     var _base  = '';
 
     // Per-tab load-once flags
-    var _loaded = { topics: false, codes: false, users: false, stats: false, ai_usage: false, sessions: false, alerts: false };
+    var _loaded = { topics: false, codes: false, users: false, stats: false, ai_usage: false, sessions: false, alerts: false, vocab_monitor: false };
 
     // Cached data for CSV export
     var _codesData = [];
@@ -1056,7 +1106,7 @@
     var _currentTab = 'topics';
 
     window.switchTab = function (tab) {
-      ['topics', 'codes', 'users', 'stats', 'ai_usage', 'sessions', 'alerts'].forEach(function (t) {
+      ['topics', 'codes', 'users', 'stats', 'ai_usage', 'sessions', 'alerts', 'vocab_monitor'].forEach(function (t) {
         document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
         document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
       });
@@ -1065,13 +1115,14 @@
     };
 
     function loadTab(tab) {
-      if (tab === 'topics')   loadTopics();
-      if (tab === 'codes')    loadCodes();
-      if (tab === 'users')    loadUsers();
-      if (tab === 'stats')    loadStats();
-      if (tab === 'ai_usage') loadAiUsage();
-      if (tab === 'sessions') loadSessions(true);
-      if (tab === 'alerts')   loadAlerts();
+      if (tab === 'topics')        loadTopics();
+      if (tab === 'codes')         loadCodes();
+      if (tab === 'users')         loadUsers();
+      if (tab === 'stats')         loadStats();
+      if (tab === 'ai_usage')      loadAiUsage();
+      if (tab === 'sessions')      loadSessions(true);
+      if (tab === 'alerts')        loadAlerts();
+      if (tab === 'vocab_monitor') loadVocabMonitor();
     }
 
     // ── TOPICS ─────────────────────────────────────────────────
@@ -3033,6 +3084,53 @@
         alert('Lỗi: ' + err.message);
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = origText || 'Tổng hợp lại kết quả'; }
+      }
+    };
+
+    // ── VOCAB MONITOR ──────────────────────────────────────────
+    window.loadVocabMonitor = async function (force) {
+      if (_loaded.vocab_monitor && !force) return;
+      _loaded.vocab_monitor = true;
+      var loadEl = document.getElementById('vocab-monitor-loading');
+      if (loadEl) loadEl.classList.remove('hidden');
+
+      try {
+        var data = await apiGet('/admin/vocab/stats');
+        if (loadEl) loadEl.classList.add('hidden');
+
+        var el = function (id) { return document.getElementById(id); };
+        if (el('vocab-fp-total'))    el('vocab-fp-total').textContent    = data.fp_reports_total   ?? '—';
+        if (el('vocab-bank-total'))  el('vocab-bank-total').textContent  = data.vocab_bank_total   ?? '—';
+        if (el('vocab-fp-rate'))     el('vocab-fp-rate').textContent     = data.fp_rate_percent != null ? data.fp_rate_percent + '%' : '—';
+        if (el('vocab-users-enabled')) el('vocab-users-enabled').textContent = data.users_with_vocab_enabled ?? '—';
+      } catch (err) {
+        if (loadEl) loadEl.classList.add('hidden');
+        console.error('[admin] vocab monitor load failed:', err);
+      }
+    };
+
+    window.setVocabFlag = async function (enabled) {
+      var userId = (document.getElementById('vocab-flag-user-id') || {}).value || '';
+      userId = userId.trim();
+      var resultEl = document.getElementById('vocab-flag-result');
+      if (!userId) {
+        if (resultEl) { resultEl.textContent = 'Please enter a user ID.'; resultEl.style.color = '#f87171'; resultEl.classList.remove('hidden'); }
+        return;
+      }
+      if (resultEl) resultEl.classList.add('hidden');
+      try {
+        var res = await apiPost('/admin/users/' + encodeURIComponent(userId) + '/vocab-flag', { enabled: enabled });
+        if (resultEl) {
+          resultEl.textContent = res.message || (enabled ? 'Vocab enabled.' : 'Vocab disabled.');
+          resultEl.style.color = enabled ? '#4ade80' : '#fb923c';
+          resultEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        if (resultEl) {
+          resultEl.textContent = 'Error: ' + err.message;
+          resultEl.style.color = '#f87171';
+          resultEl.classList.remove('hidden');
+        }
       }
     };
 

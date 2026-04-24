@@ -2396,3 +2396,89 @@ async def admin_rebuild_summary(
         results.append({"session_id": sid, "ok": True, **bands})
 
     return {"ok": True, "sessions": results}
+
+
+# ── VOCAB MONITOR ─────────────────────────────────────────────────────────────
+
+@router.get("/vocab/stats")
+async def admin_vocab_stats(authorization: str | None = Header(default=None)):
+    """Return vocab bank aggregate stats for admin monitoring."""
+    await require_admin(authorization)
+
+    try:
+        fp_res = (
+            supabase_admin.table("analytics_events")
+            .select("id", count="exact")
+            .eq("event_name", "vocab_fp_reported")
+            .execute()
+        )
+        fp_total = fp_res.count or 0
+    except Exception:
+        fp_total = 0
+
+    try:
+        bank_res = (
+            supabase_admin.table("user_vocabulary")
+            .select("id", count="exact")
+            .eq("is_archived", False)
+            .execute()
+        )
+        bank_total = bank_res.count or 0
+    except Exception:
+        bank_total = 0
+
+    fp_rate = round(fp_total / bank_total * 100, 1) if bank_total > 0 else 0.0
+
+    try:
+        flag_res = supabase_admin.table("users").select("feature_flags").execute()
+        enabled_count = sum(
+            1 for u in (flag_res.data or [])
+            if isinstance(u.get("feature_flags"), dict) and u["feature_flags"].get("vocab_enabled") is True
+        )
+    except Exception:
+        enabled_count = 0
+
+    return {
+        "fp_reports_total": fp_total,
+        "vocab_bank_total": bank_total,
+        "fp_rate_percent": fp_rate,
+        "users_with_vocab_enabled": enabled_count,
+    }
+
+
+class VocabFlagPayload(BaseModel):
+    enabled: bool
+
+
+@router.post("/users/{user_id}/vocab-flag")
+async def admin_set_vocab_flag(
+    user_id: str,
+    payload: VocabFlagPayload,
+    authorization: str | None = Header(default=None),
+):
+    """Toggle vocab_enabled feature flag for a specific user."""
+    await require_admin(authorization)
+
+    try:
+        user_res = (
+            supabase_admin.table("users")
+            .select("id, feature_flags")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(404, f"User not found: {exc}")
+
+    user_row = user_res.data
+    if not user_row:
+        raise HTTPException(404, "User not found")
+
+    flags = user_row.get("feature_flags") or {}
+    flags["vocab_enabled"] = payload.enabled
+
+    supabase_admin.table("users").update({"feature_flags": flags}).eq("id", user_id).execute()
+
+    action = "enabled" if payload.enabled else "disabled"
+    logger.info("[admin] vocab flag %s for user %s", action, user_id)
+    return {"ok": True, "message": f"Vocab bank {action} for user {user_id}."}
