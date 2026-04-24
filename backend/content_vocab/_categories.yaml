@@ -1,0 +1,24 @@
+categories:
+  - slug: environment
+    title: Environment
+    description: Từ vựng về môi trường, biến đổi khí hậu và phát triển bền vững.
+
+  - slug: technology
+    title: Technology
+    description: Từ vựng về công nghệ, đổi mới và tác động của kỹ thuật số.
+
+  - slug: education
+    title: Education
+    description: Từ vựng về giáo dục, học tập và hệ thống đào tạo.
+
+  - slug: work-career
+    title: Work & Career
+    description: Từ vựng về nghề nghiệp, thị trường lao động và môi trường làm việc.
+
+  - slug: health
+    title: Health
+    description: Từ vựng về sức khỏe, y tế và lối sống.
+
+  - slug: people-society
+    title: People & Society
+    description: Từ vựng về xã hội, văn hóa và con người.

@@ -136,6 +136,28 @@ Metadata is now structurally usable, but still not perfect for future recommenda
 
 ---
 
+## 9. Vocab and Grammar content loaders are separate copies (not shared)
+**Status:** intentional for Phase A, deferred  
+**Priority:** Low
+
+### Problem
+`services/vocab_content.py` is a hand-adapted copy of `services/grammar_content.py`.
+Both load Markdown files from separate directories but share the same core parsing pattern.
+
+### Risk
+If parsing logic needs to change (e.g., Markdown extensions, frontmatter validation),
+it must be updated in two places.
+
+### Suggested future fix
+- Extract a shared `BaseContentService` or a generic loader function that both services use
+- `GrammarContentService` and `VocabContentService` become thin subclasses with different dirs and schemas
+- Phase B is the right time to do this, not before: premature abstraction would slow Phase A and risk regressions
+
+### Non-goals
+- Do NOT refactor in Phase A. Ship content first, then abstract.
+
+---
+
 # Suggested next review order
 
 1. Full-test recovery after timeout  
