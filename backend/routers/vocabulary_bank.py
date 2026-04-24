@@ -13,8 +13,9 @@ from pydantic import BaseModel, ConfigDict
 from supabase import create_client
 
 from config import settings
-from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.analytics import fire_event
+from services.feature_flags import is_vocab_bank_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -42,22 +43,7 @@ def _token_from_header(authorization: str | None) -> str:
 # ── Feature flag check ────────────────────────────────────────────────────────
 
 def _vocab_bank_enabled(user_id: str) -> bool:
-    if not settings.VOCAB_BANK_FEATURE_FLAG_ENABLED:
-        return False
-    try:
-        row = (
-            supabase_admin.table("users")
-            .select("feature_flags")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-        flags = (row.data or [{}])[0].get("feature_flags") or {}
-        # Explicit True required — None/missing key denies
-        return flags.get("vocab_enabled") is True
-    except Exception as e:
-        logger.warning("[vocab_bank] feature flag check failed (default deny): %s", e)
-        return False
+    return is_vocab_bank_enabled(user_id, settings.VOCAB_BANK_FEATURE_FLAG_ENABLED)
 
 
 async def _require_auth(authorization: str | None) -> dict:
@@ -91,14 +77,7 @@ class VocabFPReportRequest(BaseModel):
 # ── Analytics helper ──────────────────────────────────────────────────────────
 
 def _fire_event(event_name: str, event_data: dict, user_id: str) -> None:
-    try:
-        supabase_admin.table("analytics_events").insert({
-            "event_name": event_name,
-            "event_data": event_data,
-            "user_id": user_id,
-        }).execute()
-    except Exception as e:
-        logger.debug("[vocab_bank] analytics event '%s' failed (non-fatal): %s", event_name, e)
+    fire_event(event_name, event_data, user_id)
 
 
 # ── GET / — List ──────────────────────────────────────────────────────────────

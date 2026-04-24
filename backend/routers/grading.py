@@ -693,11 +693,13 @@ async def _run_vocab_extraction(
             except Exception as insert_err:
                 err_str = str(insert_err).lower()
                 if any(k in err_str for k in ("unique", "duplicate", "23505")):
-                    logger.debug(
+                    logger.info(
                         "[vocab_bg] duplicate skip '%s' for user=%s", row["headword"], user_id
                     )
                 else:
-                    logger.warning("[vocab_bg] insert error for '%s': %s", row["headword"], insert_err)
+                    # Non-duplicate error (network, schema, permission): re-raise so
+                    # the outer handler logs one proper failure instead of silently continuing.
+                    raise
 
         logger.info(
             "[vocab_bg] persisted %d/%d vocab items for user=%s response=%s",

@@ -80,6 +80,48 @@ def _sentence_in_transcript(context_sentence: str, raw_transcript: str) -> bool:
     return any(t_tokens[i:i + n] == s_tokens for i in range(len(t_tokens) - n + 1))
 
 
+def _is_injection_artifact(item: dict) -> bool:
+    """
+    Guard 7: reject items that look like prompt-injection artifacts rather than
+    natural vocab.  Checks headword chars, length, instruction-like phrases in
+    context_sentence, and JSON/code-shaped sentences.
+    Returns True  → item is suspicious (should be SKIPPED).
+    Returns False → item looks clean (allow through).
+    """
+    sentence = (item.get("context_sentence") or "").lower()
+    headword = (item.get("headword") or "")
+
+    # Instruction-like keywords that no genuine IELTS sentence would contain
+    _INJECTION_PHRASES = (
+        "ignore previous",
+        "ignore the instructions",
+        "disregard",
+        "system prompt",
+        "new instructions",
+        "mark as",
+        "return fake",
+    )
+    if any(p in sentence for p in _INJECTION_PHRASES):
+        return True
+
+    # JSON/code-shaped context — not a natural sentence
+    stripped = sentence.strip()
+    if stripped.startswith(("{", "[", "<")) and stripped.endswith(("}", "]", ">")):
+        return True
+    if '":"' in sentence or '":{' in sentence:
+        return True
+
+    # Headword must be composed of only alphabetic chars, spaces, hyphens, apostrophes
+    if not all(c.isalpha() or c in " -'" for c in headword):
+        return True
+
+    # Headword longer than 50 chars is not a real vocab item
+    if len(headword) > 50:
+        return True
+
+    return False
+
+
 def run_all_guards(
     item: dict,
     raw_transcript: str,
@@ -126,6 +168,11 @@ def run_all_guards(
     if headword[0].isupper() and not _is_start_of_sentence(headword, context_sentence):
         logger.debug("[guard3] SKIP '%s' — proper noun", headword)
         return False, "guard_3_proper_noun"
+
+    # Guard 7: injection artifact check — instruction-like / JSON-shaped content
+    if _is_injection_artifact(item):
+        logger.debug("[guard7] SKIP '%s' — injection artifact", headword)
+        return False, "guard_7_injection_artifact"
 
     # Guard 4: contradiction check for upgrade_suggested
     # If original_word is already in used_well, the upgrade is contradictory — skip.
