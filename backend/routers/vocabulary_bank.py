@@ -7,11 +7,12 @@ Prefix: /api/vocabulary/bank
 """
 
 import logging
-import os
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
+from supabase import create_client
 
+from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 
@@ -20,11 +21,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vocabulary/bank", tags=["vocabulary-bank"])
 
 
+# ── User-scoped Supabase client (enforces RLS) ────────────────────────────────
+
+def _user_sb(token: str):
+    """Return a Supabase client scoped to the user's JWT so RLS is enforced."""
+    client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+    client.postgrest.auth(token)
+    return client
+
+
+def _token_from_header(authorization: str | None) -> str:
+    if not authorization:
+        raise HTTPException(401, "Missing Authorization header")
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(401, "Invalid Authorization header")
+    return parts[1]
+
+
 # ── Feature flag check ────────────────────────────────────────────────────────
 
 def _vocab_bank_enabled(user_id: str) -> bool:
-    global_flag = os.environ.get("VOCAB_BANK_FEATURE_FLAG_ENABLED", "false").lower() == "true"
-    if not global_flag:
+    if not settings.VOCAB_BANK_FEATURE_FLAG_ENABLED:
         return False
     try:
         row = (
@@ -35,12 +53,11 @@ def _vocab_bank_enabled(user_id: str) -> bool:
             .execute()
         )
         flags = (row.data or [{}])[0].get("feature_flags") or {}
-        # None means "not explicitly set" → default allow (global flag is already true)
-        if flags.get("vocab_enabled") is False:
-            return False
+        # Explicit True required — None/missing key denies
+        return flags.get("vocab_enabled") is True
     except Exception as e:
-        logger.warning("[vocab_bank] feature flag check failed (default allow): %s", e)
-    return True
+        logger.warning("[vocab_bank] feature flag check failed (default deny): %s", e)
+        return False
 
 
 async def _require_auth(authorization: str | None) -> dict:
@@ -98,8 +115,9 @@ async def list_vocab(
     if not _vocab_bank_enabled(user_id):
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
+    token = _token_from_header(authorization)
     query = (
-        supabase_admin.table("user_vocabulary")
+        _user_sb(token).table("user_vocabulary")
         .select("*")
         .eq("user_id", user_id)
         .eq("is_archived", False)
@@ -127,8 +145,9 @@ async def get_vocab_stats(authorization: str | None = Header(default=None)):
     if not _vocab_bank_enabled(user_id):
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
+    token = _token_from_header(authorization)
     rows = (
-        supabase_admin.table("user_vocabulary")
+        _user_sb(token).table("user_vocabulary")
         .select("mastery_status")
         .eq("user_id", user_id)
         .eq("is_archived", False)
@@ -153,8 +172,9 @@ async def get_vocab_detail(
     if not _vocab_bank_enabled(user_id):
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
+    token = _token_from_header(authorization)
     row = (
-        supabase_admin.table("user_vocabulary")
+        _user_sb(token).table("user_vocabulary")
         .select("*")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
@@ -196,8 +216,9 @@ async def add_vocab_manual(
         "is_archived":     False,
     }
 
+    token = _token_from_header(authorization)
     try:
-        result = supabase_admin.table("user_vocabulary").insert(row).execute()
+        result = _user_sb(token).table("user_vocabulary").insert(row).execute()
     except Exception as e:
         err = str(e)
         if "unique" in err.lower() or "duplicate" in err.lower():
@@ -224,8 +245,11 @@ async def update_vocab_status(
     if body.mastery_status not in ("learning", "mastered"):
         raise HTTPException(422, "mastery_status must be 'learning' or 'mastered'")
 
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
     existing = (
-        supabase_admin.table("user_vocabulary")
+        sb.table("user_vocabulary")
         .select("id, mastery_status")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
@@ -238,7 +262,7 @@ async def update_vocab_status(
 
     mastery_before = existing.data[0].get("mastery_status")
 
-    supabase_admin.table("user_vocabulary").update(
+    sb.table("user_vocabulary").update(
         {"mastery_status": body.mastery_status}
     ).eq("id", vocab_id).execute()
 
@@ -264,8 +288,11 @@ async def archive_vocab(
     if not _vocab_bank_enabled(user_id):
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
     existing = (
-        supabase_admin.table("user_vocabulary")
+        sb.table("user_vocabulary")
         .select("id")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
@@ -276,7 +303,7 @@ async def archive_vocab(
     if not existing.data:
         raise HTTPException(404, "Vocab entry not found")
 
-    supabase_admin.table("user_vocabulary").update(
+    sb.table("user_vocabulary").update(
         {"is_archived": True}
     ).eq("id", vocab_id).execute()
 
@@ -294,8 +321,14 @@ async def report_false_positive(
     user = await _require_auth(authorization)
     user_id = user["id"]
 
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
     existing = (
-        supabase_admin.table("user_vocabulary")
+        sb.table("user_vocabulary")
         .select("id")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
@@ -311,8 +344,7 @@ async def report_false_positive(
         "reason": body.reason,
     }, user_id)
 
-    # Archive the entry after FP report
-    supabase_admin.table("user_vocabulary").update(
+    sb.table("user_vocabulary").update(
         {"is_archived": True}
     ).eq("id", vocab_id).execute()
 

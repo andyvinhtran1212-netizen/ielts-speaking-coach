@@ -622,8 +622,8 @@ async def _run_vocab_extraction(
             .execute()
         )
         feature_flags = (flag_row.data or [{}])[0].get("feature_flags") or {}
-        if feature_flags.get("vocab_enabled") is False:
-            logger.debug("[vocab_bg] user %s has vocab_enabled=false — skip", user_id)
+        if feature_flags.get("vocab_enabled") is not True:
+            logger.debug("[vocab_bg] user %s vocab_enabled not set — skip", user_id)
             return
 
         result = await extract_vocab(transcript, response_id, user_id, session_id)
@@ -641,7 +641,9 @@ async def _run_vocab_extraction(
         existing_headwords = [r["headword"].lower() for r in (existing_rows.data or [])]
 
         rows_to_insert = []
-        max_per_category = int(os.environ.get("VOCAB_MAX_PER_CATEGORY", "3"))
+        max_per_category = settings.VOCAB_MAX_PER_CATEGORY
+
+        used_well_headwords = {item.headword.lower() for item in result.used_well}
 
         category_map = [
             ("used_well", result.used_well),
@@ -656,7 +658,8 @@ async def _run_vocab_extraction(
                     break
                 item_dict = item.model_dump()
                 passed, failed_guard = run_all_guards(
-                    item_dict, transcript, source_type, existing_headwords
+                    item_dict, transcript, source_type, existing_headwords,
+                    used_well_headwords=used_well_headwords,
                 )
                 if not passed:
                     logger.debug("[vocab_bg] guard rejected '%s': %s", item.headword, failed_guard)
@@ -682,16 +685,23 @@ async def _run_vocab_extraction(
             logger.info("[vocab_bg] no items passed guards for response=%s", response_id)
             return
 
-        # Upsert — skip on unique conflict (headword already in bank)
-        supabase_admin.table("user_vocabulary").upsert(
-            rows_to_insert,
-            on_conflict="user_id,headword",
-            ignore_duplicates=True,
-        ).execute()
+        inserted = 0
+        for row in rows_to_insert:
+            try:
+                supabase_admin.table("user_vocabulary").insert(row).execute()
+                inserted += 1
+            except Exception as insert_err:
+                err_str = str(insert_err).lower()
+                if any(k in err_str for k in ("unique", "duplicate", "23505")):
+                    logger.debug(
+                        "[vocab_bg] duplicate skip '%s' for user=%s", row["headword"], user_id
+                    )
+                else:
+                    logger.warning("[vocab_bg] insert error for '%s': %s", row["headword"], insert_err)
 
         logger.info(
-            "[vocab_bg] persisted %d vocab items for user=%s response=%s",
-            len(rows_to_insert), user_id, response_id,
+            "[vocab_bg] persisted %d/%d vocab items for user=%s response=%s",
+            inserted, len(rows_to_insert), user_id, response_id,
         )
 
     except Exception as e:

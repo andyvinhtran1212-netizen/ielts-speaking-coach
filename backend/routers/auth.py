@@ -126,6 +126,7 @@ async def get_me(authorization: str | None = Header(default=None)):
         "exam_date": str(user["exam_date"]) if user.get("exam_date") else None,
         "self_level": user.get("self_level"),
         "preferred_topics": user.get("preferred_topics") or [],
+        "vocab_bank_enabled": (user.get("feature_flags") or {}).get("vocab_enabled") is True,
     }
 
 

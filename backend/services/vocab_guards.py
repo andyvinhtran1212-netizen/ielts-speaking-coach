@@ -9,7 +9,6 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +41,19 @@ def _levenshtein(a: str, b: str) -> int:
     return prev[-1]
 
 
+def _shares_root(word_a: str, word_b: str, min_prefix: int = 6) -> bool:
+    """
+    Conservative same-root check: if two words share >= min_prefix chars prefix → same root.
+    sustain (7) vs sustainability (13) → share "sustain" (7) → True → SKIP.
+    No NLP, no dependencies.
+    """
+    a, b = word_a.lower(), word_b.lower()
+    shorter = min(len(a), len(b))
+    if shorter < min_prefix:
+        return False
+    return a[:min_prefix] == b[:min_prefix]
+
+
 def _is_start_of_sentence(word: str, sentence: str) -> bool:
     """Return True if word appears as the first token of any sentence."""
     stripped = sentence.strip()
@@ -50,11 +62,30 @@ def _is_start_of_sentence(word: str, sentence: str) -> bool:
     return bool(re.search(pattern, stripped, re.IGNORECASE))
 
 
+def _normalize_tokens(text: str) -> list[str]:
+    """Strip punctuation, lowercase, split to token list for guard 2 comparison."""
+    return re.sub(r'[^\w\s]', '', text).lower().split()
+
+
+def _sentence_in_transcript(context_sentence: str, raw_transcript: str) -> bool:
+    """
+    Guard 2 check: context_sentence tokens must appear as a contiguous subsequence
+    in transcript tokens. Tolerates punctuation variants (. vs ! vs ,) from Claude.
+    """
+    s_tokens = _normalize_tokens(context_sentence)
+    t_tokens = _normalize_tokens(raw_transcript)
+    n = len(s_tokens)
+    if n == 0:
+        return False
+    return any(t_tokens[i:i + n] == s_tokens for i in range(len(t_tokens) - n + 1))
+
+
 def run_all_guards(
     item: dict,
     raw_transcript: str,
     source_type: str,
     existing_headwords: list[str],
+    used_well_headwords: set[str] | None = None,
 ) -> tuple[bool, str | None]:
     """
     Run all 6 guards on a single vocab item.
@@ -64,6 +95,8 @@ def run_all_guards(
         raw_transcript: the full transcript string
         source_type: 'used_well' | 'needs_review' | 'upgrade_suggested' | 'manual'
         existing_headwords: lowercased headwords already in the user's bank
+        used_well_headwords: lowercased headwords from the used_well category of this
+            extraction result — used by guard 4 contradiction check
 
     Returns:
         (True, None) if all guards pass
@@ -83,9 +116,10 @@ def run_all_guards(
         logger.debug("[guard1] SKIP '%s' — not in context_sentence", headword)
         return False, "guard_1_word_not_in_sentence"
 
-    # Guard 2: context_sentence must appear verbatim in transcript
-    if context_sentence.strip() not in raw_transcript:
-        logger.debug("[guard2] SKIP '%s' — context_sentence not in transcript", headword)
+    # Guard 2: context_sentence tokens must appear contiguously in transcript
+    # (token-based, tolerates Claude punctuation noise)
+    if not _sentence_in_transcript(context_sentence, raw_transcript):
+        logger.debug("[guard2] SKIP '%s' — context_sentence tokens not in transcript", headword)
         return False, "guard_2_sentence_not_in_transcript"
 
     # Guard 3: proper noun check — first-char uppercase but not at sentence start
@@ -93,9 +127,16 @@ def run_all_guards(
         logger.debug("[guard3] SKIP '%s' — proper noun", headword)
         return False, "guard_3_proper_noun"
 
-    # Guard 4: contradiction check (placeholder — relies on prompt quality for MVP)
-    # Skipped items with clearly wrong grammar in reason field would be caught by guard 1/2
-    # Full contradiction detection is post-MVP; guard is a no-op pass for now.
+    # Guard 4: contradiction check for upgrade_suggested
+    # If original_word is already in used_well, the upgrade is contradictory — skip.
+    if source_type == "upgrade_suggested" and used_well_headwords:
+        original_lower = original_word.lower() if original_word else ""
+        if original_lower and original_lower in used_well_headwords:
+            logger.debug(
+                "[guard4] SKIP '%s' — original_word '%s' already in used_well",
+                headword, original_word,
+            )
+            return False, "guard_4_contradiction"
 
     # Guard 5: upgrade whitelist check (only for upgrade_suggested)
     if source_type == "upgrade_suggested":
@@ -107,11 +148,14 @@ def run_all_guards(
             logger.debug("[guard5] SKIP '%s' — upgrade pair (%s→%s) not in whitelist", headword, original_word, headword)
             return False, "guard_5_not_in_whitelist"
 
-    # Guard 6: Levenshtein ≤ 2 vs existing bank headwords (silent skip)
+    # Guard 6: same-root prefix check OR Levenshtein ≤ 2 vs existing bank headwords
     for existing in existing_headwords:
-        dist = _levenshtein(hw_lower, existing.lower())
-        if dist <= 2:
-            logger.debug("[guard6] SKIP '%s' — Levenshtein %d from existing '%s'", headword, dist, existing)
+        ex_lower = existing.lower()
+        if _shares_root(hw_lower, ex_lower) or _levenshtein(hw_lower, ex_lower) <= 2:
+            logger.debug(
+                "[guard6] SKIP '%s' — same-root or near-duplicate of existing '%s'",
+                headword, existing,
+            )
             return False, "guard_6_levenshtein_duplicate"
 
     return True, None

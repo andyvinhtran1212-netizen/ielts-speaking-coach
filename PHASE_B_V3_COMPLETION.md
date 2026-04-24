@@ -50,4 +50,24 @@
 | 7 | Admin can monitor FP rate and toggle flags | ✅ |
 | 8 | Vocab toast appears on result page after practice | ✅ (polls 8s + 18s) |
 | 9 | Manual word add with 409 duplicate guard | ✅ |
-| 10 | Unit tests pass | ✅ 11/11 |
+| 10 | Unit tests pass | ✅ 16/16 |
+
+---
+
+## Known Issues / Deviations (Post-Audit Fixes)
+
+All CRITICAL and HIGH findings from `AUDIT_PHASE_B_V3.md` were fixed before merge.
+
+| Finding | Severity | Fix |
+|---------|----------|-----|
+| C1: user-facing vocab routes used `supabase_admin` (bypasses RLS) | CRITICAL | `vocabulary_bank.py` now uses `_user_sb(token)` — `create_client(url, anon_key)` + `postgrest.auth(token)` per request |
+| C2: upsert with `on_conflict="user_id,headword"` doesn't match partial expression index | CRITICAL | Replaced with per-row `insert()` + catch; duplicate key error (23505/unique) is logged and skipped |
+| C3: RLS UPDATE policy missing `WITH CHECK` | CRITICAL | Added migration `019b_fix_rls_update_policy.sql` — `WITH CHECK (auth.uid() = user_id)` prevents user_id mutation |
+| H1: feature flag default-allow (`is False` check) | HIGH | Changed to `is True` in both `vocabulary_bank.py` and `grading.py` — missing key now denies |
+| H2: `/auth/me` didn't expose `vocab_bank_enabled` | HIGH | Added `vocab_bank_enabled` to auth.py `/auth/me` response; `my-vocabulary.js` checks this before making bank API calls |
+| H3: report endpoint had no feature flag guard | HIGH | Added `_vocab_bank_enabled` check to `report_false_positive` endpoint |
+| H4: guard 2 used raw substring (fails on punctuation variants) | HIGH | Replaced with token-based contiguous subsequence match via `_sentence_in_transcript()` |
+| H5: guard 4 was stub (no-op) | HIGH | Fully implemented: `upgrade_suggested` items rejected if `original_word` is in `used_well_headwords` |
+| H6: guard 6 missed same-root pairs (e.g. sustain/sustainability) | HIGH | Added `_shares_root(a, b, min_prefix=6)` prefix check before Levenshtein in guard 6 |
+| H7: transcript passed raw to Claude (prompt injection risk) | HIGH | Fenced in `<transcript>...</transcript>` tags with explicit instruction to ignore embedded instructions |
+| M2: vocab_extractor used `os.environ.get(...)` instead of `settings.*` | MEDIUM | Changed to `settings.VOCAB_MIN_TRANSCRIPT_WORDS` and `settings.VOCAB_ANALYSIS_MODEL` |

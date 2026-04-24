@@ -31,6 +31,20 @@
       return;
     }
 
+    // Check feature flag before making any bank API calls
+    try {
+      const meRes = await fetch(`${BASE}/auth/me`, {
+        headers: { Authorization: `Bearer ${_token}` },
+      });
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (!me.vocab_bank_enabled) {
+          showState('disabled');
+          return;
+        }
+      }
+    } catch (_) {}
+
     await loadStats();
     await loadVocab();
   }

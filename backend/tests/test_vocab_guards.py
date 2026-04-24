@@ -133,3 +133,76 @@ def test_all_guards_pass_for_clean_item():
     passed, guard = _run(ITEM_GOOD, existing=["environment"])
     assert passed
     assert guard is None
+
+
+# ── Guard 2: punctuation tolerance ───────────────────────────────────────────
+
+def test_guard2_passes_with_punctuation_variant():
+    """Claude may return sentence with '!' instead of '.'; token match should still pass."""
+    transcript = "Students can utilize digital tools to enhance their learning experience."
+    item = {
+        "headword": "utilize",
+        "context_sentence": "Students can utilize digital tools to enhance their learning experience!",
+        "reason": "punctuation variant",
+        "category": "topic",
+    }
+    passed, guard = run_all_guards(item, transcript, "used_well", [])
+    assert passed
+    assert guard is None
+
+
+# ── Guard 4: contradiction check ─────────────────────────────────────────────
+
+def test_guard4_fails_when_original_word_in_used_well():
+    """upgrade_suggested item whose original_word appears in used_well should be rejected."""
+    item = {
+        "headword": "utilize",
+        "context_sentence": "Students can utilize digital tools to enhance their learning experience.",
+        "reason": "upgrade from use",
+        "category": "topic",
+        "original_word": "use",
+    }
+    passed, guard = run_all_guards(
+        item, TRANSCRIPT, "upgrade_suggested", [],
+        used_well_headwords={"use"},
+    )
+    assert not passed
+    assert guard == "guard_4_contradiction"
+
+
+def test_guard4_passes_when_original_word_not_in_used_well():
+    passed, guard = run_all_guards(
+        ITEM_UPGRADE, TRANSCRIPT, "upgrade_suggested", [],
+        used_well_headwords={"significant", "crucial"},
+    )
+    assert passed
+    assert guard is None
+
+
+# ── Guard 6: same-root check ─────────────────────────────────────────────────
+
+def test_guard6_fails_for_same_root_prefix():
+    """'sustainability' shares prefix 'sustain' (7 chars >= 6) with 'sustain'."""
+    transcript = "We need to focus on sustainability in our daily lives and work."
+    item = {
+        "headword": "sustainability",
+        "context_sentence": "We need to focus on sustainability in our daily lives and work.",
+        "reason": "advanced vocab",
+        "category": "topic",
+    }
+    passed, guard = run_all_guards(item, transcript, "used_well", ["sustain"])
+    assert not passed
+    assert guard == "guard_6_levenshtein_duplicate"
+
+
+def test_guard6_passes_for_different_root():
+    transcript = "We need to focus on sustainability in our daily lives and work."
+    item = {
+        "headword": "sustainability",
+        "context_sentence": "We need to focus on sustainability in our daily lives and work.",
+        "reason": "advanced vocab",
+        "category": "topic",
+    }
+    passed, guard = run_all_guards(item, transcript, "used_well", ["environment", "economy"])
+    assert passed
+    assert guard is None
