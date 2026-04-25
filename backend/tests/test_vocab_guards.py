@@ -21,6 +21,7 @@ TRANSCRIPT = (
 ITEM_GOOD = {
     "headword": "utilize",
     "context_sentence": "Students can utilize digital tools to enhance their learning experience.",
+    "evidence_substring": "can utilize digital tools to enhance their learning experience",
     "reason": "good B2 word used correctly",
     "category": "topic",
 }
@@ -28,6 +29,7 @@ ITEM_GOOD = {
 ITEM_UPGRADE = {
     "headword": "utilize",
     "context_sentence": "Students can utilize digital tools to enhance their learning experience.",
+    "evidence_substring": "can utilize digital tools to enhance their learning experience",
     "reason": "upgrades simple word 'use'",
     "category": "topic",
     "original_word": "use",
@@ -41,7 +43,12 @@ def _run(item, source_type="used_well", existing=None):
 # ── Guard 1: headword not in context_sentence ────────────────────────────────
 
 def test_guard1_fails_when_headword_not_in_sentence():
-    item = {**ITEM_GOOD, "headword": "innovation"}
+    # "interaction" is in TRANSCRIPT and in the evidence but NOT in ITEM_GOOD's context_sentence
+    item = {
+        **ITEM_GOOD,
+        "headword": "interaction",
+        "evidence_substring": "face-to-face interaction is still crucial",
+    }
     passed, guard = _run(item)
     assert not passed
     assert guard == "guard_1_word_not_in_sentence"
@@ -74,6 +81,7 @@ def test_guard3_fails_for_proper_noun():
     item = {
         "headword": "John",
         "context_sentence": "I met John at the conference and he introduced me to his team.",
+        "evidence_substring": "John at the conference",
         "reason": "proper noun test",
         "category": "topic",
     }
@@ -87,6 +95,7 @@ def test_guard3_passes_for_sentence_start_capital():
     item = {
         "headword": "Technology",
         "context_sentence": "Technology has changed how we live.",
+        "evidence_substring": "Technology has changed",
         "reason": "starts sentence — not a proper noun",
         "category": "topic",
     }
@@ -143,6 +152,7 @@ def test_guard2_passes_with_punctuation_variant():
     item = {
         "headword": "utilize",
         "context_sentence": "Students can utilize digital tools to enhance their learning experience!",
+        "evidence_substring": "can utilize digital tools to",
         "reason": "punctuation variant",
         "category": "topic",
     }
@@ -158,6 +168,7 @@ def test_guard4_fails_when_original_word_in_used_well():
     item = {
         "headword": "utilize",
         "context_sentence": "Students can utilize digital tools to enhance their learning experience.",
+        "evidence_substring": "can utilize digital tools to enhance their learning experience",
         "reason": "upgrade from use",
         "category": "topic",
         "original_word": "use",
@@ -187,6 +198,7 @@ def test_guard6_fails_for_same_root_prefix():
     item = {
         "headword": "sustainability",
         "context_sentence": "We need to focus on sustainability in our daily lives and work.",
+        "evidence_substring": "focus on sustainability in our",
         "reason": "advanced vocab",
         "category": "topic",
     }
@@ -200,6 +212,7 @@ def test_guard6_passes_for_different_root():
     item = {
         "headword": "sustainability",
         "context_sentence": "We need to focus on sustainability in our daily lives and work.",
+        "evidence_substring": "focus on sustainability in our",
         "reason": "advanced vocab",
         "category": "topic",
     }
@@ -299,12 +312,20 @@ def test_guard8_passes_when_evidence_matches():
     assert guard is None
 
 
-def test_guard8_skipped_when_evidence_empty():
-    """Legacy items without evidence_substring must still pass."""
+def test_guard8_rejects_empty_evidence():
+    """Empty evidence_substring must be rejected — required for all AI-extracted items."""
     item = {**ITEM_GOOD, "evidence_substring": ""}
     passed, guard = _run(item)
-    assert passed
-    assert guard is None
+    assert not passed
+    assert guard == "guard_8_evidence_required"
+
+
+def test_guard8_rejects_missing_field():
+    """Item dict without evidence_substring key must be rejected."""
+    item = {k: v for k, v in ITEM_GOOD.items() if k != "evidence_substring"}
+    passed, guard = _run(item)
+    assert not passed
+    assert guard == "guard_8_evidence_required"
 
 
 # ── Guard 6: semantic cluster (A3 — rejuvenate/reinvigorate) ─────────────────
@@ -322,6 +343,7 @@ def test_guard6_fails_for_semantic_cluster_duplicate():
     item = {
         "headword": "reinvigorate",
         "context_sentence": "We need to reinvigorate the community and bring new life to the area.",
+        "evidence_substring": "reinvigorate the community and",
         "reason": "strong C1 verb",
         "category": "topic",
     }
@@ -335,6 +357,7 @@ def test_guard6_passes_when_no_cluster_overlap():
     item = {
         "headword": "reinvigorate",
         "context_sentence": "We need to reinvigorate the community and bring new life to the area.",
+        "evidence_substring": "reinvigorate the community and",
         "reason": "strong C1 verb",
         "category": "topic",
     }

@@ -154,7 +154,7 @@ def run_all_guards(
     Run all guards on a single vocab item.
 
     Args:
-        item: dict with keys headword, context_sentence, evidence_substring (optional), original_word (optional)
+        item: dict with keys headword, context_sentence, evidence_substring (required), original_word (optional)
         raw_transcript: the full transcript string
         source_type: 'used_well' | 'needs_review' | 'upgrade_suggested' | 'manual'
         existing_headwords: lowercased headwords already in the user's bank
@@ -181,16 +181,22 @@ def run_all_guards(
 
     hw_lower = headword.lower()
 
-    # Guard 8: evidence_substring must contain headword AND appear verbatim in transcript.
-    # Only enforced when evidence_substring is provided (new extractions always provide it;
-    # legacy items without the field pass through).
-    if evidence_substring:
-        if hw_lower not in evidence_substring.lower():
-            logger.debug("[guard8] SKIP '%s' — not in evidence_substring", headword)
-            return False, "guard_8_evidence_mismatch"
-        if evidence_substring.lower() not in raw_transcript.lower():
-            logger.debug("[guard8] SKIP '%s' — evidence_substring not in transcript", headword)
-            return False, "guard_8_evidence_mismatch"
+    # Guard 7: injection artifact check — runs first to gate all downstream guards
+    if _is_injection_artifact(item):
+        logger.debug("[guard7] SKIP '%s' — injection artifact", headword)
+        return False, "guard_7_injection_artifact"
+
+    # Guard 8: evidence_substring is required for all AI-extracted items.
+    # Empty/missing evidence is rejected outright; legacy DB rows never pass through guards.
+    if not evidence_substring:
+        logger.debug("[guard8] SKIP '%s' — evidence_substring missing or empty", headword)
+        return False, "guard_8_evidence_required"
+    if hw_lower not in evidence_substring.lower():
+        logger.debug("[guard8] SKIP '%s' — not in evidence_substring", headword)
+        return False, "guard_8_evidence_mismatch"
+    if evidence_substring.lower() not in raw_transcript.lower():
+        logger.debug("[guard8] SKIP '%s' — evidence_substring not in transcript", headword)
+        return False, "guard_8_evidence_mismatch"
 
     # Guard 1: headword must appear in context_sentence
     if hw_lower not in context_sentence.lower():
@@ -207,11 +213,6 @@ def run_all_guards(
     if headword[0].isupper() and not _is_start_of_sentence(headword, context_sentence):
         logger.debug("[guard3] SKIP '%s' — proper noun", headword)
         return False, "guard_3_proper_noun"
-
-    # Guard 7: injection artifact check — instruction-like / JSON-shaped content
-    if _is_injection_artifact(item):
-        logger.debug("[guard7] SKIP '%s' — injection artifact", headword)
-        return False, "guard_7_injection_artifact"
 
     # Guard 4: contradiction check for upgrade_suggested
     # If original_word is already in used_well, the upgrade is contradictory — skip.

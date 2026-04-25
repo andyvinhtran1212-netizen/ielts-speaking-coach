@@ -56,7 +56,7 @@ class VocabItem(BaseModel):
 
     headword: str
     context_sentence: str
-    evidence_substring: str = ""
+    evidence_substring: str
     reason: str
     category: str
     definition_en: str | None = None
