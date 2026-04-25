@@ -6,8 +6,10 @@
  *   user picks an option → POST /attempt → mark correct/incorrect → reveal "Next"
  *
  * Endpoint contract: GET /api/exercises/d1 returns an array of
- *   { id, exercise_type, content: { sentence, distractors }, _answer_hint_available }
- * (the answer is intentionally absent from the user-facing payload).
+ *   { id, exercise_type, content: { sentence, options } }
+ * `options` is a 4-item shuffled list containing the answer mixed in with
+ * the distractors — the answer is never marked client-side; correctness is
+ * judged server-side at POST /attempt time.
  */
 
 (function () {
@@ -94,27 +96,12 @@
     const item = _queue[_currentIndex];
     const content = item.content || {};
     const sentence = content.sentence || '';
-    const options = shuffle([...(content.distractors || []), content.answer]
-      .filter(Boolean));
-
-    // Strip the answer if the backend ever includes it (defensive).
-    const distractors = content.distractors || [];
-    const renderable = distractors.length === 3
-      ? options                          // 3 distractors + 1 answer when answer is present
-      : shuffle(distractors);            // backend omits answer; just show distractors
-
-    const finalOptions = (renderable.length === 4)
-      ? renderable
-      : (function () {
-          // Backend strips answer; the user picks from distractors and types correctness
-          // is judged server-side. We render all options the backend returned.
-          return renderable;
-        })();
+    const options = Array.isArray(content.options) ? content.options : [];
 
     document.getElementById('prompt').innerHTML = renderSentence(sentence);
 
     const optsEl = document.getElementById('options');
-    optsEl.innerHTML = finalOptions.map((opt, i) =>
+    optsEl.innerHTML = options.map((opt, i) =>
       `<button class="opt-btn" data-opt="${esc(opt)}" data-idx="${i}">${esc(opt)}</button>`
     ).join('');
     Array.from(optsEl.querySelectorAll('.opt-btn')).forEach(btn => {
@@ -205,15 +192,6 @@
   }
 
   // ── Util ──────────────────────────────────────────────────────────────────
-
-  function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
 
   function esc(str) {
     return String(str || '')

@@ -51,16 +51,31 @@ def _grade_d1(user_answer: str, correct_answer: str) -> bool:
 
 
 def _public_view(row: dict) -> dict:
-    """Strip the `answer` from the D1 payload before returning to the user."""
+    """
+    User-facing view of an exercise.  Removes the `answer`/`word` fields and
+    instead returns a deterministically shuffled `options` array containing the
+    answer mixed in with the distractors — so the UI has 4 choices to render
+    without ever knowing which one is correct.
+    """
+    import random
     payload = dict(row.get("content_payload") or {})
     answer = payload.pop("answer", None)
-    # `word` is the same as answer for D1; drop it too so the UI can't cheat.
     payload.pop("word", None)
+    distractors = list(payload.pop("distractors", []) or [])
+
+    options = list(distractors)
+    if answer:
+        options.append(answer)
+    # Per-row deterministic shuffle keyed on the row id keeps the option order
+    # stable across the GET-list and the GET-by-id calls (same id → same order).
+    rng = random.Random(str(row.get("id")))
+    rng.shuffle(options)
+    payload["options"] = options
+
     return {
         "id": row["id"],
         "exercise_type": row["exercise_type"],
         "content": payload,
-        "_answer_hint_available": bool(answer),
     }
 
 
