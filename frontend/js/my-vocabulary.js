@@ -127,19 +127,35 @@
   function cardHtml(item) {
     const badgeClass = `badge-${item.source_type}`;
     const badgeLabel = {
-      used_well: 'Used well',
-      needs_review: 'Needs review',
-      upgrade_suggested: 'Upgrade',
-      manual: 'Manual',
+      used_well:          'Dùng tốt ✓',
+      needs_review:       'Cần xem lại ⚠',
+      upgrade_suggested:  'Nâng cấp ↑',
+      manual:             'Thủ công',
     }[item.source_type] || item.source_type;
 
     const masteryClass = item.mastery_status === 'mastered' ? 'mastery-mastered' : 'mastery-learning';
     const masteryLabel = item.mastery_status === 'mastered' ? 'Mastered' : 'Learning';
     const nextStatus = item.mastery_status === 'mastered' ? 'learning' : 'mastered';
-    const nextLabel = item.mastery_status === 'mastered' ? 'Mark learning' : 'Mark mastered';
+
+    const defBlock = (item.definition_en || item.definition_vi)
+      ? `<div class="mt-2 text-xs" style="color:rgba(255,255,255,0.55);">
+           ${item.definition_en ? `<span>${esc(item.definition_en)}</span>` : ''}
+           ${item.definition_vi ? `<span style="color:rgba(255,255,255,0.35);"> · ${esc(item.definition_vi)}</span>` : ''}
+         </div>`
+      : '';
 
     const upgradeHint = item.source_type === 'upgrade_suggested' && item.original_word
-      ? `<p class="text-xs mt-1" style="color:rgba(192,132,252,0.7);">Upgrade from: <em>${esc(item.original_word)}</em></p>`
+      ? `<p class="text-xs mt-1" style="color:rgba(192,132,252,0.65);">Nâng cấp từ: <em>${esc(item.original_word)}</em></p>`
+      : '';
+
+    const suggestionHint = item.source_type === 'needs_review' && item.suggestion
+      ? `<p class="text-xs mt-1" style="color:rgba(251,146,60,0.75);">Gợi ý: <em>${esc(item.suggestion)}</em></p>`
+      : '';
+
+    const sourceLink = item.session_id
+      ? `<a href="result.html?id=${esc(item.session_id)}"
+            class="text-xs" style="color:rgba(20,184,166,0.5);text-decoration:none;"
+            title="Xem buổi luyện tập">↗ nguồn</a>`
       : '';
 
     return `
@@ -154,15 +170,18 @@
           </button>
         </div>
 
+        ${defBlock}
         ${item.context_sentence
-          ? `<p class="text-xs italic mb-1" style="color:rgba(148,163,184,0.8);">"${esc(item.context_sentence)}"</p>`
+          ? `<p class="text-xs italic mt-2 mb-1" style="color:rgba(148,163,184,0.7);">"${esc(item.context_sentence)}"</p>`
           : ''}
         ${upgradeHint}
+        ${suggestionHint}
         ${item.reason
-          ? `<p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">${esc(item.reason)}</p>`
+          ? `<p class="text-xs mt-1" style="color:rgba(255,255,255,0.25);">${esc(item.reason)}</p>`
           : ''}
 
-        <div class="flex justify-end mt-2">
+        <div class="flex items-center justify-between mt-3">
+          ${sourceLink}
           <button class="report-btn" onclick="openReport('${item.id}')">Report incorrect</button>
         </div>
       </div>`;

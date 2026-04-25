@@ -666,17 +666,21 @@ async def _run_vocab_extraction(
                     continue
 
                 rows_to_insert.append({
-                    "user_id":         user_id,
-                    "session_id":      session_id,
-                    "response_id":     response_id,
-                    "headword":        item.headword,
-                    "context_sentence": item.context_sentence,
-                    "category":        item.category,
-                    "source_type":     source_type,
-                    "reason":          item.reason[:200] if item.reason else None,
-                    "original_word":   item.original_word if source_type == "upgrade_suggested" else None,
-                    "mastery_status":  "learning",
-                    "is_archived":     False,
+                    "user_id":           user_id,
+                    "session_id":        session_id,
+                    "response_id":       response_id,
+                    "headword":          item.headword,
+                    "context_sentence":  item.context_sentence,
+                    "evidence_substring": item.evidence_substring or None,
+                    "category":          item.category,
+                    "source_type":       source_type,
+                    "reason":            item.reason[:200] if item.reason else None,
+                    "definition_en":     item.definition_en,
+                    "definition_vi":     item.definition_vi,
+                    "original_word":     item.original_word if source_type == "upgrade_suggested" else None,
+                    "suggestion":        item.suggestion if source_type == "needs_review" else None,
+                    "mastery_status":    "learning",
+                    "is_archived":       False,
                 })
                 existing_headwords.append(item.headword.lower())
                 count += 1

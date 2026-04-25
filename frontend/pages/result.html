@@ -1120,7 +1120,7 @@
         const me = await meRes.json();
         if (me.vocab_bank_enabled !== true) return;
       } catch (_) {
-        return;  // Fail-safe: don't poll if flag check errors
+        return;
       }
 
       // Poll after 8s then 18s (background task typically takes 3-8s)
@@ -1131,19 +1131,21 @@
         if (shown) break;
         await new Promise(r => setTimeout(r, delay));
         try {
-          const res = await fetch(`${BASE}/api/vocabulary/bank/stats`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await fetch(
+            `${BASE}/api/vocabulary/bank/recent?session_id=${encodeURIComponent(sessionId)}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
           if (!res.ok) break;
-          const stats = await res.json();
-          if (stats.total > 0 && !shown) {
+          const items = await res.json();
+          if (items.length > 0 && !shown) {
             shown = true;
             const toast = document.getElementById('vocab-toast');
             const text = document.getElementById('vocab-toast-text');
             if (toast && text) {
-              text.textContent = `${stats.total} words in your vocab bank`;
+              const n = items.length;
+              text.textContent = `${n} new word${n > 1 ? 's' : ''} added to your vocab bank`;
               toast.classList.remove('hidden');
-              setTimeout(() => toast.classList.add('hidden'), 6000);
+              setTimeout(() => toast.classList.add('hidden'), 7000);
             }
           }
         } catch (_) { break; }

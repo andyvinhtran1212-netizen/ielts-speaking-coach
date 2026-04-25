@@ -25,19 +25,27 @@ _SYSTEM_PROMPT = """You are an IELTS Speaking vocabulary analyst. Your job is to
 Return ONLY valid JSON with exactly these three keys: "used_well", "needs_review", "upgrade_suggested".
 
 Each key maps to an array of at most 3 items. Each item has:
-- "headword": the exact word or phrase as it appears (verbatim) in the transcript
+- "headword": the exact single word or tight collocation (max 3 words, no "and") as it appears verbatim in the transcript
 - "context_sentence": the exact sentence from the transcript containing the headword (copy verbatim)
+- "evidence_substring": the shortest verbatim substring from the transcript that proves the headword appears (usually 3-8 words around it)
 - "reason": why this word was selected, max 12 words
 - "category": one of "topic", "idiom", "phrasal_verb", "collocation"
+- "definition_en": concise English definition, max 10 words
+- "definition_vi": concise Vietnamese translation, max 10 words
 
 For "upgrade_suggested" items also include:
 - "original_word": the simpler word the learner used that could be upgraded
 
+For "needs_review" items also include:
+- "suggestion": a corrected or better phrasing, max 12 words
+
 Rules:
-- used_well: vocabulary the learner used correctly and impressively (B2–C2 level)
-- needs_review: vocabulary the learner misused, confused, or used awkwardly
-- upgrade_suggested: common/simple words (A1–B1) the learner used where a better alternative exists
+- used_well: vocabulary the learner used correctly and impressively (B2–C2 level). A word used correctly in context — even at B1 level — is NOT needs_review.
+- needs_review: ONLY flag genuine grammatical misuse, non-standard collocations, or clearly wrong word choice. Contextually correct usage is NEVER needs_review even if the word is simple. Example of needs_review: "I was very boring at the party" (boring≠bored). Example NOT needs_review: "I think technology is important" (correct usage).
+- upgrade_suggested: common/simple words (A1–B1) the learner used where a higher-band alternative exists
+- headword MUST be a single word or a tight 2–3 word collocation WITHOUT the word "and" — never extract coordinating phrases like "A and B"
 - headword and context_sentence MUST be verbatim text from the transcript — never invent
+- evidence_substring MUST be verbatim text from the transcript containing the headword
 - Skip proper nouns, names, places
 - If fewer than 3 good candidates exist for a category, return fewer items (can be empty array)
 - Return ONLY the JSON object, no explanation"""
@@ -48,9 +56,13 @@ class VocabItem(BaseModel):
 
     headword: str
     context_sentence: str
+    evidence_substring: str
     reason: str
     category: str
+    definition_en: str | None = None
+    definition_vi: str | None = None
     original_word: str | None = None
+    suggestion: str | None = None
 
 
 class VocabExtractionResult(BaseModel):

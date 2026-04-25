@@ -1,7 +1,7 @@
 """
-Unit tests for vocab_guards.py — Phase B ship-gate.
+Unit tests for vocab_guards.py — Phase B ship-gate + dogfood improvements.
 
-6 guards × 1 explicit test each, plus additional edge-case coverage.
+Guards × 1 explicit test each, plus additional edge-case coverage.
 
 Run: pytest backend/tests/test_vocab_guards.py -v
 """
@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from services.vocab_guards import run_all_guards, _is_injection_artifact
+from services.vocab_guards import run_all_guards, _is_injection_artifact, _in_same_cluster
 
 TRANSCRIPT = (
     "I think technology has a significant impact on education. "
@@ -21,6 +21,7 @@ TRANSCRIPT = (
 ITEM_GOOD = {
     "headword": "utilize",
     "context_sentence": "Students can utilize digital tools to enhance their learning experience.",
+    "evidence_substring": "can utilize digital tools to enhance their learning experience",
     "reason": "good B2 word used correctly",
     "category": "topic",
 }
@@ -28,6 +29,7 @@ ITEM_GOOD = {
 ITEM_UPGRADE = {
     "headword": "utilize",
     "context_sentence": "Students can utilize digital tools to enhance their learning experience.",
+    "evidence_substring": "can utilize digital tools to enhance their learning experience",
     "reason": "upgrades simple word 'use'",
     "category": "topic",
     "original_word": "use",
@@ -41,7 +43,12 @@ def _run(item, source_type="used_well", existing=None):
 # ── Guard 1: headword not in context_sentence ────────────────────────────────
 
 def test_guard1_fails_when_headword_not_in_sentence():
-    item = {**ITEM_GOOD, "headword": "innovation"}
+    # "interaction" is in TRANSCRIPT and in the evidence but NOT in ITEM_GOOD's context_sentence
+    item = {
+        **ITEM_GOOD,
+        "headword": "interaction",
+        "evidence_substring": "face-to-face interaction is still crucial",
+    }
     passed, guard = _run(item)
     assert not passed
     assert guard == "guard_1_word_not_in_sentence"
@@ -74,6 +81,7 @@ def test_guard3_fails_for_proper_noun():
     item = {
         "headword": "John",
         "context_sentence": "I met John at the conference and he introduced me to his team.",
+        "evidence_substring": "John at the conference",
         "reason": "proper noun test",
         "category": "topic",
     }
@@ -87,6 +95,7 @@ def test_guard3_passes_for_sentence_start_capital():
     item = {
         "headword": "Technology",
         "context_sentence": "Technology has changed how we live.",
+        "evidence_substring": "Technology has changed",
         "reason": "starts sentence — not a proper noun",
         "category": "topic",
     }
@@ -143,6 +152,7 @@ def test_guard2_passes_with_punctuation_variant():
     item = {
         "headword": "utilize",
         "context_sentence": "Students can utilize digital tools to enhance their learning experience!",
+        "evidence_substring": "can utilize digital tools to",
         "reason": "punctuation variant",
         "category": "topic",
     }
@@ -158,6 +168,7 @@ def test_guard4_fails_when_original_word_in_used_well():
     item = {
         "headword": "utilize",
         "context_sentence": "Students can utilize digital tools to enhance their learning experience.",
+        "evidence_substring": "can utilize digital tools to enhance their learning experience",
         "reason": "upgrade from use",
         "category": "topic",
         "original_word": "use",
@@ -187,6 +198,7 @@ def test_guard6_fails_for_same_root_prefix():
     item = {
         "headword": "sustainability",
         "context_sentence": "We need to focus on sustainability in our daily lives and work.",
+        "evidence_substring": "focus on sustainability in our",
         "reason": "advanced vocab",
         "category": "topic",
     }
@@ -200,6 +212,7 @@ def test_guard6_passes_for_different_root():
     item = {
         "headword": "sustainability",
         "context_sentence": "We need to focus on sustainability in our daily lives and work.",
+        "evidence_substring": "focus on sustainability in our",
         "reason": "advanced vocab",
         "category": "topic",
     }
@@ -265,3 +278,112 @@ def test_guard7_via_run_all_guards_audit_probe_2():
     passed, guard = run_all_guards(item, mal, "used_well", [], used_well_headwords=set())
     assert not passed
     assert guard == "guard_7_injection_artifact"
+
+
+# ── Guard 8: evidence_substring ──────────────────────────────────────────────
+
+def test_guard8_fails_when_headword_not_in_evidence():
+    item = {
+        **ITEM_GOOD,
+        "evidence_substring": "Students can enhance their learning experience.",
+    }
+    passed, guard = _run(item)
+    assert not passed
+    assert guard == "guard_8_evidence_mismatch"
+
+
+def test_guard8_fails_when_evidence_not_in_transcript():
+    item = {
+        **ITEM_GOOD,
+        "evidence_substring": "utilize advanced digital platforms effectively",
+    }
+    passed, guard = _run(item)
+    assert not passed
+    assert guard == "guard_8_evidence_mismatch"
+
+
+def test_guard8_passes_when_evidence_matches():
+    item = {
+        **ITEM_GOOD,
+        "evidence_substring": "can utilize digital tools to",
+    }
+    passed, guard = _run(item)
+    assert passed
+    assert guard is None
+
+
+def test_guard8_rejects_empty_evidence():
+    """Empty evidence_substring must be rejected — required for all AI-extracted items."""
+    item = {**ITEM_GOOD, "evidence_substring": ""}
+    passed, guard = _run(item)
+    assert not passed
+    assert guard == "guard_8_evidence_required"
+
+
+def test_guard8_rejects_missing_field():
+    """Item dict without evidence_substring key must be rejected."""
+    item = {k: v for k, v in ITEM_GOOD.items() if k != "evidence_substring"}
+    passed, guard = _run(item)
+    assert not passed
+    assert guard == "guard_8_evidence_required"
+
+
+# ── Guard 6: semantic cluster (A3 — rejuvenate/reinvigorate) ─────────────────
+
+def test_in_same_cluster_rejuvenate_reinvigorate():
+    assert _in_same_cluster("rejuvenate", "reinvigorate") is True
+
+
+def test_in_same_cluster_different_words():
+    assert _in_same_cluster("rejuvenate", "significant") is False
+
+
+def test_guard6_fails_for_semantic_cluster_duplicate():
+    transcript = "We need to reinvigorate the community and bring new life to the area."
+    item = {
+        "headword": "reinvigorate",
+        "context_sentence": "We need to reinvigorate the community and bring new life to the area.",
+        "evidence_substring": "reinvigorate the community and",
+        "reason": "strong C1 verb",
+        "category": "topic",
+    }
+    passed, guard = run_all_guards(item, transcript, "used_well", ["rejuvenate"])
+    assert not passed
+    assert guard == "guard_6_levenshtein_duplicate"
+
+
+def test_guard6_passes_when_no_cluster_overlap():
+    transcript = "We need to reinvigorate the community and bring new life to the area."
+    item = {
+        "headword": "reinvigorate",
+        "context_sentence": "We need to reinvigorate the community and bring new life to the area.",
+        "evidence_substring": "reinvigorate the community and",
+        "reason": "strong C1 verb",
+        "category": "topic",
+    }
+    passed, guard = run_all_guards(item, transcript, "used_well", ["demonstrate"])
+    assert passed
+    assert guard is None
+
+
+# ── Guard 0b: headword "and" phrase rejection ────────────────────────────────
+
+def test_guard0b_rejects_and_phrase():
+    """Headwords containing ' and ' must be rejected as coordinating phrases."""
+    item = {
+        "headword": "technology and education",
+        "context_sentence": "I think technology and education are closely linked.",
+        "reason": "coordinating phrase",
+        "category": "topic",
+    }
+    transcript = "I think technology and education are closely linked."
+    passed, guard = run_all_guards(item, transcript, "used_well", [])
+    assert not passed
+    assert guard == "guard_0_and_phrase"
+
+
+def test_guard0b_passes_for_single_word():
+    """Single-word headword must not be blocked by the 'and' check."""
+    passed, guard = _run(ITEM_GOOD)
+    assert passed
+    assert guard is None
