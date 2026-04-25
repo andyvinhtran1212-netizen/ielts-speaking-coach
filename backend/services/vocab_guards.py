@@ -14,6 +14,27 @@ logger = logging.getLogger(__name__)
 
 _BAND_PAIRS_PATH = Path(__file__).parent.parent / "data" / "band_upgrade_pairs.json"
 
+# Semantic clusters: groups of words that are interchangeable enough that only one
+# should appear in a user's vocab bank at a time. Prevents saving near-synonyms that
+# differ linguistically but not meaningfully (e.g. rejuvenate vs reinvigorate).
+_SEMANTIC_CLUSTERS: list[frozenset[str]] = [
+    frozenset({"rejuvenate", "reinvigorate", "revitalize", "invigorate"}),
+    frozenset({"mitigate", "alleviate", "ameliorate", "relieve"}),
+    frozenset({"exacerbate", "aggravate", "worsen", "intensify"}),
+    frozenset({"demonstrate", "illustrate", "exemplify", "showcase"}),
+    frozenset({"emphasize", "highlight", "underscore", "accentuate"}),
+    frozenset({"implement", "execute", "carry out", "put into practice"}),
+    frozenset({"significant", "substantial", "considerable", "notable"}),
+    frozenset({"consequently", "therefore", "hence", "thus"}),
+    frozenset({"additionally", "furthermore", "moreover", "in addition"}),
+]
+
+
+def _in_same_cluster(word_a: str, word_b: str) -> bool:
+    """Return True if both words belong to the same semantic cluster."""
+    a, b = word_a.lower(), word_b.lower()
+    return any(a in cluster and b in cluster for cluster in _SEMANTIC_CLUSTERS)
+
 # Loaded once at module import
 _UPGRADE_PAIRS: set[tuple[str, str]] = set()
 
@@ -130,10 +151,10 @@ def run_all_guards(
     used_well_headwords: set[str] | None = None,
 ) -> tuple[bool, str | None]:
     """
-    Run all 6 guards on a single vocab item.
+    Run all guards on a single vocab item.
 
     Args:
-        item: dict with keys headword, context_sentence, original_word (optional)
+        item: dict with keys headword, context_sentence, evidence_substring (optional), original_word (optional)
         raw_transcript: the full transcript string
         source_type: 'used_well' | 'needs_review' | 'upgrade_suggested' | 'manual'
         existing_headwords: lowercased headwords already in the user's bank
@@ -148,10 +169,28 @@ def run_all_guards(
     context_sentence: str = (item.get("context_sentence") or "").strip()
     original_word: str = (item.get("original_word") or "").strip()
 
+    evidence_substring: str = (item.get("evidence_substring") or "").strip()
+
     if not headword or not context_sentence:
         return False, "guard_0_empty_fields"
 
+    # Guard 0b: headword must not be a coordinating phrase (contains " and ")
+    if " and " in headword.lower():
+        logger.debug("[guard0b] SKIP '%s' — coordinating 'and' phrase", headword)
+        return False, "guard_0_and_phrase"
+
     hw_lower = headword.lower()
+
+    # Guard 8: evidence_substring must contain headword AND appear verbatim in transcript.
+    # Only enforced when evidence_substring is provided (new extractions always provide it;
+    # legacy items without the field pass through).
+    if evidence_substring:
+        if hw_lower not in evidence_substring.lower():
+            logger.debug("[guard8] SKIP '%s' — not in evidence_substring", headword)
+            return False, "guard_8_evidence_mismatch"
+        if evidence_substring.lower() not in raw_transcript.lower():
+            logger.debug("[guard8] SKIP '%s' — evidence_substring not in transcript", headword)
+            return False, "guard_8_evidence_mismatch"
 
     # Guard 1: headword must appear in context_sentence
     if hw_lower not in context_sentence.lower():
@@ -195,12 +234,16 @@ def run_all_guards(
             logger.debug("[guard5] SKIP '%s' — upgrade pair (%s→%s) not in whitelist", headword, original_word, headword)
             return False, "guard_5_not_in_whitelist"
 
-    # Guard 6: same-root prefix check OR Levenshtein ≤ 2 vs existing bank headwords
+    # Guard 6: same-root prefix check, Levenshtein ≤ 2, OR semantic cluster match
     for existing in existing_headwords:
         ex_lower = existing.lower()
-        if _shares_root(hw_lower, ex_lower) or _levenshtein(hw_lower, ex_lower) <= 2:
+        if (
+            _shares_root(hw_lower, ex_lower)
+            or _levenshtein(hw_lower, ex_lower) <= 2
+            or _in_same_cluster(hw_lower, ex_lower)
+        ):
             logger.debug(
-                "[guard6] SKIP '%s' — same-root or near-duplicate of existing '%s'",
+                "[guard6] SKIP '%s' — same-root/near-duplicate/same-cluster of existing '%s'",
                 headword, existing,
             )
             return False, "guard_6_levenshtein_duplicate"
