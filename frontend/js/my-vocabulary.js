@@ -31,19 +31,25 @@
       return;
     }
 
-    // Check feature flag before making any bank API calls
+    // Check feature flag before making any bank API calls.
+    // Default-deny: any failure (network error, non-ok response) shows disabled state.
     try {
       const meRes = await fetch(`${BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${_token}` },
       });
-      if (meRes.ok) {
-        const me = await meRes.json();
-        if (!me.vocab_bank_enabled) {
-          showState('disabled');
-          return;
-        }
+      if (!meRes.ok) {
+        showState('disabled');
+        return;
       }
-    } catch (_) {}
+      const me = await meRes.json();
+      if (me.vocab_bank_enabled !== true) {
+        showState('disabled');
+        return;
+      }
+    } catch (_) {
+      showState('disabled');
+      return;
+    }
 
     await loadStats();
     await loadVocab();

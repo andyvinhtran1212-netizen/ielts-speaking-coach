@@ -208,7 +208,15 @@
     </div>
   </div>
 
+  <!-- order matters: supabase CDN → api.js → my-vocabulary.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
+  <script>
+    initSupabase(
+      'https://nqhrtqspznepmveyurzm.supabase.co',
+      'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4'
+    );
+  </script>
   <script src="../js/my-vocabulary.js"></script>
 </body>
 </html>
