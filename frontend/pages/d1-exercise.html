@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fill the blank — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
+  <style>
+    body { background: #0a1628; }
+
+    .ex-stage {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 26px;
+    }
+
+    .blank-token {
+      display: inline-block;
+      min-width: 90px;
+      padding: 0 10px;
+      border-bottom: 2px dashed rgba(20,184,166,0.5);
+      color: #5eead4;
+      font-weight: 600;
+    }
+
+    .opt-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+      color: rgba(255,255,255,0.85);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .opt-btn:hover {
+      border-color: rgba(20,184,166,0.4);
+      background: rgba(20,184,166,0.08);
+    }
+    .opt-btn.correct   { border-color: rgba(20,184,166,0.6);  background: rgba(20,184,166,0.18);  color: #5eead4; }
+    .opt-btn.incorrect { border-color: rgba(239,68,68,0.6);   background: rgba(239,68,68,0.15);   color: #fca5a5; }
+    .opt-btn.dimmed    { opacity: 0.4; }
+    .opt-btn:disabled  { cursor: default; }
+
+    .feedback-banner {
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .fb-correct   { background: rgba(20,184,166,0.12); border: 1px solid rgba(20,184,166,0.3); color: #5eead4; }
+    .fb-incorrect { background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.3);  color: #fca5a5; }
+
+    .empty-state { color: rgba(255,255,255,0.3); }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(20,184,166,0.2);
+      border-top-color: #14b8a6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen">
+
+  <header style="background:#0C2340; border-bottom:1px solid rgba(255,255,255,0.06);" class="px-6 py-4">
+    <div class="max-w-2xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="exercises.html" class="text-sm font-medium flex items-center gap-1 hover:opacity-80" style="color:#14b8a6; text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Exercises
+        </a>
+        <span class="text-slate-600">|</span>
+        <h1 class="text-base font-semibold text-slate-200">Fill the blank</h1>
+      </div>
+      <span id="progress-counter" class="text-xs text-slate-400"></span>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-8">
+
+    <div id="state-loading" class="flex justify-center py-16">
+      <div class="spinner"></div>
+    </div>
+
+    <div id="state-disabled" class="hidden text-center py-16 empty-state">
+      <p class="text-lg font-medium mb-2">Fill-blank is not enabled</p>
+      <p class="text-sm">This drill is rolling out gradually.</p>
+    </div>
+
+    <div id="state-empty" class="hidden text-center py-16 empty-state">
+      <p class="text-lg font-medium mb-2">No exercises available yet</p>
+      <p class="text-sm">Come back soon — content is being added.</p>
+    </div>
+
+    <div id="state-error" class="hidden text-center py-16 empty-state">
+      <p class="text-sm">Could not load the next exercise. Please refresh.</p>
+    </div>
+
+    <div id="state-rate-limited" class="hidden text-center py-16 empty-state">
+      <p class="text-lg font-medium mb-2">Daily limit reached</p>
+      <p class="text-sm" id="rate-limited-detail">Try again tomorrow.</p>
+    </div>
+
+    <div id="stage" class="hidden ex-stage">
+      <p id="prompt" class="text-base text-white leading-7"></p>
+
+      <div id="options" class="mt-6 flex flex-col gap-2"></div>
+
+      <div id="feedback" class="hidden mt-5 feedback-banner"></div>
+
+      <div class="mt-5 flex justify-end">
+        <button id="next-btn" class="hidden text-sm font-medium px-5 py-2 rounded-lg"
+                style="background:rgba(20,184,166,0.18); border:1px solid rgba(20,184,166,0.4); color:#14b8a6;">
+          Next exercise →
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- order matters: supabase CDN → api.js → d1-exercise.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    initSupabase(
+      'https://nqhrtqspznepmveyurzm.supabase.co',
+      'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4'
+    );
+  </script>
+  <script src="../js/d1-exercise.js"></script>
+</body>
+</html>
