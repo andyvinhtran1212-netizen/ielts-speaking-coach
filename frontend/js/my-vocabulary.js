@@ -153,7 +153,7 @@
       : '';
 
     const sourceLink = item.session_id
-      ? `<a href="result.html?session_id=${esc(item.session_id)}"
+      ? `<a href="result.html?id=${esc(item.session_id)}"
             class="text-xs" style="color:rgba(20,184,166,0.5);text-decoration:none;"
             title="Xem buổi luyện tập">↗ nguồn</a>`
       : '';
