@@ -138,6 +138,37 @@ async def get_vocab_stats(authorization: str | None = Header(default=None)):
     return {"total": total, "learning": total - mastered, "mastered": mastered}
 
 
+# ── GET /recent — Items from a specific session ───────────────────────────────
+
+@router.get("/recent")
+async def get_recent_vocab(
+    session_id: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Return vocab items added from a specific session (for toast notification)."""
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    if not session_id:
+        raise HTTPException(422, "session_id query parameter is required")
+
+    token = _token_from_header(authorization)
+    result = (
+        _user_sb(token).table("user_vocabulary")
+        .select("id, headword, source_type, mastery_status")
+        .eq("user_id", user_id)
+        .eq("session_id", session_id)
+        .eq("is_archived", False)
+        .order("created_at", desc=False)
+        .execute()
+    )
+
+    return result.data or []
+
+
 # ── GET /{id} — Detail ────────────────────────────────────────────────────────
 
 @router.get("/{vocab_id}")
