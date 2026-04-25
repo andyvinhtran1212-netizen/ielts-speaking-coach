@@ -402,6 +402,7 @@
       <span class="main-tab-label">📖 Grammar Wiki</span>
       <span class="main-tab-sub">Tra cứu ngữ pháp IELTS</span>
     </a>
+    <div id="vocab-bank-link-container"></div>
   </nav>
 
   <!-- ─── MAIN ────────────────────────────────────────────── -->
@@ -1088,6 +1089,21 @@
       }
     }
 
+    // ── Vocab Bank flag ───────────────────────────────────────
+    function applyVocabBankFlag(enabled) {
+      var container = document.getElementById('vocab-bank-link-container');
+      if (!container) return;
+      if (enabled === true) {
+        container.innerHTML =
+          '<a href="my-vocabulary.html" class="main-tab-btn" style="text-decoration:none;">'
+          + '<span class="main-tab-label">📚 My Vocabulary</span>'
+          + '<span class="main-tab-sub">Kho từ vựng cá nhân</span>'
+          + '</a>';
+      } else {
+        container.innerHTML = '';
+      }
+    }
+
     // ── Render user info ──────────────────────────────────────
     function renderUser(user) {
       document.getElementById('user-name-skeleton').style.display = 'none';
@@ -1113,6 +1129,7 @@
         _userPerms = user.permissions;
       }
       applyPermissions();
+      applyVocabBankFlag(user.vocab_bank_enabled);
     }
 
     // ── Render stats ──────────────────────────────────────────
