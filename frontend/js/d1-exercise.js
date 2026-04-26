@@ -13,12 +13,10 @@
  */
 
 (function () {
-  const BASE = window.api ? window.api.base : (() => {
-    const h = location.hostname;
-    return (h === 'localhost' || h === '127.0.0.1')
-      ? 'http://localhost:8000'
-      : 'https://ielts-speaking-coach-production.up.railway.app';
-  })();
+  // api.js sets window.api.base from a single localhost/Railway switch — no
+  // per-page fallback duplication.  The d1-exercise.html page loads api.js
+  // before this script, so window.api is always defined here.
+  const BASE = window.api.base;
 
   let _token = null;
   let _queue = [];           // [{ id, content }]
