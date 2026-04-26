@@ -160,8 +160,11 @@
             title="Xem buổi luyện tập">↗ nguồn</a>`
       : '';
 
+    // TODO Wave 2: pass vocab_id to filter D3 exercises by target word.
+    // Wave 1 hub doesn't consume vocab_id, so we ship the link as a plain
+    // entry point to avoid a dead query param in the URL bar.
     const practiceLink = _exercisesEnabled
-      ? `<a href="exercises.html?vocab_id=${esc(item.id)}"
+      ? `<a href="exercises.html"
             class="text-xs ml-3" style="color:rgba(20,184,166,0.65);text-decoration:none;"
             title="Practice with this word">▶ practice</a>`
       : '';
