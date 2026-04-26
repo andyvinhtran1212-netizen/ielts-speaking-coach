@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     D3_ENABLED: bool = False
     D1_DAILY_LIMIT: int = 100        # generous; D1 cost is ~zero
     D3_DAILY_LIMIT_FREE: int = 3
-    D1_GENERATION_MODEL: str = "gemini-1.5-flash"
+    D1_GENERATION_MODEL: str = "gemini-2.5-flash"
 
     class Config:
         env_file = ".env"

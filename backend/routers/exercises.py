@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from supabase import create_client
 
@@ -22,7 +22,7 @@ from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.analytics import fire_event
-from services.d1_content_gen import generate_d1_exercises
+from services.d1_content_gen import GeminiBatchError, generate_d1_exercises
 from services.feature_flags import is_d1_enabled
 from services.rate_limit import enforce_exercise_rate_limit
 
@@ -429,36 +429,49 @@ async def admin_bulk_action(
 
 
 def _generate_and_insert_batch(words: list[str], count: int, admin_id: str) -> int:
-    """Background task: call Gemini, insert as drafts, return number inserted."""
-    try:
-        items = generate_d1_exercises(words, count=count)
-        if not items:
-            logger.warning("[admin/exercises] batch produced 0 items")
-            return 0
+    """
+    Call Gemini, insert results as drafts, return number inserted.
 
-        rows = [
-            {
-                "exercise_type":   "D1",
-                "status":          "draft",
-                "content_payload": item,
-                "created_by":      admin_id,
-            }
-            for item in items
-        ]
-        supabase_admin.table("vocabulary_exercises").insert(rows).execute()
-        logger.info("[admin/exercises] inserted %d D1 drafts (admin=%s)", len(rows), admin_id)
-        return len(rows)
-    except Exception as e:
-        logger.error("[admin/exercises] batch insert failed: %s", e)
+    Propagates GeminiBatchError so the endpoint can surface a clear failure
+    to the admin instead of silently returning zero drafts (the original
+    'Queued' bug — admin saw success and 30s later still saw an empty list).
+    """
+    items = generate_d1_exercises(words, count=count)
+    if not items:
+        logger.warning("[admin/exercises] batch produced 0 items")
         return 0
+
+    rows = [
+        {
+            "exercise_type":   "D1",
+            "status":          "draft",
+            "content_payload": item,
+            "created_by":      admin_id,
+        }
+        for item in items
+    ]
+    supabase_admin.table("vocabulary_exercises").insert(rows).execute()
+    logger.info("[admin/exercises] inserted %d D1 drafts (admin=%s)", len(rows), admin_id)
+    return len(rows)
 
 
 @admin_router.post("/d1/generate-batch", status_code=202)
 async def admin_generate_d1_batch(
     body: AdminGenerateBatchRequest,
-    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
+    """
+    Synchronous: blocks until Gemini returns and rows are inserted, so the
+    admin sees a real success/failure outcome instead of a fire-and-forget
+    'queued' toast that hid Gemini errors.  Typical batches finish in
+    3-10s, which is acceptable for an admin tool.
+
+    Response:
+      Success — HTTP 202 with status='completed' and inserted_count.
+      Failure — HTTP 502 with detail string (Gemini outage, bad model name,
+                quota, etc.).  Existing api.js error path surfaces detail
+                as the toast message.
+    """
     auth_user = await require_admin(authorization)
     if not body.words:
         raise HTTPException(400, "Provide at least one word.")
@@ -468,21 +481,31 @@ async def admin_generate_d1_batch(
     job_id = str(uuid.uuid4())
 
     logger.info(
-        "[admin/exercises] queue batch job=%s admin=%s words=%d count=%d",
+        "[admin/exercises] start batch job=%s admin=%s words=%d count=%d",
         job_id, auth_user["id"], len(body.words), body.count,
     )
-    background_tasks.add_task(
-        _generate_and_insert_batch,
-        body.words,
-        body.count,
-        auth_user["id"],
-    )
+
+    try:
+        inserted = _generate_and_insert_batch(body.words, body.count, auth_user["id"])
+    except GeminiBatchError as e:
+        logger.error("[admin/exercises] batch job=%s FAILED: %s", job_id, e)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Generation failed: {e}",
+        )
+    except Exception as e:
+        logger.error("[admin/exercises] batch job=%s unexpected error: %s", job_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Batch insert failed: {e}",
+        )
 
     return {
         "job_id":             job_id,
-        "status":             "queued",
+        "status":             "completed",
+        "inserted_count":     inserted,
         "requested_count":    body.count,
         "word_count":         len(body.words),
         "estimated_cost_usd": estimated_cost_usd,
-        "message":            "Batch queued. Check the drafts list in a moment.",
+        "message":            f"{inserted} draft(s) inserted.",
     }

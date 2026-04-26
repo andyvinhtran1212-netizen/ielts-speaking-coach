@@ -138,6 +138,20 @@ def test_generate_and_insert_batch_inserts_drafts(monkeypatch):
 
 
 def test_generate_and_insert_batch_returns_zero_when_gemini_empty(monkeypatch):
+    """Gemini OK but no validated items → 0, NOT a GeminiBatchError."""
     monkeypatch.setattr(exr, "generate_d1_exercises", lambda *a, **k: [])
     n = exr._generate_and_insert_batch(["x"], count=1, admin_id=REVIEWER)
     assert n == 0
+
+
+def test_generate_and_insert_batch_propagates_gemini_error(monkeypatch):
+    """A real Gemini failure (e.g. 404 model name) must bubble up so the
+    admin endpoint can surface it instead of silently returning zero."""
+    from services.d1_content_gen import GeminiBatchError
+
+    def _boom(*a, **k):
+        raise GeminiBatchError("Gemini call failed (model=fake-model): 404")
+
+    monkeypatch.setattr(exr, "generate_d1_exercises", _boom)
+    with pytest.raises(GeminiBatchError):
+        exr._generate_and_insert_batch(["x"], count=1, admin_id=REVIEWER)

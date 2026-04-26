@@ -3377,17 +3377,18 @@
         statusEl.classList.remove('hidden');
         return;
       }
-      btn.disabled = true; btn.textContent = 'Queuing…';
+      // Synchronous now: the endpoint blocks until Gemini + insert finish, so
+      // success/failure shows up here immediately. ~3-10s for typical batches.
+      btn.disabled = true; btn.textContent = 'Generating…';
       try {
         var r = await window.api.post('/admin/exercises/d1/generate-batch', { words: words, count: count }, _token);
-        if (r && r.job_id) {
-          // Logged for future batch-status tracking; no UI change yet.
-          console.info('[ve] batch job_id =', r.job_id);
-        }
+        if (r && r.job_id) console.info('[ve] batch job_id =', r.job_id);
         var jobNote = r && r.job_id ? ' (job ' + String(r.job_id).slice(0, 8) + ')' : '';
-        statusEl.textContent = 'Queued' + jobNote + '. Estimated cost: $' + (r.estimated_cost_usd || 0) + '. Refresh in ~30s.';
+        var n = r && typeof r.inserted_count === 'number' ? r.inserted_count : 0;
+        statusEl.textContent = n + ' draft(s) inserted' + jobNote + '. Cost: $' + (r.estimated_cost_usd || 0) + '.';
         statusEl.classList.remove('hidden');
-        setTimeout(function () { ve_load(true); }, 30000);
+        // Refresh immediately — drafts are in by the time the response returns.
+        ve_load(true);
       } catch (err) {
         statusEl.textContent = 'Failed: ' + (err.message || err);
         statusEl.classList.remove('hidden');
