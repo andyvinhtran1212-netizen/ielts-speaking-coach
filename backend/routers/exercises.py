@@ -24,7 +24,7 @@ from routers.auth import get_supabase_user
 from services.analytics import fire_event
 from services.d1_content_gen import GeminiBatchError, generate_d1_exercises
 from services.feature_flags import is_d1_enabled
-from services.rate_limit import enforce_exercise_rate_limit
+from services.rate_limit import rate_limit_exercise
 
 logger = logging.getLogger(__name__)
 
@@ -195,23 +195,23 @@ async def get_d1_exercise(
 
 
 @user_router.post("/d1/{exercise_id}/attempt")
+@rate_limit_exercise(exercise_type="D1", daily_limit=50)
 async def submit_d1_attempt(
     exercise_id: str,
     body: D1AttemptRequest,
     authorization: str | None = Header(default=None),
 ):
+    """
+    D1 free tier: 50 attempts/day to prevent abuse.
+
+    The decorator above runs BEFORE this handler and raises HTTP 429 with a
+    machine-readable detail (error, limit, used, reset_at) once the user has
+    submitted 50 D1 attempts in the current UTC day.
+    """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
     _require_d1_enabled(user_id)
     sb = _user_sb(_bearer_token(authorization))
-
-    # Enforce rate limit BEFORE doing the lookup, even though D1 is generous,
-    # so the same code path proves out for D3 in Wave 2.
-    enforce_exercise_rate_limit(
-        user_id=user_id,
-        exercise_type="D1",
-        daily_limit=settings.D1_DAILY_LIMIT,
-    )
 
     try:
         # RLS already prevents non-admins from reading drafts; we still filter

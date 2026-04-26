@@ -102,3 +102,115 @@ def test_count_lookup_failure_does_not_raise(monkeypatch):
     )
     # The wrapped count_attempts_today should swallow the error and return 0.
     assert rate_limit.count_attempts_today("u-1", "D3") == 0
+
+
+# ── Decorator: rate_limit_exercise ────────────────────────────────────────────
+#
+# The decorator extracts authorization from kwargs, resolves user_id via
+# routers.auth.get_supabase_user, then enforces the limit.  We stub the auth
+# resolver and the counter so these tests don't touch network or DB.
+
+import asyncio
+
+import pytest as _pytest
+
+
+def _stub_auth(monkeypatch, user_id: str = "u-1") -> None:
+    """Patch routers.auth.get_supabase_user to return a fake auth user."""
+    async def _fake_auth(_authorization):
+        return {"id": user_id}
+    import routers.auth
+    monkeypatch.setattr(routers.auth, "get_supabase_user", _fake_auth)
+
+
+def test_decorator_passes_under_limit(monkeypatch):
+    _stub_auth(monkeypatch)
+    _stub_counter(monkeypatch, 49)
+
+    @rate_limit.rate_limit_exercise(exercise_type="D1", daily_limit=50)
+    async def handler(authorization: str | None = None):
+        return "ok"
+
+    result = asyncio.run(handler(authorization="Bearer x"))
+    assert result == "ok"
+
+
+def test_decorator_blocks_at_limit(monkeypatch):
+    """50/50 → 429 with machine-readable detail."""
+    _stub_auth(monkeypatch)
+    _stub_counter(monkeypatch, 50)
+
+    @rate_limit.rate_limit_exercise(exercise_type="D1", daily_limit=50)
+    async def handler(authorization: str | None = None):
+        return "ok"
+
+    with _pytest.raises(HTTPException) as exc:
+        asyncio.run(handler(authorization="Bearer x"))
+    assert exc.value.status_code == 429
+    detail = exc.value.detail
+    assert detail["error"] == "rate_limit_exceeded"
+    assert detail["limit"] == 50
+    assert detail["exercise_type"] == "D1"
+
+
+def test_decorator_blocks_when_spam_exceeds_limit(monkeypatch):
+    """Audit-style probe: simulate the 51st D1 submit by stubbing count=51."""
+    _stub_auth(monkeypatch)
+    _stub_counter(monkeypatch, 51)
+
+    @rate_limit.rate_limit_exercise(exercise_type="D1", daily_limit=50)
+    async def handler(authorization: str | None = None):
+        return "ok"
+
+    with _pytest.raises(HTTPException) as exc:
+        asyncio.run(handler(authorization="Bearer x"))
+    assert exc.value.status_code == 429
+
+
+def test_decorator_d1_and_d3_limits_are_independent(monkeypatch):
+    """A D1 attempt count must NOT leak into the D3 limit, and vice versa.
+    The counter helper filters by (user_id, exercise_type) — verify the
+    decorator passes that filter through correctly."""
+    _stub_auth(monkeypatch)
+
+    seen: list[tuple[str, str]] = []
+
+    def _spy_count(user_id: str, exercise_type: str) -> int:
+        seen.append((user_id, exercise_type))
+        # Simulate: D1 has 49 attempts (under limit 50), D3 has 4 (over limit 3).
+        return 49 if exercise_type == "D1" else 4
+
+    monkeypatch.setattr(rate_limit, "count_attempts_today", _spy_count)
+
+    @rate_limit.rate_limit_exercise(exercise_type="D1", daily_limit=50)
+    async def d1_handler(authorization: str | None = None):
+        return "d1-ok"
+
+    @rate_limit.rate_limit_exercise(exercise_type="D3", daily_limit=3)
+    async def d3_handler(authorization: str | None = None):
+        return "d3-ok"
+
+    # D1 49/50 → passes
+    assert asyncio.run(d1_handler(authorization="Bearer x")) == "d1-ok"
+    # D3 4/3   → blocks
+    with _pytest.raises(HTTPException) as exc:
+        asyncio.run(d3_handler(authorization="Bearer x"))
+    assert exc.value.status_code == 429
+    assert exc.value.detail["exercise_type"] == "D3"
+
+    # The counter was called once per handler with the right exercise_type —
+    # proves the limits are tracked independently per type.
+    assert ("u-1", "D1") in seen
+    assert ("u-1", "D3") in seen
+
+
+def test_decorator_preserves_route_signature(monkeypatch):
+    """FastAPI introspects __signature__ — the wrapper must mirror it so that
+    path/header/body params still get injected by the framework."""
+    @rate_limit.rate_limit_exercise(exercise_type="D1", daily_limit=50)
+    async def handler(exercise_id: str, authorization: str | None = None):
+        return exercise_id
+
+    sig = handler.__signature__
+    assert "exercise_id"   in sig.parameters
+    assert "authorization" in sig.parameters
