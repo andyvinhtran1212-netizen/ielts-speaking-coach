@@ -106,7 +106,8 @@ def test_admin_set_status_404_when_not_found(monkeypatch):
 
 
 def test_generate_and_insert_batch_inserts_drafts(monkeypatch):
-    """The Gemini call is stubbed; we only verify the insert pipeline."""
+    """Stub generate_d1_exercises to drive the on_chunk_validated callback
+    and verify the orchestrator collects insert + chunk stats correctly."""
     inserted: list[list[dict]] = []
 
     class _InsertQuery:
@@ -119,17 +120,24 @@ def test_generate_and_insert_batch_inserts_drafts(monkeypatch):
         def table(self, _name): return _InsertQuery()
 
     monkeypatch.setattr(exr, "supabase_admin", _InsertClient())
-    monkeypatch.setattr(
-        exr, "generate_d1_exercises",
-        lambda words, count=None: [
+
+    def _fake_gen(words, count=None, on_chunk_validated=None, **_kw):
+        items = [
             {"word": w, "answer": w, "sentence": f"This ___ matters {w}.",
              "distractors": ["x", "y", "z"]}
             for w in words[:count or len(words)]
-        ],
-    )
+        ]
+        if on_chunk_validated and items:
+            on_chunk_validated(items)
+        return items
 
-    n = exr._generate_and_insert_batch(["alpha", "beta"], count=2, admin_id=REVIEWER)
-    assert n == 2
+    monkeypatch.setattr(exr, "generate_d1_exercises", _fake_gen)
+
+    result = exr._generate_and_insert_batch(["alpha", "beta"], count=2, admin_id=REVIEWER)
+    assert result["inserted_count"]    == 2
+    assert result["total_chunks"]      == 1     # 2 words → ceil(2/10) = 1 chunk
+    assert result["successful_chunks"] == 1
+    assert result["failed_chunks"]     == 0
     assert len(inserted) == 1
     rows = inserted[0]
     assert all(r["status"] == "draft" for r in rows)
@@ -138,19 +146,26 @@ def test_generate_and_insert_batch_inserts_drafts(monkeypatch):
 
 
 def test_generate_and_insert_batch_returns_zero_when_gemini_empty(monkeypatch):
-    """Gemini OK but no validated items → 0, NOT a GeminiBatchError."""
-    monkeypatch.setattr(exr, "generate_d1_exercises", lambda *a, **k: [])
-    n = exr._generate_and_insert_batch(["x"], count=1, admin_id=REVIEWER)
-    assert n == 0
+    """Gemini OK but no validated items → inserted=0, but still 1 chunk.
+    NOT a GeminiBatchError."""
+    monkeypatch.setattr(
+        exr, "generate_d1_exercises",
+        lambda *a, on_chunk_validated=None, **k: [],
+    )
+    result = exr._generate_and_insert_batch(["x"], count=1, admin_id=REVIEWER)
+    assert result["inserted_count"]    == 0
+    assert result["total_chunks"]      == 1
+    assert result["successful_chunks"] == 0
 
 
 def test_generate_and_insert_batch_propagates_gemini_error(monkeypatch):
-    """A real Gemini failure (e.g. 404 model name) must bubble up so the
-    admin endpoint can surface it instead of silently returning zero."""
+    """A real Gemini failure (e.g. 404 model name on every chunk) must
+    bubble up so the admin endpoint can surface it instead of silently
+    returning zero drafts."""
     from services.d1_content_gen import GeminiBatchError
 
-    def _boom(*a, **k):
-        raise GeminiBatchError("Gemini call failed (model=fake-model): 404")
+    def _boom(*a, on_chunk_validated=None, **k):
+        raise GeminiBatchError("All 1 chunk(s) failed. Last error: 404 model")
 
     monkeypatch.setattr(exr, "generate_d1_exercises", _boom)
     with pytest.raises(GeminiBatchError):
