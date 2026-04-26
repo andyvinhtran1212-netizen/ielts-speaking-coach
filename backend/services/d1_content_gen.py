@@ -116,33 +116,25 @@ def _validate_d1_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def generate_d1_exercises(
-    vocab_words: list[str],
-    count: int | None = None,
+def _generate_single_chunk(
+    words: list[str],
     model_name: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Call Gemini to generate D1 fill-blank exercises for the given words.
-    Returns a list of validated dicts ready for insert as draft rows.
+    One Gemini call for a small group of target words.  Returns a list of
+    validated payloads (may be shorter than `len(words)` if some items fail
+    the schema check).
 
-    `count`, when given, caps the number of returned items.
-
-    Raises GeminiBatchError when the Gemini call itself fails (404 model,
-    network, auth, quota, malformed JSON) so the admin endpoint can surface
-    the failure to the operator.  An empty validated list is NOT an error —
-    that means Gemini responded but no item passed schema validation.
+    Raises GeminiBatchError when the Gemini call itself fails — caller
+    decides whether to surface to user or move on to the next chunk.
     """
-    words = [w.strip() for w in vocab_words if w and w.strip()]
     if not words:
         return []
 
-    target_count = count if count is not None else len(words)
-    target_count = max(1, min(target_count, len(words), 100))
-
     user_prompt = (
         f"Generate exercises for these {len(words)} target words "
-        f"(produce up to {target_count} items):\n\n"
-        + "\n".join(f"- {w}" for w in words[:target_count])
+        f"(produce up to {len(words)} items):\n\n"
+        + "\n".join(f"- {w}" for w in words)
     )
 
     chosen_model = model_name or _DEFAULT_MODEL
@@ -182,7 +174,33 @@ def generate_d1_exercises(
             validated.append(clean)
 
     logger.info(
-        "[d1_content_gen] generated=%d validated=%d (requested=%d, words=%d)",
-        len(items_raw), len(validated), target_count, len(words),
+        "[d1_content_gen] chunk: generated=%d validated=%d (input_words=%d)",
+        len(items_raw), len(validated), len(words),
     )
-    return validated[:target_count]
+    return validated
+
+
+def generate_d1_exercises(
+    vocab_words: list[str],
+    count: int | None = None,
+    model_name: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Call Gemini to generate D1 fill-blank exercises for the given words.
+    Returns a list of validated dicts ready for insert as draft rows.
+
+    `count`, when given, caps the number of returned items.
+
+    Raises GeminiBatchError when the Gemini call itself fails (404 model,
+    network, auth, quota, malformed JSON) so the admin endpoint can surface
+    the failure to the operator.  An empty validated list is NOT an error —
+    that means Gemini responded but no item passed schema validation.
+    """
+    words = [w.strip() for w in vocab_words if w and w.strip()]
+    if not words:
+        return []
+
+    target_count = count if count is not None else len(words)
+    target_count = max(1, min(target_count, len(words), 100))
+
+    return _generate_single_chunk(words[:target_count], model_name)[:target_count]
