@@ -6,19 +6,27 @@ strict JSON validated against the D1 schema before being returned.  Caller
 inserts rows into vocabulary_exercises with status='draft' — admin must review
 each row in the admin tool before it can be served to users.
 
+Chunking: Gemini consistently truncates JSON when asked for ~20+ items in a
+single call, and Railway's gateway times out long single requests anyway.  We
+split the input into chunks of CHUNK_SIZE words and call Gemini per chunk.
+The on_chunk_validated callback lets the caller persist results incrementally
+instead of risking 50 items lost when the last chunk fails.
+
 Never auto-publish.  See PHASE_D_V3_PLAN.md §5 and §8.
 """
 
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, Callable
 
 import google.generativeai as genai
 
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+CHUNK_SIZE = 10  # Gemini reliably handles 10 fill-blank items without truncation.
 
 
 # Uses the same google.generativeai package already configured in services/gemini.py.
@@ -184,17 +192,26 @@ def generate_d1_exercises(
     vocab_words: list[str],
     count: int | None = None,
     model_name: str | None = None,
+    on_chunk_validated: Callable[[list[dict[str, Any]]], None] | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Call Gemini to generate D1 fill-blank exercises for the given words.
-    Returns a list of validated dicts ready for insert as draft rows.
+    Generate D1 fill-blank exercises in chunks of CHUNK_SIZE.
 
-    `count`, when given, caps the number of returned items.
+    Splits the input list into chunks (default 10 words each) and calls
+    _generate_single_chunk per chunk.  Aggregates the validated payloads
+    across all chunks and returns the combined list, truncated to `count`.
 
-    Raises GeminiBatchError when the Gemini call itself fails (404 model,
-    network, auth, quota, malformed JSON) so the admin endpoint can surface
-    the failure to the operator.  An empty validated list is NOT an error —
-    that means Gemini responded but no item passed schema validation.
+    `on_chunk_validated`, if provided, is called with the validated items
+    from each successful chunk as they arrive.  The router uses this hook
+    to insert drafts incrementally — so a chunk-3 failure on a 6-chunk
+    batch still leaves chunks 1+2 persisted in the DB.
+
+    Raises GeminiBatchError ONLY when EVERY chunk fails.  Partial success
+    (some chunks ok, some fail) returns the items we got and logs the
+    failed chunks at WARN.
+
+    A successful Gemini call that simply produced 0 schema-valid items is
+    NOT a failure — it returns an empty list for that chunk.
     """
     words = [w.strip() for w in vocab_words if w and w.strip()]
     if not words:
@@ -202,5 +219,54 @@ def generate_d1_exercises(
 
     target_count = count if count is not None else len(words)
     target_count = max(1, min(target_count, len(words), 100))
+    words = words[:target_count]
 
-    return _generate_single_chunk(words[:target_count], model_name)[:target_count]
+    chunks = [words[i:i + CHUNK_SIZE] for i in range(0, len(words), CHUNK_SIZE)]
+    total_chunks = len(chunks)
+
+    all_results: list[dict[str, Any]] = []
+    failed_chunks = 0
+    last_error: str | None = None
+
+    for idx, chunk in enumerate(chunks, start=1):
+        try:
+            chunk_items = _generate_single_chunk(chunk, model_name)
+        except GeminiBatchError as e:
+            failed_chunks += 1
+            last_error = str(e)
+            logger.warning(
+                "[d1_content_gen] chunk %d/%d failed (continuing): %s",
+                idx, total_chunks, e,
+            )
+            continue
+
+        logger.info(
+            "[d1_content_gen] chunk %d/%d: validated=%d",
+            idx, total_chunks, len(chunk_items),
+        )
+        if chunk_items:
+            all_results.extend(chunk_items)
+            if on_chunk_validated is not None:
+                # Caller-side persistence happens here so chunks land in the DB
+                # incrementally instead of being lost when a later chunk fails.
+                try:
+                    on_chunk_validated(chunk_items)
+                except Exception as cb_err:
+                    # A persistence failure is the caller's problem, but we
+                    # don't want it to abort remaining chunks — log and move on.
+                    logger.error(
+                        "[d1_content_gen] chunk %d/%d on_chunk_validated raised: %s",
+                        idx, total_chunks, cb_err,
+                    )
+
+        # Early exit once we've already collected enough validated items.
+        if len(all_results) >= target_count:
+            break
+
+    if failed_chunks == total_chunks:
+        # Every chunk failed — surface to admin instead of silently returning [].
+        raise GeminiBatchError(
+            f"All {total_chunks} chunk(s) failed. Last error: {last_error}"
+        )
+
+    return all_results[:target_count]

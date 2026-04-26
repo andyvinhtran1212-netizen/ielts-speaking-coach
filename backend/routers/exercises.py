@@ -469,19 +469,15 @@ async def admin_bulk_action(
 # ── Admin: generate batch via Gemini ──────────────────────────────────────────
 
 
-def _generate_and_insert_batch(words: list[str], count: int, admin_id: str) -> int:
-    """
-    Call Gemini, insert results as drafts, return number inserted.
+import math
 
-    Propagates GeminiBatchError so the endpoint can surface a clear failure
-    to the admin instead of silently returning zero drafts (the original
-    'Queued' bug — admin saw success and 30s later still saw an empty list).
-    """
-    items = generate_d1_exercises(words, count=count)
+
+def _insert_chunk_as_drafts(items: list[dict], admin_id: str) -> int:
+    """Insert one chunk's worth of validated items as drafts.  Returns the
+    number of rows actually written.  A DB error is logged and re-raised so
+    the surrounding generate_d1_exercises loop can move on to the next chunk."""
     if not items:
-        logger.warning("[admin/exercises] batch produced 0 items")
         return 0
-
     rows = [
         {
             "exercise_type":   "D1",
@@ -492,8 +488,57 @@ def _generate_and_insert_batch(words: list[str], count: int, admin_id: str) -> i
         for item in items
     ]
     supabase_admin.table("vocabulary_exercises").insert(rows).execute()
-    logger.info("[admin/exercises] inserted %d D1 drafts (admin=%s)", len(rows), admin_id)
+    logger.info(
+        "[admin/exercises] chunk insert: +%d drafts (admin=%s)", len(rows), admin_id,
+    )
     return len(rows)
+
+
+def _generate_and_insert_batch(words: list[str], count: int, admin_id: str) -> dict:
+    """
+    Drive chunked generation and incremental insert.  Returns a stats dict
+    used by the endpoint's response body:
+
+        {
+          "inserted_count":  total rows actually written,
+          "total_chunks":    chunks attempted,
+          "successful_chunks": chunks that returned ≥1 validated item,
+          "failed_chunks":   chunks that raised GeminiBatchError,
+        }
+
+    Propagates GeminiBatchError ONLY when every chunk fails (the
+    "all chunks failed" case from generate_d1_exercises).
+    """
+    inserted_count = 0
+    successful_chunks = 0
+
+    def _on_chunk(items: list[dict]) -> None:
+        nonlocal inserted_count, successful_chunks
+        n = _insert_chunk_as_drafts(items, admin_id)
+        inserted_count += n
+        if n > 0:
+            successful_chunks += 1
+
+    # generate_d1_exercises does the chunking; the callback persists per chunk.
+    # Its return value is the aggregated list, but we don't need it here —
+    # the callback already inserted every successful chunk.
+    items = generate_d1_exercises(words, count=count, on_chunk_validated=_on_chunk)
+
+    # Compute total/failed chunks from the same shape generate_d1_exercises uses.
+    word_count_clamped = max(1, min(count, len(words), 100))
+    total_chunks = max(1, math.ceil(word_count_clamped / 10))  # CHUNK_SIZE=10
+    failed_chunks = total_chunks - successful_chunks
+
+    logger.info(
+        "[admin/exercises] batch summary: inserted=%d, chunks ok=%d/%d, items_returned=%d (admin=%s)",
+        inserted_count, successful_chunks, total_chunks, len(items), admin_id,
+    )
+    return {
+        "inserted_count":    inserted_count,
+        "total_chunks":      total_chunks,
+        "successful_chunks": successful_chunks,
+        "failed_chunks":     failed_chunks,
+    }
 
 
 @admin_router.post("/d1/generate-batch", status_code=202)
@@ -502,16 +547,16 @@ async def admin_generate_d1_batch(
     authorization: str | None = Header(default=None),
 ):
     """
-    Synchronous: blocks until Gemini returns and rows are inserted, so the
-    admin sees a real success/failure outcome instead of a fire-and-forget
-    'queued' toast that hid Gemini errors.  Typical batches finish in
-    3-10s, which is acceptable for an admin tool.
+    Synchronous + chunked.  Generate in groups of 10 (services.d1_content_gen
+    .CHUNK_SIZE) so each Gemini call stays well under its truncation limit,
+    and persist drafts incrementally so a failure in chunk N doesn't lose
+    chunks 1..N-1.  100 words → 10 chunks → ~120s max, well within Railway's
+    response timeout.
 
-    Response:
-      Success — HTTP 202 with status='completed' and inserted_count.
-      Failure — HTTP 502 with detail string (Gemini outage, bad model name,
-                quota, etc.).  Existing api.js error path surfaces detail
-                as the toast message.
+    Response shape:
+      All chunks ok      → 202, status='completed',  total_chunks==successful_chunks
+      Some chunks fail   → 202, status='partial',    failed_chunks > 0
+      Every chunk fails  → 502, GeminiBatchError detail (existing api.js path)
     """
     auth_user = await require_admin(authorization)
     if not body.words:
@@ -527,7 +572,7 @@ async def admin_generate_d1_batch(
     )
 
     try:
-        inserted = _generate_and_insert_batch(body.words, body.count, auth_user["id"])
+        stats = _generate_and_insert_batch(body.words, body.count, auth_user["id"])
     except GeminiBatchError as e:
         logger.error("[admin/exercises] batch job=%s FAILED: %s", job_id, e)
         raise HTTPException(
@@ -541,12 +586,30 @@ async def admin_generate_d1_batch(
             detail=f"Batch insert failed: {e}",
         )
 
+    inserted = stats["inserted_count"]
+    failed_chunks = stats["failed_chunks"]
+    total_chunks = stats["total_chunks"]
+    successful_chunks = stats["successful_chunks"]
+
+    if failed_chunks == 0:
+        status = "completed"
+        message = f"{inserted} draft(s) inserted across {total_chunks} chunk(s)."
+    else:
+        status = "partial"
+        message = (
+            f"{inserted} draft(s) inserted across {successful_chunks}/{total_chunks} "
+            f"chunk(s); {failed_chunks} chunk(s) failed (see server logs)."
+        )
+
     return {
         "job_id":             job_id,
-        "status":             "completed",
+        "status":             status,
         "inserted_count":     inserted,
         "requested_count":    body.count,
         "word_count":         len(body.words),
+        "total_chunks":       total_chunks,
+        "successful_chunks":  successful_chunks,
+        "failed_chunks":      failed_chunks,
         "estimated_cost_usd": estimated_cost_usd,
-        "message":            f"{inserted} draft(s) inserted.",
+        "message":            message,
     }
