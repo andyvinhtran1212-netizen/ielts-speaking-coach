@@ -113,6 +113,7 @@ async def get_me(authorization: str | None = Header(default=None)):
     except Exception:
         pass  # non-fatal
 
+    flags = user.get("feature_flags") or {}
     return {
         "id": user["id"],
         "email": user["email"],
@@ -126,7 +127,9 @@ async def get_me(authorization: str | None = Header(default=None)):
         "exam_date": str(user["exam_date"]) if user.get("exam_date") else None,
         "self_level": user.get("self_level"),
         "preferred_topics": user.get("preferred_topics") or [],
-        "vocab_bank_enabled": (user.get("feature_flags") or {}).get("vocab_enabled") is True,
+        "vocab_bank_enabled": flags.get("vocab_enabled") is True,
+        "d1_enabled": settings.D1_ENABLED and flags.get("d1_enabled") is True,
+        "d3_enabled": settings.D3_ENABLED and flags.get("d3_enabled") is True,
     }
 
 

@@ -14,6 +14,7 @@
   let _allItems = [];
   let _currentFilter = 'all';
   let _reportVocabId = null;
+  let _exercisesEnabled = false;   // populated from /auth/me; default-deny.
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@
         showState('disabled');
         return;
       }
+      _exercisesEnabled = (me.d1_enabled === true) || (me.d3_enabled === true);
     } catch (_) {
       showState('disabled');
       return;
@@ -158,6 +160,15 @@
             title="Xem buổi luyện tập">↗ nguồn</a>`
       : '';
 
+    // TODO Wave 2: pass vocab_id to filter D3 exercises by target word.
+    // Wave 1 hub doesn't consume vocab_id, so we ship the link as a plain
+    // entry point to avoid a dead query param in the URL bar.
+    const practiceLink = _exercisesEnabled
+      ? `<a href="exercises.html"
+            class="text-xs ml-3" style="color:rgba(20,184,166,0.65);text-decoration:none;"
+            title="Practice with this word">▶ practice</a>`
+      : '';
+
     return `
       <div class="vocab-card" id="card-${item.id}">
         <div class="flex items-start justify-between gap-3 mb-2">
@@ -181,7 +192,10 @@
           : ''}
 
         <div class="flex items-center justify-between mt-3">
-          ${sourceLink}
+          <div class="flex items-center">
+            ${sourceLink}
+            ${practiceLink}
+          </div>
           <button class="report-btn" onclick="openReport('${item.id}')">Report incorrect</button>
         </div>
       </div>`;

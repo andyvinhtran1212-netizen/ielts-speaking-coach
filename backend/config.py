@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     VOCAB_MAX_PER_CATEGORY: int = 3
     VOCAB_BANK_FEATURE_FLAG_ENABLED: bool = False
 
+    # Phase D — vocabulary exercises feature flags (default OFF in production)
+    D1_ENABLED: bool = False
+    D3_ENABLED: bool = False
+    D1_DAILY_LIMIT: int = 100        # generous; D1 cost is ~zero
+    D3_DAILY_LIMIT_FREE: int = 3
+    D1_GENERATION_MODEL: str = "gemini-1.5-flash"
+
     class Config:
         env_file = ".env"
 

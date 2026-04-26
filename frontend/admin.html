@@ -381,6 +381,7 @@
         <button class="tab-btn"        onclick="switchTab('sessions')"     id="tab-btn-sessions">🗂 Sessions</button>
         <button class="tab-btn"        onclick="switchTab('alerts')"       id="tab-btn-alerts">🚨 Alerts</button>
         <button class="tab-btn"        onclick="switchTab('vocab_monitor')" id="tab-btn-vocab_monitor">📖 Vocab</button>
+        <button class="tab-btn"        onclick="switchTab('vocab_exercises')" id="tab-btn-vocab_exercises">🎯 Vocab Exercises</button>
       </div>
 
       <!-- ── TAB: Topics ──────────────────────────────────────── -->
@@ -901,6 +902,80 @@
         </div>
       </div>
 
+      <!-- Vocab Exercises panel (Phase D Wave 1) -->
+      <div id="panel-vocab_exercises" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Vocab Exercises — Review queue</h3>
+          <div class="flex gap-2">
+            <button class="btn-secondary text-xs" onclick="ve_load(true)">↺ Refresh</button>
+            <button class="btn-primary text-xs" onclick="ve_openGenerateBatchDialog()">+ Generate batch</button>
+          </div>
+        </div>
+
+        <!-- Filter dropdown -->
+        <div class="flex items-center gap-3">
+          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Status:</label>
+          <select id="ve-filter-status" onchange="ve_load(true)"
+                  class="text-xs px-2 py-1 rounded-lg"
+                  style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <label class="text-xs ml-2" style="color:rgba(255,255,255,0.5);">Type:</label>
+          <select id="ve-filter-type" onchange="ve_load(true)"
+                  class="text-xs px-2 py-1 rounded-lg"
+                  style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+            <option value="D1">D1 Fill-blank</option>
+          </select>
+          <span class="text-xs ml-auto" style="color:rgba(255,255,255,0.4);">
+            <span id="ve-count">0</span> items · <span id="ve-selected-count">0</span> selected
+          </span>
+        </div>
+
+        <!-- Bulk actions bar -->
+        <div class="flex items-center gap-2">
+          <button class="btn-secondary text-xs" onclick="ve_toggleSelectAll()">Select / clear all</button>
+          <button class="text-xs px-3 py-1.5 rounded-lg"
+                  style="background:rgba(20,184,166,0.15); border:1px solid rgba(20,184,166,0.3); color:#5eead4;"
+                  onclick="ve_bulk('publish')">✓ Publish selected</button>
+          <button class="text-xs px-3 py-1.5 rounded-lg"
+                  style="background:rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.3); color:#f87171;"
+                  onclick="ve_bulk('reject')">✗ Reject selected</button>
+        </div>
+
+        <!-- Empty / loading / list -->
+        <div id="ve-state-loading" class="hidden text-xs text-slate-400 py-6 text-center">Loading…</div>
+        <div id="ve-state-empty"   class="hidden text-xs text-slate-500 py-6 text-center">No exercises in this status.</div>
+        <div id="ve-state-error"   class="hidden text-xs text-red-400 py-6 text-center">Could not load exercises.</div>
+        <div id="ve-list" class="space-y-2"></div>
+      </div>
+
+      <!-- Generate batch dialog -->
+      <div id="ve-batch-modal" class="modal-overlay hidden" onclick="if(event.target===this)ve_closeGenerateBatchDialog()">
+        <div class="modal-box" style="max-width:480px;" onclick="event.stopPropagation()">
+          <h3 class="text-base font-semibold mb-3 text-white">Generate D1 batch via Gemini</h3>
+          <p class="text-xs text-slate-400 mb-3">
+            Comma-separated target words. Drafts will appear in the queue once Gemini finishes.
+          </p>
+          <textarea id="ve-batch-words" rows="3" placeholder="mitigate, sustainable, leverage, alleviate"
+                    class="w-full px-3 py-2 rounded-lg text-sm text-white placeholder-slate-500 mb-3 resize-none"
+                    style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);"></textarea>
+          <div class="flex items-center gap-3 mb-3">
+            <label class="text-xs text-slate-400">Count:</label>
+            <input id="ve-batch-count" type="number" value="10" min="1" max="100"
+                   class="w-20 px-2 py-1 rounded-lg text-sm text-white"
+                   style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);" />
+          </div>
+          <div id="ve-batch-status" class="text-xs hidden mb-3 px-3 py-2 rounded-lg"
+               style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7);"></div>
+          <div class="flex gap-2 justify-end">
+            <button onclick="ve_closeGenerateBatchDialog()" class="btn-secondary text-xs">Cancel</button>
+            <button id="ve-batch-submit" onclick="ve_submitGenerateBatch()" class="btn-primary text-xs">Queue batch</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1038,7 +1113,7 @@
     var _base  = '';
 
     // Per-tab load-once flags
-    var _loaded = { topics: false, codes: false, users: false, stats: false, ai_usage: false, sessions: false, alerts: false, vocab_monitor: false };
+    var _loaded = { topics: false, codes: false, users: false, stats: false, ai_usage: false, sessions: false, alerts: false, vocab_monitor: false, vocab_exercises: false };
 
     // Cached data for CSV export
     var _codesData = [];
@@ -1106,7 +1181,7 @@
     var _currentTab = 'topics';
 
     window.switchTab = function (tab) {
-      ['topics', 'codes', 'users', 'stats', 'ai_usage', 'sessions', 'alerts', 'vocab_monitor'].forEach(function (t) {
+      ['topics', 'codes', 'users', 'stats', 'ai_usage', 'sessions', 'alerts', 'vocab_monitor', 'vocab_exercises'].forEach(function (t) {
         document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
         document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
       });
@@ -1123,6 +1198,7 @@
       if (tab === 'sessions')      loadSessions(true);
       if (tab === 'alerts')        loadAlerts();
       if (tab === 'vocab_monitor') loadVocabMonitor();
+      if (tab === 'vocab_exercises') ve_load();
     }
 
     // ── TOPICS ─────────────────────────────────────────────────
@@ -3165,6 +3241,160 @@
       document.getElementById('state-content').classList.remove('hidden');
       loadTopics();
     }
+
+    // ── VOCAB EXERCISES (Phase D Wave 1) ───────────────────────
+    var _veItems = [];
+    var _veSelected = {};
+
+    function ve_setState(state) {
+      ['loading', 'empty', 'error'].forEach(function (s) {
+        var el = document.getElementById('ve-state-' + s);
+        if (el) el.classList.toggle('hidden', s !== state);
+      });
+      var listEl = document.getElementById('ve-list');
+      if (listEl) listEl.classList.toggle('hidden', state !== 'list');
+    }
+
+    function ve_esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    window.ve_load = async function (force) {
+      if (_loaded.vocab_exercises && !force) return;
+      _loaded.vocab_exercises = true;
+      var status = (document.getElementById('ve-filter-status') || {}).value || 'draft';
+      var type   = (document.getElementById('ve-filter-type')   || {}).value || 'D1';
+      ve_setState('loading');
+      try {
+        var rows = await apiGet('/admin/exercises?status=' + encodeURIComponent(status) + '&exercise_type=' + encodeURIComponent(type) + '&limit=200');
+        _veItems = Array.isArray(rows) ? rows : [];
+        _veSelected = {};
+        ve_render();
+      } catch (err) {
+        console.error('[ve] load failed', err);
+        ve_setState('error');
+      }
+    };
+
+    function ve_render() {
+      var list = document.getElementById('ve-list');
+      document.getElementById('ve-count').textContent = _veItems.length;
+      ve_updateSelectedCount();
+      if (!_veItems.length) { ve_setState('empty'); return; }
+
+      list.innerHTML = _veItems.map(function (it) {
+        var p = it.content_payload || {};
+        var sentence = p.sentence || '(missing sentence)';
+        var answer   = p.answer || p.word || '?';
+        var distractors = Array.isArray(p.distractors) ? p.distractors.join(', ') : '';
+        var checked = _veSelected[it.id] ? 'checked' : '';
+        return ''
+          + '<div class="card p-3 flex items-start gap-3">'
+          + '  <input type="checkbox" data-ve-id="' + ve_esc(it.id) + '" ' + checked + ' onchange="ve_toggleOne(\'' + ve_esc(it.id) + '\', this.checked)" class="mt-1" />'
+          + '  <div class="flex-1 text-sm">'
+          + '    <div class="text-white">' + ve_esc(sentence) + '</div>'
+          + '    <div class="text-xs mt-1" style="color:rgba(255,255,255,0.5);">'
+          + '      Answer: <strong style="color:#5eead4;">' + ve_esc(answer) + '</strong>'
+          + (distractors ? ' · Distractors: ' + ve_esc(distractors) : '')
+          + '    </div>'
+          + '    <div class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">id: ' + ve_esc(it.id) + ' · type: ' + ve_esc(it.exercise_type) + ' · status: ' + ve_esc(it.status) + '</div>'
+          + '  </div>'
+          + '  <div class="flex gap-1">'
+          + '    <button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(20,184,166,0.12); border:1px solid rgba(20,184,166,0.3); color:#5eead4;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'publish\')">Publish</button>'
+          + '    <button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.3); color:#f87171;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'reject\')">Reject</button>'
+          + '  </div>'
+          + '</div>';
+      }).join('');
+      ve_setState('list');
+    }
+
+    window.ve_toggleOne = function (id, checked) {
+      if (checked) _veSelected[id] = true; else delete _veSelected[id];
+      ve_updateSelectedCount();
+    };
+
+    window.ve_toggleSelectAll = function () {
+      var anyUnselected = _veItems.some(function (it) { return !_veSelected[it.id]; });
+      _veSelected = {};
+      if (anyUnselected) {
+        _veItems.forEach(function (it) { _veSelected[it.id] = true; });
+      }
+      ve_render();
+    };
+
+    function ve_updateSelectedCount() {
+      var n = Object.keys(_veSelected).length;
+      var el = document.getElementById('ve-selected-count');
+      if (el) el.textContent = n;
+    }
+
+    window.ve_setStatus = async function (id, action) {
+      try {
+        await window.api.patch('/admin/exercises/' + id + '/' + action, {}, _token);
+        _veItems = _veItems.filter(function (it) { return it.id !== id; });
+        delete _veSelected[id];
+        ve_render();
+      } catch (err) {
+        alert('Status update failed: ' + (err.message || err));
+      }
+    };
+
+    window.ve_bulk = async function (action) {
+      var ids = Object.keys(_veSelected);
+      if (!ids.length) { alert('Select at least one exercise.'); return; }
+      var verb = action === 'publish' ? 'PUBLISH' : 'REJECT';
+      if (!confirm(verb + ' ' + ids.length + ' exercise' + (ids.length === 1 ? '' : 's') + '?')) return;
+      try {
+        await window.api.post('/admin/exercises/bulk', { ids: ids, action: action }, _token);
+        _veItems = _veItems.filter(function (it) { return !_veSelected[it.id]; });
+        _veSelected = {};
+        ve_render();
+      } catch (err) {
+        alert('Bulk action failed: ' + (err.message || err));
+      }
+    };
+
+    window.ve_openGenerateBatchDialog = function () {
+      document.getElementById('ve-batch-modal').classList.remove('hidden');
+      document.getElementById('ve-batch-status').classList.add('hidden');
+      document.getElementById('ve-batch-words').focus();
+    };
+
+    window.ve_closeGenerateBatchDialog = function () {
+      document.getElementById('ve-batch-modal').classList.add('hidden');
+    };
+
+    window.ve_submitGenerateBatch = async function () {
+      var raw = (document.getElementById('ve-batch-words').value || '').trim();
+      var count = parseInt(document.getElementById('ve-batch-count').value || '10', 10);
+      var words = raw.split(/[,\n]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+      var statusEl = document.getElementById('ve-batch-status');
+      var btn = document.getElementById('ve-batch-submit');
+
+      if (!words.length) {
+        statusEl.textContent = 'Please enter at least one word.';
+        statusEl.classList.remove('hidden');
+        return;
+      }
+      btn.disabled = true; btn.textContent = 'Queuing…';
+      try {
+        var r = await window.api.post('/admin/exercises/d1/generate-batch', { words: words, count: count }, _token);
+        if (r && r.job_id) {
+          // Logged for future batch-status tracking; no UI change yet.
+          console.info('[ve] batch job_id =', r.job_id);
+        }
+        var jobNote = r && r.job_id ? ' (job ' + String(r.job_id).slice(0, 8) + ')' : '';
+        statusEl.textContent = 'Queued' + jobNote + '. Estimated cost: $' + (r.estimated_cost_usd || 0) + '. Refresh in ~30s.';
+        statusEl.classList.remove('hidden');
+        setTimeout(function () { ve_load(true); }, 30000);
+      } catch (err) {
+        statusEl.textContent = 'Failed: ' + (err.message || err);
+        statusEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Queue batch';
+      }
+    };
 
     init();
   }());

@@ -403,6 +403,7 @@
       <span class="main-tab-sub">Tra cứu ngữ pháp IELTS</span>
     </a>
     <div id="vocab-bank-link-container"></div>
+    <div id="exercises-link-container"></div>
   </nav>
 
   <!-- ─── MAIN ────────────────────────────────────────────── -->
@@ -1104,6 +1105,23 @@
       }
     }
 
+    // ── Exercises flag (Phase D) ──────────────────────────────
+    // Renders the "Exercises" tab when EITHER d1 or d3 is enabled.
+    // Default-deny: missing field, false, or DB error all hide the link.
+    function applyExercisesFlag(d1Enabled, d3Enabled) {
+      var container = document.getElementById('exercises-link-container');
+      if (!container) return;
+      if (d1Enabled === true || d3Enabled === true) {
+        container.innerHTML =
+          '<a href="exercises.html" class="main-tab-btn" style="text-decoration:none;">'
+          + '<span class="main-tab-label">🎯 Exercises</span>'
+          + '<span class="main-tab-sub">Bài tập từ vựng ngắn</span>'
+          + '</a>';
+      } else {
+        container.innerHTML = '';
+      }
+    }
+
     // ── Render user info ──────────────────────────────────────
     function renderUser(user) {
       document.getElementById('user-name-skeleton').style.display = 'none';
@@ -1130,6 +1148,7 @@
       }
       applyPermissions();
       applyVocabBankFlag(user.vocab_bank_enabled);
+      applyExercisesFlag(user.d1_enabled, user.d3_enabled);
     }
 
     // ── Render stats ──────────────────────────────────────────

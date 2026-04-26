@@ -27,6 +27,8 @@ frontend/app_rules_master.md
 frontend/known_bugs_and_failures.md
 .env.staging
 backend/.env.staging
+.env.staging.test
+backend/.env.staging.test
 
 # Backup / temp files
 *.backup*
