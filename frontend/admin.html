@@ -3380,7 +3380,12 @@
       btn.disabled = true; btn.textContent = 'Queuing…';
       try {
         var r = await window.api.post('/admin/exercises/d1/generate-batch', { words: words, count: count }, _token);
-        statusEl.textContent = 'Queued. Estimated cost: $' + (r.estimated_cost_usd || 0) + '. Refresh in ~30s.';
+        if (r && r.job_id) {
+          // Logged for future batch-status tracking; no UI change yet.
+          console.info('[ve] batch job_id =', r.job_id);
+        }
+        var jobNote = r && r.job_id ? ' (job ' + String(r.job_id).slice(0, 8) + ')' : '';
+        statusEl.textContent = 'Queued' + jobNote + '. Estimated cost: $' + (r.estimated_cost_usd || 0) + '. Refresh in ~30s.';
         statusEl.classList.remove('hidden');
         setTimeout(function () { ve_load(true); }, 30000);
       } catch (err) {

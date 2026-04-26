@@ -453,7 +453,7 @@ def _generate_and_insert_batch(words: list[str], count: int, admin_id: str) -> i
         return 0
 
 
-@admin_router.post("/d1/generate-batch")
+@admin_router.post("/d1/generate-batch", status_code=202)
 async def admin_generate_d1_batch(
     body: AdminGenerateBatchRequest,
     background_tasks: BackgroundTasks,
@@ -465,7 +465,12 @@ async def admin_generate_d1_batch(
 
     # Cost estimate per PHASE_D_V3_PLAN §19: ~$0.0005 / item for Gemini Flash.
     estimated_cost_usd = round(0.0005 * body.count, 4)
+    job_id = str(uuid.uuid4())
 
+    logger.info(
+        "[admin/exercises] queue batch job=%s admin=%s words=%d count=%d",
+        job_id, auth_user["id"], len(body.words), body.count,
+    )
     background_tasks.add_task(
         _generate_and_insert_batch,
         body.words,
@@ -474,6 +479,7 @@ async def admin_generate_d1_batch(
     )
 
     return {
+        "job_id":             job_id,
         "status":             "queued",
         "requested_count":    body.count,
         "word_count":         len(body.words),
