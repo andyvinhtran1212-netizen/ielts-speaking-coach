@@ -129,21 +129,62 @@ async def list_d1_exercises(
     limit: int = 5,
     authorization: str | None = Header(default=None),
 ):
+    """
+    Return up to `limit` published D1 exercises the user has NOT attempted yet.
+
+    Production smoke surfaced an infinite-loop bug: the queue handed back the
+    same exercises a user had already submitted, so 'Next exercise' never ran
+    out.  Fix is server-side (audit's anti-pattern: never put gating logic
+    only in the frontend) — pull the user's attempted exercise_ids first,
+    then exclude them from the published-D1 list.
+
+    When the user has finished every published exercise the response is an
+    empty array; the frontend translates that into the 'all done' empty
+    state instead of looping.
+    """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
     _require_d1_enabled(user_id)
     sb = _user_sb(_bearer_token(authorization))
 
     limit = max(1, min(int(limit or 5), 20))
+
+    # Step 1: gather every D1 exercise this user has already attempted.
+    # RLS on vocabulary_exercise_attempts (SELECT USING auth.uid()=user_id)
+    # means we never leak another user's attempts here.
     try:
-        # Random sample: pull the most recent N*4 published rows and shuffle
-        # in memory.  RLS lets users SELECT only published rows, so the
-        # status filter is belt-and-braces but still kept for clarity.
-        res = (
+        attempted_res = (
+            sb.table("vocabulary_exercise_attempts")
+            .select("exercise_id")
+            .eq("exercise_type", "D1")
+            .execute()
+        )
+        attempted_ids = list({
+            row["exercise_id"] for row in (attempted_res.data or [])
+            if row.get("exercise_id")
+        })
+    except Exception as e:
+        logger.warning(
+            "[exercises] list_d1 attempts lookup failed (falling back to no-exclude): %s", e,
+        )
+        attempted_ids = []
+
+    # Step 2: published D1 exercises NOT in the attempted set.  Pull more than
+    # `limit` and shuffle in memory so the user gets a fresh random ordering
+    # each call — Supabase REST doesn't expose ORDER BY random().
+    try:
+        builder = (
             sb.table("vocabulary_exercises")
             .select("id, exercise_type, content_payload, created_at")
             .eq("exercise_type", "D1")
             .eq("status", "published")
+        )
+        if attempted_ids:
+            # PostgREST's not.in.() needs a non-empty list — branch when empty
+            # to avoid a 400 from the API.
+            builder = builder.not_.in_("id", attempted_ids)
+        res = (
+            builder
             .order("created_at", desc=True)
             .limit(limit * 4)
             .execute()
