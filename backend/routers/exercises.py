@@ -9,11 +9,13 @@ D3 endpoints land in Wave 2 — this file deliberately scopes itself to D1.
 """
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+from supabase import create_client
 
 from config import settings
 from database import supabase_admin
@@ -37,6 +39,27 @@ admin_router = APIRouter(prefix="/admin/exercises", tags=["exercises-admin"])
 def _require_d1_enabled(user_id: str) -> None:
     if not is_d1_enabled(user_id, settings.D1_ENABLED):
         raise HTTPException(403, "D1 exercises are not enabled for your account.")
+
+
+def _bearer_token(authorization: str | None) -> str:
+    """Strip 'Bearer ' from the Authorization header, raising 401 on a bad header."""
+    if not authorization:
+        raise HTTPException(401, "Missing Authorization header")
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(401, "Invalid Authorization header")
+    return parts[1]
+
+
+def _user_sb(token: str):
+    """
+    Return a Supabase client bound to the caller's JWT so RLS is enforced.
+    Same pattern as routers/vocabulary_bank._user_sb — service-role MUST NOT
+    be used on user-facing exercise routes.
+    """
+    client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+    client.postgrest.auth(token)
+    return client
 
 
 def _safe_event(event_name: str, payload: dict, user_id: str) -> None:
@@ -109,14 +132,15 @@ async def list_d1_exercises(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
     _require_d1_enabled(user_id)
+    sb = _user_sb(_bearer_token(authorization))
 
     limit = max(1, min(int(limit or 5), 20))
     try:
-        # Random sample: ORDER BY random() LIMIT N — the table is small enough
-        # for this to be cheap.  Plain Supabase REST doesn't expose random(), so
-        # we pull the most recent N*4 published rows and shuffle in memory.
+        # Random sample: pull the most recent N*4 published rows and shuffle
+        # in memory.  RLS lets users SELECT only published rows, so the
+        # status filter is belt-and-braces but still kept for clarity.
         res = (
-            supabase_admin.table("vocabulary_exercises")
+            sb.table("vocabulary_exercises")
             .select("id, exercise_type, content_payload, created_at")
             .eq("exercise_type", "D1")
             .eq("status", "published")
@@ -144,10 +168,14 @@ async def get_d1_exercise(
 ):
     auth_user = await get_supabase_user(authorization)
     _require_d1_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
 
     try:
+        # RLS only returns the row when it is published OR the caller is admin
+        # (per migration 021 vocab_exercises_select).  Non-admins requesting a
+        # draft therefore get an empty result, which we surface as 404 below.
         res = (
-            supabase_admin.table("vocabulary_exercises")
+            sb.table("vocabulary_exercises")
             .select("id, exercise_type, content_payload, status")
             .eq("id", exercise_id)
             .eq("exercise_type", "D1")
@@ -175,6 +203,7 @@ async def submit_d1_attempt(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
     _require_d1_enabled(user_id)
+    sb = _user_sb(_bearer_token(authorization))
 
     # Enforce rate limit BEFORE doing the lookup, even though D1 is generous,
     # so the same code path proves out for D3 in Wave 2.
@@ -185,8 +214,11 @@ async def submit_d1_attempt(
     )
 
     try:
+        # RLS already prevents non-admins from reading drafts; we still filter
+        # by status so the explicit "Exercise not found" branch is unambiguous
+        # for admins inadvertently submitting against an unpublished id.
         res = (
-            supabase_admin.table("vocabulary_exercises")
+            sb.table("vocabulary_exercises")
             .select("id, exercise_type, content_payload, status")
             .eq("id", exercise_id)
             .eq("exercise_type", "D1")
@@ -214,7 +246,9 @@ async def submit_d1_attempt(
     }
 
     try:
-        supabase_admin.table("vocabulary_exercise_attempts").insert({
+        # User-scoped client so the WITH CHECK on user_id is enforced — a
+        # caller cannot insert an attempt that claims another user's id.
+        sb.table("vocabulary_exercise_attempts").insert({
             "user_id":       user_id,
             "exercise_id":   row["id"],
             "exercise_type": "D1",
