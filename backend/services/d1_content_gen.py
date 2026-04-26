@@ -23,7 +23,21 @@ logger = logging.getLogger(__name__)
 
 # Uses the same google.generativeai package already configured in services/gemini.py.
 # We don't reconfigure the API key here — it's a module-level configure() call there.
-_DEFAULT_MODEL = settings.D1_GENERATION_MODEL or "gemini-1.5-flash"
+#
+# Model name lives in settings (settings.D1_GENERATION_MODEL) so it can be
+# rotated without a code change when Google deprecates a version.  The
+# question-gen path in services/gemini.py uses the same family name.
+_DEFAULT_MODEL = settings.D1_GENERATION_MODEL or "gemini-2.5-flash"
+
+
+class GeminiBatchError(Exception):
+    """
+    Raised when the Gemini call itself fails (network, 404 model, auth, quota).
+    Distinct from "Gemini OK but produced no validated items" — that case is a
+    successful empty list and indicates a content-quality issue, not a service
+    outage.  The admin endpoint catches this so the operator sees a clear
+    failure instead of a silent empty-drafts result.
+    """
 
 
 _SYSTEM_PROMPT = """You are an IELTS Speaking content writer creating fill-in-the-blank vocabulary exercises.
@@ -111,9 +125,12 @@ def generate_d1_exercises(
     Call Gemini to generate D1 fill-blank exercises for the given words.
     Returns a list of validated dicts ready for insert as draft rows.
 
-    `count`, when given, caps the number of returned items.  We never raise on
-    Gemini errors — this is a background-job-friendly function; failures simply
-    return an empty list and are logged.
+    `count`, when given, caps the number of returned items.
+
+    Raises GeminiBatchError when the Gemini call itself fails (404 model,
+    network, auth, quota, malformed JSON) so the admin endpoint can surface
+    the failure to the operator.  An empty validated list is NOT an error —
+    that means Gemini responded but no item passed schema validation.
     """
     words = [w.strip() for w in vocab_words if w and w.strip()]
     if not words:
@@ -128,9 +145,10 @@ def generate_d1_exercises(
         + "\n".join(f"- {w}" for w in words[:target_count])
     )
 
+    chosen_model = model_name or _DEFAULT_MODEL
     try:
         model = genai.GenerativeModel(
-            model_name=(model_name or _DEFAULT_MODEL),
+            model_name=chosen_model,
             generation_config=genai.types.GenerationConfig(
                 response_mime_type="application/json",
                 temperature=0.6,
@@ -141,19 +159,19 @@ def generate_d1_exercises(
         resp = model.generate_content(user_prompt)
         raw = resp.text or ""
     except Exception as e:
-        logger.error("[d1_content_gen] Gemini call failed: %s", e)
-        return []
+        logger.error("[d1_content_gen] Gemini call failed (model=%s): %s", chosen_model, e)
+        raise GeminiBatchError(f"Gemini call failed (model={chosen_model}): {e}") from e
 
     try:
         data = json.loads(_strip_markdown_fences(raw))
     except Exception as e:
         logger.error("[d1_content_gen] Gemini returned invalid JSON: %s — head=%r", e, raw[:200])
-        return []
+        raise GeminiBatchError(f"Gemini returned invalid JSON: {e}") from e
 
     items_raw = data.get("exercises") if isinstance(data, dict) else None
     if not isinstance(items_raw, list):
         logger.error("[d1_content_gen] Missing 'exercises' array in Gemini output")
-        return []
+        raise GeminiBatchError("Gemini response missing 'exercises' array")
 
     validated: list[dict[str, Any]] = []
     for item in items_raw:
