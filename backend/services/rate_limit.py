@@ -4,26 +4,37 @@ services/rate_limit.py — per-user, per-exercise-type daily rate limiter.
 Counts rows in `vocabulary_exercise_attempts` for the calling user since the
 start of today (UTC).  Backend enforcement only — never trust the frontend.
 
-Usage:
+Two ways to use this module:
+
+1. Imperative (still supported, used by older code paths):
+
     from services.rate_limit import enforce_exercise_rate_limit
 
-    @router.post("/api/exercises/d3/{ex_id}/attempt")
-    async def attempt_d3(ex_id: str, authorization: str | None = Header(default=None)):
-        auth_user = await get_supabase_user(authorization)
-        enforce_exercise_rate_limit(
-            user_id=auth_user["id"],
-            exercise_type="D3",
-            daily_limit=settings.D3_DAILY_LIMIT_FREE,
-        )
+    auth_user = await get_supabase_user(authorization)
+    enforce_exercise_rate_limit(user_id=auth_user["id"],
+                                exercise_type="D3", daily_limit=3)
+
+2. Declarative decorator (preferred for new routes — keeps the limit visible
+   right above the handler signature):
+
+    from services.rate_limit import rate_limit_exercise
+
+    @router.post("/api/exercises/d1/{exercise_id}/attempt")
+    @rate_limit_exercise(exercise_type="D1", daily_limit=50)
+    async def submit_d1(exercise_id: str,
+                        authorization: str | None = Header(default=None)):
         ...
 
-The function raises HTTPException(429) when the limit is reached.  The detail
-payload includes a machine-readable `error` field plus `reset_at` (next UTC
-midnight) so the UI can show a clear countdown.
+The wrapped route MUST declare an `authorization` header parameter; the
+decorator extracts the JWT, resolves user_id via routers.auth.get_supabase_user,
+then calls enforce_exercise_rate_limit.  HTTP 429 with a machine-readable
+detail (error, limit, used, reset_at) is raised when the limit is met.
 """
 
+import inspect
 import logging
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 
 from fastapi import HTTPException
 
@@ -108,3 +119,43 @@ def enforce_exercise_rate_limit(
                 "reset_at": reset_at,
             },
         )
+
+
+def rate_limit_exercise(exercise_type: str, daily_limit: int):
+    """
+    Async route decorator that enforces a per-user-per-day attempt limit
+    BEFORE the wrapped handler runs.
+
+    The wrapped route MUST declare an `authorization: str | None = Header(...)`
+    parameter so the decorator can recover the JWT from kwargs and resolve
+    user_id via the canonical auth dependency.
+
+    Stack the route decorator OUTSIDE this one:
+
+        @user_router.post("/d1/{exercise_id}/attempt")
+        @rate_limit_exercise(exercise_type="D1", daily_limit=50)
+        async def submit_d1_attempt(...):
+            ...
+    """
+    def decorator(func):
+        # Lazy-import auth here to avoid a circular dep at module load
+        # (services.rate_limit ↔ routers.auth).
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            from routers.auth import get_supabase_user
+            authorization = kwargs.get("authorization")
+            auth_user = await get_supabase_user(authorization)
+            enforce_exercise_rate_limit(
+                user_id=auth_user["id"],
+                exercise_type=exercise_type,
+                daily_limit=daily_limit,
+            )
+            return await func(*args, **kwargs)
+
+        # FastAPI introspects the *wrapper's* signature to discover the
+        # route's path/header/body parameters.  Without this, the wrapper
+        # would expose only (*args, **kwargs) and FastAPI would inject
+        # nothing — breaking the route.
+        wrapper.__signature__ = inspect.signature(func)
+        return wrapper
+    return decorator

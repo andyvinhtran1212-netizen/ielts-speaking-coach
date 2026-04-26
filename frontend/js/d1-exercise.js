@@ -23,6 +23,7 @@
   let _currentIndex = 0;
   let _completed = 0;
   let _locked = false;       // prevents double-submit while a request is in flight
+  let _attemptedThisSession = 0; // used to pick the right "empty" copy
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,10 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const items = await res.json();
       if (!Array.isArray(items) || items.length === 0) {
-        showState('empty');
+        // Backend now excludes attempted exercises; an empty list means the
+        // user has finished every published one (rather than "looping" through
+        // already-done exercises like the old behaviour).
+        renderEmptyState();
         return;
       }
       _queue = items;
@@ -78,6 +82,22 @@
       console.error('[d1] load failed:', err);
       showState('error');
     }
+  }
+
+  function renderEmptyState() {
+    const headline = document.getElementById('empty-headline');
+    const detail   = document.getElementById('empty-detail');
+    if (_attemptedThisSession > 0) {
+      // User cleared the queue in this session — congratulate + nudge admin.
+      if (headline) headline.textContent = "You've finished every published exercise!";
+      if (detail)   detail.textContent   = 'Check back soon — admin can publish more anytime.';
+    } else {
+      // No exercises returned even on first load — either brand-new account
+      // OR the user has previously attempted them all in another session.
+      if (headline) headline.textContent = 'No new exercises right now';
+      if (detail)   detail.textContent   = "You've completed everything currently published, or content is still being added. Check back soon.";
+    }
+    showState('empty');
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -139,9 +159,12 @@
         body: JSON.stringify({ user_answer: choice }),
       });
       if (res.status === 429) {
-        const detail = await res.json().catch(() => ({}));
-        const reset = detail?.detail?.reset_at;
-        const note = reset ? `Resets at ${new Date(reset).toLocaleString()}.` : 'Try again tomorrow.';
+        // Decorator surfaces detail = {error, message, limit, used, reset_at}.
+        const body = await res.json().catch(() => ({}));
+        const d = body?.detail || {};
+        const reset = d.reset_at;
+        const note = (d.message || 'Daily limit reached.') +
+          (reset ? ` Resets at ${new Date(reset).toLocaleString()}.` : '');
         document.getElementById('rate-limited-detail').textContent = note;
         showState('rate-limited');
         return;
@@ -174,6 +197,7 @@
     }
 
     _completed += 1;
+    _attemptedThisSession += 1;
     const nextBtn = document.getElementById('next-btn');
     nextBtn.classList.remove('hidden');
     nextBtn.onclick = function () { _currentIndex += 1; renderCurrent(); };
