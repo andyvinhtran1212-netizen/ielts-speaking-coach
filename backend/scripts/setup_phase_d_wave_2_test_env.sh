@@ -17,12 +17,17 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 # 1. Apply Wave 2 migrations (idempotent via IF NOT EXISTS / DROP POLICY IF EXISTS).
-#    Order matters: 026 references flashcard_stacks (025); 027 references
-#    user_vocabulary (Phase B 019).
+#    Order matters:
+#      025 creates flashcard_stacks
+#      026 references flashcard_stacks
+#      027 references user_vocabulary (Phase B 019)
+#      028 adds user_vocabulary.topic + backfills from sessions.topic — the
+#          Manual Stack "topic" filter depends on this column.
 for migration in \
     025_flashcard_stacks \
     026_flashcard_cards \
-    027_flashcard_reviews; do
+    027_flashcard_reviews \
+    028_user_vocab_topic; do
   migration_file="backend/migrations/${migration}.sql"
   if [[ ! -f "$migration_file" ]]; then
     echo "ERROR: $migration_file not found."

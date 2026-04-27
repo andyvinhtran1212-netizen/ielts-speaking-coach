@@ -63,6 +63,18 @@ Mỗi file migration BẮT BUỘC có comment `-- ROLLBACK SCRIPT (commented):` 
   - `review_count` (int, default 0), `lapse_count` (int, default 0).
 - **RLS:** User-owned. Đầy đủ `USING` và `WITH CHECK`.
 - **Index:** `(user_id, next_review_at)` để optimize query queue hàng ngày.
+- **Phụ:** Cùng file, thêm bảng `flashcard_review_log` (append-only) cho rate-limit
+  counting — không thể tái dùng `vocabulary_exercise_attempts` vì CHECK
+  `exercise_type IN ('D1','D3')` và FK tới `vocabulary_exercises`.
+
+### `028_user_vocab_topic.sql` *(thêm trong quá trình Step 3)*
+- **Mục đích:** Cho phép filter Manual Stack theo topic mà không phải JOIN
+  `sessions` mỗi lần — `user_vocabulary` ban đầu thiếu cột `topic`.
+- **Schema:** `ALTER TABLE user_vocabulary ADD COLUMN topic VARCHAR(100)`.
+- **Backfill:** UPDATE từ `sessions.topic` cho mọi row có `session_id`.
+- **Index:** partial `(user_id, topic) WHERE topic IS NOT NULL`.
+- **Forward-populate:** `routers/grading.py::_run_vocab_extraction` lookup
+  `sessions.topic` 1 lần và set vào mỗi row insert mới.
 
 ---
 
@@ -147,10 +159,13 @@ def update_srs(review, rating: str) -> dict:
 **Modal "Tạo stack mới" UI:**
 - **Input:** Tên stack (required, 3-50 chars).
 - **Filter section:**
-  - Topic multi-select dropdown (options từ distinct `user_vocabulary.topic`).
+  - Topic multi-select dropdown (options từ distinct `user_vocabulary.topic`,
+    backed by migration 028; `topic IS NULL` rows hiển thị dưới group
+    "Chưa phân loại").
   - Category multi-select (used_well, needs_review, upgrade_suggested).
   - Search text (optional, search trong headword + definition).
-  - Date range: "Added after" date picker (optional).
+  - Date range: "Added after" date picker (optional, backed by
+    `user_vocabulary.created_at` — đây là field "added_at" trong spec).
 - **Preview section:** List cards matching filter (live update khi thay đổi filter call API preview).
 - **Buttons:** "Lưu" (disabled nếu count=0) / "Hủy".
 
