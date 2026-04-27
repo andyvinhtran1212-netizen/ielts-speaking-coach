@@ -31,20 +31,34 @@ gates real exposure to users.
 ## 2. Database (production Supabase)
 
 - [ ] **BACKUP CREATED** in Supabase Dashboard (timestamp it in PR)
-- [ ] Apply migrations:
+- [ ] Apply migrations IN ORDER (024 references d1_sessions which 023 creates):
   ```bash
   source backend/.env
   psql "$DATABASE_URL" -f backend/migrations/021_vocabulary_exercises.sql
   psql "$DATABASE_URL" -f backend/migrations/022_vocabulary_exercise_attempts.sql
+  psql "$DATABASE_URL" -f backend/migrations/022b_fix_attempts_rls_update_policy.sql
+  psql "$DATABASE_URL" -f backend/migrations/023_d1_sessions.sql                   # session-based redesign
+  psql "$DATABASE_URL" -f backend/migrations/024_attempts_session_link.sql         # session-based redesign
+  ```
+  Or run the wrapper that applies all five + seeds the D1 pool + provisions
+  RLS test users on first run:
+  ```bash
+  bash backend/scripts/setup_phase_d_test_env.sh
   ```
 - [ ] Verify schema:
   ```bash
   psql "$DATABASE_URL" -c "\dt vocabulary_exercises"
   psql "$DATABASE_URL" -c "\dt vocabulary_exercise_attempts"
+  psql "$DATABASE_URL" -c "\dt d1_sessions"
   psql "$DATABASE_URL" -c "\d vocabulary_exercises"           | grep -E 'status|exercise_type|content_payload'
-  psql "$DATABASE_URL" -c "\d vocabulary_exercise_attempts"   | grep -E 'user_id|exercise_id|attempted_at'
+  psql "$DATABASE_URL" -c "\d vocabulary_exercise_attempts"   | grep -E 'user_id|exercise_id|attempted_at|session_id'
+  psql "$DATABASE_URL" -c "\d d1_sessions"                    | grep -E 'user_id|exercise_ids|status|completed_at'
+  # All four RLS policies on attempts present (select + insert + update from 022b):
+  psql "$DATABASE_URL" -c "SELECT policyname, cmd FROM pg_policies WHERE tablename='vocabulary_exercise_attempts'"
+  # All three RLS policies on d1_sessions:
+  psql "$DATABASE_URL" -c "SELECT policyname, cmd FROM pg_policies WHERE tablename='d1_sessions'"
   ```
-- [ ] Idempotency re-check (re-run both migrations, expect `NOTICE ... already exists, skipping` and zero errors)
+- [ ] Idempotency re-check (re-run all migrations, expect `NOTICE ... already exists, skipping` and zero errors)
 
 ## 3. Backend (Railway)
 
