@@ -404,6 +404,7 @@
     </a>
     <div id="vocab-bank-link-container"></div>
     <div id="exercises-link-container"></div>
+    <div id="flashcards-link-container"></div>
   </nav>
 
   <!-- ─── MAIN ────────────────────────────────────────────── -->
@@ -1122,6 +1123,55 @@
       }
     }
 
+    // ── Flashcards flag (Phase D Wave 2) ──────────────────────
+    // Renders the "Flashcards" tab when the per-user flag is on.  Strict
+    // === true so a truthy-but-not-true value can't sneak past.  After
+    // mounting the link, the daily-due badge fetches GET /api/flashcards/
+    // due/count and replaces the .main-tab-sub copy with "X thẻ đến hạn"
+    // when due > 0 — under no due cards we keep the static sub text so a
+    // failed fetch never leaves a stale badge behind.
+    function applyFlashcardsFlag(flashcardEnabled) {
+      var container = document.getElementById('flashcards-link-container');
+      if (!container) return;
+      if (flashcardEnabled !== true) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML =
+        '<a href="flashcards.html" class="main-tab-btn" style="text-decoration:none;">'
+        + '<span class="main-tab-label">📚 Flashcards</span>'
+        + '<span class="main-tab-sub" id="flashcards-tab-sub">Ôn từ vựng theo SRS</span>'
+        + '</a>';
+      // Async badge — best-effort only.  Token is captured at parent scope
+      // (renderUser runs after auth has resolved).
+      _refreshFlashcardsBadge();
+    }
+
+    async function _refreshFlashcardsBadge() {
+      try {
+        var sb = window.getSupabase ? window.getSupabase() : null;
+        if (!sb) return;
+        var sess = await sb.auth.getSession();
+        var token = sess.data && sess.data.session ? sess.data.session.access_token : null;
+        if (!token) return;
+        var res = await fetch(window.api.base + '/api/flashcards/due/count', {
+          headers: { Authorization: 'Bearer ' + token },
+        });
+        if (!res.ok) return;
+        var body = await res.json();
+        var count = Number(body.count || 0);
+        if (count > 0) {
+          var sub = document.getElementById('flashcards-tab-sub');
+          if (sub) {
+            sub.textContent = '🔥 ' + count + ' thẻ đến hạn';
+            sub.style.color = '#fcd34d';
+          }
+        }
+      } catch (_) {
+        // Silent — badge is purely informational.
+      }
+    }
+
     // ── Render user info ──────────────────────────────────────
     function renderUser(user) {
       document.getElementById('user-name-skeleton').style.display = 'none';
@@ -1149,6 +1199,7 @@
       applyPermissions();
       applyVocabBankFlag(user.vocab_bank_enabled);
       applyExercisesFlag(user.d1_enabled, user.d3_enabled);
+      applyFlashcardsFlag(user.flashcard_enabled);
     }
 
     // ── Render stats ──────────────────────────────────────────

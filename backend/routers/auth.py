@@ -9,6 +9,7 @@ import httpx
 
 from config import settings
 from database import supabase_admin
+from services.feature_flags import is_flashcard_enabled
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -130,6 +131,9 @@ async def get_me(authorization: str | None = Header(default=None)):
         "vocab_bank_enabled": flags.get("vocab_enabled") is True,
         "d1_enabled": settings.D1_ENABLED and flags.get("d1_enabled") is True,
         "d3_enabled": settings.D3_ENABLED and flags.get("d3_enabled") is True,
+        # Phase D Wave 2 — strict default-deny via the canonical helper so
+        # frontends can rely on `=== true` without re-implementing the rule.
+        "flashcard_enabled": is_flashcard_enabled(user_id, settings.FLASHCARD_ENABLED),
     }
 
 
