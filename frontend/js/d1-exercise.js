@@ -1,34 +1,60 @@
 /**
- * d1-exercise.js — Fill-blank exercise UI logic.
+ * d1-exercise.js — Fill-blank exercise UI, session-based.
  *
  * Flow:
- *   /auth/me  → flag check → /api/exercises/d1 (queue)
- *   user picks an option → POST /attempt → mark correct/incorrect → reveal "Next"
+ *   /auth/me  → flag check
+ *   start screen → POST /api/exercises/d1/sessions → render queue
+ *   click option → LOCAL grade (instant) → fire-and-forget POST /attempt
+ *   end of queue → POST /sessions/{id}/complete → summary screen
+ *   summary → [Phiên mới] / [Ôn lại câu sai] / [Về hub]
  *
- * Endpoint contract: GET /api/exercises/d1 returns an array of
- *   { id, exercise_type, content: { sentence, options } }
- * `options` is a 4-item shuffled list containing the answer mixed in with
- * the distractors — the answer is never marked client-side; correctness is
- * judged server-side at POST /attempt time.
+ * Why local grading: D1 isn't an exam — the answer is part of the published
+ * payload anyway, and the perceptible UX win (no per-click round-trip) is
+ * worth the small theoretical "user opens DevTools" risk. Backend POST
+ * /attempt re-grades server-side regardless, so analytics + rate limit
+ * stay authoritative. See PHASE_D §5 redesign.
  */
 
 (function () {
   // api.js sets window.api.base from a single localhost/Railway switch — no
-  // per-page fallback duplication.  The d1-exercise.html page loads api.js
-  // before this script, so window.api is always defined here.
+  // per-page fallback duplication. d1-exercise.html loads api.js before this
+  // script, so window.api is always defined here.
   const BASE = window.api.base;
 
   let _token = null;
-  let _queue = [];           // [{ id, content }]
-  let _currentIndex = 0;
-  let _completed = 0;
-  let _locked = false;       // prevents double-submit while a request is in flight
-  let _attemptedThisSession = 0; // used to pick the right "empty" copy
+  /** @typedef {{
+   *   id: string,
+   *   exercises: Array<{id: string, sentence: string, options: string[], answer: string}>,
+   *   current_index: number,
+   *   attempts: Array<{exercise_id: string, user_answer: string, is_correct: boolean,
+   *                    correct_answer: string, sentence: string}>,
+   *   is_review: boolean,
+   * }}
+   */
+  let _session = null;
+
+  // ── Container helpers ─────────────────────────────────────────────────────
+
+  function _root() { return document.querySelector('.exercise-container'); }
+
+  function _setHtml(html) { _root().innerHTML = html; }
+
+  function _showState(state, message) {
+    const map = {
+      loading:  '<div class="state-msg"><div class="spinner"></div></div>',
+      error:    `<div class="state-msg error">${esc(message || 'Có lỗi xảy ra. Thử lại sau.')}</div>`,
+      empty:    `<div class="state-msg">${esc(message || 'Chưa có bài tập nào.')}</div>`,
+      disabled: '<div class="state-msg">Tính năng chưa được bật cho tài khoản của bạn.</div>',
+      rate_limited:
+        `<div class="state-msg">${esc(message || 'Bạn đã đạt giới hạn hôm nay. Quay lại vào ngày mai nhé.')}</div>`,
+    };
+    _setHtml(map[state] || map.error);
+  }
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
   async function init() {
-    showState('loading');
+    _showState('loading');
     try {
       const sb = window.getSupabase ? window.getSupabase() : null;
       if (sb) {
@@ -46,182 +72,256 @@
       const meRes = await fetch(`${BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${_token}` },
       });
-      if (!meRes.ok) { showState('disabled'); return; }
+      if (!meRes.ok) { _showState('disabled'); return; }
       const me = await meRes.json();
-      if (me.d1_enabled !== true) { showState('disabled'); return; }
+      if (me.d1_enabled !== true) { _showState('disabled'); return; }
     } catch (_) {
-      showState('disabled');
+      _showState('disabled');
       return;
     }
 
-    await loadQueue();
+    renderStartScreen();
   }
 
-  // ── Queue load ────────────────────────────────────────────────────────────
+  // ── Screens ───────────────────────────────────────────────────────────────
 
-  async function loadQueue() {
+  function renderStartScreen() {
+    _setHtml(`
+      <div class="start-screen">
+        <h2>Sẵn sàng luyện tập?</h2>
+        <p>Mỗi phiên gồm 10 câu điền từ. Bạn có thể ôn lại các câu sai sau khi hoàn thành.</p>
+        <button class="btn-primary btn-large" id="d1-start-btn">Bắt đầu phiên mới</button>
+      </div>
+    `);
+    document.getElementById('d1-start-btn').onclick = startNewSession;
+  }
+
+  async function startNewSession() {
+    _showState('loading');
+
+    let res, data;
     try {
-      const res = await fetch(`${BASE}/api/exercises/d1?limit=10`, {
-        headers: { Authorization: `Bearer ${_token}` },
-      });
-      if (res.status === 403) { showState('disabled'); return; }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const items = await res.json();
-      if (!Array.isArray(items) || items.length === 0) {
-        // Backend now excludes attempted exercises; an empty list means the
-        // user has finished every published one (rather than "looping" through
-        // already-done exercises like the old behaviour).
-        renderEmptyState();
-        return;
-      }
-      _queue = items;
-      _currentIndex = 0;
-      _completed = 0;
-      renderCurrent();
-    } catch (err) {
-      console.error('[d1] load failed:', err);
-      showState('error');
-    }
-  }
-
-  function renderEmptyState() {
-    const headline = document.getElementById('empty-headline');
-    const detail   = document.getElementById('empty-detail');
-    if (_attemptedThisSession > 0) {
-      // User cleared the queue in this session — congratulate + nudge admin.
-      if (headline) headline.textContent = "You've finished every published exercise!";
-      if (detail)   detail.textContent   = 'Check back soon — admin can publish more anytime.';
-    } else {
-      // No exercises returned even on first load — either brand-new account
-      // OR the user has previously attempted them all in another session.
-      if (headline) headline.textContent = 'No new exercises right now';
-      if (detail)   detail.textContent   = "You've completed everything currently published, or content is still being added. Check back soon.";
-    }
-    showState('empty');
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
-  function renderCurrent() {
-    if (_currentIndex >= _queue.length) {
-      // All done — fetch a fresh batch.
-      loadQueue();
-      return;
-    }
-    showState('stage');
-    _locked = false;
-
-    const item = _queue[_currentIndex];
-    const content = item.content || {};
-    const sentence = content.sentence || '';
-    const options = Array.isArray(content.options) ? content.options : [];
-
-    document.getElementById('prompt').innerHTML = renderSentence(sentence);
-
-    const optsEl = document.getElementById('options');
-    optsEl.innerHTML = options.map((opt, i) =>
-      `<button class="opt-btn" data-opt="${esc(opt)}" data-idx="${i}">${esc(opt)}</button>`
-    ).join('');
-    Array.from(optsEl.querySelectorAll('.opt-btn')).forEach(btn => {
-      btn.addEventListener('click', onPick);
-    });
-
-    document.getElementById('feedback').classList.add('hidden');
-    document.getElementById('next-btn').classList.add('hidden');
-
-    document.getElementById('progress-counter').textContent =
-      `${_completed + 1} / ${_queue.length}`;
-  }
-
-  function renderSentence(sentence) {
-    // Replace ___ with a styled blank token.
-    const safe = esc(sentence);
-    return safe.replace('___', '<span class="blank-token">_____</span>');
-  }
-
-  // ── Submit attempt ────────────────────────────────────────────────────────
-
-  async function onPick(evt) {
-    if (_locked) return;
-    _locked = true;
-    const btn = evt.currentTarget;
-    const choice = btn.getAttribute('data-opt');
-    const item = _queue[_currentIndex];
-
-    let result;
-    try {
-      const res = await fetch(`${BASE}/api/exercises/d1/${item.id}/attempt`, {
+      res = await fetch(`${BASE}/api/exercises/d1/sessions`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${_token}`,
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${_token}`,
+          'Content-Type':  'application/json',
         },
-        body: JSON.stringify({ user_answer: choice }),
+        body: JSON.stringify({ size: 10 }),
       });
-      if (res.status === 429) {
-        // Decorator surfaces detail = {error, message, limit, used, reset_at}.
-        const body = await res.json().catch(() => ({}));
-        const d = body?.detail || {};
-        const reset = d.reset_at;
-        const note = (d.message || 'Daily limit reached.') +
-          (reset ? ` Resets at ${new Date(reset).toLocaleString()}.` : '');
-        document.getElementById('rate-limited-detail').textContent = note;
-        showState('rate-limited');
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      result = await res.json();
     } catch (err) {
-      console.error('[d1] attempt failed:', err);
-      _locked = false;
+      console.error('[d1] startNewSession network err:', err);
+      _showState('error');
       return;
     }
 
-    // Mark choice + correct
-    Array.from(document.querySelectorAll('.opt-btn')).forEach(b => {
-      b.disabled = true;
-      const optVal = b.getAttribute('data-opt');
-      if (optVal === result.correct_answer) b.classList.add('correct');
-      else if (optVal === choice && !result.is_correct) b.classList.add('incorrect');
-      else b.classList.add('dimmed');
+    if (res.status === 503) {
+      // No published exercises in the pool — surface a friendly empty state.
+      _showState('empty', 'Hiện chưa có bài tập nào được phát hành. Quay lại sau nhé.');
+      return;
+    }
+    if (!res.ok) { _showState('error'); return; }
+
+    try {
+      data = await res.json();
+    } catch (_) { _showState('error'); return; }
+
+    if (!data.exercises || data.exercises.length === 0) {
+      _showState('empty', 'Chưa có bài tập nào.');
+      return;
+    }
+
+    _session = {
+      id:            data.session_id,
+      exercises:     data.exercises,    // each item carries `answer` for local grading
+      current_index: 0,
+      attempts:      [],
+      is_review:     false,
+    };
+
+    renderCurrentExercise();
+  }
+
+  function renderCurrentExercise() {
+    if (_session.current_index >= _session.exercises.length) {
+      showSummary();
+      return;
+    }
+
+    const ex      = _session.exercises[_session.current_index];
+    const total   = _session.exercises.length;
+    const current = _session.current_index + 1;
+    const pctFill = ((current - 1) / total) * 100;
+    const isLast  = current === total;
+
+    _setHtml(`
+      <div class="exercise-active">
+        <div class="progress-header">
+          <div class="progress-text">Câu ${current} / ${total}${_session.is_review ? ' (ôn tập)' : ''}</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pctFill}%"></div></div>
+        </div>
+
+        <div class="sentence">${renderSentence(ex.sentence)}</div>
+
+        <div class="options">
+          ${ex.options.map(opt =>
+            `<button class="option-btn" data-option="${esc(opt)}">${esc(opt)}</button>`
+          ).join('')}
+        </div>
+
+        <div id="feedback" class="feedback hidden"></div>
+
+        <div class="mt-5 flex justify-end">
+          <button id="next-btn" class="btn-primary hidden">
+            ${isLast ? 'Xem kết quả' : 'Câu tiếp theo →'}
+          </button>
+        </div>
+      </div>
+    `);
+
+    Array.from(document.querySelectorAll('.option-btn')).forEach(btn => {
+      btn.onclick = () => onAnswerClick(btn.getAttribute('data-option'));
+    });
+    document.getElementById('next-btn').onclick = nextExercise;
+  }
+
+  function onAnswerClick(choice) {
+    const ex = _session.exercises[_session.current_index];
+    // LOCAL grade — instant, no API round-trip.
+    const isCorrect = (choice || '').trim().toLowerCase() ===
+                      (ex.answer || '').trim().toLowerCase();
+
+    // Mark + lock all options so the user can't keep clicking.
+    Array.from(document.querySelectorAll('.option-btn')).forEach(btn => {
+      btn.disabled = true;
+      const optVal = btn.getAttribute('data-option');
+      if (optVal === ex.answer) {
+        btn.classList.add('correct');           // always reveal correct answer
+      } else if (optVal === choice && !isCorrect) {
+        btn.classList.add('wrong');             // mark the wrong choice
+      } else {
+        btn.classList.add('dimmed');
+      }
     });
 
     const fb = document.getElementById('feedback');
-    fb.classList.remove('hidden', 'fb-correct', 'fb-incorrect');
-    if (result.is_correct) {
-      fb.classList.add('fb-correct');
-      fb.textContent = '✓ Correct!';
+    fb.classList.remove('hidden', 'correct', 'wrong');
+    if (isCorrect) {
+      fb.classList.add('correct');
+      fb.textContent = '✓ Chính xác!';
     } else {
-      fb.classList.add('fb-incorrect');
-      fb.textContent = `✗ The answer is "${result.correct_answer}".`;
+      fb.classList.add('wrong');
+      fb.innerHTML = `✗ Đáp án đúng: <strong>${esc(ex.answer)}</strong>`;
     }
+    document.getElementById('next-btn').classList.remove('hidden');
 
-    _completed += 1;
-    _attemptedThisSession += 1;
-    const nextBtn = document.getElementById('next-btn');
-    nextBtn.classList.remove('hidden');
-    nextBtn.onclick = function () { _currentIndex += 1; renderCurrent(); };
+    // Track locally for the summary screen and for review-wrong.
+    _session.attempts.push({
+      exercise_id:    ex.id,
+      user_answer:    choice,
+      is_correct:     isCorrect,
+      correct_answer: ex.answer,
+      sentence:       ex.sentence,
+    });
+
+    // Fire-and-forget POST so the backend can log + grade + rate-limit.
+    // We don't await — the local feedback already rendered. Review sessions
+    // (post-summary) skip this so a re-do doesn't pollute analytics or burn
+    // the daily quota a second time.
+    if (!_session.is_review && _session.id) {
+      fetch(`${BASE}/api/exercises/d1/${ex.id}/attempt`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${_token}`,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({
+          user_answer: choice,
+          session_id:  _session.id,
+        }),
+      }).catch(err => console.warn('[d1] attempt POST failed (non-fatal):', err));
+    }
   }
 
-  // ── State helpers ─────────────────────────────────────────────────────────
+  function nextExercise() {
+    _session.current_index += 1;
+    renderCurrentExercise();
+  }
 
-  function showState(state) {
-    ['loading', 'disabled', 'empty', 'error', 'rate-limited'].forEach(s => {
-      const el = document.getElementById(`state-${s}`);
-      if (el) el.classList.toggle('hidden', s !== state);
-    });
-    document.getElementById('stage').classList.toggle('hidden', state !== 'stage');
+  // ── Summary (basic for now; richer version lands in next commit) ─────────
+
+  async function showSummary() {
+    let summary = computeLocalSummary();
+
+    // Real session: tell the backend we're done so completed_at + status
+    // get stamped, and prefer its summary (canonical from DB).
+    if (!_session.is_review && _session.id) {
+      try {
+        const res = await fetch(
+          `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
+          { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
+        );
+        if (res.ok) summary = await res.json();
+      } catch (err) {
+        console.warn('[d1] complete-session failed; using local summary:', err);
+      }
+    }
+
+    renderSummaryScreen(summary);
+  }
+
+  function computeLocalSummary() {
+    const correct = _session.attempts.filter(a => a.is_correct);
+    const wrong   = _session.attempts.filter(a => !a.is_correct);
+    return {
+      correct_count: correct.length,
+      total_count:   _session.attempts.length || _session.exercises.length,
+      correct: correct.map(a => ({
+        exercise_id: a.exercise_id, sentence: a.sentence, answer: a.correct_answer,
+      })),
+      wrong: wrong.map(a => ({
+        exercise_id:    a.exercise_id,
+        sentence:       a.sentence,
+        user_answer:    a.user_answer,
+        correct_answer: a.correct_answer,
+      })),
+    };
+  }
+
+  function renderSummaryScreen(summary) {
+    const total = summary.total_count || 1;
+    const pct = Math.round((summary.correct_count / total) * 100);
+    _setHtml(`
+      <div class="summary">
+        <h2>${_session.is_review ? 'Hoàn thành ôn tập!' : 'Hoàn thành phiên!'}</h2>
+        <div class="score-display">
+          <div class="score-number">${summary.correct_count}/${total}</div>
+          <div class="score-percent">${pct}%</div>
+        </div>
+        <div class="summary-actions">
+          <button class="btn-primary"  id="d1-restart-btn">Phiên mới</button>
+          <button class="btn-ghost"    id="d1-back-btn">Về hub</button>
+        </div>
+      </div>
+    `);
+    document.getElementById('d1-restart-btn').onclick = startNewSession;
+    document.getElementById('d1-back-btn').onclick    = () => { window.location.href = 'exercises.html'; };
   }
 
   // ── Util ──────────────────────────────────────────────────────────────────
 
-  function esc(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  function renderSentence(sentence) {
+    return esc(sentence).replace('___', '<span class="blank-token">_____</span>');
   }
+
+  function esc(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str == null ? '' : str);
+    return div.innerHTML;
+  }
+
+  // Expose review hook for the next commit's summary screen.
+  window._d1 = { startNewSession };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

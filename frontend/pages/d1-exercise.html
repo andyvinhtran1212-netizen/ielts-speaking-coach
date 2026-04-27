@@ -24,61 +24,106 @@
   <style>
     body { background: #0a1628; }
 
-    .ex-stage {
+    /* Layout shells */
+    .start-screen, .exercise-active, .summary {
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.07);
       border-radius: 16px;
       padding: 26px;
     }
 
+    /* Progress header inside exercise-active */
+    .progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .progress-text { font-size: 13px; color: rgba(255,255,255,0.6); }
+    .progress-bar {
+      flex: 1; max-width: 220px; margin-left: 12px;
+      height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+      transition: width 0.3s ease;
+    }
+
+    .sentence {
+      font-size: 17px; color: #fff; line-height: 1.7; margin-bottom: 22px;
+    }
     .blank-token {
-      display: inline-block;
-      min-width: 90px;
-      padding: 0 10px;
+      display: inline-block; min-width: 90px; padding: 0 10px;
       border-bottom: 2px dashed rgba(20,184,166,0.5);
-      color: #5eead4;
-      font-weight: 600;
+      color: #5eead4; font-weight: 600;
     }
 
-    .opt-btn {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.03);
-      color: rgba(255,255,255,0.85);
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.15s;
+    /* Option buttons */
+    .options { display: flex; flex-direction: column; gap: 10px; }
+    .option-btn {
+      width: 100%; text-align: left; padding: 14px 16px;
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.9);
+      font-size: 15px; cursor: pointer; transition: all 0.15s;
     }
-    .opt-btn:hover {
-      border-color: rgba(20,184,166,0.4);
-      background: rgba(20,184,166,0.08);
+    .option-btn:hover:not(:disabled) {
+      border-color: rgba(20,184,166,0.4); background: rgba(20,184,166,0.08);
     }
-    .opt-btn.correct   { border-color: rgba(20,184,166,0.6);  background: rgba(20,184,166,0.18);  color: #5eead4; }
-    .opt-btn.incorrect { border-color: rgba(239,68,68,0.6);   background: rgba(239,68,68,0.15);   color: #fca5a5; }
-    .opt-btn.dimmed    { opacity: 0.4; }
-    .opt-btn:disabled  { cursor: default; }
+    .option-btn.correct { border-color: rgba(20,184,166,0.6); background: rgba(20,184,166,0.18); color: #5eead4; }
+    .option-btn.wrong   { border-color: rgba(239,68,68,0.6);  background: rgba(239,68,68,0.15);  color: #fca5a5; }
+    .option-btn.dimmed  { opacity: 0.45; }
+    .option-btn:disabled { cursor: default; }
 
-    .feedback-banner {
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 500;
+    /* Feedback banner */
+    .feedback {
+      margin-top: 18px; border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; font-weight: 500;
     }
-    .fb-correct   { background: rgba(20,184,166,0.12); border: 1px solid rgba(20,184,166,0.3); color: #5eead4; }
-    .fb-incorrect { background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.3);  color: #fca5a5; }
+    .feedback.correct { background: rgba(20,184,166,0.12); border: 1px solid rgba(20,184,166,0.3); color: #5eead4; }
+    .feedback.wrong   { background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.3);  color: #fca5a5; }
+    .hidden { display: none !important; }
 
-    .empty-state { color: rgba(255,255,255,0.3); }
+    /* Buttons */
+    .btn-primary, .btn-secondary, .btn-ghost {
+      font-size: 14px; font-weight: 500; padding: 10px 18px; border-radius: 10px;
+      cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
+    }
+    .btn-primary { background: rgba(20,184,166,0.18); border-color: rgba(20,184,166,0.4); color: #14b8a6; }
+    .btn-primary:hover { background: rgba(20,184,166,0.28); }
+    .btn-primary.btn-large { padding: 14px 28px; font-size: 16px; font-weight: 600; }
+    .btn-secondary { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+    .btn-ghost { background: transparent; color: rgba(255,255,255,0.5); }
+    .btn-ghost:hover { color: rgba(255,255,255,0.85); }
 
+    /* Start screen */
+    .start-screen { text-align: center; padding: 48px 24px; }
+    .start-screen h2 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 10px; }
+    .start-screen p  { font-size: 14px; color: rgba(255,255,255,0.55); margin-bottom: 28px; }
+
+    /* Summary screen */
+    .summary h2 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 20px; text-align: center; }
+    .score-display { text-align: center; margin-bottom: 28px; }
+    .score-number  { font-size: 48px; font-weight: 700; color: #14b8a6; line-height: 1; }
+    .score-percent { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+    .results-section { margin-bottom: 24px; }
+    .results-section h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+    .correct-section h3 { color: #5eead4; }
+    .wrong-section   h3 { color: #fca5a5; }
+    .result-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .result-list li {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 12px 14px;
+    }
+    .result-list .word { font-size: 13px; color: #5eead4; margin-bottom: 4px; }
+    .result-list .sentence-preview { font-size: 13px; color: rgba(255,255,255,0.65); font-style: italic; }
+    .answers-row { margin-top: 8px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .answers-row .user-ans    strong.wrong   { color: #fca5a5; }
+    .answers-row .correct-ans strong.correct { color: #5eead4; }
+    .summary-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
+
+    /* Generic state messages (loading / error / disabled / empty) */
+    .state-msg { color: rgba(255,255,255,0.4); text-align: center; padding: 56px 16px; font-size: 14px; }
+    .state-msg.error { color: #fca5a5; }
     .spinner {
-      width: 32px; height: 32px;
-      border: 3px solid rgba(20,184,166,0.2);
-      border-top-color: #14b8a6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      width: 32px; height: 32px; margin: 0 auto;
+      border: 3px solid rgba(20,184,166,0.2); border-top-color: #14b8a6;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -97,54 +142,12 @@
         <span class="text-slate-600">|</span>
         <h1 class="text-base font-semibold text-slate-200">Fill the blank</h1>
       </div>
-      <span id="progress-counter" class="text-xs text-slate-400"></span>
     </div>
   </header>
 
-  <main class="max-w-2xl mx-auto px-4 py-8">
-
-    <div id="state-loading" class="flex justify-center py-16">
-      <div class="spinner"></div>
-    </div>
-
-    <div id="state-disabled" class="hidden text-center py-16 empty-state">
-      <p class="text-lg font-medium mb-2">Fill-blank is not enabled</p>
-      <p class="text-sm">This drill is rolling out gradually.</p>
-    </div>
-
-    <div id="state-empty" class="hidden text-center py-16 empty-state">
-      <p id="empty-headline" class="text-lg font-medium mb-2">No exercises available yet</p>
-      <p id="empty-detail"   class="text-sm">Come back soon — content is being added.</p>
-      <a href="exercises.html" class="inline-block mt-6 text-xs px-4 py-2 rounded-lg"
-         style="background:rgba(20,184,166,0.15); border:1px solid rgba(20,184,166,0.3); color:#5eead4; text-decoration:none;">
-        ← Back to exercises
-      </a>
-    </div>
-
-    <div id="state-error" class="hidden text-center py-16 empty-state">
-      <p class="text-sm">Could not load the next exercise. Please refresh.</p>
-    </div>
-
-    <div id="state-rate-limited" class="hidden text-center py-16 empty-state">
-      <p class="text-lg font-medium mb-2">Daily limit reached</p>
-      <p class="text-sm" id="rate-limited-detail">Try again tomorrow.</p>
-    </div>
-
-    <div id="stage" class="hidden ex-stage">
-      <p id="prompt" class="text-base text-white leading-7"></p>
-
-      <div id="options" class="mt-6 flex flex-col gap-2"></div>
-
-      <div id="feedback" class="hidden mt-5 feedback-banner"></div>
-
-      <div class="mt-5 flex justify-end">
-        <button id="next-btn" class="hidden text-sm font-medium px-5 py-2 rounded-lg"
-                style="background:rgba(20,184,166,0.18); border:1px solid rgba(20,184,166,0.4); color:#14b8a6;">
-          Next exercise →
-        </button>
-      </div>
-    </div>
-
+  <main class="exercise-container max-w-2xl mx-auto px-4 py-8">
+    <!-- d1-exercise.js renders the start screen / queue / summary into this container. -->
+    <div class="state-msg"><div class="spinner"></div></div>
   </main>
 
   <!-- order matters: supabase CDN → api.js → d1-exercise.js -->
