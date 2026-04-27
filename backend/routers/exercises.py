@@ -740,6 +740,22 @@ async def admin_reject_exercise(
     return row
 
 
+@admin_router.patch("/{exercise_id}/unpublish")
+async def admin_unpublish_exercise(
+    exercise_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Pull a published exercise back into draft for re-review.  Used when an
+    admin spots a problem after publishing — without this, the only recovery
+    path was to reject (terminal) and re-generate from scratch.
+    """
+    auth_user = await require_admin(authorization)
+    row = _admin_set_status(exercise_id, "draft", auth_user["id"])
+    _safe_event("admin_exercise_reviewed", {"action": "unpublish", "exercise_id": exercise_id}, auth_user["id"])
+    return row
+
+
 @admin_router.patch("/{exercise_id}")
 async def admin_edit_exercise(
     exercise_id: str,
