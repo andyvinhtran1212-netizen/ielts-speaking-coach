@@ -13,8 +13,14 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
-# 1. Apply Phase D migrations (idempotent via IF NOT EXISTS / DROP POLICY IF EXISTS)
-for migration in 021_vocabulary_exercises 022_vocabulary_exercise_attempts 022b_fix_attempts_rls_update_policy; do
+# 1. Apply Phase D migrations (idempotent via IF NOT EXISTS / DROP POLICY IF EXISTS).
+#    Order matters: 024 references d1_sessions which 023 creates.
+for migration in \
+    021_vocabulary_exercises \
+    022_vocabulary_exercise_attempts \
+    022b_fix_attempts_rls_update_policy \
+    023_d1_sessions \
+    024_attempts_session_link; do
   migration_file="backend/migrations/${migration}.sql"
   if [[ ! -f "$migration_file" ]]; then
     echo "ERROR: $migration_file not found."
