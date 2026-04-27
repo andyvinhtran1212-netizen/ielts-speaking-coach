@@ -131,3 +131,100 @@ def test_review_rating_validation():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
         fc.ReviewRequest(rating="perfect")
+
+
+# ── Uncategorized topic filter (audit Wave 2 MEDIUM #1) ──────────────────────
+
+
+def test_split_topics_extracts_uncategorized_sentinel():
+    """The frontend ships '__uncategorized__' alongside real topics; the
+    helper must isolate it so _apply_filter can build the right SQL."""
+    fc = _import_flashcards()
+    if not hasattr(fc, "_split_topics"):
+        pytest.skip("_split_topics helper not exported yet")
+
+    # Mixed: real topics + sentinel.
+    real, include_null = fc._split_topics(["business", fc._UNCATEGORIZED_TOPIC, "tech"])
+    assert real == ["business", "tech"]
+    assert include_null is True
+
+    # Sentinel only.
+    real, include_null = fc._split_topics([fc._UNCATEGORIZED_TOPIC])
+    assert real == []
+    assert include_null is True
+
+    # Real topics only — flag stays false.
+    real, include_null = fc._split_topics(["business"])
+    assert real == ["business"]
+    assert include_null is False
+
+    # Empty list.
+    real, include_null = fc._split_topics([])
+    assert real == []
+    assert include_null is False
+
+
+def test_uncategorized_token_passes_through_normalize_filter_config():
+    """_normalize_filter_config must NOT strip the sentinel — it's a real
+    valid topic value from the backend's perspective and only _apply_filter
+    knows to translate it into IS NULL."""
+    fc = _import_flashcards()
+    if not hasattr(fc, "_normalize_filter_config"):
+        pytest.skip("_normalize_filter_config helper not exported yet")
+
+    out = fc._normalize_filter_config({
+        "topics": ["business", fc._UNCATEGORIZED_TOPIC],
+    })
+    assert fc._UNCATEGORIZED_TOPIC in out["topics"]
+    assert "business" in out["topics"]
+
+
+class _RecordingBuilder:
+    """Stand-in supabase-py builder that captures every call so _apply_filter's
+    branching can be asserted without a live DB.  Each method returns self
+    so chained calls work the same as the real builder."""
+
+    def __init__(self):
+        self.calls: list[tuple] = []
+
+    def eq(self, col, val):    self.calls.append(("eq", col, val));    return self
+    def in_(self, col, vals):  self.calls.append(("in_", col, tuple(vals))); return self
+    def is_(self, col, val):   self.calls.append(("is_", col, val));   return self
+    def gte(self, col, val):   self.calls.append(("gte", col, val));   return self
+    def or_(self, expr):       self.calls.append(("or_", expr));        return self
+
+
+def test_apply_filter_uncategorized_only_uses_is_null():
+    fc = _import_flashcards()
+    if not hasattr(fc, "_apply_filter"):
+        pytest.skip("_apply_filter helper not exported yet")
+    b = _RecordingBuilder()
+    fc._apply_filter(b, {"topics": [fc._UNCATEGORIZED_TOPIC]})
+    # First call is the is_archived clause shared by every filter call.
+    assert ("eq", "is_archived", False) in b.calls
+    # The topic clause must be is_("topic", "null") — no in_() or or_().
+    assert ("is_", "topic", "null") in b.calls
+    assert not any(c[0] == "in_" and c[1] == "topic" for c in b.calls)
+    assert not any(c[0] == "or_" and "topic" in c[1] for c in b.calls)
+
+
+def test_apply_filter_real_topics_only_uses_in_clause():
+    fc = _import_flashcards()
+    if not hasattr(fc, "_apply_filter"):
+        pytest.skip("_apply_filter helper not exported yet")
+    b = _RecordingBuilder()
+    fc._apply_filter(b, {"topics": ["business", "tech"]})
+    assert ("in_", "topic", ("business", "tech")) in b.calls
+    # No IS NULL clause and no or_() topic clause.
+    assert not any(c[0] == "is_" and c[1] == "topic" for c in b.calls)
+
+
+def test_apply_filter_combined_uses_or_with_is_null():
+    fc = _import_flashcards()
+    if not hasattr(fc, "_apply_filter"):
+        pytest.skip("_apply_filter helper not exported yet")
+    b = _RecordingBuilder()
+    fc._apply_filter(b, {"topics": ["business", fc._UNCATEGORIZED_TOPIC]})
+    or_calls = [c for c in b.calls if c[0] == "or_"]
+    assert any("topic.in.(business)" in c[1] and "topic.is.null" in c[1] for c in or_calls), \
+        f"expected combined topic.in() OR topic.is.null clause, got {or_calls}"
