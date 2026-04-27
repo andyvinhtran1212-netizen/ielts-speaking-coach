@@ -205,8 +205,8 @@
         </div>
       </div>
 
-      <div id="study-ratings" class="ratings hidden-prompt">${ratingButtons}</div>
-      <p class="ratings-hint">Lật thẻ rồi tự đánh giá: 1 Quên • 2 Khó • 3 Tốt • 4 Dễ</p>
+      <div id="study-ratings" class="ratings">${ratingButtons}</div>
+      <p class="ratings-hint">Bấm thẻ để xem nghĩa • Đánh giá: 1 Quên • 2 Khó • 3 Tốt • 4 Dễ</p>
     `);
 
     $('study-card').addEventListener('click', flipCard);
@@ -274,7 +274,9 @@
     if (_state.flipped) return;
     _state.flipped = true;
     $('study-card').classList.add('flipped');
-    $('study-ratings').classList.remove('hidden-prompt');
+    // Rating buttons are visible from the front now (post-Wave-2 UX fix);
+    // keeping this function for the click+hotkey flip itself, no longer
+    // gating the rating row on it.
   }
 
   function rateLabel(r) {
