@@ -240,3 +240,103 @@ step gates real exposure.
 - [ ] Set `FLASHCARD_ENABLED=false` in Railway → all users see `flashcard_enabled=false`, every entry point removes the link from the DOM
 - [ ] If migrations must be reverted, run the `ROLLBACK SCRIPT` blocks (commented out) at the bottom of 025 → 028 (drop in REVERSE order: 028 first, then 027/026/025; flashcard_review_log is inside 027's rollback block)
 - [ ] Migration 028 (user_vocabulary.topic) backfill is destructive on rollback — running the rollback drops the column.  If you only need to disable the feature, prefer `FLASHCARD_ENABLED=false` over rolling back DDL.
+
+---
+
+# Phase D Wave 2 — Flashcard Rich Content (migration 029)
+
+Adds `user_vocabulary.ipa` + `user_vocabulary.example_sentence` so the
+flashcard back face can show vetted reference material instead of the
+learner's own (potentially ungrammatical) transcript.  No behavior
+gate — this rolls out alongside the existing FLASHCARD_ENABLED flag.
+
+## RC.1 Pre-deploy
+
+- [ ] Branch `feature/flashcard-rich-content` rebased on `main`
+- [ ] Local test suite green:
+  ```bash
+  cd backend && python3 -m pytest \
+    tests/test_vocab_enrichment.py \
+    tests/test_srs_algorithm.py \
+    tests/test_flashcard_e2e.py \
+    tests/test_due_queue.py \
+    tests/test_rate_limit.py \
+    tests/test_vocab_guards.py \
+    -q
+  ```
+- [ ] Live RLS suite still green (no schema changes to flashcard_* tables):
+  ```bash
+  set -a; source backend/.env.staging.test
+  pytest backend/tests/test_stack_rls.py -v
+  ```
+- [ ] Page parity green
+
+## RC.2 Database (production Supabase)
+
+- [ ] **BACKUP CREATED** in Supabase Dashboard
+- [ ] Apply migration:
+  ```bash
+  source backend/.env
+  psql "$DATABASE_URL" -f backend/migrations/029_user_vocab_ipa_example.sql
+  ```
+- [ ] Verify columns:
+  ```bash
+  psql "$DATABASE_URL" -c "\d user_vocabulary" | grep -E 'ipa|example_sentence'
+  ```
+  Expect both columns nullable, no default.
+
+## RC.3 Backend (Railway)
+
+- [ ] Confirm `GEMINI_API_KEY` is set in Railway (re-used from D1 generation)
+- [ ] (Optional) confirm `D1_GENERATION_MODEL` knob — vocab enrichment uses
+      the same model variable
+- [ ] Wait for Railway redeploy to finish
+- [ ] Smoke that the new admin endpoint mounts:
+  ```bash
+  curl -X POST -H "Authorization: Bearer <admin JWT>" \
+       "https://<api>/admin/vocab/backfill-enrichment?limit=1"
+  ```
+  Expect 200 with `{job_id, status: "queued", estimated_cost_usd, …}`.
+
+## RC.4 Frontend (Vercel/GitHub Pages)
+
+- [ ] Wait auto-deploy
+- [ ] In study session, verify back card shows headword + IPA banner +
+      example block when the row has those fields populated.
+
+## RC.5 Backfill (recommended, not required)
+
+The endpoint caps at 500/call so an admin can drain in batches:
+- [ ] Run once with `limit=100` for a sanity check, watch Railway logs
+      for `[backfill <job_id>]` lines
+- [ ] If cost + content quality look right, repeat with `limit=500` until
+      no more rows return.  The endpoint is idempotent — already-enriched
+      rows are excluded by the `or_("ipa.is.null,example_sentence.is.null")`
+      filter.
+
+```bash
+curl -X POST -H "Authorization: Bearer <admin JWT>" \
+     "https://<api>/admin/vocab/backfill-enrichment?limit=500"
+```
+
+Cost estimate per call (returned in response): ~$0.0005 × (limit/10).
+500-card batch ≈ $0.025.
+
+## RC.6 Smoke E2E
+
+- [ ] Practice a Speaking session, wait for vocab extraction to land
+- [ ] Open Vocab Bank — newly extracted rows include IPA + example
+- [ ] Open Flashcards study session — back card shows the new fields
+- [ ] Vocab missing IPA still renders correctly (graceful skip on the IPA
+      banner; example block hidden; "Xem câu gốc" still works)
+- [ ] No errors in browser console; no 5xx in Railway logs
+
+## RC.7 Rollback
+
+- [ ] Pure-additive migration, no behavior gate.  To roll back:
+      uncomment the `DROP COLUMN` block at the bottom of
+      `backend/migrations/029_user_vocab_ipa_example.sql` and run.
+      Frontend tolerates NULL gracefully — old card layout returns.
+- [ ] Inline Phase B integration is fail-soft already; no env flag to
+      flip.  If Gemini quota is the concern, set a low daily quota in
+      Google Cloud Console rather than reverting code.
