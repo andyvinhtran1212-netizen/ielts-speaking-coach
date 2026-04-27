@@ -3,12 +3,12 @@
  */
 
 (function () {
-  const BASE = window.api ? window.api.base : (() => {
-    const h = location.hostname;
-    return (h === 'localhost' || h === '127.0.0.1')
-      ? 'http://localhost:8000'
-      : 'https://ielts-speaking-coach-production.up.railway.app';
-  })();
+  // api.js is loaded right above this file in my-vocabulary.html — its
+  // single localhost/Railway switch is the authoritative source of the
+  // API base URL.  Earlier copies kept a duplicated fallback here, which
+  // was dead code (api.js always wins) and a textbook URL-drift trap
+  // flagged by the Wave 2 audit (LOW #3).
+  const BASE = window.api.base;
 
   let _token = null;
   let _allItems = [];
