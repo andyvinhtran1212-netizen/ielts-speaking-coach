@@ -708,6 +708,33 @@ async def _run_vocab_extraction(
             logger.info("[vocab_bg] no items passed guards for response=%s", response_id)
             return
 
+        # Phase D Wave 2 rich-content: enrich each headword with IPA + a clean
+        # standalone example sentence so the flashcard back face can show
+        # vetted reference material instead of recycling the learner's own
+        # transcript.  Fail-soft — if Gemini errors, vocab still saves with
+        # ipa/example_sentence NULL and the admin backfill job can fill them
+        # in later.  Migration 029 added the columns; absence of either
+        # field is the universal "not yet enriched" sentinel.
+        try:
+            from services.vocab_enrichment import enrich_vocabulary_batch
+            unique_headwords = list({r["headword"] for r in rows_to_insert})
+            enrichments = enrich_vocabulary_batch(unique_headwords)
+            enrich_map = {e["headword"].lower(): e for e in enrichments}
+            for row in rows_to_insert:
+                e = enrich_map.get(row["headword"].lower())
+                if e:
+                    row["ipa"] = e["ipa"]
+                    row["example_sentence"] = e["example_sentence"]
+            logger.info(
+                "[vocab_bg] enriched %d/%d headwords with IPA+example",
+                sum(1 for r in rows_to_insert if r.get("ipa")), len(rows_to_insert),
+            )
+        except Exception as enrich_err:
+            # NEVER block the insert — vocab still saves; backfill will fill
+            # ipa/example_sentence later.  Phase B integration anti-pattern:
+            # treat enrichment as best-effort, the vocab itself is the value.
+            logger.warning("[vocab_bg] enrichment failed (continuing without): %s", enrich_err)
+
         inserted = 0
         for row in rows_to_insert:
             try:

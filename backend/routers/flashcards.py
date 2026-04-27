@@ -311,6 +311,8 @@ def _vocab_card_view(vocab_row: dict, review_row: dict | None) -> dict:
         "headword":          vocab_row.get("headword"),
         "definition_vi":     vocab_row.get("definition_vi"),
         "definition_en":     vocab_row.get("definition_en"),
+        "ipa":               vocab_row.get("ipa"),
+        "example_sentence":  vocab_row.get("example_sentence"),
         "context_sentence":  vocab_row.get("context_sentence"),
         "topic":             vocab_row.get("topic"),
         "category":          vocab_row.get("category"),
@@ -699,6 +701,7 @@ async def delete_stack(
 
 _VOCAB_FIELDS = (
     "id, headword, definition_vi, definition_en, "
+    "ipa, example_sentence, "
     "context_sentence, topic, category, source_type, created_at"
 )
 
