@@ -27,8 +27,12 @@
     cards:   [],          // [{id, headword, definition_vi, ...}]
     index:   0,
     flipped: false,
-    breakdown: { again: 0, hard: 0, good: 0, easy: 0 },
-    submitting: false,    // guard so a double-click doesn't double-submit a rating
+    breakdown:    { again: 0, hard: 0, good: 0, easy: 0 },
+    // Failed POST /review attempts collected during the session so the
+    // summary screen can warn the user and (later) offer a retry.
+    // Each entry: { vocab_id, rating, error }.
+    failedSyncs:  [],
+    pendingSyncs: 0,      // in-flight reviews — summary can mention "still saving"
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -116,7 +120,9 @@
 
     _state.index = 0;
     _state.flipped = false;
-    _state.breakdown = { again: 0, hard: 0, good: 0, easy: 0 };
+    _state.breakdown   = { again: 0, hard: 0, good: 0, easy: 0 };
+    _state.failedSyncs = [];
+    _state.pendingSyncs = 0;
     renderCard();
   }
 
@@ -126,7 +132,6 @@
     const card = _state.cards[_state.index];
     if (!card) { renderSummary(); return; }
     _state.flipped = false;
-    _state.submitting = false;
 
     const total   = _state.cards.length;
     const current = _state.index + 1;
@@ -308,60 +313,66 @@
 
   // ── Rating + advance ───────────────────────────────────────────────────────
 
-  async function submitRating(rating) {
-    if (!_state.flipped) { flipCard(); return; }
-    if (_state.submitting) return;
+  /**
+   * Optimistic rating: update local state and advance immediately, fire
+   * the POST /review in the background.  Per-rate latency was the #1 UX
+   * complaint after Wave 2 ship — awaiting a 200-300ms round-trip per
+   * card adds up across a 20-card session.
+   *
+   * Tradeoff: if the network call later fails we don't roll back the
+   * "advance" since the user has moved on; we record the failure so the
+   * summary screen can surface it (and a future retry pass can replay).
+   * Rate-limit (429) is the one case where this hurts — the local
+   * breakdown overcounts vs server SRS — but at 500/day the bound is
+   * generous enough that the user is unlikely to walk into it
+   * mid-session.
+   */
+  function submitRating(rating) {
     if (!RATINGS.includes(rating)) return;
-
     const card = _state.cards[_state.index];
     if (!card) return;
-    _state.submitting = true;
-    document.querySelectorAll('.rate-btn').forEach(b => b.disabled = true);
 
-    try {
-      const res = await fetch(BASE + '/api/flashcards/' + encodeURIComponent(card.id) + '/review', {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating }),
+    _state.breakdown[rating]++;
+    _state.pendingSyncs++;
+
+    // Fire-and-forget — the .then() runs whenever the network finishes.
+    fetch(BASE + '/api/flashcards/' + encodeURIComponent(card.id) + '/review', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          const detail = err.detail;
+          const msg = typeof detail === 'string' ? detail :
+                      (detail && detail.message) || ('HTTP ' + res.status);
+          _state.failedSyncs.push({ vocab_id: card.id, rating, error: msg });
+          console.warn('[flashcard-study] review sync failed:', msg);
+        }
+      })
+      .catch((err) => {
+        _state.failedSyncs.push({
+          vocab_id: card.id,
+          rating,
+          error: (err && err.message) || 'network error',
+        });
+        console.warn('[flashcard-study] review sync errored:', err);
+      })
+      .finally(() => {
+        _state.pendingSyncs = Math.max(0, _state.pendingSyncs - 1);
+        // If the user has reached the summary screen, refresh the warning
+        // banner so an in-flight result coming back late updates it.
+        if (_state.index >= _state.cards.length) {
+          _refreshSummaryWarning();
+        }
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        const detail = err.detail;
-        // Rate-limit detail comes back as an object — surface the message.
-        const msg = typeof detail === 'string' ? detail :
-                    (detail && detail.message) || 'Không gửi được đánh giá.';
-        // Re-enable buttons so the user can retry — don't advance.
-        _state.submitting = false;
-        document.querySelectorAll('.rate-btn').forEach(b => b.disabled = false);
-        showFlashError(msg);
-        return;
-      }
-      _state.breakdown[rating]++;
-    } catch (err) {
-      console.error('[flashcard-study] review', err);
-      _state.submitting = false;
-      document.querySelectorAll('.rate-btn').forEach(b => b.disabled = false);
-      showFlashError('Lỗi mạng — thử lại.');
-      return;
-    }
 
     _state.index++;
     if (_state.index >= _state.cards.length) {
       renderSummary();
     } else {
       renderCard();
-    }
-  }
-
-  function showFlashError(msg) {
-    const hint = document.querySelector('.ratings-hint');
-    if (hint) {
-      hint.textContent = msg;
-      hint.style.color = '#fca5a5';
-      setTimeout(() => {
-        hint.textContent = 'Lật thẻ rồi tự đánh giá: 1 Quên • 2 Khó • 3 Tốt • 4 Dễ';
-        hint.style.color = '';
-      }, 3000);
     }
   }
 
@@ -375,6 +386,7 @@
       <div class="summary">
         <h2>Hoàn thành phiên!</h2>
         <p>Bạn đã ôn ${total} thẻ. Tiến độ SRS đã được lưu tự động.</p>
+        <div id="study-summary-warning"></div>
         <p class="big-num">${total}</p>
         <div class="breakdown">
           <div class="cell"><div class="num" style="color:#fca5a5">${b.again}</div><div class="label">Quên</div></div>
@@ -388,6 +400,41 @@
         </div>
       </div>
     `);
+    _refreshSummaryWarning();
+  }
+
+  /**
+   * Show a banner on the summary screen when reviews are still in flight
+   * or finished with errors.  Called both on initial render and from each
+   * pending fetch's .finally() so a late-arriving failure updates the
+   * banner instead of silently disappearing.
+   */
+  function _refreshSummaryWarning() {
+    const slot = document.getElementById('study-summary-warning');
+    if (!slot) return;  // user navigated away
+    const failed = _state.failedSyncs.length;
+    const pending = _state.pendingSyncs;
+    if (!failed && !pending) {
+      slot.innerHTML = '';
+      return;
+    }
+    const parts = [];
+    if (pending > 0) {
+      parts.push(`<span style="color:#94a3b8;">⏳ Đang đồng bộ ${pending} đánh giá…</span>`);
+    }
+    if (failed > 0) {
+      parts.push(
+        `<span style="color:#fcd34d;">⚠ ${failed} đánh giá chưa sync — ` +
+        `tiến độ local đã ghi, hệ thống sẽ retry lần đăng nhập tới.</span>`
+      );
+    }
+    slot.innerHTML = `
+      <div style="margin:12px 0;padding:10px 14px;border-radius:8px;
+                  background:rgba(252,211,77,0.05);border:1px solid rgba(252,211,77,0.2);
+                  font-size:12px;line-height:1.5;text-align:left;">
+        ${parts.join('<br/>')}
+      </div>
+    `;
   }
 
   // ── Hotkeys ────────────────────────────────────────────────────────────────
