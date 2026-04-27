@@ -55,6 +55,12 @@ _RECENT_LIMIT = 20
 # stray field can't 500 the route.
 _ALLOWED_FILTER_KEYS = {"topics", "categories", "search", "added_after"}
 
+# Sentinel inside filter_config["topics"] meaning "rows with topic IS NULL".
+# Frontend's "Chưa phân loại" chip emits this; backend translates it into a
+# topic-IS-NULL clause so manual-add vocab (session_id NULL → topic NULL)
+# can still be targeted by Manual Stack filters.  Wave 2 audit MEDIUM #1.
+_UNCATEGORIZED_TOPIC = "__uncategorized__"
+
 # Source-type values valid in filter_config["categories"] — matches the
 # CHECK constraint on user_vocabulary.source_type minus the 'manual' bucket
 # (which the modal hides behind the dedicated topic dropdown).
@@ -148,6 +154,23 @@ def _normalize_filter_config(cfg: dict | None) -> dict:
     return out
 
 
+def _split_topics(topics: list[str]) -> tuple[list[str], bool]:
+    """
+    Pull the _UNCATEGORIZED_TOPIC sentinel out of a topics list and return
+    (real_topics, include_uncategorized).  Used by both _apply_filter and
+    its tests.  Order is preserved on the real topics so any downstream
+    deterministic IN() clause stays stable.
+    """
+    real: list[str] = []
+    include_null = False
+    for t in topics or []:
+        if t == _UNCATEGORIZED_TOPIC:
+            include_null = True
+        else:
+            real.append(t)
+    return real, include_null
+
+
 def _apply_filter(builder, filter_config: dict):
     """
     Apply a normalized filter_config to a supabase-py query builder against
@@ -156,10 +179,28 @@ def _apply_filter(builder, filter_config: dict):
 
     Always restricts to NOT is_archived so archived rows never bleed into a
     flashcard stack.
+
+    Topic filter handles the special _UNCATEGORIZED_TOPIC sentinel:
+      - real topics + uncategorized → rows where topic IN (...) OR topic IS NULL
+      - real topics only            → rows where topic IN (...)
+      - uncategorized only          → rows where topic IS NULL
+      - empty                       → no topic restriction
+    The OR-with-IS-NULL is expressed via PostgREST's or_() syntax which
+    accepts in.() and is.null inside one clause.
     """
     builder = builder.eq("is_archived", False)
     if "topics" in filter_config:
-        builder = builder.in_("topic", filter_config["topics"])
+        real_topics, include_null = _split_topics(filter_config["topics"])
+        if real_topics and include_null:
+            # PostgREST or_() needs comma-joined predicates.  The in.()
+            # token expects parens around the value list.
+            joined = ",".join(real_topics)
+            builder = builder.or_(f"topic.in.({joined}),topic.is.null")
+        elif real_topics:
+            builder = builder.in_("topic", real_topics)
+        elif include_null:
+            builder = builder.is_("topic", "null")
+        # else: topics list collapsed to empty after _split — no-op.
     if "categories" in filter_config:
         builder = builder.in_("source_type", filter_config["categories"])
     if "added_after" in filter_config:
@@ -390,13 +431,21 @@ async def list_stacks(authorization: str | None = Header(default=None)):
 async def list_vocab_topics(authorization: str | None = Header(default=None)):
     """
     Distinct user_vocabulary.topic values for the Manual Stack modal's topic
-    dropdown.  NULL topics are dropped here — the frontend handles the
-    "Chưa phân loại" bucket as a separate checkbox so the dropdown stays
-    clean.  Cheap query courtesy of the partial index from migration 028.
+    dropdown, plus a `has_uncategorized` flag so the frontend can render a
+    dedicated "Chưa phân loại" chip when topicless vocab exists.
+
+    Cheap thanks to the partial index from migration 028 (real topics) and
+    a count="exact" probe with limit=1 (uncategorized check — we only need
+    presence, not the actual rows).
+
+    Audit Wave 2 MEDIUM #1: previously the endpoint dropped NULL topics
+    silently and the modal had no entry point for topicless rows.
     """
     auth_user = await get_supabase_user(authorization)
     _require_flashcards_enabled(auth_user["id"])
     sb = _user_sb(_bearer_token(authorization))
+
+    topics: list[str] = []
     try:
         # PostgREST has no DISTINCT; pull the column and de-dupe in Python.
         # Safe — total cardinality is small (one row per session topic per user).
@@ -407,18 +456,33 @@ async def list_vocab_topics(authorization: str | None = Header(default=None)):
             .not_.is_("topic", "null")
             .execute()
         ).data or []
+        seen: set[str] = set()
+        for r in rows:
+            t = (r.get("topic") or "").strip()
+            if t and t not in seen:
+                seen.add(t)
+                topics.append(t)
+        topics.sort()
     except Exception as e:
-        logger.warning("[flashcards] list_vocab_topics failed: %s", e)
-        return {"topics": []}
-    seen: set[str] = set()
-    topics: list[str] = []
-    for r in rows:
-        t = (r.get("topic") or "").strip()
-        if t and t not in seen:
-            seen.add(t)
-            topics.append(t)
-    topics.sort()
-    return {"topics": topics}
+        logger.warning("[flashcards] list_vocab_topics topics failed: %s", e)
+
+    has_uncategorized = False
+    try:
+        # limit=1 + count="exact" = "is there at least one row?" without
+        # materialising the whole set.  Same trick used by /due/count.
+        nul = (
+            sb.table("user_vocabulary")
+            .select("id", count="exact")
+            .eq("is_archived", False)
+            .is_("topic", "null")
+            .limit(1)
+            .execute()
+        )
+        has_uncategorized = int(nul.count or 0) > 0
+    except Exception as e:
+        logger.warning("[flashcards] list_vocab_topics null-probe failed: %s", e)
+
+    return {"topics": topics, "has_uncategorized": has_uncategorized}
 
 
 @user_router.post("/stacks/preview")

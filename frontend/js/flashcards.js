@@ -16,9 +16,15 @@
   const BASE = window.api.base;
 
   let _token = null;
+  // Sentinel matching backend services/flashcards._UNCATEGORIZED_TOPIC.
+  // Sent as a topic value when the user picks "Chưa phân loại" so the
+  // backend can map it to a topic IS NULL clause.  Audit Wave 2 MEDIUM #1.
+  const UNCATEGORIZED = '__uncategorized__';
+
   // Modal state — flushed by openModal() / read by save handler.
   const _state = {
     topics: [],          // available distinct topics from /vocab-topics
+    hasUncategorized: false,
     selectedTopics: new Set(),
     selectedCats:   new Set(),
     previewTimer:   null,
@@ -225,14 +231,17 @@
     $('fc-modal').classList.add('visible');
 
     // Load topics dropdown lazily — first open hits /vocab-topics, subsequent
-    // opens reuse cached list.
-    if (_state.topics.length === 0) {
+    // opens reuse cached list.  We also cache the has_uncategorized flag so
+    // the "Chưa phân loại" chip mirrors the same lazy semantics.
+    if (_state.topics.length === 0 && _state.hasUncategorized === false) {
       try {
         const res = await fetch(BASE + '/api/flashcards/vocab-topics', { headers: authHeaders() });
         const body = await res.json();
         _state.topics = Array.isArray(body.topics) ? body.topics : [];
+        _state.hasUncategorized = body.has_uncategorized === true;
       } catch (_) {
         _state.topics = [];
+        _state.hasUncategorized = false;
       }
     }
     renderTopicChips();
@@ -260,13 +269,25 @@
 
   function renderTopicChips() {
     const wrap = $('m-topics');
-    if (!_state.topics.length) {
+    if (!_state.topics.length && !_state.hasUncategorized) {
       wrap.innerHTML = '<span class="text-xs text-slate-500">Chưa có chủ đề nào — luyện Speaking để hệ thống gắn topic tự động.</span>';
       return;
     }
-    wrap.innerHTML = _state.topics
-      .map(t => `<span class="chip" data-topic="${escape(t)}">${escape(t)}</span>`)
-      .join('');
+    // Render the "Chưa phân loại" chip first when the user has any
+    // topicless vocab — leading position + dashed border so it visually
+    // separates from real topics (audit Wave 2 MEDIUM #1).
+    const parts = [];
+    if (_state.hasUncategorized) {
+      parts.push(
+        `<span class="chip chip-uncategorized" data-topic="${UNCATEGORIZED}"
+                title="Vocab chưa được gán topic (thường là từ thêm thủ công)"
+                style="border-style:dashed;">📂 Chưa phân loại</span>`
+      );
+    }
+    parts.push(
+      ..._state.topics.map(t => `<span class="chip" data-topic="${escape(t)}">${escape(t)}</span>`)
+    );
+    wrap.innerHTML = parts.join('');
     wrap.querySelectorAll('.chip').forEach(c => {
       c.onclick = () => {
         const t = c.getAttribute('data-topic');
