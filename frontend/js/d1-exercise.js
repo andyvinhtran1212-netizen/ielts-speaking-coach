@@ -289,8 +289,44 @@
   }
 
   function renderSummaryScreen(summary) {
-    const total = summary.total_count || 1;
-    const pct = Math.round((summary.correct_count / total) * 100);
+    const total   = summary.total_count || 1;
+    const pct     = Math.round((summary.correct_count / total) * 100);
+    const correct = Array.isArray(summary.correct) ? summary.correct : [];
+    const wrong   = Array.isArray(summary.wrong)   ? summary.wrong   : [];
+
+    const correctSection = correct.length > 0 ? `
+      <div class="results-section correct-section">
+        <h3>✓ Đúng (${correct.length})</h3>
+        <ul class="result-list">
+          ${correct.map(item => `
+            <li>
+              <div class="word"><strong>${esc(item.answer)}</strong></div>
+              <div class="sentence-preview">${esc(item.sentence)}</div>
+            </li>
+          `).join('')}
+        </ul>
+      </div>` : '';
+
+    const wrongSection = wrong.length > 0 ? `
+      <div class="results-section wrong-section">
+        <h3>✗ Sai (${wrong.length})</h3>
+        <ul class="result-list">
+          ${wrong.map(item => `
+            <li>
+              <div class="sentence-preview">${esc(item.sentence)}</div>
+              <div class="answers-row">
+                <span class="user-ans">Bạn chọn: <strong class="wrong">${esc(item.user_answer)}</strong></span>
+                <span class="correct-ans">Đáp án: <strong class="correct">${esc(item.correct_answer)}</strong></span>
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+      </div>` : '';
+
+    const reviewBtn = wrong.length > 0
+      ? `<button class="btn-secondary" id="d1-review-btn">Ôn lại ${wrong.length} câu sai</button>`
+      : '';
+
     _setHtml(`
       <div class="summary">
         <h2>${_session.is_review ? 'Hoàn thành ôn tập!' : 'Hoàn thành phiên!'}</h2>
@@ -298,14 +334,46 @@
           <div class="score-number">${summary.correct_count}/${total}</div>
           <div class="score-percent">${pct}%</div>
         </div>
+        ${correctSection}
+        ${wrongSection}
         <div class="summary-actions">
-          <button class="btn-primary"  id="d1-restart-btn">Phiên mới</button>
-          <button class="btn-ghost"    id="d1-back-btn">Về hub</button>
+          <button class="btn-primary" id="d1-restart-btn">Phiên mới</button>
+          ${reviewBtn}
+          <button class="btn-ghost" id="d1-back-btn">Về hub</button>
         </div>
       </div>
     `);
+
     document.getElementById('d1-restart-btn').onclick = startNewSession;
     document.getElementById('d1-back-btn').onclick    = () => { window.location.href = 'exercises.html'; };
+    if (wrong.length > 0) {
+      const wrongIds = wrong.map(w => w.exercise_id);
+      document.getElementById('d1-review-btn').onclick = () => reviewWrong(wrongIds);
+    }
+  }
+
+  function reviewWrong(wrongIds) {
+    // Build a local-only review session from the exercises the user just got
+    // wrong.  No DB row is created — review attempts skip the fire-and-forget
+    // POST /attempt (see onAnswerClick) so they don't burn the daily quota
+    // again or pollute analytics with practice repetitions.
+    const idSet = new Set(wrongIds);
+    const wrongExercises = _session.exercises.filter(e => idSet.has(e.id));
+
+    if (wrongExercises.length === 0) {
+      // Defensive — shouldn't happen if the summary rendered a review button.
+      renderStartScreen();
+      return;
+    }
+
+    _session = {
+      id:            null,             // standalone, no backend session row
+      exercises:     wrongExercises,
+      current_index: 0,
+      attempts:      [],
+      is_review:     true,
+    };
+    renderCurrentExercise();
   }
 
   // ── Util ──────────────────────────────────────────────────────────────────
@@ -320,8 +388,8 @@
     return div.innerHTML;
   }
 
-  // Expose review hook for the next commit's summary screen.
-  window._d1 = { startNewSession };
+  // Expose hooks the summary buttons bind to.
+  window._d1 = { startNewSession, reviewWrong };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
