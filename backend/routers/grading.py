@@ -630,6 +630,24 @@ async def _run_vocab_extraction(
         if result is None:
             return
 
+        # Fetch the session's topic once — every row inserted below is tagged
+        # with it so Phase D Wave 2's flashcard "Manual Stack" filter can group
+        # cards by topic without a JOIN at query time.  Migration 028 added
+        # the column and backfilled historical rows; this keeps new rows
+        # populated going forward.  Failure is non-fatal — leave topic NULL.
+        session_topic: str | None = None
+        try:
+            sess_row = (
+                supabase_admin.table("sessions")
+                .select("topic")
+                .eq("id", session_id)
+                .limit(1)
+                .execute()
+            )
+            session_topic = (sess_row.data or [{}])[0].get("topic")
+        except Exception as topic_err:
+            logger.debug("[vocab_bg] session topic lookup failed (non-fatal): %s", topic_err)
+
         # Fetch existing headwords for guard 6
         existing_rows = (
             supabase_admin.table("user_vocabulary")
@@ -679,6 +697,7 @@ async def _run_vocab_extraction(
                     "definition_vi":     item.definition_vi,
                     "original_word":     item.original_word if source_type == "upgrade_suggested" else None,
                     "suggestion":        item.suggestion if source_type == "needs_review" else None,
+                    "topic":             session_topic,
                     "mastery_status":    "learning",
                     "is_archived":       False,
                 })

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Học flashcard — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
+  <style>
+    body { background: #0a1628; }
+
+    /* Progress header */
+    .progress-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .progress-text   { font-size: 13px; color: rgba(255,255,255,0.6); white-space: nowrap; }
+    .progress-bar    { flex: 1; height: 6px; background: rgba(255,255,255,0.08);
+                       border-radius: 999px; overflow: hidden; }
+    .progress-fill   { height: 100%; background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+                       transition: width 0.3s ease; }
+
+    /* Flip card */
+    .card-stage { perspective: 1200px; min-height: 280px; }
+    .flashcard {
+      position: relative; width: 100%; min-height: 280px;
+      transform-style: preserve-3d; transition: transform 0.5s ease;
+      cursor: pointer;
+    }
+    .flashcard.flipped { transform: rotateY(180deg); }
+    .face {
+      position: absolute; inset: 0; backface-visibility: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 28px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(15,118,110,0.06) 100%);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center;
+    }
+    .face.back { transform: rotateY(180deg); align-items: flex-start; text-align: left; justify-content: flex-start; }
+
+    .headword { font-size: 32px; font-weight: 700; color: #fff; line-height: 1.2; margin-bottom: 10px; }
+    .topic-tag { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+                 padding: 3px 9px; border-radius: 20px;
+                 background: rgba(99,102,241,0.15); color: #a5b4fc;
+                 border: 1px solid rgba(99,102,241,0.3); }
+    .flip-hint { margin-top: 24px; font-size: 12px; color: rgba(255,255,255,0.4); }
+
+    .def-vi   { font-size: 17px; color: #fff;            font-weight: 500; margin-bottom: 8px; }
+    .def-en   { font-size: 14px; color: rgba(255,255,255,0.7);                margin-bottom: 14px; font-style: italic; }
+    .context  { font-size: 13px; color: rgba(94,234,212,0.85); padding: 10px 12px;
+                background: rgba(20,184,166,0.06); border-left: 2px solid rgba(20,184,166,0.4);
+                border-radius: 6px; margin-bottom: 14px; }
+    .meta-row { font-size: 12px; color: rgba(255,255,255,0.45); display: flex; gap: 16px; flex-wrap: wrap; }
+
+    /* Rating buttons */
+    .ratings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+    .rate-btn {
+      padding: 14px 8px; border-radius: 12px; cursor: pointer; transition: all 0.15s;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03);
+      color: rgba(255,255,255,0.85); text-align: center; font-size: 13px; font-weight: 500;
+    }
+    .rate-btn:hover { transform: translateY(-2px); }
+    .rate-btn .label    { display: block; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .rate-btn .interval { display: block; font-size: 11px; color: rgba(255,255,255,0.45); }
+    .rate-btn .hotkey   { display: inline-block; font-size: 10px; padding: 1px 6px;
+                          border-radius: 4px; background: rgba(255,255,255,0.08);
+                          color: rgba(255,255,255,0.5); margin-left: 4px; }
+    .rate-again { color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+    .rate-again:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.5); }
+    .rate-hard  { color: #fcd34d; border-color: rgba(251,191,36,0.3); }
+    .rate-hard:hover  { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.5); }
+    .rate-good  { color: #5eead4; border-color: rgba(20,184,166,0.3); }
+    .rate-good:hover  { background: rgba(20,184,166,0.1); border-color: rgba(20,184,166,0.5); }
+    .rate-easy  { color: #93c5fd; border-color: rgba(59,130,246,0.3); }
+    .rate-easy:hover  { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.5); }
+    .rate-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .ratings.hidden-prompt { opacity: 0.3; pointer-events: none; }
+    .ratings-hint { font-size: 12px; color: rgba(255,255,255,0.4); text-align: center; margin-top: 10px; }
+
+    /* Summary */
+    .summary {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px; padding: 28px; text-align: center;
+    }
+    .summary h2 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 8px; }
+    .summary p  { font-size: 14px; color: rgba(255,255,255,0.55); margin-bottom: 22px; }
+    .summary .big-num { font-size: 48px; font-weight: 700; color: #14b8a6; line-height: 1; }
+    .breakdown { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 22px 0; }
+    .breakdown .cell {
+      padding: 10px 6px; border-radius: 8px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+    }
+    .breakdown .cell .num   { font-size: 22px; font-weight: 600; color: #fff; }
+    .breakdown .cell .label { font-size: 11px; color: rgba(255,255,255,0.5);
+                              text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+    .summary-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+    /* Buttons */
+    .btn-primary, .btn-secondary, .btn-ghost {
+      font-size: 14px; font-weight: 500; padding: 10px 18px; border-radius: 10px;
+      cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
+      display: inline-block; text-decoration: none;
+    }
+    .btn-primary { background: rgba(20,184,166,0.18); border-color: rgba(20,184,166,0.4); color: #14b8a6; }
+    .btn-primary:hover { background: rgba(20,184,166,0.28); }
+    .btn-secondary { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+
+    /* States */
+    .state-msg { color: rgba(255,255,255,0.4); text-align: center; padding: 56px 16px; font-size: 14px; }
+    .state-msg.error { color: #fca5a5; }
+    .spinner {
+      width: 32px; height: 32px; margin: 0 auto;
+      border: 3px solid rgba(20,184,166,0.2); border-top-color: #14b8a6;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen">
+
+  <header style="background:#0C2340; border-bottom:1px solid rgba(255,255,255,0.06);" class="px-6 py-4">
+    <div class="max-w-2xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="flashcards.html" class="text-sm font-medium flex items-center gap-1 hover:opacity-80" style="color:#14b8a6; text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Flashcards
+        </a>
+        <span class="text-slate-600">|</span>
+        <h1 id="study-title" class="text-base font-semibold text-slate-200">Học flashcard</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-8">
+    <div id="study-container">
+      <div class="state-msg"><div class="spinner"></div></div>
+    </div>
+  </main>
+
+  <!-- order matters: supabase CDN → api.js → initSupabase → flashcard-study.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    initSupabase(
+      'https://nqhrtqspznepmveyurzm.supabase.co',
+      'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4'
+    );
+  </script>
+  <script src="../js/flashcard-study.js"></script>
+</body>
+</html>

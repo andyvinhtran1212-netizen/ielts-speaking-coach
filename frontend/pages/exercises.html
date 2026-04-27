@@ -110,7 +110,20 @@
           <p class="text-xs mt-3" style="color:rgba(20,184,166,0.6);">Start →</p>
         </a>
 
-        <!-- D3: Speak with target — Wave 2 -->
+        <!-- Flashcards (Phase D Wave 2) — gated on flashcard_enabled. -->
+        <a id="card-flashcards" href="flashcards.html" class="ex-card hidden">
+          <div class="flex items-start justify-between mb-3">
+            <span class="text-2xl">📚</span>
+            <span class="ex-pill pill-live">Live</span>
+          </div>
+          <h3 class="text-base font-semibold text-white mb-1">Flashcards</h3>
+          <p class="text-sm text-slate-400">
+            Ôn từ vựng cá nhân theo lịch SRS — thẻ nào sắp quên sẽ tự nổi lên trước.
+          </p>
+          <p class="text-xs mt-3" style="color:rgba(20,184,166,0.6);">Start →</p>
+        </a>
+
+        <!-- D3: Speak with target — deferred to Phase E (was Wave 2 before pivot). -->
         <div id="card-d3" class="ex-card disabled" aria-disabled="true">
           <div class="flex items-start justify-between mb-3">
             <span class="text-2xl">🎙️</span>
@@ -165,18 +178,28 @@
 
         const d1 = me.d1_enabled === true;
         const d3 = me.d3_enabled === true;
+        const flashcards = me.flashcard_enabled === true;
 
-        if (!d1 && !d3) { showState('disabled'); return; }
+        if (!d1 && !d3 && !flashcards) { showState('disabled'); return; }
 
-        // Default-deny: hide D1 card if its flag is off (mirror anti-pattern alert
-        // from PHASE_D_V3_PLAN — feature flag must remove DOM, not display:none).
+        // Default-deny: REMOVE the D1 card from the DOM when its flag is off
+        // (mirror anti-pattern alert from PHASE_D_V3_PLAN — feature flag must
+        // remove DOM, not display:none).
         if (!d1) {
           const card = document.getElementById('card-d1');
           if (card && card.parentNode) card.parentNode.removeChild(card);
         }
 
-        // D3 always shows as "Coming soon" in Wave 1, regardless of d3_enabled.
-        // Wave 2 will replace the disabled card with a real link.
+        // Flashcards (Phase D Wave 2): unhide the card when the user's flag
+        // is on; remove from DOM otherwise.  Same default-deny pattern.
+        const flashcardsCard = document.getElementById('card-flashcards');
+        if (flashcards) {
+          if (flashcardsCard) flashcardsCard.classList.remove('hidden');
+        } else if (flashcardsCard && flashcardsCard.parentNode) {
+          flashcardsCard.parentNode.removeChild(flashcardsCard);
+        }
+
+        // D3 stays "Coming soon" — deferred to Phase E.
 
         showState('ready');
       } catch (err) {

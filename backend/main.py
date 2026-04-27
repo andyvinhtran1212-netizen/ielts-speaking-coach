@@ -22,6 +22,7 @@ from routers.exercises import (
     user_router as exercises_user_router,
     admin_router as exercises_admin_router,
 )
+from routers.flashcards import user_router as flashcards_user_router
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ app.include_router(analytics_router)
 app.include_router(vocabulary_bank_router)
 app.include_router(exercises_user_router)
 app.include_router(exercises_admin_router)
+app.include_router(flashcards_user_router)
 
 
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers

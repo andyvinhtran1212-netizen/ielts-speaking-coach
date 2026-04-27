@@ -57,7 +57,14 @@ def is_d1_enabled(user_id: str, global_flag: bool) -> bool:
 
 
 def is_d3_enabled(user_id: str, global_flag: bool) -> bool:
-    """Phase D: D3 speak-with-target (Wave 2).  Same default-deny semantics."""
+    """Phase D: D3 speak-with-target (deferred to Phase E).  Same default-deny."""
     if not global_flag:
         return False
     return _per_user_flag(user_id, "d3_enabled")
+
+
+def is_flashcard_enabled(user_id: str, global_flag: bool) -> bool:
+    """Phase D Wave 2: Flashcards.  Same default-deny semantics as vocab/D1."""
+    if not global_flag:
+        return False
+    return _per_user_flag(user_id, "flashcard_enabled")
