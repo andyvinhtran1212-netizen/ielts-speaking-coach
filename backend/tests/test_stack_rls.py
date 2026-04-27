@@ -152,3 +152,170 @@ def test_with_check_blocks_user_id_reassignment(jwt_a, jwt_b):
             ca.table("flashcard_stacks").update({"user_id": jwt_b["user_id"]}).eq("id", stack_id).execute()
     finally:
         ca.table("flashcard_stacks").delete().eq("id", stack_id).execute()
+
+
+# ── flashcard_cards cross-user isolation (audit Wave 2 MEDIUM #2) ────────────
+
+
+import uuid as _uuid
+
+
+def _seed_vocab(client, user_id: str, headword: str) -> str:
+    """Insert one user_vocabulary row owned by `user_id` and return its id.
+    Headword caller-supplied so re-runs use a fresh unique slot every time."""
+    row = (
+        client.table("user_vocabulary")
+        .insert({
+            "user_id":     user_id,
+            "headword":    headword,
+            "source_type": "manual",
+            "category":    "topic",
+        })
+        .execute()
+    )
+    assert row.data, f"vocab seed for {user_id} returned empty"
+    return row.data[0]["id"]
+
+
+def test_user_a_cannot_see_user_b_cards(jwt_a, jwt_b):
+    """B owns a stack with a card.  A's RLS-scoped SELECT must return [].
+
+    Card RLS uses an EXISTS check on flashcard_stacks ownership; this test
+    pins that policy against a real cross-user query so a future migration
+    that drops the EXISTS clause can't slip through CI.
+    """
+    cb = _user_client(jwt_b["access_token"])
+    headword = f"rls-card-{_uuid.uuid4().hex[:8]}"
+    vocab_id = _seed_vocab(cb, jwt_b["user_id"], headword)
+    stack = (
+        cb.table("flashcard_stacks")
+        .insert({"user_id": jwt_b["user_id"], "name": "RLS-cards-B", "type": "manual"})
+        .execute()
+    ).data[0]
+    card = (
+        cb.table("flashcard_cards")
+        .insert({"stack_id": stack["id"], "vocabulary_id": vocab_id})
+        .execute()
+    ).data[0]
+
+    try:
+        ca = _user_client(jwt_a["access_token"])
+        seen = ca.table("flashcard_cards").select("id").eq("id", card["id"]).execute()
+        assert seen.data == [], f"A leaked B's card: {seen.data!r}"
+        # Also confirm the stack-scoped query doesn't surface it.
+        seen2 = ca.table("flashcard_cards").select("id").eq("stack_id", stack["id"]).execute()
+        assert seen2.data == [], f"A leaked B's cards via stack_id: {seen2.data!r}"
+    finally:
+        cb.table("flashcard_cards").delete().eq("id", card["id"]).execute()
+        cb.table("flashcard_stacks").delete().eq("id", stack["id"]).execute()
+        cb.table("user_vocabulary").delete().eq("id", vocab_id).execute()
+
+
+def test_user_a_cannot_modify_user_b_cards(jwt_a, jwt_b):
+    """B's card row stays untouched after A's DELETE attempt."""
+    cb = _user_client(jwt_b["access_token"])
+    headword = f"rls-card-mod-{_uuid.uuid4().hex[:8]}"
+    vocab_id = _seed_vocab(cb, jwt_b["user_id"], headword)
+    stack = (
+        cb.table("flashcard_stacks")
+        .insert({"user_id": jwt_b["user_id"], "name": "RLS-cards-mod-B", "type": "manual"})
+        .execute()
+    ).data[0]
+    card = (
+        cb.table("flashcard_cards")
+        .insert({"stack_id": stack["id"], "vocabulary_id": vocab_id})
+        .execute()
+    ).data[0]
+
+    try:
+        ca = _user_client(jwt_a["access_token"])
+        # RLS hides the target row, so DELETE returns zero affected rows.
+        deleted = ca.table("flashcard_cards").delete().eq("id", card["id"]).execute()
+        assert deleted.data == [], f"A unexpectedly deleted B's card: {deleted.data!r}"
+
+        # Confirm B's row is still there and untouched.
+        check = cb.table("flashcard_cards").select("id").eq("id", card["id"]).execute()
+        assert check.data and check.data[0]["id"] == card["id"]
+    finally:
+        cb.table("flashcard_cards").delete().eq("id", card["id"]).execute()
+        cb.table("flashcard_stacks").delete().eq("id", stack["id"]).execute()
+        cb.table("user_vocabulary").delete().eq("id", vocab_id).execute()
+
+
+# ── flashcard_reviews cross-user isolation (audit Wave 2 MEDIUM #2) ──────────
+
+
+def test_user_a_cannot_see_user_b_reviews(jwt_a, jwt_b):
+    """B reviews their card → row in flashcard_reviews.  A's SELECT == []."""
+    cb = _user_client(jwt_b["access_token"])
+    headword = f"rls-review-{_uuid.uuid4().hex[:8]}"
+    vocab_id = _seed_vocab(cb, jwt_b["user_id"], headword)
+    review = (
+        cb.table("flashcard_reviews")
+        .insert({
+            "user_id":         jwt_b["user_id"],
+            "vocabulary_id":   vocab_id,
+            "interval_days":   1,
+            "ease_factor":     2.5,
+            "review_count":    1,
+            "lapse_count":     0,
+            "next_review_at":  "2099-01-01T00:00:00+00:00",
+        })
+        .execute()
+    ).data[0]
+
+    try:
+        ca = _user_client(jwt_a["access_token"])
+        seen = ca.table("flashcard_reviews").select("id").eq("id", review["id"]).execute()
+        assert seen.data == [], f"A leaked B's review: {seen.data!r}"
+        # Also try the (user_id, vocabulary_id) index path.
+        seen2 = ca.table("flashcard_reviews").select("id").eq("vocabulary_id", vocab_id).execute()
+        assert seen2.data == [], f"A leaked B's review by vocab: {seen2.data!r}"
+    finally:
+        cb.table("flashcard_reviews").delete().eq("id", review["id"]).execute()
+        cb.table("user_vocabulary").delete().eq("id", vocab_id).execute()
+
+
+def test_user_a_cannot_modify_user_b_reviews(jwt_a, jwt_b):
+    """A's UPDATE on B's review row affects 0 rows; B's state unchanged."""
+    cb = _user_client(jwt_b["access_token"])
+    headword = f"rls-review-mod-{_uuid.uuid4().hex[:8]}"
+    vocab_id = _seed_vocab(cb, jwt_b["user_id"], headword)
+    original_ease = 2.5
+    review = (
+        cb.table("flashcard_reviews")
+        .insert({
+            "user_id":         jwt_b["user_id"],
+            "vocabulary_id":   vocab_id,
+            "interval_days":   3,
+            "ease_factor":     original_ease,
+            "review_count":    2,
+            "lapse_count":     0,
+            "next_review_at":  "2099-01-01T00:00:00+00:00",
+        })
+        .execute()
+    ).data[0]
+
+    try:
+        ca = _user_client(jwt_a["access_token"])
+        upd = (
+            ca.table("flashcard_reviews")
+            .update({"ease_factor": 1.3, "interval_days": 0})
+            .eq("id", review["id"])
+            .execute()
+        )
+        assert upd.data == [], f"A unexpectedly updated B's review: {upd.data!r}"
+
+        # Confirm B's review still carries its original numbers.
+        check = (
+            cb.table("flashcard_reviews")
+            .select("ease_factor, interval_days")
+            .eq("id", review["id"])
+            .single()
+            .execute()
+        )
+        assert abs(float(check.data["ease_factor"]) - original_ease) < 1e-6
+        assert int(check.data["interval_days"]) == 3
+    finally:
+        cb.table("flashcard_reviews").delete().eq("id", review["id"]).execute()
+        cb.table("user_vocabulary").delete().eq("id", vocab_id).execute()
