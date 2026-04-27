@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Phase D Wave 1 page-parity check.
+# Phase D page-parity check.
 # Verifies new Phase D pages load Supabase + api.js + initSupabase, matching the
 # pattern used by dashboard.html.  Run from project root.
 #
-# Wave 1 ships exercises.html + d1-exercise.html.  d3-exercise.html is added in
-# Wave 2 — this script tolerates its absence so Wave 1 PRs still pass.
+# Wave 1 ships exercises.html + d1-exercise.html.
+# Wave 2 ships flashcards.html + flashcard-study.html.  D3 (d3-exercise.html)
+# was deferred to Phase E and is tolerated as missing here.
 set -euo pipefail
 
 PAGES=(
   "frontend/pages/exercises.html"
   "frontend/pages/d1-exercise.html"
   "frontend/pages/d3-exercise.html"
+  "frontend/pages/flashcards.html"
+  "frontend/pages/flashcard-study.html"
 )
 
 CHECKS=(
@@ -24,9 +27,17 @@ checked=0
 
 for page in "${PAGES[@]}"; do
   if [[ ! -f "$page" ]]; then
-    # d3-exercise.html is Wave 2 — don't fail the Wave 1 build over it.
+    # d3-exercise.html is deferred to Phase E — don't fail the build over it.
     if [[ "$page" == *"d3-exercise.html" ]]; then
-      echo "SKIP: $page (Wave 2)"
+      echo "SKIP: $page (deferred to Phase E)"
+      continue
+    fi
+    # flashcards*.html land in Phase D Wave 2 steps 5-6; tolerate their
+    # absence during steps 1-4 the same way Wave 1 tolerated d3.  Once the
+    # pages are committed, the parity grep below kicks in and enforces the
+    # init-script trio just like every other page.
+    if [[ "$page" == *"flashcards.html" || "$page" == *"flashcard-study.html" ]]; then
+      echo "SKIP: $page (Phase D Wave 2 steps 5-6 — not yet authored)"
       continue
     fi
     echo "FAIL: $page is missing."
