@@ -15,6 +15,9 @@
   let _currentFilter = 'all';
   let _reportVocabId = null;
   let _exercisesEnabled = false;   // populated from /auth/me; default-deny.
+  let _flashcardEnabled = false;   // Phase D Wave 2 — same default-deny semantics.
+  let _pickerVocabId = null;
+  let _pickerStacksCache = null;   // [] of {id, name, type} — refreshed on each open
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,7 @@
         return;
       }
       _exercisesEnabled = (me.d1_enabled === true) || (me.d3_enabled === true);
+      _flashcardEnabled = (me.flashcard_enabled === true);
     } catch (_) {
       showState('disabled');
       return;
@@ -169,6 +173,16 @@
             title="Practice with this word">▶ practice</a>`
       : '';
 
+    // Phase D Wave 2: "Add to flashcard stack" entry point.  Default-deny
+    // gated on _flashcardEnabled so the button is absent (not display:none)
+    // when the user's flag is off — DOM-removal pattern from PHASE_D §16.
+    const flashcardBtn = _flashcardEnabled
+      ? `<button class="text-xs ml-3"
+                 style="color:rgba(168,85,247,0.85); background:transparent; border:none; cursor:pointer; padding:0;"
+                 onclick="openFlashcardPicker('${esc(item.id)}', '${esc(item.headword)}')"
+                 title="Thêm vào flashcard stack">📚 +Stack</button>`
+      : '';
+
     return `
       <div class="vocab-card" id="card-${item.id}">
         <div class="flex items-start justify-between gap-3 mb-2">
@@ -195,6 +209,7 @@
           <div class="flex items-center">
             ${sourceLink}
             ${practiceLink}
+            ${flashcardBtn}
           </div>
           <button class="report-btn" onclick="openReport('${item.id}')">Report incorrect</button>
         </div>
@@ -306,6 +321,104 @@
       closeReport();
     }
   };
+
+  // ── Flashcard picker (Phase D Wave 2) ─────────────────────────────────────
+
+  window.openFlashcardPicker = async function (vocabId, headword) {
+    _pickerVocabId = vocabId;
+    document.getElementById('fc-picker-headword').textContent = headword
+      ? `Chọn stack để thêm "${headword}"` : '';
+    const listEl = document.getElementById('fc-picker-list');
+    listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-3">Đang tải stacks…</p>';
+    document.getElementById('fc-picker-modal').classList.remove('hidden');
+
+    // Always re-fetch — user may have created a new stack since the last
+    // open without leaving this page.
+    try {
+      const res = await fetch(`${BASE}/api/flashcards/stacks`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      const all = Array.isArray(body.stacks) ? body.stacks : [];
+      // Auto-stacks aren't curated — only manual stacks are valid targets.
+      _pickerStacksCache = all.filter(s => s.type === 'manual');
+    } catch (err) {
+      console.error('[vocab] picker stacks load failed:', err);
+      listEl.innerHTML = '<p class="text-xs text-center py-3" style="color:#fca5a5">Không tải được stacks.</p>';
+      return;
+    }
+
+    if (!_pickerStacksCache.length) {
+      listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-3">Bạn chưa có stack thủ công nào.<br/>Tạo stack mới ở dưới để bắt đầu.</p>';
+      return;
+    }
+
+    listEl.innerHTML = _pickerStacksCache.map(s => `
+      <button class="text-left px-3 py-2 rounded-lg flex items-center justify-between"
+              style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); cursor:pointer;"
+              onmouseover="this.style.background='rgba(20,184,166,0.08)'"
+              onmouseout="this.style.background='rgba(255,255,255,0.04)'"
+              onclick="addToFlashcardStack('${esc(s.id)}', '${esc(s.name)}')">
+        <span class="text-sm text-white">${esc(s.name)}</span>
+        <span class="text-xs text-slate-400">${s.card_count ?? 0} thẻ</span>
+      </button>
+    `).join('');
+  };
+
+  window.closeFlashcardPicker = function () {
+    document.getElementById('fc-picker-modal').classList.add('hidden');
+    _pickerVocabId = null;
+  };
+
+  window.addToFlashcardStack = async function (stackId, stackName) {
+    if (!_pickerVocabId) return;
+    const vocabId = _pickerVocabId;
+    closeFlashcardPicker();
+    try {
+      const res = await fetch(`${BASE}/api/flashcards/stacks/${encodeURIComponent(stackId)}/cards`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ vocabulary_id: vocabId }),
+      });
+      if (res.ok || res.status === 201) {
+        flashToast(`Đã thêm vào "${stackName}".`, 'success');
+        return;
+      }
+      if (res.status === 409) {
+        flashToast(`Đã có trong "${stackName}".`, 'info');
+        return;
+      }
+      const err = await res.json().catch(() => ({}));
+      flashToast(err.detail || 'Không thêm được vào stack.', 'error');
+    } catch (err) {
+      console.error('[vocab] add to stack failed:', err);
+      flashToast('Lỗi mạng khi thêm vào stack.', 'error');
+    }
+  };
+
+  function flashToast(message, kind) {
+    // Reuse the page's existing toast pattern if any; otherwise build a
+    // disposable element so this module stays self-contained.
+    let el = document.getElementById('vocab-flash-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'vocab-flash-toast';
+      el.style.cssText =
+        'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+        'padding:10px 16px;border-radius:10px;font-size:13px;z-index:60;' +
+        'opacity:0;transition:opacity 0.2s;pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    const palette = {
+      success: 'background:rgba(20,184,166,0.18);border:1px solid rgba(20,184,166,0.4);color:#5eead4;',
+      info:    'background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);color:#a5b4fc;',
+      error:   'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;',
+    };
+    el.style.cssText += (palette[kind] || palette.info);
+    el.textContent = message;
+    el.style.opacity = '1';
+    clearTimeout(flashToast._t);
+    flashToast._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+  }
 
   // ── State helpers ─────────────────────────────────────────────────────────
 
