@@ -158,10 +158,15 @@
     //   6. Meta row (review state etc) — bottom
     //
     // Each section renders independently — a card with IPA but no example
-    // shows the IPA banner and skips the example block.  Fallback (no
-    // definitions AT ALL) demotes context_sentence to inline reference so
-    // the card stays studyable.
+    // shows the IPA banner and skips the example block.  When ALL of
+    // definition_vi / definition_en / example_sentence are missing the
+    // card has nothing studyable to show, so we render a friendly
+    // "no data" notice + still expose context_sentence via the opt-in
+    // source button (NEVER inline — Codex audit MEDIUM caught the prior
+    // version inlining transcript text in the fallback path, which is the
+    // exact UX issue this whole rich-content rollout is trying to fix).
     const hasDefinition = !!(card.definition_vi || card.definition_en);
+    const hasContent    = hasDefinition || !!card.example_sentence;
 
     const headwordBanner = `
       <div class="back-headword-row">
@@ -173,8 +178,7 @@
     const definitionBlock = hasDefinition
       ? `${card.definition_vi ? `<p class="def-vi">${escape(card.definition_vi)}</p>` : ''}
          ${card.definition_en ? `<p class="def-en">${escape(card.definition_en)}</p>` : ''}`
-      : `<p class="def-vi" style="color:rgba(252,211,77,0.85);">Chưa có định nghĩa.</p>
-         ${card.context_sentence ? `<p class="def-en" style="font-style:italic;">Câu gốc: "${escape(card.context_sentence)}"</p>` : ''}`;
+      : '';
 
     // AI-generated example (migration 029 + services/vocab_enrichment).
     // Visually distinct from definitions so the learner knows the sentence
@@ -187,11 +191,32 @@
          </div>`
       : '';
 
+    // No-content fallback: card has neither definitions nor an example.
+    // Shows a friendly notice — context_sentence is OFFERED via the
+    // existing source button (rendered below, gated only on the
+    // context_sentence existing) but NEVER inlined.  Backfill will fill
+    // these in eventually.
+    const noContentBlock = !hasContent
+      ? `<div style="padding:14px;border-radius:10px;
+                     background:rgba(252,211,77,0.05);
+                     border:1px solid rgba(252,211,77,0.2);
+                     margin-bottom:14px;">
+           <p style="font-size:14px;color:rgba(252,211,77,0.9);margin-bottom:6px;">
+             Chưa có dữ liệu chi tiết cho từ này.
+           </p>
+           <p style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5;">
+             Hệ thống sẽ tự bổ sung định nghĩa và câu ví dụ ở lần luyện tập tới.
+           </p>
+         </div>`
+      : '';
+
     // The card's context_sentence comes from the user's own STT transcript
     // and can carry grammar errors — exposed via opt-in button only, with
-    // a warning in the overlay.  Suppressed when definitions are missing
-    // entirely (fallback above already prints it inline).
-    const showSourceButton = hasDefinition && !!card.context_sentence;
+    // a warning in the overlay.  Available regardless of whether the card
+    // has rich content (post-Codex fix): the no-content path also gets
+    // this button so the user has a way to look at the source, and the
+    // has-content path has it as a "show me where I used this" affordance.
+    const showSourceButton = !!card.context_sentence;
     const sourceSection = showSourceButton
       ? `<button id="study-source-btn" type="button"
                  style="margin-top:14px;font-size:12px;padding:6px 12px;border-radius:8px;
@@ -206,6 +231,7 @@
         ${headwordBanner}
         ${definitionBlock}
         ${exampleBlock}
+        ${noContentBlock}
         ${sourceSection}
         <div class="meta-row">
           ${card.source_type ? `<span>${sourceTypeLabel(card.source_type)}</span>` : ''}
