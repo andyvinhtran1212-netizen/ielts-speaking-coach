@@ -17,6 +17,7 @@ persisted in flashcard_stacks — that table only holds manual stacks.
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -26,6 +27,8 @@ from supabase import create_client
 from config import settings
 from routers.auth import get_supabase_user
 from services.feature_flags import is_flashcard_enabled
+from services.rate_limit import rate_limit_flashcard
+from services.srs import update_srs
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +225,64 @@ class ReviewRequest(BaseModel):
         if v not in ("again", "hard", "good", "easy"):
             raise ValueError("rating must be one of: again, hard, good, easy")
         return v
+
+
+def _filter_due_rows(rows: list[dict], *, now: datetime, limit: int | None = None) -> list[dict]:
+    """
+    Filter `rows` to only those whose next_review_at is <= now (UTC), sorted
+    ascending so the earliest-due card pops first.  `limit` is applied AFTER
+    the sort so pagination respects the same ordering as the index in
+    migration 027 (user_id, next_review_at).
+
+    Pure function — no DB I/O — so test_due_queue.py can pin the contract
+    with synthetic rows and a fixed `now`.  Rows missing `next_review_at`
+    are dropped rather than treated as "always due" so a malformed record
+    can't poison the queue.
+    """
+    parsed: list[tuple[datetime, dict]] = []
+    for row in rows:
+        raw = row.get("next_review_at")
+        if not raw:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(raw))
+        except ValueError:
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if dt <= now:
+            parsed.append((dt, row))
+    parsed.sort(key=lambda pair: pair[0])
+    out = [row for _, row in parsed]
+    if limit is not None:
+        out = out[: int(limit)]
+    return out
+
+
+def _vocab_card_view(vocab_row: dict, review_row: dict | None) -> dict:
+    """
+    Card-shaped JSON for the study page.  Pulled out so list_cards_in_stack
+    and get_due_cards return the exact same shape — frontend has one
+    renderer regardless of where the card came from.
+    """
+    return {
+        "id":                vocab_row.get("id"),
+        "headword":          vocab_row.get("headword"),
+        "definition_vi":     vocab_row.get("definition_vi"),
+        "definition_en":     vocab_row.get("definition_en"),
+        "context_sentence":  vocab_row.get("context_sentence"),
+        "topic":             vocab_row.get("topic"),
+        "category":          vocab_row.get("category"),
+        "source_type":       vocab_row.get("source_type"),
+        "review": {
+            "interval_days":    review_row["interval_days"],
+            "ease_factor":      review_row["ease_factor"],
+            "review_count":     review_row["review_count"],
+            "lapse_count":      review_row["lapse_count"],
+            "last_reviewed_at": review_row.get("last_reviewed_at"),
+            "next_review_at":   review_row["next_review_at"],
+        } if review_row else None,
+    }
 
 
 def _review_upsert_payload(user_id: str, vocabulary_id: str, srs_state: dict) -> dict:
@@ -532,3 +593,410 @@ async def delete_stack(
     if not res.data:
         raise HTTPException(404, "Stack not found.")
     return None
+
+
+# ── Card endpoints + due queue + review (Step 4) ─────────────────────────────
+
+
+_VOCAB_FIELDS = (
+    "id, headword, definition_vi, definition_en, "
+    "context_sentence, topic, category, source_type, created_at"
+)
+
+
+def _fetch_reviews_by_vocab(sb, vocab_ids: list[str]) -> dict[str, dict]:
+    """
+    Bulk-fetch flashcard_reviews for a set of vocabulary ids and return as
+    a {vocab_id: review_row} map.  RLS scopes to the caller's rows so this
+    can never leak another user's SRS state.
+    """
+    if not vocab_ids:
+        return {}
+    try:
+        res = (
+            sb.table("flashcard_reviews")
+            .select("vocabulary_id, interval_days, ease_factor, review_count, "
+                    "lapse_count, last_reviewed_at, next_review_at")
+            .in_("vocabulary_id", vocab_ids)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning("[flashcards] reviews bulk-fetch failed: %s", e)
+        return {}
+    return {row["vocabulary_id"]: row for row in (res.data or []) if row.get("vocabulary_id")}
+
+
+@user_router.get("/stacks/{stack_id}/cards")
+async def list_cards_in_stack(
+    stack_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    List cards in a stack — handles both 'auto:*' virtual ids (resolved
+    against user_vocabulary with the matching filter) and persisted UUIDs
+    (resolved through flashcard_cards JOIN user_vocabulary).
+
+    Each card includes its current SRS state, or null when the user has
+    never reviewed that vocabulary entry.  SRS is shared across stacks,
+    so a card returned from stack A and from stack B carries the same
+    review record (acceptance criterion §12).
+    """
+    auth_user = await get_supabase_user(authorization)
+    _require_flashcards_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+
+    vocab_rows: list[dict] = []
+    try:
+        if stack_id.startswith("auto:"):
+            if not _is_auto_stack_id(stack_id):
+                raise HTTPException(404, "Stack not found.")
+            builder = sb.table("user_vocabulary").select(_VOCAB_FIELDS)
+            builder = builder.eq("is_archived", False)
+            if stack_id == "auto:needs_review":
+                builder = builder.eq("source_type", "needs_review")
+            if stack_id == "auto:recent":
+                builder = builder.order("created_at", desc=True).limit(_RECENT_LIMIT)
+            else:
+                builder = builder.order("created_at", desc=True)
+            vocab_rows = (builder.execute().data or [])
+        else:
+            # Manual stack: confirm it exists & is owned (RLS), then JOIN
+            # flashcard_cards through user_vocabulary.  PostgREST nested
+            # select syntax — `user_vocabulary(...)` — pulls vocab rows in
+            # one round-trip.
+            stack = (
+                sb.table("flashcard_stacks")
+                .select("id")
+                .eq("id", stack_id)
+                .limit(1)
+                .execute()
+            )
+            if not stack.data:
+                raise HTTPException(404, "Stack not found.")
+            cards = (
+                sb.table("flashcard_cards")
+                .select(f"vocabulary_id, added_at, user_vocabulary!inner({_VOCAB_FIELDS})")
+                .eq("stack_id", stack_id)
+                .order("added_at", desc=True)
+                .execute()
+            ).data or []
+            for c in cards:
+                v = c.get("user_vocabulary")
+                if v:
+                    vocab_rows.append(v)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("[flashcards] list_cards_in_stack failed stack=%s: %s", stack_id, e)
+        raise HTTPException(500, "Could not load cards.")
+
+    review_map = _fetch_reviews_by_vocab(sb, [r["id"] for r in vocab_rows if r.get("id")])
+    return {
+        "stack_id": stack_id,
+        "cards":    [_vocab_card_view(r, review_map.get(r["id"])) for r in vocab_rows],
+    }
+
+
+@user_router.post("/stacks/{stack_id}/cards", status_code=201)
+async def add_card_to_stack(
+    stack_id: str,
+    body: AddCardRequest,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Add a vocabulary entry to a manual stack.  Auto-stacks reject — they're
+    rule-defined, not curated.  UNIQUE(stack_id, vocabulary_id) catches
+    duplicates and we surface those as 409 with a clear message so the
+    "Add to flashcard" button (Step 7) can render a helpful toast.
+    """
+    auth_user = await get_supabase_user(authorization)
+    _require_flashcards_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+
+    if stack_id.startswith("auto:"):
+        raise HTTPException(400, "Auto-stacks are managed automatically.")
+
+    try:
+        ins = (
+            sb.table("flashcard_cards")
+            .insert({"stack_id": stack_id, "vocabulary_id": body.vocabulary_id})
+            .execute()
+        )
+    except Exception as e:
+        msg = str(e).lower()
+        if "duplicate" in msg or "unique" in msg or "23505" in msg:
+            raise HTTPException(409, "Card already in this stack.")
+        # The migration's INSERT WITH CHECK (caller owns both stack AND vocab)
+        # surfaces as a 403/permission error from PostgREST when violated —
+        # treat as 404 so an attacker can't probe foreign ids.
+        if "policy" in msg or "row-level" in msg or "permission" in msg:
+            raise HTTPException(404, "Stack or vocabulary not found.")
+        logger.error("[flashcards] add_card_to_stack failed: %s", e)
+        raise HTTPException(500, "Could not add card.")
+
+    if not ins.data:
+        raise HTTPException(404, "Stack or vocabulary not found.")
+    return ins.data[0]
+
+
+@user_router.delete("/stacks/{stack_id}/cards/{vocab_id}", status_code=204)
+async def remove_card_from_stack(
+    stack_id: str,
+    vocab_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Remove a card from a manual stack — auto-stacks reject."""
+    auth_user = await get_supabase_user(authorization)
+    _require_flashcards_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+
+    if stack_id.startswith("auto:"):
+        raise HTTPException(400, "Auto-stacks are managed automatically.")
+
+    try:
+        res = (
+            sb.table("flashcard_cards")
+            .delete()
+            .eq("stack_id", stack_id)
+            .eq("vocabulary_id", vocab_id)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[flashcards] remove_card failed stack=%s vocab=%s: %s",
+                     stack_id, vocab_id, e)
+        raise HTTPException(500, "Could not remove card.")
+
+    if not res.data:
+        raise HTTPException(404, "Card not found in this stack.")
+    return None
+
+
+@user_router.get("/due")
+async def get_due_cards(
+    limit: int = 20,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Cards whose next_review_at is at or before now (UTC), oldest first.
+    Includes the user_vocabulary detail so the frontend can render the
+    flip card without a follow-up GET.
+
+    Brand-new vocabulary entries with no flashcard_reviews row yet are
+    considered "due" too — they need an initial review for SRS to start
+    tracking them.  This is implemented by including all user_vocabulary
+    rows that have no matching review record AND limiting the slug.
+    """
+    auth_user = await get_supabase_user(authorization)
+    _require_flashcards_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+
+    limit = max(1, min(int(limit or 20), 100))
+    now = datetime.now(timezone.utc)
+
+    # Primary: scheduled-review queue.
+    try:
+        review_rows = (
+            sb.table("flashcard_reviews")
+            .select("vocabulary_id, interval_days, ease_factor, review_count, "
+                    "lapse_count, last_reviewed_at, next_review_at")
+            .lte("next_review_at", now.isoformat())
+            .order("next_review_at", desc=False)
+            .limit(limit)
+            .execute()
+        ).data or []
+    except Exception as e:
+        logger.error("[flashcards] due reviews fetch failed: %s", e)
+        raise HTTPException(500, "Could not load due queue.")
+
+    if not review_rows:
+        return {"cards": []}
+
+    vocab_ids = [r["vocabulary_id"] for r in review_rows if r.get("vocabulary_id")]
+    try:
+        vocab_rows = (
+            sb.table("user_vocabulary")
+            .select(_VOCAB_FIELDS)
+            .in_("id", vocab_ids)
+            .eq("is_archived", False)
+            .execute()
+        ).data or []
+    except Exception as e:
+        logger.error("[flashcards] due vocab join failed: %s", e)
+        raise HTTPException(500, "Could not load due queue.")
+
+    by_vocab = {v["id"]: v for v in vocab_rows if v.get("id")}
+    cards = []
+    for r in review_rows:
+        v = by_vocab.get(r["vocabulary_id"])
+        if not v:
+            # Vocabulary archived or deleted — drop from queue rather than
+            # surfacing a phantom card.
+            continue
+        cards.append(_vocab_card_view(v, r))
+    return {"cards": cards}
+
+
+@user_router.get("/due/count")
+async def get_due_count(authorization: str | None = Header(default=None)):
+    """
+    Lightweight counter for the dashboard "X thẻ đến hạn" badge — separate
+    endpoint so the badge doesn't pull full card payloads on every refresh.
+    """
+    auth_user = await get_supabase_user(authorization)
+    _require_flashcards_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        res = (
+            sb.table("flashcard_reviews")
+            .select("id", count="exact")
+            .lte("next_review_at", now_iso)
+            .limit(1)
+            .execute()
+        )
+        return {"count": int(res.count or 0)}
+    except Exception as e:
+        logger.warning("[flashcards] due count failed: %s", e)
+        return {"count": 0}
+
+
+@user_router.post("/{vocab_id}/review")
+@rate_limit_flashcard(daily_limit=settings.FLASHCARD_DAILY_REVIEW_LIMIT)
+async def submit_review(
+    vocab_id: str,
+    body: ReviewRequest,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Self-rate a card.  Updates SRS state via services.srs.update_srs and
+    appends a row to flashcard_review_log so the next call's rate-limit
+    counter sees this review.
+
+    Two-step flow:
+      1. Look up the existing flashcard_reviews row (or fall back to
+         per-vocab defaults — ease=2.5, interval=1, count=0, lapse=0).
+         Validates that the vocab belongs to the caller via the SELECT
+         on user_vocabulary (RLS hides foreign rows).
+      2. Compute next state + UPSERT (UNIQUE(user_id, vocabulary_id)).
+
+    Failure to write the audit log is non-fatal — SRS still updated, just
+    means the daily counter under-reports by one.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+    _require_flashcards_enabled(user_id)
+    sb = _user_sb(_bearer_token(authorization))
+
+    # Confirm the vocab belongs to the caller before writing review state.
+    try:
+        v_check = (
+            sb.table("user_vocabulary")
+            .select("id")
+            .eq("id", vocab_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[flashcards] review vocab check failed: %s", e)
+        raise HTTPException(500, "Could not record review.")
+    if not v_check.data:
+        raise HTTPException(404, "Vocabulary entry not found.")
+
+    # Existing review row, or defaults on first review.
+    try:
+        existing = (
+            sb.table("flashcard_reviews")
+            .select("interval_days, ease_factor, review_count, lapse_count")
+            .eq("vocabulary_id", vocab_id)
+            .limit(1)
+            .execute()
+        ).data or []
+    except Exception as e:
+        logger.warning("[flashcards] review existing fetch failed (using defaults): %s", e)
+        existing = []
+
+    if existing:
+        cur = existing[0]
+    else:
+        cur = {"interval_days": 1, "ease_factor": 2.5, "review_count": 0, "lapse_count": 0}
+
+    # Duck-typed object for srs.update_srs.
+    class _R:  # noqa: N801 — local single-use shim
+        pass
+    r = _R()
+    r.interval_days = cur["interval_days"]
+    r.ease_factor   = cur["ease_factor"]
+    r.review_count  = cur["review_count"]
+    r.lapse_count   = cur["lapse_count"]
+
+    try:
+        new_state = update_srs(r, body.rating)
+    except ValueError as ve:
+        # Pydantic already rejected unknown ratings, but a future caller
+        # bypassing the model still gets a 422 here rather than 500.
+        raise HTTPException(422, str(ve))
+
+    # UPSERT — UNIQUE(user_id, vocabulary_id) lets on_conflict='user_id,vocabulary_id'
+    # do the right thing whether this is the first review or the 50th.
+    try:
+        sb.table("flashcard_reviews").upsert(
+            _review_upsert_payload(user_id, vocab_id, new_state),
+            on_conflict="user_id,vocabulary_id",
+        ).execute()
+    except Exception as e:
+        logger.error("[flashcards] review upsert failed: %s", e)
+        raise HTTPException(500, "Could not save review.")
+
+    # Rate-limit audit row.  Failure here under-reports today's count by 1
+    # but doesn't block the user's progress — SRS already saved above.
+    try:
+        sb.table("flashcard_review_log").insert({
+            "user_id":       user_id,
+            "vocabulary_id": vocab_id,
+            "rating":        body.rating,
+        }).execute()
+    except Exception as e:
+        logger.debug("[flashcards] review_log insert failed (non-fatal): %s", e)
+
+    return {
+        "vocab_id":       vocab_id,
+        "status":         "success",
+        "next_review_at": new_state["next_review_at"],
+        "interval_days":  new_state["interval_days"],
+        "ease_factor":    new_state["ease_factor"],
+        "review_count":   new_state["review_count"],
+    }
+
+
+@user_router.get("/stats")
+async def get_stats(authorization: str | None = Header(default=None)):
+    """
+    Summary stats for the flashcards landing page.  Cheap counts only —
+    heavier analytics (heatmaps, streaks) are out of scope per §1.
+    """
+    auth_user = await get_supabase_user(authorization)
+    _require_flashcards_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+
+    def _count(table: str, **filters) -> int:
+        try:
+            b = sb.table(table).select("id", count="exact")
+            for k, v in filters.items():
+                if k.endswith("__lte"):
+                    b = b.lte(k[:-5], v)
+                elif k.endswith("__gte"):
+                    b = b.gte(k[:-5], v)
+                else:
+                    b = b.eq(k, v)
+            return int((b.limit(1).execute()).count or 0)
+        except Exception as e:
+            logger.warning("[flashcards] stats %s count failed: %s", table, e)
+            return 0
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    return {
+        "total_vocab":     _count("user_vocabulary", is_archived=False),
+        "total_reviewed":  _count("flashcard_reviews"),
+        "due_now":         _count("flashcard_reviews", next_review_at__lte=now_iso),
+        "manual_stacks":   _count("flashcard_stacks"),
+    }

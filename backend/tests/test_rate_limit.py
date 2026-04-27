@@ -214,3 +214,65 @@ def test_decorator_preserves_route_signature(monkeypatch):
     sig = handler.__signature__
     assert "exercise_id"   in sig.parameters
     assert "authorization" in sig.parameters
+
+
+# ── Phase D Wave 2: flashcard rate limit ─────────────────────────────────────
+#
+# Flashcards count from a different table (flashcard_review_log) so they need
+# a parallel test path.  count_flashcard_reviews_today is the helper the
+# decorator uses; we stub it directly here just like _stub_counter above.
+
+
+def _stub_flashcard_counter(monkeypatch, value: int) -> None:
+    monkeypatch.setattr(rate_limit, "count_flashcard_reviews_today", lambda *a, **k: value)
+
+
+def test_flashcard_under_limit_passes(monkeypatch):
+    _stub_flashcard_counter(monkeypatch, 0)
+    rate_limit.enforce_flashcard_rate_limit("u-1", daily_limit=500)
+
+
+def test_flashcard_review_rate_limit_500(monkeypatch):
+    """501 reviews in one UTC day → 429 with machine-readable detail."""
+    _stub_flashcard_counter(monkeypatch, 501)
+    with _pytest.raises(HTTPException) as exc:
+        rate_limit.enforce_flashcard_rate_limit("u-1", daily_limit=500)
+    assert exc.value.status_code == 429
+    detail = exc.value.detail
+    assert detail["error"] == "rate_limit_exceeded"
+    assert detail["exercise_type"] == "FLASHCARD"
+    assert detail["limit"] == 500
+    assert detail["used"] == 501
+
+
+def test_flashcard_zero_limit_fails_closed(monkeypatch):
+    _stub_flashcard_counter(monkeypatch, 0)
+    with _pytest.raises(HTTPException) as exc:
+        rate_limit.enforce_flashcard_rate_limit("u-1", daily_limit=0)
+    assert exc.value.status_code == 503
+    assert exc.value.detail["error"] == "feature_disabled"
+
+
+def test_flashcard_decorator_blocks_at_limit(monkeypatch):
+    _stub_auth(monkeypatch)
+    _stub_flashcard_counter(monkeypatch, 500)
+
+    @rate_limit.rate_limit_flashcard(daily_limit=500)
+    async def handler(authorization: str | None = None):
+        return "ok"
+
+    with _pytest.raises(HTTPException) as exc:
+        asyncio.run(handler(authorization="Bearer x"))
+    assert exc.value.status_code == 429
+    assert exc.value.detail["exercise_type"] == "FLASHCARD"
+
+
+def test_flashcard_decorator_passes_under_limit(monkeypatch):
+    _stub_auth(monkeypatch)
+    _stub_flashcard_counter(monkeypatch, 499)
+
+    @rate_limit.rate_limit_flashcard(daily_limit=500)
+    async def handler(authorization: str | None = None):
+        return "ok"
+
+    assert asyncio.run(handler(authorization="Bearer x")) == "ok"
