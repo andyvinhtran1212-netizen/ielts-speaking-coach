@@ -132,11 +132,20 @@
     }
 
     _session = {
-      id:            data.session_id,
-      exercises:     data.exercises,    // each item carries `answer` for local grading
-      current_index: 0,
-      attempts:      [],
-      is_review:     false,
+      id:               data.session_id,
+      exercises:        data.exercises,    // each item carries `answer` for local grading
+      current_index:    0,
+      attempts:         [],
+      // Number of /attempt POSTs that failed to persist server-side.  When
+      // > 0, showSummary() trusts the local count instead of /complete (whose
+      // summary only sees attempts that DID land in the DB) — otherwise a
+      // network blip would silently undercount the user's score.
+      failed_attempts:  0,
+      // Whether any in-flight /attempt POSTs are still pending. showSummary
+      // waits briefly for them so a fast clicker doesn't trigger /complete
+      // before the last attempts have written.
+      pending_attempts: 0,
+      is_review:        false,
     };
 
     renderCurrentExercise();
@@ -229,18 +238,51 @@
     // (post-summary) skip this so a re-do doesn't pollute analytics or burn
     // the daily quota a second time.
     if (!_session.is_review && _session.id) {
-      fetch(`${BASE}/api/exercises/d1/${ex.id}/attempt`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${_token}`,
-          'Content-Type':  'application/json',
-        },
-        body: JSON.stringify({
-          user_answer: choice,
-          session_id:  _session.id,
-        }),
-      }).catch(err => console.warn('[d1] attempt POST failed (non-fatal):', err));
+      _session.pending_attempts += 1;
+      postAttemptWithRetry(ex.id, choice, _session.id).finally(() => {
+        _session.pending_attempts -= 1;
+      });
     }
+  }
+
+  // One retry with a 500ms backoff covers the common transient-flake case
+  // (DNS hiccup, reused-connection RST) without making the user wait long.
+  // Any non-2xx OR network error after the retry counts as a failure so
+  // showSummary() can fall back to the local count.
+  async function postAttemptWithRetry(exerciseId, choice, sessionId) {
+    const url = `${BASE}/api/exercises/d1/${exerciseId}/attempt`;
+    const init = {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${_token}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({ user_answer: choice, session_id: sessionId }),
+    };
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(url, init);
+        // 429 (rate-limit) is NOT a transient flake — don't retry, but DO
+        // count it as a failure so the summary stays local-truthful.
+        if (res.status === 429) {
+          _session.failed_attempts += 1;
+          console.warn('[d1] attempt rate-limited (counted as sync failure)');
+          return false;
+        }
+        if (res.ok) return true;
+        // Other non-2xx — fall through to retry.
+      } catch (err) {
+        // Network error — fall through to retry.
+        console.warn('[d1] attempt POST attempt', attempt + 1, 'failed:', err);
+      }
+      if (attempt === 0) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+    _session.failed_attempts += 1;
+    console.warn('[d1] attempt POST failed after retry (summary will use local count)');
+    return false;
   }
 
   function nextExercise() {
@@ -251,23 +293,56 @@
   // ── Summary (basic for now; richer version lands in next commit) ─────────
 
   async function showSummary() {
-    let summary = computeLocalSummary();
+    // Wait briefly for any in-flight /attempt POSTs so a fast clicker doesn't
+    // call /complete before the last writes settle (which would manifest as
+    // failed_attempts being undercounted, and /complete missing rows that
+    // were only milliseconds away from landing).
+    await waitForPendingAttempts(2000);
 
-    // Real session: tell the backend we're done so completed_at + status
-    // get stamped, and prefer its summary (canonical from DB).
-    if (!_session.is_review && _session.id) {
-      try {
-        const res = await fetch(
-          `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
-          { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
-        );
-        if (res.ok) summary = await res.json();
-      } catch (err) {
-        console.warn('[d1] complete-session failed; using local summary:', err);
-      }
+    // Review sessions never call /complete — there's no backend session row.
+    if (_session.is_review || !_session.id) {
+      renderSummaryScreen(computeLocalSummary());
+      return;
     }
 
+    // If any /attempt POST didn't persist, /complete's summary will under-
+    // count the user's score (it's derived only from rows in the DB linked
+    // by session_id). Trust local instead — backend stamping still happens
+    // in the background as a best-effort.
+    if (_session.failed_attempts > 0) {
+      console.warn(
+        '[d1] %d attempt sync failure(s) — using local summary, completing in background',
+        _session.failed_attempts,
+      );
+      fetch(
+        `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
+        { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
+      ).catch(err => console.warn('[d1] background complete failed:', err));
+      renderSummaryScreen(computeLocalSummary());
+      return;
+    }
+
+    // No sync failures — backend summary is authoritative.
+    let summary = computeLocalSummary();
+    try {
+      const res = await fetch(
+        `${BASE}/api/exercises/d1/sessions/${_session.id}/complete`,
+        { method: 'POST', headers: { 'Authorization': `Bearer ${_token}` } },
+      );
+      if (res.ok) summary = await res.json();
+    } catch (err) {
+      console.warn('[d1] complete-session failed; using local summary:', err);
+    }
     renderSummaryScreen(summary);
+  }
+
+  // Poll pending_attempts down to 0 (or timeout). Cheap because it only fires
+  // once per session at the summary boundary.
+  async function waitForPendingAttempts(timeoutMs) {
+    const start = Date.now();
+    while (_session && _session.pending_attempts > 0 && Date.now() - start < timeoutMs) {
+      await new Promise(r => setTimeout(r, 50));
+    }
   }
 
   function computeLocalSummary() {
