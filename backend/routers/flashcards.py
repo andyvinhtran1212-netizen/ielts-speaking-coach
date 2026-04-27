@@ -386,6 +386,41 @@ async def list_stacks(authorization: str | None = Header(default=None)):
     return {"stacks": auto_stacks + manual_stacks}
 
 
+@user_router.get("/vocab-topics")
+async def list_vocab_topics(authorization: str | None = Header(default=None)):
+    """
+    Distinct user_vocabulary.topic values for the Manual Stack modal's topic
+    dropdown.  NULL topics are dropped here — the frontend handles the
+    "Chưa phân loại" bucket as a separate checkbox so the dropdown stays
+    clean.  Cheap query courtesy of the partial index from migration 028.
+    """
+    auth_user = await get_supabase_user(authorization)
+    _require_flashcards_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+    try:
+        # PostgREST has no DISTINCT; pull the column and de-dupe in Python.
+        # Safe — total cardinality is small (one row per session topic per user).
+        rows = (
+            sb.table("user_vocabulary")
+            .select("topic")
+            .eq("is_archived", False)
+            .not_.is_("topic", "null")
+            .execute()
+        ).data or []
+    except Exception as e:
+        logger.warning("[flashcards] list_vocab_topics failed: %s", e)
+        return {"topics": []}
+    seen: set[str] = set()
+    topics: list[str] = []
+    for r in rows:
+        t = (r.get("topic") or "").strip()
+        if t and t not in seen:
+            seen.add(t)
+            topics.append(t)
+    topics.sort()
+    return {"topics": topics}
+
+
 @user_router.post("/stacks/preview")
 async def preview_stack(
     body: PreviewRequest,
