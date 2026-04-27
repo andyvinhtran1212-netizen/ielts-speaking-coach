@@ -149,24 +149,48 @@
       </button>
     `).join('');
 
-    // Definition fallback: when both VI + EN are missing the card is
-    // unstudyable as-is, so we surface the transcript context as a
-    // labelled fallback instead of leaving the user staring at "—".
-    // This handles vocab inserted before Phase B post-dogfood populated
-    // definitions for older sessions.
+    // Phase D Wave 2 rich-content layout.  Back face stack (top → bottom):
+    //   1. Headword + IPA banner       — what the word LOOKS like + sounds like
+    //   2. Definition VI               — primary meaning, Vietnamese
+    //   3. Definition EN               — secondary meaning, English
+    //   4. Example sentence            — AI-generated, vetted, blank-free
+    //   5. "Xem câu gốc" button        — opt-in reveal of user's transcript
+    //   6. Meta row (review state etc) — bottom
+    //
+    // Each section renders independently — a card with IPA but no example
+    // shows the IPA banner and skips the example block.  Fallback (no
+    // definitions AT ALL) demotes context_sentence to inline reference so
+    // the card stays studyable.
     const hasDefinition = !!(card.definition_vi || card.definition_en);
+
+    const headwordBanner = `
+      <div class="back-headword-row">
+        <span class="back-headword">${escape(card.headword || '')}</span>
+        ${card.ipa ? `<span class="back-ipa">${escape(card.ipa)}</span>` : ''}
+      </div>
+    `;
+
     const definitionBlock = hasDefinition
       ? `${card.definition_vi ? `<p class="def-vi">${escape(card.definition_vi)}</p>` : ''}
          ${card.definition_en ? `<p class="def-en">${escape(card.definition_en)}</p>` : ''}`
       : `<p class="def-vi" style="color:rgba(252,211,77,0.85);">Chưa có định nghĩa.</p>
          ${card.context_sentence ? `<p class="def-en" style="font-style:italic;">Câu gốc: "${escape(card.context_sentence)}"</p>` : ''}`;
 
-    // The card's context_sentence comes from the user's own transcript and
-    // can carry grammar errors — showing it on the back as primary content
-    // teaches incorrect English, so we only expose it via an opt-in
-    // "Xem câu gốc" button with an explicit caveat.  When definitions are
-    // missing entirely (fallback above) the context is already inline, so
-    // the source button is suppressed to avoid duplication.
+    // AI-generated example (migration 029 + services/vocab_enrichment).
+    // Visually distinct from definitions so the learner knows the sentence
+    // is reference material, not the dictionary entry itself.  Skipped
+    // entirely when example_sentence is NULL — no placeholder.
+    const exampleBlock = card.example_sentence
+      ? `<div class="example-block">
+           <span class="example-label">Ví dụ</span>
+           <p class="example-text">${escape(card.example_sentence)}</p>
+         </div>`
+      : '';
+
+    // The card's context_sentence comes from the user's own STT transcript
+    // and can carry grammar errors — exposed via opt-in button only, with
+    // a warning in the overlay.  Suppressed when definitions are missing
+    // entirely (fallback above already prints it inline).
     const showSourceButton = hasDefinition && !!card.context_sentence;
     const sourceSection = showSourceButton
       ? `<button id="study-source-btn" type="button"
@@ -179,7 +203,9 @@
 
     const back = `
       <div class="face back">
+        ${headwordBanner}
         ${definitionBlock}
+        ${exampleBlock}
         ${sourceSection}
         <div class="meta-row">
           ${card.source_type ? `<span>${sourceTypeLabel(card.source_type)}</span>` : ''}
