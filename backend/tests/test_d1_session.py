@@ -421,3 +421,111 @@ def test_unpublish_admin_only(monkeypatch):
             exercise_id="ex-1", authorization="Bearer not-admin",
         ))
     assert exc.value.status_code == 403
+
+
+# ── Live 2-JWT RLS isolation for d1_sessions ─────────────────────────────────
+#
+# Mirrors test_exercise_rls.py: requires 2 real Supabase test users provisioned
+# by backend/scripts/setup_phase_d_test_env.sh. Auto-skipped when env vars are
+# absent so the unit-test block above still runs in any environment.
+
+import os  # noqa: E402  (imports here to keep top-of-file unit-test stubs intact)
+
+_RLS_REQUIRED_VARS = [
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "RLS_TEST_USER_A_EMAIL",
+    "RLS_TEST_USER_A_PASSWORD",
+    "RLS_TEST_USER_B_EMAIL",
+    "RLS_TEST_USER_B_PASSWORD",
+]
+
+
+def _rls_get_user_client(email: str, password: str):
+    from supabase import create_client
+
+    client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
+    client.auth.sign_in_with_password({"email": email, "password": password})
+    return client
+
+
+@pytest.mark.skipif(
+    not all(os.getenv(k) for k in _RLS_REQUIRED_VARS),
+    reason="Live RLS tests require 2 test users — set all RLS_TEST_USER_* env vars",
+)
+def test_session_rls_isolation():
+    """User A's d1_sessions row must be invisible + immutable to User B, and
+    User A must not be able to reassign user_id to User B (WITH CHECK)."""
+    client_a = _rls_get_user_client(
+        os.environ["RLS_TEST_USER_A_EMAIL"],
+        os.environ["RLS_TEST_USER_A_PASSWORD"],
+    )
+    client_b = _rls_get_user_client(
+        os.environ["RLS_TEST_USER_B_EMAIL"],
+        os.environ["RLS_TEST_USER_B_PASSWORD"],
+    )
+
+    user_a_id = client_a.auth.get_user().user.id
+    user_b_id = client_b.auth.get_user().user.id
+
+    # Need at least one published exercise to populate exercise_ids realistically.
+    pub = client_a.table("vocabulary_exercises").select("id").eq("status", "published").limit(1).execute()
+    if not pub.data:
+        pytest.skip("Need at least one published exercise — run setup_phase_d_test_env.sh first.")
+    exercise_id = pub.data[0]["id"]
+
+    inserted = client_a.table("d1_sessions").insert({
+        "user_id":      user_a_id,
+        "exercise_ids": [exercise_id],
+        "total_count":  1,
+        "status":       "active",
+    }).execute()
+    assert inserted.data, "User A should be able to insert their own d1_sessions row"
+    row_id = inserted.data[0]["id"]
+
+    try:
+        # 1) User B SELECT must return 0 rows.
+        sel_b = client_b.table("d1_sessions").select("*").eq("id", row_id).execute()
+        assert len(sel_b.data) == 0, (
+            f"RLS SELECT FAIL: User B saw User A's session {row_id}: {sel_b.data!r}"
+        )
+
+        # 2) User B UPDATE must affect 0 rows (silent no-op under PostgREST).
+        upd_b = (
+            client_b.table("d1_sessions")
+            .update({"status": "completed"})
+            .eq("id", row_id)
+            .execute()
+        )
+        assert len(upd_b.data) == 0, (
+            f"RLS UPDATE FAIL: User B updated User A's session {row_id}: {upd_b.data!r}"
+        )
+        # Row should still belong to User A and still be active.
+        verify = client_a.table("d1_sessions").select("user_id,status").eq("id", row_id).execute()
+        assert verify.data and verify.data[0]["user_id"] == user_a_id
+        assert verify.data[0]["status"] == "active", (
+            "RLS UPDATE FAIL: User B's update somehow took effect"
+        )
+
+        # 3) User A trying to reassign user_id → User B must be blocked by WITH CHECK.
+        blocked = False
+        try:
+            res = (
+                client_a.table("d1_sessions")
+                .update({"user_id": user_b_id})
+                .eq("id", row_id)
+                .execute()
+            )
+            # PostgREST may return empty data instead of raising when WITH CHECK fails.
+            blocked = not res.data
+        except Exception:
+            blocked = True
+        assert blocked, "RLS WITH CHECK FAIL: User A reassigned user_id to User B"
+
+        # And the row must still be owned by User A after the attempted reassignment.
+        verify2 = client_a.table("d1_sessions").select("user_id").eq("id", row_id).execute()
+        assert verify2.data and verify2.data[0]["user_id"] == user_a_id, (
+            "RLS WITH CHECK FAIL: row's user_id was changed despite policy"
+        )
+    finally:
+        client_a.table("d1_sessions").delete().eq("id", row_id).execute()
