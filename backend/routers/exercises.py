@@ -9,6 +9,7 @@ D3 endpoints land in Wave 2 — this file deliberately scopes itself to D1.
 """
 
 import logging
+import random
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -80,7 +81,6 @@ def _public_view(row: dict) -> dict:
     answer mixed in with the distractors — so the UI has 4 choices to render
     without ever knowing which one is correct.
     """
-    import random
     payload = dict(row.get("content_payload") or {})
     answer = payload.pop("answer", None)
     payload.pop("word", None)
@@ -108,6 +108,15 @@ def _public_view(row: dict) -> dict:
 class D1AttemptRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     user_answer: str = Field(min_length=1, max_length=80)
+    # Optional — links this attempt to the session the user was inside when
+    # they submitted, for the per-session summary in /sessions/{id}/complete.
+    # Legacy clients omit it and the column stays NULL (see migration 024).
+    session_id: str | None = None
+
+
+class StartSessionRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    size: int = Field(default=10, ge=1, le=20)
 
 
 class AdminGenerateBatchRequest(BaseModel):
@@ -193,7 +202,6 @@ async def list_d1_exercises(
         logger.error("[exercises] list_d1 failed: %s", e)
         raise HTTPException(500, "Could not load exercises.")
 
-    import random
     rows = list(res.data or [])
     random.shuffle(rows)
     return [_public_view(r) for r in rows[:limit]]
@@ -286,6 +294,37 @@ async def submit_d1_attempt(
         "your_answer": body.user_answer.strip(),
     }
 
+    # Validate session_id (when provided) — must belong to this user AND list
+    # the exercise_id in its snapshot.  Invalid links are dropped (still log
+    # the attempt) so a stale or forged id can't poison a real session.
+    linked_session_id: str | None = None
+    if body.session_id:
+        try:
+            sess = (
+                sb.table("d1_sessions")
+                .select("id, exercise_ids")
+                .eq("id", body.session_id)
+                .limit(1)
+                .execute()
+            )
+            if sess.data:
+                row_ids = sess.data[0].get("exercise_ids") or []
+                if row["id"] in row_ids:
+                    linked_session_id = body.session_id
+                else:
+                    logger.warning(
+                        "[exercises] attempt session_id=%s does not list exercise_id=%s — dropping link",
+                        body.session_id, row["id"],
+                    )
+            else:
+                # RLS hides another user's session, so empty data == not yours.
+                logger.warning(
+                    "[exercises] attempt session_id=%s not visible to user=%s — dropping link",
+                    body.session_id, user_id,
+                )
+        except Exception as e:
+            logger.warning("[exercises] attempt session lookup failed: %s", e)
+
     try:
         # User-scoped client so the WITH CHECK on user_id is enforced — a
         # caller cannot insert an attempt that claims another user's id.
@@ -297,6 +336,7 @@ async def submit_d1_attempt(
             "is_correct":    is_correct,
             "score":         score,
             "feedback":      feedback,
+            "session_id":    linked_session_id,
         }).execute()
     except Exception as e:
         logger.warning("[exercises] attempt insert failed (non-fatal): %s", e)
@@ -311,6 +351,310 @@ async def submit_d1_attempt(
         "is_correct": is_correct,
         "correct_answer": correct_answer,
         "score": score,
+    }
+
+
+# ── User: D1 session lifecycle ────────────────────────────────────────────────
+#
+# Sessions exist so the UI can show progress, an end-of-session summary, and a
+# 'review my wrong answers' loop without losing context.  The list/detail
+# endpoints above are kept for backwards compatibility but the new flow goes
+# through these three routes.
+
+
+def _session_exercise_view(row: dict) -> dict:
+    """
+    Session-context view of an exercise.  Unlike _public_view, this INCLUDES
+    the answer so the frontend can grade locally for instant feedback —
+    PHASE_D §5 (D1 redesign): 'D1 không phải exam — local grade an toàn'.
+    The backend POST /attempt still re-grades server-side for analytics.
+    """
+    payload = dict(row.get("content_payload") or {})
+    answer = payload.get("answer")
+    payload.pop("word", None)
+    distractors = list(payload.pop("distractors", []) or [])
+
+    options = list(distractors)
+    if answer and answer not in options:
+        options.append(answer)
+    rng = random.Random(str(row.get("id")))
+    rng.shuffle(options)
+
+    return {
+        "id":       row["id"],
+        "sentence": payload.get("sentence", ""),
+        "options":  options,
+        "answer":   answer,
+    }
+
+
+@user_router.post("/d1/sessions", status_code=201)
+async def start_d1_session(
+    body: StartSessionRequest,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Pick `size` published D1 exercises (default 10), prefer ones the user has
+    not yet attempted.  When the user has already attempted enough that the
+    'unattempted' set is too small, fall back to the broader published pool
+    so they always get a full session — repetition of older items is the
+    intended behaviour for review.
+
+    Response includes the answer for each exercise so the frontend can grade
+    locally; the backend still authoritatively grades on /attempt.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+    _require_d1_enabled(user_id)
+    sb = _user_sb(_bearer_token(authorization))
+    size = max(1, min(body.size, 20))
+
+    # Step 1: collect attempted ids so we can prefer the unattempted pool.
+    try:
+        attempted_res = (
+            sb.table("vocabulary_exercise_attempts")
+            .select("exercise_id")
+            .eq("exercise_type", "D1")
+            .execute()
+        )
+        attempted_ids = list({
+            r["exercise_id"] for r in (attempted_res.data or []) if r.get("exercise_id")
+        })
+    except Exception as e:
+        logger.warning("[exercises] start_session attempts lookup failed: %s", e)
+        attempted_ids = []
+
+    def _pull(exclude_attempted: bool, take: int) -> list[dict]:
+        """Pull up to `take * 4` candidate rows then in-memory shuffle.
+        Supabase REST has no ORDER BY random()."""
+        builder = (
+            sb.table("vocabulary_exercises")
+            .select("id, exercise_type, content_payload, status")
+            .eq("exercise_type", "D1")
+            .eq("status", "published")
+        )
+        if exclude_attempted and attempted_ids:
+            builder = builder.not_.in_("id", attempted_ids)
+        res = builder.limit(take * 4).execute()
+        rows = list(res.data or [])
+        random.shuffle(rows)
+        return rows[:take]
+
+    # Step 2: prefer unattempted, fall back to all-published when short.
+    primary = _pull(exclude_attempted=True, take=size)
+    if len(primary) < size:
+        # Fill the remaining slots from the broader pool, avoiding duplicates
+        # already chosen in `primary`.
+        chosen_ids = {r["id"] for r in primary}
+        fallback = [
+            r for r in _pull(exclude_attempted=False, take=size + len(chosen_ids))
+            if r["id"] not in chosen_ids
+        ]
+        primary = primary + fallback[: size - len(primary)]
+
+    if not primary:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "no_exercises", "message": "No published D1 exercises available."},
+        )
+
+    exercise_ids = [r["id"] for r in primary]
+    exercises = [_session_exercise_view(r) for r in primary]
+
+    # Step 3: persist the session row.  RLS WITH CHECK on user_id means a
+    # caller cannot create a session for someone else even if they fake the body.
+    try:
+        sess = sb.table("d1_sessions").insert({
+            "user_id":      user_id,
+            "exercise_ids": exercise_ids,
+            "total_count":  len(exercise_ids),
+        }).execute()
+    except Exception as e:
+        logger.error("[exercises] start_session insert failed: %s", e)
+        raise HTTPException(500, "Could not start session.")
+
+    if not sess.data:
+        raise HTTPException(500, "Could not start session.")
+
+    _safe_event("d1_session_started", {"session_id": sess.data[0]["id"], "size": len(exercise_ids)}, user_id)
+
+    return {
+        "session_id": sess.data[0]["id"],
+        "exercises":  exercises,
+        "total":      len(exercise_ids),
+    }
+
+
+@user_router.get("/d1/sessions/{session_id}")
+async def get_d1_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Fetch a session for resume/review.  Returns the session row (RLS already
+    scopes to the caller) plus any attempts already linked to it so the UI
+    can pick up where it left off.
+    """
+    auth_user = await get_supabase_user(authorization)
+    _require_d1_enabled(auth_user["id"])
+    sb = _user_sb(_bearer_token(authorization))
+
+    try:
+        sess = (
+            sb.table("d1_sessions")
+            .select("*")
+            .eq("id", session_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[exercises] get_session failed: %s", e)
+        raise HTTPException(500, "Could not load session.")
+
+    if not sess.data:
+        # RLS hides other users' sessions; treat as not-found from the caller's view.
+        raise HTTPException(404, "Session not found.")
+
+    try:
+        attempts = (
+            sb.table("vocabulary_exercise_attempts")
+            .select("exercise_id, user_answer, is_correct, attempted_at")
+            .eq("session_id", session_id)
+            .order("attempted_at", desc=False)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning("[exercises] get_session attempts lookup failed: %s", e)
+        attempts = type("S", (), {"data": []})()
+
+    return {
+        "session": sess.data[0],
+        "attempts": list(attempts.data or []),
+    }
+
+
+@user_router.post("/d1/sessions/{session_id}/complete")
+async def complete_d1_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Mark a session completed and return a per-item correct/wrong summary so
+    the UI can render the results screen without making a separate request.
+
+    Idempotent: calling this twice on the same session just re-derives the
+    summary from the attempt rows; the second update is a no-op.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+    _require_d1_enabled(user_id)
+    sb = _user_sb(_bearer_token(authorization))
+
+    try:
+        sess_res = (
+            sb.table("d1_sessions")
+            .select("id, exercise_ids, total_count, status")
+            .eq("id", session_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[exercises] complete_session fetch failed: %s", e)
+        raise HTTPException(500, "Could not load session.")
+
+    if not sess_res.data:
+        raise HTTPException(404, "Session not found.")
+
+    session_row = sess_res.data[0]
+    exercise_ids: list[str] = list(session_row.get("exercise_ids") or [])
+
+    # Pull all attempts linked to this session so we can build the summary.
+    try:
+        att_res = (
+            sb.table("vocabulary_exercise_attempts")
+            .select("exercise_id, user_answer, is_correct")
+            .eq("session_id", session_id)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[exercises] complete_session attempts fetch failed: %s", e)
+        raise HTTPException(500, "Could not load attempts.")
+
+    attempts_by_id: dict[str, dict] = {}
+    for a in (att_res.data or []):
+        # If the same exercise was answered twice in one session (edge case)
+        # the latest insert wins — we don't have attempted_at in this query,
+        # but list iteration order from PostgREST is insertion-stable.
+        attempts_by_id[a["exercise_id"]] = a
+
+    # Resolve exercise content for the summary cards.  RLS allows reading
+    # published rows; if any have since been unpublished/deleted, the
+    # session simply omits them from the summary.
+    ex_rows: dict[str, dict] = {}
+    if exercise_ids:
+        try:
+            ex_res = (
+                sb.table("vocabulary_exercises")
+                .select("id, content_payload")
+                .in_("id", exercise_ids)
+                .execute()
+            )
+            for r in (ex_res.data or []):
+                ex_rows[r["id"]] = r
+        except Exception as e:
+            logger.warning("[exercises] complete_session ex fetch failed: %s", e)
+
+    correct_items: list[dict] = []
+    wrong_items: list[dict] = []
+
+    for ex_id in exercise_ids:
+        ex = ex_rows.get(ex_id) or {}
+        payload = ex.get("content_payload") or {}
+        sentence = payload.get("sentence", "")
+        correct_answer = payload.get("answer", "")
+        att = attempts_by_id.get(ex_id)
+        if att is None:
+            continue  # user skipped this exercise — neither correct nor wrong
+        if att.get("is_correct"):
+            correct_items.append({
+                "exercise_id": ex_id,
+                "sentence":    sentence,
+                "answer":      correct_answer,
+            })
+        else:
+            wrong_items.append({
+                "exercise_id":    ex_id,
+                "sentence":       sentence,
+                "user_answer":    att.get("user_answer", ""),
+                "correct_answer": correct_answer,
+            })
+
+    correct_count = len(correct_items)
+    total_count = session_row.get("total_count") or len(exercise_ids)
+
+    # Update the session row.  WITH CHECK ensures the user can only update
+    # their own session.  Idempotent: re-completing produces the same values.
+    try:
+        sb.table("d1_sessions").update({
+            "completed_at":  datetime.now(timezone.utc).isoformat(),
+            "correct_count": correct_count,
+            "status":        "completed",
+        }).eq("id", session_id).execute()
+    except Exception as e:
+        logger.warning("[exercises] complete_session update failed (non-fatal): %s", e)
+
+    _safe_event(
+        "d1_session_completed",
+        {"session_id": session_id, "correct": correct_count, "total": total_count},
+        user_id,
+    )
+
+    return {
+        "session_id":    session_id,
+        "correct_count": correct_count,
+        "total_count":   total_count,
+        "correct":       correct_items,
+        "wrong":         wrong_items,
     }
 
 
@@ -393,6 +737,22 @@ async def admin_reject_exercise(
     auth_user = await require_admin(authorization)
     row = _admin_set_status(exercise_id, "rejected", auth_user["id"])
     _safe_event("admin_exercise_reviewed", {"action": "reject", "exercise_id": exercise_id}, auth_user["id"])
+    return row
+
+
+@admin_router.patch("/{exercise_id}/unpublish")
+async def admin_unpublish_exercise(
+    exercise_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Pull a published exercise back into draft for re-review.  Used when an
+    admin spots a problem after publishing — without this, the only recovery
+    path was to reject (terminal) and re-generate from scratch.
+    """
+    auth_user = await require_admin(authorization)
+    row = _admin_set_status(exercise_id, "draft", auth_user["id"])
+    _safe_event("admin_exercise_reviewed", {"action": "unpublish", "exercise_id": exercise_id}, auth_user["id"])
     return row
 
 

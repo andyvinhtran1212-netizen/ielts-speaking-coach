@@ -51,6 +51,23 @@
     .tab-btn:hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.05); }
     .tab-btn.active { background: rgba(20,184,166,0.15); color: #14b8a6; }
 
+    /* Vocab Exercises status sub-tabs (Draft / Published / Rejected). */
+    .ve-status-tab {
+      padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
+      color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03); cursor: pointer;
+      transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .ve-status-tab:hover { border-color: rgba(20,184,166,0.3); color: rgba(255,255,255,0.85); }
+    .ve-status-tab.active {
+      background: rgba(20,184,166,0.15); border-color: rgba(20,184,166,0.4); color: #5eead4;
+    }
+    .ve-count-pill {
+      font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); min-width: 18px; text-align: center;
+    }
+    .ve-status-tab.active .ve-count-pill { background: rgba(20,184,166,0.25); color: #5eead4; }
+
     /* Table */
     .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .tbl thead tr { background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.07); }
@@ -912,26 +929,26 @@
           </div>
         </div>
 
-        <!-- Filter dropdown -->
-        <div class="flex items-center gap-3">
-          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Status:</label>
-          <select id="ve-filter-status" onchange="ve_load(true)"
-                  class="text-xs px-2 py-1 rounded-lg"
-                  style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          <label class="text-xs ml-2" style="color:rgba(255,255,255,0.5);">Type:</label>
-          <select id="ve-filter-type" onchange="ve_load(true)"
-                  class="text-xs px-2 py-1 rounded-lg"
-                  style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
-            <option value="D1">D1 Fill-blank</option>
-          </select>
+        <!-- Status sub-tabs (Draft / Published / Rejected) with live counts.
+             Replaces the prior dropdown so admins can see at a glance how
+             many drafts are waiting and how many they've already published. -->
+        <div class="flex items-center gap-2">
+          <button id="ve-tab-draft"     class="ve-status-tab active" data-status="draft">
+            Draft <span class="ve-count-pill" id="ve-count-draft">0</span>
+          </button>
+          <button id="ve-tab-published" class="ve-status-tab" data-status="published">
+            Published <span class="ve-count-pill" id="ve-count-published">0</span>
+          </button>
+          <button id="ve-tab-rejected"  class="ve-status-tab" data-status="rejected">
+            Rejected <span class="ve-count-pill" id="ve-count-rejected">0</span>
+          </button>
           <span class="text-xs ml-auto" style="color:rgba(255,255,255,0.4);">
-            <span id="ve-count">0</span> items · <span id="ve-selected-count">0</span> selected
+            <span id="ve-count">0</span> in view · <span id="ve-selected-count">0</span> selected
           </span>
         </div>
+        <!-- Hidden: type filter — single value (D1) for Wave 1, kept for forward-compat. -->
+        <input type="hidden" id="ve-filter-type" value="D1" />
+        <input type="hidden" id="ve-filter-status" value="draft" />
 
         <!-- Bulk actions bar -->
         <div class="flex items-center gap-2">
@@ -3260,9 +3277,20 @@
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function ve_attachTabHandlers() {
+      ['draft', 'published', 'rejected'].forEach(function (s) {
+        var tab = document.getElementById('ve-tab-' + s);
+        if (tab && !tab._handler_attached) {
+          tab.onclick = function () { window.ve_setStatusFilter(s); };
+          tab._handler_attached = true;
+        }
+      });
+    }
+
     window.ve_load = async function (force) {
       if (_loaded.vocab_exercises && !force) return;
       _loaded.vocab_exercises = true;
+      ve_attachTabHandlers();
       var status = (document.getElementById('ve-filter-status') || {}).value || 'draft';
       var type   = (document.getElementById('ve-filter-type')   || {}).value || 'D1';
       ve_setState('loading');
@@ -3271,11 +3299,47 @@
         _veItems = Array.isArray(rows) ? rows : [];
         _veSelected = {};
         ve_render();
+        ve_refreshCounts();
       } catch (err) {
         console.error('[ve] load failed', err);
         ve_setState('error');
       }
     };
+
+    // ── Status sub-tabs (Draft / Published / Rejected) ───────────────────
+    // Each tab shows a count next to the label. Counts are pulled in parallel
+    // so switching tabs doesn't rerun the active-status query needlessly.
+    window.ve_setStatusFilter = function (status) {
+      var input = document.getElementById('ve-filter-status');
+      if (!input || input.value === status) return;
+      input.value = status;
+      ['draft', 'published', 'rejected'].forEach(function (s) {
+        var tab = document.getElementById('ve-tab-' + s);
+        if (tab) tab.classList.toggle('active', s === status);
+      });
+      ve_load(true);
+    };
+
+    async function ve_refreshCounts() {
+      var type = (document.getElementById('ve-filter-type') || {}).value || 'D1';
+      // 3 calls in parallel — small list endpoints, cheap.
+      var keys = ['draft', 'published', 'rejected'];
+      try {
+        var results = await Promise.all(keys.map(function (s) {
+          return apiGet(
+            '/admin/exercises?status=' + encodeURIComponent(s) +
+            '&exercise_type=' + encodeURIComponent(type) +
+            '&limit=200'
+          ).catch(function () { return []; });
+        }));
+        keys.forEach(function (s, i) {
+          var el = document.getElementById('ve-count-' + s);
+          if (el) el.textContent = (Array.isArray(results[i]) ? results[i].length : 0);
+        });
+      } catch (err) {
+        console.warn('[ve] count refresh failed (non-fatal):', err);
+      }
+    }
 
     function ve_render() {
       var list = document.getElementById('ve-list');
@@ -3289,6 +3353,22 @@
         var answer   = p.answer || p.word || '?';
         var distractors = Array.isArray(p.distractors) ? p.distractors.join(', ') : '';
         var checked = _veSelected[it.id] ? 'checked' : '';
+        // Action buttons depend on the row's current status:
+        //   draft     → Publish / Reject
+        //   published → Unpublish (back to draft for re-review)
+        //   rejected  → Publish / (no Reject — already terminal)
+        var actions = '';
+        if (it.status === 'published') {
+          actions =
+            '<button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.3); color:#fb923c;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'unpublish\')">Unpublish</button>';
+        } else if (it.status === 'rejected') {
+          actions =
+            '<button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(20,184,166,0.12); border:1px solid rgba(20,184,166,0.3); color:#5eead4;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'publish\')">Publish</button>';
+        } else {
+          actions =
+            '<button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(20,184,166,0.12); border:1px solid rgba(20,184,166,0.3); color:#5eead4;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'publish\')">Publish</button>'
+          + '<button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.3); color:#f87171;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'reject\')">Reject</button>';
+        }
         return ''
           + '<div class="card p-3 flex items-start gap-3">'
           + '  <input type="checkbox" data-ve-id="' + ve_esc(it.id) + '" ' + checked + ' onchange="ve_toggleOne(\'' + ve_esc(it.id) + '\', this.checked)" class="mt-1" />'
@@ -3300,10 +3380,7 @@
           + '    </div>'
           + '    <div class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">id: ' + ve_esc(it.id) + ' · type: ' + ve_esc(it.exercise_type) + ' · status: ' + ve_esc(it.status) + '</div>'
           + '  </div>'
-          + '  <div class="flex gap-1">'
-          + '    <button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(20,184,166,0.12); border:1px solid rgba(20,184,166,0.3); color:#5eead4;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'publish\')">Publish</button>'
-          + '    <button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.3); color:#f87171;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'reject\')">Reject</button>'
-          + '  </div>'
+          + '  <div class="flex gap-1">' + actions + '</div>'
           + '</div>';
       }).join('');
       ve_setState('list');
@@ -3330,11 +3407,13 @@
     }
 
     window.ve_setStatus = async function (id, action) {
+      // action ∈ {publish, reject, unpublish}
       try {
         await window.api.patch('/admin/exercises/' + id + '/' + action, {}, _token);
         _veItems = _veItems.filter(function (it) { return it.id !== id; });
         delete _veSelected[id];
         ve_render();
+        ve_refreshCounts();
       } catch (err) {
         alert('Status update failed: ' + (err.message || err));
       }
@@ -3350,6 +3429,7 @@
         _veItems = _veItems.filter(function (it) { return !_veSelected[it.id]; });
         _veSelected = {};
         ve_render();
+        ve_refreshCounts();
       } catch (err) {
         alert('Bulk action failed: ' + (err.message || err));
       }
