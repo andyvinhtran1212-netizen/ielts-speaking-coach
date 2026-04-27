@@ -116,3 +116,127 @@ WHERE email = 'YOUR_ADMIN_EMAIL';
 
 - [ ] Set `D1_ENABLED=false` in Railway → /auth/me returns `d1_enabled=false` for everyone, frontend cards disappear
 - [ ] If migration must be reverted, run the rollback blocks at the bottom of the migration files (commented out by default — copy-paste manually)
+
+---
+
+# Phase D Wave 2 — Flashcards
+
+Wave 2 ships the Flashcards feature (manual stacks + auto-stacks +
+SRS).  D3 (speak-with-target) is **deferred to Phase E** — do not enable
+`D3_ENABLED` as part of this deploy.
+
+`FLASHCARD_ENABLED` defaults OFF; shipping the code is safe, the rollout
+step gates real exposure.
+
+## W2.0 Scope
+
+- [ ] Migrations 025, 026, 027, 028 applied (idempotent)
+- [ ] `FLASHCARD_ENABLED` known to be **OFF** in production env unless explicitly toggled
+
+## W2.1 Pre-deploy
+
+- [ ] Branch `feature/phase-d-wave-2-flashcards` rebased on `main`
+- [ ] Local test suite green:
+  ```bash
+  cd backend && python3 -m pytest \
+    tests/test_srs_algorithm.py \
+    tests/test_flashcard_e2e.py \
+    tests/test_due_queue.py \
+    tests/test_rate_limit.py \
+    tests/test_d1_e2e.py \
+    tests/test_d1_session.py \
+    tests/test_vocab_guards.py \
+    -q
+  ```
+- [ ] Live RLS test (must NOT skip):
+  ```bash
+  set -a; source backend/.env.staging.test
+  python3 -m pytest backend/tests/test_stack_rls.py -v
+  ```
+- [ ] Page parity green:
+  ```bash
+  bash backend/scripts/verify_page_parity.sh
+  ```
+- [ ] PR approved (no merge to main without it)
+
+## W2.2 Database (production Supabase)
+
+- [ ] **BACKUP CREATED** in Supabase Dashboard (timestamp it in the PR)
+- [ ] Apply migrations IN ORDER (026 references 025; 028 backfills `topic` from `sessions`):
+  ```bash
+  source backend/.env
+  psql "$DATABASE_URL" -f backend/migrations/025_flashcard_stacks.sql
+  psql "$DATABASE_URL" -f backend/migrations/026_flashcard_cards.sql
+  psql "$DATABASE_URL" -f backend/migrations/027_flashcard_reviews.sql
+  psql "$DATABASE_URL" -f backend/migrations/028_user_vocab_topic.sql
+  ```
+  Or use the wrapper:
+  ```bash
+  bash backend/scripts/setup_phase_d_wave_2_test_env.sh
+  ```
+- [ ] Verify schema + RLS (the wrapper prints this; manual run below):
+  ```bash
+  psql "$DATABASE_URL" -c "\dt flashcard_stacks flashcard_cards flashcard_reviews flashcard_review_log"
+  psql "$DATABASE_URL" -c "\d user_vocabulary" | grep -E 'topic'
+  psql "$DATABASE_URL" <<'SQL'
+  SELECT tablename, policyname, cmd,
+         (qual IS NOT NULL) AS has_using,
+         (with_check IS NOT NULL) AS has_with_check
+    FROM pg_policies
+   WHERE tablename IN ('flashcard_stacks','flashcard_cards','flashcard_reviews','flashcard_review_log')
+   ORDER BY tablename, cmd, policyname;
+  SQL
+  ```
+  Every UPDATE policy must show `has_using=t` AND `has_with_check=t`; every INSERT policy must show `has_with_check=t`.
+
+## W2.3 Backend (Railway)
+
+- [ ] Add env var `FLASHCARD_ENABLED=true` (global gate; per-user flag still required)
+- [ ] (Optional) override `FLASHCARD_DAILY_REVIEW_LIMIT` if 500/day not desired
+- [ ] Wait for Railway redeploy to finish
+- [ ] Smoke test the global flag is plumbed:
+  ```bash
+  curl -H "Authorization: Bearer <admin JWT>" https://<api>/auth/me | jq .flashcard_enabled
+  ```
+  Expect `false` (per-user flag still off) — confirms the field exists.
+
+## W2.4 Frontend (Vercel/GitHub Pages)
+
+- [ ] Wait for auto-deploy
+- [ ] Smoke test in Incognito (logged out): Flashcards link absent from dashboard nav
+
+## W2.5 Feature flag rollout
+
+- [ ] Enable for one admin first:
+  ```sql
+  UPDATE users
+     SET feature_flags = COALESCE(feature_flags, '{}'::jsonb)
+                       || '{"flashcard_enabled": true}'::jsonb
+   WHERE email = 'YOUR_ADMIN_EMAIL';
+  ```
+- [ ] Re-run `/auth/me` for that admin → `flashcard_enabled: true`
+- [ ] After Wave-2 dogfood passes (≥1 day), expand to ≤3 admins, then ≤5 beta users (plan §10)
+
+## W2.6 Smoke test E2E (admin opted in)
+
+- [ ] Dashboard nav shows "📚 Flashcards" tab; sub-text "Ôn từ vựng theo SRS" or "🔥 N thẻ đến hạn"
+- [ ] Click Flashcards → list shows 3 auto-stacks ("Tất cả từ vựng", "Mới thêm gần đây", "Cần ôn tập") + any manual stacks
+- [ ] Click "Tất cả từ vựng" → study page loads cards; tap to flip; rate "Tốt" → next card
+- [ ] Complete a session → summary screen with breakdown (Quên/Khó/Tốt/Dễ)
+- [ ] "+ Tạo stack mới" → modal opens; pick category "needs_review"; live preview shows count + headwords; Save → redirect to study page with the new stack
+- [ ] My Vocabulary → vocab card → "📚 +Stack" → picker modal → select stack → green toast "Đã thêm"
+- [ ] Repeat the same vocab → blue toast "Đã có trong …"
+- [ ] Exercises hub shows "Flashcards" Live card
+- [ ] No errors in browser console; no 5xx in Railway logs
+
+## W2.7 Dogfood (≥1 day, end-to-end)
+
+- [ ] Single admin uses the full flow for one full day (≥10 reviews)
+- [ ] Capture issues in `DOGFOOD_FLASHCARD_NOTES.md`
+- [ ] Decide: expand to beta / fix issues / proceed to Phase E (D3)
+
+## W2.8 Rollback
+
+- [ ] Set `FLASHCARD_ENABLED=false` in Railway → all users see `flashcard_enabled=false`, every entry point removes the link from the DOM
+- [ ] If migrations must be reverted, run the `ROLLBACK SCRIPT` blocks (commented out) at the bottom of 025 → 028 (drop in REVERSE order: 028 first, then 027/026/025; flashcard_review_log is inside 027's rollback block)
+- [ ] Migration 028 (user_vocabulary.topic) backfill is destructive on rollback — running the rollback drops the column.  If you only need to disable the feature, prefer `FLASHCARD_ENABLED=false` over rolling back DDL.
