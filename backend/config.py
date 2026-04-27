@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     D3_DAILY_LIMIT_FREE: int = 3
     D1_GENERATION_MODEL: str = "gemini-2.5-flash"
 
+    # Phase D Wave 2 — Flashcards feature flag (default OFF in production)
+    FLASHCARD_ENABLED: bool = False
+    FLASHCARD_DAILY_REVIEW_LIMIT: int = 500
+
     class Config:
         env_file = ".env"
 
