@@ -15,7 +15,8 @@ import random
 import string
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
+import uuid as _uuid
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -2482,3 +2483,128 @@ async def admin_set_vocab_flag(
     action = "enabled" if payload.enabled else "disabled"
     logger.info("[admin] vocab flag %s for user %s", action, user_id)
     return {"ok": True, "message": f"Vocab bank {action} for user {user_id}."}
+
+
+# ── POST /admin/vocab/backfill-enrichment ─────────────────────────────────────
+#
+# Phase D Wave 2 rich-content backfill.  Fills user_vocabulary.ipa and
+# user_vocabulary.example_sentence for rows where either is NULL.  Uses the
+# same Gemini batch service that the inline Phase B extractor uses, so the
+# prompt + validation stays in one place.
+#
+# Implementation notes:
+# - BackgroundTasks because the job can take 10-30s for ~100 cards (one
+#   Gemini call per chunk of 10) and we don't want to block the admin's
+#   browser.
+# - Dedup by lower(headword) before calling Gemini — multiple users share
+#   the same word frequently and we don't want to pay per duplicate.
+# - service-role admin client is required: we UPDATE across many user_ids
+#   in one job, so an RLS-scoped client wouldn't work.  This is the same
+#   posture as the existing admin endpoints.
+# - Cost estimate is conservative — Gemini Flash list pricing puts a chunk
+#   of 10 enrichments around $0.0005, so 100 cards (10 chunks) ≈ $0.005;
+#   the prompt's $0.10-0.15 figure is for cards-with-duplicates pre-dedup.
+
+
+def _backfill_run(job_id: str, limit: int) -> None:
+    """
+    Background task: enrich up to `limit` user_vocabulary rows missing IPA
+    or example_sentence.  Runs synchronously inside FastAPI's BG worker —
+    no asyncio dependencies, all Supabase calls are blocking.
+    """
+    from services.vocab_enrichment import enrich_vocabulary_batch, VocabEnrichmentError
+
+    try:
+        rows_res = (
+            supabase_admin.table("user_vocabulary")
+            .select("id, headword")
+            .eq("is_archived", False)
+            .or_("ipa.is.null,example_sentence.is.null")
+            .limit(limit)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[backfill %s] candidate query failed: %s", job_id, e)
+        return
+
+    rows = rows_res.data or []
+    if not rows:
+        logger.info("[backfill %s] no rows to enrich", job_id)
+        return
+
+    # Group rows by lower(headword) so one Gemini call per unique word
+    # back-fills every row that shares it (across users).
+    by_word: dict[str, list[dict]] = {}
+    for r in rows:
+        key = (r.get("headword") or "").strip().lower()
+        if not key:
+            continue
+        by_word.setdefault(key, []).append(r)
+
+    unique_words = list(by_word.keys())
+    logger.info(
+        "[backfill %s] enriching %d unique headwords across %d rows",
+        job_id, len(unique_words), len(rows),
+    )
+
+    try:
+        enrichments = enrich_vocabulary_batch(unique_words)
+    except VocabEnrichmentError as e:
+        logger.error("[backfill %s] all chunks failed: %s", job_id, e)
+        return
+
+    enrich_map = {e["headword"].lower(): e for e in enrichments}
+
+    updated = 0
+    for low, group_rows in by_word.items():
+        e = enrich_map.get(low)
+        if not e:
+            continue  # Word didn't make it through Gemini's validation.
+        for row in group_rows:
+            try:
+                supabase_admin.table("user_vocabulary").update({
+                    "ipa": e["ipa"],
+                    "example_sentence": e["example_sentence"],
+                }).eq("id", row["id"]).execute()
+                updated += 1
+            except Exception as upd_err:
+                logger.warning(
+                    "[backfill %s] update failed for row=%s: %s",
+                    job_id, row["id"], upd_err,
+                )
+
+    logger.info(
+        "[backfill %s] done: enriched %d unique words → updated %d/%d rows",
+        job_id, len(enrich_map), updated, len(rows),
+    )
+
+
+@router.post("/vocab/backfill-enrichment")
+async def backfill_vocab_enrichment(
+    background_tasks: BackgroundTasks,
+    limit: int = Query(default=100, ge=1, le=500),
+    authorization: str | None = Header(default=None),
+):
+    """
+    Trigger a background job that enriches user_vocabulary rows missing
+    `ipa` or `example_sentence` (i.e. rows that pre-date migration 029
+    or whose Gemini call failed during Phase B extraction).
+
+    Caps at 500/call so an admin can't accidentally fan out across the
+    whole bank in one click.  Re-run the endpoint to process the next
+    batch — the WHERE clause naturally moves forward as rows get filled.
+
+    Cost estimate is best-effort: Gemini Flash batch is ~$0.0005 per
+    chunk of 10 unique words.
+    """
+    await require_admin(authorization)
+    job_id = _uuid.uuid4().hex[:12]
+    background_tasks.add_task(_backfill_run, job_id, limit)
+    estimated_cost_usd = round((max(1, limit) / 10) * 0.0005, 4)
+    return {
+        "job_id":             job_id,
+        "status":             "queued",
+        "limit":              limit,
+        "estimated_cost_usd": estimated_cost_usd,
+        "note": "Tail Railway logs for '[backfill <job_id>]' to track progress.",
+    }
