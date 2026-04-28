@@ -625,6 +625,51 @@
         <span id="history-count" class="ds-badge">0 sessions</span>
       </div>
 
+      <!-- Search / filter / sort controls (Phase 2.5) -->
+      <div id="history-filters"
+           class="rounded-xl mb-3"
+           style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); padding:14px 16px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="search" id="hf-search" placeholder="Tìm theo chủ đề…"
+                 class="text-sm rounded-lg px-3 py-2"
+                 style="flex:1 1 220px; min-width:200px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+          <select id="hf-sort"
+                  class="text-sm rounded-lg px-3 py-2"
+                  style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
+            <option value="score_desc">Điểm cao → thấp</option>
+            <option value="score_asc">Điểm thấp → cao</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+          <label style="font-size:12px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:6px;">
+            Từ:
+            <input type="date" id="hf-date-from"
+                   class="text-xs rounded-lg px-2 py-1.5"
+                   style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+          </label>
+          <label style="font-size:12px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:6px;">
+            Đến:
+            <input type="date" id="hf-date-to"
+                   class="text-xs rounded-lg px-2 py-1.5"
+                   style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+          </label>
+          <button onclick="window._dashboard && window._dashboard.applyHistoryFilters()"
+                  class="text-xs px-3 py-1.5 rounded-lg"
+                  style="background:rgba(20,184,166,0.15); border:1px solid rgba(20,184,166,0.4); color:#14b8a6;">
+            Lọc
+          </button>
+          <button onclick="window._dashboard && window._dashboard.clearHistoryFilters()"
+                  class="text-xs px-3 py-1.5 rounded-lg"
+                  style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.65);">
+            Xóa lọc
+          </button>
+          <span id="history-filter-info" class="hidden text-xs ml-auto"
+                style="color:rgba(255,255,255,0.55);"></span>
+        </div>
+      </div>
+
       <!-- Table wrapper -->
       <div class="rounded-2xl overflow-hidden border" style="border-color:rgba(255,255,255,0.08);">
 
@@ -657,6 +702,11 @@
         </div>
 
       </div>
+
+      <!-- Pagination (Phase 2.5) — hidden when no filters applied -->
+      <div id="history-pagination"
+           class="hidden mt-4"
+           style="display:none; justify-content:center; align-items:center; gap:8px; font-size:13px; color:rgba(255,255,255,0.7);"></div>
     </section>
 
   </div><!-- /inner padding wrapper -->
@@ -1315,6 +1365,154 @@
         .join('');
     }
 
+    // ── History filters / pagination (Phase 2.5) ──────────────
+    //
+    // Initial load and every filter / sort / page change route through
+    // `loadHistory()`.  When no filters are active the endpoint returns a
+    // bare list (legacy shape, ?limit=200); when any filter is active it
+    // returns the paginated dict.  We branch on shape rather than on a flag
+    // so the contract stays simple: handle whatever GET /sessions hands back.
+    var _historyState = {
+      search:    '',
+      sort:      'newest',
+      date_from: '',
+      date_to:   '',
+      page:      1,
+      page_size: 20,
+    };
+    var _historySearchTimer = null;
+
+    function _historyHasActiveFilters() {
+      return !!(
+        _historyState.search ||
+        _historyState.date_from ||
+        _historyState.date_to ||
+        (_historyState.sort && _historyState.sort !== 'newest')
+      );
+    }
+
+    async function loadHistory() {
+      var params = new URLSearchParams();
+      var filtered = _historyHasActiveFilters();
+
+      if (filtered) {
+        if (_historyState.search)    params.set('search',    _historyState.search);
+        if (_historyState.sort)      params.set('sort',      _historyState.sort);
+        if (_historyState.date_from) params.set('date_from', _historyState.date_from);
+        if (_historyState.date_to)   params.set('date_to',   _historyState.date_to);
+        params.set('page',      String(_historyState.page));
+        params.set('page_size', String(_historyState.page_size));
+      } else {
+        // Backwards-compat with the pre-Phase-2.5 dashboard: unfiltered list.
+        params.set('limit', '200');
+      }
+
+      var data;
+      try {
+        data = await api.get('/sessions?' + params.toString());
+      } catch (err) {
+        console.warn('Could not load sessions:', err && err.message);
+        renderHistory([]);
+        renderHistoryPagination(0, 0, 0);
+        renderHistoryFilterInfo(0, filtered);
+        return;
+      }
+
+      // Paginated dict has `sessions`; legacy shape is a bare array.
+      var sessions    = Array.isArray(data) ? data : (data.sessions    || []);
+      var total       = Array.isArray(data) ? sessions.length : (data.total       || 0);
+      var totalPages  = Array.isArray(data) ? 0               : (data.total_pages || 0);
+      var currentPage = Array.isArray(data) ? 1               : (data.page        || 1);
+
+      renderHistory(sessions);
+      renderHistoryPagination(currentPage, totalPages, total);
+      renderHistoryFilterInfo(total, filtered);
+    }
+
+    function renderHistoryPagination(page, totalPages, total) {
+      var el = document.getElementById('history-pagination');
+      if (!el) return;
+      if (!totalPages || totalPages <= 1) {
+        el.innerHTML = '';
+        el.style.display = 'none';
+        return;
+      }
+      var btnStyle = 'background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.85); padding:5px 12px; border-radius:8px; font-size:12px; cursor:pointer;';
+      var disabledStyle = 'background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); color:rgba(255,255,255,0.25); padding:5px 12px; border-radius:8px; font-size:12px; cursor:not-allowed;';
+      var prevBtn = page > 1
+        ? '<button onclick="window._dashboard.goToHistoryPage(' + (page - 1) + ')" style="' + btnStyle + '">← Trước</button>'
+        : '<button disabled style="' + disabledStyle + '">← Trước</button>';
+      var nextBtn = page < totalPages
+        ? '<button onclick="window._dashboard.goToHistoryPage(' + (page + 1) + ')" style="' + btnStyle + '">Sau →</button>'
+        : '<button disabled style="' + disabledStyle + '">Sau →</button>';
+      el.innerHTML = prevBtn
+        + '<span style="margin:0 12px; color:#14b8a6; font-weight:600;">Trang ' + page + ' / ' + totalPages + '</span>'
+        + nextBtn;
+      el.style.display = 'flex';
+    }
+
+    function renderHistoryFilterInfo(total, filtered) {
+      var el = document.getElementById('history-filter-info');
+      if (!el) return;
+      if (filtered) {
+        el.textContent = 'Tìm thấy ' + total + ' session';
+        el.classList.remove('hidden');
+      } else {
+        el.textContent = '';
+        el.classList.add('hidden');
+      }
+    }
+
+    function applyHistoryFilters() {
+      _historyState.search    = (document.getElementById('hf-search')?.value || '').trim();
+      _historyState.sort      =  document.getElementById('hf-sort')?.value      || 'newest';
+      _historyState.date_from =  document.getElementById('hf-date-from')?.value || '';
+      _historyState.date_to   =  document.getElementById('hf-date-to')?.value   || '';
+      _historyState.page      = 1;
+      loadHistory();
+    }
+
+    function clearHistoryFilters() {
+      var s = document.getElementById('hf-search');     if (s) s.value = '';
+      var so = document.getElementById('hf-sort');      if (so) so.value = 'newest';
+      var df = document.getElementById('hf-date-from'); if (df) df.value = '';
+      var dt = document.getElementById('hf-date-to');   if (dt) dt.value = '';
+      _historyState = { search: '', sort: 'newest', date_from: '', date_to: '', page: 1, page_size: 20 };
+      loadHistory();
+    }
+
+    function goToHistoryPage(page) {
+      _historyState.page = page;
+      loadHistory();
+      var sec = document.getElementById('history-filters');
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function _wireHistoryFilterEvents() {
+      var searchEl = document.getElementById('hf-search');
+      if (searchEl && !searchEl._wired) {
+        searchEl.addEventListener('input', function () {
+          // Debounce so each keystroke doesn't slam the backend.
+          if (_historySearchTimer) clearTimeout(_historySearchTimer);
+          _historySearchTimer = setTimeout(applyHistoryFilters, 400);
+        });
+        searchEl._wired = true;
+      }
+      var sortEl = document.getElementById('hf-sort');
+      if (sortEl && !sortEl._wired) {
+        sortEl.addEventListener('change', applyHistoryFilters);
+        sortEl._wired = true;
+      }
+      // Date inputs apply on click of "Lọc" — don't auto-apply on every
+      // keystroke since users are still typing the year.
+    }
+
+    // Expose the actions invoked from inline `onclick` handlers above.
+    window._dashboard = window._dashboard || {};
+    window._dashboard.applyHistoryFilters = applyHistoryFilters;
+    window._dashboard.clearHistoryFilters = clearHistoryFilters;
+    window._dashboard.goToHistoryPage     = goToHistoryPage;
+
     // ── Charts ───────────────────────────────────────────────
     var _chartLine  = null;
     var _chartRadar = null;
@@ -1912,19 +2110,22 @@
       }
 
       try {
-        const [statsData, allSessions] = await Promise.all([
-          api.get('/sessions/stats?limit=20'),
-          api.get('/sessions?limit=200'),
-        ]);
+        const statsData = await api.get('/sessions/stats?limit=20');
         renderStats(statsData.summary, statsData.sessions);
-        renderHistory(allSessions);
         renderCharts(statsData.sessions);
+        // History is loaded through the filter-aware helper so the legacy
+        // (unfiltered) initial fetch and the new search/sort/page flow share
+        // a single code path.  Errors here are swallowed inside loadHistory.
+        await loadHistory();
       } catch (err) {
         // Backend unreachable — show empty state silently
         renderStats({ total_sessions: 0, avg_band_30d: null, current_streak: 0, last_topic: null, last_session_at: null }, []);
         renderHistory([]);
         console.warn('Could not load sessions:', err.message);
       }
+
+      // Wire filter controls now that the dashboard panel is in the DOM.
+      _wireHistoryFilterEvents();
 
       loadGrammarDashboard();
     }
