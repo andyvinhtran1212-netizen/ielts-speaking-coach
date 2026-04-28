@@ -363,3 +363,14 @@ two; statuses preserved as-of the prior file.
 - Clean up pytest async loop-scope warning (also visible in
   vocab-enrichment test runs).
 - Review Supabase client deprecation warnings (`timeout`, `verify`).
+
+
+---
+
+## Completed in Phase 2.5
+
+### Day 1 (2026-04-27)
+- ✅ **CRIT-1: DB password rotated** — production + staging Supabase passwords reset; backup script + Railway redeploy verified
+- ✅ **CRIT-2: JWT exposure** — process norm established: only paste first/last 20 chars of a JWT for debugging, never the full token
+- ✅ **LOW-3: favicon.ico 404** — added `frontend/favicon.svg` + `<link rel="icon">` in every HTML page
+- ✅ **LOW-4: AUDIT_*.md cluttering repo root** — moved to `docs/audits/` with `git mv` (history preserved)
