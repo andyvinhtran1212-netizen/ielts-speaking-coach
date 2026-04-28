@@ -6,9 +6,13 @@ Feature flag check: VOCAB_BANK_FEATURE_FLAG_ENABLED env var + users.feature_flag
 Prefix: /api/vocabulary/bank
 """
 
+import csv
+import io
 import logging
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from supabase import create_client
 
@@ -167,6 +171,109 @@ async def get_recent_vocab(
     )
 
     return result.data or []
+
+
+# ── GET /export — User-initiated full backup as CSV or JSON ───────────────────
+#
+# Phase 2.5 — UX self-service export.  Returns *every* vocab row owned by the
+# caller, including archived rows (a backup should be lossless).  RLS is
+# enforced through `_user_sb(token)`.
+#
+# IMPORTANT: this route is registered BEFORE `/{vocab_id}` on purpose — FastAPI
+# matches in registration order and `/{vocab_id}` would happily swallow
+# `/export` as a fake UUID, dispatching it to the detail handler instead.
+
+_EXPORT_COLUMNS = (
+    "headword",
+    "definition_vi",
+    "definition_en",
+    "ipa",
+    "example_sentence",
+    "context_sentence",
+    "category",
+    "topic",
+    "source_type",
+    "is_archived",
+    "created_at",
+)
+
+
+def _export_filename(fmt: str) -> str:
+    return f"vocab_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}.{fmt}"
+
+
+def _rows_to_csv_text(rows: list[dict]) -> str:
+    """Serialize rows to a UTF-8 CSV string with a leading BOM.
+
+    The BOM gets Excel to render Vietnamese diacritics correctly when the
+    user double-clicks the file.  Without it, Excel reads the bytes as
+    Windows-1252 and mangles every đ/ô/ư.
+    """
+    buf = io.StringIO()
+    buf.write("\ufeff")  # UTF-8 BOM for Excel
+    writer = csv.DictWriter(buf, fieldnames=_EXPORT_COLUMNS, quoting=csv.QUOTE_ALL)
+    writer.writeheader()
+    for row in rows:
+        clean = {k: ("" if row.get(k) is None else row.get(k)) for k in _EXPORT_COLUMNS}
+        writer.writerow(clean)
+    return buf.getvalue()
+
+
+@router.get("/export")
+async def export_user_vocabulary(
+    format: str = Query("csv", pattern="^(csv|json)$"),
+    authorization: str | None = Header(default=None),
+):
+    """Download the caller's full vocab bank as CSV (default) or JSON.
+
+    Includes archived rows on purpose — a backup should be lossless.  Same
+    feature-flag gate as every other vocab-bank endpoint (default-deny per
+    project rule).
+    """
+    auth_user = await _require_auth(authorization)
+    user_id = auth_user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+
+    try:
+        result = (
+            _user_sb(token)
+            .table("user_vocabulary")
+            .select(",".join(_EXPORT_COLUMNS))
+            .order("created_at", desc=True)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[vocab/export] query failed for user=%s: %s", user_id, exc)
+        raise HTTPException(500, f"Export query failed: {exc}")
+
+    rows = result.data or []
+    _fire_event("vocab_exported", {"format": format, "count": len(rows)}, user_id)
+
+    if format == "json":
+        payload = {
+            "exported_at":  datetime.now(timezone.utc).isoformat(),
+            "total_count":  len(rows),
+            "vocabulary":   rows,
+        }
+        return JSONResponse(
+            content=payload,
+            headers={
+                "Content-Disposition": f'attachment; filename="{_export_filename("json")}"',
+            },
+        )
+
+    csv_text = _rows_to_csv_text(rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{_export_filename("csv")}"',
+        },
+    )
 
 
 # ── GET /{id} — Detail ────────────────────────────────────────────────────────
