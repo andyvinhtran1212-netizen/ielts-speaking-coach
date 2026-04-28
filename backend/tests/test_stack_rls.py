@@ -319,3 +319,50 @@ def test_user_a_cannot_modify_user_b_reviews(jwt_a, jwt_b):
     finally:
         cb.table("flashcard_reviews").delete().eq("id", review["id"]).execute()
         cb.table("user_vocabulary").delete().eq("id", vocab_id).execute()
+
+
+def test_with_check_blocks_review_user_id_reassignment(jwt_a, jwt_b):
+    """
+    Same WITH CHECK story as the stack test, but for flashcard_reviews:
+    a malicious caller cannot 'UPDATE ... SET user_id = <other_user>' to
+    launder a review row owned by themselves into B's account.  The USING
+    clause permits the read, but the WITH CHECK clause must reject the new
+    row state where user_id != auth.uid().
+    """
+    ca = _user_client(jwt_a["access_token"])
+    headword = f"rls-review-launder-{_uuid.uuid4().hex[:8]}"
+    vocab_id = _seed_vocab(ca, jwt_a["user_id"], headword)
+    review = (
+        ca.table("flashcard_reviews")
+        .insert({
+            "user_id":         jwt_a["user_id"],
+            "vocabulary_id":   vocab_id,
+            "interval_days":   1,
+            "ease_factor":     2.5,
+            "review_count":    1,
+            "lapse_count":     0,
+            "next_review_at":  "2099-01-01T00:00:00+00:00",
+        })
+        .execute()
+    ).data[0]
+
+    try:
+        with pytest.raises(Exception):
+            # WITH CHECK should reject the new user_id (B) — supabase-py
+            # surfaces this as an APIError / postgrest error.
+            ca.table("flashcard_reviews").update(
+                {"user_id": jwt_b["user_id"]}
+            ).eq("id", review["id"]).execute()
+
+        # Sanity-check: the row still belongs to A.
+        check = (
+            ca.table("flashcard_reviews")
+            .select("user_id")
+            .eq("id", review["id"])
+            .single()
+            .execute()
+        )
+        assert check.data["user_id"] == jwt_a["user_id"]
+    finally:
+        ca.table("flashcard_reviews").delete().eq("id", review["id"]).execute()
+        ca.table("user_vocabulary").delete().eq("id", vocab_id).execute()
