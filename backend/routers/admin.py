@@ -2608,3 +2608,215 @@ async def backfill_vocab_enrichment(
         "estimated_cost_usd": estimated_cost_usd,
         "note": "Tail Railway logs for '[backfill <job_id>]' to track progress.",
     }
+
+
+# ── GET /admin/flashcards/stats ────────────────────────────────────────────────
+#
+# Phase 2.5 dogfood support: aggregate flashcard usage metrics for SRS
+# validation.  Read-only; uses service-role supabase_admin so no per-user
+# RLS scoping (admin-only endpoint anyway).
+#
+# Schema notes (verified against migrations 025/026/027):
+# - flashcard_review_log: per-review audit row, columns
+#   (user_id, vocabulary_id, rating, reviewed_at).  NOT created_at — the
+#   column name is reviewed_at; using the wrong name would 400 silently
+#   under PostgREST.
+# - flashcard_reviews: latest SRS state per (user_id, vocabulary_id) pair
+#   — ease_factor REAL [1.3..3.0], interval_days INT, lapse_count INT.
+# - Auto-stacks (All / Recent / Needs review) are virtual; total stack
+#   count comes from flashcard_stacks (manual stacks only).
+
+
+def _fc_compute_activity_stats() -> dict:
+    """Total counts: manual stacks, cards in stacks, active reviewers, lifetime reviews."""
+    stacks_res = (
+        supabase_admin.table("flashcard_stacks")
+        .select("id", count="exact")
+        .limit(0)
+        .execute()
+    )
+    cards_res = (
+        supabase_admin.table("flashcard_cards")
+        .select("id", count="exact")
+        .limit(0)
+        .execute()
+    )
+
+    # Unique reviewers + lifetime review count come from the same select so
+    # we don't double-pull the table.
+    reviews_res = (
+        supabase_admin.table("flashcard_reviews")
+        .select("user_id, review_count")
+        .execute()
+    )
+    rows = reviews_res.data or []
+    unique_users = len({r["user_id"] for r in rows if r.get("user_id")})
+    total_reviews = sum(int(r.get("review_count") or 0) for r in rows)
+
+    return {
+        "total_manual_stacks":            int(stacks_res.count or 0),
+        "total_cards_in_manual_stacks":   int(cards_res.count or 0),
+        "total_active_users":             unique_users,
+        "total_reviews_all_time":         total_reviews,
+    }
+
+
+def _fc_compute_srs_health(cutoff_iso: str) -> dict:
+    """Rating distribution (last `days`), avg ease factor, mastery counts."""
+    log_res = (
+        supabase_admin.table("flashcard_review_log")
+        .select("rating")
+        .gte("reviewed_at", cutoff_iso)
+        .execute()
+    )
+    ratings = [r["rating"] for r in (log_res.data or []) if r.get("rating")]
+    total = len(ratings)
+
+    if total == 0:
+        rating_dist = {"again": 0.0, "hard": 0.0, "good": 0.0, "easy": 0.0}
+    else:
+        from collections import Counter as _Counter
+        c = _Counter(ratings)
+        # Round each separately, then absorb rounding drift in the largest
+        # bucket so the four percentages always sum to exactly 100.0.
+        raw = {k: (c.get(k, 0) / total) * 100 for k in ("again", "hard", "good", "easy")}
+        rating_dist = {k: round(v, 1) for k, v in raw.items()}
+        drift = round(100.0 - sum(rating_dist.values()), 1)
+        if drift:
+            biggest = max(rating_dist, key=rating_dist.get)
+            rating_dist[biggest] = round(rating_dist[biggest] + drift, 1)
+
+    reviews_res = (
+        supabase_admin.table("flashcard_reviews")
+        .select("ease_factor, interval_days, lapse_count")
+        .execute()
+    )
+    reviews_data = reviews_res.data or []
+    if reviews_data:
+        avg_ease = round(
+            sum(float(r.get("ease_factor") or 0) for r in reviews_data) / len(reviews_data),
+            2,
+        )
+        cards_mastered = sum(1 for r in reviews_data if (r.get("interval_days") or 0) > 30)
+        cards_lapsed = sum(1 for r in reviews_data if (r.get("lapse_count") or 0) > 0)
+    else:
+        avg_ease = 0.0
+        cards_mastered = 0
+        cards_lapsed = 0
+
+    return {
+        "rating_distribution_percent":  rating_dist,
+        "rating_total_count":           total,
+        "avg_ease_factor":              avg_ease,
+        "cards_mastered_30plus_days":   cards_mastered,
+        "cards_with_lapses":            cards_lapsed,
+    }
+
+
+def _fc_compute_engagement_stats(cutoff_iso: str) -> dict:
+    """Avg reviews/user (last 7d), avg DAU (over period), top-10 reviewed words."""
+    from collections import Counter as _Counter, defaultdict as _defaultdict
+
+    log_res = (
+        supabase_admin.table("flashcard_review_log")
+        .select("user_id, vocabulary_id, reviewed_at")
+        .gte("reviewed_at", cutoff_iso)
+        .execute()
+    )
+    log_data = log_res.data or []
+
+    week_ago_iso = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    week_logs = [l for l in log_data if (l.get("reviewed_at") or "") >= week_ago_iso]
+    week_users = {l["user_id"] for l in week_logs if l.get("user_id")}
+    avg_reviews_per_user = (
+        round(len(week_logs) / len(week_users), 1) if week_users else 0.0
+    )
+
+    # Daily Active Users averaged across the period.  defaultdict(set) so
+    # one user reviewing twice on the same day still counts as 1 DAU that day.
+    dau_map: dict[str, set[str]] = _defaultdict(set)
+    for log in log_data:
+        ts = log.get("reviewed_at") or ""
+        uid = log.get("user_id")
+        if ts and uid:
+            dau_map[ts[:10]].add(uid)
+    avg_dau = (
+        round(sum(len(u) for u in dau_map.values()) / len(dau_map), 1) if dau_map else 0.0
+    )
+
+    # Top 10 most-reviewed vocab in the period.
+    word_counts = _Counter(l["vocabulary_id"] for l in log_data if l.get("vocabulary_id"))
+    top_pairs = word_counts.most_common(10)
+    top_vocab_ids = [vid for vid, _ in top_pairs]
+
+    if top_vocab_ids:
+        try:
+            vocab_res = (
+                supabase_admin.table("user_vocabulary")
+                .select("id, headword")
+                .in_("id", top_vocab_ids)
+                .execute()
+            )
+            vocab_map = {v["id"]: v.get("headword") for v in (vocab_res.data or [])}
+        except Exception as exc:
+            logger.warning("[admin/flashcards/stats] top-words headword lookup failed: %s", exc)
+            vocab_map = {}
+        top_words = [
+            {"headword": vocab_map.get(vid) or "(unknown)", "review_count": cnt}
+            for vid, cnt in top_pairs
+        ]
+    else:
+        top_words = []
+
+    return {
+        "avg_reviews_per_user_last_7_days":  avg_reviews_per_user,
+        "avg_dau_last_30_days":              avg_dau,
+        "top_reviewed_words":                top_words,
+    }
+
+
+def _fc_compute_reviews_timeseries(days: int) -> list[dict]:
+    """Daily review counts over the last `days` days, including 0-count days."""
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    log_res = (
+        supabase_admin.table("flashcard_review_log")
+        .select("reviewed_at")
+        .gte("reviewed_at", cutoff_iso)
+        .execute()
+    )
+    from collections import defaultdict as _defaultdict
+    daily_counts: dict[str, int] = _defaultdict(int)
+    for log in (log_res.data or []):
+        ts = log.get("reviewed_at") or ""
+        if ts:
+            daily_counts[ts[:10]] += 1
+
+    today = datetime.now(timezone.utc).date()
+    series: list[dict] = []
+    for i in range(days, -1, -1):
+        d = (today - timedelta(days=i)).isoformat()
+        series.append({"date": d, "reviews": int(daily_counts.get(d, 0))})
+    return series
+
+
+@router.get("/flashcards/stats")
+async def admin_flashcard_stats(
+    days: int = Query(default=30, ge=1, le=90),
+    authorization: str | None = Header(default=None),
+):
+    """Aggregate flashcard usage metrics for the admin dashboard."""
+    await require_admin(authorization)
+
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    return {
+        "stats": {
+            "activity":   _fc_compute_activity_stats(),
+            "srs_health": _fc_compute_srs_health(cutoff_iso),
+            "engagement": _fc_compute_engagement_stats(cutoff_iso),
+            "timeseries": _fc_compute_reviews_timeseries(days),
+        },
+        "period_days":  days,
+        "computed_at":  datetime.now(timezone.utc).isoformat(),
+    }
