@@ -52,15 +52,26 @@ class VocabEnrichmentError(Exception):
 
 _SYSTEM_PROMPT = """You are an IELTS vocabulary writer producing reference material for flashcards.
 
-For each English headword (single word or 2-3 word collocation), output:
-- "ipa": British English IPA enclosed in slashes, e.g. "/ˈmɪtɪɡeɪt/".  Use the
-  standard /ɪ ə ɔː ʊ æ ʌ ɜː ɑː iː uː eɪ aɪ ɔɪ aʊ əʊ ɪə eə ʊə/ symbol set.
-  No stress numbers; use the ˈ primary-stress mark.  No region tags.
-- "example": ONE natural English sentence that uses the headword exactly once,
-  15-20 words, IELTS Band 7+ vocabulary and grammar, blank-free.  Must NOT
-  contain "___", "[blank]", or any placeholder.  Topic should be neutral and
-  appropriate for IELTS Speaking (work, study, environment, technology,
-  health, travel — NOT politics or controversial issues).
+For each English vocabulary item — a single word, a multi-word collocation, OR
+a multi-word idiom (e.g. "played by ear", "break the ice", "a substantial
+amount of") — output:
+- "ipa": British English IPA enclosed in slashes, e.g. "/ˈmɪtɪɡeɪt/" or
+  "/pleɪd baɪ ɪər/" for multi-word phrases.  Use the standard
+  /ɪ ə ɔː ʊ æ ʌ ɜː ɑː iː uː eɪ aɪ ɔɪ aʊ əʊ ɪə eə ʊə/ symbol set.  No stress
+  numbers; use the ˈ primary-stress mark.  No region tags.  Always provide IPA
+  even for phrases — pronunciation matters for fluency.
+- "example": ONE natural English sentence (15-20 words, IELTS Band 7+
+  vocabulary and grammar, blank-free) that demonstrates idiomatic usage.
+  Must NOT contain "___", "[blank]", or any placeholder.  Topic should be
+  neutral and appropriate for IELTS Speaking (work, study, environment,
+  technology, health, travel — NOT politics or controversial issues).
+  IMPORTANT: use the headword VERBATIM in the example (same word order, same
+  inflection).  For an idiom supplied as "played by ear", the example must
+  contain the literal string "played by ear" — do not switch to "play it by
+  ear" or any other variant.
+
+Treat idioms and multi-word phrases as single units; give the figurative
+meaning in context for idioms, and natural collocational usage for collocations.
 
 Output strict JSON, no prose, exactly this shape:
 {
@@ -72,9 +83,27 @@ Output strict JSON, no prose, exactly this shape:
 Rules:
 - Preserve the headword exactly as given (don't lowercase, don't trim) so the
   caller can match against its own list.
-- If you cannot produce a valid IPA OR example for a word, OMIT it from the
+- If you cannot produce a valid IPA OR example for an item, OMIT it from the
   output rather than guessing.
 - Return ONLY the JSON object."""
+
+
+# Fallback prompt for the retry path: looser tone, fewer constraints, used only
+# when the strict prompt skipped some items (Gemini sometimes drops idioms or
+# unusual phrases on the first pass).  We still require the headword to appear
+# verbatim because the validator enforces it downstream.
+_SYSTEM_PROMPT_SIMPLE = """You are an IELTS vocabulary writer.
+
+For each item below — be flexible: it may be a single word, a phrase, or an
+idiom.  All are valid.  Produce:
+- "ipa": British English IPA in slashes (e.g. "/ˈmɪtɪɡeɪt/", "/pleɪd baɪ ɪər/").
+- "example": ONE natural English sentence (10-25 words, blank-free, IELTS
+  Speaking topic) that uses the headword VERBATIM as supplied.
+
+Output strict JSON only:
+{"items": [{"headword": "<verbatim input>", "ipa": "<ipa>", "example": "<sentence>"}]}
+
+Preserve every headword exactly as given.  Omit items you cannot produce."""
 
 
 _IPA_RE = re.compile(r"^/.+/$")  # Must be wrapped in slashes.
@@ -128,10 +157,14 @@ def _validate_item(payload: Any, valid_headwords: set[str]) -> dict[str, str] | 
 def _enrich_single_chunk(
     words: list[str],
     model_name: str | None = None,
+    system_prompt: str | None = None,
 ) -> list[dict[str, str]]:
     """
     One Gemini call.  Returns validated items — may be shorter than `words`
     when some entries fail the schema check.
+
+    `system_prompt` defaults to `_SYSTEM_PROMPT`; the retry path passes
+    `_SYSTEM_PROMPT_SIMPLE` when the strict prompt dropped some items.
 
     Raises VocabEnrichmentError on Gemini failure (network, JSON broken,
     missing 'items' key); caller decides whether to continue with the
@@ -147,6 +180,7 @@ def _enrich_single_chunk(
     )
 
     chosen_model = model_name or _DEFAULT_MODEL
+    chosen_prompt = system_prompt or _SYSTEM_PROMPT
     try:
         model = genai.GenerativeModel(
             model_name=chosen_model,
@@ -155,7 +189,7 @@ def _enrich_single_chunk(
                 temperature=0.4,
                 max_output_tokens=4096,
             ),
-            system_instruction=_SYSTEM_PROMPT,
+            system_instruction=chosen_prompt,
         )
         resp = model.generate_content(user_prompt)
         raw = resp.text or ""
@@ -238,6 +272,37 @@ def enrich_vocabulary_batch(
                 idx, total_chunks, e,
             )
             continue
+
+        # Retry path: if Gemini dropped some words from this chunk (idioms /
+        # unusual phrases occasionally get skipped under the strict prompt),
+        # re-ask just for the missing ones with the looser prompt once.  Do
+        # not retry on chunk-level failure — only on partial dropouts.
+        returned = {it["headword"].lower() for it in items}
+        requested = {w.strip().lower() for w in chunk if w and w.strip()}
+        missing_lower = requested - returned
+        if missing_lower:
+            missing_words = [w for w in chunk if w.strip().lower() in missing_lower]
+            logger.warning(
+                "[vocab_enrich] chunk %d/%d: %d/%d missing, retrying with simpler prompt: %r",
+                idx, total_chunks, len(missing_words), len(chunk), missing_words,
+            )
+            try:
+                retry_items = _enrich_single_chunk(
+                    missing_words,
+                    model_name,
+                    system_prompt=_SYSTEM_PROMPT_SIMPLE,
+                )
+                items.extend(retry_items)
+                logger.info(
+                    "[vocab_enrich] chunk %d/%d retry recovered %d/%d items",
+                    idx, total_chunks, len(retry_items), len(missing_words),
+                )
+            except VocabEnrichmentError as e:
+                logger.warning(
+                    "[vocab_enrich] chunk %d/%d retry failed (continuing without): %s",
+                    idx, total_chunks, e,
+                )
+
         all_results.extend(items)
 
     if failed_chunks == total_chunks:
