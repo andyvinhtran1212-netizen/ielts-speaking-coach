@@ -269,6 +269,89 @@ def test_enrich_invalid_json_treated_as_chunk_failure(monkeypatch):
         ve.enrich_vocabulary_batch(["mitigate"])
 
 
+def test_enriches_idioms(monkeypatch):
+    """Multi-word idioms (>3 words) must enrich, not get dropped.
+
+    Pre-fix the system prompt explicitly excluded anything beyond a "single
+    word or 2-3 word collocation" — Gemini complied and silently skipped
+    longer phrases.  This test pins the new prompt's contract via the mock:
+    if the responder returns a valid idiom result, the validator must accept
+    it and the function must return it.
+    """
+    ve = _import_service()
+
+    idiom_example = (
+        "During the jam session she played by ear and the band followed "
+        "her lead seamlessly throughout."
+    )
+
+    def responder(words):
+        return _stub_gemini_response([
+            {"headword": w,
+             "ipa": "/pleɪd baɪ ɪər/",
+             "example": idiom_example}
+            for w in words
+        ])
+
+    _install_stub(monkeypatch, ve, responder)
+    out = ve.enrich_vocabulary_batch(["played by ear"])
+    assert len(out) == 1
+    assert out[0]["headword"] == "played by ear"
+    assert out[0]["ipa"] == "/pleɪd baɪ ɪər/"
+    assert "played by ear" in out[0]["example_sentence"].lower()
+
+
+def test_retries_missing_words_with_simpler_prompt(monkeypatch):
+    """If the first call drops a word, the retry path re-asks for just the
+    missing entry using `_SYSTEM_PROMPT_SIMPLE`.  Final output contains both."""
+    ve = _import_service()
+
+    seen_calls: list[dict] = []  # captures (system_prompt, words) per call
+
+    class _StubModel:
+        def __init__(self, *a, **k):
+            self._sys = k.get("system_instruction", "")
+
+        def generate_content(self, prompt: str):
+            words = [
+                line[2:].strip()
+                for line in prompt.splitlines()
+                if line.startswith("- ")
+            ]
+            seen_calls.append({"system_prompt": self._sys, "words": words})
+
+            # First call: only return the first word (drop the idiom).
+            if len(seen_calls) == 1:
+                return _stub_gemini_response([
+                    {"headword": "mitigate",
+                     "ipa": "/ˈmɪtɪɡeɪt/",
+                     "example": "Governments must mitigate the impact of climate change on coastal communities globally."}
+                ])
+            # Retry call: only the missing idiom should be re-requested.
+            return _stub_gemini_response([
+                {"headword": "played by ear",
+                 "ipa": "/pleɪd baɪ ɪər/",
+                 "example": "During the jam session she played by ear and the band followed her lead throughout."}
+            ])
+
+    monkeypatch.setattr(ve.genai, "GenerativeModel", _StubModel)
+    out = ve.enrich_vocabulary_batch(["mitigate", "played by ear"])
+
+    headwords = sorted(item["headword"] for item in out)
+    assert headwords == ["mitigate", "played by ear"], (
+        "retry should fill in the dropped idiom"
+    )
+
+    # First call hit the strict prompt with both words.
+    assert seen_calls[0]["system_prompt"] == ve._SYSTEM_PROMPT
+    assert sorted(seen_calls[0]["words"]) == sorted(["mitigate", "played by ear"])
+
+    # Second call (retry) must use the simpler prompt and only the missing word.
+    assert len(seen_calls) == 2, "retry path should fire exactly once"
+    assert seen_calls[1]["system_prompt"] == ve._SYSTEM_PROMPT_SIMPLE
+    assert seen_calls[1]["words"] == ["played by ear"]
+
+
 def test_enrich_strips_markdown_fences(monkeypatch):
     """Gemini occasionally wraps output in ```json fences; the strip helper
     must clear them before json.loads."""
