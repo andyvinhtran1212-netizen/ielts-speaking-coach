@@ -35,3 +35,5 @@ backend/.env.staging.test
 *.bak
 *.tmp
 backend/prod_schema_only.sql
+../ielts-speaking-coach-backups/ # đã ngoài repo, OK
+dogfood/
