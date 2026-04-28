@@ -1105,12 +1105,8 @@
     }
 
     async function _pollVocabToast(token, sessionId) {
-      const BASE = window.api ? window.api.base : (() => {
-        const h = location.hostname;
-        return (h === 'localhost' || h === '127.0.0.1')
-          ? 'http://localhost:8000'
-          : 'https://ielts-speaking-coach-production.up.railway.app';
-      })();
+      // window.api.base is the single source of truth (frontend/js/api.js).
+      const BASE = window.api.base;
 
       // Gate on feature flag — avoids 403 spam for disabled users
       try {
