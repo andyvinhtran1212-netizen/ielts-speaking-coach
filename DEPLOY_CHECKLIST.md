@@ -1,8 +1,132 @@
-# Phase D Deploy Checklist
+# IELTS Speaking Coach — Production Deploy Checklist
 
-Use this checklist EVERY TIME deploying Phase D updates to production.
-Default-OFF feature flags mean shipping the code is safe; the rollout step
-gates real exposure to users.
+Use this checklist EVERY TIME deploying changes to production.  Each
+phase has its own section; the steps within follow the same pattern
+(pre-deploy → backup + migrations → backend env → frontend → rollout →
+smoke + dogfood → rollback).  Default-OFF feature flags mean shipping
+code is safe; the rollout step gates real exposure to users.
+
+> **Phases shipped (in order applied):**
+> 1. Phase A — Core speaking + grammar (no checklist section here; pre-dates this doc)
+> 2. **Phase B — Personal Vocab Bank** (§B.0–B.7 below)
+> 3. **Phase D Wave 1 — D1 fill-blank** (§0–§8 below — keeps the original numbering)
+> 4. **Phase D Wave 2 — Flashcard system** (§W2.0–W2.8)
+> 5. **Phase D Wave 2 — Rich content (migration 029)** (§RC.1–RC.7)
+>
+> No-migration patches that did not need a separate section but are
+> recorded here for traceability:
+> - **D1 session-based redesign** (migrations 023 + 024) — see §0 line.
+> - **D1 generate-batch chunking fix** — code-only; backend redeploy.
+> - **Wave 2 audit fixes** (PR #11) — code-only patch (`__uncategorized__`
+>   topic sentinel + extended live RLS suite + URL-fallback removal).
+>   No env / migration steps; just a Railway redeploy.
+> - **Wave 2 flashcard UX fixes** (PR #12) — code-only frontend patch
+>   (transcript hidden, optimistic rating, no flip-gate).  No backend
+>   change; just a Vercel/GitHub Pages redeploy.
+
+---
+
+## Phase B — Personal Vocab Bank
+
+Vocab Bank shipped behind `VOCAB_BANK_FEATURE_FLAG_ENABLED` + per-user
+`feature_flags.vocab_enabled`.  Three audit rounds + a post-dogfood
+remediation pass landed before this section was finalised.
+
+### B.0 Scope
+
+- [ ] Migrations 019, 019b, 020 applied (idempotent — adds
+      `users.feature_flags`, creates `user_vocabulary` with RLS, fixes
+      the WITH CHECK lesson on UPDATE policy, then the post-dogfood
+      improvements migration).
+- [ ] `VOCAB_BANK_FEATURE_FLAG_ENABLED` known **OFF** in production
+      unless this deploy is rolling out to admin / beta.
+- [ ] Anthropic key (Haiku for the extractor) provisioned on Railway.
+
+### B.1 Pre-deploy
+
+- [ ] Branch up to date with `main`, no merge conflicts.
+- [ ] Local test suite green:
+  ```bash
+  cd backend && python3 -m pytest \
+    tests/test_vocab_guards.py tests/test_grammar_smoke.py \
+    tests/test_rls_vocab_integration.py -q
+  ```
+- [ ] Page parity: `bash backend/scripts/verify_page_parity.sh`.
+- [ ] PR approved.
+
+### B.2 Database (production Supabase)
+
+- [ ] **BACKUP CREATED** in Supabase Dashboard.
+- [ ] Apply migrations IN ORDER:
+  ```bash
+  source backend/.env
+  psql "$DATABASE_URL" -f backend/migrations/019_user_vocabulary.sql
+  psql "$DATABASE_URL" -f backend/migrations/019b_fix_rls_update_policy.sql
+  psql "$DATABASE_URL" -f backend/migrations/020_vocab_bank_dogfood_improvements.sql
+  ```
+  Or wrapper:
+  ```bash
+  bash backend/scripts/setup_phase_b_test_env.sh
+  ```
+- [ ] Verify `\d user_vocabulary` exposes the columns + a CHECK on
+      `source_type IN ('used_well','needs_review','upgrade_suggested','manual')`.
+- [ ] Verify RLS — every UPDATE policy has `USING + WITH CHECK`:
+  ```sql
+  SELECT policyname, cmd,
+         (qual IS NOT NULL)       AS has_using,
+         (with_check IS NOT NULL) AS has_with_check
+    FROM pg_policies
+   WHERE tablename = 'user_vocabulary'
+   ORDER BY cmd, policyname;
+  ```
+
+### B.3 Backend (Railway)
+
+- [ ] `VOCAB_BANK_FEATURE_FLAG_ENABLED=true` (global gate; per-user flag
+      still required).
+- [ ] `VOCAB_ANALYSIS_ENABLED=true` (turns on Claude Haiku extraction in
+      the grading pipeline; default OFF so extraction stays opt-in).
+- [ ] Wait for Railway redeploy.
+- [ ] Smoke `/auth/me` exposes `vocab_bank_enabled: false` for a user
+      without the per-user flag (proves the field is plumbed).
+
+### B.4 Frontend (Vercel/GitHub Pages)
+
+- [ ] Wait auto-deploy.
+- [ ] Logged-out / non-flagged user sees zero vocab UI (link absent
+      from dashboard nav).
+
+### B.5 Feature flag rollout
+
+```sql
+UPDATE users
+   SET feature_flags = COALESCE(feature_flags, '{}'::jsonb)
+                     || '{"vocab_enabled": true}'::jsonb
+ WHERE email = 'YOUR_ADMIN_EMAIL';
+```
+
+- [ ] Re-run `/auth/me` for the admin → `vocab_bank_enabled: true`.
+- [ ] After dogfood gates pass, expand to beta + 5 users (per
+      `PHASE_B_V3_PLAN.md §rollout`).
+
+### B.6 Smoke E2E
+
+- [ ] Practice a Speaking session → grading completes → background
+      vocab extraction logs land in Railway (`[vocab_bg] persisted N/M`).
+- [ ] My Vocabulary page lists the new entries grouped by `source_type`.
+- [ ] Filter / archive / report flows all work.
+- [ ] Admin monitoring dashboard shows the FP-rate gate state.
+
+### B.7 Dogfood + rollback
+
+Dogfood gate: FP rate < 15% over a 1-week window before broader rollout.
+Session 1 came in at 37% → triggered the post-dogfood remediation
+(migration 020 + the ROUND2 audit).  Dogfood session 2 still pending —
+tracked as HIGH-2 in `TECH_DEBT.md`.
+
+Rollback: `VOCAB_BANK_FEATURE_FLAG_ENABLED=false` → all users see the
+flag absent; UI hides.  DDL rollback only if absolutely required (the
+data is the user's own vocab — losing it is bad form).
 
 ---
 
