@@ -26,6 +26,41 @@ code is safe; the rollout step gates real exposure to users.
 
 ---
 
+## Health-check verification (every deploy)
+
+Universal post-deploy probe.  Run this immediately after Railway promotes
+the new image, before the per-phase smoke tests below.
+
+- [ ] Liveness:
+  ```bash
+  curl -fsS https://ielts-speaking-coach-production.up.railway.app/health
+  ```
+  Expect `{"status":"ok",...}`.  A non-200 here means the container did
+  not boot — check Railway logs and abort the rollout.
+
+- [ ] Readiness (DB + migrations + Gemini key + feature flags in one shot):
+  ```bash
+  curl -fsS https://ielts-speaking-coach-production.up.railway.app/health/ready | jq
+  ```
+  Expect `status: "ok"` overall and every block under `checks` reading
+  ok.  A `degraded` here is informational, but the specific block tells
+  you what to fix:
+  - `checks.database.status: fail` → service-role key or DB URL is wrong.
+  - `checks.migrations.missing` populated → a required migration didn't
+    apply against production Postgres.
+  - `checks.gemini_api.status: missing_key` → `GEMINI_API_KEY` not set
+    in Railway env (D1 generation + vocab enrichment will silently
+    degrade).
+  - `checks.feature_flags` block confirms which flags Railway thinks
+    are on — handy when a dogfooder reports "X doesn't work".
+
+- [ ] (Optional) Wire `/health` into the Railway service healthcheck so
+      a future bad deploy fails the rollout instead of serving 5xx:
+      Railway → Service → Settings → Healthcheck Path = `/health`,
+      Timeout = 5s.
+
+---
+
 ## Phase B — Personal Vocab Bank
 
 Vocab Bank shipped behind `VOCAB_BANK_FEATURE_FLAG_ENABLED` + per-user

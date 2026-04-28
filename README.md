@@ -163,14 +163,18 @@ The team uses a four-stage pattern that has hardened across Phase B and
 Phase D:
 
 1. **Plan** — Antigravity drafts a step-by-step plan (`*_PLAN.md`).
+   Prompt template: [`docs/templates/PROMPT_TEMPLATE_ANTIGRAVITY_PLAN.md`](docs/templates/PROMPT_TEMPLATE_ANTIGRAVITY_PLAN.md).
 2. **Execute** — Claude Code implements step-by-step with per-step
    commits and explicit checkpoints; the user reviews before unblocking
    the next step.
+   Prompt template: [`docs/templates/PROMPT_TEMPLATE_CLAUDE_CODE_EXECUTION.md`](docs/templates/PROMPT_TEMPLATE_CLAUDE_CODE_EXECUTION.md).
 3. **Audit** — Codex audits the full diff (looking for cross-file
    forgets, RLS WITH CHECK, hardcoded URLs, default-deny strictness).
+   Prompt template: [`docs/templates/PROMPT_TEMPLATE_CODEX_AUDIT.md`](docs/templates/PROMPT_TEMPLATE_CODEX_AUDIT.md).
 4. **Deploy + dogfood** — Migrations apply manually against production
    Postgres after a backup; the feature ships behind a default-OFF flag;
    one admin dogfoods for ≥1 day before broader rollout.
+   Checklist: [`DEPLOY_CHECKLIST.md`](DEPLOY_CHECKLIST.md).
 
 Hard rules (also in `CLAUDE.md`):
 
