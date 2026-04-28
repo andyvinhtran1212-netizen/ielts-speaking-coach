@@ -38,6 +38,118 @@
       padding: 20px;
     }
 
+    /* Flashcard stats panel */
+    .fcs-section {
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .fcs-section h4 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin: 0 0 12px;
+    }
+    .fcs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .fcs-stat {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+    .fcs-stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #14b8a6;
+      line-height: 1.1;
+    }
+    .fcs-stat-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 4px;
+    }
+    .fcs-rating-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 50px;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .fcs-rating-row .label { color: rgba(255,255,255,0.7); }
+    .fcs-rating-row .pct   { color: rgba(255,255,255,0.85); font-weight: 600; text-align: right; }
+    .fcs-rating-track {
+      height: 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .fcs-rating-fill { height: 100%; transition: width 0.2s; }
+    .fcs-rating-fill.again { background: #ef4444; }
+    .fcs-rating-fill.hard  { background: #f59e0b; }
+    .fcs-rating-fill.good  { background: #10b981; }
+    .fcs-rating-fill.easy  { background: #3b82f6; }
+    .fcs-secondary {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+    }
+    .fcs-secondary strong { color: #fff; }
+    .fcs-hint {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      font-style: italic;
+    }
+    .fcs-top-words { list-style: none; padding: 0; margin: 8px 0 0; }
+    .fcs-top-words li {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13px;
+      color: rgba(255,255,255,0.8);
+    }
+    .fcs-top-words .rank { color: #14b8a6; font-weight: 700; text-align: center; }
+    .fcs-top-words .count { color: rgba(255,255,255,0.45); font-size: 11px; }
+    .fcs-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 160px;
+      padding: 12px 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .fcs-bar-col {
+      display: flex; flex-direction: column; align-items: center;
+      flex: 1 0 18px; height: 100%; justify-content: flex-end;
+    }
+    .fcs-bar {
+      width: 100%; min-height: 1px; border-radius: 2px 2px 0 0;
+      background: #14b8a6; opacity: 0.85; transition: opacity 0.15s;
+    }
+    .fcs-bar:hover { opacity: 1; }
+    .fcs-bar-label {
+      font-size: 9px; color: rgba(255,255,255,0.35); margin-top: 4px;
+      transform: rotate(-45deg); transform-origin: top left; white-space: nowrap;
+    }
+    .fcs-empty { color: rgba(255,255,255,0.4); font-style: italic; padding: 12px; text-align: center; font-size: 12px; }
+
     /* Tabs */
     .tab-btn {
       padding: 8px 18px;
@@ -400,6 +512,7 @@
         <button class="tab-btn"        onclick="switchTab('alerts')"       id="tab-btn-alerts">🚨 Alerts</button>
         <button class="tab-btn"        onclick="switchTab('vocab_monitor')" id="tab-btn-vocab_monitor">📖 Vocab</button>
         <button class="tab-btn"        onclick="switchTab('vocab_exercises')" id="tab-btn-vocab_exercises">🎯 Vocab Exercises</button>
+        <button class="tab-btn"        onclick="switchTab('flashcards')"   id="tab-btn-flashcards">📚 Flashcards</button>
       </div>
 
       <!-- ── TAB: Topics ──────────────────────────────────────── -->
@@ -969,6 +1082,28 @@
         <div id="ve-list" class="space-y-2"></div>
       </div>
 
+      <!-- Flashcards panel (Phase 2.5 dogfood — Wave 2 SRS metrics) -->
+      <div id="panel-flashcards" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Flashcard Statistics</h3>
+          <div class="flex gap-2 items-center">
+            <label class="text-xs flex items-center gap-2" style="color:rgba(255,255,255,0.55);">
+              Period:
+              <select id="fcs-period" class="inp" style="height:32px;font-size:12px;padding:4px 8px;width:auto;">
+                <option value="7">Last 7 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </label>
+            <button class="btn-secondary text-xs" onclick="window._adminFlashcardStats && window._adminFlashcardStats.refresh()">↺ Refresh</button>
+          </div>
+        </div>
+
+        <div id="fcs-loading" class="hidden text-xs text-slate-400 py-6 text-center">Loading…</div>
+        <div id="fcs-error"   class="hidden text-xs text-red-400 py-6 text-center"></div>
+        <div id="fcs-content" class="space-y-5"></div>
+      </div>
+
       <!-- Generate batch dialog -->
       <div id="ve-batch-modal" class="modal-overlay hidden" onclick="if(event.target===this)ve_closeGenerateBatchDialog()">
         <div class="modal-box" style="max-width:480px;" onclick="event.stopPropagation()">
@@ -1118,6 +1253,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
+  <script src="js/admin-flashcard-stats.js"></script>
   <script>
   (function () {
     'use strict';
@@ -1199,7 +1335,7 @@
     var _currentTab = 'topics';
 
     window.switchTab = function (tab) {
-      ['topics', 'codes', 'users', 'stats', 'ai_usage', 'sessions', 'alerts', 'vocab_monitor', 'vocab_exercises'].forEach(function (t) {
+      ['topics', 'codes', 'users', 'stats', 'ai_usage', 'sessions', 'alerts', 'vocab_monitor', 'vocab_exercises', 'flashcards'].forEach(function (t) {
         document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
         document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
       });
@@ -1217,6 +1353,9 @@
       if (tab === 'alerts')        loadAlerts();
       if (tab === 'vocab_monitor') loadVocabMonitor();
       if (tab === 'vocab_exercises') ve_load();
+      if (tab === 'flashcards' && window._adminFlashcardStats) {
+        window._adminFlashcardStats.onTabActivated();
+      }
     }
 
     // ── TOPICS ─────────────────────────────────────────────────
