@@ -123,6 +123,23 @@
       <span class="text-slate-400">Total: <strong id="stat-total" class="text-white">0</strong></span>
       <span class="text-slate-400">Learning: <strong id="stat-learning" class="text-amber-300">0</strong></span>
       <span class="text-slate-400">Mastered: <strong id="stat-mastered" class="text-teal-light">0</strong></span>
+      <!-- Export download buttons (Phase 2.5) -->
+      <span class="ml-auto flex items-center gap-2">
+        <button id="btn-export-csv"
+                onclick="window._myVocab && window._myVocab.downloadCsv && window._myVocab.downloadCsv()"
+                class="text-xs px-3 py-1 rounded-lg"
+                title="Tải về CSV (Excel-compatible)"
+                style="background:rgba(20,184,166,0.12); border:1px solid rgba(20,184,166,0.3); color:#14b8a6;">
+          📥 CSV
+        </button>
+        <button id="btn-export-json"
+                onclick="window._myVocab && window._myVocab.downloadJson && window._myVocab.downloadJson()"
+                class="text-xs px-3 py-1 rounded-lg"
+                title="Tải về JSON (full backup)"
+                style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.7);">
+          📥 JSON
+        </button>
+      </span>
     </div>
 
     <!-- Manual add form -->

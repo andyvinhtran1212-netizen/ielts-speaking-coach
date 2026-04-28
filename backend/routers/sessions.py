@@ -296,36 +296,120 @@ async def create_session(
 
 
 # ── GET /sessions ──────────────────────────────────────────────────────────────
+#
+# Backwards-compat contract:
+#   - When NONE of the new params are passed (search / sort / date_from /
+#     date_to / page), the response stays a bare list ordered by
+#     started_at DESC — exactly what dashboard.html's existing
+#     `/sessions?limit=200` call expects.
+#   - When ANY new param is passed, the response switches to a paginated
+#     dict {sessions, total, page, page_size, total_pages}.
+#
+# This dual-shape contract avoids breaking the dashboard while letting the
+# new search UI consume the richer payload.  Callers opt into the new shape
+# simply by passing `page=1` (or any other new param).
+#
+# Schema notes (verified):
+#   - sessions.started_at is the canonical chronological column.
+#   - sessions.overall_band is the canonical session-level band score
+#     (sessions.py:51 docstring) — this is what `score_desc` / `score_asc`
+#     order against, NOT a non-existent `band_score` column.
+
+_SORT_FIELD = {
+    "newest":     ("started_at",  True),    # (column, desc)
+    "oldest":     ("started_at",  False),
+    "score_desc": ("overall_band", True),
+    "score_asc":  ("overall_band", False),
+}
+
 
 @router.get("")
 async def list_sessions(
     authorization: str | None = Header(default=None),
     status: Optional[str] = Query(default=None, description="Lọc theo status: in_progress | completed"),
     part: Optional[int] = Query(default=None, description="Lọc theo part: 1 | 2 | 3"),
-    limit: int = Query(default=20, ge=1, le=200, description="Số lượng sessions tối đa trả về"),
+    limit: int = Query(default=20, ge=1, le=200, description="(Legacy) số lượng sessions tối đa trả về khi không dùng pagination"),
+    # Phase 2.5 — search / filter / sort / pagination.  All optional; the
+    # endpoint stays backwards-compatible when the caller passes none of them.
+    search: Optional[str] = Query(default=None, max_length=200, description="Substring match on sessions.topic (ILIKE)."),
+    sort: str = Query(default="newest", pattern="^(newest|oldest|score_desc|score_asc)$"),
+    date_from: Optional[str] = Query(default=None, description="ISO date/datetime; sessions.started_at >= date_from"),
+    date_to: Optional[str] = Query(default=None,   description="ISO date/datetime; sessions.started_at <= date_to"),
+    page: Optional[int] = Query(default=None, ge=1, description="1-based page index (omit to disable pagination)"),
+    page_size: int = Query(default=20, ge=5, le=100),
 ):
-    """Trả sessions gần nhất của user, tùy chọn lọc theo status và part."""
+    """List the caller's sessions, with optional search / sort / pagination.
+
+    Default behaviour (no new params) returns a list of up to `limit` rows
+    ordered by `started_at` DESC — same as before Phase 2.5.
+
+    When any of {search, date_from, date_to, page} is set, OR sort is non-
+    default, response switches to a paginated dict so the UI can render
+    page controls.
+    """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
+    paginated = (
+        page is not None
+        or search is not None
+        or date_from is not None
+        or date_to is not None
+        or sort != "newest"
+    )
+
     try:
+        # `count="exact"` only when the caller wants pagination — it's a
+        # noticeable extra cost on large tables.  For the legacy list mode
+        # we skip it so behaviour is identical to before.
+        select_kwargs = {"count": "exact"} if paginated else {}
         q = (
             supabase_admin.table("sessions")
-            .select("*")
+            .select("*", **select_kwargs)
             .eq("user_id", user_id)
-            .order("started_at", desc=True)
-            .limit(limit)
         )
         if status is not None:
             q = q.eq("status", status)
         if part is not None:
             q = q.eq("part", part)
+        if search and search.strip():
+            q = q.ilike("topic", f"%{search.strip()}%")
+        if date_from:
+            q = q.gte("started_at", date_from)
+        if date_to:
+            q = q.lte("started_at", date_to)
+
+        sort_col, sort_desc = _SORT_FIELD[sort]
+        # nullsfirst=False keeps NULL bands (in-progress sessions) at the
+        # bottom regardless of sort direction — otherwise score_desc would
+        # surface unfinished sessions at the top.
+        q = q.order(sort_col, desc=sort_desc, nullsfirst=False)
+
+        if paginated:
+            effective_page = page or 1
+            offset = (effective_page - 1) * page_size
+            q = q.range(offset, offset + page_size - 1)
+        else:
+            q = q.limit(limit)
 
         result = q.execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể tải sessions: {e}")
 
-    return result.data
+    rows = result.data or []
+    if not paginated:
+        return rows
+
+    total = int(result.count or 0)
+    effective_page = page or 1
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    return {
+        "sessions":     rows,
+        "total":        total,
+        "page":         effective_page,
+        "page_size":    page_size,
+        "total_pages":  total_pages,
+    }
 
 
 # ── GET /sessions/stats ────────────────────────────────────────────────────────

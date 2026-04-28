@@ -440,6 +440,51 @@
       .replace(/"/g, '&quot;');
   }
 
+  // ── Export (Phase 2.5) ────────────────────────────────────────────────────
+  // Triggers a browser download of the user's full vocab bank.  We can't go
+  // through window.api.get because we need the raw Response (Blob + headers)
+  // — the central client unwraps to JSON only.
+
+  async function downloadExport(format) {
+    if (!_token) {
+      alert('Phải đăng nhập để tải về.');
+      return;
+    }
+    const url = `${BASE}/api/vocabulary/bank/export?format=${encodeURIComponent(format)}`;
+    let res;
+    try {
+      res = await fetch(url, { headers: { Authorization: `Bearer ${_token}` } });
+    } catch (e) {
+      alert(`Lỗi mạng: ${e.message || e}`);
+      return;
+    }
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).detail || ''; } catch (_) {}
+      alert(`Tải về thất bại (${res.status})${detail ? ': ' + detail : ''}`);
+      return;
+    }
+
+    // Filename comes from Content-Disposition; fall back to a sensible default.
+    const cd = res.headers.get('Content-Disposition') || '';
+    const m = /filename="?([^"]+)"?/i.exec(cd);
+    const fname = m ? m[1] : `vocab_export.${format}`;
+
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objUrl);
+  }
+
+  window._myVocab = window._myVocab || {};
+  window._myVocab.downloadCsv  = function () { return downloadExport('csv');  };
+  window._myVocab.downloadJson = function () { return downloadExport('json'); };
+
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

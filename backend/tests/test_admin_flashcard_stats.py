@@ -24,7 +24,13 @@ from routers import admin as admin_module
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    """Fresh loop per call — sibling tests using TestClient close the shared
+    one and leave `asyncio.get_event_loop()` dangling."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 def _today_iso() -> str:

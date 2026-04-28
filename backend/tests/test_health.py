@@ -27,8 +27,16 @@ from routers import health as health_module
 
 
 def _run(coro):
-    """Run an async coroutine to completion in this thread's loop."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    """Run an async coroutine to completion.
+
+    A fresh event loop per call avoids the cross-test pollution that
+    happens when a sibling test's TestClient closes the shared loop.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 # ── /health ──────────────────────────────────────────────────────────────────
