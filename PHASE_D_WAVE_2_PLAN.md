@@ -329,3 +329,101 @@ Test UX trực tiếp, không chỉ Audit bằng bot.
 2. **Khi tạo HTML Page mới:** Bắt buộc copy và verify có đủ 3 init elements (`api.js`, `Supabase CDN`, `initSupabase()`) như page gốc, kết hợp script `verify_page_parity.sh`.
 3. **Khi đổi Config/ENV:** Bắt buộc `grep` toàn bộ source repo tìm kiếm các reference sót lại.
 4. **Service Role:** Chỉ sử dụng service role supabase client trong các scripts background hoặc admin tools. Toàn bộ route người dùng MẶC ĐỊNH dùng JWT-scoped client.
+
+---
+
+## 17. Step-by-step execution status (post-merge)
+
+Section 11's nine numbered steps all completed and shipped to production
+behind `FLASHCARD_ENABLED` over the period 2026-04-26 → 2026-04-27.
+
+| Step | Plan section | Status |
+|------|--------------|--------|
+| 1 | Migrations + test infra (025/026/027) + setup script + 5 test skeletons | ✅ DONE |
+| 2 | `services/srs.py` + 7-case deterministic test suite | ✅ DONE |
+| 3 | Stack management endpoints (list / preview / create / get / delete) | ✅ DONE |
+| 4 | Card endpoints + due queue + review submission + stats | ✅ DONE |
+| 5 | `frontend/pages/flashcards.html` + `flashcards.js` + create modal | ✅ DONE |
+| 6 | `frontend/pages/flashcard-study.html` + `flashcard-study.js` | ✅ DONE |
+| 7 | Vocab Bank integration ("📚 +Stack" picker in My Vocabulary) | ✅ DONE |
+| 8 | Feature flag wireup + dashboard daily badge + exercises hub card | ✅ DONE |
+| 9 | DEPLOY_CHECKLIST update + PR | ✅ DONE — merged as PR #10 |
+
+---
+
+## 18. Post-deployment retrospective
+
+### What went right
+- **Step-by-step commits + checkpoints** caught one MEDIUM red flag in
+  step 3 (`user_vocabulary` had no `topic` column despite the plan
+  referencing one in §6 + §8).  Adding migration 028 mid-flight was
+  cheaper than discovering it during dogfood.
+- **Default-deny strict-True** survived its first cross-feature test
+  cleanly: `flashcard_enabled` plumbed through `/auth/me` + four
+  frontend entry points without leaking access on a missing flag.
+- **Live 2-JWT RLS suite must NOT skip** rule paid off — Codex Round 1
+  audit confirmed the `flashcard_stacks` policies correctly reject
+  cross-user reads/writes.
+- **Page parity** check (`verify_page_parity.sh`) caught zero misses
+  this wave, vs Wave 1 which shipped a missing init script.
+
+### Endpoint count
+The original plan called for **11 endpoints**.  Final shipped surface
+is **13 endpoints** — two adds discovered during integration:
+- `GET /api/flashcards/due/count` — lightweight counter for the
+  dashboard daily-due badge (added during Step 8 to avoid pulling full
+  card payloads on every nav refresh).
+- `GET /api/flashcards/vocab-topics` — distinct topics + a
+  `has_uncategorized` flag for the Manual Stack modal's topic dropdown
+  (added during Step 5 because the modal couldn't render the chip set
+  otherwise).
+
+### Audit Round 1 — `AUDIT_PHASE_D_WAVE_2.md`
+Verdict **APPROVE** with three non-blocking findings, all closed in
+`fix/wave-2-audit-findings` (PR #11):
+
+- **MEDIUM** — Manual Stack topic filter couldn't target `topic IS NULL`
+  rows.  Fixed via the `__uncategorized__` sentinel + a "📂 Chưa phân
+  loại" chip in the modal.
+- **MEDIUM** — Live RLS suite covered `flashcard_stacks` only.
+  Extended to 7 cases covering `flashcard_cards` and `flashcard_reviews`
+  cross-user denial.
+- **LOW** — `frontend/js/my-vocabulary.js` carried a dead hardcoded
+  localhost/Railway fallback.  Replaced with a direct `window.api.base`
+  read.
+
+### Dogfood UX issues — `fix/wave-2-flashcard-ux` (PR #12)
+Three UX regressions surfaced during the first day of admin dogfood:
+
+- The back card displayed `context_sentence` as primary content — i.e.
+  the user's own STT transcript, which often carries grammar errors.
+  Moved behind an opt-in "📖 Xem câu gốc" overlay with explicit
+  warning.
+- Each rating click `await`-ed `POST /review` before advancing.
+  Switched to fire-and-forget; failed syncs surface in the summary
+  banner.
+- Rating buttons were dimmed until the user flipped the card.  Removed
+  the flip-gate; ratings are active from the front face, hotkeys
+  unchanged.
+
+### Rich content — `feature/flashcard-rich-content` (PR #13)
+The transcript fix above kept the card honest but left it sparse.
+Added migration 029 (`ipa` + `example_sentence` columns), a Gemini
+Flash enrichment service, Phase B integration (fail-soft on Gemini
+error), and a background backfill admin endpoint.  Codex caught one
+MEDIUM (the no-content fallback still inlined transcript text); fixed
+in the same PR before merge.
+
+Final state: ~17/18 vocab entries enriched across the dogfood
+account; the one outlier is an idiom edge case (`played by ear`)
+where Gemini's validator rejected the example.  Tracked as HIGH-1 in
+`TECH_DEBT.md`.
+
+### Lessons codified for future waves
+- "Plan must verify schema before referencing a column" (added to the
+  Antigravity prompt template after step 3's `topic` red flag).
+- "Audit ≠ dogfood" — Round 1 was clean; the worst UX issue (transcript
+  on back face) only surfaced once the user actually studied a deck.
+- "Rich content is a separate phase, not a checkbox" — IPA + example
+  sentence lifted the card from "studyable" to "useful", and warranted
+  its own migration + service + audit cycle.
