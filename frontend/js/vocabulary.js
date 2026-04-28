@@ -6,13 +6,9 @@
  */
 
 (function () {
-  // ── Resolve API base (reuses api.js pattern) ─────────────────────────────
-  const BASE = window.api ? window.api.base : (() => {
-    const h = location.hostname;
-    return (h === 'localhost' || h === '127.0.0.1')
-      ? 'http://localhost:8000'
-      : 'https://ielts-speaking-coach-production.up.railway.app';
-  })();
+  // window.api.base is the single source of truth (see frontend/js/api.js).
+  // api.js loads before this file in every page that uses it.
+  const BASE = window.api.base;
 
   // ── Category icon map ────────────────────────────────────────────────────
   const CAT_ICONS = {
