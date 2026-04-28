@@ -35,3 +35,4 @@ backend/.env.staging.test
 *.bak
 *.tmp
 backend/prod_schema_only.sql
+dogfood/
