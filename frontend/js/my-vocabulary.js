@@ -197,9 +197,17 @@
     // Day 2 dogfood: preview shows the same front/back layout the
     // flashcard study page uses, so the user can sanity-check what an AI
     // entry will look like as a card before committing it to a stack.
-    const previewBtn = `<button class="vocab-action vocab-action--preview"
+    //
+    // Locked for `needs_review` to stay consistent with the +Stack lock —
+    // showing AI-flagged-as-incorrect vocab in flashcard form would imply
+    // it's safe to learn that way.  Same `🔒 Đã khoá` cue, same tooltip
+    // direction so the two locked controls read as one rule, not two bugs.
+    const previewBtn = item.source_type !== 'needs_review'
+      ? `<button class="vocab-action vocab-action--preview"
                 onclick="window._myVocab.previewFlashcard('${esc(item.id)}')"
-                title="Xem trước flashcard">👁️ Xem trước</button>`;
+                title="Xem trước flashcard">👁️ Xem trước</button>`
+      : `<span class="vocab-action vocab-action--locked"
+                title="Vocab AI flag là 'cần xem lại' — sửa từ trước khi xem flashcard.">🔒 Đã khoá</span>`;
 
     // Day 2 dogfood: explicit "accept suggestion" gesture for upgrade_suggested
     // rows.  Promotes source_type → 'manual' so the card stops looking
