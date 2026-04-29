@@ -331,12 +331,14 @@
   }
 
   function flipCard() {
-    if (_state.flipped) return;
-    _state.flipped = true;
-    $('study-card').classList.add('flipped');
-    // Rating buttons are visible from the front now (post-Wave-2 UX fix);
-    // keeping this function for the click+hotkey flip itself, no longer
-    // gating the rating row on it.
+    // Day 1 dogfood: flip is now bidirectional.  Earlier behaviour was a
+    // one-way front→back so the user couldn't peek at the headword again
+    // after seeing the answer; testers reported this as broken because
+    // tapping the back card looked like nothing happened.  Rating buttons
+    // are visible from both faces (post-Wave-2 UX fix), so toggling does
+    // not affect the rating flow.
+    _state.flipped = !_state.flipped;
+    $('study-card').classList.toggle('flipped', _state.flipped);
   }
 
   function rateLabel(r) {
