@@ -46,12 +46,17 @@ logger = logging.getLogger(__name__)
 _client: AsyncOpenAI | None = None
 
 # Verbatim transcription prompt: biases Whisper to preserve speech disfluencies,
-# fillers (uh, um, er), hesitations, repetitions, and broken grammar as-is.
-# Whisper uses this as style context so including disfluent examples matters.
+# fillers (uh, um, er), hesitations, and repetitions as-is.
+#
+# IMPORTANT — examples-only, NO instruction sentences.  whisper-1 treats the
+# `prompt` arg as STYLE CONTEXT, not as a system instruction; instruction-style
+# phrasing ("Transcribe every word…", "Do not fix grammar") leaks into the
+# transcript output verbatim.  Phase 2.5 dogfood Day 2 caught one transcript
+# echoing the old instruction sentence three times at the head of the output.
+# Disfluency examples alone are enough to bias the model toward preserving
+# speech artifacts.
 _VERBATIM_PROMPT = (
-    "Uh, um, er, I mean, you know, like, well, so... "
-    "Transcribe every word exactly as spoken, including all hesitations, "
-    "repetitions, and self-corrections. Do not fix grammar."
+    "Uh, um, er, I mean, you know, like, well, so..."
 )
 
 
