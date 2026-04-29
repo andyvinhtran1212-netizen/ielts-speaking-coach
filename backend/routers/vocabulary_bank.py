@@ -656,6 +656,97 @@ async def accept_suggestion(
     }
 
 
+# ── POST /{id}/mark-fixed — Promote needs_review after the user fixed it ─────
+#
+# Wave 2 Day 1 dogfood: the auto-stack "Cần ôn tập" used to render
+# `needs_review` vocab as study cards, which encouraged learners to memorise
+# AI-flagged-as-incorrect forms.  The new triage view lets the user review
+# the suggestion, fix the underlying grammar/usage themselves, then click
+# "Đã sửa" — which calls this endpoint.
+#
+# Mirrors POST /accept but the source-type gate flips: only `needs_review`
+# rows are promotable here, and they always go to the same default stack
+# ("Từ vựng đã chấp nhận") so accept + mark-fixed share one bucket and the
+# dashboard widget can keep counting them as one event family.
+
+
+@router.post("/{vocab_id}/mark-fixed")
+async def mark_vocab_fixed(
+    vocab_id: str,
+    add_to_default_stack: bool = Query(default=True),
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    existing = (
+        sb.table("user_vocabulary")
+        .select("id, source_type")
+        .eq("id", vocab_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not existing.data:
+        raise HTTPException(404, "Vocab entry not found")
+
+    current_source = existing.data[0].get("source_type")
+    promoted = False
+
+    if current_source == "needs_review":
+        sb.table("user_vocabulary").update(
+            {"source_type": "manual"}
+        ).eq("id", vocab_id).execute()
+        promoted = True
+    elif current_source == "manual":
+        # Idempotent retry: row was already promoted on a prior call but the
+        # flashcard write may have failed — let the second half run again.
+        promoted = False
+    else:
+        # `used_well` / `upgrade_suggested` use the /accept endpoint or
+        # already represent a "no fix needed" verdict, so reject 409 to
+        # keep the two flows symmetric and reduce the chance of a misuse
+        # silently flipping a non-needs_review row.
+        raise HTTPException(
+            409,
+            f"Cannot mark-fixed entry with source_type={current_source!r}; only 'needs_review' is promotable here",
+        )
+
+    flashcard_added = False
+    stack_id: str | None = None
+    stack_name: str | None = None
+    if add_to_default_stack:
+        stack_id = _ensure_default_accept_stack(sb, user_id)
+        if stack_id:
+            flashcard_added = _add_card_if_absent(sb, stack_id, vocab_id)
+            if flashcard_added:
+                stack_name = DEFAULT_ACCEPT_STACK_NAME
+            else:
+                stack_id = None
+
+    _fire_event("vocab_marked_fixed", {
+        "vocab_id":        vocab_id,
+        "promoted":        promoted,
+        "flashcard_added": flashcard_added,
+    }, user_id)
+
+    return {
+        "ok":              True,
+        "source_type":     "manual",
+        "promoted":        promoted,
+        "flashcard_added": flashcard_added,
+        "stack_id":        stack_id,
+        "stack_name":      stack_name,
+    }
+
+
 # ── POST /{id}/report — False Positive Report ────────────────────────────────
 
 @router.post("/{vocab_id}/report")
