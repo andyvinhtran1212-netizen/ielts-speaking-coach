@@ -195,6 +195,24 @@
   </header>
 
   <main class="max-w-2xl mx-auto px-4 py-8">
+    <!--
+      Auto-stack "Cần ôn tập" is a query-time filter over vocab whose
+      AI category is `needs_review`, NOT a curated user-managed deck.
+      Without this cue, users mistake their first visit as "items got
+      added to my flashcards" and worry the system enrolled them in
+      review without consent.  Shown only when stack=auto:needs_review.
+    -->
+    <div id="auto-needs-review-info" class="hidden"
+         style="background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.25);
+                border-left:3px solid #fbbf24; border-radius:10px;
+                padding:10px 14px; margin-bottom:18px; font-size:13px;
+                color:rgba(255,255,255,0.85); line-height:1.5;">
+      <strong style="color:#fbbf24;">📝 Đang phân loại</strong>
+      — Đây là các từ AI gợi ý cần ôn lại từ những buổi luyện gần đây.
+      Bạn chưa đưa chúng vào lịch ôn tập cá nhân — bấm rate (Again/Hard/Good/Easy)
+      để bắt đầu lịch ôn cho từng từ.
+    </div>
+
     <div id="study-container">
       <div class="state-msg"><div class="spinner"></div></div>
     </div>

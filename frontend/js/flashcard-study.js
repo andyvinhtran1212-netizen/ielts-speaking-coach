@@ -77,6 +77,14 @@
       return;
     }
 
+    // Reveal the "Đang phân loại" cue only for the needs_review auto-stack.
+    // Other stacks (manual, all_vocab, recent) are user-curated by definition,
+    // so the cue would be confusing rather than reassuring there.
+    const infoEl = document.getElementById('auto-needs-review-info');
+    if (infoEl) {
+      infoEl.classList.toggle('hidden', _state.stackId !== 'auto:needs_review');
+    }
+
     try {
       const meRes = await fetch(BASE + '/auth/me', { headers: authHeaders() });
       if (!meRes.ok) { showState('Tính năng chưa được bật.'); return; }
