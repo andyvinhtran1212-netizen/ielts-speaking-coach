@@ -487,7 +487,7 @@ async def archive_vocab(
     return {"ok": True}
 
 
-# ── POST /{id}/accept — Promote upgrade suggestion to user-owned vocab ──────
+# ── POST /{id}/accept — Promote upgrade suggestion + add to default stack ──
 #
 # Day 2 dogfood: users didn't realise that `upgrade_suggested` rows are
 # already in their bank — they read "gợi ý" as a separate proposal list and
@@ -496,11 +496,94 @@ async def archive_vocab(
 # the UI ("this is mine now, not just a suggestion") without inventing a
 # new column.  Idempotent: calling on a row that's already `manual` is a
 # no-op success.
+#
+# PR #24 (post-#23 polish): the original report asked for a single
+# gesture that both promotes AND enrolls the word in flashcards.  We
+# auto-create a manual stack named "Từ vựng đã chấp nhận" the first
+# time, then reuse it for every subsequent accept.  Stack/card writes
+# are best-effort: a failure there does not reverse the promote, and
+# the response carries `flashcard_added` so the UI can word the toast
+# accurately.
+
+DEFAULT_ACCEPT_STACK_NAME = "Từ vựng đã chấp nhận"
+
+
+def _ensure_default_accept_stack(sb, user_id: str) -> str | None:
+    """Find-or-create the default accept stack.  Returns its UUID, or None
+    if the lookup/create fails so the caller can fall back to promote-only.
+
+    Stack name is unique-per-user by convention (not enforced at DB level
+    — a duplicate name would just be ignored on the next call), and short
+    enough to fit the VARCHAR(50) + length(trim(...)) >= 3 constraints in
+    migration 025.
+    """
+    try:
+        existing = (
+            sb.table("flashcard_stacks")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("name", DEFAULT_ACCEPT_STACK_NAME)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning("[accept] default-stack lookup failed: %s", exc)
+        return None
+
+    if existing.data:
+        return existing.data[0].get("id")
+
+    try:
+        created = (
+            sb.table("flashcard_stacks")
+            .insert({
+                "user_id": user_id,
+                "name":    DEFAULT_ACCEPT_STACK_NAME,
+                "type":    "manual",
+            })
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning("[accept] default-stack create failed: %s", exc)
+        return None
+
+    return (created.data or [{}])[0].get("id")
+
+
+def _add_card_if_absent(sb, stack_id: str, vocab_id: str) -> bool:
+    """Insert (stack_id, vocab_id) into flashcard_cards unless already there.
+    Returns True on success (already-present is also success — idempotent),
+    False on any error so the caller can mark `flashcard_added=False`."""
+    try:
+        dup = (
+            sb.table("flashcard_cards")
+            .select("id")
+            .eq("stack_id", stack_id)
+            .eq("vocabulary_id", vocab_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning("[accept] card duplicate-check failed: %s", exc)
+        return False
+    if dup.data:
+        return True
+
+    try:
+        sb.table("flashcard_cards").insert({
+            "stack_id":      stack_id,
+            "vocabulary_id": vocab_id,
+        }).execute()
+    except Exception as exc:
+        logger.warning("[accept] card insert failed: %s", exc)
+        return False
+    return True
 
 
 @router.post("/{vocab_id}/accept")
 async def accept_suggestion(
     vocab_id: str,
+    add_to_default_stack: bool = Query(default=True),
     authorization: str | None = Header(default=None),
 ):
     user = await _require_auth(authorization)
@@ -525,26 +608,52 @@ async def accept_suggestion(
         raise HTTPException(404, "Vocab entry not found")
 
     current_source = existing.data[0].get("source_type")
-    # Idempotent: already-promoted rows return success without a second write.
-    if current_source == "manual":
-        return {"ok": True, "source_type": "manual", "promoted": False}
+    promoted = False
 
-    if current_source != "upgrade_suggested":
-        # Only `upgrade_suggested` is a valid source for this action.  Other
-        # categories are AI verdicts (`used_well`, `needs_review`) that the
-        # user shouldn't be able to overwrite via an "accept" gesture.
+    if current_source == "upgrade_suggested":
+        sb.table("user_vocabulary").update(
+            {"source_type": "manual"}
+        ).eq("id", vocab_id).execute()
+        promoted = True
+    elif current_source == "manual":
+        # Idempotent: already-promoted rows skip the update but still get
+        # the optional flashcard add below — useful when a previous accept
+        # promoted but failed to enroll the card and the user retries.
+        promoted = False
+    else:
+        # `used_well` / `needs_review` are AI verdicts the user shouldn't
+        # overwrite via an "accept" gesture.
         raise HTTPException(
             409,
             f"Cannot accept entry with source_type={current_source!r}; only 'upgrade_suggested' is promotable",
         )
 
-    sb.table("user_vocabulary").update(
-        {"source_type": "manual"}
-    ).eq("id", vocab_id).execute()
+    flashcard_added = False
+    stack_id: str | None = None
+    stack_name: str | None = None
+    if add_to_default_stack:
+        stack_id = _ensure_default_accept_stack(sb, user_id)
+        if stack_id:
+            flashcard_added = _add_card_if_absent(sb, stack_id, vocab_id)
+            if flashcard_added:
+                stack_name = DEFAULT_ACCEPT_STACK_NAME
+            else:
+                stack_id = None  # don't return a stack_id we couldn't write to
 
-    _fire_event("vocab_suggestion_accepted", {"vocab_id": vocab_id}, user_id)
+    _fire_event("vocab_suggestion_accepted", {
+        "vocab_id":        vocab_id,
+        "promoted":        promoted,
+        "flashcard_added": flashcard_added,
+    }, user_id)
 
-    return {"ok": True, "source_type": "manual", "promoted": True}
+    return {
+        "ok":              True,
+        "source_type":     "manual",
+        "promoted":        promoted,
+        "flashcard_added": flashcard_added,
+        "stack_id":        stack_id,
+        "stack_name":      stack_name,
+    }
 
 
 # ── POST /{id}/report — False Positive Report ────────────────────────────────
