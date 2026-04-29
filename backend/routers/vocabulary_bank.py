@@ -487,6 +487,66 @@ async def archive_vocab(
     return {"ok": True}
 
 
+# ── POST /{id}/accept — Promote upgrade suggestion to user-owned vocab ──────
+#
+# Day 2 dogfood: users didn't realise that `upgrade_suggested` rows are
+# already in their bank — they read "gợi ý" as a separate proposal list and
+# expected an explicit opt-in step.  This endpoint flips source_type from
+# `upgrade_suggested` → `manual`, which is the cheapest signal we can give
+# the UI ("this is mine now, not just a suggestion") without inventing a
+# new column.  Idempotent: calling on a row that's already `manual` is a
+# no-op success.
+
+
+@router.post("/{vocab_id}/accept")
+async def accept_suggestion(
+    vocab_id: str,
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    existing = (
+        sb.table("user_vocabulary")
+        .select("id, source_type")
+        .eq("id", vocab_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not existing.data:
+        raise HTTPException(404, "Vocab entry not found")
+
+    current_source = existing.data[0].get("source_type")
+    # Idempotent: already-promoted rows return success without a second write.
+    if current_source == "manual":
+        return {"ok": True, "source_type": "manual", "promoted": False}
+
+    if current_source != "upgrade_suggested":
+        # Only `upgrade_suggested` is a valid source for this action.  Other
+        # categories are AI verdicts (`used_well`, `needs_review`) that the
+        # user shouldn't be able to overwrite via an "accept" gesture.
+        raise HTTPException(
+            409,
+            f"Cannot accept entry with source_type={current_source!r}; only 'upgrade_suggested' is promotable",
+        )
+
+    sb.table("user_vocabulary").update(
+        {"source_type": "manual"}
+    ).eq("id", vocab_id).execute()
+
+    _fire_event("vocab_suggestion_accepted", {"vocab_id": vocab_id}, user_id)
+
+    return {"ok": True, "source_type": "manual", "promoted": True}
+
+
 # ── POST /{id}/report — False Positive Report ────────────────────────────────
 
 @router.post("/{vocab_id}/report")
