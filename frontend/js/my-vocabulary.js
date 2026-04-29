@@ -160,7 +160,7 @@
 
     const sourceLink = item.session_id
       ? `<a href="result.html?id=${esc(item.session_id)}"
-            class="text-xs" style="color:rgba(20,184,166,0.5);text-decoration:none;"
+            class="vocab-action vocab-action--source"
             title="Xem buổi luyện tập">↗ nguồn</a>`
       : '';
 
@@ -169,36 +169,45 @@
     // entry point to avoid a dead query param in the URL bar.
     const practiceLink = _exercisesEnabled
       ? `<a href="exercises.html"
-            class="text-xs ml-3" style="color:rgba(20,184,166,0.65);text-decoration:none;"
+            class="vocab-action vocab-action--practice"
             title="Practice with this word">▶ practice</a>`
       : '';
 
-    // Phase D Wave 2: "Add to flashcard stack" entry point.  Default-deny
-    // gated on _flashcardEnabled so the button is absent (not display:none)
-    // when the user's flag is off — DOM-removal pattern from PHASE_D §16.
-    const flashcardBtn = _flashcardEnabled
-      ? `<button class="text-xs ml-3"
-                 style="color:rgba(168,85,247,0.85); background:transparent; border:none; cursor:pointer; padding:0;"
-                 onclick="openFlashcardPicker('${esc(item.id)}', '${esc(item.headword)}')"
-                 title="Thêm vào flashcard stack">📚 +Stack</button>`
-      : '';
+    // Phase D Wave 2 entry point.  Two layered gates:
+    //   1. _flashcardEnabled: feature flag (PHASE_D §16 default-deny).
+    //   2. source_type !== 'needs_review': dogfood polish — AI-flagged
+    //      vocab must not be enrolled into SRS or it teaches the wrong
+    //      form.  Backend enforces the same rule (defense-in-depth).
+    //
+    // For needs_review rows we render an explanatory "🔒 Đã khoá" cue
+    // instead of nothing, so the absence of +Stack reads as a deliberate
+    // policy and not a bug.
+    let flashcardBtn = '';
+    if (_flashcardEnabled) {
+      if (item.source_type === 'needs_review') {
+        flashcardBtn = `<span class="vocab-action vocab-action--locked"
+              title="Vocab AI flag là 'cần xem lại' — sửa từ trước khi đưa vào flashcard.">🔒 Đã khoá</span>`;
+      } else {
+        flashcardBtn = `<button class="vocab-action vocab-action--stack"
+                onclick="openFlashcardPicker('${esc(item.id)}', '${esc(item.headword)}')"
+                title="Thêm vào flashcard stack">📚 +Stack</button>`;
+      }
+    }
 
     // Day 2 dogfood: preview shows the same front/back layout the
     // flashcard study page uses, so the user can sanity-check what an AI
     // entry will look like as a card before committing it to a stack.
-    const previewBtn = `<button class="text-xs ml-3"
-                 style="color:rgba(148,163,184,0.85); background:transparent; border:none; cursor:pointer; padding:0;"
-                 onclick="window._myVocab.previewFlashcard('${esc(item.id)}')"
-                 title="Xem trước flashcard">👁️ Xem trước</button>`;
+    const previewBtn = `<button class="vocab-action vocab-action--preview"
+                onclick="window._myVocab.previewFlashcard('${esc(item.id)}')"
+                title="Xem trước flashcard">👁️ Xem trước</button>`;
 
     // Day 2 dogfood: explicit "accept suggestion" gesture for upgrade_suggested
     // rows.  Promotes source_type → 'manual' so the card stops looking
     // provisional in the badge and no longer appears under the "Upgrade" filter.
     const acceptBtn = item.source_type === 'upgrade_suggested'
-      ? `<button class="text-xs ml-3"
-                 style="color:rgba(192,132,252,0.95); background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); cursor:pointer; padding:2px 8px; border-radius:6px;"
-                 onclick="window._myVocab.acceptSuggestion('${esc(item.id)}')"
-                 title="Đưa vào danh sách của tôi">➕ Đưa vào danh sách</button>`
+      ? `<button class="vocab-action vocab-action--accept"
+                onclick="window._myVocab.acceptSuggestion('${esc(item.id)}')"
+                title="Đưa vào danh sách của tôi">➕ Đưa vào danh sách</button>`
       : '';
 
     return `
@@ -224,7 +233,7 @@
           : ''}
 
         <div class="flex items-center justify-between mt-3 flex-wrap gap-y-2">
-          <div class="flex items-center flex-wrap gap-y-2">
+          <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
             ${sourceLink}
             ${practiceLink}
             ${previewBtn}
