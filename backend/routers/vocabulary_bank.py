@@ -173,6 +173,66 @@ async def get_recent_vocab(
     return result.data or []
 
 
+# ── GET /recent-updates — Aggregate of recent vocab events ───────────────────
+#
+# Powers the dashboard "Cập nhật từ vựng gần đây" widget.  Returns recent
+# additions grouped by session so a single practice extraction shows up as
+# one event with N words instead of N separate cards.  Uncategorized rows
+# (manual adds, legacy rows without session_id) are bucketed together.
+#
+# Registered BEFORE `/{vocab_id}` for the same reason as `/export` — FastAPI
+# matches routes in registration order and the path param would otherwise
+# swallow the literal path.
+
+
+@router.get("/recent-updates")
+async def get_recent_vocab_updates(
+    limit: int = Query(10, ge=1, le=50),
+    authorization: str | None = Header(default=None),
+):
+    """Recent vocab events grouped by session for the dashboard widget."""
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    # Pull more rows than the event limit so multi-session days still produce
+    # `limit` distinct events after grouping.  RLS scopes to caller via JWT.
+    fetch_n = max(limit * 5, 50)
+    result = (
+        _user_sb(token).table("user_vocabulary")
+        .select("id, headword, source_type, session_id, created_at")
+        .eq("user_id", user_id)
+        .eq("is_archived", False)
+        .order("created_at", desc=True)
+        .limit(fetch_n)
+        .execute()
+    )
+    rows = result.data or []
+
+    # Group by session_id; rows without a session collapse into a single
+    # "manual" bucket so the widget doesn't render one event per loose row.
+    groups: dict[str, list[dict]] = {}
+    for row in rows:
+        key = row.get("session_id") or "__manual__"
+        groups.setdefault(key, []).append(row)
+
+    events: list[dict] = []
+    for key, group in groups.items():
+        events.append({
+            "type": "extraction",
+            "session_id": None if key == "__manual__" else key,
+            "vocab_count": len(group),
+            "vocab_preview": [v.get("headword") for v in group[:3] if v.get("headword")],
+            "timestamp": max(v.get("created_at") for v in group if v.get("created_at")),
+        })
+
+    events.sort(key=lambda e: e["timestamp"] or "", reverse=True)
+    return {"events": events[:limit]}
+
+
 # ── GET /export — User-initiated full backup as CSV or JSON ───────────────────
 #
 # Phase 2.5 — UX self-service export.  Returns *every* vocab row owned by the
