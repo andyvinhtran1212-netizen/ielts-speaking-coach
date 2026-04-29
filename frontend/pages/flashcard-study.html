@@ -33,16 +33,31 @@
     .progress-fill   { height: 100%; background: linear-gradient(90deg, #14b8a6, #0ea5e9);
                        transition: width 0.3s ease; }
 
-    /* Flip card */
+    /* Flip card
+     *
+     * Phase 2.5 Day 2 fix: the back face used to be `position: absolute;
+     * inset: 0`, which detached its content from layout flow.  When the
+     * back face filled with rich content (IPA banner + def_vi + def_en +
+     * example block + "Xem câu gốc" button + meta row) it overflowed past
+     * the card's 280px floor and visually overlapped the rating buttons
+     * below.
+     *
+     * Fix: stack both faces in a single grid cell.  The cell sizes itself
+     * to the LARGER of the two faces, so the card grows when the back is
+     * tall, and the ratings row stays cleanly below.  `backface-visibility`
+     * still hides whichever face is rotated 180° away from the viewer, so
+     * only one is visible at a time and the flip animation is unchanged.
+     */
     .card-stage { perspective: 1200px; min-height: 280px; }
     .flashcard {
       position: relative; width: 100%; min-height: 280px;
+      display: grid; grid-template-areas: "card";
       transform-style: preserve-3d; transition: transform 0.5s ease;
       cursor: pointer;
     }
     .flashcard.flipped { transform: rotateY(180deg); }
     .face {
-      position: absolute; inset: 0; backface-visibility: hidden;
+      grid-area: card; backface-visibility: hidden;
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 16px; padding: 28px;
       background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(15,118,110,0.06) 100%);
