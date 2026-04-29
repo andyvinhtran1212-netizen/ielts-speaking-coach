@@ -101,6 +101,67 @@ def test_validate_item_rejects_hallucinated_headword():
     assert out is None
 
 
+# ── _validate_item: definitions are optional pass-through ───────────────────
+
+
+def test_validate_item_passes_through_definition_vi_and_en():
+    """Day 1 dogfood: idioms arrive with NULL definition_vi.  Validator
+    must surface both definitions when Gemini provides them so the admin
+    backfill can write them back."""
+    ve = _import_service()
+    out = ve._validate_item(
+        {
+            "headword": "play by ear",
+            "ipa": "/pleɪ baɪ ɪər/",
+            "definition_vi": "ứng biến, tuỳ cơ ứng biến",
+            "definition_en": "decide as you go without a fixed plan",
+            "example": "Without a clear strategy, the team had to play by ear during the launch.",
+        },
+        valid_headwords={"play by ear"},
+    )
+    assert out is not None
+    assert out["definition_vi"] == "ứng biến, tuỳ cơ ứng biến"
+    assert out["definition_en"] == "decide as you go without a fixed plan"
+    assert out["headword"] == "play by ear"
+    assert out["ipa"] == "/pleɪ baɪ ɪər/"
+
+
+def test_validate_item_omits_definitions_when_absent():
+    """Definitions are best-effort: missing ones don't reject the row, they
+    just stay out of the returned dict so the UPDATE skips those columns."""
+    ve = _import_service()
+    out = ve._validate_item(
+        {
+            "headword": "mitigate",
+            "ipa": "/ˈmɪtɪɡeɪt/",
+            "example": "Governments must implement policies to mitigate the impact of climate change quickly.",
+        },
+        valid_headwords={"mitigate"},
+    )
+    assert out is not None
+    assert "definition_vi" not in out
+    assert "definition_en" not in out
+
+
+def test_validate_item_drops_overlong_definitions():
+    """Hallucinated long-form glosses must not slip through — they would
+    overflow the back-of-card layout and could exceed column lengths."""
+    ve = _import_service()
+    out = ve._validate_item(
+        {
+            "headword": "mitigate",
+            "ipa": "/ˈmɪtɪɡeɪt/",
+            "definition_vi": "x" * 130,  # over 120-char cap
+            "definition_en": "y" * 200,  # over 160-char cap
+            "example": "Governments must implement policies to mitigate the impact of climate change quickly.",
+        },
+        valid_headwords={"mitigate"},
+    )
+    assert out is not None
+    assert "definition_vi" not in out
+    assert "definition_en" not in out
+
+
 # ── enrich_vocabulary_batch: empty input is a no-op ──────────────────────────
 
 
