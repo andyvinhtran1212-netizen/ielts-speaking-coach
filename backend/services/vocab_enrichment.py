@@ -60,6 +60,11 @@ amount of") — output:
   /ɪ ə ɔː ʊ æ ʌ ɜː ɑː iː uː eɪ aɪ ɔɪ aʊ əʊ ɪə eə ʊə/ symbol set.  No stress
   numbers; use the ˈ primary-stress mark.  No region tags.  Always provide IPA
   even for phrases — pronunciation matters for fluency.
+- "definition_vi": natural Vietnamese gloss, max ~10 words.  For idioms and
+  phrases, give the figurative/natural meaning in Vietnamese — DO NOT do a
+  word-by-word literal translation.  E.g. "play by ear" → "ứng biến, tuỳ cơ
+  ứng biến", NOT "chơi bằng tai".  Skip diacritics-only renderings.
+- "definition_en": concise English gloss, max ~12 words, IELTS-friendly.
 - "example": ONE natural English sentence (15-20 words, IELTS Band 7+
   vocabulary and grammar, blank-free) that demonstrates idiomatic usage.
   Must NOT contain "___", "[blank]", or any placeholder.  Topic should be
@@ -76,7 +81,9 @@ meaning in context for idioms, and natural collocational usage for collocations.
 Output strict JSON, no prose, exactly this shape:
 {
   "items": [
-    {"headword": "<verbatim input>", "ipa": "<ipa>", "example": "<sentence>"}
+    {"headword": "<verbatim input>", "ipa": "<ipa>",
+     "definition_vi": "<vi>", "definition_en": "<en>",
+     "example": "<sentence>"}
   ]
 }
 
@@ -84,7 +91,8 @@ Rules:
 - Preserve the headword exactly as given (don't lowercase, don't trim) so the
   caller can match against its own list.
 - If you cannot produce a valid IPA OR example for an item, OMIT it from the
-  output rather than guessing.
+  output rather than guessing.  Definitions are encouraged but optional —
+  return what you have rather than dropping the whole row.
 - Return ONLY the JSON object."""
 
 
@@ -97,11 +105,16 @@ _SYSTEM_PROMPT_SIMPLE = """You are an IELTS vocabulary writer.
 For each item below — be flexible: it may be a single word, a phrase, or an
 idiom.  All are valid.  Produce:
 - "ipa": British English IPA in slashes (e.g. "/ˈmɪtɪɡeɪt/", "/pleɪd baɪ ɪər/").
+- "definition_vi": short natural Vietnamese gloss (idioms get figurative
+  meaning, NOT word-by-word translation).
+- "definition_en": short English gloss (max ~12 words).
 - "example": ONE natural English sentence (10-25 words, blank-free, IELTS
   Speaking topic) that uses the headword VERBATIM as supplied.
 
 Output strict JSON only:
-{"items": [{"headword": "<verbatim input>", "ipa": "<ipa>", "example": "<sentence>"}]}
+{"items": [{"headword": "<verbatim input>", "ipa": "<ipa>",
+            "definition_vi": "<vi>", "definition_en": "<en>",
+            "example": "<sentence>"}]}
 
 Preserve every headword exactly as given.  Omit items you cannot produce."""
 
@@ -119,9 +132,17 @@ def _strip_markdown_fences(raw: str) -> str:
 
 def _validate_item(payload: Any, valid_headwords: set[str]) -> dict[str, str] | None:
     """
-    Return a normalized {headword, ipa, example_sentence} dict if `payload`
-    matches the schema AND the headword was in the original input set.
-    Anything else returns None — the caller drops it silently.
+    Return a normalized {headword, ipa, example_sentence, definition_vi,
+    definition_en} dict if `payload` matches the schema AND the headword was
+    in the original input set.  Anything else returns None — the caller drops
+    it silently.
+
+    `definition_vi` and `definition_en` are best-effort: when missing, the
+    returned dict simply leaves them out and the caller's UPDATE skips
+    those columns.  We do NOT reject a whole row for missing definitions
+    because the strict pre-flight schema (IPA + example) is the load-bearing
+    half — Day 1 dogfood proved Vietnamese gloss is occasionally absent
+    even on otherwise good outputs.
     """
     if not isinstance(payload, dict):
         return None
@@ -147,11 +168,21 @@ def _validate_item(payload: Any, valid_headwords: set[str]) -> dict[str, str] | 
     if headword.lower() not in example.lower():
         return None
 
-    return {
+    out: dict[str, str] = {
         "headword": headword,
         "ipa": ipa,
         "example_sentence": example,
     }
+    # Optional definition fields — pass through when present and non-trivial.
+    # Cap length so a hallucinated long-form gloss can't blow past the column
+    # type or visually break the flashcard back.
+    def_vi = (payload.get("definition_vi") or "").strip()
+    if def_vi and len(def_vi) <= 120:
+        out["definition_vi"] = def_vi
+    def_en = (payload.get("definition_en") or "").strip()
+    if def_en and len(def_en) <= 160:
+        out["definition_en"] = def_en
+    return out
 
 
 def _enrich_single_chunk(

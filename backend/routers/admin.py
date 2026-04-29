@@ -2515,11 +2515,20 @@ def _backfill_run(job_id: str, limit: int) -> None:
     from services.vocab_enrichment import enrich_vocabulary_batch, VocabEnrichmentError
 
     try:
+        # Day 1 dogfood: idioms + multi-word phrases were arriving with
+        # NULL definition_vi from the extractor.  Widen the candidate query
+        # so we re-enrich rows whose definitions are missing too — Gemini
+        # now generates Vietnamese + English glosses alongside IPA/example.
         rows_res = (
             supabase_admin.table("user_vocabulary")
             .select("id, headword")
             .eq("is_archived", False)
-            .or_("ipa.is.null,example_sentence.is.null")
+            .or_(
+                "ipa.is.null,"
+                "example_sentence.is.null,"
+                "definition_vi.is.null,"
+                "definition_en.is.null"
+            )
             .limit(limit)
             .execute()
         )
@@ -2560,12 +2569,23 @@ def _backfill_run(job_id: str, limit: int) -> None:
         e = enrich_map.get(low)
         if not e:
             continue  # Word didn't make it through Gemini's validation.
+        # Build the UPDATE payload from whichever fields the enricher returned.
+        # Required fields (ipa, example_sentence) are guaranteed by the
+        # validator; optional fields (definition_vi, definition_en) are only
+        # included when Gemini supplied them, so we never blank an existing
+        # row's definition by writing NULL over it.
+        payload: dict = {
+            "ipa": e["ipa"],
+            "example_sentence": e["example_sentence"],
+        }
+        if e.get("definition_vi"):
+            payload["definition_vi"] = e["definition_vi"]
+        if e.get("definition_en"):
+            payload["definition_en"] = e["definition_en"]
         for row in group_rows:
             try:
-                supabase_admin.table("user_vocabulary").update({
-                    "ipa": e["ipa"],
-                    "example_sentence": e["example_sentence"],
-                }).eq("id", row["id"]).execute()
+                supabase_admin.table("user_vocabulary").update(payload) \
+                    .eq("id", row["id"]).execute()
                 updated += 1
             except Exception as upd_err:
                 logger.warning(

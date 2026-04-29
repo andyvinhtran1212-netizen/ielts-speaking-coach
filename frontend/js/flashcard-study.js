@@ -77,14 +77,6 @@
       return;
     }
 
-    // Reveal the "Đang phân loại" cue only for the needs_review auto-stack.
-    // Other stacks (manual, all_vocab, recent) are user-curated by definition,
-    // so the cue would be confusing rather than reassuring there.
-    const infoEl = document.getElementById('auto-needs-review-info');
-    if (infoEl) {
-      infoEl.classList.toggle('hidden', _state.stackId !== 'auto:needs_review');
-    }
-
     try {
       const meRes = await fetch(BASE + '/auth/me', { headers: authHeaders() });
       if (!meRes.ok) { showState('Tính năng chưa được bật.'); return; }
@@ -95,8 +87,17 @@
       }
     } catch (_) { showState('Tính năng chưa được bật.'); return; }
 
-    await loadCards();
+    // Wave 2 Day 1 dogfood: needs_review vocab branches into the triage
+    // view instead of study cards.  Hotkey listener is gated on the study
+    // path because the triage view has no rate buttons to drive.
+    if (_state.stackId === 'auto:needs_review') {
+      $('study-container').classList.add('hidden');
+      $('triage-container').classList.remove('hidden');
+      await loadTriage();
+      return;
+    }
 
+    await loadCards();
     document.addEventListener('keydown', onHotkey);
   }
 
@@ -331,12 +332,14 @@
   }
 
   function flipCard() {
-    if (_state.flipped) return;
-    _state.flipped = true;
-    $('study-card').classList.add('flipped');
-    // Rating buttons are visible from the front now (post-Wave-2 UX fix);
-    // keeping this function for the click+hotkey flip itself, no longer
-    // gating the rating row on it.
+    // Day 1 dogfood: flip is now bidirectional.  Earlier behaviour was a
+    // one-way front→back so the user couldn't peek at the headword again
+    // after seeing the answer; testers reported this as broken because
+    // tapping the back card looked like nothing happened.  Rating buttons
+    // are visible from both faces (post-Wave-2 UX fix), so toggling does
+    // not affect the rating flow.
+    _state.flipped = !_state.flipped;
+    $('study-card').classList.toggle('flipped', _state.flipped);
   }
 
   function rateLabel(r) {
@@ -515,6 +518,167 @@
     } else {
       submitRating(action);
     }
+  }
+
+  // ── Triage view (Wave 2 Day 1 dogfood) ────────────────────────────────────
+  //
+  // Auto-stack `auto:needs_review` is rendered as a triage list, not a
+  // study queue: the cards represent vocab the AI flagged as incorrect,
+  // and learning them via SRS would teach the wrong form.  The user
+  // reviews the suggestion + reason, fixes the underlying issue
+  // themselves (or skips), then clicks "Đã sửa" which calls
+  // POST /api/vocabulary/bank/{id}/mark-fixed.
+  //
+  // Reuses the existing `GET /api/vocabulary/bank?source_type=needs_review`
+  // listing endpoint — no new backend route just for the listing.
+
+  let _triageItems = [];
+
+  async function loadTriage() {
+    setHtml('triage-container', '<div class="state-msg"><div class="spinner"></div></div>');
+    try {
+      const res = await fetch(
+        BASE + '/api/vocabulary/bank?source_type=needs_review',
+        { headers: authHeaders() },
+      );
+      if (!res.ok) {
+        setHtml('triage-container',
+          '<div class="state-msg error">Không tải được danh sách. Thử lại sau.</div>');
+        return;
+      }
+      _triageItems = await res.json();
+    } catch (err) {
+      console.error('[triage] load', err);
+      setHtml('triage-container',
+        '<div class="state-msg error">Không tải được danh sách. Thử lại sau.</div>');
+      return;
+    }
+    renderTriage();
+  }
+
+  function renderTriage() {
+    const items = Array.isArray(_triageItems) ? _triageItems : [];
+    const headerHtml = `
+      <div class="triage-header">
+        <h2>📝 Từ vựng cần xem lại</h2>
+        <p>
+          AI gợi ý các từ này có lỗi grammar/usage trong bài luyện gần đây.
+          Hãy đọc phần gợi ý, tự sửa lỗi của bạn, rồi bấm "Đã sửa" để đưa từ
+          (đã sửa) vào flashcard học.
+        </p>
+      </div>`;
+
+    if (items.length === 0) {
+      setHtml('triage-container', headerHtml + `
+        <div class="state-msg" style="padding:32px 16px;">
+          🎉 Không có từ nào cần xem lại.<br/>
+          <span style="font-size:12px;opacity:0.7;">
+            Tiếp tục luyện Speaking để hệ thống có dữ liệu phân tích mới.
+          </span>
+        </div>`);
+      return;
+    }
+
+    setHtml('triage-container',
+      headerHtml + items.map(_triageCardHtml).join(''));
+
+    items.forEach(item => {
+      const card = document.querySelector(`[data-triage-id="${item.id}"]`);
+      if (!card) return;
+      card.querySelector('.triage-btn--fixed').addEventListener('click',
+        () => triageMarkFixed(item.id));
+      card.querySelector('.triage-btn--skip').addEventListener('click',
+        () => triageSkip(item.id));
+    });
+  }
+
+  function _triageCardHtml(item) {
+    const ctx = item.context_sentence
+      ? `<p class="triage-context">"${escape(item.context_sentence)}"</p>` : '';
+    const sug = item.suggestion
+      ? `<div class="triage-suggestion"><strong>💡 Gợi ý:</strong> ${escape(item.suggestion)}</div>`
+      : '';
+    const reason = item.reason
+      ? `<p class="triage-reason">${escape(item.reason)}</p>` : '';
+    return `
+      <div class="triage-card" data-triage-id="${escape(item.id)}">
+        <div class="triage-card-headword">
+          <span>${escape(item.headword || '')}</span>
+          <span class="triage-badge">Cần xem lại ⚠</span>
+        </div>
+        ${ctx}
+        ${sug}
+        ${reason}
+        <div class="triage-actions">
+          <button class="triage-btn triage-btn--fixed" type="button"
+                  title="Tôi đã chỉnh lỗi này — đưa từ đã sửa lên flashcard">
+            ✏️ Đã sửa, đưa lên flashcard
+          </button>
+          <button class="triage-btn triage-btn--skip" type="button"
+                  title="Bỏ qua từ này — sẽ vẫn hiện lần sau">
+            ⏭️ Bỏ qua
+          </button>
+        </div>
+      </div>`;
+  }
+
+  async function triageMarkFixed(vocabId) {
+    // Optimistic: pull the card out of view immediately so the action
+    // feels responsive.  Restore on server error so the user can retry.
+    const idx = _triageItems.findIndex(v => v.id === vocabId);
+    if (idx === -1) return;
+    const removed = _triageItems.splice(idx, 1)[0];
+    renderTriage();
+
+    try {
+      const res = await fetch(
+        BASE + '/api/vocabulary/bank/' + encodeURIComponent(vocabId) + '/mark-fixed',
+        { method: 'POST', headers: authHeaders() },
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json().catch(() => ({}));
+      if (data && data.flashcard_added && data.stack_name) {
+        _triageToast(`✅ Đã đưa "${removed.headword}" vào flashcard "${data.stack_name}".`, 'success');
+      } else {
+        _triageToast(`✅ Đã đánh dấu "${removed.headword}" đã sửa.`, 'info');
+      }
+    } catch (err) {
+      console.error('[triage] mark-fixed', err);
+      _triageItems.splice(idx, 0, removed);
+      renderTriage();
+      _triageToast('Không thể cập nhật. Thử lại.', 'error');
+    }
+  }
+
+  function triageSkip(vocabId) {
+    // Local-only skip: row stays in the DB and will reappear on next visit.
+    const idx = _triageItems.findIndex(v => v.id === vocabId);
+    if (idx === -1) return;
+    _triageItems.splice(idx, 1);
+    renderTriage();
+  }
+
+  function _triageToast(message, kind) {
+    let el = document.getElementById('triage-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'triage-toast';
+      el.style.cssText =
+        'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+        'padding:10px 16px;border-radius:10px;font-size:13px;z-index:60;' +
+        'opacity:0;transition:opacity 0.2s;pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    const palette = {
+      success: 'background:rgba(20,184,166,0.18);border:1px solid rgba(20,184,166,0.4);color:#5eead4;',
+      info:    'background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);color:#a5b4fc;',
+      error:   'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;',
+    };
+    el.style.cssText += (palette[kind] || palette.info);
+    el.textContent = message;
+    el.style.opacity = '1';
+    clearTimeout(_triageToast._t);
+    _triageToast._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
   }
 
   // ── Boot ───────────────────────────────────────────────────────────────────
