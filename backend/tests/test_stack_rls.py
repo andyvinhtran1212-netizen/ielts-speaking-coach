@@ -366,3 +366,50 @@ def test_with_check_blocks_review_user_id_reassignment(jwt_a, jwt_b):
     finally:
         ca.table("flashcard_reviews").delete().eq("id", review["id"]).execute()
         ca.table("user_vocabulary").delete().eq("id", vocab_id).execute()
+
+
+# ── Regression pin: needs_review vocab does NOT auto-create review row ──────
+
+
+def test_needs_review_vocab_has_no_auto_review_row(jwt_a):
+    """Phase 2.5 Day 2 dogfood reported "needs_review vocab tự được add vào
+    flashcard stack".  Code review found no auto-create path: flashcard_reviews
+    rows are upserted only inside POST /api/flashcards/{vocab_id}/review.
+    This test pins that contract — a freshly-inserted vocab row with
+    `source_type='needs_review'` must NOT have a corresponding flashcard_reviews
+    row until the user explicitly rates it.
+
+    If a future code path (background task, DB trigger, eager initialization
+    on stack open) starts pre-populating reviews, this test fails immediately.
+    """
+    ca = _user_client(jwt_a["access_token"])
+    headword = f"rls-no-auto-review-{_uuid.uuid4().hex[:8]}"
+
+    # Seed a needs_review vocab row directly — same path as the vocab extractor.
+    vocab_row = (
+        ca.table("user_vocabulary")
+        .insert({
+            "user_id":     jwt_a["user_id"],
+            "headword":    headword,
+            "source_type": "needs_review",
+            "category":    "topic",
+        })
+        .execute()
+    ).data[0]
+    vocab_id = vocab_row["id"]
+
+    try:
+        # Right after insert: no review row should exist for this vocab.
+        reviews = (
+            ca.table("flashcard_reviews")
+            .select("id")
+            .eq("vocabulary_id", vocab_id)
+            .execute()
+        ).data or []
+        assert reviews == [], (
+            f"Found {len(reviews)} flashcard_reviews row(s) for a freshly-"
+            f"inserted needs_review vocab; expected none.  Auto-create path "
+            f"introduced regression: {reviews!r}"
+        )
+    finally:
+        ca.table("user_vocabulary").delete().eq("id", vocab_id).execute()
