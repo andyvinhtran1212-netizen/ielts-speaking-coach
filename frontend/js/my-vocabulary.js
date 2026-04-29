@@ -183,6 +183,24 @@
                  title="Thêm vào flashcard stack">📚 +Stack</button>`
       : '';
 
+    // Day 2 dogfood: preview shows the same front/back layout the
+    // flashcard study page uses, so the user can sanity-check what an AI
+    // entry will look like as a card before committing it to a stack.
+    const previewBtn = `<button class="text-xs ml-3"
+                 style="color:rgba(148,163,184,0.85); background:transparent; border:none; cursor:pointer; padding:0;"
+                 onclick="window._myVocab.previewFlashcard('${esc(item.id)}')"
+                 title="Xem trước flashcard">👁️ Xem trước</button>`;
+
+    // Day 2 dogfood: explicit "accept suggestion" gesture for upgrade_suggested
+    // rows.  Promotes source_type → 'manual' so the card stops looking
+    // provisional in the badge and no longer appears under the "Upgrade" filter.
+    const acceptBtn = item.source_type === 'upgrade_suggested'
+      ? `<button class="text-xs ml-3"
+                 style="color:rgba(192,132,252,0.95); background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); cursor:pointer; padding:2px 8px; border-radius:6px;"
+                 onclick="window._myVocab.acceptSuggestion('${esc(item.id)}')"
+                 title="Đưa vào danh sách của tôi">➕ Đưa vào danh sách</button>`
+      : '';
+
     return `
       <div class="vocab-card" id="card-${item.id}">
         <div class="flex items-start justify-between gap-3 mb-2">
@@ -205,11 +223,13 @@
           ? `<p class="text-xs mt-1" style="color:rgba(255,255,255,0.25);">${esc(item.reason)}</p>`
           : ''}
 
-        <div class="flex items-center justify-between mt-3">
-          <div class="flex items-center">
+        <div class="flex items-center justify-between mt-3 flex-wrap gap-y-2">
+          <div class="flex items-center flex-wrap gap-y-2">
             ${sourceLink}
             ${practiceLink}
+            ${previewBtn}
             ${flashcardBtn}
+            ${acceptBtn}
           </div>
           <button class="report-btn" onclick="openReport('${item.id}')">Report incorrect</button>
         </div>
@@ -481,9 +501,103 @@
     URL.revokeObjectURL(objUrl);
   }
 
+  // ── Preview flashcard (Day 2 dogfood) ────────────────────────────────────
+  // Pulls the full row via GET /bank/{id} so we render exactly what the
+  // study page would show (def_vi, def_en, IPA, AI example, context).
+  // Modal is throwaway DOM — no global state to clean up.
+  async function previewFlashcard(vocabId) {
+    let vocab;
+    try {
+      vocab = await apiFetch(`/${vocabId}`);
+    } catch (err) {
+      console.error('[vocab] preview load failed:', err);
+      flashToast('Không tải được flashcard.', 'error');
+      return;
+    }
+    if (!vocab) return;
+    _renderPreviewModal(vocab);
+  }
+
+  function _renderPreviewModal(vocab) {
+    const close = () => modal.remove();
+    const ipa = vocab.ipa
+      ? `<div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#93c5fd;padding:2px 8px;border-radius:6px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);display:inline-block;margin-top:6px;">${esc(vocab.ipa)}</div>`
+      : '';
+    const defVi = vocab.definition_vi
+      ? `<p style="font-size:15px;color:#fff;font-weight:500;margin:0 0 8px;">${esc(vocab.definition_vi)}</p>` : '';
+    const defEn = vocab.definition_en
+      ? `<p style="font-size:13px;color:rgba(255,255,255,0.7);font-style:italic;margin:0 0 12px;">${esc(vocab.definition_en)}</p>` : '';
+    const example = vocab.example_sentence
+      ? `<div style="font-size:13px;color:rgba(94,234,212,0.95);padding:10px 12px;background:rgba(20,184,166,0.06);border-left:2px solid rgba(20,184,166,0.4);border-radius:6px;margin-bottom:10px;">"${esc(vocab.example_sentence)}"</div>` : '';
+    const context = vocab.context_sentence
+      ? `<p style="font-size:12px;color:rgba(148,163,184,0.8);font-style:italic;margin:6px 0 0;">Trong câu của bạn: "${esc(vocab.context_sentence)}"</p>` : '';
+    const noBack = !defVi && !defEn && !example && !context
+      ? `<p style="font-size:12px;color:rgba(255,255,255,0.4);text-align:center;padding:24px 0;">Thẻ này chưa có nội dung mặt sau (đợi enrichment).</p>` : '';
+
+    const modal = document.createElement('div');
+    modal.className = 'fc-preview-modal';
+    modal.style.cssText =
+      'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;' +
+      'background:rgba(0,0,0,0.7);padding:16px;';
+    modal.innerHTML = `
+      <div style="position:relative;width:100%;max-width:480px;background:#0c1f36;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:22px;">
+        <button id="fc-preview-close" aria-label="Đóng"
+                style="position:absolute;top:10px;right:12px;background:transparent;border:none;color:rgba(255,255,255,0.6);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px;">×</button>
+
+        <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;background:linear-gradient(145deg,rgba(255,255,255,0.04) 0%,rgba(15,118,110,0.06) 100%);text-align:center;margin-bottom:14px;">
+          <p style="font-size:10px;font-weight:600;letter-spacing:0.08em;color:rgba(255,255,255,0.4);margin:0 0 6px;text-transform:uppercase;">Mặt trước</p>
+          <h2 style="font-size:24px;font-weight:700;color:#fff;margin:0;line-height:1.2;">${esc(vocab.headword)}</h2>
+          ${ipa}
+        </div>
+
+        <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px;background:rgba(255,255,255,0.02);">
+          <p style="font-size:10px;font-weight:600;letter-spacing:0.08em;color:rgba(255,255,255,0.4);margin:0 0 10px;text-transform:uppercase;">Mặt sau</p>
+          ${defVi}
+          ${defEn}
+          ${example}
+          ${context}
+          ${noBack}
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    modal.querySelector('#fc-preview-close').addEventListener('click', close);
+  }
+
+  // ── Accept suggestion (Day 2 dogfood) ────────────────────────────────────
+  // Flips source_type from 'upgrade_suggested' → 'manual' so the card stops
+  // looking provisional.  Optimistically updates local state, then refreshes
+  // stats; rolls back the local card on server error.
+  async function acceptSuggestion(vocabId) {
+    const item = _allItems.find(i => i.id === vocabId);
+    if (!item) return;
+    if (item.source_type !== 'upgrade_suggested') return;  // defensive
+
+    const prevSource = item.source_type;
+    item.source_type = 'manual';
+    renderList();
+
+    try {
+      const res = await fetch(`${BASE}/api/vocabulary/bank/${encodeURIComponent(vocabId)}/accept`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      flashToast('Đã đưa vào danh sách của bạn.', 'success');
+      await loadStats();
+    } catch (err) {
+      console.error('[vocab] accept failed:', err);
+      item.source_type = prevSource;
+      renderList();
+      flashToast('Không thể đưa vào danh sách. Thử lại.', 'error');
+    }
+  }
+
   window._myVocab = window._myVocab || {};
-  window._myVocab.downloadCsv  = function () { return downloadExport('csv');  };
-  window._myVocab.downloadJson = function () { return downloadExport('json'); };
+  window._myVocab.downloadCsv      = function () { return downloadExport('csv');  };
+  window._myVocab.downloadJson     = function () { return downloadExport('json'); };
+  window._myVocab.previewFlashcard = previewFlashcard;
+  window._myVocab.acceptSuggestion = acceptSuggestion;
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   if (document.readyState === 'loading') {
