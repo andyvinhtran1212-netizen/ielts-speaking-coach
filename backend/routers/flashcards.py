@@ -810,6 +810,12 @@ async def add_card_to_stack(
     rule-defined, not curated.  UNIQUE(stack_id, vocabulary_id) catches
     duplicates and we surface those as 409 with a clear message so the
     "Add to flashcard" button (Step 7) can render a helpful toast.
+
+    `needs_review` vocab is blocked here as defense-in-depth.  The frontend
+    already hides the +Stack button for those rows (Day 2 dogfood UX
+    polish), but enrolling AI-flagged-as-incorrect vocab into spaced
+    repetition would teach the wrong form, so the route refuses too.
+    Users must promote / fix the entry first (e.g. accept upgrade or edit).
     """
     auth_user = await get_supabase_user(authorization)
     _require_flashcards_enabled(auth_user["id"])
@@ -817,6 +823,29 @@ async def add_card_to_stack(
 
     if stack_id.startswith("auto:"):
         raise HTTPException(400, "Auto-stacks are managed automatically.")
+
+    # Block needs_review vocab before the insert.  RLS on user_vocabulary
+    # already scopes the SELECT to the caller, so a foreign vocab_id reads
+    # as an empty result and we let the existing INSERT-time RLS error
+    # path (404 below) handle it — no information leak.
+    try:
+        vocab_lookup = (
+            sb.table("user_vocabulary")
+            .select("source_type")
+            .eq("id", body.vocabulary_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[flashcards] add_card_to_stack vocab lookup failed: %s", e)
+        raise HTTPException(500, "Could not add card.")
+
+    if vocab_lookup.data and vocab_lookup.data[0].get("source_type") == "needs_review":
+        raise HTTPException(
+            400,
+            "Vocab cần xem lại không thể đưa vào flashcard. "
+            "Hãy chỉnh lại từ trước khi học.",
+        )
 
     try:
         ins = (
