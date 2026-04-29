@@ -581,10 +581,12 @@
     modal.querySelector('#fc-preview-close').addEventListener('click', close);
   }
 
-  // ── Accept suggestion (Day 2 dogfood) ────────────────────────────────────
-  // Flips source_type from 'upgrade_suggested' → 'manual' so the card stops
-  // looking provisional.  Optimistically updates local state, then refreshes
-  // stats; rolls back the local card on server error.
+  // ── Accept suggestion (Day 2 dogfood + PR #24 polish) ───────────────────
+  // Flips source_type 'upgrade_suggested' → 'manual' AND adds the row to
+  // the default flashcard stack ("Từ vựng đã chấp nhận") in one server
+  // call.  Server creates the stack on first use, reuses it after that.
+  // Optimistic local update with rollback on server error so the badge
+  // flips immediately and feels responsive.
   async function acceptSuggestion(vocabId) {
     const item = _allItems.find(i => i.id === vocabId);
     if (!item) return;
@@ -600,7 +602,15 @@
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      flashToast('Đã đưa vào danh sách của bạn.', 'success');
+      const data = await res.json().catch(() => ({}));
+      // Server signals partial success when the flashcard write failed
+      // (RLS, transient DB error).  Promote already persisted, so we
+      // tell the user accurately rather than pretending both halves landed.
+      if (data && data.flashcard_added && data.stack_name) {
+        flashToast(`Đã thêm vào danh sách + flashcard "${data.stack_name}".`, 'success');
+      } else {
+        flashToast('Đã đưa vào danh sách (chưa thêm được vào flashcard).', 'info');
+      }
       await loadStats();
     } catch (err) {
       console.error('[vocab] accept failed:', err);
