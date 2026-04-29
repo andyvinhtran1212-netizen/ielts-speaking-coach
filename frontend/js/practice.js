@@ -1900,7 +1900,18 @@
       return;
     }
 
-    // test_part or edge case — show inline results as before
+    // test_part — redirect to the canonical result page so the post-session
+    // summary matches what the user sees from "Lịch sử sessions" (single
+    // source of truth).  Day 2 dogfood reported that the inline summary and
+    // the dashboard-history view diverged enough to be confusing; both now
+    // route through result.html?id=<session_id>.
+    if (_sessionId) {
+      window.location.href = 'result.html?id=' + encodeURIComponent(_sessionId);
+      return;
+    }
+
+    // Defensive fallback: if for any reason _sessionId is missing, fall back
+    // to the legacy inline render so the user still sees something.
     _renderTestResults();
     showState('test-results');
   }
