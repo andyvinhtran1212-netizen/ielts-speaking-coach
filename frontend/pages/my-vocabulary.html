@@ -79,6 +79,79 @@
     }
     .report-btn:hover { color: rgba(239,68,68,0.7); }
 
+    /* Day 2 dogfood polish: shared button affordance for action row.
+     * Before this rule, buttons rendered with low-opacity colors and no
+     * cursor/hover state, so users couldn't tell they were clickable.
+     * Each variant overrides only color so the per-action palette stays
+     * intact (source teal, practice teal-bright, preview slate, stack
+     * purple, accept emerald, locked muted-red). */
+    .vocab-action {
+      font-size: 12px;
+      line-height: 1.3;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 3px 8px;
+      text-decoration: none;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+    }
+    .vocab-action:hover { transform: translateY(-1px); }
+    .vocab-action:active { transform: translateY(0); }
+
+    .vocab-action--source   { color: rgba(94,234,212,0.85); }
+    .vocab-action--source:hover {
+      color: #5eead4;
+      background: rgba(20,184,166,0.10);
+      border-color: rgba(20,184,166,0.25);
+    }
+
+    .vocab-action--practice { color: rgba(56,189,248,0.85); }
+    .vocab-action--practice:hover {
+      color: #7dd3fc;
+      background: rgba(56,189,248,0.10);
+      border-color: rgba(56,189,248,0.25);
+    }
+
+    .vocab-action--preview  { color: rgba(148,163,184,0.95); }
+    .vocab-action--preview:hover {
+      color: #cbd5e1;
+      background: rgba(148,163,184,0.12);
+      border-color: rgba(148,163,184,0.25);
+    }
+
+    .vocab-action--stack    { color: rgba(192,132,252,0.95); }
+    .vocab-action--stack:hover {
+      color: #d8b4fe;
+      background: rgba(168,85,247,0.15);
+      border-color: rgba(168,85,247,0.35);
+    }
+
+    .vocab-action--accept   {
+      color: #d8b4fe;
+      background: rgba(168,85,247,0.10);
+      border-color: rgba(168,85,247,0.30);
+    }
+    .vocab-action--accept:hover {
+      background: rgba(168,85,247,0.20);
+      border-color: rgba(168,85,247,0.50);
+    }
+
+    /* Locked cue: explicitly NOT clickable.  cursor:not-allowed +
+     * tooltip via title=… is the standard combo for "I see a control
+     * but it's intentionally disabled". */
+    .vocab-action--locked   {
+      color: rgba(252,165,165,0.65);
+      background: rgba(239,68,68,0.06);
+      border-color: rgba(239,68,68,0.15);
+      cursor: not-allowed;
+    }
+    .vocab-action--locked:hover { transform: none; }
+
     .spinner {
       width: 36px; height: 36px;
       border: 3px solid rgba(20,184,166,0.2);
