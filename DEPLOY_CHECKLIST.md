@@ -59,6 +59,29 @@ the new image, before the per-phase smoke tests below.
       Railway → Service → Settings → Healthcheck Path = `/health`,
       Timeout = 5s.
 
+### Whisper transcript leak verification
+
+Run after any change to `services/whisper.py` or its `_VERBATIM_PROMPT`.
+Phase 2.5 dogfood Day 2 caught a production transcript with the old
+instruction prompt echoed three times at the head of the output;
+whisper-1 treats the prompt as style context, not as instructions.
+
+- [ ] Record one short test session.
+- [ ] Inspect the resulting `sessions.transcript` row:
+  ```sql
+  SELECT id, transcript
+  FROM sessions
+  WHERE user_id = '<your_uuid>'
+  ORDER BY started_at DESC
+  LIMIT 1;
+  ```
+- [ ] Confirm NONE of these phrases appear anywhere in the transcript:
+  - `Transcribe every word`
+  - `Do not fix grammar`
+  - `exactly as spoken`
+- [ ] If the phrases still appear → escalate (Whisper API regression,
+      not the prompt).  Otherwise the leak is gone.
+
 ---
 
 ## Phase B — Personal Vocab Bank
