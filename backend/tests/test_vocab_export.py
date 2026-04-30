@@ -42,6 +42,10 @@ class _StubBuilder:
 
     def select(self, *_a, **_k): return self
     def order(self, *_a, **_k): return self
+    # PR-A: export query now also filters is_skipped, so the stub has to
+    # respond to .eq().  Filter is opaque here — tests pass already-curated
+    # row sets in `data`, so we don't simulate column predicates.
+    def eq(self, *_a, **_k): return self
 
     def execute(self):
         class _R:

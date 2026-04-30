@@ -223,6 +223,10 @@ def _count_user_vocab(sb, *, source_type: str | None = None,
         builder = sb.table("user_vocabulary").select("id", count="exact")
         if not_archived_only:
             builder = builder.eq("is_archived", False)
+        # PR-A: skipped vocab is hidden everywhere; auto-stack badge counts
+        # must agree with the listing or the user sees a stack labeled "5 thẻ"
+        # that opens to fewer than 5 rows.
+        builder = builder.eq("is_skipped", False)
         if source_type is not None:
             builder = builder.eq("source_type", source_type)
         res = builder.limit(1).execute()
@@ -702,7 +706,11 @@ async def delete_stack(
 _VOCAB_FIELDS = (
     "id, headword, definition_vi, definition_en, "
     "ipa, example_sentence, "
-    "context_sentence, topic, category, source_type, created_at"
+    "context_sentence, topic, category, source_type, created_at, "
+    # PR-A: pulled into the SELECT so the manual-stack JOIN path can
+    # post-filter skipped rows in memory.  `_vocab_card_view` strips it
+    # from the response so the field never leaks to the frontend.
+    "is_skipped"
 )
 
 
@@ -754,6 +762,8 @@ async def list_cards_in_stack(
                 raise HTTPException(404, "Stack not found.")
             builder = sb.table("user_vocabulary").select(_VOCAB_FIELDS)
             builder = builder.eq("is_archived", False)
+            # PR-A: triage skips hide everywhere, including auto-stack queues.
+            builder = builder.eq("is_skipped", False)
             if stack_id == "auto:needs_review":
                 builder = builder.eq("source_type", "needs_review")
             if stack_id == "auto:recent":
@@ -784,7 +794,11 @@ async def list_cards_in_stack(
             ).data or []
             for c in cards:
                 v = c.get("user_vocabulary")
-                if v:
+                # PR-A: post-filter skipped rows from manual stacks too.
+                # PostgREST inline JOIN filters on `user_vocabulary` would
+                # require a second round-trip; this in-memory filter is
+                # acceptable because manual stacks are O(100s) of rows.
+                if v and not v.get("is_skipped"):
                     vocab_rows.append(v)
     except HTTPException:
         raise
@@ -949,6 +963,7 @@ async def get_due_cards(
             .select(_VOCAB_FIELDS)
             .in_("id", vocab_ids)
             .eq("is_archived", False)
+            .eq("is_skipped", False)  # PR-A: skipped vocab vanishes from due queue
             .execute()
         ).data or []
     except Exception as e:
@@ -960,8 +975,8 @@ async def get_due_cards(
     for r in review_rows:
         v = by_vocab.get(r["vocabulary_id"])
         if not v:
-            # Vocabulary archived or deleted — drop from queue rather than
-            # surfacing a phantom card.
+            # Vocabulary archived, skipped, or deleted — drop from queue
+            # rather than surfacing a phantom card.
             continue
         cards.append(_vocab_card_view(v, r))
     return {"cards": cards}
