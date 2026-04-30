@@ -444,7 +444,7 @@
     setHtml('study-container', `
       <div class="summary">
         <h2>Hoàn thành phiên!</h2>
-        <p>Bạn đã ôn ${total} thẻ. Tiến độ SRS đã được lưu tự động.</p>
+        <p>Bạn đã ôn ${total} thẻ. Tiến độ học tập đã được lưu tự động.</p>
         <div id="study-summary-warning"></div>
         <p class="big-num">${total}</p>
         <div class="breakdown">
