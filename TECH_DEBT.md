@@ -414,6 +414,15 @@ here so a new collaborator can skim the prior-art:
 12. **Route ordering: specific paths before dynamic params** — added 2026-04-28
     after the `/api/vocabulary/bank/export` near-miss (`/{vocab_id}` would
     have swallowed it if registered later).
+13. **List-endpoint trailing slash on the client** — added 2026-04-30
+    after PR #25's triage fetch broke in production.  Routes registered as
+    `@router.get("/")` on a prefix require the client URL to end with `/`.
+    Without it FastAPI's `redirect_slashes=True` returns a 307; behind
+    Railway's proxy that 307 carries `scheme=http`, which (a) drops the
+    `Authorization` header on the cross-scheme follow and (b) is blocked
+    by the browser as Mixed Content.  Codex audit grep:
+    `grep -rn "fetch.*api/.*[a-z]\?" frontend/ --include="*.js"` should
+    return no list-endpoint hits without a trailing slash before `?`.
 
 ---
 

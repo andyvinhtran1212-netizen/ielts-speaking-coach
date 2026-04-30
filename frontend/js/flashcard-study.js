@@ -529,8 +529,15 @@
   // themselves (or skips), then clicks "Đã sửa" which calls
   // POST /api/vocabulary/bank/{id}/mark-fixed.
   //
-  // Reuses the existing `GET /api/vocabulary/bank?source_type=needs_review`
+  // Reuses the existing `GET /api/vocabulary/bank/?source_type=needs_review`
   // listing endpoint — no new backend route just for the listing.
+  //
+  // Trailing slash is REQUIRED.  The route is registered as @router.get("/")
+  // on the /api/vocabulary/bank prefix, so a request without it hits FastAPI's
+  // redirect_slashes=True path and returns a 307 to /api/vocabulary/bank/.
+  // Behind Railway's proxy that 307 carries scheme=http, which then (a) drops
+  // the Authorization header on the cross-scheme follow and (b) gets blocked
+  // by the browser as Mixed Content from the HTTPS frontend.
 
   let _triageItems = [];
 
@@ -538,7 +545,7 @@
     setHtml('triage-container', '<div class="state-msg"><div class="spinner"></div></div>');
     try {
       const res = await fetch(
-        BASE + '/api/vocabulary/bank?source_type=needs_review',
+        BASE + '/api/vocabulary/bank/?source_type=needs_review',
         { headers: authHeaders() },
       );
       if (!res.ok) {
