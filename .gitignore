@@ -36,3 +36,9 @@ backend/.env.staging.test
 *.tmp
 backend/prod_schema_only.sql
 dogfood/
+
+# pytest-cov artifacts
+htmlcov/
+coverage.xml
+.coverage
+.coverage.*
