@@ -223,11 +223,9 @@
     // has-content path has it as a "show me where I used this" affordance.
     const showSourceButton = !!card.context_sentence;
     const sourceSection = showSourceButton
-      ? `<button id="study-source-btn" type="button"
-                 style="margin-top:14px;font-size:12px;padding:6px 12px;border-radius:8px;
-                        background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);
-                        color:rgba(255,255,255,0.7);cursor:pointer;">
-           📖 Xem câu gốc
+      ? `<button id="study-source-btn" type="button" class="source-context-btn"
+                 title="Xem câu gốc đã nói trong bài luyện tập">
+           👁️ Xem câu gốc
          </button>`
       : '';
 
@@ -240,7 +238,7 @@
         ${sourceSection}
         <div class="meta-row">
           ${card.source_type ? `<span>${sourceTypeLabel(card.source_type)}</span>` : ''}
-          ${card.review ? `<span>Lần ôn: ${card.review.review_count} • Hệ số: ${Number(card.review.ease_factor).toFixed(2)}</span>` : '<span>Thẻ mới</span>'}
+          ${card.review ? `<span>Đã ôn ${card.review.review_count} lần</span>` : '<span>Chưa học</span>'}
         </div>
       </div>
     `;
@@ -446,7 +444,7 @@
     setHtml('study-container', `
       <div class="summary">
         <h2>Hoàn thành phiên!</h2>
-        <p>Bạn đã ôn ${total} thẻ. Tiến độ SRS đã được lưu tự động.</p>
+        <p>Bạn đã ôn ${total} thẻ. Tiến độ học tập đã được lưu tự động.</p>
         <div id="study-summary-warning"></div>
         <p class="big-num">${total}</p>
         <div class="breakdown">
