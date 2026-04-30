@@ -236,6 +236,51 @@ def _count_user_vocab(sb, *, source_type: str | None = None,
         return 0
 
 
+def _count_struggling_vocab(sb) -> int:
+    """
+    Count of vocab the user has lapsed on at least once during flashcard
+    study.  This is what the redefined `auto:needs_review` stack counts —
+    NOT the count of `source_type='needs_review'` rows (those are AI
+    grammar verdicts, surfaced through the My Vocab triage flow instead).
+
+    Implementation: SELECT vocabulary_id FROM flashcard_reviews WHERE
+    lapse_count > 0, then dedupe against user_vocabulary so rows that are
+    archived, skipped, or still under triage (`source_type='needs_review'`)
+    don't appear in the queue length.  Both queries rely on the RLS
+    policies bound to the JWT-scoped `sb` client for ownership — same
+    pattern as the sibling `_count_user_vocab` helper above.
+    """
+    try:
+        struggling = (
+            sb.table("flashcard_reviews")
+            .select("vocabulary_id")
+            .gt("lapse_count", 0)
+            .execute()
+        ).data or []
+    except Exception as e:
+        logger.warning("[flashcards] struggling-review count failed: %s", e)
+        return 0
+
+    vocab_ids = list({r.get("vocabulary_id") for r in struggling if r.get("vocabulary_id")})
+    if not vocab_ids:
+        return 0
+
+    try:
+        rows = (
+            sb.table("user_vocabulary")
+            .select("id")
+            .in_("id", vocab_ids)
+            .eq("is_archived", False)
+            .eq("is_skipped", False)
+            .neq("source_type", "needs_review")
+            .execute()
+        ).data or []
+    except Exception as e:
+        logger.warning("[flashcards] struggling-vocab resolve failed: %s", e)
+        return 0
+    return len(rows)
+
+
 # ── Pydantic schemas ─────────────────────────────────────────────────────────
 
 
@@ -367,10 +412,14 @@ async def list_stacks(authorization: str | None = Header(default=None)):
     _require_flashcards_enabled(user_id)
     sb = _user_sb(_bearer_token(authorization))
 
-    # Auto-stack counts — three exact-count queries on user_vocabulary.
+    # Auto-stack counts.
+    # PR-B: `auto:needs_review` no longer counts source_type='needs_review'
+    # rows (those are AI grammar verdicts triaged on the My Vocab page).
+    # The stack now represents vocab the user has LAPSED on during flashcard
+    # study — i.e. SRS struggle, where re-study is the right intervention.
     all_count = _count_user_vocab(sb)
     recent_count = min(_RECENT_LIMIT, all_count)
-    needs_review_count = _count_user_vocab(sb, source_type="needs_review")
+    needs_review_count = _count_struggling_vocab(sb)
 
     auto_stacks = [
         {
@@ -624,8 +673,8 @@ async def get_stack(
             count = _count_user_vocab(sb)
         elif stack_id == "auto:recent":
             count = min(_RECENT_LIMIT, _count_user_vocab(sb))
-        else:  # auto:needs_review
-            count = _count_user_vocab(sb, source_type="needs_review")
+        else:  # auto:needs_review — see PR-B redefine in _count_struggling_vocab
+            count = _count_struggling_vocab(sb)
         return {
             "id":         stack_id,
             "name":       _AUTO_STACK_NAMES[stack_id],
@@ -760,17 +809,57 @@ async def list_cards_in_stack(
         if stack_id.startswith("auto:"):
             if not _is_auto_stack_id(stack_id):
                 raise HTTPException(404, "Stack not found.")
-            builder = sb.table("user_vocabulary").select(_VOCAB_FIELDS)
-            builder = builder.eq("is_archived", False)
-            # PR-A: triage skips hide everywhere, including auto-stack queues.
-            builder = builder.eq("is_skipped", False)
+
             if stack_id == "auto:needs_review":
-                builder = builder.eq("source_type", "needs_review")
-            if stack_id == "auto:recent":
-                builder = builder.order("created_at", desc=True).limit(_RECENT_LIMIT)
+                # PR-B redefine: this stack now represents SRS struggle —
+                # vocab the user has lapsed on at least once during flashcard
+                # review.  Re-study is the right intervention (vs the AI
+                # grammar-verdict triage flow which lives on My Vocab).
+                #
+                # Order: highest lapse_count first, then lowest ease_factor
+                # as tiebreaker (more difficult cards rise to the top).
+                # `_VOCAB_FIELDS` doesn't include the SRS columns, so we
+                # fetch reviews separately and merge below in the same
+                # `_fetch_reviews_by_vocab` step the manual-stack path uses.
+                review_rows = (
+                    sb.table("flashcard_reviews")
+                    .select("vocabulary_id, lapse_count, ease_factor")
+                    .gt("lapse_count", 0)
+                    .order("lapse_count", desc=True)
+                    .order("ease_factor", desc=False)
+                    .execute()
+                ).data or []
+                vocab_ids = [r["vocabulary_id"] for r in review_rows
+                             if r.get("vocabulary_id")]
+                if not vocab_ids:
+                    vocab_rows = []
+                else:
+                    fetched = (
+                        sb.table("user_vocabulary").select(_VOCAB_FIELDS)
+                        .in_("id", vocab_ids)
+                        .eq("is_archived", False)
+                        .eq("is_skipped", False)
+                        # source_type='needs_review' is the AI grammar
+                        # verdict — those rows can't enter the SRS queue
+                        # via the +Stack flow anyway, but we filter
+                        # defensively in case a legacy row has a stale
+                        # review record.
+                        .neq("source_type", "needs_review")
+                        .execute()
+                    ).data or []
+                    # Preserve the lapse-priority ordering by re-keying.
+                    by_id = {v["id"]: v for v in fetched if v.get("id")}
+                    vocab_rows = [by_id[vid] for vid in vocab_ids if vid in by_id]
             else:
-                builder = builder.order("created_at", desc=True)
-            vocab_rows = (builder.execute().data or [])
+                builder = sb.table("user_vocabulary").select(_VOCAB_FIELDS)
+                builder = builder.eq("is_archived", False)
+                # PR-A: triage skips hide everywhere, including auto-stack queues.
+                builder = builder.eq("is_skipped", False)
+                if stack_id == "auto:recent":
+                    builder = builder.order("created_at", desc=True).limit(_RECENT_LIMIT)
+                else:
+                    builder = builder.order("created_at", desc=True)
+                vocab_rows = (builder.execute().data or [])
         else:
             # Manual stack: confirm it exists & is owned (RLS), then JOIN
             # flashcard_cards through user_vocabulary.  PostgREST nested

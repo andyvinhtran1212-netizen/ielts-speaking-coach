@@ -173,41 +173,43 @@
             title="Practice with this word">▶ practice</a>`
       : '';
 
-    // Phase D Wave 2 entry point.  Two layered gates:
-    //   1. _flashcardEnabled: feature flag (PHASE_D §16 default-deny).
-    //   2. source_type !== 'needs_review': dogfood polish — AI-flagged
-    //      vocab must not be enrolled into SRS or it teaches the wrong
-    //      form.  Backend enforces the same rule (defense-in-depth).
-    //
-    // For needs_review rows we render an explanatory "🔒 Đã khoá" cue
-    // instead of nothing, so the absence of +Stack reads as a deliberate
-    // policy and not a bug.
+    // PR-B: needs_review rows are the triage queue — render two inline
+    // actions (✏️ Đã sửa + 🗑️ Bỏ qua) instead of the +Stack / Xem trước
+    // controls.  The earlier "🔒 Đã khoá" cues were a stop-gap; the
+    // actions communicate the same rule (you can't directly flashcard
+    // these) and provide the path forward.  Other source types keep the
+    // +Stack and preview entry points unchanged.
     let flashcardBtn = '';
-    if (_flashcardEnabled) {
-      if (item.source_type === 'needs_review') {
-        flashcardBtn = `<span class="vocab-action vocab-action--locked"
-              title="Vocab AI flag là 'cần xem lại' — sửa từ trước khi đưa vào flashcard.">🔒 Đã khoá</span>`;
-      } else {
+    let previewBtn = '';
+    let triageActions = '';
+
+    if (item.source_type === 'needs_review') {
+      // Always show triage actions on needs_review rows, regardless of
+      // _flashcardEnabled — these don't enroll the row into SRS, they
+      // either promote (mark-fixed → goes to default manual stack) or
+      // skip (is_skipped=true).  Both endpoints already gate on the
+      // vocab_bank feature flag at the backend.
+      triageActions = `
+        <button class="vocab-action vocab-action--fixed"
+                onclick="window._myVocab.markFixed('${esc(item.id)}')"
+                title="Đã sửa grammar/usage — đưa vocab này vào flashcard">
+          ✏️ Đã sửa, đưa lên flashcard
+        </button>
+        <button class="vocab-action vocab-action--skip"
+                onclick="window._myVocab.skipVocab('${esc(item.id)}')"
+                title="Bỏ qua vocab này, sẽ không hiện lại">
+          🗑️ Bỏ qua
+        </button>`;
+    } else {
+      if (_flashcardEnabled) {
         flashcardBtn = `<button class="vocab-action vocab-action--stack"
                 onclick="openFlashcardPicker('${esc(item.id)}', '${esc(item.headword)}')"
                 title="Thêm vào flashcard stack">📚 +Stack</button>`;
       }
-    }
-
-    // Day 2 dogfood: preview shows the same front/back layout the
-    // flashcard study page uses, so the user can sanity-check what an AI
-    // entry will look like as a card before committing it to a stack.
-    //
-    // Locked for `needs_review` to stay consistent with the +Stack lock —
-    // showing AI-flagged-as-incorrect vocab in flashcard form would imply
-    // it's safe to learn that way.  Same `🔒 Đã khoá` cue, same tooltip
-    // direction so the two locked controls read as one rule, not two bugs.
-    const previewBtn = item.source_type !== 'needs_review'
-      ? `<button class="vocab-action vocab-action--preview"
+      previewBtn = `<button class="vocab-action vocab-action--preview"
                 onclick="window._myVocab.previewFlashcard('${esc(item.id)}')"
-                title="Xem trước flashcard">👁️ Xem trước</button>`
-      : `<span class="vocab-action vocab-action--locked"
-                title="Vocab AI flag là 'cần xem lại' — sửa từ trước khi xem flashcard.">🔒 Đã khoá</span>`;
+                title="Xem trước flashcard">👁️ Xem trước</button>`;
+    }
 
     // Day 2 dogfood: explicit "accept suggestion" gesture for upgrade_suggested
     // rows.  Promotes source_type → 'manual' so the card stops looking
@@ -247,6 +249,7 @@
             ${previewBtn}
             ${flashcardBtn}
             ${acceptBtn}
+            ${triageActions}
           </div>
           <button class="report-btn" onclick="openReport('${item.id}')">Report incorrect</button>
         </div>
@@ -620,11 +623,83 @@
     }
   }
 
+  // ── Triage actions on `needs_review` rows (PR-B) ─────────────────────────
+  // The verdict-triage flow used to live on flashcard-study.html?stack=
+  // auto:needs_review.  PR-B moved it here because vocab management is
+  // a vocab management page concern, not a study-session concern.
+
+  // ✏️ Đã sửa — promote source_type 'needs_review' → 'manual' AND add to
+  // the same default stack ("Từ vựng đã chấp nhận") that /accept uses.
+  // Reuses POST /mark-fixed (PR #25), unchanged.  Optimistic flip with
+  // rollback on server error.
+  async function markFixed(vocabId) {
+    const item = _allItems.find(i => i.id === vocabId);
+    if (!item) return;
+    if (item.source_type !== 'needs_review') return;  // defensive
+
+    const prevSource = item.source_type;
+    item.source_type = 'manual';
+    renderList();
+
+    try {
+      const res = await fetch(`${BASE}/api/vocabulary/bank/${encodeURIComponent(vocabId)}/mark-fixed`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json().catch(() => ({}));
+      if (data && data.flashcard_added && data.stack_name) {
+        flashToast(`Đã đánh dấu đã sửa + đưa vào flashcard "${data.stack_name}".`, 'success');
+      } else {
+        flashToast('Đã đánh dấu đã sửa (chưa thêm được vào flashcard).', 'info');
+      }
+      await loadStats();
+    } catch (err) {
+      console.error('[vocab] mark-fixed failed:', err);
+      item.source_type = prevSource;
+      renderList();
+      flashToast('Không thể đánh dấu. Thử lại.', 'error');
+    }
+  }
+
+  // 🗑️ Bỏ qua — persistent skip via POST /skip (PR-A migration 030).
+  // Confirms first because the action is destructive (vocab disappears
+  // from every listing, not just this card).  Optimistic remove with
+  // rollback on server error.
+  async function skipVocab(vocabId) {
+    const item = _allItems.find(i => i.id === vocabId);
+    if (!item) return;
+    if (!confirm(`Bỏ qua "${item.headword}"? Vocab này sẽ không xuất hiện lại ở bất cứ đâu.`)) {
+      return;
+    }
+
+    const idx = _allItems.findIndex(i => i.id === vocabId);
+    const removed = _allItems.splice(idx, 1)[0];
+    renderList();
+
+    try {
+      const res = await fetch(`${BASE}/api/vocabulary/bank/${encodeURIComponent(vocabId)}/skip`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      flashToast(`Đã bỏ qua "${removed.headword}".`, 'info');
+      await loadStats();
+    } catch (err) {
+      console.error('[vocab] skip failed:', err);
+      _allItems.splice(idx, 0, removed);
+      renderList();
+      flashToast('Không thể bỏ qua. Thử lại.', 'error');
+    }
+  }
+
   window._myVocab = window._myVocab || {};
   window._myVocab.downloadCsv      = function () { return downloadExport('csv');  };
   window._myVocab.downloadJson     = function () { return downloadExport('json'); };
   window._myVocab.previewFlashcard = previewFlashcard;
   window._myVocab.acceptSuggestion = acceptSuggestion;
+  window._myVocab.markFixed        = markFixed;
+  window._myVocab.skipVocab        = skipVocab;
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   if (document.readyState === 'loading') {
