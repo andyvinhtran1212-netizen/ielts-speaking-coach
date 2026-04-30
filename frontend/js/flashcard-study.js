@@ -657,12 +657,29 @@
     }
   }
 
-  function triageSkip(vocabId) {
-    // Local-only skip: row stays in the DB and will reappear on next visit.
+  async function triageSkip(vocabId) {
+    // PR-A: skip is now persistent.  The local DOM remove was a Day 2
+    // dogfood papercut — the row reappeared on reload because nothing was
+    // written.  POST /skip flips is_skipped=true on the vocab row, which
+    // every user-facing query filters on.
     const idx = _triageItems.findIndex(v => v.id === vocabId);
     if (idx === -1) return;
-    _triageItems.splice(idx, 1);
+    const removed = _triageItems.splice(idx, 1)[0];
     renderTriage();
+
+    try {
+      const res = await fetch(
+        BASE + '/api/vocabulary/bank/' + encodeURIComponent(vocabId) + '/skip',
+        { method: 'POST', headers: authHeaders() },
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      _triageToast(`✅ Đã bỏ qua "${removed.headword}".`, 'info');
+    } catch (err) {
+      console.error('[triage] skip', err);
+      _triageItems.splice(idx, 0, removed);
+      renderTriage();
+      _triageToast('Không thể bỏ qua. Thử lại.', 'error');
+    }
   }
 
   function _triageToast(message, kind) {
