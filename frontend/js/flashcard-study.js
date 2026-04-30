@@ -238,7 +238,7 @@
         ${sourceSection}
         <div class="meta-row">
           ${card.source_type ? `<span>${sourceTypeLabel(card.source_type)}</span>` : ''}
-          ${card.review ? `<span>Lần ôn: ${card.review.review_count} • Hệ số: ${Number(card.review.ease_factor).toFixed(2)}</span>` : '<span>Thẻ mới</span>'}
+          ${card.review ? `<span>Đã ôn ${card.review.review_count} lần</span>` : '<span>Chưa học</span>'}
         </div>
       </div>
     `;
