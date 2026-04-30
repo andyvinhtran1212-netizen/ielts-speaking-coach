@@ -87,16 +87,12 @@
       }
     } catch (_) { showState('Tính năng chưa được bật.'); return; }
 
-    // Wave 2 Day 1 dogfood: needs_review vocab branches into the triage
-    // view instead of study cards.  Hotkey listener is gated on the study
-    // path because the triage view has no rate buttons to drive.
-    if (_state.stackId === 'auto:needs_review') {
-      $('study-container').classList.add('hidden');
-      $('triage-container').classList.remove('hidden');
-      await loadTriage();
-      return;
-    }
-
+    // PR-B: every stack — including auto:needs_review — now renders study
+    // mode here.  The verdict-triage flow that used to live behind
+    // auto:needs_review moved to my-vocabulary.html (the canonical vocab
+    // management hub); this page is study-only again.  auto:needs_review
+    // continues to populate from the backend with vocab the user has
+    // lapsed on (lapse_count > 0), so the SRS use case still has a queue.
     await loadCards();
     document.addEventListener('keydown', onHotkey);
   }
@@ -520,190 +516,10 @@
     }
   }
 
-  // ── Triage view (Wave 2 Day 1 dogfood) ────────────────────────────────────
-  //
-  // Auto-stack `auto:needs_review` is rendered as a triage list, not a
-  // study queue: the cards represent vocab the AI flagged as incorrect,
-  // and learning them via SRS would teach the wrong form.  The user
-  // reviews the suggestion + reason, fixes the underlying issue
-  // themselves (or skips), then clicks "Đã sửa" which calls
-  // POST /api/vocabulary/bank/{id}/mark-fixed.
-  //
-  // Reuses the existing `GET /api/vocabulary/bank/?source_type=needs_review`
-  // listing endpoint — no new backend route just for the listing.
-  //
-  // Trailing slash is REQUIRED.  The route is registered as @router.get("/")
-  // on the /api/vocabulary/bank prefix, so a request without it hits FastAPI's
-  // redirect_slashes=True path and returns a 307 to /api/vocabulary/bank/.
-  // Behind Railway's proxy that 307 carries scheme=http, which then (a) drops
-  // the Authorization header on the cross-scheme follow and (b) gets blocked
-  // by the browser as Mixed Content from the HTTPS frontend.
-
-  let _triageItems = [];
-
-  async function loadTriage() {
-    setHtml('triage-container', '<div class="state-msg"><div class="spinner"></div></div>');
-    try {
-      const res = await fetch(
-        BASE + '/api/vocabulary/bank/?source_type=needs_review',
-        { headers: authHeaders() },
-      );
-      if (!res.ok) {
-        setHtml('triage-container',
-          '<div class="state-msg error">Không tải được danh sách. Thử lại sau.</div>');
-        return;
-      }
-      _triageItems = await res.json();
-    } catch (err) {
-      console.error('[triage] load', err);
-      setHtml('triage-container',
-        '<div class="state-msg error">Không tải được danh sách. Thử lại sau.</div>');
-      return;
-    }
-    renderTriage();
-  }
-
-  function renderTriage() {
-    const items = Array.isArray(_triageItems) ? _triageItems : [];
-    const headerHtml = `
-      <div class="triage-header">
-        <h2>📝 Từ vựng cần xem lại</h2>
-        <p>
-          AI gợi ý các từ này có lỗi grammar/usage trong bài luyện gần đây.
-          Hãy đọc phần gợi ý, tự sửa lỗi của bạn, rồi bấm "Đã sửa" để đưa từ
-          (đã sửa) vào flashcard học.
-        </p>
-      </div>`;
-
-    if (items.length === 0) {
-      setHtml('triage-container', headerHtml + `
-        <div class="state-msg" style="padding:32px 16px;">
-          🎉 Không có từ nào cần xem lại.<br/>
-          <span style="font-size:12px;opacity:0.7;">
-            Tiếp tục luyện Speaking để hệ thống có dữ liệu phân tích mới.
-          </span>
-        </div>`);
-      return;
-    }
-
-    setHtml('triage-container',
-      headerHtml + items.map(_triageCardHtml).join(''));
-
-    items.forEach(item => {
-      const card = document.querySelector(`[data-triage-id="${item.id}"]`);
-      if (!card) return;
-      card.querySelector('.triage-btn--fixed').addEventListener('click',
-        () => triageMarkFixed(item.id));
-      card.querySelector('.triage-btn--skip').addEventListener('click',
-        () => triageSkip(item.id));
-    });
-  }
-
-  function _triageCardHtml(item) {
-    const ctx = item.context_sentence
-      ? `<p class="triage-context">"${escape(item.context_sentence)}"</p>` : '';
-    const sug = item.suggestion
-      ? `<div class="triage-suggestion"><strong>💡 Gợi ý:</strong> ${escape(item.suggestion)}</div>`
-      : '';
-    const reason = item.reason
-      ? `<p class="triage-reason">${escape(item.reason)}</p>` : '';
-    return `
-      <div class="triage-card" data-triage-id="${escape(item.id)}">
-        <div class="triage-card-headword">
-          <span>${escape(item.headword || '')}</span>
-          <span class="triage-badge">Cần xem lại ⚠</span>
-        </div>
-        ${ctx}
-        ${sug}
-        ${reason}
-        <div class="triage-actions">
-          <button class="triage-btn triage-btn--fixed" type="button"
-                  title="Tôi đã chỉnh lỗi này — đưa từ đã sửa lên flashcard">
-            ✏️ Đã sửa, đưa lên flashcard
-          </button>
-          <button class="triage-btn triage-btn--skip" type="button"
-                  title="Bỏ qua từ này — sẽ vẫn hiện lần sau">
-            ⏭️ Bỏ qua
-          </button>
-        </div>
-      </div>`;
-  }
-
-  async function triageMarkFixed(vocabId) {
-    // Optimistic: pull the card out of view immediately so the action
-    // feels responsive.  Restore on server error so the user can retry.
-    const idx = _triageItems.findIndex(v => v.id === vocabId);
-    if (idx === -1) return;
-    const removed = _triageItems.splice(idx, 1)[0];
-    renderTriage();
-
-    try {
-      const res = await fetch(
-        BASE + '/api/vocabulary/bank/' + encodeURIComponent(vocabId) + '/mark-fixed',
-        { method: 'POST', headers: authHeaders() },
-      );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json().catch(() => ({}));
-      if (data && data.flashcard_added && data.stack_name) {
-        _triageToast(`✅ Đã đưa "${removed.headword}" vào flashcard "${data.stack_name}".`, 'success');
-      } else {
-        _triageToast(`✅ Đã đánh dấu "${removed.headword}" đã sửa.`, 'info');
-      }
-    } catch (err) {
-      console.error('[triage] mark-fixed', err);
-      _triageItems.splice(idx, 0, removed);
-      renderTriage();
-      _triageToast('Không thể cập nhật. Thử lại.', 'error');
-    }
-  }
-
-  async function triageSkip(vocabId) {
-    // PR-A: skip is now persistent.  The local DOM remove was a Day 2
-    // dogfood papercut — the row reappeared on reload because nothing was
-    // written.  POST /skip flips is_skipped=true on the vocab row, which
-    // every user-facing query filters on.
-    const idx = _triageItems.findIndex(v => v.id === vocabId);
-    if (idx === -1) return;
-    const removed = _triageItems.splice(idx, 1)[0];
-    renderTriage();
-
-    try {
-      const res = await fetch(
-        BASE + '/api/vocabulary/bank/' + encodeURIComponent(vocabId) + '/skip',
-        { method: 'POST', headers: authHeaders() },
-      );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      _triageToast(`✅ Đã bỏ qua "${removed.headword}".`, 'info');
-    } catch (err) {
-      console.error('[triage] skip', err);
-      _triageItems.splice(idx, 0, removed);
-      renderTriage();
-      _triageToast('Không thể bỏ qua. Thử lại.', 'error');
-    }
-  }
-
-  function _triageToast(message, kind) {
-    let el = document.getElementById('triage-toast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'triage-toast';
-      el.style.cssText =
-        'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
-        'padding:10px 16px;border-radius:10px;font-size:13px;z-index:60;' +
-        'opacity:0;transition:opacity 0.2s;pointer-events:none;';
-      document.body.appendChild(el);
-    }
-    const palette = {
-      success: 'background:rgba(20,184,166,0.18);border:1px solid rgba(20,184,166,0.4);color:#5eead4;',
-      info:    'background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);color:#a5b4fc;',
-      error:   'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;',
-    };
-    el.style.cssText += (palette[kind] || palette.info);
-    el.textContent = message;
-    el.style.opacity = '1';
-    clearTimeout(_triageToast._t);
-    _triageToast._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
-  }
+  // PR-B: triage moved to my-vocabulary.html.  The flashcard-study page
+  // is study-only again — every stack, including auto:needs_review,
+  // renders the standard SRS card UI populated by the backend (which
+  // sources auto:needs_review from flashcard_reviews.lapse_count > 0).
 
   // ── Boot ───────────────────────────────────────────────────────────────────
   if (document.readyState === 'loading') {
