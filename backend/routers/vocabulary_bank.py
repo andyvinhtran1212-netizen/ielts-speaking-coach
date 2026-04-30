@@ -104,6 +104,7 @@ async def list_vocab(
         .select("*")
         .eq("user_id", user_id)
         .eq("is_archived", False)
+        .eq("is_skipped", False)  # PR-A: triage skips hide everywhere
         .order("created_at", desc=True)
     )
 
@@ -134,6 +135,7 @@ async def get_vocab_stats(authorization: str | None = Header(default=None)):
         .select("mastery_status")
         .eq("user_id", user_id)
         .eq("is_archived", False)
+        .eq("is_skipped", False)  # PR-A: skipped rows don't count anywhere
         .execute()
     )
 
@@ -166,6 +168,7 @@ async def get_recent_vocab(
         .eq("user_id", user_id)
         .eq("session_id", session_id)
         .eq("is_archived", False)
+        .eq("is_skipped", False)  # PR-A: skipped vocab hidden from session lookups too
         .order("created_at", desc=False)
         .execute()
     )
@@ -206,6 +209,7 @@ async def get_recent_vocab_updates(
         .select("id, headword, source_type, session_id, created_at")
         .eq("user_id", user_id)
         .eq("is_archived", False)
+        .eq("is_skipped", False)  # PR-A: skipped rows don't appear in dashboard widget
         .order("created_at", desc=True)
         .limit(fetch_n)
         .execute()
@@ -286,9 +290,12 @@ async def export_user_vocabulary(
 ):
     """Download the caller's full vocab bank as CSV (default) or JSON.
 
-    Includes archived rows on purpose — a backup should be lossless.  Same
-    feature-flag gate as every other vocab-bank endpoint (default-deny per
-    project rule).
+    Includes archived rows on purpose — a backup should be lossless on the
+    "is this entry valid" axis.  Skipped rows (PR-A migration 030) ARE
+    excluded though: skipping is a forward-looking "I don't want to learn
+    this" decision, and the user's stated mental model of export is "what
+    I'm currently learning", not "everything I've ever seen".  Same
+    feature-flag gate as every other vocab-bank endpoint.
     """
     auth_user = await _require_auth(authorization)
     user_id = auth_user["id"]
@@ -303,6 +310,7 @@ async def export_user_vocabulary(
             _user_sb(token)
             .table("user_vocabulary")
             .select(",".join(_EXPORT_COLUMNS))
+            .eq("is_skipped", False)  # PR-A: skipped rows excluded from export
             .order("created_at", desc=True)
             .execute()
         )
@@ -355,6 +363,7 @@ async def get_vocab_detail(
         .select("*")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
+        .eq("is_skipped", False)  # PR-A: skipped rows 404 just like archived
         .limit(1)
         .execute()
     )
@@ -745,6 +754,59 @@ async def mark_vocab_fixed(
         "stack_id":        stack_id,
         "stack_name":      stack_name,
     }
+
+
+# ── POST /{id}/skip — Persistent triage skip ────────────────────────────────
+#
+# Pre-PR #25 the triage view's "🗑️ Bỏ qua" button was a local-only DOM
+# remove — the row reappeared on next visit, which testers reported as
+# the action not working at all.  This endpoint persists the decision
+# via the `is_skipped` column added in migration 030.
+#
+# Distinct from /report (false-positive flag): skip means "this vocab is
+# correct but I don't want to learn it right now"; report means "this
+# vocab is wrong, get rid of it".  The two flags compose — a row can be
+# both, and downstream filters honour both.
+#
+# Idempotent on already-skipped rows (returns success without writing).
+
+
+@router.post("/{vocab_id}/skip")
+async def skip_vocab(
+    vocab_id: str,
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    existing = (
+        sb.table("user_vocabulary")
+        .select("id, is_skipped")
+        .eq("id", vocab_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not existing.data:
+        raise HTTPException(404, "Vocab entry not found")
+
+    if existing.data[0].get("is_skipped"):
+        return {"ok": True, "vocab_id": vocab_id, "already_skipped": True}
+
+    sb.table("user_vocabulary").update(
+        {"is_skipped": True}
+    ).eq("id", vocab_id).execute()
+
+    _fire_event("vocab_skipped", {"vocab_id": vocab_id}, user_id)
+
+    return {"ok": True, "vocab_id": vocab_id, "already_skipped": False}
 
 
 # ── POST /{id}/report — False Positive Report ────────────────────────────────
