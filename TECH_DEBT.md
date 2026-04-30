@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-04-28
-**Last reviewed:** 2026-04-28
+**Last updated:** 2026-04-30
+**Last reviewed:** 2026-04-30
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -111,6 +111,57 @@ material, not active backlog.
 ---
 
 ## ⏸️ DEFERRED — Roadmap
+
+### Security hardening (Phase 3 prerequisite)
+
+#### HIGH-1: Legacy router security model drift (DEFERRED)
+
+**Status:** ⏸️ DEFERRED to dedicated security sprint (Phase 3 prerequisite)
+
+**Original framing (Codex audit 2026-04-30):**
+Convert sessions.py + responses.py + pronunciation.py to JWT-scoped clients,
+add WITH CHECK to RLS UPDATE policies.
+
+**Reality discovered (Claude Code investigation 2026-04-30):**
+1. sessions + responses tables have NO RLS policies at all (predate
+   RLS-everywhere convention)
+2. Migration 031 spec was wrong — would need to INTRODUCE RLS from scratch
+   on populated production tables (high blast radius)
+3. responses.py is dead code per its own docstring (responses.py:6-11).
+   Production grading lives in grading.py
+4. Same supabase_admin-after-JWT pattern in: grading.py, questions.py,
+   exercises.py, grammar.py, analytics.py, export.py — scope much larger
+   than 3 named files
+
+**True scope:**
+- 8+ routers need conversion
+- Multiple tables need RLS introduction (sessions, responses, pronunciation
+  scores, plus any orphan tables)
+- Migration touches populated production data
+- Estimate: 1-2 week dedicated sprint
+
+**Blocking factors:**
+1. Need staging access for migration verification with production-shaped data
+2. Need bucket policy review for audio-responses storage
+3. Need decision: which legacy tables truly need RLS vs deprecation candidates
+4. Need full router inventory for supabase_admin usage
+
+**When to address:**
+- After Phase 2.5 dogfood completes
+- Before Phase 3 user growth (current solo dogfood = low real-world risk)
+- As prerequisite hardening sprint to Phase 3 launch
+
+**Mitigation in interim:**
+- Application-layer ownership filters in all affected routes (already in place)
+- JWT validation on all routes (already in place)
+- Admin role check on admin routes (already in place)
+- No known active exploit vector
+
+**References:**
+- Codex audit 2026-04-30 finding HIGH-1
+- Claude Code investigation 2026-04-30 (this session)
+- responses.py:6-11 (dead code confirmation)
+- CLAUDE.md (production grading pipeline location)
 
 ### Phase E (post Phase 3)
 
