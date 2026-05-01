@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-04-30
-**Last reviewed:** 2026-04-30
+**Last updated:** 2026-05-01
+**Last reviewed:** 2026-05-01
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -24,26 +24,23 @@ material, not active backlog.
 
 ### High priority — blocking Phase 3 strategic decision
 
-#### HIGH-2: Phase B FP-rate dogfood session 2 not yet run
-- **What:** Session 1 measured 37% FP rate against a < 10% gate.  Post-dogfood
-  remediation (migration 020 + the ROUND2 audit) shipped, but session 2
-  hasn't been run to verify the < 15% acceptance gate.
-- **Action:** Run one full dogfood session, log issues in
-  `DOGFOOD_PHASE_B_NOTES.md` (or equivalent), decide whether to expand the
-  rollout or run a third remediation pass.
-- **Effort:** 1–2 hours of dogfood + analysis.
-- **Blocking:** Phase 3 direction decision.
+> HIGH-2 (Phase B FP rate Session 2) moved to **✅ Completed → Phase 2.5
+> Day 3** below.  Session 2 ran during the Combo Dogfood Day 2 cycle and
+> the four MEDIUM issues that surfaced were addressed in PR #22.
 
-#### HIGH-3: Wave 2 flashcard SRS dogfood not yet run
+#### HIGH-3: Wave 2 flashcard SRS dogfood — Day 2-4 pending
 - **What:** SRS algorithm has 7 deterministic unit tests pinning ease-factor
-  floor/cap and interval growth, but nobody has actually studied a deck for
-  ≥ 5 days to feel whether the intervals match pedagogical expectation.
-- **Action:** 10 cards/day for 5–7 days, log subjective "felt about right /
-  too soon / too late" per rating.  Adjust the SM-2 multiplier constants in
-  `services/srs.py` if needed.
+  floor/cap and interval growth, and **Day 1** dogfood ran 2026-04-29 →
+  surfaced 6 issues addressed in PR #25 + #28 + #29.  Days 2-4 (subjective
+  "intervals match pedagogical expectation?" feel-test) still pending now
+  that the UX is clean.
+- **Action:** ~30 min/day × 3 days against the post-PR-#29 build, log
+  subjective "felt about right / too soon / too late" per rating.  Adjust
+  the SM-2 multiplier constants in `services/srs.py` if needed.
 - **Tools:** Admin Flashcard Stats tab (PR #18) surfaces rating distribution,
   avg ease, mastered count, top words — point at these during dogfood.
-- **Effort:** ~30 min/day × 5 days.
+- **Healthy benchmark:** Again 10–20%, Hard 20–30%, Good 40–50%, Easy 10–20%.
+- **Effort:** ~30 min/day × 3 days.
 - **Blocking:** Phase 3 direction decision.
 
 #### HIGH-4: Phase 3 strategic decision
@@ -54,12 +51,38 @@ material, not active backlog.
   3. Reading / Listening module.
   4. Audio + image flashcards.
   5. SRS algorithm tuning based on dogfood data.
-- **Decision criteria:** Dogfood findings (HIGH-2 + HIGH-3) + any user
-  signal we've collected.
+- **Decision criteria:** Dogfood findings (HIGH-3 Days 2-4 + HIGH-5
+  baseline metrics) + any user signal collected.
 - **Effort:** 1–2 days planning once data is in.
-- **Blocked by:** HIGH-2 + HIGH-3.
+- **Blocked by:** HIGH-3 Days 2-4 + HIGH-5.
+
+#### HIGH-5: Baseline metrics not yet documented
+- **What:** Coverage baseline shipped in PR #31 (50% overall) but
+  product-level baseline metrics have never been captured.  Phase 3
+  decision making + post-Phase-3 comparison both need a "what does
+  healthy look like at solo-dev scale today?" reference doc.
+- **Action:** Capture SRS distribution per user (after HIGH-3 Day 4),
+  API latency p95 from Railway logs, Gemini cost / active user / month,
+  vocab enrichment success rate, DAU.
+- **Effort:** ~1 day write-up + analysis once Days 2-4 dogfood data is in.
+- **Output:** `docs/audits/BASELINE_METRICS_2026-05.md`.
+- **Blocked by:** HIGH-3 Days 2-4.
 
 ### Medium priority
+
+#### MED-2: Vocab enrichment backfill incomplete (audit MEDIUM-2)
+- **What:** Audit 2026-04-30 sampled live data and found 12 of 36 `used_well`
+  rows and 6 of 14 `needs_review` rows were missing `definition_vi`/`_en`
+  (one row each missing IPA / `example_sentence`).  PR #16 + PR #25 ran
+  enrichment passes, but rows added afterward, or chunks where Gemini
+  returned partial output, didn't get re-touched.
+- **Action:** Hit `POST /admin/vocab/backfill-enrichment?limit=50` with an
+  admin JWT, then re-query the missing-field counts.  If a residue
+  remains, inspect `ai_usage_logs` for Gemini errors and decide whether
+  to extend the simpler-prompt retry path.
+- **Effort:** ~30 minutes (run + verify) once an admin JWT is at hand.
+- **Blocked by:** Need admin JWT (rotates) + production access — Claude
+  Code session can't drive this directly.
 
 #### MED-3: D1 admin generate-batch progress polling
 - **What:** D1 admin generate-batch is a fire-and-forget background task; the
@@ -101,6 +124,42 @@ material, not active backlog.
 - **Action:** Defer — when stronger guarantees are needed, switch to remote
   backup target (S3 / GCS) or use Supabase's own scheduled backup feature.
 - **Effort:** 2–3 hours when chosen.
+
+#### LOW-6: No dedicated live route test for `/mark-fixed` (and `/accept`)
+- **From:** PR #25 Codex audit + PR #28 Codex audit + Combo Dogfood Day 2
+  audit (the same finding surfaced in three consecutive reviews).
+- **What:** `test_vocab_mark_fixed.py` and the `/accept` test cover the
+  handler offline; live `user_vocabulary` RLS regression tests cover the
+  underlying table.  No route-specific live test analogous to
+  `test_mark_fixed_rls_scoped` exists yet, so there's no pinned guarantee
+  that user B can't mutate user A's row through the route under live RLS.
+- **Action:** Add one staging test per route that calls the endpoint as
+  user A and asserts user B cannot observe or mutate the resulting row.
+- **Effort:** ~1 hour when picked up.
+- **Defer until:** HIGH-1 security sprint folds it in (cheaper to do
+  alongside the broader live-RLS coverage rebuild).
+
+#### LOW-7: `recent-updates` lacks composite `(user_id, created_at DESC)` index
+- **From:** Combo Dogfood Day 2 audit.
+- **What:** `GET /api/vocabulary/bank/recent-updates` orders by
+  `created_at DESC` after filtering by `user_id`.  Existing indexes
+  (`idx_user_vocab_user`, `idx_user_vocab_user_status`, unique headword)
+  don't fully cover the order-by; PostgreSQL falls back to an in-memory
+  sort.
+- **Impact:** Negligible at solo-dev scale; visible at multi-user scale.
+- **Effort:** 2-line migration when picked up.
+- **Defer until:** Performance metrics show the dashboard widget is slow
+  OR before opening to beta users (see HIGH-5 baseline).
+
+#### LOW-8: Public endpoint latency above aspirational liveness target
+- **From:** Audit 2026-04-30.
+- **What:** `/health` ~650-750ms, `/health/ready` ~3.6-4.3s,
+  `/api/grammar/home` and `/api/grammar/categories` ~1.1s.  Acceptable for
+  current dogfood scale but `/health` aspirational target is <200ms.
+- **Action:** Investigate cold-start vs sustained latency once Railway
+  paid-tier or Vercel-edge is on the table.
+- **Effort:** Hours-to-days depending on how much rearchitecture lands.
+- **Defer until:** User-facing impact OR move beyond Railway free tier.
 
 ---
 
@@ -238,6 +297,19 @@ add WITH CHECK to RLS UPDATE policies.
 - **Status:** Established norm.  Continue — don't let a future wave skip
   this even under deadline pressure.
 
+#### PROC-5: State-audit checklist (codify the 2026-04-30 template)
+- **Background:** The 2026-04-30 comprehensive state audit was the first
+  cumulative-state pass (vs per-PR audits).  Format covered 12 areas
+  (DB, API, RLS, frontend, tests, cross-PR contradictions, anti-patterns,
+  deploy state, data integrity, performance, cost, security) and surfaced
+  4 LOW + 2 MEDIUM + 1 HIGH that per-PR audits had missed.  Worth a
+  reusable template.
+- **Action:** Distill the audit prompt into a `docs/templates/STATE_AUDIT.md`
+  template that can run end of each multi-PR cycle.  Note which areas are
+  Claude-Code-driveable vs need staging access vs need production access.
+- **Effort:** 1 day to template + run the second pass for comparison.
+- **Defer until:** End of Phase 2.5 (after Wave 2 dogfood Days 2-4 land).
+
 ---
 
 ## 🗑️ OBSOLETE
@@ -247,6 +319,132 @@ add WITH CHECK to RLS UPDATE policies.
 ---
 
 ## ✅ Completed
+
+### Phase 2.5 Day 5 — 2026-05-01 (1 PR)
+
+**Quick wins from comprehensive audit (PR #31) — Codex audit deferred:**
+- ✅ **LOW-1: duplicate `/health` route removed** — `main.py` had a one-line
+  handler shadowed in production by `routers/health.py`; FastAPI's
+  last-registered-wins meant the router version always served, so this
+  was dead code.
+- ✅ **LOW-2: TECH_DEBT.md health snapshot refreshed** — 254 tests, migrations
+  001–031, posture WARNING/MEDIUM/Phase-3-with-fixes.
+- ✅ **LOW-3: pytest-cov + coverage baseline** — first formal capture, 50%
+  overall.  Doc at `docs/audits/COVERAGE_BASELINE_2026-04-30.md` with a
+  per-tier table + running delta table for future runs.
+- ✅ **MEDIUM-1: ai_usage_logs schema codified** — migration 031 mirrors the
+  canonical comment block in `services/ai_usage_logger.py:9-26` (idempotent,
+  three indexes preserved).  Logger docstring now points at the migration
+  as source of truth.
+- ⏸️ **MEDIUM-2: vocab enrichment backfill rerun** — moved to active backlog
+  (MED-2); needs admin JWT + production access that the Claude Code
+  session can't drive directly.
+
+### Phase 2.5 Day 4 — 2026-04-30 (5 PRs)
+
+**Hotfix list-endpoint trailing slash (PR #26):**
+- ✅ Triage fetch URL now ends with `/` so FastAPI's `redirect_slashes=True`
+  doesn't return a 307 that Railway's proxy then carries with `scheme=http`
+  — that combination dropped the `Authorization` header on the cross-scheme
+  follow and got blocked by the browser as Mixed Content.
+- ✅ Added anti-pattern **#13** (list-endpoint trailing slash on the client)
+  to the cumulative anti-pattern lessons.
+
+**PR-A skip persistence (PR #27):**
+- ✅ **Migration 030** — `is_skipped` column on `user_vocabulary` with a
+  partial index for the active subset.
+- ✅ `POST /api/vocabulary/bank/{id}/skip` endpoint — JWT-scoped, idempotent.
+- ✅ `is_skipped = false` filter applied across all user-facing surfaces:
+  listing, export, accept, mark-fixed, recent-updates, due-queue, auto
+  flashcard stacks.
+- ✅ Builder-recording test pattern (6 tests pin the filter presence) — same
+  pattern as the Wave 2 stack/RLS suites.
+
+**PR-B triage relocation + needs_review redefine (PR #28) — Codex APPROVE:**
+- ✅ Verdict-triage UI moved from `flashcard-study.html` to `my-vocabulary.html`.
+  Vocab management belongs in the vocab management hub; the study page now
+  only does SRS for every stack.
+- ✅ Inline `✏️ Đã sửa, đưa lên flashcard` + `🗑️ Bỏ qua` actions on
+  `needs_review` rows (replacing the locked +Stack/Xem trước placeholders).
+- ✅ `auto:needs_review` redefined from "AI grammar verdict"
+  (`source_type='needs_review'`) to "SRS struggle"
+  (`flashcard_reviews.lapse_count > 0`).  The auto-stack now surfaces vocab
+  the user has actually lapsed on — the right SRS use case.
+- ✅ Wave 2 flagship `auto:all_vocab` study mode preserved — regression test
+  added.
+- ✅ 11 new tests in `test_needs_review_redefined.py` pin the contract:
+  only counts lapsed; excludes skipped/archived/grammar-verdict rows;
+  sorted lapse_count desc + ease_factor asc tiebreaker.
+
+**Wave 2 Day 1 polish (PR #29):**
+- ✅ "Xem câu gốc" button gets clickable affordance (`.source-context-btn`
+  class with cursor pointer + teal hover lift, matching the vocab-action
+  pattern from PR #23).
+- ✅ Drop ease_factor from the user-facing meta row; admin Flashcard Stats
+  tab still surfaces it for the audience that reads the algorithm.
+- ✅ Rename "Thẻ mới" → "Chưa học" (state of knowledge, not card inventory).
+- ✅ Replace SRS jargon on user-facing surfaces:
+  `Tiến độ SRS` → `tiến độ học tập`, `theo SRS` / `lịch SRS` →
+  `theo lịch tự động` / `lịch tự động`.
+
+**HIGH-1 strategic deferral (PR #30):**
+- ⏸️ Pre-implementation investigation found the audit spec materially
+  understated scope (no RLS to "add WITH CHECK to" — legacy `sessions`/
+  `responses` tables have no policies at all; `responses.py` is dead code;
+  same `supabase_admin`-after-JWT pattern lives in 8+ routers, not just 3).
+- ⏸️ Deferred to a dedicated security sprint with staging access — see the
+  detailed entry under **⏸️ DEFERRED → Security hardening (Phase 3
+  prerequisite)**.
+
+### Phase 2.5 Day 3 — 2026-04-29 (6 PRs)
+
+**TECH_DEBT comprehensive restructure (PR #20):**
+- ✅ Migrated to the explicit-state format (🔴/🟡/✅/⏸️/🗑️) instead of
+  priority buckets — every item now carries its own status, blockers, and
+  revisit trigger.
+
+**Combo Dogfood Day 2 HIGH issues (PR #21):**
+- ✅ **CRITICAL: Whisper transcript leak fixed** — instruction-style prompt
+  removed from `services/whisper.py`; `test_whisper_prompt.py` pins the
+  contract against re-introduction.
+- ✅ **HIGH: flashcard card-back button overlap** — back face moved into a
+  grid cell that sizes to the larger of the two faces, so rich content
+  no longer overflows the 280px floor onto the rating buttons.
+- ✅ **HIGH-2: Phase B FP-rate Session 2** — dogfood Session 2 ran during
+  this cycle; per user dogfood log the FP rate met the < 15% acceptance
+  gate (no FP-rate-related findings surfaced into the Combo Day 2 audit).
+  The four MEDIUM UX issues that did surface are tracked under PR #22.
+- ✅ Test pin: `flashcard_reviews` lazy-create contract (no auto-add of
+  `needs_review` vocab to flashcards).
+
+**Combo MEDIUM Dogfood Day 2 (PR #22) — Codex APPROVE:**
+- ✅ Dashboard "Cập nhật từ vựng gần đây" widget replaces the result-page
+  toast (`GET /api/vocabulary/bank/recent-updates`).
+- ✅ Auto-stack "Đang phân loại" badge on `auto:needs_review` study page.
+- ✅ Result-page parity for `test_part` flow (redirect to `result.html`).
+- ✅ My Vocabulary preview-flashcard modal + `POST /accept` to promote a
+  suggestion (and add to the user's default stack).
+
+**Post-PR-#22 UX polish (PR #23):**
+- ✅ Backend rejects `needs_review` rows from being added to flashcard
+  stacks; frontend locks the `+Stack` button with a tooltip.
+- ✅ Clickable affordance pattern (`.vocab-action-btn` family) shipped — the
+  template later reused by PR #25 + PR #29.
+
+**Post-PR-#23 UX consistency (PR #24):**
+- ✅ Lock `Xem trước` for `needs_review` for the same reason `+Stack` was
+  locked.
+- ✅ 1-click accept-and-learn — `POST /accept` now also enrolls the row
+  into the user's default flashcard stack ("Từ vựng đã chấp nhận"),
+  auto-creating the stack the first time it's needed.
+
+**Wave 2 Dogfood Day 1 fixes (PR #25) — Codex APPROVE:**
+- ✅ Triage view for `auto:needs_review` (PR-A version; superseded by
+  PR-B's relocation in PR #28).
+- ✅ Bidirectional card flip restored on `flashcard-study.html`.
+- ✅ Idiom + collocation Vietnamese definitions — Gemini prompt updated
+  + `_SYSTEM_PROMPT_SIMPLE` retry path; `definition_vi`/`_en` only
+  written when actually returned (non-destructive backfill).
 
 ### Phase 2.5 Day 2 — 2026-04-28 (5 PRs)
 
@@ -381,7 +579,7 @@ in incoming specs before any code was written:
 
 ---
 
-## 📊 Health metrics — snapshot 2026-04-30
+## 📊 Health metrics — snapshot 2026-05-01
 
 For the cumulative snapshot, see the comprehensive production audit
 captured 2026-04-30.  Coverage baseline lives at
@@ -390,7 +588,7 @@ captured 2026-04-30.  Coverage baseline lives at
 **Code:**
 - Backend tests: **254 collected** (239 passed, 15 env-gated live-RLS skips
   without staging creds in CI environment).
-- Coverage baseline: **50% overall** (first formal capture; details in
+- Coverage baseline: **50% overall** (PR #31; tracked at
   `docs/audits/COVERAGE_BASELINE_2026-04-30.md`).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
   intentionally skipped (deferred to Phase E).
@@ -399,7 +597,7 @@ captured 2026-04-30.  Coverage baseline lives at
   `services/ai_usage_logger.py` comments).
 - Live RLS tests: **8 pass live** (no skips when staging creds present).
 
-**Production posture (2026-04-30):**
+**Production posture (2026-05-01):**
 - Overall: **WARNING** — HIGH-1 deferred to dedicated security sprint
   (legacy `sessions`/`responses` tables have no RLS yet; mitigated by
   app-layer ownership filters + JWT validation; no known active exploit
@@ -409,22 +607,32 @@ captured 2026-04-30.  Coverage baseline lives at
   prerequisite.
 
 **Production:**
-- Vercel: deployed latest, status Ready.
+- Vercel: deployed main HEAD, status Ready.
 - Railway: deployed, `/health` returns OK; `/health/ready` all-checks OK.
 - Supabase: vocab enrichment partial — 12/36 `used_well` and 6/14
   `needs_review` rows missing `definition_vi/_en` at audit time
-  (MEDIUM-2, backfill rerun pending).
+  (MED-2, backfill rerun pending).
 - Backup: daily 03:00 via launchd, ~13 MB dumps.
 
 **Dogfood data — gaps:**
-- Phase B FP rate: not yet measured Session 2 (HIGH-2).
-- Wave 2 SRS feel: not yet measured (HIGH-3).
+- Phase B FP rate Session 2: ✅ ran 2026-04-29 (per dogfood log; no FP-rate
+  finding in Combo Day 2 audit).
+- Wave 2 SRS Day 1: ✅ ran 2026-04-29; 6 issues addressed in PR #25 + #28 +
+  #29.  Days 2-4 (interval-feel test against the cleaned UX) still pending
+  (HIGH-3).
 - Engagement metrics: minimal (1 active user = self).
+- Baseline metrics doc not yet captured (HIGH-5).
+
+**Production latency (sampled during audit 2026-04-30):**
+- `/health` ~650-750ms (aspirational <200ms — see LOW-8).
+- `/health/ready` ~3.6-4.3s (acceptable for diagnostic endpoint).
+- `/api/grammar/home` and `/api/grammar/categories` ~1.1s.
 
 **Cost (current):**
-- Gemini API: ~$5–10/mo estimate (low usage).
+- Gemini API: ~$5–10/mo estimate (low usage; validates the Gemini Flash
+  decision and defers any Gemma self-host migration ~6 months).
 - Supabase: free tier.
-- Railway: free tier.
+- Railway: free tier (LOW-8 latency tied to this — paid tier would help).
 - Vercel: free tier.
 - **Total: ~$5–10/mo.**
 
@@ -432,17 +640,39 @@ captured 2026-04-30.  Coverage baseline lives at
 
 ## 🎯 Next decisions needed
 
-1. **Phase 3 direction** (after Phase 2.5 dogfood — HIGH-2 + HIGH-3)
-   - Quick chatbot vs Mock test vs Reading module vs Audio cards vs
-     SRS tuning.
-   - Decision criteria: dogfood pain points + user requests.
+### Phase 2.5 completion criteria
 
-2. **Beta user recruitment** (timing)
+- [x] Phase B FP rate < 15% verified (Session 2 ran 2026-04-29; per dogfood
+      log the gate held).
+- [x] Tech debt CRITICAL cleared.
+- [x] Comprehensive audit findings addressed (4/5 LOW+MEDIUM done in PR
+      #31; MED-2 vocab backfill is the only one still pending and is
+      blocked on production access).
+- [ ] Wave 2 dogfood Day 2-4 complete (HIGH-3).
+- [ ] Baseline metrics documented (HIGH-5).
+- [ ] Phase 3 direction chosen with data justification (HIGH-4).
+
+### Phase 3 direction options
+
+Decision criteria: dogfood pain points + user requests, NOT assumption.
+
+| Option              | Effort     | Trigger                                      |
+|---------------------|------------|----------------------------------------------|
+| Quick chatbot MVP   | 2-3 weeks  | User pain: "want quick conversational help"  |
+| Mock test feature   | 2-3 weeks  | User pain: "want full IELTS Speaking sim"    |
+| Reading/Listening   | 4-6 weeks  | User pain: "Speaking enough, want more"      |
+| Audio cards         | 1-2 weeks  | Dogfood: SRS effective but content thin      |
+| SRS tuning          | 3-5 days   | Dogfood: rating distribution clearly skewed  |
+
+### Open decisions
+
+1. **Beta user recruitment** (timing)
    - Currently solo dev only.
    - Risk: design without real user feedback.
    - Approach: 5–10 beta users after Phase 3 ships.
+   - **Prerequisites:** HIGH-1 hardening sprint + HIGH-5 baseline metrics.
 
-3. **AI model strategy long-term**
+2. **AI model strategy long-term**
    - Currently: Gemini Flash for all AI tasks.
    - Alternative: Gemma self-host (defer ~6 months).
    - Decision criteria: cost > $50/mo OR latency issues.
