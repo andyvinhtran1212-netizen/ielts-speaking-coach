@@ -381,21 +381,39 @@ in incoming specs before any code was written:
 
 ---
 
-## 📊 Health metrics — snapshot 2026-04-28
+## 📊 Health metrics — snapshot 2026-04-30
+
+For the cumulative snapshot, see the comprehensive production audit
+captured 2026-04-30.  Coverage baseline lives at
+`docs/audits/COVERAGE_BASELINE_2026-04-30.md`.
 
 **Code:**
-- Backend tests: **194 collected**, 1 conditionally skipped (live RLS without
-  staging creds in CI environment).
+- Backend tests: **254 collected** (239 passed, 15 env-gated live-RLS skips
+  without staging creds in CI environment).
+- Coverage baseline: **50% overall** (first formal capture; details in
+  `docs/audits/COVERAGE_BASELINE_2026-04-30.md`).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
   intentionally skipped (deferred to Phase E).
-- Migrations applied production: through 029 (latest = rich content).
+- Migrations applied production: **001–031** (031 codifies the
+  `ai_usage_logs` schema that previously lived only in
+  `services/ai_usage_logger.py` comments).
 - Live RLS tests: **8 pass live** (no skips when staging creds present).
 
+**Production posture (2026-04-30):**
+- Overall: **WARNING** — HIGH-1 deferred to dedicated security sprint
+  (legacy `sessions`/`responses` tables have no RLS yet; mitigated by
+  app-layer ownership filters + JWT validation; no known active exploit
+  vector).
+- Tech debt level: **MEDIUM**.
+- Ready for Phase 3: **WITH FIXES** — HIGH-1 hardening is a Phase 3
+  prerequisite.
+
 **Production:**
-- Vercel: deployed PR #19, status Ready.
-- Railway: deployed, `/health` returns OK.
-- Supabase: 18 vocab in `user_vocabulary`, all enriched (post-PR-#16
-  backfill).
+- Vercel: deployed latest, status Ready.
+- Railway: deployed, `/health` returns OK; `/health/ready` all-checks OK.
+- Supabase: vocab enrichment partial — 12/36 `used_well` and 6/14
+  `needs_review` rows missing `definition_vi/_en` at audit time
+  (MEDIUM-2, backfill rerun pending).
 - Backup: daily 03:00 via launchd, ~13 MB dumps.
 
 **Dogfood data — gaps:**

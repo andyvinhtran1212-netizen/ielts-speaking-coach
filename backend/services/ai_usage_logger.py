@@ -4,26 +4,8 @@ services/ai_usage_logger.py — Best-effort AI usage logging.
 Writes one row per AI API call to ai_usage_logs.
 Never raises — all failures are swallowed so they never disrupt the main flow.
 
-Required Supabase table (run once in the SQL editor):
-
-    CREATE TABLE IF NOT EXISTS ai_usage_logs (
-        id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id             uuid        REFERENCES users(id) ON DELETE SET NULL,
-        session_id          uuid        REFERENCES sessions(id) ON DELETE SET NULL,
-        service             text        NOT NULL,
-        model               text        NOT NULL,
-        input_tokens        integer,
-        output_tokens       integer,
-        cache_read_tokens   integer,
-        cache_write_tokens  integer,
-        audio_seconds       real,
-        text_chars          integer,
-        cost_usd_est        real,
-        created_at          timestamptz NOT NULL DEFAULT now()
-    );
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_user_ts    ON ai_usage_logs (user_id,  created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_service_ts ON ai_usage_logs (service,  created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_created    ON ai_usage_logs (created_at DESC);
+Schema lives in backend/migrations/031_ai_usage_logs.sql.  Apply that
+migration in any new environment before logs land.
 """
 
 import logging

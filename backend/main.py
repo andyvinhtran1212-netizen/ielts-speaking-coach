@@ -92,11 +92,6 @@ async def startup_event():
     logger.info("Server started")
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok", "app": settings.APP_NAME}
-
-
 @app.get("/topics")
 async def get_topics(
     part: int | None = None,
