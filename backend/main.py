@@ -50,6 +50,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Cache the CORS preflight (OPTIONS) response for 24h.  Without this the
+    # browser issues a fresh preflight before every authenticated request,
+    # which on Railway adds ~300-500ms × N endpoints to first paint.  86400
+    # is the maximum Chromium honours; Firefox caps at 24h, so 86400 is the
+    # right value across both engines.
+    max_age=86400,
 )
 
 app.include_router(auth_router)
