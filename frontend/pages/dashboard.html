@@ -2113,17 +2113,23 @@
       const session = await requireAuth();
       if (!session) return;
 
+      // Hoisted so loadVocabUpdates() below can reuse the /auth/me payload
+      // (vocab_bank_enabled flag) without a second round-trip — see
+      // anti-pattern lesson "duplicate /auth/me on first paint" added with
+      // this commit.
+      let user = null;
       try {
         const res = await fetch(`${window.api.base}/auth/me`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (res.status === 401) { window.location.href = INDEX_URL; return; }
         if (res.ok) {
-          const user = await res.json();
+          user = await res.json();
           renderUser(user);
         }
       } catch (_) {
-        // Backend unreachable — fall back to Supabase metadata
+        // Backend unreachable — fall back to Supabase metadata.  user stays
+        // null so loadVocabUpdates() returns early (default-deny).
         const meta = session.user?.user_metadata || {};
         renderUser({
           display_name: meta.full_name || meta.name,
@@ -2151,7 +2157,7 @@
       _wireHistoryFilterEvents();
 
       loadGrammarDashboard();
-      loadVocabUpdates(session.access_token);
+      loadVocabUpdates(session.access_token, user);
     }
 
     // ── Vocab updates widget ────────────────────────────────
@@ -2159,15 +2165,15 @@
     // Default-deny on vocab_bank_enabled so flag-off users never see an
     // empty section.  Silent fallback on any error — the widget is
     // ancillary and must not block the rest of the dashboard.
-    async function loadVocabUpdates(token) {
+    //
+    // Consumes the /auth/me payload already fetched in init() instead of
+    // re-fetching.  When init()'s fetch failed the caller passes `null` and
+    // the default-deny check below short-circuits (matches the previous
+    // behaviour where the catch block also returned).
+    async function loadVocabUpdates(token, user) {
       if (!token) return;
+      if (!user || user.vocab_bank_enabled !== true) return;
       const BASE = window.api.base;
-      try {
-        const me = await fetch(`${BASE}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then(r => r.ok ? r.json() : null);
-        if (!me || me.vocab_bank_enabled !== true) return;
-      } catch (_) { return; }
 
       let data;
       try {
