@@ -49,6 +49,8 @@ class GrammarContentService:
 
         articles: list[dict] = []
         for md_file in sorted(CONTENT_DIR.rglob("*.md")):
+            if "_archive" in md_file.parts:
+                continue
             try:
                 article = self._parse_file(md_file)
                 if article:
