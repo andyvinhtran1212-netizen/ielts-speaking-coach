@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-01
-**Last reviewed:** 2026-05-01
+**Last updated:** 2026-05-02
+**Last reviewed:** 2026-05-02
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -310,6 +310,71 @@ add WITH CHECK to RLS UPDATE policies.
 - **Effort:** 1 day to template + run the second pass for comparison.
 - **Defer until:** End of Phase 2.5 (after Wave 2 dogfood Days 2-4 land).
 
+### Performance optimization — next batch (post Phase 2.5)
+
+**Status:** ⏸️ DEFERRED until next performance audit.
+
+**Current state:** Dashboard cold-load 16.29s → ~6-7s after PR #33 + #34
+(~58% improvement; manual Incognito verification still pending).
+Acceptable for solo dogfood scale; not yet at the <5s aspiration.  Each
+item below is a follow-up, not a blocker.
+
+#### PERF-3: Tailwind CDN → bundled CSS
+- **Current:** `cdn.tailwindcss.com` is loaded on every page (~127KB plus
+  ~200ms compile-on-load) and emits the production-warning console line.
+- **Fix:** Build Tailwind locally, ship a static CSS bundle.
+- **Effort:** ~1 hour once a build-tooling pick is made.
+- **Impact:** −200ms per page + clears the production warning.
+- **Defer until:** Frontend build pipeline decision (which bundler).
+  Already tracked as **LOW-2 (Tailwind CDN in production)** above —
+  this entry is the implementation-shaped sibling.
+
+#### PERF-4: localStorage cache for `/auth/me`
+- **Current:** Every page reload re-fetches `/auth/me` (provisioning +
+  flag computation + telemetry).  Cheap individually, but adds a
+  blocking call to first paint on every navigation.
+- **Fix:** Cache the response in `localStorage` with a 5-min TTL +
+  stale-while-revalidate pattern.
+- **Effort:** ~2 hours.
+- **Impact:** Instant first paint on subsequent loads.
+- **Defer until:** A user reports slow second-load specifically.
+  Auth-side-effect endpoints generally shouldn't be aggressively cached
+  on the client without a clear trigger.
+
+#### PERF-5: Service Worker for tab navigation
+- **Current:** Multi-page app — every tab switch is a full HTML reload.
+- **Fix:** Service Worker caches static assets (HTML / CSS / JS) so
+  navigation between pages becomes near-instant.
+- **Effort:** ~3-4 hours.
+- **Impact:** Tab switching feels instant.
+- **Defer until:** Phase 3+ (significant scope; needs cache-invalidation
+  discipline aligned with deploys).
+
+#### PERF-6: Backend response time (Railway free tier cold start)
+- **Current:** Each API call is ~1.5-3.5s on cold containers.
+  `/health` ~700ms, `/health/ready` ~4s — most of that is cold start +
+  Railway proxy + Supabase round-trip.
+- **Options:** Railway paid tier (~$5/mo, always-on); database
+  connection pooling; query caching for hot paths.
+- **Effort:** Investigation needed before committing to one approach.
+- **Impact:** Every page benefits, not just the dashboard.
+- **Defer until:** Production scale demands it OR a budget decision is
+  made on Railway tier.  Tied to **LOW-8 (endpoint latency)** above.
+
+#### PERF-7: Codified browser-level cold-load benchmark
+- **From:** PR #34 Codex audit, the only LOW finding
+  (`AUDIT_PR34_DASHBOARD_AGGREGATE_ENDPOINT.md`).
+- **Current:** Cold-load improvements are verified by manual Incognito
+  timing.  No automated browser benchmark exists in repo.
+- **Fix:** Lightweight headless-browser perf smoke (Playwright or
+  similar) that records dashboard `Finish` time post-deploy and asserts
+  a regression budget.
+- **Effort:** ~2-3 hours.
+- **Impact:** The 6-7s target becomes test-enforced rather than
+  observational.
+- **Defer until:** A regression worry surfaces, OR Phase 3 if multiple
+  perf-sensitive paths land at once.
+
 ---
 
 ## 🗑️ OBSOLETE
@@ -319,6 +384,70 @@ add WITH CHECK to RLS UPDATE policies.
 ---
 
 ## ✅ Completed
+
+### Phase 2.5 Day 6 — 2026-05-02 (Performance, 2 PRs)
+
+**Investigation (Incognito timing, 2026-05-02):**
+- Dashboard cold-load baseline: 16.29s
+- Dashboard warm-reload baseline: 10.70s
+- Root causes: per-request CORS preflight (~300-500ms × N), duplicate
+  `/auth/me` fetch on first paint (~3s), and 6+ sequential init fetches.
+
+**PR #33 — PR-A: CORS preflight cache + `/auth/me` dedup:**
+- ✅ `main.py` CORSMiddleware now sets `max_age=86400` (24h, the cap
+  Chromium honours and Firefox respects).  Browsers cache the OK
+  preflight; subsequent fetches skip the OPTIONS round-trip.
+- ✅ `dashboard.html init()` hoists the `/auth/me` payload into outer
+  scope and threads it into `loadVocabUpdates(token, user)` so the widget
+  reuses the flag check instead of re-fetching.  Default-deny preserved.
+- 4 lines of behaviour change + comments; 2 commits; no Codex audit
+  needed.
+
+**PR #34 — PR-B: `/api/dashboard/init` aggregate endpoint — Codex APPROVE:**
+- ✅ New service `backend/services/dashboard_aggregator.py` builds the
+  payload from three sub-queries (sessions stats, recent vocab updates,
+  flashcard due count).  JWT-scoped end-to-end via caller-passed Supabase
+  client.
+- ✅ New router `backend/routers/dashboard.py` (thin auth layer mirroring
+  `flashcards.py` / `vocabulary_bank.py` convention) registers
+  `GET /api/dashboard/init`.
+- ✅ Partial-response semantics — each sub-query isolated; one failure
+  lands its key in `_errors` and leaves the rest populated.  Frontend
+  logs the gap and renders successful sections.
+- ✅ Frontend `init()` consumes the aggregate; legacy `/sessions/stats`,
+  `/api/vocabulary/bank/recent-updates`, `/api/flashcards/due/count`
+  paths preserved as automatic fallback when the aggregate request fails
+  (rollback path needs no code change).
+- ✅ Render-only helpers extracted (`renderVocabUpdates(user, events)`,
+  `_setFlashcardsBadgeCount(count)`) so both the aggregate and legacy
+  call sites share the renderer.
+- ✅ HIGH-1 decoupling pinned — regex-based regression tests assert
+  neither `services/dashboard_aggregator.py` nor `routers/dashboard.py`
+  imports or calls `supabase_admin`.  Aggregator duplicates the
+  `/sessions/stats` query body rather than extracting from it (extracting
+  would have pulled HIGH-1 contamination into the new code path).
+- ✅ 10 new offline tests cover happy path, partial-response failure,
+  empty state, filter discipline (excludes archived + skipped),
+  chart-data ordering + limit, and the HIGH-1 decoupling regex pin.
+- Codex audit verdict (`AUDIT_PR34_DASHBOARD_AGGREGATE_ENDPOINT.md`): ✅
+  APPROVE with one LOW finding — no codified browser-level cold-load
+  benchmark; tracked as PERF-7 below.
+
+**Folded fetches (3):**
+- `/sessions/stats?limit=20`
+- `/api/vocabulary/bank/recent-updates?limit=5`
+- `/api/flashcards/due/count`
+
+**Stay separate (3):**
+- `/auth/me` — auto-provisions the user row, bumps `last_seen_at`,
+  computes feature flags.  Side effects belong to a dedicated endpoint.
+- `/sessions?limit=200` — history list with its own pagination/search
+  contract.
+- `/api/grammar/dashboard-data` — different concern, separate router.
+
+**Net result:** Dashboard request graph 6+ → **4** first-paint calls.
+Expected cold-load 16.29s → ~6-7s (~58% from baseline).  Manual Incognito
+verification still pending post-deploy.
 
 ### Phase 2.5 Day 5 — 2026-05-01 (1 PR)
 
@@ -579,15 +708,16 @@ in incoming specs before any code was written:
 
 ---
 
-## 📊 Health metrics — snapshot 2026-05-01
+## 📊 Health metrics — snapshot 2026-05-02 (post Day 6)
 
 For the cumulative snapshot, see the comprehensive production audit
 captured 2026-04-30.  Coverage baseline lives at
 `docs/audits/COVERAGE_BASELINE_2026-04-30.md`.
 
 **Code:**
-- Backend tests: **254 collected** (239 passed, 15 env-gated live-RLS skips
-  without staging creds in CI environment).
+- Backend tests: **264 collected** (249 passed, 15 env-gated live-RLS
+  skips without staging creds in CI environment) — was 254 pre-Day-6,
+  +10 from PR #34.
 - Coverage baseline: **50% overall** (PR #31; tracked at
   `docs/audits/COVERAGE_BASELINE_2026-04-30.md`).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
@@ -597,7 +727,7 @@ captured 2026-04-30.  Coverage baseline lives at
   `services/ai_usage_logger.py` comments).
 - Live RLS tests: **8 pass live** (no skips when staging creds present).
 
-**Production posture (2026-05-01):**
+**Production posture (2026-05-02):**
 - Overall: **WARNING** — HIGH-1 deferred to dedicated security sprint
   (legacy `sessions`/`responses` tables have no RLS yet; mitigated by
   app-layer ownership filters + JWT validation; no known active exploit
@@ -607,7 +737,7 @@ captured 2026-04-30.  Coverage baseline lives at
   prerequisite.
 
 **Production:**
-- Vercel: deployed main HEAD, status Ready.
+- Vercel: deployed main HEAD post PR #34, status Ready.
 - Railway: deployed, `/health` returns OK; `/health/ready` all-checks OK.
 - Supabase: vocab enrichment partial — 12/36 `used_well` and 6/14
   `needs_review` rows missing `definition_vi/_en` at audit time
@@ -618,23 +748,31 @@ captured 2026-04-30.  Coverage baseline lives at
 - Phase B FP rate Session 2: ✅ ran 2026-04-29 (per dogfood log; no FP-rate
   finding in Combo Day 2 audit).
 - Wave 2 SRS Day 1: ✅ ran 2026-04-29; 6 issues addressed in PR #25 + #28 +
-  #29.  Days 2-4 (interval-feel test against the cleaned UX) still pending
-  (HIGH-3).
+  #29.  Days 2-4 (interval-feel test against the cleaned UX) intentionally
+  paused while Phase 3 strategic direction is being processed.
 - Engagement metrics: minimal (1 active user = self).
-- Baseline metrics doc not yet captured (HIGH-5).
+- Baseline metrics doc not yet captured (HIGH-5; intentionally paused).
 
-**Production latency (sampled during audit 2026-04-30):**
-- `/health` ~650-750ms (aspirational <200ms — see LOW-8).
+**Production performance (post Day 6):**
+- Dashboard cold-load: **~6-7s expected** (down from 16.29s baseline,
+  ~58% improvement after PR #33 + #34; manual Incognito verification
+  still pending post-deploy).
+- Dashboard warm-reload: ~3-4s estimated.
+- Other pages: 3-8s — acceptable at solo-dogfood scale, see PERF-3..7
+  for the deferred follow-up batch.
+- `/health` ~650-750ms (aspirational <200ms — see LOW-8 / PERF-6).
 - `/health/ready` ~3.6-4.3s (acceptable for diagnostic endpoint).
 - `/api/grammar/home` and `/api/grammar/categories` ~1.1s.
 
 **Cost (current):**
-- Gemini API: ~$5–10/mo estimate (low usage; validates the Gemini Flash
-  decision and defers any Gemma self-host migration ~6 months).
-- Supabase: free tier.
-- Railway: free tier (LOW-8 latency tied to this — paid tier would help).
-- Vercel: free tier.
-- **Total: ~$5–10/mo.**
+- Total historical: ~$10.56 since project start
+  (Claude $5.94 / Whisper $4.00 / TTS $0.58 / Gemini $0.04).
+- Gemini contribution is 0.4% of historical spend — validates the
+  Gemini Flash route decision and defers any Gemma self-host migration
+  ~6 months.
+- Estimated monthly: ~$5–10.
+- Supabase / Railway / Vercel: free tier
+  (LOW-8 + PERF-6 latency tied to Railway free tier — paid would help).
 
 ---
 
@@ -644,13 +782,23 @@ captured 2026-04-30.  Coverage baseline lives at
 
 - [x] Phase B FP rate < 15% verified (Session 2 ran 2026-04-29; per dogfood
       log the gate held).
-- [x] Tech debt CRITICAL cleared.
+- [x] Tech debt CRITICAL cleared (HIGH-1 strategic defer).
 - [x] Comprehensive audit findings addressed (4/5 LOW+MEDIUM done in PR
       #31; MED-2 vocab backfill is the only one still pending and is
       blocked on production access).
-- [ ] Wave 2 dogfood Day 2-4 complete (HIGH-3).
-- [ ] Baseline metrics documented (HIGH-5).
-- [ ] Phase 3 direction chosen with data justification (HIGH-4).
+- [x] Performance critical path optimized — Dashboard 16.29s → ~6-7s
+      after PR #33 + #34 (~58% from baseline).
+- [ ] Wave 2 dogfood Day 2-4 — **paused** while Phase 3 direction is
+      processed (HIGH-3).
+- [ ] Baseline metrics documented — **paused** (HIGH-5; depends on the
+      paused dogfood data).
+- [ ] Phase 3 direction chosen — **in progress**; decision framework
+      below (HIGH-4).
+
+**Status:** Phase 2.5 is effectively complete through Day 6.  The
+remaining open items are intentionally paused — not blocked on
+implementation work — while the user processes the Phase 3 strategic
+direction.
 
 ### Phase 3 direction options
 
