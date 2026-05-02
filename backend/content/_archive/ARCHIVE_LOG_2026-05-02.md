@@ -69,3 +69,52 @@ When a dropped slug appeared in another article's `compare_with` / `next_article
 
 Reasons: ref target also dropped (cleanup moot), action explicitly marked `removed_anyway_in_drop`, slug already absent from field, or unknown action — see audit notes.
 
+---
+
+## Section 2 — Merges (deferred to Sprint 2)
+
+**Reason for batch:** The audit identified 15 articles whose content was a
+natural fit as a section inside another, more central article.  However,
+zero merges were mechanically executable inside Sprint 0 scope because
+every candidate hit at least one of: missing parent section in target
+(Sprint 2 body-edit prerequisite), patch-spec heading typo (editorial
+reconciliation needed), dependence on Sprint 2's `gerund-vs-infinitive`
+restructure, or explicit "optional" recommendation in the patch spec.
+
+**Mechanically-clean merges executed:** 0 of 15 candidates.
+**Deferred to Sprint 2:** 15 merges.
+
+**Why zero?**  Strict Sprint 0 scope forbids body edits, metadata
+changes, and editorial judgment on patch typos.  Each remaining merge
+needs at least one of those, so all merges defer.  This was reconciled
+during Phase 1 validation; see `grammar-audit/sprint-0-execution-report.md`
+for the full reconciliation trail (35 → 16 → 15 → 7 → 3 → 0).
+
+### Deferred merges by reason
+
+**6 verb-pattern merges** depending on Sprint 2's `gerund-vs-infinitive-restructure` body edit:
+- `remember-doing-vs-remember-to-do` → `gerund-vs-infinitive`
+- `forget-doing-vs-forget-to-do` → `gerund-vs-infinitive`
+- `regret-doing-vs-regret-to-do` → `gerund-vs-infinitive`
+- `stop-doing-vs-stop-to-do` → `gerund-vs-infinitive`
+- `try-doing-vs-try-to-do` → `gerund-vs-infinitive`
+- `need-doing-vs-need-to-be-done` → `gerund-vs-infinitive`
+
+**3 merges blocked by missing parent section in target** (sections to be created by Sprint 2 body edits):
+- `avoiding-repetitive-sentence-openings` → `grammar-for-band7plus` (missing `## High-leverage structures`)
+- `emphasis-inversion` → `inversion` (missing `## Inversion với negative adverbials`)
+- `expressing-uncertainty` → `hedging-language` (missing `## Distancing phrases`)
+
+**5 merges blocked by patch-spec heading typos / near-misses** (Sprint 2 prep should reconcile in patches):
+- `combining-two-short-sentences` → `complex-sentence` (spec says `## Bài tập`; actual heading is `## Bài tập luyện`)
+- `from-simple-to-complex-sentences` → `complex-sentence` (depends on merge #1's section header existing)
+- `adding-conditions-naturally` → `conditionals` (spec says `## Loại 3: Third Conditional`; actual is `## Loại 3: Third Conditional — Giả định quá khứ`)
+- `adding-contrast-naturally` → `discourse-markers` (spec says `## Nhóm 4: Tương phản (Contrast)`; actual is `## Nhóm 2: Tương phản (Contrast)`)
+- `adding-results-clearly` → `discourse-markers` (spec says `## Nhóm 5: Kết quả (Result)`; actual is `## Nhóm 3: Nguyên nhân và Kết quả (Cause and Effect)`)
+
+**1 merge marked optional and skipped per spec recommendation:**
+- `zero-article` → `articles` (spec note: *"This merge is OPTIONAL — keeping zero-article.md as SUPPORTING is also fine."* Default behaviour respected.)
+
+**Recoverable when revisited:** Sources still present at original paths
+under `backend/content/`. Sprint 2 picks these up from the deferred list.
+
