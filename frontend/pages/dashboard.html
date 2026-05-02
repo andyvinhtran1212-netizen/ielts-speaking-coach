@@ -1221,6 +1221,18 @@
       _refreshFlashcardsBadge();
     }
 
+    // Render-only helper.  Reused by the legacy /api/flashcards/due/count
+    // fetch below AND by the PR-B aggregate path in init() — keeps the
+    // "🔥 N thẻ đến hạn" copy + colour rule in one place.
+    function _setFlashcardsBadgeCount(count) {
+      var n = Number(count || 0);
+      if (n <= 0) return;  // keep the static sub copy if no due cards
+      var sub = document.getElementById('flashcards-tab-sub');
+      if (!sub) return;
+      sub.textContent = '🔥 ' + n + ' thẻ đến hạn';
+      sub.style.color = '#fcd34d';
+    }
+
     async function _refreshFlashcardsBadge() {
       try {
         var sb = window.getSupabase ? window.getSupabase() : null;
@@ -1233,14 +1245,7 @@
         });
         if (!res.ok) return;
         var body = await res.json();
-        var count = Number(body.count || 0);
-        if (count > 0) {
-          var sub = document.getElementById('flashcards-tab-sub');
-          if (sub) {
-            sub.textContent = '🔥 ' + count + ' thẻ đến hạn';
-            sub.style.color = '#fcd34d';
-          }
-        }
+        _setFlashcardsBadgeCount(body.count);
       } catch (_) {
         // Silent — badge is purely informational.
       }
@@ -2138,26 +2143,67 @@
         });
       }
 
+      // PR-B: aggregate endpoint that folds /sessions/stats + /recent-updates
+      // + /flashcards/due/count into one round trip.  When it succeeds we use
+      // its payload directly; when it fails (404 on stale frontend, server
+      // error, network blip) the legacy fetches below kick in unchanged so
+      // the dashboard still renders.
+      let aggregate = null;
       try {
-        const statsData = await api.get('/sessions/stats?limit=20');
-        renderStats(statsData.summary, statsData.sessions);
-        renderCharts(statsData.sessions);
-        // History is loaded through the filter-aware helper so the legacy
-        // (unfiltered) initial fetch and the new search/sort/page flow share
-        // a single code path.  Errors here are swallowed inside loadHistory.
-        await loadHistory();
-      } catch (err) {
-        // Backend unreachable — show empty state silently
-        renderStats({ total_sessions: 0, avg_band_30d: null, current_streak: 0, last_topic: null, last_session_at: null }, []);
-        renderHistory([]);
-        console.warn('Could not load sessions:', err.message);
+        const aggRes = await fetch(`${window.api.base}/api/dashboard/init`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (aggRes.ok) {
+          aggregate = await aggRes.json();
+          if (aggregate && aggregate._errors) {
+            console.warn('Dashboard partial load:', aggregate._errors);
+          }
+        }
+      } catch (_) { /* fall through to legacy paths */ }
+
+      if (aggregate && aggregate.summary) {
+        // Aggregate path: stats + chart from a single roundtrip.
+        renderStats(aggregate.summary, aggregate.sessions || []);
+        renderCharts(aggregate.sessions || []);
+        try { await loadHistory(); } catch (_) { renderHistory([]); }
+      } else {
+        // Legacy fallback: the original /sessions/stats path.
+        try {
+          const statsData = await api.get('/sessions/stats?limit=20');
+          renderStats(statsData.summary, statsData.sessions);
+          renderCharts(statsData.sessions);
+          // History is loaded through the filter-aware helper so the legacy
+          // (unfiltered) initial fetch and the new search/sort/page flow share
+          // a single code path.  Errors here are swallowed inside loadHistory.
+          await loadHistory();
+        } catch (err) {
+          // Backend unreachable — show empty state silently
+          renderStats({ total_sessions: 0, avg_band_30d: null, current_streak: 0, last_topic: null, last_session_at: null }, []);
+          renderHistory([]);
+          console.warn('Could not load sessions:', err.message);
+        }
       }
 
       // Wire filter controls now that the dashboard panel is in the DOM.
       _wireHistoryFilterEvents();
 
       loadGrammarDashboard();
-      loadVocabUpdates(session.access_token, user);
+
+      // Vocab updates: prefer aggregate's recent_updates if present.  Flag
+      // gating stays in the renderer (default-deny on vocab_bank_enabled)
+      // because the aggregate intentionally doesn't know about UX flags.
+      if (aggregate && Array.isArray(aggregate.recent_updates)) {
+        renderVocabUpdates(user, aggregate.recent_updates);
+      } else {
+        loadVocabUpdates(session.access_token, user);
+      }
+
+      // Flashcard daily-due badge: aggregate wins when present.  Otherwise
+      // the legacy _refreshFlashcardsBadge call (already fired from
+      // applyFlashcardsFlag inside renderUser above) populates the badge.
+      if (aggregate && typeof aggregate.flashcard_due_count === 'number') {
+        _setFlashcardsBadgeCount(aggregate.flashcard_due_count);
+      }
     }
 
     // ── Vocab updates widget ────────────────────────────────
@@ -2185,7 +2231,15 @@
       } catch (_) { return; }
 
       const events = (data && Array.isArray(data.events)) ? data.events : [];
-      if (events.length === 0) return;
+      renderVocabUpdates(user, events);
+    }
+
+    // Render-only path.  Reused by loadVocabUpdates() above (legacy fetch)
+    // AND by the PR-B aggregate path in init().  Flag gating (default-deny
+    // on vocab_bank_enabled) lives here so both call sites get it for free.
+    function renderVocabUpdates(user, events) {
+      if (!user || user.vocab_bank_enabled !== true) return;
+      if (!Array.isArray(events) || events.length === 0) return;
 
       const section = document.getElementById('vocab-updates-section');
       const list    = document.getElementById('vocab-updates-list');
