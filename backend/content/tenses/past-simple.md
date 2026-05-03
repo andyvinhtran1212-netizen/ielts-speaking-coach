@@ -41,6 +41,28 @@ pathways:
 - grammar-for-beginners
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
+anchors:
+  - id: past-simple.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: past-simple.structure.regular-ed
+    location: '## Cấu trúc — Regular verbs'
+    type: structure
+  - id: past-simple.structure.irregular
+    location: '## Cấu trúc — Irregular verbs'
+    type: structure
+  - id: past-simple.usage.completed-past
+    location: '## Hành động hoàn thành trong quá khứ'
+    type: section
+  - id: past-simple.common-mistake.no-past-marker-on-verb
+    location: '## Lỗi phổ biến của người Việt — Verb không thay đổi hình theo thời'
+    type: pitfall
+  - id: past-simple.common-mistake.use-with-time-marker-misalignment
+    location: (within VN pitfall section)
+    type: pitfall
+  - id: past-simple.compare-with.present-perfect
+    location: '## So sánh với Present Perfect'
+    type: compare-with
 ---
 
 ## Tóm tắt

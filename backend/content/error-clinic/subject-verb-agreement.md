@@ -47,6 +47,16 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: subject-verb-agreement.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: subject-verb-agreement.common-mistake.he-she-it-no-s
+    location: (VN -s drop section)
+    type: pitfall
+  - id: subject-verb-agreement.collective-nouns
+    location: '## Collective nouns'
+    type: section
 ---
 
 ## Tóm tắt

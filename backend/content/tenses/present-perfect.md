@@ -41,6 +41,34 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: present-perfect.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: present-perfect.structure.have-pp
+    location: '## Cấu trúc'
+    type: structure
+  - id: present-perfect.usage.experience
+    location: '## Diễn tả kinh nghiệm sống'
+    type: section
+  - id: present-perfect.usage.unfinished-time
+    location: '## Thời gian chưa kết thúc'
+    type: section
+  - id: present-perfect.usage.recent-result
+    location: '## Hành động gần đây có kết quả ở hiện tại'
+    type: section
+  - id: present-perfect.with-time-markers.since-vs-for
+    location: '## Since vs For'
+    type: concept
+  - id: present-perfect.with-time-markers.yet-already-just
+    location: '## Yet / Already / Just'
+    type: concept
+  - id: present-perfect.common-mistake.past-simple-where-pp-needed
+    location: '## Lỗi phổ biến của người Việt — Dùng past simple thay vì present perfect'
+    type: pitfall
+  - id: present-perfect.compare-with.past-simple
+    location: '## So sánh với Past Simple'
+    type: compare-with
 ---
 
 ## Tóm tắt

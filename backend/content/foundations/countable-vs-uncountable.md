@@ -40,6 +40,28 @@ next_articles:
 - phrase-vs-clause
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: countable-vs-uncountable.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: countable-vs-uncountable.decision-rule
+    location: (callout after Tóm tắt)
+    type: concept
+  - id: countable-vs-uncountable.uncountable.common-list
+    location: '## Danh từ không đếm được phổ biến'
+    type: section
+  - id: countable-vs-uncountable.partitive-structures
+    location: '## Partitive structures'
+    type: concept
+  - id: countable-vs-uncountable.vietnamese-classifier-contrast
+    location: '## Đối chiếu với tiếng Việt — Loại từ vs inflection'
+    type: pitfall
+  - id: countable-vs-uncountable.common-mistake.pluralising-uncountable
+    location: (within VN classifier section table)
+    type: pitfall
+  - id: countable-vs-uncountable.both-countable-and-uncountable
+    location: '## Danh từ vừa C vừa U tùy nghĩa'
+    type: concept
 ---
 
 ## Tóm tắt

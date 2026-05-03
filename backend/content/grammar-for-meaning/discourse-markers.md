@@ -44,6 +44,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: discourse-markers.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: discourse-markers.addition
+    location: '## Nhóm 1: Thêm ý'
+    type: section
+  - id: discourse-markers.contrast
+    location: '## Nhóm 4: Tương phản'
+    type: section
+  - id: discourse-markers.result
+    location: '## Nhóm 5: Kết quả'
+    type: section
+  - id: discourse-markers.sequence
+    location: '## Nhóm sắp xếp trình tự'
+    type: section
+  - id: discourse-markers.exemplification
+    location: '## Nhóm đưa ví dụ'
+    type: section
+  - id: discourse-markers.common-mistake.overuse-and-but-so
+    location: '## Lỗi phổ biến của người Việt — Lạm dụng "and / but / so"'
+    type: pitfall
+  - id: discourse-markers.compare-with.discourse-markers-spoken
+    location: (callout after Tóm tắt)
+    type: compare-with
 ---
 
 ## Tóm tắt

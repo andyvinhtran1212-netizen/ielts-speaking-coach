@@ -50,6 +50,13 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: tense-consistency.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: tense-consistency.common-mistake.tense-shift-mid-narrative
+    location: (within main section)
+    type: pitfall
 ---
 
 ## Tóm tắt

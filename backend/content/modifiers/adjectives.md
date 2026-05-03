@@ -39,6 +39,13 @@ pathways:
 - grammar-for-beginners
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
+anchors:
+  - id: adjectives.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: adjectives.participial.ed-vs-ing
+    location: '## -ed vs -ing adjectives'
+    type: pitfall
 ---
 
 ## Tóm tắt

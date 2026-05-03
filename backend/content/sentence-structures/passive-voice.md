@@ -49,6 +49,25 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: passive-voice.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: passive-voice.structure.be-pp
+    location: '## Cấu trúc'
+    type: structure
+  - id: passive-voice.usage.unknown-or-irrelevant-agent
+    location: '## Khi nào dùng passive'
+    type: section
+  - id: passive-voice.usage.formal-academic
+    location: '## Passive trong văn formal'
+    type: section
+  - id: passive-voice.when-not-to-use.speaking
+    location: '## Khi nào KHÔNG nên dùng passive'
+    type: pitfall
+  - id: passive-voice.vietnamese-pitfall.bi-duoc-overuse
+    location: '## Lưu ý — VN bị/được không phải lúc nào cũng map sang passive'
+    type: pitfall
 ---
 
 ## Tóm tắt

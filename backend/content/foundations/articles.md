@@ -38,6 +38,34 @@ next_articles:
 - countable-vs-uncountable
 pathways:
 - band-6-to-7
+anchors:
+  - id: articles.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: articles.indefinite.when-to-use
+    location: '### A / An — Mạo từ không xác định'
+    type: section
+  - id: articles.indefinite.missing-with-singular-count-noun
+    location: '### Lỗi 1: Bỏ mạo từ trước danh từ đếm được số ít'
+    type: pitfall
+  - id: articles.definite.when-to-use
+    location: '### The — Mạo từ xác định'
+    type: section
+  - id: articles.definite.overuse-with-general-uncount
+    location: '### Lỗi 2: Dùng "the" với danh từ số nhiều/không đếm được nói chung'
+    type: pitfall
+  - id: articles.zero.when-to-use
+    location: '### Zero Article — Không dùng mạo từ'
+    type: section
+  - id: articles.a-vs-an.sound-rule
+    location: '### A hay An? — Quy tắc âm thanh, không phải chữ cái'
+    type: concept
+  - id: articles.vietnamese-pitfall.country-the-misuse
+    location: '### Lỗi 4: Dùng "the" trước tên nước'
+    type: pitfall
+  - id: articles.ielts.speaking-application
+    location: '### IELTS Speaking'
+    type: ielts-application
 ---
 
 ## Tóm tắt

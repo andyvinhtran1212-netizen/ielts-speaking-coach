@@ -41,6 +41,25 @@ next_articles:
 - adverbs
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: word-order.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: word-order.svo.basic
+    location: '## Trật tự cơ bản (SVO)'
+    type: structure
+  - id: word-order.adjective-placement.attributive-vs-predicative
+    location: '## Lỗi phổ biến của người Việt — Adjective sau noun'
+    type: pitfall
+  - id: word-order.adjective-order.opinion-size-colour
+    location: '## Adjective ordering'
+    type: structure
+  - id: word-order.adverb-placement
+    location: '## Adverb placement'
+    type: section
+  - id: word-order.question-inversion
+    location: '## Trật tự từ trong câu hỏi'
+    type: section
 ---
 
 ## Tóm tắt

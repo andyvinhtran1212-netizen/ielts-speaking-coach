@@ -45,6 +45,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: comparison.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: comparison.comparative.regular-er
+    location: '## So sánh hơn — Quy tắc -er'
+    type: structure
+  - id: comparison.comparative.more-than
+    location: '## So sánh hơn — More + adjective'
+    type: structure
+  - id: comparison.superlative.the-est
+    location: '## So sánh nhất — Quy tắc -est'
+    type: structure
+  - id: comparison.superlative.the-most
+    location: '## So sánh nhất — The most + adjective'
+    type: structure
+  - id: comparison.as-as.equality
+    location: '## So sánh ngang bằng — As...as'
+    type: structure
+  - id: comparison.common-mistake.double-comparative
+    location: '## Lỗi phổ biến — "more better" và bỏ "than"'
+    type: pitfall
+  - id: comparison.common-mistake.dropped-than
+    location: (within double comparative section)
+    type: pitfall
 ---
 
 ## Tóm tắt

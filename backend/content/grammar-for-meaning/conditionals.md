@@ -48,6 +48,43 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: conditionals.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: conditionals.type0.zero-conditional
+    location: '## Loại 0: Zero Conditional'
+    type: section
+  - id: conditionals.type1.first-conditional
+    location: '## Loại 1: First Conditional'
+    type: section
+  - id: conditionals.type1.structure
+    location: (structure formula in Type 1 section)
+    type: structure
+  - id: conditionals.type1.common-mistake.will-after-if
+    location: (callout after Type 1 if-clause rule)
+    type: pitfall
+  - id: conditionals.type2.second-conditional
+    location: '## Loại 2: Second Conditional'
+    type: section
+  - id: conditionals.type2.structure
+    location: (structure formula in Type 2 section)
+    type: structure
+  - id: conditionals.type2.common-mistake.was-instead-of-were
+    location: (within Type 2 section)
+    type: pitfall
+  - id: conditionals.type3.third-conditional
+    location: '## Loại 3: Third Conditional'
+    type: section
+  - id: conditionals.type3.structure
+    location: (structure formula in Type 3 section)
+    type: structure
+  - id: conditionals.type2-vs-type3.tense-distance
+    location: '## So sánh Type 2 vs Type 3'
+    type: concept
+  - id: conditionals.ielts.part3-hypothetical-questions
+    location: '## IELTS Part 3 application'
+    type: ielts-application
 ---
 
 ## Tóm tắt
