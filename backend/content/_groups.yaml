@@ -55,7 +55,6 @@ groups:
       - { slug: reported-speech,   category: sentence-structures, title: "Reported Speech — Câu tường thuật" }
       - { slug: cleft-sentences,   category: sentence-structures, title: "Cleft Sentences — Câu chẻ" }
       - { slug: inversion,         category: sentence-structures, title: "Inversion — Đảo ngữ" }
-      - { slug: avoiding-repetitive-sentence-openings, category: sentence-structures, title: "Avoiding Repetitive Sentence Openings — Đa dạng hóa cách mở đầu câu" }
 
   - slug: tenses
     title: "Thì động từ"
@@ -101,6 +100,8 @@ groups:
       - { slug: so-vs-such,            category: grammar-for-meaning, title: "So vs. Such — Nhấn mạnh mức độ đúng cách" }
       - { slug: academic-hedging,      category: grammar-for-meaning, title: "Academic Hedging — Diễn đạt thận trọng trong học thuật" }
       - { slug: although-though-even-though, category: grammar-for-meaning, title: "Although / Though / Even Though — Diễn đạt sự tương phản và nhượng bộ" }
+      - { slug: grammatical-collocations, category: grammar-for-meaning, title: "Grammatical Collocations — Cụm ngữ pháp cố định" }
+      - { slug: discourse-markers-spoken, category: grammar-for-meaning, title: "Discourse Markers in Speech — Liên kết ý trong nói tiếng Anh" }
 
   - slug: ielts-grammar-lab
     title: "IELTS Speaking Lab"
@@ -120,11 +121,11 @@ groups:
       - { slug: agreeing-and-disagreeing-naturally, category: ielts-grammar-lab, title: "Agreeing and Disagreeing Naturally — Đồng ý và Phản đối tự nhiên trong IELTS" }
       - { slug: conditionals-in-speaking,    category: ielts-grammar-lab, title: "Conditionals in Speaking — Dùng câu điều kiện tự nhiên trong IELTS Speaking" }
       - { slug: expressing-preferences-naturally, category: ielts-grammar-lab, title: "Expressing Preferences Naturally — Thể hiện sở thích tự nhiên trong IELTS Speaking" }
-      - { slug: expressing-uncertainty,          category: ielts-grammar-lab, title: "Expressing Uncertainty — Diễn đạt sự không chắc chắn trong IELTS Speaking" }
       - { slug: talking-about-habits-and-routines, category: ielts-grammar-lab, title: "Talking About Habits and Routines — Kể về thói quen trong IELTS Speaking" }
       - { slug: softening-disagreement-politely,    category: ielts-grammar-lab, title: "Softening Disagreement Politely — Phản đối lịch sự trong IELTS Speaking" }
       - { slug: speculating-about-the-future,        category: ielts-grammar-lab, title: "Speculating About the Future — Suy đoán và dự đoán tương lai trong IELTS" }
       - { slug: talking-about-changes-over-time,     category: ielts-grammar-lab, title: "Talking About Changes Over Time — Diễn đạt sự thay đổi theo thời gian trong IELTS" }
+      - { slug: pronunciation-grammar-link, category: ielts-grammar-lab, title: "Pronunciation–Grammar Link — Liên hệ phát âm và ngữ pháp" }
 
   - slug: error-clinic
     title: "Error Clinic"
