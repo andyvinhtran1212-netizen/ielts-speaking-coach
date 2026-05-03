@@ -155,6 +155,7 @@ Verb + Place + Time
 - She spoke **clearly**. ✅ (tự nhiên)
 - She clearly spoke. *(ngữ pháp đúng, nhưng không tự nhiên trong văn nói thông thường — chỉ gặp trong văn viết hoặc khi nhấn mạnh đặc biệt vào trạng từ)*
 
+<!-- anchor: word-order.questions.inversion-rule -->
 ## Câu hỏi — đảo trợ động từ lên trước
 
 Khi đặt câu hỏi Yes/No, trợ động từ (do/does/did/is/are/can/will...) đứng trước chủ ngữ:
@@ -257,3 +258,50 @@ Trong Speaking, trật tự từ tự nhiên sẽ giúp điểm Grammatical Rang
 - **Frequency adverbs:** Trước động từ chính, sau be/modal
 - **Câu hỏi:** Đảo trợ động từ lên trước Subject
 - **Không dịch thẳng từ tiếng Việt** — tiếng Anh có quy tắc trật tự từ chặt hơn nhiều
+
+## Lỗi phổ biến của người Việt — Adjective sau noun
+
+<!-- anchor: word-order.adjective-placement.attributive-vs-predicative -->
+
+Tiếng Việt: "nhà đẹp" (nhà + đẹp). Tiếng Anh: "a beautiful house" (đẹp + nhà). Khi nói nhanh trong IELTS Speaking, người Việt hay slip thành "a house beautiful" — examiner hiểu nhưng tính là lỗi vào GRA.
+
+❌ "I bought a car red." → ✅ "I bought a red car."
+❌ "She wore a dress beautiful." → ✅ "She wore a beautiful dress."
+
+**Quy tắc:** Tính từ luôn đứng **trước** danh từ khi mô tả trực tiếp (attributive use). Tính từ chỉ đứng **sau** danh từ khi liên kết qua động từ liên kết: "The car **is** red", "The dress **looks** beautiful" (predicative use).
+
+## Adjective ordering (khi có nhiều tính từ)
+
+<!-- anchor: word-order.adjective-order.opinion-size-colour -->
+
+Khi có 2 tính từ trở lên, tiếng Anh có thứ tự cố định:
+
+**Opinion → Size → Age → Shape → Colour → Origin → Material → Purpose → Noun**
+
+Ví dụ: "a beautiful (opinion) small (size) old (age) round (shape) white (colour) French (origin) ceramic (material) coffee (purpose) cup."
+
+Trong thực tế Speaking, hiếm khi dùng quá 3 tính từ cùng lúc. Quy tắc đơn giản cho Speaking:
+
+| Có 2 tính từ | Quy tắc đơn giản | Ví dụ |
+|---|---|---|
+| Opinion + fact | Opinion trước | "a lovely red dress" (✓) / "a red lovely dress" (✗) |
+| Size + colour | Size trước | "a big black car" (✓) / "a black big car" (✗) |
+| Size + age | Size trước age | "a small old town" (✓) / "an old small town" (✗) |
+| Colour + origin | Colour trước origin | "a black Italian bag" (✓) |
+
+Nếu lỡ nói sai thứ tự — examiner vẫn hiểu, nhưng tính vào "occasional inaccuracies" của GRA.
+
+## Adverb placement
+
+<!-- anchor: word-order.adverb-placement -->
+
+Adverbs of frequency (always, usually, often, sometimes, rarely, never) đứng:
+- **Trước verb chính:** "I usually drink coffee."
+- **Sau be:** "She is always late."
+- **Giữa auxiliary và main verb:** "I have never been to Japan."
+
+Adverbs of manner (well, badly, quickly, slowly) thường đứng cuối câu hoặc sau verb:
+- "She speaks English fluently."
+- "He drove the car carefully."
+
+❌ Lỗi VN phổ biến: "I always am tired" → ✅ "I am always tired" (frequency adverb sau be).

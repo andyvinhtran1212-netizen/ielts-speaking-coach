@@ -229,6 +229,7 @@ Khác với Present Simple (thói quen bình thường), Present Continuous + al
 - ✅ ĐÚNG: I am **studying** English now.
 - **TẠI SAO:** am/is/are không đứng một mình — luôn phải có V-ing theo sau.
 
+<!-- anchor: present-continuous.stative-verbs.do-not-use-ing -->
 ### Lỗi 3: Dùng stative verbs với Present Continuous
 
 - ❌ SAI: I **am knowing** the answer.

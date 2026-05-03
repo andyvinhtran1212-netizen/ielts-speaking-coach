@@ -409,3 +409,17 @@ Dựa vào câu trả lời, đặt câu hỏi:
 4. Câu hỏi: **Did** + S + V nguyên thể? (Ngoại lệ: be → was/were)
 5. Phân biệt với Present Perfect: thấy thời gian xác định → Past Simple
 6. Dấu hiệu: yesterday, last week, ago, in + năm, when I was young
+
+## Lỗi phổ biến của người Việt — Verb không thay đổi hình theo thời
+
+<!-- anchor: past-simple.common-mistake.no-past-marker-on-verb -->
+
+Tiếng Việt: "Hôm qua tôi đi Hà Nội" — "đi" giữ nguyên; "hôm qua" mang nghĩa thời gian. Người học VN bê pattern này sang English → time adverb đúng nhưng verb sai form.
+
+❌ "Yesterday I **go** to Hanoi." → ✅ "Yesterday I **went** to Hanoi."
+❌ "Last week she **finish** the project." → ✅ "Last week she **finished** the project."
+❌ "When I was young, I **like** football." → ✅ "When I was young, I **liked** football."
+
+**Quy tắc:** Trong English, verb PHẢI mang dấu hiệu thì. Time adverb chỉ là dấu hiệu phụ; verb form là dấu hiệu chính. Khi có cả hai trong câu nhưng verb không đổi → ungrammatical (Band 5–6 marker).
+
+**Drill cho Speaking:** Mỗi tối kể 1-phút "Today I..." dùng past simple. Force -ed trên mọi regular verb. Force irregular form on every irregular verb. Ghi âm + nghe lại + đếm verb chưa biến hình.

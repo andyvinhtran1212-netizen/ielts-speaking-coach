@@ -407,3 +407,32 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 4. Người Việt hay sai: dùng *will* cho mọi thứ → luyện nhận ra "đã quyết định chưa?"
 5. Mệnh đề "when/after/before/as soon as" → **không dùng will** → dùng Present Simple
 6. "be **going to**" → không bao giờ bỏ "to"
+
+## Lỗi phổ biến của người Việt — "Will" overuse
+
+<!-- anchor: future-forms.common-mistake.will-overuse -->
+
+Người học VN được dạy "sẽ" → "will" như default. Kết quả: dùng "will" cho MỌI tương lai, kể cả khi context yêu cầu "be going to" hoặc present continuous.
+
+**3 cảnh điển hình "will" sai:**
+
+### 1. Plan/intention đã có trước cuộc nói chuyện → dùng "be going to"
+
+❌ "Tomorrow I will visit my grandmother." (đã quyết định từ trước)
+✅ "Tomorrow I'm going to visit my grandmother." / "Tomorrow I'm visiting my grandmother." (arrangement)
+
+### 2. Prediction có evidence hiện tại → dùng "be going to"
+
+*(nhìn mây đen):* ❌ "It will rain." → ✅ "It's going to rain." (có evidence — mây đen)
+
+### 3. Arrangement cố định (đã đặt lịch) → dùng present continuous
+
+❌ "I will meet Sarah at 6pm tomorrow." (nếu đã hẹn)
+✅ "I'm meeting Sarah at 6pm tomorrow."
+
+**"Will" thực sự đúng khi:**
+- Quyết định ngay tại thời điểm nói: *(phone rings)* "I'll get it."
+- Prediction không có evidence cụ thể: "I think it will be cold next week."
+- Promises, offers, threats: "I'll help you with that."
+
+**IELTS Part 2 (Describe a future plan):** Dùng MIX — "I'm going to" cho plan; "I'm hoping to" cho hope; "I'll probably" cho uncertain prediction. KHÔNG dùng "I will" cho mọi câu.

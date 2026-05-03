@@ -327,3 +327,22 @@ Tiếng Việt cũng không cần trợ động từ để đặt câu hỏi (ch
 3. Sau **doesn't** → bỏ -s
 4. **Do/Does không dùng với "be"** → Dùng "am/is/are"
 5. Rất quan trọng cho IELTS Speaking Part 1 và Writing Task 2
+
+## Lỗi #1 của người Việt — bỏ -s ở ngôi thứ ba số ít
+
+<!-- anchor: present-simple.common-mistake.third-person-s-drop -->
+
+Đây là lỗi phổ biến nhất của người Việt trong English Speaking — và cũng là lỗi dễ sửa nhất nếu nhận thức kịp.
+
+**Tại sao xảy ra:** Tiếng Việt không có agreement giữa subject và verb. Verb không đổi hình theo người (I/you/he/she). Khi nói English nhanh, não chuyển sang "verb mode" mặc định = base form.
+
+❌ "She **work** in Hanoi." → ✅ "She **works** in Hanoi."
+❌ "He **like** coffee." → ✅ "He **likes** coffee."
+❌ "It **rain** every day in summer." → ✅ "It **rains** every day in summer."
+
+**3 dạng phát âm -s** (xem thêm article `pronunciation-grammar-link`):
+- Sau /p, t, k, f, θ/: phát âm /s/ — "works" /wɜːks/, "stops" /stɒps/
+- Sau hữu thanh + nguyên âm: phát âm /z/ — "runs" /rʌnz/, "plays" /pleɪz/
+- Sau /s, z, ʃ, ʒ, tʃ, dʒ/: phát âm /ɪz/ — "watches" /wɒtʃɪz/, "finishes" /ˈfɪnɪʃɪz/
+
+**Drill:** Mỗi sáng đọc 30 câu present simple với he/she/it. Force -s rõ ràng. Ghi âm + check lại.

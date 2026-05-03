@@ -340,3 +340,17 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 - Dùng 1–2 hedges mỗi câu — quá nhiều làm câu lủng củng
 - Trong IELTS Writing: hedging không phải là "thiếu tự tin" — nó là **văn phong học thuật chuẩn**
 - "May/might/could + V" → hedge mạnh nhất và tự nhiên nhất trong Writing
+
+## Lỗi phổ biến của người Việt — Quá tự tin / không hedging
+
+<!-- anchor: hedging-language.common-mistake.no-hedging-overconfident -->
+
+Người học VN thường mạnh quá: "Definitely yes!", "I strongly agree!", "Absolutely!" trong mọi câu trả lời Part 3. Native speaker thực tế dùng nhiều hedging hơn:
+
+❌ "Definitely, social media is bad for young people." (tuyệt đối, defensible thấp)
+✅ "I'd say social media can be problematic for young people, particularly in terms of attention span."
+
+❌ "I strongly agree." (overdone)
+✅ "I tend to agree, although I think it depends on the context."
+
+Hedging KHÔNG phải yếu — nó là Band 7+ marker thể hiện phán đoán cẩn trọng (critical thinking). Examiner đánh giá cao.

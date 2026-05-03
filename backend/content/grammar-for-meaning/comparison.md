@@ -348,3 +348,28 @@ the least + Adjective
 - bội số: twice / three times as...as
 
 **Không dùng "very" trước comparative — dùng "much/far/a lot/even" thay thế!**
+
+## Lỗi phổ biến — "more better" và bỏ "than"
+
+<!-- anchor: comparison.common-mistake.double-comparative -->
+
+### Lỗi 1: Stack "more" + comparative form
+
+Tiếng Việt "hơn" có thể đi với mọi tính từ. Người học VN bê "more" + đã-comparative-rồi → double comparative.
+
+❌ "She is **more better** than him." → ✅ "She is **better** than him."
+❌ "Hanoi is **more bigger** than Da Nang." → ✅ "Hanoi is **bigger** than Da Nang."
+❌ "This problem is **more more** difficult." → ✅ "This problem is **more** difficult."
+
+**Quy tắc:** Adjective ngắn (1 syllable, hoặc 2 syllables ending in -y) → -er. Adjective dài → more + adj. KHÔNG đi cùng nhau.
+
+### Lỗi 2: Bỏ "than"
+
+<!-- anchor: comparison.common-mistake.dropped-than -->
+
+Tiếng Việt có thể so sánh bằng juxtaposition: "tôi cao bạn" (= cao hơn). English bắt buộc "than".
+
+❌ "She is taller me." → ✅ "She is taller **than** me."
+❌ "Hanoi is older Saigon." → ✅ "Hanoi is older **than** Saigon."
+
+**Mẹo:** Mọi comparative cần có ít nhất một trong: "than X" (so với X) hoặc context rõ ràng (e.g., "Which is bigger?" — câu trả lời ellipsis chấp nhận).

@@ -73,6 +73,15 @@ anchors:
 
 ## Tóm tắt
 
+> **Bài viết này tập trung vào discourse markers cho VIẾT và NÓI trang trọng** (Furthermore, Moreover, Consequently, In contrast, etc.).
+>
+> <!-- anchor: discourse-markers.compare-with.discourse-markers-spoken -->
+>
+> Cho discourse markers tự nhiên trong NÓI thường ngày (well, you know, I mean, kind of, anyway), xem bài [Discourse Markers in Speech](/grammar/discourse-markers-spoken).
+>
+> **Đừng nhầm:** Dùng "Furthermore" hay "Moreover" trong IELTS Speaking nghe rất sách vở và HẠ điểm Fluency. Dùng "well", "and what's more", "in fact" tự nhiên hơn nhiều.
+
+
 Discourse markers là những từ, cụm từ dùng để:
 - **Kết nối ý** trong câu và giữa các câu/đoạn
 - **Tổ chức thông tin** theo trình tự, tương phản, nguyên nhân-kết quả...
@@ -310,3 +319,20 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 - Tránh lặp đi lặp lại cùng một từ — dùng đa dạng
 - Discourse markers phải phản ánh đúng mối quan hệ logic giữa các ý
 - Trong Writing: dùng từ trang trọng; trong Speaking: dùng từ tự nhiên hơn
+
+## Lỗi phổ biến của người Việt — Lạm dụng "and / but / so"
+
+<!-- anchor: discourse-markers.common-mistake.overuse-and-but-so -->
+
+Đây là pattern mặc định khiến bài Speaking nghe trẻ em:
+
+❌ "I went to the market **and** I bought food **and** I came home **and** I cooked dinner **so** my family could eat **and** then we watched TV..."
+
+✅ "I went to the market. **First**, I bought food. **After that**, I came home **to** cook dinner **for** my family. **Once we'd eaten**, we watched TV..."
+
+**Quy tắc:** Trước khi nói "and", "but", "so" — pause 0.5 giây và thử thay bằng:
+- and → also / what's more / in addition / next / after that
+- but → however / on the other hand / although / yet
+- so → therefore / as a result / which is why / consequently (formal); that's why / so that's how (informal)
+
+Mục tiêu Band 7+: Không quá 1 "and/but/so" liên tiếp.

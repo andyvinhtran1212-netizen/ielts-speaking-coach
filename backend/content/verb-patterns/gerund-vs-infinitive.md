@@ -465,3 +465,21 @@ Tiếng Việt không phân biệt gerund và infinitive — "tôi thích đi", 
 5. **"to" trong look forward to / be used to** = giới từ → dùng gerund sau đó
 6. **Mục đích** → to-infinitive: I study **to improve** my English
 7. Khi không chắc: nhớ nhóm nào động từ đó thuộc về và áp dụng
+
+## Verbs that take both with DIFFERENT meaning
+
+<!-- merge-target: change-of-meaning-verbs -->
+<!-- anchor: gerund-vs-infinitive.both-different-meaning.overview -->
+
+Một số verbs nhận cả gerund (V-ing) và infinitive (to V) — nhưng MỖI dạng có nghĩa hoàn toàn khác. Đây là vùng dễ nhầm và xuất hiện nhiều trong IELTS Speaking. 6 verbs quan trọng nhất:
+
+- **REMEMBER** — nhớ điều đã làm vs nhớ phải làm
+- **FORGET** — quên việc đã xảy ra vs quên phải làm
+- **REGRET** — hối tiếc về quá khứ vs tiếc phải thông báo
+- **STOP** — dừng hẳn vs dừng lại để làm
+- **TRY** — thử xem có được không vs cố gắng làm
+- **NEED** — cần được làm (passive) vs cần làm (active)
+
+Mỗi verb có subsection riêng dưới đây với pattern + nghĩa + ví dụ + lỗi VN thường mắc.
+
+<!-- BEGIN MERGED CONTENT — see patches/02_merges.yaml for source merging -->

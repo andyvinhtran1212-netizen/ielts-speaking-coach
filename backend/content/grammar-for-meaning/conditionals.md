@@ -133,6 +133,25 @@ If + Present Simple, will + V-bare
   - **If** it clears up, we **might** go for a walk.
 
 **Mệnh đề "if" dùng Present Simple** — không dùng "will" trong if-clause:
+
+> **Lỗi #1 của người Việt với conditionals — "will" sau "if"**
+>
+> <!-- anchor: conditionals.type1.common-mistake.will-after-if -->
+>
+> Tiếng Việt: "Nếu mai trời **sẽ** mưa, tôi **sẽ** ở nhà." → "Nếu...sẽ..." có "sẽ" ở cả hai mệnh đề là tự nhiên.
+>
+> Tiếng Anh: "If" + present simple (KHÔNG "will") + main clause "will" + V-bare. Đây là một trong những lỗi gây giảm điểm GRA nhanh nhất trong IELTS Speaking — examiner đặc biệt chú ý.
+>
+> ❌ "If it **will rain** tomorrow, I'll stay home."
+> ✅ "If it **rains** tomorrow, I'll stay home."
+>
+> ❌ "If she **will come**, I'll let you know."
+> ✅ "If she **comes**, I'll let you know."
+>
+> **Mẹo nhớ:** Trong if-clause, dùng thì để **sự việc sẽ xảy ra** chứ KHÔNG dùng "will". "If" đã chứa nghĩa tương lai trong context; thêm "will" là dư.
+>
+> **Ngoại lệ rất hiếm:** "If you **will be** so kind as to..." — đây là dạng lịch sự cố ý, không phải Type 1 conditional.
+
 - ❌ If it **will rain** tomorrow, we'll cancel.
 - ✅ If it **rains** tomorrow, we'll cancel.
 

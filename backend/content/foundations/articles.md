@@ -75,6 +75,11 @@ anchors:
 
 ## Tại sao quan trọng
 
+> **Vì sao tiếng Việt không có mạo từ?**
+>
+> Tiếng Việt thuộc nhóm ngôn ngữ không biến hình (analytic). Định danh (definiteness — người nghe biết cụ thể là gì) được thể hiện qua: (1) từ chỉ định như "cái này", "đó", "ấy" đặt sau danh từ; (2) ngữ cảnh và topicalisation; (3) trật tự từ. Tiếng Anh thuộc nhóm cũng analytic nhưng giữ lại hệ thống mạo từ bắt buộc — nghĩa là **mỗi danh từ đếm được số ít phải có một determiner** (a/the/my/this/...), không thể đứng trần.
+
+
 Tiếng Việt không có mạo từ — "tôi có xe" có thể là "I have a car" hoặc "I have the car" tuỳ ngữ cảnh. Người học Việt Nam thường:
 - Bỏ mạo từ: ❌ "She is student." / "I like music" (đúng!), "I like the music" (sai nếu nói chung)
 - Dùng "the" quá nhiều: ❌ "I enjoy the reading." / "The life is beautiful."
@@ -328,6 +333,16 @@ Khi gặp danh từ, hỏi 3 câu:
 
 <!-- anchor: articles.ielts.speaking-application -->
 ### IELTS Speaking
+**Mini-dialogue có lỗi (Speaking Part 1):**
+
+*Examiner: Tell me about your hometown.*
+
+❌ Câu trả lời có lỗi: "I come from small city in north of Vietnam. Life there is quiet, and people is friendly. I think city has good food."
+
+✅ Sửa: "I come from **a** small city in **the** north of Vietnam. Life there is quiet, and **the** people are friendly. I think **the** city has good food."
+
+Phân tích: thiếu "a" trước "small city" (lần đầu nhắc + đếm được số ít); thiếu "the" trước "north of Vietnam" (duy nhất); "people" cần "the" vì đã chỉ rõ "people [of that city]"; "city" trong câu cuối cần "the" vì đã được giới thiệu ở câu đầu.
+
 - Khi kể chuyện: "I met **a** man on the train. **The** man told me an interesting story about his life."
 - Khi mô tả xu hướng: "**The** rise of **social media** has changed how **people** communicate."
 - Khi định nghĩa: "**Education** is **a** fundamental right, not **a** privilege."
