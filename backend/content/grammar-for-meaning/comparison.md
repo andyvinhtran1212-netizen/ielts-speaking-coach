@@ -15,6 +15,8 @@ tags:
 - ielts
 - adjectives
 - adverbs
+- intermediate
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - adjectives

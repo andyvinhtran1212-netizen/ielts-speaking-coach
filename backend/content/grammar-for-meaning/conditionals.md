@@ -14,6 +14,8 @@ tags:
 - if-clauses
 - subjunctive
 - hypothetical
+- high-leverage
+- ielts-band-7
 prerequisites:
 - parts-of-speech
 - sentence-elements
@@ -27,7 +29,8 @@ related_pages:
 - complex-sentence
 - conjunctions
 - wish-hope
-compare_with: []
+compare_with:
+- wish-hope
 order: 1
 status: complete
 last_updated: 2026-04-18

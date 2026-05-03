@@ -16,6 +16,7 @@ tags:
 - obligation
 - advice
 - hedging
+- ielts-band-7
 prerequisites:
 - parts-of-speech
 - verbs
@@ -27,7 +28,8 @@ related_pages:
 - conditionals
 - passive-voice
 - hedging-language
-compare_with: []
+compare_with:
+- wish-hope
 order: 1
 status: complete
 last_updated: 2026-04-18

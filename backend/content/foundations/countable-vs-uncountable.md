@@ -14,6 +14,7 @@ tags:
 - nouns
 - articles
 - quantifiers
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements
@@ -23,6 +24,7 @@ related_pages:
 - phrase-vs-clause
 compare_with:
 - singular-vs-plural
+- articles
 order: 4
 status: complete
 last_updated: 2026-04-13

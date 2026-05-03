@@ -14,6 +14,8 @@ tags:
 - ielts
 - grammar
 - common-mistakes
+- consolidated
+- verb-pattern-master
 prerequisites:
 - gerund
 - infinitive

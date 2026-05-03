@@ -5,7 +5,7 @@ category: sentence-structures
 summary: 'Cleft sentences là cách tách câu để nhấn mạnh một thành phần cụ thể. Có hai loại chính: it-cleft ("It is X that/who...") và wh-cleft ("What I need is..."). Cấu trúc này giúp kiểm soát thông tin nổi bật trong câu — đây là một trong những kỹ thuật ngữ pháp nâng cao đặc trưng của văn phong học thuật trong IELTS Writing Band 7+.
 
   '
-level: advanced
+level: intermediate
 tags:
 - sentence-structures
 - cleft-sentences
@@ -33,7 +33,7 @@ compare_with:
 order: 7
 status: complete
 last_updated: 2026-04-18
-difficulty: advanced
+difficulty: intermediate
 band_relevance:
 - '7.0'
 - '7.5'

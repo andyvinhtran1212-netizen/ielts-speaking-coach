@@ -14,6 +14,7 @@ tags:
 - will
 - going-to
 - plans
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements
@@ -23,7 +24,8 @@ related_pages:
 - present-simple
 - present-continuous
 - present-perfect
-compare_with: []
+compare_with:
+- present-continuous
 order: 5
 status: complete
 last_updated: 2026-04-13

@@ -15,6 +15,8 @@ tags:
 - modal-verbs
 - writing
 - speaking
+- consolidated
+- ielts-band-7
 prerequisites:
 - modal-verbs
 - sentence-elements
@@ -24,7 +26,8 @@ related_pages:
 - discourse-markers
 - conditionals
 - emphasis-inversion
-compare_with: []
+compare_with:
+- academic-hedging
 order: 6
 status: complete
 last_updated: 2026-04-23

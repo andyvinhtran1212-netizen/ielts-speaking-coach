@@ -12,6 +12,8 @@ tags:
 - determiners
 - articles
 - nouns
+- vietnamese-pitfall
+- high-leverage
 prerequisites:
 - parts-of-speech
 - sentence-elements
@@ -19,7 +21,8 @@ prerequisites:
 related_pages:
 - parts-of-speech
 - sentence-elements
-compare_with: []
+compare_with:
+- countable-vs-uncountable
 order: 1
 status: complete
 last_updated: 2026-04-10

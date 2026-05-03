@@ -15,6 +15,7 @@ tags:
 - academic
 - be-verb
 - past-participle
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements

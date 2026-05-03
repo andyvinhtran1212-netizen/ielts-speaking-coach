@@ -27,7 +27,8 @@ related_pages:
 - complex-sentence
 - sentence-elements
 - conjunctions
-compare_with: []
+compare_with:
+- complex-sentence
 order: 4
 status: complete
 last_updated: 2026-04-18

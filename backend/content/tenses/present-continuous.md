@@ -12,6 +12,8 @@ tags:
 - ielts
 - progressive
 - continuous
+- foundational
+- stative-verb-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements

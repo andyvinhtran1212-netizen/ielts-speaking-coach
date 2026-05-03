@@ -15,6 +15,7 @@ tags:
 - ielts
 - speaking-strategies
 - band7
+- speaking-application
 prerequisites:
 - conjunctions
 - complex-sentence

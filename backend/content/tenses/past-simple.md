@@ -12,6 +12,8 @@ tags:
 - ielts
 - past
 - irregular-verbs
+- foundational
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements

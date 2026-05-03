@@ -15,6 +15,8 @@ tags:
 - syntax
 - adjectives
 - adverbs
+- vietnamese-pitfall
+- foundational
 prerequisites:
 - parts-of-speech
 - sentence-elements

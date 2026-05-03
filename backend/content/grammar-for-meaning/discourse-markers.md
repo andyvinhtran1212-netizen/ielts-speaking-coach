@@ -25,7 +25,9 @@ related_pages:
 - conjunctions
 - complex-sentence
 - sentence-elements
-compare_with: []
+- discourse-markers-spoken
+compare_with:
+- discourse-markers-spoken
 order: 3
 status: complete
 last_updated: 2026-04-23
@@ -40,6 +42,8 @@ speaking_relevance: high
 writing_relevance: high
 next_articles:
 - grammar-in-speaking
+- discourse-markers-spoken
+- hedging-language
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing

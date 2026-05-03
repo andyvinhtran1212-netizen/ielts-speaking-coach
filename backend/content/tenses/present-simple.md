@@ -11,6 +11,8 @@ tags:
 - beginner
 - ielts
 - foundation
+- foundational
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements

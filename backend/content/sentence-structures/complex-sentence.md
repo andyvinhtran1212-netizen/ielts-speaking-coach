@@ -15,6 +15,7 @@ tags:
 - subordination
 - relative-clause
 - adverb-clause
+- consolidated
 prerequisites:
 - parts-of-speech
 - sentence-elements
@@ -41,7 +42,6 @@ writing_relevance: high
 next_articles:
 - relative-clauses
 - conditionals
-- from-simple-to-complex-sentences
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
