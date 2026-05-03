@@ -537,6 +537,10 @@ def _save_grammar_recommendations(
                 "recommended_category": r["category"],
                 "recommended_title":    r["title"],
                 "similarity_score":     r["score"],
+                # Sprint 4 Phase 6: persist deep-link anchor (migration 032).
+                # Falls back to NULL when matcher couldn't resolve a specific
+                # anchor — frontend then renders the article-level URL.
+                "recommended_anchor":   r.get("anchor"),
             }
             for r in recs
         ]
