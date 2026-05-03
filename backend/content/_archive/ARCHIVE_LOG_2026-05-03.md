@@ -40,3 +40,16 @@ patches will be re-reconciled with the target file structure.
 | `expressing-uncertainty` | `hedging-language` | Target uses Nhóm 1-6 grouping; spec's `## Distancing phrases` has no semantic match |
 | `zero-article` | `articles` | Spec wants L2 heading; reality has L3 (and spec marks merge OPTIONAL) |
 
+---
+
+## Section 3 — Sprint 3 deferred merges resolved
+
+These were deferred from Sprint 2's Phase 4 because the target sections
+did not exist and Sprint 2 body edits did not create them.  Sprint 3
+applies the body edits + merges per Andy Path A decision.
+
+### Executed merges
+
+| # | Source | Target section | Merge strategy |
+|---:|---|---|---|
+| 1 | `avoiding-repetitive-sentence-openings` | `## High-leverage structures` (new section in `grammar-for-band7plus.md`) | append_to_section |
