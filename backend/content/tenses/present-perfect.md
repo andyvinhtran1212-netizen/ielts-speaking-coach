@@ -71,6 +71,7 @@ anchors:
     type: compare-with
 ---
 
+<!-- anchor: present-perfect.overview -->
 ## Tóm tắt
 
 Present Perfect dùng khi hành động xảy ra trong quá khứ **nhưng vẫn còn liên quan đến hiện tại** — bạn quan tâm đến kết quả, trải nghiệm, hoặc tình trạng *hiện tại*, không phải thời điểm cụ thể trong quá khứ.

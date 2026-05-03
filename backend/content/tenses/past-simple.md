@@ -65,6 +65,7 @@ anchors:
     type: compare-with
 ---
 
+<!-- anchor: past-simple.overview -->
 ## Tóm tắt
 
 Past Simple diễn tả hành động **đã xảy ra và hoàn thành** ở một thời điểm xác định trong quá khứ — có thể là vài giây trước, vài năm trước, hay hàng thế kỷ trước.

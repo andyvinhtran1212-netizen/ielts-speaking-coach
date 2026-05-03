@@ -72,6 +72,7 @@ anchors:
     type: compare-with
 ---
 
+<!-- anchor: relative-clauses.overview -->
 ## Tóm tắt
 
 Mệnh đề quan hệ (Relative Clause) là một mệnh đề phụ đứng ngay sau danh từ để **bổ sung thông tin** về danh từ đó. Nó được mở đầu bởi **relative pronoun** (who, which, that, whose, whom) hoặc **relative adverb** (where, when, why).

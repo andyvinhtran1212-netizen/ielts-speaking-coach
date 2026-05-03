@@ -65,6 +65,7 @@ anchors:
     type: compare-with
 ---
 
+<!-- anchor: present-continuous.overview -->
 ## Tóm tắt
 
 Present Continuous diễn tả những gì **đang xảy ra ngay lúc này**, những tình huống **tạm thời**, và những xu hướng **đang thay đổi** trong thời điểm hiện tại.

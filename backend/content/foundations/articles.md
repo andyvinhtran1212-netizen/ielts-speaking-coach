@@ -68,6 +68,7 @@ anchors:
     type: ielts-application
 ---
 
+<!-- anchor: articles.overview -->
 ## Tóm tắt
 
 **A/An** dùng khi giới thiệu danh từ đếm được số ít lần đầu tiên hoặc nói về loại chung; **the** dùng khi cả người nói và người nghe đều biết đối tượng nào đang được nhắc đến; **không có mạo từ (zero article)** dùng với danh từ không đếm được và danh từ số nhiều nói chung.
@@ -94,6 +95,7 @@ Tiếng Anh có ba loại mạo từ:
 
 ## Cấu trúc
 
+<!-- anchor: articles.a-vs-an.sound-rule -->
 ### A hay An? — Quy tắc âm thanh, không phải chữ cái
 
 Chọn **a** hay **an** dựa trên **âm đầu tiên của từ tiếp theo**, không phải chữ cái đầu.
@@ -112,6 +114,7 @@ Chọn **a** hay **an** dựa trên **âm đầu tiên của từ tiếp theo**,
 
 ## Cách dùng phổ biến
 
+<!-- anchor: articles.indefinite.when-to-use -->
 ### A / An — Mạo từ không xác định
 
 #### 1. Giới thiệu lần đầu (First mention)
@@ -141,6 +144,7 @@ Nói về bất kỳ đại diện nào của loại đó, không phải một c
 - **once a week** / **twice a day** / **three times a month**
 - **such a** + noun: "It was **such a** beautiful day!"
 
+<!-- anchor: articles.definite.when-to-use -->
 ### The — Mạo từ xác định
 
 #### 1. Đề cập lần thứ hai trở đi (Second mention)
@@ -187,6 +191,7 @@ Chỉ có một trên thế giới hoặc trong ngữ cảnh đó.
 - She plays **the** piano.
 - He learned **the** guitar when he was young.
 
+<!-- anchor: articles.zero.when-to-use -->
 ### Zero Article — Không dùng mạo từ
 
 #### 1. Danh từ số nhiều nói chung (General plural)
@@ -269,12 +274,14 @@ So sánh:
 
 ## Lỗi thường gặp
 
+<!-- anchor: articles.indefinite.missing-with-singular-count-noun -->
 ### Lỗi 1: Bỏ mạo từ trước danh từ đếm được số ít
 
 - ❌ SAI: She is teacher.
 - ✅ ĐÚNG: She is **a** teacher.
 - **TẠI SAO:** Danh từ đếm được số ít bắt buộc phải có mạo từ hoặc đại từ sở hữu (a/the/my/this...).
 
+<!-- anchor: articles.definite.overuse-with-general-uncount -->
 ### Lỗi 2: Dùng "the" với danh từ số nhiều/không đếm được nói chung
 
 - ❌ SAI: **The** knowledge is important for success.
@@ -287,6 +294,7 @@ So sánh:
 - ❌ SAI: **Sun** rises in the east.
 - ✅ ĐÚNG: **The** sun rises in the east.
 
+<!-- anchor: articles.vietnamese-pitfall.country-the-misuse -->
 ### Lỗi 4: Dùng "the" trước tên nước
 
 - ❌ SAI: I live in **the** Vietnam.
@@ -318,6 +326,7 @@ Khi gặp danh từ, hỏi 3 câu:
 
 ## Ứng dụng trong IELTS
 
+<!-- anchor: articles.ielts.speaking-application -->
 ### IELTS Speaking
 - Khi kể chuyện: "I met **a** man on the train. **The** man told me an interesting story about his life."
 - Khi mô tả xu hướng: "**The** rise of **social media** has changed how **people** communicate."

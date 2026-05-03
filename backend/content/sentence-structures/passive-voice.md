@@ -70,6 +70,7 @@ anchors:
     type: pitfall
 ---
 
+<!-- anchor: passive-voice.overview -->
 ## Tóm tắt
 
 Câu bị động (Passive Voice) là khi đối tượng chịu tác động của hành động trở thành **chủ ngữ** của câu. Người thực hiện hành động (agent) có thể được đề cập hoặc bỏ qua.

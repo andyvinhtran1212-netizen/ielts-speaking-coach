@@ -64,6 +64,7 @@ anchors:
     type: concept
 ---
 
+<!-- anchor: countable-vs-uncountable.overview -->
 ## Tóm tắt
 
 **Countable noun** = danh từ có thể đếm được, có dạng số nhiều (*book → books*). **Uncountable noun** = danh từ không đếm được, không có dạng số nhiều (*water, advice, information*).

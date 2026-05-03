@@ -62,6 +62,7 @@ anchors:
     type: section
 ---
 
+<!-- anchor: word-order.overview -->
 ## Tóm tắt
 
 Trật tự từ trong tiếng Anh **không linh hoạt như tiếng Việt**. Nếu đặt sai chỗ, câu có thể sai hoàn toàn, hoặc ít nhất là nghe rất lạ. Nắm vững trật tự từ là nền tảng để nói và viết đúng.

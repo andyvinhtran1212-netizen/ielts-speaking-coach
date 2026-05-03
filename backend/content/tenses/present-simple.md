@@ -63,6 +63,7 @@ anchors:
     type: pitfall
 ---
 
+<!-- anchor: present-simple.overview -->
 ## Tóm tắt
 
 Present Simple diễn tả những gì **luôn đúng**, **thường xảy ra**, hoặc **đã được lên lịch sẵn**. Đây là thì cơ bản nhất và được dùng nhiều nhất trong tiếng Anh.
