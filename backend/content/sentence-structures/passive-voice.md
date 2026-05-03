@@ -15,6 +15,7 @@ tags:
 - academic
 - be-verb
 - past-participle
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements
@@ -323,3 +324,31 @@ Subject + is/are + V3 + to-infinitive
 **Reporting passive phổ biến trong IELTS:**
 - It is believed / reported / suggested / known that...
 - ...is expected / considered / said to...
+
+## Khi nào KHÔNG nên dùng passive (đặc biệt trong Speaking)
+
+<!-- anchor: passive-voice.when-not-to-use.speaking -->
+
+Người học VN thường over-use passive trong Speaking → bài nói nghe sách vở, không tự nhiên, hạ Fluency. Quy tắc:
+
+**Tránh passive khi:**
+1. Agent đã rõ và là focus → active mạnh hơn: "The chef cooked the meal" (✓) vs "The meal was cooked by the chef" (passive yếu khi chef quan trọng)
+2. Trong câu trả lời cá nhân Part 1: "I do this..." luôn tốt hơn "this is done by me..."
+3. Khi muốn sound dynamic và confident — active conveys agency
+
+**Dùng passive khi:**
+1. Agent unknown hoặc irrelevant: "My phone was stolen yesterday." (không biết ai trộm)
+2. Process description (academic register): "The data was collected over 6 months."
+3. Maintaining topic continuity: "The company was founded in 1990. It was acquired in 2010." (the company / it stays in subject position)
+
+## Lưu ý — VN bị/được không phải lúc nào cũng map sang passive
+
+<!-- anchor: passive-voice.vietnamese-pitfall.bi-duoc-overuse -->
+
+Tiếng Việt có "bị" (negative outcome) và "được" (positive outcome) — cả hai có thể dịch là passive trong English, nhưng không bắt buộc.
+
+"Tôi **bị** mất ví" — không cần passive: "I lost my wallet" (active, idiomatic) tốt hơn "My wallet was lost (by me)".
+
+"Tôi **được** nhận học bổng" — không cần passive: "I got a scholarship" / "I received a scholarship" (active) tốt hơn "A scholarship was received by me".
+
+Quy tắc: Khi VN có "bị/được" + bản thân là agent thực, thường active English tự nhiên hơn.

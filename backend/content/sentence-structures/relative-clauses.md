@@ -27,7 +27,8 @@ related_pages:
 - complex-sentence
 - sentence-elements
 - conjunctions
-compare_with: []
+compare_with:
+- complex-sentence
 order: 4
 status: complete
 last_updated: 2026-04-18
@@ -74,6 +75,20 @@ anchors:
 
 <!-- anchor: relative-clauses.overview -->
 ## Tóm tắt
+
+> **Decision flowchart — Defining hay Non-defining?**
+>
+> <!-- anchor: relative-clauses.defining-vs-non-defining -->
+>
+> Hỏi: "Nếu bỏ relative clause, người nghe có XÁC ĐỊNH được noun này không?"
+>
+> - **CÓ** (vẫn xác định được — relative clause chỉ thêm thông tin) → **NON-DEFINING** → DÙNG dấu phẩy → DÙNG "which" hoặc "who" (KHÔNG "that")
+> - **KHÔNG** (relative clause cần thiết để biết noun này là cái gì) → **DEFINING** → KHÔNG dấu phẩy → DÙNG "which/who/that"
+>
+> Ví dụ:
+> - "My brother, **who lives in Hanoi**, called me yesterday." (non-defining: chỉ có 1 anh trai → who lives in Hanoi chỉ thêm thông tin → CÓ phẩy)
+> - "The book **that I borrowed** is interesting." (defining: nhiều sách → "that I borrowed" cần để biết SÁCH NÀO → KHÔNG phẩy)
+
 
 Mệnh đề quan hệ (Relative Clause) là một mệnh đề phụ đứng ngay sau danh từ để **bổ sung thông tin** về danh từ đó. Nó được mở đầu bởi **relative pronoun** (who, which, that, whose, whom) hoặc **relative adverb** (where, when, why).
 

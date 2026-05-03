@@ -408,3 +408,25 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 4. **Không dùng** với mốc thời gian cụ thể (*yesterday, last year, in 2020*) — phải dùng Past Simple
 5. *Since* + thời điểm; *for* + khoảng thời gian
 6. *Been* = đã trải nghiệm (và có thể đã về); *gone* = đã đi và vẫn còn ở đó
+
+## Lỗi phổ biến của người Việt — Dùng past simple thay vì present perfect
+
+<!-- anchor: present-perfect.common-mistake.past-simple-where-pp-needed -->
+
+Tiếng Việt không phân biệt "đã làm" và "đã từng làm" qua hình thái động từ. Người học VN default to past simple cho mọi quá khứ → bỏ qua present perfect khi context yêu cầu.
+
+**Decision rule cho Speaking:**
+
+Nếu time frame **đã đóng** (yesterday, last week, in 2010, when I was a child) → **past simple**
+Nếu time frame **vẫn mở** đến hiện tại (today, this week, this month, since X, for Y, in my life) → **present perfect**
+
+❌ "I lived in Hanoi for 10 years." (sai nếu vẫn ở Hanoi)
+✅ "I have lived in Hanoi for 10 years." (vẫn ở; time frame "for 10 years" mở đến nay)
+
+❌ "I never visited Japan." (technically có thể đúng nhưng nghe lạ)
+✅ "I have never visited Japan." (kinh nghiệm tổng đến nay)
+
+❌ "Did you eat breakfast?" (sai nếu morning vẫn diễn ra)
+✅ "Have you eaten breakfast?" (this morning vẫn mở)
+
+**IELTS Speaking high-leverage:** Part 1 questions như "Have you ever...?" và Part 2 "I've always loved...", "I've been doing this for..." — đây là present perfect contexts cố định.

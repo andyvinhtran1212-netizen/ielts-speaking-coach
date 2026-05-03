@@ -16,6 +16,7 @@ tags:
 - obligation
 - advice
 - hedging
+- ielts-band-7
 prerequisites:
 - parts-of-speech
 - verbs
@@ -27,7 +28,8 @@ related_pages:
 - conditionals
 - passive-voice
 - hedging-language
-compare_with: []
+compare_with:
+- wish-hope
 order: 1
 status: complete
 last_updated: 2026-04-18
@@ -76,6 +78,16 @@ anchors:
 ---
 
 ## Tóm tắt
+
+> **Quy tắc cơ bản:** Modal verbs LUÔN đi với **bare infinitive** (động từ nguyên mẫu KHÔNG "to"):
+>
+> <!-- anchor: modal-verbs.structure.bare-infinitive-required -->
+>
+> ✅ "I can **swim**." / "She must **study**." / "We should **go**."
+> ❌ "I can **to swim**." / "She must **to study**." / "We should **going**."
+>
+> Người Việt hay slip "to" vào sau modal vì thói quen "có thể + làm gì" → "can to do". Drill bằng repeated practice 30 câu mỗi sáng.
+
 
 Modal verbs là nhóm động từ đặc biệt đứng trước động từ chính (ở dạng nguyên thể không "to") để diễn đạt thái độ của người nói đối với hành động — không phải bản thân hành động.
 

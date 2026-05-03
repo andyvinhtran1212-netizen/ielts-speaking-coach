@@ -55,12 +55,7 @@ groups:
       - { slug: reported-speech,   category: sentence-structures, title: "Reported Speech — Câu tường thuật" }
       - { slug: cleft-sentences,   category: sentence-structures, title: "Cleft Sentences — Câu chẻ" }
       - { slug: inversion,         category: sentence-structures, title: "Inversion — Đảo ngữ" }
-      - { slug: adding-contrast-naturally,             category: sentence-structures, title: "Adding Contrast Naturally — Thêm ý tương phản tự nhiên trong nói và viết" }
-      - { slug: adding-results-clearly,                category: sentence-structures, title: "Adding Results Clearly — Diễn đạt kết quả và hệ quả rõ ràng" }
-      - { slug: combining-two-short-sentences,         category: sentence-structures, title: "Combining Two Short Sentences — Nối câu ngắn thành câu dài tự nhiên" }
       - { slug: avoiding-repetitive-sentence-openings, category: sentence-structures, title: "Avoiding Repetitive Sentence Openings — Đa dạng hóa cách mở đầu câu" }
-      - { slug: adding-conditions-naturally,           category: sentence-structures, title: "Adding Conditions Naturally — Thêm điều kiện vào câu một cách tự nhiên" }
-      - { slug: from-simple-to-complex-sentences,      category: sentence-structures, title: "From Simple to Complex Sentences — Nâng cấp câu đơn từng bước" }
 
   - slug: tenses
     title: "Thì động từ"
@@ -90,12 +85,6 @@ groups:
       - { slug: causative-verbs,     category: verb-patterns, title: "Causative — have / get / make" }
       - { slug: wish-hope,           category: verb-patterns, title: "Wish & Hope" }
       - { slug: used-to-be-used-to-get-used-to, category: verb-patterns, title: "Used to / Be used to / Get used to — Ba cấu trúc khác nhau hoàn toàn" }
-      - { slug: remember-doing-vs-remember-to-do, category: verb-patterns, title: "Remember doing vs. Remember to do — Nhớ điều đã xảy ra hay nhớ phải làm gì?" }
-      - { slug: stop-doing-vs-stop-to-do,         category: verb-patterns, title: "Stop doing vs. Stop to do — Dừng hẳn hay dừng lại để làm?" }
-      - { slug: try-doing-vs-try-to-do,           category: verb-patterns, title: "Try doing vs. Try to do — Thử xem có được không hay cố gắng làm?" }
-      - { slug: forget-doing-vs-forget-to-do,     category: verb-patterns, title: "Forget doing vs. Forget to do — Quên việc đã làm hay quên phải làm gì?" }
-      - { slug: regret-doing-vs-regret-to-do,     category: verb-patterns, title: "Regret doing vs. Regret to do — Hối tiếc về quá khứ hay tiếc phải thông báo?" }
-      - { slug: need-doing-vs-need-to-be-done,    category: verb-patterns, title: "Need doing vs. Need to be done — Hai cách nói cùng nghĩa, dùng sao cho tự nhiên?" }
 
   - slug: grammar-for-meaning
     title: "Ngữ pháp theo chức năng"
@@ -105,7 +94,6 @@ groups:
       - { slug: comparison,          category: grammar-for-meaning, title: "Comparison — So sánh hơn và nhất" }
       - { slug: quantifiers,         category: grammar-for-meaning, title: "Quantifiers — Từ chỉ số lượng" }
       - { slug: conditionals,        category: grammar-for-meaning, title: "Conditionals — Câu điều kiện" }
-      - { slug: emphasis-inversion,  category: grammar-for-meaning, title: "Emphasis & Inversion — Nhấn mạnh" }
       - { slug: discourse-markers,   category: grammar-for-meaning, title: "Discourse Markers — Liên kết ý" }
       - { slug: hedging-language,    category: grammar-for-meaning, title: "Hedging Language — Diễn đạt thận trọng" }
       - { slug: because-vs-because-of, category: grammar-for-meaning, title: "Because vs. Because of — Liên từ hay Giới từ?" }
@@ -115,7 +103,7 @@ groups:
       - { slug: although-though-even-though, category: grammar-for-meaning, title: "Although / Though / Even Though — Diễn đạt sự tương phản và nhượng bộ" }
 
   - slug: ielts-grammar-lab
-    title: "IELTS Grammar Lab"
+    title: "IELTS Speaking Lab"
     description: "Cấu trúc câu nâng cao và ngữ pháp thực chiến dành riêng cho IELTS Speaking & Writing Band 7+."
     color: sky
     articles:

@@ -1,0 +1,95 @@
+counts:
+  body_edits_total: 20
+  merges_total: 15
+  verb_pattern_chain_count: 6
+  metadata_entries: 28
+  sprint2_inline_marker: 1
+  current_groups_slugs: 109
+  expected_after_sprint2: 94
+blocker_count: 8
+warning_count: 0
+expected_dependency_count: 6
+reconciled_count: 3
+issues:
+- severity: blocker
+  kind: body_edit_anchor_text_not_found
+  edit_id: present-continuous-stative-anchor-add
+  path: backend/content/tenses/present-continuous.md
+  anchor_text: '## Stative verbs'
+- severity: expected_dependency
+  kind: merge_depends_on_phase_2_body_edit
+  source_slug: remember-doing-vs-remember-to-do
+  under_section: '## Verbs that take both with DIFFERENT meaning'
+- severity: expected_dependency
+  kind: merge_depends_on_phase_2_body_edit
+  source_slug: forget-doing-vs-forget-to-do
+  under_section: '## Verbs that take both with DIFFERENT meaning'
+- severity: expected_dependency
+  kind: merge_depends_on_phase_2_body_edit
+  source_slug: regret-doing-vs-regret-to-do
+  under_section: '## Verbs that take both with DIFFERENT meaning'
+- severity: expected_dependency
+  kind: merge_depends_on_phase_2_body_edit
+  source_slug: stop-doing-vs-stop-to-do
+  under_section: '## Verbs that take both with DIFFERENT meaning'
+- severity: expected_dependency
+  kind: merge_depends_on_phase_2_body_edit
+  source_slug: try-doing-vs-try-to-do
+  under_section: '## Verbs that take both with DIFFERENT meaning'
+- severity: expected_dependency
+  kind: merge_depends_on_phase_2_body_edit
+  source_slug: need-doing-vs-need-to-be-done
+  under_section: '## Verbs that take both with DIFFERENT meaning'
+- severity: reconciled
+  kind: merge_reconciled_per_andy
+  source_slug: adding-contrast-naturally
+  original_under: '## Nhóm 4: Tương phản (Contrast)'
+  reconciled_under: '## Nhóm 2: Tương phản (Contrast)'
+  strategy: append_to_section
+- severity: reconciled
+  kind: merge_reconciled_per_andy
+  source_slug: adding-results-clearly
+  original_under: '## Nhóm 5: Kết quả (Result)'
+  reconciled_under: '## Nhóm 3: Nguyên nhân và Kết quả (Cause and Effect)'
+  strategy: create_subsection
+- severity: blocker
+  kind: merge_target_section_missing
+  source_slug: combining-two-short-sentences
+  target: backend/content/sentence-structures/complex-sentence.md
+  under_section: '## Bài tập'
+- severity: blocker
+  kind: merge_target_section_missing
+  source_slug: from-simple-to-complex-sentences
+  target: backend/content/sentence-structures/complex-sentence.md
+  under_section: '## Combining short sentences (cách thực hành)'
+- severity: blocker
+  kind: merge_target_section_missing
+  source_slug: avoiding-repetitive-sentence-openings
+  target: backend/content/ielts-grammar-lab/grammar-for-band7plus.md
+  under_section: '## High-leverage structures'
+- severity: blocker
+  kind: merge_target_section_missing
+  source_slug: adding-conditions-naturally
+  target: backend/content/grammar-for-meaning/conditionals.md
+  under_section: '## Loại 3: Third Conditional'
+- severity: blocker
+  kind: merge_target_section_missing
+  source_slug: emphasis-inversion
+  target: backend/content/sentence-structures/inversion.md
+  under_section: '## Inversion với negative adverbials'
+- severity: blocker
+  kind: merge_target_section_missing
+  source_slug: expressing-uncertainty
+  target: backend/content/grammar-for-meaning/hedging-language.md
+  under_section: '## Distancing phrases'
+- severity: blocker
+  kind: merge_target_section_missing
+  source_slug: zero-article
+  target: backend/content/foundations/articles.md
+  under_section: '## Zero Article — Không dùng mạo từ'
+- severity: reconciled
+  kind: marker_reconciled_per_andy
+  edit_id: anchor-wo-question
+  original_target: '## Trật tự từ trong câu hỏi'
+  reconciled_target: '## Câu hỏi — đảo trợ động từ lên trước'
+  file: backend/content/foundations/word-order.md

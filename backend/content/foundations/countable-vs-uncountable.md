@@ -14,6 +14,7 @@ tags:
 - nouns
 - articles
 - quantifiers
+- vietnamese-pitfall
 prerequisites:
 - parts-of-speech
 - sentence-elements
@@ -23,6 +24,7 @@ related_pages:
 - phrase-vs-clause
 compare_with:
 - singular-vs-plural
+- articles
 order: 4
 status: complete
 last_updated: 2026-04-13
@@ -66,6 +68,15 @@ anchors:
 
 <!-- anchor: countable-vs-uncountable.overview -->
 ## Tóm tắt
+> **4 câu hỏi để quyết định một danh từ mới có đếm được không:**
+>
+> 1. Có thể đếm trực tiếp bằng số (one, two, three) trước danh từ không? → Countable
+> 2. Có dạng số nhiều "-s" hợp lý không? → Countable
+> 3. Có ranh giới tự nhiên giữa các đơn vị không? → Countable
+> 4. Hay là chất liệu / khái niệm trừu tượng không có ranh giới đếm? → Uncountable
+>
+> Khi nào không chắc: tra từ điển có ghi `[U]` (uncountable) hay `[C]` (countable). Một số từ là cả hai tùy nghĩa: "a coffee" = một ly cà phê; "coffee" = cà phê (chất).
+
 
 **Countable noun** = danh từ có thể đếm được, có dạng số nhiều (*book → books*). **Uncountable noun** = danh từ không đếm được, không có dạng số nhiều (*water, advice, information*).
 
@@ -374,3 +385,22 @@ Sự thay đổi: *researches → research*, *many furnitures → much of the fu
 4. Dùng *many/few* cho countable; *much/little* cho uncountable; *some/any/a lot of* cho cả hai
 5. Để nói số lượng cụ thể của uncountable: *a piece of advice, two glasses of water*
 6. Một số danh từ vừa countable vừa uncountable với nghĩa khác nhau: *experience, time, paper, glass*
+
+## Đối chiếu với tiếng Việt — Loại từ vs inflection
+
+<!-- anchor: countable-vs-uncountable.vietnamese-classifier-contrast -->
+
+Tiếng Việt dùng **loại từ (classifier)** để đếm danh từ — "con bò", "cái bàn", "quyển sách". Loại từ là từ chỉ loại danh từ thuộc loại nào, đặt giữa số đếm và danh từ. Danh từ tự thân không đổi hình.
+
+Tiếng Anh **không có classifier** mà inflect chính danh từ: "one cow", "two cows". Với uncountable, tiếng Anh dùng partitive ("a piece of", "a glass of") — tương đương loại từ tiếng Việt nhưng chỉ áp dụng cho uncountable.
+
+**Hệ quả cho người Việt:** Khi gặp danh từ mới trong English, **đừng tự động cho rằng có thể đếm**. Có rất nhiều khái niệm tiếng Việt đếm được (thông tin, lời khuyên, đồ đạc) nhưng tiếng Anh không đếm được:
+
+| VN (đếm được) | EN (không đếm được) | Lỗi VN thường mắc |
+|---|---|---|
+| một thông tin | information [U] | ❌ "an information", "informations" |
+| một lời khuyên | advice [U] | ❌ "an advice", "advices" |
+| một thiết bị | equipment [U] | ❌ "an equipment", "equipments" |
+| một món đồ nội thất | furniture [U] | ❌ "a furniture", "furnitures" |
+| một nghiên cứu | research [U] (verb), research [C] (cụ thể study) | ❌ "researches" trong nghĩa "studies" |
+| một bài tập | homework [U] | ❌ "a homework", "homeworks" |

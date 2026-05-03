@@ -17,6 +17,7 @@ tags:
 - intermediate
 - ielts
 - part2
+- speaking-application
 prerequisites:
 - past-simple
 - past-continuous
@@ -31,6 +32,8 @@ related_pages:
 - grammar-in-speaking
 compare_with:
 - talking-about-future-plans
+- past-simple
+- present-perfect
 order: 11
 status: complete
 last_updated: 2026-04-19
