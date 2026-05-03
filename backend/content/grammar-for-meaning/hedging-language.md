@@ -357,3 +357,8 @@ Người học VN thường mạnh quá: "Definitely yes!", "I strongly agree!",
 ✅ "I tend to agree, although I think it depends on the context."
 
 Hedging KHÔNG phải yếu — nó là Band 7+ marker thể hiện phán đoán cẩn trọng (critical thinking). Examiner đánh giá cao.
+
+## Nhóm 7: Distancing phrases (Khoảng cách hóa)
+
+Distancing phrases là một dạng đặc biệt của hedging — sử dụng để tạo khoảng cách giữa người nói và tuyên bố, giảm tính trực tiếp khi cần thiết.
+
