@@ -444,3 +444,8 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 - Cấu trúc phục vụ **ý nghĩa**, không phải ngược lại
 - Inversion và cleft sentences đặc biệt hiệu quả ở **câu mở bài** và **câu chủ đề đoạn**
 - **Hedging** là bắt buộc ở Band 7+ — nói tuyệt đối là dấu hiệu của Band 5-6
+
+## High-leverage structures
+
+Các cấu trúc ngữ pháp tạo đòn bẩy cao trong IELTS Speaking — sử dụng có chiến lược để nâng band điểm Grammar Range and Accuracy.
+
