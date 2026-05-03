@@ -40,8 +40,6 @@ speaking_relevance: high
 writing_relevance: high
 next_articles:
 - grammar-in-speaking
-- task2-opinion-essay-grammar
-- task2-conclusion-grammar
 pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
