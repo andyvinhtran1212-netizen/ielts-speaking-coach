@@ -53,3 +53,4 @@ applies the body edits + merges per Andy Path A decision.
 | # | Source | Target section | Merge strategy |
 |---:|---|---|---|
 | 1 | `avoiding-repetitive-sentence-openings` | `## High-leverage structures` (new section in `grammar-for-band7plus.md`) | append_to_section |
+| 2 | `expressing-uncertainty` | `## Nhóm 7: Distancing phrases (Khoảng cách hóa)` (new section in `hedging-language.md`) | append_to_section |
