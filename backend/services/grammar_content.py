@@ -28,6 +28,11 @@ _MD_EXT_CONFIGS  = {
     }
 }
 
+# Matches deep-link anchor markers in article bodies. Captures the anchor
+# id (kebab-dot ASCII per the convention pinned in test_anchor_drift.py).
+# Used in `_parse_file` to convert markers into clickable `<a id>` tags.
+_ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
+
 
 class GrammarContentService:
     def __init__(self):
@@ -125,6 +130,12 @@ class GrammarContentService:
             extension_configs=_MD_EXT_CONFIGS,
         )
         html       = md_proc.convert(body)
+        # Convert anchor markers `<!-- anchor: ID -->` (preserved verbatim
+        # by the markdown parser) into clickable HTML anchor tags so URL
+        # hash deep-linking works (`/grammar/.../slug#ID` → browser scrolls).
+        html = _ANCHOR_MARKER_RE.sub(
+            r'<a id="\1" class="grammar-anchor"></a>', html,
+        )
         toc_tokens = getattr(md_proc, "toc_tokens", [])
         toc        = _flatten_toc(toc_tokens)
 
