@@ -992,7 +992,8 @@
       var link = '';
       if (rec && rec.slug && rec.category) {
         var recHref = '/grammar.html?category=' + encodeURIComponent(rec.category)
-          + '&slug=' + encodeURIComponent(rec.slug);
+          + '&slug=' + encodeURIComponent(rec.slug)
+          + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
         var recClick = rec.rec_id
           ? ' data-rec-id="' + _esc(rec.rec_id) + '"'
             + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"'
