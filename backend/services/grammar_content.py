@@ -172,6 +172,14 @@ class GrammarContentService:
             "toc":               toc,
             "reading_time":      reading_time,
             "word_count":        word_count,
+            # Sprint 4 Phase 3: expose declared deep-link anchors so the
+            # AI feedback matcher (Phase 4) can resolve issue → anchor at
+            # runtime against the article's own anchor inventory.
+            "anchors":           [
+                {"id": a.get("id"), "location": a.get("location", ""), "type": a.get("type", "")}
+                for a in (fm.get("anchors") or [])
+                if a.get("id")
+            ],
         }
 
     # ── Internal helpers ─────────────────────────────────────────────────────
