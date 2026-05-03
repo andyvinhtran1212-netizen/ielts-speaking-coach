@@ -1,0 +1,717 @@
+# Feedback-Anchor Master Mapping
+# Ships to production at: backend/content/feedback-anchor-mapping.yaml
+# AI feedback service loads at boot, caches in memory.
+#
+# Each mapping connects an AI-feedback-detected error pattern to a specific
+# anchor in the grammar wiki. When user finishes a practice session and the
+# AI feedback identifies an error matching one of these patterns, the result
+# page links to the specific anchor (not just the topic page).
+
+schema_version: "1.0"
+generated_by: "cowork-audit-2026-05-02"
+last_updated: "2026-05-02"
+audit_commit: "1ca9792"
+
+# ── Sprint 1 schema addition (2026-05-03) ─────────────────────────────
+# Optional per-mapping field: deferred_until: <sprint-id>
+#   When present, the drift verification gate
+#   (backend/scripts/verify_anchor_drift.py) treats a missing
+#   target_anchor as an expected deferral (not drift) until that sprint
+#   ships.  When the sprint completes and the anchor exists, the field
+#   becomes vestigial (no-op) and may be cleaned up in maintenance.
+#   Companion field: deferred_reason — human-readable explanation.
+
+# Severity vocabulary:
+#   common    — high-frequency error, prioritised in suggestions
+#   important — meaningful error, shown if no common error matches
+#   nuance    — subtle issue, only shown when explicitly detected
+
+# Confidence vocabulary:
+#   high   — feedback_keywords are highly specific; surface always
+#   medium — keywords overlap; surface if no high-confidence match exists
+#   low    — fallback only
+
+mappings:
+  # ==========================================================
+  # Pitfall #1 — Article omission/overuse
+  # ==========================================================
+
+  - mapping_id: M001
+    target_anchor: articles.indefinite.missing-with-singular-count-noun
+    target_file: backend/content/foundations/articles.md
+    feedback_pattern_summary: "Quên 'a/an' trước danh từ đếm được số ít"
+    feedback_keywords:
+      - "missing article"
+      - "missing indefinite article"
+      - "no determiner before singular count noun"
+      - "singular count noun without article"
+      - "article omission"
+    user_phrase_examples:
+      - "I have car"
+      - "She is teacher"
+      - "He bought book"
+      - "I saw dog in park"
+      - "I want apple"
+    confidence: high
+    severity: common
+    related_anchors:
+      - articles.indefinite.when-to-use
+      - articles.overview
+
+  - mapping_id: M002
+    target_anchor: articles.definite.overuse-with-general-uncount
+    target_file: backend/content/foundations/articles.md
+    feedback_pattern_summary: "Dùng 'the' với danh từ uncountable / số nhiều nói chung"
+    feedback_keywords:
+      - "the with general uncount"
+      - "the overuse"
+      - "the with abstract noun"
+      - "definite article with general meaning"
+    user_phrase_examples:
+      - "The life is beautiful"
+      - "The knowledge is power"
+      - "I love the music"
+      - "The young people today"
+      - "The happiness is important"
+    confidence: high
+    severity: common
+    related_anchors:
+      - articles.zero.when-to-use
+      - articles.definite.when-to-use
+
+  - mapping_id: M003
+    target_anchor: articles.vietnamese-pitfall.country-the-misuse
+    target_file: backend/content/foundations/articles.md
+    feedback_pattern_summary: "Dùng 'the' trước tên nước số ít (the Vietnam)"
+    feedback_keywords:
+      - "the before country name"
+      - "the with singular country"
+      - "wrong article with country"
+    user_phrase_examples:
+      - "I live in the Vietnam"
+      - "I visited the France"
+      - "The Japan is interesting"
+    confidence: high
+    severity: common
+    related_anchors:
+      - articles.zero.when-to-use
+
+  # ==========================================================
+  # Pitfall #2 — Tense flatness / 3rd person -s
+  # ==========================================================
+
+  - mapping_id: M004
+    target_anchor: present-simple.common-mistake.third-person-s-drop
+    target_file: backend/content/tenses/present-simple.md
+    feedback_pattern_summary: "Bỏ -s ở ngôi thứ ba số ít trong present simple"
+    feedback_keywords:
+      - "third person singular s"
+      - "missing s on verb"
+      - "subject verb agreement third person"
+      - "he she it without s"
+      - "verb agreement error"
+    user_phrase_examples:
+      - "She work in Hanoi"
+      - "He like coffee"
+      - "It rain every day"
+      - "My brother live with us"
+    confidence: high
+    severity: common
+    related_anchors:
+      - present-simple.structure.affirmative
+      - subject-verb-agreement.overview
+      - pronunciation-grammar-link.s-endings.plural-and-3rd-person
+
+  - mapping_id: M005
+    target_anchor: past-simple.common-mistake.no-past-marker-on-verb
+    target_file: backend/content/tenses/past-simple.md
+    feedback_pattern_summary: "Verb không thay đổi hình theo thì (yesterday I go)"
+    feedback_keywords:
+      - "tense flatness"
+      - "verb in base form with past time"
+      - "missing past tense marker"
+      - "past time without past verb"
+      - "missing -ed"
+    user_phrase_examples:
+      - "Yesterday I go to Hanoi"
+      - "Last week she finish the project"
+      - "When I was young I like football"
+      - "Yesterday I work until 10pm"
+    confidence: high
+    severity: common
+    related_anchors:
+      - past-simple.structure.regular-ed
+      - past-simple.structure.irregular
+      - pronunciation-grammar-link.ed-endings.past-and-participial
+
+  - mapping_id: M006
+    target_anchor: present-perfect.common-mistake.past-simple-where-pp-needed
+    target_file: backend/content/tenses/present-perfect.md
+    feedback_pattern_summary: "Dùng past simple nơi cần present perfect"
+    feedback_keywords:
+      - "past simple where present perfect needed"
+      - "missing present perfect"
+      - "tense choice past vs perfect"
+      - "experience without present perfect"
+    user_phrase_examples:
+      - "I never visited Japan"
+      - "I lived here for 10 years (when speaker still lives there)"
+      - "Did you eat breakfast? (when morning still ongoing)"
+      - "I worked here since 2010"
+    confidence: medium
+    severity: common
+    related_anchors:
+      - present-perfect.usage.experience
+      - present-perfect.usage.unfinished-time
+      - present-perfect.compare-with.past-simple
+
+  # ==========================================================
+  # Pitfall #3 — Question word order
+  # ==========================================================
+
+  - mapping_id: M007
+    target_anchor: word-order.question-inversion
+    target_file: backend/content/foundations/word-order.md
+    feedback_pattern_summary: "Câu hỏi không đảo ngữ subject-auxiliary"
+    feedback_keywords:
+      - "question word order"
+      - "missing auxiliary inversion"
+      - "statement order in question"
+      - "wrong question form"
+    user_phrase_examples:
+      - "You like coffee?"
+      - "She is going where?"
+      - "What you did yesterday?"
+      - "Where you live?"
+    confidence: high
+    severity: important
+    related_anchors:
+      - word-order.svo.basic
+      - present-simple.structure.negative-question
+
+  # ==========================================================
+  # Pitfall #4 — Plural inconsistency
+  # ==========================================================
+
+  - mapping_id: M008
+    target_anchor: countable-vs-uncountable.common-mistake.pluralising-uncountable
+    target_file: backend/content/foundations/countable-vs-uncountable.md
+    feedback_pattern_summary: "Pluralise danh từ không đếm được (informations, advices)"
+    feedback_keywords:
+      - "uncountable noun pluralised"
+      - "informations advices researches"
+      - "wrong plural form"
+      - "non-pluralisable noun"
+    user_phrase_examples:
+      - "I need more informations"
+      - "She gave good advices"
+      - "We did researches"
+      - "I have many homeworks"
+      - "Please give me some equipments"
+    confidence: high
+    severity: common
+    related_anchors:
+      - countable-vs-uncountable.uncountable.common-list
+      - countable-vs-uncountable.vietnamese-classifier-contrast
+
+  - mapping_id: M009
+    target_anchor: countable-vs-uncountable.vietnamese-classifier-contrast
+    target_file: backend/content/foundations/countable-vs-uncountable.md
+    feedback_pattern_summary: "Bỏ -s plural ở danh từ đếm được số nhiều"
+    feedback_keywords:
+      - "missing plural s"
+      - "noun plural form missing"
+      - "two book three student"
+    user_phrase_examples:
+      - "I have two book"
+      - "Many student failed"
+      - "I bought three apple"
+      - "Five year ago"
+    confidence: high
+    severity: common
+    related_anchors:
+      - singular-vs-plural.overview
+      - pronunciation-grammar-link.s-endings.plural-and-3rd-person
+
+  # ==========================================================
+  # Pitfall #5 — Subject drop / pronoun
+  # ==========================================================
+
+  - mapping_id: M010
+    target_anchor: there-is-there-are.vietnamese-pitfall.have-instead-of-there-is
+    target_file: backend/content/foundations/there-is-there-are.md
+    feedback_pattern_summary: "Dùng 'have' thay vì 'there is' cho existential"
+    feedback_keywords:
+      - "have instead of there is"
+      - "existential without there"
+      - "missing there is there are"
+    user_phrase_examples:
+      - "Have many people in Hanoi"
+      - "Have a problem"
+      - "Have many students in my class"
+    confidence: high
+    severity: important
+    related_anchors:
+      - there-is-there-are.overview
+
+  # ==========================================================
+  # Pitfall #8 — Will overuse for future
+  # ==========================================================
+
+  - mapping_id: M011
+    target_anchor: future-forms.common-mistake.will-overuse
+    target_file: backend/content/tenses/future-forms.md
+    feedback_pattern_summary: "Dùng 'will' cho mọi tương lai (không dùng be going to / present continuous)"
+    feedback_keywords:
+      - "will overuse"
+      - "will for arrangement"
+      - "will for plan"
+      - "missing be going to"
+    user_phrase_examples:
+      - "Tomorrow I will visit my grandmother"
+      - "I will meet Sarah at 6pm tomorrow"
+      - "It will rain look at clouds"
+      - "Next year I will move to Saigon"
+    confidence: medium
+    severity: common
+    related_anchors:
+      - future-forms.be-going-to.intention
+      - future-forms.present-continuous.arrangement
+      - future-forms.compare-with.three-forms
+
+  # ==========================================================
+  # Pitfall #9 — Will after if (Type 1 conditional)
+  # ==========================================================
+
+  - mapping_id: M012
+    target_anchor: conditionals.type1.common-mistake.will-after-if
+    target_file: backend/content/grammar-for-meaning/conditionals.md
+    feedback_pattern_summary: "Dùng 'will' sau 'if' trong Type 1 conditional"
+    feedback_keywords:
+      - "will after if"
+      - "type 1 conditional with will"
+      - "tense error in if-clause"
+      - "future tense in conditional clause"
+      - "if-will mistake"
+    user_phrase_examples:
+      - "If I will go to the party"
+      - "If it will rain tomorrow"
+      - "If she will come"
+      - "If you will study hard"
+    confidence: high
+    severity: common
+    related_anchors:
+      - conditionals.type1.first-conditional
+      - conditionals.type1.structure
+
+  - mapping_id: M013
+    target_anchor: conditionals.type2.common-mistake.was-instead-of-were
+    target_file: backend/content/grammar-for-meaning/conditionals.md
+    feedback_pattern_summary: "Dùng 'was' thay vì 'were' trong Type 2 conditional (subjunctive)"
+    feedback_keywords:
+      - "was instead of were"
+      - "if I was you"
+      - "subjunctive were"
+    user_phrase_examples:
+      - "If I was you, I would..."
+      - "If she was here, she would..."
+    confidence: medium
+    severity: nuance
+    related_anchors:
+      - conditionals.type2.second-conditional
+      - conditionals.type2.structure
+
+  - mapping_id: M014
+    target_anchor: conditionals.type2-vs-type3.tense-distance
+    target_file: backend/content/grammar-for-meaning/conditionals.md
+    feedback_pattern_summary: "Confusion giữa Type 2 (hypothetical present) vs Type 3 (hypothetical past)"
+    feedback_keywords:
+      - "type 2 vs type 3 confusion"
+      - "wrong conditional type for time"
+      - "hypothetical past vs present"
+    user_phrase_examples:
+      - "If I had time yesterday, I would help (uses Type 2 for past — should be Type 3)"
+      - "If I would have known, I would have come (mixes Type 3 wrong)"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - conditionals.type2.second-conditional
+      - conditionals.type3.third-conditional
+
+  # ==========================================================
+  # Pitfall #10 — Stative verbs in -ing
+  # ==========================================================
+
+  - mapping_id: M015
+    target_anchor: present-continuous.stative-verbs.do-not-use-ing
+    target_file: backend/content/tenses/present-continuous.md
+    feedback_pattern_summary: "Dùng -ing với stative verb (I am understanding)"
+    feedback_keywords:
+      - "stative verb in continuous"
+      - "stative -ing"
+      - "understanding knowing wanting in -ing"
+      - "non-progressive verb"
+    user_phrase_examples:
+      - "I am understanding the lesson"
+      - "She is knowing the answer"
+      - "I am wanting to go home"
+      - "I am having a brother"
+    confidence: high
+    severity: common
+    related_anchors:
+      - present-continuous.usage.now
+      - present-continuous.compare-with.present-simple
+
+  # ==========================================================
+  # Pitfall #11 — Preposition transfer
+  # ==========================================================
+
+  - mapping_id: M016
+    target_anchor: grammatical-collocations.verb-preposition
+    target_file: backend/content/grammar-for-meaning/grammatical-collocations.md
+    deferred_until: sprint-3
+    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (grammatical-collocations)'
+    feedback_pattern_summary: "Sai preposition với verb (depend of, listen Ø, discuss about)"
+    feedback_keywords:
+      - "wrong preposition with verb"
+      - "depend of"
+      - "listen without to"
+      - "discuss about"
+      - "wait Ø"
+      - "preposition collocation error"
+    user_phrase_examples:
+      - "It depends of the weather"
+      - "I listen music every day"
+      - "Let's discuss about this"
+      - "Wait me here"
+      - "I am waiting for you (correct example for contrast)"
+    confidence: high
+    severity: common
+    related_anchors:
+      - grammatical-collocations.overview
+      - prepositions.common-mistake.transfer-from-vietnamese
+      - grammatical-collocations.common-mistake.preposition-transfer
+
+  - mapping_id: M017
+    target_anchor: grammatical-collocations.adjective-preposition
+    target_file: backend/content/grammar-for-meaning/grammatical-collocations.md
+    deferred_until: sprint-3
+    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (grammatical-collocations)'
+    feedback_pattern_summary: "Sai preposition với adjective (good in, married with, afraid for)"
+    feedback_keywords:
+      - "wrong preposition with adjective"
+      - "good in English"
+      - "married with"
+      - "afraid for"
+      - "interested on"
+    user_phrase_examples:
+      - "She's good in English"
+      - "He's married with a doctor"
+      - "I'm afraid for snakes"
+      - "I'm interested on history"
+    confidence: high
+    severity: common
+    related_anchors:
+      - grammatical-collocations.common-mistake.adjective-preposition-mismatch
+
+  # ==========================================================
+  # Pitfall #12 — -ed/-ing adjectives
+  # ==========================================================
+
+  - mapping_id: M018
+    target_anchor: adjectives.participial.ed-vs-ing
+    target_file: backend/content/modifiers/adjectives.md
+    feedback_pattern_summary: "Nhầm -ed và -ing adjective (interesting / interested)"
+    feedback_keywords:
+      - "ed vs ing adjective"
+      - "interesting interested confusion"
+      - "boring bored"
+      - "participial adjective"
+    user_phrase_examples:
+      - "I am very interesting in this"
+      - "The lesson was bored"
+      - "I am exciting to watch"
+      - "She felt confusing"
+    confidence: high
+    severity: common
+    related_anchors:
+      - adjectives.overview
+
+  # ==========================================================
+  # Pitfall #13 — Comparative errors
+  # ==========================================================
+
+  - mapping_id: M019
+    target_anchor: comparison.common-mistake.double-comparative
+    target_file: backend/content/grammar-for-meaning/comparison.md
+    feedback_pattern_summary: "Double comparative (more better, more bigger)"
+    feedback_keywords:
+      - "double comparative"
+      - "more better"
+      - "more bigger"
+      - "more more difficult"
+    user_phrase_examples:
+      - "She is more better than him"
+      - "Hanoi is more bigger than Da Nang"
+      - "This problem is more more difficult"
+    confidence: high
+    severity: important
+    related_anchors:
+      - comparison.comparative.regular-er
+      - comparison.comparative.more-than
+
+  - mapping_id: M020
+    target_anchor: comparison.common-mistake.dropped-than
+    target_file: backend/content/grammar-for-meaning/comparison.md
+    feedback_pattern_summary: "Bỏ 'than' trong comparative"
+    feedback_keywords:
+      - "missing than"
+      - "comparative without than"
+    user_phrase_examples:
+      - "She is taller me"
+      - "Hanoi is older Saigon"
+    confidence: high
+    severity: important
+    related_anchors:
+      - comparison.comparative.regular-er
+
+  # ==========================================================
+  # Pitfall #15 — "I think" overuse / no hedging
+  # ==========================================================
+
+  - mapping_id: M021
+    target_anchor: hedging-language.common-mistake.no-hedging-overconfident
+    target_file: backend/content/grammar-for-meaning/hedging-language.md
+    feedback_pattern_summary: "Phát biểu quá tuyệt đối, không dùng hedging"
+    feedback_keywords:
+      - "no hedging"
+      - "overconfident assertion"
+      - "definitely overuse"
+      - "absolute statement"
+    user_phrase_examples:
+      - "Definitely yes"
+      - "I strongly agree always"
+      - "Absolutely correct"
+      - "It is 100% true"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - hedging-language.overview
+      - hedging-language.modal-hedges
+
+  - mapping_id: M022
+    target_anchor: hedging-language.overview
+    target_file: backend/content/grammar-for-meaning/hedging-language.md
+    feedback_pattern_summary: "I think overuse — không có range của hedging expressions"
+    feedback_keywords:
+      - "i think overuse"
+      - "repetitive opinion marker"
+      - "no hedging variety"
+    user_phrase_examples:
+      - "I think coffee is good. I think exercise is important. I think students should..."
+    confidence: medium
+    severity: important
+    related_anchors:
+      - hedging-language.distancing-phrases
+
+  # ==========================================================
+  # Pitfall #19 — Modal + base form
+  # ==========================================================
+
+  - mapping_id: M023
+    target_anchor: modal-verbs.structure.bare-infinitive-required
+    target_file: backend/content/verb-patterns/modal-verbs.md
+    feedback_pattern_summary: "Modal verb + 'to' (can to swim) hoặc + V-ing (should going)"
+    feedback_keywords:
+      - "modal with to"
+      - "can to V"
+      - "should V-ing"
+      - "modal bare infinitive missing"
+    user_phrase_examples:
+      - "I can to swim"
+      - "She must to study harder"
+      - "We should going to bed earlier"
+      - "He could to come"
+    confidence: high
+    severity: common
+    related_anchors:
+      - modal-verbs.overview
+      - modal-verbs.ability.can-could-be-able-to
+
+  # ==========================================================
+  # Pitfall #20 — Adjective placement
+  # ==========================================================
+
+  - mapping_id: M024
+    target_anchor: word-order.adjective-placement.attributive-vs-predicative
+    target_file: backend/content/foundations/word-order.md
+    feedback_pattern_summary: "Adjective sau noun (a car red) thay vì trước noun (a red car)"
+    feedback_keywords:
+      - "adjective after noun"
+      - "wrong adjective position"
+      - "attributive adjective placement"
+    user_phrase_examples:
+      - "I bought a car red"
+      - "She wore a dress beautiful"
+      - "It was a story interesting"
+    confidence: high
+    severity: nuance
+    related_anchors:
+      - word-order.adjective-order.opinion-size-colour
+
+  # ==========================================================
+  # Spoken DM mapping (new article)
+  # ==========================================================
+
+  - mapping_id: M025
+    target_anchor: discourse-markers-spoken.common-mistake.actually-misuse
+    target_file: backend/content/grammar-for-meaning/discourse-markers-spoken.md
+    deferred_until: sprint-3
+    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (discourse-markers-spoken)'
+    feedback_pattern_summary: "Lạm dụng 'actually' như topic-opener (transfer từ 'thật ra')"
+    feedback_keywords:
+      - "actually misuse"
+      - "actually as topic opener"
+      - "actually translation thật ra"
+    user_phrase_examples:
+      - "Actually, my hometown is Hanoi"
+      - "Actually, I love coffee (no contrast set up)"
+      - "Actually, my favourite food is pho"
+    confidence: medium
+    severity: nuance
+    related_anchors:
+      - discourse-markers-spoken.opening.well-so-actually
+      - discourse-markers-spoken.emphasis.actually-basically
+
+  - mapping_id: M026
+    target_anchor: discourse-markers.common-mistake.overuse-and-but-so
+    target_file: backend/content/grammar-for-meaning/discourse-markers.md
+    feedback_pattern_summary: "Lạm dụng and / but / so — không có range của discourse markers"
+    feedback_keywords:
+      - "and overuse"
+      - "but overuse"
+      - "so overuse"
+      - "no discourse marker variety"
+      - "repetitive linker"
+    user_phrase_examples:
+      - "I went to the market and I bought food and I came home and I cooked..."
+      - "I like coffee but I also like tea but I prefer..."
+    confidence: medium
+    severity: important
+    related_anchors:
+      - discourse-markers.overview
+      - discourse-markers-spoken.overview
+
+  # ==========================================================
+  # Pronunciation-grammar mappings (audio-derived)
+  # ==========================================================
+
+  - mapping_id: M027
+    target_anchor: pronunciation-grammar-link.common-mistake.cluster-simplification
+    target_file: backend/content/ielts-grammar-lab/pronunciation-grammar-link.md
+    deferred_until: sprint-3
+    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (pronunciation-grammar-link)'
+    feedback_pattern_summary: "Drop final consonant cluster (worked → /wɜːk/, books → /buk/)"
+    feedback_keywords:
+      - "final cluster drop"
+      - "consonant cluster simplification"
+      - "missing final s"
+      - "missing final ed"
+      - "audio plural drop"
+      - "audio past tense drop"
+    user_phrase_examples:
+      - "[audio] two book (instead of /bʊks/)"
+      - "[audio] yesterday I work (instead of /wɜːkt/)"
+      - "[audio] she watch TV (instead of /wɒtʃɪz/)"
+    confidence: high
+    severity: common
+    related_anchors:
+      - pronunciation-grammar-link.s-endings.plural-and-3rd-person
+      - pronunciation-grammar-link.ed-endings.past-and-participial
+
+  - mapping_id: M028
+    target_anchor: pronunciation-grammar-link.common-mistake.full-form-overuse
+    target_file: backend/content/ielts-grammar-lab/pronunciation-grammar-link.md
+    deferred_until: sprint-3
+    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (pronunciation-grammar-link)'
+    feedback_pattern_summary: "Không dùng contractions (I am thay vì I'm)"
+    feedback_keywords:
+      - "no contractions"
+      - "full form overuse"
+      - "robotic speech"
+      - "I am everywhere"
+    user_phrase_examples:
+      - "[audio] I am going to the bank. I will be there at 5. I have not eaten yet."
+    confidence: medium
+    severity: important
+    related_anchors:
+      - pronunciation-grammar-link.contractions.have-not-isnt-im-going-to
+
+  # ==========================================================
+  # Reported speech (supporting-tier mapping)
+  # ==========================================================
+
+  - mapping_id: M029
+    target_anchor: reported-speech.tense-backshift.vietnamese-skip
+    target_file: backend/content/sentence-structures/reported-speech.md
+    feedback_pattern_summary: "Bỏ tense backshift trong reported speech (She said she IS tired)"
+    feedback_keywords:
+      - "reported speech no backshift"
+      - "tense not shifted in reported"
+      - "indirect speech tense error"
+    user_phrase_examples:
+      - "Yesterday she said she is very busy"
+      - "He told me he will come tomorrow (when conversation already past)"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - reported-speech.overview
+
+  # ==========================================================
+  # Run-on sentence (catch-all for chained "and")
+  # ==========================================================
+
+  - mapping_id: M030
+    target_anchor: discourse-markers-spoken.common-mistake.overuse-and-but-so
+    target_file: backend/content/grammar-for-meaning/discourse-markers-spoken.md
+    deferred_until: sprint-3
+    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (discourse-markers-spoken)'
+    feedback_pattern_summary: "Run-on sentence: nối liên tục bằng 'and' không dấu nghỉ"
+    feedback_keywords:
+      - "run on sentence"
+      - "chained and"
+      - "no sentence boundary"
+      - "comma splice"
+    user_phrase_examples:
+      - "I went to market and bought food and went home and cooked dinner and..."
+    confidence: medium
+    severity: important
+    related_anchors:
+      - run-on-sentences.overview
+
+# ==========================================================
+# Coverage summary
+# ==========================================================
+# Total mappings: 30
+# Coverage by severity:
+#   common:    16
+#   important: 11
+#   nuance:    3
+# Coverage by confidence:
+#   high:    16
+#   medium:  14
+#   low:     0
+#
+# Each CORE topic has at least 1 mapping. Articles with multiple high-frequency
+# pitfalls (articles, conditionals, future-forms, comparison) have multiple mappings.
+#
+# Expansion plan: target 50–80 mappings within 6 months based on telemetry of
+# unmatched feedback patterns (per 07_DEEP_LINK_INFRASTRUCTURE.md risk mitigation).
+
+# ==========================================================
+# Self-verification
+# ==========================================================
+# Every target_anchor must exist in either:
+#   - backend/content/<file>.md frontmatter `anchors:` list (after patches/05 apply), OR
+#   - backend/content/<file>.md frontmatter `anchors:` list of new files (patches/new-topics/)
+# CI script verify_anchor_drift.py confirms this on every PR.
