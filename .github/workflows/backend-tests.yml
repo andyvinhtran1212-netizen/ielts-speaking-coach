@@ -7,11 +7,19 @@ name: Backend tests
 #
 # Trigger: pull_request only (Andy Q4 directive — saves Actions quota,
 # matches dev workflow, doesn't miss meaningful gates).
+#
+# Sprint 5b broadened: frontend/** added so the drift gate runs on
+# frontend-only PRs too. The mapping file lives under backend/, but a
+# frontend dev with VS Code open at repo root could touch it; more
+# importantly, frontend changes that consume the recommendation shape
+# (anchor field) want the same gate. Cheap insurance — the job is
+# 10 min and runs only on PRs.
 
 on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/backend-tests.yml'
 
 jobs:
