@@ -556,7 +556,27 @@
         return;
       }
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      _pulseAnchorHeading(el);
     });
+  }
+
+  // Sprint 5 Phase 5 — brief pulse on the heading immediately after the
+  // landed <a id> anchor. The marker tag itself is empty (no visual);
+  // its next sibling is the heading we want to highlight. Per Andy Q1:
+  // pulse just the heading (minimal, focused). Class auto-removes after
+  // animation ends so rapid back-and-forth navigation re-pulses cleanly.
+  function _pulseAnchorHeading(anchorEl) {
+    var heading = anchorEl.nextElementSibling;
+    if (!heading) return;
+    var tag = heading.tagName;
+    if (!tag || !/^H[1-6]$/.test(tag)) return; // only pulse if it's a heading
+    heading.classList.remove('grammar-anchor-pulse'); // reset if rapid re-trigger
+    // Force reflow so removing+adding class restarts the animation
+    void heading.offsetWidth;
+    heading.classList.add('grammar-anchor-pulse');
+    setTimeout(function () {
+      heading.classList.remove('grammar-anchor-pulse');
+    }, 3100); // 3000ms animation + 100ms buffer
   }
 
   // ── Article page loader ───────────────────────────────────────────────────
