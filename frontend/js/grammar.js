@@ -522,6 +522,43 @@
     }
   }
 
+  // ── Sprint 5 — deep-link hash scroll helpers ──────────────────────────────
+  // The article body is rendered AFTER the page navigates, so the browser's
+  // native hash-scroll fires before the target element exists. These helpers
+  // run after `bodyEl.innerHTML = article.html` to land the user at the
+  // exact section a Result-page recommendation pointed at.
+  //
+  // Phase 4: smooth scroll only.
+  // Phase 5: extends _scrollToHashAnchor with a brief pulse highlight on
+  //          the landed section so it's visually obvious which part of the
+  //          article the AI feedback was referencing.
+  function _scrollToHashAnchor() {
+    var hash = window.location.hash;
+    if (!hash || hash === '#') return;
+    var anchorId;
+    try {
+      anchorId = decodeURIComponent(hash.substring(1));
+    } catch (_) {
+      anchorId = hash.substring(1);
+    }
+    if (!anchorId) return;
+
+    // Wait one paint so the freshly-injected article DOM has laid out;
+    // scrollIntoView before layout produces janky "skip" jumps.
+    requestAnimationFrame(function () {
+      var el = document.getElementById(anchorId);
+      if (!el) {
+        // Graceful: hash points at unknown anchor (e.g. content removed)
+        // — leave page at top, no error to user.
+        if (window.console && console.warn) {
+          console.warn('Grammar deep-link: anchor not found', anchorId);
+        }
+        return;
+      }
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
   // ── Article page loader ───────────────────────────────────────────────────
   async function loadGrammarArticle() {
     // Support both clean URLs (/grammar/:category/:slug via Vercel rewrite)
@@ -630,6 +667,13 @@
       // Show content, hide skeleton
       _show('article-container');
       _hide('article-skeleton');
+
+      // ── Sprint 5 — deep-link hash scroll ────────────────────
+      // Article body was just injected into the DOM; the browser's
+      // native hash-scroll has already fired (and missed) before this
+      // point.  Manually scroll to the target on next paint.  Pulse
+      // highlight is layered on in Phase 5 via _pulseAnchor().
+      _scrollToHashAnchor();
 
       // ── Track view (fire-and-forget, auth optional) ──────────
       _trackArticleView(slug);

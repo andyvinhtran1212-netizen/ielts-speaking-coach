@@ -75,6 +75,14 @@
       line-height: 1.8;
       font-size: 15.5px;
     }
+
+    /* Sprint 5 — deep-link anchor scroll offset.
+       Matches h2/h3 scroll-margin-top so deep-link landings clear the
+       sticky h-14 nav (56px) plus breathing room. Single CSS source of
+       truth — JS just calls scrollIntoView, browser honours this offset. */
+    .article-body .grammar-anchor {
+      scroll-margin-top: 80px;
+    }
     .article-body h2 {
       font-family: 'Lora', serif;
       font-size: 1.3rem; font-weight: 700; color: #fff;
