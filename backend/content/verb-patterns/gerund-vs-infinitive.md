@@ -44,6 +44,46 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: gerund-vs-infinitive.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: gerund-vs-infinitive.gerund-only
+    location: '## Gerund-only verbs'
+    type: section
+  - id: gerund-vs-infinitive.infinitive-only
+    location: '## Infinitive-only verbs'
+    type: section
+  - id: gerund-vs-infinitive.both-same-meaning
+    location: '## Both — same meaning'
+    type: section
+  - id: gerund-vs-infinitive.both-different-meaning.overview
+    location: '## Verbs that take both with DIFFERENT meaning'
+    type: section
+  - id: gerund-vs-infinitive.both-different-meaning.remember
+    location: '### REMEMBER + V-ing vs to V'
+    type: concept
+  - id: gerund-vs-infinitive.both-different-meaning.forget
+    location: '### FORGET + V-ing vs to V'
+    type: concept
+  - id: gerund-vs-infinitive.both-different-meaning.regret
+    location: '### REGRET + V-ing vs to V'
+    type: concept
+  - id: gerund-vs-infinitive.both-different-meaning.stop
+    location: '### STOP + V-ing vs to V'
+    type: concept
+  - id: gerund-vs-infinitive.both-different-meaning.try
+    location: '### TRY + V-ing vs to V'
+    type: concept
+  - id: gerund-vs-infinitive.both-different-meaning.need
+    location: '### NEED + V-ing vs to be done'
+    type: concept
+  - id: gerund-vs-infinitive.common-mistake.wrong-form-after-verb
+    location: '## Lỗi thường gặp'
+    type: pitfall
+  - id: gerund-vs-infinitive.ielts.speaking-examples
+    location: '## Ứng dụng IELTS Speaking'
+    type: ielts-application
 ---
 
 ## Tóm tắt

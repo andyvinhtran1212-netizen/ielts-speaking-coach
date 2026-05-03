@@ -48,8 +48,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: relative-clauses.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: relative-clauses.who-which-that
+    location: '## Chọn relative pronoun'
+    type: section
+  - id: relative-clauses.defining-vs-non-defining
+    location: (decision flowchart callout after Tóm tắt)
+    type: concept
+  - id: relative-clauses.defining.no-commas
+    location: '## Defining clauses'
+    type: structure
+  - id: relative-clauses.non-defining.comma-rule
+    location: '## Non-defining clauses'
+    type: structure
+  - id: relative-clauses.common-mistake.which-vs-that
+    location: '## Which vs That confusion'
+    type: pitfall
+  - id: relative-clauses.compare-with.complex-sentence
+    location: '## So sánh với complex sentences'
+    type: compare-with
 ---
 
+<!-- anchor: relative-clauses.overview -->
 ## Tóm tắt
 
 Mệnh đề quan hệ (Relative Clause) là một mệnh đề phụ đứng ngay sau danh từ để **bổ sung thông tin** về danh từ đó. Nó được mở đầu bởi **relative pronoun** (who, which, that, whose, whom) hoặc **relative adverb** (where, when, why).

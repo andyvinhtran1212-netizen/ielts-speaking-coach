@@ -45,6 +45,13 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: reported-speech.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: reported-speech.tense-backshift.vietnamese-skip
+    location: (within main backshift section)
+    type: pitfall
 ---
 
 ## Tóm tắt

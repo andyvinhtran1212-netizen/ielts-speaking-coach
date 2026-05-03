@@ -43,6 +43,13 @@ next_articles:
 - adjectives
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: prepositions.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: prepositions.common-mistake.transfer-from-vietnamese
+    location: (within VN pitfall section)
+    type: pitfall
 ---
 
 ## Tóm tắt

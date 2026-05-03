@@ -49,6 +49,25 @@ next_articles:
 pathways:
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: cleft-sentences.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: cleft-sentences.it-cleft
+    location: '## It-cleft'
+    type: section
+  - id: cleft-sentences.what-cleft
+    location: '## What-cleft (pseudo-cleft)'
+    type: section
+  - id: cleft-sentences.usage.emphasis
+    location: '## Tại sao dùng cleft'
+    type: concept
+  - id: cleft-sentences.ielts.part3-emphasis
+    location: '## IELTS Part 3 application'
+    type: ielts-application
+  - id: cleft-sentences.vietnamese-pitfall.translation-of-chinh-la
+    location: '## Lưu ý cho người Việt — "chính là..." không luôn map sang cleft'
+    type: pitfall
 ---
 
 ## Tóm tắt

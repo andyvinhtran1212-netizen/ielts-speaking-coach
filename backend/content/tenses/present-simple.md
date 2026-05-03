@@ -39,8 +39,31 @@ pathways:
 - grammar-for-beginners
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
+anchors:
+  - id: present-simple.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: present-simple.structure.affirmative
+    location: '## Cấu trúc khẳng định'
+    type: structure
+  - id: present-simple.structure.negative-question
+    location: '## Cấu trúc phủ định và câu hỏi'
+    type: structure
+  - id: present-simple.usage.habitual
+    location: '## Diễn tả thói quen'
+    type: section
+  - id: present-simple.usage.general-truth
+    location: '## Diễn tả sự thật / quy luật'
+    type: section
+  - id: present-simple.common-mistake.third-person-s-drop
+    location: '## Lỗi #1 của người Việt — bỏ -s ở ngôi thứ ba số ít'
+    type: pitfall
+  - id: present-simple.common-mistake.do-does-confusion
+    location: (within negative/question section)
+    type: pitfall
 ---
 
+<!-- anchor: present-simple.overview -->
 ## Tóm tắt
 
 Present Simple diễn tả những gì **luôn đúng**, **thường xảy ra**, hoặc **đã được lên lịch sẵn**. Đây là thì cơ bản nhất và được dùng nhiều nhất trong tiếng Anh.

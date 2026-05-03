@@ -44,6 +44,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: future-forms.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: future-forms.will.spontaneous-decision
+    location: '## Will — Quyết định ngay tại chỗ'
+    type: section
+  - id: future-forms.will.prediction
+    location: '## Will — Prediction'
+    type: section
+  - id: future-forms.be-going-to.intention
+    location: '## Be going to — Intention'
+    type: section
+  - id: future-forms.be-going-to.evidence-prediction
+    location: '## Be going to — Evidence-based prediction'
+    type: section
+  - id: future-forms.present-continuous.arrangement
+    location: '## Present Continuous — Arrangement'
+    type: section
+  - id: future-forms.common-mistake.will-overuse
+    location: '## Lỗi phổ biến của người Việt — Will overuse'
+    type: pitfall
+  - id: future-forms.compare-with.three-forms
+    location: '## Bảng so sánh 3 dạng'
+    type: compare-with
 ---
 
 ## Tóm tắt

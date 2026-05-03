@@ -41,8 +41,28 @@ next_articles:
 - adverbs
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: word-order.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: word-order.svo.basic
+    location: '## Trật tự cơ bản (SVO)'
+    type: structure
+  - id: word-order.adjective-placement.attributive-vs-predicative
+    location: '## Lỗi phổ biến của người Việt — Adjective sau noun'
+    type: pitfall
+  - id: word-order.adjective-order.opinion-size-colour
+    location: '## Adjective ordering'
+    type: structure
+  - id: word-order.adverb-placement
+    location: '## Adverb placement'
+    type: section
+  - id: word-order.question-inversion
+    location: '## Trật tự từ trong câu hỏi'
+    type: section
 ---
 
+<!-- anchor: word-order.overview -->
 ## Tóm tắt
 
 Trật tự từ trong tiếng Anh **không linh hoạt như tiếng Việt**. Nếu đặt sai chỗ, câu có thể sai hoàn toàn, hoặc ít nhất là nghe rất lạ. Nắm vững trật tự từ là nền tảng để nói và viết đúng.

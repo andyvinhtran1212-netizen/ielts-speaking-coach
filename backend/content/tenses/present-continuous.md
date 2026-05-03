@@ -41,8 +41,31 @@ pathways:
 - grammar-for-beginners
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
+anchors:
+  - id: present-continuous.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: present-continuous.structure.am-is-are-ving
+    location: '## Cấu trúc'
+    type: structure
+  - id: present-continuous.usage.now
+    location: '## Hành động đang xảy ra (now)'
+    type: section
+  - id: present-continuous.usage.around-now
+    location: '## Hành động trong giai đoạn hiện tại'
+    type: section
+  - id: present-continuous.usage.future-arrangement
+    location: '## Tương lai gần đã sắp xếp'
+    type: section
+  - id: present-continuous.stative-verbs.do-not-use-ing
+    location: '## Stative verbs'
+    type: pitfall
+  - id: present-continuous.compare-with.present-simple
+    location: '## So sánh với Present Simple'
+    type: compare-with
 ---
 
+<!-- anchor: present-continuous.overview -->
 ## Tóm tắt
 
 Present Continuous diễn tả những gì **đang xảy ra ngay lúc này**, những tình huống **tạm thời**, và những xu hướng **đang thay đổi** trong thời điểm hiện tại.

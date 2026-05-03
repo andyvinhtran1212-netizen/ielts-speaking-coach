@@ -39,6 +39,13 @@ next_articles:
 - sentence-elements
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: there-is-there-are.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: there-is-there-are.vietnamese-pitfall.have-instead-of-there-is
+    location: (within VN pitfall section)
+    type: pitfall
 ---
 
 ## Tóm tắt

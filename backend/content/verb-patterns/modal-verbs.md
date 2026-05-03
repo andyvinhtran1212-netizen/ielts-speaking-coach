@@ -48,6 +48,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: modal-verbs.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: modal-verbs.structure.bare-infinitive-required
+    location: (callout after Tóm tắt)
+    type: pitfall
+  - id: modal-verbs.ability.can-could-be-able-to
+    location: '## Ability — Can / Could / Be able to'
+    type: section
+  - id: modal-verbs.permission.can-may-could
+    location: '## Permission — Can / May / Could'
+    type: section
+  - id: modal-verbs.obligation.must-have-to-should
+    location: '## Obligation — Must / Have to / Should'
+    type: section
+  - id: modal-verbs.epistemic.speculation-must-might-could
+    location: '## Speculation và Possibility'
+    type: section
+  - id: modal-verbs.compare.must-vs-have-to
+    location: '## Must vs Have to'
+    type: compare-with
+  - id: modal-verbs.ielts.part3-speculation-examples
+    location: '## IELTS Part 3 application'
+    type: ielts-application
 ---
 
 ## Tóm tắt

@@ -45,6 +45,34 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: hedging-language.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: hedging-language.modal-hedges
+    location: '## Modal hedges'
+    type: section
+  - id: hedging-language.adverbial-hedges
+    location: '## Adverbial hedges'
+    type: section
+  - id: hedging-language.epistemic-verbs
+    location: '## Epistemic verbs'
+    type: section
+  - id: hedging-language.distancing-phrases
+    location: '## Distancing phrases'
+    type: section
+  - id: hedging-language.common-mistake.no-hedging-overconfident
+    location: '## Lỗi phổ biến của người Việt — Quá tự tin / không hedging'
+    type: pitfall
+  - id: hedging-language.common-mistake.over-hedging
+    location: (within hedging variety section)
+    type: pitfall
+  - id: hedging-language.ielts.part3-cautious-opinions
+    location: '## IELTS Part 3 application'
+    type: ielts-application
+  - id: hedging-language.ielts.expressing-uncertainty
+    location: '## Expressing uncertainty in IELTS Speaking (post-merge)'
+    type: ielts-application
 ---
 
 ## Tóm tắt

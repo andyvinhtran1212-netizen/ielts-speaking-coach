@@ -41,6 +41,28 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: grammar-in-speaking.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: grammar-in-speaking.part1.tenses-and-frequency
+    location: '### Speaking Part 1'
+    type: section
+  - id: grammar-in-speaking.part2.narrative-tense-management
+    location: '### Speaking Part 2'
+    type: section
+  - id: grammar-in-speaking.part3.complex-structures-and-hedging
+    location: '### Speaking Part 3'
+    type: section
+  - id: grammar-in-speaking.gra.band-7-criteria
+    location: '## GRA Band 7 criteria'
+    type: concept
+  - id: grammar-in-speaking.gra.band-8-criteria
+    location: '## GRA Band 8 criteria'
+    type: concept
+  - id: grammar-in-speaking.cross-reference.core-topics
+    location: '## Cross-reference to CORE topics'
+    type: section
 ---
 
 ## Tóm tắt

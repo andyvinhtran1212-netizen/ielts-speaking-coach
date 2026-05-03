@@ -49,6 +49,31 @@ pathways:
 - grammar-for-ielts-speaking
 - grammar-for-ielts-writing
 - band-6-to-7
+anchors:
+  - id: grammar-for-band7plus.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: grammar-for-band7plus.range.complex-structures
+    location: '## Range — Complex structures'
+    type: section
+  - id: grammar-for-band7plus.accuracy.error-frequency
+    location: '## Accuracy — Error frequency'
+    type: section
+  - id: grammar-for-band7plus.compare.band-7-vs-8
+    location: '## Band 7 vs Band 8 grammar'
+    type: compare-with
+  - id: grammar-for-band7plus.high-leverage.cleft-inversion-conditional
+    location: '## High-leverage — Cleft / Inversion / Conditionals'
+    type: section
+  - id: grammar-for-band7plus.high-leverage.hedging-and-modality
+    location: '## High-leverage — Hedging and modality'
+    type: section
+  - id: grammar-for-band7plus.high-leverage.varying-sentence-openings
+    location: '## Varying sentence openings (Band 7 → 8 marker) — post-merge'
+    type: section
+  - id: grammar-for-band7plus.cross-reference.core-topics
+    location: '## Cross-reference to CORE topics'
+    type: section
 ---
 
 ## Tóm tắt
