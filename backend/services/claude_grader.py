@@ -1127,11 +1127,17 @@ def _attach_grammar_recommendations(result: dict) -> None:
                 continue
             article_family_count += 1
         seen_slugs.add(slug)
+        # Sprint 4 Phase 4: enrich with anchor for deep-link routing.
+        # Returns None if no mapping resolves above the 0.35 threshold —
+        # frontend then falls back to the article-level URL it was
+        # rendering before.
+        anchor = grammar_service.find_best_anchor(issue, slug)
         recs.append({
             "issue":    issue,
             "slug":     slug,
             "category": match["category"],
             "title":    match["title"],
             "score":    match["score"],
+            "anchor":   anchor,
         })
     result["grammar_recommendations"] = recs

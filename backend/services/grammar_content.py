@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 CONTENT_DIR  = Path(__file__).parent.parent / "content"
 GROUPS_FILE  = CONTENT_DIR / "_groups.yaml"
+MAPPING_FILE = CONTENT_DIR / "feedback-anchor-mapping.yaml"
 
 _MD_EXTENSIONS   = ["tables", "fenced_code", "toc", "attr_list"]
 _MD_EXT_CONFIGS  = {
@@ -476,6 +477,79 @@ class GrammarContentService:
             "title":    best_item["title"],
             "score":    round(best_score, 3),
         }
+
+    # ── Anchor resolution (Sprint 4 Phase 4) ────────────────────────────
+    # Lazy-loaded mapping file index: target_slug → list of mappings.
+    # Mappings with `deferred_until` set are skipped defensively even
+    # though Sprint 3 resolved all current deferrals — protects against
+    # future mappings shipped before their target anchors land.
+    _mappings_by_slug: dict[str, list[dict]] | None = None
+
+    def _load_mappings(self) -> dict[str, list[dict]]:
+        if self._mappings_by_slug is not None:
+            return self._mappings_by_slug
+        idx: dict[str, list[dict]] = {}
+        if not MAPPING_FILE.exists():
+            self._mappings_by_slug = idx
+            return idx
+        try:
+            data = yaml.safe_load(MAPPING_FILE.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            logger.warning("[grammar] mapping file unparseable, anchor resolution disabled: %s", exc)
+            self._mappings_by_slug = idx
+            return idx
+        for m in data.get("mappings") or []:
+            if m.get("deferred_until"):
+                continue  # defensive: skip even when drift gate would catch it
+            target_file = m.get("target_file") or ""
+            slug = Path(target_file).stem if target_file else None
+            if not slug:
+                continue
+            idx.setdefault(slug, []).append(m)
+        self._mappings_by_slug = idx
+        return idx
+
+    def find_best_anchor(self, issue: str, slug: str) -> str | None:
+        """Resolve the best-matching anchor id within the given article
+        slug for a Vietnamese grammar issue string.
+
+        Scoring: keyword overlap of issue tokens against each mapping's
+        `feedback_keywords[]` + `user_phrase_examples[]`. Same 0.35
+        threshold as `find_best_match` for consistency. Returns None
+        when no mapping resolves above threshold for this slug.
+        """
+        if not issue or not slug:
+            return None
+        mappings = self._load_mappings().get(slug)
+        if not mappings:
+            return None
+
+        issue_lower = issue.lower()
+        issue_tokens = set(re.findall(r"[\w]{3,}", issue_lower, flags=re.UNICODE))
+        if not issue_tokens:
+            return None
+
+        best_score = 0.0
+        best_anchor: str | None = None
+
+        for m in mappings:
+            haystack_parts: list[str] = []
+            haystack_parts.extend(str(k).lower() for k in (m.get("feedback_keywords") or []))
+            haystack_parts.extend(str(p).lower() for p in (m.get("user_phrase_examples") or []))
+            haystack_parts.append(str(m.get("feedback_pattern_summary", "")).lower())
+            haystack = " | ".join(haystack_parts)
+
+            hits = sum(1 for tok in issue_tokens if tok in haystack)
+            if hits == 0:
+                continue
+            score = min(1.0, hits / max(len(issue_tokens), 1))
+            if score > best_score:
+                best_score = score
+                best_anchor = m.get("target_anchor")
+
+        if best_score < 0.35:
+            return None
+        return best_anchor
 
     def get_articles_by_error_tag(self, tag: str) -> list[dict]:
         """Return article summaries that address a specific common_error_tag."""
