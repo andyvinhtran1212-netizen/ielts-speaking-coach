@@ -343,7 +343,8 @@
         var linkHtml = '';
         if (rec && rec.slug && rec.category) {
           var href = '/grammar.html?category=' + encodeURIComponent(rec.category)
-            + '&slug=' + encodeURIComponent(rec.slug);
+            + '&slug=' + encodeURIComponent(rec.slug)
+            + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
           linkHtml = ' <a href="' + href + '" style="color:#818cf8;font-size:11px;'
             + 'text-decoration:underline;opacity:0.85;" target="_blank">'
             + '→ ' + escHtml(rec.title || rec.slug) + '</a>';
@@ -855,7 +856,8 @@
     // Card HTML: primary = full treatment with summary, secondary = compact muted
     function _grammarCardHtml(match, isPrimary) {
       var slug   = match.slug, meta = match.meta;
-      var href   = '/grammar/' + encodeURIComponent(meta.category) + '/' + encodeURIComponent(slug);
+      var href   = '/grammar/' + encodeURIComponent(meta.category) + '/' + encodeURIComponent(slug)
+                 + (match.anchor ? '#' + encodeURIComponent(match.anchor) : '');
       var reason = _grReason(match.topField, match.topic);
 
       if (isPrimary) {
@@ -909,7 +911,7 @@
           if (!rec.slug || seen[rec.slug]) return;
           seen[rec.slug] = true;
           var meta = _grMeta(rec.slug) || { category: rec.category, title: rec.title, summary: '' };
-          recMatches.push({ slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue });
+          recMatches.push({ slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue, anchor: rec.anchor || null });
         });
       });
       if (recMatches.length) {

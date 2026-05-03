@@ -75,6 +75,29 @@
       line-height: 1.8;
       font-size: 15.5px;
     }
+
+    /* Sprint 5 — deep-link anchor scroll offset.
+       Matches h2/h3 scroll-margin-top so deep-link landings clear the
+       sticky h-14 nav (56px) plus breathing room. Single CSS source of
+       truth — JS just calls scrollIntoView, browser honours this offset. */
+    .article-body .grammar-anchor {
+      scroll-margin-top: 80px;
+    }
+
+    /* Sprint 5 — 3-second pulse highlight on the heading directly after
+       the landed deep-link anchor. Confirms "đây là đoạn AI đang point
+       đến". Teal tint matches the design-system accent color (#14b8a6).
+       Animation runs once via JS adding the class; class auto-removes
+       after 3s so re-navigating to another anchor pulses freshly. */
+    .grammar-anchor-pulse {
+      animation: grammarAnchorPulse 3s ease-out;
+      border-radius: 6px;
+    }
+    @keyframes grammarAnchorPulse {
+      0%   { background-color: transparent; }
+      15%  { background-color: rgba(20, 184, 166, 0.18); }
+      100% { background-color: transparent; }
+    }
     .article-body h2 {
       font-family: 'Lora', serif;
       font-size: 1.3rem; font-weight: 700; color: #fff;

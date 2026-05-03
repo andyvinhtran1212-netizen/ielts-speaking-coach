@@ -837,7 +837,8 @@
   // Card HTML: primary = full treatment with summary, secondary = compact muted
   function _grammarCardHtml(match, isPrimary) {
     var slug   = match.slug, meta = match.meta;
-    var href   = '/grammar/' + encodeURIComponent(meta.category) + '/' + encodeURIComponent(slug);
+    var href   = '/grammar/' + encodeURIComponent(meta.category) + '/' + encodeURIComponent(slug)
+               + (match.anchor ? '#' + encodeURIComponent(match.anchor) : '');
     var reason = _grReason(match.topField, match.topic);
 
     if (isPrimary) {
@@ -886,7 +887,7 @@
     if (recs.length) {
       var rec  = recs[0];
       var meta = _grMeta(rec.slug) || { category: rec.category, title: rec.title, summary: '' };
-      var match = { slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue };
+      var match = { slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue, anchor: rec.anchor || null };
       _GR_TRACKER.track([match]);
       cards.innerHTML = _grammarCardHtml(match, true);
       wrap.style.display = '';
@@ -992,7 +993,8 @@
       var link = '';
       if (rec && rec.slug && rec.category) {
         var recHref = '/grammar.html?category=' + encodeURIComponent(rec.category)
-          + '&slug=' + encodeURIComponent(rec.slug);
+          + '&slug=' + encodeURIComponent(rec.slug)
+          + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
         var recClick = rec.rec_id
           ? ' data-rec-id="' + _esc(rec.rec_id) + '"'
             + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"'
