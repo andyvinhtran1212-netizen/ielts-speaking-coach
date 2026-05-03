@@ -55,10 +55,11 @@ anchors:
     location: '## Tóm tắt'
     type: overview
   - id: tense-consistency.common-mistake.tense-shift-mid-narrative
-    location: (within main section)
+    location: '### Lỗi 1: Random tense shift — chuyển thì vô lý'
     type: pitfall
 ---
 
+<!-- anchor: tense-consistency.overview -->
 ## Tóm tắt
 
 Tense consistency nghĩa là: trong cùng một ngữ cảnh hoặc cùng một chuỗi sự kiện, bạn phải giữ nguyên thì động từ **trừ khi có lý do logic** để chuyển thì.
@@ -199,6 +200,7 @@ Backshift trong reported speech **là chuẩn** — không phải lỗi.
 
 ## Lỗi thường gặp
 
+<!-- anchor: tense-consistency.common-mistake.tense-shift-mid-narrative -->
 ### Lỗi 1: Random tense shift — chuyển thì vô lý
 
 - ❌ The government **introduced** new policies last year. This **helps** many families. (**helped** or **has helped**)
