@@ -42,3 +42,8 @@ htmlcov/
 coverage.xml
 .coverage
 .coverage.*
+
+# Audit work-in-progress (Sprint 3-5 active reference)
+# TODO: post-Sprint-5, move grammar-audit/ → docs/audits/grammar-2026-05/
+backups/
+grammar-audit/
