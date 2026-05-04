@@ -10,7 +10,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .scaffold-banner { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); }
+    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
+    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 8px 12px; width: 100%; }
+    .input:focus { outline: none; border-color: #14b8a6; }
+    .btn-primary   { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+    .btn-primary:hover { background: #0d9488; }
+    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.10); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+    .btn-danger  { background: rgba(239,68,68,0.15); color: #f87171; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(239,68,68,0.25); }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+    th { color: rgba(255,255,255,0.5); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .modal-bg { background: rgba(0,0,0,0.6); }
   </style>
 </head>
 <body>
@@ -28,35 +40,255 @@
     <a href="/pages/dashboard.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
   </div>
 
-  <main id="state-ready" class="hidden max-w-4xl mx-auto px-6 py-8">
-    <h1 class="text-2xl font-bold">Students</h1>
-    <div class="scaffold-banner mt-6 p-5 rounded-xl">
-      <h2 class="text-base font-semibold" style="color:#fde68a;">🚧 Sprint W0 — Scaffolding only</h2>
-      <p class="mt-2 text-sm" style="color:rgba(253,230,138,0.85);">
-        Student management ships in Sprint W2. This page is a placeholder.
-      </p>
+  <main id="state-ready" class="hidden max-w-6xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-bold">Students</h1>
+        <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">Quản lý profile + theo dõi lịch sử bài viết</p>
+      </div>
+      <div class="flex gap-2">
+        <label class="btn-secondary" style="display:inline-flex;align-items:center;gap:6px;">
+          📥 Import CSV
+          <input id="csv-input" type="file" accept=".csv,text/csv" class="hidden" />
+        </label>
+        <button id="btn-new" class="btn-primary">＋ New Student</button>
+      </div>
+    </div>
+
+    <div class="mt-5 flex items-center gap-3">
+      <input id="search-input" class="input" style="max-width:360px;" placeholder="Tìm theo mã hoặc tên…" />
+      <span id="row-count" class="text-xs" style="color:rgba(255,255,255,0.4);"></span>
+    </div>
+
+    <div id="alert-area" class="mt-4"></div>
+
+    <div class="card mt-5 overflow-x-auto">
+      <table id="students-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Target</th>
+            <th>Current</th>
+            <th>Date</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="students-tbody">
+          <tr><td colspan="6" class="text-center" style="color:rgba(255,255,255,0.4);padding:24px;">Đang tải…</td></tr>
+        </tbody>
+      </table>
     </div>
   </main>
 
+  <!-- Edit / Create modal -->
+  <div id="modal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
+    <div class="card max-w-lg w-full p-6">
+      <h2 id="modal-title" class="text-lg font-semibold">New Student</h2>
+      <form id="student-form" class="mt-4 space-y-3">
+        <div>
+          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Mã học viên *</label>
+          <input id="f-code" class="input mt-1" required maxlength="64" />
+        </div>
+        <div>
+          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Họ và tên *</label>
+          <input id="f-name" class="input mt-1" required maxlength="255" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs" style="color:rgba(255,255,255,0.5);">Target Band</label>
+            <input id="f-target-band" type="number" step="0.5" min="0" max="9" class="input mt-1" />
+          </div>
+          <div>
+            <label class="text-xs" style="color:rgba(255,255,255,0.5);">Current Band</label>
+            <input id="f-current-band" type="number" step="0.5" min="0" max="9" class="input mt-1" />
+          </div>
+        </div>
+        <div>
+          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Target Date</label>
+          <input id="f-target-date" type="date" class="input mt-1" />
+        </div>
+        <div>
+          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Persona Notes</label>
+          <textarea id="f-notes" class="input mt-1" rows="2"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="btn-cancel" class="btn-secondary">Cancel</button>
+          <button type="submit" id="btn-save" class="btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/writing-admin.js"></script>
   <script>
-    (async function () {
-      try {
-        const me = await window.api.get('/auth/me');
-        if (me && me.role === 'admin') {
-          document.getElementById('header-email').textContent = me.email || '';
-          document.getElementById('header-email').classList.remove('hidden');
-          document.getElementById('state-ready').classList.remove('hidden');
-        } else {
-          document.getElementById('state-denied').classList.remove('hidden');
-        }
-      } catch (e) {
-        window.location.href = '/index.html';
+    'use strict';
+
+    var _editingId = null;  // null = creating new
+    var _searchValue = '';
+
+    function setAlert(kind, msg) {
+      var area = document.getElementById('alert-area');
+      var color = kind === 'error' ? '#f87171' : kind === 'success' ? '#86efac' : '#fde68a';
+      var bg    = kind === 'error' ? 'rgba(239,68,68,0.10)' : kind === 'success' ? 'rgba(134,239,172,0.08)' : 'rgba(234,179,8,0.08)';
+      var border = kind === 'error' ? 'rgba(239,68,68,0.25)' : kind === 'success' ? 'rgba(134,239,172,0.25)' : 'rgba(234,179,8,0.25)';
+      area.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+      if (kind !== 'error') setTimeout(function () { area.innerHTML = ''; }, 4000);
+    }
+
+    function renderRows(rows) {
+      var tb = document.getElementById('students-tbody');
+      document.getElementById('row-count').textContent = rows.length + ' học viên';
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="text-center" style="color:rgba(255,255,255,0.4);padding:24px;">Chưa có học viên.</td></tr>';
         return;
-      } finally {
-        document.getElementById('state-loading').classList.add('hidden');
       }
-    })();
+      tb.innerHTML = rows.map(function (r) {
+        var code  = WC.escapeHtml(r.student_code);
+        var name  = WC.escapeHtml(r.full_name);
+        var tBand = r.target_band == null ? '—' : r.target_band;
+        var cBand = r.current_band_estimate == null ? '—' : r.current_band_estimate;
+        var date  = r.target_date ? WC.escapeHtml(r.target_date) : '—';
+        return '<tr>' +
+          '<td style="font-family:ui-monospace,monospace;">' + code + '</td>' +
+          '<td>' + name + '</td>' +
+          '<td>' + tBand + '</td>' +
+          '<td>' + cBand + '</td>' +
+          '<td>' + date + '</td>' +
+          '<td class="text-right">' +
+            '<button class="btn-secondary" data-act="essay" data-id="' + WC.escapeHtml(r.id) + '">📝 New Essay</button> ' +
+            '<button class="btn-secondary" data-act="edit" data-id="' + WC.escapeHtml(r.id) + '">Edit</button> ' +
+            '<button class="btn-danger" data-act="delete" data-id="' + WC.escapeHtml(r.id) + '" data-code="' + code + '">Delete</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    async function loadStudents() {
+      try {
+        var path = '/admin/students?limit=200';
+        if (_searchValue) path += '&search=' + encodeURIComponent(_searchValue);
+        var rows = await window.api.get(path);
+        renderRows(rows || []);
+      } catch (e) {
+        setAlert('error', 'Không tải được danh sách: ' + e.message);
+      }
+    }
+
+    function openModal(student) {
+      _editingId = student ? student.id : null;
+      document.getElementById('modal-title').textContent = student ? 'Edit Student' : 'New Student';
+      document.getElementById('f-code').value         = student ? student.student_code : '';
+      document.getElementById('f-name').value         = student ? student.full_name    : '';
+      document.getElementById('f-target-band').value  = student && student.target_band  != null ? student.target_band  : '';
+      document.getElementById('f-current-band').value = student && student.current_band_estimate != null ? student.current_band_estimate : '';
+      document.getElementById('f-target-date').value  = student ? (student.target_date  || '') : '';
+      document.getElementById('f-notes').value        = student ? (student.persona_notes || '') : '';
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      _editingId = null;
+    }
+
+    async function handleSave(e) {
+      e.preventDefault();
+      var payload = {
+        student_code: document.getElementById('f-code').value.trim(),
+        full_name:    document.getElementById('f-name').value.trim(),
+      };
+      var tb = document.getElementById('f-target-band').value.trim();
+      var cb = document.getElementById('f-current-band').value.trim();
+      var td = document.getElementById('f-target-date').value;
+      var notes = document.getElementById('f-notes').value.trim();
+      if (tb !== '') payload.target_band = parseFloat(tb);
+      if (cb !== '') payload.current_band_estimate = parseFloat(cb);
+      if (td)        payload.target_date = td;
+      if (notes)     payload.persona_notes = notes;
+
+      try {
+        if (_editingId) {
+          await window.api.patch('/admin/students/' + _editingId, payload);
+          setAlert('success', 'Đã cập nhật học viên.');
+        } else {
+          await window.api.post('/admin/students', payload);
+          setAlert('success', 'Đã tạo học viên mới.');
+        }
+        closeModal();
+        loadStudents();
+      } catch (e) {
+        setAlert('error', e.message);
+      }
+    }
+
+    async function handleTableClick(e) {
+      var btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      var id = btn.dataset.id;
+      var act = btn.dataset.act;
+
+      if (act === 'essay') {
+        window.location.href = '/pages/admin-writing-new.html?student_id=' + encodeURIComponent(id);
+        return;
+      }
+      if (act === 'edit') {
+        try {
+          var s = await window.api.get('/admin/students/' + id);
+          openModal(s);
+        } catch (e) { setAlert('error', e.message); }
+        return;
+      }
+      if (act === 'delete') {
+        var code = btn.dataset.code;
+        if (!confirm('Xóa học viên "' + code + '"? Tất cả essays của học viên này cũng sẽ bị xóa.')) return;
+        try {
+          await window.api.delete('/admin/students/' + id);
+          setAlert('success', 'Đã xóa học viên.');
+          loadStudents();
+        } catch (e) { setAlert('error', e.message); }
+      }
+    }
+
+    async function handleCsvImport(e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var fd = new FormData();
+      fd.append('file', file);
+      try {
+        var result = await window.api.upload('/admin/students/import', fd);
+        var msg = 'Import xong: ' + result.imported + ' học viên';
+        if (result.errors && result.errors.length) {
+          msg += '. ' + result.errors.length + ' dòng lỗi (xem console).';
+          console.warn('CSV import errors:', result.errors);
+        }
+        setAlert(result.errors && result.errors.length ? 'warn' : 'success', msg);
+        loadStudents();
+      } catch (err) {
+        setAlert('error', err.message);
+      } finally {
+        e.target.value = '';
+      }
+    }
+
+    WC.bootstrap({
+      onReady: function () {
+        document.getElementById('btn-new').addEventListener('click', function () { openModal(null); });
+        document.getElementById('btn-cancel').addEventListener('click', closeModal);
+        document.getElementById('student-form').addEventListener('submit', handleSave);
+        document.getElementById('students-tbody').addEventListener('click', handleTableClick);
+        document.getElementById('csv-input').addEventListener('change', handleCsvImport);
+
+        var debounced = WC.debounce(function () {
+          _searchValue = document.getElementById('search-input').value.trim();
+          loadStudents();
+        }, 300);
+        document.getElementById('search-input').addEventListener('input', debounced);
+
+        loadStudents();
+      }
+    });
   </script>
 </body>
 </html>

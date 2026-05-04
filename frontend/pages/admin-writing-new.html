@@ -10,7 +10,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .scaffold-banner { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); }
+    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
+    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 8px 12px; width: 100%; }
+    .input:focus { outline: none; border-color: #14b8a6; }
+    .btn-primary { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+    .btn-primary:hover { background: #0d9488; }
+    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+    textarea.input { font-family: ui-monospace, SFMono-Regular, monospace; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
   </style>
 </head>
 <body>
@@ -30,33 +37,160 @@
 
   <main id="state-ready" class="hidden max-w-4xl mx-auto px-6 py-8">
     <h1 class="text-2xl font-bold">Submit New Essay</h1>
-    <div class="scaffold-banner mt-6 p-5 rounded-xl">
-      <h2 class="text-base font-semibold" style="color:#fde68a;">🚧 Sprint W0 — Scaffolding only</h2>
-      <p class="mt-2 text-sm" style="color:rgba(253,230,138,0.85);">
-        Submission form ships in Sprint W2. This page is a placeholder.
-      </p>
-    </div>
+    <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">Chọn học viên, dán đề + bài viết, AI sẽ chấm trong nền.</p>
+
+    <div id="alert-area" class="mt-4"></div>
+
+    <form id="essay-form" class="card mt-5 p-6 space-y-5">
+      <!-- Student picker -->
+      <div>
+        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Học viên *</label>
+        <select id="f-student" class="input mt-1" required>
+          <option value="">— Đang tải danh sách —</option>
+        </select>
+      </div>
+
+      <!-- Task type + level + model -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Task Type *</label>
+          <select id="f-task-type" class="input mt-1" required>
+            <option value="task2">Task 2</option>
+            <option value="task1_academic">Task 1 — Academic</option>
+            <option value="task1_general">Task 1 — General</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Analysis Level *</label>
+          <select id="f-level" class="input mt-1" required>
+            <option value="1">Level 1 — Mistake-only</option>
+            <option value="2">Level 2 — + Coherence</option>
+            <option value="3" selected>Level 3 — + Idea / Counterargument</option>
+            <option value="4">Level 4 — + Lexical / Sentence</option>
+            <option value="5">Level 5 — Pedantic / Full</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Model *</label>
+          <select id="f-model" class="input mt-1" required>
+            <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash (rẻ hơn, nhanh hơn)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Form of address -->
+      <div>
+        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Cách xưng hô (form of address)</label>
+        <div class="mt-1 flex gap-2 flex-wrap">
+          <label class="pill" style="background:rgba(255,255,255,0.06);cursor:pointer;"><input type="radio" name="foa" value="bạn"> bạn</label>
+          <label class="pill" style="background:rgba(20,184,166,0.18);color:#5eead4;cursor:pointer;"><input type="radio" name="foa" value="em" checked> em</label>
+          <label class="pill" style="background:rgba(255,255,255,0.06);cursor:pointer;"><input type="radio" name="foa" value="anh"> anh</label>
+          <label class="pill" style="background:rgba(255,255,255,0.06);cursor:pointer;"><input type="radio" name="foa" value="chị"> chị</label>
+        </div>
+      </div>
+
+      <!-- Prompt + Essay -->
+      <div>
+        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Đề bài (prompt) *</label>
+        <textarea id="f-prompt" class="input mt-1" rows="4" required placeholder="Some people think that…"></textarea>
+      </div>
+      <div>
+        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">
+          Bài viết của học viên *
+          <span id="word-count" class="ml-2" style="color:rgba(255,255,255,0.4);">0 từ</span>
+        </label>
+        <textarea id="f-essay" class="input mt-1" rows="14" required placeholder="Paste essay here…"></textarea>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <a href="/pages/admin-writing.html" class="px-4 py-2 text-sm" style="color:rgba(255,255,255,0.5);">Hủy</a>
+        <button type="submit" id="btn-submit" class="btn-primary">Submit for grading</button>
+      </div>
+    </form>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/writing-admin.js"></script>
   <script>
-    (async function () {
+    'use strict';
+
+    function setAlert(kind, msg) {
+      var area = document.getElementById('alert-area');
+      var color = kind === 'error' ? '#f87171' : kind === 'success' ? '#86efac' : '#fde68a';
+      var bg    = kind === 'error' ? 'rgba(239,68,68,0.10)' : kind === 'success' ? 'rgba(134,239,172,0.08)' : 'rgba(234,179,8,0.08)';
+      var border = kind === 'error' ? 'rgba(239,68,68,0.25)' : kind === 'success' ? 'rgba(134,239,172,0.25)' : 'rgba(234,179,8,0.25)';
+      area.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+    }
+
+    async function loadStudents(presetId) {
+      var sel = document.getElementById('f-student');
       try {
-        const me = await window.api.get('/auth/me');
-        if (me && me.role === 'admin') {
-          document.getElementById('header-email').textContent = me.email || '';
-          document.getElementById('header-email').classList.remove('hidden');
-          document.getElementById('state-ready').classList.remove('hidden');
-        } else {
-          document.getElementById('state-denied').classList.remove('hidden');
+        var rows = await window.api.get('/admin/students?limit=200');
+        if (!rows || !rows.length) {
+          sel.innerHTML = '<option value="">— Chưa có học viên —</option>';
+          setAlert('warn', 'Bạn cần tạo học viên trước. → /pages/admin-students.html');
+          return;
         }
+        sel.innerHTML = '<option value="">— Chọn học viên —</option>' + rows.map(function (r) {
+          var label = r.student_code + ' — ' + r.full_name;
+          return '<option value="' + WC.escapeHtml(r.id) + '">' + WC.escapeHtml(label) + '</option>';
+        }).join('');
+        if (presetId) sel.value = presetId;
       } catch (e) {
-        window.location.href = '/index.html';
-        return;
-      } finally {
-        document.getElementById('state-loading').classList.add('hidden');
+        setAlert('error', 'Không tải được học viên: ' + e.message);
       }
-    })();
+    }
+
+    function updateWordCount() {
+      var t = document.getElementById('f-essay').value.trim();
+      var n = t === '' ? 0 : t.split(/\s+/).length;
+      document.getElementById('word-count').textContent = n + ' từ';
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      var btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.textContent = 'Đang gửi…';
+
+      var foa = document.querySelector('input[name="foa"]:checked');
+      var payload = {
+        student_id:      document.getElementById('f-student').value,
+        task_type:       document.getElementById('f-task-type').value,
+        analysis_level:  parseInt(document.getElementById('f-level').value, 10),
+        selected_model:  document.getElementById('f-model').value,
+        form_of_address: foa ? foa.value : 'em',
+        prompt_text:     document.getElementById('f-prompt').value.trim(),
+        essay_text:      document.getElementById('f-essay').value.trim(),
+      };
+
+      if (!payload.student_id) {
+        setAlert('error', 'Vui lòng chọn học viên.');
+        btn.disabled = false; btn.textContent = 'Submit for grading';
+        return;
+      }
+
+      try {
+        var res = await window.api.post('/admin/writing/essays', payload);
+        // Pre-warm notification permission so the status page can notify on graded.
+        WC.requestNotifyPermission();
+        window.location.href = '/pages/admin-writing-status.html?essay_id=' + encodeURIComponent(res.essay_id);
+      } catch (err) {
+        setAlert('error', err.message);
+        btn.disabled = false; btn.textContent = 'Submit for grading';
+      }
+    }
+
+    WC.bootstrap({
+      onReady: function () {
+        var preset = new URLSearchParams(window.location.search).get('student_id');
+        loadStudents(preset);
+        document.getElementById('f-essay').addEventListener('input', updateWordCount);
+        document.getElementById('essay-form').addEventListener('submit', handleSubmit);
+      }
+    });
   </script>
 </body>
 </html>
