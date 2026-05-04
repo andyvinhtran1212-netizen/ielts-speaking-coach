@@ -54,8 +54,12 @@ def test_writing_stats_requires_auth_header():
 # ── /admin/students/* endpoints — same gate ──────────────────────────
 
 def test_students_post_requires_auth_header():
-    """No Authorization header → 401."""
-    r = _client().post("/admin/students")
+    """No Authorization header → 401. (Body sent so Pydantic doesn't 422
+    before the auth gate runs in the handler body.)"""
+    r = _client().post(
+        "/admin/students",
+        json={"student_code": "S001", "full_name": "x"},
+    )
     assert r.status_code == 401
 
 
