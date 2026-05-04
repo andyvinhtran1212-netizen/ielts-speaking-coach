@@ -71,3 +71,57 @@ outside the JSON** — no preamble, no postamble, no markdown code fences.
 | `sentenceStructureAnalysis` | null | null | null | Required | Required |
 
 For Task 1 (no counterargument concept), `counterargumentAnalysis` is always null.
+
+## Critical Format Rules for Suggestion Fields
+
+The `suggestion` field in `coherenceAnalysis` and `ideaDevelopmentAnalysis`
+items MUST be an **object** with `instruction` AND `example` fields.
+**NOT a plain string.**
+
+### ❌ WRONG — Plain string
+
+```json
+{
+  "suggestion": "Bỏ câu này đi. Sau đó viết lại đoạn văn."
+}
+```
+
+### ✅ CORRECT — Object with both fields
+
+```json
+{
+  "suggestion": {
+    "instruction": "Bỏ câu này đi vì không liên quan đến luận điểm chính",
+    "example": "Sau đó viết lại đoạn văn với câu mở đầu rõ ràng hơn: 'However, recent studies suggest...'"
+  }
+}
+```
+
+### Required fields per item type
+
+`coherenceAnalysis[]` — every item MUST have **all 4** fields:
+- `location` (string, required, e.g., `"Paragraph 2, sentence 3"`)
+- `issue` (string, required, e.g., `"Sudden topic shift"`)
+- `explanation` (string, required, Vietnamese explanation)
+- `suggestion` (**object** with `instruction` + `example`, required)
+
+`ideaDevelopmentAnalysis[]` — every item MUST have **all 5** fields:
+- `paragraph` (integer, required, e.g., `2`)
+- `originalIdea` (string, required, the essay's idea being critiqued)
+- `issue` (string, required)
+- `explanation` (string, required, Vietnamese explanation)
+- `suggestion` (**object** with `instruction` + `example`, required)
+
+### If you cannot provide a meaningful example
+
+Use `"example": ""` (empty string), **NOT** `"example": null`.
+But always include the `example` key.
+
+### Final reminder
+
+Every `suggestion` field in `coherenceAnalysis` and `ideaDevelopmentAnalysis`
+is an **object**, not a string. Plain-string suggestions cause Pydantic
+validation failures and the essay grading will be marked as **failed**.
+(`mistakeAnalysis[].suggestion` and `counterargumentAnalysis.suggestion`
+remain plain strings — those are the only string-form suggestions in the
+schema.)

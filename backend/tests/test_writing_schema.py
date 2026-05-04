@@ -4,7 +4,9 @@ import pytest
 from pydantic import ValidationError
 
 from models.writing_feedback import (
+    CoherenceAnalysisItem,
     GraderConfig,
+    SuggestionInstructionExample,
     WritingFeedback,
 )
 
@@ -89,3 +91,37 @@ def test_grader_config_invalid_model():
             analysis_level=3,
             selected_model="gpt-4",
         )
+
+
+# ── W2.1 patch: tolerant suggestion coercion + missing-location default ──
+
+def test_suggestion_accepts_string_input():
+    """W2.1: Gemini sometimes returns suggestion as plain string. The
+    validator coerces it to {instruction: <str>, example: ""}."""
+    s = SuggestionInstructionExample.model_validate("Bỏ câu này đi.")
+    assert s.instruction == "Bỏ câu này đi."
+    assert s.example == ""
+
+
+def test_suggestion_accepts_object_input():
+    """W2.1: Object form passes through unchanged."""
+    s = SuggestionInstructionExample.model_validate({
+        "instruction": "Bỏ câu này",
+        "example":     "Viết lại như sau: ...",
+    })
+    assert s.instruction == "Bỏ câu này"
+    assert s.example == "Viết lại như sau: ..."
+
+
+def test_coherence_item_missing_location_defaults():
+    """W2.1: location is optional with empty-string default — Gemini's
+    occasional omission no longer crashes validation."""
+    item = CoherenceAnalysisItem.model_validate({
+        # location intentionally absent
+        "issue":       "Sudden topic shift",
+        "explanation": "Đoạn 2 đột ngột chuyển chủ đề",
+        "suggestion":  "Cần một câu chuyển ý",  # also string-form
+    })
+    assert item.location == ""
+    assert item.suggestion.instruction == "Cần một câu chuyển ý"
+    assert item.suggestion.example == ""
