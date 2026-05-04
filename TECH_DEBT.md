@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-02
-**Last reviewed:** 2026-05-02
+**Last updated:** 2026-05-04
+**Last reviewed:** 2026-05-04
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -67,6 +67,70 @@ material, not active backlog.
 - **Effort:** ~1 day write-up + analysis once Days 2-4 dogfood data is in.
 - **Output:** `docs/audits/BASELINE_METRICS_2026-05.md`.
 - **Blocked by:** HIGH-3 Days 2-4.
+
+### High priority — Sprint 6 follow-up + Writing Coach Phase 1
+
+#### HIGH-6: Sprint 6 24h soak verification — PENDING
+- **What:** Sprint 6 mapping coverage expansion shipped 2026-05-03 with
+  projected ~78% production anchor coverage on NEW practice rows. 24h soak
+  window in progress at time of this update.
+- **Action:** Run 3 SQL queries on production Supabase 24h post-deploy:
+  total new rows + coverage rate, coverage by slug, mapping firing frequency.
+  Pass thresholds: ≥60% strong success, 40-60% moderate, <40% Sprint 6.5
+  patch trigger (suspect M033 keyword scoring miss on number-agreement
+  errors mislabeled "sai thì").
+- **Effort:** 30 min execute + analyze.
+- **Blocking:** HIGH-7 Sprint 7 design (Branch A/B/C decision tree).
+
+#### HIGH-7: Sprint 7 mapping coverage expansion — DEPENDS on HIGH-6
+- **What:** Continue mapping coverage to remaining 11% production traffic
+  (smaller slugs: this-that-these-those-in-use, missing-subjects,
+  missing-main-verbs, articles-with-places-and-names, agreeing-and-
+  disagreeing-naturally, overusing-i-think).
+- **Action:** Same Phase 2a/2b pattern as Sprint 6 (anchor declarations
+  in target md files + new mappings M038+).
+- **Effort:** 2-4 hours work + 24h soak.
+- **Blocked by:** HIGH-6 results.
+
+#### HIGH-8: Writing Coach Phase 1 — Sprint W0 (schema + scaffolding)
+- **What:** New IELTS Writing analysis tool integrated into Aver Learning,
+  admin-only Phase 1, eliminate Andy's copy/paste friction (current workflow:
+  Google Doc → AI grader → Word → Google Doc, 4× copy/paste operations).
+- **Reference:** `WRITING_COACH_INTEGRATION_ARCHITECTURE_V2.md` (planner output).
+- **Sprint W0 scope:** Migration 033 (students + writing_essays + writing_feedback
+  + writing_jobs tables), RLS policies (admin-only), `require_admin` middleware,
+  empty router structure, frontend admin page stubs.
+- **Effort:** 30-40 hours = 1 week.
+- **Owner:** Code (after planner writes Sprint W0 prompt).
+
+#### HIGH-9: Writing Coach Phase 1 — Sprint W1 (Gemini grader)
+- **What:** Gemini grader service supporting all 5 levels from TECHNICAL_SPEC
+  (Strict Grammar Police → Pedantic Linguist).
+- **Scope:** 5 system prompts + shared modules (strict_grammar_check,
+  persona_vn_examiner), full Pydantic WritingFeedback schema, retry logic,
+  JSON cleaning + validation.
+- **Effort:** 40-50 hours = 1 week.
+- **Blocked by:** HIGH-8 ship.
+
+#### HIGH-10: Writing Coach Phase 1 — Sprint W2 (submission + grading flow)
+- **What:** End-to-end submission pipeline: form → background grading →
+  status polling → admin review.
+- **Scope:** POST /admin/writing/essays endpoint, FastAPI BackgroundTasks
+  wiring, frontend admin-writing-new.html (submission form), student selector
+  with search, status page, browser notification on completion.
+- **Effort:** 40-50 hours = 1 week.
+- **Blocked by:** HIGH-9 ship.
+
+#### HIGH-11: Writing Coach Phase 1 — Sprint W3 (render + delivery)
+- **What:** Output rendering + delivery via clipboard copy (primary) and
+  Word download (secondary).
+- **Scope:** Jinja2 HTML template (matches Andy's sample Word file structure),
+  /admin/writing/essays/{id}/render endpoint, frontend admin-writing-grade.html
+  (review + edit screen with editable fields), "Copy formatted" button
+  (clipboard API with text/html MIME), "Download .docx" button (html2docx),
+  mark delivered workflow, admin essay history view, production deploy.
+- **Effort:** 40-50 hours = 1 week.
+- **Blocked by:** HIGH-10 ship.
 
 ### Medium priority
 
@@ -221,6 +285,92 @@ add WITH CHECK to RLS UPDATE policies.
 - Claude Code investigation 2026-04-30 (this session)
 - responses.py:6-11 (dead code confirmation)
 - CLAUDE.md (production grading pipeline location)
+
+### Writing Coach roadmap (post Phase 1)
+
+#### W-PHASE-1.5: History-aware AI grading
+- **What:** AI sees previous student essays when grading new essay; pattern
+  detection ("Lỗi article xuất hiện 4/5 bài gần nhất"); band trajectory
+  analysis ("Improvement in lexical resource since essay #3").
+- **Effort:** 1-2 weeks (Sprint W4-W5).
+- **Trigger:** Phase 1 stable in production + 5+ essays/student exist (need
+  data before patterns meaningful).
+- **Cost impact:** ~2× per grading (acceptable: $20-50/month at 250
+  essays/week target).
+
+#### W-PHASE-2: Student submission portal
+- **What:** Direct student access — submit essay via web, queue management,
+  notifications, optionally Google Docs API integration for direct delivery
+  (eliminate remaining copy/paste).
+- **Scope:** Student-facing UI (submit form, dashboard, history, results
+  viewer), daily limits enforcement, admin queue view, auto-AI grade trigger
+  with Andy review, email notifications, Google Docs API write-back (Phase 2b).
+- **Effort:** 3-4 weeks (Sprint W6-W9).
+- **Trigger:** Phase 1 + 1.5 stable, Andy ready to expand to direct student access.
+
+#### W-PHASE-3: Pre-submission preview
+- **What:** Manual "Check before submit" button with severity-rated issue list
+  (high/medium/low), specific suggestions, off-topic detection.
+- **Scope:** Lightweight Gemini call (different prompt focused on issues),
+  inline issue highlighting, iterative editing flow, cross-essay pattern
+  recurrence detection, personal weakness highlighting.
+- **Effort:** 3-4 weeks (Sprint W10-W12).
+- **Trigger:** Phase 2 stable, students using regularly.
+
+#### W-PHASE-4: Scale & monetize
+- **What:** Tier system (free/standard/premium), Stripe integration, cost
+  dashboard, async queue with Redis (replace BackgroundTasks for scale).
+- **Effort:** TBD based on business model.
+- **Trigger:** Business validation post Phase 3.
+
+### Design system migration (Pack v2 received 2026-05-04, integration deferred)
+
+#### DES-1: Roadmap re-generation (14 → 22 topics)
+- **What:** Pack v2 grammar-roadmap.html has 14 topics (5 Foundation / 5
+  Intermediate / 4 Advanced); audit decision = 22 topics (8 / 9 / 5).
+- **Action:** Re-generate via Claude Design with curated 22-topic list.
+- **Reference:** `PROMPT_CLAUDE_DESIGN_ROADMAP_22_TOPICS.md` ready in
+  planner outputs.
+- **Effort:** 30 min Claude Design + verification.
+- **Defer until:** All Sprint pipeline complete (Andy decision 2026-05-04 —
+  do design integration in single batch later).
+
+#### DES-2: Vocab Article re-export
+- **What:** Pack v2 `vocab-article.html` is 0 bytes (Claude Design export
+  glitch).
+- **Action:** Re-generate via Claude Design.
+- **Effort:** 15 min re-export.
+- **Defer until:** Design integration batch.
+
+#### DES-3: Page integration (9 PRs)
+- **What:** 9 redesigned pages from Pack v2 await integration:
+  dashboard, profile, grammar-roadmap, grammar-article, grammar-search,
+  grammar-compare, exercises, d1-exercise, flashcard-study.
+- **Critical merge:** `grammar-article.html` integration must preserve
+  Sprint 5 deep-link UX (scroll-margin-top, pulse animation, hash handler)
+  while adopting pack design.
+- **Effort:** 9 PRs, ~2-3 hours per page = 18-27 hours total.
+- **Defer until:** All Sprint pipeline complete (Andy explicit decision
+  2026-05-04 — defer design integration entirely until Sprint 7+ done).
+
+### Codex audit deferred items (2026-05-03 audit)
+
+#### CODEX-1: analytics_events RLS policies
+- **What:** Codex audit 2026-05-03 found `analytics_events` table has RLS
+  enabled but no policies defined.
+- **Action:** Define INSERT policy (allow service role + authenticated users
+  to insert their own events).
+- **Effort:** 30 min.
+
+#### CODEX-2: Renderer test malformed comment cases
+- **What:** Codex audit found `test_grammar_renderer_anchors.py` lacks
+  malformed comment edge cases.
+- **Effort:** 1 hour.
+
+#### CODEX-3: Matcher test exact-threshold pinning at 0.35
+- **What:** Codex audit found matcher tests don't pin behavior exactly at
+  0.35 confidence threshold (boundary condition).
+- **Effort:** 30 min.
 
 ### Phase E (post Phase 3)
 
@@ -384,6 +534,109 @@ item below is a follow-up, not a blocker.
 ---
 
 ## ✅ Completed
+
+### Phase 3 Day 1 — 2026-05-03 (Grammar Wiki deep-link feature ACTIVATED, 2 PRs)
+
+**MAJOR MILESTONE:** Deep-link feature LIVE in production after 7 sprints
+(Sprint 0-6 + 5b patch).  Practice → AI feedback → click recommendation →
+smooth-scroll to specific grammar anchor → teal pulse confirmation.
+
+**Sprint 5 + 5b — Frontend deep-link UX (PR #42, 9 commits):**
+
+Sprint 5 (5 commits):
+- ✅ 3 URL hash extensions across surfaces (practice.js inline link +
+  result.html × 2)
+- ✅ Critical plumbing fix: `result.html:911` was dropping `anchor` field at
+  recMatches reduction (Phase 0 reconnaissance caught this — invisible
+  without code investigation)
+- ✅ Smooth-scroll handler hooked into async `loadGrammarArticle()` flow
+- ✅ 3-second teal pulse animation (#14b8a6) on landed heading
+- ✅ scroll-margin-top 80px CSS for sticky header offset
+
+Sprint 5b — Codex audit response (4 commits, 2026-05-03):
+- ✅ Codex audit 2026-05-03 verdict: FAIL (RED) → 2 blockers identified
+- ✅ Blocker 2 fixed: practice.js Quick Grammar Tip card (`_grammarCardHtml`
+  + `_showGrammarResources`) preserves anchor hash (mirrors Sprint 5
+  result.html commit 1294227 pattern)
+- ✅ Integration test for production-like issues: 10 cases (8 baseline False
+  + 2 synthetic True), pins current matcher behavior as Sprint 6 baseline
+- ✅ CI gate broadened: `backend-tests.yml` now triggers on `frontend/**`
+  (drift gate runs on frontend-only PRs — was missing in Sprint 5)
+- ✅ Execution report addendum documenting 5b patch sprint
+
+**Sprint 6 — Mapping coverage expansion (PR #43, 4 commits):**
+
+Phase 0: Production sampling
+- ✅ Sampled 160 most recent `grammar_recommendations` rows
+- ✅ Confirmed Codex audit Blocker 1: 0/160 rows had `recommended_anchor`
+- ✅ Top slugs: articles (72, 45%), tense-consistency (31, 19%),
+  article-errors (22, 14%) — top 3 = 78% production traffic
+
+Phase 1: Reconnaissance
+- ✅ Verified M001-M003 anchors still exist (post Sprint 0-3 changes)
+- ✅ Discovered 7 of 8 uncovered slugs have NO `anchors:` block declared
+- ✅ Convention `<article>.common-mistake.<descriptor>` confirmed against
+  Sprint 3 deferred mappings
+
+Phase 2a: Anchor declarations (commit 4cecb67)
+- ✅ 7 new anchors declared in `error-clinic/article-errors.md`
+- ✅ Latent inline marker fix in `tense-consistency.md` (Sprint 5 missed —
+  anchors declared but renderer needed inline markers to inject `<a id>`)
+- ✅ 200 → 207 declared anchors
+
+Phase 2b: New mappings M031-M037 (commit c02995b)
+- ✅ M031: Missing 'the' before specific noun (45+ of 72 articles rows)
+- ✅ M032: Missing 'a/an' (overlaps M001 intentionally — slug routing differs)
+- ✅ M033: Tense shift mid-narrative (covers 31 production rows)
+- ✅ M034-M037: Additional article-errors patterns
+- ✅ Vietnamese-keyword-first design (production AI emits Vietnamese)
+- ✅ 30 → 37 active mappings
+
+Phase 2c-pre: Investigation (architecture discovery)
+- ✅ Discovered `_DIRECT_MAP` routing layer (`grammar_content.py:331-341`)
+  — hardcoded keyword → slug rules that intercept BEFORE `find_best_match`
+- ✅ 3-layer matcher pipeline: `_DIRECT_MAP` → `find_best_match` →
+  `find_best_anchor`
+- ✅ 47.5% production traffic hits `_DIRECT_MAP` (bypasses M001-M030 entirely)
+- ✅ 50% flows to `find_best_match` → mostly slugs without M001-M030
+- ✅ Only 2.5% reaches `find_best_match` → articles slug (Phase 2c addressable)
+
+Phase 2c: SKIPPED (Plan A — strategic decision)
+- ✅ Bilingualize would impact only ~1-2% (not 45% planner anticipated)
+- ✅ Effort:reward unfavorable for 30-mapping mechanical pass
+- ✅ Phase 2b alone projects 78-80% coverage of NEW production rows
+- ✅ Anti-pattern #14 documented (JSON snapshot ≠ live routing reality)
+
+Phase 3: Test fixture updates (commit 3e89aac)
+- ✅ 5 Sprint 5b designed-failing fixtures flipped False → True
+  (3 prod_article_missing_the_* → M031, 2 prod_tense_* → M033)
+- ✅ 2 new positive controls added (M032 a/an + M037 anaphoric)
+- ✅ 261 backend tests pass (was 259)
+
+Phase 5: Execution report (commit 910a3d4)
+- ✅ Full Phase 0/1/2c-pre/2a/2b/2c/3 artifacts captured
+- ✅ 24h post-deploy verification protocol documented (HIGH-6)
+- ✅ Sprint 7 entry conditions documented (HIGH-7)
+
+**Codex audit (2026-05-03) — both blockers RESOLVED:**
+- Blocker 2 (High): practice.js Quick Grammar Tip card → FIXED in Sprint 5b
+- Blocker 1 (Critical): 0/160 anchor population → FIXED in Sprint 6
+  (mapping expansion, projected 78% on NEW rows)
+
+**Cumulative state across 7 sprints:**
+- Articles: 126 → 98 (audit-driven consolidation)
+- Anchors: 0 → 207
+- Mappings: 0 → 37 active
+- Backend tests: 235 → 261
+- Production deep-link infrastructure: 0% → projected 78% NEW row coverage
+- Zero rollbacks across all 7 sprints
+- 5 planner Claude mistakes documented (process improvement, all caught
+  by Code agent's pre-flight discipline or external Codex audit)
+
+**Architecture knowledge captured:**
+- `_DIRECT_MAP` routing (Sprint 6 discovery)
+- 3-layer matcher pipeline documented
+- Live code tracing required for mapping design (anti-pattern #14)
 
 ### Phase 2.5 Day 6 — 2026-05-02 (Performance, 2 PRs)
 
@@ -708,33 +961,48 @@ in incoming specs before any code was written:
 
 ---
 
-## 📊 Health metrics — snapshot 2026-05-02 (post Day 6)
+## 📊 Health metrics — snapshot 2026-05-04 (post Sprint 6)
 
 For the cumulative snapshot, see the comprehensive production audit
 captured 2026-04-30.  Coverage baseline lives at
 `docs/audits/COVERAGE_BASELINE_2026-04-30.md`.
 
 **Code:**
-- Backend tests: **264 collected** (249 passed, 15 env-gated live-RLS
-  skips without staging creds in CI environment) — was 254 pre-Day-6,
-  +10 from PR #34.
-- Coverage baseline: **50% overall** (PR #31; tracked at
-  `docs/audits/COVERAGE_BASELINE_2026-04-30.md`).
+- Backend tests: **261 collected** (was 264 mid-Day-6 — net change reflects
+  Sprint 5b consolidation + Sprint 6 fixture updates).
+- Coverage baseline: **50% overall** (PR #31; unchanged).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
   intentionally skipped (deferred to Phase E).
-- Migrations applied production: **001–031** (031 codifies the
-  `ai_usage_logs` schema that previously lived only in
-  `services/ai_usage_logger.py` comments).
+- Migrations applied production: **001–032** (032 deep-link `recommended_anchor`
+  column on `grammar_recommendations`, Sprint 4).
 - Live RLS tests: **8 pass live** (no skips when staging creds present).
+- Active grammar mappings: **37** (was 30; +7 in Sprint 6).
+- Declared grammar anchors: **207** (was 200; +7 in Sprint 6).
+- Drift gate: **green throughout** (all 37 mappings resolve to declared
+  anchors; 0 deferred).
 
-**Production posture (2026-05-02):**
-- Overall: **WARNING** — HIGH-1 deferred to dedicated security sprint
+**Production posture (2026-05-04):**
+- Overall: **WARNING** — HIGH-1 still deferred to dedicated security sprint
   (legacy `sessions`/`responses` tables have no RLS yet; mitigated by
   app-layer ownership filters + JWT validation; no known active exploit
-  vector).
-- Tech debt level: **MEDIUM**.
-- Ready for Phase 3: **WITH FIXES** — HIGH-1 hardening is a Phase 3
-  prerequisite.
+  vector).  Improved with Sprint 6 (deep-link infra LIVE, Codex audit
+  Blockers 1+2 RESOLVED).
+- Tech debt level: **MEDIUM** — Phase 3 multi-track (Speaking deep-link
+  in soak, Writing Coach Phase 1 ready to start, design pack deferred).
+- Codex audit (2026-05-03): Both blockers RESOLVED.
+- Ready for Phase 3: **YES** — Phase 3 = Grammar Wiki deep-link (Sprint 7
+  pending) + Writing Coach Phase 1 (Sprint W0 ready to start).  HIGH-1
+  hardening still recommended before broader user expansion.
+
+**Workstream status (2026-05-04):**
+- IELTS Speaking deep-link: **LIVE in production**, Sprint 7 pending 24h soak data.
+- Writing Coach: Architecture v2 complete, Sprint W0 ready to start.
+- Design pack v2: Received 2026-05-04, integration deferred (9 pages
+  pending) — Andy decision: do all design integrations in single batch
+  after Sprint pipeline complete.
+- Stack consolidation: **DECIDED 2026-05-04** — stay vanilla HTML +
+  Tailwind CDN (no React/Next.js migration); choice matches problem
+  complexity for content-heavy app + solo dev capacity.
 
 **Production:**
 - Vercel: deployed main HEAD post PR #34, status Ready.
@@ -788,17 +1056,19 @@ captured 2026-04-30.  Coverage baseline lives at
       blocked on production access).
 - [x] Performance critical path optimized — Dashboard 16.29s → ~6-7s
       after PR #33 + #34 (~58% from baseline).
-- [ ] Wave 2 dogfood Day 2-4 — **paused** while Phase 3 direction is
-      processed (HIGH-3).
-- [ ] Baseline metrics documented — **paused** (HIGH-5; depends on the
-      paused dogfood data).
-- [ ] Phase 3 direction chosen — **in progress**; decision framework
-      below (HIGH-4).
+- [ ] Wave 2 dogfood Day 2-4 — **paused** (HIGH-3); other workstreams
+      (Speaking deep-link, Writing Coach) took priority.
+- [ ] Baseline metrics documented — **paused** (HIGH-5).
+- [x] Phase 3 direction chosen — **DECIDED**: Multi-track approach.
+      Track 1 = Grammar Wiki deep-link (Sprint 0-6 + 5b shipped, Sprint 7
+      pending 24h soak).  Track 2 = Writing Coach (architecture v2
+      complete, Phase 1 ready to start with Sprint W0-W3).  Track 3 =
+      Design pack integration (deferred batch).
 
-**Status:** Phase 2.5 is effectively complete through Day 6.  The
-remaining open items are intentionally paused — not blocked on
-implementation work — while the user processes the Phase 3 strategic
-direction.
+**Status:** Phase 3 is multi-track and active.  Phase 2.5 wrapped 2026-05-02.
+Phase 3 launched immediately with Grammar Wiki deep-link sprints
+(2026-05-03 Sprint 5+5b+6 shipped), now awaiting 24h soak verification.
+Writing Coach Phase 1 ready to start in parallel or sequentially.
 
 ### Phase 3 direction options
 
@@ -870,6 +1140,29 @@ here so a new collaborator can skim the prior-art:
     by the browser as Mixed Content.  Codex audit grep:
     `grep -rn "fetch.*api/.*[a-z]\?" frontend/ --include="*.js"` should
     return no list-endpoint hits without a trailing slash before `?`.
+14. **JSON sample snapshots ≠ live code routing reality** — added 2026-05-03
+    after Sprint 6 Phase 2c-pre investigation.  Planner Claude estimated
+    bilingualizing M001-M030 mappings would impact 45% of production traffic
+    based on JSON sample showing 72/160 rows on `articles` slug.  Reality:
+    those rows were stored under older `_DIRECT_MAP` routing; live code now
+    routes them to `article-errors` slug.  Bilingualize impact actually
+    ~1-2%, not 45%.  Code's investigation tracing live `find_best_match` +
+    `_DIRECT_MAP` caught the false estimate.  Lesson: when designing mapping
+    changes, trace through ALL 3 layers of the matcher pipeline
+    (`_DIRECT_MAP` → `find_best_match` → `find_best_anchor`), not just
+    JSON data snapshots.  Saved ~1-2 hours of wasted bilingualize work in
+    Sprint 6 Phase 2c.
+15. **Branch creation ≠ production shipping** — added 2026-05-04 after
+    planner Claude assumed Sprint 6 was merged based on Code's "Sprint
+    complete" report.  Reality: 4 commits sat on feature branch unmerged
+    while planner started writing TECH_DEBT update treating Sprint 6 as
+    "shipped".  Code's pre-flight check caught the discrepancy by running
+    `git log --oneline main..HEAD` (4 commits ahead) and confirming PR
+    not yet created.  Lesson: verify `git log main` and `gh pr list` show
+    the work shipped before documenting as complete.  Branch existence,
+    "all commits done", and even "tests passing" do not equal deployment.
+    The merge ceremony (push → PR → CI → merge → deploy) is part of
+    "shipped", not optional.
 
 ---
 
