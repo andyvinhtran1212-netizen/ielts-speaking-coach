@@ -1,0 +1,73 @@
+# Output Schema Requirements
+
+You MUST return a single JSON object matching the schema below. **No other text 
+outside the JSON** — no preamble, no postamble, no markdown code fences.
+
+## Schema
+
+```json
+{
+  "overallBandScore": <number 0.0-9.0, half-band increments>,
+  "overallBandScoreSummary": "<Vietnamese, 2-3 sentences explaining the band>",
+  "keyTakeaways": {
+    "strengths": ["<Vietnamese strength 1>", "<Vietnamese strength 2>"],
+    "areasForImprovement": ["<Vietnamese area 1>", "<Vietnamese area 2>"]
+  },
+  "criteriaFeedback": {
+    "mainCriterion": {
+      "title": "Task Response" or "Task Achievement",
+      "explanation": "<Vietnamese, what this criterion measures>",
+      "feedback": "<Vietnamese, specific feedback for this essay>",
+      "bandScore": <integer 0-9>
+    },
+    "coherenceCohesion": {...same structure...},
+    "lexicalResource": {...same structure...},
+    "grammaticalRange": {...same structure...}
+  },
+  "mistakeAnalysis": [
+    {
+      "original": "<exact text from essay>",
+      "mistakeType": "<category>",
+      "explanation": "<Vietnamese explanation>",
+      "suggestion": "<corrected English>",
+      "criterion": "<which IELTS criterion>"
+    }
+  ],
+  "aiContentAnalysis": {
+    "likelihood": <0-100, percentage AI-like>,
+    "explanation": "<Vietnamese, explanation of AI likelihood>"
+  },
+  "improvedEssay": "<full English rewrite at Band 8.0+>",
+  
+  // CONDITIONAL FIELDS — populate based on analysis level (Level 1 = null/[])
+  "ideaDevelopmentAnalysis": [...] or null,
+  "coherenceAnalysis": [...] or null,
+  "counterargumentAnalysis": {...} or null,
+  "lexicalAnalysis": {...} or null,
+  "sentenceStructureAnalysis": {...} or null
+}
+```
+
+## Critical Rules
+
+1. **Strict JSON:** Output starts with `{` and ends with `}`. No surrounding text.
+2. **Use `null` not "null":** For empty optional fields, use JSON `null`, not the string `"null"`.
+3. **Use empty arrays `[]`:** For list fields with no items, use `[]`, not `null`.
+4. **Vietnamese for explanations:** All `feedback`, `explanation`, `summary` fields in Vietnamese.
+5. **English for code-like text:** `original`, `suggestion`, `improvedEssay`, IELTS criteria titles in English.
+6. **Half-band scores:** `overallBandScore` can be X.0 or X.5 only. Criterion `bandScore` is integer.
+7. **Be specific:** No placeholder text like "good vocabulary" — explain WHICH words and WHY.
+8. **Address as "{{FORM_OF_ADDRESS}}":** All Vietnamese text uses this pronoun consistently.
+
+## Conditional Field Rules (per analysis level)
+
+| Field | L1 | L2 | L3 | L4 | L5 |
+|---|---|---|---|---|---|
+| `mistakeAnalysis` | Required | Required | Required | Required | Required |
+| `coherenceAnalysis` | null | Required | Required | Required | Required |
+| `ideaDevelopmentAnalysis` | null | null | Required | Required | Required |
+| `counterargumentAnalysis` (T2 only) | null | null | Required | Required | Required |
+| `lexicalAnalysis` | null | null | null | Required | Required |
+| `sentenceStructureAnalysis` | null | null | null | Required | Required |
+
+For Task 1 (no counterargument concept), `counterargumentAnalysis` is always null.
