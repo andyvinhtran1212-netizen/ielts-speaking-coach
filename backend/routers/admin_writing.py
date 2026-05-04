@@ -10,15 +10,18 @@ inline, matching the established convention in routers/admin.py.
 
 from __future__ import annotations
 
+import io
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
 from services import essay_service
 from services.writing_render import render_feedback_html, render_plain_text
+from services.writing_word_exporter import render_essay_to_docx
 
 
 router = APIRouter(
@@ -154,10 +157,30 @@ async def render_essay_output(
 
 
 @router.get("/essays/{essay_id}/export.docx")
-async def export_essay_docx(essay_id: UUID, authorization: str | None = Header(None)):
-    """Download Word file. (Sprint W3)"""
+async def export_essay_docx(
+    essay_id: UUID,
+    authorization: str | None = Header(None),
+):
+    """Stream a .docx export of the feedback. Filename pattern:
+    {student_code}_{YYYYMMDD}_T{1|2}.docx
+    """
     await require_admin(authorization)
-    raise HTTPException(501, "Not implemented yet — Sprint W3")
+    ctx = essay_service.get_essay_render_context(str(essay_id))
+    docx_bytes, filename = render_essay_to_docx(
+        feedback=ctx["feedback"],
+        essay_text=ctx["essay_text"],
+        prompt_text=ctx["prompt_text"],
+        task_type=ctx["task_type"],
+        student_name=ctx["student_name"],
+        student_code=ctx["student_code"],
+    )
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/stats")

@@ -290,11 +290,52 @@ def test_render_endpoint_requires_auth():
     assert r.status_code == 401
 
 
+# ── W3 Word export endpoint ──────────────────────────────────────────
+
+def test_export_docx_streams_word_file():
+    """GET /export.docx returns a binary Word stream with proper headers."""
+    fake_ctx = {
+        "feedback":     MagicMock(),
+        "essay_text":   "E",
+        "prompt_text":  "P",
+        "task_type":    "task2",
+        "student_name": "Test",
+        "student_code": "S001",
+        "essay_id":     _ESSAY_ID,
+    }
+    fake_bytes = b"PK\x03\x04docxbytes"  # zip-like prefix sentinel
+    fake_filename = "S001_20260504_T2.docx"
+
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.get_essay_render_context",
+               return_value=fake_ctx), \
+         patch("routers.admin_writing.render_essay_to_docx",
+               return_value=(fake_bytes, fake_filename)) as mock_export:
+        r = _client().get(
+            f"/admin/writing/essays/{_ESSAY_ID}/export.docx",
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200, r.text
+    assert r.content == fake_bytes
+    assert "wordprocessingml" in r.headers["content-type"]
+    assert fake_filename in r.headers["content-disposition"]
+    # Renderer received the context fields
+    kwargs = mock_export.call_args.kwargs
+    assert kwargs["task_type"] == "task2"
+    assert kwargs["student_code"] == "S001"
+
+
+def test_export_docx_requires_auth():
+    r = _client().get(f"/admin/writing/essays/{_ESSAY_ID}/export.docx")
+    assert r.status_code == 401
+
+
 # ── W3 placeholders still 501 ────────────────────────────────────────
 
 def test_w3_endpoints_still_return_501():
-    """Sanity: PATCH /feedback, DELETE, /export.docx, /stats stay 501
-    until later W3 phases land."""
+    """Sanity: PATCH /feedback, DELETE, /stats stay 501 until W3 Phase 3 lands."""
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().patch(
