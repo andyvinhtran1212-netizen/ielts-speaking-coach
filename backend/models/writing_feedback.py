@@ -12,15 +12,29 @@ Conditional analysis fields populate based on `analysis_level`:
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, conint, confloat
+from pydantic import BaseModel, conint, confloat, model_validator
 
 
 # ── Sub-types ─────────────────────────────────────────────────────────
 
 class SuggestionInstructionExample(BaseModel):
-    """Suggestion với hướng dẫn + ví dụ cụ thể."""
+    """Suggestion với hướng dẫn + ví dụ cụ thể.
+
+    Tolerant of Gemini occasionally returning a plain string instead of the
+    {instruction, example} object the schema requires. Strings are coerced
+    to {instruction: <str>, example: ""}; the prompt's strict-format rules
+    drive the correct shape long-term while this validator absorbs edge
+    cases (W2.1 patch — production essay f5b9e78b regression).
+    """
     instruction: str
-    example: str
+    example: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_string_to_object(cls, data):
+        if isinstance(data, str):
+            return {"instruction": data, "example": ""}
+        return data
 
 
 class CriteriaFeedback(BaseModel):
@@ -61,7 +75,7 @@ class IdeaDevelopmentAnalysis(BaseModel):
 
 
 class CoherenceAnalysisItem(BaseModel):
-    location: str
+    location: str = ""  # Default empty; Gemini sometimes omits this field
     issue: str
     explanation: str
     suggestion: SuggestionInstructionExample
