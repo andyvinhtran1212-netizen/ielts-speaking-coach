@@ -31,9 +31,11 @@ router = APIRouter(
 class CreateEssayRequest(BaseModel):
     student_id:      UUID
     task_type:       str  = Field(..., pattern=r"^(task1_academic|task1_general|task2)$")
-    prompt_text:     str  = Field(..., min_length=1)
+    # Size caps close cost / DoS surface even though admin-only (W2.2 audit).
+    # Real IELTS prompts ~3K chars; Task 2 essays ~5–6K chars in practice.
+    prompt_text:     str  = Field(..., min_length=1, max_length=5000)
     prompt_image_url: Optional[str] = None
-    essay_text:      str  = Field(..., min_length=1)
+    essay_text:      str  = Field(..., min_length=1, max_length=10000)
 
     analysis_level:  int  = Field(..., ge=1, le=5)
     form_of_address: str  = Field(default="em", pattern=r"^(bạn|em|anh|chị)$")

@@ -12,7 +12,7 @@ Conditional analysis fields populate based on `analysis_level`:
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, conint, confloat, model_validator
+from pydantic import BaseModel, Field, conint, confloat, model_validator
 
 
 # ── Sub-types ─────────────────────────────────────────────────────────
@@ -155,8 +155,10 @@ class GraderConfig(BaseModel):
     """Configuration for grade_essay() call."""
 
     task_type: Literal['task1_academic', 'task1_general', 'task2']
-    prompt_text: str
-    essay_text: str
+    # Defense-in-depth size caps — router validates first; this layer
+    # protects direct callers (BG re-grade, future scripts) (W2.2 audit).
+    prompt_text: str = Field(..., max_length=5000)
+    essay_text:  str = Field(..., max_length=10000)
 
     analysis_level: conint(ge=1, le=5)
     form_of_address: Literal['bạn', 'em', 'anh', 'chị'] = 'em'

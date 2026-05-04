@@ -92,6 +92,45 @@ def test_create_essay_rejects_invalid_model():
     assert r.status_code == 422
 
 
+# ── Payload size guards (W2.2 audit) ─────────────────────────────────
+
+def test_submission_rejects_oversize_essay():
+    """essay_text > 10_000 chars → 422 from router-level Pydantic guard."""
+    body = _valid_create_body()
+    body["essay_text"] = "x" * 10_001
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+    assert r.status_code == 422
+
+
+def test_submission_rejects_oversize_prompt():
+    """prompt_text > 5_000 chars → 422 from router-level Pydantic guard."""
+    body = _valid_create_body()
+    body["prompt_text"] = "x" * 5_001
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+    assert r.status_code == 422
+
+
+def test_submission_accepts_max_size_essay():
+    """Exactly 10_000-char essay + 5_000-char prompt are accepted (boundary)."""
+    body = _valid_create_body()
+    body["essay_text"]  = "x" * 10_000
+    body["prompt_text"] = "y" * 5_000
+
+    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 45}
+    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.create_essay_with_job",
+               return_value=info), \
+         patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+    assert r.status_code == 202, r.text
+
+
 # ── Happy-path handler wiring ────────────────────────────────────────
 
 def test_create_essay_returns_202_with_eta_and_schedules_bg_task():
