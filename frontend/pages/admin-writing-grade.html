@@ -38,25 +38,12 @@
     </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/writing-admin.js"></script>
   <script>
-    (async function () {
-      try {
-        const me = await window.api.get('/auth/me');
-        if (me && me.role === 'admin') {
-          document.getElementById('header-email').textContent = me.email || '';
-          document.getElementById('header-email').classList.remove('hidden');
-          document.getElementById('state-ready').classList.remove('hidden');
-        } else {
-          document.getElementById('state-denied').classList.remove('hidden');
-        }
-      } catch (e) {
-        window.location.href = '/index.html';
-        return;
-      } finally {
-        document.getElementById('state-loading').classList.add('hidden');
-      }
-    })();
+    'use strict';
+    WC.bootstrap();
   </script>
 </body>
 </html>
