@@ -13,16 +13,29 @@ Why this matters
 ----------------
 At Sprint 5 close, a query of the 80 most recent production rows showed
 0/80 had `recommended_anchor` populated. Slugs resolve correctly
-(article-errors, tense-consistency, pronouns, etc.) but anchor field is
-universally NULL because `feedback-anchor-mapping.yaml` only covers
+(article-errors, tense-consistency, pronouns, etc.) but anchor field was
+universally NULL because `feedback-anchor-mapping.yaml` only covered
 canonical articles like `articles`, `conditionals`, `word-order` — not
-the topic-level slugs the matcher routes to from Claude's Vietnamese.
+the topic-level error-clinic slugs the matcher routes to from Claude's
+Vietnamese.
 
-Sprint 6 will close this gap by extending mapping coverage. When that
-work lands, fixtures here marked `expected_anchor_present=False` will
-start failing — that failure is a **signal**, not a regression: flip the
-fixture to True and add a comment recording the Sprint 6 mapping that
-addressed it.
+Sprint 6 (Phase 2a + 2b) closed the gap for the top 3 production slugs:
+  - article-errors  (M031 missing-the-with-unique-reference,
+                     M032 missing-a-when-categorizing,
+                     M037 missing-the-on-second-mention, etc.)
+  - tense-consistency (M033 tense-shift-mid-narrative)
+  - articles  (already had M001-M003; live `_DIRECT_MAP` interception
+               re-routes Vietnamese inputs to article-errors instead,
+               so M001-M003 mostly serve English/test-mode inputs)
+
+Of the original 8 production-sampled fixtures, 5 flipped True in Sprint 6.
+The remaining 3 (pronouns, expressing-preferences-naturally,
+missing-subjects) stay False — those slugs are Sprint 7 scope.
+
+When future sprint work lands, fixtures here marked
+`expected_anchor_present=False` will start failing — that failure is
+a **signal**, not a regression: flip the fixture to True and add a
+comment recording the mapping that addressed it.
 
 Per Sprint 5b plan:
   - Inline parametrize (no YAML fixture file)
@@ -58,39 +71,45 @@ from services.grammar_content import grammar_service
 # stopped working entirely.
 
 CASES = [
-    # ── Production samples (sampled from grammar_recommendations on 2026-05-03) ──
-    # All currently route to topic slugs without anchor mapping coverage → False.
-    # Sprint 6 will lift these to True one by one.
+    # ── Production samples — Sprint 6 lifted these to True ──
+    # Sprint 6 Phase 2b added M031 (article-errors.common-mistake.missing-the-with-unique-reference)
+    # and M033 (tense-consistency.common-mistake.tense-shift-mid-narrative); these 5
+    # production strings now resolve to anchors. Flipping the flag is the
+    # success signal designed in Sprint 5b.
     {
         "id": "prod_article_missing_the_fast_paced",
         "issue": "Thiếu mạo từ 'the' trước 'fast-paced life'",
         "expected_slug": "article-errors",
-        "expected_anchor_present": False,
+        "expected_anchor_present": True,  # Sprint 6 M031 — flipped 2026-05-03
     },
     {
         "id": "prod_article_as_matter_of_fact",
         "issue": "Thiếu mạo từ: 'as matter of fact' — đúng là 'as a matter of fact'",
         "expected_slug": "article-errors",
-        "expected_anchor_present": False,
+        "expected_anchor_present": True,  # Sprint 6 M031 — flipped 2026-05-03
     },
     {
         "id": "prod_article_mountain_view",
         "issue": "Thiếu mạo từ 'the' trước 'Mountain View' (lần đầu tiên)",
         "expected_slug": "article-errors",
-        "expected_anchor_present": False,
+        "expected_anchor_present": True,  # Sprint 6 M031 — flipped 2026-05-03
     },
     {
         "id": "prod_tense_present_in_past_context",
         "issue": "Sai thì hiện tại đơn trong ngữ cảnh quá khứ — 'It is a sliver lego' nên là 'It was a silver lego'",
         "expected_slug": "tense-consistency",
-        "expected_anchor_present": False,
+        "expected_anchor_present": True,  # Sprint 6 M033 — flipped 2026-05-03
     },
     {
         "id": "prod_tense_which_created_vs_creates",
         "issue": "Sai thì — 'which created' nên là 'which creates' (hiện tại vì nói về đặc điểm hiện tại)",
         "expected_slug": "tense-consistency",
-        "expected_anchor_present": False,
+        "expected_anchor_present": True,  # Sprint 6 M033 — flipped 2026-05-03
     },
+    # ── Production samples — still uncovered (Sprint 7 territory) ──
+    # These slugs (pronouns, expressing-preferences-naturally, missing-subjects)
+    # have no mapping entries yet. Sprint 6 explicitly chose tight scope
+    # (top 3 slugs only); these flip to True when Sprint 7 expands coverage.
     {
         "id": "prod_pronoun_this_unclear",
         "issue": "Đại từ 'this' không rõ ràng — không chỉ rõ người nói muốn nói đến cái gì",
@@ -109,10 +128,26 @@ CASES = [
         "expected_slug": "missing-subjects",
         "expected_anchor_present": False,
     },
-    # ── Synthetic positive controls ──
+    # ── Sprint 6 positive controls — pin M032 and M037 directly ──
+    # These production strings hit specific Sprint 6 mappings other than the
+    # dominant M031/M033 path. Pinning them ensures a Sprint 7+ change that
+    # accidentally collapses M032 or M037 into M031 won't go unnoticed.
+    {
+        "id": "prod_article_missing_a_short_of",
+        "issue": "Thiếu mạo từ 'a' trước 'short of daily ritual'",
+        "expected_slug": "article-errors",
+        "expected_anchor_present": True,  # Sprint 6 M032 — missing-a-when-categorizing
+    },
+    {
+        "id": "prod_article_missing_the_laptop_first_mention",
+        "issue": "Thiếu mạo từ 'the' trước 'laptop' ở câu đầu tiên — 'One part of technology' nên là 'One piece of technology'",
+        "expected_slug": "article-errors",
+        "expected_anchor_present": True,  # Sprint 6 M037 — missing-the-on-second-mention
+    },
+    # ── Synthetic positive controls (pre-Sprint-6) ──
     # Strings crafted to hit existing mapping coverage in feedback-anchor-mapping.yaml.
     # If these stop resolving, the matcher itself has regressed — distinct
-    # signal from Sprint 6 mapping-gap False cases above.
+    # signal from any uncovered-slug False cases above.
     {
         "id": "synthetic_word_order_question_inversion",
         "issue": "Word order sai trong câu hỏi — 'I'm tall how' nên là 'how tall am I'",

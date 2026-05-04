@@ -689,17 +689,212 @@ mappings:
     related_anchors:
       - run-on-sentences.overview
 
+  # ==========================================================
+  # Sprint 6 — error-clinic mapping expansion (2026-05-03)
+  # ==========================================================
+  # Phase 0 sample (160 rows from grammar_recommendations on production)
+  # showed 0/160 had recommended_anchor populated. Top routing destinations
+  # were `articles` (72), `tense-consistency` (31), `article-errors` (22).
+  # The articles-slug mapping coverage existed (M001-M003) but English-only
+  # `feedback_keywords` couldn't match Claude's Vietnamese-language issue
+  # strings — to be addressed by retroactive bilingualisation in Phase 2c.
+  #
+  # The mappings below (M031-M037) target the new anchors declared in
+  # Phase 2a (`backend/content/error-clinic/article-errors.md` and
+  # `backend/content/error-clinic/tense-consistency.md`). Vietnamese
+  # keywords are listed first so the token-overlap scorer surfaces them
+  # against production AI output. English keywords retained as fallback
+  # for test-mode / hand-crafted inputs.
+  # ==========================================================
+
+  - mapping_id: M031
+    target_anchor: article-errors.common-mistake.missing-the-with-unique-reference
+    target_file: backend/content/error-clinic/article-errors.md
+    feedback_pattern_summary: "Thiếu mạo từ 'the' trước danh từ chỉ thứ duy nhất / cụ thể"
+    feedback_keywords:
+      - "thiếu mạo từ the"
+      - "thiếu the trước"
+      - "thiếu mạo từ"
+      - "bỏ the"
+      - "phải có the"
+      - "nên dùng the"
+      - "missing the"
+      - "missing definite article"
+      - "definite article omission"
+    user_phrase_examples:
+      - "Thiếu mạo từ 'the' trước 'water' — 'fell into water' → 'fell into the water'"
+      - "Thiếu mạo từ 'the' trước 'first time' — nên dùng 'the first time when'"
+      - "Thiếu mạo từ 'the' trước 'way home' — nên là 'on the way home'"
+      - "Thiếu mạo từ 'the' trước 'fast-paced life'"
+      - "Thiếu mạo từ 'the' trước 'combination'"
+    confidence: high
+    severity: common
+    related_anchors:
+      - articles.definite.when-to-use
+      - articles.overview
+
+  - mapping_id: M032
+    target_anchor: article-errors.common-mistake.missing-a-when-categorizing
+    target_file: backend/content/error-clinic/article-errors.md
+    feedback_pattern_summary: "Thiếu mạo từ 'a/an' trước danh từ đếm được số ít (phân loại nghề nghiệp / thuộc tính)"
+    feedback_keywords:
+      - "thiếu mạo từ a"
+      - "thiếu mạo từ an"
+      - "thiếu a trước"
+      - "thiếu an trước"
+      - "missing a"
+      - "missing an"
+      - "missing indefinite article"
+      - "no article before"
+    user_phrase_examples:
+      - "Thiếu mạo từ 'a' trước 'short of daily ritual'"
+      - "She is teacher — nên là 'She is a teacher'"
+      - "He bought book — nên là 'He bought a book'"
+      - "I have car — nên là 'I have a car'"
+    confidence: high
+    severity: common
+    related_anchors:
+      - articles.indefinite.missing-with-singular-count-noun
+      - articles.indefinite.when-to-use
+
+  - mapping_id: M033
+    target_anchor: tense-consistency.common-mistake.tense-shift-mid-narrative
+    target_file: backend/content/error-clinic/tense-consistency.md
+    feedback_pattern_summary: "Sai thì giữa câu chuyện — chuyển đột ngột giữa hiện tại và quá khứ"
+    feedback_keywords:
+      - "sai thì"
+      - "sai thì hiện tại"
+      - "sai thì quá khứ"
+      - "ngữ cảnh quá khứ"
+      - "ngữ cảnh hiện tại"
+      - "không nhất quán thì"
+      - "đổi thì"
+      - "chuyển thì"
+      - "tense inconsistency"
+      - "tense shift"
+      - "wrong tense"
+      - "inconsistent tense"
+    user_phrase_examples:
+      - "Sai thì hiện tại đơn trong ngữ cảnh quá khứ — 'It is a sliver lego' nên là 'It was a silver lego'"
+      - "Sai thì — 'which created' nên là 'which creates' (hiện tại vì nói về đặc điểm hiện tại)"
+      - "Sai thì — 'It has become' (hiện tại hoàn thành) không rõ ràng với 'daily ritual'"
+      - "Sai thì quá khứ — 'used to travel' không phù hợp với ngữ cảnh"
+    confidence: high
+    severity: common
+    related_anchors:
+      - tense-consistency.overview
+
+  - mapping_id: M034
+    target_anchor: article-errors.common-mistake.the-with-general-noun
+    target_file: backend/content/error-clinic/article-errors.md
+    feedback_pattern_summary: "Dùng 'the' không cần thiết trước danh từ chung chung (technology, education, music)"
+    feedback_keywords:
+      - "dùng the"
+      - "thêm the"
+      - "the với danh từ chung"
+      - "the không cần thiết"
+      - "the trước danh từ chung"
+      - "lạm dụng the"
+      - "the overuse"
+      - "unnecessary the"
+      - "the with general noun"
+      - "the with abstract noun"
+    user_phrase_examples:
+      - "The technology has improved our lives — nên là 'Technology has improved our lives'"
+      - "The life is beautiful — nên là 'Life is beautiful'"
+      - "I love the music — nên là 'I love music'"
+      - "The education is important — nên là 'Education is important'"
+    confidence: medium
+    severity: common
+    related_anchors:
+      - articles.definite.overuse-with-general-uncount
+      - articles.zero.when-to-use
+
+  - mapping_id: M035
+    target_anchor: article-errors.common-mistake.a-vs-an-confusion
+    target_file: backend/content/error-clinic/article-errors.md
+    feedback_pattern_summary: "Nhầm 'a' với 'an' — sai theo quy tắc âm đầu (vowel/consonant sound)"
+    feedback_keywords:
+      - "nhầm a/an"
+      - "nhầm a an"
+      - "sai a/an"
+      - "a thay vì an"
+      - "an thay vì a"
+      - "âm đầu"
+      - "a vs an"
+      - "wrong a/an"
+      - "an vs a"
+      - "vowel sound article"
+    user_phrase_examples:
+      - "a hour — nên là 'an hour' (âm /aʊ-/ là nguyên âm)"
+      - "an useful tool — nên là 'a useful tool' (âm /juː-/ là phụ âm)"
+      - "a honest answer — nên là 'an honest answer' (h câm)"
+      - "a MBA — nên là 'an MBA' (M phát âm /em-/)"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - articles.a-vs-an.sound-rule
+
+  - mapping_id: M036
+    target_anchor: article-errors.common-mistake.a-with-plural-or-uncount
+    target_file: backend/content/error-clinic/article-errors.md
+    feedback_pattern_summary: "Dùng 'a/an' với danh từ không đếm được hoặc số nhiều (a information, a advice)"
+    feedback_keywords:
+      - "a với danh từ không đếm"
+      - "a với uncountable"
+      - "a với số nhiều"
+      - "danh từ không đếm được"
+      - "uncountable noun"
+      - "a before uncountable"
+      - "a before plural"
+      - "many information"
+      - "much information"
+      - "uncountable with article"
+    user_phrase_examples:
+      - "Sai cấu trúc — 'I have more chance' nên là 'I have more chances' (danh từ đếm được)"
+      - "Thiếu mạo từ: 'some humors' → 'some humor' (humor là danh từ không đếm được)"
+      - "I need a information — nên là 'I need information' / 'some information'"
+      - "She gave me a good advice — nên là 'a piece of good advice' / 'good advice'"
+    confidence: medium
+    severity: common
+    related_anchors:
+      - articles.zero.when-to-use
+      - articles.overview
+
+  - mapping_id: M037
+    target_anchor: article-errors.common-mistake.missing-the-on-second-mention
+    target_file: backend/content/error-clinic/article-errors.md
+    feedback_pattern_summary: "Quên 'the' khi nhắc lại danh từ đã giới thiệu (anaphoric reference)"
+    feedback_keywords:
+      - "lần thứ hai nhắc"
+      - "nhắc lại không the"
+      - "anaphoric reference"
+      - "second mention"
+      - "second mention without the"
+      - "the on second reference"
+      - "missing the on second"
+      - "previously mentioned"
+    user_phrase_examples:
+      - "I read a book last night. A book was very interesting — nên là 'The book was very interesting'"
+      - "Thiếu mạo từ 'the' trước 'laptop' ở câu đầu tiên (đã nhắc trước)"
+      - "She bought a car. Car was expensive — nên là 'The car was expensive'"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - articles.definite.when-to-use
+      - article-errors.common-mistake.missing-the-with-unique-reference
+
 # ==========================================================
 # Coverage summary
 # ==========================================================
-# Total mappings: 30
+# Total mappings: 37 (Sprint 6 added M031-M037)
 # Coverage by severity:
-#   common:    16
-#   important: 11
+#   common:    21
+#   important: 13
 #   nuance:    3
 # Coverage by confidence:
-#   high:    16
-#   medium:  14
+#   high:    19
+#   medium:  18
 #   low:     0
 #
 # Each CORE topic has at least 1 mapping. Articles with multiple high-frequency
