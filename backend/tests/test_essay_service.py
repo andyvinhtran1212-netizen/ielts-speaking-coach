@@ -334,3 +334,93 @@ def test_get_essay_status_returns_eta_for_pending():
     assert out["status"] == "pending"
     assert out["eta_seconds"] == 90  # L5+pro → 90s
     assert out["error_message"] is None
+
+
+# ── get_essay_render_context (W3 Phase 1) ────────────────────────────
+
+def _valid_feedback_json() -> dict:
+    return {
+        "overallBandScore": 6.5,
+        "overallBandScoreSummary": "OK",
+        "keyTakeaways": {"strengths": ["s"], "areasForImprovement": ["a"]},
+        "criteriaFeedback": {
+            "mainCriterion":     {"title": "Task Response",       "explanation": "x", "feedback": "y", "bandScore": 6},
+            "coherenceCohesion": {"title": "Coherence & Cohesion", "explanation": "x", "feedback": "y", "bandScore": 6},
+            "lexicalResource":   {"title": "Lexical Resource",     "explanation": "x", "feedback": "y", "bandScore": 7},
+            "grammaticalRange":  {"title": "Grammatical Range",    "explanation": "x", "feedback": "y", "bandScore": 6},
+        },
+        "mistakeAnalysis": [],
+        "aiContentAnalysis": {"likelihood": 5, "explanation": "Natural"},
+        "improvedEssay": "Improved.",
+    }
+
+
+def test_render_context_uses_admin_edits_when_present():
+    edits = _valid_feedback_json()
+    edits["overallBandScore"] = 7.5  # different from grader output
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [{
+            "id":               _ESSAY_ID,
+            "student_id":       _STUDENT_ID,
+            "task_type":        "task2",
+            "prompt_text":      "P",
+            "essay_text":       "E",
+            "admin_edits_json": edits,
+            "status":           "reviewed",
+        }],
+        ("writing_feedback", "select"): [{"feedback_json": _valid_feedback_json()}],
+        ("students", "select"): [{"student_code": "S001", "full_name": "Tran A"}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        ctx = essay_service.get_essay_render_context(_ESSAY_ID)
+
+    assert ctx["feedback"].overallBandScore == 7.5  # edits supersede AI
+    assert ctx["student_name"] == "Tran A"
+    assert ctx["student_code"] == "S001"
+
+
+def test_render_context_falls_back_to_ai_feedback():
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [{
+            "id":               _ESSAY_ID,
+            "student_id":       _STUDENT_ID,
+            "task_type":        "task2",
+            "prompt_text":      "P",
+            "essay_text":       "E",
+            "admin_edits_json": None,  # no edits → use AI output
+            "status":           "graded",
+        }],
+        ("writing_feedback", "select"): [{"feedback_json": _valid_feedback_json()}],
+        ("students", "select"): [{"student_code": "S002", "full_name": "B"}],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        ctx = essay_service.get_essay_render_context(_ESSAY_ID)
+
+    assert ctx["feedback"].overallBandScore == 6.5  # AI output
+
+
+def test_render_context_404_when_essay_missing():
+    fake = _FakeSupabase(responses={("writing_essays", "select"): []})
+    with patch.object(essay_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as exc:
+            essay_service.get_essay_render_context(_ESSAY_ID)
+    assert exc.value.status_code == 404
+
+
+def test_render_context_404_when_feedback_missing():
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [{
+            "id":               _ESSAY_ID,
+            "student_id":       _STUDENT_ID,
+            "task_type":        "task2",
+            "prompt_text":      "P",
+            "essay_text":       "E",
+            "admin_edits_json": None,
+            "status":           "pending",
+        }],
+        ("writing_feedback", "select"): [],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as exc:
+            essay_service.get_essay_render_context(_ESSAY_ID)
+    assert exc.value.status_code == 404

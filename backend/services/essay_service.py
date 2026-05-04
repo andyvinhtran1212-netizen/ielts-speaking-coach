@@ -24,7 +24,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from database import supabase_admin
-from models.writing_feedback import GraderConfig
+from models.writing_feedback import GraderConfig, WritingFeedback
 from services.gemini_writing_grader import (
     AISafetyBlockError,
     APIRetryFailedError,
@@ -308,6 +308,74 @@ def get_essay_with_feedback(essay_id: str) -> dict:
     essay["student"] = sr.data[0] if sr.data else None
 
     return essay
+
+
+def get_essay_render_context(essay_id: str) -> dict:
+    """Build the data dict consumed by writing_render / writing_word_exporter.
+
+    Layers admin_edits_json (when present) over the AI feedback_json — admin
+    edits supersede the original grader output for render + delivery.
+
+    Returns:
+        {
+          "feedback":      WritingFeedback,  # validated, edits-applied
+          "essay_text":    str,
+          "prompt_text":   str,
+          "task_type":     str,
+          "student_name":  str,
+          "student_code":  str,
+          "essay_id":      str,
+        }
+    Raises 404 when essay or feedback row is missing.
+    """
+    er = (
+        supabase_admin.table("writing_essays")
+        .select(
+            "id, student_id, task_type, prompt_text, essay_text, "
+            "admin_edits_json, status"
+        )
+        .eq("id", essay_id)
+        .limit(1)
+        .execute()
+    )
+    if not er.data:
+        raise HTTPException(404, "Essay not found")
+    essay = er.data[0]
+
+    fr = (
+        supabase_admin.table("writing_feedback")
+        .select("feedback_json")
+        .eq("essay_id", essay_id)
+        .limit(1)
+        .execute()
+    )
+    if not fr.data:
+        raise HTTPException(404, "Feedback not yet available")
+
+    feedback_json = essay.get("admin_edits_json") or fr.data[0]["feedback_json"]
+    try:
+        feedback = WritingFeedback(**feedback_json)
+    except Exception as exc:
+        raise HTTPException(500, f"Stored feedback fails schema: {exc}")
+
+    sr = (
+        supabase_admin.table("students")
+        .select("student_code, full_name")
+        .eq("id", essay["student_id"])
+        .limit(1)
+        .execute()
+    )
+    student = sr.data[0] if sr.data else {"student_code": "", "full_name": ""}
+
+    return {
+        "feedback":     feedback,
+        "essay_text":   essay["essay_text"],
+        "prompt_text":  essay["prompt_text"],
+        "task_type":    essay["task_type"],
+        "student_name": student.get("full_name") or "",
+        "student_code": student.get("student_code") or "",
+        "essay_id":     essay["id"],
+    }
 
 
 def get_essay_status(essay_id: str) -> dict:
