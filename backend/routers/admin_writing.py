@@ -11,6 +11,7 @@ inline, matching the established convention in routers/admin.py.
 from __future__ import annotations
 
 import io
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -18,6 +19,8 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, st
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from database import supabase_admin
+from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
 from services import essay_service
 from services.writing_render import render_feedback_html, render_plain_text
@@ -47,6 +50,22 @@ class CreateEssayRequest(BaseModel):
         default="gemini-2.5-pro",
         pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash)$",
     )
+
+
+_ALLOWED_DELIVERY_METHODS = {
+    "google_docs_paste",
+    "word_download",
+    "gdocs_api",
+    "web_view",
+}
+
+
+class MarkDeliveredRequest(BaseModel):
+    method: str = Field(default="google_docs_paste", max_length=32)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ── Endpoints (W2) ────────────────────────────────────────────────────
@@ -114,17 +133,77 @@ async def get_essay_status(
 # ── Endpoints (W3 — still placeholders) ───────────────────────────────
 
 @router.patch("/essays/{essay_id}/feedback")
-async def update_feedback(essay_id: UUID, authorization: str | None = Header(None)):
-    """Save admin edits. (Sprint W3)"""
+async def update_feedback(
+    essay_id: UUID,
+    edits: dict,
+    authorization: str | None = Header(None),
+):
+    """Persist admin edits over the AI feedback.
+
+    Body is the entire WritingFeedback shape (after admin's edits). It is
+    validated server-side against the Pydantic schema before write — a
+    drift-protected admin can't store something the renderer would later
+    crash on. Status flips to 'reviewed'.
+    """
     await require_admin(authorization)
-    raise HTTPException(501, "Not implemented yet — Sprint W3")
+
+    try:
+        validated = WritingFeedback(**edits)
+    except Exception as exc:
+        raise HTTPException(422, f"Edits fail schema: {exc}")
+
+    try:
+        r = (
+            supabase_admin.table("writing_essays")
+            .update({
+                "admin_edits_json":   validated.model_dump(mode="json"),
+                "admin_reviewed_at":  _now_iso(),
+                "status":             "reviewed",
+            })
+            .eq("id", str(essay_id))
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Database update failed: {exc}")
+
+    if not r.data:
+        raise HTTPException(404, "Essay not found")
+    return {"essay_id": str(essay_id), "status": "reviewed"}
 
 
 @router.post("/essays/{essay_id}/mark-delivered")
-async def mark_delivered(essay_id: UUID, authorization: str | None = Header(None)):
-    """Mark essay delivered to student. (Sprint W3)"""
+async def mark_delivered(
+    essay_id: UUID,
+    body: MarkDeliveredRequest = MarkDeliveredRequest(),
+    authorization: str | None = Header(None),
+):
+    """Mark essay delivered to student. Stores delivery_method + timestamp."""
     await require_admin(authorization)
-    raise HTTPException(501, "Not implemented yet — Sprint W3")
+
+    if body.method not in _ALLOWED_DELIVERY_METHODS:
+        raise HTTPException(
+            400,
+            f"Invalid delivery method: {body.method!r}. "
+            f"Allowed: {sorted(_ALLOWED_DELIVERY_METHODS)}",
+        )
+
+    try:
+        r = (
+            supabase_admin.table("writing_essays")
+            .update({
+                "delivered_at":     _now_iso(),
+                "delivery_method":  body.method,
+                "status":           "delivered",
+            })
+            .eq("id", str(essay_id))
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Database update failed: {exc}")
+
+    if not r.data:
+        raise HTTPException(404, "Essay not found")
+    return {"essay_id": str(essay_id), "status": "delivered", "method": body.method}
 
 
 @router.delete("/essays/{essay_id}", status_code=status.HTTP_204_NO_CONTENT)

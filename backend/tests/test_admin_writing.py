@@ -332,18 +332,159 @@ def test_export_docx_requires_auth():
     assert r.status_code == 401
 
 
-# ── W3 placeholders still 501 ────────────────────────────────────────
+# ── W3 Phase 3 PATCH /feedback + POST /mark-delivered ────────────────
 
-def test_w3_endpoints_still_return_501():
-    """Sanity: PATCH /feedback, DELETE, /stats stay 501 until W3 Phase 3 lands."""
+def _valid_feedback_edits() -> dict:
+    return {
+        "overallBandScore": 7.0,
+        "overallBandScoreSummary": "Sau khi admin edit.",
+        "keyTakeaways": {"strengths": ["s"], "areasForImprovement": ["a"]},
+        "criteriaFeedback": {
+            "mainCriterion":     {"title": "Task Response",       "explanation": "x", "feedback": "y", "bandScore": 7},
+            "coherenceCohesion": {"title": "Coherence & Cohesion", "explanation": "x", "feedback": "y", "bandScore": 7},
+            "lexicalResource":   {"title": "Lexical Resource",     "explanation": "x", "feedback": "y", "bandScore": 7},
+            "grammaticalRange":  {"title": "Grammatical Range",    "explanation": "x", "feedback": "y", "bandScore": 7},
+        },
+        "mistakeAnalysis": [],
+        "aiContentAnalysis": {"likelihood": 5, "explanation": "Natural"},
+        "improvedEssay": "Improved.",
+    }
+
+
+def test_patch_feedback_validates_and_persists():
+    """Edits validated against schema, then written with status='reviewed'."""
+    fake_supabase = MagicMock()
+    update_chain = MagicMock()
+    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[{"id": _ESSAY_ID}])
+    )
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake_supabase):
+        r = _client().patch(
+            f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+            json=_valid_feedback_edits(),
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"essay_id": _ESSAY_ID, "status": "reviewed"}
+    # Verify update payload included status='reviewed' + admin_edits_json
+    update_call = fake_supabase.table.return_value.update.call_args
+    payload = update_call.args[0]
+    assert payload["status"] == "reviewed"
+    assert payload["admin_edits_json"]["overallBandScore"] == 7.0
+    assert payload["admin_reviewed_at"]
+
+
+def test_patch_feedback_422_when_edits_fail_schema():
+    """Server-side schema validation prevents storing junk that would break the renderer later."""
+    bad = _valid_feedback_edits()
+    bad["overallBandScore"] = 12.0  # > 9 fails schema
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
-            json={"any": "edit"},
+            json=bad,
             headers=_ADMIN_AUTH,
         )
-        assert r.status_code == 501
+    assert r.status_code == 422
+
+
+def test_patch_feedback_404_when_essay_missing():
+    fake_supabase = MagicMock()
+    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[])
+    )
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake_supabase):
+        r = _client().patch(
+            f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+            json=_valid_feedback_edits(),
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 404
+
+
+def test_patch_feedback_requires_auth():
+    r = _client().patch(
+        f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+        json=_valid_feedback_edits(),
+    )
+    assert r.status_code == 401
+
+
+def test_mark_delivered_default_method_persists():
+    fake_supabase = MagicMock()
+    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[{"id": _ESSAY_ID}])
+    )
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake_supabase):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "delivered"
+    assert body["method"] == "google_docs_paste"  # default
+    payload = fake_supabase.table.return_value.update.call_args.args[0]
+    assert payload["delivery_method"] == "google_docs_paste"
+
+
+def test_mark_delivered_word_download_method():
+    fake_supabase = MagicMock()
+    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[{"id": _ESSAY_ID}])
+    )
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake_supabase):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={"method": "word_download"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert r.json()["method"] == "word_download"
+
+
+def test_mark_delivered_400_on_invalid_method():
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={"method": "telegram"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 400
+
+
+def test_mark_delivered_404_when_essay_missing():
+    fake_supabase = MagicMock()
+    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[])
+    )
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake_supabase):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 404
+
+
+# ── W3 placeholders still 501 ────────────────────────────────────────
+
+def test_w3_endpoints_still_return_501():
+    """Sanity: DELETE + /stats stay 501 (deferred past W3)."""
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().delete(
             f"/admin/writing/essays/{_ESSAY_ID}",
             headers=_ADMIN_AUTH,

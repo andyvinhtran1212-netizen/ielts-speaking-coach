@@ -10,13 +10,41 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .scaffold-banner { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); }
+    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 6px 10px; width: 100%; font-size: 14px; }
+    .input:focus { outline: none; border-color: #14b8a6; }
+    textarea.input { font-family: 'Inter', ui-sans-serif, system-ui; resize: vertical; }
+    .btn-primary   { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+    .btn-primary:hover { background: #0d9488; }
+    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; padding: 7px 12px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.10); font-weight: 500; font-size: 13px; }
+    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+    .btn-success   { background: rgba(34,197,94,0.18); color: #86efac; border: 1px solid rgba(34,197,94,0.30); padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 13px; }
+    .btn-success:hover { background: rgba(34,197,94,0.28); }
+    .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .essay-pane mark { background: rgba(254,243,199,0.85); color: #1e293b; padding: 0 2px; border-radius: 2px; }
+    .essay-pane p { margin: 8px 0; line-height: 1.55; }
+    .label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    table.mistakes { width: 100%; border-collapse: collapse; }
+    table.mistakes th, table.mistakes td { border: 1px solid rgba(255,255,255,0.08); padding: 6px 8px; vertical-align: top; font-size: 13px; }
+    table.mistakes th { background: rgba(255,255,255,0.04); font-weight: 500; color: rgba(255,255,255,0.6); text-align: left; }
+    .read-only-block { background: rgba(255,255,255,0.02); border-left: 3px solid rgba(20,184,166,0.4); padding: 8px 12px; margin: 8px 0; font-size: 13px; color: rgba(255,255,255,0.7); }
   </style>
 </head>
 <body>
-  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
-    <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
-    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+      <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
+      <span style="color:rgba(255,255,255,0.15);">|</span>
+      <div>
+        <div id="header-student" class="font-semibold text-sm">—</div>
+        <div id="header-meta" class="text-xs" style="color:rgba(255,255,255,0.45);">—</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="status-pill" class="pill" style="background:rgba(255,255,255,0.06);">—</span>
+      <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+    </div>
   </header>
 
   <div id="state-loading" class="flex items-center justify-center py-32">
@@ -28,13 +56,109 @@
     <a href="/pages/dashboard.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
   </div>
 
-  <main id="state-ready" class="hidden max-w-4xl mx-auto px-6 py-8">
-    <h1 class="text-2xl font-bold">Review + Edit</h1>
-    <div class="scaffold-banner mt-6 p-5 rounded-xl">
-      <h2 class="text-base font-semibold" style="color:#fde68a;">🚧 Sprint W0 — Scaffolding only</h2>
-      <p class="mt-2 text-sm" style="color:rgba(253,230,138,0.85);">
-        Grading review UI ships in Sprint W3. This page is a placeholder.
-      </p>
+  <main id="state-ready" class="hidden max-w-7xl mx-auto px-6 py-6">
+    <!-- Toolbar -->
+    <div class="card p-3 flex items-center gap-2 flex-wrap">
+      <button id="btn-save"     class="btn-primary">💾 Save edits</button>
+      <button id="btn-copy"     class="btn-secondary" title="Copy formatted to clipboard">📋 Copy formatted</button>
+      <button id="btn-download" class="btn-secondary" title="Download .docx">⬇ Download .docx</button>
+      <span class="flex-1"></span>
+      <button id="btn-deliver"  class="btn-success">✓ Mark delivered</button>
+      <span id="last-saved" class="text-xs ml-2" style="color:rgba(255,255,255,0.4);"></span>
+    </div>
+
+    <div id="alert-area" class="mt-3"></div>
+
+    <!-- Two-pane layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+      <!-- LEFT: Original essay + prompt + mistakes (read-only highlight view) -->
+      <section class="card p-4 essay-pane">
+        <h2 class="font-semibold text-sm mb-2" style="color:rgba(255,255,255,0.7);">Original Essay</h2>
+        <div id="prompt-box" class="text-xs mb-3" style="color:rgba(255,255,255,0.5);"></div>
+        <div id="essay-text" class="text-sm" style="color:rgba(255,255,255,0.85);"></div>
+      </section>
+
+      <!-- RIGHT: Editable feedback form -->
+      <section class="space-y-4">
+
+        <div class="card p-4 space-y-3">
+          <div>
+            <label class="label">Overall band</label>
+            <input id="f-overall" type="number" step="0.5" min="0" max="9" class="input mt-1" />
+          </div>
+          <div>
+            <label class="label">Summary</label>
+            <textarea id="f-summary" rows="2" class="input mt-1"></textarea>
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="label">Strengths (1 ý / dòng)</label>
+              <textarea id="f-strengths" rows="3" class="input mt-1"></textarea>
+            </div>
+            <div>
+              <label class="label">Areas for improvement (1 ý / dòng)</label>
+              <textarea id="f-improvements" rows="3" class="input mt-1"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-4 space-y-3">
+          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Criteria</h3>
+          <div id="criteria-blocks" class="space-y-3"></div>
+        </div>
+
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Mistake Analysis</h3>
+            <button id="btn-add-mistake" class="btn-secondary text-xs">＋ Add row</button>
+          </div>
+          <table class="mistakes">
+            <thead>
+              <tr>
+                <th style="width:22%;">Original</th>
+                <th style="width:14%;">Type</th>
+                <th>Explanation</th>
+                <th>Suggestion</th>
+                <th style="width:14%;">Criterion</th>
+                <th style="width:3em;"></th>
+              </tr>
+            </thead>
+            <tbody id="mistakes-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card p-4">
+          <label class="label">Improved Essay (Band 8.0+)</label>
+          <textarea id="f-improved" rows="10" class="input mt-1"></textarea>
+        </div>
+
+        <div class="card p-4 space-y-2">
+          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">AI Content Analysis</h3>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="label">Likelihood %</label>
+              <input id="f-ai-likelihood" type="number" min="0" max="100" class="input mt-1" />
+            </div>
+            <div class="col-span-2">
+              <label class="label">Explanation</label>
+              <input id="f-ai-explanation" class="input mt-1" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Conditional advanced sections — read-only in W3, edit via JSON or re-grade -->
+        <div id="advanced-readonly" class="card p-4 hidden">
+          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Advanced Analysis (read-only)</h3>
+          <p class="text-xs mt-1" style="color:rgba(255,255,255,0.4);">
+            Các phần phân tích nâng cao (Coherence, Idea, Lexical, Sentence, Counter) hiển thị chỉ-đọc. Để chỉnh, hãy re-grade.
+          </p>
+          <div id="advanced-blocks" class="mt-2 space-y-2"></div>
+        </div>
+
+      </section>
     </div>
   </main>
 
@@ -43,7 +167,347 @@
   <script src="/js/writing-admin.js"></script>
   <script>
     'use strict';
-    WC.bootstrap();
+
+    var _essayId = new URLSearchParams(window.location.search).get('essay_id');
+    // Server-truth blob: feedback object (admin_edits_json if present, else feedback_json)
+    var _feedback = null;
+    // Per-essay metadata kept around for headers / re-render after save
+    var _essay = null;
+    var _student = null;
+
+    function setAlert(kind, msg) {
+      var area = document.getElementById('alert-area');
+      var color = kind === 'error' ? '#f87171' : kind === 'success' ? '#86efac' : '#fde68a';
+      var bg    = kind === 'error' ? 'rgba(239,68,68,0.10)' : kind === 'success' ? 'rgba(134,239,172,0.08)' : 'rgba(234,179,8,0.08)';
+      var border = kind === 'error' ? 'rgba(239,68,68,0.25)' : kind === 'success' ? 'rgba(134,239,172,0.25)' : 'rgba(234,179,8,0.25)';
+      area.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+      if (kind !== 'error') setTimeout(function () { if (area.firstChild) area.innerHTML = ''; }, 4000);
+    }
+
+    function renderHighlightedEssay(text, mistakes) {
+      var originals = (mistakes || []).map(function (m) { return (m.original || '').trim(); }).filter(Boolean);
+      // Longest-first non-overlapping match (mirrors backend writing_render._highlight_mistakes).
+      originals.sort(function (a, b) { return b.length - a.length; });
+      var pattern = originals.length
+        ? new RegExp(originals.map(function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'g')
+        : null;
+      var paragraphs = (text || '').split('\n\n').map(function (raw) {
+        if (!raw.trim()) return '';
+        if (!pattern) return '<p>' + WC.escapeHtml(raw) + '</p>';
+        var out = ''; var last = 0; var m;
+        pattern.lastIndex = 0;
+        while ((m = pattern.exec(raw)) !== null) {
+          out += WC.escapeHtml(raw.slice(last, m.index));
+          out += '<mark>' + WC.escapeHtml(m[0]) + '</mark>';
+          last = m.index + m[0].length;
+        }
+        out += WC.escapeHtml(raw.slice(last));
+        return '<p>' + out + '</p>';
+      });
+      return paragraphs.join('');
+    }
+
+    var CRITERIA = [
+      { key: 'mainCriterion',     label: 'Task Response / Achievement' },
+      { key: 'coherenceCohesion', label: 'Coherence & Cohesion' },
+      { key: 'lexicalResource',   label: 'Lexical Resource' },
+      { key: 'grammaticalRange',  label: 'Grammatical Range' },
+    ];
+
+    function renderCriteriaBlocks(cf) {
+      var html = CRITERIA.map(function (c) {
+        var crit = cf[c.key] || { title: c.label, explanation: '', feedback: '', bandScore: 0 };
+        return (
+          '<div data-key="' + c.key + '" class="space-y-1 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.05);">' +
+            '<div class="flex items-center gap-2 flex-wrap">' +
+              '<input data-field="title" class="input" style="max-width:240px;font-weight:600;" value="' + WC.escapeHtml(crit.title) + '" />' +
+              '<input data-field="bandScore" type="number" min="0" max="9" class="input" style="max-width:80px;" value="' + (crit.bandScore || 0) + '" />' +
+            '</div>' +
+            '<input data-field="explanation" class="input" style="font-style:italic;" value="' + WC.escapeHtml(crit.explanation || '') + '" />' +
+            '<textarea data-field="feedback" rows="2" class="input">' + WC.escapeHtml(crit.feedback || '') + '</textarea>' +
+          '</div>'
+        );
+      }).join('');
+      document.getElementById('criteria-blocks').innerHTML = html;
+    }
+
+    function readCriteriaBlocks() {
+      var out = {};
+      document.querySelectorAll('#criteria-blocks > div[data-key]').forEach(function (block) {
+        var key = block.dataset.key;
+        out[key] = {
+          title:       block.querySelector('[data-field="title"]').value,
+          explanation: block.querySelector('[data-field="explanation"]').value,
+          feedback:    block.querySelector('[data-field="feedback"]').value,
+          bandScore:   parseInt(block.querySelector('[data-field="bandScore"]').value, 10) || 0,
+        };
+      });
+      return out;
+    }
+
+    function renderMistakeRow(m, i) {
+      var safe = WC.escapeHtml;
+      return (
+        '<tr data-row="' + i + '">' +
+          '<td><textarea data-field="original" rows="2" class="input">' + safe(m.original || '') + '</textarea></td>' +
+          '<td><input data-field="mistakeType" class="input" value="' + safe(m.mistakeType || '') + '" /></td>' +
+          '<td><textarea data-field="explanation" rows="2" class="input">' + safe(m.explanation || '') + '</textarea></td>' +
+          '<td><textarea data-field="suggestion" rows="2" class="input">' + safe(m.suggestion || '') + '</textarea></td>' +
+          '<td><input data-field="criterion" class="input" value="' + safe(m.criterion || '') + '" /></td>' +
+          '<td><button class="btn-secondary text-xs" data-act="remove-mistake">×</button></td>' +
+        '</tr>'
+      );
+    }
+
+    function renderMistakesTable(mistakes) {
+      var rows = (mistakes || []).map(renderMistakeRow).join('');
+      document.getElementById('mistakes-body').innerHTML = rows ||
+        '<tr><td colspan="6" class="text-center" style="color:rgba(255,255,255,0.4);padding:14px;">Chưa có lỗi nào.</td></tr>';
+    }
+
+    function readMistakesTable() {
+      var rows = document.querySelectorAll('#mistakes-body tr[data-row]');
+      var out = [];
+      rows.forEach(function (row) {
+        var get = function (f) { var el = row.querySelector('[data-field="' + f + '"]'); return el ? el.value : ''; };
+        var orig = get('original').trim();
+        if (!orig) return;
+        out.push({
+          original:    orig,
+          mistakeType: get('mistakeType').trim() || 'Other',
+          explanation: get('explanation'),
+          suggestion:  get('suggestion'),
+          criterion:   get('criterion').trim() || 'General',
+        });
+      });
+      return out;
+    }
+
+    function renderAdvancedReadonly(fb) {
+      var blocks = [];
+      if (fb.coherenceAnalysis && fb.coherenceAnalysis.length) {
+        blocks.push('<div class="read-only-block"><b>Coherence & Flow:</b> ' + fb.coherenceAnalysis.length + ' items</div>');
+      }
+      if (fb.ideaDevelopmentAnalysis && fb.ideaDevelopmentAnalysis.length) {
+        blocks.push('<div class="read-only-block"><b>Idea Development:</b> ' + fb.ideaDevelopmentAnalysis.length + ' items</div>');
+      }
+      if (fb.lexicalAnalysis && fb.lexicalAnalysis.wordsToUpgrade && fb.lexicalAnalysis.wordsToUpgrade.length) {
+        blocks.push('<div class="read-only-block"><b>Vocabulary Upgrade:</b> ' + fb.lexicalAnalysis.wordsToUpgrade.length + ' items</div>');
+      }
+      if (fb.sentenceStructureAnalysis && fb.sentenceStructureAnalysis.sentenceUpgrades && fb.sentenceStructureAnalysis.sentenceUpgrades.length) {
+        blocks.push('<div class="read-only-block"><b>Sentence Structure:</b> ' + fb.sentenceStructureAnalysis.sentenceUpgrades.length + ' items</div>');
+      }
+      if (fb.counterargumentAnalysis) {
+        blocks.push('<div class="read-only-block"><b>Counterargument:</b> ' + (fb.counterargumentAnalysis.isPresent ? 'Có' : 'Không') + '</div>');
+      }
+      var box = document.getElementById('advanced-readonly');
+      var inner = document.getElementById('advanced-blocks');
+      if (blocks.length) {
+        box.classList.remove('hidden');
+        inner.innerHTML = blocks.join('');
+      } else {
+        box.classList.add('hidden');
+      }
+    }
+
+    function setStatusPill(status) {
+      var pill = document.getElementById('status-pill');
+      var styles = {
+        graded:    { bg: 'rgba(34,197,94,0.18)',  color: '#86efac' },
+        reviewed:  { bg: 'rgba(59,130,246,0.18)', color: '#93c5fd' },
+        delivered: { bg: 'rgba(20,184,166,0.18)', color: '#5eead4' },
+        failed:    { bg: 'rgba(239,68,68,0.18)',  color: '#f87171' },
+        pending:   { bg: 'rgba(234,179,8,0.18)',  color: '#fde68a' },
+        grading:   { bg: 'rgba(234,179,8,0.18)',  color: '#fde68a' },
+      };
+      var s = styles[status] || { bg: 'rgba(255,255,255,0.06)', color: '#e2e8f0' };
+      pill.textContent = status || '—';
+      pill.style.background = s.bg;
+      pill.style.color = s.color;
+    }
+
+    function populate(detail) {
+      _essay = detail;
+      _student = detail.student || {};
+      // Prefer admin edits over AI feedback
+      var fb = (detail.admin_edits_json) ? detail.admin_edits_json : (detail.feedback ? detail.feedback.feedback_json : null);
+      if (!fb) {
+        setAlert('error', 'Bài chưa có feedback. Quay lại trang Status.');
+        return;
+      }
+      _feedback = fb;
+
+      // Header
+      document.getElementById('header-student').textContent =
+        (_student.student_code ? _student.student_code + ' — ' : '') + (_student.full_name || '');
+      document.getElementById('header-meta').textContent =
+        (detail.task_type || '') + ' · ' + (detail.created_at ? new Date(detail.created_at).toLocaleString() : '');
+      setStatusPill(detail.status);
+
+      // Left pane: prompt + highlighted essay
+      document.getElementById('prompt-box').textContent =
+        detail.prompt_text ? '📝 ' + detail.prompt_text : '';
+      document.getElementById('essay-text').innerHTML =
+        renderHighlightedEssay(detail.essay_text, fb.mistakeAnalysis);
+
+      // Right pane fields
+      document.getElementById('f-overall').value = fb.overallBandScore;
+      document.getElementById('f-summary').value = fb.overallBandScoreSummary || '';
+      document.getElementById('f-strengths').value = (fb.keyTakeaways && fb.keyTakeaways.strengths || []).join('\n');
+      document.getElementById('f-improvements').value = (fb.keyTakeaways && fb.keyTakeaways.areasForImprovement || []).join('\n');
+      renderCriteriaBlocks(fb.criteriaFeedback || {});
+      renderMistakesTable(fb.mistakeAnalysis || []);
+      document.getElementById('f-improved').value = fb.improvedEssay || '';
+      var ai = fb.aiContentAnalysis || { likelihood: 0, explanation: '' };
+      document.getElementById('f-ai-likelihood').value = ai.likelihood;
+      document.getElementById('f-ai-explanation').value = ai.explanation || '';
+      renderAdvancedReadonly(fb);
+    }
+
+    function buildPayloadFromForm() {
+      var payload = JSON.parse(JSON.stringify(_feedback));  // start from the loaded blob — keeps advanced sections intact
+      payload.overallBandScore = parseFloat(document.getElementById('f-overall').value);
+      payload.overallBandScoreSummary = document.getElementById('f-summary').value.trim();
+      payload.keyTakeaways = {
+        strengths:           document.getElementById('f-strengths').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
+        areasForImprovement: document.getElementById('f-improvements').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
+      };
+      payload.criteriaFeedback = readCriteriaBlocks();
+      payload.mistakeAnalysis = readMistakesTable();
+      payload.improvedEssay = document.getElementById('f-improved').value;
+      payload.aiContentAnalysis = {
+        likelihood:  parseInt(document.getElementById('f-ai-likelihood').value, 10) || 0,
+        explanation: document.getElementById('f-ai-explanation').value,
+      };
+      return payload;
+    }
+
+    async function loadEssay() {
+      try {
+        var detail = await window.api.get('/admin/writing/essays/' + _essayId);
+        populate(detail);
+      } catch (e) {
+        setAlert('error', 'Không tải được essay: ' + e.message);
+      }
+    }
+
+    async function handleSave() {
+      var btn = document.getElementById('btn-save');
+      var orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Đang lưu…';
+      try {
+        var payload = buildPayloadFromForm();
+        await window.api.patch('/admin/writing/essays/' + _essayId + '/feedback', payload);
+        _feedback = payload;  // local state matches server-truth
+        setStatusPill('reviewed');
+        document.getElementById('last-saved').textContent =
+          'Lưu lúc ' + new Date().toLocaleTimeString();
+        setAlert('success', 'Đã lưu chỉnh sửa.');
+        // Re-render mistakes highlight on left pane to match new edits
+        document.getElementById('essay-text').innerHTML =
+          renderHighlightedEssay(_essay.essay_text, payload.mistakeAnalysis);
+      } catch (err) {
+        setAlert('error', 'Save failed: ' + err.message);
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
+    async function handleCopy() {
+      try {
+        var data = await window.api.get('/admin/writing/essays/' + _essayId + '/render');
+        if (navigator.clipboard && window.ClipboardItem) {
+          var item = new ClipboardItem({
+            'text/html':  new Blob([data.html],       { type: 'text/html' }),
+            'text/plain': new Blob([data.plain_text], { type: 'text/plain' }),
+          });
+          await navigator.clipboard.write([item]);
+          setAlert('success', '✓ Đã copy. Paste (Cmd+V) vào Google Doc của học viên.');
+        } else {
+          await navigator.clipboard.writeText(data.plain_text);
+          setAlert('warn', 'Copied dạng plain text. Format có thể mất.');
+        }
+      } catch (err) {
+        setAlert('error', 'Copy failed: ' + err.message);
+      }
+    }
+
+    async function handleDownload() {
+      // We can't use a plain <a href>: api.js attaches Authorization to fetch only.
+      // Fetch as blob, then trigger download via object URL.
+      try {
+        var sb = getSupabase();
+        var res = await sb.auth.getSession();
+        var token = res.data.session ? res.data.session.access_token : null;
+        if (!token) throw new Error('Phiên đăng nhập đã hết hạn.');
+        var response = await fetch(
+          window.api.base + '/admin/writing/essays/' + _essayId + '/export.docx',
+          { headers: { 'Authorization': 'Bearer ' + token } }
+        );
+        if (!response.ok) {
+          var msg = 'HTTP ' + response.status;
+          try { var err = await response.json(); msg = err.detail || msg; } catch (_) {}
+          throw new Error(msg);
+        }
+        // Pull filename from Content-Disposition
+        var dispo = response.headers.get('Content-Disposition') || '';
+        var match = /filename="([^"]+)"/.exec(dispo);
+        var filename = match ? match[1] : 'feedback.docx';
+        var blob = await response.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      } catch (err) {
+        setAlert('error', 'Download failed: ' + err.message);
+      }
+    }
+
+    async function handleDeliver() {
+      if (!confirm('Đánh dấu bài này đã giao cho học viên? Trạng thái sẽ chuyển sang "delivered".')) return;
+      try {
+        var res = await window.api.post(
+          '/admin/writing/essays/' + _essayId + '/mark-delivered',
+          { method: 'google_docs_paste' }
+        );
+        setStatusPill(res.status);
+        setAlert('success', 'Đã đánh dấu delivered.');
+      } catch (err) {
+        setAlert('error', 'Mark delivered failed: ' + err.message);
+      }
+    }
+
+    function handleMistakeClick(e) {
+      var btn = e.target.closest('button[data-act="remove-mistake"]');
+      if (!btn) return;
+      var row = btn.closest('tr[data-row]');
+      if (row) row.remove();
+    }
+
+    function handleAddMistake() {
+      var tbody = document.getElementById('mistakes-body');
+      // Strip "no mistakes" placeholder if present
+      if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+      var i = tbody.querySelectorAll('tr[data-row]').length;
+      tbody.insertAdjacentHTML('beforeend', renderMistakeRow({}, i));
+    }
+
+    WC.bootstrap({
+      onReady: function () {
+        if (!_essayId) {
+          setAlert('error', 'Thiếu essay_id trong URL.');
+          return;
+        }
+        document.getElementById('btn-save').addEventListener('click', handleSave);
+        document.getElementById('btn-copy').addEventListener('click', handleCopy);
+        document.getElementById('btn-download').addEventListener('click', handleDownload);
+        document.getElementById('btn-deliver').addEventListener('click', handleDeliver);
+        document.getElementById('btn-add-mistake').addEventListener('click', handleAddMistake);
+        document.getElementById('mistakes-body').addEventListener('click', handleMistakeClick);
+        loadEssay();
+      }
+    });
   </script>
 </body>
 </html>
