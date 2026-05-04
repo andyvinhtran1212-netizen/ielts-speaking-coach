@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Writing Coach Admin — IELTS Speaking Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
+    .scaffold-banner { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); }
+  </style>
+</head>
+<body>
+  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="/admin.html" class="flex items-center gap-2 text-sm font-medium" style="color:rgba(255,255,255,0.45);">
+        ← Admin
+      </a>
+      <span style="color:rgba(255,255,255,0.15);">|</span>
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-base">Writing<span style="color:#14b8a6;">Coach</span></span>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-md" style="background:rgba(239,68,68,0.18);color:#f87171;">ADMIN</span>
+      </div>
+    </div>
+    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+  </header>
+
+  <div id="state-loading" class="flex items-center justify-center py-32">
+    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+  </div>
+
+  <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
+    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
+    <p class="mt-2" style="color:rgba(255,255,255,0.5);">Bạn cần quyền admin để truy cập Writing Coach.</p>
+    <a href="/pages/dashboard.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+  </div>
+
+  <main id="state-ready" class="hidden max-w-7xl mx-auto px-6 py-8">
+    <h1 class="text-2xl font-bold">Writing Coach Admin</h1>
+    <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">Quản lý bài writing — chấm bài + theo dõi học viên</p>
+
+    <div class="scaffold-banner mt-6 p-5 rounded-xl">
+      <h2 class="text-base font-semibold" style="color:#fde68a;">🚧 Sprint W0 — Scaffolding only</h2>
+      <p class="mt-2 text-sm" style="color:rgba(253,230,138,0.85);">
+        This page is a placeholder. Full functionality ships across Sprints W1–W3.
+      </p>
+      <ul class="mt-3 ml-4 list-disc text-sm space-y-1" style="color:rgba(253,230,138,0.75);">
+        <li>Sprint W1 — Gemini grader service (5 levels)</li>
+        <li>Sprint W2 — Submission form + grading flow</li>
+        <li>Sprint W3 — Review UI + render/delivery</li>
+      </ul>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <a href="/pages/admin-writing-new.html" class="card p-5 hover:border-teal-light transition" style="text-decoration:none;color:inherit;">
+        <h3 class="font-semibold">📝 Submit New Essay</h3>
+        <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.5);">Paste essay → AI grades</p>
+      </a>
+      <a href="/pages/admin-writing-grade.html" class="card p-5 hover:border-teal-light transition" style="text-decoration:none;color:inherit;">
+        <h3 class="font-semibold">✏️ Review + Edit</h3>
+        <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.5);">Spot-check AI output</p>
+      </a>
+      <a href="/pages/admin-students.html" class="card p-5 hover:border-teal-light transition" style="text-decoration:none;color:inherit;">
+        <h3 class="font-semibold">👥 Students</h3>
+        <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.5);">Profile + history</p>
+      </a>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    (async function () {
+      try {
+        const me = await window.api.get('/auth/me');
+        if (me && me.role === 'admin') {
+          document.getElementById('header-email').textContent = me.email || '';
+          document.getElementById('header-email').classList.remove('hidden');
+          document.getElementById('state-ready').classList.remove('hidden');
+        } else {
+          document.getElementById('state-denied').classList.remove('hidden');
+        }
+      } catch (e) {
+        window.location.href = '/index.html';
+        return;
+      } finally {
+        document.getElementById('state-loading').classList.add('hidden');
+      }
+    })();
+  </script>
+</body>
+</html>

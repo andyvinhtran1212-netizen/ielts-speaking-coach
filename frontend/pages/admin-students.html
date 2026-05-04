@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Students — Writing Coach Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
+    .scaffold-banner { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); }
+  </style>
+</head>
+<body>
+  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
+    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+  </header>
+
+  <div id="state-loading" class="flex items-center justify-center py-32">
+    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+  </div>
+
+  <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
+    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
+    <a href="/pages/dashboard.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+  </div>
+
+  <main id="state-ready" class="hidden max-w-4xl mx-auto px-6 py-8">
+    <h1 class="text-2xl font-bold">Students</h1>
+    <div class="scaffold-banner mt-6 p-5 rounded-xl">
+      <h2 class="text-base font-semibold" style="color:#fde68a;">🚧 Sprint W0 — Scaffolding only</h2>
+      <p class="mt-2 text-sm" style="color:rgba(253,230,138,0.85);">
+        Student management ships in Sprint W2. This page is a placeholder.
+      </p>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    (async function () {
+      try {
+        const me = await window.api.get('/auth/me');
+        if (me && me.role === 'admin') {
+          document.getElementById('header-email').textContent = me.email || '';
+          document.getElementById('header-email').classList.remove('hidden');
+          document.getElementById('state-ready').classList.remove('hidden');
+        } else {
+          document.getElementById('state-denied').classList.remove('hidden');
+        }
+      } catch (e) {
+        window.location.href = '/index.html';
+        return;
+      } finally {
+        document.getElementById('state-loading').classList.add('hidden');
+      }
+    })();
+  </script>
+</body>
+</html>
