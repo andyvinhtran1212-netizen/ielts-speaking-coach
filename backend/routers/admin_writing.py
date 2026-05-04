@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
 from services import essay_service
+from services.writing_render import render_feedback_html, render_plain_text
 
 
 router = APIRouter(
@@ -131,10 +132,25 @@ async def delete_essay(essay_id: UUID, authorization: str | None = Header(None))
 
 
 @router.get("/essays/{essay_id}/render")
-async def render_essay_output(essay_id: UUID, authorization: str | None = Header(None)):
-    """Get HTML render for clipboard copy. (Sprint W3)"""
+async def render_essay_output(
+    essay_id: UUID,
+    authorization: str | None = Header(None),
+):
+    """Render feedback as self-contained HTML for clipboard copy.
+
+    Returns:
+        {"html": <full HTML doc>, "plain_text": <stripped fallback>}
+    """
     await require_admin(authorization)
-    raise HTTPException(501, "Not implemented yet — Sprint W3")
+    ctx = essay_service.get_essay_render_context(str(essay_id))
+    html_doc = render_feedback_html(
+        feedback=ctx["feedback"],
+        essay_text=ctx["essay_text"],
+        prompt_text=ctx["prompt_text"],
+        task_type=ctx["task_type"],
+        student_name=ctx["student_name"],
+    )
+    return {"html": html_doc, "plain_text": render_plain_text(html_doc)}
 
 
 @router.get("/essays/{essay_id}/export.docx")

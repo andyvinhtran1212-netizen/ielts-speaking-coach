@@ -227,11 +227,74 @@ def test_get_essay_status_returns_eta_payload():
     assert r.json()["eta_seconds"] == 45
 
 
+# ── W3 render endpoint ───────────────────────────────────────────────
+
+def test_render_endpoint_returns_html_and_plain_text():
+    """GET /render returns {html, plain_text} when essay + feedback exist."""
+    fake_ctx = {
+        "feedback": MagicMock(
+            overallBandScore=6.5,
+            overallBandScoreSummary="OK",
+            keyTakeaways=MagicMock(strengths=[], areasForImprovement=[]),
+            criteriaFeedback=MagicMock(
+                mainCriterion=MagicMock(title="Task Response", explanation="x", feedback="y", bandScore=6),
+                coherenceCohesion=MagicMock(title="C&C", explanation="x", feedback="y", bandScore=6),
+                lexicalResource=MagicMock(title="LR",  explanation="x", feedback="y", bandScore=6),
+                grammaticalRange=MagicMock(title="GRA", explanation="x", feedback="y", bandScore=6),
+            ),
+            mistakeAnalysis=[],
+            ideaDevelopmentAnalysis=None,
+            coherenceAnalysis=None,
+            counterargumentAnalysis=None,
+            lexicalAnalysis=None,
+            sentenceStructureAnalysis=None,
+            aiContentAnalysis=MagicMock(likelihood=5, explanation="natural"),
+            improvedEssay="Improved.",
+        ),
+        "essay_text":   "My essay.",
+        "prompt_text":  "Prompt.",
+        "task_type":    "task2",
+        "student_name": "Test Student",
+        "student_code": "S001",
+        "essay_id":     _ESSAY_ID,
+    }
+    fake_html = "<html>RENDERED</html>"
+
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.get_essay_render_context",
+               return_value=fake_ctx) as mock_ctx, \
+         patch("routers.admin_writing.render_feedback_html",
+               return_value=fake_html) as mock_render, \
+         patch("routers.admin_writing.render_plain_text",
+               return_value="RENDERED") as mock_plain:
+        r = _client().get(
+            f"/admin/writing/essays/{_ESSAY_ID}/render",
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["html"] == fake_html
+    assert body["plain_text"] == "RENDERED"
+    mock_ctx.assert_called_once_with(_ESSAY_ID)
+    # Renderer received the context fields verbatim
+    rkwargs = mock_render.call_args.kwargs
+    assert rkwargs["task_type"] == "task2"
+    assert rkwargs["student_name"] == "Test Student"
+    mock_plain.assert_called_once_with(fake_html)
+
+
+def test_render_endpoint_requires_auth():
+    r = _client().get(f"/admin/writing/essays/{_ESSAY_ID}/render")
+    assert r.status_code == 401
+
+
 # ── W3 placeholders still 501 ────────────────────────────────────────
 
 def test_w3_endpoints_still_return_501():
-    """Sanity: PATCH /feedback, DELETE, /render, /export.docx, /stats stay 501
-    until W3 lands."""
+    """Sanity: PATCH /feedback, DELETE, /export.docx, /stats stay 501
+    until later W3 phases land."""
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().patch(

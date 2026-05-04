@@ -1,0 +1,245 @@
+{# Writing Coach feedback HTML render — Sprint W3 Phase 1.
+   Mirrors Andy's sample Word file (~/Documents/Co-work/ielts_writing_analysis (8).docx)
+   with the data we have in WritingFeedback. Sections only render when their
+   conditional analysis level populates the relevant field, so a Level 1
+   render produces a much shorter document than a Level 5.
+
+   Inline CSS lives in <style> so the structure survives clipboard copy
+   into Google Docs (which honours embedded CSS for headings, tables,
+   highlights, lists). Vietnamese diacritics rely on UTF-8 charset.
+
+   Autoescape is enabled by writing_render.py — never use |safe on
+   user-supplied fields (essay_text, prompt_text, mistakes, etc.). The
+   only |safe usage below is on highlighted_essay which is built by
+   writing_render._highlight_mistakes() which escapes input itself.
+#}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<title>{{ task_type_label }} — {{ student_name }}</title>
+<style>
+  body { font-family: 'Inter', Calibri, ui-sans-serif, sans-serif; color: #111; line-height: 1.45; }
+  .feedback { max-width: 900px; margin: 0 auto; }
+  .feedback h1 { font-size: 24pt; font-weight: 700; margin: 0 0 12pt; }
+  .feedback h2 { font-size: 18pt; font-weight: 700; margin: 18pt 0 8pt; border-bottom: 1px solid #ddd; padding-bottom: 4pt; }
+  .feedback h3 { font-size: 14pt; font-weight: 700; margin: 14pt 0 6pt; }
+  .feedback p  { margin: 6pt 0; }
+  .feedback ul { margin: 4pt 0 8pt 18pt; padding: 0; }
+  .feedback li { margin: 3pt 0; }
+  .feedback table { border-collapse: collapse; width: 100%; margin: 8pt 0 12pt; }
+  .feedback th, .feedback td { border: 1px solid #bbb; padding: 6pt 8pt; vertical-align: top; text-align: left; }
+  .feedback th { background: #f3f4f6; font-weight: 600; }
+  .feedback .band-score { font-size: 20pt; font-weight: 700; color: #0d9488; }
+  .feedback .summary    { color: #374151; }
+  .feedback .meta       { color: #6b7280; font-size: 10pt; margin-top: -4pt; }
+  .feedback mark        { background: #fef3c7; padding: 0 2px; }
+  .feedback .crit-title { font-weight: 700; }
+  .feedback .crit-band  { color: #0d9488; font-weight: 700; margin-left: 4pt; }
+  .feedback .label-en   { font-weight: 600; }
+</style>
+</head>
+<body>
+<article class="feedback">
+
+  <h1>{{ task_type_label }}</h1>
+  <p class="meta">{{ student_name }}</p>
+
+  {# ── Overall band ────────────────────────────────────────────── #}
+  <h2>Overall Band Score</h2>
+  <p><span class="band-score">{{ '%.1f'|format(feedback.overallBandScore) }} / 9.0</span></p>
+  <p class="summary">{{ feedback.overallBandScoreSummary }}</p>
+
+  {# ── Key takeaways ───────────────────────────────────────────── #}
+  <h2>Key Takeaways</h2>
+  <table>
+    <thead><tr><th>Strengths</th><th>Areas for Improvement</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>
+          {%- if feedback.keyTakeaways.strengths %}
+          <ul>{% for s in feedback.keyTakeaways.strengths %}<li>{{ s }}</li>{% endfor %}</ul>
+          {%- else %}—{% endif %}
+        </td>
+        <td>
+          {%- if feedback.keyTakeaways.areasForImprovement %}
+          <ul>{% for a in feedback.keyTakeaways.areasForImprovement %}<li>{{ a }}</li>{% endfor %}</ul>
+          {%- else %}—{% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  {# ── Criteria 2x2 ────────────────────────────────────────────── #}
+  <h2>Criteria Breakdown</h2>
+  {% set cf = feedback.criteriaFeedback %}
+  <table>
+    <tbody>
+      <tr>
+        <td>
+          <p><span class="crit-title">{{ cf.mainCriterion.title }}</span><span class="crit-band">{{ cf.mainCriterion.bandScore }}/9</span></p>
+          <p class="summary"><em>{{ cf.mainCriterion.explanation }}</em></p>
+          <p>{{ cf.mainCriterion.feedback }}</p>
+        </td>
+        <td>
+          <p><span class="crit-title">{{ cf.coherenceCohesion.title }}</span><span class="crit-band">{{ cf.coherenceCohesion.bandScore }}/9</span></p>
+          <p class="summary"><em>{{ cf.coherenceCohesion.explanation }}</em></p>
+          <p>{{ cf.coherenceCohesion.feedback }}</p>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <p><span class="crit-title">{{ cf.lexicalResource.title }}</span><span class="crit-band">{{ cf.lexicalResource.bandScore }}/9</span></p>
+          <p class="summary"><em>{{ cf.lexicalResource.explanation }}</em></p>
+          <p>{{ cf.lexicalResource.feedback }}</p>
+        </td>
+        <td>
+          <p><span class="crit-title">{{ cf.grammaticalRange.title }}</span><span class="crit-band">{{ cf.grammaticalRange.bandScore }}/9</span></p>
+          <p class="summary"><em>{{ cf.grammaticalRange.explanation }}</em></p>
+          <p>{{ cf.grammaticalRange.feedback }}</p>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  {# ── Original essay with mistake highlights ─────────────────── #}
+  <h2>Original Essay (Mistakes Highlighted)</h2>
+  {% if prompt_text %}
+  <p class="meta"><strong>Prompt:</strong> {{ prompt_text }}</p>
+  {% endif %}
+  {# highlighted_essay comes pre-escaped + wrapped from the renderer #}
+  <div>{{ highlighted_essay|safe }}</div>
+
+  {# ── Detailed Issue Analysis (mistakes table) ───────────────── #}
+  {% if feedback.mistakeAnalysis %}
+  <h2>Detailed Issue Analysis</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:3em;">#</th>
+        <th>Original Text</th>
+        <th>Issue Type</th>
+        <th>Explanation</th>
+        <th>Suggestion</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in feedback.mistakeAnalysis %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ m.original }}</td>
+        <td>{{ m.mistakeType }}</td>
+        <td>{{ m.explanation }}</td>
+        <td>{{ m.suggestion }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {# ── Advanced Analysis (only when at least one section has data) #}
+  {% set has_lex   = feedback.lexicalAnalysis and feedback.lexicalAnalysis.wordsToUpgrade %}
+  {% set has_sent  = feedback.sentenceStructureAnalysis and feedback.sentenceStructureAnalysis.sentenceUpgrades %}
+  {% set has_idea  = feedback.ideaDevelopmentAnalysis %}
+  {% set has_coh   = feedback.coherenceAnalysis %}
+  {% set has_count = feedback.counterargumentAnalysis %}
+
+  {% if has_lex or has_sent or has_idea or has_coh or has_count %}
+  <h2>Advanced Analysis</h2>
+
+  {% if has_lex %}
+  <h3>Vocabulary Upgrade</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Your Phrase</th>
+        <th>Band 8+ Alternatives</th>
+        <th>Category / Context</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for w in feedback.lexicalAnalysis.wordsToUpgrade %}
+      <tr>
+        <td><em>{{ w.original }}</em>{% if w.context %}<br/><span class="meta">{{ w.context }}</span>{% endif %}</td>
+        <td>{{ w.suggestions|join(', ') }}</td>
+        <td>{{ w.category }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if has_sent %}
+  <h3>Sentence Structure Analysis</h3>
+  <ul>
+    {% for s in feedback.sentenceStructureAnalysis.sentenceUpgrades %}
+    <li>
+      <p><span class="label-en">Original:</span> <em>{{ s.original }}</em></p>
+      <p><span class="label-en">Rewritten:</span> {{ s.rewritten }}</p>
+      <p>{{ s.explanation }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if has_idea %}
+  <h3>Idea Development / Data Selection</h3>
+  <ul>
+    {% for i in feedback.ideaDevelopmentAnalysis %}
+    <li>
+      <p><span class="label-en">Paragraph {{ i.paragraph }}:</span> {{ i.issue }}</p>
+      <p class="summary"><em>Original idea:</em> {{ i.originalIdea }}</p>
+      <p>{{ i.explanation }}</p>
+      <p><span class="label-en">Suggestion:</span> {{ i.suggestion.instruction }}{% if i.suggestion.example %} — <em>{{ i.suggestion.example }}</em>{% endif %}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if has_coh %}
+  <h3>Coherence &amp; Flow</h3>
+  <ul>
+    {% for c in feedback.coherenceAnalysis %}
+    <li>
+      {% if c.location %}<p><span class="label-en">{{ c.location }}:</span> {{ c.issue }}</p>{% else %}<p>{{ c.issue }}</p>{% endif %}
+      <p>{{ c.explanation }}</p>
+      <p><span class="label-en">Suggestion:</span> {{ c.suggestion.instruction }}{% if c.suggestion.example %} — <em>{{ c.suggestion.example }}</em>{% endif %}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if has_count %}
+  <h3>Counterargument</h3>
+  <p>
+    <span class="label-en">Present in essay:</span>
+    {{ 'Có' if feedback.counterargumentAnalysis.isPresent else 'Không' }}
+  </p>
+  <p>{{ feedback.counterargumentAnalysis.feedback }}</p>
+  <p><span class="label-en">Suggestion:</span> {{ feedback.counterargumentAnalysis.suggestion }}</p>
+  {% if feedback.counterargumentAnalysis.context %}
+  <p class="meta">
+    Insertion point: {{ feedback.counterargumentAnalysis.context.insertionPoint }} —
+    {{ feedback.counterargumentAnalysis.context.reasoning }}
+  </p>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  {# ── AI content analysis ────────────────────────────────────── #}
+  {% if feedback.aiContentAnalysis %}
+  <h2>AI Content Analysis</h2>
+  <p><span class="label-en">Likelihood AI-generated:</span> {{ feedback.aiContentAnalysis.likelihood }}%</p>
+  <p>{{ feedback.aiContentAnalysis.explanation }}</p>
+  {% endif %}
+
+  {# ── Improved essay ─────────────────────────────────────────── #}
+  <h2>Improved Essay (Band 8.0+)</h2>
+  {# Split on blank lines so paragraph breaks survive the clipboard #}
+  {% for paragraph in feedback.improvedEssay.split('\n\n') if paragraph.strip() %}
+  <p>{{ paragraph }}</p>
+  {% endfor %}
+
+</article>
+</body>
+</html>
