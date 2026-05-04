@@ -24,9 +24,19 @@ def _client() -> TestClient:
 
 # ── /admin/writing/* endpoints — auth gate must fire ─────────────────
 
+_VALID_ESSAY_BODY = {
+    "student_id":     "00000000-0000-0000-0000-000000000001",
+    "task_type":      "task2",
+    "prompt_text":    "p",
+    "essay_text":     "e",
+    "analysis_level": 3,
+}
+
+
 def test_writing_essays_post_requires_auth_header():
-    """No Authorization header → 401 (require_admin → get_supabase_user)."""
-    r = _client().post("/admin/writing/essays")
+    """No Authorization header → 401. (Body sent so Pydantic doesn't 422
+    before the auth gate runs in the handler body.)"""
+    r = _client().post("/admin/writing/essays", json=_VALID_ESSAY_BODY)
     assert r.status_code == 401, f"expected 401, got {r.status_code} {r.text}"
 
 
@@ -34,6 +44,7 @@ def test_writing_essays_post_rejects_malformed_auth():
     """Header without 'Bearer ' prefix → 401 (no upstream call made)."""
     r = _client().post(
         "/admin/writing/essays",
+        json=_VALID_ESSAY_BODY,
         headers={"Authorization": "NotBearer abc.def.ghi"},
     )
     assert r.status_code == 401, f"expected 401, got {r.status_code} {r.text}"
@@ -54,8 +65,12 @@ def test_writing_stats_requires_auth_header():
 # ── /admin/students/* endpoints — same gate ──────────────────────────
 
 def test_students_post_requires_auth_header():
-    """No Authorization header → 401."""
-    r = _client().post("/admin/students")
+    """No Authorization header → 401. (Body sent so Pydantic doesn't 422
+    before the auth gate runs in the handler body.)"""
+    r = _client().post(
+        "/admin/students",
+        json={"student_code": "S001", "full_name": "x"},
+    )
     assert r.status_code == 401
 
 
@@ -76,7 +91,8 @@ def test_students_get_one_requires_auth_header():
 
 def test_writing_routes_registered_not_404():
     """Catches accidental router-mount regression — without auth we should
-    see 401 (gate fires) or 405 (method-not-allowed), never 404."""
+    see 401 (gate fires), 405 (method-not-allowed), or 422 (body required),
+    never 404."""
     r = _client().post("/admin/writing/essays")
     assert r.status_code != 404
     r = _client().get("/admin/students")
