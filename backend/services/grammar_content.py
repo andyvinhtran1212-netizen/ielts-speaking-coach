@@ -34,6 +34,15 @@ _MD_EXT_CONFIGS  = {
 # Used in `_parse_file` to convert markers into clickable `<a id>` tags.
 _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
 
+# Score floor for both `find_best_match` (slug routing) and
+# `find_best_anchor` (anchor selection within a slug). Sprint 6.6 logs
+# revealed Vietnamese AI feedback strings score 0.18-0.30 against
+# English mapping keywords, so the original 0.35 floor was rejecting
+# semantically valid matches. Sprint 6.7 lowered to 0.20 — false-
+# positive guard tests in test_grammar_matcher_threshold.py pin the
+# behaviour for unrelated topics (pronunciation / vocab / fluency).
+_MATCH_THRESHOLD = 0.20
+
 
 class GrammarContentService:
     def __init__(self):
@@ -319,7 +328,7 @@ class GrammarContentService:
         Vietnamese → English keyword mappings allow matching Claude's Vietnamese
         issue descriptions against English article titles/tags.
 
-        Returns { slug, category, title, score } if best score > 0.35, else None.
+        Returns { slug, category, title, score } if best score >= _MATCH_THRESHOLD, else None.
         """
         # Sprint 6.5 diagnostic: every return path logs an event so the
         # canary tells us *which* branch fired (direct-map / threshold-fail
@@ -501,14 +510,14 @@ class GrammarContentService:
                 best_score = score
                 best_item = item
 
-        if best_score < 0.35 or best_item is None:
+        if best_score < _MATCH_THRESHOLD or best_item is None:
             logger.info(
                 "matcher_match event=skipped reason=below_threshold "
-                "issue=%r best_score=%.3f threshold=0.35 matched=False",
-                issue_preview, best_score,
+                "issue=%r best_score=%.3f threshold=%.2f matched=False",
+                issue_preview, best_score, _MATCH_THRESHOLD,
                 extra={"event": "matcher_match", "reason": "below_threshold",
                        "issue": issue_preview, "best_score": round(best_score, 3),
-                       "threshold": 0.35, "matched": False},
+                       "threshold": _MATCH_THRESHOLD, "matched": False},
             )
             return None
 
@@ -562,9 +571,10 @@ class GrammarContentService:
         slug for a Vietnamese grammar issue string.
 
         Scoring: keyword overlap of issue tokens against each mapping's
-        `feedback_keywords[]` + `user_phrase_examples[]`. Same 0.35
-        threshold as `find_best_match` for consistency. Returns None
-        when no mapping resolves above threshold for this slug.
+        `feedback_keywords[]` + `user_phrase_examples[]`. Shares the
+        `_MATCH_THRESHOLD` floor with `find_best_match` for consistency.
+        Returns None when no mapping resolves above threshold for this
+        slug.
         """
         # Sprint 6.5 diagnostic: every branch logs an event so the canary
         # tells us whether (a) we never even reached the scoring loop,
@@ -623,19 +633,20 @@ class GrammarContentService:
                 best_score = score
                 best_anchor = m.get("target_anchor")
 
-        if best_score < 0.35:
+        if best_score < _MATCH_THRESHOLD:
             logger.info(
                 "anchor_resolve event=skipped reason=below_threshold "
                 "issue=%r slug=%s best_score=%.3f best_anchor=%s "
-                "mapping_count=%d threshold=0.35 matched=False",
+                "mapping_count=%d threshold=%.2f matched=False",
                 issue_preview, slug, best_score, best_anchor, len(mappings),
+                _MATCH_THRESHOLD,
                 extra={"event": "anchor_resolve",
                        "reason": "below_threshold",
                        "issue": issue_preview, "slug": slug,
                        "best_score": round(best_score, 3),
                        "best_anchor": best_anchor,
                        "mapping_count": len(mappings),
-                       "threshold": 0.35, "matched": False},
+                       "threshold": _MATCH_THRESHOLD, "matched": False},
             )
             return None
         logger.info(
