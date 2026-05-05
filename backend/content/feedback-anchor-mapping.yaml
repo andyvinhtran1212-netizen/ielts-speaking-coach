@@ -1216,17 +1216,102 @@ mappings:
       - gerund-vs-infinitive.gerund-only
       - gerund-vs-infinitive.infinitive-only
 
+  # ==========================================================
+  # Sprint 7b — anchors declared + mappings for top blocked slugs
+  # (2026-05-05). Production data showed missing-subjects +
+  # missing-main-verbs at 3 emits each over 30 days, both blocked
+  # by zero anchor declarations. Sprint 7b Phase 1 declared 5
+  # anchors per article (overview + 4 pitfall sections matching the
+  # KIỂU 1-4 structure). Phase 2 (M049, M050 below) maps the most
+  # AI-feedback-aligned anchor for each.
+  # ==========================================================
+
+  - mapping_id: M049
+    target_anchor: missing-subjects.common-mistake.implicit-subject-vietnamese
+    target_file: backend/content/error-clinic/missing-subjects.md
+    feedback_pattern_summary: "Thiếu chủ ngữ — chuyển trực tiếp từ tiếng Việt (câu rút gọn) sang tiếng Anh"
+    feedback_keywords:
+      - "thiếu chủ ngữ"
+      - "missing subject"
+      - "subject omission"
+      - "no subject"
+      - "implicit subject"
+      - "incomplete sentence"
+      - "câu thiếu chủ ngữ"
+      - "chủ ngữ ẩn"
+      - "rút gọn chủ ngữ"
+      - "câu không có chủ ngữ"
+      - "subject-less sentence"
+      - "Vietnamese to English transfer"
+    user_phrase_examples:
+      - "Another is that"
+      - "Is good"
+      - "Was very nice"
+      - "Has many problems"
+      - "Looks beautiful"
+      - "Depends on situation"
+      - "Means a lot"
+      - "Seems okay"
+      - "Will help students"
+      - "Makes me happy"
+      - "Is interesting because"
+      - "Have to study harder"
+    confidence: high
+    severity: common
+    related_anchors:
+      - missing-subjects.overview
+      - missing-subjects.common-mistake.missing-dummy-it
+      - missing-subjects.common-mistake.subordinate-clause-no-subject
+
+  - mapping_id: M050
+    target_anchor: missing-main-verbs.common-mistake.linking-verb-omission
+    target_file: backend/content/error-clinic/missing-main-verbs.md
+    feedback_pattern_summary: "Thiếu động từ chính (linking verb / be) — câu không hoàn chỉnh về cấu trúc"
+    feedback_keywords:
+      - "thiếu động từ chính"
+      - "missing main verb"
+      - "missing linking verb"
+      - "no main verb"
+      - "incomplete sentence"
+      - "câu không hoàn chỉnh"
+      - "thiếu động từ"
+      - "main verb missing"
+      - "verb omission"
+      - "thiếu tân ngữ sau động từ"
+      - "verb required"
+      - "câu thiếu vị ngữ"
+    user_phrase_examples:
+      - "She very happy"
+      - "He always tired"
+      - "The weather hot"
+      - "My friend very kind"
+      - "I student in university"
+      - "It interesting"
+      - "She a doctor"
+      - "We hungry"
+      - "The book on the table"
+      - "Today Monday"
+      - "helps me to entertain"
+      - "The party last night fun"
+    confidence: high
+    severity: common
+    related_anchors:
+      - missing-main-verbs.overview
+      - missing-main-verbs.common-mistake.ving-without-be
+      - missing-main-verbs.common-mistake.noun-phrase-only
+
 # ==========================================================
 # Coverage summary
 # ==========================================================
-# Total mappings: 45 (Sprint 7a added M038-M048; M041/M042/M045
-#                     reserved as audit-trail gaps, do not reuse)
+# Total mappings: 47 (Sprint 7a added M038-M048 with M041/M042/M045
+#                     reserved as audit-trail gaps; Sprint 7b added
+#                     M049 + M050 for missing-subjects + main-verbs)
 # Coverage by severity:
-#   common:    27
+#   common:    29
 #   important: 15
 #   nuance:    3
 # Coverage by confidence:
-#   high:    25
+#   high:    27
 #   medium:  20
 #   low:     0
 #

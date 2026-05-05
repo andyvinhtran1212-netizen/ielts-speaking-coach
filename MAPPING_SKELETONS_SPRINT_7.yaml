@@ -22,7 +22,7 @@ generated_date: "2026-05-05"
 mappings:
 
   # ielts-grammar-lab/grammar-for-band7plus — 8 anchors available
-  - mapping_id: M049
+  - mapping_id: M051
     target_anchor: grammar-for-band7plus.overview
     target_file: backend/content/ielts-grammar-lab/grammar-for-band7plus.md
     feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
@@ -41,7 +41,7 @@ mappings:
     deferred_until: sprint-7-content
 
   # ielts-grammar-lab/grammar-in-speaking — 7 anchors available
-  - mapping_id: M050
+  - mapping_id: M052
     target_anchor: grammar-in-speaking.overview
     target_file: backend/content/ielts-grammar-lab/grammar-in-speaking.md
     feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
@@ -60,7 +60,7 @@ mappings:
     deferred_until: sprint-7-content
 
   # sentence-structures/cleft-sentences — 6 anchors available
-  - mapping_id: M051
+  - mapping_id: M053
     target_anchor: cleft-sentences.overview
     target_file: backend/content/sentence-structures/cleft-sentences.md
     feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
