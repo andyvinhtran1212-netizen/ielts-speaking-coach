@@ -674,8 +674,10 @@ mappings:
   - mapping_id: M030
     target_anchor: discourse-markers-spoken.common-mistake.overuse-and-but-so
     target_file: backend/content/grammar-for-meaning/discourse-markers-spoken.md
-    deferred_until: sprint-3
-    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (discourse-markers-spoken)'
+    # Sprint 7a Day 3: dropped vestigial deferred_until (Sprint 3 shipped
+    # months ago and the anchor is declared). Required because Sprint 7a
+    # M039 targets the same anchor, and the deferred-vs-active leak guard
+    # in test_mapping_index_skips_deferred_entries fires on overlap.
     feedback_pattern_summary: "Run-on sentence: nối liên tục bằng 'and' không dấu nghỉ"
     feedback_keywords:
       - "run on sentence"
@@ -884,17 +886,326 @@ mappings:
       - articles.definite.when-to-use
       - article-errors.common-mistake.missing-the-with-unique-reference
 
+  # ==========================================================
+  # Sprint 7a Day 3 — Mapping coverage expansion (2026-05-05)
+  # ==========================================================
+  # 8 of 11 audit-identified ready slugs merged. Planner dropped 3:
+  #   M041 grammar-for-band7plus  — meta-feedback, examples were
+  #                                  plain correct sentences
+  #   M042 grammar-in-speaking    — meta-feedback, same issue
+  #   M045 cleft-sentences        — Band 8+ enhancement, not error
+  #                                  pattern; benign sentences would
+  #                                  false-positive
+  # IDs M041/M042/M045 preserved as audit-trail gaps — do NOT reuse
+  # for future mappings.
+
+  - mapping_id: M038
+    target_anchor: subject-verb-agreement.common-mistake.he-she-it-no-s
+    target_file: backend/content/error-clinic/subject-verb-agreement.md
+    feedback_pattern_summary: "Chủ ngữ ngôi 3 số ít (he/she/it) không chia -s ở Present Simple"
+    feedback_keywords:
+      - "subject-verb agreement"
+      - "subject verb disagreement"
+      - "third person singular"
+      - "missing -s"
+      - "thiếu -s ngôi 3"
+      - "chia động từ sai"
+      - "chủ vị không hoà hợp"
+      - "không hoà hợp chủ ngữ động từ"
+      - "động từ không chia"
+      - "verb agreement error"
+      - "singular subject plural verb"
+      - "she work"
+    user_phrase_examples:
+      - "She work at a hospital"
+      - "He go to school every day"
+      - "My brother live in Hanoi"
+      - "It cost too much"
+      - "My mother cook dinner every evening"
+      - "The teacher explain the lesson"
+      - "She enjoy reading books"
+      - "He always arrive late"
+      - "It take about an hour"
+      - "She do her homework"
+      - "He have a car"
+      - "My sister study in Australia"
+    confidence: high
+    severity: common
+    related_anchors:
+      - subject-verb-agreement.overview
+      - subject-verb-agreement.collective-nouns
+
+  - mapping_id: M039
+    target_anchor: discourse-markers-spoken.common-mistake.overuse-and-but-so
+    target_file: backend/content/grammar-for-meaning/discourse-markers-spoken.md
+    feedback_pattern_summary: "Chỉ dùng and/but/so/because — thiếu range discourse markers cho Band 7+ Coherence"
+    feedback_keywords:
+      - "limited connectives"
+      - "limited discourse markers"
+      - "lặp and but so"
+      - "thiếu từ nối"
+      - "discourse marker range"
+      - "cohesion limited"
+      - "monotonous connectives"
+      - "lạm dụng and"
+      - "lạm dụng but"
+      - "lạm dụng so"
+      - "basic connectors only"
+      - "fluency coherence band 6"
+    user_phrase_examples:
+      - "And I went to school. And I met my friend. And we played."
+      - "But I don't know. But I think it's okay. But maybe."
+      - "So I think yes. So that's why. So I decided to go."
+      - "And then I do my homework, and then I eat dinner, and then I go to bed"
+      - "Because I like it. Because it's fun. Because it's easy."
+      - "And, and, and… so… and"
+      - "But yeah, but, but I think"
+      - "And I'm a student and I study English and I want to get Band 7"
+      - "So my hometown is Hanoi and so it's very crowded so I like it"
+      - "Yeah and so I just like it because it's nice"
+      - "And so I go there every day and I really enjoy it"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - discourse-markers-spoken.overview
+      - discourse-markers-spoken.opening.well-so-actually
+      - discourse-markers-spoken.thinking.you-know-i-mean
+
+  - mapping_id: M040
+    target_anchor: grammatical-collocations.common-mistake.preposition-transfer
+    target_file: backend/content/grammar-for-meaning/grammatical-collocations.md
+    feedback_pattern_summary: "Sai preposition trong collocation cố định (listen, depend, discuss, married, good at, interested in...)"
+    feedback_keywords:
+      - "wrong preposition"
+      - "preposition error"
+      - "collocation error"
+      - "missing preposition"
+      - "extra preposition"
+      - "sai giới từ"
+      - "thiếu giới từ"
+      - "thừa giới từ"
+      - "verb preposition collocation"
+      - "adjective preposition"
+      - "discuss about"
+      - "depend of"
+      - "married with"
+      - "listen music"
+    user_phrase_examples:
+      - "I listen music every day"
+      - "It depends of the weather"
+      - "We discussed about the problem"
+      - "She is married with him"
+      - "I'm good in English"
+      - "I'm interested on history"
+      - "He arrived to Hanoi yesterday"
+      - "I'm afraid from snakes"
+      - "She is responsible of the team"
+      - "I agree to you"
+      - "He's worried for his exam"
+      - "She suffers from her job"
+    confidence: high
+    severity: common
+    related_anchors:
+      - grammatical-collocations.overview
+      - grammatical-collocations.common-mistake.depend-of-error
+      - grammatical-collocations.common-mistake.discuss-about-error
+
+  - mapping_id: M043
+    target_anchor: pronunciation-grammar-link.s-endings.plural-and-3rd-person
+    target_file: backend/content/ielts-grammar-lab/pronunciation-grammar-link.md
+    feedback_pattern_summary: "Rớt -s cuối từ trong audio (plural / 3rd person singular) — examiner nghe là lỗi grammar dù viết đúng"
+    feedback_keywords:
+      - "missing -s ending"
+      - "dropped final -s"
+      - "rớt -s cuối"
+      - "plural -s pronunciation"
+      - "3rd person -s drop"
+      - "final consonant drop"
+      - "không phát âm -s"
+      - "missing plural marker"
+      - "missing third person s"
+      - "audio dropped -s"
+      - "phát âm thiếu -s"
+      - "cluster simplification"
+    user_phrase_examples:
+      - "two book"
+      - "She work at hospital"
+      - "I have many friend"
+      - "He like coffee"
+      - "She go to school"
+      - "Three apple please"
+      - "The student study hard"
+      - "It cost a lot"
+      - "My parent live in Hanoi"
+      - "He need help"
+      - "She want to travel"
+      - "Five year ago"
+    confidence: high
+    severity: common
+    related_anchors:
+      - pronunciation-grammar-link.overview
+      - pronunciation-grammar-link.ed-endings.past-and-participial
+      - pronunciation-grammar-link.common-mistake.cluster-simplification
+
+  - mapping_id: M044
+    target_anchor: prepositions.common-mistake.transfer-from-vietnamese
+    target_file: backend/content/parts-of-speech/prepositions.md
+    feedback_pattern_summary: "Sai giới từ chỉ vị trí / thời gian (in/on/at) — chuyển sai từ tiếng Việt sang tiếng Anh"
+    feedback_keywords:
+      - "wrong preposition"
+      - "in on at confusion"
+      - "preposition of place"
+      - "preposition of time"
+      - "sai in on at"
+      - "sai giới từ vị trí"
+      - "sai giới từ thời gian"
+      - "preposition error"
+      - "place preposition wrong"
+      - "time preposition wrong"
+      - "thiếu giới từ"
+      - "Vietnamese to English transfer"
+    user_phrase_examples:
+      - "I live in Nguyen Hue Street"
+      - "On the morning"
+      - "In Monday"
+      - "At April"
+      - "In 8 AM"
+      - "I was born on 1995"
+      - "She arrived to Hanoi"
+      - "I'm at home in the weekend"
+      - "On the night"
+      - "I will see you on next Monday"
+      - "I waited the bus"
+      - "We discussed about the topic"
+    confidence: high
+    severity: common
+    related_anchors:
+      - prepositions.overview
+
+  - mapping_id: M046
+    target_anchor: passive-voice.usage.unknown-or-irrelevant-agent
+    target_file: backend/content/sentence-structures/passive-voice.md
+    feedback_pattern_summary: "Dùng sai/thiếu passive voice — đặc biệt khi agent không biết, không quan trọng, hoặc trong văn academic"
+    feedback_keywords:
+      - "passive voice"
+      - "passive voice error"
+      - "missing passive"
+      - "câu bị động sai"
+      - "thiếu bị động"
+      - "should use passive"
+      - "active vs passive"
+      - "nên dùng bị động"
+      - "be + past participle"
+      - "passive structure"
+      - "wrong passive form"
+      - "bị động sai"
+    user_phrase_examples:
+      - "English is choose to be the language"
+      - "The bridge built in 1990"
+      - "The report was wrote yesterday"
+      - "The data is collect daily"
+      - "My phone was steal"
+      - "The problem has solve"
+      - "The book was wrote by him"
+      - "It is making by hand"
+      - "The house is build last year"
+      - "Many people speak English here"
+      - "They built this bridge in 1990"
+      - "Someone broke the window"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - passive-voice.overview
+      - passive-voice.structure.be-pp
+      - passive-voice.usage.formal-academic
+
+  - mapping_id: M047
+    target_anchor: relative-clauses.common-mistake.which-vs-that
+    target_file: backend/content/sentence-structures/relative-clauses.md
+    feedback_pattern_summary: "Sai relative pronoun (who/which/that) hoặc thiếu mệnh đề quan hệ — hạn chế Grammatical Range"
+    feedback_keywords:
+      - "relative clause error"
+      - "wrong relative pronoun"
+      - "who which that confusion"
+      - "missing relative clause"
+      - "mệnh đề quan hệ sai"
+      - "thiếu mệnh đề quan hệ"
+      - "sai who which that"
+      - "defining vs non-defining"
+      - "relative pronoun"
+      - "comma rule relative clause"
+      - "no complex sentences"
+      - "câu phức thiếu"
+    user_phrase_examples:
+      - "The man which called you is my boss"
+      - "The book who I borrowed was good"
+      - "My brother that lives in Hanoi"
+      - "The student which won the prize"
+      - "The city who I grew up"
+      - "I have a friend, that lives in Tokyo"
+      - "The teacher who taught me, retired last year"
+      - "This is the place which I was born"
+      - "The car what I bought broke down"
+      - "The reason because I quit"
+      - "The day when I met him I was happy"
+      - "My phone which it cost a lot is broken"
+    confidence: high
+    severity: common
+    related_anchors:
+      - relative-clauses.overview
+      - relative-clauses.who-which-that
+      - relative-clauses.defining-vs-non-defining
+
+  - mapping_id: M048
+    target_anchor: gerund-vs-infinitive.common-mistake.wrong-form-after-verb
+    target_file: backend/content/verb-patterns/gerund-vs-infinitive.md
+    feedback_pattern_summary: "Sai gerund vs infinitive sau động từ (enjoy + V-ing, want + to V) — verb pattern không nhất quán"
+    feedback_keywords:
+      - "gerund infinitive confusion"
+      - "wrong verb form"
+      - "verb pattern error"
+      - "V-ing vs to V"
+      - "gerund or infinitive"
+      - "danh động từ sai"
+      - "sai V-ing"
+      - "sai to V"
+      - "verb + ing"
+      - "verb + to infinitive"
+      - "wrong form after verb"
+      - "sai dạng động từ sau verb"
+    user_phrase_examples:
+      - "I enjoy to read books"
+      - "I want learning English"
+      - "She avoided to meet him"
+      - "He decided going home"
+      - "I finished to do my homework"
+      - "We discussed to go on holiday"
+      - "He suggested to leave early"
+      - "I'd like having coffee"
+      - "She refused going with us"
+      - "I keep to forget my keys"
+      - "He admitted to steal the money"
+      - "I miss to see my family"
+      - "She promised coming on time"
+    confidence: high
+    severity: common
+    related_anchors:
+      - gerund-vs-infinitive.overview
+      - gerund-vs-infinitive.gerund-only
+      - gerund-vs-infinitive.infinitive-only
+
 # ==========================================================
 # Coverage summary
 # ==========================================================
-# Total mappings: 37 (Sprint 6 added M031-M037)
+# Total mappings: 45 (Sprint 7a added M038-M048; M041/M042/M045
+#                     reserved as audit-trail gaps, do not reuse)
 # Coverage by severity:
-#   common:    21
-#   important: 13
+#   common:    27
+#   important: 15
 #   nuance:    3
 # Coverage by confidence:
-#   high:    19
-#   medium:  18
+#   high:    25
+#   medium:  20
 #   low:     0
 #
 # Each CORE topic has at least 1 mapping. Articles with multiple high-frequency
