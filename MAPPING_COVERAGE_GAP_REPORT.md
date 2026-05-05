@@ -5,11 +5,11 @@ _Generated: 2026-05-05 — Sprint 7 Phase 1 scaffolding_
 ## Summary
 
 - **Total articles:** 98
-- **Covered slugs (≥1 active mapping):** 18
-- **Missing slugs:** 80
-  - **Ready** (anchors declared, mapping content can be written): 11
+- **Covered slugs (≥1 active mapping):** 26
+- **Missing slugs:** 72
+  - **Ready** (anchors declared, mapping content can be written): 3
   - **Blocked** (0 anchors, needs Sprint-1-style anchor declaration first): 69
-- **Active mappings (sanity check vs drift gate):** 31
+- **Active mappings (sanity check vs drift gate):** 40
 
 > **Slug coverage** = does *any* mapping's `target_anchor` begin
 > with this slug? An article counts as covered with as little as
@@ -18,34 +18,14 @@ _Generated: 2026-05-05 — Sprint 7 Phase 1 scaffolding_
 
 ## Missing slugs WITH declared anchors (ready for Sprint 7 mapping work)
 
-### error-clinic (1 ready)
-
-- `subject-verb-agreement` — 3 anchor(s) declared
-
-### grammar-for-meaning (2 ready)
-
-- `discourse-markers-spoken` — 12 anchor(s) declared
-- `grammatical-collocations` — 13 anchor(s) declared
-
-### ielts-grammar-lab (3 ready)
+### ielts-grammar-lab (2 ready)
 
 - `grammar-for-band7plus` — 8 anchor(s) declared
 - `grammar-in-speaking` — 7 anchor(s) declared
-- `pronunciation-grammar-link` — 10 anchor(s) declared
 
-### parts-of-speech (1 ready)
-
-- `prepositions` — 2 anchor(s) declared
-
-### sentence-structures (3 ready)
+### sentence-structures (1 ready)
 
 - `cleft-sentences` — 6 anchor(s) declared
-- `passive-voice` — 6 anchor(s) declared
-- `relative-clauses` — 7 anchor(s) declared
-
-### verb-patterns (1 ready)
-
-- `gerund-vs-infinitive` — 13 anchor(s) declared
 
 ## Missing slugs WITHOUT declared anchors (blocker — anchor declaration first)
 

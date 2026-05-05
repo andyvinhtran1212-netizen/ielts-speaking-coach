@@ -21,65 +21,8 @@ generated_date: "2026-05-05"
 
 mappings:
 
-  # error-clinic/subject-verb-agreement — 3 anchors available
-  - mapping_id: M038
-    target_anchor: subject-verb-agreement.overview
-    target_file: backend/content/error-clinic/subject-verb-agreement.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - subject-verb-agreement.overview
-      - subject-verb-agreement.common-mistake.he-she-it-no-s
-      - subject-verb-agreement.collective-nouns
-    deferred_until: sprint-7-content
-
-  # grammar-for-meaning/discourse-markers-spoken — 12 anchors available
-  - mapping_id: M039
-    target_anchor: discourse-markers-spoken.overview
-    target_file: backend/content/grammar-for-meaning/discourse-markers-spoken.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - discourse-markers-spoken.overview
-      - discourse-markers-spoken.opening.well-so-actually
-      - discourse-markers-spoken.thinking.you-know-i-mean
-    deferred_until: sprint-7-content
-
-  # grammar-for-meaning/grammatical-collocations — 13 anchors available
-  - mapping_id: M040
-    target_anchor: grammatical-collocations.overview
-    target_file: backend/content/grammar-for-meaning/grammatical-collocations.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - grammatical-collocations.overview
-      - grammatical-collocations.verb-preposition
-      - grammatical-collocations.no-preposition-trap
-    deferred_until: sprint-7-content
-
   # ielts-grammar-lab/grammar-for-band7plus — 8 anchors available
-  - mapping_id: M041
+  - mapping_id: M049
     target_anchor: grammar-for-band7plus.overview
     target_file: backend/content/ielts-grammar-lab/grammar-for-band7plus.md
     feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
@@ -98,7 +41,7 @@ mappings:
     deferred_until: sprint-7-content
 
   # ielts-grammar-lab/grammar-in-speaking — 7 anchors available
-  - mapping_id: M042
+  - mapping_id: M050
     target_anchor: grammar-in-speaking.overview
     target_file: backend/content/ielts-grammar-lab/grammar-in-speaking.md
     feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
@@ -116,45 +59,8 @@ mappings:
       - grammar-in-speaking.part2.narrative-tense-management
     deferred_until: sprint-7-content
 
-  # ielts-grammar-lab/pronunciation-grammar-link — 10 anchors available
-  - mapping_id: M043
-    target_anchor: pronunciation-grammar-link.overview
-    target_file: backend/content/ielts-grammar-lab/pronunciation-grammar-link.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - pronunciation-grammar-link.overview
-      - pronunciation-grammar-link.s-endings.plural-and-3rd-person
-      - pronunciation-grammar-link.ed-endings.past-and-participial
-    deferred_until: sprint-7-content
-
-  # parts-of-speech/prepositions — 2 anchors available
-  - mapping_id: M044
-    target_anchor: prepositions.overview
-    target_file: backend/content/parts-of-speech/prepositions.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - prepositions.overview
-      - prepositions.common-mistake.transfer-from-vietnamese
-    deferred_until: sprint-7-content
-
   # sentence-structures/cleft-sentences — 6 anchors available
-  - mapping_id: M045
+  - mapping_id: M051
     target_anchor: cleft-sentences.overview
     target_file: backend/content/sentence-structures/cleft-sentences.md
     feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
@@ -170,61 +76,4 @@ mappings:
       - cleft-sentences.overview
       - cleft-sentences.it-cleft
       - cleft-sentences.what-cleft
-    deferred_until: sprint-7-content
-
-  # sentence-structures/passive-voice — 6 anchors available
-  - mapping_id: M046
-    target_anchor: passive-voice.overview
-    target_file: backend/content/sentence-structures/passive-voice.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - passive-voice.overview
-      - passive-voice.structure.be-pp
-      - passive-voice.usage.unknown-or-irrelevant-agent
-    deferred_until: sprint-7-content
-
-  # sentence-structures/relative-clauses — 7 anchors available
-  - mapping_id: M047
-    target_anchor: relative-clauses.overview
-    target_file: backend/content/sentence-structures/relative-clauses.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - relative-clauses.overview
-      - relative-clauses.who-which-that
-      - relative-clauses.defining-vs-non-defining
-    deferred_until: sprint-7-content
-
-  # verb-patterns/gerund-vs-infinitive — 13 anchors available
-  - mapping_id: M048
-    target_anchor: gerund-vs-infinitive.overview
-    target_file: backend/content/verb-patterns/gerund-vs-infinitive.md
-    feedback_pattern_summary: "<TODO: short Vietnamese summary of this error pattern>"
-    feedback_keywords:
-      - "<TODO: keyword 1>"
-      - "<TODO: keyword 2>"
-    user_phrase_examples:
-      - "<TODO: example phrase 1>"
-      - "<TODO: example phrase 2>"
-    confidence: medium
-    severity: common
-    related_anchors:
-      - gerund-vs-infinitive.overview
-      - gerund-vs-infinitive.gerund-only
-      - gerund-vs-infinitive.infinitive-only
     deferred_until: sprint-7-content
