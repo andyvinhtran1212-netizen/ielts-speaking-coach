@@ -16,14 +16,22 @@ should NOT expose secrets here even if tempted.
 """
 from datetime import datetime, timezone
 import logging
+import os
 
 from fastapi import APIRouter
 
 from config import settings
 from database import supabase_admin
+from services.grammar_content import grammar_service
 
 router = APIRouter(tags=["health"])
 logger = logging.getLogger(__name__)
+
+# Sprint 6.5 diagnostic constants — keep colocated so they update together
+# when a new sprint adds mappings. EXPECTED_MAPPING_COUNT must equal the
+# number of non-deferred entries in feedback-anchor-mapping.yaml on main.
+_EXPECTED_MAPPING_COUNT  = 37   # M001-M037 (Sprint 6 added M033-M037)
+_SPRINT_6_SENTINEL_IDS   = ("M033", "M034", "M035")
 
 
 # Critical tables that prove the relevant migrations have applied.  If any
@@ -109,4 +117,44 @@ async def health_ready() -> dict:
         "status": overall_status,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "checks": checks,
+    }
+
+
+@router.get("/health/runtime")
+async def health_runtime() -> dict:
+    """
+    Sprint 6.5 runtime diagnostic.  Surfaces the deployed git SHA + the
+    grammar-mapping inventory the running process actually loaded so we
+    can prove whether prod Railway is on stale code (Scenario A) vs the
+    matcher itself dropping anchors (B/C/D).  Unauthenticated by design
+    (no PII; mapping ids are open-source) so curl-from-anywhere works.
+    """
+    mappings_by_slug = grammar_service._load_mappings()  # cached on service
+    all_mapping_ids: list[str] = []
+    for slug_mappings in mappings_by_slug.values():
+        for m in slug_mappings:
+            mid = m.get("mapping_id")
+            if mid:
+                all_mapping_ids.append(mid)
+
+    sentinel_present = {
+        sid: (sid in all_mapping_ids) for sid in _SPRINT_6_SENTINEL_IDS
+    }
+    sprint_6_loaded = all(sentinel_present.values())
+    active_count = len(all_mapping_ids)
+
+    return {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "git_sha":          os.environ.get("RAILWAY_GIT_COMMIT_SHA", "unknown"),
+        "deployment_id":    os.environ.get("RAILWAY_DEPLOYMENT_ID",  "unknown"),
+        "service_name":     os.environ.get("RAILWAY_SERVICE_NAME",   "unknown"),
+        "environment_name": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown"),
+        "mappings": {
+            "active_count":       active_count,
+            "expected_count":     _EXPECTED_MAPPING_COUNT,
+            "mappings_match":     active_count == _EXPECTED_MAPPING_COUNT,
+            "sprint_6_loaded":    sprint_6_loaded,
+            "sentinel_presence":  sentinel_present,
+        },
     }

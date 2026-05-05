@@ -1140,4 +1140,20 @@ def _attach_grammar_recommendations(result: dict) -> None:
             "score":    match["score"],
             "anchor":   anchor,
         })
+    # Sprint 6.5 diagnostic: log final shape so we can correlate with
+    # Railway-side persistence (recommended_anchor=NULL on every prod row).
+    with_anchor_count = sum(1 for r in recs if r.get("anchor"))
+    with_slug_count   = sum(1 for r in recs if r.get("slug"))
+    logger.info(
+        "grammar_recommendations_built event=grammar_recommendations_built "
+        "count=%d with_anchor=%d with_slug=%d",
+        len(recs), with_anchor_count, with_slug_count,
+        extra={
+            "event":             "grammar_recommendations_built",
+            "count":             len(recs),
+            "with_anchor_count": with_anchor_count,
+            "with_slug_count":   with_slug_count,
+            "sample_first":      recs[0] if recs else None,
+        },
+    )
     result["grammar_recommendations"] = recs

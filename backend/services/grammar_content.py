@@ -321,7 +321,18 @@ class GrammarContentService:
 
         Returns { slug, category, title, score } if best score > 0.35, else None.
         """
+        # Sprint 6.5 diagnostic: every return path logs an event so the
+        # canary tells us *which* branch fired (direct-map / threshold-fail
+        # / score-pass / no-tokens / no-input). Logs are plain-text-greppable
+        # AND carry an `extra` dict for any future structured aggregator.
+        issue_preview = (issue or "")[:160]
         if not issue or not self.search_index:
+            logger.info(
+                "matcher_match event=skipped reason=empty_input issue=%r matched=False",
+                issue_preview,
+                extra={"event": "matcher_match", "reason": "empty_input",
+                       "issue": issue_preview, "matched": False},
+            )
             return None
 
         issue_lower = issue.lower()
@@ -343,12 +354,28 @@ class GrammarContentService:
             if phrase in issue_lower:
                 item = next((x for x in self.search_index if x["slug"] == target_slug), None)
                 if item:
+                    logger.info(
+                        "matcher_match event=hit path=direct_map issue=%r matched_slug=%s score=1.0",
+                        issue_preview, item["slug"],
+                        extra={"event": "matcher_match", "path": "direct_map",
+                               "issue": issue_preview, "matched_slug": item["slug"],
+                               "score": 1.0, "matched": True},
+                    )
                     return {
                         "slug":     item["slug"],
                         "category": item["category"],
                         "title":    item["title"],
                         "score":    1.0,
                     }
+                logger.info(
+                    "matcher_match event=skipped reason=direct_map_slug_missing "
+                    "phrase=%r expected_slug=%s issue=%r",
+                    phrase, target_slug, issue_preview,
+                    extra={"event": "matcher_match",
+                           "reason": "direct_map_slug_missing",
+                           "phrase": phrase, "expected_slug": target_slug,
+                           "issue": issue_preview, "matched": False},
+                )
                 break  # phrase matched but slug missing from index — fall through
 
         # ── Vietnamese → English keyword map ────────────────────────────────────
@@ -440,6 +467,12 @@ class GrammarContentService:
 
         all_tokens = set(extra_tokens + raw_words)
         if not all_tokens:
+            logger.info(
+                "matcher_match event=skipped reason=no_tokens issue=%r matched=False",
+                issue_preview,
+                extra={"event": "matcher_match", "reason": "no_tokens",
+                       "issue": issue_preview, "matched": False},
+            )
             return None
 
         best_score = 0.0
@@ -469,8 +502,23 @@ class GrammarContentService:
                 best_item = item
 
         if best_score < 0.35 or best_item is None:
+            logger.info(
+                "matcher_match event=skipped reason=below_threshold "
+                "issue=%r best_score=%.3f threshold=0.35 matched=False",
+                issue_preview, best_score,
+                extra={"event": "matcher_match", "reason": "below_threshold",
+                       "issue": issue_preview, "best_score": round(best_score, 3),
+                       "threshold": 0.35, "matched": False},
+            )
             return None
 
+        logger.info(
+            "matcher_match event=hit path=score issue=%r matched_slug=%s score=%.3f",
+            issue_preview, best_item["slug"], best_score,
+            extra={"event": "matcher_match", "path": "score",
+                   "issue": issue_preview, "matched_slug": best_item["slug"],
+                   "score": round(best_score, 3), "matched": True},
+        )
         return {
             "slug":     best_item["slug"],
             "category": best_item["category"],
@@ -518,15 +566,43 @@ class GrammarContentService:
         threshold as `find_best_match` for consistency. Returns None
         when no mapping resolves above threshold for this slug.
         """
+        # Sprint 6.5 diagnostic: every branch logs an event so the canary
+        # tells us whether (a) we never even reached the scoring loop,
+        # (b) the slug had no mappings loaded, (c) tokens couldn't be
+        # extracted, (d) the best score fell below threshold, or (e) the
+        # success path fired.
+        issue_preview = (issue or "")[:160]
         if not issue or not slug:
+            logger.info(
+                "anchor_resolve event=skipped reason=empty_input "
+                "issue=%r slug=%s matched=False",
+                issue_preview, slug,
+                extra={"event": "anchor_resolve", "reason": "empty_input",
+                       "issue": issue_preview, "slug": slug, "matched": False},
+            )
             return None
         mappings = self._load_mappings().get(slug)
         if not mappings:
+            logger.info(
+                "anchor_resolve event=skipped reason=no_mappings_for_slug "
+                "issue=%r slug=%s matched=False",
+                issue_preview, slug,
+                extra={"event": "anchor_resolve",
+                       "reason": "no_mappings_for_slug",
+                       "issue": issue_preview, "slug": slug, "matched": False},
+            )
             return None
 
         issue_lower = issue.lower()
         issue_tokens = set(re.findall(r"[\w]{3,}", issue_lower, flags=re.UNICODE))
         if not issue_tokens:
+            logger.info(
+                "anchor_resolve event=skipped reason=no_tokens "
+                "issue=%r slug=%s matched=False",
+                issue_preview, slug,
+                extra={"event": "anchor_resolve", "reason": "no_tokens",
+                       "issue": issue_preview, "slug": slug, "matched": False},
+            )
             return None
 
         best_score = 0.0
@@ -548,7 +624,28 @@ class GrammarContentService:
                 best_anchor = m.get("target_anchor")
 
         if best_score < 0.35:
+            logger.info(
+                "anchor_resolve event=skipped reason=below_threshold "
+                "issue=%r slug=%s best_score=%.3f best_anchor=%s "
+                "mapping_count=%d threshold=0.35 matched=False",
+                issue_preview, slug, best_score, best_anchor, len(mappings),
+                extra={"event": "anchor_resolve",
+                       "reason": "below_threshold",
+                       "issue": issue_preview, "slug": slug,
+                       "best_score": round(best_score, 3),
+                       "best_anchor": best_anchor,
+                       "mapping_count": len(mappings),
+                       "threshold": 0.35, "matched": False},
+            )
             return None
+        logger.info(
+            "anchor_resolve event=hit issue=%r slug=%s anchor=%s score=%.3f",
+            issue_preview, slug, best_anchor, best_score,
+            extra={"event": "anchor_resolve", "issue": issue_preview,
+                   "slug": slug, "anchor": best_anchor,
+                   "score": round(best_score, 3),
+                   "mapping_count": len(mappings), "matched": True},
+        )
         return best_anchor
 
     def get_articles_by_error_tag(self, tag: str) -> list[dict]:
