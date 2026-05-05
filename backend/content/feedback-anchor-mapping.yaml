@@ -1050,7 +1050,7 @@ mappings:
   - mapping_id: M044
     target_anchor: prepositions.common-mistake.transfer-from-vietnamese
     target_file: backend/content/parts-of-speech/prepositions.md
-    feedback_pattern_summary: "Sai giới từ chỉ vị trí / thời gian (in/on/at) — chuyển sai từ tiếng Việt sang tiếng Anh"
+    feedback_pattern_summary: "Sai/thiếu giới từ — bao gồm in/on/at, preposition + V-ing, và verb form sau giới từ"
     feedback_keywords:
       - "wrong preposition"
       - "in on at confusion"
@@ -1064,6 +1064,20 @@ mappings:
       - "time preposition wrong"
       - "thiếu giới từ"
       - "Vietnamese to English transfer"
+      # Sprint 7a Day 4: production canary tuning. AI feedback in
+      # Vietnamese opens with "Thiếu giới từ" / "Sai giới từ"; the
+      # remaining tokens often describe verb-form drift after a
+      # preposition (such as + V-ing, help + to V vs bare V, etc.).
+      - "sai giới từ"
+      - "missing preposition"
+      - "verb form after preposition"
+      - "preposition followed by verb"
+      - "preposition plus V-ing"
+      - "such as plus verb"
+      - "wrong form after preposition"
+      - "gerund after preposition"
+      - "động từ sau giới từ"
+      - "cấu trúc sau giới từ"
     user_phrase_examples:
       - "I live in Nguyen Hue Street"
       - "On the morning"
@@ -1077,6 +1091,14 @@ mappings:
       - "I will see you on next Monday"
       - "I waited the bus"
       - "We discussed about the topic"
+      # Sprint 7a Day 4: production canary phrasings — keep as fixtures
+      # so future regressions on this exact set are investigable.
+      - "such as do homework"
+      - "to support my studies, such as do homework"
+      - "helps me to entertain"
+      - "helps the phone I use afterwards"
+      - "depend of weather"
+      - "help him for solving the problem"
     confidence: high
     severity: common
     related_anchors:
