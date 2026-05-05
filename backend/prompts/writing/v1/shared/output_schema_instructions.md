@@ -44,7 +44,13 @@ outside the JSON** — no preamble, no postamble, no markdown code fences.
   "coherenceAnalysis": [...] or null,
   "counterargumentAnalysis": {...} or null,
   "lexicalAnalysis": {...} or null,
-  "sentenceStructureAnalysis": {...} or null
+  "sentenceStructureAnalysis": {...} or null,
+
+  // HISTORY-AWARE FIELDS (Phase 1.5) — null UNLESS the user message
+  // contains a "## Lịch sử lỗi của học viên này" section. If present,
+  // populate per the instructions in that section. If absent, leave null.
+  "bandTrajectoryAnalysis": null,
+  "recurringPatterns": null
 }
 ```
 
@@ -69,6 +75,8 @@ outside the JSON** — no preamble, no postamble, no markdown code fences.
 | `counterargumentAnalysis` (T2 only) | null | null | Required | Required | Required |
 | `lexicalAnalysis` | null | null | null | Required | Required |
 | `sentenceStructureAnalysis` | null | null | null | Required | Required |
+| `recurringPatterns` (Phase 1.5a) | null unless "Lịch sử lỗi" section present | (same) | (same) | (same) | (same) |
+| `bandTrajectoryAnalysis` (Phase 1.5b) | null (not yet active) | (same) | (same) | (same) | (same) |
 
 For Task 1 (no counterargument concept), `counterargumentAnalysis` is always null.
 

@@ -31,6 +31,7 @@ from services.gemini_writing_grader import (
     InvalidJSONError,
     get_grader,
 )
+from services.writing_history import get_recurring_patterns
 
 logger = logging.getLogger(__name__)
 
@@ -163,11 +164,13 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             "status": "grading",
         }).eq("id", essay_id).execute()
 
-        # Load essay payload
+        # Load essay payload — student_id pulled in for Phase 1.5a so we
+        # can fetch this student's recurring-patterns aggregate before
+        # constructing GraderConfig.
         er = (
             supabase_admin.table("writing_essays")
             .select("task_type, prompt_text, essay_text, analysis_level, "
-                    "form_of_address, selected_model")
+                    "form_of_address, selected_model, student_id")
             .eq("id", essay_id)
             .limit(1)
             .execute()
@@ -176,6 +179,13 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             raise RuntimeError(f"essay {essay_id} disappeared mid-flight")
         essay = er.data[0]
 
+        # Phase 1.5a — pre-aggregated recurring patterns from the
+        # student's last 5 graded essays. Returns None when:
+        #   • student has <5 graded essays (Phase-1 behaviour preserved)
+        #   • the lookup itself raised (defensive — grading must not
+        #     fail because history is unavailable)
+        recurring_patterns = get_recurring_patterns(essay["student_id"])
+
         config = GraderConfig(
             task_type=essay["task_type"],
             prompt_text=essay["prompt_text"],
@@ -183,6 +193,7 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             analysis_level=essay["analysis_level"],
             form_of_address=essay["form_of_address"],
             selected_model=essay["selected_model"],
+            history=recurring_patterns,
         )
 
         result = await get_grader().grade_essay(config)

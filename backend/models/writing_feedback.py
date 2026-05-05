@@ -187,9 +187,12 @@ class WritingFeedback(BaseModel):
     lexicalAnalysis: Optional[LexicalAnalysis] = None
     sentenceStructureAnalysis: Optional[SentenceStructureAnalysis] = None
 
-    # Phase 1.5 forward-compatibility — None on Phase 1
+    # Phase 1.5 forward-compatibility — None on Phase 1.
+    # Phase 1.5a (recurringPatterns): the grader prompt now instructs
+    # Gemini to emit `{summary, improvements, stillRecurring}` when the
+    # student has ≥5 graded essays; otherwise this stays null.
     bandTrajectoryAnalysis: Optional[dict] = None
-    recurringPatterns: Optional[List[dict]] = None
+    recurringPatterns: Optional[dict] = None
 
 
 # ── Input/config types ────────────────────────────────────────────────
@@ -207,8 +210,13 @@ class GraderConfig(BaseModel):
     form_of_address: Literal['bạn', 'em', 'anh', 'chị'] = 'em'
     selected_model: Literal['gemini-2.5-pro', 'gemini-2.5-flash'] = 'gemini-2.5-pro'
 
-    # Phase 1.5 forward-compatibility — unused Phase 1
-    history: Optional[List[dict]] = None
+    # Phase 1.5a (recurring-patterns aggregator): pre-aggregated dict
+    # produced by services.writing_history.get_recurring_patterns(),
+    # consumed by services.writing_history.format_history_for_prompt()
+    # inside _build_user_prompt. None when the student has <5 essays
+    # OR when the history lookup failed (degrade-to-no-history is
+    # intentional — see writing_history.py).
+    history: Optional[dict] = None
 
 
 class GradingResult(BaseModel):
