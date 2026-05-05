@@ -186,3 +186,57 @@ def test_m023_resolves_production_canary_pattern():
     assert "bare-infinitive" in anchor or anchor.startswith("modal-verbs."), (
         f"Expected modal-verbs.* anchor, got {anchor!r}"
     )
+
+
+# ── Sprint 7d — Codex AMBER finding 2026-05-05 ────────────────────────
+#
+# Codex AUDIT_DEEP_LINK_FIX_2026-05-05.md verdict AMBER. The original
+# Sprint 6+7 RED was resolved (66.7% anchor populated post-7c) but one
+# specific production string still missed:
+#
+#   "Sai cấu trúc 'Sometimes romance in a lot of time' — câu không có
+#    động từ chính"
+#
+# Pre-fix routing: present-simple, anchor=NULL.
+# Diagnosis: after _strip_long_quoted_phrases removes the 7-word student
+# quote, the remaining cleaned text "Sai cấu trúc — câu không có động
+# từ chính" has NO ASCII raw_words and only ONE _VI_EN trigger that
+# fires ("động từ" → ["verb"]). With token_count=1 and "verb" appearing
+# in nearly every grammar mapping's keywords, 9 slugs tie at score 1.0
+# and dict-iteration order picks present-simple (M004) over
+# missing-main-verbs (M050).
+#
+# Fix: add ONE _VI_EN entry for "không có động từ" emitting the same
+# token expansion the existing "thiếu động từ chính" entry uses
+# (["verb", "main verb", "missing", "sentence-structure"]). With four
+# tokens, M050 hits all four (score 1.0) while the false positives
+# drop to 0.5, breaking the tie cleanly.
+
+def test_codex_audit_2026_05_05_sometimes_romance_miss():
+    """Codex AMBER finding 2026-05-05: production miss.
+
+    Pin the exact production string. After Sprint 7d's VI_EN expansion
+    for "không có động từ" patterns, this should route to
+    missing-main-verbs and resolve a populated anchor."""
+    issue = (
+        "Sai cấu trúc 'Sometimes romance in a lot of time' — "
+        "câu không có động từ chính"
+    )
+
+    match = grammar_service.find_best_match(issue)
+    assert match is not None, "Codex AMBER: no slug routing at all"
+    assert match["slug"] == "missing-main-verbs", (
+        f"Codex AMBER regression: routed to {match['slug']!r} "
+        f"(score {match['score']:.3f}) instead of missing-main-verbs. "
+        f"Sprint 7d fix likely backed out."
+    )
+
+    anchor = grammar_service.find_best_anchor(issue, "missing-main-verbs")
+    assert anchor is not None, (
+        "Sprint 7d: anchor returned NULL despite slug routing fixed. "
+        "Check that find_best_anchor still tokenizes 'không có động từ' "
+        "shape against M050 keywords."
+    )
+    assert "missing-main-verbs" in anchor, (
+        f"Expected missing-main-verbs.* anchor, got {anchor!r}"
+    )
