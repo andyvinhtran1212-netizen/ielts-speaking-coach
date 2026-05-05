@@ -320,15 +320,24 @@ class GrammarContentService:
         """
         Find the best-matching grammar wiki article for a Vietnamese grammar issue string.
 
-        Uses keyword overlap scoring (no embeddings needed at this stage):
-        - Title match scores highest
-        - Tag match scores next
-        - Body text match gives a small boost
+        Sprint 7c rework — three-tier scoring, mapping-keywords-first:
+          Tier 1: feedback_keywords + user_phrase_examples + summary
+                  from feedback-anchor-mapping.yaml entries grouped by
+                  slug. Curated, primary signal — picks up Vietnamese
+                  issue strings that English titles miss.
+          Tier 2: article title + tags (semantic fallback). Halved
+                  weight so a strong Tier 1 mapping match outranks a
+                  tag-only article without curated coverage.
+          Tier 3: article body — REMOVED. Body word frequency was the
+                  Sprint 7b production routing bug source ("am",
+                  "tired" winning unrelated articles like modal-verbs
+                  whose example sentences happened to contain the
+                  same common English words).
 
-        Vietnamese → English keyword mappings allow matching Claude's Vietnamese
-        issue descriptions against English article titles/tags.
-
-        Returns { slug, category, title, score } if best score >= _MATCH_THRESHOLD, else None.
+        Per-slug score = max(tier_1, tier_2 * 0.5). The article in
+        `search_index` is looked up from the winning slug. Returns
+        { slug, category, title, score } if best score >=
+        _MATCH_THRESHOLD, else None.
         """
         # Sprint 6.5 diagnostic: every return path logs an event so the
         # canary tells us *which* branch fired (direct-map / threshold-fail
@@ -471,8 +480,30 @@ class GrammarContentService:
                 extra_tokens.extend(en_terms)
 
         # Also include raw issue words (catches English terms Claude might include,
-        # e.g. "past simple", "the", slug-like words)
-        raw_words = re.findall(r"[a-z]{3,}", issue_lower)
+        # e.g. "past simple", "the", slug-like words). The `\b...\b` word-
+        # boundary anchors are critical: without them, `[a-z]{3,}` chops
+        # accented Vietnamese into 3-char ASCII fragments — e.g. "thiếu"
+        # yields "thi", which then substring-matches "this" / "thing" /
+        # "third" across most mapping haystacks and causes the Sprint 7c
+        # production routing bug. With `\b`, only fully-ASCII standalone
+        # words pass.
+        # Vietnamese function-word filter: a handful of standalone ASCII
+        # Vietnamese words pass `\b[a-z]{3,}\b` but carry no routing
+        # signal — they hit mapping haystacks via substring (e.g. "trong"
+        # is in "wrong" / "strong" / Vietnamese summaries; "sai" is in
+        # most error-pattern keywords). Drop them so they don't compete
+        # with curated tokens.
+        _VN_STOP_TOKENS = frozenset({
+            "trong",  # in/inside (preposition)
+            "sai",    # wrong (modifier — bleeds into all error mappings)
+            "thay",   # instead/replace
+            "khi",    # when
+            "kia",    # that one
+        })
+        raw_words = [
+            w for w in re.findall(r"\b[a-z]{3,}\b", issue_lower)
+            if w not in _VN_STOP_TOKENS
+        ]
 
         all_tokens = set(extra_tokens + raw_words)
         if not all_tokens:
@@ -484,33 +515,89 @@ class GrammarContentService:
             )
             return None
 
-        best_score = 0.0
-        best_item: dict | None = None
+        token_count = max(len(all_tokens), 1)
+        slug_scores: dict[str, float] = {}
 
+        # Pre-compile word-boundary token patterns. Each token must match
+        # at a word START in the haystack — `\btoken` (start anchor only,
+        # no end). This rejects spurious substring hits like "refer" in
+        # "prefer" or "her" in "there", while still allowing "verb" to
+        # match "verbs" (suffix-permissive).
+        token_patterns = {
+            tok: re.compile(rf"\b{re.escape(tok)}", re.IGNORECASE)
+            for tok in all_tokens
+        }
+
+        def _count_hits(haystack: str) -> int:
+            return sum(1 for pat in token_patterns.values() if pat.search(haystack))
+
+        # ── Tier 1: mapping keywords + examples + summary ──────────────────
+        # `_load_mappings()` is keyed by slug and already drops
+        # `deferred_until` entries, so this loop scores only active,
+        # currently-loaded mappings against the issue tokens.
+        for slug, mappings in self._load_mappings().items():
+            best_for_slug = 0.0
+            for m in mappings:
+                haystack_parts: list[str] = []
+                haystack_parts.extend(
+                    str(k).lower() for k in (m.get("feedback_keywords") or [])
+                )
+                haystack_parts.extend(
+                    str(p).lower() for p in (m.get("user_phrase_examples") or [])
+                )
+                haystack_parts.append(str(m.get("feedback_pattern_summary", "")).lower())
+                haystack = " | ".join(haystack_parts)
+
+                hits = _count_hits(haystack)
+                if hits == 0:
+                    continue
+                score = min(1.0, hits / token_count)
+                if score > best_for_slug:
+                    best_for_slug = score
+            if best_for_slug > 0.0:
+                slug_scores[slug] = best_for_slug
+
+        # ── Tier 2: article title + tags (halved weight) ───────────────────
+        # Only competes when Tier 1 score for the same slug is weaker, OR
+        # when the slug has no mapping at all (preserves title-fallback
+        # routing for the ~70 articles still without curated mappings).
+        # Body text deliberately excluded — was the Sprint 7b bug source.
+        # Same word-boundary token matching as Tier 1.
         for item in self.search_index:
+            slug = item["slug"]
             title_lower = item["title"].lower()
-            tags_lower  = " ".join(str(t) for t in item.get("tags", []) if t is not None).lower()
-            body_text   = item["text"]  # already lowercased at load time
+            tags_lower  = " ".join(
+                str(t) for t in item.get("tags", []) if t is not None
+            ).lower()
 
             title_score = 0.0
             tag_score   = 0.0
-            body_score  = 0.0
-            for token in all_tokens:
-                if token in title_lower: title_score += 0.5
-                if token in tags_lower:  tag_score   += 0.3
-                if token in body_text:   body_score  += 0.05
-
-            # Require at least one title or tag hit — discard body-only matches
+            for tok, pat in token_patterns.items():
+                if pat.search(title_lower): title_score += 0.5
+                if pat.search(tags_lower):  tag_score   += 0.3
             if title_score == 0.0 and tag_score == 0.0:
                 continue
 
-            score = min(1.0, (title_score + tag_score + body_score) / max(len(all_tokens), 1))
+            tier_2 = min(1.0, (title_score + tag_score) / token_count)
+            existing = slug_scores.get(slug, 0.0)
+            slug_scores[slug] = max(existing, tier_2 * 0.5)
 
-            if score > best_score:
-                best_score = score
-                best_item = item
+        # ── Pick winner ────────────────────────────────────────────────────
+        if not slug_scores:
+            logger.info(
+                "matcher_match event=skipped reason=below_threshold "
+                "issue=%r best_score=%.3f threshold=%.2f matched=False",
+                issue_preview, 0.0, _MATCH_THRESHOLD,
+                extra={"event": "matcher_match", "reason": "below_threshold",
+                       "issue": issue_preview, "best_score": 0.0,
+                       "threshold": _MATCH_THRESHOLD, "matched": False},
+            )
+            return None
 
-        if best_score < _MATCH_THRESHOLD or best_item is None:
+        best_slug = max(slug_scores, key=slug_scores.get)
+        best_score = slug_scores[best_slug]
+
+        if best_score < _MATCH_THRESHOLD:
             logger.info(
                 "matcher_match event=skipped reason=below_threshold "
                 "issue=%r best_score=%.3f threshold=%.2f matched=False",
@@ -521,15 +608,34 @@ class GrammarContentService:
             )
             return None
 
+        best_item = next(
+            (x for x in self.search_index if x["slug"] == best_slug), None
+        )
+        if best_item is None:
+            # Mapping references a slug whose article isn't indexed (deploy
+            # skew, file removed, etc.). Treat as no-match — never return a
+            # broken slug to callers.
+            logger.info(
+                "matcher_match event=skipped reason=slug_missing_from_index "
+                "best_slug=%s best_score=%.3f matched=False",
+                best_slug, best_score,
+                extra={"event": "matcher_match",
+                       "reason": "slug_missing_from_index",
+                       "best_slug": best_slug,
+                       "best_score": round(best_score, 3),
+                       "matched": False},
+            )
+            return None
+
         logger.info(
             "matcher_match event=hit path=score issue=%r matched_slug=%s score=%.3f",
-            issue_preview, best_item["slug"], best_score,
+            issue_preview, best_slug, best_score,
             extra={"event": "matcher_match", "path": "score",
-                   "issue": issue_preview, "matched_slug": best_item["slug"],
+                   "issue": issue_preview, "matched_slug": best_slug,
                    "score": round(best_score, 3), "matched": True},
         )
         return {
-            "slug":     best_item["slug"],
+            "slug":     best_slug,
             "category": best_item["category"],
             "title":    best_item["title"],
             "score":    round(best_score, 3),
