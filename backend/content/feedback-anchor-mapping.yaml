@@ -1243,6 +1243,11 @@ mappings:
       - "câu không có chủ ngữ"
       - "subject-less sentence"
       - "Vietnamese to English transfer"
+      # Sprint 7c: bridge VI_EN's hyphenated "sentence-structure" expansion
+      # of "câu không hoàn chỉnh" / "cấu trúc câu" so M049 wins the
+      # routing tie when AI feedback combines "thiếu chủ ngữ" with
+      # "cấu trúc không hoàn chỉnh" in one phrase.
+      - "sentence-structure"
     user_phrase_examples:
       - "Another is that"
       - "Is good"
@@ -1280,6 +1285,9 @@ mappings:
       - "thiếu tân ngữ sau động từ"
       - "verb required"
       - "câu thiếu vị ngữ"
+      # Sprint 7c: bridge VI_EN's hyphenated "sentence-structure" expansion
+      # for issues that combine "thiếu động từ" with "cấu trúc câu".
+      - "sentence-structure"
     user_phrase_examples:
       - "She very happy"
       - "He always tired"
