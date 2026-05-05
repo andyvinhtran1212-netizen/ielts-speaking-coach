@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-04
-**Last reviewed:** 2026-05-04
+**Last updated:** 2026-05-05
+**Last reviewed:** 2026-05-05
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -92,7 +92,7 @@ material, not active backlog.
 - **Effort:** 2-4 hours work + 24h soak.
 - **Blocked by:** HIGH-6 results.
 
-#### HIGH-8: Writing Coach Phase 1 — Sprint W0 (schema + scaffolding)
+#### ~~HIGH-8: Writing Coach Phase 1 — Sprint W0 (schema + scaffolding)~~ ✅ DONE 2026-05-04
 - **What:** New IELTS Writing analysis tool integrated into Aver Learning,
   admin-only Phase 1, eliminate Andy's copy/paste friction (current workflow:
   Google Doc → AI grader → Word → Google Doc, 4× copy/paste operations).
@@ -103,7 +103,7 @@ material, not active backlog.
 - **Effort:** 30-40 hours = 1 week.
 - **Owner:** Code (after planner writes Sprint W0 prompt).
 
-#### HIGH-9: Writing Coach Phase 1 — Sprint W1 (Gemini grader)
+#### ~~HIGH-9: Writing Coach Phase 1 — Sprint W1 (Gemini grader)~~ ✅ DONE 2026-05-04
 - **What:** Gemini grader service supporting all 5 levels from TECHNICAL_SPEC
   (Strict Grammar Police → Pedantic Linguist).
 - **Scope:** 5 system prompts + shared modules (strict_grammar_check,
@@ -112,7 +112,7 @@ material, not active backlog.
 - **Effort:** 40-50 hours = 1 week.
 - **Blocked by:** HIGH-8 ship.
 
-#### HIGH-10: Writing Coach Phase 1 — Sprint W2 (submission + grading flow)
+#### ~~HIGH-10: Writing Coach Phase 1 — Sprint W2 (submission + grading flow)~~ ✅ DONE 2026-05-04
 - **What:** End-to-end submission pipeline: form → background grading →
   status polling → admin review.
 - **Scope:** POST /admin/writing/essays endpoint, FastAPI BackgroundTasks
@@ -121,7 +121,22 @@ material, not active backlog.
 - **Effort:** 40-50 hours = 1 week.
 - **Blocked by:** HIGH-9 ship.
 
-#### HIGH-11: Writing Coach Phase 1 — Sprint W3 (render + delivery)
+#### ~~HIGH-11: Writing Coach Phase 1 — Sprint W3 (render + delivery)~~ ✅ DONE 2026-05-05
+
+#### HIGH-12: Codex audit Sprint 0-6 (Speaking deep-link broken)
+- **What:** Andy manual smoke 2026-05-04 reports 3 features không hoạt động
+  trong production:
+  - URL bar không có #anchor-name sau click recommendation
+  - Page không smooth-scroll to specific section
+  - Heading không pulse teal 3 seconds
+- **Status:** Production deploy verified (Railway /health 200), tests pass
+  (261 backend), drift gate green, Codex audit Blockers RESOLVED... yet smoke fails.
+- **Action:** Codex audit prompt ready
+  (`PROMPT_CODEX_AUDIT_DEEPLINK_VALIDATION.md`). Run when Andy resumes Speaking.
+- **Severity:** Critical — 7 sprints + 4 weeks work, deep-link feature should be
+  user-facing value but currently invisible.
+- **Effort:** 30-45 min audit + Sprint 6.5 patch (TBD scope based on findings).
+- **Blocked by:** Andy bandwidth.
 - **What:** Output rendering + delivery via clipboard copy (primary) and
   Word download (secondary).
 - **Scope:** Jinja2 HTML template (matches Andy's sample Word file structure),
@@ -287,6 +302,37 @@ add WITH CHECK to RLS UPDATE policies.
 - CLAUDE.md (production grading pipeline location)
 
 ### Writing Coach roadmap (post Phase 1)
+
+#### W-PHASE-1.5a: Admin essay history view
+- **What:** Admin page hiển thị tất cả essays đã graded, filter by student/date/status,
+  click vào → mở grade page. Cần thiết để Andy review past work + tham khảo
+  khi grade student mới.
+- **Effort:** ~1 day (extend existing admin-writing.html dashboard).
+- **Trigger:** Phase 1 daily-use feedback shows demand. Defer until ≥20 essays graded.
+
+#### W-PHASE-1.5b: Task 1 image upload (charts/maps/processes)
+- **What:** Task 1 Academic essays mô tả biểu đồ/bản đồ/quy trình. Hiện tại Andy
+  phải mô tả textually trong prompt_text. Future: upload image → Gemini multimodal
+  reads → grades essay against actual chart.
+- **Effort:** 1-2 weeks. Migration cho prompt_image_url (column đã có sẵn,
+  chưa wire). Frontend image upload + preview. Backend: store ở Supabase Storage,
+  inject vào Gemini call.
+- **Trigger:** Task 1 Academic volume justifies (Andy decides). Originally Phase 3,
+  pull forward nếu cần.
+
+#### W-PHASE-1.5c: Prompt hardening — schema drift prevention
+- **What:** Phase 1 shipped 3 Gemini-shape regressions (W2.1 suggestion-as-string,
+  W3.3 counterargumentAnalysis hallucination, plus unknown others). Pattern
+  suggests systematic prompt brittleness, not isolated bugs.
+- **Action:**
+  1. Survey all Pydantic sub-types — which ones rely on Gemini following nested shape?
+  2. Add explicit ❌/✅ examples for ALL nested object fields (mistakeAnalysis,
+     wordsToUpgrade, sentenceUpgrades, ideaDevelopmentAnalysis, etc.)
+  3. Add automated drift test: random Gemini calls → assert all top-level
+     fields match expected types
+  4. Consider Pydantic strict mode opt-in for production grading
+- **Effort:** 2-3 days.
+- **Trigger:** Phase 1.5a or 1.5b — bundle với schema work.
 
 #### W-PHASE-1.5: History-aware AI grading
 - **What:** AI sees previous student essays when grading new essay; pattern
@@ -534,6 +580,64 @@ item below is a follow-up, not a blocker.
 ---
 
 ## ✅ Completed
+
+### Phase 1 Writing Coach GA — 2026-05-05 (10 PRs across 5 days)
+
+**MILESTONE:** Writing Coach Phase 1 LIVE. Andy's copy/paste workflow eliminated.
+Admin can submit essay → AI grades async → review/edit on web → copy formatted
+output to Google Docs OR download Word file → mark delivered.
+
+**Sprints shipped (PRs #44-#53):**
+- W0 PR #44 (5170452): Schema + scaffolding (Migration 033, 4 tables, RLS, admin gates)
+- W1 PR #45 (eed2df4): Gemini grader service (5 levels, retry, cost tracking)
+- W2 PR #46: Submission flow + admin grading UI (CRUD, async grading)
+- W2.1 PR #47: Schema patch (suggestion-as-string tolerance)
+- W2.2 PR #48: Audit AMBER fixes (payload size guards, staging verification)
+- W2.3 PR #49: Auth redirect loop fix
+- W3 PR #50: Render + delivery (HTML clipboard, Word export, edit UI)
+- W3.1 PR #51: Audit AMBER fixes (state machine + dirty-state)
+- W3.2 PR #52: UX polish (4 tabs, click-scroll, Word/clipboard styling)
+- W3.3 PR #53: counterargumentAnalysis schema fix
+
+**Codex audits:**
+- W1+W2: AMBER → fixed in W2.2
+- W3: AMBER → fixed in W3.1
+
+**Cumulative state:**
+- Tests: 261 → 450 (+189)
+- New tables: 4 (students, writing_essays, writing_feedback, writing_jobs)
+- New endpoints: 16 admin (writing + students)
+- New services: 5 (grader, prompt_loader, render, exporter, essay_service)
+- New prompts: 9 markdown files (5 levels + 3 shared + README)
+- Production cost: ~$0.04/essay (gemini-2.5-pro)
+- Speaking Coach: zero regression throughout
+
+**Architecture decisions confirmed:**
+- Stack stays vanilla HTML + Tailwind CDN (no React migration)
+- Admin-only Phase 1 (student access deferred Phase 2)
+- HTML clipboard primary delivery (Word optional download)
+- All 5 levels available day 1
+- FastAPI BackgroundTasks for async (Celery defer Phase 4)
+
+**Open from W3 audit (Phase 1.5 candidates):**
+- Browser smoke coverage (clipboard cross-browser)
+- Supabase config consolidation (admin pages duplicate URL/key)
+- "Delivered cannot revert" integration test
+
+**Andy first-use feedback addressed in W3.2:**
+- Tab navigation (4 tabs)
+- Click error → scroll + pulse
+- Word file colors + bullets
+- Clipboard format preservation
+
+**Andy first-use feedback deferred (W-PHASE-1.5a/b):**
+- Admin essay history view
+- Task 1 image upload
+
+**Planner mistakes during Phase 1 (logged in HANDOFF):**
+- #8 verbose responses (Andy pushback "đang bị overexplain")
+- #9-#11: 3 Gemini schema-drift surprises caught by production smoke,
+  not by tests. W-PHASE-1.5c addresses systematic prevention.
 
 ### Phase 3 Day 1 — 2026-05-03 (Grammar Wiki deep-link feature ACTIVATED, 2 PRs)
 
@@ -961,25 +1065,25 @@ in incoming specs before any code was written:
 
 ---
 
-## 📊 Health metrics — snapshot 2026-05-04 (post Sprint 6)
+## 📊 Health metrics — snapshot 2026-05-05 (post Phase 1 Writing GA)
 
 For the cumulative snapshot, see the comprehensive production audit
 captured 2026-04-30.  Coverage baseline lives at
 `docs/audits/COVERAGE_BASELINE_2026-04-30.md`.
 
 **Code:**
-- Backend tests: **261 collected** (was 264 mid-Day-6 — net change reflects
-  Sprint 5b consolidation + Sprint 6 fixture updates).
+- Backend tests: **450 collected** (was 261 pre-Writing-Coach; +189 across
+  W0 → W3.3).
 - Coverage baseline: **50% overall** (PR #31; unchanged).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
   intentionally skipped (deferred to Phase E).
 - Migrations applied production: **001–032** (032 deep-link `recommended_anchor`
   column on `grammar_recommendations`, Sprint 4).
 - Live RLS tests: **8 pass live** (no skips when staging creds present).
-- Active grammar mappings: **37** (was 30; +7 in Sprint 6).
-- Declared grammar anchors: **207** (was 200; +7 in Sprint 6).
-- Drift gate: **green throughout** (all 37 mappings resolve to declared
-  anchors; 0 deferred).
+- Active grammar mappings: still **37**.
+- Declared grammar anchors: still **207**.
+- Drift gate: **green throughout**.
+- Writing Coach: **16 admin endpoints, 5 services, 9 prompt files, ~$0.04/essay cost.**
 
 **Production posture (2026-05-04):**
 - Overall: **WARNING** — HIGH-1 still deferred to dedicated security sprint
@@ -994,9 +1098,12 @@ captured 2026-04-30.  Coverage baseline lives at
   pending) + Writing Coach Phase 1 (Sprint W0 ready to start).  HIGH-1
   hardening still recommended before broader user expansion.
 
-**Workstream status (2026-05-04):**
-- IELTS Speaking deep-link: **LIVE in production**, Sprint 7 pending 24h soak data.
-- Writing Coach: Architecture v2 complete, Sprint W0 ready to start.
+**Workstream status (2026-05-05):**
+- IELTS Speaking deep-link: **LIVE in production** but smoke test FAILED — Andy
+  reports 3 deep-link UX features broken (URL hash, smooth-scroll, pulse).
+  Codex audit pending (HIGH-12 NEW).
+- Writing Coach Phase 1: **LIVE in production GA 2026-05-05**. Daily admin use ready.
+- Writing Coach Phase 1.5: 3 candidates queued (W-PHASE-1.5a/b/c).
 - Design pack v2: Received 2026-05-04, integration deferred (9 pages
   pending) — Andy decision: do all design integrations in single batch
   after Sprint pipeline complete.
@@ -1060,10 +1167,10 @@ captured 2026-04-30.  Coverage baseline lives at
       (Speaking deep-link, Writing Coach) took priority.
 - [ ] Baseline metrics documented — **paused** (HIGH-5).
 - [x] Phase 3 direction chosen — **DECIDED**: Multi-track approach.
-      Track 1 = Grammar Wiki deep-link (Sprint 0-6 + 5b shipped, Sprint 7
-      pending 24h soak).  Track 2 = Writing Coach (architecture v2
-      complete, Phase 1 ready to start with Sprint W0-W3).  Track 3 =
-      Design pack integration (deferred batch).
+      Track 1 = Grammar Wiki deep-link (Sprint 0-6 + 5b shipped; smoke FAILED
+      2026-05-04, Codex audit pending HIGH-12).  Track 2 = Writing Coach
+      (Phase 1 GA 2026-05-05 with 10 PRs W0→W3.3).  Track 3 = Design pack
+      integration (deferred batch).
 
 **Status:** Phase 3 is multi-track and active.  Phase 2.5 wrapped 2026-05-02.
 Phase 3 launched immediately with Grammar Wiki deep-link sprints
@@ -1163,6 +1270,15 @@ here so a new collaborator can skim the prior-art:
     "all commits done", and even "tests passing" do not equal deployment.
     The merge ceremony (push → PR → CI → merge → deploy) is part of
     "shipped", not optional.
+16. **Tests passing ≠ Gemini schema compliance in production** — added 2026-05-05
+    after Phase 1 Writing shipped 3 Gemini schema-drift bugs (W2.1, W3.3, plus
+    suggestion field) that all tests passed mocked but failed live. Tests use
+    `mock_gemini_response` with hand-crafted valid JSON — they validate the
+    schema, not Gemini's actual behavior. Production smoke is the only
+    catch-net for hallucinated shapes. Lesson: schema flexibility (default
+    fields, type coercion, drop unknown) is mandatory for any LLM JSON
+    interface; supplement with explicit ❌/✅ examples in prompt; consider
+    Phase 1.5 systematic hardening (W-PHASE-1.5c).
 
 ---
 
