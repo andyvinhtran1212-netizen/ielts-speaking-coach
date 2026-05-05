@@ -214,6 +214,8 @@ def _valid_feedback_obj() -> WritingFeedback:
 
 
 def _bg_essay_responses() -> dict:
+    # student_id added in Phase 1.5a so _bg_grade_essay can fetch
+    # recurring-patterns history before constructing GraderConfig.
     return {
         ("writing_essays", "select"): [{
             "task_type":       "task2",
@@ -222,6 +224,7 @@ def _bg_essay_responses() -> dict:
             "analysis_level":  3,
             "form_of_address": "em",
             "selected_model":  "gemini-2.5-pro",
+            "student_id":      _STUDENT_ID,
         }],
     }
 
@@ -244,7 +247,8 @@ async def test_bg_grade_essay_happy_path_writes_feedback_and_marks_graded():
     fake_grader.grade_essay = fake_grade
 
     with patch.object(essay_service, "supabase_admin", fake), \
-         patch.object(essay_service, "get_grader", return_value=fake_grader):
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
     ops = [(c["table"], c["op"]) for c in fake.calls]
@@ -274,7 +278,8 @@ async def test_bg_grade_essay_safety_block_marks_failed():
     fake_grader.grade_essay = fake_grade
 
     with patch.object(essay_service, "supabase_admin", fake), \
-         patch.object(essay_service, "get_grader", return_value=fake_grader):
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
     final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
@@ -294,12 +299,84 @@ async def test_bg_grade_essay_retry_failure_marks_failed():
     fake_grader.grade_essay = fake_grade
 
     with patch.object(essay_service, "supabase_admin", fake), \
-         patch.object(essay_service, "get_grader", return_value=fake_grader):
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
     final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
     assert final_essay["payload"]["status"] == "failed"
     assert "APIRetryFailedError" in final_essay["payload"]["error_message"]
+
+
+# ── Phase 1.5a: history wiring ───────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_passes_recurring_patterns_to_grader():
+    """Phase 1.5a: when the student has ≥5 essays, _bg_grade_essay must
+    inject the patterns dict into GraderConfig.history so the grader's
+    _build_user_prompt can format it into the Gemini prompt."""
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+    captured: dict = {}
+
+    async def fake_grade(config):
+        captured["config"] = config
+        return MagicMock(
+            feedback=_valid_feedback_obj(),
+            model_used="gemini-2.5-pro",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    patterns = {
+        "essays_analyzed": 5,
+        "patterns": [
+            {"mistakeType": "Grammar - Article", "count": 7,
+             "examples": ["the others"], "criterion": "GRA"},
+        ],
+    }
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns",
+                      return_value=patterns) as mock_history:
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    # Aggregator was called with the essay's student_id (proves student_id
+    # was actually loaded from the row, not hardcoded).
+    mock_history.assert_called_once_with(_STUDENT_ID)
+    # GraderConfig carries the patterns dict on its `history` field, so
+    # the grader's prompt builder can format it into the user message.
+    assert captured["config"].history == patterns
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_history_none_when_student_below_threshold():
+    """New students (<5 essays) ⇒ aggregator returns None ⇒ GraderConfig
+    .history stays None so prompt is unchanged from Phase 1 behaviour."""
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+    captured: dict = {}
+
+    async def fake_grade(config):
+        captured["config"] = config
+        return MagicMock(
+            feedback=_valid_feedback_obj(),
+            model_used="gemini-2.5-pro",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns",
+                      return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    assert captured["config"].history is None
 
 
 # ── Read paths ───────────────────────────────────────────────────────

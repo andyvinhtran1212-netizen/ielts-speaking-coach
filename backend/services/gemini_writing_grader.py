@@ -30,6 +30,7 @@ from google.generativeai.types import GenerationConfig
 
 from config import settings
 from models.writing_feedback import GraderConfig, GradingResult, WritingFeedback
+from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
 
 logger = logging.getLogger(__name__)
@@ -122,12 +123,19 @@ class GeminiWritingGrader:
     # ── Internal helpers ──────────────────────────────────────────────
 
     def _build_user_prompt(self, config: GraderConfig) -> str:
-        """Build user message containing essay context."""
+        """Build user message containing essay context.
+
+        When `config.history` carries a recurring-patterns aggregate
+        (Phase 1.5a; produced by services.writing_history), the
+        formatted Vietnamese block is injected before the essay so
+        Gemini can compare new mistakes against historical ones and
+        populate `feedback_json.recurringPatterns`.
+        """
         parts: list[str] = []
 
-        # Phase 1.5 forward-compat: history context (None on Phase 1)
-        if config.history:
-            parts.append(self._format_history(config.history))
+        history_block = format_history_for_prompt(config.history)
+        if history_block:
+            parts.append(history_block)
 
         parts.append(f"## Loại bài (Task Type)\n{config.task_type}")
         parts.append(f"## Đề bài (Prompt)\n{config.prompt_text}")
@@ -135,18 +143,6 @@ class GeminiWritingGrader:
         parts.append("Hãy phân tích bài viết theo schema JSON đã quy định.")
 
         return "\n\n".join(parts)
-
-    def _format_history(self, history: list[dict]) -> str:
-        """Format student history for Phase 1.5 (unused on Phase 1)."""
-        items: list[str] = []
-        for i, essay in enumerate(history, 1):
-            items.append(
-                f"### Bài #{i}\n"
-                f"Band: {essay.get('overall_band')}\n"
-                f"Date: {essay.get('created_at')}\n"
-                f"Snippet: {(essay.get('essay_text') or '')[:300]}..."
-            )
-        return "## Lịch sử các bài trước\n" + "\n\n".join(items)
 
     async def _call_with_retry(
         self,

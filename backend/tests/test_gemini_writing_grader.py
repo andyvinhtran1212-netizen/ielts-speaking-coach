@@ -177,3 +177,48 @@ def test_pricing_table_has_both_models(grader):
     for model, prices in MODEL_PRICING.items():
         assert "input" in prices and "output" in prices
         assert prices["input"] > 0 and prices["output"] > 0
+
+
+# ── Phase 1.5a: history injection in user prompt ─────────────────────
+
+
+def test_build_user_prompt_omits_history_when_none(grader):
+    """No history → prompt has only essay sections, no Vietnamese
+    history block. Pinning this protects the new-student path
+    (<5 essays) from accidentally getting a polluted prompt."""
+    config = GraderConfig(
+        task_type="task2",
+        prompt_text="P",
+        essay_text="E",
+        analysis_level=3,
+        history=None,
+    )
+    prompt = grader._build_user_prompt(config)
+    assert "Lịch sử lỗi" not in prompt
+    assert "recurringPatterns" not in prompt
+
+
+def test_build_user_prompt_injects_history_when_present(grader):
+    """Patterns dict via config.history → prompt includes the
+    Vietnamese block + the recurringPatterns output schema instruction
+    so Gemini knows what shape to emit."""
+    config = GraderConfig(
+        task_type="task2",
+        prompt_text="P",
+        essay_text="E",
+        analysis_level=3,
+        history={
+            "essays_analyzed": 5,
+            "patterns": [
+                {"mistakeType": "Grammar - Article", "count": 7,
+                 "examples": ["the others"], "criterion": "GRA"},
+            ],
+        },
+    )
+    prompt = grader._build_user_prompt(config)
+    assert "Lịch sử lỗi" in prompt
+    assert "Grammar - Article" in prompt
+    assert "(7x)" in prompt
+    assert "recurringPatterns" in prompt
+    # Essay sections still come AFTER the history block.
+    assert prompt.index("Lịch sử lỗi") < prompt.index("Bài viết của học viên")
