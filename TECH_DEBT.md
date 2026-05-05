@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-05 (PM)
-**Last reviewed:** 2026-05-05 (PM)
+**Last updated:** 2026-05-06
+**Last reviewed:** 2026-05-06
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -581,6 +581,101 @@ item below is a follow-up, not a blocker.
 
 ## ✅ Completed
 
+### Phase 2 Student Portal MVP + 1.5a UI — 2026-05-05/06 (8 PRs)
+
+**MILESTONE:** Student-facing Writing Coach LIVE in production. Học viên login với student_code → dashboard list essays → click delivered essay → view full feedback including Phase 1.5a recurring patterns.
+
+**Sprints shipped:**
+
+Phase 1.5a Phase 1 (PR #67): backend writing_history aggregator
+- New service: services/writing_history.py + 6 unit tests
+- Aggregate top recurring mistakes from last 5 essays
+- Threshold: ≥5 graded essays activates analysis
+- Filter: only mistakeTypes appearing ≥2 times
+- Defensive: DB failures return None (grading continues)
+- Grader integrates: inserts Vietnamese history block into Gemini prompt
+- Output schema: feedback_json.recurringPatterns = {summary, improvements, stillRecurring}
+- 4 grader/essay_service integration tests; +10 tests overall
+
+Phase 2.1 (PR #68): student auth + RLS + my-essays endpoint
+- Migration 034: writing tables RLS policies for authenticated students
+  (writing_essays_student_read, writing_feedback_student_read, students_self_read — additive, admin policies preserved)
+- auth.py /activate: Step 6 auto-links students.user_id when access_code matches a student_code
+  (no overwrite when already linked; defensive — failures logged, never block login)
+- New router writing_student.py: GET /api/writing/my-essays + /my-essays/{id}
+- Feedback only returned when status='delivered' (admin gate respected)
+- 13 tests cover linking, RLS, ownership, status
+
+Phase 2.2 (PR #69): student dashboard frontend
+- frontend/pages/writing-dashboard.html (~290 lines)
+- Tailwind CDN, navy/teal palette matching site
+- Status pills: delivered (green clickable), graded/reviewed (amber waiting), grading (blue), failed (red)
+- Empty state, error state, mobile responsive
+- Vercel rewrite: /writing/dashboard → /pages/writing-dashboard.html
+
+Sprint 2.2.1 (PR #71): card click handler bug fix
+- Production canary 2026-05-06: click card → no navigation
+- Console: Uncaught SyntaxError, onclick truncated to "window.location.href="
+- Root cause: inline onclick template literal nested với JSON.stringify URL —
+  double-quoted JSON inside double-quoted attribute = parser closed attribute on first inner quote
+- Fix: replace inline onclick với addEventListener post-render
+- Use data-essay-id attribute as source of truth
+
+Sprint 2.2.2 (PR #72): card URL path fix
+- Sprint 2.2.1 click listener used window.api.url('pages/writing-result.html?...')
+- api.js _appRoot heuristic regex `/pages/foo.html$` doesn't match Vercel-rewritten
+  pathname "/writing/dashboard" → resolves to ./pages/... → 404
+- Fix: absolute path /writing/result?essay_id=... leverages Vercel rewrite directly
+
+Phase 2.4 (PR #70): student detail page
+- frontend/pages/writing-result.html (~580 lines)
+- Renders all feedback_json sections including Phase 1.5a recurringPatterns
+- 12 sections: prompt, original essay, band score, strengths/areas, recurring patterns,
+  4 criteria, mistakes (line-through original + green suggestion), coherence,
+  idea development, counterargument, improved reference essay
+- States: loading, error, not-delivered, content
+- Vercel rewrite: /writing/result → /pages/writing-result.html
+- Mobile-first, schema-defensive (handles pre-W2.1 string + post-W2.1 object suggestion shapes)
+
+Sprint 7d (PR #66): Codex AMBER finding fix
+- Production canary miss: 'Sai cấu trúc "Sometimes romance in a lot of time" — câu không có động từ chính'
+  → routed present-simple (wrong, anchor NULL), expected missing-main-verbs
+- Diagnosis: cleaned issue produced single token "verb" (via _VI_EN "động từ" trigger),
+  9 slugs tied at score 1.0, dict iteration picked present-simple
+- Fix: added 1 _VI_EN entry ("không có động từ", [verb, main verb, missing, sentence-structure])
+  mirroring existing "thiếu động từ chính" entry. M050 now hits all 4 tokens (1.0); false positives drop to 0.5
+- 1 new regression test pinning exact Codex production string
+- Codex AMBER blockers addressed
+
+**Workflow proven end-to-end:**
+1. Student login với student_code (Google OAuth)
+2. Dashboard list essays với status pills
+3. Click delivered essay → detail page
+4. Feedback renders all 12 sections including history-aware insights
+5. Phase 1.5a recurring patterns populated for students với ≥5 essays
+
+**Production canary verified working 2026-05-06:**
+- Andy login admin (linked với student '37a6b971')
+- Dashboard render 10 essays, 1 delivered (green pill)
+- Click → /writing/result?essay_id=…
+- All 12 sections render including "Lịch sử lỗi của em":
+  • Vietnamese summary
+  • ✓ Improvements (Grammar Article, Spelling)
+  • ⚠ Still recurring (Awkward Phrasing, Word Choice, Sentence Structure)
+
+**Architecture insights:**
+- Inline onclick với template literals + nested strings = fragile (Sprint 2.2.1)
+- Vercel rewrite paths require absolute URLs (Sprint 2.2.2)
+- access_code system (Speaking) and students table (Writing Phase 1) unified via student_code linking (Phase 2.1)
+- Phase 1's students.user_id forward-thinking comment ("Future Phase 2: link to user account") enabled Phase 2.1 with zero schema friction
+- _VI_EN token expansion is the bottleneck for Vietnamese-only AI feedback strings;
+  YAML keyword tuning helps only when tokens already match (Sprint 7d)
+
+**Open observations from canary (defer):**
+- Layout admin grading UI (admin-writing-grade.html) needs redesign (separate sprint Phase 1.5d-LAYOUT)
+- localhost dev cannot test Vercel rewrites (constraint accepted)
+- _appRoot heuristic in api.js breaks on rewritten paths (separate sprint if it becomes recurring)
+
 ### Speaking Deep-link Feature LIVE — 2026-05-05 (PM, 11 PRs across 1 day)
 
 **MILESTONE:** Speaking deep-link feature từ Codex audit RED (2026-05-04) đến
@@ -1121,15 +1216,16 @@ captured 2026-04-30.  Coverage baseline lives at
 `docs/audits/COVERAGE_BASELINE_2026-04-30.md`.
 
 **Code:**
-- Backend tests: **471 collected** (was 261 pre-Writing-Coach; +189 across
-  W0 → W3.3).
+- Backend tests: **495 collected** (was 471 pre-Phase-2; +24 across Sprint 7d +
+  Phase 1.5a + Phase 2.1).
 - Coverage baseline: **50% overall** (PR #31; unchanged).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
   intentionally skipped (deferred to Phase E).
 - Migrations applied production: **001–032** (032 deep-link `recommended_anchor`
   column on `grammar_recommendations`, Sprint 4).
 - Live RLS tests: **8 pass live** (no skips when staging creds present).
-- Active grammar mappings: **47** (was 37, Sprint 7 series +10).
+- Active grammar mappings: **47** (unchanged Sprint 7d — fix was in `_VI_EN`
+  token expansion, no new YAML mappings).
 - Declared grammar anchors: **217** (was 207, Sprint 7b +10).
 - Drift gate: **green throughout**.
 - Writing Coach: **16 admin endpoints, 5 services, 9 prompt files, ~$0.04/essay cost.**
@@ -1147,12 +1243,12 @@ captured 2026-04-30.  Coverage baseline lives at
   pending) + Writing Coach Phase 1 (Sprint W0 ready to start).  HIGH-1
   hardening still recommended before broader user expansion.
 
-**Workstream status (2026-05-05):**
-- IELTS Speaking deep-link: **LIVE in production VERIFIED** 2026-05-05 PM.
-  9-sprint cycle (6.5 → 7c.3) addressed Codex audit RED findings.
-  All 3 features working: URL hash, smooth-scroll, pulse.
+**Workstream status (2026-05-06):**
+- IELTS Speaking deep-link: **LIVE in production VERIFIED** (Codex AMBER 2026-05-05 → fixed Sprint 7d 2026-05-05 PM).
 - Writing Coach Phase 1: **LIVE in production GA 2026-05-05**. Daily admin use ready.
-- Writing Coach Phase 1.5: 3 candidates queued (W-PHASE-1.5a/b/c).
+- Writing Coach Phase 2 student portal: **LIVE MVP 2026-05-06** — login + dashboard + detail page (Phase 2.1/2.2/2.4 shipped).
+- Phase 1.5a recurring patterns: **LIVE 2026-05-06** — backend aggregator + frontend render verified end-to-end.
+- Writing Coach Phase 1.5: Phase 1.5a shipped; 1.5b (bandTrajectoryAnalysis) + 1.5c (sentenceStructureAnalysis) + 1.5d-LAYOUT (admin UI redesign) queued.
 - Design pack v2: Received 2026-05-04, integration deferred (9 pages
   pending) — Andy decision: do all design integrations in single batch
   after Sprint pipeline complete.
@@ -1218,8 +1314,10 @@ captured 2026-04-30.  Coverage baseline lives at
 - [x] Phase 3 direction chosen — **DECIDED**: Multi-track approach.
       Track 1 = Grammar Wiki deep-link (Sprint 0-6 + 5b shipped + Sprint 7
       series 2026-05-05 PM resolved Codex audit RED, LIVE verified).  Track 2 = Writing Coach
-      (Phase 1 GA 2026-05-05 with 10 PRs W0→W3.3).  Track 3 = Design pack
-      integration (deferred batch).
+      (Phase 1 GA 2026-05-05; Phase 2 student portal MVP 2026-05-06 — Phase 2.1 auth+RLS+endpoint,
+      Phase 2.2 dashboard, Phase 2.4 detail page shipped; Phase 2.3 submission interfaces pending).
+      Track 3 = Design pack integration (deferred batch).
+      Phase 1.5: 1.5a recurringPatterns LIVE 2026-05-06; 1.5b/1.5c/1.5d-LAYOUT queued.
 
 **Status:** Phase 3 is multi-track and active.  Phase 2.5 wrapped 2026-05-02.
 Phase 3 launched immediately with Grammar Wiki deep-link sprints
@@ -1319,6 +1417,27 @@ here so a new collaborator can skim the prior-art:
     "all commits done", and even "tests passing" do not equal deployment.
     The merge ceremony (push → PR → CI → merge → deploy) is part of
     "shipped", not optional.
+18. **Inline event handlers with template literal URLs are fragile** —
+    added 2026-05-06 after the Sprint 2.2.1+2.2.2 fix arc on
+    `writing-dashboard.html`. Phase 2.2 emitted `onclick="..." +
+    JSON.stringify(href) + "..."` — `JSON.stringify` produces a
+    double-quoted JSON string, embedded inside a double-quoted
+    `onclick="..."` attribute. The browser parsed the first inner
+    quote as the END of the attribute, so `getAttribute('onclick')`
+    returned `"window.location.href="` (truncated). No render-time JS
+    error in the console — only a `SyntaxError: Unexpected end of
+    input` at click time. Sprint 2.2.1 fixed the syntax via
+    `addEventListener` + `data-essay-id` but accidentally regressed
+    the URL path: `window.api.url('pages/...')` resolves through
+    api.js's `_appRoot` heuristic (`/\/pages\/[^/]+$/`-based), which
+    fails on Vercel-rewritten pathnames like `/writing/dashboard`,
+    producing `./pages/...` → `/writing/pages/...` → 404. Required
+    Sprint 2.2.2 to switch to absolute `/writing/result?...`.
+    Lesson: never serialise strings into inline event handlers; use
+    `addEventListener` post-render with `data-*` attributes as the
+    source of truth, and prefer absolute URLs that match Vercel
+    rewrites over heuristic-driven `_appRoot` resolution.
+
 17. **Logging silent without basicConfig** — added 2026-05-05 PM after
     Sprint 6.5 shipped 10 logger.info diagnostic calls but Railway logs
     showed zero output. Root cause: backend never called logging.basicConfig,
