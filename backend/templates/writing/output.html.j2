@@ -19,24 +19,33 @@
 <meta charset="UTF-8" />
 <title>{{ task_type_label }} — {{ student_name }}</title>
 <style>
+  /* W3.2 Phase 4: inline CSS preserves formatting when pasted into Google
+     Docs. Band-score and per-criterion colours use the same teal/amber/red
+     thresholds as the Word exporter (writing_word_exporter._band_color)
+     so .docx and clipboard paste stay visually consistent. */
   body { font-family: 'Inter', Calibri, ui-sans-serif, sans-serif; color: #111; line-height: 1.45; }
   .feedback { max-width: 900px; margin: 0 auto; }
-  .feedback h1 { font-size: 24pt; font-weight: 700; margin: 0 0 12pt; }
-  .feedback h2 { font-size: 18pt; font-weight: 700; margin: 18pt 0 8pt; border-bottom: 1px solid #ddd; padding-bottom: 4pt; }
-  .feedback h3 { font-size: 14pt; font-weight: 700; margin: 14pt 0 6pt; }
+  .feedback h1 { font-size: 24pt; font-weight: 700; color: #0d9488; margin: 0 0 12pt; }
+  .feedback h2 { font-size: 18pt; font-weight: 700; color: #0d9488; margin: 18pt 0 8pt; border-bottom: 1px solid #ddd; padding-bottom: 4pt; }
+  .feedback h3 { font-size: 14pt; font-weight: 700; color: #4b5563; margin: 14pt 0 6pt; }
   .feedback p  { margin: 6pt 0; }
-  .feedback ul { margin: 4pt 0 8pt 18pt; padding: 0; }
+  .feedback ul { margin: 4pt 0 8pt 18pt; padding: 0; list-style-type: disc; }
   .feedback li { margin: 3pt 0; }
   .feedback table { border-collapse: collapse; width: 100%; margin: 8pt 0 12pt; }
   .feedback th, .feedback td { border: 1px solid #bbb; padding: 6pt 8pt; vertical-align: top; text-align: left; }
   .feedback th { background: #f3f4f6; font-weight: 600; }
-  .feedback .band-score { font-size: 20pt; font-weight: 700; color: #0d9488; }
+  .feedback .band-score { font-size: 20pt; font-weight: 700; }
+  .feedback .band-high  { color: #0d9488; }
+  .feedback .band-mid   { color: #ca8a04; }
+  .feedback .band-low   { color: #dc2626; }
   .feedback .summary    { color: #374151; }
   .feedback .meta       { color: #6b7280; font-size: 10pt; margin-top: -4pt; }
   .feedback mark        { background: #fef3c7; padding: 0 2px; }
   .feedback .crit-title { font-weight: 700; }
-  .feedback .crit-band  { color: #0d9488; font-weight: 700; margin-left: 4pt; }
+  .feedback .crit-band  { font-weight: 700; margin-left: 4pt; }
   .feedback .label-en   { font-weight: 600; }
+  .feedback .strength    { color: #16a34a; }
+  .feedback .improvement { color: #ca8a04; }
 </style>
 </head>
 <body>
@@ -47,7 +56,9 @@
 
   {# ── Overall band ────────────────────────────────────────────── #}
   <h2>Overall Band Score</h2>
-  <p><span class="band-score">{{ '%.1f'|format(feedback.overallBandScore) }} / 9.0</span></p>
+  {% set _band = feedback.overallBandScore %}
+  {% set _band_class = 'band-high' if _band >= 7.0 else 'band-mid' if _band >= 5.5 else 'band-low' %}
+  <p><span class="band-score {{ _band_class }}">{{ '%.1f'|format(_band) }} / 9.0</span></p>
   <p class="summary">{{ feedback.overallBandScoreSummary }}</p>
 
   {# ── Key takeaways ───────────────────────────────────────────── #}
@@ -58,12 +69,12 @@
       <tr>
         <td>
           {%- if feedback.keyTakeaways.strengths %}
-          <ul>{% for s in feedback.keyTakeaways.strengths %}<li>{{ s }}</li>{% endfor %}</ul>
+          <ul>{% for s in feedback.keyTakeaways.strengths %}<li class="strength">{{ s }}</li>{% endfor %}</ul>
           {%- else %}—{% endif %}
         </td>
         <td>
           {%- if feedback.keyTakeaways.areasForImprovement %}
-          <ul>{% for a in feedback.keyTakeaways.areasForImprovement %}<li>{{ a }}</li>{% endfor %}</ul>
+          <ul>{% for a in feedback.keyTakeaways.areasForImprovement %}<li class="improvement">{{ a }}</li>{% endfor %}</ul>
           {%- else %}—{% endif %}
         </td>
       </tr>
@@ -73,28 +84,32 @@
   {# ── Criteria 2x2 ────────────────────────────────────────────── #}
   <h2>Criteria Breakdown</h2>
   {% set cf = feedback.criteriaFeedback %}
+  {# crit_class: same teal/amber/red threshold the Word exporter uses. #}
+  {% macro crit_class(score) -%}
+    {{- 'band-high' if score >= 7 else 'band-mid' if score >= 5.5 else 'band-low' -}}
+  {%- endmacro %}
   <table>
     <tbody>
       <tr>
         <td>
-          <p><span class="crit-title">{{ cf.mainCriterion.title }}</span><span class="crit-band">{{ cf.mainCriterion.bandScore }}/9</span></p>
+          <p><span class="crit-title">{{ cf.mainCriterion.title }}</span><span class="crit-band {{ crit_class(cf.mainCriterion.bandScore) }}">{{ cf.mainCriterion.bandScore }}/9</span></p>
           <p class="summary"><em>{{ cf.mainCriterion.explanation }}</em></p>
           <p>{{ cf.mainCriterion.feedback }}</p>
         </td>
         <td>
-          <p><span class="crit-title">{{ cf.coherenceCohesion.title }}</span><span class="crit-band">{{ cf.coherenceCohesion.bandScore }}/9</span></p>
+          <p><span class="crit-title">{{ cf.coherenceCohesion.title }}</span><span class="crit-band {{ crit_class(cf.coherenceCohesion.bandScore) }}">{{ cf.coherenceCohesion.bandScore }}/9</span></p>
           <p class="summary"><em>{{ cf.coherenceCohesion.explanation }}</em></p>
           <p>{{ cf.coherenceCohesion.feedback }}</p>
         </td>
       </tr>
       <tr>
         <td>
-          <p><span class="crit-title">{{ cf.lexicalResource.title }}</span><span class="crit-band">{{ cf.lexicalResource.bandScore }}/9</span></p>
+          <p><span class="crit-title">{{ cf.lexicalResource.title }}</span><span class="crit-band {{ crit_class(cf.lexicalResource.bandScore) }}">{{ cf.lexicalResource.bandScore }}/9</span></p>
           <p class="summary"><em>{{ cf.lexicalResource.explanation }}</em></p>
           <p>{{ cf.lexicalResource.feedback }}</p>
         </td>
         <td>
-          <p><span class="crit-title">{{ cf.grammaticalRange.title }}</span><span class="crit-band">{{ cf.grammaticalRange.bandScore }}/9</span></p>
+          <p><span class="crit-title">{{ cf.grammaticalRange.title }}</span><span class="crit-band {{ crit_class(cf.grammaticalRange.bandScore) }}">{{ cf.grammaticalRange.bandScore }}/9</span></p>
           <p class="summary"><em>{{ cf.grammaticalRange.explanation }}</em></p>
           <p>{{ cf.grammaticalRange.feedback }}</p>
         </td>
