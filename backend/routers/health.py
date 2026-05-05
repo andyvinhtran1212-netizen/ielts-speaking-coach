@@ -30,10 +30,9 @@ logger = logging.getLogger(__name__)
 # Sprint 6.5 diagnostic constants — keep colocated so they update together
 # when a new sprint adds mappings. EXPECTED_MAPPING_COUNT must equal the
 # number of non-deferred entries in feedback-anchor-mapping.yaml on main.
-# Sprint 7a Day 3 added 8 mappings (M038, M039, M040, M043, M044, M046,
-# M047, M048; M041/M042/M045 reserved as audit-trail gaps) AND unfroze
-# vestigial M030 (deferred_until: sprint-3 dropped). Net delta: +9 → 40.
-_EXPECTED_MAPPING_COUNT  = 40
+# Sprint 7a Day 3 added 8 mappings + unfroze M030 → 40.
+# Sprint 7b added M049 (missing-subjects) + M050 (missing-main-verbs) → 42.
+_EXPECTED_MAPPING_COUNT  = 42
 _SPRINT_6_SENTINEL_IDS   = ("M033", "M034", "M035")
 
 

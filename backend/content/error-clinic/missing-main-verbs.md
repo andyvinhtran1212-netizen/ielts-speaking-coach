@@ -45,8 +45,25 @@ next_articles:
 pathways:
 - grammar-for-beginners
 - fix-common-mistakes
+anchors:
+  - id: missing-main-verbs.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: missing-main-verbs.common-mistake.linking-verb-omission
+    location: '## KIỂU 1: THIẾU ĐỘNG TỪ "BE"'
+    type: pitfall
+  - id: missing-main-verbs.common-mistake.ving-without-be
+    location: '## KIỂU 2: DÙNG V-ING MÀ THIẾU "BE"'
+    type: pitfall
+  - id: missing-main-verbs.common-mistake.ved-without-be
+    location: '## KIỂU 3: DÙNG V-ED (PAST PARTICIPLE) THIẾU "BE"'
+    type: pitfall
+  - id: missing-main-verbs.common-mistake.noun-phrase-only
+    location: '## KIỂU 4: CHỈ CÓ NOUN PHRASE — KHÔNG CÓ PREDICATE'
+    type: pitfall
 ---
 
+<!-- anchor: missing-main-verbs.overview -->
 ## Tóm tắt
 
 | Kiểu lỗi | Ví dụ sai | Vấn đề |
@@ -70,6 +87,7 @@ Subject + Main Verb (+ phần còn lại)
 
 ---
 
+<!-- anchor: missing-main-verbs.common-mistake.linking-verb-omission -->
 ## KIỂU 1: THIẾU ĐỘNG TỪ "BE"
 
 Đây là lỗi cực phổ biến. Tiếng Việt không dùng "là" bắt buộc trong mọi câu, nhưng tiếng Anh cần "be" (am/is/are/was/were) làm main verb trong câu mô tả trạng thái, định nghĩa, vị trí.
@@ -92,6 +110,7 @@ Subject + Main Verb (+ phần còn lại)
 
 ---
 
+<!-- anchor: missing-main-verbs.common-mistake.ving-without-be -->
 ## KIỂU 2: DÙNG V-ING MÀ THIẾU "BE"
 
 V-ing có thể là:
@@ -114,6 +133,7 @@ Lỗi xảy ra khi người học viết V-ing như thể nó tự làm main ver
 
 ---
 
+<!-- anchor: missing-main-verbs.common-mistake.ved-without-be -->
 ## KIỂU 3: DÙNG V-ED (PAST PARTICIPLE) THIẾU "BE"
 
 Tương tự, passive voice cần "be + past participle". Bỏ "be" khiến câu thiếu main verb.
@@ -129,6 +149,7 @@ Tương tự, passive voice cần "be + past participle". Bỏ "be" khiến câu
 
 ---
 
+<!-- anchor: missing-main-verbs.common-mistake.noun-phrase-only -->
 ## KIỂU 4: CHỈ CÓ NOUN PHRASE — KHÔNG CÓ PREDICATE
 
 Đây là trường hợp câu chỉ gồm cụm danh từ (noun phrase) — dù có thể rất dài và phức tạp — nhưng hoàn toàn không có verb.

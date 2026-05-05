@@ -126,7 +126,7 @@ CASES = [
         "id": "prod_missing_subject",
         "issue": "Thiếu chủ ngữ hoặc cấu trúc không hoàn chỉnh trong phần cuối câu",
         "expected_slug": "missing-subjects",
-        "expected_anchor_present": False,
+        "expected_anchor_present": True,  # Sprint 7b M049 — flipped 2026-05-05
     },
     # ── Sprint 6 positive controls — pin M032 and M037 directly ──
     # These production strings hit specific Sprint 6 mappings other than the

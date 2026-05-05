@@ -5,11 +5,11 @@ _Generated: 2026-05-05 — Sprint 7 Phase 1 scaffolding_
 ## Summary
 
 - **Total articles:** 98
-- **Covered slugs (≥1 active mapping):** 26
-- **Missing slugs:** 72
+- **Covered slugs (≥1 active mapping):** 28
+- **Missing slugs:** 70
   - **Ready** (anchors declared, mapping content can be written): 3
-  - **Blocked** (0 anchors, needs Sprint-1-style anchor declaration first): 69
-- **Active mappings (sanity check vs drift gate):** 40
+  - **Blocked** (0 anchors, needs Sprint-1-style anchor declaration first): 67
+- **Active mappings (sanity check vs drift gate):** 42
 
 > **Slug coverage** = does *any* mapping's `target_anchor` begin
 > with this slug? An article counts as covered with as little as
@@ -29,15 +29,13 @@ _Generated: 2026-05-05 — Sprint 7 Phase 1 scaffolding_
 
 ## Missing slugs WITHOUT declared anchors (blocker — anchor declaration first)
 
-### error-clinic (14 blocked)
+### error-clinic (12 blocked)
 
 - `affect-vs-effect` — 0 anchors
 - `do-vs-make` — 0 anchors
 - `double-subject-errors` — 0 anchors
 - `economic-vs-economical` — 0 anchors
 - `historic-vs-historical` — 0 anchors
-- `missing-main-verbs` — 0 anchors
-- `missing-subjects` — 0 anchors
 - `overusing-i-think` — 0 anchors
 - `preposition-errors` — 0 anchors
 - `run-on-sentences` — 0 anchors
