@@ -62,6 +62,7 @@
       <button id="btn-save"     class="btn-primary">💾 Save edits</button>
       <button id="btn-copy"     class="btn-secondary" title="Copy formatted to clipboard">📋 Copy formatted</button>
       <button id="btn-download" class="btn-secondary" title="Download .docx">⬇ Download .docx</button>
+      <span id="dirty-indicator" class="hidden text-sm font-medium" style="color:#fbbf24;" title="Unsaved changes">● Có thay đổi chưa lưu</span>
       <span class="flex-1"></span>
       <button id="btn-deliver"  class="btn-success">✓ Mark delivered</button>
       <span id="last-saved" class="text-xs ml-2" style="color:rgba(255,255,255,0.4);"></span>
@@ -174,6 +175,38 @@
     // Per-essay metadata kept around for headers / re-render after save
     var _essay = null;
     var _student = null;
+    // Dirty-state tracking (W3.1 Phase 2). True whenever the form has
+    // edits that haven't been PATCHed back to the server. Cleared on
+    // successful save and on initial population.
+    var _isDirty = false;
+
+    // ── Dirty-state (W3.1 Phase 2) ──────────────────────────────────
+    function _updateDirtyUI() {
+      var ind = document.getElementById('dirty-indicator');
+      if (ind) ind.classList.toggle('hidden', !_isDirty);
+    }
+    function markDirty() {
+      if (_isDirty) return;
+      _isDirty = true;
+      _updateDirtyUI();
+    }
+    function clearDirty() {
+      _isDirty = false;
+      _updateDirtyUI();
+    }
+    function attachDirtyListeners(root) {
+      // Hook input/change on every editable form control inside `root`.
+      // Called after populate() and after any DOM-rebuilt section
+      // (criteria blocks, mistake rows) so freshly-created inputs are
+      // tracked too.
+      (root || document).querySelectorAll('input, textarea').forEach(function (el) {
+        // Skip if already wired (event listeners de-dupe by reference,
+        // but markDirty is a stable named function so re-adding is a
+        // no-op).
+        el.addEventListener('input',  markDirty);
+        el.addEventListener('change', markDirty);
+      });
+    }
 
     function setAlert(kind, msg) {
       var area = document.getElementById('alert-area');
@@ -362,6 +395,10 @@
       document.getElementById('f-ai-likelihood').value = ai.likelihood;
       document.getElementById('f-ai-explanation').value = ai.explanation || '';
       renderAdvancedReadonly(fb);
+      // Wire dirty listeners on the just-populated form, then clear the
+      // flag so initial population doesn't count as a user edit.
+      attachDirtyListeners(document.getElementById('state-ready'));
+      clearDirty();
     }
 
     function buildPayloadFromForm() {
@@ -391,6 +428,8 @@
       }
     }
 
+    // Returns true on success, false on failure. Used by Copy/Download
+    // gates that prompt the user to save first when dirty.
     async function handleSave() {
       var btn = document.getElementById('btn-save');
       var orig = btn.textContent;
@@ -399,6 +438,7 @@
         var payload = buildPayloadFromForm();
         await window.api.patch('/admin/writing/essays/' + _essayId + '/feedback', payload);
         _feedback = payload;  // local state matches server-truth
+        clearDirty();
         setStatusPill('reviewed');
         document.getElementById('last-saved').textContent =
           'Lưu lúc ' + new Date().toLocaleTimeString();
@@ -406,14 +446,27 @@
         // Re-render mistakes highlight on left pane to match new edits
         document.getElementById('essay-text').innerHTML =
           renderHighlightedEssay(_essay.essay_text, payload.mistakeAnalysis);
+        return true;
       } catch (err) {
         setAlert('error', 'Save failed: ' + err.message);
+        return false;
       } finally {
         btn.disabled = false; btn.textContent = orig;
       }
     }
 
+    // Shared gate for Copy + Download. Returns true if it's safe to
+    // proceed (form clean OR user agreed to save and save succeeded).
+    async function _ensureSavedBefore(actionLabel) {
+      if (!_isDirty) return true;
+      if (!confirm('Bạn có thay đổi chưa lưu. Lưu trước khi ' + actionLabel + '?')) {
+        return false;
+      }
+      return await handleSave();
+    }
+
     async function handleCopy() {
+      if (!await _ensureSavedBefore('copy')) return;
       try {
         var data = await window.api.get('/admin/writing/essays/' + _essayId + '/render');
         if (navigator.clipboard && window.ClipboardItem) {
@@ -433,6 +486,7 @@
     }
 
     async function handleDownload() {
+      if (!await _ensureSavedBefore('tải file')) return;
       // We can't use a plain <a href>: api.js attaches Authorization to fetch only.
       // Fetch as blob, then trigger download via object URL.
       try {
@@ -465,6 +519,13 @@
     }
 
     async function handleDeliver() {
+      // No skip option for delivery: the saved admin_edits_json is the
+      // version going to the student; an unsaved form would silently
+      // ship the previous edit. Block until clean.
+      if (_isDirty) {
+        alert('Vui lòng lưu các thay đổi trước khi đánh dấu đã giao.');
+        return;
+      }
       if (!confirm('Đánh dấu bài này đã giao cho học viên? Trạng thái sẽ chuyển sang "delivered".')) return;
       try {
         var res = await window.api.post(
@@ -482,7 +543,10 @@
       var btn = e.target.closest('button[data-act="remove-mistake"]');
       if (!btn) return;
       var row = btn.closest('tr[data-row]');
-      if (row) row.remove();
+      if (row) {
+        row.remove();
+        markDirty();
+      }
     }
 
     function handleAddMistake() {
@@ -491,7 +555,23 @@
       if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
       var i = tbody.querySelectorAll('tr[data-row]').length;
       tbody.insertAdjacentHTML('beforeend', renderMistakeRow({}, i));
+      // Wire dirty listeners on the just-inserted row + adding a row is
+      // itself a dirty edit even if no field is filled in yet.
+      attachDirtyListeners(tbody.lastElementChild);
+      markDirty();
     }
+
+    // Browser-level guard against navigating away with unsaved edits.
+    // Modern browsers ignore the returned message but show a generic
+    // confirmation; the empty-string assignment is the canonical way
+    // to opt in.
+    window.addEventListener('beforeunload', function (e) {
+      if (_isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    });
 
     WC.bootstrap({
       onReady: function () {
