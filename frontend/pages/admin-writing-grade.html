@@ -22,8 +22,29 @@
     .btn-success   { background: rgba(34,197,94,0.18); color: #86efac; border: 1px solid rgba(34,197,94,0.30); padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 13px; }
     .btn-success:hover { background: rgba(34,197,94,0.28); }
     .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; }
-    .essay-pane mark { background: rgba(254,243,199,0.85); color: #1e293b; padding: 0 2px; border-radius: 2px; }
+    .essay-pane mark { background: rgba(254,243,199,0.85); color: #1e293b; padding: 0 2px; border-radius: 2px; cursor: pointer; }
+    .essay-pane mark:hover { background: rgba(251,191,36,0.95); }
     .essay-pane p { margin: 8px 0; line-height: 1.55; }
+    /* Keep scroll-to-mark inside the essay pane so the mistakes table on
+       the right stays visible while the user is jumping between rows. */
+    .essay-pane #essay-text { max-height: 70vh; overflow-y: auto; padding-right: 6px; }
+    /* Tab nav */
+    .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.10); margin-top: 12px; }
+    .tab-btn { background: transparent; color: rgba(255,255,255,0.55); border: 0; padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .tab-btn:hover { color: #e2e8f0; }
+    .tab-btn.active { color: #14b8a6; border-bottom-color: #14b8a6; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    /* Click-to-scroll pulse on mistakes (W3.2 P2) */
+    .mistakes-panel tr[data-mistake-id] { cursor: pointer; }
+    .mistakes-panel tr[data-mistake-id]:hover { background: rgba(255,255,255,0.04); }
+    .mistakes-panel tr.row-active { background: rgba(20,184,166,0.10); }
+    @keyframes pulseYellow {
+      0%   { background: rgba(254,243,199,0.85); box-shadow: none; }
+      35%  { background: rgba(251,191,36,1);     box-shadow: 0 0 0 4px rgba(251,191,36,0.45); }
+      100% { background: rgba(254,243,199,0.85); box-shadow: none; }
+    }
+    .essay-pane mark.pulse { animation: pulseYellow 1.6s ease-out; }
     .label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
     table.mistakes { width: 100%; border-collapse: collapse; }
     table.mistakes th, table.mistakes td { border: 1px solid rgba(255,255,255,0.08); padding: 6px 8px; vertical-align: top; font-size: 13px; }
@@ -70,52 +91,61 @@
 
     <div id="alert-area" class="mt-3"></div>
 
-    <!-- Two-pane layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-      <!-- LEFT: Original essay + prompt + mistakes (read-only highlight view) -->
-      <section class="card p-4 essay-pane">
-        <h2 class="font-semibold text-sm mb-2" style="color:rgba(255,255,255,0.7);">Original Essay</h2>
-        <div id="prompt-box" class="text-xs mb-3" style="color:rgba(255,255,255,0.5);"></div>
-        <div id="essay-text" class="text-sm" style="color:rgba(255,255,255,0.85);"></div>
-      </section>
+    <!-- Tab bar (W3.2 Phase 1) — single Save button persists edits across all tabs -->
+    <div class="tab-bar" role="tablist">
+      <button type="button" class="tab-btn active" data-tab="overview"  role="tab">Tổng quan</button>
+      <button type="button" class="tab-btn"        data-tab="mistakes"  role="tab">Phân tích lỗi</button>
+      <button type="button" class="tab-btn"        data-tab="advanced"  role="tab">Phân tích nâng cao</button>
+      <button type="button" class="tab-btn"        data-tab="improved"  role="tab">Bài tham khảo</button>
+    </div>
 
-      <!-- RIGHT: Editable feedback form -->
-      <section class="space-y-4">
+    <!-- ── TAB 1: Tổng quan — band + takeaways + criteria ─────────── -->
+    <div class="tab-panel active mt-4 space-y-4" data-panel="overview" role="tabpanel">
+      <div class="card p-4 space-y-3">
+        <div>
+          <label class="label">Overall band</label>
+          <input id="f-overall" type="number" step="0.5" min="0" max="9" class="input mt-1" />
+        </div>
+        <div>
+          <label class="label">Summary</label>
+          <textarea id="f-summary" rows="2" class="input mt-1"></textarea>
+        </div>
+      </div>
 
-        <div class="card p-4 space-y-3">
+      <div class="card p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label class="label">Overall band</label>
-            <input id="f-overall" type="number" step="0.5" min="0" max="9" class="input mt-1" />
+            <label class="label">Strengths (1 ý / dòng)</label>
+            <textarea id="f-strengths" rows="3" class="input mt-1"></textarea>
           </div>
           <div>
-            <label class="label">Summary</label>
-            <textarea id="f-summary" rows="2" class="input mt-1"></textarea>
+            <label class="label">Areas for improvement (1 ý / dòng)</label>
+            <textarea id="f-improvements" rows="3" class="input mt-1"></textarea>
           </div>
         </div>
+      </div>
 
-        <div class="card p-4">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="label">Strengths (1 ý / dòng)</label>
-              <textarea id="f-strengths" rows="3" class="input mt-1"></textarea>
-            </div>
-            <div>
-              <label class="label">Areas for improvement (1 ý / dòng)</label>
-              <textarea id="f-improvements" rows="3" class="input mt-1"></textarea>
-            </div>
-          </div>
-        </div>
+      <div class="card p-4 space-y-3">
+        <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Criteria</h3>
+        <div id="criteria-blocks" class="space-y-3"></div>
+      </div>
+    </div>
 
-        <div class="card p-4 space-y-3">
-          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Criteria</h3>
-          <div id="criteria-blocks" class="space-y-3"></div>
-        </div>
+    <!-- ── TAB 2: Phân tích lỗi — split essay (left) + mistakes table (right) ── -->
+    <div class="tab-panel mt-4" data-panel="mistakes" role="tabpanel">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <section class="card p-4 essay-pane">
+          <h2 class="font-semibold text-sm mb-2" style="color:rgba(255,255,255,0.7);">Original Essay</h2>
+          <div id="prompt-box" class="text-xs mb-3" style="color:rgba(255,255,255,0.5);"></div>
+          <div id="essay-text" class="text-sm" style="color:rgba(255,255,255,0.85);"></div>
+        </section>
 
-        <div class="card p-4">
+        <section class="card p-4 mistakes-panel">
           <div class="flex items-center justify-between mb-2">
             <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Mistake Analysis</h3>
-            <button id="btn-add-mistake" class="btn-secondary text-xs">＋ Add row</button>
+            <button id="btn-add-mistake" type="button" class="btn-secondary text-xs">＋ Add row</button>
           </div>
+          <p class="text-xs mb-2" style="color:rgba(255,255,255,0.4);">Click vào dòng → cuộn đến đoạn được highlight bên trái.</p>
           <table class="mistakes">
             <thead>
               <tr>
@@ -129,37 +159,42 @@
             </thead>
             <tbody id="mistakes-body"></tbody>
           </table>
-        </div>
+        </section>
+      </div>
+    </div>
 
-        <div class="card p-4">
-          <label class="label">Improved Essay (Band 8.0+)</label>
-          <textarea id="f-improved" rows="10" class="input mt-1"></textarea>
-        </div>
-
-        <div class="card p-4 space-y-2">
-          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">AI Content Analysis</h3>
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="label">Likelihood %</label>
-              <input id="f-ai-likelihood" type="number" min="0" max="100" class="input mt-1" />
-            </div>
-            <div class="col-span-2">
-              <label class="label">Explanation</label>
-              <input id="f-ai-explanation" class="input mt-1" />
-            </div>
+    <!-- ── TAB 3: Phân tích nâng cao — advanced + AI content ─────── -->
+    <div class="tab-panel mt-4 space-y-4" data-panel="advanced" role="tabpanel">
+      <div class="card p-4 space-y-2">
+        <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">AI Content Analysis</h3>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="label">Likelihood %</label>
+            <input id="f-ai-likelihood" type="number" min="0" max="100" class="input mt-1" />
+          </div>
+          <div class="col-span-2">
+            <label class="label">Explanation</label>
+            <input id="f-ai-explanation" class="input mt-1" />
           </div>
         </div>
+      </div>
 
-        <!-- Conditional advanced sections — read-only in W3, edit via JSON or re-grade -->
-        <div id="advanced-readonly" class="card p-4 hidden">
-          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Advanced Analysis (read-only)</h3>
-          <p class="text-xs mt-1" style="color:rgba(255,255,255,0.4);">
-            Các phần phân tích nâng cao (Coherence, Idea, Lexical, Sentence, Counter) hiển thị chỉ-đọc. Để chỉnh, hãy re-grade.
-          </p>
-          <div id="advanced-blocks" class="mt-2 space-y-2"></div>
-        </div>
+      <!-- Conditional advanced sections — read-only in W3, edit via JSON or re-grade -->
+      <div id="advanced-readonly" class="card p-4 hidden">
+        <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Phân tích chuyên sâu (read-only)</h3>
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.4);">
+          Coherence, Idea Development, Lexical, Sentence Structure, Counterargument hiển thị chỉ-đọc. Để chỉnh, hãy re-grade.
+        </p>
+        <div id="advanced-blocks" class="mt-2 space-y-2"></div>
+      </div>
+    </div>
 
-      </section>
+    <!-- ── TAB 4: Bài tham khảo — improved essay ─────────────────── -->
+    <div class="tab-panel mt-4" data-panel="improved" role="tabpanel">
+      <div class="card p-4">
+        <label class="label">Improved Essay (Band 8.0+)</label>
+        <textarea id="f-improved" rows="22" class="input mt-1"></textarea>
+      </div>
     </div>
   </main>
 
@@ -179,6 +214,30 @@
     // edits that haven't been PATCHed back to the server. Cleared on
     // successful save and on initial population.
     var _isDirty = false;
+
+    // ── Tab nav (W3.2 Phase 1) ─────────────────────────────────────
+    var _TAB_LS_KEY = 'wcGradeActiveTab';
+    var _VALID_TABS = ['overview', 'mistakes', 'advanced', 'improved'];
+
+    function activateTab(name) {
+      if (_VALID_TABS.indexOf(name) === -1) name = 'overview';
+      document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.tab === name);
+      });
+      document.querySelectorAll('.tab-panel').forEach(function (panel) {
+        panel.classList.toggle('active', panel.dataset.panel === name);
+      });
+      try { localStorage.setItem(_TAB_LS_KEY, name); } catch (_) { /* private mode */ }
+    }
+
+    function initTabs() {
+      document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { activateTab(btn.dataset.tab); });
+      });
+      var saved;
+      try { saved = localStorage.getItem(_TAB_LS_KEY); } catch (_) { saved = null; }
+      activateTab(saved || 'overview');
+    }
 
     // ── Dirty-state (W3.1 Phase 2) ──────────────────────────────────
     function _updateDirtyUI() {
@@ -218,12 +277,32 @@
     }
 
     function renderHighlightedEssay(text, mistakes) {
-      var originals = (mistakes || []).map(function (m) { return (m.original || '').trim(); }).filter(Boolean);
-      // Longest-first non-overlapping match (mirrors backend writing_render._highlight_mistakes).
-      originals.sort(function (a, b) { return b.length - a.length; });
-      var pattern = originals.length
-        ? new RegExp(originals.map(function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'g')
+      // Build [{idx, text}] sorted longest-first so longer phrases win at any
+      // position. idx is the original mistakeAnalysis index — the table row
+      // and the <mark> share that ID for click-to-scroll (W3.2 P2).
+      var entries = (mistakes || [])
+        .map(function (m, idx) { return { idx: idx, text: (m.original || '').trim() }; })
+        .filter(function (e) { return e.text; })
+        .sort(function (a, b) { return b.text.length - a.text.length; });
+
+      // Map matched-text → first mistakes[] index that owns it. Two mistakes
+      // with identical `original` strings end up sharing the same first row's
+      // ID; that's fine — clicking either row jumps to the same span.
+      var byText = {};
+      entries.forEach(function (e) {
+        if (byText[e.text] === undefined) byText[e.text] = e.idx;
+      });
+
+      var pattern = entries.length
+        ? new RegExp(entries.map(function (e) { return e.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'g')
         : null;
+
+      // Track per-mistake-id occurrence count so we can give the FIRST
+      // occurrence id="mistake-N" (the click target) and leave subsequent
+      // occurrences with no id — but still highlighted + tagged with the
+      // shared data-mistake-id for hover affordance.
+      var seenCount = {};
+
       var paragraphs = (text || '').split('\n\n').map(function (raw) {
         if (!raw.trim()) return '';
         if (!pattern) return '<p>' + WC.escapeHtml(raw) + '</p>';
@@ -231,7 +310,12 @@
         pattern.lastIndex = 0;
         while ((m = pattern.exec(raw)) !== null) {
           out += WC.escapeHtml(raw.slice(last, m.index));
-          out += '<mark>' + WC.escapeHtml(m[0]) + '</mark>';
+          var id = byText[m[0]];
+          var isFirst = !seenCount[id];
+          seenCount[id] = (seenCount[id] || 0) + 1;
+          var attrs = 'data-mistake-id="' + id + '"';
+          if (isFirst) attrs += ' id="mistake-' + id + '"';
+          out += '<mark ' + attrs + '>' + WC.escapeHtml(m[0]) + '</mark>';
           last = m.index + m[0].length;
         }
         out += WC.escapeHtml(raw.slice(last));
@@ -280,8 +364,10 @@
 
     function renderMistakeRow(m, i) {
       var safe = WC.escapeHtml;
+      // data-mistake-id matches the data-mistake-id stamped on each <mark>
+      // by renderHighlightedEssay, so row-click can find its target span.
       return (
-        '<tr data-row="' + i + '">' +
+        '<tr data-row="' + i + '" data-mistake-id="' + i + '">' +
           '<td><textarea data-field="original" rows="2" class="input">' + safe(m.original || '') + '</textarea></td>' +
           '<td><input data-field="mistakeType" class="input" value="' + safe(m.mistakeType || '') + '" /></td>' +
           '<td><textarea data-field="explanation" rows="2" class="input">' + safe(m.explanation || '') + '</textarea></td>' +
@@ -540,13 +626,36 @@
     }
 
     function handleMistakeClick(e) {
-      var btn = e.target.closest('button[data-act="remove-mistake"]');
-      if (!btn) return;
-      var row = btn.closest('tr[data-row]');
-      if (row) {
-        row.remove();
-        markDirty();
+      // Remove-mistake button takes priority — same handler is wired on
+      // tbody, so we have to disambiguate.
+      var removeBtn = e.target.closest('button[data-act="remove-mistake"]');
+      if (removeBtn) {
+        var row = removeBtn.closest('tr[data-row]');
+        if (row) { row.remove(); markDirty(); }
+        return;
       }
+
+      // Click anywhere on a row's NON-input area → scroll to + pulse the
+      // matching <mark> in the essay pane (W3.2 P2). Skip if the click
+      // landed inside an editable cell — typing should not cause a jump.
+      if (e.target.closest('textarea, input, button')) return;
+      var row = e.target.closest('tr[data-mistake-id]');
+      if (!row) return;
+      var id = row.dataset.mistakeId;
+      var target = document.getElementById('mistake-' + id);
+      if (!target) return;
+
+      // Visual pairing on the table: tag the active row briefly.
+      document.querySelectorAll('#mistakes-body tr.row-active')
+        .forEach(function (r) { r.classList.remove('row-active'); });
+      row.classList.add('row-active');
+      setTimeout(function () { row.classList.remove('row-active'); }, 1600);
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Restart the animation reliably even on repeat clicks.
+      target.classList.remove('pulse');
+      void target.offsetWidth;
+      target.classList.add('pulse');
     }
 
     function handleAddMistake() {
@@ -579,6 +688,7 @@
           setAlert('error', 'Thiếu essay_id trong URL.');
           return;
         }
+        initTabs();
         document.getElementById('btn-save').addEventListener('click', handleSave);
         document.getElementById('btn-copy').addEventListener('click', handleCopy);
         document.getElementById('btn-download').addEventListener('click', handleDownload);
