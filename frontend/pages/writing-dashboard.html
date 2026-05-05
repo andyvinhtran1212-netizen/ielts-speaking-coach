@@ -218,25 +218,27 @@
 
         var clickable = status.clickable;
         var cardClass = 'essay-card rounded-lg p-4' + (clickable ? ' clickable' : '');
-        // Detail page lives at /pages/writing-result.html (Phase 2.4
-        // will build it). Until that lands, clicking yields a 404,
-        // which is the documented Phase-2.2 trade-off.
-        var href = clickable
-          ? window.api.url('pages/writing-result.html?essay_id=' + encodeURIComponent(e.id))
-          : null;
+
+        // Phase 2.2.1: emit ONLY data-essay-id + a11y attrs. The previous
+        // approach inlined onclick="window.location.href=" + JSON.stringify(href)
+        // which embedded a double-quoted JSON string inside the double-quoted
+        // onclick attribute. The browser parsed it as
+        //   onclick="window.location.href="   (truncated)
+        // followed by bogus attributes, then SyntaxError on first user click.
+        // Listeners attached after innerHTML (see attachEssayCardClickListeners)
+        // compute the URL at click time so nothing is serialised into HTML.
+        var openAttrs = clickable
+          ? ' role="link" tabindex="0"'
+          : '';
 
         var arrow = clickable
           ? '<span class="text-teal-light text-sm font-medium">Xem →</span>'
           : '';
 
-        var openAttrs = clickable
-          ? ' role="link" tabindex="0"' +
-            ' onclick="window.location.href=' + JSON.stringify(href) + '"' +
-            ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();window.location.href=' + JSON.stringify(href) + '}"'
-          : '';
+        var essayIdAttr = ' data-essay-id="' + escapeHtml(e.id) + '"';
 
         return (
-          '<div class="' + cardClass + '"' + openAttrs + '>' +
+          '<div class="' + cardClass + '"' + essayIdAttr + openAttrs + '>' +
             '<div class="flex items-center justify-between gap-3 mb-2">' +
               '<span class="text-xs text-gray-300 font-medium">' + escapeHtml(task) + ' · ' + escapeHtml(date) + '</span>' +
               '<span class="pill ' + status.pill + '">' + escapeHtml(status.text) + '</span>' +
@@ -246,6 +248,32 @@
           '</div>'
         );
       }).join('');
+
+      attachEssayCardClickListeners();
+    }
+
+    function attachEssayCardClickListeners() {
+      // Wire pointer + keyboard (Enter / Space) navigation on every
+      // .essay-card.clickable. Computing the URL inside the listener
+      // — instead of serialising it into an inline attribute —
+      // sidesteps the quote-nesting class of bugs entirely.
+      var cards = document.querySelectorAll('.essay-card.clickable');
+      cards.forEach(function (card) {
+        var goToDetail = function () {
+          var essayId = card.getAttribute('data-essay-id');
+          if (!essayId) return;
+          window.location.href = window.api.url(
+            'pages/writing-result.html?essay_id=' + encodeURIComponent(essayId)
+          );
+        };
+        card.addEventListener('click', goToDetail);
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            goToDetail();
+          }
+        });
+      });
     }
 
     // ── Bootstrap ───────────────────────────────────────────────────
