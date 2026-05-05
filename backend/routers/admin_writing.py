@@ -68,6 +68,20 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _fetch_status_or_404(essay_id: str) -> str:
+    """Return the current status of an essay, or raise 404 when missing."""
+    r = (
+        supabase_admin.table("writing_essays")
+        .select("status")
+        .eq("id", essay_id)
+        .limit(1)
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(404, "Essay not found")
+    return r.data[0]["status"]
+
+
 # ── Endpoints (W2) ────────────────────────────────────────────────────
 
 @router.post("/essays", status_code=status.HTTP_202_ACCEPTED)
@@ -143,7 +157,12 @@ async def update_feedback(
     Body is the entire WritingFeedback shape (after admin's edits). It is
     validated server-side against the Pydantic schema before write — a
     drift-protected admin can't store something the renderer would later
-    crash on. Status flips to 'reviewed'.
+    crash on. Status flips to 'reviewed' (idempotent re-edit allowed).
+
+    State machine: only essays in ('graded', 'reviewed') accept edits.
+    Pre-graded states are still in flight (pending/grading) or terminal
+    failure (failed); 'delivered' is immutable until explicit reopen
+    (deferred to Phase 1.5).
     """
     await require_admin(authorization)
 
@@ -151,6 +170,16 @@ async def update_feedback(
         validated = WritingFeedback(**edits)
     except Exception as exc:
         raise HTTPException(422, f"Edits fail schema: {exc}")
+
+    current_status = _fetch_status_or_404(str(essay_id))
+    if current_status not in ("graded", "reviewed"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot save edits on essay with status {current_status!r}. "
+                f"Allowed states: graded, reviewed."
+            ),
+        )
 
     try:
         r = (
@@ -177,7 +206,14 @@ async def mark_delivered(
     body: MarkDeliveredRequest = MarkDeliveredRequest(),
     authorization: str | None = Header(None),
 ):
-    """Mark essay delivered to student. Stores delivery_method + timestamp."""
+    """Mark essay delivered to student. Stores delivery_method + timestamp.
+
+    State machine: only 'reviewed' can transition to 'delivered'. Skipping
+    review (graded → delivered) is rejected — admin must save edits first
+    so admin_edits_json reflects the version actually delivered. Already-
+    delivered essays cannot be re-delivered (immutable until Phase 1.5
+    reopen).
+    """
     await require_admin(authorization)
 
     if body.method not in _ALLOWED_DELIVERY_METHODS:
@@ -185,6 +221,16 @@ async def mark_delivered(
             400,
             f"Invalid delivery method: {body.method!r}. "
             f"Allowed: {sorted(_ALLOWED_DELIVERY_METHODS)}",
+        )
+
+    current_status = _fetch_status_or_404(str(essay_id))
+    if current_status != "reviewed":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot mark delivered: essay status is {current_status!r}. "
+                f"Required: reviewed. Save edits first."
+            ),
         )
 
     try:
