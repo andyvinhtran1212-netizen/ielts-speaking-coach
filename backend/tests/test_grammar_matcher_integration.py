@@ -203,3 +203,48 @@ def test_production_issue_resolves_to_expected_state(case):
             f"Sprint 6 mapping expansion likely addressed this case — "
             f"flip expected_anchor_present to True in this test fixture."
         )
+
+
+# ── Sprint 7a Day 4 — M044 production-canary tuning ──────────────────
+#
+# After Sprint 7a Day 3 merged M044 (prepositions slug coverage),
+# production canary showed 2 rows that hit the slug (score ≈ 0.213) but
+# `find_best_anchor` returned None. The Day 4 prompt added Vietnamese-
+# leading keywords ("Sai giới từ", "Thiếu giới từ") and verb-form-after-
+# preposition keywords + canary phrasings as user_phrase_examples.
+#
+# This test pins post-Day-4 behaviour: at least 1 of the 3 canary
+# strings must now resolve to a non-null anchor on the prepositions
+# slug. Not all 3 — some legitimately drift far from the
+# transfer-from-vietnamese anchor's shape — but the bar is non-zero so
+# a regression that re-empties M044's haystack would surface here.
+
+_M044_CANARY_ISSUES = [
+    "Thiếu giới từ — 'to support my studies, such as do homework' (phải là 'such as doing homework')",
+    "Sai giới từ: 'helps the phone I use afterwards'",
+    "Sai giới từ: 'helps me to entertain'",
+]
+
+
+def test_m044_resolves_at_least_one_production_canary():
+    """Sprint 7a Day 4: ≥1/3 canary issues must reach an anchor on the
+    prepositions slug after the M044 keyword tuning."""
+    resolved = 0
+    routed_to_prepositions = 0
+    for issue in _M044_CANARY_ISSUES:
+        match = grammar_service.find_best_match(issue)
+        if not match or match["slug"] != "prepositions":
+            continue
+        routed_to_prepositions += 1
+        if grammar_service.find_best_anchor(issue, "prepositions") is not None:
+            resolved += 1
+
+    assert resolved >= 1, (
+        f"After Sprint 7a Day 4 M044 tuning, expected ≥1 of 3 canary "
+        f"issues to resolve to a non-null anchor on the prepositions "
+        f"slug; got {resolved} (routed to prepositions slug: "
+        f"{routed_to_prepositions}/3). If all 3 still return None, the "
+        f"M044 haystack still doesn't share enough tokens with real "
+        f"production phrasing — re-tune feedback_keywords / "
+        f"user_phrase_examples in feedback-anchor-mapping.yaml."
+    )
