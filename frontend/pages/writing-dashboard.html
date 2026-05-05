@@ -257,14 +257,25 @@
       // .essay-card.clickable. Computing the URL inside the listener
       // — instead of serialising it into an inline attribute —
       // sidesteps the quote-nesting class of bugs entirely.
+      //
+      // Phase 2.2.2: navigate via absolute /writing/result rewrite
+      // instead of window.api.url('pages/...'). Reason: api.js's
+      // _appRoot heuristic only triggers when window.location.pathname
+      // matches /\/pages\/[^/]+$/. The user reaches this dashboard via
+      // the /writing/dashboard Vercel rewrite, so pathname is
+      // "/writing/dashboard" and _appRoot resolves to "./", producing
+      // ./pages/writing-result.html which the browser resolves against
+      // /writing/ → /writing/pages/writing-result.html → 404 (canary
+      // 2026-05-06). The /writing/result rewrite is already declared
+      // in frontend/vercel.json, so an absolute path is the cleanest
+      // production fix and keeps the address bar pretty.
       var cards = document.querySelectorAll('.essay-card.clickable');
       cards.forEach(function (card) {
         var goToDetail = function () {
           var essayId = card.getAttribute('data-essay-id');
           if (!essayId) return;
-          window.location.href = window.api.url(
-            'pages/writing-result.html?essay_id=' + encodeURIComponent(essayId)
-          );
+          window.location.href =
+            '/writing/result?essay_id=' + encodeURIComponent(essayId);
         };
         card.addEventListener('click', goToDetail);
         card.addEventListener('keydown', function (ev) {
