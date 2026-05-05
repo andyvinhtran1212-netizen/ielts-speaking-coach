@@ -36,6 +36,26 @@ _TASK_LABELS: dict[str, str] = {
 }
 
 
+# ── Color palette (W3.2 Phase 3) ─────────────────────────────────────
+# Threshold matches W3.2 Phase 4 HTML render so the .docx export and the
+# clipboard paste are visually consistent.
+
+_COLOR_TEAL  = RGBColor(0x0D, 0x94, 0x88)  # band ≥ 7.0
+_COLOR_AMBER = RGBColor(0xCA, 0x8A, 0x04)  # 5.5 ≤ band < 7.0
+_COLOR_RED   = RGBColor(0xDC, 0x26, 0x26)  # band < 5.5
+
+
+def _band_color(score: float) -> RGBColor:
+    """Threshold-coded color for an IELTS band score."""
+    if score is None:
+        return _COLOR_TEAL
+    if score >= 7.0:
+        return _COLOR_TEAL
+    if score >= 5.5:
+        return _COLOR_AMBER
+    return _COLOR_RED
+
+
 # ── Public API ───────────────────────────────────────────────────────
 
 def render_essay_to_docx(
@@ -94,7 +114,7 @@ def _build_document(
     band_run = band_p.add_run(f"{feedback.overallBandScore:.1f} / 9.0")
     band_run.bold = True
     band_run.font.size = Pt(20)
-    band_run.font.color.rgb = RGBColor(0x0D, 0x94, 0x88)
+    band_run.font.color.rgb = _band_color(feedback.overallBandScore)
     doc.add_paragraph(feedback.overallBandScoreSummary)
 
     # ── Key Takeaways ──
@@ -247,31 +267,43 @@ def _bold_first_row(table) -> None:
 
 
 def _fill_bullets(cell, items: Iterable[str]) -> None:
-    """Replace cell content with a bullet list. python-docx tables ship with
-    one empty paragraph per cell; we reuse it for the first item."""
+    """Replace cell content with a Word-native bullet list (style='List Bullet').
+
+    python-docx tables ship with one empty paragraph per cell; we reuse
+    it for the first item so we don't leave a stray blank line at the
+    top of the cell (W3.2 Phase 3: switched from "• " prefix runs to
+    Word's built-in bullet style — Andy's first-use feedback noted the
+    prior render had no bullets).
+    """
     items = list(items or [])
     if not items:
         cell.text = "—"
         return
-    # First paragraph is already there
     cell.paragraphs[0].text = ""
     for i, item in enumerate(items):
-        p = cell.paragraphs[0] if i == 0 else cell.add_paragraph()
-        p.text = ""
-        p.add_run("• ").bold = True
+        if i == 0:
+            p = cell.paragraphs[0]
+            p.text = ""
+        else:
+            p = cell.add_paragraph()
+        p.style = "List Bullet"
         p.add_run(item)
 
 
 def _fill_criterion_cell(cell, criterion) -> None:
-    """Render one criterion: title (bold) + band (teal) + explanation (italic)
-    + feedback paragraph."""
+    """Render one criterion: title (bold) + band (threshold-coloured) +
+    explanation (italic) + feedback paragraph.
+
+    W3.2 Phase 3: the band score colour now follows the same threshold as
+    the overall band — teal/amber/red — so a low criterion stands out
+    instead of misleadingly rendering teal."""
     cell.paragraphs[0].text = ""
     title_p = cell.paragraphs[0]
     title_run = title_p.add_run(criterion.title)
     title_run.bold = True
     band_run = title_p.add_run(f"  {criterion.bandScore}/9")
     band_run.bold = True
-    band_run.font.color.rgb = RGBColor(0x0D, 0x94, 0x88)
+    band_run.font.color.rgb = _band_color(criterion.bandScore)
 
     if criterion.explanation:
         exp_p = cell.add_paragraph()

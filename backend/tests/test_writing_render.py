@@ -267,6 +267,61 @@ def test_render_plain_text_unescapes_entities():
     assert "<foo>" in plain  # angle brackets restored as-is in plain text
 
 
+# ── W3.2 Phase 4: threshold band class + takeaway colour classes ─────
+
+@pytest.mark.parametrize("score,expected_class", [
+    (8.0, "band-high"),
+    (7.0, "band-high"),
+    (6.5, "band-mid"),
+    (5.5, "band-mid"),
+    (5.0, "band-low"),
+    (3.5, "band-low"),
+])
+def test_render_includes_band_threshold_class(score, expected_class):
+    """Overall band-score span carries the threshold class (high/mid/low)
+    so clipboard paste into Google Docs colours by performance."""
+    payload = _l1_feedback()
+    payload["overallBandScore"] = score
+    fb = WritingFeedback(**payload)
+    html = render_feedback_html(
+        feedback=fb, essay_text="x", prompt_text="y",
+        task_type="task2", student_name="A",
+    )
+    assert f'class="band-score {expected_class}"' in html
+
+
+def test_render_strengths_use_strength_class():
+    fb = WritingFeedback(**_l1_feedback())
+    html = render_feedback_html(
+        feedback=fb, essay_text="x", prompt_text="y",
+        task_type="task2", student_name="A",
+    )
+    assert '<li class="strength">Diễn đạt rõ ý chính</li>' in html
+
+
+def test_render_improvements_use_improvement_class():
+    fb = WritingFeedback(**_l1_feedback())
+    html = render_feedback_html(
+        feedback=fb, essay_text="x", prompt_text="y",
+        task_type="task2", student_name="A",
+    )
+    assert '<li class="improvement">Cần đa dạng cấu trúc câu</li>' in html
+
+
+def test_render_criterion_band_uses_threshold_class():
+    """Per-criterion crit-band span carries band-{high,mid,low} too."""
+    payload = _l1_feedback()
+    payload["criteriaFeedback"]["lexicalResource"]["bandScore"] = 8  # high
+    payload["criteriaFeedback"]["grammaticalRange"]["bandScore"] = 4  # low
+    fb = WritingFeedback(**payload)
+    html = render_feedback_html(
+        feedback=fb, essay_text="x", prompt_text="y",
+        task_type="task2", student_name="A",
+    )
+    assert 'crit-band band-high">8/9' in html
+    assert 'crit-band band-low">4/9' in html
+
+
 # ── Smoke: ensure deepcopy of payload doesn't mutate fixtures ────────
 
 def test_fixture_isolation_smoke():
