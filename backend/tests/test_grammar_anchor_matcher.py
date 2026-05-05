@@ -148,3 +148,41 @@ def test_anchor_resolution_documents_production_canary():
     match = grammar_service.find_best_match(issue)
     # Slug match is sufficient — anchor resolution is best-effort.
     assert match is not None, "Sprint 7c rework should produce some routing"
+
+
+# ── Sprint 7c.3 — M023 modal-verbs Vietnamese keyword tune ────────────
+#
+# Sprint 7c.1+7c.2 production canary 2026-05-05: "can easily to attract"
+# routed correctly to modal-verbs slug (M023's English keyword "can to V"
+# matched after long-quote strip via the residual "can" token), BUT the
+# anchor returned NULL because M023's keywords + examples were entirely
+# English. AI feedback prefixes the quote with Vietnamese commentary
+# like "sai động từ nguyên mẫu sau 'can'", which had no keyword anchor
+# to score against. Sprint 7c.3 appends 8 Vietnamese keywords + 6
+# production-derived phrase examples (same playbook as M044 Sprint 7a
+# Day 4). This test pins the post-fix state.
+
+def test_m023_resolves_production_canary_pattern():
+    """Real production string — slug must route to modal-verbs AND
+    anchor must resolve to the bare-infinitive-required anchor (or at
+    minimum a modal-verbs.* anchor). If this fails after Sprint 7c.3,
+    investigate whether the new VN keywords still survive tokenization
+    + word-boundary haystack matching in find_best_anchor."""
+    issue = "Cấu trúc 'can easily to attract' — sai động từ nguyên mẫu sau 'can'"
+
+    match = grammar_service.find_best_match(issue)
+    assert match is not None, "Slug routing regressed for M023 canary"
+    assert match["slug"] == "modal-verbs", (
+        f"Expected modal-verbs slug, got {match['slug']!r}"
+    )
+
+    anchor = grammar_service.find_best_anchor(issue, "modal-verbs")
+    assert anchor is not None, (
+        "Sprint 7c.3 regression: anchor returned NULL despite VN "
+        "keyword tune. Check that 'sai động từ nguyên mẫu' / "
+        "'động từ nguyên mẫu sau' survive Unicode word-boundary "
+        "tokenization in find_best_anchor."
+    )
+    assert "bare-infinitive" in anchor or anchor.startswith("modal-verbs."), (
+        f"Expected modal-verbs.* anchor, got {anchor!r}"
+    )

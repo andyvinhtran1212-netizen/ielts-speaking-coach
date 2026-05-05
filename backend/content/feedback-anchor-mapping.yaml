@@ -523,15 +523,33 @@ mappings:
     target_file: backend/content/verb-patterns/modal-verbs.md
     feedback_pattern_summary: "Modal verb + 'to' (can to swim) hoặc + V-ing (should going)"
     feedback_keywords:
+      # Existing English keywords
       - "modal with to"
       - "can to V"
       - "should V-ing"
       - "modal bare infinitive missing"
+      # Sprint 7c.3 — Vietnamese (production canary 2026-05-05)
+      - "sai động từ nguyên mẫu"
+      - "động từ nguyên mẫu sau"
+      - "modal sau"
+      - "can phải đi với"
+      - "should phải đi với"
+      - "must phải đi với"
+      - "thiếu động từ nguyên mẫu"
+      - "sai cấu trúc modal"
     user_phrase_examples:
+      # Existing canonical errors
       - "I can to swim"
       - "She must to study harder"
       - "We should going to bed earlier"
       - "He could to come"
+      # Sprint 7c.3 — production canary fragments
+      - "can easily to attract"
+      - "should to learn"
+      - "must to finish"
+      - "can to attract a lot"
+      - "should going to school"
+      - "must to take care"
     confidence: high
     severity: common
     related_anchors:
