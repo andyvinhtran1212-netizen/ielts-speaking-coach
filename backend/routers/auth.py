@@ -329,6 +329,49 @@ async def activate_account(
     except Exception as e:
         logger.warning("[warn] Could not create user_code_assignment: %s", e)
 
+    # ── Step 6 (Phase 2.1): link students.user_id when code matches a
+    # student's student_code. This is the bridge that lets a student
+    # read their own writing_essays via /api/writing/my-essays after
+    # logging in with the same access_code that admin issued them.
+    #
+    # Defensive: any failure here is logged but never blocks
+    # activation. The user is already activated (Step 3); a missing
+    # student link only affects Writing-Coach access, which can be
+    # repaired later by re-running this lookup or by an admin tool.
+    try:
+        student_match = (
+            supabase_admin.table("students")
+            .select("id, user_id")
+            .eq("student_code", code)
+            .limit(1)
+            .execute()
+        )
+        if student_match.data:
+            student_row = student_match.data[0]
+            existing_link = student_row.get("user_id")
+            if not existing_link:
+                supabase_admin.table("students").update({
+                    "user_id": user_id,
+                }).eq("id", student_row["id"]).execute()
+                logger.info(
+                    "[auth] linked student=%s to user=%s via code=%s",
+                    student_row["id"], user_id, code,
+                )
+            elif existing_link != user_id:
+                # Don't overwrite — surfaces a real conflict (same
+                # student_code being shared across two Google
+                # accounts, e.g. a code reuse) so admin can resolve.
+                logger.warning(
+                    "[auth] student=%s already linked to user=%s, "
+                    "refusing to relink to user=%s via code=%s",
+                    student_row["id"], existing_link, user_id, code,
+                )
+    except Exception as e:
+        logger.warning(
+            "[auth] student linking failed for code=%s user=%s: %s",
+            code, user_id, e,
+        )
+
     return {
         "success": True,
         "message": "Tài khoản đã được kích hoạt!",
