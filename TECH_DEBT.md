@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-05
-**Last reviewed:** 2026-05-05
+**Last updated:** 2026-05-05 (PM)
+**Last reviewed:** 2026-05-05 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -123,7 +123,7 @@ material, not active backlog.
 
 #### ~~HIGH-11: Writing Coach Phase 1 — Sprint W3 (render + delivery)~~ ✅ DONE 2026-05-05
 
-#### HIGH-12: Codex audit Sprint 0-6 (Speaking deep-link broken)
+#### ~~HIGH-12: Codex audit Sprint 0-6 (Speaking deep-link broken)~~ ✅ DONE 2026-05-05
 - **What:** Andy manual smoke 2026-05-04 reports 3 features không hoạt động
   trong production:
   - URL bar không có #anchor-name sau click recommendation
@@ -580,6 +580,55 @@ item below is a follow-up, not a blocker.
 ---
 
 ## ✅ Completed
+
+### Speaking Deep-link Feature LIVE — 2026-05-05 (PM, 11 PRs across 1 day)
+
+**MILESTONE:** Speaking deep-link feature từ Codex audit RED (2026-05-04) đến
+production LIVE verified. AI grammar feedback now resolves to specific anchor
+sections trong Grammar Wiki articles, with smooth-scroll + pulse animation.
+
+**Sprints shipped (PRs #55-#65):**
+- 6.5 PR #55: Diagnostic logging trong matcher pipeline + /health/runtime endpoint
+- 6.6 PR #56: Logging config (basicConfig added — Sprint 6.5 logs were silent)
+- 6.7 PR #57: Lower matcher threshold 0.35 → 0.20
+- 7 scaffolding PR #58: Mapping coverage audit (98 articles, 18 mapped, 80 missing)
+- 7a Day 2: AI-generated 11 mapping drafts (planner approved 8, dropped 3)
+- 7a Day 3 PR #58 merge: 8 new mappings (M038-M048 minus M041/M042/M045)
+- 7a Day 4 PR #59: Tune M044 prepositions với VN production keywords
+- 7b PR #60: Declare anchors + write M049/M050 (missing-subjects, missing-main-verbs)
+- 7c PR #61: Rework find_best_match scoring (3-tier: mapping > title > body)
+- 7c.1+7c.2 PR #62: Apply hardening to find_best_anchor + quoted-phrase stripping
+- 7c.3 PR #64: Tune M023 modal-verbs với VN keywords
+- Unfreeze stale defers PR #65: M016/M017/M025/M027/M028 unfrozen, count 42→47
+
+**Plus operational:**
+- Admin bypass quota PR #63 (admin role unlimited sessions)
+
+**Cumulative state:**
+- Tests: 450 → 471 (+21)
+- Active mappings: 31 → 47 (+16)
+- Declared anchors: 207 → 217 (+10 from M049/M050 + Sprint 7b anchor declarations)
+- Coverage: 18 → 26 mapped slugs
+
+**Architecture insights gained:**
+- Tests passing với mocked matcher ≠ production behavior (Sprint 6.6: logging silent)
+- Article body word frequency dominated routing (Sprint 7c: 3-tier scoring)
+- Quoted student errors confused VN_HINT triggers (Sprint 7c.2: strip quotes ≥3 words)
+- Vietnamese-only mapping keywords needed for production AI feedback (Sprint 7a Day 4 + 7c.3)
+
+**Codex audit verdict 2026-05-04:**
+- Original RED → Sprint 6.5+6.6 revealed root cause (logging silent, then matcher gaps)
+- Final state: production canary 2026-05-05 verified deep-link working
+
+**Production canary verified working:**
+- "Sai cấu trúc động từ — 'can easily to attract' — sai động từ nguyên mẫu sau 'can'"
+- → routed modal-verbs slug ✅
+- → resolved anchor modal-verbs.structure.bare-infinitive-required ✅
+- → URL hash, smooth scroll, pulse animation all functional ✅
+
+**Open from canary observations (defer):**
+- 67 blocked articles still need anchor declarations (low emit frequency)
+- Other M-mappings may have English-only keywords (apply M044/M023 playbook as data reveals)
 
 ### Phase 1 Writing Coach GA — 2026-05-05 (10 PRs across 5 days)
 
@@ -1072,7 +1121,7 @@ captured 2026-04-30.  Coverage baseline lives at
 `docs/audits/COVERAGE_BASELINE_2026-04-30.md`.
 
 **Code:**
-- Backend tests: **450 collected** (was 261 pre-Writing-Coach; +189 across
+- Backend tests: **471 collected** (was 261 pre-Writing-Coach; +189 across
   W0 → W3.3).
 - Coverage baseline: **50% overall** (PR #31; unchanged).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
@@ -1080,8 +1129,8 @@ captured 2026-04-30.  Coverage baseline lives at
 - Migrations applied production: **001–032** (032 deep-link `recommended_anchor`
   column on `grammar_recommendations`, Sprint 4).
 - Live RLS tests: **8 pass live** (no skips when staging creds present).
-- Active grammar mappings: still **37**.
-- Declared grammar anchors: still **207**.
+- Active grammar mappings: **47** (was 37, Sprint 7 series +10).
+- Declared grammar anchors: **217** (was 207, Sprint 7b +10).
 - Drift gate: **green throughout**.
 - Writing Coach: **16 admin endpoints, 5 services, 9 prompt files, ~$0.04/essay cost.**
 
@@ -1099,9 +1148,9 @@ captured 2026-04-30.  Coverage baseline lives at
   hardening still recommended before broader user expansion.
 
 **Workstream status (2026-05-05):**
-- IELTS Speaking deep-link: **LIVE in production** but smoke test FAILED — Andy
-  reports 3 deep-link UX features broken (URL hash, smooth-scroll, pulse).
-  Codex audit pending (HIGH-12 NEW).
+- IELTS Speaking deep-link: **LIVE in production VERIFIED** 2026-05-05 PM.
+  9-sprint cycle (6.5 → 7c.3) addressed Codex audit RED findings.
+  All 3 features working: URL hash, smooth-scroll, pulse.
 - Writing Coach Phase 1: **LIVE in production GA 2026-05-05**. Daily admin use ready.
 - Writing Coach Phase 1.5: 3 candidates queued (W-PHASE-1.5a/b/c).
 - Design pack v2: Received 2026-05-04, integration deferred (9 pages
@@ -1167,8 +1216,8 @@ captured 2026-04-30.  Coverage baseline lives at
       (Speaking deep-link, Writing Coach) took priority.
 - [ ] Baseline metrics documented — **paused** (HIGH-5).
 - [x] Phase 3 direction chosen — **DECIDED**: Multi-track approach.
-      Track 1 = Grammar Wiki deep-link (Sprint 0-6 + 5b shipped; smoke FAILED
-      2026-05-04, Codex audit pending HIGH-12).  Track 2 = Writing Coach
+      Track 1 = Grammar Wiki deep-link (Sprint 0-6 + 5b shipped + Sprint 7
+      series 2026-05-05 PM resolved Codex audit RED, LIVE verified).  Track 2 = Writing Coach
       (Phase 1 GA 2026-05-05 with 10 PRs W0→W3.3).  Track 3 = Design pack
       integration (deferred batch).
 
@@ -1270,6 +1319,16 @@ here so a new collaborator can skim the prior-art:
     "all commits done", and even "tests passing" do not equal deployment.
     The merge ceremony (push → PR → CI → merge → deploy) is part of
     "shipped", not optional.
+17. **Logging silent without basicConfig** — added 2026-05-05 PM after
+    Sprint 6.5 shipped 10 logger.info diagnostic calls but Railway logs
+    showed zero output. Root cause: backend never called logging.basicConfig,
+    so Python defaulted to WARNING level — all INFO calls silent. Required
+    Sprint 6.6 patch (basicConfig + StreamHandler stdout) to make Sprint 6.5
+    diagnostic actually visible. Lesson: every Python service deployed to
+    cloud needs explicit logging config; never assume default INFO works.
+    Drove total ship time from 1-sprint diagnosis (planned) to 2-sprint
+    (diagnostic + config fix) before real fix work could start.
+
 16. **Tests passing ≠ Gemini schema compliance in production** — added 2026-05-05
     after Phase 1 Writing shipped 3 Gemini schema-drift bugs (W2.1, W3.3, plus
     suggestion field) that all tests passed mocked but failed live. Tests use
