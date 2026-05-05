@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Phân tích bài viết — Aver Learning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
+  <style>
+    body {
+      background: linear-gradient(135deg, #0C2340 0%, #0d2e45 40%, #0F766E 100%);
+      min-height: 100vh;
+      color: #e5e7eb;
+      font-family: 'Inter', sans-serif;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 70% 30%, rgba(15,118,110,0.18) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    main { position: relative; z-index: 1; }
+
+    .section {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    @media (min-width: 768px) {
+      .section { padding: 1.75rem; margin-bottom: 1.5rem; }
+    }
+
+    .band-score {
+      display: inline-block;
+      background: linear-gradient(135deg, #14b8a6 0%, #0F766E 100%);
+      color: white;
+      padding: 0.5rem 1.25rem;
+      border-radius: 10px;
+      font-size: 1.5rem;
+      font-weight: 700;
+      box-shadow: 0 6px 18px rgba(15,118,110,0.35);
+    }
+    .criteria-band {
+      display: inline-block;
+      background: rgba(15,118,110,0.22);
+      color: #14b8a6;
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+    .mistake-card {
+      background: rgba(239,68,68,0.06);
+      border-left: 3px solid #ef4444;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.75rem;
+      border-radius: 6px;
+    }
+    .mistake-original    { text-decoration: line-through; color: #fca5a5; }
+    .mistake-suggestion  { color: #86efac; font-weight: 500; }
+
+    .essay-prose {
+      line-height: 1.7;
+      white-space: pre-wrap;
+      font-size: 0.95rem;
+    }
+
+    .pill-criterion {
+      display: inline-block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.125rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+      color: #d1d5db;
+      margin-right: 0.5rem;
+    }
+
+    .left-rule {
+      border-left: 2px solid rgba(20,184,166,0.5);
+      padding-left: 1rem;
+    }
+    .left-rule-amber { border-left-color: rgba(251,191,36,0.5); }
+    .left-rule-blue  { border-left-color: rgba(96,165,250,0.5); }
+  </style>
+</head>
+<body>
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    <!-- Header với back link -->
+    <header class="mb-6">
+      <a id="back-link"
+         href="#"
+         class="text-teal-light hover:text-white transition inline-flex items-center gap-1 text-sm">
+        <span aria-hidden="true">←</span>
+        <span>Quay lại danh sách</span>
+      </a>
+    </header>
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-16" role="status" aria-live="polite">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-light border-t-transparent"></div>
+      <p class="mt-3 text-gray-300">Đang tải bài viết...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="hidden max-w-md mx-auto text-center py-16">
+      <div class="rounded-lg p-6 border border-red-500/20 bg-red-500/5">
+        <p class="text-red-300 mb-4" id="error-message"></p>
+        <a id="error-back"
+           href="#"
+           class="inline-block text-teal-light underline hover:text-white transition">
+          Về danh sách
+        </a>
+      </div>
+    </div>
+
+    <!-- Not delivered yet -->
+    <div id="not-delivered" class="hidden max-w-md mx-auto text-center py-16">
+      <div class="rounded-lg p-8 border border-amber-500/20 bg-amber-500/5">
+        <div class="text-5xl mb-3" aria-hidden="true">⏳</div>
+        <p class="text-gray-200 mb-2">Bài này đang được giảng viên xem lại</p>
+        <p class="text-sm text-gray-400 mb-4">Em sẽ nhận được kết quả sớm nhé!</p>
+        <a id="not-delivered-back"
+           href="#"
+           class="inline-block text-teal-light underline hover:text-white transition">
+          Về danh sách
+        </a>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content" class="hidden">
+      <div id="prompt-section" class="section"></div>
+      <div id="essay-section" class="section"></div>
+      <div id="overall-section" class="section"></div>
+      <div id="strengths-areas-section" class="section"></div>
+      <div id="recurring-section" class="section hidden"></div>
+      <div id="criteria-section" class="section"></div>
+      <div id="mistakes-section" class="section hidden"></div>
+      <div id="coherence-section" class="section hidden"></div>
+      <div id="idea-development-section" class="section hidden"></div>
+      <div id="counterargument-section" class="section hidden"></div>
+      <div id="improved-section" class="section hidden"></div>
+    </div>
+  </main>
+
+  <!-- Supabase + API helpers -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    var DASHBOARD_URL = window.api.url('pages/writing-dashboard.html');
+    document.getElementById('back-link').href           = DASHBOARD_URL;
+    document.getElementById('error-back').href          = DASHBOARD_URL;
+    document.getElementById('not-delivered-back').href  = DASHBOARD_URL;
+
+    // ── Helpers ─────────────────────────────────────────────────────
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function formatDate(iso) {
+      if (!iso) return '';
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    function wordCount(text) {
+      var t = (text || '').trim();
+      return t ? t.split(/\s+/).length : 0;
+    }
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // Schema is `{instruction, example}` per W2.1, but legacy rows from
+    // before the W2.1 coercion validator may carry plain strings. The
+    // Gemini prompt was tightened in W2.1 to instruct the object shape;
+    // this helper absorbs both so we never render `undefined`.
+    function normalizeSuggestion(s) {
+      if (!s) return null;
+      if (typeof s === 'string') return { instruction: '', example: s };
+      return {
+        instruction: s.instruction || '',
+        example:     s.example     || '',
+      };
+    }
+
+    var TASK_LABELS = {
+      task1_academic: 'Task 1 (Academic)',
+      task1_general:  'Task 1 (General)',
+      task2:          'Task 2',
+    };
+
+    var CRITERIA = [
+      { key: 'mainCriterion',     fallback: 'Task Response' },
+      { key: 'coherenceCohesion', fallback: 'Coherence and Cohesion' },
+      { key: 'lexicalResource',   fallback: 'Lexical Resource' },
+      { key: 'grammaticalRange',  fallback: 'Grammatical Range and Accuracy' },
+    ];
+
+    // ── Renderers ───────────────────────────────────────────────────
+
+    function renderPrompt(essay) {
+      var taskLabel = TASK_LABELS[essay.task_type] || 'Bài viết';
+      var date = formatDate(essay.created_at);
+      document.getElementById('prompt-section').innerHTML =
+        '<div class="text-xs text-gray-300 font-medium mb-2 uppercase tracking-wider">' +
+          escapeHtml(taskLabel) + ' · ' + escapeHtml(date) +
+        '</div>' +
+        '<h1 class="text-base md:text-lg font-medium text-gray-100 leading-relaxed">' +
+          escapeHtml(essay.prompt_text || '') +
+        '</h1>';
+    }
+
+    function renderEssay(essay) {
+      var wc = wordCount(essay.essay_text);
+      document.getElementById('essay-section').innerHTML =
+        '<div class="flex items-center justify-between mb-3">' +
+          '<h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Bài viết của em</h2>' +
+          '<span class="text-xs text-gray-400">' + wc + ' từ</span>' +
+        '</div>' +
+        '<div class="essay-prose text-gray-200">' + escapeHtml(essay.essay_text || '') + '</div>';
+    }
+
+    function renderOverall(feedback) {
+      var fj = feedback.feedback_json || {};
+      // `overall_band_score` is the indexed-column copy on the
+      // writing_feedback row; feedback_json.overallBandScore is the
+      // authoritative source. Fall back gracefully.
+      var band    = feedback.overall_band_score != null ? feedback.overall_band_score
+                  : (fj.overallBandScore != null ? fj.overallBandScore : '—');
+      var summary = fj.overallBandScoreSummary || '';
+
+      document.getElementById('overall-section').innerHTML =
+        '<div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">' +
+          '<div class="band-score">' + escapeHtml(band) + ' / 9.0</div>' +
+          '<div class="text-sm text-gray-300">Band đánh giá tổng quan</div>' +
+        '</div>' +
+        (summary
+          ? '<p class="text-gray-200 leading-relaxed">' + escapeHtml(summary) + '</p>'
+          : '');
+    }
+
+    function renderStrengthsAreas(feedback) {
+      var kt = (feedback.feedback_json && feedback.feedback_json.keyTakeaways) || {};
+      var strengths = Array.isArray(kt.strengths) ? kt.strengths : [];
+      var areas     = Array.isArray(kt.areasForImprovement) ? kt.areasForImprovement : [];
+
+      function bullets(arr, color) {
+        if (!arr.length) return '<li class="text-gray-500 italic text-sm">(không có)</li>';
+        return arr.map(function (s) {
+          return '<li class="flex gap-2"><span class="' + color + '">•</span><span>' + escapeHtml(s) + '</span></li>';
+        }).join('');
+      }
+
+      document.getElementById('strengths-areas-section').innerHTML =
+        '<div class="grid md:grid-cols-2 gap-6">' +
+          '<div>' +
+            '<h2 class="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-3">✓ Điểm mạnh</h2>' +
+            '<ul class="space-y-2 text-gray-200">' + bullets(strengths, 'text-emerald-400') + '</ul>' +
+          '</div>' +
+          '<div>' +
+            '<h2 class="text-sm font-semibold uppercase tracking-wider text-amber-400 mb-3">⚠ Cần cải thiện</h2>' +
+            '<ul class="space-y-2 text-gray-200">' + bullets(areas, 'text-amber-400') + '</ul>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function renderRecurringPatterns(feedback) {
+      // Phase 1.5a: only present when student had ≥5 graded essays at
+      // grade time. New students stay null and we leave the section
+      // hidden — no empty-frame, no "no history yet" placeholder.
+      var data = feedback.feedback_json && feedback.feedback_json.recurringPatterns;
+      if (!data || typeof data !== 'object') return;
+
+      var summary       = data.summary || '';
+      var improvements  = Array.isArray(data.improvements)  ? data.improvements  : [];
+      var stillRecurring= Array.isArray(data.stillRecurring) ? data.stillRecurring : [];
+
+      // Treat a fully-empty payload as "nothing to show" so the section
+      // doesn't render an empty heading.
+      if (!summary && !improvements.length && !stillRecurring.length) return;
+
+      function bullets(arr, color) {
+        return arr.map(function (s) {
+          return '<li class="flex gap-2"><span class="' + color + '">•</span><span>' + escapeHtml(s) + '</span></li>';
+        }).join('');
+      }
+
+      document.getElementById('recurring-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">📊</span> Lịch sử lỗi của em ' +
+          '<span class="text-xs font-normal text-gray-400">(5 bài gần nhất)</span>' +
+        '</h2>' +
+        (summary
+          ? '<p class="mb-4 text-gray-200 leading-relaxed">' + escapeHtml(summary) + '</p>'
+          : '') +
+        (improvements.length
+          ? '<div class="mb-4">' +
+              '<h3 class="text-sm font-semibold text-emerald-400 mb-2">✓ Em đã sửa được</h3>' +
+              '<ul class="space-y-1 text-gray-200 text-sm">' + bullets(improvements, 'text-emerald-400') + '</ul>' +
+            '</div>'
+          : '') +
+        (stillRecurring.length
+          ? '<div>' +
+              '<h3 class="text-sm font-semibold text-amber-400 mb-2">⚠ Vẫn còn cần chú ý</h3>' +
+              '<ul class="space-y-1 text-gray-200 text-sm">' + bullets(stillRecurring, 'text-amber-400') + '</ul>' +
+            '</div>'
+          : '');
+      show('recurring-section');
+    }
+
+    function renderCriteria(feedback) {
+      var cf = (feedback.feedback_json && feedback.feedback_json.criteriaFeedback) || {};
+      var rows = CRITERIA.map(function (c) {
+        var d = cf[c.key];
+        if (!d) return '';
+        var title = d.title || c.fallback;
+        return (
+          '<div class="left-rule">' +
+            '<div class="flex items-center gap-3 mb-2 flex-wrap">' +
+              '<h3 class="font-semibold text-gray-100">' + escapeHtml(title) + '</h3>' +
+              '<span class="criteria-band">' + escapeHtml(d.bandScore != null ? d.bandScore : '—') + '</span>' +
+            '</div>' +
+            '<p class="text-sm text-gray-200 leading-relaxed">' + escapeHtml(d.feedback || d.explanation || '') + '</p>' +
+          '</div>'
+        );
+      }).join('');
+
+      document.getElementById('criteria-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-4">Phân tích theo tiêu chí IELTS</h2>' +
+        '<div class="space-y-4">' + rows + '</div>';
+    }
+
+    function renderMistakes(feedback) {
+      var mistakes = (feedback.feedback_json && feedback.feedback_json.mistakeAnalysis) || [];
+      if (!Array.isArray(mistakes) || !mistakes.length) return;
+
+      var cards = mistakes.map(function (m, i) {
+        return (
+          '<div class="mistake-card">' +
+            '<div class="flex flex-wrap items-center gap-2 mb-2 text-xs">' +
+              '<span class="text-gray-300 font-medium">Lỗi ' + (i + 1) + '</span>' +
+              (m.mistakeType ? '<span class="pill-criterion">' + escapeHtml(m.mistakeType) + '</span>' : '') +
+              (m.criterion   ? '<span class="pill-criterion">' + escapeHtml(m.criterion)   + '</span>' : '') +
+            '</div>' +
+            (m.original   ? '<div class="mistake-original mb-1">' + escapeHtml(m.original) + '</div>' : '') +
+            (m.suggestion ? '<div class="mistake-suggestion mb-2">→ ' + escapeHtml(m.suggestion) + '</div>' : '') +
+            (m.explanation ? '<p class="text-sm text-gray-300">' + escapeHtml(m.explanation) + '</p>' : '') +
+          '</div>'
+        );
+      }).join('');
+
+      document.getElementById('mistakes-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-4">Phân tích lỗi chi tiết (' + mistakes.length + ')</h2>' +
+        '<div class="space-y-3">' + cards + '</div>';
+      show('mistakes-section');
+    }
+
+    function suggestionBlock(rawSuggestion, accentClass, headingText) {
+      // Render a SuggestionInstructionExample (or coerced legacy
+      // string) as a soft accent box. Legacy plain-string rows show
+      // the string under "Gợi ý:" with no instruction line.
+      var s = normalizeSuggestion(rawSuggestion);
+      if (!s) return '';
+      var hasContent = (s.example || s.instruction);
+      if (!hasContent) return '';
+      return (
+        '<div class="' + accentClass + ' border rounded p-3">' +
+          '<div class="text-xs mb-1 font-medium">' + escapeHtml(headingText) + '</div>' +
+          (s.example
+            ? '<p class="text-gray-200 italic mb-2">' + escapeHtml(s.example) + '</p>'
+            : '') +
+          (s.instruction
+            ? '<p class="text-xs text-gray-400">' + escapeHtml(s.instruction) + '</p>'
+            : '') +
+        '</div>'
+      );
+    }
+
+    function renderCoherenceAnalysis(feedback) {
+      var items = (feedback.feedback_json && feedback.feedback_json.coherenceAnalysis) || [];
+      if (!Array.isArray(items) || !items.length) return;
+
+      var rows = items.map(function (item) {
+        return (
+          '<div class="left-rule left-rule-amber">' +
+            (item.issue ? '<div class="text-amber-400 font-medium mb-1">' + escapeHtml(item.issue) + '</div>' : '') +
+            (item.location ? '<div class="text-xs text-gray-400 mb-2">' + escapeHtml(item.location) + '</div>' : '') +
+            (item.explanation ? '<p class="text-gray-200 mb-2">' + escapeHtml(item.explanation) + '</p>' : '') +
+            suggestionBlock(item.suggestion,
+              'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+              'Gợi ý') +
+          '</div>'
+        );
+      }).join('');
+
+      document.getElementById('coherence-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">🔗</span> Phân tích mạch lạc' +
+        '</h2>' +
+        '<div class="space-y-4 text-sm">' + rows + '</div>';
+      show('coherence-section');
+    }
+
+    function renderIdeaDevelopment(feedback) {
+      var items = (feedback.feedback_json && feedback.feedback_json.ideaDevelopmentAnalysis) || [];
+      if (!Array.isArray(items) || !items.length) return;
+
+      var rows = items.map(function (item) {
+        var paraLabel = item.paragraph != null ? 'Đoạn ' + item.paragraph + ': ' : '';
+        return (
+          '<div class="left-rule left-rule-blue">' +
+            '<div class="text-blue-300 font-medium mb-1">' +
+              escapeHtml(paraLabel) + escapeHtml(item.issue || '') +
+            '</div>' +
+            (item.originalIdea
+              ? '<p class="text-gray-400 italic mb-2">"' + escapeHtml(item.originalIdea) + '"</p>'
+              : '') +
+            (item.explanation
+              ? '<p class="text-gray-200 mb-2">' + escapeHtml(item.explanation) + '</p>'
+              : '') +
+            suggestionBlock(item.suggestion,
+              'bg-blue-500/10 border-blue-500/20 text-blue-300',
+              'Gợi ý phát triển') +
+          '</div>'
+        );
+      }).join('');
+
+      document.getElementById('idea-development-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">💡</span> Phát triển ý tưởng' +
+        '</h2>' +
+        '<div class="space-y-4 text-sm">' + rows + '</div>';
+      show('idea-development-section');
+    }
+
+    function renderCounterargument(feedback) {
+      var d = feedback.feedback_json && feedback.feedback_json.counterargumentAnalysis;
+      if (!d || typeof d !== 'object') return;
+
+      // W3.3 hardened the schema to tolerate hallucinated shapes —
+      // mirror the same defensive read here so a partial dict still
+      // renders rather than throwing.
+      var hasContent = d.feedback || d.suggestion || (d.context && (d.context.insertionPoint || d.context.reasoning));
+      if (!hasContent && d.isPresent === undefined) return;
+
+      var statusBadge = d.isPresent
+        ? '<span class="text-emerald-400">✓ Có</span>'
+        : '<span class="text-amber-400">✗ Chưa có</span>';
+
+      var contextLine = '';
+      if (d.context && (d.context.reasoning || d.context.insertionPoint)) {
+        var parts = [];
+        if (d.context.insertionPoint) parts.push('Vị trí: ' + d.context.insertionPoint);
+        if (d.context.reasoning)      parts.push(d.context.reasoning);
+        contextLine = '<p class="text-xs text-gray-400 mt-2">' + escapeHtml(parts.join(' — ')) + '</p>';
+      }
+
+      document.getElementById('counterargument-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">⚖</span> Phân tích phản biện' +
+        '</h2>' +
+        '<div class="text-sm">' +
+          '<div class="flex items-center gap-2 mb-3">' +
+            '<span class="text-gray-300">Trạng thái:</span>' + statusBadge +
+          '</div>' +
+          (d.feedback ? '<p class="text-gray-200 mb-3">' + escapeHtml(d.feedback) + '</p>' : '') +
+          (d.suggestion
+            ? '<div class="bg-teal-light/10 border border-teal-light/20 rounded p-3">' +
+                '<div class="text-xs text-teal-light mb-1 font-medium">Gợi ý</div>' +
+                '<p class="text-gray-200">' + escapeHtml(d.suggestion) + '</p>' +
+                contextLine +
+              '</div>'
+            : (contextLine || '')) +
+        '</div>';
+      show('counterargument-section');
+    }
+
+    function renderImprovedEssay(feedback) {
+      var improved = feedback.feedback_json && feedback.feedback_json.improvedEssay;
+      if (!improved) return;
+      var wc = wordCount(improved);
+      document.getElementById('improved-section').innerHTML =
+        '<div class="flex items-center justify-between mb-3">' +
+          '<h2 class="text-base md:text-lg font-semibold flex items-center gap-2">' +
+            '<span aria-hidden="true">✨</span> Bài tham khảo (Band 8.0+)' +
+          '</h2>' +
+          '<span class="text-xs text-gray-400">' + wc + ' từ</span>' +
+        '</div>' +
+        '<div class="essay-prose text-gray-200 leading-relaxed">' + escapeHtml(improved) + '</div>';
+      show('improved-section');
+    }
+
+    // ── Bootstrap ───────────────────────────────────────────────────
+    function showError(msg) {
+      hide('loading');
+      document.getElementById('error-message').textContent = msg;
+      show('error');
+    }
+
+    (async function () {
+      var params = new URLSearchParams(window.location.search);
+      var essayId = params.get('essay_id');
+
+      if (!essayId) {
+        showError('Link không hợp lệ.');
+        return;
+      }
+
+      try {
+        // window.api.get already redirects to login.html on 401 and
+        // throws on non-2xx with err.detail as the message.
+        var data = await window.api.get('/api/writing/my-essays/' + encodeURIComponent(essayId));
+        if (!data) return;  // 401 path already redirected
+
+        var essay    = data.essay || null;
+        var feedback = data.feedback;
+
+        if (!essay) {
+          showError('Bài viết không tìm thấy.');
+          return;
+        }
+
+        // Backend returns feedback=null when status !== 'delivered'
+        // (admin still editing). Surface a friendly waiting state
+        // rather than a partial render.
+        if (!feedback) {
+          hide('loading');
+          show('not-delivered');
+          return;
+        }
+
+        renderPrompt(essay);
+        renderEssay(essay);
+        renderOverall(feedback);
+        renderStrengthsAreas(feedback);
+        renderRecurringPatterns(feedback);
+        renderCriteria(feedback);
+        renderMistakes(feedback);
+        renderCoherenceAnalysis(feedback);
+        renderIdeaDevelopment(feedback);
+        renderCounterargument(feedback);
+        renderImprovedEssay(feedback);
+
+        hide('loading');
+        show('content');
+      } catch (err) {
+        var msg = (err && err.message) || '';
+        // Backend's 404 detail is the canonical Vietnamese string.
+        if (/không tìm thấy/i.test(msg)) {
+          showError('Bài viết không tìm thấy.');
+        } else if (/chưa được link/i.test(msg)) {
+          showError('Tài khoản chưa được link với học viên. Vui lòng liên hệ giảng viên.');
+        } else {
+          showError(msg || 'Lỗi không xác định.');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
