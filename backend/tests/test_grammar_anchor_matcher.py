@@ -97,3 +97,54 @@ def test_mapping_index_skips_deferred_entries():
     assert not leak, (
         f"Deferred mappings leaked into matcher index — defensive guard regressed: {leak}"
     )
+
+
+# ── Sprint 7c.1 — find_best_anchor hardening ─────────────────────────
+#
+# Sprint 7c reworked find_best_match's tokenization (word-boundary
+# regex, Vietnamese stop list, word-boundary haystack matching) but
+# left find_best_anchor on the older Unicode-substring path. The
+# Sprint 7c production canary then surfaced 2/4 rows where the slug
+# matched but recommended_anchor was NULL. Sprint 7c.1 mirrors the
+# hardening into find_best_anchor, keeping the Unicode-aware regex so
+# Vietnamese tokens still substring-match Vietnamese keyword chunks
+# but adding the same stop filter and word-boundary haystack check.
+
+def test_anchor_resolution_word_boundary_hardening():
+    """Vietnamese-leading issue must reach the M049 anchor — without
+    the Sprint 7c.1 word-boundary haystack matching, false-positive
+    substring hits could outscore the right anchor."""
+    anchor = grammar_service.find_best_anchor(
+        "Thiếu chủ ngữ rõ ràng", "missing-subjects",
+    )
+    assert anchor is not None, "Expected M049 anchor to resolve"
+    assert anchor.startswith("missing-subjects."), (
+        f"Anchor must belong to missing-subjects slug, got {anchor!r}"
+    )
+
+
+def test_anchor_resolution_filters_vn_stop_tokens():
+    """Stop-token filter (trong, sai, thay, khi, kia) shouldn't break
+    Vietnamese semantic matching — content tokens like 'thì' / 'quá
+    khứ' / 'đơn' carry the routing signal."""
+    anchor = grammar_service.find_best_anchor(
+        "Sai thì khi đang nói trong câu thay vì dùng quá khứ đơn",
+        "tense-consistency",
+    )
+    assert anchor is not None, (
+        "Expected tense-consistency anchor to resolve through stop-token "
+        "noise via Vietnamese content tokens (thì / quá / khứ / đơn)."
+    )
+
+
+def test_anchor_resolution_documents_production_canary():
+    """Sprint 7c canary 2026-05-05 09:00: 'attract it to people' issue
+    routed to articles slug but anchor returned NULL. After Sprint
+    7c.1 hardening, document the post-fix state. Anchor may legitimately
+    stay None if the issue's tokens don't match any specific
+    article-errors anchor — this test pins the routing reaches at
+    least the slug layer reliably."""
+    issue = "Cấu trúc câu không rõ ràng — 'attract it to people' không phù hợp ngữ pháp"
+    match = grammar_service.find_best_match(issue)
+    # Slug match is sufficient — anchor resolution is best-effort.
+    assert match is not None, "Sprint 7c rework should produce some routing"

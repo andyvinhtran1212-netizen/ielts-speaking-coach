@@ -43,6 +43,50 @@ _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
 # behaviour for unrelated topics (pronunciation / vocab / fluency).
 _MATCH_THRESHOLD = 0.20
 
+# Vietnamese function-word filter: a handful of standalone ASCII
+# Vietnamese words pass `\b[a-z]{3,}\b` but carry no routing signal —
+# they hit mapping haystacks via substring (e.g. "trong" is in "wrong"
+# / "strong" / Vietnamese summaries; "sai" is in most error-pattern
+# keywords). Drop them so they don't compete with curated tokens.
+# Shared between find_best_match (Sprint 7c) and find_best_anchor
+# (Sprint 7c.1).
+_VN_STOP_TOKENS = frozenset({
+    "trong",  # in/inside (preposition)
+    "sai",    # wrong (modifier — bleeds into all error mappings)
+    "thay",   # instead/replace
+    "khi",    # when
+    "kia",    # that one
+})
+
+# Sprint 7c.2: AI feedback often quotes student errors verbatim, e.g.:
+#   "Sai cấu trúc động từ — 'can uh success in' không hợp lệ"
+# The quoted English fragment is the broken student English, NOT the
+# grammar topic. Words like "can" / "should" / "must" inside such
+# quotes triggered _VI_EN expansions ("can" → ["modal", "can could"])
+# AND raw_words extractions ("can" hits M023 keyword "can to V"
+# directly), both biasing routing to modal-verbs.
+#
+# Heuristic: strip quoted phrases of >=3 words (likely a student-
+# error sample) from issue text before tokenization. Short quotes —
+# 1-2 words — are typically topic names like 'past simple' /
+# 'present perfect' and remain in the text so they contribute to
+# article keyword matching.
+_QUOTED_PHRASE_RE = re.compile(r"['\u2018\u2019]([^'\u2018\u2019]*)['\u2018\u2019]")
+_QUOTED_PHRASE_MIN_WORDS_TO_STRIP = 3
+
+
+def _strip_long_quoted_phrases(text: str) -> str:
+    """Replace quoted phrases of `_QUOTED_PHRASE_MIN_WORDS_TO_STRIP`+
+    words with a space. Short quotes (≤2 words, e.g. topic names)
+    are left in place."""
+    def repl(m: re.Match) -> str:
+        inside = m.group(1)
+        if len(inside.split()) >= _QUOTED_PHRASE_MIN_WORDS_TO_STRIP:
+            return " "
+        # Preserve original quoted token so raw-word + VI_EN scans see it.
+        return m.group(0)
+    return _QUOTED_PHRASE_RE.sub(repl, text)
+
 
 class GrammarContentService:
     def __init__(self):
@@ -473,10 +517,24 @@ class GrammarContentService:
             ("missing determiner",   ["article", "articles", "determiner"]),
         ]
 
-        # Build extra search tokens from the issue text via the mapping
+        # Sprint 7c.2: AI feedback often embeds the student's broken
+        # English in single quotes (e.g. "'can uh success in'"). The
+        # words inside are the error being corrected, not the grammar
+        # topic — but words like "can" / "should" / "must" used to
+        # trigger BOTH _VI_EN expansion ("can" → ["modal", ...]) and
+        # raw_words extraction ("can" hits M023 keyword "can to V"
+        # directly), biasing routing toward modal-verbs.
+        #
+        # Strip quoted phrases of ≥3 words (long enough to be a
+        # student-error sample) from BOTH the VI_EN scan input AND
+        # the raw_words extraction input. Short quotes (≤2 words,
+        # typically topic names like 'past simple') are kept in place
+        # so they continue contributing to article matching.
+        cleaned_issue = _strip_long_quoted_phrases(issue_lower)
+
         extra_tokens: list[str] = []
         for vi_term, en_terms in _VI_EN:
-            if vi_term in issue_lower:
+            if vi_term in cleaned_issue:
                 extra_tokens.extend(en_terms)
 
         # Also include raw issue words (catches English terms Claude might include,
@@ -487,21 +545,8 @@ class GrammarContentService:
         # "third" across most mapping haystacks and causes the Sprint 7c
         # production routing bug. With `\b`, only fully-ASCII standalone
         # words pass.
-        # Vietnamese function-word filter: a handful of standalone ASCII
-        # Vietnamese words pass `\b[a-z]{3,}\b` but carry no routing
-        # signal — they hit mapping haystacks via substring (e.g. "trong"
-        # is in "wrong" / "strong" / Vietnamese summaries; "sai" is in
-        # most error-pattern keywords). Drop them so they don't compete
-        # with curated tokens.
-        _VN_STOP_TOKENS = frozenset({
-            "trong",  # in/inside (preposition)
-            "sai",    # wrong (modifier — bleeds into all error mappings)
-            "thay",   # instead/replace
-            "khi",    # when
-            "kia",    # that one
-        })
         raw_words = [
-            w for w in re.findall(r"\b[a-z]{3,}\b", issue_lower)
+            w for w in re.findall(r"\b[a-z]{3,}\b", cleaned_issue)
             if w not in _VN_STOP_TOKENS
         ]
 
@@ -709,8 +754,19 @@ class GrammarContentService:
             )
             return None
 
+        # Sprint 7c.1: mirror find_best_match's hardening — stop-word
+        # filter + word-boundary haystack matching. Unlike find_best_match
+        # (which relies on `_VI_EN` expansion to surface English search
+        # terms), this layer's job is anchor selection within an already-
+        # routed slug, so Vietnamese tokens directly substring-matching
+        # Vietnamese keyword chunks ("sai thì", "thiếu chủ ngữ") is the
+        # primary signal. Keep the Unicode `\w`-aware regex but anchor it
+        # at word boundaries so accent-stripped fragments don't leak in.
         issue_lower = issue.lower()
-        issue_tokens = set(re.findall(r"[\w]{3,}", issue_lower, flags=re.UNICODE))
+        issue_tokens = {
+            w for w in re.findall(r"\b[\w]{3,}\b", issue_lower, flags=re.UNICODE)
+            if w not in _VN_STOP_TOKENS
+        }
         if not issue_tokens:
             logger.info(
                 "anchor_resolve event=skipped reason=no_tokens "
@@ -720,6 +776,15 @@ class GrammarContentService:
                        "issue": issue_preview, "slug": slug, "matched": False},
             )
             return None
+
+        # Pre-compile word-boundary patterns — `\btoken` (start anchor
+        # only) so suffixes still match (e.g. \bverb matches "verbs")
+        # but prefix-only matches like "refer" inside "prefer" are
+        # rejected.
+        token_patterns = {
+            tok: re.compile(rf"\b{re.escape(tok)}", re.IGNORECASE)
+            for tok in issue_tokens
+        }
 
         best_score = 0.0
         best_anchor: str | None = None
@@ -731,7 +796,7 @@ class GrammarContentService:
             haystack_parts.append(str(m.get("feedback_pattern_summary", "")).lower())
             haystack = " | ".join(haystack_parts)
 
-            hits = sum(1 for tok in issue_tokens if tok in haystack)
+            hits = sum(1 for pat in token_patterns.values() if pat.search(haystack))
             if hits == 0:
                 continue
             score = min(1.0, hits / max(len(issue_tokens), 1))
