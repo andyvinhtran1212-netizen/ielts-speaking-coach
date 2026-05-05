@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +28,25 @@ from routers.exercises import (
 from routers.flashcards import user_router as flashcards_user_router
 from routers.health import router as health_router
 from routers.dashboard import router as dashboard_router
+
+# Configure logging to emit INFO+ to stdout (Railway captures stdout).
+# Sprint 6.6: backend never called basicConfig before, so Python defaulted
+# to WARNING — silencing every Sprint 6.5 matcher_match / anchor_resolve
+# / grammar_recommendations_built diagnostic. force=True overrides
+# uvicorn's pre-installed handlers so this config wins regardless of
+# import order.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True,
+)
+
+# Reduce noise from common libraries (keep our app at INFO).
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
