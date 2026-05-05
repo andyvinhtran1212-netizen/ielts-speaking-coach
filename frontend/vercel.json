@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/grammar/:category/:slug", "destination": "/pages/grammar-article.html" },
-    { "source": "/writing/dashboard",       "destination": "/pages/writing-dashboard.html" }
+    { "source": "/writing/dashboard",       "destination": "/pages/writing-dashboard.html" },
+    { "source": "/writing/result",          "destination": "/pages/writing-result.html" }
   ]
 }
