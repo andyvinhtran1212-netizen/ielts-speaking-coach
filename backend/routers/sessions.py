@@ -242,31 +242,50 @@ async def create_session(
     _require_active(user_id)
     _require_permission(user_id, body.mode)
 
-    # Daily quota check — count sessions started today (UTC)
-    today_start = (
-        datetime.combine(date.today(), datetime.min.time())
-        .replace(tzinfo=timezone.utc)
-        .isoformat()
-    )
+    # Admin bypass — admins không bị giới hạn quota
     try:
-        daily = (
-            supabase_admin.table("sessions")
-            .select("id")
-            .eq("user_id", user_id)
-            .gte("started_at", today_start)
+        user_role_result = (
+            supabase_admin.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .limit(1)
             .execute()
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quota: {e}")
-
-    if len(daily.data) >= settings.MAX_SESSIONS_PER_USER_PER_DAY:
-        raise HTTPException(
-            status_code=429,
-            detail=(
-                f"Bạn đã đạt giới hạn {settings.MAX_SESSIONS_PER_USER_PER_DAY} "
-                f"sessions hôm nay. Hãy thử lại vào ngày mai."
-            ),
+        is_admin = bool(
+            user_role_result.data
+            and user_role_result.data[0].get("role") == "admin"
         )
+    except Exception:
+        # Defensive: nếu role lookup fail, treat as non-admin (apply quota)
+        is_admin = False
+
+    # Daily quota check — count sessions started today (UTC)
+    # SKIP entirely for admin role
+    if not is_admin:
+        today_start = (
+            datetime.combine(date.today(), datetime.min.time())
+            .replace(tzinfo=timezone.utc)
+            .isoformat()
+        )
+        try:
+            daily = (
+                supabase_admin.table("sessions")
+                .select("id")
+                .eq("user_id", user_id)
+                .gte("started_at", today_start)
+                .execute()
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quota: {e}")
+
+        if len(daily.data) >= settings.MAX_SESSIONS_PER_USER_PER_DAY:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Bạn đã đạt giới hạn {settings.MAX_SESSIONS_PER_USER_PER_DAY} "
+                    f"sessions hôm nay. Hãy thử lại vào ngày mai."
+                ),
+            )
 
     # Create session
     try:
