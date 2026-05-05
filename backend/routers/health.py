@@ -32,7 +32,10 @@ logger = logging.getLogger(__name__)
 # number of non-deferred entries in feedback-anchor-mapping.yaml on main.
 # Sprint 7a Day 3 added 8 mappings + unfroze M030 → 40.
 # Sprint 7b added M049 (missing-subjects) + M050 (missing-main-verbs) → 42.
-_EXPECTED_MAPPING_COUNT  = 42
+# Sprint unfreeze (post-7c.3) dropped vestigial deferred_until: sprint-3
+# from M016/M017/M025/M027/M028 (Sprint 3 shipped long ago, anchors
+# already exist per drift gate) → 47.
+_EXPECTED_MAPPING_COUNT  = 47
 _SPRINT_6_SENTINEL_IDS   = ("M033", "M034", "M035")
 
 

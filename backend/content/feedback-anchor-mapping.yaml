@@ -369,8 +369,6 @@ mappings:
   - mapping_id: M016
     target_anchor: grammatical-collocations.verb-preposition
     target_file: backend/content/grammar-for-meaning/grammatical-collocations.md
-    deferred_until: sprint-3
-    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (grammatical-collocations)'
     feedback_pattern_summary: "Sai preposition với verb (depend of, listen Ø, discuss about)"
     feedback_keywords:
       - "wrong preposition with verb"
@@ -395,8 +393,6 @@ mappings:
   - mapping_id: M017
     target_anchor: grammatical-collocations.adjective-preposition
     target_file: backend/content/grammar-for-meaning/grammatical-collocations.md
-    deferred_until: sprint-3
-    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (grammatical-collocations)'
     feedback_pattern_summary: "Sai preposition với adjective (good in, married with, afraid for)"
     feedback_keywords:
       - "wrong preposition with adjective"
@@ -584,8 +580,6 @@ mappings:
   - mapping_id: M025
     target_anchor: discourse-markers-spoken.common-mistake.actually-misuse
     target_file: backend/content/grammar-for-meaning/discourse-markers-spoken.md
-    deferred_until: sprint-3
-    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (discourse-markers-spoken)'
     feedback_pattern_summary: "Lạm dụng 'actually' như topic-opener (transfer từ 'thật ra')"
     feedback_keywords:
       - "actually misuse"
@@ -627,8 +621,6 @@ mappings:
   - mapping_id: M027
     target_anchor: pronunciation-grammar-link.common-mistake.cluster-simplification
     target_file: backend/content/ielts-grammar-lab/pronunciation-grammar-link.md
-    deferred_until: sprint-3
-    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (pronunciation-grammar-link)'
     feedback_pattern_summary: "Drop final consonant cluster (worked → /wɜːk/, books → /buk/)"
     feedback_keywords:
       - "final cluster drop"
@@ -650,8 +642,6 @@ mappings:
   - mapping_id: M028
     target_anchor: pronunciation-grammar-link.common-mistake.full-form-overuse
     target_file: backend/content/ielts-grammar-lab/pronunciation-grammar-link.md
-    deferred_until: sprint-3
-    deferred_reason: 'Anchor in new-topic file shipping in Sprint 3 (pronunciation-grammar-link)'
     feedback_pattern_summary: "Không dùng contractions (I am thay vì I'm)"
     feedback_keywords:
       - "no contractions"
