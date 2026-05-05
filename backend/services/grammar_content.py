@@ -498,6 +498,17 @@ class GrammarContentService:
             ("to-infinitive",        ["infinitive", "gerund infinitive"]),
             # Sentence completeness / fragments
             ("thiếu động từ chính",  ["verb", "main verb", "missing", "sentence-structure"]),
+            # Sprint 7d — Codex AMBER 2026-05-05: AI feedback often phrases
+            # the same fragment-shape as "không có động từ" instead of
+            # "thiếu động từ" (negation vs. lack-of). Without this entry,
+            # cleaned issues like "câu không có động từ chính" produce only
+            # the single token "verb" via the broader "động từ" trigger,
+            # leaving 9 slugs tied at 1.0 and dict-order picking
+            # present-simple over missing-main-verbs (M050). Same expansion
+            # as the "thiếu động từ chính" line above so M050's keywords
+            # ("missing main verb", "main verb missing", "sentence-structure")
+            # all hit, breaking the tie cleanly (1.0 vs 0.5).
+            ("không có động từ",     ["verb", "main verb", "missing", "sentence-structure"]),
             ("thiếu chủ ngữ",        ["subject", "sentence-structure"]),
             ("câu không hoàn chỉnh", ["sentence-structure"]),
             ("cấu trúc câu",         ["sentence-structure", "clause", "compound"]),
