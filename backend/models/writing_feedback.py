@@ -82,15 +82,58 @@ class CoherenceAnalysisItem(BaseModel):
 
 
 class ContextInsertion(BaseModel):
-    insertionPoint: str
-    reasoning: str
+    """Where + why a counterargument should be inserted.
+
+    Tolerant of Gemini's occasional bare-string returns or partial dicts
+    (W3.3 patch — production essay 1eccf880 regression where the field
+    came through as part of a hallucinated parent shape).
+    """
+    insertionPoint: str = ""
+    reasoning: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_string_or_partial(cls, data):
+        if isinstance(data, str):
+            return {"insertionPoint": data, "reasoning": ""}
+        if data is None or not isinstance(data, dict):
+            return {"insertionPoint": "", "reasoning": ""}
+        return data
 
 
 class CounterargumentAnalysis(BaseModel):
-    isPresent: bool
-    feedback: str
-    suggestion: str
-    context: ContextInsertion
+    """Counterargument feedback (Task 2 only).
+
+    W3.3 patch: Gemini occasionally returns a hallucinated shape
+    (e.g. {"promptType": "Discuss both views..."}) rather than the
+    full {isPresent, feedback, suggestion, context} contract. We
+    drop unknown fields, default missing required ones, and never
+    crash the grading pipeline on this section alone — a partial
+    counterargumentAnalysis is much less harmful than a failed essay.
+    """
+    isPresent: bool = False
+    feedback: str = ""
+    suggestion: str = ""
+    context: ContextInsertion = Field(default_factory=ContextInsertion)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_malformed(cls, data):
+        if data is None or not isinstance(data, dict):
+            return {
+                "isPresent": False,
+                "feedback": "",
+                "suggestion": "",
+                "context": {"insertionPoint": "", "reasoning": ""},
+            }
+        # Pick known fields, drop unknown (e.g. Gemini's "promptType").
+        # Missing fields fall back to the field defaults above.
+        return {
+            "isPresent":  data.get("isPresent", False),
+            "feedback":   data.get("feedback", ""),
+            "suggestion": data.get("suggestion", ""),
+            "context":    data.get("context", {"insertionPoint": "", "reasoning": ""}),
+        }
 
 
 class WordToUpgradeItem(BaseModel):
