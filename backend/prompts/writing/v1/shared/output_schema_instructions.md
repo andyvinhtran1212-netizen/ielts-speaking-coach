@@ -125,3 +125,60 @@ validation failures and the essay grading will be marked as **failed**.
 (`mistakeAnalysis[].suggestion` and `counterargumentAnalysis.suggestion`
 remain plain strings — those are the only string-form suggestions in the
 schema.)
+
+## Critical Format for `counterargumentAnalysis` (Task 2 only)
+
+For Task 2 essays, `counterargumentAnalysis` MUST be a complete object
+with **all 4 fields**. **Do NOT** invent your own keys (e.g.
+`promptType`, `essayType`) — they will be silently dropped and the
+section will appear empty in the rendered feedback.
+
+### ❌ WRONG — Hallucinated shape
+
+```json
+{
+  "counterargumentAnalysis": {
+    "promptType": "Discuss both views and give your opinion"
+  }
+}
+```
+
+### ❌ WRONG — Plain string
+
+```json
+{
+  "counterargumentAnalysis": "Student didn't address counterargument"
+}
+```
+
+### ✅ CORRECT — Full object
+
+```json
+{
+  "counterargumentAnalysis": {
+    "isPresent": false,
+    "feedback": "Bài chưa đề cập đến quan điểm đối lập, làm giảm tính thuyết phục.",
+    "suggestion": "Thêm 1 đoạn ngắn thừa nhận lập luận phản biện rồi phản bác.",
+    "context": {
+      "insertionPoint": "Sau đoạn 3 (luận điểm chính), trước đoạn kết.",
+      "reasoning": "Cấu trúc Band 7+ đòi hỏi acknowledge opposing view trước khi conclude."
+    }
+  }
+}
+```
+
+### Required fields per item type
+
+`counterargumentAnalysis` — **all 4** fields:
+- `isPresent` (boolean, required) — Có counterargument trong bài viết không?
+- `feedback` (string, required) — Vietnamese feedback về counterargument
+- `suggestion` (string, required) — Concrete improvement suggestion
+- `context` (**object**, required) — must have:
+  - `insertionPoint` (string) — Where to insert the counterargument
+  - `reasoning` (string) — Why this location
+
+### Task 1 essays
+
+For Task 1 (no counterargument concept), set `counterargumentAnalysis`
+to `null`. **Do NOT** make up a counterargument analysis with empty
+strings just to fill the field.

@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from models.writing_feedback import (
     CoherenceAnalysisItem,
+    CounterargumentAnalysis,
     GraderConfig,
     SuggestionInstructionExample,
     WritingFeedback,
@@ -125,3 +126,56 @@ def test_coherence_item_missing_location_defaults():
     assert item.location == ""
     assert item.suggestion.instruction == "Cần một câu chuyển ý"
     assert item.suggestion.example == ""
+
+
+# ── W3.3 patch: tolerant counterargumentAnalysis ─────────────────────
+
+def test_counterargument_accepts_correct_shape():
+    """Happy path — full schema passes through unchanged."""
+    ca = CounterargumentAnalysis.model_validate({
+        "isPresent":  True,
+        "feedback":   "Đã có counterargument tốt.",
+        "suggestion": "Củng cố thêm ở đoạn 3.",
+        "context":    {"insertionPoint": "para 3", "reasoning": "balance argument"},
+    })
+    assert ca.isPresent is True
+    assert ca.feedback == "Đã có counterargument tốt."
+    assert ca.context.insertionPoint == "para 3"
+
+
+def test_counterargument_tolerates_hallucinated_shape():
+    """W3.3: production essay 1eccf880 — Gemini returned
+    {promptType: ...} instead of the full schema. We drop the unknown
+    field and default everything else rather than failing the essay."""
+    ca = CounterargumentAnalysis.model_validate({
+        "promptType": "Discuss both views and give your opinion",
+    })
+    assert ca.isPresent is False
+    assert ca.feedback == ""
+    assert ca.suggestion == ""
+    assert ca.context.insertionPoint == ""
+    assert ca.context.reasoning == ""
+
+
+def test_counterargument_partial_dict():
+    """Half-populated payload — present + feedback only — defaults the rest."""
+    ca = CounterargumentAnalysis.model_validate({
+        "isPresent": True,
+        "feedback":  "Found it",
+    })
+    assert ca.isPresent is True
+    assert ca.feedback == "Found it"
+    assert ca.suggestion == ""
+    assert ca.context.insertionPoint == ""
+
+
+def test_counterargument_context_string_coercion():
+    """A bare-string context coerces into {insertionPoint: <str>, reasoning: ""}."""
+    ca = CounterargumentAnalysis.model_validate({
+        "isPresent":  True,
+        "feedback":   "x",
+        "suggestion": "y",
+        "context":    "Sau đoạn 2",
+    })
+    assert ca.context.insertionPoint == "Sau đoạn 2"
+    assert ca.context.reasoning == ""
