@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -351,16 +352,37 @@ def _valid_feedback_edits() -> dict:
     }
 
 
+def _fake_supabase(*, status: str | None, update_data: list | None = None) -> MagicMock:
+    """Build a MagicMock that mocks both the SELECT(status) and UPDATE chains
+    used by PATCH /feedback and POST /mark-delivered.
+
+    SELECT chain: table().select(...).eq(...).limit(1).execute() →
+        data=[{"status": <status>}]   (or [] if status is None → 404)
+    UPDATE chain: table().update(...).eq(...).execute() →
+        data=update_data              (default [{"id": _ESSAY_ID}])
+    """
+    fake = MagicMock()
+    table = fake.table.return_value
+
+    select_data = [{"status": status}] if status is not None else []
+    table.select.return_value.eq.return_value.limit.return_value.execute.return_value = (
+        MagicMock(data=select_data)
+    )
+
+    if update_data is None:
+        update_data = [{"id": _ESSAY_ID}]
+    table.update.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=update_data)
+    )
+    return fake
+
+
 def test_patch_feedback_validates_and_persists():
     """Edits validated against schema, then written with status='reviewed'."""
-    fake_supabase = MagicMock()
-    update_chain = MagicMock()
-    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[{"id": _ESSAY_ID}])
-    )
+    fake = _fake_supabase(status="graded")
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake_supabase):
+         patch("routers.admin_writing.supabase_admin", fake):
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
             json=_valid_feedback_edits(),
@@ -368,9 +390,7 @@ def test_patch_feedback_validates_and_persists():
         )
     assert r.status_code == 200, r.text
     assert r.json() == {"essay_id": _ESSAY_ID, "status": "reviewed"}
-    # Verify update payload included status='reviewed' + admin_edits_json
-    update_call = fake_supabase.table.return_value.update.call_args
-    payload = update_call.args[0]
+    payload = fake.table.return_value.update.call_args.args[0]
     assert payload["status"] == "reviewed"
     assert payload["admin_edits_json"]["overallBandScore"] == 7.0
     assert payload["admin_reviewed_at"]
@@ -391,13 +411,10 @@ def test_patch_feedback_422_when_edits_fail_schema():
 
 
 def test_patch_feedback_404_when_essay_missing():
-    fake_supabase = MagicMock()
-    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[])
-    )
+    fake = _fake_supabase(status=None)  # SELECT returns []
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake_supabase):
+         patch("routers.admin_writing.supabase_admin", fake):
         r = _client().patch(
             f"/admin/writing/essays/{_ESSAY_ID}/feedback",
             json=_valid_feedback_edits(),
@@ -415,13 +432,10 @@ def test_patch_feedback_requires_auth():
 
 
 def test_mark_delivered_default_method_persists():
-    fake_supabase = MagicMock()
-    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[{"id": _ESSAY_ID}])
-    )
+    fake = _fake_supabase(status="reviewed")
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake_supabase):
+         patch("routers.admin_writing.supabase_admin", fake):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
             json={},
@@ -431,18 +445,15 @@ def test_mark_delivered_default_method_persists():
     body = r.json()
     assert body["status"] == "delivered"
     assert body["method"] == "google_docs_paste"  # default
-    payload = fake_supabase.table.return_value.update.call_args.args[0]
+    payload = fake.table.return_value.update.call_args.args[0]
     assert payload["delivery_method"] == "google_docs_paste"
 
 
 def test_mark_delivered_word_download_method():
-    fake_supabase = MagicMock()
-    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[{"id": _ESSAY_ID}])
-    )
+    fake = _fake_supabase(status="reviewed")
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake_supabase):
+         patch("routers.admin_writing.supabase_admin", fake):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
             json={"method": "word_download"},
@@ -464,19 +475,96 @@ def test_mark_delivered_400_on_invalid_method():
 
 
 def test_mark_delivered_404_when_essay_missing():
-    fake_supabase = MagicMock()
-    fake_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[])
-    )
+    fake = _fake_supabase(status=None)
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake_supabase):
+         patch("routers.admin_writing.supabase_admin", fake):
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
             json={},
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 404
+
+
+# ── W3.1 state machine ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("blocked_status", ["pending", "grading", "failed", "delivered"])
+def test_patch_feedback_409_when_status_not_graded_or_reviewed(blocked_status):
+    """Only graded + reviewed accept edits — everything else returns 409."""
+    fake = _fake_supabase(status=blocked_status)
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().patch(
+            f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+            json=_valid_feedback_edits(),
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    assert "Allowed states" in r.json()["detail"]
+    # No update issued when status guard rejects
+    fake.table.return_value.update.assert_not_called()
+
+
+def test_patch_feedback_allows_reviewed_status_for_re_edit():
+    """Re-editing a reviewed essay is permitted (idempotent)."""
+    fake = _fake_supabase(status="reviewed")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().patch(
+            f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+            json=_valid_feedback_edits(),
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "reviewed"
+
+
+def test_mark_delivered_409_when_essay_not_yet_reviewed():
+    """Cannot skip the review step (graded → delivered)."""
+    fake = _fake_supabase(status="graded")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    assert "Save edits first" in r.json()["detail"]
+    fake.table.return_value.update.assert_not_called()
+
+
+def test_mark_delivered_409_when_already_delivered():
+    """Re-delivering a delivered essay is rejected (immutable in W3)."""
+    fake = _fake_supabase(status="delivered")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+
+
+@pytest.mark.parametrize("blocked_status", ["pending", "grading", "failed"])
+def test_mark_delivered_409_for_pre_review_states(blocked_status):
+    """pending / grading / failed all rejected — none of them are 'reviewed'."""
+    fake = _fake_supabase(status=blocked_status)
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
 
 
 # ── W3 placeholders still 501 ────────────────────────────────────────
