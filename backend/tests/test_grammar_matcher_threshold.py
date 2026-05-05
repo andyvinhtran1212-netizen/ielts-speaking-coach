@@ -101,3 +101,74 @@ def test_matcher_handles_real_production_misses():
     # Document baseline; Phase 2 production canary will tell us the
     # real shape and we'll tighten this in a follow-up if warranted.
     assert matched_count >= 0
+
+
+# ── Sprint 7c.2 — modal-verbs false-positive on quoted student errors ─
+#
+# AI feedback often quotes the student's broken English verbatim:
+#     "Sai cấu trúc động từ — 'can uh success in' không hợp lệ"
+# Words like "can" / "should" / "must" inside such quotes used to
+# trigger _VI_EN expansion AND raw_words extraction — both biased
+# routing toward modal-verbs (M023's "can to V" keyword matched the
+# bare "can" token). Sprint 7c.2 strips quoted phrases of ≥3 words
+# (heuristic for "this is a student-error sample, not a topic name")
+# from BOTH VI_EN scan input and raw_words input. Short quotes (≤2
+# words, e.g. 'past simple') are left in place so legitimate quoted
+# topic names still contribute to article matching.
+
+def test_routing_strips_long_quoted_student_errors():
+    """Sprint 7c.2 production bug: 'can uh success in' (4-word
+    student quote) used to route to modal-verbs because raw 'can'
+    matched M023. After stripping, the rest of the issue's
+    Vietnamese signal ('thiếu động từ chính') wins."""
+    issue = "Sai cấu trúc động từ — 'can uh success in' không hợp lệ, thiếu động từ chính"
+    match = grammar_service.find_best_match(issue)
+    assert match is not None, f"No match for {issue!r}"
+    assert match["slug"] != "modal-verbs", (
+        f"Sprint 7c.2 regression: 'can' inside student quote routed to "
+        f"modal-verbs at score {match['score']:.3f}. The 4-word quote "
+        f"should have been stripped before VI_EN / raw_words scans."
+    )
+    assert match["slug"] == "missing-main-verbs", (
+        f"Expected missing-main-verbs (M050), got {match['slug']!r}"
+    )
+
+
+def test_routing_strips_curly_quotes_too():
+    """Sprint 7c.2: handle Unicode curly quotes (U+2018 / U+2019) the
+    same as straight quotes — AI feedback occasionally renders with
+    smart quotes. With the long-quote heuristic, the quoted student
+    fragment gets stripped; the residual issue ('Sai cấu trúc — không
+    hợp lệ') has no clear routing signal, so returning None is
+    acceptable. The bar is: do NOT route to modal-verbs."""
+    issue = "Sai cấu trúc — \u2018can uh success in\u2019 không hợp lệ"
+    match = grammar_service.find_best_match(issue)
+    if match is not None:
+        assert match["slug"] != "modal-verbs", (
+            f"Sprint 7c.2 curly-quote regression: routed to modal-verbs at "
+            f"score {match['score']:.3f}. Curly-quote stripping failed."
+        )
+
+
+def test_short_quoted_topic_names_still_contribute_to_routing():
+    """Sprint 7c.2: short quotes (≤2 words) are LEFT in the issue
+    text so legitimate topic-name quotes still drive routing. Here
+    'past simple' is a 2-word topic mention, 'go' / 'went' / 'thay
+    vì' are short — none should be stripped, so the matcher still
+    sees the past/simple/went tokens.
+    """
+    issue = "Lỗi 'past simple' — học viên dùng 'go' thay vì 'went'"
+    match = grammar_service.find_best_match(issue)
+    assert match is not None, (
+        f"Short quotes were stripped or matcher returned None — "
+        f"the long-quote heuristic should have kept them in."
+    )
+    # Tense-related slug expected — past-simple, present-perfect (which
+    # has 'past simple where pp needed' keywords), tense-consistency, or
+    # past-perfect-* are all reasonable routes for verb-form-in-past
+    # feedback.
+    ok_slug_parts = ("past", "perfect", "tense", "present")
+    assert any(part in match["slug"] for part in ok_slug_parts), (
+        f"Expected tense-related slug, got {match['slug']!r}. "
+        f"Short-quote tokens 'past' + 'simple' should win Tier 1."
+    )
