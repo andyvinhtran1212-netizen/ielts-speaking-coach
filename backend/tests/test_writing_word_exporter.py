@@ -209,3 +209,83 @@ def _is_yellow_highlight(run) -> bool:
     if hl is None:
         return False
     return hl.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val") == "yellow"
+
+
+# ── W3.2 Phase 3: threshold colors + native bullets ──────────────────
+
+from services.writing_word_exporter import _band_color, _COLOR_TEAL, _COLOR_AMBER, _COLOR_RED
+
+
+@pytest.mark.parametrize("score,expected", [
+    (8.0, _COLOR_TEAL),   # high → teal
+    (7.0, _COLOR_TEAL),   # boundary → teal
+    (6.5, _COLOR_AMBER),  # mid → amber
+    (5.5, _COLOR_AMBER),  # boundary → amber
+    (5.0, _COLOR_RED),    # low → red
+    (3.5, _COLOR_RED),    # well below
+])
+def test_band_color_threshold(score, expected):
+    assert _band_color(score) == expected
+
+
+def _band_run_color(doc):
+    """The first run after the 'Overall Band Score' heading carries the
+    coloured band text."""
+    found_heading = False
+    for p in doc.paragraphs:
+        if found_heading and p.runs:
+            return p.runs[0].font.color.rgb
+        if p.style and p.style.name.startswith("Heading") and p.text == "Overall Band Score":
+            found_heading = True
+    return None
+
+
+def test_doc_overall_band_color_low_band():
+    """Low band (< 5.5) gets the red threshold color, not teal."""
+    payload = _l1_payload()
+    payload["overallBandScore"] = 4.5
+    payload["criteriaFeedback"]["mainCriterion"]["bandScore"] = 4
+    payload["criteriaFeedback"]["coherenceCohesion"]["bandScore"] = 4
+    payload["criteriaFeedback"]["lexicalResource"]["bandScore"] = 4
+    payload["criteriaFeedback"]["grammaticalRange"]["bandScore"] = 4
+    docx_bytes, _ = _build(payload)
+    doc = _open(docx_bytes)
+    assert _band_run_color(doc) == _COLOR_RED
+
+
+def test_doc_overall_band_color_mid_band():
+    """Mid band (5.5 ≤ x < 7.0) gets amber."""
+    payload = _l1_payload()
+    payload["overallBandScore"] = 6.0
+    docx_bytes, _ = _build(payload)
+    doc = _open(docx_bytes)
+    assert _band_run_color(doc) == _COLOR_AMBER
+
+
+def test_doc_overall_band_color_high_band():
+    """High band (≥ 7.0) keeps teal."""
+    payload = _l1_payload()
+    payload["overallBandScore"] = 7.5
+    docx_bytes, _ = _build(payload)
+    doc = _open(docx_bytes)
+    assert _band_run_color(doc) == _COLOR_TEAL
+
+
+def test_doc_takeaways_use_word_bullet_style():
+    """Strengths + Areas for Improvement render with Word's 'List Bullet'
+    style — Andy's first-use feedback noted the prior render had no
+    visible bullet indents."""
+    docx_bytes, _ = _build(_l1_payload())
+    doc = _open(docx_bytes)
+    # Key Takeaways is the first 2x2 table after the H1
+    takeaways = doc.tables[0]
+    bullet_styles = []
+    for cell in (takeaways.rows[1].cells[0], takeaways.rows[1].cells[1]):
+        for p in cell.paragraphs:
+            if p.text:  # skip blank seed paragraph
+                bullet_styles.append(p.style.name)
+    assert bullet_styles, "no takeaway items rendered"
+    assert all(s == "List Bullet" for s in bullet_styles), (
+        f"Expected every populated takeaway paragraph to use 'List Bullet'; "
+        f"got {bullet_styles}"
+    )
