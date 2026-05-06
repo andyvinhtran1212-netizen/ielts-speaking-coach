@@ -59,10 +59,6 @@
         <option value="intermediate">Intermediate</option>
         <option value="advanced">Advanced</option>
       </select>
-      <select id="filter-active" class="input" style="width: auto; min-width: 140px;">
-        <option value="true">Đang hoạt động</option>
-        <option value="false">Đã tắt</option>
-      </select>
       <button id="btn-create" type="button" class="btn-primary ml-auto">+ Thêm prompt mới</button>
     </div>
 
@@ -130,7 +126,11 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/api.js"></script>
+  <!-- Absolute path: under the Vercel rewrite `/admin/writing/prompts`
+       (3 path segments), `../js/api.js` resolves to `/admin/js/api.js`
+       and 404s. Using `/js/api.js` matches admin-writing-grade.html and
+       is rewrite-agnostic. -->
+  <script src="/js/api.js"></script>
   <script>
     'use strict';
 
@@ -171,12 +171,13 @@
 
       var taskType  = document.getElementById('filter-task-type').value;
       var difficulty = document.getElementById('filter-difficulty').value;
-      var isActive  = document.getElementById('filter-active').value;
 
+      // Backend defaults `is_active=true` when the param is omitted, so
+      // the admin UI only ever shows active rows. (Restore-from-inactive
+      // is queued for a later sprint if Andy needs it.)
       var params = new URLSearchParams();
       if (taskType)   params.set('task_type', taskType);
       if (difficulty) params.set('difficulty', difficulty);
-      params.set('is_active', isActive);
 
       try {
         var data = await window.api.get('/admin/writing/prompts?' + params.toString());
@@ -212,10 +213,6 @@
           ? p.prompt_text.substring(0, 240).trim() + '…'
           : (p.prompt_text || '');
 
-        var inactiveBadge = p.is_active === false
-          ? '<span class="pill" style="background:rgba(156,163,175,0.15);color:#9ca3af">Đã tắt</span>'
-          : '';
-
         return ''
           + '<div class="card p-4">'
           +   '<div class="flex items-start justify-between gap-3 mb-2">'
@@ -223,17 +220,14 @@
           +     '<div class="flex flex-wrap gap-1 flex-shrink-0 justify-end">'
           +       '<span class="pill pill-task">' + escapeHtml(TASK_LABELS[p.task_type] || p.task_type) + '</span>'
           +       (diffLabel ? '<span class="' + diffClass + '">' + escapeHtml(diffLabel) + '</span>' : '')
-          +       inactiveBadge
           +     '</div>'
           +   '</div>'
           +   '<p class="text-sm text-gray-300 mb-3 leading-relaxed whitespace-pre-line">' + escapeHtml(truncated) + '</p>'
           +   '<div class="flex items-center justify-between flex-wrap gap-2">'
           +     '<div class="flex flex-wrap gap-1">' + tags + '</div>'
           +     '<div class="flex gap-2">'
-          +       '<button type="button" class="btn-secondary" data-action="edit" data-id="' + p.id + '">Sửa</button>'
-          +       (p.is_active === false
-                    ? '<button type="button" class="btn-secondary" data-action="restore" data-id="' + p.id + '">Khôi phục</button>'
-                    : '<button type="button" class="btn-danger"    data-action="delete"  data-id="' + p.id + '">Xóa</button>')
+          +       '<button type="button" class="btn-secondary" data-action="edit"   data-id="' + p.id + '">Sửa</button>'
+          +       '<button type="button" class="btn-danger"    data-action="delete" data-id="' + p.id + '">Xóa</button>'
           +     '</div>'
           +   '</div>'
           + '</div>';
@@ -245,9 +239,8 @@
         btn.addEventListener('click', function () {
           var action = btn.getAttribute('data-action');
           var id     = btn.getAttribute('data-id');
-          if (action === 'edit')    openEditModal(id);
-          if (action === 'delete')  softDeletePrompt(id);
-          if (action === 'restore') restorePrompt(id);
+          if (action === 'edit')   openEditModal(id);
+          if (action === 'delete') softDeletePrompt(id);
         });
       });
 
@@ -330,21 +323,17 @@
     }
 
     async function softDeletePrompt(id) {
-      if (!confirm('Tắt prompt này? (Soft delete — có thể khôi phục từ "Đã tắt".)')) return;
+      // Backend DELETE flips `is_active=false` rather than removing the
+      // row, so the prompt can be brought back later via direct PATCH
+      // if needed. The admin UI no longer surfaces inactive rows
+      // (filter dropdown removed), so this is effectively final from
+      // the admin's perspective until we add a "show inactive" view.
+      if (!confirm('Tắt prompt này?')) return;
       try {
         await window.api.delete('/admin/writing/prompts/' + id);
         await loadPrompts();
       } catch (err) {
         alert('Lỗi xóa: ' + (err.message || 'không xác định'));
-      }
-    }
-
-    async function restorePrompt(id) {
-      try {
-        await window.api.patch('/admin/writing/prompts/' + id, { is_active: true });
-        await loadPrompts();
-      } catch (err) {
-        alert('Lỗi khôi phục: ' + (err.message || 'không xác định'));
       }
     }
 
@@ -355,7 +344,6 @@
     document.getElementById('btn-close-modal').addEventListener('click', closeModal);
     document.getElementById('filter-task-type').addEventListener('change', loadPrompts);
     document.getElementById('filter-difficulty').addEventListener('change', loadPrompts);
-    document.getElementById('filter-active').addEventListener('change', loadPrompts);
 
     loadPrompts();
   </script>
