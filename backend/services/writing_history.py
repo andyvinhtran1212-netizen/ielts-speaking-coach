@@ -373,8 +373,15 @@ def format_history_for_prompt(
         if breakdown:
             lines.append("- Chi tiết theo tiêu chí:")
             for c in breakdown:
+                # Sprint 1.5b.1 — use the canonical key name "average" in
+                # the narrative line. Phase 1.5b shipped with "avg" here as
+                # a readability shorthand; Gemini saw the visible label and
+                # emitted `{"avg": N.N}` instead of `{"average": N.N}` per
+                # the schema's contract. The frontend renderer reads
+                # `c.average`, so the cell rendered as "avg —". Aligning
+                # the narrative to the canonical key removes the prime.
                 lines.append(
-                    f"  - {c['criterion']}: avg {c['average']}, trend {c['trend']}"
+                    f"  - {c['criterion']}: average {c['average']}, trend {c['trend']}"
                 )
         lines.append("")
 
@@ -419,10 +426,14 @@ def format_history_for_prompt(
             '  "average_last_5":       <copy from data>,',
             '  "trend":                "<copy: improving / stable / declining>",',
             '  "trend_explanation":    "Vietnamese narrative",',
-            '  "criteria_breakdown":   <copy array from data>,',
+            '  "criteria_breakdown":   [',
+            '    {"criterion": "<name>", "average": <number>, "trend": "<improving/stable/declining>"}',
+            '  ],',
             '  "next_target":          "Vietnamese gợi ý mục tiêu band tiếp theo"',
             "}",
             "```",
+            'Lưu ý: trong `criteria_breakdown`, dùng key `"average"` '
+            '(không phải `"avg"`).',
             "",
         ])
 

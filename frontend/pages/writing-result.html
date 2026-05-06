@@ -387,11 +387,21 @@
         var ct = c.trend || 'stable';
         var arrow      = ARROW[ct]       || '→';
         var arrowColor = ARROW_COLOR[ct] || 'text-gray-400';
+        // Sprint 1.5b.1 — accept both `average` (canonical, post-fix)
+        // AND `avg` (legacy, what Phase 1.5b's first prompt primed
+        // Gemini to emit). The backend now spells `average` in both
+        // the narrative and the JSON example, so new essays land on
+        // the canonical key. Existing rows graded between Phase 1.5b
+        // ship and this fix carry `avg` — fall back to that so they
+        // still render the number instead of "avg —".
+        var avg = (c.average != null) ? c.average
+                : (c.avg     != null) ? c.avg
+                : '—';
         return (
           '<div class="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">' +
             '<span class="text-sm text-gray-200">' + escapeHtml(c.criterion || '') + '</span>' +
             '<div class="flex items-center gap-2 text-sm">' +
-              '<span class="text-gray-300">avg ' + escapeHtml(c.average != null ? c.average : '—') + '</span>' +
+              '<span class="text-gray-300">avg ' + escapeHtml(avg) + '</span>' +
               '<span class="' + arrowColor + ' font-semibold">' + arrow + '</span>' +
             '</div>' +
           '</div>'
