@@ -147,16 +147,6 @@ class LexicalAnalysis(BaseModel):
     wordsToUpgrade: List[WordToUpgradeItem]
 
 
-class SentenceUpgradeItem(BaseModel):
-    original: str
-    rewritten: str
-    explanation: str
-
-
-class SentenceStructureAnalysis(BaseModel):
-    sentenceUpgrades: List[SentenceUpgradeItem]
-
-
 class AIContentAnalysis(BaseModel):
     likelihood: conint(ge=0, le=100)
     explanation: str
@@ -185,7 +175,29 @@ class WritingFeedback(BaseModel):
     coherenceAnalysis: Optional[List[CoherenceAnalysisItem]] = None
     counterargumentAnalysis: Optional[CounterargumentAnalysis] = None
     lexicalAnalysis: Optional[LexicalAnalysis] = None
-    sentenceStructureAnalysis: Optional[SentenceStructureAnalysis] = None
+
+    # `sentenceStructureAnalysis` carries TWO shapes since Phase 1.5c
+    # (2026-05-06 PM):
+    #
+    #   • Legacy (level 4/5, no history block):
+    #       {"sentenceUpgrades": [{original, rewritten, explanation}, ...]}
+    #     Emitted by the L4/L5 system prompts (system_l4_*.md +
+    #     system_l5_*.md).  Consumed by writing_word_exporter +
+    #     templates/writing/output.html.j2 which both detect this
+    #     shape via the `sentenceUpgrades` key.
+    #
+    #   • Phase 1.5c (history-aware, ≥5 graded essays):
+    #       {"summary", "common_issues":[{pattern,count,examples}],
+    #        "complexity_indicator", "current_essay_observation",
+    #        "focus_theme":{title, why, this_week_practice}}
+    #     Emitted when format_history_for_prompt's SS block instructs
+    #     Gemini to override the legacy shape.  Consumed by the
+    #     student-facing renderer in writing-result.html.
+    #
+    # Field is `Optional[dict]` rather than a strict Pydantic class so
+    # both shapes parse without a Union type — every consumer
+    # discriminates on the `summary` vs `sentenceUpgrades` key.
+    sentenceStructureAnalysis: Optional[dict] = None
 
     # Phase 1.5 forward-compatibility — None on Phase 1.
     # Phase 1.5a (recurringPatterns): the grader prompt now instructs
@@ -225,6 +237,16 @@ class GraderConfig(BaseModel):
     # parallel field rather than nested under `history` so the
     # Phase 1.5a contract on `history` stays unchanged.
     trajectory: Optional[dict] = None
+
+    # Phase 1.5c (sentence-structure history aggregator): pre-aggregated
+    # dict produced by services.writing_history.get_sentence_structure_history().
+    # Mirrors `history` / `trajectory` — same threshold, same
+    # degrade-on-failure. Drives Gemini's emission of the structured
+    # Phase-1.5c shape on `feedback_json.sentenceStructureAnalysis`
+    # (overriding the L4/L5 system prompt's legacy `{sentenceUpgrades:
+    # [...]}` shape — see `format_history_for_prompt` for the
+    # explicit override instruction).
+    sentence_structure: Optional[dict] = None
 
 
 class GradingResult(BaseModel):

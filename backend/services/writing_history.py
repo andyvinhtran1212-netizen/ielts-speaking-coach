@@ -1,8 +1,9 @@
-"""writing_history.py — aggregate recurring error patterns + band
-trajectory from a student's last N graded essays so the writing
-grader prompt can give history-aware feedback.
+"""writing_history.py — aggregate recurring error patterns, band
+trajectory, and sentence-structure history from a student's last N
+graded essays so the writing grader prompt can give history-aware
+feedback.
 
-Two aggregators, one threshold:
+Three aggregators, one threshold:
 
   Phase 1.5a — get_recurring_patterns(student_id)
       Counter over mistakeAnalysis[].mistakeType across last 5 essays.
@@ -14,14 +15,28 @@ Two aggregators, one threshold:
       Vietnamese narrative (current_band / trend_explanation /
       next_target) at grade time.
 
+  Phase 1.5c — get_sentence_structure_history(student_id)
+      Mines mistakeAnalysis[] for sentence-structure-flavoured
+      mistakes across last 5 essays. Returns top recurring SS
+      patterns + a heuristic complexity indicator. Gemini then
+      emits the Phase-1.5c structured shape on the existing
+      `sentenceStructureAnalysis` field — Vietnamese summary +
+      current-essay observation + ONE focus theme for the week —
+      overriding the legacy `{sentenceUpgrades: [...]}` shape that
+      the L4/L5 system prompts otherwise emit. The Word exporter
+      + Jinja template + frontend renderer all branch on the
+      `summary` vs `sentenceUpgrades` key to handle both shapes.
+
 Design choice: pre-aggregate backend-side rather than dump raw essays
 into the prompt.  Cheaper + reusable — counter-style summary +
 trajectory dict fit in ~500 prompt tokens regardless of essay length.
 
 Threshold: <5 graded essays ⇒ no aggregation (return None). The
 matching grader path then leaves `feedback_json.recurringPatterns`
-+ `feedback_json.bandTrajectoryAnalysis` both null, preserving
-Phase-1 baseline behaviour for new students.
++ `feedback_json.bandTrajectoryAnalysis` null, and
+`feedback_json.sentenceStructureAnalysis` follows the system
+prompt's legacy shape (or null at L1-L3), preserving Phase-1
+baseline behaviour for new students.
 
 Defensive: any DB error returns None so a transient blip degrades
 to plain grading rather than failing the whole grade.
@@ -314,20 +329,226 @@ def get_band_trajectory(student_id: str) -> dict | None:
     }
 
 
+# ── Phase 1.5c: sentence-structure aggregator + focus theme ───────────
+#
+# We mine `mistakeAnalysis[]` for sentence-structure-flavoured mistakes
+# rather than introducing a new column. Gemini emits varied criterion
+# strings — "Coherence and Cohesion", "Grammatical Range and Accuracy",
+# even "Sentence Structure" directly — so the heuristic checks both
+# `mistakeType` and `criterion` against keyword sets in EN + VI.
+
+# Substring matches (case-insensitive) on `mistakeType`. Vietnamese
+# triggers are included because Gemini occasionally labels mistakeType
+# with VN phrasing on Vietnamese-essay grading runs.
+_SENTENCE_STRUCTURE_MISTAKE_KEYWORDS: tuple[str, ...] = (
+    "sentence structure", "run-on", "run on", "comma splice", "fragment",
+    "subordination", "complex sentence", "compound sentence",
+    "main verb", "missing verb", "missing subject", "sentence boundary",
+    "câu", "cấu trúc câu", "câu phức", "câu đơn", "câu ghép",
+    "thiếu động từ", "không có động từ", "thiếu chủ ngữ",
+)
+
+# Substring matches on `criterion`. Used as a fallback when mistakeType
+# doesn't include any of the structural keywords above. We deliberately
+# don't fire on bare "Grammatical Range and Accuracy" — that criterion
+# also covers tense, articles, agreement, etc. — but if the criterion
+# is literally "Sentence Structure" we treat it as a SS mistake.
+_SENTENCE_STRUCTURE_CRITERION_KEYWORDS: tuple[str, ...] = (
+    "sentence structure",
+)
+
+# How many SS issues per sentence indicate "needs simpler structures
+# first" vs "ready for more complex structures". Tuned conservatively:
+# 0.30 SS-mistakes / sentence is roughly "every third sentence has a
+# structural problem" — a strong signal to slow down and fix
+# fundamentals; 0.10 ("every tenth sentence") means structure is solid
+# and we can push toward variety.
+_COMPLEXITY_HIGH_DENSITY = 0.30
+_COMPLEXITY_LOW_DENSITY  = 0.10
+
+# Top-N issues we surface to Gemini. Three is enough to anchor the
+# focus theme without bloating the prompt.
+_TOP_SS_ISSUES_FOR_PROMPT = 3
+
+# Cap example length so a runaway long sentence can't blow up the
+# prompt. 80 chars matches the recurring-patterns examples cap.
+_MAX_SS_EXAMPLE_CHARS = 80
+
+
+def _is_sentence_structure_mistake(mistake: dict) -> bool:
+    """True if the mistake looks structural (run-on / fragment / missing
+    subject-or-verb / SS-criterion-tagged). Heuristic — Gemini's labels
+    are inconsistent so we check both mistakeType and criterion."""
+    if not isinstance(mistake, dict):
+        return False
+    m_type = (mistake.get("mistakeType") or "").lower()
+    for kw in _SENTENCE_STRUCTURE_MISTAKE_KEYWORDS:
+        if kw in m_type:
+            return True
+    criterion = (mistake.get("criterion") or "").lower()
+    for kw in _SENTENCE_STRUCTURE_CRITERION_KEYWORDS:
+        if kw in criterion:
+            return True
+    return False
+
+
+def _truncate_example(text: str) -> str:
+    """Trim a quoted example to `_MAX_SS_EXAMPLE_CHARS` chars with an
+    ellipsis. Keeps prompt token budget predictable."""
+    text = text.strip()
+    if len(text) <= _MAX_SS_EXAMPLE_CHARS:
+        return text
+    return text[: _MAX_SS_EXAMPLE_CHARS - 3] + "..."
+
+
+def _classify_complexity(ss_density_per_essay: list[float]) -> str:
+    """Map per-essay SS-density numbers to a Vietnamese-tier indicator.
+
+    Returns one of:
+      • "needs_more_simple"  — high SS density; fix run-ons/fragments first
+      • "needs_more_complex" — low SS density; ready to push for variety
+      • "balanced"           — middle ground (or no signal)
+    """
+    if not ss_density_per_essay:
+        return "balanced"
+    avg = sum(ss_density_per_essay) / len(ss_density_per_essay)
+    if avg >= _COMPLEXITY_HIGH_DENSITY:
+        return "needs_more_simple"
+    if avg <= _COMPLEXITY_LOW_DENSITY:
+        return "needs_more_complex"
+    return "balanced"
+
+
+def get_sentence_structure_history(student_id: str) -> dict | None:
+    """Aggregate sentence-structure mistakes from a student's last
+    `HISTORY_WINDOW` graded essays.
+
+    Returns:
+        None when the student has fewer than `MIN_HISTORY_ESSAYS`
+        graded essays (or any DB error).
+
+        Otherwise a dict::
+
+            {
+                "common_issues": [
+                    {"pattern": str, "count": int, "examples": [str]}
+                ],   # sorted by count DESC, count ≥ RECURRENCE_FLOOR,
+                     # capped at _TOP_SS_ISSUES_FOR_PROMPT
+                "complexity_indicator":
+                    "needs_more_simple" | "balanced" | "needs_more_complex",
+                "essays_analyzed": int,
+            }
+
+    Note on shape: this dict is the deterministic numeric-ish ground
+    truth (counts + heuristic complexity). The Vietnamese narrative
+    fields (`summary`, `current_essay_observation`, `focus_theme`)
+    are NOT populated here — Gemini emits them on the existing
+    `feedback_json.sentenceStructureAnalysis` field (overriding the
+    legacy `{sentenceUpgrades: [...]}` shape) using the prompt's
+    instructions (see `format_history_for_prompt`).
+    """
+    try:
+        result = (
+            supabase_admin.table("writing_feedback")
+            .select(
+                "feedback_json, "
+                "writing_essays!inner(student_id, essay_text)"
+            )
+            .eq("writing_essays.student_id", student_id)
+            .order("created_at", desc=True)
+            .limit(HISTORY_WINDOW)
+            .execute()
+        )
+        rows = result.data or []
+    except Exception as e:
+        logger.warning(
+            "writing_history sentence_structure db_error student=%s: %s "
+            "— degrading to None",
+            student_id, e,
+        )
+        return None
+
+    if len(rows) < MIN_HISTORY_ESSAYS:
+        logger.info(
+            "writing_history sentence_structure skip student=%s "
+            "essays=%d min=%d",
+            student_id, len(rows), MIN_HISTORY_ESSAYS,
+        )
+        return None
+
+    pattern_counts:   dict[str, int]       = {}
+    pattern_examples: dict[str, list[str]] = {}
+    ss_density_per_essay: list[float]      = []
+
+    for row in rows:
+        fj = row.get("feedback_json") or {}
+        if not isinstance(fj, dict):
+            continue
+        mistakes = fj.get("mistakeAnalysis") or []
+        ss_mistakes = [m for m in mistakes if _is_sentence_structure_mistake(m)]
+
+        for m in ss_mistakes:
+            pattern = (m.get("mistakeType") or "Sentence structure issue").strip()
+            if not pattern:
+                pattern = "Sentence structure issue"
+            pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
+
+            original = (m.get("original") or "").strip()
+            if original:
+                bucket = pattern_examples.setdefault(pattern, [])
+                truncated = _truncate_example(original)
+                if truncated not in bucket and len(bucket) < 2:
+                    bucket.append(truncated)
+
+        # Density per essay = SS-mistake-count / sentence-count, where
+        # sentence-count comes from the essay text terminator characters.
+        # Pulled from writing_essays via the inner join above (not from
+        # feedback_json — Gemini doesn't always echo the original essay
+        # back).
+        essay_join = row.get("writing_essays") or {}
+        if isinstance(essay_join, list):
+            essay_join = essay_join[0] if essay_join else {}
+        essay_text = (essay_join.get("essay_text") or "") if isinstance(essay_join, dict) else ""
+        sentence_count = max(
+            1,
+            essay_text.count(".") + essay_text.count("!") + essay_text.count("?"),
+        )
+        ss_density_per_essay.append(len(ss_mistakes) / sentence_count)
+
+    common_issues: list[dict] = []
+    for pattern, count in sorted(pattern_counts.items(), key=lambda x: -x[1]):
+        if count < RECURRENCE_FLOOR:
+            continue
+        common_issues.append({
+            "pattern":  pattern,
+            "count":    count,
+            "examples": pattern_examples.get(pattern, []),
+        })
+        if len(common_issues) >= _TOP_SS_ISSUES_FOR_PROMPT:
+            break
+
+    return {
+        "common_issues":        common_issues,
+        "complexity_indicator": _classify_complexity(ss_density_per_essay),
+        "essays_analyzed":      len(rows),
+    }
+
+
 def format_history_for_prompt(
     patterns: dict | None,
     trajectory: dict | None = None,
+    sentence_structure: dict | None = None,
 ) -> str:
-    """Format both Phase 1.5a recurring-patterns and Phase 1.5b
-    band-trajectory aggregates into a single Vietnamese prompt
-    section.
+    """Format Phase 1.5a recurring-patterns, Phase 1.5b
+    band-trajectory, and Phase 1.5c sentence-structure-history
+    aggregates into a single Vietnamese prompt section.
 
-    Empty inputs (both None or both empty) ⇒ empty string, so the
+    Empty inputs (all three None or empty) ⇒ empty string, so the
     grader's `_build_user_prompt` can unconditionally include the
     return value without polluting the prompt for new students.
 
-    The composed block instructs Gemini to populate two output
-    fields:
+    The composed block instructs Gemini to populate up to three
+    output fields:
 
       • `recurringPatterns` ({summary, improvements, stillRecurring})
         — the Phase 1.5a contract.
@@ -338,10 +559,21 @@ def format_history_for_prompt(
         `criteria_breakdown` are copy-from-data; `current_band`,
         `trend_explanation`, `next_target` are Gemini-authored
         Vietnamese narrative.
+
+      • `sentenceStructureAnalysis` (Phase-1.5c structured shape:
+        {summary, common_issues, complexity_indicator,
+        current_essay_observation, focus_theme}) — Phase 1.5c.
+        Overrides the legacy `{sentenceUpgrades: [...]}` shape from
+        the L4/L5 system prompt for the duration of this essay.
+        `common_issues` and `complexity_indicator` are
+        copy-from-data; `summary`, `current_essay_observation`,
+        and `focus_theme` ({title, why, this_week_practice}) are
+        Gemini-authored Vietnamese narrative.
     """
     has_patterns   = bool(patterns   and patterns.get("patterns"))
     has_trajectory = bool(trajectory)
-    if not has_patterns and not has_trajectory:
+    has_ss         = bool(sentence_structure)
+    if not has_patterns and not has_trajectory and not has_ss:
         return ""
 
     lines: list[str] = [
@@ -383,6 +615,25 @@ def format_history_for_prompt(
                 lines.append(
                     f"  - {c['criterion']}: average {c['average']}, trend {c['trend']}"
                 )
+        lines.append("")
+
+    if has_ss:
+        lines.extend([
+            "### Phân tích cấu trúc câu (lịch sử)",
+            "",
+            f"- Mức độ phức tạp hiện tại: **{sentence_structure['complexity_indicator']}**",
+        ])
+        ss_issues = sentence_structure.get("common_issues") or []
+        if ss_issues:
+            lines.append("- Lỗi cấu trúc câu LẶP LẠI:")
+            for issue in ss_issues:
+                examples = issue.get("examples") or []
+                ex_str = "; ".join(f'"{e}"' for e in examples[:2]) or "(no examples)"
+                lines.append(
+                    f"  - **{issue['pattern']}** ({issue['count']}x): {ex_str}"
+                )
+        else:
+            lines.append("- Chưa có pattern cấu trúc câu nào lặp lại đáng kể.")
         lines.append("")
 
     # ── Output schema instructions ────────────────────────────────
@@ -434,6 +685,46 @@ def format_history_for_prompt(
             "```",
             'Lưu ý: trong `criteria_breakdown`, dùng key `"average"` '
             '(không phải `"avg"`).',
+            "",
+        ])
+
+    if has_ss:
+        lines.extend([
+            "Output `sentenceStructureAnalysis` (Phase-1.5c shape — "
+            "**overrides** mọi hướng dẫn `sentenceStructureAnalysis` "
+            "trong system prompt cho bài này, kể cả shape "
+            "`{sentenceUpgrades: [...]}` ở L4/L5).  Copy `common_issues` "
+            "và `complexity_indicator` từ data ở trên; tự sinh "
+            "`summary` (Vietnamese 1-2 câu overview cấu trúc câu của "
+            "em qua 5 bài), `current_essay_observation` (Vietnamese "
+            "1-2 câu nhận xét cấu trúc câu BÀI NÀY cụ thể), và "
+            "`focus_theme` (đúng MỘT theme cho học viên luyện tuần "
+            "này — chọn dựa trên common_issues + complexity_indicator "
+            "+ bài hiện tại):",
+            "```json",
+            '"sentenceStructureAnalysis": {',
+            '  "summary":                   "Vietnamese 1-2 câu overview",',
+            '  "common_issues":             [<copy array — pattern, count, examples>],',
+            '  "complexity_indicator":      "<copy: needs_more_simple | balanced | needs_more_complex>",',
+            '  "current_essay_observation": "Vietnamese nhận xét bài này",',
+            '  "focus_theme": {',
+            '    "title":              "Tên focus theme tuần này (vd \\"Mệnh đề quan hệ với which/who\\")",',
+            '    "why":                "Vietnamese: tại sao chọn theme này dựa trên history",',
+            '    "this_week_practice": "Vietnamese: 1-2 câu hoạt động luyện tập cụ thể"',
+            '  }',
+            "}",
+            "```",
+            "Lưu ý: KHÔNG emit `sentenceUpgrades` array khi đã có "
+            "history block này — Phase-1.5c shape thay thế hoàn toàn.",
+            "Hướng dẫn chọn focus_theme:",
+            "- ĐÚNG MỘT theme — không list nhiều.",
+            "- Nếu `complexity_indicator = needs_more_simple`, ưu tiên "
+            "fix run-on / fragment / missing-verb trước khi push complex structures.",
+            "- Nếu `needs_more_complex`, suggest cấu trúc nâng cao "
+            "(relative clauses, conditionals, inversion, cleft, …).",
+            "- `this_week_practice` phải CỤ THỂ + actionable — vd "
+            '"Viết 5 câu dùng \\"which/who\\" để mô tả ý kiến trong '
+            'bài Task 2 tiếp theo", không phải "luyện tập câu phức".',
             "",
         ])
 

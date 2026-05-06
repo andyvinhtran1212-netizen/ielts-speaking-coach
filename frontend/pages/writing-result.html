@@ -750,15 +750,123 @@
       show('lexical-section');
     }
 
-    // Sprint 2.4.1 — render sentenceStructureAnalysis. Canonical shape
-    // {sentenceUpgrades: [{original, rewritten, explanation}]}. Renders
-    // each upgrade as original (strikethrough) → rewritten (green) +
-    // explanation, mirroring the mistake card visual language.
+    // Render sentenceStructureAnalysis. Carries TWO shapes since
+    // Phase 1.5c (2026-05-06 PM):
+    //
+    //   • Phase-1.5c structured (≥5 graded essays, history-aware):
+    //       {summary, common_issues, complexity_indicator,
+    //        current_essay_observation,
+    //        focus_theme:{title, why, this_week_practice}}
+    //
+    //   • Legacy (L4/L5 system prompt, no history):
+    //       {sentenceUpgrades: [{original, rewritten, explanation}]}
+    //
+    // Discriminator is the `summary` key — present ⇒ Phase-1.5c shape.
+    // Sprint 2.4.1 generic-dump fallback retained for any non-canonical
+    // legacy row that doesn't match either shape.
     function renderSentenceStructureAnalysis(feedback) {
       var data = feedback.feedback_json && feedback.feedback_json.sentenceStructureAnalysis;
       if (!data) return;
 
-      var upgrades = data && Array.isArray(data.sentenceUpgrades) ? data.sentenceUpgrades : null;
+      // Phase 1.5c structured shape.
+      if (typeof data === 'object' && !Array.isArray(data) && typeof data.summary === 'string') {
+        var summary        = data.summary || '';
+        var indicator      = data.complexity_indicator || '';
+        var observation    = data.current_essay_observation || '';
+        var issues         = Array.isArray(data.common_issues) ? data.common_issues : [];
+        var focusTheme     = (data.focus_theme && typeof data.focus_theme === 'object') ? data.focus_theme : {};
+        var essaysAnalyzed = data.essays_analyzed != null ? data.essays_analyzed : 5;
+
+        // No usable narrative + no issues + no focus theme ⇒ skip section.
+        if (!summary && !observation && !issues.length && !focusTheme.title) return;
+
+        var indicatorLabel = {
+          needs_more_simple:  'Nên đơn giản hóa',
+          balanced:           'Cân đối',
+          needs_more_complex: 'Nên đa dạng cấu trúc'
+        }[indicator] || '—';
+
+        var html =
+          '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+            '<span aria-hidden="true">🔧</span> Phân tích cấu trúc câu' +
+            '<span class="text-xs font-normal text-gray-400">(history-aware)</span>' +
+          '</h2>';
+
+        if (summary) {
+          html += '<p class="text-gray-300 leading-relaxed mb-4">' + escapeHtml(summary) + '</p>';
+        }
+
+        html +=
+          '<div class="grid grid-cols-2 gap-3 mb-4">' +
+            '<div class="bg-white/5 rounded-lg p-3">' +
+              '<div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Mức độ phức tạp</div>' +
+              '<div class="text-base font-semibold text-teal-light">' + escapeHtml(indicatorLabel) + '</div>' +
+            '</div>' +
+            '<div class="bg-white/5 rounded-lg p-3">' +
+              '<div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Số bài phân tích</div>' +
+              '<div class="text-base font-semibold">' + essaysAnalyzed + ' bài</div>' +
+            '</div>' +
+          '</div>';
+
+        if (observation) {
+          html +=
+            '<div class="bg-amber-500/10 border border-amber-500/20 rounded p-3 mb-4">' +
+              '<div class="text-xs text-amber-400 mb-1">📝 Bài này</div>' +
+              '<p class="text-gray-300 text-sm">' + escapeHtml(observation) + '</p>' +
+            '</div>';
+        }
+
+        if (issues.length) {
+          html +=
+            '<div class="mb-4">' +
+              '<h3 class="text-sm font-semibold text-gray-300 mb-2">Lỗi cấu trúc thường gặp:</h3>' +
+              '<ul class="space-y-2">' +
+                issues.map(function (i) {
+                  var examples = Array.isArray(i.examples) ? i.examples : [];
+                  var exHtml = examples.length
+                    ? '<div class="ml-5 text-xs text-gray-400 italic">' +
+                        examples.map(function (ex) { return '"' + escapeHtml(ex) + '"'; }).join('; ') +
+                      '</div>'
+                    : '';
+                  return '<li class="flex flex-col gap-1 text-sm">' +
+                           '<div class="flex items-center gap-2">' +
+                             '<span class="text-amber-400">•</span>' +
+                             '<span class="text-gray-200 font-medium">' + escapeHtml(i.pattern || '') + '</span>' +
+                             '<span class="text-xs text-gray-500">(' + (i.count || 0) + 'x)</span>' +
+                           '</div>' + exHtml +
+                         '</li>';
+                }).join('') +
+              '</ul>' +
+            '</div>';
+        }
+
+        if (focusTheme.title) {
+          html +=
+            '<div class="bg-teal-500/10 border border-teal-500/20 rounded-lg p-4">' +
+              '<div class="text-xs text-teal-light mb-1">🎯 FOCUS TUẦN NÀY</div>' +
+              '<h3 class="text-base font-semibold text-gray-100 mb-2">' + escapeHtml(focusTheme.title) + '</h3>' +
+              (focusTheme.why
+                ? '<p class="text-sm text-gray-300 mb-2"><span class="text-gray-500">Tại sao:</span> ' +
+                    escapeHtml(focusTheme.why) + '</p>'
+                : '') +
+              (focusTheme.this_week_practice
+                ? '<p class="text-sm text-gray-300"><span class="text-gray-500">Luyện tuần này:</span> ' +
+                    escapeHtml(focusTheme.this_week_practice) + '</p>'
+                : '') +
+            '</div>';
+        }
+
+        document.getElementById('sentence-structure-section').innerHTML = html;
+        show('sentence-structure-section');
+        return;
+      }
+
+      // Legacy `{sentenceUpgrades: [{original, rewritten, explanation}]}`
+      // shape — emitted by L4/L5 system prompts when no history block
+      // overrides. Original (strikethrough) → rewritten (green) +
+      // explanation, mirroring the mistake card visual language.
+      var upgrades = (typeof data === 'object' && Array.isArray(data.sentenceUpgrades))
+        ? data.sentenceUpgrades : null;
       var content = '';
 
       if (upgrades && upgrades.length) {
@@ -778,6 +886,9 @@
           }).join('') +
           '</div>';
       } else {
+        // Sprint 2.4.1 fallback — non-canonical legacy shapes (string,
+        // array, dict without sentenceUpgrades) get a generic dump so
+        // older rows still surface something usable.
         content = genericRender(data);
       }
 
