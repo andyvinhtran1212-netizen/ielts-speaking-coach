@@ -31,7 +31,11 @@ from services.gemini_writing_grader import (
     InvalidJSONError,
     get_grader,
 )
-from services.writing_history import get_band_trajectory, get_recurring_patterns
+from services.writing_history import (
+    get_band_trajectory,
+    get_recurring_patterns,
+    get_sentence_structure_history,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,15 +183,17 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             raise RuntimeError(f"essay {essay_id} disappeared mid-flight")
         essay = er.data[0]
 
-        # Phase 1.5a + 1.5b — pre-aggregated history fed into the
-        # Gemini prompt so feedback can reference past mistakes
-        # (recurringPatterns) and band trends (bandTrajectoryAnalysis).
-        # Both return None when:
+        # Phase 1.5a + 1.5b + 1.5c — pre-aggregated history fed into
+        # the Gemini prompt so feedback can reference past mistakes
+        # (recurringPatterns), band trends (bandTrajectoryAnalysis),
+        # and sentence-structure history + a focus theme for the
+        # week (sentenceStructureFocus). All three return None when:
         #   • student has <5 graded essays (Phase-1 behaviour preserved)
         #   • the lookup itself raised (defensive — grading must not
         #     fail because history is unavailable)
-        recurring_patterns = get_recurring_patterns(essay["student_id"])
-        band_trajectory    = get_band_trajectory(essay["student_id"])
+        recurring_patterns  = get_recurring_patterns(essay["student_id"])
+        band_trajectory     = get_band_trajectory(essay["student_id"])
+        sentence_structure  = get_sentence_structure_history(essay["student_id"])
 
         config = GraderConfig(
             task_type=essay["task_type"],
@@ -198,6 +204,7 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             selected_model=essay["selected_model"],
             history=recurring_patterns,
             trajectory=band_trajectory,
+            sentence_structure=sentence_structure,
         )
 
         result = await get_grader().grade_essay(config)

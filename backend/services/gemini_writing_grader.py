@@ -125,18 +125,20 @@ class GeminiWritingGrader:
     def _build_user_prompt(self, config: GraderConfig) -> str:
         """Build user message containing essay context.
 
-        Phase 1.5a/1.5b: `config.history` (recurring patterns) and
-        `config.trajectory` (band trajectory) are pre-aggregated by
-        services.writing_history. The formatted Vietnamese block is
-        injected before the essay so Gemini can populate
-        `feedback_json.recurringPatterns` and
-        `feedback_json.bandTrajectoryAnalysis` against the actual
+        Phase 1.5a/1.5b/1.5c: `config.history` (recurring patterns),
+        `config.trajectory` (band trajectory), and
+        `config.sentence_structure` (SS-history) are pre-aggregated
+        by services.writing_history. The formatted Vietnamese block
+        is injected before the essay so Gemini can populate
+        `feedback_json.recurringPatterns`,
+        `feedback_json.bandTrajectoryAnalysis`, and
+        `feedback_json.sentenceStructureFocus` against the actual
         student history.
         """
         parts: list[str] = []
 
         history_block = format_history_for_prompt(
-            config.history, config.trajectory,
+            config.history, config.trajectory, config.sentence_structure,
         )
         if history_block:
             parts.append(history_block)

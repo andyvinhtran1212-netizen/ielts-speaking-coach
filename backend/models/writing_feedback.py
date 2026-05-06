@@ -194,6 +194,19 @@ class WritingFeedback(BaseModel):
     bandTrajectoryAnalysis: Optional[dict] = None
     recurringPatterns: Optional[dict] = None
 
+    # Phase 1.5c (sentenceStructureFocus): activated for ≥5 graded
+    # essays. Mines mistakeAnalysis[] for sentence-structure-flavoured
+    # mistakes and wraps them in a Vietnamese narrative + ONE focus
+    # theme for the week. Lives separately from the strict
+    # `sentenceStructureAnalysis` field above (which is the level-4/5
+    # `{sentenceUpgrades: [...]}` shape consumed by the Word exporter
+    # and Jinja template) so the legacy admin path keeps working
+    # unchanged. Shape:
+    #   {summary, common_issues[{pattern,count,examples}],
+    #    complexity_indicator, current_essay_observation,
+    #    focus_theme{title, why, this_week_practice}}
+    sentenceStructureFocus: Optional[dict] = None
+
 
 # ── Input/config types ────────────────────────────────────────────────
 
@@ -225,6 +238,14 @@ class GraderConfig(BaseModel):
     # parallel field rather than nested under `history` so the
     # Phase 1.5a contract on `history` stays unchanged.
     trajectory: Optional[dict] = None
+
+    # Phase 1.5c (sentence-structure history aggregator): pre-aggregated
+    # dict produced by services.writing_history.get_sentence_structure_history().
+    # Mirrors `history` / `trajectory` — same threshold, same
+    # degrade-on-failure. Drives Gemini's emission of
+    # `feedback_json.sentenceStructureFocus` (NOT the strict legacy
+    # `sentenceStructureAnalysis` field, which stays untouched at L4/L5).
+    sentence_structure: Optional[dict] = None
 
 
 class GradingResult(BaseModel):

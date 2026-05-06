@@ -32,6 +32,7 @@ from services.writing_history import (
     format_history_for_prompt,
     get_band_trajectory,
     get_recurring_patterns,
+    get_sentence_structure_history,
 )
 
 
@@ -380,3 +381,140 @@ def test_format_history_uses_canonical_average_key_in_narrative():
     assert '"average"' in out and "không phải" in out and '"avg"' in out, (
         "JSON example must call out the canonical key explicitly."
     )
+
+
+# ── Phase 1.5c — sentence-structure aggregator + focus theme ─────────
+
+
+def _ss_row(mistakes, essay_text="One. Two. Three. Four. Five."):
+    """Compact builder for a writing_feedback row joined to its essay
+    via the inner-join alias used by `get_sentence_structure_history`.
+
+    The aggregator pulls `essay_text` off the joined writing_essays
+    dict to compute SS-mistake density per sentence — keeping the
+    default text at 5 sentences makes the density math predictable.
+    """
+    return {
+        "feedback_json":  {"mistakeAnalysis": mistakes},
+        "writing_essays": {"essay_text": essay_text},
+    }
+
+
+def test_sentence_structure_returns_none_below_threshold():
+    """3 essays < MIN_HISTORY_ESSAYS ⇒ None — same threshold as the
+    other two aggregators so SS history activates on the same trigger
+    as recurring patterns + band trajectory."""
+    rows = [_ss_row([])] * 3
+    with patch("services.writing_history.supabase_admin", _mock_db_returning(rows)):
+        assert get_sentence_structure_history("student-uuid") is None
+
+
+def test_sentence_structure_aggregates_by_pattern():
+    """5 essays each containing two "Run-on sentence" mistakes ⇒ the
+    aggregator collapses them into a single common_issue with count
+    == 10, plus distinct examples (deduplicated, capped at 2)."""
+    mistakes = [
+        {"mistakeType": "Run-on sentence",
+         "original": "I went home it was late.", "criterion": "Grammatical Range"},
+        {"mistakeType": "Run-on sentence",
+         "original": "She arrived we left.", "criterion": "Grammatical Range"},
+    ]
+    rows = [_ss_row(mistakes) for _ in range(MIN_HISTORY_ESSAYS)]
+    with patch("services.writing_history.supabase_admin", _mock_db_returning(rows)):
+        result = get_sentence_structure_history("student-uuid")
+
+    assert result is not None
+    assert result["essays_analyzed"] == MIN_HISTORY_ESSAYS
+    assert len(result["common_issues"]) == 1
+
+    top = result["common_issues"][0]
+    assert top["pattern"] == "Run-on sentence"
+    assert top["count"] == 2 * MIN_HISTORY_ESSAYS
+    assert set(top["examples"]) == {
+        "I went home it was late.",
+        "She arrived we left.",
+    }
+
+
+def test_sentence_structure_filters_non_ss_mistakes():
+    """Non-SS mistakes (Article, Spelling, Word Choice…) MUST be
+    excluded from common_issues. The heuristic only fires when
+    mistakeType OR criterion contains an SS-flavoured keyword.
+
+    This test pins the boundary: a vanilla Grammar mistake (no SS
+    keyword anywhere) should produce zero common_issues, even at
+    high count."""
+    non_ss = [
+        {"mistakeType": "Grammar - Article",
+         "original": "the others", "criterion": "Grammatical Range and Accuracy"},
+        {"mistakeType": "Word Choice",
+         "original": "terrible", "criterion": "Lexical Resource"},
+    ]
+    rows = [_ss_row(non_ss) for _ in range(MIN_HISTORY_ESSAYS)]
+    with patch("services.writing_history.supabase_admin", _mock_db_returning(rows)):
+        result = get_sentence_structure_history("student-uuid")
+
+    assert result is not None
+    assert result["common_issues"] == []
+    # Density signal still computed even when zero SS mistakes — five
+    # essays, zero SS mistakes ⇒ low density ⇒ "needs_more_complex".
+    assert result["complexity_indicator"] == "needs_more_complex"
+
+
+def test_sentence_structure_db_failure_returns_none():
+    """DB error inside .execute() must NOT propagate — same defensive
+    contract as the other aggregators."""
+    with patch("services.writing_history.supabase_admin",
+               _mock_db_returning(raises=RuntimeError("DB down"))):
+        assert get_sentence_structure_history("student-uuid") is None
+
+
+def test_format_history_with_all_three_aggregators():
+    """patterns + trajectory + sentence_structure ⇒ the prompt block
+    includes all three Vietnamese sub-sections AND all three output
+    schema instructions (recurringPatterns, bandTrajectoryAnalysis,
+    sentenceStructureFocus). Pinning all three together protects the
+    single-call interface — a regression that drops any one of the
+    schemas mid-prompt would have Gemini silently emit null for the
+    affected field."""
+    patterns = {
+        "patterns": [
+            {"mistakeType": "Grammar - Article", "count": 5,
+             "examples": ["the others"], "criterion": "GRA"},
+        ],
+    }
+    trajectory = {
+        "essays_analyzed":    5,
+        "average_last_5":     6.5,
+        "trend":              "improving",
+        "trend_delta":        0.4,
+        "criteria_breakdown": [
+            {"criterion": "Task Response", "average": 7.0, "trend": "improving"},
+        ],
+    }
+    sentence_structure = {
+        "common_issues": [
+            {"pattern": "Run-on sentence", "count": 6,
+             "examples": ["I went home it was late."]},
+        ],
+        "complexity_indicator": "needs_more_simple",
+        "essays_analyzed":      5,
+    }
+    out = format_history_for_prompt(patterns, trajectory, sentence_structure)
+
+    # All three Vietnamese sub-section headings.
+    assert "Lỗi LẶP LẠI"                        in out
+    assert "Diễn biến band điểm"                in out
+    assert "Phân tích cấu trúc câu (lịch sử)"   in out
+
+    # SS-specific data surfaced.
+    assert "needs_more_simple"  in out
+    assert "Run-on sentence"    in out
+    assert "(6x)"               in out
+
+    # All three output schema instructions.
+    assert "recurringPatterns"        in out
+    assert "bandTrajectoryAnalysis"   in out
+    assert "sentenceStructureFocus"   in out
+    assert "focus_theme"              in out
+    assert "this_week_practice"       in out
