@@ -110,6 +110,32 @@
           <textarea id="form-prompt-text" class="input" placeholder="Some people believe… Discuss both views and give your opinion."></textarea>
         </div>
 
+        <!-- Phase 2.3c-1 — image upload, visible only for task1_academic -->
+        <div id="form-image-section" class="hidden">
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">
+            Hình ảnh (Task 1 Academic)
+          </label>
+          <p class="text-xs text-gray-500 mb-2">
+            Tùy chọn — JPG/PNG/WEBP/GIF, tối đa 5MB. Cloudinary sẽ tự nén + cap 1200px.
+          </p>
+
+          <div id="image-preview-container" class="hidden mb-2">
+            <img id="image-preview" class="max-w-xs rounded border border-white/10" alt="" />
+            <button id="btn-remove-image" type="button" class="btn-secondary mt-2" style="font-size:12px">
+              ✕ Xóa hình
+            </button>
+          </div>
+
+          <div id="image-upload-controls">
+            <input id="form-image-file" type="file" accept="image/*" class="text-sm" />
+            <span id="upload-status" class="hidden ml-2 text-xs text-amber-300">Đang upload…</span>
+            <span id="upload-error"  class="hidden ml-2 text-xs text-red-300"></span>
+          </div>
+
+          <input id="form-image-url"       type="hidden" />
+          <input id="form-image-public-id" type="hidden" />
+        </div>
+
         <div>
           <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Tags (cách nhau bởi dấu phẩy)</label>
           <input id="form-tags" class="input" placeholder="environment, opinion, advanced" />
@@ -162,6 +188,65 @@
     function show(id) { document.getElementById(id).classList.remove('hidden'); }
     function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
+    // ── Image upload helpers (Phase 2.3c-1) ────────────────────────
+    // The image section only makes sense for Task 1 Academic — the
+    // schema permits an image on any task_type, but the UX rule is:
+    // text-only prompts shouldn't surface a stray upload field.
+    function syncImageSectionVisibility() {
+      var taskType = document.getElementById('form-task-type').value;
+      if (taskType === 'task1_academic') show('form-image-section');
+      else                                hide('form-image-section');
+    }
+
+    function setImageState(url, publicId) {
+      document.getElementById('form-image-url').value       = url      || '';
+      document.getElementById('form-image-public-id').value = publicId || '';
+
+      var preview     = document.getElementById('image-preview');
+      var previewBox  = document.getElementById('image-preview-container');
+      var controls    = document.getElementById('image-upload-controls');
+
+      if (url) {
+        preview.src = url;
+        previewBox.classList.remove('hidden');
+        controls.classList.add('hidden');
+      } else {
+        preview.removeAttribute('src');
+        previewBox.classList.add('hidden');
+        controls.classList.remove('hidden');
+        // Clear the file input so re-selecting the same file still
+        // fires `change` (browsers suppress the event when value
+        // hasn't changed otherwise).
+        document.getElementById('form-image-file').value = '';
+      }
+      hide('upload-error');
+    }
+
+    async function handleImageUpload(ev) {
+      var file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+
+      hide('upload-error');
+      show('upload-status');
+
+      try {
+        var fd = new FormData();
+        fd.append('file', file);
+        // `window.api.upload` skips the JSON Content-Type so the
+        // browser's multipart boundary is preserved.
+        var res = await window.api.upload('/admin/writing/prompts/upload-image', fd);
+        setImageState(res.url, res.public_id);
+      } catch (err) {
+        var box = document.getElementById('upload-error');
+        box.textContent = 'Upload lỗi: ' + (err.message || 'không xác định');
+        show('upload-error');
+        // Reset the file input so a retry fires `change` again.
+        document.getElementById('form-image-file').value = '';
+      } finally {
+        hide('upload-status');
+      }
+    }
+
     // ── Load + render ──────────────────────────────────────────────
     async function loadPrompts() {
       hide('state-error');
@@ -213,6 +298,11 @@
           ? p.prompt_text.substring(0, 240).trim() + '…'
           : (p.prompt_text || '');
 
+        var imageHtml = p.prompt_image_url
+          ? '<img src="' + escapeHtml(p.prompt_image_url) + '" alt="" '
+              + 'class="max-w-xs rounded mb-3 border border-white/10" loading="lazy" />'
+          : '';
+
         return ''
           + '<div class="card p-4">'
           +   '<div class="flex items-start justify-between gap-3 mb-2">'
@@ -222,6 +312,7 @@
           +       (diffLabel ? '<span class="' + diffClass + '">' + escapeHtml(diffLabel) + '</span>' : '')
           +     '</div>'
           +   '</div>'
+          +   imageHtml
           +   '<p class="text-sm text-gray-300 mb-3 leading-relaxed whitespace-pre-line">' + escapeHtml(truncated) + '</p>'
           +   '<div class="flex items-center justify-between flex-wrap gap-2">'
           +     '<div class="flex flex-wrap gap-1">' + tags + '</div>'
@@ -256,6 +347,8 @@
       document.getElementById('form-prompt-text').value  = '';
       document.getElementById('form-difficulty').value   = '';
       document.getElementById('form-tags').value         = '';
+      setImageState('', '');
+      syncImageSectionVisibility();
       hide('modal-error');
       show('modal');
     }
@@ -271,6 +364,8 @@
       document.getElementById('form-prompt-text').value  = p.prompt_text || '';
       document.getElementById('form-difficulty').value   = p.difficulty  || '';
       document.getElementById('form-tags').value         = (p.tags || []).join(', ');
+      setImageState(p.prompt_image_url || '', p.prompt_image_public_id || '');
+      syncImageSectionVisibility();
       hide('modal-error');
       show('modal');
     }
@@ -295,12 +390,24 @@
 
       var tags = tagsRaw.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
 
+      // Image fields are only meaningful for task1_academic — for any
+      // other task type we send NULL to clear a stale value left from
+      // a prior edit where the admin switched task_type.
+      var imageUrl      = document.getElementById('form-image-url').value      || null;
+      var imagePublicId = document.getElementById('form-image-public-id').value || null;
+      if (taskType !== 'task1_academic') {
+        imageUrl      = null;
+        imagePublicId = null;
+      }
+
       var payload = {
-        title:       title,
-        task_type:   taskType,
-        prompt_text: promptText,
-        difficulty:  difficulty,
-        tags:        tags,
+        title:                  title,
+        task_type:              taskType,
+        prompt_text:            promptText,
+        difficulty:             difficulty,
+        tags:                   tags,
+        prompt_image_url:       imageUrl,
+        prompt_image_public_id: imagePublicId,
       };
 
       try {
@@ -344,6 +451,13 @@
     document.getElementById('btn-close-modal').addEventListener('click', closeModal);
     document.getElementById('filter-task-type').addEventListener('change', loadPrompts);
     document.getElementById('filter-difficulty').addEventListener('change', loadPrompts);
+
+    // Image upload wiring
+    document.getElementById('form-task-type').addEventListener('change', syncImageSectionVisibility);
+    document.getElementById('form-image-file').addEventListener('change', handleImageUpload);
+    document.getElementById('btn-remove-image').addEventListener('click', function () {
+      setImageState('', '');
+    });
 
     loadPrompts();
   </script>

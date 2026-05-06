@@ -25,6 +25,17 @@ class Settings(BaseSettings):
     AZURE_SPEECH_KEY: str = ""
     AZURE_SPEECH_REGION: str = ""   # e.g. "eastus", "southeastasia"
 
+    # Cloudinary (Phase 2.3c-1) — image hosting for Task 1 Academic
+    # writing prompts. cloud_name + api_key are non-secret (they
+    # appear in every signed upload URL); api_secret is server-only
+    # and must NEVER be sent to the browser. All three default to
+    # empty so the rest of the app starts cleanly when the feature
+    # is unused — services/cloudinary_service.py raises a clear
+    # error on first upload if credentials are missing.
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY:    str = ""
+    CLOUDINARY_API_SECRET: str = ""
+
     # App config
     MAX_SESSIONS_PER_USER_PER_DAY: int = 10
     MAX_AUDIO_DURATION_SECONDS: int = 300
