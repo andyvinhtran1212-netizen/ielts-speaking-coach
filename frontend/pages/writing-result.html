@@ -158,8 +158,11 @@
       <div id="recurring-section" class="section hidden"></div>
       <div id="criteria-section" class="section"></div>
       <div id="mistakes-section" class="section hidden"></div>
+      <div id="ai-content-section" class="section hidden"></div>
       <div id="coherence-section" class="section hidden"></div>
       <div id="idea-development-section" class="section hidden"></div>
+      <div id="lexical-section" class="section hidden"></div>
+      <div id="sentence-structure-section" class="section hidden"></div>
       <div id="counterargument-section" class="section hidden"></div>
       <div id="improved-section" class="section hidden"></div>
     </div>
@@ -173,7 +176,12 @@
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
 
-    var DASHBOARD_URL = window.api.url('pages/writing-dashboard.html');
+    // Sprint 2.4.1: absolute path leverages the /writing/dashboard
+    // Vercel rewrite. window.api.url('pages/...') went through api.js's
+    // _appRoot heuristic which fails on rewritten pathnames like
+    // "/writing/result" — same root cause as Sprint 2.2.2's dashboard
+    // → result regression, mirrored on the back path.
+    var DASHBOARD_URL = '/writing/dashboard';
     document.getElementById('back-link').href           = DASHBOARD_URL;
     document.getElementById('error-back').href          = DASHBOARD_URL;
     document.getElementById('not-delivered-back').href  = DASHBOARD_URL;
@@ -517,6 +525,164 @@
       show('improved-section');
     }
 
+    // Sprint 2.4.1 — render aiContentAnalysis. Schema is small + fixed
+    // ({likelihood: 0-100, explanation: str}) so no defensive fallback
+    // path needed. Color-codes the percentage so a high value reads as
+    // a warning to the student.
+    function renderAiContentAnalysis(feedback) {
+      var data = feedback.feedback_json && feedback.feedback_json.aiContentAnalysis;
+      if (!data || typeof data !== 'object') return;
+
+      var likelihood  = (data.likelihood != null) ? data.likelihood : null;
+      var explanation = data.explanation || '';
+      if (likelihood == null && !explanation) return;
+
+      // Lower % = essay reads as student-written (good). Crossing 50%
+      // tips into amber, 80%+ red so a clearly AI-flagged essay is
+      // immediately legible at a glance.
+      var color = 'text-emerald-400';
+      if (likelihood != null && likelihood >= 50) color = 'text-amber-400';
+      if (likelihood != null && likelihood >= 80) color = 'text-red-400';
+
+      document.getElementById('ai-content-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">🤖</span> Phân tích AI Content' +
+        '</h2>' +
+        '<div class="text-sm">' +
+          '<div class="flex items-center gap-3 mb-3">' +
+            '<span class="text-gray-300">Khả năng AI tạo:</span>' +
+            '<span class="' + color + ' font-semibold">' +
+              escapeHtml(likelihood == null ? '—' : likelihood + '%') +
+            '</span>' +
+          '</div>' +
+          (explanation
+            ? '<p class="text-gray-200 leading-relaxed">' + escapeHtml(explanation) + '</p>'
+            : '') +
+        '</div>';
+      show('ai-content-section');
+    }
+
+    // Defensive generic dump for unknown shapes. Used as fallback when
+    // lexicalAnalysis / sentenceStructureAnalysis arrive in a non-canonical
+    // shape (legacy rows or hallucinated parents Pydantic let through).
+    function genericRender(data) {
+      if (typeof data === 'string') {
+        return '<p class="text-gray-200 leading-relaxed">' + escapeHtml(data) + '</p>';
+      }
+      if (Array.isArray(data)) {
+        if (!data.length) return '';
+        return '<ul class="space-y-2 text-gray-200 text-sm">' +
+          data.map(function (item) {
+            var s = (typeof item === 'string') ? item : JSON.stringify(item);
+            return '<li class="flex gap-2"><span class="text-teal-light">•</span><span>' + escapeHtml(s) + '</span></li>';
+          }).join('') +
+          '</ul>';
+      }
+      if (data && typeof data === 'object') {
+        var entries = Object.keys(data);
+        if (!entries.length) return '';
+        return '<div class="space-y-3 text-sm">' +
+          entries.map(function (k) {
+            var v = data[k];
+            var s = (typeof v === 'string') ? v : JSON.stringify(v);
+            return '<div>' +
+              '<div class="text-xs uppercase tracking-wider text-gray-400 mb-1">' + escapeHtml(k) + '</div>' +
+              '<p class="text-gray-200">' + escapeHtml(s) + '</p>' +
+            '</div>';
+          }).join('') +
+          '</div>';
+      }
+      return '';
+    }
+
+    // Sprint 2.4.1 — render lexicalAnalysis. Canonical schema is
+    // {wordsToUpgrade: [{original, context, suggestions: [str], category}]}
+    // (LexicalAnalysis Pydantic model). When the data matches the
+    // canonical shape we render a clean per-word card; otherwise fall
+    // back to the generic dump so legacy rows don't show "[object Object]".
+    function renderLexicalAnalysis(feedback) {
+      var data = feedback.feedback_json && feedback.feedback_json.lexicalAnalysis;
+      if (!data) return;
+
+      var words = data && Array.isArray(data.wordsToUpgrade) ? data.wordsToUpgrade : null;
+      var content = '';
+
+      if (words && words.length) {
+        content = '<div class="space-y-3">' +
+          words.map(function (w) {
+            var suggestions = Array.isArray(w.suggestions) ? w.suggestions : [];
+            var suggList = suggestions
+              .map(function (s) { return '<span class="pill-criterion">' + escapeHtml(s) + '</span>'; })
+              .join('');
+            return '<div class="left-rule">' +
+              '<div class="flex flex-wrap items-center gap-2 mb-2">' +
+                '<span class="text-amber-300 font-medium">' + escapeHtml(w.original || '') + '</span>' +
+                (w.category ? '<span class="pill-criterion">' + escapeHtml(w.category) + '</span>' : '') +
+              '</div>' +
+              (w.context
+                ? '<p class="text-gray-300 text-sm italic mb-2">"' + escapeHtml(w.context) + '"</p>'
+                : '') +
+              (suggList
+                ? '<div class="flex flex-wrap items-center gap-2">' +
+                    '<span class="text-xs text-gray-400">→ thử dùng:</span>' + suggList +
+                  '</div>'
+                : '') +
+            '</div>';
+          }).join('') +
+          '</div>';
+      } else {
+        content = genericRender(data);
+      }
+
+      if (!content) return;
+
+      document.getElementById('lexical-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">📚</span> Phân tích từ vựng' +
+        '</h2>' + content;
+      show('lexical-section');
+    }
+
+    // Sprint 2.4.1 — render sentenceStructureAnalysis. Canonical shape
+    // {sentenceUpgrades: [{original, rewritten, explanation}]}. Renders
+    // each upgrade as original (strikethrough) → rewritten (green) +
+    // explanation, mirroring the mistake card visual language.
+    function renderSentenceStructureAnalysis(feedback) {
+      var data = feedback.feedback_json && feedback.feedback_json.sentenceStructureAnalysis;
+      if (!data) return;
+
+      var upgrades = data && Array.isArray(data.sentenceUpgrades) ? data.sentenceUpgrades : null;
+      var content = '';
+
+      if (upgrades && upgrades.length) {
+        content = '<div class="space-y-3">' +
+          upgrades.map(function (u) {
+            return '<div class="left-rule left-rule-blue">' +
+              (u.original
+                ? '<div class="mistake-original mb-1">' + escapeHtml(u.original) + '</div>'
+                : '') +
+              (u.rewritten
+                ? '<div class="mistake-suggestion mb-2">→ ' + escapeHtml(u.rewritten) + '</div>'
+                : '') +
+              (u.explanation
+                ? '<p class="text-sm text-gray-300">' + escapeHtml(u.explanation) + '</p>'
+                : '') +
+            '</div>';
+          }).join('') +
+          '</div>';
+      } else {
+        content = genericRender(data);
+      }
+
+      if (!content) return;
+
+      document.getElementById('sentence-structure-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">🔧</span> Phân tích cấu trúc câu' +
+        '</h2>' + content;
+      show('sentence-structure-section');
+    }
+
     // ── Bootstrap ───────────────────────────────────────────────────
     function showError(msg) {
       hide('loading');
@@ -563,8 +729,11 @@
         renderRecurringPatterns(feedback);
         renderCriteria(feedback);
         renderMistakes(feedback);
+        renderAiContentAnalysis(feedback);
         renderCoherenceAnalysis(feedback);
         renderIdeaDevelopment(feedback);
+        renderLexicalAnalysis(feedback);
+        renderSentenceStructureAnalysis(feedback);
         renderCounterargument(feedback);
         renderImprovedEssay(feedback);
 
