@@ -269,3 +269,100 @@ def test_get_single_assignment_not_found_returns_404():
         )
 
     assert r.status_code == 404
+
+
+# ── Phase 2.3c-3: IELTS-mode timer fields ────────────────────────────
+
+
+def test_create_assignment_with_timer_persists_fields():
+    """is_timed=true + time_limit_minutes=40 round-trips into the
+    insert payload — pinning these together prevents a regression
+    where one drops out and the migration's CHECK constraint then
+    rejects the row with an opaque error."""
+    mock_db = MagicMock()
+    dup_chain = (mock_db.table.return_value
+                 .select.return_value.eq.return_value.in_.return_value)
+    dup_chain.execute.return_value = MagicMock(data=[])
+    insert_chain = mock_db.table.return_value.insert.return_value
+    insert_chain.execute.return_value = MagicMock(data=[
+        {"id": _ASSIGN_ID, "student_id": _STUDENT_ID,
+         "is_timed": True, "time_limit_minutes": 40},
+    ])
+
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={
+                "prompt_id":          _PROMPT_ID,
+                "student_ids":        [_STUDENT_ID],
+                "is_timed":           True,
+                "time_limit_minutes": 40,
+            },
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 201, r.text
+    insert_payload = mock_db.table.return_value.insert.call_args[0][0]
+    assert insert_payload[0]["is_timed"]           is True
+    assert insert_payload[0]["time_limit_minutes"] == 40
+
+
+def test_create_timed_assignment_without_minutes_rejects_422():
+    """is_timed=true with no time_limit_minutes → 422 from the
+    field_validator, BEFORE we ever touch the DB."""
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={
+                "prompt_id":   _PROMPT_ID,
+                "student_ids": [_STUDENT_ID],
+                "is_timed":    True,
+            },
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 422
+    assert "time_limit_minutes" in r.text
+
+
+def test_create_untimed_assignment_with_minutes_rejects_422():
+    """is_timed=false but time_limit_minutes provided → 422.  Belt-
+    and-braces — without this branch a stale UI checkbox could
+    quietly pass a phantom 40 alongside is_timed=false and the DB
+    CHECK would catch it with a much uglier error."""
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={
+                "prompt_id":          _PROMPT_ID,
+                "student_ids":        [_STUDENT_ID],
+                "is_timed":           False,
+                "time_limit_minutes": 40,
+            },
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 422
+
+
+def test_create_timed_assignment_minutes_out_of_range_rejects_422():
+    """time_limit_minutes is bounded to 1-180; 200 is past the cap
+    and `Field(le=180)` rejects it before the field_validator runs."""
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={
+                "prompt_id":          _PROMPT_ID,
+                "student_ids":        [_STUDENT_ID],
+                "is_timed":           True,
+                "time_limit_minutes": 200,
+            },
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 422

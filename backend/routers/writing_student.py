@@ -27,7 +27,7 @@ duyệt" placeholder without a separate poll.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -237,6 +237,62 @@ _MIN_SUBMIT_CHARS = 50
 _ACTIVE_ASSIGNMENT_STATES = {"pending", "in_progress"}
 
 
+def _compute_timer_state(assignment: dict) -> dict:
+    """Compute the IELTS-mode timer state for one assignment row.
+
+    Server time is the truth — the frontend only ticks locally for
+    a smooth countdown UX. This function is the source the
+    `/timer` endpoint, the detail endpoint, and the
+    expiry-rejection branch in `upsert_my_draft` all read from.
+
+    Returns the same shape regardless of `is_timed` so the frontend
+    never has to branch on missing keys:
+      • is_timed              — pass-through from the row
+      • time_limit_minutes    — pass-through (None when not timed)
+      • started_at            — pass-through (None until first save)
+      • expires_at            — started_at + time_limit_minutes
+      • time_remaining_seconds — int; negative once past expiry
+      • is_expired            — True when remaining <= 0
+
+    Three terminal states for `is_timed=true`:
+      1. Not started: started_at is None → expires_at + remaining
+         are both None, is_expired=False.  The clock hasn't begun.
+      2. Active: clock running, remaining > 0.
+      3. Expired: started_at + time_limit_minutes <= now.
+    """
+    is_timed = bool(assignment.get("is_timed"))
+    time_limit_minutes = assignment.get("time_limit_minutes")
+    started_at_str = assignment.get("started_at")
+
+    state = {
+        "is_timed":               is_timed,
+        "time_limit_minutes":     time_limit_minutes,
+        "started_at":             started_at_str,
+        "expires_at":             None,
+        "time_remaining_seconds": None,
+        "is_expired":             False,
+    }
+
+    # Anything missing → can't compute expiry. The frontend treats
+    # these as "no countdown" which is exactly the not-yet-started
+    # state we want.
+    if not is_timed or not started_at_str or not time_limit_minutes:
+        return state
+
+    # Supabase returns timestamps with `+00:00`; older rows or any
+    # raw-API insert can come back with a trailing `Z`. Normalise
+    # both shapes so `fromisoformat` accepts either.
+    started_at = datetime.fromisoformat(started_at_str.replace("Z", "+00:00"))
+    expires_at = started_at + timedelta(minutes=time_limit_minutes)
+    now = datetime.now(timezone.utc)
+    remaining = (expires_at - now).total_seconds()
+
+    state["expires_at"]             = expires_at.isoformat()
+    state["time_remaining_seconds"] = int(remaining)
+    state["is_expired"]             = remaining <= 0
+    return state
+
+
 class DraftUpsert(BaseModel):
     """Body for PATCH .../draft. Empty-string is a valid payload —
     the dashboard fires `draft_text=""` once when the textarea opens
@@ -265,6 +321,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, "
             "essay_id, prompt_id, "
+            "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )
         .eq("id", assignment_id)
@@ -299,6 +356,7 @@ async def list_my_assignments(
         .select(
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, essay_id, "
+            "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )
         .eq("student_id", student_id)
@@ -386,6 +444,7 @@ async def get_my_assignment(
     return {
         "assignment": assignment,
         "draft":      (d.data[0] if (d and d.data) else None),
+        "timer":      _compute_timer_state(assignment),
     }
 
 
@@ -414,6 +473,40 @@ async def upsert_my_draft(
         raise HTTPException(
             409,
             f"Không thể chỉnh draft — trạng thái bài là '{assignment['status']}'.",
+        )
+
+    # Phase 2.3c-3 — IELTS-mode timer.
+    # 1. If timed and not yet started, stamp `started_at` BEFORE we
+    #    write the draft. Once stamped the timer is running, and
+    #    the very save that triggered it is the first valid save.
+    # 2. If already started, re-check expiry against server time
+    #    against the row we just stamped. A draft save that lands
+    #    after expiry must be rejected (410 Gone) — accepting it
+    #    would let a student keep editing past the deadline.
+    if assignment.get("is_timed") and not assignment.get("started_at"):
+        now_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            (
+                supabase_admin.table("writing_assignments")
+                .update({"started_at": now_iso})
+                .eq("id", str(assignment_id))
+                .execute()
+            )
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] started_at stamp failed "
+                "assignment=%s: %s",
+                assignment_id, exc,
+            )
+        # Reflect the stamp on the in-memory row so the expiry
+        # check below sees it.
+        assignment["started_at"] = now_iso
+
+    timer = _compute_timer_state(assignment)
+    if timer["is_expired"]:
+        raise HTTPException(
+            410,
+            "Hết giờ làm bài. Hệ thống đang nộp bài tự động.",
         )
 
     payload = {
@@ -564,14 +657,25 @@ async def submit_my_assignment(
     # Link essay back to the assignment + advance to `submitted`.
     # Stamp `submitted_at` server-side so the dashboard never has to
     # compute it client-side.
+    #
+    # Phase 2.3c-3: also set `auto_submitted=true` when the timer
+    # was expired at submit time. The frontend triggers submit at
+    # 0:00 client-side, but a few-second drift between client and
+    # server clocks is normal — `_compute_timer_state` uses server
+    # time so the audit flag matches what the backend saw, not what
+    # the student's laptop clock said.
+    timer = _compute_timer_state(assignment)
+    auto_submitted_flag = bool(timer["is_expired"])
+
     now_iso = datetime.now(timezone.utc).isoformat()
     try:
         (
             supabase_admin.table("writing_assignments")
             .update({
-                "essay_id":     info["essay_id"],
-                "status":       "submitted",
-                "submitted_at": now_iso,
+                "essay_id":       info["essay_id"],
+                "status":         "submitted",
+                "submitted_at":   now_iso,
+                "auto_submitted": auto_submitted_flag,
             })
             .eq("id", str(assignment_id))
             .execute()
@@ -610,6 +714,53 @@ async def submit_my_assignment(
         "eta_seconds":   info.get("eta_seconds"),
         "message":       "Bài viết đã được nộp. Em sẽ nhận kết quả sớm.",
     }
+
+
+# ── Phase 2.3c-3 — IELTS-mode timer state ────────────────────────────
+
+
+@router.get("/my-assignments/{assignment_id}/timer")
+async def get_timer_state(
+    assignment_id: UUID,
+    student: dict = Depends(get_current_student),
+):
+    """Lightweight read-only endpoint for client-side timer sync.
+
+    The frontend ticks locally for a smooth countdown but reconciles
+    every ~30 seconds against this endpoint so client clock drift
+    doesn't accumulate.  Server time is the truth — if the client
+    sees 02:14 remaining and the server says 01:08, the client must
+    snap down to match.
+
+    Auth uses `Depends(get_current_student)` (the same dependency
+    every other student-facing endpoint here uses) so an admin or
+    a student belonging to a different `students` row can't poll
+    a stranger's timer.
+
+    Response shape mirrors `_compute_timer_state` plus two extra
+    fields (`status`, `auto_submitted`) the client uses to decide
+    whether the form should still accept input at all.
+    """
+    student_id = student["id"]
+
+    r = (
+        supabase_admin.table("writing_assignments")
+        .select(
+            "status, is_timed, time_limit_minutes, started_at, auto_submitted"
+        )
+        .eq("id", str(assignment_id))
+        .eq("student_id", student_id)
+        .limit(1)
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(404, "Assignment không tìm thấy")
+
+    row = r.data[0]
+    timer = _compute_timer_state(row)
+    timer["status"]         = row["status"]
+    timer["auto_submitted"] = bool(row.get("auto_submitted"))
+    return timer
 
 
 # ── Phase 2.3c-2 — extract text from .docx / .txt upload ─────────────
