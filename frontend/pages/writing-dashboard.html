@@ -515,7 +515,16 @@
           '</div>'
         : '';
 
+      // Phase 2.3c-1: Task 1 Academic prompts can carry a chart/diagram
+      // image. Render it above the prompt text so the student sees the
+      // visual before reading the description.
+      var promptImageHtml = prompt.prompt_image_url
+        ? '<img src="' + escapeHtml(prompt.prompt_image_url) + '" alt="" '
+            + 'class="mb-3 max-w-full rounded border border-white/10" loading="lazy" />'
+        : '';
+
       region.innerHTML =
+        promptImageHtml +
         '<div class="mb-3 p-3 rounded text-sm text-gray-300 leading-relaxed" style="background:rgba(255,255,255,0.04)">' +
           escapeHtml(prompt.prompt_text || '') +
         '</div>' +
