@@ -68,6 +68,69 @@
     .pill-blue  { background: rgba(59,130,246,0.18);  color: #60a5fa; }
     .pill-red   { background: rgba(239,68,68,0.18);   color: #f87171; }
     .pill-gray  { background: rgba(156,163,175,0.18); color: #d1d5db; }
+    .pill-purple{ background: rgba(168,85,247,0.18);  color: #c4b5fd; }
+
+    /* Phase 2.3b — tab nav + assignment cards */
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      border-bottom: 2px solid transparent;
+      color: #9ca3af;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.18s, border-color 0.18s;
+    }
+    .tab-btn:hover { color: #e5e7eb; }
+    .tab-btn.active {
+      color: #14b8a6;
+      border-bottom-color: #14b8a6;
+    }
+    .assignment-card { /* same look as essay-card; written separately so the
+                         click semantics aren't accidentally inherited */
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+      transition: background 0.18s, border-color 0.18s;
+    }
+    .assignment-card:hover {
+      background: rgba(15,118,110,0.08);
+      border-color: rgba(20,184,166,0.3);
+    }
+    .essay-textarea {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #e5e7eb;
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-family: 'Inter', ui-sans-serif, system-ui;
+      resize: vertical;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .essay-textarea:focus { outline: none; border-color: #14b8a6; }
+    .btn-primary {
+      background: #14b8a6;
+      color: #0a1628;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-primary:hover    { background: #0d9488; }
+    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      color: #e5e7eb;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.10);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
     .line-clamp-2 {
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -124,21 +187,33 @@
         </p>
       </section>
 
-      <!-- Essays list -->
-      <section>
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold flex items-center gap-2">
-            <span aria-hidden="true">📝</span> Bài đã nộp
-          </h2>
-          <span id="essay-count" class="text-sm text-gray-400">0 bài</span>
+      <!-- Phase 2.3b — tab nav -->
+      <div class="flex border-b border-white/10 mb-6 gap-1">
+        <button id="tab-assignments" type="button" class="tab-btn active">
+          📋 Bài giao
+          <span id="assignments-count" class="ml-1 text-xs text-gray-500"></span>
+        </button>
+        <button id="tab-essays" type="button" class="tab-btn">
+          📝 Bài đã nộp
+          <span id="essays-count" class="ml-1 text-xs text-gray-500"></span>
+        </button>
+      </div>
+
+      <!-- Tab 1 — Bài giao (active assignments awaiting submission) -->
+      <section id="content-assignments">
+        <div id="assignments-list" class="space-y-3"></div>
+        <div id="assignments-empty" class="hidden text-center py-16 rounded-lg border border-white/10 bg-white/5">
+          <p class="text-gray-200 mb-2">Em chưa có bài giao nào.</p>
+          <p class="text-sm text-gray-400">Khi giảng viên giao đề, em sẽ thấy ở đây.</p>
         </div>
+      </section>
 
+      <!-- Tab 2 — Bài đã nộp (existing essays list) -->
+      <section id="content-essays" class="hidden">
         <div id="essays-list" class="space-y-3"></div>
-
-        <!-- Empty state -->
         <div id="empty-state" class="hidden text-center py-16 rounded-lg border border-white/10 bg-white/5">
           <p class="text-gray-200 mb-2">Em chưa có bài viết nào.</p>
-          <p class="text-sm text-gray-400">Hãy nộp bài đầu tiên qua giảng viên của em.</p>
+          <p class="text-sm text-gray-400">Hãy nộp bài đầu tiên qua thẻ "Bài giao" hoặc qua giảng viên của em.</p>
         </div>
       </section>
     </div>
@@ -172,6 +247,19 @@
       task1_general:  'Task 1 (General)',
       task2:          'Task 2',
     };
+
+    // Phase 2.3b — assignment status pill mapping. Mirrors the
+    // 5-state workflow from migration 036.
+    var ASSIGNMENT_STATUS = {
+      pending:     { text: '⏳ Chờ làm',       pill: 'pill-gray'   },
+      in_progress: { text: '📝 Đang làm',      pill: 'pill-blue'   },
+      submitted:   { text: '📥 Đã nộp',        pill: 'pill-amber'  },
+      graded:      { text: '✓ Đã chấm',       pill: 'pill-purple' },
+      delivered:   { text: '📨 Đã nhận xét',   pill: 'pill-green'  },
+    };
+    // Active states show in the "Bài giao" tab; submitted/graded/
+    // delivered have their card under "Bài đã nộp" via writing_essays.
+    var ACTIVE_ASSIGNMENT_STATES = ['pending', 'in_progress'];
 
     // ── Helpers ─────────────────────────────────────────────────────
     function escapeHtml(s) {
@@ -287,16 +375,323 @@
       });
     }
 
+    // ── Phase 2.3b — assignments tab ────────────────────────────────
+    //
+    // The "Bài giao" tab is the entry point for active assignments
+    // (pending + in_progress). Clicking a card expands an inline
+    // submit form below the card header — no separate page, the
+    // textarea state lives in `_draftSaveTimers` (per-assignment
+    // setTimeout handles for the 3-second debounce).
+
+    var _draftSaveTimers = {};                  // assignment_id → timeout handle
+
+    function formatRelativeTime(iso) {
+      if (!iso) return '';
+      var t = new Date(iso).getTime();
+      if (isNaN(t)) return '';
+      var diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+      if (diffSec < 30)            return 'vừa xong';
+      if (diffSec < 60)            return diffSec + ' giây trước';
+      if (diffSec < 3600)          return Math.floor(diffSec / 60)   + ' phút trước';
+      if (diffSec < 86400)         return Math.floor(diffSec / 3600) + ' giờ trước';
+      return formatDate(iso);
+    }
+
+    function countWords(text) {
+      var trimmed = (text || '').trim();
+      if (!trimmed) return 0;
+      return trimmed.split(/\s+/).length;
+    }
+
+    function setTabActive(tab) {
+      var assignBtn = document.getElementById('tab-assignments');
+      var essayBtn  = document.getElementById('tab-essays');
+      assignBtn.classList.toggle('active', tab === 'assignments');
+      essayBtn.classList.toggle('active',  tab === 'essays');
+      document.getElementById('content-assignments').classList.toggle('hidden', tab !== 'assignments');
+      document.getElementById('content-essays').classList.toggle('hidden',      tab !== 'essays');
+    }
+
+    function renderAssignments(assignments) {
+      var list  = document.getElementById('assignments-list');
+      var empty = document.getElementById('assignments-empty');
+
+      if (!assignments || assignments.length === 0) {
+        list.innerHTML = '';
+        show('assignments-empty');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      list.innerHTML = assignments.map(function (a) {
+        var prompt = a.writing_prompts || {};
+        var statusKey = a.status || 'pending';
+        var statusCfg = ASSIGNMENT_STATUS[statusKey] || ASSIGNMENT_STATUS.pending;
+        var taskLabel = TASK_LABELS[prompt.task_type] || 'Bài viết';
+
+        var draftHint = '';
+        if (a.has_draft) {
+          var rel = a.draft_updated_at ? ' · ' + formatRelativeTime(a.draft_updated_at) : '';
+          draftHint =
+            '<p class="text-xs text-gray-400 mb-3">📝 Bản nháp: ' +
+              (a.draft_word_count || 0) + ' từ' + escapeHtml(rel) +
+            '</p>';
+        }
+
+        var deadlineLine = a.deadline
+          ? '<span class="text-xs text-amber-300">Hạn: ' + formatDate(a.deadline) + '</span>'
+          : '';
+
+        var toggleLabel = a.has_draft ? 'Tiếp tục viết' : 'Bắt đầu viết';
+
+        return (
+          '<div class="assignment-card rounded-lg p-4" data-assignment-id="' + escapeHtml(a.id) + '">' +
+            '<div class="flex items-start justify-between gap-3 mb-2">' +
+              '<div class="min-w-0">' +
+                '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
+                '<div class="flex items-center gap-2 mt-1 flex-wrap">' +
+                  '<span class="pill ' + statusCfg.pill + '">' + escapeHtml(statusCfg.text) + '</span>' +
+                  '<span class="text-xs text-gray-400">' + escapeHtml(taskLabel) + '</span>' +
+                '</div>' +
+              '</div>' +
+              deadlineLine +
+            '</div>' +
+            draftHint +
+            '<button type="button" class="btn-toggle text-sm text-teal-light hover:text-white">' +
+              escapeHtml(toggleLabel) + ' →' +
+            '</button>' +
+            '<div class="form-region hidden mt-4 pt-4 border-t border-white/10"></div>' +
+          '</div>'
+        );
+      }).join('');
+
+      // Wire the toggle buttons via event delegation. Phase 2.2.1 ban
+      // on inline onclick handlers still applies (anti-pattern #18).
+      list.querySelectorAll('.btn-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var card = btn.closest('.assignment-card');
+          if (!card) return;
+          var assignmentId = card.getAttribute('data-assignment-id');
+          toggleSubmitForm(card, assignmentId, btn);
+        });
+      });
+    }
+
+    async function toggleSubmitForm(card, assignmentId, toggleBtn) {
+      var region = card.querySelector('.form-region');
+
+      // Collapse if already open.
+      if (!region.classList.contains('hidden')) {
+        region.classList.add('hidden');
+        toggleBtn.textContent = (toggleBtn.textContent || '').replace(/^Đang viết/, 'Tiếp tục viết');
+        return;
+      }
+
+      try {
+        var data = await window.api.get('/api/writing/my-assignments/' + encodeURIComponent(assignmentId));
+        if (!data) return;
+        renderSubmitForm(region, assignmentId, data, toggleBtn);
+        toggleBtn.textContent = 'Đang viết · click để đóng';
+      } catch (err) {
+        alert('Không tải được bài giao: ' + (err.message || 'không xác định'));
+      }
+    }
+
+    function renderSubmitForm(region, assignmentId, data, toggleBtn) {
+      var assignment = data.assignment || {};
+      var prompt     = assignment.writing_prompts || {};
+      var draft      = data.draft || {};
+      var draftText  = draft.draft_text || '';
+
+      var instructionsHtml = assignment.instructions
+        ? '<div class="mb-3 p-3 rounded text-xs leading-relaxed" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);color:#fcd34d">' +
+            '📌 ' + escapeHtml(assignment.instructions) +
+          '</div>'
+        : '';
+
+      region.innerHTML =
+        '<div class="mb-3 p-3 rounded text-sm text-gray-300 leading-relaxed" style="background:rgba(255,255,255,0.04)">' +
+          escapeHtml(prompt.prompt_text || '') +
+        '</div>' +
+        instructionsHtml +
+        '<textarea class="essay-textarea" rows="14" placeholder="Bắt đầu viết bài…">' +
+          escapeHtml(draftText) +
+        '</textarea>' +
+        '<div class="flex flex-wrap items-center justify-between gap-3 mt-3">' +
+          '<div class="text-xs text-gray-400 flex items-center gap-3">' +
+            '<span><span class="word-counter">0</span> từ</span>' +
+            '<span class="save-saved hidden text-emerald-400">✓ Đã lưu</span>' +
+            '<span class="save-pending hidden text-amber-300">💾 Đang lưu…</span>' +
+            '<span class="save-error hidden text-red-300"></span>' +
+          '</div>' +
+          '<div class="flex gap-2">' +
+            '<button type="button" class="btn-secondary btn-save-draft">Lưu bản nháp</button>' +
+            '<button type="button" class="btn-primary btn-submit">Nộp bài</button>' +
+          '</div>' +
+        '</div>';
+
+      region.classList.remove('hidden');
+
+      var textarea  = region.querySelector('.essay-textarea');
+      var counter   = region.querySelector('.word-counter');
+      var savedEl   = region.querySelector('.save-saved');
+      var pendingEl = region.querySelector('.save-pending');
+      var errorEl   = region.querySelector('.save-error');
+
+      function refreshCount() { counter.textContent = countWords(textarea.value); }
+      refreshCount();
+
+      // Auto-save: clear any pending timer, mark "Đang lưu…", fire
+      // the PATCH after 3s of inactivity.
+      textarea.addEventListener('input', function () {
+        refreshCount();
+        savedEl.classList.add('hidden');
+        errorEl.classList.add('hidden');
+        pendingEl.classList.remove('hidden');
+
+        if (_draftSaveTimers[assignmentId]) {
+          clearTimeout(_draftSaveTimers[assignmentId]);
+        }
+        _draftSaveTimers[assignmentId] = setTimeout(function () {
+          saveDraft(assignmentId, textarea.value, region);
+        }, 3000);
+      });
+
+      region.querySelector('.btn-save-draft').addEventListener('click', function () {
+        if (_draftSaveTimers[assignmentId]) {
+          clearTimeout(_draftSaveTimers[assignmentId]);
+        }
+        saveDraft(assignmentId, textarea.value, region);
+      });
+      region.querySelector('.btn-submit').addEventListener('click', function () {
+        // Cancel any pending auto-save — submit replaces it.
+        if (_draftSaveTimers[assignmentId]) {
+          clearTimeout(_draftSaveTimers[assignmentId]);
+        }
+        submitEssay(assignmentId, textarea.value, region);
+      });
+    }
+
+    async function saveDraft(assignmentId, text, region) {
+      var savedEl   = region.querySelector('.save-saved');
+      var pendingEl = region.querySelector('.save-pending');
+      var errorEl   = region.querySelector('.save-error');
+
+      pendingEl.classList.remove('hidden');
+      savedEl.classList.add('hidden');
+      errorEl.classList.add('hidden');
+
+      try {
+        // PATCH (not PUT) — api.js exposes get/post/patch/delete only,
+        // and the backend declares this endpoint as PATCH for the same
+        // reason (matches the project-wide convention from
+        // admin_writing_prompts / admin_writing_assignments).
+        await window.api.patch(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/draft',
+          { draft_text: text || '' }
+        );
+        pendingEl.classList.add('hidden');
+        savedEl.classList.remove('hidden');
+        // Auto-fade the "✓ Đã lưu" hint after 2s so it doesn't linger.
+        setTimeout(function () { savedEl.classList.add('hidden'); }, 2000);
+      } catch (err) {
+        pendingEl.classList.add('hidden');
+        errorEl.textContent = '⚠ ' + ((err && err.message) || 'lỗi khi lưu');
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    async function submitEssay(assignmentId, text, region) {
+      var trimmed = (text || '').trim();
+      var wc = countWords(trimmed);
+
+      if (trimmed.length < 50) {
+        alert('Bài viết quá ngắn (cần ít nhất 50 ký tự).');
+        return;
+      }
+      if (wc < 100) {
+        if (!confirm(
+          'Bài viết chỉ có ' + wc + ' từ.\n' +
+          'IELTS Task 2 yêu cầu tối thiểu 250 từ.\n' +
+          'Em chắc muốn nộp bài?'
+        )) return;
+      }
+      if (!confirm('Sau khi nộp em không thể chỉnh sửa. Em chắc muốn nộp bài?')) return;
+
+      var submitBtn = region.querySelector('.btn-submit');
+      var saveBtn   = region.querySelector('.btn-save-draft');
+      submitBtn.disabled = true;
+      saveBtn.disabled   = true;
+
+      try {
+        await window.api.post(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/submit',
+          { essay_text: text }
+        );
+        alert('✓ Đã nộp bài. Em sẽ nhận kết quả sớm.');
+        // Refresh both tabs — the card moves out of "Bài giao" into
+        // "Bài đã nộp" once the essay row appears.
+        await Promise.all([loadAssignments(), loadEssays()]);
+      } catch (err) {
+        alert('Lỗi nộp bài: ' + ((err && err.message) || 'không xác định'));
+      } finally {
+        submitBtn.disabled = false;
+        saveBtn.disabled   = false;
+      }
+    }
+
+    async function loadAssignments() {
+      try {
+        var data = await window.api.get('/api/writing/my-assignments');
+        if (!data) return;
+        if (data.student) renderStudent(data.student);
+
+        var all = data.assignments || [];
+        var active = all.filter(function (a) {
+          return ACTIVE_ASSIGNMENT_STATES.indexOf(a.status) !== -1;
+        });
+
+        var countEl = document.getElementById('assignments-count');
+        countEl.textContent = active.length ? '(' + active.length + ')' : '';
+
+        renderAssignments(active);
+      } catch (err) {
+        // Soft-fail — the assignments tab can be empty without
+        // breaking the rest of the dashboard. Surface in the empty-
+        // state pane rather than the full error screen.
+        var list = document.getElementById('assignments-list');
+        list.innerHTML =
+          '<div class="card rounded-lg p-4 text-sm text-red-300">' +
+            'Không tải được bài giao: ' + escapeHtml((err && err.message) || 'lỗi không xác định') +
+          '</div>';
+      }
+    }
+
+    async function loadEssays() {
+      try {
+        var data = await window.api.get('/api/writing/my-essays');
+        if (!data) return;
+        if (data.student) renderStudent(data.student);
+        renderEssays(data.essays || []);
+        var countEl = document.getElementById('essays-count');
+        var n = (data.essays || []).length;
+        countEl.textContent = n ? '(' + n + ')' : '';
+      } catch (err) {
+        var list = document.getElementById('essays-list');
+        list.innerHTML =
+          '<div class="card rounded-lg p-4 text-sm text-red-300">' +
+            'Không tải được bài viết: ' + escapeHtml((err && err.message) || 'lỗi không xác định') +
+          '</div>';
+      }
+    }
+
     // ── Bootstrap ───────────────────────────────────────────────────
     async function main() {
       try {
-        // window.api.get already redirects to login.html on 401 and
-        // throws on non-2xx with err.detail as the message.
-        var data = await window.api.get('/api/writing/my-essays');
-        if (!data) return;  // 401 path already redirected
-
-        renderStudent(data.student);
-        renderEssays(data.essays);
+        // Default tab is "Bài giao". Both lists load in parallel so
+        // the badge counts populate immediately even if the user
+        // switches tabs before either request completes.
+        await Promise.all([loadAssignments(), loadEssays()]);
 
         hide('loading');
         show('content');
@@ -317,6 +712,13 @@
         show('error');
       }
     }
+
+    document.getElementById('tab-assignments').addEventListener('click', function () {
+      setTabActive('assignments');
+    });
+    document.getElementById('tab-essays').addEventListener('click', function () {
+      setTabActive('essays');
+    });
 
     // ── Logout ──────────────────────────────────────────────────────
     document.getElementById('logout-btn').addEventListener('click', async function () {
