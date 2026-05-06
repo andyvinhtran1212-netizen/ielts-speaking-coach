@@ -529,6 +529,17 @@
           escapeHtml(prompt.prompt_text || '') +
         '</div>' +
         instructionsHtml +
+        // Phase 2.3c-2 — file upload: text from .docx/.txt is APPENDED
+        // to the textarea (preserves any current draft).  The hidden
+        // <input type="file"> sits inside the <label> so a click on
+        // the visible text triggers the picker.
+        '<div class="mb-3 flex items-center gap-3">' +
+          '<label class="inline-flex items-center gap-1 text-sm text-teal-400 hover:text-teal-300 cursor-pointer">' +
+            '<span>📎 Tải file (.docx, .txt)</span>' +
+            '<input type="file" class="essay-file-input hidden" accept=".docx,.txt" />' +
+          '</label>' +
+          '<span class="upload-status text-xs hidden"></span>' +
+        '</div>' +
         '<textarea class="essay-textarea" rows="14" placeholder="Bắt đầu viết bài…">' +
           escapeHtml(draftText) +
         '</textarea>' +
@@ -584,6 +595,64 @@
           clearTimeout(_draftSaveTimers[assignmentId]);
         }
         submitEssay(assignmentId, textarea.value, region);
+      });
+
+      // Phase 2.3c-2 — file upload (.docx / .txt). Append to textarea
+      // and dispatch an `input` event so the existing word-counter +
+      // 3s auto-save flow runs unchanged.
+      var fileInput    = region.querySelector('.essay-file-input');
+      var uploadStatus = region.querySelector('.upload-status');
+
+      function setUploadStatus(text, tone) {
+        uploadStatus.textContent = text;
+        uploadStatus.classList.remove('hidden', 'text-gray-400', 'text-emerald-400', 'text-red-400');
+        var toneClass = (
+          tone === 'success' ? 'text-emerald-400' :
+          tone === 'error'   ? 'text-red-400'     :
+                               'text-gray-400'
+        );
+        uploadStatus.classList.add(toneClass);
+      }
+
+      fileInput.addEventListener('change', async function (ev) {
+        var file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+
+        // Client-side size pre-check — saves a round-trip; the
+        // backend re-validates with the same 2MB cap.
+        if (file.size > 2 * 1024 * 1024) {
+          setUploadStatus('✕ File quá lớn (tối đa 2MB)', 'error');
+          fileInput.value = '';
+          return;
+        }
+
+        setUploadStatus('📤 Đang xử lý ' + file.name + '…', 'pending');
+
+        try {
+          var fd = new FormData();
+          fd.append('file', file);
+          // `window.api.upload` skips the JSON Content-Type so the
+          // browser's multipart boundary is preserved (same helper
+          // the admin image uploader uses).
+          var result = await window.api.upload('/api/writing/extract-text', fd);
+
+          var current   = textarea.value;
+          var separator = current.trim() ? '\n\n' : '';
+          textarea.value = current + separator + result.text;
+
+          // Re-fire `input` so the word counter + auto-save debounce
+          // pick up the appended text — same path as a manual edit.
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+          setUploadStatus('✓ Đã thêm ' + result.word_count + ' từ', 'success');
+          setTimeout(function () { uploadStatus.classList.add('hidden'); }, 3000);
+        } catch (err) {
+          setUploadStatus('✕ ' + ((err && err.message) || 'Lỗi xử lý file'), 'error');
+        } finally {
+          // Clear the file input so re-selecting the same file still
+          // fires `change` (browsers suppress it otherwise).
+          fileInput.value = '';
+        }
       });
     }
 
