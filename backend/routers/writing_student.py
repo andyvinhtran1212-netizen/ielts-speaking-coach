@@ -31,12 +31,13 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services import essay_service
+from services.file_extract_service import FileExtractError, extract_text
 
 logger = logging.getLogger(__name__)
 
@@ -608,4 +609,57 @@ async def submit_my_assignment(
         "status":        "submitted",
         "eta_seconds":   info.get("eta_seconds"),
         "message":       "Bài viết đã được nộp. Em sẽ nhận kết quả sớm.",
+    }
+
+
+# ── Phase 2.3c-2 — extract text from .docx / .txt upload ─────────────
+
+
+@router.post("/extract-text")
+async def extract_essay_text(
+    file: UploadFile = File(...),
+    student: dict = Depends(get_current_student),
+):
+    """Parse a student-uploaded .docx / .txt and return plain text.
+
+    Stateless on purpose — the extracted text is appended to the
+    submit form's textarea client-side, then auto-saved through the
+    existing `PATCH /my-assignments/{id}/draft` flow.  Decoupling the
+    extract step from draft persistence keeps the failure surface
+    small: a parse error surfaces a 400 to the file picker without
+    touching the saved draft.
+
+    Auth: gated by `get_current_student` rather than a generic
+    "any authenticated user" — only students with a `students` row
+    write essays, and the endpoint serves that single use case.
+    Admins testing the parse path can hit it locally with a service
+    token.
+    """
+    # `student` is unused below but the Depends() call enforces auth
+    # + the linked-student check before we read the upload body.
+    _ = student
+
+    file_bytes = await file.read()
+
+    try:
+        text = extract_text(file.filename or "", file_bytes)
+    except FileExtractError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        # Unexpected failure shape — log enough to debug but don't
+        # leak the SDK error string to the user.
+        logger.error(
+            "[writing-student] extract-text unexpected error filename=%s: %s",
+            file.filename, exc,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Lỗi xử lý file. Vui lòng thử lại.",
+        )
+
+    return {
+        "filename":   file.filename,
+        "text":       text,
+        "char_count": len(text),
+        "word_count": len(text.split()),
     }
