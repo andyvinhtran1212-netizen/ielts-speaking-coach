@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-06
-**Last reviewed:** 2026-05-06
+**Last updated:** 2026-05-06 (PM)
+**Last reviewed:** 2026-05-06 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -580,6 +580,48 @@ item below is a follow-up, not a blocker.
 ---
 
 ## ✅ Completed
+
+### Phase 1.5b Band Trajectory + Codex AMBER fixes — 2026-05-06 (3 PRs)
+
+**MILESTONE:** Writing Coach feedback now references the student's band trajectory across the last 5 essays. Combined với Phase 1.5a recurring-pattern history, the grader has full longitudinal context — both *what* mistakes repeat and *which way* the band is moving.
+
+**Sprints shipped:**
+
+Sprint 2.4.1 (PR #73): Codex Phase 2 audit AMBER fixes
+- Codex audit 2026-05-06 raised AMBER on `writing-result.html` for 3 missing renderers + missing back-link + dead helper
+- Added `renderAIContent()`, `renderLexicalResource()`, `renderSentenceStructure()` so `aiContentAnalysis` / `lexicalResource` / `sentenceStructure` sections actually surface (previously silently dropped)
+- Added "← Back to dashboard" anchor wired to absolute `/writing/dashboard` (matches Sprint 2.2.2 rewrite-friendly pattern)
+- Removed dead `renderImprovedEssay()` shadowed helper + unused state branches
+- Section count: 11 → 14 renderers covering full Phase 1.5 schema surface
+
+Phase 1.5b (PR #74): bandTrajectoryAnalysis backend + frontend
+- New aggregator `services/writing_history.get_band_trajectory(student_id)` — last-5 essays, per-criterion average + trend
+- Trend classification: ±0.25-band threshold against two-point smoothing (improving / stable / declining)
+- `format_history_for_prompt(patterns, trajectory=None)` composes both blocks under "Lịch sử của học viên này"
+  with sub-sections "### Lỗi LẶP LẠI" + "### Diễn biến band điểm"
+- Gemini prompt extended với `bandTrajectoryAnalysis` schema slot (current_band, trend, criteriaProgress[], narrative)
+- Frontend `renderBandTrajectory()` in writing-result.html — trend badges, per-criterion deltas, narrative
+- Defensive: trajectory absent or <5 essays → block omitted entirely (no empty section)
+- Tests: 12 new (aggregator math, prompt composition, trend boundaries, frontend render contract)
+- 1 regression test pinning the existing patterns-only path (no trajectory leak)
+
+Sprint 1.5b.1 (PR #75): production canary schema mismatch fix
+- Production canary 2026-05-06: `criteria_breakdown[].avg` rendered as `—`
+- Root cause: prompt narrative said "avg X.X, trend Y" → Gemini copied the visible label "avg" as the JSON key, overriding the schema's canonical `"average"` key
+- Fix: prompt narrative now says "average X.X, trend Y"; JSON schema example explicit; Vietnamese reminder line "**dùng đúng key `average` (không phải `avg`)**"
+- Frontend defensive fallback: `c.average != null ? c.average : (c.avg != null ? c.avg : '—')` — covers any pre-fix essays already persisted
+- 1 regression test pinning the canonical key contract
+
+**Architecture insights:**
+- Visible label in prompt ≠ canonical JSON key — Gemini copies what it sees. Always say "average" when the schema key is `average`. (anti-pattern #19)
+- Two longitudinal signals (recurring patterns + band trajectory) compose cleanly under one Vietnamese parent heading; sub-sections keep token cost predictable
+- Trend classification needs explicit thresholds — relying on Gemini to "interpret trend" produced wobbly outputs in dry-runs
+
+**Production canary verified working 2026-05-06 (PM):**
+- Andy (linked student '37a6b971', 5 essays): trajectory block renders với current 6.5, trend "improving" (+0.4), per-criterion breakdown with valid `average` values
+- Pre-fix essays still graceful (frontend fallback resolves to legacy `avg` key)
+
+---
 
 ### Phase 2 Student Portal MVP + 1.5a UI — 2026-05-05/06 (8 PRs)
 
@@ -1216,8 +1258,8 @@ captured 2026-04-30.  Coverage baseline lives at
 `docs/audits/COVERAGE_BASELINE_2026-04-30.md`.
 
 **Code:**
-- Backend tests: **495 collected** (was 471 pre-Phase-2; +24 across Sprint 7d +
-  Phase 1.5a + Phase 2.1).
+- Backend tests: **508 collected** (was 495 pre-Phase-1.5b; +13 across
+  Phase 1.5b suite + Sprint 1.5b.1 regression guard).
 - Coverage baseline: **50% overall** (PR #31; unchanged).
 - Page parity: 4 pages checked, all OK; `frontend/pages/d3-exercise.html`
   intentionally skipped (deferred to Phase E).
@@ -1248,7 +1290,9 @@ captured 2026-04-30.  Coverage baseline lives at
 - Writing Coach Phase 1: **LIVE in production GA 2026-05-05**. Daily admin use ready.
 - Writing Coach Phase 2 student portal: **LIVE MVP 2026-05-06** — login + dashboard + detail page (Phase 2.1/2.2/2.4 shipped).
 - Phase 1.5a recurring patterns: **LIVE 2026-05-06** — backend aggregator + frontend render verified end-to-end.
-- Writing Coach Phase 1.5: Phase 1.5a shipped; 1.5b (bandTrajectoryAnalysis) + 1.5c (sentenceStructureAnalysis) + 1.5d-LAYOUT (admin UI redesign) queued.
+- Phase 1.5b band trajectory: **LIVE 2026-05-06 (PM)** — backend aggregator + Gemini narrative + frontend render verified; Sprint 1.5b.1 patched the avg/average schema mismatch within hours of canary detection.
+- Codex Phase 2 student portal audit (2026-05-06): AMBER → fixed in Sprint 2.4.1 (3 missing renderers + back-link + dead helper cleanup); re-verified clean.
+- Writing Coach Phase 1.5: 1.5a + 1.5b shipped; 1.5c (sentenceStructureAnalysis) + 1.5d-LAYOUT (admin UI redesign) queued — 1.5c is the last remaining Phase 1.5 schema slot.
 - Design pack v2: Received 2026-05-04, integration deferred (9 pages
   pending) — Andy decision: do all design integrations in single batch
   after Sprint pipeline complete.
@@ -1317,7 +1361,10 @@ captured 2026-04-30.  Coverage baseline lives at
       (Phase 1 GA 2026-05-05; Phase 2 student portal MVP 2026-05-06 — Phase 2.1 auth+RLS+endpoint,
       Phase 2.2 dashboard, Phase 2.4 detail page shipped; Phase 2.3 submission interfaces pending).
       Track 3 = Design pack integration (deferred batch).
-      Phase 1.5: 1.5a recurringPatterns LIVE 2026-05-06; 1.5b/1.5c/1.5d-LAYOUT queued.
+      Phase 1.5: 1.5a recurringPatterns LIVE 2026-05-06; 1.5b bandTrajectoryAnalysis LIVE 2026-05-06 (PM, Sprint 1.5b.1 patched canary same day);
+      1.5c sentenceStructureAnalysis is the **last remaining Phase 1.5 schema slot** —
+      after 1.5c the Gemini schema is feature-complete. 1.5d-LAYOUT (admin grading UI redesign) and an
+      RLS-first migration sprint (legacy `sessions`/`responses` tables — HIGH-1) remain queued behind 1.5c.
 
 **Status:** Phase 3 is multi-track and active.  Phase 2.5 wrapped 2026-05-02.
 Phase 3 launched immediately with Grammar Wiki deep-link sprints
@@ -1417,6 +1464,25 @@ here so a new collaborator can skim the prior-art:
     "all commits done", and even "tests passing" do not equal deployment.
     The merge ceremony (push → PR → CI → merge → deploy) is part of
     "shipped", not optional.
+19. **Human-readable shorthand labels in prompts can override JSON contracts** —
+    added 2026-05-06 (PM) after Sprint 1.5b.1 production canary fix. Phase 1.5b's
+    Vietnamese narrative line in the Gemini prompt said `f"avg {x}, trend {y}"`
+    while the schema/example specified `"average"` as the canonical key.
+    Gemini consistently copied the visible label "avg" as the JSON key,
+    overriding the schema. Frontend rendered `—` because it read `.average`,
+    not `.avg`. The bug was 100% reproducible in production but invisible in
+    tests (test fixtures used canonical `"average"` directly, never went
+    through Gemini). Fix required THREE coordinated changes: rename narrative
+    label to `"average"`, make JSON schema example explicit about the key,
+    add a Vietnamese reminder line "**dùng đúng key `average`, không phải
+    `avg`**", PLUS a frontend `c.average ?? c.avg` fallback for any pre-fix
+    essays already persisted. Lesson: when a prompt mixes human-readable
+    narrative AND a JSON schema, every label visible to the model is a
+    potential schema injection — the model treats labels as evidence about
+    intended key names. Use the canonical key everywhere, even in narrative
+    text. Add explicit "use key X, not Y" lines when collision-prone synonyms
+    exist (avg/average, qty/quantity, num/number, etc).
+
 18. **Inline event handlers with template literal URLs are fragile** —
     added 2026-05-06 after the Sprint 2.2.1+2.2.2 fix arc on
     `writing-dashboard.html`. Phase 2.2 emitted `onclick="..." +
