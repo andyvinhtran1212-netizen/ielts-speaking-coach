@@ -288,16 +288,22 @@
     }
 
     function renderEssays(essays) {
-      var list  = document.getElementById('essays-list');
-      var count = document.getElementById('essay-count');
+      var list = document.getElementById('essays-list');
       essays = essays || [];
 
-      count.textContent = essays.length + ' bài';
+      // Phase 2.3b refactored the section header into a tab nav, so
+      // the original `<span id="essay-count">` is gone. The tab badge
+      // (`essays-count`, plural) is now the single source of truth and
+      // is written by `loadEssays()` after this call returns. Reading
+      // the dead id here was crashing the whole render with
+      // "Cannot set properties of null" the moment the user clicked
+      // the "Bài đã nộp" tab (Sprint 2.3b.1 production canary).
 
       if (essays.length === 0) {
         show('empty-state');
         return;
       }
+      hide('empty-state');
 
       list.innerHTML = essays.map(function (e) {
         var status = STATUS_CONFIG[e.status] || STATUS_CONFIG.pending;
