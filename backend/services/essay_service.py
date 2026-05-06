@@ -31,7 +31,7 @@ from services.gemini_writing_grader import (
     InvalidJSONError,
     get_grader,
 )
-from services.writing_history import get_recurring_patterns
+from services.writing_history import get_band_trajectory, get_recurring_patterns
 
 logger = logging.getLogger(__name__)
 
@@ -179,12 +179,15 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             raise RuntimeError(f"essay {essay_id} disappeared mid-flight")
         essay = er.data[0]
 
-        # Phase 1.5a — pre-aggregated recurring patterns from the
-        # student's last 5 graded essays. Returns None when:
+        # Phase 1.5a + 1.5b — pre-aggregated history fed into the
+        # Gemini prompt so feedback can reference past mistakes
+        # (recurringPatterns) and band trends (bandTrajectoryAnalysis).
+        # Both return None when:
         #   • student has <5 graded essays (Phase-1 behaviour preserved)
         #   • the lookup itself raised (defensive — grading must not
         #     fail because history is unavailable)
         recurring_patterns = get_recurring_patterns(essay["student_id"])
+        band_trajectory    = get_band_trajectory(essay["student_id"])
 
         config = GraderConfig(
             task_type=essay["task_type"],
@@ -194,6 +197,7 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             form_of_address=essay["form_of_address"],
             selected_model=essay["selected_model"],
             history=recurring_patterns,
+            trajectory=band_trajectory,
         )
 
         result = await get_grader().grade_essay(config)
