@@ -14,6 +14,7 @@ from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.admin_writing import router as admin_writing_router
+from routers.admin_writing_prompts import router as admin_writing_prompts_router
 from routers.admin_students import router as admin_students_router
 from routers.writing_student import router as writing_student_router
 from routers.grammar import router as grammar_router
@@ -95,6 +96,7 @@ app.include_router(tts_router)
 app.include_router(export_router)
 app.include_router(admin_router)
 app.include_router(admin_writing_router)
+app.include_router(admin_writing_prompts_router)
 app.include_router(admin_students_router)
 app.include_router(writing_student_router)
 app.include_router(grammar_router)

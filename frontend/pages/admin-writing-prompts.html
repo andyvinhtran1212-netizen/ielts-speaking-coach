@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Library Prompts — Writing Coach Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; min-height: 100vh; }
+    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 6px 10px; width: 100%; font-size: 14px; }
+    .input:focus { outline: none; border-color: #14b8a6; }
+    textarea.input { font-family: 'Inter', ui-sans-serif, system-ui; resize: vertical; min-height: 140px; }
+    .btn-primary   { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer; border: none; font-size: 14px; }
+    .btn-primary:hover { background: #0d9488; }
+    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; padding: 7px 12px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.10); font-weight: 500; font-size: 13px; }
+    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+    .btn-danger    { background: rgba(239,68,68,0.15); color: #fca5a5; padding: 6px 10px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(239,68,68,0.30); font-weight: 500; font-size: 12px; }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); color: #cbd5e1; }
+    .pill-difficulty-beginner    { background: rgba(34,197,94,0.15);  color: #86efac; }
+    .pill-difficulty-intermediate { background: rgba(251,191,36,0.15); color: #fcd34d; }
+    .pill-difficulty-advanced    { background: rgba(239,68,68,0.15);  color: #fca5a5; }
+    .pill-task                   { background: rgba(20,184,166,0.15); color: #5eead4; }
+    .tag                         { background: rgba(255,255,255,0.04); color: #94a3b8; font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+    .modal-bg { background: rgba(10,22,40,0.85); backdrop-filter: blur(4px); }
+  </style>
+</head>
+<body>
+  <div class="max-w-5xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-2">
+        <span class="text-xl font-bold">Aver<span style="color:#14b8a6">Learning</span></span>
+        <span class="text-sm text-gray-400 hidden md:inline">— Library Prompts</span>
+      </div>
+      <a href="/admin.html" class="text-sm text-gray-400 hover:text-white">← Admin home</a>
+    </header>
+
+    <h1 class="text-2xl font-semibold mb-1 flex items-center gap-2">
+      <span aria-hidden="true">📚</span> Library Prompts
+    </h1>
+    <p class="text-sm text-gray-400 mb-6">Quản lý kho đề bài IELTS Writing để giao cho học viên.</p>
+
+    <!-- Filter bar -->
+    <div class="flex flex-wrap gap-3 mb-4 items-center">
+      <select id="filter-task-type" class="input" style="width: auto; min-width: 180px;">
+        <option value="">Tất cả task types</option>
+        <option value="task2">Task 2</option>
+        <option value="task1_academic">Task 1 Academic</option>
+        <option value="task1_general">Task 1 General</option>
+      </select>
+      <select id="filter-difficulty" class="input" style="width: auto; min-width: 160px;">
+        <option value="">Tất cả độ khó</option>
+        <option value="beginner">Beginner</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="advanced">Advanced</option>
+      </select>
+      <select id="filter-active" class="input" style="width: auto; min-width: 140px;">
+        <option value="true">Đang hoạt động</option>
+        <option value="false">Đã tắt</option>
+      </select>
+      <button id="btn-create" type="button" class="btn-primary ml-auto">+ Thêm prompt mới</button>
+    </div>
+
+    <!-- States -->
+    <div id="state-loading" class="text-center py-10 text-gray-400">Đang tải…</div>
+    <div id="state-error"   class="hidden card p-4 text-red-300 text-sm"></div>
+    <div id="state-empty"   class="hidden text-center py-10 text-gray-400">Chưa có prompt nào ở bộ lọc hiện tại.</div>
+
+    <!-- Prompts list -->
+    <div id="prompts-list" class="space-y-3 hidden"></div>
+  </div>
+
+  <!-- Create / edit modal -->
+  <div id="modal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center px-4">
+    <div class="card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="modal-title" class="text-lg font-semibold">Tạo prompt mới</h2>
+        <button id="btn-close-modal" type="button" class="text-gray-400 hover:text-white text-2xl leading-none" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Tiêu đề <span class="text-red-400">*</span></label>
+          <input id="form-title" class="input" placeholder="VD: Climate change priority" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Task type</label>
+            <select id="form-task-type" class="input">
+              <option value="task2">Task 2</option>
+              <option value="task1_academic">Task 1 Academic</option>
+              <option value="task1_general">Task 1 General</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Độ khó</label>
+            <select id="form-difficulty" class="input">
+              <option value="">— Chưa phân loại —</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Đề bài <span class="text-red-400">*</span></label>
+          <textarea id="form-prompt-text" class="input" placeholder="Some people believe… Discuss both views and give your opinion."></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Tags (cách nhau bởi dấu phẩy)</label>
+          <input id="form-tags" class="input" placeholder="environment, opinion, advanced" />
+        </div>
+      </div>
+
+      <div id="modal-error" class="hidden mt-3 text-sm text-red-300"></div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button id="btn-cancel" type="button" class="btn-secondary">Hủy</button>
+        <button id="btn-save"   type="button" class="btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    'use strict';
+
+    // ── Supabase init (matches the convention from other admin pages) ─
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    var TASK_LABELS = {
+      task2:          'Task 2',
+      task1_academic: 'Task 1 Academic',
+      task1_general:  'Task 1 General',
+    };
+    var DIFFICULTY_LABELS = {
+      beginner:     'Beginner',
+      intermediate: 'Intermediate',
+      advanced:     'Advanced',
+    };
+
+    var _allPrompts = [];
+    var _editingId  = null;
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+      });
+    }
+
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // ── Load + render ──────────────────────────────────────────────
+    async function loadPrompts() {
+      hide('state-error');
+      hide('state-empty');
+      hide('prompts-list');
+      show('state-loading');
+
+      var taskType  = document.getElementById('filter-task-type').value;
+      var difficulty = document.getElementById('filter-difficulty').value;
+      var isActive  = document.getElementById('filter-active').value;
+
+      var params = new URLSearchParams();
+      if (taskType)   params.set('task_type', taskType);
+      if (difficulty) params.set('difficulty', difficulty);
+      params.set('is_active', isActive);
+
+      try {
+        var data = await window.api.get('/admin/writing/prompts?' + params.toString());
+        _allPrompts = (data && data.prompts) || [];
+        renderPrompts();
+      } catch (err) {
+        hide('state-loading');
+        var box = document.getElementById('state-error');
+        box.textContent = 'Lỗi tải prompts: ' + (err.message || 'không xác định');
+        show('state-error');
+      }
+    }
+
+    function renderPrompts() {
+      hide('state-loading');
+      var list = document.getElementById('prompts-list');
+
+      if (_allPrompts.length === 0) {
+        list.innerHTML = '';
+        show('state-empty');
+        return;
+      }
+
+      list.innerHTML = _allPrompts.map(function (p) {
+        var tags = (p.tags || []).map(function (t) {
+          return '<span class="tag">' + escapeHtml(t) + '</span>';
+        }).join(' ');
+
+        var diffClass = p.difficulty ? ('pill pill-difficulty-' + p.difficulty) : 'pill';
+        var diffLabel = p.difficulty ? (DIFFICULTY_LABELS[p.difficulty] || p.difficulty) : '';
+
+        var truncated = p.prompt_text && p.prompt_text.length > 240
+          ? p.prompt_text.substring(0, 240).trim() + '…'
+          : (p.prompt_text || '');
+
+        var inactiveBadge = p.is_active === false
+          ? '<span class="pill" style="background:rgba(156,163,175,0.15);color:#9ca3af">Đã tắt</span>'
+          : '';
+
+        return ''
+          + '<div class="card p-4">'
+          +   '<div class="flex items-start justify-between gap-3 mb-2">'
+          +     '<h3 class="font-semibold text-gray-100 text-base">' + escapeHtml(p.title || '(Không tiêu đề)') + '</h3>'
+          +     '<div class="flex flex-wrap gap-1 flex-shrink-0 justify-end">'
+          +       '<span class="pill pill-task">' + escapeHtml(TASK_LABELS[p.task_type] || p.task_type) + '</span>'
+          +       (diffLabel ? '<span class="' + diffClass + '">' + escapeHtml(diffLabel) + '</span>' : '')
+          +       inactiveBadge
+          +     '</div>'
+          +   '</div>'
+          +   '<p class="text-sm text-gray-300 mb-3 leading-relaxed whitespace-pre-line">' + escapeHtml(truncated) + '</p>'
+          +   '<div class="flex items-center justify-between flex-wrap gap-2">'
+          +     '<div class="flex flex-wrap gap-1">' + tags + '</div>'
+          +     '<div class="flex gap-2">'
+          +       '<button type="button" class="btn-secondary" data-action="edit" data-id="' + p.id + '">Sửa</button>'
+          +       (p.is_active === false
+                    ? '<button type="button" class="btn-secondary" data-action="restore" data-id="' + p.id + '">Khôi phục</button>'
+                    : '<button type="button" class="btn-danger"    data-action="delete"  data-id="' + p.id + '">Xóa</button>')
+          +     '</div>'
+          +   '</div>'
+          + '</div>';
+      }).join('');
+
+      // Wire row buttons via event delegation (avoids onclick template
+      // literal pitfalls — see anti-pattern #18 from Sprint 2.2.1).
+      list.querySelectorAll('button[data-action]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var action = btn.getAttribute('data-action');
+          var id     = btn.getAttribute('data-id');
+          if (action === 'edit')    openEditModal(id);
+          if (action === 'delete')  softDeletePrompt(id);
+          if (action === 'restore') restorePrompt(id);
+        });
+      });
+
+      show('prompts-list');
+    }
+
+    // ── Modal handlers ─────────────────────────────────────────────
+    function openCreateModal() {
+      _editingId = null;
+      document.getElementById('modal-title').textContent = 'Tạo prompt mới';
+      document.getElementById('form-title').value        = '';
+      document.getElementById('form-task-type').value    = 'task2';
+      document.getElementById('form-prompt-text').value  = '';
+      document.getElementById('form-difficulty').value   = '';
+      document.getElementById('form-tags').value         = '';
+      hide('modal-error');
+      show('modal');
+    }
+
+    function openEditModal(id) {
+      var p = _allPrompts.find(function (x) { return x.id === id; });
+      if (!p) return;
+
+      _editingId = id;
+      document.getElementById('modal-title').textContent = 'Sửa prompt';
+      document.getElementById('form-title').value        = p.title       || '';
+      document.getElementById('form-task-type').value    = p.task_type   || 'task2';
+      document.getElementById('form-prompt-text').value  = p.prompt_text || '';
+      document.getElementById('form-difficulty').value   = p.difficulty  || '';
+      document.getElementById('form-tags').value         = (p.tags || []).join(', ');
+      hide('modal-error');
+      show('modal');
+    }
+
+    function closeModal() { hide('modal'); }
+
+    async function savePrompt() {
+      var title      = document.getElementById('form-title').value.trim();
+      var taskType   = document.getElementById('form-task-type').value;
+      var promptText = document.getElementById('form-prompt-text').value.trim();
+      var difficulty = document.getElementById('form-difficulty').value || null;
+      var tagsRaw    = document.getElementById('form-tags').value;
+
+      if (!title || title.length < 2) {
+        showModalError('Tiêu đề phải có ít nhất 2 ký tự.');
+        return;
+      }
+      if (!promptText || promptText.length < 10) {
+        showModalError('Đề bài phải có ít nhất 10 ký tự.');
+        return;
+      }
+
+      var tags = tagsRaw.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+
+      var payload = {
+        title:       title,
+        task_type:   taskType,
+        prompt_text: promptText,
+        difficulty:  difficulty,
+        tags:        tags,
+      };
+
+      try {
+        if (_editingId) {
+          await window.api.patch('/admin/writing/prompts/' + _editingId, payload);
+        } else {
+          await window.api.post('/admin/writing/prompts', payload);
+        }
+        closeModal();
+        await loadPrompts();
+      } catch (err) {
+        showModalError('Lỗi: ' + (err.message || 'không lưu được'));
+      }
+    }
+
+    function showModalError(msg) {
+      var box = document.getElementById('modal-error');
+      box.textContent = msg;
+      show('modal-error');
+    }
+
+    async function softDeletePrompt(id) {
+      if (!confirm('Tắt prompt này? (Soft delete — có thể khôi phục từ "Đã tắt".)')) return;
+      try {
+        await window.api.delete('/admin/writing/prompts/' + id);
+        await loadPrompts();
+      } catch (err) {
+        alert('Lỗi xóa: ' + (err.message || 'không xác định'));
+      }
+    }
+
+    async function restorePrompt(id) {
+      try {
+        await window.api.patch('/admin/writing/prompts/' + id, { is_active: true });
+        await loadPrompts();
+      } catch (err) {
+        alert('Lỗi khôi phục: ' + (err.message || 'không xác định'));
+      }
+    }
+
+    // ── Wire up + initial load ─────────────────────────────────────
+    document.getElementById('btn-create').addEventListener('click', openCreateModal);
+    document.getElementById('btn-save').addEventListener('click', savePrompt);
+    document.getElementById('btn-cancel').addEventListener('click', closeModal);
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+    document.getElementById('filter-task-type').addEventListener('change', loadPrompts);
+    document.getElementById('filter-difficulty').addEventListener('change', loadPrompts);
+    document.getElementById('filter-active').addEventListener('change', loadPrompts);
+
+    loadPrompts();
+  </script>
+</body>
+</html>
