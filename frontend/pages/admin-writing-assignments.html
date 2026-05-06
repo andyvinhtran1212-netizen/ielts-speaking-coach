@@ -28,6 +28,7 @@
     .pill-graded      { background: rgba(168,85,247,0.15);  color: #d8b4fe; }
     .pill-delivered   { background: rgba(16,185,129,0.15);  color: #86efac; }
     .pill-task        { background: rgba(20,184,166,0.15);  color: #5eead4; }
+    .pill-timed       { background: rgba(245,158,11,0.15);  color: #f59e0b; }
     .student-row     { padding: 4px 8px; border-radius: 6px; }
     .student-row:hover { background: rgba(255,255,255,0.04); }
     .modal-bg { background: rgba(10,22,40,0.85); backdrop-filter: blur(4px); }
@@ -114,6 +115,19 @@
           <div>
             <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Ghi chú cho học viên (tùy chọn)</label>
             <textarea id="form-instructions" class="input" placeholder="VD: Tập trung vào câu phức + linking words."></textarea>
+          </div>
+        </div>
+
+        <!-- Step 4 — IELTS-mode timer (Phase 2.3c-3) -->
+        <div class="border-t border-white/10 pt-3 mt-1">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input id="form-is-timed" type="checkbox" class="cursor-pointer" />
+            <span class="text-sm font-medium">⏱️ IELTS-mode (đếm ngược + tự nộp)</span>
+          </label>
+          <div id="timer-fields" class="hidden mt-2 ml-6">
+            <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Thời gian (phút)</label>
+            <input id="form-time-limit" type="number" min="1" max="180" placeholder="VD: 40" class="input" style="width: 8rem" />
+            <p class="text-xs text-gray-500 mt-1">Task 1: 20 phút · Task 2: 40 phút (chuẩn IELTS).</p>
           </div>
         </div>
       </div>
@@ -214,6 +228,13 @@
         var studentLabel = student.full_name || student.student_code || '—';
         var taskLabel    = TASK_LABELS[prompt.task_type] || prompt.task_type || '—';
 
+        var timerPill = a.is_timed && a.time_limit_minutes
+          ? '<span class="pill pill-timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
+          : '';
+        var autoSubmittedHint = a.auto_submitted
+          ? '<span class="text-xs text-amber-400">⚠ Nộp tự động (hết giờ)</span>'
+          : '';
+
         return ''
           + '<div class="card p-4">'
           +   '<div class="flex items-start justify-between gap-3 mb-2">'
@@ -224,8 +245,10 @@
           +     '<div class="flex flex-col items-end gap-1 flex-shrink-0">'
           +       '<span class="pill pill-' + statusKey + '">' + escapeHtml(STATUS_LABELS[statusKey] || statusKey) + '</span>'
           +       '<span class="pill pill-task">' + escapeHtml(taskLabel) + '</span>'
+          +       timerPill
           +     '</div>'
           +   '</div>'
+          +   (autoSubmittedHint ? '<div class="mb-2">' + autoSubmittedHint + '</div>' : '')
           +   '<div class="flex items-center justify-between flex-wrap gap-2 text-xs text-gray-500">'
           +     '<span>Giao: ' + formatDate(a.created_at) + '</span>'
           +     (a.deadline     ? '<span>Hạn: '       + formatDate(a.deadline)     + '</span>' : '')
@@ -326,6 +349,10 @@
       document.getElementById('form-instructions').value = '';
       document.getElementById('form-deadline').value     = '';
       document.getElementById('student-search').value    = '';
+      // Phase 2.3c-3 — reset timer toggle + minutes input.
+      document.getElementById('form-is-timed').checked   = false;
+      document.getElementById('form-time-limit').value   = '';
+      document.getElementById('timer-fields').classList.add('hidden');
       hide('prompt-preview');
       hide('modal-error');
       updateSelectedCount();
@@ -347,6 +374,8 @@
       var promptId    = document.getElementById('form-prompt').value;
       var deadlineRaw = document.getElementById('form-deadline').value;
       var instructions = document.getElementById('form-instructions').value.trim();
+      var isTimed     = document.getElementById('form-is-timed').checked;
+      var timeLimitRaw = document.getElementById('form-time-limit').value;
 
       if (!promptId) {
         showModalError('Vui lòng chọn đề bài.');
@@ -357,11 +386,25 @@
         return;
       }
 
+      // Timer pair validation — mirrors the server `model_validator`.
+      // Catching it here saves an HTTP round-trip and the modal-level
+      // error renders inline rather than as a generic 422 alert.
+      var timeLimit = null;
+      if (isTimed) {
+        timeLimit = parseInt(timeLimitRaw, 10);
+        if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 180) {
+          showModalError('Vui lòng nhập thời gian (1-180 phút).');
+          return;
+        }
+      }
+
       var payload = {
-        prompt_id:   promptId,
-        student_ids: Array.from(_selectedStudentIds),
-        deadline:    deadlineRaw ? new Date(deadlineRaw).toISOString() : null,
-        instructions: instructions || null,
+        prompt_id:          promptId,
+        student_ids:        Array.from(_selectedStudentIds),
+        deadline:           deadlineRaw ? new Date(deadlineRaw).toISOString() : null,
+        instructions:       instructions || null,
+        is_timed:           isTimed,
+        time_limit_minutes: timeLimit,
       };
 
       try {
@@ -385,6 +428,14 @@
     document.getElementById('btn-cancel').addEventListener('click', closeModal);
     document.getElementById('btn-close-modal').addEventListener('click', closeModal);
     document.getElementById('filter-status').addEventListener('change', loadAssignments);
+
+    // Phase 2.3c-3 — toggle the time-limit field's visibility based on
+    // the IELTS-mode checkbox.
+    document.getElementById('form-is-timed').addEventListener('change', function (e) {
+      var fields = document.getElementById('timer-fields');
+      if (e.target.checked) fields.classList.remove('hidden');
+      else                  fields.classList.add('hidden');
+    });
 
     document.getElementById('student-search').addEventListener('input', function (e) {
       renderStudentList(e.target.value);

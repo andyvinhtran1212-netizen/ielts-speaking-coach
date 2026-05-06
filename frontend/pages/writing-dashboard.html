@@ -69,6 +69,7 @@
     .pill-red   { background: rgba(239,68,68,0.18);   color: #f87171; }
     .pill-gray  { background: rgba(156,163,175,0.18); color: #d1d5db; }
     .pill-purple{ background: rgba(168,85,247,0.18);  color: #c4b5fd; }
+    .pill-timed { background: rgba(245,158,11,0.18);  color: #fbbf24; }
 
     /* Phase 2.3b — tab nav + assignment cards */
     .tab-btn {
@@ -390,6 +391,33 @@
     // setTimeout handles for the 3-second debounce).
 
     var _draftSaveTimers = {};                  // assignment_id → timeout handle
+    var _timerIntervals  = {};                  // assignment_id → setInterval handle (Phase 2.3c-3)
+
+    // ── Phase 2.3c-3: IELTS-mode countdown helpers ──────────────────
+    function formatTimer(seconds) {
+      if (seconds === null || seconds === undefined) return '—';
+      if (seconds <= 0) return 'Hết giờ';
+      var mins = Math.floor(seconds / 60);
+      var secs = Math.floor(seconds % 60);
+      return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function showTimerToast(message) {
+      var toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg font-medium';
+      toast.style.background = '#f59e0b';
+      toast.style.color = '#0a1628';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(function () { toast.remove(); }, 5000);
+    }
+
+    function stopCountdown(assignmentId) {
+      if (_timerIntervals[assignmentId]) {
+        clearInterval(_timerIntervals[assignmentId]);
+        delete _timerIntervals[assignmentId];
+      }
+    }
 
     function formatRelativeTime(iso) {
       if (!iso) return '';
@@ -458,6 +486,9 @@
                 '<div class="flex items-center gap-2 mt-1 flex-wrap">' +
                   '<span class="pill ' + statusCfg.pill + '">' + escapeHtml(statusCfg.text) + '</span>' +
                   '<span class="text-xs text-gray-400">' + escapeHtml(taskLabel) + '</span>' +
+                  (a.is_timed && a.time_limit_minutes
+                    ? '<span class="pill pill-timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
+                    : '') +
                 '</div>' +
               '</div>' +
               deadlineLine +
@@ -489,6 +520,10 @@
       // Collapse if already open.
       if (!region.classList.contains('hidden')) {
         region.classList.add('hidden');
+        // Stop the IELTS-mode countdown when the card collapses —
+        // otherwise the interval keeps ticking and burning a network
+        // call every 30s for a banner the student can't see.
+        stopCountdown(assignmentId);
         toggleBtn.textContent = (toggleBtn.textContent || '').replace(/^Đang viết/, 'Tiếp tục viết');
         return;
       }
@@ -523,7 +558,32 @@
             + 'class="mb-3 max-w-full rounded border border-white/10" loading="lazy" />'
         : '';
 
+      // Phase 2.3c-3: IELTS-mode banner. Renders only when the
+      // assignment is timed AND a time_limit is set (the migration's
+      // CHECK constraint guarantees the pair, but we still defend
+      // against a legacy row missing one or the other).
+      var timer = data.timer || {};
+      var isTimed = timer.is_timed && timer.time_limit_minutes;
+      var initialRemaining = (timer.time_remaining_seconds === null
+                               || timer.time_remaining_seconds === undefined)
+        ? null
+        : timer.time_remaining_seconds;
+      var timerHtml = isTimed
+        ? ('<div class="timer-banner mb-3 p-3 rounded flex items-center justify-between" '
+            + 'style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25)">'
+          +   '<div>'
+          +     '<div class="text-xs uppercase tracking-wider text-amber-400 mb-1">⏱️ IELTS-mode</div>'
+          +     '<div class="text-xs text-gray-400">Tổng thời gian: '
+          +       timer.time_limit_minutes + ' phút</div>'
+          +   '</div>'
+          +   '<div class="timer-display text-2xl font-mono font-bold text-amber-400">'
+          +     escapeHtml(formatTimer(initialRemaining))
+          +   '</div>'
+          + '</div>')
+        : '';
+
       region.innerHTML =
+        timerHtml +
         promptImageHtml +
         '<div class="mb-3 p-3 rounded text-sm text-gray-300 leading-relaxed" style="background:rgba(255,255,255,0.04)">' +
           escapeHtml(prompt.prompt_text || '') +
@@ -654,6 +714,91 @@
           fileInput.value = '';
         }
       });
+
+      // ── Phase 2.3c-3 — IELTS-mode countdown ──────────────────────
+      // We only kick off the interval when the assignment IS timed
+      // and the server already stamped started_at. Until the student
+      // makes their first draft save the timer is dormant by design.
+      if (isTimed && initialRemaining !== null && initialRemaining > 0) {
+        startCountdown(region, assignmentId, initialRemaining, textarea);
+      } else if (isTimed && timer.is_expired
+                 && assignment.status !== 'submitted'
+                 && assignment.status !== 'graded'
+                 && assignment.status !== 'delivered') {
+        // The student opened a card whose timer ALREADY expired —
+        // submit whatever's in the textarea (or the saved draft if
+        // empty) so the row exits the active state cleanly. The
+        // backend marks `auto_submitted=true` because it sees the
+        // timer is expired at submit time.
+        showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
+        submitEssay(assignmentId, textarea.value, region, /* force */ true);
+      }
+    }
+
+    function startCountdown(region, assignmentId, initialRemaining, textarea) {
+      var display = region.querySelector('.timer-display');
+      if (!display) return;
+
+      // Replace any stale interval for this assignment — re-opening
+      // a card while a previous interval is still running would
+      // double-tick the display.
+      stopCountdown(assignmentId);
+
+      var remaining = initialRemaining;
+      var lastSync  = Date.now();
+      var warned5min = false;
+
+      _timerIntervals[assignmentId] = setInterval(async function () {
+        remaining -= 1;
+        display.textContent = formatTimer(remaining);
+
+        // ≤5 min: shift the banner colour to red so peripheral
+        // vision picks it up. The class swap is idempotent.
+        if (remaining <= 300 && !display.classList.contains('text-red-500')) {
+          display.classList.remove('text-amber-400');
+          display.classList.add('text-red-500');
+        }
+
+        // One-shot 5-minute warning toast.
+        if (!warned5min && remaining <= 300 && remaining > 295) {
+          warned5min = true;
+          showTimerToast('⚠️ Còn 5 phút!');
+        }
+
+        // 0:00 → auto-submit. We clear the interval BEFORE awaiting
+        // submitEssay so a slow network request can't fire a second
+        // tick that re-enters this branch.
+        if (remaining <= 0) {
+          stopCountdown(assignmentId);
+          showTimerToast('⏰ Hết giờ! Đang nộp bài…');
+          await submitEssay(assignmentId, textarea.value, region, /* force */ true);
+          return;
+        }
+
+        // Server reconciliation every ~30s — protects against client
+        // clock drift (or a student tabbing away and the OS de-
+        // scheduling the JS event loop). We snap when the drift
+        // exceeds 10s, which is the smallest gap a human notices.
+        if (Date.now() - lastSync > 30000) {
+          lastSync = Date.now();
+          try {
+            var fresh = await window.api.get(
+              '/api/writing/my-assignments/'
+              + encodeURIComponent(assignmentId) + '/timer'
+            );
+            if (fresh.is_expired) {
+              remaining = 0;
+            } else if (typeof fresh.time_remaining_seconds === 'number') {
+              if (Math.abs(fresh.time_remaining_seconds - remaining) > 10) {
+                remaining = fresh.time_remaining_seconds;
+              }
+            }
+          } catch (e) {
+            // Sync failure is non-fatal — keep ticking locally.
+            console.warn('Timer sync failed:', e);
+          }
+        }
+      }, 1000);
     }
 
     async function saveDraft(assignmentId, text, region) {
@@ -685,42 +830,52 @@
       }
     }
 
-    async function submitEssay(assignmentId, text, region) {
+    async function submitEssay(assignmentId, text, region, force) {
       var trimmed = (text || '').trim();
       var wc = countWords(trimmed);
 
-      if (trimmed.length < 50) {
-        alert('Bài viết quá ngắn (cần ít nhất 50 ký tự).');
-        return;
+      // `force=true` is set by the IELTS-mode auto-submit path. We
+      // skip every interactive prompt — the timer hit zero, there's
+      // no time to ask "are you sure". The 50-char minimum is also
+      // bypassed because a near-empty submission still has audit
+      // value (auto_submitted=true gets stamped server-side).
+      if (!force) {
+        if (trimmed.length < 50) {
+          alert('Bài viết quá ngắn (cần ít nhất 50 ký tự).');
+          return;
+        }
+        if (wc < 100) {
+          if (!confirm(
+            'Bài viết chỉ có ' + wc + ' từ.\n' +
+            'IELTS Task 2 yêu cầu tối thiểu 250 từ.\n' +
+            'Em chắc muốn nộp bài?'
+          )) return;
+        }
+        if (!confirm('Sau khi nộp em không thể chỉnh sửa. Em chắc muốn nộp bài?')) return;
       }
-      if (wc < 100) {
-        if (!confirm(
-          'Bài viết chỉ có ' + wc + ' từ.\n' +
-          'IELTS Task 2 yêu cầu tối thiểu 250 từ.\n' +
-          'Em chắc muốn nộp bài?'
-        )) return;
-      }
-      if (!confirm('Sau khi nộp em không thể chỉnh sửa. Em chắc muốn nộp bài?')) return;
 
       var submitBtn = region.querySelector('.btn-submit');
       var saveBtn   = region.querySelector('.btn-save-draft');
-      submitBtn.disabled = true;
-      saveBtn.disabled   = true;
+      if (submitBtn) submitBtn.disabled = true;
+      if (saveBtn)   saveBtn.disabled   = true;
 
       try {
         await window.api.post(
           '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/submit',
           { essay_text: text }
         );
-        alert('✓ Đã nộp bài. Em sẽ nhận kết quả sớm.');
+        // Stop any IELTS-mode countdown — the row is now `submitted`
+        // and the timer banner will be gone after the next render.
+        stopCountdown(assignmentId);
+        if (!force) alert('✓ Đã nộp bài. Em sẽ nhận kết quả sớm.');
         // Refresh both tabs — the card moves out of "Bài giao" into
         // "Bài đã nộp" once the essay row appears.
         await Promise.all([loadAssignments(), loadEssays()]);
       } catch (err) {
         alert('Lỗi nộp bài: ' + ((err && err.message) || 'không xác định'));
       } finally {
-        submitBtn.disabled = false;
-        saveBtn.disabled   = false;
+        if (submitBtn) submitBtn.disabled = false;
+        if (saveBtn)   saveBtn.disabled   = false;
       }
     }
 

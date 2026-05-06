@@ -28,7 +28,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
 from routers.admin import require_admin
@@ -60,17 +60,52 @@ def _now_iso() -> str:
 class AssignmentCreate(BaseModel):
     """One prompt → one or more students.  When `student_ids` has a
     single entry this is a single-assignment create; multi-entry is
-    bulk.  Cap at 100 to keep the insert payload bounded."""
-    prompt_id:    UUID
-    student_ids:  list[UUID]   = Field(..., min_length=1, max_length=100)
-    deadline:     Optional[datetime] = None
-    instructions: Optional[str]      = Field(None, max_length=2000)
+    bulk.  Cap at 100 to keep the insert payload bounded.
+
+    Phase 2.3c-3: `is_timed` + `time_limit_minutes` opt the assignment
+    into IELTS-exam mode.  The pair is enforced together (one without
+    the other is a 422) — the same invariant the migration's CHECK
+    constraint enforces at the DB layer.
+    """
+    prompt_id:           UUID
+    student_ids:         list[UUID]         = Field(..., min_length=1, max_length=100)
+    deadline:            Optional[datetime] = None
+    instructions:        Optional[str]      = Field(None, max_length=2000)
+    is_timed:            bool               = False
+    time_limit_minutes:  Optional[int]      = Field(None, ge=1, le=180)
+
+    @model_validator(mode="after")
+    def _validate_timer_pairing(self):
+        """`is_timed=true` requires `time_limit_minutes`; `is_timed=false`
+        forbids it.  Done at model level (not on a single field) so the
+        check fires even when `time_limit_minutes` is omitted from the
+        request body — a `field_validator` on a missing field never
+        runs in Pydantic v2.
+
+        Without this branch Pydantic would happily accept
+        `is_timed=true` alone, and the DB CHECK constraint would
+        reject it later with a far less friendly error."""
+        if self.is_timed and self.time_limit_minutes is None:
+            raise ValueError(
+                "time_limit_minutes is required when is_timed=true"
+            )
+        if not self.is_timed and self.time_limit_minutes is not None:
+            raise ValueError(
+                "time_limit_minutes only allowed when is_timed=true"
+            )
+        return self
 
 
 class AssignmentUpdate(BaseModel):
     """All fields optional — only the provided ones are PATCHed.
     Status transitions auto-stamp the matching `*_at` column server
-    side so the admin UI never has to compute timestamps."""
+    side so the admin UI never has to compute timestamps.
+
+    Timer fields here are intentionally lighter than AssignmentCreate
+    — admins can edit only the deadline/instructions/status today.
+    Toggling `is_timed` mid-flight on an in-progress assignment would
+    let an admin reset a student's started_at, so we don't expose
+    timer edits on PATCH (delete + recreate covers that flow)."""
     deadline:     Optional[datetime] = None
     instructions: Optional[str]      = Field(None, max_length=2000)
     status:       Optional[str]      = Field(None, pattern=_STATUS_PATTERN)
@@ -100,6 +135,7 @@ async def list_assignments(
             "id, status, deadline, instructions, created_at, "
             "submitted_at, graded_at, delivered_at, "
             "essay_id, prompt_id, student_id, "
+            "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, task_type, difficulty), "
             "students(id, student_code, full_name)"
         )
@@ -160,11 +196,13 @@ async def create_assignments(
     deadline_iso = body.deadline.isoformat() if body.deadline else None
     payload = [
         {
-            "prompt_id":    str(body.prompt_id),
-            "student_id":   sid,
-            "assigned_by":  admin["id"],
-            "deadline":     deadline_iso,
-            "instructions": body.instructions,
+            "prompt_id":          str(body.prompt_id),
+            "student_id":         sid,
+            "assigned_by":        admin["id"],
+            "deadline":           deadline_iso,
+            "instructions":       body.instructions,
+            "is_timed":           body.is_timed,
+            "time_limit_minutes": body.time_limit_minutes,
         }
         for sid in student_id_strs
     ]
