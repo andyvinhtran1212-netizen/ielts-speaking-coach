@@ -156,6 +156,7 @@
       <div id="overall-section" class="section"></div>
       <div id="strengths-areas-section" class="section"></div>
       <div id="recurring-section" class="section hidden"></div>
+      <div id="trajectory-section" class="section hidden"></div>
       <div id="criteria-section" class="section"></div>
       <div id="mistakes-section" class="section hidden"></div>
       <div id="ai-content-section" class="section hidden"></div>
@@ -341,6 +342,102 @@
             '</div>'
           : '');
       show('recurring-section');
+    }
+
+    // Phase 1.5b — render bandTrajectoryAnalysis. Backend provides
+    // numeric ground truth (average_last_5, trend, criteria_breakdown);
+    // Gemini wraps it in Vietnamese narrative (current_band,
+    // trend_explanation, next_target). Section auto-hides when null
+    // (new students <5 essays) or when the dict is empty after
+    // hallucinated-shape filtering.
+    function renderBandTrajectory(feedback) {
+      var data = feedback.feedback_json && feedback.feedback_json.bandTrajectoryAnalysis;
+      if (!data || typeof data !== 'object') return;
+
+      var trend            = data.trend || 'stable';
+      var currentBand      = (data.current_band   != null) ? data.current_band   : null;
+      var avgLast5         = (data.average_last_5 != null) ? data.average_last_5 : null;
+      var explanation      = data.trend_explanation || '';
+      var nextTarget       = data.next_target || '';
+      var breakdown        = Array.isArray(data.criteria_breakdown) ? data.criteria_breakdown : [];
+      var essaysAnalyzed   = data.essays_analyzed || 5;
+
+      // Treat a fully-empty payload as "nothing to show" — no empty
+      // heading, no skeleton card.
+      var hasContent = (
+        currentBand != null || avgLast5 != null ||
+        explanation || nextTarget || breakdown.length > 0
+      );
+      if (!hasContent) return;
+
+      // Direction-aware visual language: green = student is improving,
+      // amber = holding steady, red = recent essays weaker than older.
+      // The icon set mirrors what a tutor would scribble in a margin.
+      var TREND_ICON  = { improving: '📈', stable: '📊', declining: '📉' };
+      var TREND_COLOR = { improving: 'text-emerald-400', stable: 'text-amber-400', declining: 'text-red-400' };
+      var TREND_LABEL = { improving: 'Đang tiến bộ', stable: 'Ổn định', declining: 'Cần chú ý' };
+      var icon  = TREND_ICON[trend]  || '📊';
+      var color = TREND_COLOR[trend] || 'text-amber-400';
+      var label = TREND_LABEL[trend] || trend;
+
+      var ARROW       = { improving: '↑', stable: '→', declining: '↓' };
+      var ARROW_COLOR = { improving: 'text-emerald-400', stable: 'text-gray-400', declining: 'text-red-400' };
+
+      var breakdownRows = breakdown.map(function (c) {
+        var ct = c.trend || 'stable';
+        var arrow      = ARROW[ct]       || '→';
+        var arrowColor = ARROW_COLOR[ct] || 'text-gray-400';
+        return (
+          '<div class="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">' +
+            '<span class="text-sm text-gray-200">' + escapeHtml(c.criterion || '') + '</span>' +
+            '<div class="flex items-center gap-2 text-sm">' +
+              '<span class="text-gray-300">avg ' + escapeHtml(c.average != null ? c.average : '—') + '</span>' +
+              '<span class="' + arrowColor + ' font-semibold">' + arrow + '</span>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+
+      // 3-column summary up top: this-essay band, 5-essay average,
+      // trend label. On mobile this still fits per-row because each
+      // tile is small; the existing Tailwind config doesn't add a
+      // breakpoint between grid-cols-3 and grid-cols-1, but the labels
+      // are short enough to never wrap.
+      document.getElementById('trajectory-section').innerHTML =
+        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
+          '<span aria-hidden="true">' + icon + '</span> Diễn biến band điểm ' +
+          '<span class="text-xs font-normal text-gray-400">(' + essaysAnalyzed + ' bài gần nhất)</span>' +
+        '</h2>' +
+        '<div class="grid grid-cols-3 gap-3 mb-4">' +
+          '<div class="text-center bg-white/5 rounded-lg py-3">' +
+            '<div class="text-xs text-gray-300 mb-1">Bài này</div>' +
+            '<div class="text-2xl font-bold text-teal-light">' + escapeHtml(currentBand != null ? currentBand : '—') + '</div>' +
+          '</div>' +
+          '<div class="text-center bg-white/5 rounded-lg py-3">' +
+            '<div class="text-xs text-gray-300 mb-1">Trung bình 5 bài</div>' +
+            '<div class="text-2xl font-bold">' + escapeHtml(avgLast5 != null ? avgLast5 : '—') + '</div>' +
+          '</div>' +
+          '<div class="text-center bg-white/5 rounded-lg py-3">' +
+            '<div class="text-xs text-gray-300 mb-1">Xu hướng</div>' +
+            '<div class="text-base font-semibold ' + color + '">' + escapeHtml(label) + '</div>' +
+          '</div>' +
+        '</div>' +
+        (explanation
+          ? '<p class="text-gray-200 leading-relaxed mb-4">' + escapeHtml(explanation) + '</p>'
+          : '') +
+        (breakdownRows
+          ? '<div class="bg-white/5 rounded-lg p-3 mb-3">' +
+              '<h3 class="text-xs uppercase tracking-wider text-gray-300 mb-2">Chi tiết tiêu chí</h3>' +
+              breakdownRows +
+            '</div>'
+          : '') +
+        (nextTarget
+          ? '<div class="bg-teal-light/10 border border-teal-light/20 rounded p-3">' +
+              '<div class="text-xs text-teal-light mb-1 font-medium"><span aria-hidden="true">🎯</span> Mục tiêu tiếp theo</div>' +
+              '<p class="text-gray-200">' + escapeHtml(nextTarget) + '</p>' +
+            '</div>'
+          : '');
+      show('trajectory-section');
     }
 
     function renderCriteria(feedback) {
@@ -727,6 +824,7 @@
         renderOverall(feedback);
         renderStrengthsAreas(feedback);
         renderRecurringPatterns(feedback);
+        renderBandTrajectory(feedback);
         renderCriteria(feedback);
         renderMistakes(feedback);
         renderAiContentAnalysis(feedback);

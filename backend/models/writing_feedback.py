@@ -218,6 +218,14 @@ class GraderConfig(BaseModel):
     # intentional — see writing_history.py).
     history: Optional[dict] = None
 
+    # Phase 1.5b (band-trajectory aggregator): pre-aggregated dict
+    # produced by services.writing_history.get_band_trajectory(),
+    # passed alongside `history` into format_history_for_prompt().
+    # Same threshold + degrade-on-failure semantics. Kept as a
+    # parallel field rather than nested under `history` so the
+    # Phase 1.5a contract on `history` stays unchanged.
+    trajectory: Optional[dict] = None
+
 
 class GradingResult(BaseModel):
     """Wrapper around feedback + metadata."""

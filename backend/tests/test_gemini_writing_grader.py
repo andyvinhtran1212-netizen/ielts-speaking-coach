@@ -201,7 +201,12 @@ def test_build_user_prompt_omits_history_when_none(grader):
 def test_build_user_prompt_injects_history_when_present(grader):
     """Patterns dict via config.history → prompt includes the
     Vietnamese block + the recurringPatterns output schema instruction
-    so Gemini knows what shape to emit."""
+    so Gemini knows what shape to emit.
+
+    Phase 1.5b: heading is now "Lịch sử của học viên này" (broader,
+    covers both patterns + trajectory). The patterns block sits under
+    the "### Lỗi LẶP LẠI" sub-heading.
+    """
     config = GraderConfig(
         task_type="task2",
         prompt_text="P",
@@ -216,9 +221,41 @@ def test_build_user_prompt_injects_history_when_present(grader):
         },
     )
     prompt = grader._build_user_prompt(config)
-    assert "Lịch sử lỗi" in prompt
+    assert "Lịch sử của học viên" in prompt
+    assert "Lỗi LẶP LẠI" in prompt
     assert "Grammar - Article" in prompt
     assert "(7x)" in prompt
     assert "recurringPatterns" in prompt
     # Essay sections still come AFTER the history block.
-    assert prompt.index("Lịch sử lỗi") < prompt.index("Bài viết của học viên")
+    assert prompt.index("Lịch sử của học viên") < prompt.index("Bài viết của học viên")
+
+
+def test_build_user_prompt_injects_trajectory_when_present(grader):
+    """Phase 1.5b: trajectory dict via config.trajectory → prompt
+    includes the band-trajectory block + bandTrajectoryAnalysis output
+    schema instruction. Patterns optional — this fixture exercises the
+    trajectory-only path (e.g. a student with steady essays but no
+    repeating mistake types)."""
+    config = GraderConfig(
+        task_type="task2",
+        prompt_text="P",
+        essay_text="E",
+        analysis_level=3,
+        history=None,
+        trajectory={
+            "essays_analyzed":    5,
+            "average_last_5":     6.5,
+            "trend":              "improving",
+            "trend_delta":        0.4,
+            "criteria_breakdown": [
+                {"criterion": "Task Response", "average": 7.0, "trend": "improving"},
+            ],
+        },
+    )
+    prompt = grader._build_user_prompt(config)
+    assert "Diễn biến band điểm"     in prompt
+    assert "6.5"                     in prompt
+    assert "improving"               in prompt
+    assert "Task Response"           in prompt
+    assert "bandTrajectoryAnalysis"  in prompt
+    assert "current_band"            in prompt

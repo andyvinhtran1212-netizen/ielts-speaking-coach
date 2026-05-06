@@ -248,7 +248,8 @@ async def test_bg_grade_essay_happy_path_writes_feedback_and_marks_graded():
 
     with patch.object(essay_service, "supabase_admin", fake), \
          patch.object(essay_service, "get_grader", return_value=fake_grader), \
-         patch.object(essay_service, "get_recurring_patterns", return_value=None):
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
     ops = [(c["table"], c["op"]) for c in fake.calls]
@@ -279,7 +280,8 @@ async def test_bg_grade_essay_safety_block_marks_failed():
 
     with patch.object(essay_service, "supabase_admin", fake), \
          patch.object(essay_service, "get_grader", return_value=fake_grader), \
-         patch.object(essay_service, "get_recurring_patterns", return_value=None):
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
     final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
@@ -300,7 +302,8 @@ async def test_bg_grade_essay_retry_failure_marks_failed():
 
     with patch.object(essay_service, "supabase_admin", fake), \
          patch.object(essay_service, "get_grader", return_value=fake_grader), \
-         patch.object(essay_service, "get_recurring_patterns", return_value=None):
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
     final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
@@ -341,7 +344,9 @@ async def test_bg_grade_essay_passes_recurring_patterns_to_grader():
     with patch.object(essay_service, "supabase_admin", fake), \
          patch.object(essay_service, "get_grader", return_value=fake_grader), \
          patch.object(essay_service, "get_recurring_patterns",
-                      return_value=patterns) as mock_history:
+                      return_value=patterns) as mock_history, \
+         patch.object(essay_service, "get_band_trajectory",
+                      return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
     # Aggregator was called with the essay's student_id (proves student_id
@@ -354,8 +359,9 @@ async def test_bg_grade_essay_passes_recurring_patterns_to_grader():
 
 @pytest.mark.asyncio
 async def test_bg_grade_essay_history_none_when_student_below_threshold():
-    """New students (<5 essays) ⇒ aggregator returns None ⇒ GraderConfig
-    .history stays None so prompt is unchanged from Phase 1 behaviour."""
+    """New students (<5 essays) ⇒ aggregators return None ⇒ GraderConfig
+    .history AND .trajectory both stay None so prompt is unchanged
+    from Phase-1 behaviour."""
     fake = _FakeSupabase(responses=_bg_essay_responses())
     fake_grader = MagicMock()
     captured: dict = {}
@@ -373,10 +379,58 @@ async def test_bg_grade_essay_history_none_when_student_below_threshold():
     with patch.object(essay_service, "supabase_admin", fake), \
          patch.object(essay_service, "get_grader", return_value=fake_grader), \
          patch.object(essay_service, "get_recurring_patterns",
+                      return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",
                       return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
 
-    assert captured["config"].history is None
+    assert captured["config"].history    is None
+    assert captured["config"].trajectory is None
+
+
+# ── Phase 1.5b: trajectory wiring ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_passes_band_trajectory_to_grader():
+    """Phase 1.5b: trajectory aggregator must be called with the same
+    student_id that fed the patterns aggregator, and its result must
+    flow through to GraderConfig.trajectory so _build_user_prompt
+    can format it into the Gemini prompt."""
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+    captured: dict = {}
+
+    async def fake_grade(config):
+        captured["config"] = config
+        return MagicMock(
+            feedback=_valid_feedback_obj(),
+            model_used="gemini-2.5-pro",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    trajectory = {
+        "essays_analyzed":    5,
+        "average_last_5":     6.5,
+        "trend":              "improving",
+        "trend_delta":        0.5,
+        "criteria_breakdown": [
+            {"criterion": "Task Response", "average": 7.0, "trend": "improving"},
+        ],
+    }
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns",
+                      return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",
+                      return_value=trajectory) as mock_traj:
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    mock_traj.assert_called_once_with(_STUDENT_ID)
+    assert captured["config"].trajectory == trajectory
 
 
 # ── Read paths ───────────────────────────────────────────────────────
