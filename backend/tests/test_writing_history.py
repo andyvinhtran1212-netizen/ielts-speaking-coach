@@ -345,3 +345,38 @@ def test_format_history_empty_when_both_none():
     polluting the prompt for new students (<5 essays)."""
     assert format_history_for_prompt(None, None) == ""
     assert format_history_for_prompt({"patterns": []}, None) == ""
+
+
+# ── Sprint 1.5b.1 — avg vs average key regression ────────────────────
+
+
+def test_format_history_uses_canonical_average_key_in_narrative():
+    """Sprint 1.5b.1 regression guard: the per-criterion line in the
+    Vietnamese narrative MUST spell the field as "average" rather than
+    the readability shorthand "avg".
+
+    Phase 1.5b's first prompt printed `f"avg {c['average']}, trend ..."`
+    which primed Gemini to emit `{"avg": N.N}` in the JSON output —
+    front-end reads `c.average` so the criteria_breakdown rows showed
+    "avg —" in production. Pinning the substring here means a future
+    edit that re-introduces the shorthand fails this test before it
+    ships."""
+    trajectory = {
+        "essays_analyzed":    5,
+        "average_last_5":     6.0,
+        "trend":              "stable",
+        "trend_delta":        0.0,
+        "criteria_breakdown": [
+            {"criterion": "Task Response", "average": 6.5, "trend": "improving"},
+        ],
+    }
+    out = format_history_for_prompt(None, trajectory)
+
+    # Canonical key appears in the narrative and the JSON example.
+    assert "Task Response: average 6.5" in out, (
+        "Narrative must spell the criterion field as `average`, not `avg`."
+    )
+    # Explicit reminder line we added so Gemini doesn't shorten the key.
+    assert '"average"' in out and "không phải" in out and '"avg"' in out, (
+        "JSON example must call out the canonical key explicitly."
+    )
