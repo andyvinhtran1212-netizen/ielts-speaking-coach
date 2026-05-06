@@ -472,11 +472,13 @@ def test_sentence_structure_db_failure_returns_none():
 def test_format_history_with_all_three_aggregators():
     """patterns + trajectory + sentence_structure ⇒ the prompt block
     includes all three Vietnamese sub-sections AND all three output
-    schema instructions (recurringPatterns, bandTrajectoryAnalysis,
-    sentenceStructureFocus). Pinning all three together protects the
-    single-call interface — a regression that drops any one of the
-    schemas mid-prompt would have Gemini silently emit null for the
-    affected field."""
+    schema instructions. The SS instruction lives on the single
+    canonical `sentenceStructureAnalysis` field (Phase-1.5c structured
+    shape overrides the L4/L5 legacy `{sentenceUpgrades:[...]}` shape
+    when this block is present). Pinning all three together protects
+    the single-call interface — a regression that drops any one of
+    the schemas mid-prompt would have Gemini silently emit null for
+    the affected field."""
     patterns = {
         "patterns": [
             {"mistakeType": "Grammar - Article", "count": 5,
@@ -512,9 +514,15 @@ def test_format_history_with_all_three_aggregators():
     assert "Run-on sentence"    in out
     assert "(6x)"               in out
 
-    # All three output schema instructions.
-    assert "recurringPatterns"        in out
-    assert "bandTrajectoryAnalysis"   in out
-    assert "sentenceStructureFocus"   in out
-    assert "focus_theme"              in out
-    assert "this_week_practice"       in out
+    # All three output schema instructions. SS instruction targets
+    # the canonical `sentenceStructureAnalysis` field (Phase-1.5c
+    # shape overrides legacy `{sentenceUpgrades:[...]}`).
+    assert "recurringPatterns"           in out
+    assert "bandTrajectoryAnalysis"      in out
+    assert "sentenceStructureAnalysis"   in out
+    assert "focus_theme"                 in out
+    assert "this_week_practice"          in out
+    # Explicit override note + anti-leak ("don't emit sentenceUpgrades
+    # while history block present") so Gemini doesn't combine shapes.
+    assert "overrides" in out or "override" in out.lower()
+    assert "sentenceUpgrades" in out  # mentioned in the override caveat

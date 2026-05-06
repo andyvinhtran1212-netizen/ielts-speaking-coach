@@ -187,7 +187,9 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
         # the Gemini prompt so feedback can reference past mistakes
         # (recurringPatterns), band trends (bandTrajectoryAnalysis),
         # and sentence-structure history + a focus theme for the
-        # week (sentenceStructureFocus). All three return None when:
+        # week (Phase-1.5c shape on sentenceStructureAnalysis,
+        # overriding the L4/L5 legacy `{sentenceUpgrades:[...]}`
+        # shape). All three return None when:
         #   • student has <5 graded essays (Phase-1 behaviour preserved)
         #   • the lookup itself raised (defensive — grading must not
         #     fail because history is unavailable)

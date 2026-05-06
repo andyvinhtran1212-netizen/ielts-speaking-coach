@@ -131,8 +131,10 @@ class GeminiWritingGrader:
         by services.writing_history. The formatted Vietnamese block
         is injected before the essay so Gemini can populate
         `feedback_json.recurringPatterns`,
-        `feedback_json.bandTrajectoryAnalysis`, and
-        `feedback_json.sentenceStructureFocus` against the actual
+        `feedback_json.bandTrajectoryAnalysis`, and the Phase-1.5c
+        structured shape on `feedback_json.sentenceStructureAnalysis`
+        (overriding the L4/L5 system prompt's legacy
+        `{sentenceUpgrades: [...]}` shape) against the actual
         student history.
         """
         parts: list[str] = []

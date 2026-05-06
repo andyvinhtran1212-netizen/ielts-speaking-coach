@@ -168,7 +168,14 @@ def _build_document(
 
     # ── Advanced Analysis (only if at least one sub-section has data) ──
     has_lex   = bool(feedback.lexicalAnalysis and feedback.lexicalAnalysis.wordsToUpgrade)
-    has_sent  = bool(feedback.sentenceStructureAnalysis and feedback.sentenceStructureAnalysis.sentenceUpgrades)
+    # Phase 1.5c — sentenceStructureAnalysis carries either:
+    #   • legacy `{sentenceUpgrades: [...]}` (L4/L5 system prompt)
+    #   • Phase-1.5c structured `{summary, common_issues, focus_theme, ...}`
+    # has_sent fires when EITHER shape has rendable content.
+    ss_data       = feedback.sentenceStructureAnalysis or {}
+    ss_is_phase15 = isinstance(ss_data, dict) and "summary" in ss_data
+    ss_legacy     = bool(isinstance(ss_data, dict) and ss_data.get("sentenceUpgrades"))
+    has_sent      = ss_is_phase15 or ss_legacy
     has_idea  = bool(feedback.ideaDevelopmentAnalysis)
     has_coh   = bool(feedback.coherenceAnalysis)
     has_count = bool(feedback.counterargumentAnalysis)
@@ -196,10 +203,56 @@ def _build_document(
 
     if has_sent:
         doc.add_heading("Sentence Structure Analysis", level=3)
-        for s in feedback.sentenceStructureAnalysis.sentenceUpgrades:
-            _kv_paragraph(doc, "Original:", s.original or "", italic_value=True)
-            _kv_paragraph(doc, "Rewritten:", s.rewritten or "")
-            doc.add_paragraph(s.explanation or "")
+        if ss_is_phase15:
+            # Phase 1.5c structured shape — render summary + complexity
+            # + observation + common_issues + focus theme.
+            summary = (ss_data.get("summary") or "").strip()
+            if summary:
+                doc.add_paragraph(summary)
+
+            indicator = (ss_data.get("complexity_indicator") or "").strip()
+            if indicator:
+                _kv_paragraph(doc, "Complexity:", indicator)
+
+            observation = (ss_data.get("current_essay_observation") or "").strip()
+            if observation:
+                _kv_paragraph(doc, "This essay:", observation)
+
+            issues = ss_data.get("common_issues") or []
+            if isinstance(issues, list) and issues:
+                doc.add_paragraph("Recurring patterns:")
+                for issue in issues:
+                    if not isinstance(issue, dict):
+                        continue
+                    pattern = (issue.get("pattern") or "").strip()
+                    count   = issue.get("count")
+                    examples = issue.get("examples") or []
+                    line = f"• {pattern}"
+                    if count is not None:
+                        line += f" ({count}x)"
+                    if isinstance(examples, list) and examples:
+                        line += " — " + "; ".join(
+                            f'"{e}"' for e in examples if isinstance(e, str)
+                        )
+                    doc.add_paragraph(line)
+
+            focus = ss_data.get("focus_theme") or {}
+            if isinstance(focus, dict) and focus.get("title"):
+                doc.add_heading("Focus this week", level=4)
+                _kv_paragraph(doc, "Theme:", focus.get("title") or "")
+                if focus.get("why"):
+                    _kv_paragraph(doc, "Why:", focus.get("why") or "")
+                if focus.get("this_week_practice"):
+                    _kv_paragraph(doc, "Practice:", focus.get("this_week_practice") or "")
+        else:
+            # Legacy `{sentenceUpgrades: [{original, rewritten, explanation}]}`.
+            # Field is now Optional[dict] (was Pydantic class), so use dict access.
+            for s in (ss_data.get("sentenceUpgrades") or []):
+                if not isinstance(s, dict):
+                    continue
+                _kv_paragraph(doc, "Original:", s.get("original") or "", italic_value=True)
+                _kv_paragraph(doc, "Rewritten:", s.get("rewritten") or "")
+                doc.add_paragraph(s.get("explanation") or "")
 
     if has_idea:
         doc.add_heading("Idea Development / Data Selection", level=3)

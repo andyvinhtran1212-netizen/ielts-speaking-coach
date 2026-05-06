@@ -19,21 +19,24 @@ Three aggregators, one threshold:
       Mines mistakeAnalysis[] for sentence-structure-flavoured
       mistakes across last 5 essays. Returns top recurring SS
       patterns + a heuristic complexity indicator. Gemini then
-      emits `sentenceStructureFocus` — Vietnamese summary +
-      current-essay observation + ONE focus theme for the week.
-      Uses a NEW top-level field (not overloading the existing
-      level-4/5 `sentenceStructureAnalysis` shape) so the L4/L5
-      system prompts and Word exporter keep working unchanged.
+      emits the Phase-1.5c structured shape on the existing
+      `sentenceStructureAnalysis` field — Vietnamese summary +
+      current-essay observation + ONE focus theme for the week —
+      overriding the legacy `{sentenceUpgrades: [...]}` shape that
+      the L4/L5 system prompts otherwise emit. The Word exporter
+      + Jinja template + frontend renderer all branch on the
+      `summary` vs `sentenceUpgrades` key to handle both shapes.
 
 Design choice: pre-aggregate backend-side rather than dump raw essays
 into the prompt.  Cheaper + reusable — counter-style summary +
 trajectory dict fit in ~500 prompt tokens regardless of essay length.
 
 Threshold: <5 graded essays ⇒ no aggregation (return None). The
-matching grader path then leaves `feedback_json.recurringPatterns`,
-`feedback_json.bandTrajectoryAnalysis`, and
-`feedback_json.sentenceStructureFocus` all null, preserving
-Phase-1 baseline behaviour for new students.
+matching grader path then leaves `feedback_json.recurringPatterns`
++ `feedback_json.bandTrajectoryAnalysis` null, and
+`feedback_json.sentenceStructureAnalysis` follows the system
+prompt's legacy shape (or null at L1-L3), preserving Phase-1
+baseline behaviour for new students.
 
 Defensive: any DB error returns None so a transient blip degrades
 to plain grading rather than failing the whole grade.
@@ -439,8 +442,9 @@ def get_sentence_structure_history(student_id: str) -> dict | None:
     Note on shape: this dict is the deterministic numeric-ish ground
     truth (counts + heuristic complexity). The Vietnamese narrative
     fields (`summary`, `current_essay_observation`, `focus_theme`)
-    are NOT populated here — Gemini emits them in
-    `feedback_json.sentenceStructureFocus` using the prompt's
+    are NOT populated here — Gemini emits them on the existing
+    `feedback_json.sentenceStructureAnalysis` field (overriding the
+    legacy `{sentenceUpgrades: [...]}` shape) using the prompt's
     instructions (see `format_history_for_prompt`).
     """
     try:
@@ -556,13 +560,15 @@ def format_history_for_prompt(
         `trend_explanation`, `next_target` are Gemini-authored
         Vietnamese narrative.
 
-      • `sentenceStructureFocus` ({summary, common_issues,
-        complexity_indicator, current_essay_observation,
-        focus_theme}) — Phase 1.5c. `common_issues` and
-        `complexity_indicator` are copy-from-data; `summary`,
-        `current_essay_observation`, and `focus_theme`
-        ({title, why, this_week_practice}) are Gemini-authored
-        Vietnamese narrative.
+      • `sentenceStructureAnalysis` (Phase-1.5c structured shape:
+        {summary, common_issues, complexity_indicator,
+        current_essay_observation, focus_theme}) — Phase 1.5c.
+        Overrides the legacy `{sentenceUpgrades: [...]}` shape from
+        the L4/L5 system prompt for the duration of this essay.
+        `common_issues` and `complexity_indicator` are
+        copy-from-data; `summary`, `current_essay_observation`,
+        and `focus_theme` ({title, why, this_week_practice}) are
+        Gemini-authored Vietnamese narrative.
     """
     has_patterns   = bool(patterns   and patterns.get("patterns"))
     has_trajectory = bool(trajectory)
@@ -684,7 +690,10 @@ def format_history_for_prompt(
 
     if has_ss:
         lines.extend([
-            "Output `sentenceStructureFocus` — copy `common_issues` "
+            "Output `sentenceStructureAnalysis` (Phase-1.5c shape — "
+            "**overrides** mọi hướng dẫn `sentenceStructureAnalysis` "
+            "trong system prompt cho bài này, kể cả shape "
+            "`{sentenceUpgrades: [...]}` ở L4/L5).  Copy `common_issues` "
             "và `complexity_indicator` từ data ở trên; tự sinh "
             "`summary` (Vietnamese 1-2 câu overview cấu trúc câu của "
             "em qua 5 bài), `current_essay_observation` (Vietnamese "
@@ -693,7 +702,7 @@ def format_history_for_prompt(
             "này — chọn dựa trên common_issues + complexity_indicator "
             "+ bài hiện tại):",
             "```json",
-            '"sentenceStructureFocus": {',
+            '"sentenceStructureAnalysis": {',
             '  "summary":                   "Vietnamese 1-2 câu overview",',
             '  "common_issues":             [<copy array — pattern, count, examples>],',
             '  "complexity_indicator":      "<copy: needs_more_simple | balanced | needs_more_complex>",',
@@ -705,6 +714,8 @@ def format_history_for_prompt(
             '  }',
             "}",
             "```",
+            "Lưu ý: KHÔNG emit `sentenceUpgrades` array khi đã có "
+            "history block này — Phase-1.5c shape thay thế hoàn toàn.",
             "Hướng dẫn chọn focus_theme:",
             "- ĐÚNG MỘT theme — không list nhiều.",
             "- Nếu `complexity_indicator = needs_more_simple`, ưu tiên "

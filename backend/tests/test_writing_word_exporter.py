@@ -289,3 +289,87 @@ def test_doc_takeaways_use_word_bullet_style():
         f"Expected every populated takeaway paragraph to use 'List Bullet'; "
         f"got {bullet_styles}"
     )
+
+
+# ── Phase 1.5c — sentenceStructureAnalysis dual-shape rendering ──────
+
+
+def test_doc_renders_phase_1_5c_sentence_structure_shape():
+    """Phase 1.5c overloads `sentenceStructureAnalysis` with the
+    structured shape (summary + complexity + observation +
+    common_issues + focus_theme). Word exporter must detect the
+    `summary` key and render the structured block — including the
+    focus theme heading + practice line — instead of trying to walk
+    a non-existent `sentenceUpgrades` list.
+
+    Pinning the focus_theme.title in the doc text guards against a
+    regression where someone adds a Phase-1.5c branch but forgets to
+    plumb the focus theme through (the theme is the most actionable
+    output for the student)."""
+    payload = _l1_payload()
+    payload["sentenceStructureAnalysis"] = {
+        "summary": "Em hay viết câu chạy không có dấu chấm.",
+        "common_issues": [
+            {"pattern": "Run-on sentence", "count": 4,
+             "examples": ["I went home it was late."]},
+        ],
+        "complexity_indicator": "needs_more_simple",
+        "current_essay_observation": "Bài này có 2 câu chạy.",
+        "focus_theme": {
+            "title": "Tách câu bằng dấu chấm + liên từ",
+            "why":   "Em đang chạy câu — cần fix trước khi push complex structures.",
+            "this_week_practice": "Viết 5 câu, mỗi câu kết bằng dấu chấm rõ ràng.",
+        },
+    }
+    docx_bytes, _ = _build(payload)
+    doc = _open(docx_bytes)
+
+    headings = [
+        p.text for p in doc.paragraphs
+        if p.style and p.style.name.startswith("Heading")
+    ]
+    assert "Sentence Structure Analysis" in headings
+    assert "Focus this week" in headings  # H4 sub-heading
+
+    full_text = "\n".join(p.text for p in doc.paragraphs)
+    # Summary + observation surface in body text.
+    assert "Em hay viết câu chạy" in full_text
+    assert "Bài này có 2 câu chạy" in full_text
+    # Recurring pattern + count rendered.
+    assert "Run-on sentence" in full_text
+    assert "(4x)" in full_text
+    # Focus theme title + practice line both surface.
+    assert "Tách câu bằng dấu chấm" in full_text
+    assert "Viết 5 câu" in full_text
+
+
+def test_doc_renders_legacy_sentence_upgrades_shape():
+    """The legacy `{sentenceUpgrades: [{original, rewritten,
+    explanation}]}` shape must keep rendering unchanged — Phase 1.5c
+    only fires for ≥5-essay students, so L4/L5 essays from new
+    students still emit this shape via the system prompt.
+
+    Phase 1.5c rework relaxed `sentenceStructureAnalysis` from a
+    Pydantic class to `Optional[dict]`, so this test also pins the
+    dict-access path (.get('sentenceUpgrades') vs .sentenceUpgrades)
+    against a future regression where someone re-introduces attribute
+    access without updating the field type."""
+    payload = _l5_payload()
+    # _l5_payload already provides legacy sentenceUpgrades — assert it
+    # surfaces as before.
+    docx_bytes, _ = _build(payload)
+    doc = _open(docx_bytes)
+
+    headings = [
+        p.text for p in doc.paragraphs
+        if p.style and p.style.name.startswith("Heading")
+    ]
+    assert "Sentence Structure Analysis" in headings
+    # Phase-1.5c-only sub-heading must NOT appear when shape is legacy.
+    assert "Focus this week" not in headings
+
+    full_text = "\n".join(p.text for p in doc.paragraphs)
+    # Original (italicised) + rewritten + explanation all surface.
+    assert "I think." in full_text
+    assert "It is my contention." in full_text
+    assert "Phức hơn." in full_text

@@ -154,7 +154,14 @@
 
   {# ── Advanced Analysis (only when at least one section has data) #}
   {% set has_lex   = feedback.lexicalAnalysis and feedback.lexicalAnalysis.wordsToUpgrade %}
-  {% set has_sent  = feedback.sentenceStructureAnalysis and feedback.sentenceStructureAnalysis.sentenceUpgrades %}
+  {# Phase 1.5c — sentenceStructureAnalysis is now Optional[dict] (was Pydantic class). #}
+  {# Two shapes: legacy `{sentenceUpgrades: [...]}` from L4/L5 system prompt, #}
+  {# OR Phase-1.5c structured `{summary, common_issues, focus_theme, ...}` when #}
+  {# the history block overrides. has_sent fires for either. #}
+  {% set ss_data       = feedback.sentenceStructureAnalysis or {} %}
+  {% set ss_is_phase15 = ss_data is mapping and ss_data.summary is defined %}
+  {% set ss_legacy     = ss_data is mapping and ss_data.sentenceUpgrades %}
+  {% set has_sent      = ss_is_phase15 or ss_legacy %}
   {% set has_idea  = feedback.ideaDevelopmentAnalysis %}
   {% set has_coh   = feedback.coherenceAnalysis %}
   {% set has_count = feedback.counterargumentAnalysis %}
@@ -186,15 +193,45 @@
 
   {% if has_sent %}
   <h3>Sentence Structure Analysis</h3>
-  <ul>
-    {% for s in feedback.sentenceStructureAnalysis.sentenceUpgrades %}
-    <li>
-      <p><span class="label-en">Original:</span> <em>{{ s.original }}</em></p>
-      <p><span class="label-en">Rewritten:</span> {{ s.rewritten }}</p>
-      <p>{{ s.explanation }}</p>
-    </li>
-    {% endfor %}
-  </ul>
+  {% if ss_is_phase15 %}
+    {# Phase 1.5c structured shape — summary + complexity + observation
+       + common_issues + focus theme. Skips silently for any missing
+       sub-field so partial Gemini output still renders something. #}
+    {% if ss_data.summary %}<p>{{ ss_data.summary }}</p>{% endif %}
+    {% if ss_data.complexity_indicator %}
+      <p><span class="label-en">Complexity:</span> {{ ss_data.complexity_indicator }}</p>
+    {% endif %}
+    {% if ss_data.current_essay_observation %}
+      <p><span class="label-en">This essay:</span> {{ ss_data.current_essay_observation }}</p>
+    {% endif %}
+    {% if ss_data.common_issues %}
+      <p><span class="label-en">Recurring patterns:</span></p>
+      <ul>
+        {% for issue in ss_data.common_issues %}
+        <li>
+          <strong>{{ issue.pattern }}</strong>{% if issue.count is defined %} ({{ issue.count }}x){% endif %}
+          {% if issue.examples %} — {% for e in issue.examples %}<em>"{{ e }}"</em>{% if not loop.last %}; {% endif %}{% endfor %}{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if ss_data.focus_theme and ss_data.focus_theme.title %}
+      <h4>Focus this week: {{ ss_data.focus_theme.title }}</h4>
+      {% if ss_data.focus_theme.why %}<p><span class="label-en">Why:</span> {{ ss_data.focus_theme.why }}</p>{% endif %}
+      {% if ss_data.focus_theme.this_week_practice %}<p><span class="label-en">Practice:</span> {{ ss_data.focus_theme.this_week_practice }}</p>{% endif %}
+    {% endif %}
+  {% else %}
+    {# Legacy `{sentenceUpgrades: [{original, rewritten, explanation}]}`. #}
+    <ul>
+      {% for s in ss_data.sentenceUpgrades %}
+      <li>
+        <p><span class="label-en">Original:</span> <em>{{ s.original }}</em></p>
+        <p><span class="label-en">Rewritten:</span> {{ s.rewritten }}</p>
+        <p>{{ s.explanation }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
   {% endif %}
 
   {% if has_idea %}
