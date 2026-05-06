@@ -419,6 +419,47 @@
       }
     }
 
+    // Sprint 2.3c-3.1 — race fix.
+    //
+    // GET /my-assignments/{id} returns `timer.started_at = null`
+    // before the student's first draft save (by design — the timer
+    // starts when the student begins writing, not when they open
+    // the card).  That means the initial render path can't kick
+    // off the countdown.  PATCH /draft is what stamps started_at
+    // server-side, but its response is the draft row, not the
+    // refreshed timer state.
+    //
+    // This helper closes the gap: after every successful saveDraft
+    // we re-poll /timer.  When the row was just stamped, the next
+    // /timer response carries a real `time_remaining_seconds` and
+    // we can finally start the local interval.  After that first
+    // initialization the helper is a no-op (gated by
+    // `_timerIntervals[assignmentId]`) so subsequent saves don't
+    // burn an extra GET.
+    async function maybeInitTimerAfterDraftSave(assignmentId, region, textarea) {
+      if (_timerIntervals[assignmentId]) return;        // already running
+      if (!region.querySelector('.timer-banner')) return;  // not a timed assignment
+
+      try {
+        var fresh = await window.api.get(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/timer'
+        );
+        if (!fresh || !fresh.is_timed || fresh.is_expired) return;
+        if (typeof fresh.time_remaining_seconds !== 'number') return;
+        if (fresh.time_remaining_seconds <= 0) return;
+
+        // Replace the "Bắt đầu khi gõ" placeholder before kicking
+        // off the interval so the first paint isn't a 1s delay.
+        var display = region.querySelector('.timer-display');
+        if (display) display.textContent = formatTimer(fresh.time_remaining_seconds);
+
+        startCountdown(region, assignmentId, fresh.time_remaining_seconds, textarea);
+      } catch (e) {
+        // Non-fatal — the next save will retry.
+        console.warn('Timer init after stamp failed:', e);
+      }
+    }
+
     function formatRelativeTime(iso) {
       if (!iso) return '';
       var t = new Date(iso).getTime();
@@ -568,6 +609,13 @@
                                || timer.time_remaining_seconds === undefined)
         ? null
         : timer.time_remaining_seconds;
+      // Pre-stamp display: when `started_at` is still NULL the
+      // countdown can't run yet — show a hint that the clock starts
+      // on first save instead of a literal '—', which production
+      // canary 2026-05-06 read as "broken".
+      var initialDisplay = initialRemaining !== null
+        ? formatTimer(initialRemaining)
+        : 'Bắt đầu khi gõ';
       var timerHtml = isTimed
         ? ('<div class="timer-banner mb-3 p-3 rounded flex items-center justify-between" '
             + 'style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25)">'
@@ -576,8 +624,8 @@
           +     '<div class="text-xs text-gray-400">Tổng thời gian: '
           +       timer.time_limit_minutes + ' phút</div>'
           +   '</div>'
-          +   '<div class="timer-display text-2xl font-mono font-bold text-amber-400">'
-          +     escapeHtml(formatTimer(initialRemaining))
+          +   '<div class="timer-display text-xl font-mono font-bold text-amber-400">'
+          +     escapeHtml(initialDisplay)
           +   '</div>'
           + '</div>')
         : '';
@@ -805,6 +853,7 @@
       var savedEl   = region.querySelector('.save-saved');
       var pendingEl = region.querySelector('.save-pending');
       var errorEl   = region.querySelector('.save-error');
+      var textarea  = region.querySelector('.essay-textarea');
 
       pendingEl.classList.remove('hidden');
       savedEl.classList.add('hidden');
@@ -823,9 +872,33 @@
         savedEl.classList.remove('hidden');
         // Auto-fade the "✓ Đã lưu" hint after 2s so it doesn't linger.
         setTimeout(function () { savedEl.classList.add('hidden'); }, 2000);
+
+        // Sprint 2.3c-3.1: this PATCH may have just stamped
+        // started_at server-side. Re-poll /timer + start the
+        // countdown if the row is timed and not yet ticking.
+        if (textarea) {
+          maybeInitTimerAfterDraftSave(assignmentId, region, textarea);
+        }
       } catch (err) {
         pendingEl.classList.add('hidden');
-        errorEl.textContent = '⚠ ' + ((err && err.message) || 'lỗi khi lưu');
+        var msg = (err && err.message) || 'lỗi khi lưu';
+
+        // Sprint 2.3c-3.1: backend returns 410 Gone when a draft
+        // save lands AFTER the timer has expired (the Vietnamese
+        // detail string is the canonical signal). When that happens
+        // the local countdown is either gone or never started — we
+        // force-submit with the current textarea so the row exits
+        // the active state cleanly. Backend stamps auto_submitted=true.
+        if (msg.indexOf('Hết giờ') !== -1) {
+          stopCountdown(assignmentId);
+          showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
+          if (textarea) {
+            await submitEssay(assignmentId, textarea.value, region, /* force */ true);
+          }
+          return;
+        }
+
+        errorEl.textContent = '⚠ ' + msg;
         errorEl.classList.remove('hidden');
       }
     }
