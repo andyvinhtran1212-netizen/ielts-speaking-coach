@@ -93,16 +93,23 @@ class WritingPromptLoader:
 
         components: list[str] = [self._load_file(f) for f in self.SHARED_FILES]
 
-        # v2 prepends a level-specific calibration file (few-shot examples)
-        # before the level prompt. Calibration is optional — if the file is
-        # missing the loader falls back gracefully so a partial v2 directory
-        # still works (useful during incremental rollout / per-level
-        # iteration on calibration content).
+        # v2+ prepends a level-specific calibration file (few-shot
+        # examples) before the level prompt. Sprint 2.6.1 hotfix: the
+        # file is now REQUIRED — a missing calibration silently
+        # fell-through to a stamped "v2.0" prompt that lacked its
+        # headline upgrade (data corruption for the A/B cohort). v1 has
+        # no calibration concept; the guard keeps v1 untouched.
         if self.version != "v1":
             cal_relative = f"calibration/l{level}_examples.md"
             cal_path = self.prompts_dir / cal_relative
-            if cal_path.exists():
-                components.append(self._load_file(cal_relative))
+            if not cal_path.exists():
+                raise FileNotFoundError(
+                    f"{self.version} calibration file missing for level "
+                    f"{level}: {cal_path}. {self.version} prompts require "
+                    f"calibration. Either restore the file or set "
+                    f"WRITING_PROMPT_VERSION=v1."
+                )
+            components.append(self._load_file(cal_relative))
 
         components.append(self._load_file(self.LEVEL_FILES[level]))
 

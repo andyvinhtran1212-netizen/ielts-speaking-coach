@@ -198,6 +198,59 @@ def test_v2_level_files_reference_calibration():
         )
 
 
+# ── Sprint 2.6.1 — calibration hard-fail ─────────────────────────────
+#
+# AMBER finding from Sprint 2.6 audit (2026-05-07): a missing v2
+# calibration file used to silently fall through, leaving the prompt
+# stamped "v2.0" but composed without its headline upgrade. Both
+# tests below pin the post-hotfix contract: v2+ MUST have calibration
+# (loud failure on missing), v1 MUST NOT (no calibration concept).
+
+
+def test_v2_missing_calibration_raises_file_not_found(monkeypatch, tmp_path):
+    """v2 with a partial directory (shared/ + level files but no
+    calibration/) used to load a stamped v2.0 prompt that lacked the
+    few-shot anchor. Sprint 2.6.1 hotfix turned this into a loud
+    FileNotFoundError so an A/B run can't silently corrupt data."""
+    import services.writing_prompt_loader as wpl
+
+    v2 = tmp_path / "v2"
+    (v2 / "shared").mkdir(parents=True)
+    (v2 / "shared" / "persona_vn_examiner.md").write_text("persona\n")
+    (v2 / "shared" / "strict_grammar_check.md").write_text("grammar\n")
+    (v2 / "shared" / "output_schema_instructions.md").write_text("schema\n")
+    (v2 / "system_l1_strict_grammar_police.md").write_text("L1\n")
+    # Intentionally NO calibration/l1_examples.md
+
+    monkeypatch.setattr(wpl, "PROMPTS_BASE_DIR", tmp_path)
+
+    loader = wpl.WritingPromptLoader(version="v2")
+    with pytest.raises(FileNotFoundError, match="calibration"):
+        loader.load(level=1)
+
+
+def test_v1_does_not_require_calibration(monkeypatch, tmp_path):
+    """Backward-compat: v1 has no calibration concept and must keep
+    loading even when no calibration directory exists. Pin so a future
+    cleanup of the `if self.version != 'v1'` guard doesn't break v1."""
+    import services.writing_prompt_loader as wpl
+
+    v1 = tmp_path / "v1"
+    (v1 / "shared").mkdir(parents=True)
+    (v1 / "shared" / "persona_vn_examiner.md").write_text("persona\n")
+    (v1 / "shared" / "strict_grammar_check.md").write_text("grammar\n")
+    (v1 / "shared" / "output_schema_instructions.md").write_text("schema\n")
+    (v1 / "system_l1_strict_grammar_police.md").write_text("L1\n")
+    # No calibration/ — v1 doesn't need it.
+
+    monkeypatch.setattr(wpl, "PROMPTS_BASE_DIR", tmp_path)
+
+    loader = wpl.WritingPromptLoader(version="v1")
+    prompt = loader.load(level=1)  # must NOT raise
+    assert "L1" in prompt
+    assert "persona" in prompt
+
+
 def test_v2_level_files_have_level_specific_validation():
     """Each v2 level file ships a 'Validation Rules Specific to LX' section
     layered on top of the global rules in strict_grammar_check.md.

@@ -230,6 +230,95 @@ def test_build_user_prompt_injects_history_when_present(grader):
     assert prompt.index("Lịch sử của học viên") < prompt.index("Bài viết của học viên")
 
 
+# ── Sprint 2.6.1 — version routing pinning ──────────────────────────
+#
+# RED finding from Sprint 2.6 audit (2026-05-07): the grader cached
+# `prompt_loader = get_prompt_loader()` at __init__, but `get_grader()`
+# is a process-wide singleton — so flipping
+# `WRITING_PROMPT_VERSION` on Railway had no effect until the next
+# process restart, defeating the documented A/B hot-flip contract.
+# These tests pin: (1) env-var change mid-process flips the stamp,
+# (2) the stamp matches the loader actually used (no drift between
+# prompt sent and version recorded).
+
+
+@pytest.fixture
+def reset_loader_cache():
+    """Clear the per-version singleton cache so the test's
+    monkeypatched WRITING_PROMPT_VERSION drives fresh resolution.
+    Without this, an earlier test could have populated the cache and
+    masked a regression where the grader still bypasses the env var."""
+    import services.writing_prompt_loader as wpl
+    saved = dict(wpl._loader_instances)
+    wpl._loader_instances.clear()
+    yield
+    wpl._loader_instances.clear()
+    wpl._loader_instances.update(saved)
+
+
+@pytest.mark.asyncio
+async def test_grade_essay_picks_up_version_change_without_restart(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Sprint 2.6.1: a mid-process WRITING_PROMPT_VERSION flip must
+    take effect on the very next grade_essay() call. Pin against
+    regression where the grader caches the loader at __init__."""
+    from config import settings
+
+    json_payload = json.dumps(VALID_FEEDBACK)
+    usage = {"input_tokens": 1, "output_tokens": 1}
+
+    config = GraderConfig(
+        task_type="task2", prompt_text="P", essay_text="E", analysis_level=1,
+    )
+
+    # First call: env=v1 → stamp v1.0
+    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v1")
+    with patch.object(grader, "_call_with_retry", return_value=(json_payload, usage)):
+        result_v1 = await grader.grade_essay(config)
+    assert result_v1.prompt_version == "v1.0", (
+        f"Expected v1.0, got {result_v1.prompt_version}"
+    )
+
+    # Flip env var (simulates Railway env update without redeploy).
+    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
+
+    # Same grader instance, but next call must pick up v2.
+    with patch.object(grader, "_call_with_retry", return_value=(json_payload, usage)):
+        result_v2 = await grader.grade_essay(config)
+    assert result_v2.prompt_version == "v2.0", (
+        f"Expected v2.0 after env flip, got {result_v2.prompt_version}. "
+        f"Likely regression: grader cached loader at __init__."
+    )
+
+
+@pytest.mark.asyncio
+async def test_grade_essay_stamp_matches_loader_used(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Defensive: stamp comes from the same loader that produced the
+    prompt, not a separate read of settings. Prevents future drift
+    where the prompt is v1 but the recorded version is v2."""
+    from config import settings
+    import services.writing_prompt_loader as wpl
+
+    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
+
+    json_payload = json.dumps(VALID_FEEDBACK)
+    usage = {"input_tokens": 1, "output_tokens": 1}
+
+    config = GraderConfig(
+        task_type="task2", prompt_text="P", essay_text="E", analysis_level=1,
+    )
+    with patch.object(grader, "_call_with_retry", return_value=(json_payload, usage)):
+        result = await grader.grade_essay(config)
+
+    # Stamp must equal the v2 loader's PROMPT_VERSION property — not
+    # whatever the env happens to read at stamping time.
+    assert result.prompt_version == wpl.get_prompt_loader(version="v2").PROMPT_VERSION
+    assert result.prompt_version == "v2.0"
+
+
 def test_build_user_prompt_injects_trajectory_when_present(grader):
     """Phase 1.5b: trajectory dict via config.trajectory → prompt
     includes the band-trajectory block + bandTrajectoryAnalysis output

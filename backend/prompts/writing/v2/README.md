@@ -35,6 +35,39 @@ Set `WRITING_PROMPT_VERSION=v2` in the environment (default in `config.py` is
 exposes `WritingPromptLoader(version="v2")` for explicit per-instance
 selection.
 
+## Hot-flip rollout (post Sprint 2.6.1)
+
+After the Sprint 2.6.1 hotfix:
+
+- `WRITING_PROMPT_VERSION` is read **per `grade_essay()` call**, not at
+  process start. Flipping the env var on Railway propagates to the next
+  grading without redeploy.
+- The stamp value (`writing_feedback.prompt_version`) tracks the prompt
+  actually used — the same loader instance produces both the prompt and
+  the stamp, so they cannot drift.
+- Missing v2 calibration is now a **hard failure** (loud
+  `FileNotFoundError`) instead of a silent fall-through to a degraded
+  v2.0-stamped prompt.
+
+### Verification before A/B launch
+
+1. Set `WRITING_PROMPT_VERSION=v2` on Railway (no redeploy needed).
+2. Trigger one regrade — production essay `0caf5e59` is the recommended
+   canary (it's the zero-mistake-Band-5 incident from §"Quality bug v2
+   addresses").
+3. Query:
+
+   ```sql
+   SELECT prompt_version
+   FROM writing_feedback
+   WHERE essay_id = '0caf5e59-...'
+   ORDER BY created_at DESC LIMIT 1;
+   ```
+
+4. Expected: `v2.0`. If it returns `v1.0` after the env flip, the
+   rollout did NOT take effect — investigate before sampling more
+   essays.
+
 ## Quality bug v2 addresses
 
 **Essay 0caf5e59 production bug:** graded at Band 5 with **zero** mistakes

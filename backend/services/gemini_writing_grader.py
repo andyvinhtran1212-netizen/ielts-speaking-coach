@@ -77,12 +77,15 @@ class GeminiWritingGrader:
 
         # Idempotent — safe to call even though services/gemini.py also calls it
         genai.configure(api_key=api_key)
-        # Sprint 2.6: version-aware loader. settings.WRITING_PROMPT_VERSION
-        # picks v1/v2 at process start; per-essay grading inherits whichever
-        # version is configured. Per-essay override would happen by passing
-        # version= to get_prompt_loader() — not currently exposed since A/B
-        # test uses env-var sampling, not per-request flags.
-        self.prompt_loader = get_prompt_loader()
+        # Sprint 2.6.1 hotfix: the loader is intentionally NOT cached at
+        # __init__. `get_grader()` is a process-wide singleton (line 263),
+        # so freezing the loader here meant flipping
+        # settings.WRITING_PROMPT_VERSION on Railway had no effect until
+        # the next process restart — defeating the A/B hot-flip contract
+        # documented in prompts/writing/v2/README.md. The loader is
+        # resolved per `grade_essay()` call so env-var changes propagate.
+        # `get_prompt_loader()` already maintains a per-version cache, so
+        # this stays cheap (cache hit after first call per version).
 
     async def grade_essay(self, config: GraderConfig) -> GradingResult:
         """Grade an essay per config. Returns GradingResult with feedback + metadata.
@@ -94,7 +97,13 @@ class GeminiWritingGrader:
         """
         start = time.time()
 
-        system_prompt = self.prompt_loader.load(
+        # Sprint 2.6.1 hotfix: resolve loader per call so a mid-process
+        # WRITING_PROMPT_VERSION change is honoured. The same loader
+        # instance is reused for both .load() and .PROMPT_VERSION below
+        # so the stamp can never drift from the prompt actually sent.
+        loader = get_prompt_loader()
+
+        system_prompt = loader.load(
             level=config.analysis_level,
             form_of_address=config.form_of_address,
         )
@@ -122,7 +131,7 @@ class GeminiWritingGrader:
             tokens_output=usage.get("output_tokens"),
             cost_usd=cost,
             grading_duration_ms=duration_ms,
-            prompt_version=self.prompt_loader.PROMPT_VERSION,
+            prompt_version=loader.PROMPT_VERSION,
         )
 
     # ── Internal helpers ──────────────────────────────────────────────
