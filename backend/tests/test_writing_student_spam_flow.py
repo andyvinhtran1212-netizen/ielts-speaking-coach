@@ -164,15 +164,32 @@ class _Client:
 
 
 def _patch_essay_service(monkeypatch):
-    """Replace `essay_service.create_essay_with_job` with a recording
-    mock so we can assert it was NOT called on the flagged path."""
-    fake = MagicMock(return_value={
+    """Sprint 2.7.1 SAGA: the flagged path goes through
+    `create_essay_row_only` (no grading job).  Mock both new service
+    functions plus the legacy combined call so the test can assert
+    `schedule_grading_job` is never invoked on the flagged path.
+
+    Returns (fake_row, fake_job) so callers can introspect the
+    `data` dict that drove the speculative essay creation."""
+    fake_row = MagicMock(return_value={
+        "essay_id":    _ESSAY_ID,
+        "eta_seconds": 60,
+    })
+    fake_job = MagicMock(return_value={
+        "job_id":      "job-uuid-ffff",
+        "eta_seconds": 60,
+    })
+    fake_combined = MagicMock(return_value={
         "essay_id":    _ESSAY_ID,
         "job_id":      "job-uuid-ffff",
         "eta_seconds": 60,
     })
-    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake)
-    return fake
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_row_only", fake_row)
+    monkeypatch.setattr(ws_module.essay_service, "schedule_grading_job",  fake_job)
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake_combined)
+    monkeypatch.setattr(ws_module.essay_service, "_bg_grade_essay",
+                        lambda *_a, **_kw: None)
+    return fake_row, fake_job
 
 
 # ── Tests ────────────────────────────────────────────────────────────
@@ -199,7 +216,7 @@ def test_short_essay_takes_flagged_path(monkeypatch):
         student_row={"flag_count": 0, "is_under_review": False},
     )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-    fake_create = _patch_essay_service(monkeypatch)
+    fake_row, fake_job = _patch_essay_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
     result = _run(submit_my_assignment(
@@ -213,21 +230,25 @@ def test_short_essay_takes_flagged_path(monkeypatch):
     assert "too_short_chars" in result["flag_reasons"]
     assert result["status"] == "delivered"
     assert "Bài đã nộp" in result["message"]
-    # The grader pipeline must stay untouched.
-    fake_create.assert_not_called()
+    # SAGA: the row IS created (terminal `delivered` state) but no
+    # grading job is scheduled and no BG task runs.
+    fake_row.assert_called_once()
+    fake_job.assert_not_called()
     bg.add_task.assert_not_called()
 
 
 def test_flagged_essay_inserts_with_flag_reasons(monkeypatch):
-    """The writing_essays insert payload carries is_flagged=true and
-    the full flag_reasons array. Pinning prevents a regression where
-    we accept the submission but lose the audit trail."""
+    """The `create_essay_row_only` `data` dict carries is_flagged=true
+    and the full flag_reasons array. Sprint 2.7.1 SAGA: the audit
+    trail is set on the row INSERT; we pin the kwargs that drove
+    that insert so a regression that drops the flag fields from
+    the SAGA payload still surfaces here."""
     client = _Client(
         assignments_data=[_active_assignment_row()],
         student_row={"flag_count": 0, "is_under_review": False},
     )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-    _patch_essay_service(monkeypatch)
+    fake_row, _ = _patch_essay_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
     _run(submit_my_assignment(
@@ -237,17 +258,15 @@ def test_flagged_essay_inserts_with_flag_reasons(monkeypatch):
         student=_student(),
     ))
 
-    inserts = [c for c in client.calls
-               if c["table"] == "writing_essays" and c["action"] == "insert"]
-    assert len(inserts) == 1
-    payload = inserts[0]["payload"]
-    assert payload["is_flagged"] is True
-    assert "too_short_chars" in payload["flag_reasons"]
-    assert payload["status"] == "delivered"
-    # submitted_by_admin gets the student's user_id (audit-field
+    fake_row.assert_called_once()
+    data = fake_row.call_args.kwargs["data"]
+    assert data["is_flagged"] is True
+    assert "too_short_chars" in data["flag_reasons"]
+    assert data["status"] == "delivered"
+    # admin_id (kwarg) carries the student's user_id (audit-field
     # caveat — the column name is misleading but the FK semantic
     # holds).
-    assert payload["submitted_by_admin"] == _USER_ID
+    assert fake_row.call_args.kwargs["admin_id"] == _USER_ID
 
 
 def test_flagged_essay_does_not_write_writing_feedback(monkeypatch):
@@ -293,22 +312,23 @@ def test_flagged_assignment_transitions_to_delivered(monkeypatch):
         student=_student(),
     ))
 
-    # Sprint 2.7 fix #3: with the atomic claim in place, the FIRST
-    # writing_assignments UPDATE is the claim (status=submitted). The
-    # flagged-path helper then issues a SECOND UPDATE that flips to
-    # `delivered` — find it by status to keep this test stable
-    # regardless of how many intermediate updates exist.
+    # Sprint 2.7.1 SAGA: the flagged path now does ONE conditional
+    # UPDATE that goes straight to status=delivered + essay_id +
+    # submitted_at + delivered_at + auto_submitted. No intermediate
+    # `submitted` step (which used to confuse the admin "needs
+    # grading" filter).
     a_updates = [c for c in client.calls
                  if c["table"] == "writing_assignments" and c["action"] == "update"]
-    assert a_updates, "expected a writing_assignments update"
-    delivered = next(
-        (u for u in a_updates if (u["payload"] or {}).get("status") == "delivered"),
-        None,
-    )
-    assert delivered is not None, "expected a status=delivered update"
-    payload = delivered["payload"]
+    assert len(a_updates) == 1, "SAGA: flagged path must issue exactly one UPDATE"
+    payload = a_updates[0]["payload"]
+    assert payload["status"]       == "delivered"
     assert payload["essay_id"]     == _ESSAY_ID
     assert payload["delivered_at"] is not None
+    # And the UPDATE must be `.in_()`-filtered for race protection
+    # — same contract as the clean path.
+    in_filter = a_updates[0].get("in")
+    assert in_filter is not None and in_filter[0] == "status"
+    assert set(in_filter[1]) == {"pending", "in_progress"}
 
 
 def test_first_flag_increments_count_no_review_yet(monkeypatch):

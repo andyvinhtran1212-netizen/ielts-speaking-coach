@@ -82,24 +82,47 @@ def _ensure_student_exists(student_id: str) -> None:
 
 # ── Submission ───────────────────────────────────────────────────────
 
-def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
-    """Insert writing_essays + writing_jobs rows for a new submission.
 
-    Returns:
-        {"essay_id": <uuid>, "job_id": <uuid>, "eta_seconds": <int>}
-    """
-    student_id      = data["student_id"]
-    task_type       = data["task_type"]
-    prompt_text     = data["prompt_text"]
-    essay_text      = data["essay_text"]
-    analysis_level  = data["analysis_level"]
-    form_of_address = data.get("form_of_address", "em")
-    selected_model  = data.get("selected_model", "gemini-2.5-pro")
+# Keys recognised by `create_essay_row_only` beyond the core six. Callers
+# (notably the student submit path's flagged branch) pass these through
+# the same `data` dict to avoid plumbing N kwargs.
+_OPTIONAL_ESSAY_FIELDS = (
+    "is_flagged",
+    "flag_reasons",
+    "flagged_at",
+    "delivered_at",
+    "error_message",
+    "paste_events",
+    "suspicious_paste",
+)
+
+
+def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
+    """Sprint 2.7.1: insert ONE writing_essays row, NO grading job,
+    NO assignment link. The first leg of the SAGA-pattern submit.
+
+    Caller is responsible for either:
+      • calling `schedule_grading_job(essay_id=…)` next (clean path), OR
+      • leaving the row terminal (flagged path: status=delivered).
+
+    Returns: {"essay_id": <uuid>, "eta_seconds": <int>}.
+
+    `eta_seconds` is computed eagerly from (analysis_level, model) so
+    the router can return it in the success response without an
+    extra hop, even though no job has been queued yet."""
+    student_id       = data["student_id"]
+    task_type        = data["task_type"]
+    prompt_text      = data["prompt_text"]
+    essay_text       = data["essay_text"]
+    analysis_level   = data["analysis_level"]
+    form_of_address  = data.get("form_of_address",  "em")
+    selected_model   = data.get("selected_model",   "gemini-2.5-pro")
     prompt_image_url = data.get("prompt_image_url")
+    status           = data.get("status",           "pending")
 
     _ensure_student_exists(student_id)
 
-    essay_payload = {
+    essay_payload: dict = {
         "student_id":         student_id,
         "submitted_by_admin": admin_id,
         "task_type":          task_type,
@@ -110,8 +133,13 @@ def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
         "analysis_level":     analysis_level,
         "form_of_address":    form_of_address,
         "selected_model":     selected_model,
-        "status":             "pending",
+        "status":             status,
     }
+    # Pull the optional fields through verbatim — None values would
+    # overwrite column defaults, so copy only keys that are present.
+    for k in _OPTIONAL_ESSAY_FIELDS:
+        if k in data and data[k] is not None:
+            essay_payload[k] = data[k]
 
     try:
         er = supabase_admin.table("writing_essays").insert(essay_payload).execute()
@@ -123,20 +151,42 @@ def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
         raise HTTPException(500, "writing_essays insert returned no rows")
     essay = er.data[0]
 
+    eta = estimate_eta_seconds(
+        analysis_level=analysis_level,
+        selected_model=selected_model,
+    )
+    return {"essay_id": essay["id"], "eta_seconds": eta}
+
+
+def schedule_grading_job(
+    *,
+    essay_id: str,
+    analysis_level: int,
+    selected_model: str = "gemini-2.5-pro",
+) -> dict:
+    """Sprint 2.7.1: insert ONE writing_jobs row pointing at an
+    already-created essay. Returns {"job_id": <uuid>, "eta_seconds": <int>}.
+
+    Caller is responsible for adding the FastAPI BackgroundTask that
+    runs `_bg_grade_essay(essay_id, job_id)` — BG tasks live in
+    request scope, so this service can't add them itself.
+
+    Idempotent only at the caller level: a duplicate call would
+    insert a second `queued` row pointing at the same essay. The
+    student submit path guards against this with the atomic claim
+    (the link UPDATE is the gate), the admin path doesn't need to
+    (admins explicitly trigger one job per request)."""
     try:
         jr = supabase_admin.table("writing_jobs").insert({
-            "essay_id":  essay["id"],
+            "essay_id":  essay_id,
             "job_type":  "analyze",
             "status":    "queued",
         }).execute()
     except Exception as exc:
-        # Roll back the essay so we don't strand it without a job.
-        supabase_admin.table("writing_essays").delete().eq("id", essay["id"]).execute()
-        logger.error("[essays] job insert failed (essay rolled back): %s", exc)
+        logger.error("[essays] job insert failed essay=%s: %s", essay_id, exc)
         raise HTTPException(500, f"Database insert failed: {exc}")
 
     if not jr.data:
-        supabase_admin.table("writing_essays").delete().eq("id", essay["id"]).execute()
         raise HTTPException(500, "writing_jobs insert returned no rows")
     job = jr.data[0]
 
@@ -144,7 +194,38 @@ def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
         analysis_level=analysis_level,
         selected_model=selected_model,
     )
-    return {"essay_id": essay["id"], "job_id": job["id"], "eta_seconds": eta}
+    return {"job_id": job["id"], "eta_seconds": eta}
+
+
+def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
+    """Backward-compat wrapper: row + job in one call.
+
+    The admin /admin/writing/essays endpoint and any non-SAGA caller
+    use this. New code on the student-facing path uses
+    `create_essay_row_only` + `schedule_grading_job` to allow
+    SAGA-style sequencing (Sprint 2.7.1).
+
+    Returns: {"essay_id": <uuid>, "job_id": <uuid>, "eta_seconds": <int>}.
+    """
+    row_info = create_essay_row_only(data=data, admin_id=admin_id)
+    essay_id = row_info["essay_id"]
+
+    try:
+        job_info = schedule_grading_job(
+            essay_id=essay_id,
+            analysis_level=data["analysis_level"],
+            selected_model=data.get("selected_model", "gemini-2.5-pro"),
+        )
+    except HTTPException:
+        # Roll back the orphan essay so the legacy contract holds:
+        # "this function returns a complete row+job pair or raises".
+        try:
+            supabase_admin.table("writing_essays").delete().eq("id", essay_id).execute()
+        except Exception as exc:
+            logger.error("[essays] orphan rollback failed essay=%s: %s", essay_id, exc)
+        raise
+
+    return {"essay_id": essay_id, **job_info}
 
 
 # ── Async BG grader task ─────────────────────────────────────────────

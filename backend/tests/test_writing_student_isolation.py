@@ -280,8 +280,11 @@ def test_submit_404s_on_other_student_assignment(monkeypatch):
     client = _Client(assignments_data=[_b_owned_assignment()])
     monkeypatch.setattr(ws_module, "supabase_admin", client)
 
-    fake_create = MagicMock()
-    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake_create)
+    fake_row = MagicMock()
+    fake_job = MagicMock()
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_row_only", fake_row)
+    monkeypatch.setattr(ws_module.essay_service, "schedule_grading_job",  fake_job)
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", MagicMock())
 
     bg = MagicMock(); bg.add_task = MagicMock()
     with pytest.raises(HTTPException) as exc:
@@ -292,7 +295,10 @@ def test_submit_404s_on_other_student_assignment(monkeypatch):
             student=_student_a(),
         ))
     assert exc.value.status_code == 404
-    fake_create.assert_not_called()
+    # 404 fires at `_resolve_active_assignment` — well before any
+    # SAGA leg runs, so neither service mock should have been hit.
+    fake_row.assert_not_called()
+    fake_job.assert_not_called()
     bg.add_task.assert_not_called()
 
 

@@ -384,11 +384,36 @@ def test_paste_log_blocks_on_submitted_assignment(monkeypatch):
 # ── Paste-events transfer at submit ──────────────────────────────────
 
 
-def test_clean_submit_transfers_paste_events_to_essay(monkeypatch):
-    """Happy-path submit: the draft's paste_events array gets copied
-    onto writing_essays via a follow-up UPDATE after
-    create_essay_with_job. suspicious_paste flips on because one
-    event has char_count >= 50."""
+def _patch_saga_service(monkeypatch):
+    """Sprint 2.7.1: wire the SAGA service split for these tests.
+    Returns (fake_row, fake_job) so callers can inspect the data
+    that drove the speculative essay-row creation."""
+    fake_row = MagicMock(return_value={
+        "essay_id":    _ESSAY_ID,
+        "eta_seconds": 60,
+    })
+    fake_job = MagicMock(return_value={
+        "job_id":      "job-uuid",
+        "eta_seconds": 60,
+    })
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_row_only", fake_row)
+    monkeypatch.setattr(ws_module.essay_service, "schedule_grading_job",  fake_job)
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job",
+                        MagicMock(return_value={
+                            "essay_id": _ESSAY_ID,
+                            "job_id": "job-uuid",
+                            "eta_seconds": 60,
+                        }))
+    monkeypatch.setattr(ws_module.essay_service, "_bg_grade_essay",
+                        lambda *_a, **_kw: None)
+    return fake_row, fake_job
+
+
+def test_clean_submit_transfers_paste_events_into_essay_row(monkeypatch):
+    """Sprint 2.7.1 SAGA: paste_events + suspicious_paste are now
+    embedded into the `create_essay_row_only` `data` dict, NOT a
+    separate follow-up UPDATE. Pin the kwargs so a regression that
+    drops the audit field from the SAGA payload surfaces here."""
     paste = [
         {"at": "2026-05-06T10:00:00+00:00", "char_count": 75, "blocked": False},
     ]
@@ -407,13 +432,7 @@ def test_clean_submit_transfers_paste_events_to_essay(monkeypatch):
         ],
     )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-
-    fake_create = MagicMock(return_value={
-        "essay_id":    _ESSAY_ID,
-        "job_id":      "job-uuid",
-        "eta_seconds": 60,
-    })
-    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake_create)
+    fake_row, _ = _patch_saga_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
     _run(submit_my_assignment(
@@ -423,18 +442,22 @@ def test_clean_submit_transfers_paste_events_to_essay(monkeypatch):
         student=_student(),
     ))
 
+    fake_row.assert_called_once()
+    data = fake_row.call_args.kwargs["data"]
+    assert data["paste_events"]     == paste
+    assert data["suspicious_paste"] is True
+    # Belt-and-suspenders: no separate writing_essays UPDATE for the
+    # paste audit (the pre-2.7.1 behaviour we're explicitly removing).
     e_updates = [c for c in client.calls
                  if c["table"] == "writing_essays" and c["action"] == "update"]
-    assert e_updates, "expected a paste-audit UPDATE on writing_essays"
-    payload = e_updates[0]["payload"]
-    assert payload["paste_events"]     == paste
-    assert payload["suspicious_paste"] is True
+    assert e_updates == []
 
 
-def test_clean_submit_no_paste_events_no_audit_update(monkeypatch):
-    """If the draft never had paste events, we skip the follow-up
-    UPDATE entirely — no point burning a round-trip to write an
-    empty array onto the row's existing default '[]'."""
+def test_clean_submit_no_paste_events_passes_empty_array(monkeypatch):
+    """If the draft never had paste events, the SAGA payload still
+    carries `paste_events: []` and `suspicious_paste: False` — the
+    column has a `NOT NULL DEFAULT '[]'` so this is the same row
+    shape, just no audit content."""
     long_essay = "Valid essay body with multiple meaningful words here. " * 25
     client = _Client(
         assignments_data=[
@@ -447,13 +470,7 @@ def test_clean_submit_no_paste_events_no_audit_update(monkeypatch):
         drafts_data=[],  # no draft, no events
     )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-
-    fake_create = MagicMock(return_value={
-        "essay_id":    _ESSAY_ID,
-        "job_id":      "job-uuid",
-        "eta_seconds": 60,
-    })
-    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake_create)
+    fake_row, _ = _patch_saga_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
     _run(submit_my_assignment(
@@ -463,15 +480,20 @@ def test_clean_submit_no_paste_events_no_audit_update(monkeypatch):
         student=_student(),
     ))
 
+    fake_row.assert_called_once()
+    data = fake_row.call_args.kwargs["data"]
+    assert data.get("paste_events", []) == []
+    assert data.get("suspicious_paste") in (False, None)
+    # No follow-up UPDATE on writing_essays either way.
     e_updates = [c for c in client.calls
                  if c["table"] == "writing_essays" and c["action"] == "update"]
     assert e_updates == []
 
 
-def test_flagged_submit_carries_paste_events_into_insert(monkeypatch):
+def test_flagged_submit_carries_paste_events_into_essay_data(monkeypatch):
     """Flagged path: paste_events + suspicious_paste land directly on
-    the writing_essays INSERT payload (no follow-up UPDATE because
-    we never call create_essay_with_job here)."""
+    the SAGA `data` dict that drives `create_essay_row_only`. No
+    follow-up UPDATE, no grading-job call."""
     paste = [
         {"at": "2026-05-06T10:00:00+00:00", "char_count": 220, "blocked": True},
     ]
@@ -489,9 +511,7 @@ def test_flagged_submit_carries_paste_events_into_insert(monkeypatch):
         student_row={"flag_count": 0, "is_under_review": False},
     )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-
-    fake_create = MagicMock()  # MUST NOT be called on flagged path
-    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake_create)
+    fake_row, fake_job = _patch_saga_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
     _run(submit_my_assignment(
@@ -501,11 +521,11 @@ def test_flagged_submit_carries_paste_events_into_insert(monkeypatch):
         student=_student(),
     ))
 
-    fake_create.assert_not_called()
-    inserts = [c for c in client.calls
-               if c["table"] == "writing_essays" and c["action"] == "insert"]
-    assert len(inserts) == 1
-    payload = inserts[0]["payload"]
-    assert payload["is_flagged"]       is True
-    assert payload["paste_events"]     == paste
-    assert payload["suspicious_paste"] is True
+    fake_row.assert_called_once()
+    data = fake_row.call_args.kwargs["data"]
+    assert data["is_flagged"]       is True
+    assert data["paste_events"]     == paste
+    assert data["suspicious_paste"] is True
+    # Flagged path must NOT schedule grading.
+    fake_job.assert_not_called()
+    bg.add_task.assert_not_called()
