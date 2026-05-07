@@ -949,7 +949,7 @@
     // ── Sprint 2.6.1 — wire the submit modal ─────────────────────────
     //
     // Sprint 2.6.1.1 hotfix: the modal markup lives BELOW the
-    // closing </script> tag in source order, so the wireModal
+    // closing script tag in source order, so the wireModal
     // body MUST run after DOMContentLoaded — when this script
     // executes inline, getElementById('modal-close') resolves to
     // null, .addEventListener crashes, the exception halts the
@@ -1033,7 +1033,7 @@
       });
     }
 
-    // The modal markup lives below </script> in source order — gate
+    // The modal markup lives below the script block in source order — gate
     // the wire-up on DOMContentLoaded so getElementById finds the
     // freshly-parsed elements. If the script is loaded after the
     // body has already finished parsing (defer / module / late
