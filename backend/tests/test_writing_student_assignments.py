@@ -302,17 +302,33 @@ def test_draft_upsert_blocked_when_status_past_in_progress(monkeypatch):
 
 
 def _patch_essay_service(monkeypatch):
-    """Replace essay_service.create_essay_with_job + _bg_grade_essay
-    so submit tests don't try to reach the real grader."""
-    fake_create = MagicMock(return_value={
+    """Sprint 2.7.1 SAGA: row creation and grading-job scheduling
+    are split into two service functions. Tests mock both plus the
+    BG grader stub so submit tests never reach the real grader.
+
+    Returns (fake_row, fake_job) so tests can assert on call args
+    (e.g. `fake_row.call_args.kwargs["data"]["paste_events"]`).
+    For backward-compat the legacy combined call is also stubbed
+    in case any caller path still routes through it."""
+    fake_row = MagicMock(return_value={
+        "essay_id":    "essay-uuid-eeee",
+        "eta_seconds": 45,
+    })
+    fake_job = MagicMock(return_value={
+        "job_id":      "job-uuid-ffff",
+        "eta_seconds": 45,
+    })
+    fake_combined = MagicMock(return_value={
         "essay_id":    "essay-uuid-eeee",
         "job_id":      "job-uuid-ffff",
         "eta_seconds": 45,
     })
-    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake_create)
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_row_only", fake_row)
+    monkeypatch.setattr(ws_module.essay_service, "schedule_grading_job",  fake_job)
+    monkeypatch.setattr(ws_module.essay_service, "create_essay_with_job", fake_combined)
     monkeypatch.setattr(ws_module.essay_service, "_bg_grade_essay",
                         lambda *_a, **_kw: None)
-    return fake_create
+    return fake_row, fake_job
 
 
 def test_submit_falls_back_to_draft_text_when_body_essay_text_is_none(monkeypatch):
@@ -341,7 +357,7 @@ def test_submit_falls_back_to_draft_text_when_body_essay_text_is_none(monkeypatc
         ],
     )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-    fake_create = _patch_essay_service(monkeypatch)
+    fake_row, fake_job = _patch_essay_service(monkeypatch)
 
     bg = MagicMock()
     bg.add_task = MagicMock()
@@ -354,18 +370,24 @@ def test_submit_falls_back_to_draft_text_when_body_essay_text_is_none(monkeypatc
     ))
 
     assert result["status"] == "submitted"
-    # The grader was called with the draft text (stripped).
-    submitted_text = fake_create.call_args.kwargs["data"]["essay_text"]
+    # SAGA leg 1: the essay row was created with the draft text.
+    submitted_text = fake_row.call_args.kwargs["data"]["essay_text"]
     assert submitted_text == saved_draft.strip()
     # admin_id = student.user_id (audit-field caveat in handler comment).
-    assert fake_create.call_args.kwargs["admin_id"] == _USER_ID
-    # BG task was scheduled.
+    assert fake_row.call_args.kwargs["admin_id"] == _USER_ID
+    # SAGA leg 3: grading job scheduled + BG task added.
+    fake_job.assert_called_once()
     bg.add_task.assert_called_once()
 
 
 def test_submit_blocked_when_already_submitted(monkeypatch):
-    """Status past `in_progress` → 409, grader is NEVER called.
-    Re-submission would otherwise overwrite an already-graded essay."""
+    """Status past `in_progress` → 409. Sprint 2.7.1 SAGA: the essay
+    row IS created (leg 1) but the conditional UPDATE finds no row
+    matching `status IN (pending, in_progress)`, so the orphan essay
+    is rolled back and grading is never scheduled.
+
+    Pin: 409 returned, no grading job, no BG task, AND a writing_essays
+    DELETE fires for the orphan."""
     client = _Client(
         assignments_data=[
             {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
@@ -375,7 +397,7 @@ def test_submit_blocked_when_already_submitted(monkeypatch):
         ],
     )
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-    fake_create = _patch_essay_service(monkeypatch)
+    fake_row, fake_job = _patch_essay_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
     # Phase 2.6: same MIN_WORDS=100 concern as the fallback test —
@@ -390,16 +412,24 @@ def test_submit_blocked_when_already_submitted(monkeypatch):
             student=_student(),
         ))
     assert exc.value.status_code == 409
-    fake_create.assert_not_called()
+    # SAGA leg 1 still ran (essay was created speculatively).
+    fake_row.assert_called_once()
+    # SAGA leg 3 must NOT have run — no grading job, no BG task.
+    fake_job.assert_not_called()
     bg.add_task.assert_not_called()
+    # The orphan essay was rolled back.
+    deletes = [c for c in client.calls
+               if c["table"] == "writing_essays" and c["action"] == "delete"]
+    assert len(deletes) == 1, "expected orphan essay rollback DELETE"
 
 
 def test_submit_links_essay_and_advances_status(monkeypatch):
-    """Successful submit does THREE writes against writing_assignments:
-    the auto-resolution SELECT + the link UPDATE that sets essay_id +
-    status='submitted' + submitted_at. Pinning this prevents a
-    regression where the link silently fails and the assignment
-    remains in `in_progress` while the essay is grading."""
+    """Sprint 2.7.1 SAGA: the writing_assignments UPDATE is now a
+    SINGLE write that carries status + submitted_at + auto_submitted
+    + essay_id. The pre-2.7.1 split (claim → essay → link) is gone:
+    fewer round-trips, and any post-claim crash leaves an orphan
+    essay (cleanable) instead of a stuck assignment (not cleanable
+    without manual SQL)."""
     client = _Client(
         assignments_data=[
             {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
@@ -424,29 +454,25 @@ def test_submit_links_essay_and_advances_status(monkeypatch):
         student=_student(),
     ))
 
-    # Sprint 2.7 fix #3: the atomic claim does the status / submitted_at
-    # / auto_submitted stamp; the link UPDATE that follows only carries
-    # `essay_id`. Both writes target writing_assignments — pin each
-    # one separately so a regression in either the claim or the link
-    # surfaces a specific failure.
+    # SAGA: ONE conditional UPDATE on writing_assignments that does
+    # status + submitted_at + auto_submitted + essay_id together.
     a_updates = [c for c in client.calls
                  if c["table"] == "writing_assignments" and c["action"] == "update"]
-    assert len(a_updates) >= 2, "expected atomic claim + link update"
+    assert len(a_updates) == 1, "SAGA expects exactly one writing_assignments UPDATE"
 
-    claim = a_updates[0]["payload"]
-    assert claim["status"]       == "submitted"
-    assert "submitted_at"        in claim
-    assert "auto_submitted"      in claim
-    # The claim must be `.in_()`-filtered on status so a second tab
-    # whose row already moved past `in_progress` gets zero rows back.
-    assert a_updates[0].get("in") == ("status", list(["pending", "in_progress"])) or \
-           a_updates[0].get("in") == ("status", list(["in_progress", "pending"]))
+    payload = a_updates[0]["payload"]
+    assert payload["status"]       == "submitted"
+    assert "submitted_at"          in payload
+    assert "auto_submitted"        in payload
+    assert payload["essay_id"]     == "essay-uuid-eeee"
 
-    link_update = next(
-        (u for u in a_updates if (u["payload"] or {}).get("essay_id")), None
-    )
-    assert link_update is not None, "expected a link update with essay_id"
-    assert link_update["payload"]["essay_id"] == "essay-uuid-eeee"
+    # The single UPDATE must be `.in_()`-filtered on status so a
+    # second tab whose row already moved past `in_progress` gets
+    # zero rows back.
+    in_filter = a_updates[0].get("in")
+    assert in_filter is not None, "atomic claim must filter on status"
+    assert in_filter[0] == "status"
+    assert set(in_filter[1]) == {"pending", "in_progress"}
 
     # Draft cleanup is best-effort but should be attempted.
     assert any(c["table"] == "writing_drafts" and c["action"] == "delete"
@@ -455,24 +481,24 @@ def test_submit_links_essay_and_advances_status(monkeypatch):
     assert result["status"]   == "submitted"
 
 
-# ── Sprint 2.7 fix #3: atomic-claim race protection ──────────────────
+# ── Sprint 2.7.1 SAGA: lost-race protection + orphan rollback ────────
 
 
-def test_submit_lost_race_returns_409_without_creating_essay(monkeypatch):
-    """Two-tab race: tab A submits first, the row moves to `submitted`.
+def test_submit_lost_race_rolls_back_orphan_essay(monkeypatch):
+    """Two-tab race: tab A submits first, row moves to `submitted`.
     Tab B's `_resolve_active_assignment` happens to read the still-
-    cached `in_progress`, but by the time the atomic claim fires the
-    row is already past. Pin: the conditional UPDATE returns zero
-    rows, the router 409s, and `create_essay_with_job` is NEVER
-    called.
+    cached `in_progress`, but by the time the atomic claim+link
+    fires the row is already past.
 
-    Without the atomic claim, this scenario produced two writing_essays
-    rows for one assignment with the second silently overwriting the
-    first link — the original Codex AMBER #3 finding."""
-    # Seed: the resolved assignment dict says in_progress (what the
-    # router caches), but the dispatcher's row is already `submitted`
-    # — i.e. tab A's commit landed during the resolve→claim window.
-    # We mimic that by pre-mutating the row before claim runs.
+    Sprint 2.7.1 SAGA semantics:
+      • Tab B's writing_essays row IS created (leg 1, speculative).
+      • Tab B's claim UPDATE comes back empty (lost race).
+      • Tab B DELETEs the orphan essay it just created (leg 2.5).
+      • Tab B raises 409, no grading job, no BG task.
+
+    The pre-2.7.1 invariant ('lost race ⇒ no essay row created')
+    no longer holds — now the invariant is 'lost race ⇒ no orphan
+    survives in the DB', which is what we pin here."""
     row = {
         "id":          _ASSIGNMENT_ID,
         "student_id":  _STUDENT_ID,
@@ -486,7 +512,7 @@ def test_submit_lost_race_returns_409_without_creating_essay(monkeypatch):
     }
     client = _Client(assignments_data=[row])
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-    fake_create = _patch_essay_service(monkeypatch)
+    fake_row, fake_job = _patch_essay_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
     long_text = "Valid essay body with multiple meaningful words here. " * 25
@@ -498,14 +524,25 @@ def test_submit_lost_race_returns_409_without_creating_essay(monkeypatch):
             student=_student(),
         ))
     assert exc.value.status_code == 409
-    # The whole point of the fix: no essay row, no BG task.
-    fake_create.assert_not_called()
+    # SAGA leg 1 fired (the speculative essay creation).
+    fake_row.assert_called_once()
+    # SAGA leg 3 must NOT have run.
+    fake_job.assert_not_called()
     bg.add_task.assert_not_called()
-    # We expect the claim UPDATE to have fired but returned no rows
-    # (lost race); the link UPDATE that depends on it must NOT have
-    # fired.
+    # SAGA leg 2.5: orphan rollback DELETE on writing_essays.
+    deletes = [c for c in client.calls
+               if c["table"] == "writing_essays" and c["action"] == "delete"]
+    assert len(deletes) == 1, \
+        "lost race must DELETE the orphan essay (no orphan survives)"
+    # Exactly one writing_assignments UPDATE attempt fired — the
+    # conditional claim that came back empty. The dispatcher records
+    # the call even though Postgres would have affected zero rows.
     a_updates = [c for c in client.calls
                  if c["table"] == "writing_assignments" and c["action"] == "update"]
-    # The claim is allowed (it'll come back empty). No further
-    # essay_id-bearing update should follow.
-    assert not any((u["payload"] or {}).get("essay_id") for u in a_updates)
+    assert len(a_updates) == 1, \
+        "lost race: exactly one UPDATE attempt (the failed claim)"
+    # And the draft must NOT have been cleaned up — that only runs
+    # after a successful claim.
+    draft_deletes = [c for c in client.calls
+                     if c["table"] == "writing_drafts" and c["action"] == "delete"]
+    assert draft_deletes == [], "lost race must not delete the draft"
