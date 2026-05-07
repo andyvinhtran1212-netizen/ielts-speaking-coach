@@ -294,8 +294,15 @@ def _patch_essay_service(monkeypatch):
 def test_submit_falls_back_to_draft_text_when_body_essay_text_is_none(monkeypatch):
     """If the request body omits essay_text, submit pulls the saved
     draft. Lets a student with bad connectivity who lost the form
-    submit "what was last saved" without retyping."""
-    saved_draft = "This is the saved draft body. " * 5  # > min 50 chars
+    submit "what was last saved" without retyping.
+
+    Phase 2.6: the fixture must clear BOTH MIN_CHARS and MIN_WORDS
+    so the new spam detector doesn't divert this case into the
+    flagged path.  6 words × 25 reps = 150 words, well past the
+    100-word floor."""
+    saved_draft = (
+        "This is the saved draft body containing meaningful content. " * 25
+    )  # 150 words, ~1500 chars
     client = _Client(
         assignments_data=[
             {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
@@ -332,34 +339,6 @@ def test_submit_falls_back_to_draft_text_when_body_essay_text_is_none(monkeypatc
     bg.add_task.assert_called_once()
 
 
-def test_submit_rejects_too_short_essay(monkeypatch):
-    """Essay shorter than 50 chars (after strip) → 400. Catches the
-    misclick where a student with an empty draft hits Submit and would
-    otherwise burn a Gemini grade on whitespace."""
-    client = _Client(
-        assignments_data=[
-            {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
-             "status": "in_progress",
-             "writing_prompts": {"id": _PROMPT_ID, "title": "T",
-                                  "prompt_text": "P", "task_type": "task2"}},
-        ],
-        drafts_data=[],
-    )
-    monkeypatch.setattr(ws_module, "supabase_admin", client)
-    fake_create = _patch_essay_service(monkeypatch)
-
-    bg = MagicMock(); bg.add_task = MagicMock()
-    with pytest.raises(HTTPException) as exc:
-        _run(submit_my_assignment(
-            assignment_id=_ASSIGNMENT_ID,
-            body=SubmitEssay(essay_text="too short"),
-            background_tasks=bg,
-            student=_student(),
-        ))
-    assert exc.value.status_code == 400
-    fake_create.assert_not_called()
-
-
 def test_submit_blocked_when_already_submitted(monkeypatch):
     """Status past `in_progress` → 409, grader is NEVER called.
     Re-submission would otherwise overwrite an already-graded essay."""
@@ -375,7 +354,10 @@ def test_submit_blocked_when_already_submitted(monkeypatch):
     fake_create = _patch_essay_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
-    long_text = "Valid essay body. " * 10
+    # Phase 2.6: same MIN_WORDS=100 concern as the fallback test —
+    # long_text must clear both length flags or the assertion would
+    # fail for the wrong reason (flagged path bypasses the 409).
+    long_text = "Valid essay body with multiple meaningful words here. " * 25
     with pytest.raises(HTTPException) as exc:
         _run(submit_my_assignment(
             assignment_id=_ASSIGNMENT_ID,
@@ -408,7 +390,9 @@ def test_submit_links_essay_and_advances_status(monkeypatch):
     _patch_essay_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
-    long_text = "Valid essay body that is long enough to clear 50 chars min."
+    # Phase 2.6: must clear both MIN_CHARS and MIN_WORDS so the
+    # spam detector doesn't divert into the flagged path.
+    long_text = "Valid essay body that is long enough and contains real content. " * 25
     result = _run(submit_my_assignment(
         assignment_id=_ASSIGNMENT_ID,
         body=SubmitEssay(essay_text=long_text),
