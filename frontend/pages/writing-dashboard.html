@@ -332,11 +332,21 @@
 
         var essayIdAttr = ' data-essay-id="' + escapeHtml(e.id) + '"';
 
+        // Phase 2.6: flagged essays carry no feedback row, just an
+        // explanation. Surface a pill on the card so the student
+        // doesn't tap through expecting band scores.
+        var flaggedPill = e.is_flagged
+          ? '<span class="pill" style="background:rgba(245,158,11,0.18);color:#fbbf24">⚠ Không chấm</span>'
+          : '';
+
         return (
           '<div class="' + cardClass + '"' + essayIdAttr + openAttrs + '>' +
             '<div class="flex items-center justify-between gap-3 mb-2">' +
               '<span class="text-xs text-gray-300 font-medium">' + escapeHtml(task) + ' · ' + escapeHtml(date) + '</span>' +
-              '<span class="pill ' + status.pill + '">' + escapeHtml(status.text) + '</span>' +
+              '<div class="flex items-center gap-1">' +
+                flaggedPill +
+                '<span class="pill ' + status.pill + '">' + escapeHtml(status.text) + '</span>' +
+              '</div>' +
             '</div>' +
             '<p class="text-sm text-gray-200 mb-2 line-clamp-2">' + escapeHtml(e.prompt_preview || '') + '</p>' +
             (arrow ? '<div class="flex justify-end">' + arrow + '</div>' : '') +
@@ -933,14 +943,27 @@
       if (saveBtn)   saveBtn.disabled   = true;
 
       try {
-        await window.api.post(
+        var result = await window.api.post(
           '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/submit',
           { essay_text: text }
         );
         // Stop any IELTS-mode countdown — the row is now `submitted`
         // and the timer banner will be gone after the next render.
         stopCountdown(assignmentId);
-        if (!force) alert('✓ Đã nộp bài. Em sẽ nhận kết quả sớm.');
+
+        // Phase 2.6 — flagged submission. The backend accepted the
+        // essay (status=delivered, no grading) but stamped is_flagged.
+        // Surface a friendly Vietnamese explanation so the student
+        // understands why there's no feedback waiting and can fix the
+        // issue on the next assignment instead of feeling stuck.
+        if (result && result.is_flagged) {
+          alert(
+            '⚠ ' + (result.message || 'Bài đã nộp nhưng không được chấm.') +
+            '\n\nNếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
+          );
+        } else if (!force) {
+          alert('✓ Đã nộp bài. Em sẽ nhận kết quả sớm.');
+        }
         // Refresh both tabs — the card moves out of "Bài giao" into
         // "Bài đã nộp" once the essay row appears.
         await Promise.all([loadAssignments(), loadEssays()]);

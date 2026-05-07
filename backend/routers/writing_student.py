@@ -38,6 +38,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services import essay_service
 from services.file_extract_service import FileExtractError, extract_text
+from services.spam_detector import detect_flags, format_flag_explanation_vi
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,8 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
             supabase_admin.table("writing_essays")
             .select(
                 "id, task_type, prompt_text, status, "
-                "created_at, delivered_at"
+                "created_at, delivered_at, "
+                "is_flagged, flag_reasons"
             )
             .eq("student_id", student["id"])
             .order("created_at", desc=True)
@@ -135,6 +137,8 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
             "status":         e["status"],
             "created_at":     e["created_at"],
             "delivered_at":   e.get("delivered_at"),
+            "is_flagged":     bool(e.get("is_flagged")),
+            "flag_reasons":   e.get("flag_reasons") or [],
         })
 
     return {
@@ -169,7 +173,8 @@ async def get_my_essay(
             supabase_admin.table("writing_essays")
             .select(
                 "id, task_type, prompt_text, essay_text, "
-                "status, created_at, delivered_at"
+                "status, created_at, delivered_at, "
+                "is_flagged, flag_reasons, flagged_at, error_message"
             )
             .eq("id", essay_id)
             .eq("student_id", student["id"])
@@ -226,15 +231,24 @@ async def get_my_essay(
 # ── Phase 2.3b: assignments + draft + submit ─────────────────────────
 
 
-# A submission with `essay_text` shorter than this is almost certainly
-# a misclick — fail fast rather than burning a Gemini grade on it.
-_MIN_SUBMIT_CHARS = 50
-
 # Active states where the student is allowed to write/edit a draft and
 # eventually submit. Anything past `in_progress` is locked: the row has
 # already been handed to the grader and any further "edit" would
 # silently lose the submitted essay.
 _ACTIVE_ASSIGNMENT_STATES = {"pending", "in_progress"}
+
+# Phase 2.6: when a student's flagged-essay counter crosses this
+# threshold we auto-flip `students.is_under_review` so the admin
+# review queue picks them up. Three is "more than one bad-faith
+# attempt and one accidental misclick"; lower would page admins on
+# noise, higher would let real abuse compound for too long.
+_AUTO_REVIEW_FLAG_THRESHOLD = 3
+
+
+def _word_count(text: str) -> int:
+    """Whitespace-split word count. Matches the column constraint
+    on writing_essays.word_count which is `>= 0`."""
+    return len((text or "").split())
 
 
 def _compute_timer_state(assignment: dict) -> dict:
@@ -308,6 +322,193 @@ class SubmitEssay(BaseModel):
     (10000) so a student who pastes a giant document gets a clean 422
     instead of an opaque DB error downstream."""
     essay_text: Optional[str] = Field(default=None, max_length=10000)
+
+
+def _persist_flagged_submission(
+    *,
+    assignment_id: UUID,
+    assignment: dict,
+    student_id: str,
+    user_id: str,
+    prompt_text: str,
+    task_type: str,
+    essay_text: str,
+    flags: list[str],
+) -> dict:
+    """Phase 2.6: write the row tree for a flagged submission.
+
+    Skips `essay_service.create_essay_with_job` entirely — that path
+    queues a grading job, which we explicitly do NOT want for
+    flagged essays.  Instead we insert a `writing_essays` row in the
+    terminal `delivered` state, with `is_flagged=True` and the
+    detector's reason codes captured immutably.
+
+    NO `writing_feedback` row is written. That table's
+    `overall_band_score` is NOT NULL with `CHECK >= 0`, and stamping
+    a stub score (0.0 or otherwise) would skew every "average band"
+    / "graded essay count" admin query.  Frontend reads
+    `essay.is_flagged + essay.flag_reasons` directly off the
+    writing_essays row to render the explanation.
+
+    Side effects (best-effort, never raised — the essay row is the
+    audit-critical write):
+      • writing_assignments → status=delivered + essay_id link
+      • students.flag_count++ + last_flagged_at stamped
+      • students.is_under_review flipped TRUE on the threshold cross
+      • writing_drafts row deleted (the form is locked now)
+
+    Returns the response shape the frontend's submitEssay branch
+    keys off — `is_flagged=True` + Vietnamese `message` so the
+    student sees a friendly alert instead of a generic "submitted".
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    explanation_vi = format_flag_explanation_vi(flags)
+
+    # Phase 2.3c-3: a flagged submission still preserves the timer
+    # audit. If the timer was already expired when the student tried
+    # to submit garbage, `auto_submitted=true` records that on the
+    # assignment row — admin reviewing a flagged essay can tell at
+    # a glance whether the student ran out of time or just typed
+    # nonsense from the start.
+    timer = _compute_timer_state(assignment)
+    auto_submitted_flag = bool(timer["is_expired"])
+
+    essay_payload = {
+        "student_id":         student_id,
+        "submitted_by_admin": user_id,  # see "Audit-field caveat" — column
+                                        # naming is misleading; we stamp
+                                        # the student's user_id here.
+        "task_type":          task_type,
+        "prompt_text":        prompt_text,
+        "essay_text":         essay_text or "",
+        "word_count":         _word_count(essay_text),
+        "analysis_level":     3,
+        "form_of_address":    "em",
+        "selected_model":     "gemini-2.5-pro",
+        "status":             "delivered",
+        "is_flagged":         True,
+        "flag_reasons":       flags,
+        "flagged_at":         now_iso,
+        "delivered_at":       now_iso,
+        # Capture the Vietnamese explanation in error_message so the
+        # admin moderation queue can render it without re-running the
+        # formatter.
+        "error_message":      explanation_vi,
+    }
+
+    try:
+        er = supabase_admin.table("writing_essays").insert(essay_payload).execute()
+    except Exception as exc:
+        logger.error("[writing-student] flagged essay insert failed: %s", exc)
+        raise HTTPException(500, "Không tạo được bản ghi bài.")
+
+    if not er.data:
+        raise HTTPException(500, "Không tạo được bản ghi bài.")
+    essay_id = er.data[0]["id"]
+
+    logger.warning(
+        "[writing-student] flagged submission: assignment=%s student=%s "
+        "essay=%s flags=%s",
+        assignment_id, student_id, essay_id, flags,
+    )
+
+    # writing_assignments transition → delivered. We skip the usual
+    # `submitted` intermediate state on purpose: the row never enters
+    # the grading queue, so the admin dashboard's "submitted = needs
+    # grading" filter shouldn't surface it.
+    try:
+        (
+            supabase_admin.table("writing_assignments")
+            .update({
+                "essay_id":       essay_id,
+                "status":         "delivered",
+                "submitted_at":   now_iso,
+                "delivered_at":   now_iso,
+                "auto_submitted": auto_submitted_flag,
+            })
+            .eq("id", str(assignment_id))
+            .execute()
+        )
+    except Exception as exc:
+        # Audit row exists; the assignment link is recoverable by
+        # hand. Don't 500 the student response.
+        logger.error(
+            "[writing-student] flagged assignment link failed "
+            "assignment=%s essay=%s: %s",
+            assignment_id, essay_id, exc,
+        )
+
+    # Student rollup: increment counter + maybe flip is_under_review.
+    # Read-modify-write because Supabase's Python client doesn't
+    # expose `flag_count = flag_count + 1` directly. The race is
+    # negligible — students can't submit two assignments in the
+    # same millisecond.
+    try:
+        sr = (
+            supabase_admin.table("students")
+            .select("flag_count, is_under_review")
+            .eq("id", student_id)
+            .limit(1)
+            .execute()
+        )
+        cur_count        = (sr.data[0].get("flag_count") if sr.data else 0) or 0
+        cur_under_review = bool(sr.data[0].get("is_under_review")) if sr.data else False
+        new_count        = cur_count + 1
+        student_update: dict = {
+            "flag_count":      new_count,
+            "last_flagged_at": now_iso,
+        }
+        if not cur_under_review and new_count >= _AUTO_REVIEW_FLAG_THRESHOLD:
+            student_update["is_under_review"] = True
+            logger.warning(
+                "[writing-student] student auto-flagged for review: "
+                "student=%s flag_count=%d",
+                student_id, new_count,
+            )
+
+        (
+            supabase_admin.table("students")
+            .update(student_update)
+            .eq("id", student_id)
+            .execute()
+        )
+    except Exception as exc:
+        # Rollup failure is purely a metric — the per-essay flag is
+        # the load-bearing record.
+        logger.warning(
+            "[writing-student] student rollup update failed "
+            "student=%s: %s",
+            student_id, exc,
+        )
+
+    # Drafts cleanup — same as the happy-path submit. The form is
+    # now locked (assignment.status=delivered) so a stale draft
+    # would just confuse the dashboard.
+    try:
+        (
+            supabase_admin.table("writing_drafts")
+            .delete()
+            .eq("assignment_id", str(assignment_id))
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] flagged draft cleanup failed "
+            "assignment=%s: %s",
+            assignment_id, exc,
+        )
+
+    return {
+        "essay_id":       essay_id,
+        "assignment_id":  str(assignment_id),
+        "status":         "delivered",
+        "is_flagged":     True,
+        "flag_reasons":   flags,
+        "message":        (
+            f"Bài đã nộp nhưng không được chấm do {explanation_vi}. "
+            f"Em vui lòng kiểm tra lại bài viết."
+        ),
+    }
 
 
 def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
@@ -624,11 +825,22 @@ async def submit_my_assignment(
                 assignment_id, exc,
             )
 
-    if len(essay_text) < _MIN_SUBMIT_CHARS:
-        raise HTTPException(
-            400,
-            f"Bài viết quá ngắn (cần ≥{_MIN_SUBMIT_CHARS} ký tự). "
-            f"Hiện có {len(essay_text)} ký tự.",
+    # ── Phase 2.6: spam / quality flag gate ───────────────────────
+    # Replaces the pre-2.6 hard 400 "essay too short" reject. We now
+    # accept the submission, skip grading, and stamp the row with
+    # the triggered flag reasons so the student isn't stuck on a
+    # locked assignment and the admin still has full audit context.
+    flags = detect_flags(essay_text)
+    if flags:
+        return _persist_flagged_submission(
+            assignment_id   = assignment_id,
+            assignment      = assignment,
+            student_id      = student_id,
+            user_id         = user_id,
+            prompt_text     = prompt_text,
+            task_type       = task_type,
+            essay_text      = essay_text,
+            flags           = flags,
         )
 
     # Reuse the admin-side submission pipeline. analysis_level=3 is
