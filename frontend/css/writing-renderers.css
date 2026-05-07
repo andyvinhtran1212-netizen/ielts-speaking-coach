@@ -1,0 +1,289 @@
+/* Shared renderer styles for Writing Coach admin + student pages.
+   Sprint 2.5.5 extracted these from frontend/pages/admin-writing-grade.html
+   so the read-only student result page (writing-result.html) shares one
+   visual grammar with the admin grading UI.
+
+   Vocabulary applied uniformly across all section renderers:
+     prose-block      = plain narrative
+     card-criterion   = IELTS band card
+     mistake-card     = severity-coded diff
+     chip / chip-list = labels for arrays
+     stat-tile        = large metric number
+     focus-theme-card = featured this-week practice
+     callout-info     = teal-accented explanatory note
+     callout-action   = teal-accented call to action
+     takeaway-block   = strengths / improvements 2-col grid
+     issue-card       = pattern + count + examples
+     complexity-meter = text-based indicator
+     likelihood-bar   = horizontal AI-content gauge
+     lexical-*        = word→upgrade rows */
+
+.prose-block { color: #cbd5e1; font-size: 14.5px; line-height: 1.7; max-width: 70ch; }
+.prose-block p { margin-bottom: 0.625rem; }
+
+.empty-state { color: #6b7280; font-style: italic; font-size: 13px; }
+
+.subsection-heading {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: #9ca3af; margin-bottom: 0.5rem; font-weight: 600;
+}
+
+/* Generic chips for arrays of labels */
+.chip-list { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.chip      { padding: 0.25rem 0.625rem; border-radius: 12px; font-size: 12px; font-weight: 500; line-height: 1.4; }
+.chip-success .chip { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+.chip-warning .chip { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+.chip-info    .chip { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
+
+/* Callouts */
+.callout-info, .callout-action {
+  padding: 0.75rem 1rem; border-radius: 6px; color: #cbd5e1;
+  font-size: 13.5px; line-height: 1.6;
+}
+.callout-info   { background: rgba(20,184,166,0.05); border-left: 3px solid #14b8a6; }
+.callout-action { background: rgba(15,118,110,0.08); border-left: 3px solid #14b8a6; }
+.callout-label {
+  display: block; font-size: 11px; font-weight: 600; color: #14b8a6;
+  margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* Instructor note — teal-tinted highlighted block */
+.instructor-note-block {
+  background: rgba(20,184,166,0.06); border-left: 3px solid #14b8a6;
+  padding: 1rem 1.125rem; border-radius: 6px;
+  color: #e2e8f0; font-size: 14px; line-height: 1.7;
+}
+
+/* IELTS criteria cards (4-up grid) */
+.criteria-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.625rem; }
+.card-criterion {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 0.875rem 1rem;
+}
+.card-criterion-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 0.75rem; margin-bottom: 0.5rem;
+}
+.card-criterion-head h3 { font-size: 13.5px; font-weight: 600; color: #e2e8f0; line-height: 1.3; }
+.band-pill {
+  font-size: 1.35rem; font-weight: 700; padding: 0.125rem 0.625rem;
+  border-radius: 6px; line-height: 1.2; flex-shrink: 0;
+}
+.band-low  { background: rgba(239,68,68,0.18); color: #fca5a5; }
+.band-mid  { background: rgba(245,158,11,0.18); color: #fbbf24; }
+.band-good { background: rgba(20,184,166,0.18); color: #5eead4; }
+.band-high { background: rgba(16,185,129,0.18); color: #34d399; }
+.card-criterion .summary  { font-size: 12.5px; font-style: italic; color: rgba(255,255,255,0.55); margin-bottom: 0.5rem; line-height: 1.5; }
+.card-criterion .feedback { font-size: 13.5px; color: #cbd5e1; line-height: 1.6; }
+
+/* Mistake cards — severity-coded diff layout */
+.mistake-card {
+  background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b;
+  border-radius: 6px; padding: 0.875rem 1rem; margin-bottom: 0.625rem;
+}
+.mistake-card.mistake-high { border-left-color: #ef4444; }
+.mistake-card.mistake-low  { border-left-color: #3b82f6; }
+.mistake-header {
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+  align-items: center; margin-bottom: 0.625rem; font-size: 11.5px;
+}
+.mistake-type-badge {
+  background: rgba(255,255,255,0.06); padding: 0.125rem 0.5rem;
+  border-radius: 4px; color: #e5e7eb; font-weight: 500;
+}
+.mistake-criterion { color: #9ca3af; font-style: italic; }
+.mistake-diff      { margin-bottom: 0.5rem; }
+.mistake-original, .mistake-suggestion {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  margin-bottom: 0.25rem; font-size: 13px; line-height: 1.5;
+}
+.mistake-original code, .mistake-suggestion code {
+  font-family: 'Monaco', 'Menlo', monospace; font-size: 12.5px;
+  background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px;
+  flex: 1; word-break: break-word;
+}
+.mistake-original code   { color: #fca5a5; }
+.mistake-suggestion code { color: #6ee7b7; }
+.diff-label {
+  flex-shrink: 0; width: 3rem; color: #9ca3af;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mistake-explanation {
+  color: #cbd5e1; font-size: 13px; line-height: 1.6;
+  padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Stat tiles for band trajectory */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; }
+.stat-tile {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 0.875rem; text-align: center;
+}
+.stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin-bottom: 0.5rem; font-weight: 600; }
+.stat-value { font-size: 1.5rem; font-weight: 700; color: #e5e7eb; line-height: 1.2; }
+.trend-improving { color: #34d399; }
+.trend-stable    { color: #9ca3af; }
+.trend-declining { color: #fca5a5; }
+
+/* Per-criterion mini stats (band trajectory) */
+.criterion-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+.criterion-mini {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 6px; padding: 0.625rem; text-align: center;
+}
+.criterion-mini-label { font-size: 10.5px; color: #9ca3af; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.criterion-mini-value { font-size: 1rem; font-weight: 600; }
+
+/* Focus-theme card — featured this-week practice */
+.focus-theme-card {
+  background: linear-gradient(135deg, rgba(15,118,110,0.12), rgba(20,184,166,0.05));
+  border: 1px solid rgba(20,184,166,0.25);
+  border-radius: 12px; padding: 1.125rem 1.25rem;
+}
+.focus-theme-eyebrow { font-size: 11.5px; color: #14b8a6; font-weight: 600; margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.focus-theme-title   { font-size: 1.05rem; font-weight: 600; color: #e5e7eb; margin-bottom: 0.5rem; line-height: 1.35; }
+.focus-theme-why     { font-size: 13.5px; color: #cbd5e1; line-height: 1.65; margin-bottom: 0.875rem; }
+.focus-theme-action  { background: rgba(0,0,0,0.25); padding: 0.75rem 0.875rem; border-radius: 6px; }
+.focus-theme-action .action-label { display: block; font-size: 10.5px; font-weight: 600; color: #14b8a6; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.focus-theme-action p { color: #e2e8f0; font-size: 13px; line-height: 1.6; }
+
+/* Issue cards — pattern + count + examples */
+.issue-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 6px; padding: 0.75rem 0.875rem;
+}
+.issue-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.issue-pattern { font-size: 13px; color: #e5e7eb; font-weight: 500; }
+.issue-count {
+  font-size: 11.5px; background: rgba(245,158,11,0.18); color: #fbbf24;
+  padding: 0.125rem 0.5rem; border-radius: 4px; font-weight: 600;
+}
+.issue-examples { margin-top: 0.5rem; padding-left: 0; list-style: none; }
+.issue-examples li { margin-bottom: 0.25rem; font-size: 12.5px; color: #9ca3af; }
+.issue-examples code {
+  font-family: 'Monaco', 'Menlo', monospace; background: rgba(0,0,0,0.3);
+  padding: 0.125rem 0.375rem; border-radius: 3px;
+}
+
+/* Complexity meter — text indicator */
+.complexity-meter {
+  background: rgba(255,255,255,0.03); padding: 0.625rem 0.875rem;
+  border-radius: 6px; display: flex; gap: 0.625rem; align-items: center;
+}
+.complexity-label { color: #9ca3af; font-size: 13px; }
+.complexity-value { font-weight: 600; }
+.complexity-balanced { color: #34d399; }
+.complexity-needs_more_simple, .complexity-needs_more_complex { color: #fbbf24; }
+
+/* Takeaway 2-column grid */
+.takeaway-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.875rem; }
+.takeaway-block { border-radius: 8px; padding: 0.875rem 1rem; }
+.takeaway-success { background: rgba(16,185,129,0.06); border-left: 3px solid #10b981; }
+.takeaway-warning { background: rgba(245,158,11,0.06); border-left: 3px solid #f59e0b; }
+.takeaway-heading { font-size: 13px; font-weight: 600; margin-bottom: 0.5rem; }
+.takeaway-success .takeaway-heading { color: #34d399; }
+.takeaway-warning .takeaway-heading { color: #fbbf24; }
+.takeaway-list { padding-left: 1.125rem; list-style: disc; }
+.takeaway-list li { font-size: 13px; line-height: 1.6; color: #cbd5e1; margin-bottom: 0.25rem; }
+
+/* AI-content likelihood gauge */
+.likelihood-row    { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.625rem; }
+.likelihood-label  { font-size: 11.5px; color: #9ca3af; flex-shrink: 0; min-width: 8rem; }
+.likelihood-track  { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+.likelihood-fill   { height: 100%; transition: width 0.3s ease; }
+.likelihood-low    { background: #34d399; }
+.likelihood-mid    { background: #fbbf24; }
+.likelihood-high   { background: #fca5a5; }
+.likelihood-pct    { font-size: 13px; font-weight: 600; flex-shrink: 0; min-width: 3rem; text-align: right; }
+
+/* Idea-development paragraph cards */
+.idea-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-left: 3px solid #93c5fd; border-radius: 6px;
+  padding: 0.75rem 0.875rem; margin-bottom: 0.625rem;
+}
+.idea-card-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.idea-paragraph-tag {
+  background: rgba(59,130,246,0.18); color: #93c5fd;
+  padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 11px; font-weight: 600;
+}
+.idea-issue { font-size: 13px; color: #fde68a; font-weight: 500; }
+.idea-row { font-size: 12.5px; line-height: 1.55; margin-bottom: 0.25rem; color: #cbd5e1; }
+.idea-row strong { display: inline-block; min-width: 5.5rem; font-weight: 500; color: #9ca3af; }
+
+/* Coherence list rows */
+.coherence-card {
+  background: rgba(255,255,255,0.03); border-left: 3px solid #a5b4fc;
+  border-radius: 6px; padding: 0.75rem 0.875rem; margin-bottom: 0.5rem;
+}
+.coherence-card-head { display: flex; gap: 0.5rem; margin-bottom: 0.375rem; align-items: center; flex-wrap: wrap; }
+.coherence-location { background: rgba(99,102,241,0.18); color: #a5b4fc; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.coherence-issue    { color: #fde68a; font-size: 13px; font-weight: 500; }
+.coherence-explain  { color: #cbd5e1; font-size: 12.5px; line-height: 1.55; }
+.coherence-suggest  { font-size: 12.5px; color: #6ee7b7; line-height: 1.55; margin-top: 0.375rem; }
+
+/* Counterargument feedback */
+.counter-block {
+  background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b;
+  padding: 0.875rem 1rem; border-radius: 6px;
+}
+.counter-status { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+.counter-pill { padding: 0.125rem 0.625rem; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+.counter-pill.present { background: rgba(16,185,129,0.18); color: #34d399; }
+.counter-pill.absent  { background: rgba(245,158,11,0.18); color: #fbbf24; }
+
+/* Lexical word-upgrade rows */
+.lexical-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px; padding: 0.75rem 0.875rem; margin-bottom: 0.5rem;
+}
+.lexical-row { display: flex; gap: 0.625rem; align-items: baseline; flex-wrap: wrap; }
+.lexical-original { color: #fca5a5; font-family: 'Monaco', monospace; font-size: 12.5px; background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px; }
+.lexical-arrow    { color: #9ca3af; font-size: 13px; }
+.lexical-upgrade  { color: #6ee7b7; font-family: 'Monaco', monospace; font-size: 12.5px; background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px; }
+.lexical-explain  { font-size: 12.5px; color: #cbd5e1; line-height: 1.55; margin-top: 0.375rem; }
+
+/* Improved-essay block — same font as original essay */
+.essay-improved-block {
+  background: rgba(20,184,166,0.04);
+  border-left: 3px solid #14b8a6;
+  border-radius: 8px; padding: 1rem 1.125rem;
+  white-space: pre-wrap; font-size: 14px;
+  line-height: 1.7; color: #e5e7eb;
+  max-height: 480px; overflow-y: auto;
+}
+
+/* Lexical simple-map render (word → suggestion) */
+.lexical-list {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.lexical-list .lexical-row {
+  display: flex; align-items: center; gap: 0.625rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+}
+.lexical-list .lexical-original,
+.lexical-list .lexical-upgrade {
+  font-family: 'Monaco', 'Menlo', monospace;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.lexical-list .lexical-original {
+  background: rgba(239,68,68,0.1); color: #f87171;
+}
+.lexical-list .lexical-upgrade {
+  background: rgba(16,185,129,0.1); color: #34d399;
+  flex: 1; min-width: 200px;
+}
+
+/* Mobile collapse */
+@media (max-width: 1024px) {
+  .criteria-grid       { grid-template-columns: 1fr; }
+  .stat-grid           { grid-template-columns: 1fr; }
+  .criterion-mini-grid { grid-template-columns: repeat(2, 1fr); }
+  .takeaway-grid       { grid-template-columns: 1fr; }
+}

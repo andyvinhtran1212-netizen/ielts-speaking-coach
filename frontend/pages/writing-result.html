@@ -5,189 +5,388 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Phân tích bài viết — Aver Learning</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
-            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
-          },
-          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
-        },
-      },
-    }
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../css/ds.css" />
+  <link rel="stylesheet" href="/css/writing-renderers.css" />
   <style>
+    /* ── Page shell ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
     body {
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
       background: linear-gradient(135deg, #0C2340 0%, #0d2e45 40%, #0F766E 100%);
       min-height: 100vh;
       color: #e5e7eb;
-      font-family: 'Inter', sans-serif;
     }
     body::before {
       content: '';
       position: fixed; inset: 0;
       background: radial-gradient(ellipse 60% 50% at 70% 30%, rgba(15,118,110,0.18) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
+      pointer-events: none; z-index: 0;
     }
-    main { position: relative; z-index: 1; }
 
-    .section {
+    /* ── Sticky header (Sprint 2.5.5 admin-style read-only) ─────── */
+    .result-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(8, 24, 41, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 1rem 1.5rem;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+    }
+    .header-left { flex: 1; min-width: 0; }
+    .back-link {
+      color: #14b8a6; font-size: 0.85rem; text-decoration: none;
+      display: inline-block; margin-bottom: 0.5rem;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .essay-meta h1 {
+      font-size: 1.05rem; font-weight: 600; color: #e5e7eb; margin: 0;
+      line-height: 1.4;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .meta-line { font-size: 0.85rem; color: #9ca3af; margin-top: 0.375rem; }
+    .meta-line .separator { margin: 0 0.5rem; opacity: 0.5; }
+    .band-display {
+      color: #14b8a6; font-weight: 600; font-size: 1rem;
+    }
+    .header-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
+    .btn-icon {
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
+      color: #e5e7eb;
+      padding: 0.5rem 0.875rem;
+      border-radius: 6px; font-size: 0.85rem;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn-icon:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .btn-icon[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Tab nav ────────────────────────────────────────────────── */
+    .result-tabs {
+      position: sticky; top: 80px; z-index: 40;
+      display: flex; gap: 0.25rem;
+      padding: 0.625rem 1.5rem;
+      background: rgba(8, 24, 41, 0.95);
       backdrop-filter: blur(8px);
-      border-radius: 12px;
-      padding: 1.25rem;
-      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      overflow-x: auto;
     }
-    @media (min-width: 768px) {
-      .section { padding: 1.75rem; margin-bottom: 1.5rem; }
+    .tab-btn {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 1.05rem;
+      background: transparent; border: 1px solid transparent;
+      border-radius: 8px;
+      color: #9ca3af; font-size: 13px; font-weight: 500;
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.15s;
     }
-
-    .band-score {
-      display: inline-block;
-      background: linear-gradient(135deg, #14b8a6 0%, #0F766E 100%);
-      color: white;
-      padding: 0.5rem 1.25rem;
-      border-radius: 10px;
-      font-size: 1.5rem;
-      font-weight: 700;
-      box-shadow: 0 6px 18px rgba(15,118,110,0.35);
-    }
-    .criteria-band {
-      display: inline-block;
-      background: rgba(15,118,110,0.22);
+    .tab-btn:hover    { background: rgba(255,255,255,0.05); color: #e5e7eb; }
+    .tab-btn.is-active{
+      background: rgba(15,118,110,0.18);
       color: #14b8a6;
-      padding: 0.25rem 0.75rem;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.875rem;
+      border-color: rgba(15,118,110,0.3);
     }
-    .mistake-card {
-      background: rgba(239,68,68,0.06);
-      border-left: 3px solid #ef4444;
-      padding: 0.75rem 1rem;
-      margin-bottom: 0.75rem;
-      border-radius: 6px;
-    }
-    .mistake-original    { text-decoration: line-through; color: #fca5a5; }
-    .mistake-suggestion  { color: #86efac; font-weight: 500; }
+    .tab-btn.hidden { display: none; }
+    .tab-icon { font-size: 1rem; }
 
-    .essay-prose {
-      line-height: 1.7;
+    .tab-panel { display: none; }
+    .tab-panel.is-active { display: block; }
+
+    /* ── Content area ───────────────────────────────────────────── */
+    main.result-content {
+      max-width: 920px; margin: 0 auto; width: 100%;
+      padding: 1.5rem 2rem 4rem;
+      position: relative; z-index: 1;
+    }
+
+    .essay-section {
+      margin-bottom: 2rem; padding-bottom: 1.75rem;
+      border-bottom: 2px solid rgba(255,255,255,0.08);
+    }
+    .grade-section { margin-bottom: 2.5rem; }
+    .section-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 0.75rem; padding-bottom: 0.5rem; margin-bottom: 0.875rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .section-header h2 {
+      margin: 0;
+      font-size: 1.05rem; font-weight: 600; color: #e2e8f0;
+    }
+    .word-count { font-size: 0.8rem; color: #9ca3af; }
+
+    .section-content { color: #e5e7eb; font-size: 14.5px; line-height: 1.6; }
+    .section-content p { margin: 0 0 0.5rem; }
+    .section-content .empty { color: rgba(255,255,255,0.4); font-style: italic; }
+
+    .essay-original {
+      background: rgba(0,0,0,0.3);
+      padding: 1rem 1.125rem;
+      border-radius: 8px;
       white-space: pre-wrap;
-      font-size: 0.95rem;
+      font-size: 14px; line-height: 1.7;
+      color: #cbd5e1;
+      font-family: inherit;
+      max-height: 480px; overflow-y: auto;
+      margin: 0;
     }
 
-    .pill-criterion {
+    /* ── Loading / error / not-delivered states ─────────────────── */
+    .state-block {
+      max-width: 32rem; margin: 0 auto;
+      padding: 4rem 2rem; text-align: center;
+      position: relative; z-index: 1;
+    }
+    .state-block .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .state-block h2 { color: #e5e7eb; font-size: 1.25rem; font-weight: 600; margin: 0 0 0.5rem; }
+    .state-block p { color: #9ca3af; line-height: 1.6; margin: 0 0 1.25rem; }
+    .state-block .btn-link {
       display: inline-block;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 0.125rem 0.5rem;
-      border-radius: 4px;
-      background: rgba(255,255,255,0.08);
-      color: #d1d5db;
-      margin-right: 0.5rem;
+      background: rgba(20,184,166,0.15); color: #14b8a6;
+      border: 1px solid rgba(20,184,166,0.3);
+      padding: 0.5rem 1rem; border-radius: 6px;
+      text-decoration: none; font-size: 0.875rem;
+    }
+    .state-block .btn-link:hover { background: rgba(20,184,166,0.25); }
+    .hidden { display: none !important; }
+
+    /* ── Print ──────────────────────────────────────────────────── */
+    @media print {
+      body, body::before { background: white !important; color: black !important; }
+      body { color: #111 !important; }
+      .result-header, .result-tabs, .header-actions { position: static; }
+      .result-tabs { display: none; }
+      .tab-panel { display: block !important; page-break-inside: avoid; }
+      main.result-content { max-width: 100%; padding: 1rem; }
+      .grade-section { page-break-inside: avoid; }
+      .essay-original { background: #f5f5f5 !important; color: #111 !important; max-height: none; }
+      .section-header h2, .essay-meta h1 { color: #111 !important; }
+      .meta-line, .word-count { color: #555 !important; }
     }
 
-    .left-rule {
-      border-left: 2px solid rgba(20,184,166,0.5);
-      padding-left: 1rem;
+    /* ── Mobile ─────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .result-header { padding: 0.75rem 1rem; flex-direction: column; gap: 0.5rem; }
+      .result-tabs   { top: auto; padding: 0.5rem 1rem; }
+      .tab-label     { display: none; }
+      .tab-btn       { padding: 0.45rem 0.75rem; }
+      .tab-icon      { font-size: 1.15rem; }
+      main.result-content { padding: 1rem; }
     }
-    .left-rule-amber { border-left-color: rgba(251,191,36,0.5); }
-    .left-rule-blue  { border-left-color: rgba(96,165,250,0.5); }
   </style>
 </head>
 <body>
-  <main class="max-w-3xl mx-auto px-4 py-6">
-    <!-- Header với back link -->
-    <header class="mb-6">
-      <a id="back-link"
-         href="#"
-         class="text-teal-light hover:text-white transition inline-flex items-center gap-1 text-sm">
-        <span aria-hidden="true">←</span>
-        <span>Quay lại danh sách</span>
-      </a>
+
+  <!-- Loading state -->
+  <div id="state-loading" class="state-block">
+    <div class="icon">⏳</div>
+    <p>Đang tải bài viết…</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="state-error" class="state-block hidden">
+    <div class="icon">⚠</div>
+    <h2>Không tải được bài viết</h2>
+    <p id="error-message">Có lỗi xảy ra. Vui lòng thử lại sau.</p>
+    <a id="error-back" href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
+  </div>
+
+  <!-- Not-yet-delivered state -->
+  <div id="state-not-delivered" class="state-block hidden">
+    <div class="icon">⏳</div>
+    <h2>Bài đang được duyệt</h2>
+    <p>Giảng viên đang xem lại feedback. Em sẽ thấy kết quả khi bài được duyệt xong.</p>
+    <a id="not-delivered-back" href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
+  </div>
+
+  <!-- Flagged essay state -->
+  <div id="state-flagged" class="state-block hidden">
+    <div class="icon">🚩</div>
+    <h2>Bài viết bị đánh dấu cần xem xét</h2>
+    <p id="flagged-message">Bài viết của em có dấu hiệu cần giảng viên xem xét trực tiếp. Vui lòng liên hệ giảng viên.</p>
+    <a href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
+  </div>
+
+  <!-- Main content -->
+  <div id="state-ready" class="hidden">
+    <header class="result-header">
+      <div class="header-left">
+        <a id="back-link" href="/writing/dashboard" class="back-link">← Bài viết của tôi</a>
+        <div class="essay-meta">
+          <h1 id="prompt-title">Đang tải...</h1>
+          <p class="meta-line">
+            <span id="essay-task">—</span>
+            <span class="separator">·</span>
+            <span id="essay-date">—</span>
+            <span class="separator">·</span>
+            <span id="band-display" class="band-display">Band —</span>
+          </p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-download" class="btn-icon" title="Tải file Word">⬇ Tải .docx</button>
+        <button id="btn-print" class="btn-icon" title="In bài viết">🖨 In</button>
+      </div>
     </header>
 
-    <!-- Loading -->
-    <div id="loading" class="text-center py-16" role="status" aria-live="polite">
-      <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-light border-t-transparent"></div>
-      <p class="mt-3 text-gray-300">Đang tải bài viết...</p>
-    </div>
+    <nav class="result-tabs" aria-label="Section tabs">
+      <button class="tab-btn is-active" data-tab="tongquan">
+        <span class="tab-icon">📊</span><span class="tab-label">Tổng quan</span>
+      </button>
+      <button class="tab-btn" data-tab="loi">
+        <span class="tab-icon">❌</span><span class="tab-label">Nhận xét lỗi</span>
+      </button>
+      <button class="tab-btn" data-tab="nangcao">
+        <span class="tab-icon">🔬</span><span class="tab-label">Phân tích nâng cao</span>
+      </button>
+      <button class="tab-btn" data-tab="baimau">
+        <span class="tab-icon">📚</span><span class="tab-label">Bài mẫu</span>
+      </button>
+      <button class="tab-btn hidden" id="tab-btn-note" data-tab="note">
+        <span class="tab-icon">💬</span><span class="tab-label">Note giảng viên</span>
+      </button>
+    </nav>
 
-    <!-- Error -->
-    <div id="error" class="hidden max-w-md mx-auto text-center py-16">
-      <div class="rounded-lg p-6 border border-red-500/20 bg-red-500/5">
-        <p class="text-red-300 mb-4" id="error-message"></p>
-        <a id="error-back"
-           href="#"
-           class="inline-block text-teal-light underline hover:text-white transition">
-          Về danh sách
-        </a>
+    <main class="result-content">
+      <!-- Always visible: original essay -->
+      <section class="essay-section">
+        <header class="section-header">
+          <h2>📄 Bài viết của em</h2>
+          <span id="word-count" class="word-count">— từ</span>
+        </header>
+        <div id="prompt-box" class="text-xs" style="color:rgba(255,255,255,0.55);font-size:12px;margin-bottom:0.5rem;"></div>
+        <pre id="essay-text" class="essay-original">—</pre>
+      </section>
+
+      <!-- ── Tab 1: Tổng quan (Key Takeaways FIRST per Andy spec) ── -->
+      <div class="tab-panel is-active" data-panel="tongquan">
+        <section id="section-key-takeaways" class="grade-section">
+          <header class="section-header"><h2>🎓 Key Takeaways</h2></header>
+          <div class="section-content" id="content-key-takeaways"></div>
+        </section>
+
+        <section id="section-overview" class="grade-section">
+          <header class="section-header"><h2>📊 Tổng quan</h2></header>
+          <div class="section-content" id="content-overview"></div>
+        </section>
+
+        <section id="section-criteria" class="grade-section">
+          <header class="section-header"><h2>🎯 4 tiêu chí IELTS</h2></header>
+          <div class="section-content" id="content-criteria"></div>
+        </section>
+
+        <section id="section-trajectory" class="grade-section">
+          <header class="section-header"><h2>📈 Diễn biến band</h2></header>
+          <div class="section-content" id="content-trajectory"></div>
+        </section>
       </div>
-    </div>
 
-    <!-- Not delivered yet -->
-    <div id="not-delivered" class="hidden max-w-md mx-auto text-center py-16">
-      <div class="rounded-lg p-8 border border-amber-500/20 bg-amber-500/5">
-        <div class="text-5xl mb-3" aria-hidden="true">⏳</div>
-        <p class="text-gray-200 mb-2">Bài này đang được giảng viên xem lại</p>
-        <p class="text-sm text-gray-400 mb-4">Em sẽ nhận được kết quả sớm nhé!</p>
-        <a id="not-delivered-back"
-           href="#"
-           class="inline-block text-teal-light underline hover:text-white transition">
-          Về danh sách
-        </a>
+      <!-- ── Tab 2: Nhận xét lỗi ── -->
+      <div class="tab-panel" data-panel="loi">
+        <section id="section-mistakes" class="grade-section">
+          <header class="section-header"><h2>❌ Lỗi sai</h2></header>
+          <div class="section-content" id="content-mistakes"></div>
+        </section>
+
+        <section id="section-recurring" class="grade-section">
+          <header class="section-header"><h2>🔁 Lỗi lặp lại</h2></header>
+          <div class="section-content" id="content-recurring"></div>
+        </section>
       </div>
-    </div>
 
-    <!-- Content -->
-    <div id="content" class="hidden">
-      <div id="prompt-section" class="section"></div>
-      <div id="essay-section" class="section"></div>
-      <div id="overall-section" class="section"></div>
-      <div id="strengths-areas-section" class="section"></div>
-      <div id="recurring-section" class="section hidden"></div>
-      <div id="trajectory-section" class="section hidden"></div>
-      <div id="criteria-section" class="section"></div>
-      <div id="mistakes-section" class="section hidden"></div>
-      <div id="ai-content-section" class="section hidden"></div>
-      <div id="coherence-section" class="section hidden"></div>
-      <div id="idea-development-section" class="section hidden"></div>
-      <div id="lexical-section" class="section hidden"></div>
-      <div id="sentence-structure-section" class="section hidden"></div>
-      <div id="counterargument-section" class="section hidden"></div>
-      <div id="improved-section" class="section hidden"></div>
-    </div>
-  </main>
+      <!-- ── Tab 3: Phân tích nâng cao ── -->
+      <div class="tab-panel" data-panel="nangcao">
+        <section id="section-lexical" class="grade-section">
+          <header class="section-header"><h2>📚 Từ vựng</h2></header>
+          <div class="section-content" id="content-lexical"></div>
+        </section>
+
+        <section id="section-sentence-structure" class="grade-section">
+          <header class="section-header"><h2>🏗 Cấu trúc câu</h2></header>
+          <div class="section-content" id="content-sentence-structure"></div>
+        </section>
+
+        <section id="section-coherence" class="grade-section">
+          <header class="section-header"><h2>🧩 Coherence</h2></header>
+          <div class="section-content" id="content-coherence"></div>
+        </section>
+
+        <section id="section-idea-development" class="grade-section">
+          <header class="section-header"><h2>💡 Idea Development</h2></header>
+          <div class="section-content" id="content-idea-development"></div>
+        </section>
+
+        <section id="section-counterargument" class="grade-section">
+          <header class="section-header"><h2>⚖ Counterargument</h2></header>
+          <div class="section-content" id="content-counterargument"></div>
+        </section>
+      </div>
+
+      <!-- ── Tab 4: Bài mẫu tham khảo ── -->
+      <div class="tab-panel" data-panel="baimau">
+        <section id="section-improved" class="grade-section">
+          <header class="section-header"><h2>✨ Bài cải thiện (Band 8.0+)</h2></header>
+          <div class="section-content" id="content-improved"></div>
+        </section>
+
+        <section id="section-ai-content" class="grade-section">
+          <header class="section-header"><h2>🤖 AI Detection</h2></header>
+          <div class="section-content" id="content-ai-content"></div>
+        </section>
+      </div>
+
+      <!-- ── Tab 5: Note giảng viên (conditional) ── -->
+      <div class="tab-panel" data-panel="note">
+        <section id="section-instructor-note" class="grade-section">
+          <header class="section-header"><h2>💬 Note từ giảng viên</h2></header>
+          <div class="section-content" id="content-instructor-note"></div>
+        </section>
+      </div>
+    </main>
+  </div>
 
   <!-- Supabase + API helpers -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/api.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/writing-renderers.js"></script>
   <script>
+    'use strict';
+
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
 
     // Sprint 2.4.1: absolute path leverages the /writing/dashboard
-    // Vercel rewrite. window.api.url('pages/...') went through api.js's
-    // _appRoot heuristic which fails on rewritten pathnames like
-    // "/writing/result" — same root cause as Sprint 2.2.2's dashboard
-    // → result regression, mirrored on the back path.
+    // Vercel rewrite. The dashboard URL needs to bypass api.js's _appRoot
+    // heuristic which fails on rewritten pathnames like "/writing/result".
     var DASHBOARD_URL = '/writing/dashboard';
     document.getElementById('back-link').href           = DASHBOARD_URL;
     document.getElementById('error-back').href          = DASHBOARD_URL;
     document.getElementById('not-delivered-back').href  = DASHBOARD_URL;
 
-    // ── Helpers ─────────────────────────────────────────────────────
+    var TASK_LABELS = {
+      task1_academic: 'Task 1 (Academic)',
+      task1_general:  'Task 1 (General)',
+      task2:          'Task 2',
+    };
+
+    // ── State helpers ─────────────────────────────────────────────
+    function showState(id) {
+      ['state-loading','state-error','state-not-delivered','state-flagged','state-ready']
+        .forEach(function (s) { document.getElementById(s).classList.add('hidden'); });
+      document.getElementById(id).classList.remove('hidden');
+    }
+    function showError(msg) {
+      document.getElementById('error-message').textContent = msg || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      showState('state-error');
+    }
     function escapeHtml(s) {
       return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -203,828 +402,182 @@
       var t = (text || '').trim();
       return t ? t.split(/\s+/).length : 0;
     }
-    function show(id) { document.getElementById(id).classList.remove('hidden'); }
-    function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
-    // Schema is `{instruction, example}` per W2.1, but legacy rows from
-    // before the W2.1 coercion validator may carry plain strings. The
-    // Gemini prompt was tightened in W2.1 to instruct the object shape;
-    // this helper absorbs both so we never render `undefined`.
-    function normalizeSuggestion(s) {
-      if (!s) return null;
-      if (typeof s === 'string') return { instruction: '', example: s };
-      return {
-        instruction: s.instruction || '',
-        example:     s.example     || '',
-      };
-    }
+    // ── URL parameter (preserve legacy `?essay_id=` + new `?id=`) ─
+    var params = new URLSearchParams(window.location.search);
+    var essayId = params.get('essay_id') || params.get('id');
 
-    var TASK_LABELS = {
-      task1_academic: 'Task 1 (Academic)',
-      task1_general:  'Task 1 (General)',
-      task2:          'Task 2',
-    };
-
-    var CRITERIA = [
-      { key: 'mainCriterion',     fallback: 'Task Response' },
-      { key: 'coherenceCohesion', fallback: 'Coherence and Cohesion' },
-      { key: 'lexicalResource',   fallback: 'Lexical Resource' },
-      { key: 'grammaticalRange',  fallback: 'Grammatical Range and Accuracy' },
-    ];
-
-    // ── Renderers ───────────────────────────────────────────────────
-
-    function renderPrompt(essay) {
-      var taskLabel = TASK_LABELS[essay.task_type] || 'Bài viết';
-      var date = formatDate(essay.created_at);
-      document.getElementById('prompt-section').innerHTML =
-        '<div class="text-xs text-gray-300 font-medium mb-2 uppercase tracking-wider">' +
-          escapeHtml(taskLabel) + ' · ' + escapeHtml(date) +
-        '</div>' +
-        '<h1 class="text-base md:text-lg font-medium text-gray-100 leading-relaxed">' +
-          escapeHtml(essay.prompt_text || '') +
-        '</h1>';
-    }
-
-    function renderEssay(essay) {
-      var wc = wordCount(essay.essay_text);
-      document.getElementById('essay-section').innerHTML =
-        '<div class="flex items-center justify-between mb-3">' +
-          '<h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Bài viết của em</h2>' +
-          '<span class="text-xs text-gray-400">' + wc + ' từ</span>' +
-        '</div>' +
-        '<div class="essay-prose text-gray-200">' + escapeHtml(essay.essay_text || '') + '</div>';
-    }
-
-    // Phase 2.6: a flagged essay never gets a writing_feedback row.
-    // We replace the band-score block with a Vietnamese explanation
-    // built from `essay.error_message` (canonical formatter output)
-    // and explicitly hide every other section so the page doesn't
-    // render half-empty cards. Pinning the hide list keeps a future
-    // feedback section from leaking onto a flagged page if a
-    // sibling renderer forgets to gate on `essay.is_flagged`.
-    function renderFlaggedNotice(essay) {
-      var explanation = essay.error_message
-        || 'bài viết không đạt yêu cầu chấm bài';
-
-      document.getElementById('overall-section').innerHTML =
-        '<div class="rounded-lg p-4 border" '
-          + 'style="background:rgba(245,158,11,0.10);border-color:rgba(245,158,11,0.25)">'
-        +   '<div class="flex items-center gap-2 mb-2">'
-        +     '<span class="text-2xl" aria-hidden="true">⚠</span>'
-        +     '<h2 class="text-base font-semibold text-amber-300">Bài này chưa được chấm</h2>'
-        +   '</div>'
-        +   '<p class="text-gray-200 leading-relaxed">'
-        +     escapeHtml('Bài đã nộp nhưng không được chấm do ' + explanation + '.')
-        +   '</p>'
-        +   '<p class="text-xs text-gray-400 mt-3">'
-        +     'Nếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
-        +   '</p>'
-        + '</div>';
-
-      [
-        'strengths-areas-section', 'recurring-section', 'trajectory-section',
-        'criteria-section', 'mistakes-section', 'ai-content-section',
-        'coherence-section', 'idea-development-section', 'lexical-section',
-        'sentence-structure-section', 'counterargument-section',
-        'improved-section',
-      ].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
+    // ── Tab toggle ────────────────────────────────────────────────
+    function wireTabs() {
+      document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var key = btn.getAttribute('data-tab');
+          document.querySelectorAll('.tab-btn').forEach(function (b) {
+            b.classList.toggle('is-active', b === btn);
+          });
+          document.querySelectorAll('.tab-panel').forEach(function (p) {
+            p.classList.toggle('is-active', p.getAttribute('data-panel') === key);
+          });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
       });
     }
 
-    function renderOverall(feedback) {
-      var fj = feedback.feedback_json || {};
-      // `overall_band_score` is the indexed-column copy on the
-      // writing_feedback row; feedback_json.overallBandScore is the
-      // authoritative source. Fall back gracefully.
-      var band    = feedback.overall_band_score != null ? feedback.overall_band_score
-                  : (fj.overallBandScore != null ? fj.overallBandScore : '—');
-      var summary = fj.overallBandScoreSummary || '';
-
-      document.getElementById('overall-section').innerHTML =
-        '<div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">' +
-          '<div class="band-score">' + escapeHtml(band) + ' / 9.0</div>' +
-          '<div class="text-sm text-gray-300">Band đánh giá tổng quan</div>' +
-        '</div>' +
-        (summary
-          ? '<p class="text-gray-200 leading-relaxed">' + escapeHtml(summary) + '</p>'
-          : '');
-    }
-
-    function renderStrengthsAreas(feedback) {
-      var kt = (feedback.feedback_json && feedback.feedback_json.keyTakeaways) || {};
-      var strengths = Array.isArray(kt.strengths) ? kt.strengths : [];
-      var areas     = Array.isArray(kt.areasForImprovement) ? kt.areasForImprovement : [];
-
-      function bullets(arr, color) {
-        if (!arr.length) return '<li class="text-gray-500 italic text-sm">(không có)</li>';
-        return arr.map(function (s) {
-          return '<li class="flex gap-2"><span class="' + color + '">•</span><span>' + escapeHtml(s) + '</span></li>';
-        }).join('');
-      }
-
-      document.getElementById('strengths-areas-section').innerHTML =
-        '<div class="grid md:grid-cols-2 gap-6">' +
-          '<div>' +
-            '<h2 class="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-3">✓ Điểm mạnh</h2>' +
-            '<ul class="space-y-2 text-gray-200">' + bullets(strengths, 'text-emerald-400') + '</ul>' +
-          '</div>' +
-          '<div>' +
-            '<h2 class="text-sm font-semibold uppercase tracking-wider text-amber-400 mb-3">⚠ Cần cải thiện</h2>' +
-            '<ul class="space-y-2 text-gray-200">' + bullets(areas, 'text-amber-400') + '</ul>' +
-          '</div>' +
-        '</div>';
-    }
-
-    function renderRecurringPatterns(feedback) {
-      // Phase 1.5a: only present when student had ≥5 graded essays at
-      // grade time. New students stay null and we leave the section
-      // hidden — no empty-frame, no "no history yet" placeholder.
-      var data = feedback.feedback_json && feedback.feedback_json.recurringPatterns;
-      if (!data || typeof data !== 'object') return;
-
-      var summary       = data.summary || '';
-      var improvements  = Array.isArray(data.improvements)  ? data.improvements  : [];
-      var stillRecurring= Array.isArray(data.stillRecurring) ? data.stillRecurring : [];
-
-      // Treat a fully-empty payload as "nothing to show" so the section
-      // doesn't render an empty heading.
-      if (!summary && !improvements.length && !stillRecurring.length) return;
-
-      function bullets(arr, color) {
-        return arr.map(function (s) {
-          return '<li class="flex gap-2"><span class="' + color + '">•</span><span>' + escapeHtml(s) + '</span></li>';
-        }).join('');
-      }
-
-      document.getElementById('recurring-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">📊</span> Lịch sử lỗi của em ' +
-          '<span class="text-xs font-normal text-gray-400">(5 bài gần nhất)</span>' +
-        '</h2>' +
-        (summary
-          ? '<p class="mb-4 text-gray-200 leading-relaxed">' + escapeHtml(summary) + '</p>'
-          : '') +
-        (improvements.length
-          ? '<div class="mb-4">' +
-              '<h3 class="text-sm font-semibold text-emerald-400 mb-2">✓ Em đã sửa được</h3>' +
-              '<ul class="space-y-1 text-gray-200 text-sm">' + bullets(improvements, 'text-emerald-400') + '</ul>' +
-            '</div>'
-          : '') +
-        (stillRecurring.length
-          ? '<div>' +
-              '<h3 class="text-sm font-semibold text-amber-400 mb-2">⚠ Vẫn còn cần chú ý</h3>' +
-              '<ul class="space-y-1 text-gray-200 text-sm">' + bullets(stillRecurring, 'text-amber-400') + '</ul>' +
-            '</div>'
-          : '');
-      show('recurring-section');
-    }
-
-    // Phase 1.5b — render bandTrajectoryAnalysis. Backend provides
-    // numeric ground truth (average_last_5, trend, criteria_breakdown);
-    // Gemini wraps it in Vietnamese narrative (current_band,
-    // trend_explanation, next_target). Section auto-hides when null
-    // (new students <5 essays) or when the dict is empty after
-    // hallucinated-shape filtering.
-    function renderBandTrajectory(feedback) {
-      var data = feedback.feedback_json && feedback.feedback_json.bandTrajectoryAnalysis;
-      if (!data || typeof data !== 'object') return;
-
-      var trend            = data.trend || 'stable';
-      var currentBand      = (data.current_band   != null) ? data.current_band   : null;
-      var avgLast5         = (data.average_last_5 != null) ? data.average_last_5 : null;
-      var explanation      = data.trend_explanation || '';
-      var nextTarget       = data.next_target || '';
-      var breakdown        = Array.isArray(data.criteria_breakdown) ? data.criteria_breakdown : [];
-      var essaysAnalyzed   = data.essays_analyzed || 5;
-
-      // Treat a fully-empty payload as "nothing to show" — no empty
-      // heading, no skeleton card.
-      var hasContent = (
-        currentBand != null || avgLast5 != null ||
-        explanation || nextTarget || breakdown.length > 0
-      );
-      if (!hasContent) return;
-
-      // Direction-aware visual language: green = student is improving,
-      // amber = holding steady, red = recent essays weaker than older.
-      // The icon set mirrors what a tutor would scribble in a margin.
-      var TREND_ICON  = { improving: '📈', stable: '📊', declining: '📉' };
-      var TREND_COLOR = { improving: 'text-emerald-400', stable: 'text-amber-400', declining: 'text-red-400' };
-      var TREND_LABEL = { improving: 'Đang tiến bộ', stable: 'Ổn định', declining: 'Cần chú ý' };
-      var icon  = TREND_ICON[trend]  || '📊';
-      var color = TREND_COLOR[trend] || 'text-amber-400';
-      var label = TREND_LABEL[trend] || trend;
-
-      var ARROW       = { improving: '↑', stable: '→', declining: '↓' };
-      var ARROW_COLOR = { improving: 'text-emerald-400', stable: 'text-gray-400', declining: 'text-red-400' };
-
-      var breakdownRows = breakdown.map(function (c) {
-        var ct = c.trend || 'stable';
-        var arrow      = ARROW[ct]       || '→';
-        var arrowColor = ARROW_COLOR[ct] || 'text-gray-400';
-        // Sprint 1.5b.1 — accept both `average` (canonical, post-fix)
-        // AND `avg` (legacy, what Phase 1.5b's first prompt primed
-        // Gemini to emit). The backend now spells `average` in both
-        // the narrative and the JSON example, so new essays land on
-        // the canonical key. Existing rows graded between Phase 1.5b
-        // ship and this fix carry `avg` — fall back to that so they
-        // still render the number instead of "avg —".
-        var avg = (c.average != null) ? c.average
-                : (c.avg     != null) ? c.avg
-                : '—';
-        return (
-          '<div class="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">' +
-            '<span class="text-sm text-gray-200">' + escapeHtml(c.criterion || '') + '</span>' +
-            '<div class="flex items-center gap-2 text-sm">' +
-              '<span class="text-gray-300">avg ' + escapeHtml(avg) + '</span>' +
-              '<span class="' + arrowColor + ' font-semibold">' + arrow + '</span>' +
-            '</div>' +
-          '</div>'
-        );
-      }).join('');
-
-      // 3-column summary up top: this-essay band, 5-essay average,
-      // trend label. On mobile this still fits per-row because each
-      // tile is small; the existing Tailwind config doesn't add a
-      // breakpoint between grid-cols-3 and grid-cols-1, but the labels
-      // are short enough to never wrap.
-      document.getElementById('trajectory-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">' + icon + '</span> Diễn biến band điểm ' +
-          '<span class="text-xs font-normal text-gray-400">(' + essaysAnalyzed + ' bài gần nhất)</span>' +
-        '</h2>' +
-        '<div class="grid grid-cols-3 gap-3 mb-4">' +
-          '<div class="text-center bg-white/5 rounded-lg py-3">' +
-            '<div class="text-xs text-gray-300 mb-1">Bài này</div>' +
-            '<div class="text-2xl font-bold text-teal-light">' + escapeHtml(currentBand != null ? currentBand : '—') + '</div>' +
-          '</div>' +
-          '<div class="text-center bg-white/5 rounded-lg py-3">' +
-            '<div class="text-xs text-gray-300 mb-1">Trung bình 5 bài</div>' +
-            '<div class="text-2xl font-bold">' + escapeHtml(avgLast5 != null ? avgLast5 : '—') + '</div>' +
-          '</div>' +
-          '<div class="text-center bg-white/5 rounded-lg py-3">' +
-            '<div class="text-xs text-gray-300 mb-1">Xu hướng</div>' +
-            '<div class="text-base font-semibold ' + color + '">' + escapeHtml(label) + '</div>' +
-          '</div>' +
-        '</div>' +
-        (explanation
-          ? '<p class="text-gray-200 leading-relaxed mb-4">' + escapeHtml(explanation) + '</p>'
-          : '') +
-        (breakdownRows
-          ? '<div class="bg-white/5 rounded-lg p-3 mb-3">' +
-              '<h3 class="text-xs uppercase tracking-wider text-gray-300 mb-2">Chi tiết tiêu chí</h3>' +
-              breakdownRows +
-            '</div>'
-          : '') +
-        (nextTarget
-          ? '<div class="bg-teal-light/10 border border-teal-light/20 rounded p-3">' +
-              '<div class="text-xs text-teal-light mb-1 font-medium"><span aria-hidden="true">🎯</span> Mục tiêu tiếp theo</div>' +
-              '<p class="text-gray-200">' + escapeHtml(nextTarget) + '</p>' +
-            '</div>'
-          : '');
-      show('trajectory-section');
-    }
-
-    function renderCriteria(feedback) {
-      var cf = (feedback.feedback_json && feedback.feedback_json.criteriaFeedback) || {};
-      var rows = CRITERIA.map(function (c) {
-        var d = cf[c.key];
-        if (!d) return '';
-        var title = d.title || c.fallback;
-        return (
-          '<div class="left-rule">' +
-            '<div class="flex items-center gap-3 mb-2 flex-wrap">' +
-              '<h3 class="font-semibold text-gray-100">' + escapeHtml(title) + '</h3>' +
-              '<span class="criteria-band">' + escapeHtml(d.bandScore != null ? d.bandScore : '—') + '</span>' +
-            '</div>' +
-            '<p class="text-sm text-gray-200 leading-relaxed">' + escapeHtml(d.feedback || d.explanation || '') + '</p>' +
-          '</div>'
-        );
-      }).join('');
-
-      document.getElementById('criteria-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-4">Phân tích theo tiêu chí IELTS</h2>' +
-        '<div class="space-y-4">' + rows + '</div>';
-    }
-
-    function renderMistakes(feedback) {
-      var mistakes = (feedback.feedback_json && feedback.feedback_json.mistakeAnalysis) || [];
-      if (!Array.isArray(mistakes) || !mistakes.length) return;
-
-      var cards = mistakes.map(function (m, i) {
-        return (
-          '<div class="mistake-card">' +
-            '<div class="flex flex-wrap items-center gap-2 mb-2 text-xs">' +
-              '<span class="text-gray-300 font-medium">Lỗi ' + (i + 1) + '</span>' +
-              (m.mistakeType ? '<span class="pill-criterion">' + escapeHtml(m.mistakeType) + '</span>' : '') +
-              (m.criterion   ? '<span class="pill-criterion">' + escapeHtml(m.criterion)   + '</span>' : '') +
-            '</div>' +
-            (m.original   ? '<div class="mistake-original mb-1">' + escapeHtml(m.original) + '</div>' : '') +
-            (m.suggestion ? '<div class="mistake-suggestion mb-2">→ ' + escapeHtml(m.suggestion) + '</div>' : '') +
-            (m.explanation ? '<p class="text-sm text-gray-300">' + escapeHtml(m.explanation) + '</p>' : '') +
-          '</div>'
-        );
-      }).join('');
-
-      document.getElementById('mistakes-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-4">Phân tích lỗi chi tiết (' + mistakes.length + ')</h2>' +
-        '<div class="space-y-3">' + cards + '</div>';
-      show('mistakes-section');
-    }
-
-    function suggestionBlock(rawSuggestion, accentClass, headingText) {
-      // Render a SuggestionInstructionExample (or coerced legacy
-      // string) as a soft accent box. Legacy plain-string rows show
-      // the string under "Gợi ý:" with no instruction line.
-      var s = normalizeSuggestion(rawSuggestion);
-      if (!s) return '';
-      var hasContent = (s.example || s.instruction);
-      if (!hasContent) return '';
-      return (
-        '<div class="' + accentClass + ' border rounded p-3">' +
-          '<div class="text-xs mb-1 font-medium">' + escapeHtml(headingText) + '</div>' +
-          (s.example
-            ? '<p class="text-gray-200 italic mb-2">' + escapeHtml(s.example) + '</p>'
-            : '') +
-          (s.instruction
-            ? '<p class="text-xs text-gray-400">' + escapeHtml(s.instruction) + '</p>'
-            : '') +
-        '</div>'
-      );
-    }
-
-    function renderCoherenceAnalysis(feedback) {
-      var items = (feedback.feedback_json && feedback.feedback_json.coherenceAnalysis) || [];
-      if (!Array.isArray(items) || !items.length) return;
-
-      var rows = items.map(function (item) {
-        return (
-          '<div class="left-rule left-rule-amber">' +
-            (item.issue ? '<div class="text-amber-400 font-medium mb-1">' + escapeHtml(item.issue) + '</div>' : '') +
-            (item.location ? '<div class="text-xs text-gray-400 mb-2">' + escapeHtml(item.location) + '</div>' : '') +
-            (item.explanation ? '<p class="text-gray-200 mb-2">' + escapeHtml(item.explanation) + '</p>' : '') +
-            suggestionBlock(item.suggestion,
-              'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-              'Gợi ý') +
-          '</div>'
-        );
-      }).join('');
-
-      document.getElementById('coherence-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">🔗</span> Phân tích mạch lạc' +
-        '</h2>' +
-        '<div class="space-y-4 text-sm">' + rows + '</div>';
-      show('coherence-section');
-    }
-
-    function renderIdeaDevelopment(feedback) {
-      var items = (feedback.feedback_json && feedback.feedback_json.ideaDevelopmentAnalysis) || [];
-      if (!Array.isArray(items) || !items.length) return;
-
-      var rows = items.map(function (item) {
-        var paraLabel = item.paragraph != null ? 'Đoạn ' + item.paragraph + ': ' : '';
-        return (
-          '<div class="left-rule left-rule-blue">' +
-            '<div class="text-blue-300 font-medium mb-1">' +
-              escapeHtml(paraLabel) + escapeHtml(item.issue || '') +
-            '</div>' +
-            (item.originalIdea
-              ? '<p class="text-gray-400 italic mb-2">"' + escapeHtml(item.originalIdea) + '"</p>'
-              : '') +
-            (item.explanation
-              ? '<p class="text-gray-200 mb-2">' + escapeHtml(item.explanation) + '</p>'
-              : '') +
-            suggestionBlock(item.suggestion,
-              'bg-blue-500/10 border-blue-500/20 text-blue-300',
-              'Gợi ý phát triển') +
-          '</div>'
-        );
-      }).join('');
-
-      document.getElementById('idea-development-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">💡</span> Phát triển ý tưởng' +
-        '</h2>' +
-        '<div class="space-y-4 text-sm">' + rows + '</div>';
-      show('idea-development-section');
-    }
-
-    function renderCounterargument(feedback) {
-      var d = feedback.feedback_json && feedback.feedback_json.counterargumentAnalysis;
-      if (!d || typeof d !== 'object') return;
-
-      // W3.3 hardened the schema to tolerate hallucinated shapes —
-      // mirror the same defensive read here so a partial dict still
-      // renders rather than throwing.
-      var hasContent = d.feedback || d.suggestion || (d.context && (d.context.insertionPoint || d.context.reasoning));
-      if (!hasContent && d.isPresent === undefined) return;
-
-      var statusBadge = d.isPresent
-        ? '<span class="text-emerald-400">✓ Có</span>'
-        : '<span class="text-amber-400">✗ Chưa có</span>';
-
-      var contextLine = '';
-      if (d.context && (d.context.reasoning || d.context.insertionPoint)) {
-        var parts = [];
-        if (d.context.insertionPoint) parts.push('Vị trí: ' + d.context.insertionPoint);
-        if (d.context.reasoning)      parts.push(d.context.reasoning);
-        contextLine = '<p class="text-xs text-gray-400 mt-2">' + escapeHtml(parts.join(' — ')) + '</p>';
-      }
-
-      document.getElementById('counterargument-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">⚖</span> Phân tích phản biện' +
-        '</h2>' +
-        '<div class="text-sm">' +
-          '<div class="flex items-center gap-2 mb-3">' +
-            '<span class="text-gray-300">Trạng thái:</span>' + statusBadge +
-          '</div>' +
-          (d.feedback ? '<p class="text-gray-200 mb-3">' + escapeHtml(d.feedback) + '</p>' : '') +
-          (d.suggestion
-            ? '<div class="bg-teal-light/10 border border-teal-light/20 rounded p-3">' +
-                '<div class="text-xs text-teal-light mb-1 font-medium">Gợi ý</div>' +
-                '<p class="text-gray-200">' + escapeHtml(d.suggestion) + '</p>' +
-                contextLine +
-              '</div>'
-            : (contextLine || '')) +
-        '</div>';
-      show('counterargument-section');
-    }
-
-    function renderImprovedEssay(feedback) {
-      var improved = feedback.feedback_json && feedback.feedback_json.improvedEssay;
-      if (!improved) return;
-      var wc = wordCount(improved);
-      document.getElementById('improved-section').innerHTML =
-        '<div class="flex items-center justify-between mb-3">' +
-          '<h2 class="text-base md:text-lg font-semibold flex items-center gap-2">' +
-            '<span aria-hidden="true">✨</span> Bài tham khảo (Band 8.0+)' +
-          '</h2>' +
-          '<span class="text-xs text-gray-400">' + wc + ' từ</span>' +
-        '</div>' +
-        '<div class="essay-prose text-gray-200 leading-relaxed">' + escapeHtml(improved) + '</div>';
-      show('improved-section');
-    }
-
-    // Sprint 2.4.1 — render aiContentAnalysis. Schema is small + fixed
-    // ({likelihood: 0-100, explanation: str}) so no defensive fallback
-    // path needed. Color-codes the percentage so a high value reads as
-    // a warning to the student.
-    function renderAiContentAnalysis(feedback) {
-      var data = feedback.feedback_json && feedback.feedback_json.aiContentAnalysis;
-      if (!data || typeof data !== 'object') return;
-
-      var likelihood  = (data.likelihood != null) ? data.likelihood : null;
-      var explanation = data.explanation || '';
-      if (likelihood == null && !explanation) return;
-
-      // Lower % = essay reads as student-written (good). Crossing 50%
-      // tips into amber, 80%+ red so a clearly AI-flagged essay is
-      // immediately legible at a glance.
-      var color = 'text-emerald-400';
-      if (likelihood != null && likelihood >= 50) color = 'text-amber-400';
-      if (likelihood != null && likelihood >= 80) color = 'text-red-400';
-
-      document.getElementById('ai-content-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">🤖</span> Phân tích AI Content' +
-        '</h2>' +
-        '<div class="text-sm">' +
-          '<div class="flex items-center gap-3 mb-3">' +
-            '<span class="text-gray-300">Khả năng AI tạo:</span>' +
-            '<span class="' + color + ' font-semibold">' +
-              escapeHtml(likelihood == null ? '—' : likelihood + '%') +
-            '</span>' +
-          '</div>' +
-          (explanation
-            ? '<p class="text-gray-200 leading-relaxed">' + escapeHtml(explanation) + '</p>'
-            : '') +
-        '</div>';
-      show('ai-content-section');
-    }
-
-    // Defensive generic dump for unknown shapes. Used as fallback when
-    // lexicalAnalysis / sentenceStructureAnalysis arrive in a non-canonical
-    // shape (legacy rows or hallucinated parents Pydantic let through).
-    function genericRender(data) {
-      if (typeof data === 'string') {
-        return '<p class="text-gray-200 leading-relaxed">' + escapeHtml(data) + '</p>';
-      }
-      if (Array.isArray(data)) {
-        if (!data.length) return '';
-        return '<ul class="space-y-2 text-gray-200 text-sm">' +
-          data.map(function (item) {
-            var s = (typeof item === 'string') ? item : JSON.stringify(item);
-            return '<li class="flex gap-2"><span class="text-teal-light">•</span><span>' + escapeHtml(s) + '</span></li>';
-          }).join('') +
-          '</ul>';
-      }
-      if (data && typeof data === 'object') {
-        var entries = Object.keys(data);
-        if (!entries.length) return '';
-        return '<div class="space-y-3 text-sm">' +
-          entries.map(function (k) {
-            var v = data[k];
-            var s = (typeof v === 'string') ? v : JSON.stringify(v);
-            return '<div>' +
-              '<div class="text-xs uppercase tracking-wider text-gray-400 mb-1">' + escapeHtml(k) + '</div>' +
-              '<p class="text-gray-200">' + escapeHtml(s) + '</p>' +
-            '</div>';
-          }).join('') +
-          '</div>';
-      }
-      return '';
-    }
-
-    // Sprint 2.4.1 — render lexicalAnalysis. Canonical schema is
-    // {wordsToUpgrade: [{original, context, suggestions: [str], category}]}
-    // (LexicalAnalysis Pydantic model). When the data matches the
-    // canonical shape we render a clean per-word card; otherwise fall
-    // back to the generic dump so legacy rows don't show "[object Object]".
-    function renderLexicalAnalysis(feedback) {
-      var data = feedback.feedback_json && feedback.feedback_json.lexicalAnalysis;
-      if (!data) return;
-
-      var words = data && Array.isArray(data.wordsToUpgrade) ? data.wordsToUpgrade : null;
-      var content = '';
-
-      if (words && words.length) {
-        content = '<div class="space-y-3">' +
-          words.map(function (w) {
-            var suggestions = Array.isArray(w.suggestions) ? w.suggestions : [];
-            var suggList = suggestions
-              .map(function (s) { return '<span class="pill-criterion">' + escapeHtml(s) + '</span>'; })
-              .join('');
-            return '<div class="left-rule">' +
-              '<div class="flex flex-wrap items-center gap-2 mb-2">' +
-                '<span class="text-amber-300 font-medium">' + escapeHtml(w.original || '') + '</span>' +
-                (w.category ? '<span class="pill-criterion">' + escapeHtml(w.category) + '</span>' : '') +
-              '</div>' +
-              (w.context
-                ? '<p class="text-gray-300 text-sm italic mb-2">"' + escapeHtml(w.context) + '"</p>'
-                : '') +
-              (suggList
-                ? '<div class="flex flex-wrap items-center gap-2">' +
-                    '<span class="text-xs text-gray-400">→ thử dùng:</span>' + suggList +
-                  '</div>'
-                : '') +
-            '</div>';
-          }).join('') +
-          '</div>';
-      } else {
-        content = genericRender(data);
-      }
-
-      if (!content) return;
-
-      document.getElementById('lexical-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">📚</span> Phân tích từ vựng' +
-        '</h2>' + content;
-      show('lexical-section');
-    }
-
-    // Render sentenceStructureAnalysis. Carries TWO shapes since
-    // Phase 1.5c (2026-05-06 PM):
-    //
-    //   • Phase-1.5c structured (≥5 graded essays, history-aware):
-    //       {summary, common_issues, complexity_indicator,
-    //        current_essay_observation,
-    //        focus_theme:{title, why, this_week_practice}}
-    //
-    //   • Legacy (L4/L5 system prompt, no history):
-    //       {sentenceUpgrades: [{original, rewritten, explanation}]}
-    //
-    // Discriminator is the `summary` key — present ⇒ Phase-1.5c shape.
-    // Sprint 2.4.1 generic-dump fallback retained for any non-canonical
-    // legacy row that doesn't match either shape.
-    function renderSentenceStructureAnalysis(feedback) {
-      var data = feedback.feedback_json && feedback.feedback_json.sentenceStructureAnalysis;
-      if (!data) return;
-
-      // Phase 1.5c structured shape.
-      if (typeof data === 'object' && !Array.isArray(data) && typeof data.summary === 'string') {
-        var summary        = data.summary || '';
-        var indicator      = data.complexity_indicator || '';
-        var observation    = data.current_essay_observation || '';
-        var issues         = Array.isArray(data.common_issues) ? data.common_issues : [];
-        var focusTheme     = (data.focus_theme && typeof data.focus_theme === 'object') ? data.focus_theme : {};
-        var essaysAnalyzed = data.essays_analyzed != null ? data.essays_analyzed : 5;
-
-        // No usable narrative + no issues + no focus theme ⇒ skip section.
-        if (!summary && !observation && !issues.length && !focusTheme.title) return;
-
-        var indicatorLabel = {
-          needs_more_simple:  'Nên đơn giản hóa',
-          balanced:           'Cân đối',
-          needs_more_complex: 'Nên đa dạng cấu trúc'
-        }[indicator] || '—';
-
-        var html =
-          '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-            '<span aria-hidden="true">🔧</span> Phân tích cấu trúc câu' +
-            '<span class="text-xs font-normal text-gray-400">(history-aware)</span>' +
-          '</h2>';
-
-        if (summary) {
-          html += '<p class="text-gray-300 leading-relaxed mb-4">' + escapeHtml(summary) + '</p>';
-        }
-
-        html +=
-          '<div class="grid grid-cols-2 gap-3 mb-4">' +
-            '<div class="bg-white/5 rounded-lg p-3">' +
-              '<div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Mức độ phức tạp</div>' +
-              '<div class="text-base font-semibold text-teal-light">' + escapeHtml(indicatorLabel) + '</div>' +
-            '</div>' +
-            '<div class="bg-white/5 rounded-lg p-3">' +
-              '<div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Số bài phân tích</div>' +
-              '<div class="text-base font-semibold">' + essaysAnalyzed + ' bài</div>' +
-            '</div>' +
-          '</div>';
-
-        if (observation) {
-          html +=
-            '<div class="bg-amber-500/10 border border-amber-500/20 rounded p-3 mb-4">' +
-              '<div class="text-xs text-amber-400 mb-1">📝 Bài này</div>' +
-              '<p class="text-gray-300 text-sm">' + escapeHtml(observation) + '</p>' +
-            '</div>';
-        }
-
-        if (issues.length) {
-          html +=
-            '<div class="mb-4">' +
-              '<h3 class="text-sm font-semibold text-gray-300 mb-2">Lỗi cấu trúc thường gặp:</h3>' +
-              '<ul class="space-y-2">' +
-                issues.map(function (i) {
-                  var examples = Array.isArray(i.examples) ? i.examples : [];
-                  var exHtml = examples.length
-                    ? '<div class="ml-5 text-xs text-gray-400 italic">' +
-                        examples.map(function (ex) { return '"' + escapeHtml(ex) + '"'; }).join('; ') +
-                      '</div>'
-                    : '';
-                  return '<li class="flex flex-col gap-1 text-sm">' +
-                           '<div class="flex items-center gap-2">' +
-                             '<span class="text-amber-400">•</span>' +
-                             '<span class="text-gray-200 font-medium">' + escapeHtml(i.pattern || '') + '</span>' +
-                             '<span class="text-xs text-gray-500">(' + (i.count || 0) + 'x)</span>' +
-                           '</div>' + exHtml +
-                         '</li>';
-                }).join('') +
-              '</ul>' +
-            '</div>';
-        }
-
-        if (focusTheme.title) {
-          html +=
-            '<div class="bg-teal-500/10 border border-teal-500/20 rounded-lg p-4">' +
-              '<div class="text-xs text-teal-light mb-1">🎯 FOCUS TUẦN NÀY</div>' +
-              '<h3 class="text-base font-semibold text-gray-100 mb-2">' + escapeHtml(focusTheme.title) + '</h3>' +
-              (focusTheme.why
-                ? '<p class="text-sm text-gray-300 mb-2"><span class="text-gray-500">Tại sao:</span> ' +
-                    escapeHtml(focusTheme.why) + '</p>'
-                : '') +
-              (focusTheme.this_week_practice
-                ? '<p class="text-sm text-gray-300"><span class="text-gray-500">Luyện tuần này:</span> ' +
-                    escapeHtml(focusTheme.this_week_practice) + '</p>'
-                : '') +
-            '</div>';
-        }
-
-        document.getElementById('sentence-structure-section').innerHTML = html;
-        show('sentence-structure-section');
+    // ── Render dispatch ──────────────────────────────────────────
+    function renderSection(sectionKey, value) {
+      var contentEl = document.getElementById('content-' + sectionKey);
+      if (!contentEl) return;
+      var renderer = WritingRenderers.SECTION_RENDERERS[sectionKey];
+      if (!renderer) {
+        contentEl.innerHTML = WritingRenderers.emptyShape();
         return;
       }
-
-      // Legacy `{sentenceUpgrades: [{original, rewritten, explanation}]}`
-      // shape — emitted by L4/L5 system prompts when no history block
-      // overrides. Original (strikethrough) → rewritten (green) +
-      // explanation, mirroring the mistake card visual language.
-      var upgrades = (typeof data === 'object' && Array.isArray(data.sentenceUpgrades))
-        ? data.sentenceUpgrades : null;
-      var content = '';
-
-      if (upgrades && upgrades.length) {
-        content = '<div class="space-y-3">' +
-          upgrades.map(function (u) {
-            return '<div class="left-rule left-rule-blue">' +
-              (u.original
-                ? '<div class="mistake-original mb-1">' + escapeHtml(u.original) + '</div>'
-                : '') +
-              (u.rewritten
-                ? '<div class="mistake-suggestion mb-2">→ ' + escapeHtml(u.rewritten) + '</div>'
-                : '') +
-              (u.explanation
-                ? '<p class="text-sm text-gray-300">' + escapeHtml(u.explanation) + '</p>'
-                : '') +
-            '</div>';
-          }).join('') +
-          '</div>';
-      } else {
-        // Sprint 2.4.1 fallback — non-canonical legacy shapes (string,
-        // array, dict without sentenceUpgrades) get a generic dump so
-        // older rows still surface something usable.
-        content = genericRender(data);
-      }
-
-      if (!content) return;
-
-      document.getElementById('sentence-structure-section').innerHTML =
-        '<h2 class="text-base md:text-lg font-semibold mb-3 flex items-center gap-2">' +
-          '<span aria-hidden="true">🔧</span> Phân tích cấu trúc câu' +
-        '</h2>' + content;
-      show('sentence-structure-section');
-    }
-
-    // ── Bootstrap ───────────────────────────────────────────────────
-    function showError(msg) {
-      hide('loading');
-      document.getElementById('error-message').textContent = msg;
-      show('error');
-    }
-
-    (async function () {
-      var params = new URLSearchParams(window.location.search);
-      var essayId = params.get('essay_id');
-
-      if (!essayId) {
-        showError('Link không hợp lệ.');
-        return;
-      }
-
       try {
-        // window.api.get already redirects to login.html on 401 and
-        // throws on non-2xx with err.detail as the message.
-        var data = await window.api.get('/api/writing/my-essays/' + encodeURIComponent(essayId));
-        if (!data) return;  // 401 path already redirected
-
-        var essay    = data.essay || null;
-        var feedback = data.feedback;
-
-        if (!essay) {
-          showError('Bài viết không tìm thấy.');
-          return;
-        }
-
-        // Phase 2.6: a flagged essay carries no writing_feedback row
-        // by design (overall_band_score is NOT NULL with CHECK >= 0,
-        // so a stub score would skew analytics). Render the prompt +
-        // the submitted text + an amber explanation block in place
-        // of the band-score sections. Branching on `essay.is_flagged`
-        // BEFORE the `!feedback` check is important — flagged
-        // essays also satisfy `!feedback`, but the friendly
-        // "đang được giảng viên xem lại" copy is wrong here.
-        if (essay.is_flagged) {
-          renderPrompt(essay);
-          renderEssay(essay);
-          renderFlaggedNotice(essay);
-          hide('loading');
-          show('content');
-          return;
-        }
-
-        // Backend returns feedback=null when status !== 'delivered'
-        // (admin still editing). Surface a friendly waiting state
-        // rather than a partial render.
-        if (!feedback) {
-          hide('loading');
-          show('not-delivered');
-          return;
-        }
-
-        renderPrompt(essay);
-        renderEssay(essay);
-        renderOverall(feedback);
-        renderStrengthsAreas(feedback);
-        renderRecurringPatterns(feedback);
-        renderBandTrajectory(feedback);
-        renderCriteria(feedback);
-        renderMistakes(feedback);
-        renderAiContentAnalysis(feedback);
-        renderCoherenceAnalysis(feedback);
-        renderIdeaDevelopment(feedback);
-        renderLexicalAnalysis(feedback);
-        renderSentenceStructureAnalysis(feedback);
-        renderCounterargument(feedback);
-        renderImprovedEssay(feedback);
-
-        hide('loading');
-        show('content');
+        contentEl.innerHTML = renderer(value);
       } catch (err) {
-        var msg = (err && err.message) || '';
-        // Backend's 404 detail is the canonical Vietnamese string.
-        if (/không tìm thấy/i.test(msg)) {
-          showError('Bài viết không tìm thấy.');
-        } else if (/chưa được link/i.test(msg)) {
-          showError('Tài khoản chưa được link với học viên. Vui lòng liên hệ giảng viên.');
-        } else {
-          showError(msg || 'Lỗi không xác định.');
-        }
+        if (window.console) console.error('[result] renderer failed for', sectionKey, err);
+        contentEl.innerHTML = WritingRenderers.emptyShape('— Lỗi hiển thị section —');
       }
-    })();
+    }
+
+    function maybeHideCounterargument(value) {
+      var section = document.getElementById('section-counterargument');
+      if (!section) return;
+      var isEmpty = (value == null) ||
+        (Array.isArray(value) && value.length === 0) ||
+        (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0);
+      section.style.display = isEmpty ? 'none' : '';
+    }
+
+    // ── Load + render ────────────────────────────────────────────
+    async function loadEssay() {
+      if (!essayId) {
+        showError('Thiếu mã bài viết trong URL.');
+        return;
+      }
+
+      var data;
+      try {
+        // window.api.get redirects to login.html on 401 and throws on other errors.
+        data = await window.api.get('/api/writing/my-essays/' + encodeURIComponent(essayId));
+      } catch (err) {
+        showError(err && err.message ? err.message : 'Lỗi tải bài viết.');
+        return;
+      }
+
+      var essay = data.essay || data;
+      var feedback = data.feedback || null;
+      var instructorNote = data.instructor_note || '';
+      var fj = (feedback && feedback.feedback_json) || {};
+
+      // Flagged essays carry no feedback row — surface a dedicated state.
+      if (essay.is_flagged) {
+        var flagged = document.getElementById('state-flagged');
+        var msg = essay.error_message || 'Bài viết bị đánh dấu cần giảng viên xem xét.';
+        flagged.querySelector('#flagged-message').textContent = msg;
+        showState('state-flagged');
+        return;
+      }
+
+      // Status gate — only delivered essays show feedback.
+      if (essay.status !== 'delivered' || !feedback) {
+        showState('state-not-delivered');
+        return;
+      }
+
+      // Header
+      document.getElementById('prompt-title').textContent = essay.prompt_text || '—';
+      document.getElementById('essay-task').textContent = TASK_LABELS[essay.task_type] || (essay.task_type || '—');
+      document.getElementById('essay-date').textContent = formatDate(essay.created_at);
+      var bandText = (feedback.overall_band_score != null)
+        ? 'Band ' + feedback.overall_band_score
+        : (fj.overallBandScore != null ? 'Band ' + fj.overallBandScore : 'Band —');
+      document.getElementById('band-display').textContent = bandText;
+      document.title = 'Phân tích bài viết — Band ' +
+        (feedback.overall_band_score != null ? feedback.overall_band_score : '—');
+
+      // Body — original essay
+      document.getElementById('essay-text').textContent = essay.essay_text || '—';
+      document.getElementById('word-count').textContent = wordCount(essay.essay_text) + ' từ';
+
+      // Render every section via shared dispatch.
+      Object.keys(WritingRenderers.SECTION_KEYS).forEach(function (sectionKey) {
+        var dataKey = WritingRenderers.SECTION_KEYS[sectionKey];
+        renderSection(sectionKey, fj[dataKey]);
+      });
+
+      // Auto-hide Counterargument when AI returned null/empty (Task 1
+      // essays don't have it; Task 2 may legitimately omit).
+      maybeHideCounterargument(fj.counterargumentAnalysis);
+
+      // Tab 5 Note giảng viên — only show button + render if non-empty.
+      if (instructorNote && instructorNote.trim()) {
+        document.getElementById('content-instructor-note').innerHTML =
+          WritingRenderers.renderInstructorNote(instructorNote);
+        document.getElementById('tab-btn-note').classList.remove('hidden');
+      }
+
+      showState('state-ready');
+    }
+
+    // ── Download .docx ───────────────────────────────────────────
+    async function handleDownload() {
+      var btn = document.getElementById('btn-download');
+      btn.disabled = true;
+      var origLabel = btn.textContent;
+      btn.textContent = '⏳ Đang tải...';
+      try {
+        var sb = getSupabase();
+        var session = (await sb.auth.getSession()).data.session;
+        if (!session) {
+          window.location.href = '/login.html';
+          return;
+        }
+        var url = window.api.base + '/api/writing/my-essays/' +
+          encodeURIComponent(essayId) + '/export.docx';
+        var res = await fetch(url, {
+          headers: { 'Authorization': 'Bearer ' + session.access_token },
+        });
+        if (!res.ok) {
+          var detail = '';
+          try { detail = (await res.json()).detail || ''; } catch (_) {}
+          throw new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+        }
+
+        // Filename from Content-Disposition; fallback to a sensible default.
+        var cd = res.headers.get('Content-Disposition') || '';
+        var fnMatch = cd.match(/filename="([^"]+)"/);
+        var filename = fnMatch ? fnMatch[1] : ('essay_' + essayId + '.docx');
+
+        var blob = await res.blob();
+        var dl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = dl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(dl);
+      } catch (err) {
+        if (window.console) console.error('[result] download failed', err);
+        alert('Lỗi tải file: ' + (err.message || err));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = origLabel;
+      }
+    }
+
+    // ── Bootstrap ────────────────────────────────────────────────
+    wireTabs();
+    document.getElementById('btn-download').addEventListener('click', handleDownload);
+    document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+
+    // Load when ready (api.js boot may set up auth-session listener).
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadEssay);
+    } else {
+      loadEssay();
+    }
   </script>
 </body>
 </html>

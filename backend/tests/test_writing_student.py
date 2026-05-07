@@ -69,6 +69,14 @@ class _Builder:
         self._filters.append((col, val))
         return self
 
+    def in_(self, col, vals):
+        # Sprint 2.5.5 — batch band-score fetch on /my-essays uses .in_();
+        # the dispatch records it like .eq() so tests can assert the
+        # filter was applied. Value list copied so test assertions stay
+        # stable even if the caller mutates it.
+        self._filters.append((col, list(vals)))
+        return self
+
     def order(self, *_a, **_kw):
         return self
 
@@ -342,3 +350,193 @@ def test_get_essay_feedback_fetch_failure_degrades_to_none(monkeypatch):
 
     assert out["essay"]["status"] == "delivered"
     assert out["feedback"] is None
+
+
+# ── Sprint 2.5.5 — band batch + instructor_note + export.docx ──────────
+
+
+class _ListClient(_Client):
+    """Subclass that splits writing_essays responses by SELECT shape so
+    the band-batch fetch (different SELECT than the ownership query)
+    gets its own response. Reuses the parent dispatcher otherwise."""
+
+    def __init__(self, *, band_rows: list[dict] | None = None,
+                 note_rows: list[dict] | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self._band_rows = band_rows or []
+        self._note_rows = note_rows or []
+
+    def _respond(self, rec):
+        # writing_feedback queries with SELECT containing 'overall_band_score'
+        # AND an essay_id IN (...) filter are the band-batch path; route
+        # them to the dedicated rows so we can mix delivered + grading
+        # essays in one fixture.
+        if (rec["table"] == "writing_feedback"
+                and rec.get("select")
+                and "overall_band_score" in rec["select"]
+                and any(c == "essay_id" for c, _ in rec["filters"])):
+            class _R: pass
+            r = _R(); r.data = self._band_rows
+            return r
+        # writing_essays SELECT 'instructor_note' is the dedicated re-fetch
+        # for the detail endpoint's note path.
+        if rec["table"] == "writing_essays" and rec.get("select") == "instructor_note":
+            class _R: pass
+            r = _R(); r.data = self._note_rows
+            return r
+        return super()._respond(rec)
+
+
+def test_my_essays_includes_band_score_for_delivered_essays(monkeypatch):
+    """Sprint 2.5.5: list endpoint surfaces overall_band_score on
+    delivered essays so dashboard cards render a band pill. Non-
+    delivered essays carry None — the frontend hides the pill."""
+    client = _ListClient(
+        students_data=[_student_row()],
+        essays_data=[
+            {"id": "e1", "task_type": "task2", "prompt_text": "Q1",
+             "status": "delivered", "created_at": "2026-05-05T10:00:00Z",
+             "delivered_at": "2026-05-05T11:00:00Z"},
+            {"id": "e2", "task_type": "task2", "prompt_text": "Q2",
+             "status": "grading", "created_at": "2026-05-04T10:00:00Z",
+             "delivered_at": None},
+        ],
+        band_rows=[
+            {"essay_id": "e1", "overall_band_score": 7.0},
+            # e2 is not delivered, so no row here even if writing_feedback exists.
+        ],
+    )
+
+    async def _fake_user(_authz): return {"id": _USER_ID}
+    monkeypatch.setattr(ws_module, "get_supabase_user", _fake_user)
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    out = _run(ws_module.list_my_essays(student=student))
+
+    assert out["essays"][0]["id"] == "e1"
+    assert out["essays"][0]["overall_band_score"] == 7.0
+    assert out["essays"][1]["id"] == "e2"
+    assert out["essays"][1]["overall_band_score"] is None
+
+    # Band batch query was issued with a single .in_("essay_id", [...])
+    # restricted to the delivered ids — non-delivered essays must NOT
+    # appear in the IN list (defensive: feedback row may exist for
+    # status='reviewed' and a leak would let students see un-curated AI output).
+    band_calls = [c for c in client.calls
+                  if c["table"] == "writing_feedback"
+                  and "overall_band_score" in (c.get("select") or "")]
+    assert len(band_calls) == 1
+    in_filter = next((v for col, v in band_calls[0]["filters"] if col == "essay_id"), None)
+    assert in_filter == ["e1"]
+
+
+def test_my_essays_band_batch_failure_degrades_gracefully(monkeypatch):
+    """Band batch fetch failing must NOT 500 the whole list — cards
+    still render, just without the pill. Mirrors the existing detail
+    endpoint's feedback-fetch resilience."""
+
+    class _FailingBandClient(_ListClient):
+        def _respond(self, rec):
+            if (rec["table"] == "writing_feedback"
+                    and rec.get("select")
+                    and "overall_band_score" in rec["select"]):
+                raise RuntimeError("band table down")
+            return super()._respond(rec)
+
+    client = _FailingBandClient(
+        students_data=[_student_row()],
+        essays_data=[
+            {"id": "e1", "task_type": "task2", "prompt_text": "Q1",
+             "status": "delivered", "created_at": "2026-05-05T10:00:00Z",
+             "delivered_at": "2026-05-05T11:00:00Z"},
+        ],
+    )
+    async def _fake_user(_authz): return {"id": _USER_ID}
+    monkeypatch.setattr(ws_module, "get_supabase_user", _fake_user)
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    out = _run(ws_module.list_my_essays(student=student))
+    # No 500 — list still returns, band score just missing.
+    assert out["essays"][0]["id"] == "e1"
+    assert out["essays"][0]["overall_band_score"] is None
+
+
+def test_get_essay_returns_instructor_note_on_delivered(monkeypatch):
+    """Sprint 2.5.5: detail endpoint surfaces instructor_note for the
+    student tab 5. Only fires on status=='delivered' — admin-internal
+    notes on graded/reviewed essays must not leak to the student."""
+    client = _ListClient(
+        students_data=[_student_row()],
+        essays_data=[{
+            "id": _ESSAY_ID, "task_type": "task2",
+            "prompt_text": "Q", "essay_text": "E",
+            "status": "delivered",
+            "created_at": "2026-05-05T10:00:00Z",
+            "delivered_at": "2026-05-05T11:00:00Z",
+        }],
+        feedback_data=[{"feedback_json": {}, "overall_band_score": 6.5}],
+        note_rows=[{"instructor_note": "Em viết tốt phần coherence."}],
+    )
+    async def _fake_user(_authz): return {"id": _USER_ID}
+    monkeypatch.setattr(ws_module, "get_supabase_user", _fake_user)
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    out = _run(ws_module.get_my_essay(_ESSAY_ID, student=student))
+
+    assert out["instructor_note"] == "Em viết tốt phần coherence."
+
+
+def test_get_essay_does_not_return_instructor_note_when_undelivered(monkeypatch):
+    """An admin-only note on a graded/reviewed essay must NOT surface
+    via the student detail endpoint — guard against leaking
+    in-progress instructor edits."""
+    _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[{
+            "id": _ESSAY_ID, "task_type": "task2",
+            "prompt_text": "Q", "essay_text": "E",
+            "status": "graded",  # NOT delivered
+            "created_at": "2026-05-05T10:00:00Z",
+            "delivered_at": None,
+        }],
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    out = _run(ws_module.get_my_essay(_ESSAY_ID, student=student))
+
+    assert out["instructor_note"] is None
+    assert out["feedback"] is None
+
+
+def test_export_docx_404_for_other_students_essay(monkeypatch):
+    """Sprint 2.5.5: docx export must enforce ownership. Querying
+    someone else's essay 404s identically to a nonexistent one — same
+    no-leak symmetry as the detail endpoint."""
+    _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[],  # student_id filter excluded the row
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    with pytest.raises(HTTPException) as exc:
+        _run(ws_module.export_my_essay_docx(_ESSAY_ID, student=student))
+    assert exc.value.status_code == 404
+
+
+def test_export_docx_403_when_not_yet_delivered(monkeypatch):
+    """Owner of an undelivered essay can't download yet — 403 with
+    Vietnamese explanation. Distinct from 404 because the student
+    already knows from the dashboard that they own it."""
+    _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[{"status": "graded"}],  # owned but not delivered
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    with pytest.raises(HTTPException) as exc:
+        _run(ws_module.export_my_essay_docx(_ESSAY_ID, student=student))
+    assert exc.value.status_code == 403
+    assert "duyệt" in exc.value.detail or "delivered" in exc.value.detail.lower()
