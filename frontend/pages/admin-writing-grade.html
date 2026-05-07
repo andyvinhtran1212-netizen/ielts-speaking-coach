@@ -149,6 +149,258 @@
     .edit-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: center; }
     .edit-error { color: #fca5a5; font-size: 12px; margin-left: 0.5rem; }
 
+    /* ── Sprint 2.5.2 — design-token components ──────────────────── */
+    /* Vocabulary applied uniformly across all 14 section renderers
+       so a reader can scan any section and trust the visual grammar:
+         prose-block      = plain narrative
+         card-criterion   = IELTS band card
+         mistake-card     = severity-coded diff
+         chip / chip-list = labels for arrays
+         stat-tile        = large metric number
+         focus-theme-card = featured this-week practice
+         callout-info     = teal-accented explanatory note
+         callout-action   = teal-accented call to action
+         takeaway-block   = strengths / improvements 2-col grid
+         issue-card       = pattern + count + examples
+         complexity-meter = text-based indicator
+         likelihood-bar   = horizontal AI-content gauge */
+
+    .prose-block { color: #cbd5e1; font-size: 14.5px; line-height: 1.7; max-width: 70ch; }
+    .prose-block p { margin-bottom: 0.625rem; }
+
+    .empty-state { color: #6b7280; font-style: italic; font-size: 13px; }
+
+    .subsection-heading {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: #9ca3af; margin-bottom: 0.5rem; font-weight: 600;
+    }
+
+    /* Generic chips for arrays of labels */
+    .chip-list { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+    .chip      { padding: 0.25rem 0.625rem; border-radius: 12px; font-size: 12px; font-weight: 500; line-height: 1.4; }
+    .chip-success .chip { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+    .chip-warning .chip { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+    .chip-info    .chip { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
+
+    /* Callouts */
+    .callout-info, .callout-action {
+      padding: 0.75rem 1rem; border-radius: 6px; color: #cbd5e1;
+      font-size: 13.5px; line-height: 1.6;
+    }
+    .callout-info   { background: rgba(20,184,166,0.05); border-left: 3px solid #14b8a6; }
+    .callout-action { background: rgba(15,118,110,0.08); border-left: 3px solid #14b8a6; }
+    .callout-label {
+      display: block; font-size: 11px; font-weight: 600; color: #14b8a6;
+      margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+
+    /* Instructor note (Phase 2.5) — teal-tinted highlighted block */
+    .instructor-note-block {
+      background: rgba(20,184,166,0.06); border-left: 3px solid #14b8a6;
+      padding: 1rem 1.125rem; border-radius: 6px;
+      color: #e2e8f0; font-size: 14px; line-height: 1.7;
+    }
+
+    /* IELTS criteria cards (4-up grid) */
+    .criteria-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.625rem; }
+    .card-criterion {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 0.875rem 1rem;
+    }
+    .card-criterion-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 0.75rem; margin-bottom: 0.5rem;
+    }
+    .card-criterion-head h3 { font-size: 13.5px; font-weight: 600; color: #e2e8f0; line-height: 1.3; }
+    .band-pill {
+      font-size: 1.35rem; font-weight: 700; padding: 0.125rem 0.625rem;
+      border-radius: 6px; line-height: 1.2; flex-shrink: 0;
+    }
+    .band-low  { background: rgba(239,68,68,0.18); color: #fca5a5; }
+    .band-mid  { background: rgba(245,158,11,0.18); color: #fbbf24; }
+    .band-good { background: rgba(20,184,166,0.18); color: #5eead4; }
+    .band-high { background: rgba(16,185,129,0.18); color: #34d399; }
+    .card-criterion .summary  { font-size: 12.5px; font-style: italic; color: rgba(255,255,255,0.55); margin-bottom: 0.5rem; line-height: 1.5; }
+    .card-criterion .feedback { font-size: 13.5px; color: #cbd5e1; line-height: 1.6; }
+
+    /* Mistake cards — severity-coded diff layout */
+    .mistake-card {
+      background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b;
+      border-radius: 6px; padding: 0.875rem 1rem; margin-bottom: 0.625rem;
+    }
+    .mistake-card.mistake-high { border-left-color: #ef4444; }
+    .mistake-card.mistake-low  { border-left-color: #3b82f6; }
+    .mistake-header {
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+      align-items: center; margin-bottom: 0.625rem; font-size: 11.5px;
+    }
+    .mistake-type-badge {
+      background: rgba(255,255,255,0.06); padding: 0.125rem 0.5rem;
+      border-radius: 4px; color: #e5e7eb; font-weight: 500;
+    }
+    .mistake-criterion { color: #9ca3af; font-style: italic; }
+    .mistake-diff      { margin-bottom: 0.5rem; }
+    .mistake-original, .mistake-suggestion {
+      display: flex; align-items: baseline; gap: 0.5rem;
+      margin-bottom: 0.25rem; font-size: 13px; line-height: 1.5;
+    }
+    .mistake-original code, .mistake-suggestion code {
+      font-family: 'Monaco', 'Menlo', monospace; font-size: 12.5px;
+      background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px;
+      flex: 1; word-break: break-word;
+    }
+    .mistake-original code   { color: #fca5a5; }
+    .mistake-suggestion code { color: #6ee7b7; }
+    .diff-label {
+      flex-shrink: 0; width: 3rem; color: #9ca3af;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .mistake-explanation {
+      color: #cbd5e1; font-size: 13px; line-height: 1.6;
+      padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* Stat tiles for band trajectory */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; }
+    .stat-tile {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 0.875rem; text-align: center;
+    }
+    .stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin-bottom: 0.5rem; font-weight: 600; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: #e5e7eb; line-height: 1.2; }
+    .trend-improving { color: #34d399; }
+    .trend-stable    { color: #9ca3af; }
+    .trend-declining { color: #fca5a5; }
+
+    /* Per-criterion mini stats (band trajectory) */
+    .criterion-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .criterion-mini {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 6px; padding: 0.625rem; text-align: center;
+    }
+    .criterion-mini-label { font-size: 10.5px; color: #9ca3af; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .criterion-mini-value { font-size: 1rem; font-weight: 600; }
+
+    /* Focus-theme card — featured this-week practice */
+    .focus-theme-card {
+      background: linear-gradient(135deg, rgba(15,118,110,0.12), rgba(20,184,166,0.05));
+      border: 1px solid rgba(20,184,166,0.25);
+      border-radius: 12px; padding: 1.125rem 1.25rem;
+    }
+    .focus-theme-eyebrow { font-size: 11.5px; color: #14b8a6; font-weight: 600; margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .focus-theme-title   { font-size: 1.05rem; font-weight: 600; color: #e5e7eb; margin-bottom: 0.5rem; line-height: 1.35; }
+    .focus-theme-why     { font-size: 13.5px; color: #cbd5e1; line-height: 1.65; margin-bottom: 0.875rem; }
+    .focus-theme-action  { background: rgba(0,0,0,0.25); padding: 0.75rem 0.875rem; border-radius: 6px; }
+    .focus-theme-action .action-label { display: block; font-size: 10.5px; font-weight: 600; color: #14b8a6; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .focus-theme-action p { color: #e2e8f0; font-size: 13px; line-height: 1.6; }
+
+    /* Issue cards — pattern + count + examples */
+    .issue-card {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 6px; padding: 0.75rem 0.875rem;
+    }
+    .issue-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .issue-pattern { font-size: 13px; color: #e5e7eb; font-weight: 500; }
+    .issue-count {
+      font-size: 11.5px; background: rgba(245,158,11,0.18); color: #fbbf24;
+      padding: 0.125rem 0.5rem; border-radius: 4px; font-weight: 600;
+    }
+    .issue-examples { margin-top: 0.5rem; padding-left: 0; list-style: none; }
+    .issue-examples li { margin-bottom: 0.25rem; font-size: 12.5px; color: #9ca3af; }
+    .issue-examples code {
+      font-family: 'Monaco', 'Menlo', monospace; background: rgba(0,0,0,0.3);
+      padding: 0.125rem 0.375rem; border-radius: 3px;
+    }
+
+    /* Complexity meter — text indicator */
+    .complexity-meter {
+      background: rgba(255,255,255,0.03); padding: 0.625rem 0.875rem;
+      border-radius: 6px; display: flex; gap: 0.625rem; align-items: center;
+    }
+    .complexity-label { color: #9ca3af; font-size: 13px; }
+    .complexity-value { font-weight: 600; }
+    .complexity-balanced { color: #34d399; }
+    .complexity-needs_more_simple, .complexity-needs_more_complex { color: #fbbf24; }
+
+    /* Takeaway 2-column grid */
+    .takeaway-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.875rem; }
+    .takeaway-block { border-radius: 8px; padding: 0.875rem 1rem; }
+    .takeaway-success { background: rgba(16,185,129,0.06); border-left: 3px solid #10b981; }
+    .takeaway-warning { background: rgba(245,158,11,0.06); border-left: 3px solid #f59e0b; }
+    .takeaway-heading { font-size: 13px; font-weight: 600; margin-bottom: 0.5rem; }
+    .takeaway-success .takeaway-heading { color: #34d399; }
+    .takeaway-warning .takeaway-heading { color: #fbbf24; }
+    .takeaway-list { padding-left: 1.125rem; list-style: disc; }
+    .takeaway-list li { font-size: 13px; line-height: 1.6; color: #cbd5e1; margin-bottom: 0.25rem; }
+
+    /* AI-content likelihood gauge */
+    .likelihood-row    { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.625rem; }
+    .likelihood-label  { font-size: 11.5px; color: #9ca3af; flex-shrink: 0; min-width: 8rem; }
+    .likelihood-track  { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+    .likelihood-fill   { height: 100%; transition: width 0.3s ease; }
+    .likelihood-low    { background: #34d399; }
+    .likelihood-mid    { background: #fbbf24; }
+    .likelihood-high   { background: #fca5a5; }
+    .likelihood-pct    { font-size: 13px; font-weight: 600; flex-shrink: 0; min-width: 3rem; text-align: right; }
+
+    /* Idea-development paragraph cards */
+    .idea-card {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-left: 3px solid #93c5fd; border-radius: 6px;
+      padding: 0.75rem 0.875rem; margin-bottom: 0.625rem;
+    }
+    .idea-card-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .idea-paragraph-tag {
+      background: rgba(59,130,246,0.18); color: #93c5fd;
+      padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 11px; font-weight: 600;
+    }
+    .idea-issue { font-size: 13px; color: #fde68a; font-weight: 500; }
+    .idea-row { font-size: 12.5px; line-height: 1.55; margin-bottom: 0.25rem; color: #cbd5e1; }
+    .idea-row strong { display: inline-block; min-width: 5.5rem; font-weight: 500; color: #9ca3af; }
+
+    /* Coherence list rows */
+    .coherence-card {
+      background: rgba(255,255,255,0.03); border-left: 3px solid #a5b4fc;
+      border-radius: 6px; padding: 0.75rem 0.875rem; margin-bottom: 0.5rem;
+    }
+    .coherence-card-head { display: flex; gap: 0.5rem; margin-bottom: 0.375rem; align-items: center; flex-wrap: wrap; }
+    .coherence-location { background: rgba(99,102,241,0.18); color: #a5b4fc; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .coherence-issue    { color: #fde68a; font-size: 13px; font-weight: 500; }
+    .coherence-explain  { color: #cbd5e1; font-size: 12.5px; line-height: 1.55; }
+    .coherence-suggest  { font-size: 12.5px; color: #6ee7b7; line-height: 1.55; margin-top: 0.375rem; }
+
+    /* Counterargument feedback */
+    .counter-block {
+      background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b;
+      padding: 0.875rem 1rem; border-radius: 6px;
+    }
+    .counter-status { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .counter-pill { padding: 0.125rem 0.625rem; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+    .counter-pill.present { background: rgba(16,185,129,0.18); color: #34d399; }
+    .counter-pill.absent  { background: rgba(245,158,11,0.18); color: #fbbf24; }
+
+    /* Lexical word-upgrade rows */
+    .lexical-card {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 0.75rem 0.875rem; margin-bottom: 0.5rem;
+    }
+    .lexical-row { display: flex; gap: 0.625rem; align-items: baseline; flex-wrap: wrap; }
+    .lexical-original { color: #fca5a5; font-family: 'Monaco', monospace; font-size: 12.5px; background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px; }
+    .lexical-arrow    { color: #9ca3af; font-size: 13px; }
+    .lexical-upgrade  { color: #6ee7b7; font-family: 'Monaco', monospace; font-size: 12.5px; background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px; }
+    .lexical-explain  { font-size: 12.5px; color: #cbd5e1; line-height: 1.55; margin-top: 0.375rem; }
+
+    /* Improved-essay block — same font as original essay */
+    .essay-improved-block {
+      background: rgba(20,184,166,0.04);
+      border-left: 3px solid #14b8a6;
+      border-radius: 8px; padding: 1rem 1.125rem;
+      white-space: pre-wrap; font-size: 14px;
+      line-height: 1.7; color: #e5e7eb;
+      max-height: 480px; overflow-y: auto;
+    }
+
     /* ── Mobile collapse ─────────────────────────────────────────── */
     @media (max-width: 1024px) {
       .grade-body { flex-direction: column; }
@@ -160,6 +412,10 @@
       }
       .nav-link { font-size: 11.5px; padding: 0.3rem 0.55rem; }
       .grade-content { padding: 1.25rem 1rem 3rem; }
+      .criteria-grid       { grid-template-columns: 1fr; }
+      .stat-grid           { grid-template-columns: 1fr; }
+      .criterion-mini-grid { grid-template-columns: repeat(2, 1fr); }
+      .takeaway-grid       { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -570,130 +826,518 @@
       return paras.map(function (p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('');
     }
 
-    function _renderObjectGeneric(obj) {
-      var rows = [];
-      Object.keys(obj).forEach(function (k) {
-        var v = obj[k];
-        var inner;
-        if (_isEmpty(v)) {
-          inner = '<span class="empty">—</span>';
-        } else if (typeof v === 'string') {
-          inner = '<span>' + WC.escapeHtml(v) + '</span>';
-        } else if (typeof v === 'number' || typeof v === 'boolean') {
-          inner = '<span>' + WC.escapeHtml(String(v)) + '</span>';
-        } else {
-          inner = '<pre class="json-view">' + WC.escapeHtml(JSON.stringify(v, null, 2)) + '</pre>';
-        }
-        rows.push(
-          '<div class="object-row">' +
-            '<div class="object-key">' + WC.escapeHtml(k) + '</div>' +
-            inner +
-          '</div>'
-        );
-      });
-      return rows.join('');
+    // ── Sprint 2.5.2 — design-token helpers ──────────────────────
+    // Reusable across multiple section renderers. Every renderer
+    // funnels through these so the visual grammar stays consistent.
+
+    function _bandClass(band) {
+      var n = parseFloat(band);
+      if (isNaN(n)) return 'mid';
+      if (n < 5)    return 'low';
+      if (n < 6)    return 'mid';
+      if (n < 7)    return 'good';
+      return 'high';
     }
 
-    function _renderItemCard(item) {
-      // Render an object as a card of "key: value" rows.  String
-      // values inline with the label; objects/arrays drop down to
-      // a JSON pre block on a new line so the card stays readable.
-      if (typeof item === 'string') {
-        return '<div class="item-card">' + WC.escapeHtml(item) + '</div>';
+    function _trendArrow(trend) {
+      return ({ improving: '↑', stable: '→', declining: '↓' })[trend] || '·';
+    }
+    function _trendLabel(trend) {
+      return ({
+        improving: 'Cải thiện',
+        stable:    'Ổn định',
+        declining: 'Giảm',
+      })[trend] || (trend || '—');
+    }
+    function _criterionAbbr(criterion) {
+      return ({
+        'Task Response':                  'TR',
+        'Task Achievement':               'TA',
+        'Coherence and Cohesion':         'C&C',
+        'Lexical Resource':               'LR',
+        'Grammatical Range and Accuracy': 'G&A',
+      })[criterion] || criterion;
+    }
+    function _complexityLabel(c) {
+      return ({
+        needs_more_simple:  'Cần thêm câu đơn',
+        balanced:           'Cân bằng tốt',
+        needs_more_complex: 'Cần thêm câu phức',
+      })[c] || c;
+    }
+
+    function _proseBlock(text) {
+      // Wrap an escaped narrative paragraph in the prose-block class
+      // so typography stays consistent across overview / explanations.
+      return '<div class="prose-block">' + _renderString(text) + '</div>';
+    }
+
+    function _emptyShape(msg) {
+      return '<p class="empty-state">' + WC.escapeHtml(msg || '— Chưa có nội dung —') + '</p>';
+    }
+
+    // ── Per-section renderers ────────────────────────────────────
+    // Each function takes the raw value from feedback_json[key] and
+    // returns an HTML string. NO JSON.stringify fallback ever — if
+    // the shape is unrecognised, render an explicit empty state so
+    // the bug surfaces visually instead of leaking raw payloads.
+
+    // Section 1 — Tổng quan (string)
+    function _renderOverview(v) {
+      if (_isEmpty(v) || typeof v !== 'string') return _emptyShape();
+      return _proseBlock(v);
+    }
+
+    // Section 2 — 4 tiêu chí IELTS
+    // Schema: {mainCriterion, coherenceCohesion, lexicalResource,
+    //          grammaticalRange} each {title, explanation, feedback,
+    //          bandScore}. Some prompts also produce a flat array
+    //          [{criterion, band, summary, detailedFeedback}, ...] —
+    //          accept both, preferring the schema shape.
+    function _renderCriteriaFeedback(v) {
+      if (_isEmpty(v)) return _emptyShape();
+
+      var items = [];
+      if (Array.isArray(v)) {
+        items = v.map(function (it) {
+          return {
+            label:   it.criterion || it.title || '—',
+            band:    it.band != null ? it.band : it.bandScore,
+            summary: it.summary || it.explanation || '',
+            body:    it.detailedFeedback || it.feedback || '',
+          };
+        });
+      } else if (typeof v === 'object') {
+        var ORDER = [
+          { key: 'mainCriterion',     label: 'Task Response / Achievement' },
+          { key: 'coherenceCohesion', label: 'Coherence & Cohesion' },
+          { key: 'lexicalResource',   label: 'Lexical Resource' },
+          { key: 'grammaticalRange',  label: 'Grammatical Range' },
+        ];
+        items = ORDER.map(function (slot) {
+          var it = v[slot.key] || {};
+          return {
+            label:   it.title || slot.label,
+            band:    it.bandScore,
+            summary: it.explanation || '',
+            body:    it.feedback || '',
+          };
+        });
       }
-      if (typeof item !== 'object' || item === null) {
-        return '<div class="item-card">' + WC.escapeHtml(String(item)) + '</div>';
+      if (!items.length) return _emptyShape();
+
+      return '<div class="criteria-grid">' + items.map(function (it) {
+        var band = it.band != null ? it.band : '—';
+        return (
+          '<div class="card-criterion">' +
+            '<div class="card-criterion-head">' +
+              '<h3>' + WC.escapeHtml(it.label) + '</h3>' +
+              '<span class="band-pill band-' + _bandClass(it.band) + '">' + WC.escapeHtml(String(band)) + '</span>' +
+            '</div>' +
+            (it.summary ? '<div class="summary">'  + WC.escapeHtml(it.summary) + '</div>' : '') +
+            (it.body    ? '<div class="feedback">' + WC.escapeHtml(it.body)    + '</div>' : '') +
+          '</div>'
+        );
+      }).join('') + '</div>';
+    }
+
+    // Section 4 — Lỗi sai (array of {original, mistakeType|type,
+    //   explanation, suggestion, criterion, severity?})
+    function _renderMistakeAnalysis(v) {
+      if (_isEmpty(v)) {
+        return '<p class="empty-state">— Không có lỗi nào trong bài —</p>';
       }
-      var rows = Object.keys(item).map(function (k) {
-        var v = item[k];
-        if (typeof v === 'object' && v !== null) {
+      if (!Array.isArray(v)) return _emptyShape('— Định dạng dữ liệu không hợp lệ —');
+      return v.map(function (m) {
+        var sev = (m.severity || 'medium').toLowerCase();
+        if (sev !== 'high' && sev !== 'low' && sev !== 'medium') sev = 'medium';
+        return (
+          '<div class="mistake-card mistake-' + sev + '">' +
+            '<div class="mistake-header">' +
+              '<span class="mistake-type-badge">' + WC.escapeHtml(m.type || m.mistakeType || 'Other') + '</span>' +
+              (m.criterion ? '<span class="mistake-criterion">' + WC.escapeHtml(m.criterion) + '</span>' : '') +
+            '</div>' +
+            (m.original   ? '<div class="mistake-diff">' +
+              '<div class="mistake-original"><span class="diff-label">Gốc</span><code>' + WC.escapeHtml(m.original) + '</code></div>' +
+              (m.suggestion ? '<div class="mistake-suggestion"><span class="diff-label">Sửa</span><code>' + WC.escapeHtml(m.suggestion) + '</code></div>' : '') +
+            '</div>' : '') +
+            (m.explanation ? '<p class="mistake-explanation">' + WC.escapeHtml(m.explanation) + '</p>' : '') +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    // Section 5 — Lỗi lặp lại
+    // Phase 1.5a: {summary, improvements: [...], stillRecurring: [...] | "" | null}
+    function _renderRecurringPatterns(v) {
+      if (_isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return _emptyShape();
+      var html = '';
+
+      if (v.summary && String(v.summary).trim()) {
+        html += '<div class="callout-info">' + _renderString(String(v.summary)) + '</div>';
+      }
+
+      var improvements = Array.isArray(v.improvements) ? v.improvements.filter(Boolean) : [];
+      if (improvements.length) {
+        html += '<div style="margin-top:0.875rem;">' +
+          '<h4 class="subsection-heading">✓ Đã cải thiện</h4>' +
+          '<div class="chip-list chip-success">' +
+            improvements.map(function (i) { return '<span class="chip">' + WC.escapeHtml(String(i)) + '</span>'; }).join('') +
+          '</div>' +
+        '</div>';
+      }
+
+      var still = v.stillRecurring;
+      var stillArr = Array.isArray(still)
+        ? still.filter(Boolean)
+        : (still && String(still).trim() ? [still] : []);
+      if (stillArr.length) {
+        html += '<div style="margin-top:0.875rem;">' +
+          '<h4 class="subsection-heading">⚠ Vẫn lặp lại</h4>' +
+          '<div class="chip-list chip-warning">' +
+            stillArr.map(function (i) { return '<span class="chip">' + WC.escapeHtml(String(i)) + '</span>'; }).join('') +
+          '</div>' +
+        '</div>';
+      } else if (improvements.length) {
+        html += '<p class="empty-state" style="margin-top:0.625rem;">— Không có lỗi nào còn lặp lại —</p>';
+      }
+
+      return html || _emptyShape();
+    }
+
+    // Section 6 — Diễn biến band (Phase 1.5b)
+    // {trend, current_band, average_last_5, trend_explanation,
+    //  next_target, criteria_breakdown: [{trend, average, criterion}]}
+    function _renderBandTrajectory(v) {
+      if (_isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return _emptyShape();
+      var html = '';
+
+      // 3 stat tiles
+      var trend = v.trend || '—';
+      html += '<div class="stat-grid">' +
+        '<div class="stat-tile"><div class="stat-label">Bài hiện tại</div><div class="stat-value">' + WC.escapeHtml(String(v.current_band != null ? v.current_band : '—')) + '</div></div>' +
+        '<div class="stat-tile"><div class="stat-label">TB 5 bài gần nhất</div><div class="stat-value">' + WC.escapeHtml(String(v.average_last_5 != null ? v.average_last_5 : '—')) + '</div></div>' +
+        '<div class="stat-tile"><div class="stat-label">Xu hướng</div><div class="stat-value trend-' + WC.escapeHtml(trend) + '">' + _trendArrow(trend) + ' ' + WC.escapeHtml(_trendLabel(trend)) + '</div></div>' +
+      '</div>';
+
+      if (v.trend_explanation) {
+        html += '<div class="prose-block" style="margin-top:0.875rem;">' + _renderString(String(v.trend_explanation)) + '</div>';
+      }
+      if (v.next_target) {
+        html += '<div class="callout-action" style="margin-top:0.875rem;">' +
+          '<span class="callout-label">🎯 Mục tiêu tiếp theo</span>' +
+          _renderString(String(v.next_target)) +
+        '</div>';
+      }
+
+      if (Array.isArray(v.criteria_breakdown) && v.criteria_breakdown.length) {
+        html += '<div style="margin-top:0.875rem;">' +
+          '<h4 class="subsection-heading">Chi tiết từng tiêu chí</h4>' +
+          '<div class="criterion-mini-grid">' +
+            v.criteria_breakdown.map(function (c) {
+              var t = c.trend || 'stable';
+              return (
+                '<div class="criterion-mini">' +
+                  '<div class="criterion-mini-label">' + WC.escapeHtml(_criterionAbbr(c.criterion || '—')) + '</div>' +
+                  '<div class="criterion-mini-value trend-' + WC.escapeHtml(t) + '">' +
+                    WC.escapeHtml(String(c.average != null ? c.average : '—')) + ' ' + _trendArrow(t) +
+                  '</div>' +
+                '</div>'
+              );
+            }).join('') +
+          '</div>' +
+        '</div>';
+      }
+
+      return html;
+    }
+
+    // Section 7 — Cấu trúc câu (Phase 1.5c canonical OR legacy)
+    function _renderSentenceStructure(v) {
+      if (_isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return _emptyShape();
+
+      // Legacy L4/L5 shape: {sentenceUpgrades: [{original, rewritten, explanation}]}
+      if (Array.isArray(v.sentenceUpgrades)) {
+        if (!v.sentenceUpgrades.length) return _emptyShape();
+        return v.sentenceUpgrades.map(function (s) {
           return (
-            '<div class="item-row full">' +
-              '<strong>' + WC.escapeHtml(k) + ':</strong>' +
-              '<pre class="json-view">' + WC.escapeHtml(JSON.stringify(v, null, 2)) + '</pre>' +
+            '<div class="lexical-card">' +
+              '<div class="lexical-row">' +
+                '<span class="lexical-original">' + WC.escapeHtml(s.original   || '') + '</span>' +
+                '<span class="lexical-arrow">→</span>' +
+                '<span class="lexical-upgrade">'  + WC.escapeHtml(s.rewritten  || s.upgraded || '') + '</span>' +
+              '</div>' +
+              (s.explanation ? '<div class="lexical-explain">' + WC.escapeHtml(s.explanation) + '</div>' : '') +
             '</div>'
           );
+        }).join('');
+      }
+
+      // Phase 1.5c shape
+      var html = '';
+      if (v.summary) {
+        html += '<div class="prose-block">' + _renderString(String(v.summary)) + '</div>';
+      }
+
+      if (v.focus_theme && typeof v.focus_theme === 'object') {
+        var ft = v.focus_theme;
+        html += '<div class="focus-theme-card" style="margin-top:0.875rem;">' +
+          '<div class="focus-theme-eyebrow">⭐ Tâm điểm tuần này</div>' +
+          (ft.title ? '<h3 class="focus-theme-title">' + WC.escapeHtml(ft.title) + '</h3>' : '') +
+          (ft.why   ? '<p class="focus-theme-why">'    + WC.escapeHtml(ft.why)   + '</p>' : '') +
+          (ft.this_week_practice ?
+            '<div class="focus-theme-action">' +
+              '<span class="action-label">📝 Bài tập tuần này</span>' +
+              '<p>' + WC.escapeHtml(ft.this_week_practice) + '</p>' +
+            '</div>' : '') +
+        '</div>';
+      }
+
+      if (v.current_essay_observation) {
+        html += '<div class="callout-info" style="margin-top:0.875rem;">' +
+          '<span class="callout-label">📍 Quan sát bài này</span>' +
+          _renderString(String(v.current_essay_observation)) +
+        '</div>';
+      }
+
+      if (Array.isArray(v.common_issues) && v.common_issues.length) {
+        html += '<div style="margin-top:0.875rem;">' +
+          '<h4 class="subsection-heading">Lỗi phổ biến</h4>' +
+          '<div style="display:flex;flex-direction:column;gap:0.5rem;">' +
+            v.common_issues.map(function (i) {
+              var examples = Array.isArray(i.examples) ? i.examples : [];
+              return (
+                '<div class="issue-card">' +
+                  '<div class="issue-card-head">' +
+                    '<span class="issue-pattern">' + WC.escapeHtml(i.pattern || '—') + '</span>' +
+                    (i.count != null ? '<span class="issue-count">' + WC.escapeHtml(String(i.count)) + '×</span>' : '') +
+                  '</div>' +
+                  (examples.length ?
+                    '<ul class="issue-examples">' +
+                      examples.map(function (ex) { return '<li><code>' + WC.escapeHtml(String(ex)) + '</code></li>'; }).join('') +
+                    '</ul>' : '') +
+                '</div>'
+              );
+            }).join('') +
+          '</div>' +
+        '</div>';
+      }
+
+      if (v.complexity_indicator) {
+        html += '<div class="complexity-meter" style="margin-top:0.875rem;">' +
+          '<span class="complexity-label">Độ phức tạp:</span>' +
+          '<span class="complexity-value complexity-' + WC.escapeHtml(v.complexity_indicator) + '">' +
+            WC.escapeHtml(_complexityLabel(v.complexity_indicator)) +
+          '</span>' +
+        '</div>';
+      }
+
+      return html || _emptyShape();
+    }
+
+    // Section 8 — Coherence (array of {location, issue, explanation,
+    //   suggestion: {instruction, example} | string})
+    function _renderCoherenceAnalysis(v) {
+      if (_isEmpty(v)) return _emptyShape();
+      if (!Array.isArray(v)) return _emptyShape('— Định dạng dữ liệu không hợp lệ —');
+      return v.map(function (it) {
+        var sug = it.suggestion;
+        var sugHtml = '';
+        if (sug && typeof sug === 'object') {
+          var parts = [];
+          if (sug.instruction) parts.push(WC.escapeHtml(sug.instruction));
+          if (sug.example)     parts.push('<code>' + WC.escapeHtml(sug.example) + '</code>');
+          sugHtml = parts.join(' — ');
+        } else if (typeof sug === 'string') {
+          sugHtml = WC.escapeHtml(sug);
         }
         return (
-          '<div class="item-row">' +
-            '<strong>' + WC.escapeHtml(k) + ':</strong> ' +
-            WC.escapeHtml(v == null ? '' : String(v)) +
-          '</div>'
-        );
-      }).join('');
-      return '<div class="item-card">' + rows + '</div>';
-    }
-
-    function _renderArray(arr) {
-      if (arr.length === 0) {
-        return '<p class="empty">— Không có mục nào —</p>';
-      }
-      return arr.map(_renderItemCard).join('');
-    }
-
-    // Specialised: 4-IELTS-criteria block. Each criterion has a band
-    // score + explanation + feedback — render as four card-style
-    // blocks rather than a generic "object → JSON" dump.
-    function _renderCriteria(crit) {
-      var ORDER = [
-        { key: 'mainCriterion',     label: 'Task Response / Achievement' },
-        { key: 'coherenceCohesion', label: 'Coherence & Cohesion' },
-        { key: 'lexicalResource',   label: 'Lexical Resource' },
-        { key: 'grammaticalRange',  label: 'Grammatical Range' },
-      ];
-      return ORDER.map(function (c) {
-        var item = (crit && crit[c.key]) || {};
-        var band = item.bandScore != null ? item.bandScore : '—';
-        return (
-          '<div class="criterion-card">' +
-            '<div class="crit-head">' +
-              '<h3>' + WC.escapeHtml(item.title || c.label) + '</h3>' +
-              '<span class="band">' + WC.escapeHtml(String(band)) + '</span>' +
+          '<div class="coherence-card">' +
+            '<div class="coherence-card-head">' +
+              (it.location ? '<span class="coherence-location">' + WC.escapeHtml(it.location) + '</span>' : '') +
+              '<span class="coherence-issue">' + WC.escapeHtml(it.issue || '—') + '</span>' +
             '</div>' +
-            (item.explanation ? '<div class="explanation">' + WC.escapeHtml(item.explanation) + '</div>' : '') +
-            (item.feedback    ? '<div class="feedback">'    + WC.escapeHtml(item.feedback)    + '</div>' : '') +
+            (it.explanation ? '<div class="coherence-explain">' + WC.escapeHtml(it.explanation) + '</div>' : '') +
+            (sugHtml ? '<div class="coherence-suggest">→ ' + sugHtml + '</div>' : '') +
           '</div>'
         );
       }).join('');
     }
+
+    // Section 9 — Lexical (Phase 1: {wordsToUpgrade: [{originalWord,
+    //   suggestedUpgrade, explanation}]} OR Gemini variants).
+    function _renderLexicalAnalysis(v) {
+      if (_isEmpty(v)) return _emptyShape();
+      var words;
+      if (Array.isArray(v))                            words = v;
+      else if (Array.isArray(v.wordsToUpgrade))        words = v.wordsToUpgrade;
+      else if (Array.isArray(v.upgrades))              words = v.upgrades;
+      else                                              words = null;
+
+      if (!words || !words.length) return _emptyShape();
+
+      return words.map(function (w) {
+        var orig    = w.originalWord    || w.original  || w.word     || '';
+        var upgrade = w.suggestedUpgrade || w.upgrade  || w.suggestion || w.upgraded || '';
+        var explain = w.explanation     || w.context  || '';
+        return (
+          '<div class="lexical-card">' +
+            '<div class="lexical-row">' +
+              '<span class="lexical-original">' + WC.escapeHtml(orig) + '</span>' +
+              '<span class="lexical-arrow">→</span>' +
+              '<span class="lexical-upgrade">'  + WC.escapeHtml(upgrade) + '</span>' +
+            '</div>' +
+            (explain ? '<div class="lexical-explain">' + WC.escapeHtml(explain) + '</div>' : '') +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    // Section 10 — Idea Development (array of {paragraph, originalIdea,
+    //   issue, explanation, suggestion: {instruction, example} | string})
+    function _renderIdeaDevelopment(v) {
+      if (_isEmpty(v)) return _emptyShape();
+      if (!Array.isArray(v)) return _emptyShape('— Định dạng dữ liệu không hợp lệ —');
+      return v.map(function (it) {
+        var sug = it.suggestion;
+        var sugHtml = '';
+        if (sug && typeof sug === 'object') {
+          var parts = [];
+          if (sug.instruction) parts.push(WC.escapeHtml(sug.instruction));
+          if (sug.example)     parts.push('<code>' + WC.escapeHtml(sug.example) + '</code>');
+          sugHtml = parts.join(' — ');
+        } else if (typeof sug === 'string') {
+          sugHtml = WC.escapeHtml(sug);
+        }
+        return (
+          '<div class="idea-card">' +
+            '<div class="idea-card-head">' +
+              (it.paragraph != null ? '<span class="idea-paragraph-tag">¶ ' + WC.escapeHtml(String(it.paragraph)) + '</span>' : '') +
+              '<span class="idea-issue">' + WC.escapeHtml(it.issue || '—') + '</span>' +
+            '</div>' +
+            (it.originalIdea ? '<div class="idea-row"><strong>Ý gốc:</strong> ' + WC.escapeHtml(it.originalIdea) + '</div>' : '') +
+            (it.explanation  ? '<div class="idea-row"><strong>Giải thích:</strong> ' + WC.escapeHtml(it.explanation) + '</div>' : '') +
+            (sugHtml         ? '<div class="idea-row"><strong>Gợi ý:</strong> ' + sugHtml + '</div>' : '') +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    // Section 11 — Counterargument ({isPresent, feedback, suggestion,
+    //   context}). W3.3 patch: Gemini sometimes returns a hallucinated
+    //   shape — be permissive about extra/missing keys.
+    function _renderCounterargument(v) {
+      if (_isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return _emptyShape();
+      var present = !!v.isPresent;
+      var pillCls = present ? 'present' : 'absent';
+      var pillLbl = present ? '✓ Có counterargument' : '⚠ Không có counterargument';
+      var html = '<div class="counter-block">' +
+        '<div class="counter-status">' +
+          '<span class="counter-pill ' + pillCls + '">' + pillLbl + '</span>' +
+        '</div>';
+      if (v.context)    html += '<div class="prose-block" style="margin-bottom:0.5rem;">' + _renderString(String(v.context)) + '</div>';
+      if (v.feedback)   html += '<div class="prose-block">' + _renderString(String(v.feedback)) + '</div>';
+      if (v.suggestion) html += '<div class="callout-action" style="margin-top:0.625rem;"><span class="callout-label">💡 Gợi ý</span>' + _renderString(typeof v.suggestion === 'string' ? v.suggestion : (v.suggestion.instruction || '')) + '</div>';
+      html += '</div>';
+      return html;
+    }
+
+    // Section 12 — Improved essay (string)
+    function _renderImprovedEssay(v) {
+      if (_isEmpty(v) || typeof v !== 'string') return _emptyShape();
+      // Plain pre-style block — preserves whitespace from the AI output.
+      return '<div class="essay-improved-block">' + WC.escapeHtml(v) + '</div>';
+    }
+
+    // Section 13 — AI Content (likelihood: int 0-100, explanation: str)
+    function _renderAIContent(v) {
+      if (_isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return _emptyShape();
+      var lik = parseFloat(v.likelihood);
+      if (isNaN(lik)) lik = 0;
+      // Schema is 0-100 (per Pydantic). Defensive: also accept 0-1.
+      if (lik > 0 && lik <= 1) lik = lik * 100;
+      lik = Math.max(0, Math.min(100, lik));
+      var fillCls = lik >= 70 ? 'likelihood-high' : (lik >= 30 ? 'likelihood-mid' : 'likelihood-low');
+
+      var html = '<div class="likelihood-row">' +
+        '<span class="likelihood-label">Xác suất AI viết</span>' +
+        '<div class="likelihood-track"><div class="likelihood-fill ' + fillCls + '" style="width:' + lik.toFixed(0) + '%;"></div></div>' +
+        '<span class="likelihood-pct">' + lik.toFixed(0) + '%</span>' +
+      '</div>';
+      if (v.explanation) {
+        html += '<div class="prose-block" style="margin-top:0.5rem;">' + _renderString(String(v.explanation)) + '</div>';
+      }
+      return html;
+    }
+
+    // Section 14 — Key takeaways ({strengths, areasForImprovement})
+    function _renderKeyTakeaways(v) {
+      if (_isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return _emptyShape();
+
+      function _list(items) {
+        if (!items || (Array.isArray(items) && items.length === 0)) {
+          return '<p class="empty-state">— —</p>';
+        }
+        if (typeof items === 'string') {
+          return '<p style="font-size:13px;color:#cbd5e1;">' + WC.escapeHtml(items) + '</p>';
+        }
+        return '<ul class="takeaway-list">' +
+          items.map(function (i) { return '<li>' + WC.escapeHtml(String(i)) + '</li>'; }).join('') +
+        '</ul>';
+      }
+
+      return '<div class="takeaway-grid">' +
+        '<div class="takeaway-block takeaway-success">' +
+          '<h4 class="takeaway-heading">✓ Điểm mạnh</h4>' +
+          _list(v.strengths) +
+        '</div>' +
+        '<div class="takeaway-block takeaway-warning">' +
+          '<h4 class="takeaway-heading">↻ Cần cải thiện</h4>' +
+          _list(v.areasForImprovement) +
+        '</div>' +
+      '</div>';
+    }
+
+    // Dispatch table — section ID → renderer.  Adding a new section
+    // means: (a) new <section> in HTML, (b) entry in SECTION_KEYS,
+    // (c) entry here. No generic fallback path exists on purpose: a
+    // missing renderer surfaces as the empty state, not raw JSON.
+    var SECTION_RENDERERS = {
+      'overview':           _renderOverview,
+      'criteria':           _renderCriteriaFeedback,
+      'mistakes':           _renderMistakeAnalysis,
+      'recurring':          _renderRecurringPatterns,
+      'trajectory':         _renderBandTrajectory,
+      'sentence-structure': _renderSentenceStructure,
+      'coherence':          _renderCoherenceAnalysis,
+      'lexical':            _renderLexicalAnalysis,
+      'idea-development':   _renderIdeaDevelopment,
+      'counterargument':    _renderCounterargument,
+      'improved':           _renderImprovedEssay,
+      'ai-content':         _renderAIContent,
+      'key-takeaways':      _renderKeyTakeaways,
+    };
 
     function renderSection(sectionKey, value) {
       var contentEl = document.getElementById('content-' + sectionKey);
       if (!contentEl) return;
-
-      // Empty / null / undefined.
-      if (_isEmpty(value)) {
-        contentEl.innerHTML = _emptyHtml();
+      var renderer = SECTION_RENDERERS[sectionKey];
+      if (!renderer) {
+        // Unknown section: fall back to an explicit empty state so a
+        // future renderer-less section surfaces visually rather than
+        // leaking the raw payload (anti-JSON-dump invariant).
+        contentEl.innerHTML = _emptyShape('— Renderer chưa được implement —');
         return;
       }
-
-      // Specialised: 4 IELTS criteria → coloured cards.
-      if (sectionKey === 'criteria') {
-        contentEl.innerHTML = _renderCriteria(value);
-        return;
+      try {
+        contentEl.innerHTML = renderer(value);
+      } catch (err) {
+        // Defensive: a hallucinated Gemini shape that breaks one
+        // renderer must NOT take down the rest of the page. Surface
+        // a soft error in the section and continue.
+        if (window.console) console.error('[grade] renderer failed for', sectionKey, err);
+        contentEl.innerHTML = _emptyShape('— Lỗi render section: ' + (err.message || err) + ' —');
       }
-
-      // Strings → escaped paragraphs.
-      if (typeof value === 'string') {
-        contentEl.innerHTML = _renderString(value);
-        return;
-      }
-
-      // Arrays → cards (mistakes, coherenceAnalysis items, etc.).
-      if (Array.isArray(value)) {
-        contentEl.innerHTML = _renderArray(value);
-        return;
-      }
-
-      // Objects with an empty array shape from a Level 1 grade —
-      // surface as empty rather than dumping `{}` raw.
-      if (typeof value === 'object') {
-        contentEl.innerHTML = _renderObjectGeneric(value);
-        return;
-      }
-
-      // Fallback (number / bool).
-      contentEl.innerHTML = '<p>' + WC.escapeHtml(String(value)) + '</p>';
     }
 
     function renderInstructorNote(note) {
