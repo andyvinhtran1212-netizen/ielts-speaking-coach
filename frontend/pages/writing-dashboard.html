@@ -947,22 +947,43 @@
     });
 
     // ── Sprint 2.6.1 — wire the submit modal ─────────────────────────
-    (function wireModal() {
+    //
+    // Sprint 2.6.1.1 hotfix: the modal markup lives BELOW the
+    // closing </script> tag in source order, so the wireModal
+    // body MUST run after DOMContentLoaded — when this script
+    // executes inline, getElementById('modal-close') resolves to
+    // null, .addEventListener crashes, the exception halts the
+    // rest of the script, and main() never runs.  That's how
+    // production canary 2026-05-07 ended up stuck on "Đang tải…".
+    //
+    // The defensive null guards below are belt-and-braces — once
+    // DOMContentLoaded has fired all the lookups should resolve,
+    // but a future regression that strips one element from the
+    // modal markup will then surface as "feature missing" rather
+    // than "whole page broken".
+    function wireModal() {
       var textarea = document.getElementById('modal-essay-textarea');
+      var closeBtn = document.getElementById('modal-close');
+      if (!textarea || !closeBtn) {
+        // Modal markup not in DOM yet (or a refactor stripped an
+        // id) — bail rather than crash. main() still runs.
+        console.warn('[wireModal] modal markup missing, skipping wire-up');
+        return;
+      }
 
       // Close button: save draft first (best-effort, fire-and-forget
       // so close feels instant), then teardown.
-      document.getElementById('modal-close').addEventListener('click', function () {
-        if (textarea && textarea.value && modalState.assignmentId) {
+      closeBtn.addEventListener('click', function () {
+        if (textarea.value && modalState.assignmentId) {
           saveDraft();  // unawaited intentionally
         }
         closeModal();
       });
 
-      document.getElementById('modal-btn-save')
-        .addEventListener('click', function () { saveDraft(); });
-      document.getElementById('modal-btn-submit')
-        .addEventListener('click', function () { submitFromModal(false); });
+      var saveBtn   = document.getElementById('modal-btn-save');
+      var submitBtn = document.getElementById('modal-btn-submit');
+      if (saveBtn)   saveBtn.addEventListener('click',   function () { saveDraft(); });
+      if (submitBtn) submitBtn.addEventListener('click', function () { submitFromModal(false); });
 
       textarea.addEventListener('input', function () {
         updateModalWordCount();
@@ -972,7 +993,8 @@
 
       // Phase 2.3c-2 file upload — same contract as before, just
       // re-wired against the modal's hidden file input.
-      document.getElementById('modal-file-input').addEventListener('change', async function (ev) {
+      var fileInput = document.getElementById('modal-file-input');
+      if (fileInput) fileInput.addEventListener('change', async function (ev) {
         var file = ev.target.files && ev.target.files[0];
         if (!file) return;
 
@@ -1009,7 +1031,19 @@
           ev.target.value = '';
         }
       });
-    })();
+    }
+
+    // The modal markup lives below </script> in source order — gate
+    // the wire-up on DOMContentLoaded so getElementById finds the
+    // freshly-parsed elements. If the script is loaded after the
+    // body has already finished parsing (defer / module / late
+    // injection scenario), we run wireModal immediately so the
+    // listener doesn't sit waiting on an event that already fired.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', wireModal);
+    } else {
+      wireModal();
+    }
 
     // ── Logout ──────────────────────────────────────────────────────
     document.getElementById('logout-btn').addEventListener('click', async function () {
