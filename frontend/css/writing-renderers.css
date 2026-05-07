@@ -233,6 +233,14 @@
 .counter-pill.present { background: rgba(16,185,129,0.18); color: #34d399; }
 .counter-pill.absent  { background: rgba(245,158,11,0.18); color: #fbbf24; }
 
+/* Counterargument context + suggestion sub-shapes (Sprint 2.5.6) */
+.ctx           { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
+.ctx-row       { margin-bottom: 0.25rem; }
+.ctx-label     { color: #9ca3af; font-weight: 600; font-size: 12px; margin-right: 0.25rem; }
+.sug-instruction { color: #e2e8f0; font-size: 13.5px; line-height: 1.6; margin-bottom: 0.375rem; }
+.sug-example     { color: #cbd5e1; font-size: 13px; line-height: 1.55; }
+.sug-label       { color: #14b8a6; font-weight: 600; font-size: 12px; margin-right: 0.25rem; }
+
 /* Lexical word-upgrade rows */
 .lexical-card {
   background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);

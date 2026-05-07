@@ -473,6 +473,12 @@
   }
 
   // ── Section 10 — Counterargument ──────────────────────────────────
+  // Sprint 2.5.6 hotfix: handle BOTH string + object shapes for `context`
+  // and `suggestion` so the canonical `{insertionPoint, reasoning}` /
+  // `{instruction, example}` shapes don't render as `[object Object]` or
+  // silently drop the `example` field. Pre-hotfix, `String(v.context)`
+  // on a `{insertionPoint, reasoning}` object literally produced
+  // "[object Object]" in the rendered DOM (Codex audit AMBER, 2026-05-07).
   function renderCounterargument(v) {
     if (isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return emptyShape();
     var present = !!v.isPresent;
@@ -482,9 +488,38 @@
       '<div class="counter-status">' +
         '<span class="counter-pill ' + pillCls + '">' + pillLbl + '</span>' +
       '</div>';
-    if (v.context)    html += '<div class="prose-block" style="margin-bottom:0.5rem;">' + renderString(String(v.context)) + '</div>';
+
+    // Context — string OR {insertionPoint, reasoning} object.
+    if (v.context) {
+      if (typeof v.context === 'string') {
+        html += '<div class="prose-block" style="margin-bottom:0.5rem;">' + renderString(v.context) + '</div>';
+      } else if (typeof v.context === 'object') {
+        var ip = v.context.insertionPoint;
+        var rs = v.context.reasoning;
+        if (ip || rs) {
+          html += '<div class="ctx" style="margin-bottom:0.5rem;">';
+          if (ip) html += '<div class="ctx-row"><span class="ctx-label">Vị trí chèn:</span> ' + escapeHtml(String(ip)) + '</div>';
+          if (rs) html += '<div class="ctx-row"><span class="ctx-label">Lý do:</span> ' + escapeHtml(String(rs)) + '</div>';
+          html += '</div>';
+        }
+      }
+    }
+
     if (v.feedback)   html += '<div class="prose-block">' + renderString(String(v.feedback)) + '</div>';
-    if (v.suggestion) html += '<div class="callout-action" style="margin-top:0.625rem;"><span class="callout-label">💡 Gợi ý</span>' + renderString(typeof v.suggestion === 'string' ? v.suggestion : (v.suggestion.instruction || '')) + '</div>';
+
+    // Suggestion — string OR {instruction, example} object.
+    if (v.suggestion) {
+      html += '<div class="callout-action" style="margin-top:0.625rem;"><span class="callout-label">💡 Gợi ý</span>';
+      if (typeof v.suggestion === 'string') {
+        html += renderString(v.suggestion);
+      } else if (typeof v.suggestion === 'object') {
+        var instr = v.suggestion.instruction;
+        var example = v.suggestion.example;
+        if (instr) html += '<div class="sug-instruction">' + escapeHtml(String(instr)) + '</div>';
+        if (example) html += '<div class="sug-example"><span class="sug-label">Ví dụ:</span> ' + escapeHtml(String(example)) + '</div>';
+      }
+      html += '</div>';
+    }
     html += '</div>';
     return html;
   }
