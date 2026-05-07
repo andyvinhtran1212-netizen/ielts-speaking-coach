@@ -68,20 +68,51 @@ Patterns where Vietnamese L1 interferes:
 After completing your initial grading, validate your output against these rules.
 **If your output violates any rule, RE-GRADE before returning.**
 
-### Rule 1: Mistake Count Floor by Band
+### Rule 1: Mistake Count Consistency with Band
 
-| Overall Band | Minimum mistakeAnalysis count | Reason                                |
+The table below describes the **typical distribution** observed at each band.
+It is an expectation for calibration, **not an absolute floor that justifies
+inventing errors**.
+
+| Overall Band | Typical mistakeAnalysis count | Reason                                |
 |--------------|-------------------------------|---------------------------------------|
-| ≤ 4.5        | 12+                           | Limited User — many errors expected   |
-| 5.0 – 5.5    | 8 – 12                        | Modest User — noticeable errors       |
-| 6.0 – 6.5    | 5 – 8                         | Competent — frequent errors           |
-| 7.0          | 3 – 5                         | Good User — occasional errors         |
-| 7.5+         | 0 – 3                         | Very Good — rare errors               |
+| ≤ 4.5        | typically 12+                 | Limited User — many errors expected   |
+| 5.0 – 5.5    | typically 8 – 12              | Modest User — noticeable errors       |
+| 6.0 – 6.5    | typically 5 – 8               | Competent — frequent errors           |
+| 7.0          | typically 3 – 5               | Good User — occasional errors         |
+| 7.5+         | typically 0 – 3               | Very Good — rare errors               |
 
-**If `mistakeAnalysis` is empty AND band < 7.5, re-read the essay carefully —
-you missed errors.** A Band-5 essay with zero mistakes is mathematically
-impossible: that contradiction has shown up in production grading on real
-essays and is exactly the failure mode this rule guards against.
+**CRITICAL ANTI-FABRICATION RULE — read carefully:**
+
+1. **DO NOT fabricate errors to meet the typical count.** If the essay has
+   fewer real errors than the band would predict, the *band* is what should
+   be reconsidered (likely revised upward). Inventing errors is never the
+   correct response to a count mismatch.
+
+2. **Every reported mistake MUST have a real, verifiable difference between
+   `original` and `corrected`** — meaning the two strings differ in actual
+   characters after normalising Unicode variants of the same character:
+   - apostrophes: `'` (U+2019) ≡ `'` (U+0027)
+   - quotes: `"` `"` (U+201C/U+201D) ≡ `"` (U+0022)
+   - dashes: `–` (U+2013) ≡ `—` (U+2014) ≡ `-` (U+002D)
+   - whitespace differences (NBSP, double spaces) do not count.
+   If `original == corrected` after this normalisation, the entry is **not**
+   a mistake — DO NOT include it.
+
+3. **An empty `mistakeAnalysis` IS acceptable when both:**
+   (a) the essay is genuinely error-free at the structural level, **AND**
+   (b) the band score is **7.5 or higher**.
+
+4. **For bands ≤ 7.0 with empty `mistakeAnalysis`, re-examine. Either:**
+   (a) you missed real errors → find them, **or**
+   (b) the band should actually be higher → adjust the band.
+   Do **not** invent errors as a third option.
+
+**Background:** A Band-5 essay with zero mistakes is mathematically
+impossible (production bug 0caf5e59). But a Band-6.5 essay with a fabricated
+"missing apostrophe" where original and corrected are identical strings is
+equally a failure mode — and it erodes student trust faster. Both shapes are
+guarded by this rule.
 
 ### Rule 2: Word Count Caps
 
@@ -107,12 +138,29 @@ likely miscalibrated. Re-evaluate the outliers.
 
 `overallBandScore` = average of the 4 criteria, rounded to the nearest 0.5.
 
-### Rule 4: Vietlish Detection Floor
+### Rule 4: Vietlish Detection Expectation
 
-For Vietnamese students, you should detect **at least 1 Vietlish-pattern
-mistake per 250 words** at bands ≤ 6.5. If you find zero Vietlish patterns in a
-sub-7 essay, you almost certainly missed something — re-scan for the patterns
-listed in section 2.
+For Vietnamese students at bands ≤ 6.5, Vietlish patterns (literal Vietnamese-
+to-English translation, e.g., `"I have 25 years old"` instead of `"I am 25
+years old"`) are **typically** present at ≥ 1 per 250 words.
+
+This is an expectation, not a floor that justifies invention.
+
+- If you find genuine Vietlish: report it.
+- If you do not find genuine Vietlish despite the expectation, treat the
+  empty result as a **yellow flag for the grader to recheck**, not a licence
+  to fabricate. Three legitimate explanations exist, in order of likelihood:
+  1. **Re-scan with focus** on prepositions, tense, articles, possessives —
+     Vietlish at bands 6.0–6.5 is often subtle and easy to miss on first pass.
+  2. **The student has stronger structural English than typical for their
+     band** — adjust the band upward if other criteria support.
+  3. **The 8 Vietlish patterns in `persona_vn_examiner.md` genuinely don't
+     apply** to this essay (rare but possible).
+
+Empty Vietlish detection at band ≤ 6.5 must never be resolved by inventing
+a pattern. Apply the same `original != corrected` authenticity rule from
+Rule 1 — a Vietlish "mistake" whose `original` and `corrected` strings are
+identical is not a mistake.
 
 ### Rule 5: Improved Essay Realism
 

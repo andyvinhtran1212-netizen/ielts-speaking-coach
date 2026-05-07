@@ -286,8 +286,11 @@ async def test_grade_essay_picks_up_version_change_without_restart(
     # Same grader instance, but next call must pick up v2.
     with patch.object(grader, "_call_with_retry", return_value=(json_payload, usage)):
         result_v2 = await grader.grade_essay(config)
-    assert result_v2.prompt_version == "v2.0", (
-        f"Expected v2.0 after env flip, got {result_v2.prompt_version}. "
+    # Stamp value moved to v2.1 in Sprint 2.6.2 (anti-fabrication tuning);
+    # the env-flip behaviour pinned by this test is independent of which
+    # specific stamp v2 maps to today.
+    assert result_v2.prompt_version == "v2.1", (
+        f"Expected v2.1 after env flip, got {result_v2.prompt_version}. "
         f"Likely regression: grader cached loader at __init__."
     )
 
@@ -314,9 +317,11 @@ async def test_grade_essay_stamp_matches_loader_used(
         result = await grader.grade_essay(config)
 
     # Stamp must equal the v2 loader's PROMPT_VERSION property — not
-    # whatever the env happens to read at stamping time.
+    # whatever the env happens to read at stamping time. The current
+    # stamp is "v2.1" (Sprint 2.6.2 anti-fabrication tuning); the
+    # property-equality assertion above survives any future bump.
     assert result.prompt_version == wpl.get_prompt_loader(version="v2").PROMPT_VERSION
-    assert result.prompt_version == "v2.0"
+    assert result.prompt_version == "v2.1"
 
 
 def test_build_user_prompt_injects_trajectory_when_present(grader):

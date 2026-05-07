@@ -76,19 +76,27 @@ def test_v2_includes_band_descriptors():
 
 
 def test_v2_includes_validation_rules():
-    """v2 strict grammar check ships 5 validation rules. Rule 1 (mistake
-    count floor) is the headline fix for the production zero-mistake-Band-5
-    bug; the others guard band consistency, word-count caps, Vietlish
-    floor, and improved-essay realism."""
+    """v2 strict grammar check ships 5 validation rules. Sprint 2.6.2
+    rewrote Rule 1 + Rule 4 from MUST/floor wording to typical-distribution
+    + anti-fabrication wording (the floor wording was pressuring the model
+    to invent errors at band 6.5 — production canary 2026-05-07). Both
+    rules MUST still exist; this test pins the new headings + the
+    anti-fabrication marker so a future regression that re-introduces a
+    blunt floor (or strips a rule outright) surfaces here."""
     loader = WritingPromptLoader(version="v2")
     prompt = loader.load(level=2, form_of_address="em")
 
     assert "Validation Rules" in prompt
-    assert "Mistake Count Floor by Band" in prompt
+    assert "Mistake Count Consistency with Band" in prompt
     assert "Word Count Caps" in prompt
     assert "Band Consistency" in prompt
-    assert "Vietlish Detection Floor" in prompt
+    assert "Vietlish Detection Expectation" in prompt
     assert "Improved Essay Realism" in prompt
+    # Sprint 2.6.2 anti-fabrication marker must be present, otherwise the
+    # 2.6.2 tuning has been stripped and Rule 1 reverted to a blunt floor
+    # that re-enables the apostrophe-fabrication bug.
+    assert "ANTI-FABRICATION" in prompt
+    assert "DO NOT fabricate errors" in prompt
 
 
 def test_v2_includes_chain_of_thought():
@@ -138,12 +146,14 @@ def test_v2_form_of_address_substitution():
         )
 
 
-def test_v2_prompt_version_stamp_is_v2_dot_0():
-    """v2 stamps 'v2.0' onto writing_feedback.prompt_version. Andy's A/B
-    SQL filters by this exact string — pin it so a directory-name change
-    doesn't drift the persisted stamp."""
+def test_v2_prompt_version_stamp_is_v2_dot_1():
+    """Sprint 2.6.2 bumped the v2 stamp 'v2.0' → 'v2.1' to mark the
+    anti-fabrication tuning of Rule 1 + Rule 4 + CoT Step 6. Andy's
+    A/B SQL filters by this exact string — pin it so a future
+    directory-name change or accidental revert doesn't drift the
+    persisted stamp. Pre-tuning canary rows remain stamped 'v2.0'."""
     loader = WritingPromptLoader(version="v2")
-    assert loader.PROMPT_VERSION == "v2.0"
+    assert loader.PROMPT_VERSION == "v2.1"
 
 
 def test_v2_l1_calibration_pins_mistake_floor():

@@ -189,8 +189,42 @@ Cross-check: does overall feel right when you re-read holistically? If gap of
 >1 band between overall and your gut, recalibrate.
 
 ### Step 6: Apply validation rules
-Run through Rules 1–5 from `strict_grammar_check.md`. If any rule violated,
-regrade the affected sections.
+
+#### 6.1: Mistake authenticity check (run FIRST)
+
+For every entry in `mistakeAnalysis`:
+
+1. Compare `original` and `suggestion` character-by-character.
+2. Normalise Unicode variants of the same character before comparing:
+   - apostrophes `'` (U+2019) ≡ `'` (U+0027)
+   - quotes `"` `"` ≡ `"`
+   - dashes `–` ≡ `—` ≡ `-`
+   - whitespace differences (NBSP, double spaces, leading/trailing spaces).
+3. **If `original == suggestion` after normalisation: REMOVE this entry.**
+   It is not a real mistake — the strings are identical.
+4. If `original` differs only in whitespace: REMOVE this entry.
+
+This step is the post-grading authenticity gate. It must run before 6.2.
+
+#### 6.2: Mistake count vs band consistency (run SECOND)
+
+After 6.1 cleanup, check the count against Rule 1's typical distribution.
+
+- If the count is now lower than typical for the band: **adjust the band
+  upward**, do not re-add mistakes.
+- Never re-add a mistake that was removed in 6.1.
+- The cleanup in 6.1 is final.
+
+#### 6.3: Apply remaining validation rules
+
+Run through Rules 2–5 from `strict_grammar_check.md` (Word Count Caps, Band
+Consistency, Vietlish Detection Expectation, Improved Essay Realism). For
+Rule 4 (Vietlish), apply the same `original != corrected` authenticity test
+from 6.1 — Vietlish entries with identical original and corrected text must
+also be removed.
+
+If any rule is violated after 6.1 cleanup, regrade the affected sections —
+**but never by re-adding the mistakes removed in 6.1.**
 
 ### Step 7: Generate level-appropriate sections
 Based on the level (L1–L5), populate only the required sections. Set unused
@@ -208,14 +242,16 @@ If any answer is "no", revise.
 
 Before returning the JSON, mentally verify:
 
-- [ ] `mistakeAnalysis` count meets minimum for band (Rule 1)
+- [ ] **Every `mistakeAnalysis` entry has `original != suggestion` after Unicode normalisation (Step 6.1)** — no entry where the two strings are identical
+- [ ] `mistakeAnalysis` count is consistent with band per Rule 1's typical distribution; if not, the band has been adjusted (not the mistake list re-padded)
 - [ ] Word count cap applied (Rule 2)
 - [ ] 4 criteria scores within 1.5 of each other (Rule 3)
-- [ ] At least 1 Vietlish pattern detected if band ≤ 6.5 (Rule 4)
+- [ ] Vietlish detection at band ≤ 6.5 reflects genuine patterns only — empty Vietlish has been resolved by re-scan or band adjustment, never by invention (Rule 4)
 - [ ] Improved essay at most 1.5 bands above student (Rule 5)
 - [ ] Every mistake has: `original`, `mistakeType`, `explanation` (Vietnamese), `suggestion`, `criterion`
 - [ ] Every criteria item has: `title`, `bandScore` (0-9), `explanation` (Vietnamese), `feedback` (Vietnamese)
 - [ ] Vietnamese feedback uses "{{FORM_OF_ADDRESS}}" consistently
 - [ ] No section is an empty array `[]` when it should be `null` (per level)
 
-If any item fails check, REGRADE before returning.
+If any item fails check, REGRADE before returning — but never re-add a
+mistake removed in Step 6.1 to satisfy Rule 1.
