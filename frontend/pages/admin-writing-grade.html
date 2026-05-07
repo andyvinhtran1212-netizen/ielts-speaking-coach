@@ -9,222 +9,428 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
-    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 6px 10px; width: 100%; font-size: 14px; }
-    .input:focus { outline: none; border-color: #14b8a6; }
-    textarea.input { font-family: 'Inter', ui-sans-serif, system-ui; resize: vertical; }
-    .btn-primary   { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
-    .btn-primary:hover { background: #0d9488; }
-    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
-    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; padding: 7px 12px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.10); font-weight: 500; font-size: 13px; }
-    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
-    .btn-success   { background: rgba(34,197,94,0.18); color: #86efac; border: 1px solid rgba(34,197,94,0.30); padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 13px; }
-    .btn-success:hover { background: rgba(34,197,94,0.28); }
-    .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; }
-    .essay-pane mark { background: rgba(254,243,199,0.85); color: #1e293b; padding: 0 2px; border-radius: 2px; cursor: pointer; }
-    .essay-pane mark:hover { background: rgba(251,191,36,0.95); }
-    .essay-pane p { margin: 8px 0; line-height: 1.55; }
-    /* Keep scroll-to-mark inside the essay pane so the mistakes table on
-       the right stays visible while the user is jumping between rows. */
-    .essay-pane #essay-text { max-height: 70vh; overflow-y: auto; padding-right: 6px; }
-    /* Tab nav */
-    .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.10); margin-top: 12px; }
-    .tab-btn { background: transparent; color: rgba(255,255,255,0.55); border: 0; padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-    .tab-btn:hover { color: #e2e8f0; }
-    .tab-btn.active { color: #14b8a6; border-bottom-color: #14b8a6; }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-    /* Click-to-scroll pulse on mistakes (W3.2 P2) */
-    .mistakes-panel tr[data-mistake-id] { cursor: pointer; }
-    .mistakes-panel tr[data-mistake-id]:hover { background: rgba(255,255,255,0.04); }
-    .mistakes-panel tr.row-active { background: rgba(20,184,166,0.10); }
-    @keyframes pulseYellow {
-      0%   { background: rgba(254,243,199,0.85); box-shadow: none; }
-      35%  { background: rgba(251,191,36,1);     box-shadow: 0 0 0 4px rgba(251,191,36,0.45); }
-      100% { background: rgba(254,243,199,0.85); box-shadow: none; }
+    /* Sprint 2.5.1 — full layout rewrite. Replaces the prior 5-tab
+       horizontal nav with a 3-column shell: sticky header + sticky
+       left nav + scrollable right content carrying all 15 sections
+       on a single page. */
+    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; margin: 0; }
+    .hidden { display: none !important; }
+
+    /* ── Sticky 2-row header ─────────────────────────────────────── */
+    .grade-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(8, 24, 41, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 0.625rem 1.25rem;
+      display: flex; gap: 1rem;
+      align-items: center; justify-content: space-between; flex-wrap: wrap;
     }
-    .essay-pane mark.pulse { animation: pulseYellow 1.6s ease-out; }
-    .label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
-    table.mistakes { width: 100%; border-collapse: collapse; }
-    table.mistakes th, table.mistakes td { border: 1px solid rgba(255,255,255,0.08); padding: 6px 8px; vertical-align: top; font-size: 13px; }
-    table.mistakes th { background: rgba(255,255,255,0.04); font-weight: 500; color: rgba(255,255,255,0.6); text-align: left; }
-    .read-only-block { background: rgba(255,255,255,0.02); border-left: 3px solid rgba(20,184,166,0.4); padding: 8px 12px; margin: 8px 0; font-size: 13px; color: rgba(255,255,255,0.7); }
-    /* Phase 2.5 — instructor view affordances */
-    .badge-manual-edit { display: inline-flex; align-items: center; gap: 4px; background: rgba(245,158,11,0.18); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-    .badge-regraded    { display: inline-flex; align-items: center; gap: 4px; background: rgba(99,102,241,0.18); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-    .btn-regrade { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); padding: 7px 12px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; }
-    .btn-regrade:hover { background: rgba(245,158,11,0.25); }
-    .btn-regrade:disabled { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.10); cursor: not-allowed; }
-    .instructor-note-card { border-left: 3px solid rgba(99,102,241,0.5); }
+    .header-left { flex: 1 1 360px; min-width: 0; display: flex; align-items: center; gap: 0.875rem; }
+    .back-link { color: rgba(255,255,255,0.45); font-size: 0.85rem; font-weight: 500; text-decoration: none; flex-shrink: 0; }
+    .back-link:hover { color: #14b8a6; }
+    .essay-meta h1 { font-size: 1rem; font-weight: 600; color: #e2e8f0; line-height: 1.3; }
+    .meta-line { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 0.125rem; line-height: 1.4; }
+    .meta-line .separator { margin: 0 0.4rem; opacity: 0.5; }
+    .band-score { color: #14b8a6; font-weight: 600; }
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); }
+    .badge-manual    { background: rgba(245,158,11,0.18); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-regraded  { background: rgba(99,102,241,0.18); color: #a5b4fc; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .header-actions  { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+    .btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 6px 11px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+    .btn:hover { background: rgba(255,255,255,0.1); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary  { background: #0f766e; border-color: #0f766e; color: #f0fdfa; }
+    .btn-primary:hover { background: #115e59; }
+    .btn-success  { background: rgba(34,197,94,0.16); border-color: rgba(34,197,94,0.3); color: #86efac; }
+    .btn-success:hover { background: rgba(34,197,94,0.26); }
+    .btn-warn     { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #fbbf24; }
+    .btn-warn:hover { background: rgba(245,158,11,0.25); }
+    .btn-dirty    { background: #f59e0b; border-color: #f59e0b; color: #1e1b4b; }
+    .btn-dirty:hover { background: #d97706; }
+    #last-saved   { font-size: 11px; color: rgba(255,255,255,0.4); }
+
+    /* ── 3-column body shell ─────────────────────────────────────── */
+    .grade-body  { display: flex; flex: 1; min-height: 0; align-items: flex-start; }
+    .grade-nav   {
+      width: 232px; flex-shrink: 0;
+      background: rgba(8, 24, 41, 0.5);
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 1.125rem 0.625rem;
+      position: sticky; top: 64px;
+      max-height: calc(100vh - 64px);
+      overflow-y: auto;
+    }
+    .nav-link {
+      display: block; padding: 0.45rem 0.7rem;
+      margin-bottom: 0.125rem;
+      border-radius: 6px; text-decoration: none;
+      color: rgba(255,255,255,0.55); font-size: 13px; line-height: 1.3;
+      transition: background 0.12s, color 0.12s;
+    }
+    .nav-link:hover    { background: rgba(255,255,255,0.05); color: #e5e7eb; }
+    .nav-link.is-active{ background: rgba(15,118,110,0.18); color: #14b8a6; font-weight: 500; }
+    .grade-content { flex: 1; padding: 1.75rem 2rem 4rem; max-width: 920px; min-width: 0; }
+    #alert-area { margin-bottom: 0.75rem; }
+
+    /* ── Section card ────────────────────────────────────────────── */
+    .grade-section { margin-bottom: 2.75rem; scroll-margin-top: 80px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding-bottom: 0.5rem; margin-bottom: 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .section-header h2 { font-size: 1.1rem; font-weight: 600; color: #e2e8f0; }
+    .btn-edit { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); padding: 4px 10px; border-radius: 4px; font-size: 11.5px; cursor: pointer; }
+    .btn-edit:hover { background: rgba(255,255,255,0.05); color: #e5e7eb; }
+
+    .section-content { color: #e5e7eb; font-size: 14.5px; line-height: 1.6; }
+    .section-content p { margin-bottom: 0.5rem; }
+    .section-content .empty { color: rgba(255,255,255,0.4); font-style: italic; }
+
+    .item-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 0.75rem 0.875rem;
+      margin-bottom: 0.625rem;
+    }
+    .item-row { font-size: 13px; line-height: 1.6; margin-bottom: 0.25rem; }
+    .item-row strong { color: rgba(255,255,255,0.55); font-weight: 500; min-width: 110px; display: inline-block; }
+    .item-row.full { display: block; }
+    .item-row.full strong { display: block; margin-bottom: 0.125rem; }
+
+    .object-row { padding: 0.625rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .object-row:last-child { border-bottom: none; }
+    .object-key { color: rgba(255,255,255,0.5); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; margin-bottom: 0.25rem; }
+
+    .json-view {
+      background: rgba(0,0,0,0.35); padding: 0.625rem 0.75rem;
+      border-radius: 6px; font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 12px; line-height: 1.5; color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 320px; overflow-y: auto;
+    }
+
+    .essay-original {
+      background: rgba(0,0,0,0.3); padding: 1rem 1.125rem;
+      border-radius: 8px; white-space: pre-wrap;
+      font-size: 14px; line-height: 1.6; color: #cbd5e1;
+      max-height: 480px; overflow-y: auto;
+    }
+
+    .criterion-card {
+      background: rgba(255,255,255,0.03);
+      border-left: 3px solid #14b8a6;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.625rem;
+    }
+    .criterion-card .crit-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.375rem; }
+    .criterion-card h3 { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+    .criterion-card .band { font-size: 18px; font-weight: 700; color: #14b8a6; }
+    .criterion-card .explanation { font-style: italic; color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 0.375rem; }
+    .criterion-card .feedback { font-size: 13.5px; line-height: 1.55; }
+
+    /* ── Edit form ───────────────────────────────────────────────── */
+    .section-edit { margin-top: 0.75rem; }
+    .json-edit, .text-edit {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      color: #e5e7eb;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 0.625rem 0.75rem;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 12.5px;
+      line-height: 1.55;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .json-edit:focus, .text-edit:focus { outline: none; border-color: #14b8a6; }
+    .text-edit { font-family: 'Inter', ui-sans-serif, system-ui; font-size: 14px; }
+
+    .edit-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: center; }
+    .edit-error { color: #fca5a5; font-size: 12px; margin-left: 0.5rem; }
+
+    /* ── Mobile collapse ─────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .grade-body { flex-direction: column; }
+      .grade-nav  {
+        position: static; width: 100%;
+        max-height: none; padding: 0.625rem 1rem;
+        border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: flex; flex-wrap: wrap; gap: 0.25rem;
+      }
+      .nav-link { font-size: 11.5px; padding: 0.3rem 0.55rem; }
+      .grade-content { padding: 1.25rem 1rem 3rem; }
+    }
   </style>
 </head>
 <body>
-  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
-    <div class="flex items-center gap-3">
-      <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
-      <span style="color:rgba(255,255,255,0.15);">|</span>
-      <div>
-        <div id="header-student" class="font-semibold text-sm">—</div>
-        <div id="header-meta" class="text-xs" style="color:rgba(255,255,255,0.45);">—</div>
-      </div>
-    </div>
-    <div class="flex items-center gap-2">
-      <span id="status-pill" class="pill" style="background:rgba(255,255,255,0.06);">—</span>
-      <span id="badge-manual-edit" class="badge-manual-edit hidden" title="Andy đã sửa thủ công feedback của AI">✏ Đã sửa</span>
-      <span id="badge-regraded"    class="badge-regraded hidden"    title="Bài đã được chấm lại bởi admin">🔄 Đã chấm lại</span>
-      <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
-    </div>
-  </header>
 
+  <!-- Auth gates (kept identical to pre-2.5.1 — wired by WC.bootstrap) -->
   <div id="state-loading" class="flex items-center justify-center py-32">
     <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
   </div>
-
   <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
     <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
     <a href="/pages/dashboard.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
   </div>
 
-  <main id="state-ready" class="hidden max-w-7xl mx-auto px-6 py-6">
-    <!-- Toolbar -->
-    <div class="card p-3 flex items-center gap-2 flex-wrap">
-      <button id="btn-save"     class="btn-primary">💾 Save edits</button>
-      <button id="btn-copy"     class="btn-secondary" title="Copy formatted to clipboard">📋 Copy formatted</button>
-      <button id="btn-download" class="btn-secondary" title="Download .docx">⬇ Download .docx</button>
-      <span id="dirty-indicator" class="hidden text-sm font-medium" style="color:#fbbf24;" title="Unsaved changes">● Có thay đổi chưa lưu</span>
-      <span class="flex-1"></span>
-      <button id="btn-regrade" class="btn-regrade" title="Chấm lại bằng AI — sẽ ghi đè AI feedback hiện tại">🔄 Chấm lại</button>
-      <button id="btn-deliver"  class="btn-success">✓ Mark delivered</button>
-      <span id="last-saved" class="text-xs ml-2" style="color:rgba(255,255,255,0.4);"></span>
-    </div>
-
-    <div id="alert-area" class="mt-3"></div>
-
-    <!-- Tab bar (W3.2 Phase 1) — single Save button persists edits across all tabs -->
-    <div class="tab-bar" role="tablist">
-      <button type="button" class="tab-btn active" data-tab="overview"  role="tab">Tổng quan</button>
-      <button type="button" class="tab-btn"        data-tab="instructor-note" role="tab">📝 Note giảng viên</button>
-      <button type="button" class="tab-btn"        data-tab="mistakes"  role="tab">Phân tích lỗi</button>
-      <button type="button" class="tab-btn"        data-tab="advanced"  role="tab">Phân tích nâng cao</button>
-      <button type="button" class="tab-btn"        data-tab="improved"  role="tab">Bài tham khảo</button>
-    </div>
-
-    <!-- ── TAB 1: Tổng quan — band + takeaways + criteria ─────────── -->
-    <div class="tab-panel active mt-4 space-y-4" data-panel="overview" role="tabpanel">
-      <div class="card p-4 space-y-3">
-        <div>
-          <label class="label">Overall band</label>
-          <input id="f-overall" type="number" step="0.5" min="0" max="9" class="input mt-1" />
-        </div>
-        <div>
-          <label class="label">Summary</label>
-          <textarea id="f-summary" rows="2" class="input mt-1"></textarea>
+  <div id="state-ready" class="hidden">
+    <!-- Sticky header -->
+    <header class="grade-header">
+      <div class="header-left">
+        <a href="/pages/admin-writing.html" class="back-link">← Writing Coach</a>
+        <div class="essay-meta" style="min-width:0;">
+          <h1 id="header-student">—</h1>
+          <p class="meta-line">
+            <span id="header-meta-text">—</span>
+            <span class="separator">·</span>
+            <span id="status-pill" class="pill">—</span>
+            <span class="separator">·</span>
+            <span id="band-score" class="band-score">Band —</span>
+            <span id="manual-flag-wrap" class="hidden">
+              <span class="separator">·</span>
+              <span class="badge-manual" title="Andy đã sửa thủ công feedback của AI">✏ Đã sửa</span>
+            </span>
+            <span id="regrade-wrap" class="hidden">
+              <span class="separator">·</span>
+              <span id="regrade-badge" class="badge-regraded" title="Bài đã được chấm lại bởi admin">🔄 Đã chấm lại</span>
+            </span>
+          </p>
         </div>
       </div>
-
-      <div class="card p-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="label">Strengths (1 ý / dòng)</label>
-            <textarea id="f-strengths" rows="3" class="input mt-1"></textarea>
-          </div>
-          <div>
-            <label class="label">Areas for improvement (1 ý / dòng)</label>
-            <textarea id="f-improvements" rows="3" class="input mt-1"></textarea>
-          </div>
-        </div>
+      <div class="header-actions">
+        <button id="btn-save"     class="btn btn-primary">💾 Save edits</button>
+        <button id="btn-copy"     class="btn" title="Copy formatted to clipboard">📋 Copy</button>
+        <button id="btn-download" class="btn" title="Download .docx">⬇ Download</button>
+        <button id="btn-regrade"  class="btn btn-warn" title="Chấm lại bằng AI">🔄 Chấm lại</button>
+        <button id="btn-deliver"  class="btn btn-success">✓ Mark delivered</button>
+        <span id="last-saved"></span>
+        <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
       </div>
+    </header>
 
-      <div class="card p-4 space-y-3">
-        <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Criteria</h3>
-        <div id="criteria-blocks" class="space-y-3"></div>
-      </div>
-    </div>
+    <!-- 3-column body -->
+    <div class="grade-body">
+      <!-- Sticky left nav (scrollspy target) -->
+      <nav class="grade-nav" aria-label="Section navigation">
+        <a href="#section-essay"              class="nav-link is-active">📄 Bài viết gốc</a>
+        <a href="#section-overview"           class="nav-link">📊 Tổng quan</a>
+        <a href="#section-criteria"           class="nav-link">🎯 4 tiêu chí</a>
+        <a href="#section-instructor-note"    class="nav-link">📝 Note giảng viên</a>
+        <a href="#section-mistakes"           class="nav-link">❌ Lỗi sai</a>
+        <a href="#section-recurring"          class="nav-link">🔁 Lỗi lặp lại</a>
+        <a href="#section-trajectory"         class="nav-link">📈 Diễn biến band</a>
+        <a href="#section-sentence-structure" class="nav-link">🏗 Cấu trúc câu</a>
+        <a href="#section-coherence"          class="nav-link">🧩 Coherence</a>
+        <a href="#section-lexical"            class="nav-link">📚 Lexical</a>
+        <a href="#section-idea-development"   class="nav-link">💡 Idea Development</a>
+        <a href="#section-counterargument"    class="nav-link">⚖ Counterargument</a>
+        <a href="#section-improved"           class="nav-link">✨ Bài cải thiện</a>
+        <a href="#section-ai-content"         class="nav-link">🤖 AI check</a>
+        <a href="#section-key-takeaways"      class="nav-link">🎓 Key takeaways</a>
+      </nav>
 
-    <!-- ── TAB: Note giảng viên — free-text personal feedback (Phase 2.5) ── -->
-    <div class="tab-panel mt-4" data-panel="instructor-note" role="tabpanel">
-      <div class="card p-4 instructor-note-card">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">📝 Note giảng viên</h3>
-          <button id="btn-save-note" type="button" class="btn-secondary text-xs">Lưu note</button>
-        </div>
-        <p class="text-xs mb-3" style="color:rgba(255,255,255,0.45);">
-          Free-text feedback cá nhân của giảng viên — hiển thị nổi bật trên bài chấm của học viên,
-          tách biệt với feedback AI. Note này được giữ nguyên khi bấm "Chấm lại" (regrade chỉ ghi đè AI grade).
-        </p>
-        <textarea id="f-instructor-note" rows="8" class="input"
-                  placeholder="VD: Em viết tốt phần coherence, cần thêm linking words..."></textarea>
-        <p id="instructor-note-status" class="text-xs mt-2" style="color:rgba(255,255,255,0.4);"></p>
-      </div>
-    </div>
+      <!-- Right scrollable content -->
+      <main class="grade-content">
+        <div id="alert-area"></div>
 
-    <!-- ── TAB 2: Phân tích lỗi — split essay (left) + mistakes table (right) ── -->
-    <div class="tab-panel mt-4" data-panel="mistakes" role="tabpanel">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <section class="card p-4 essay-pane">
-          <h2 class="font-semibold text-sm mb-2" style="color:rgba(255,255,255,0.7);">Original Essay</h2>
-          <div id="prompt-box" class="text-xs mb-3" style="color:rgba(255,255,255,0.5);"></div>
-          <div id="essay-text" class="text-sm" style="color:rgba(255,255,255,0.85);"></div>
+        <!-- Read-only: original essay -->
+        <section id="section-essay" class="grade-section">
+          <header class="section-header">
+            <h2>📄 Bài viết gốc</h2>
+          </header>
+          <div id="prompt-box" class="text-xs mb-2" style="color:rgba(255,255,255,0.55);"></div>
+          <pre id="essay-text" class="essay-original">—</pre>
         </section>
 
-        <section class="card p-4 mistakes-panel">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Mistake Analysis</h3>
-            <button id="btn-add-mistake" type="button" class="btn-secondary text-xs">＋ Add row</button>
+        <!-- Each editable section: header + content + edit form -->
+        <section id="section-overview" class="grade-section" data-section="overview">
+          <header class="section-header"><h2>📊 Tổng quan</h2><button class="btn-edit" data-edit="overview">✏ Sửa</button></header>
+          <div class="section-content" id="content-overview"></div>
+          <div class="section-edit hidden" id="edit-overview">
+            <textarea class="text-edit" rows="5" data-input="overview" placeholder="Tóm tắt tổng quan band score..."></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="overview">Lưu vào draft</button>
+              <button class="btn" data-cancel="overview">Hủy</button>
+              <span class="edit-error" data-error="overview"></span>
+            </div>
           </div>
-          <p class="text-xs mb-2" style="color:rgba(255,255,255,0.4);">Click vào dòng → cuộn đến đoạn được highlight bên trái.</p>
-          <table class="mistakes">
-            <thead>
-              <tr>
-                <th style="width:22%;">Original</th>
-                <th style="width:14%;">Type</th>
-                <th>Explanation</th>
-                <th>Suggestion</th>
-                <th style="width:14%;">Criterion</th>
-                <th style="width:3em;"></th>
-              </tr>
-            </thead>
-            <tbody id="mistakes-body"></tbody>
-          </table>
         </section>
-      </div>
-    </div>
 
-    <!-- ── TAB 3: Phân tích nâng cao — advanced + AI content ─────── -->
-    <div class="tab-panel mt-4 space-y-4" data-panel="advanced" role="tabpanel">
-      <div class="card p-4 space-y-2">
-        <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">AI Content Analysis</h3>
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="label">Likelihood %</label>
-            <input id="f-ai-likelihood" type="number" min="0" max="100" class="input mt-1" />
+        <section id="section-criteria" class="grade-section" data-section="criteria">
+          <header class="section-header"><h2>🎯 4 tiêu chí IELTS</h2><button class="btn-edit" data-edit="criteria">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-criteria"></div>
+          <div class="section-edit hidden" id="edit-criteria">
+            <textarea class="json-edit" rows="14" data-input="criteria" placeholder='{"mainCriterion": {...}, ...}'></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="criteria">Lưu vào draft</button>
+              <button class="btn" data-cancel="criteria">Hủy</button>
+              <span class="edit-error" data-error="criteria"></span>
+            </div>
           </div>
-          <div class="col-span-2">
-            <label class="label">Explanation</label>
-            <input id="f-ai-explanation" class="input mt-1" />
+        </section>
+
+        <section id="section-instructor-note" class="grade-section" data-section="instructor-note">
+          <header class="section-header"><h2>📝 Note giảng viên</h2><button class="btn-edit" data-edit="instructor-note">✏ Sửa</button></header>
+          <p class="text-xs mb-2" style="color:rgba(255,255,255,0.45);">
+            Personalized feedback — sibling column on writing_essays. Survives regrade. Lưu qua endpoint riêng (không dính vào JSON validation của Save edits).
+          </p>
+          <div class="section-content" id="content-instructor-note"></div>
+          <div class="section-edit hidden" id="edit-instructor-note">
+            <textarea class="text-edit" rows="6" data-input="instructor-note" placeholder="VD: Em viết tốt phần coherence, cần thêm linking words..."></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save-note="1">Lưu note</button>
+              <button class="btn" data-cancel="instructor-note">Hủy</button>
+              <span class="edit-error" data-error="instructor-note"></span>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <!-- Conditional advanced sections — read-only in W3, edit via JSON or re-grade -->
-      <div id="advanced-readonly" class="card p-4 hidden">
-        <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Phân tích chuyên sâu (read-only)</h3>
-        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.4);">
-          Coherence, Idea Development, Lexical, Sentence Structure, Counterargument hiển thị chỉ-đọc. Để chỉnh, hãy re-grade.
-        </p>
-        <div id="advanced-blocks" class="mt-2 space-y-2"></div>
-      </div>
-    </div>
+        <section id="section-mistakes" class="grade-section" data-section="mistakes">
+          <header class="section-header"><h2>❌ Lỗi sai</h2><button class="btn-edit" data-edit="mistakes">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-mistakes"></div>
+          <div class="section-edit hidden" id="edit-mistakes">
+            <textarea class="json-edit" rows="16" data-input="mistakes" placeholder='[{"original": "...", "mistakeType": "...", ...}]'></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="mistakes">Lưu vào draft</button>
+              <button class="btn" data-cancel="mistakes">Hủy</button>
+              <span class="edit-error" data-error="mistakes"></span>
+            </div>
+          </div>
+        </section>
 
-    <!-- ── TAB 4: Bài tham khảo — improved essay ─────────────────── -->
-    <div class="tab-panel mt-4" data-panel="improved" role="tabpanel">
-      <div class="card p-4">
-        <label class="label">Improved Essay (Band 8.0+)</label>
-        <textarea id="f-improved" rows="22" class="input mt-1"></textarea>
-      </div>
+        <section id="section-recurring" class="grade-section" data-section="recurring">
+          <header class="section-header"><h2>🔁 Lỗi lặp lại</h2><button class="btn-edit" data-edit="recurring">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-recurring"></div>
+          <div class="section-edit hidden" id="edit-recurring">
+            <textarea class="json-edit" rows="10" data-input="recurring"></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="recurring">Lưu vào draft</button>
+              <button class="btn" data-cancel="recurring">Hủy</button>
+              <span class="edit-error" data-error="recurring"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-trajectory" class="grade-section" data-section="trajectory">
+          <header class="section-header"><h2>📈 Diễn biến band</h2><button class="btn-edit" data-edit="trajectory">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-trajectory"></div>
+          <div class="section-edit hidden" id="edit-trajectory">
+            <textarea class="json-edit" rows="10" data-input="trajectory"></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="trajectory">Lưu vào draft</button>
+              <button class="btn" data-cancel="trajectory">Hủy</button>
+              <span class="edit-error" data-error="trajectory"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-sentence-structure" class="grade-section" data-section="sentence-structure">
+          <header class="section-header"><h2>🏗 Cấu trúc câu</h2><button class="btn-edit" data-edit="sentence-structure">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-sentence-structure"></div>
+          <div class="section-edit hidden" id="edit-sentence-structure">
+            <textarea class="json-edit" rows="12" data-input="sentence-structure"></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="sentence-structure">Lưu vào draft</button>
+              <button class="btn" data-cancel="sentence-structure">Hủy</button>
+              <span class="edit-error" data-error="sentence-structure"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-coherence" class="grade-section" data-section="coherence">
+          <header class="section-header"><h2>🧩 Coherence</h2><button class="btn-edit" data-edit="coherence">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-coherence"></div>
+          <div class="section-edit hidden" id="edit-coherence">
+            <textarea class="json-edit" rows="12" data-input="coherence"></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="coherence">Lưu vào draft</button>
+              <button class="btn" data-cancel="coherence">Hủy</button>
+              <span class="edit-error" data-error="coherence"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-lexical" class="grade-section" data-section="lexical">
+          <header class="section-header"><h2>📚 Lexical</h2><button class="btn-edit" data-edit="lexical">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-lexical"></div>
+          <div class="section-edit hidden" id="edit-lexical">
+            <textarea class="json-edit" rows="12" data-input="lexical"></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="lexical">Lưu vào draft</button>
+              <button class="btn" data-cancel="lexical">Hủy</button>
+              <span class="edit-error" data-error="lexical"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-idea-development" class="grade-section" data-section="idea-development">
+          <header class="section-header"><h2>💡 Idea Development</h2><button class="btn-edit" data-edit="idea-development">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-idea-development"></div>
+          <div class="section-edit hidden" id="edit-idea-development">
+            <textarea class="json-edit" rows="12" data-input="idea-development"></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="idea-development">Lưu vào draft</button>
+              <button class="btn" data-cancel="idea-development">Hủy</button>
+              <span class="edit-error" data-error="idea-development"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-counterargument" class="grade-section" data-section="counterargument">
+          <header class="section-header"><h2>⚖ Counterargument</h2><button class="btn-edit" data-edit="counterargument">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-counterargument"></div>
+          <div class="section-edit hidden" id="edit-counterargument">
+            <textarea class="json-edit" rows="10" data-input="counterargument"></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="counterargument">Lưu vào draft</button>
+              <button class="btn" data-cancel="counterargument">Hủy</button>
+              <span class="edit-error" data-error="counterargument"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-improved" class="grade-section" data-section="improved">
+          <header class="section-header"><h2>✨ Bài cải thiện</h2><button class="btn-edit" data-edit="improved">✏ Sửa</button></header>
+          <div class="section-content" id="content-improved"></div>
+          <div class="section-edit hidden" id="edit-improved">
+            <textarea class="text-edit" rows="20" data-input="improved" placeholder="Bài cải thiện band 8.0+ ..."></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="improved">Lưu vào draft</button>
+              <button class="btn" data-cancel="improved">Hủy</button>
+              <span class="edit-error" data-error="improved"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-ai-content" class="grade-section" data-section="ai-content">
+          <header class="section-header"><h2>🤖 AI check</h2><button class="btn-edit" data-edit="ai-content">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-ai-content"></div>
+          <div class="section-edit hidden" id="edit-ai-content">
+            <textarea class="json-edit" rows="6" data-input="ai-content" placeholder='{"likelihood": 5, "explanation": "Natural"}'></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="ai-content">Lưu vào draft</button>
+              <button class="btn" data-cancel="ai-content">Hủy</button>
+              <span class="edit-error" data-error="ai-content"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-key-takeaways" class="grade-section" data-section="key-takeaways">
+          <header class="section-header"><h2>🎓 Key takeaways</h2><button class="btn-edit" data-edit="key-takeaways">✏ Sửa JSON</button></header>
+          <div class="section-content" id="content-key-takeaways"></div>
+          <div class="section-edit hidden" id="edit-key-takeaways">
+            <textarea class="json-edit" rows="8" data-input="key-takeaways" placeholder='{"strengths": [...], "areasForImprovement": [...]}'></textarea>
+            <div class="edit-actions">
+              <button class="btn btn-primary" data-save="key-takeaways">Lưu vào draft</button>
+              <button class="btn" data-cancel="key-takeaways">Hủy</button>
+              <span class="edit-error" data-error="key-takeaways"></span>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
-  </main>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -232,233 +438,65 @@
   <script>
     'use strict';
 
-    var _essayId = new URLSearchParams(window.location.search).get('essay_id');
-    // Server-truth blob: feedback object (admin_edits_json if present, else feedback_json)
-    var _feedback = null;
-    // Per-essay metadata kept around for headers / re-render after save
-    var _essay = null;
+    // ── Routing ──────────────────────────────────────────────────
+    // Accept both ?id= (Sprint 2.5.1 spec) and ?essay_id= (legacy
+    // bookmarks).  Prefer the spec name when both are present.
+    var _qs = new URLSearchParams(window.location.search);
+    var _essayId = _qs.get('id') || _qs.get('essay_id');
+
+    // ── Section key map ──────────────────────────────────────────
+    // Section ID (DOM) → feedback_json key.  Drives both the read-side
+    // renderer and the edit-side state mutator.  Order here also drives
+    // the scrollspy + smooth-scroll affordances.
+    var SECTION_KEYS = {
+      'overview':           'overallBandScoreSummary',
+      'criteria':           'criteriaFeedback',
+      'mistakes':           'mistakeAnalysis',
+      'recurring':          'recurringPatterns',
+      'trajectory':         'bandTrajectoryAnalysis',
+      'sentence-structure': 'sentenceStructureAnalysis',
+      'coherence':          'coherenceAnalysis',
+      'lexical':            'lexicalAnalysis',
+      'idea-development':   'ideaDevelopmentAnalysis',
+      'counterargument':    'counterargumentAnalysis',
+      'improved':           'improvedEssay',
+      'ai-content':         'aiContentAnalysis',
+      'key-takeaways':      'keyTakeaways',
+    };
+
+    // Sections whose content is plain text (not JSON).  Edit form
+    // shows the raw value; save path stores it as-is rather than
+    // round-tripping through JSON.parse.
+    var STRING_SECTIONS = { 'overview': 1, 'improved': 1 };
+
+    // ── Top-level state ──────────────────────────────────────────
+    var _essay  = null;          // writing_essays row from /admin/writing/essays/{id}
     var _student = null;
-    // Dirty-state tracking (W3.1 Phase 2). True whenever the form has
-    // edits that haven't been PATCHed back to the server. Cleared on
-    // successful save and on initial population.
-    var _isDirty = false;
+    var _aiFeedback = {};        // detail.feedback.feedback_json — never mutated
+    var _adminEdits = null;      // detail.admin_edits_json — base for currentFeedback
+    var _currentFeedback = {};   // working copy: AI overlaid by admin edits, mutated by section saves
+    var _currentNote = '';       // working copy of writing_essays.instructor_note
+    var _serverNote  = '';       // last-known server value, for dirty comparison
+    var _isDirty = false;        // any section saved to draft → true; PATCH /feedback clears it
 
-    // ── Tab nav (W3.2 Phase 1) ─────────────────────────────────────
-    var _TAB_LS_KEY = 'wcGradeActiveTab';
-    var _VALID_TABS = ['overview', 'instructor-note', 'mistakes', 'advanced', 'improved'];
-
-    function activateTab(name) {
-      if (_VALID_TABS.indexOf(name) === -1) name = 'overview';
-      document.querySelectorAll('.tab-btn').forEach(function (btn) {
-        btn.classList.toggle('active', btn.dataset.tab === name);
-      });
-      document.querySelectorAll('.tab-panel').forEach(function (panel) {
-        panel.classList.toggle('active', panel.dataset.panel === name);
-      });
-      try { localStorage.setItem(_TAB_LS_KEY, name); } catch (_) { /* private mode */ }
-    }
-
-    function initTabs() {
-      document.querySelectorAll('.tab-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () { activateTab(btn.dataset.tab); });
-      });
-      var saved;
-      try { saved = localStorage.getItem(_TAB_LS_KEY); } catch (_) { saved = null; }
-      activateTab(saved || 'overview');
-    }
-
-    // ── Dirty-state (W3.1 Phase 2) ──────────────────────────────────
-    function _updateDirtyUI() {
-      var ind = document.getElementById('dirty-indicator');
-      if (ind) ind.classList.toggle('hidden', !_isDirty);
-    }
-    function markDirty() {
-      if (_isDirty) return;
-      _isDirty = true;
-      _updateDirtyUI();
-    }
-    function clearDirty() {
-      _isDirty = false;
-      _updateDirtyUI();
-    }
-    function attachDirtyListeners(root) {
-      // Hook input/change on every editable form control inside `root`.
-      // Called after populate() and after any DOM-rebuilt section
-      // (criteria blocks, mistake rows) so freshly-created inputs are
-      // tracked too.
-      (root || document).querySelectorAll('input, textarea').forEach(function (el) {
-        // Skip if already wired (event listeners de-dupe by reference,
-        // but markDirty is a stable named function so re-adding is a
-        // no-op).
-        el.addEventListener('input',  markDirty);
-        el.addEventListener('change', markDirty);
-      });
-    }
-
+    // ── Alerts ───────────────────────────────────────────────────
     function setAlert(kind, msg) {
       var area = document.getElementById('alert-area');
-      var color = kind === 'error' ? '#f87171' : kind === 'success' ? '#86efac' : '#fde68a';
-      var bg    = kind === 'error' ? 'rgba(239,68,68,0.10)' : kind === 'success' ? 'rgba(134,239,172,0.08)' : 'rgba(234,179,8,0.08)';
-      var border = kind === 'error' ? 'rgba(239,68,68,0.25)' : kind === 'success' ? 'rgba(134,239,172,0.25)' : 'rgba(234,179,8,0.25)';
-      area.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
-      if (kind !== 'error') setTimeout(function () { if (area.firstChild) area.innerHTML = ''; }, 4000);
-    }
-
-    function renderHighlightedEssay(text, mistakes) {
-      // Build [{idx, text}] sorted longest-first so longer phrases win at any
-      // position. idx is the original mistakeAnalysis index — the table row
-      // and the <mark> share that ID for click-to-scroll (W3.2 P2).
-      var entries = (mistakes || [])
-        .map(function (m, idx) { return { idx: idx, text: (m.original || '').trim() }; })
-        .filter(function (e) { return e.text; })
-        .sort(function (a, b) { return b.text.length - a.text.length; });
-
-      // Map matched-text → first mistakes[] index that owns it. Two mistakes
-      // with identical `original` strings end up sharing the same first row's
-      // ID; that's fine — clicking either row jumps to the same span.
-      var byText = {};
-      entries.forEach(function (e) {
-        if (byText[e.text] === undefined) byText[e.text] = e.idx;
-      });
-
-      var pattern = entries.length
-        ? new RegExp(entries.map(function (e) { return e.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'g')
-        : null;
-
-      // Track per-mistake-id occurrence count so we can give the FIRST
-      // occurrence id="mistake-N" (the click target) and leave subsequent
-      // occurrences with no id — but still highlighted + tagged with the
-      // shared data-mistake-id for hover affordance.
-      var seenCount = {};
-
-      var paragraphs = (text || '').split('\n\n').map(function (raw) {
-        if (!raw.trim()) return '';
-        if (!pattern) return '<p>' + WC.escapeHtml(raw) + '</p>';
-        var out = ''; var last = 0; var m;
-        pattern.lastIndex = 0;
-        while ((m = pattern.exec(raw)) !== null) {
-          out += WC.escapeHtml(raw.slice(last, m.index));
-          var id = byText[m[0]];
-          var isFirst = !seenCount[id];
-          seenCount[id] = (seenCount[id] || 0) + 1;
-          var attrs = 'data-mistake-id="' + id + '"';
-          if (isFirst) attrs += ' id="mistake-' + id + '"';
-          out += '<mark ' + attrs + '>' + WC.escapeHtml(m[0]) + '</mark>';
-          last = m.index + m[0].length;
-        }
-        out += WC.escapeHtml(raw.slice(last));
-        return '<p>' + out + '</p>';
-      });
-      return paragraphs.join('');
-    }
-
-    var CRITERIA = [
-      { key: 'mainCriterion',     label: 'Task Response / Achievement' },
-      { key: 'coherenceCohesion', label: 'Coherence & Cohesion' },
-      { key: 'lexicalResource',   label: 'Lexical Resource' },
-      { key: 'grammaticalRange',  label: 'Grammatical Range' },
-    ];
-
-    function renderCriteriaBlocks(cf) {
-      var html = CRITERIA.map(function (c) {
-        var crit = cf[c.key] || { title: c.label, explanation: '', feedback: '', bandScore: 0 };
-        return (
-          '<div data-key="' + c.key + '" class="space-y-1 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.05);">' +
-            '<div class="flex items-center gap-2 flex-wrap">' +
-              '<input data-field="title" class="input" style="max-width:240px;font-weight:600;" value="' + WC.escapeHtml(crit.title) + '" />' +
-              '<input data-field="bandScore" type="number" min="0" max="9" class="input" style="max-width:80px;" value="' + (crit.bandScore || 0) + '" />' +
-            '</div>' +
-            '<input data-field="explanation" class="input" style="font-style:italic;" value="' + WC.escapeHtml(crit.explanation || '') + '" />' +
-            '<textarea data-field="feedback" rows="2" class="input">' + WC.escapeHtml(crit.feedback || '') + '</textarea>' +
-          '</div>'
-        );
-      }).join('');
-      document.getElementById('criteria-blocks').innerHTML = html;
-    }
-
-    function readCriteriaBlocks() {
-      var out = {};
-      document.querySelectorAll('#criteria-blocks > div[data-key]').forEach(function (block) {
-        var key = block.dataset.key;
-        out[key] = {
-          title:       block.querySelector('[data-field="title"]').value,
-          explanation: block.querySelector('[data-field="explanation"]').value,
-          feedback:    block.querySelector('[data-field="feedback"]').value,
-          bandScore:   parseInt(block.querySelector('[data-field="bandScore"]').value, 10) || 0,
-        };
-      });
-      return out;
-    }
-
-    function renderMistakeRow(m, i) {
-      var safe = WC.escapeHtml;
-      // data-mistake-id matches the data-mistake-id stamped on each <mark>
-      // by renderHighlightedEssay, so row-click can find its target span.
-      return (
-        '<tr data-row="' + i + '" data-mistake-id="' + i + '">' +
-          '<td><textarea data-field="original" rows="2" class="input">' + safe(m.original || '') + '</textarea></td>' +
-          '<td><input data-field="mistakeType" class="input" value="' + safe(m.mistakeType || '') + '" /></td>' +
-          '<td><textarea data-field="explanation" rows="2" class="input">' + safe(m.explanation || '') + '</textarea></td>' +
-          '<td><textarea data-field="suggestion" rows="2" class="input">' + safe(m.suggestion || '') + '</textarea></td>' +
-          '<td><input data-field="criterion" class="input" value="' + safe(m.criterion || '') + '" /></td>' +
-          '<td><button class="btn-secondary text-xs" data-act="remove-mistake">×</button></td>' +
-        '</tr>'
-      );
-    }
-
-    function renderMistakesTable(mistakes) {
-      var rows = (mistakes || []).map(renderMistakeRow).join('');
-      document.getElementById('mistakes-body').innerHTML = rows ||
-        '<tr><td colspan="6" class="text-center" style="color:rgba(255,255,255,0.4);padding:14px;">Chưa có lỗi nào.</td></tr>';
-    }
-
-    function readMistakesTable() {
-      var rows = document.querySelectorAll('#mistakes-body tr[data-row]');
-      var out = [];
-      rows.forEach(function (row) {
-        var get = function (f) { var el = row.querySelector('[data-field="' + f + '"]'); return el ? el.value : ''; };
-        var orig = get('original').trim();
-        if (!orig) return;
-        out.push({
-          original:    orig,
-          mistakeType: get('mistakeType').trim() || 'Other',
-          explanation: get('explanation'),
-          suggestion:  get('suggestion'),
-          criterion:   get('criterion').trim() || 'General',
-        });
-      });
-      return out;
-    }
-
-    function renderAdvancedReadonly(fb) {
-      var blocks = [];
-      if (fb.coherenceAnalysis && fb.coherenceAnalysis.length) {
-        blocks.push('<div class="read-only-block"><b>Coherence & Flow:</b> ' + fb.coherenceAnalysis.length + ' items</div>');
-      }
-      if (fb.ideaDevelopmentAnalysis && fb.ideaDevelopmentAnalysis.length) {
-        blocks.push('<div class="read-only-block"><b>Idea Development:</b> ' + fb.ideaDevelopmentAnalysis.length + ' items</div>');
-      }
-      if (fb.lexicalAnalysis && fb.lexicalAnalysis.wordsToUpgrade && fb.lexicalAnalysis.wordsToUpgrade.length) {
-        blocks.push('<div class="read-only-block"><b>Vocabulary Upgrade:</b> ' + fb.lexicalAnalysis.wordsToUpgrade.length + ' items</div>');
-      }
-      if (fb.sentenceStructureAnalysis && fb.sentenceStructureAnalysis.sentenceUpgrades && fb.sentenceStructureAnalysis.sentenceUpgrades.length) {
-        blocks.push('<div class="read-only-block"><b>Sentence Structure:</b> ' + fb.sentenceStructureAnalysis.sentenceUpgrades.length + ' items</div>');
-      }
-      if (fb.counterargumentAnalysis) {
-        blocks.push('<div class="read-only-block"><b>Counterargument:</b> ' + (fb.counterargumentAnalysis.isPresent ? 'Có' : 'Không') + '</div>');
-      }
-      var box = document.getElementById('advanced-readonly');
-      var inner = document.getElementById('advanced-blocks');
-      if (blocks.length) {
-        box.classList.remove('hidden');
-        inner.innerHTML = blocks.join('');
-      } else {
-        box.classList.add('hidden');
+      var palette = {
+        error:   { color: '#fca5a5', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.25)' },
+        success: { color: '#86efac', bg: 'rgba(34,197,94,0.10)',  border: 'rgba(34,197,94,0.25)' },
+        warn:    { color: '#fde68a', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.25)' },
+      }[kind] || { color: '#cbd5e1', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)' };
+      area.innerHTML =
+        '<div style="background:' + palette.bg + ';border:1px solid ' + palette.border + ';color:' + palette.color +
+        ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+      if (kind !== 'error') {
+        setTimeout(function () { if (area.firstChild) area.innerHTML = ''; }, 4000);
       }
     }
 
+    // ── Status pill colour ───────────────────────────────────────
     function setStatusPill(status) {
-      var pill = document.getElementById('status-pill');
       var styles = {
         graded:    { bg: 'rgba(34,197,94,0.18)',  color: '#86efac' },
         reviewed:  { bg: 'rgba(59,130,246,0.18)', color: '#93c5fd' },
@@ -468,134 +506,330 @@
         grading:   { bg: 'rgba(234,179,8,0.18)',  color: '#fde68a' },
       };
       var s = styles[status] || { bg: 'rgba(255,255,255,0.06)', color: '#e2e8f0' };
+      var pill = document.getElementById('status-pill');
       pill.textContent = status || '—';
       pill.style.background = s.bg;
       pill.style.color = s.color;
     }
 
-    function populate(detail) {
-      _essay = detail;
-      _student = detail.student || {};
-      // Prefer admin edits over AI feedback
-      var fb = (detail.admin_edits_json) ? detail.admin_edits_json : (detail.feedback ? detail.feedback.feedback_json : null);
-      if (!fb) {
-        setAlert('error', 'Bài chưa có feedback. Quay lại trang Status.');
+    // ── Dirty indicator ──────────────────────────────────────────
+    function _refreshSaveBtn() {
+      var btn = document.getElementById('btn-save');
+      if (_isDirty) {
+        btn.textContent = '💾 Save edits *';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-dirty');
+      } else {
+        btn.textContent = '💾 Save edits';
+        btn.classList.remove('btn-dirty');
+        btn.classList.add('btn-primary');
+      }
+    }
+    function markDirty()  { _isDirty = true;  _refreshSaveBtn(); }
+    function clearDirty() { _isDirty = false; _refreshSaveBtn(); }
+
+    // ── Feedback merge — Sprint 2.5.1 fix #1 ─────────────────────
+    // Pre-2.5.1 the renderer chose ONE OR THE OTHER:
+    //   detail.admin_edits_json ?? detail.feedback.feedback_json
+    // This silently lost mistakeAnalysis (and any other AI-only
+    // section) whenever admin saved a partial edit — the truthy
+    // admin_edits_json shadowed the AI feedback completely.
+    // Bug surfaced on essay 0caf5e59-... where the "Phân tích lỗi"
+    // tab read empty despite mistakeAnalysis being present in
+    // feedback_json.
+    //
+    // Fix: layer admin edits OVER AI feedback so partial admin saves
+    // still expose the AI sections that weren't edited. The Save
+    // path PATCHes the merged dict back, which is the correct
+    // round-trip semantic anyway.
+    function _mergeFeedback(ai, edits) {
+      var out = {};
+      var k;
+      if (ai && typeof ai === 'object')      for (k in ai)    if (ai.hasOwnProperty(k))    out[k] = ai[k];
+      if (edits && typeof edits === 'object') for (k in edits) if (edits.hasOwnProperty(k)) out[k] = edits[k];
+      return out;
+    }
+
+    // ── Renderers ────────────────────────────────────────────────
+    function _isEmpty(v) {
+      if (v === null || v === undefined) return true;
+      if (typeof v === 'string') return v.trim() === '';
+      if (Array.isArray(v))      return v.length === 0;
+      if (typeof v === 'object') return Object.keys(v).length === 0;
+      return false;
+    }
+
+    function _emptyHtml() {
+      return '<p class="empty">— Chưa có nội dung —</p>';
+    }
+
+    function _renderString(v) {
+      var safe = WC.escapeHtml(v);
+      // Preserve paragraph breaks from \n\n while still escaping HTML.
+      var paras = safe.split(/\n{2,}/).filter(function (p) { return p.trim(); });
+      return paras.map(function (p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('');
+    }
+
+    function _renderObjectGeneric(obj) {
+      var rows = [];
+      Object.keys(obj).forEach(function (k) {
+        var v = obj[k];
+        var inner;
+        if (_isEmpty(v)) {
+          inner = '<span class="empty">—</span>';
+        } else if (typeof v === 'string') {
+          inner = '<span>' + WC.escapeHtml(v) + '</span>';
+        } else if (typeof v === 'number' || typeof v === 'boolean') {
+          inner = '<span>' + WC.escapeHtml(String(v)) + '</span>';
+        } else {
+          inner = '<pre class="json-view">' + WC.escapeHtml(JSON.stringify(v, null, 2)) + '</pre>';
+        }
+        rows.push(
+          '<div class="object-row">' +
+            '<div class="object-key">' + WC.escapeHtml(k) + '</div>' +
+            inner +
+          '</div>'
+        );
+      });
+      return rows.join('');
+    }
+
+    function _renderItemCard(item) {
+      // Render an object as a card of "key: value" rows.  String
+      // values inline with the label; objects/arrays drop down to
+      // a JSON pre block on a new line so the card stays readable.
+      if (typeof item === 'string') {
+        return '<div class="item-card">' + WC.escapeHtml(item) + '</div>';
+      }
+      if (typeof item !== 'object' || item === null) {
+        return '<div class="item-card">' + WC.escapeHtml(String(item)) + '</div>';
+      }
+      var rows = Object.keys(item).map(function (k) {
+        var v = item[k];
+        if (typeof v === 'object' && v !== null) {
+          return (
+            '<div class="item-row full">' +
+              '<strong>' + WC.escapeHtml(k) + ':</strong>' +
+              '<pre class="json-view">' + WC.escapeHtml(JSON.stringify(v, null, 2)) + '</pre>' +
+            '</div>'
+          );
+        }
+        return (
+          '<div class="item-row">' +
+            '<strong>' + WC.escapeHtml(k) + ':</strong> ' +
+            WC.escapeHtml(v == null ? '' : String(v)) +
+          '</div>'
+        );
+      }).join('');
+      return '<div class="item-card">' + rows + '</div>';
+    }
+
+    function _renderArray(arr) {
+      if (arr.length === 0) {
+        return '<p class="empty">— Không có mục nào —</p>';
+      }
+      return arr.map(_renderItemCard).join('');
+    }
+
+    // Specialised: 4-IELTS-criteria block. Each criterion has a band
+    // score + explanation + feedback — render as four card-style
+    // blocks rather than a generic "object → JSON" dump.
+    function _renderCriteria(crit) {
+      var ORDER = [
+        { key: 'mainCriterion',     label: 'Task Response / Achievement' },
+        { key: 'coherenceCohesion', label: 'Coherence & Cohesion' },
+        { key: 'lexicalResource',   label: 'Lexical Resource' },
+        { key: 'grammaticalRange',  label: 'Grammatical Range' },
+      ];
+      return ORDER.map(function (c) {
+        var item = (crit && crit[c.key]) || {};
+        var band = item.bandScore != null ? item.bandScore : '—';
+        return (
+          '<div class="criterion-card">' +
+            '<div class="crit-head">' +
+              '<h3>' + WC.escapeHtml(item.title || c.label) + '</h3>' +
+              '<span class="band">' + WC.escapeHtml(String(band)) + '</span>' +
+            '</div>' +
+            (item.explanation ? '<div class="explanation">' + WC.escapeHtml(item.explanation) + '</div>' : '') +
+            (item.feedback    ? '<div class="feedback">'    + WC.escapeHtml(item.feedback)    + '</div>' : '') +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    function renderSection(sectionKey, value) {
+      var contentEl = document.getElementById('content-' + sectionKey);
+      if (!contentEl) return;
+
+      // Empty / null / undefined.
+      if (_isEmpty(value)) {
+        contentEl.innerHTML = _emptyHtml();
         return;
       }
-      _feedback = fb;
 
-      // Header
-      document.getElementById('header-student').textContent =
-        (_student.student_code ? _student.student_code + ' — ' : '') + (_student.full_name || '');
-      document.getElementById('header-meta').textContent =
-        (detail.task_type || '') + ' · ' + (detail.created_at ? new Date(detail.created_at).toLocaleString() : '');
-      setStatusPill(detail.status);
-
-      // Phase 2.5 — surface manual-edit and regrade audit as header
-      // badges. Both are derived from writing_essays columns so they
-      // survive even when admin_edits_json is null (e.g. immediately
-      // after a regrade — the row is freshly graded but Andy hasn't
-      // re-reviewed).
-      var manualBadge   = document.getElementById('badge-manual-edit');
-      var regradeBadge  = document.getElementById('badge-regraded');
-      if (manualBadge)  manualBadge.classList.toggle('hidden',  !detail.is_manually_edited);
-      if (regradeBadge) {
-        var n = detail.regrade_count || 0;
-        regradeBadge.textContent = '🔄 Đã chấm lại' + (n > 1 ? ' (' + n + ')' : '');
-        regradeBadge.classList.toggle('hidden', n < 1);
+      // Specialised: 4 IELTS criteria → coloured cards.
+      if (sectionKey === 'criteria') {
+        contentEl.innerHTML = _renderCriteria(value);
+        return;
       }
 
-      // Phase 2.5 — load instructor_note into its tab. Note is a
-      // top-level column on writing_essays, NOT inside admin_edits_json,
-      // so it survives a regrade.
-      var noteEl = document.getElementById('f-instructor-note');
-      if (noteEl) noteEl.value = detail.instructor_note || '';
+      // Strings → escaped paragraphs.
+      if (typeof value === 'string') {
+        contentEl.innerHTML = _renderString(value);
+        return;
+      }
 
-      // Left pane: prompt + highlighted essay
-      document.getElementById('prompt-box').textContent =
-        detail.prompt_text ? '📝 ' + detail.prompt_text : '';
-      document.getElementById('essay-text').innerHTML =
-        renderHighlightedEssay(detail.essay_text, fb.mistakeAnalysis);
+      // Arrays → cards (mistakes, coherenceAnalysis items, etc.).
+      if (Array.isArray(value)) {
+        contentEl.innerHTML = _renderArray(value);
+        return;
+      }
 
-      // Right pane fields
-      document.getElementById('f-overall').value = fb.overallBandScore;
-      document.getElementById('f-summary').value = fb.overallBandScoreSummary || '';
-      document.getElementById('f-strengths').value = (fb.keyTakeaways && fb.keyTakeaways.strengths || []).join('\n');
-      document.getElementById('f-improvements').value = (fb.keyTakeaways && fb.keyTakeaways.areasForImprovement || []).join('\n');
-      renderCriteriaBlocks(fb.criteriaFeedback || {});
-      renderMistakesTable(fb.mistakeAnalysis || []);
-      document.getElementById('f-improved').value = fb.improvedEssay || '';
-      var ai = fb.aiContentAnalysis || { likelihood: 0, explanation: '' };
-      document.getElementById('f-ai-likelihood').value = ai.likelihood;
-      document.getElementById('f-ai-explanation').value = ai.explanation || '';
-      renderAdvancedReadonly(fb);
-      // Wire dirty listeners on the just-populated form, then clear the
-      // flag so initial population doesn't count as a user edit.
-      attachDirtyListeners(document.getElementById('state-ready'));
-      clearDirty();
+      // Objects with an empty array shape from a Level 1 grade —
+      // surface as empty rather than dumping `{}` raw.
+      if (typeof value === 'object') {
+        contentEl.innerHTML = _renderObjectGeneric(value);
+        return;
+      }
+
+      // Fallback (number / bool).
+      contentEl.innerHTML = '<p>' + WC.escapeHtml(String(value)) + '</p>';
     }
 
-    function buildPayloadFromForm() {
-      var payload = JSON.parse(JSON.stringify(_feedback));  // start from the loaded blob — keeps advanced sections intact
-      payload.overallBandScore = parseFloat(document.getElementById('f-overall').value);
-      payload.overallBandScoreSummary = document.getElementById('f-summary').value.trim();
-      payload.keyTakeaways = {
-        strengths:           document.getElementById('f-strengths').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
-        areasForImprovement: document.getElementById('f-improvements').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
-      };
-      payload.criteriaFeedback = readCriteriaBlocks();
-      payload.mistakeAnalysis = readMistakesTable();
-      payload.improvedEssay = document.getElementById('f-improved').value;
-      payload.aiContentAnalysis = {
-        likelihood:  parseInt(document.getElementById('f-ai-likelihood').value, 10) || 0,
-        explanation: document.getElementById('f-ai-explanation').value,
-      };
-      return payload;
-    }
-
-    async function loadEssay() {
-      try {
-        var detail = await window.api.get('/admin/writing/essays/' + _essayId);
-        populate(detail);
-      } catch (e) {
-        setAlert('error', 'Không tải được essay: ' + e.message);
+    function renderInstructorNote(note) {
+      var contentEl = document.getElementById('content-instructor-note');
+      if (!contentEl) return;
+      if (note && note.trim()) {
+        contentEl.innerHTML = _renderString(note);
+      } else {
+        contentEl.innerHTML = '<p class="empty">— Chưa có note. Click ✏ Sửa để thêm. —</p>';
       }
     }
 
-    // Returns true on success, false on failure. Used by Copy/Download
-    // gates that prompt the user to save first when dirty.
+    function renderAllSections() {
+      Object.keys(SECTION_KEYS).forEach(function (sectionKey) {
+        var dataKey = SECTION_KEYS[sectionKey];
+        renderSection(sectionKey, _currentFeedback[dataKey]);
+      });
+      renderInstructorNote(_currentNote);
+    }
+
+    // ── Edit toggle ──────────────────────────────────────────────
+    function _setEditOpen(sectionKey, open) {
+      var contentEl = document.getElementById('content-' + sectionKey);
+      var editEl    = document.getElementById('edit-'    + sectionKey);
+      var noteContainer = sectionKey === 'instructor-note'
+        ? document.getElementById('section-instructor-note').querySelector('.section-content')
+        : null;
+      if (!editEl) return;
+
+      if (open) {
+        // Seed textarea with current value.
+        var textarea = editEl.querySelector('[data-input="' + sectionKey + '"]');
+        if (sectionKey === 'instructor-note') {
+          textarea.value = _currentNote || '';
+        } else if (STRING_SECTIONS[sectionKey]) {
+          var strVal = _currentFeedback[SECTION_KEYS[sectionKey]];
+          textarea.value = (strVal == null) ? '' : String(strVal);
+        } else {
+          var jsonVal = _currentFeedback[SECTION_KEYS[sectionKey]];
+          textarea.value = jsonVal == null ? '' : JSON.stringify(jsonVal, null, 2);
+        }
+        editEl.classList.remove('hidden');
+        if (contentEl) contentEl.classList.add('hidden');
+        // Focus + clear any stale error.
+        var errEl = editEl.querySelector('[data-error="' + sectionKey + '"]');
+        if (errEl) errEl.textContent = '';
+        textarea.focus();
+      } else {
+        editEl.classList.add('hidden');
+        if (contentEl) contentEl.classList.remove('hidden');
+      }
+    }
+
+    function _saveSectionDraft(sectionKey) {
+      var editEl   = document.getElementById('edit-' + sectionKey);
+      var textarea = editEl.querySelector('[data-input="' + sectionKey + '"]');
+      var errEl    = editEl.querySelector('[data-error="' + sectionKey + '"]');
+      errEl.textContent = '';
+
+      var raw = textarea.value;
+
+      if (STRING_SECTIONS[sectionKey]) {
+        // Plain string sections — store as-is.
+        _currentFeedback[SECTION_KEYS[sectionKey]] = raw;
+      } else {
+        // Empty JSON textarea → null (the Optional fields accept this).
+        if (raw.trim() === '') {
+          _currentFeedback[SECTION_KEYS[sectionKey]] = null;
+        } else {
+          try {
+            _currentFeedback[SECTION_KEYS[sectionKey]] = JSON.parse(raw);
+          } catch (e) {
+            errEl.textContent = 'JSON không hợp lệ: ' + e.message;
+            return;  // keep the edit form open so admin can fix
+          }
+        }
+      }
+
+      renderSection(sectionKey, _currentFeedback[SECTION_KEYS[sectionKey]]);
+      markDirty();
+      _setEditOpen(sectionKey, false);
+    }
+
+    // ── Save edits — full-feedback PATCH ─────────────────────────
     async function handleSave() {
       var btn = document.getElementById('btn-save');
       var orig = btn.textContent;
-      btn.disabled = true; btn.textContent = 'Đang lưu…';
+      btn.disabled = true;
+      btn.textContent = 'Đang lưu…';
       try {
-        var payload = buildPayloadFromForm();
-        await window.api.patch('/admin/writing/essays/' + _essayId + '/feedback', payload);
-        _feedback = payload;  // local state matches server-truth
+        await window.api.patch('/admin/writing/essays/' + _essayId + '/feedback', _currentFeedback);
+        // Local state matches server-truth now.
+        _adminEdits = JSON.parse(JSON.stringify(_currentFeedback));
         clearDirty();
         setStatusPill('reviewed');
-        document.getElementById('last-saved').textContent =
-          'Lưu lúc ' + new Date().toLocaleTimeString();
+        document.getElementById('last-saved').textContent = 'Lưu lúc ' + new Date().toLocaleTimeString();
         setAlert('success', 'Đã lưu chỉnh sửa.');
-        // Re-render mistakes highlight on left pane to match new edits
-        document.getElementById('essay-text').innerHTML =
-          renderHighlightedEssay(_essay.essay_text, payload.mistakeAnalysis);
         return true;
       } catch (err) {
         setAlert('error', 'Save failed: ' + err.message);
         return false;
       } finally {
-        btn.disabled = false; btn.textContent = orig;
+        btn.disabled = false;
+        _refreshSaveBtn();
       }
     }
 
-    // Shared gate for Copy + Download. Returns true if it's safe to
-    // proceed (form clean OR user agreed to save and save succeeded).
+    // Save instructor note via the dedicated endpoint — the note is
+    // a sibling column on writing_essays, NOT inside feedback_json,
+    // so it bypasses the WritingFeedback Pydantic validation that
+    // PATCH /feedback runs.
+    async function handleSaveNote() {
+      var editEl = document.getElementById('edit-instructor-note');
+      var textarea = editEl.querySelector('[data-input="instructor-note"]');
+      var errEl = editEl.querySelector('[data-error="instructor-note"]');
+      var note = textarea.value;
+      errEl.textContent = '';
+      try {
+        await window.api.patch(
+          '/admin/writing/essays/' + _essayId + '/instructor-note',
+          { instructor_note: note }
+        );
+        _currentNote = note;
+        _serverNote  = note;
+        renderInstructorNote(note);
+        _setEditOpen('instructor-note', false);
+        setAlert('success', 'Đã lưu note.');
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + err.message;
+      }
+    }
+
+    // ── Copy / Download ──────────────────────────────────────────
     async function _ensureSavedBefore(actionLabel) {
       if (!_isDirty) return true;
-      if (!confirm('Bạn có thay đổi chưa lưu. Lưu trước khi ' + actionLabel + '?')) {
-        return false;
-      }
+      if (!confirm('Bạn có thay đổi chưa lưu. Lưu trước khi ' + actionLabel + '?')) return false;
       return await handleSave();
     }
 
@@ -621,8 +855,6 @@
 
     async function handleDownload() {
       if (!await _ensureSavedBefore('tải file')) return;
-      // We can't use a plain <a href>: api.js attaches Authorization to fetch only.
-      // Fetch as blob, then trigger download via object URL.
       try {
         var sb = getSupabase();
         var res = await sb.auth.getSession();
@@ -637,7 +869,6 @@
           try { var err = await response.json(); msg = err.detail || msg; } catch (_) {}
           throw new Error(msg);
         }
-        // Pull filename from Content-Disposition
         var dispo = response.headers.get('Content-Disposition') || '';
         var match = /filename="([^"]+)"/.exec(dispo);
         var filename = match ? match[1] : 'feedback.docx';
@@ -653,9 +884,6 @@
     }
 
     async function handleDeliver() {
-      // No skip option for delivery: the saved admin_edits_json is the
-      // version going to the student; an unsaved form would silently
-      // ship the previous edit. Block until clean.
       if (_isDirty) {
         alert('Vui lòng lưu các thay đổi trước khi đánh dấu đã giao.');
         return;
@@ -673,100 +901,25 @@
       }
     }
 
-    function handleMistakeClick(e) {
-      // Remove-mistake button takes priority — same handler is wired on
-      // tbody, so we have to disambiguate.
-      var removeBtn = e.target.closest('button[data-act="remove-mistake"]');
-      if (removeBtn) {
-        var row = removeBtn.closest('tr[data-row]');
-        if (row) { row.remove(); markDirty(); }
-        return;
-      }
-
-      // Click anywhere on a row's NON-input area → scroll to + pulse the
-      // matching <mark> in the essay pane (W3.2 P2). Skip if the click
-      // landed inside an editable cell — typing should not cause a jump.
-      if (e.target.closest('textarea, input, button')) return;
-      var row = e.target.closest('tr[data-mistake-id]');
-      if (!row) return;
-      var id = row.dataset.mistakeId;
-      var target = document.getElementById('mistake-' + id);
-      if (!target) return;
-
-      // Visual pairing on the table: tag the active row briefly.
-      document.querySelectorAll('#mistakes-body tr.row-active')
-        .forEach(function (r) { r.classList.remove('row-active'); });
-      row.classList.add('row-active');
-      setTimeout(function () { row.classList.remove('row-active'); }, 1600);
-
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Restart the animation reliably even on repeat clicks.
-      target.classList.remove('pulse');
-      void target.offsetWidth;
-      target.classList.add('pulse');
-    }
-
-    // ── Phase 2.5 — instructor note + regrade ────────────────────
-    async function handleSaveInstructorNote() {
-      var noteEl = document.getElementById('f-instructor-note');
-      var statusEl = document.getElementById('instructor-note-status');
-      var btn = document.getElementById('btn-save-note');
-      var note = (noteEl.value || '').trim();
-      btn.disabled = true;
-      var orig = btn.textContent;
-      btn.textContent = 'Đang lưu…';
-      try {
-        await window.api.patch(
-          '/admin/writing/essays/' + _essayId + '/instructor-note',
-          { instructor_note: note }
-        );
-        statusEl.textContent = '✓ Đã lưu lúc ' + new Date().toLocaleTimeString();
-        statusEl.style.color = '#86efac';
-      } catch (err) {
-        statusEl.textContent = 'Lỗi: ' + err.message;
-        statusEl.style.color = '#f87171';
-      } finally {
-        btn.disabled = false; btn.textContent = orig;
-      }
-    }
-
     async function handleRegrade() {
-      // Two confirms because regrade is destructive: it clears
-      // admin_edits_json AND replaces the writing_feedback row.
-      // Andy's instructor_note + the original essay_text survive.
       if (_isDirty && !confirm(
-            'Có thay đổi chưa lưu trên feedback. Tiếp tục regrade ' +
-            'sẽ XÓA chỉnh sửa của bạn và thay bằng bản AI mới. Tiếp tục?'
-          )) {
-        return;
-      }
+            'Có thay đổi chưa lưu. Tiếp tục regrade sẽ XÓA chỉnh sửa của bạn ' +
+            'và thay bằng bản AI mới. Tiếp tục?'
+          )) return;
       if (!confirm(
             'Chấm lại bằng AI? Hành động này:\n' +
             '• Xóa AI feedback hiện tại\n' +
             '• Xóa các chỉnh sửa thủ công của admin\n' +
             '• GIỮ NGUYÊN note giảng viên (instructor_note)\n' +
             '• Tăng regrade_count'
-          )) {
-        return;
-      }
+          )) return;
       var btn = document.getElementById('btn-regrade');
       var orig = btn.textContent;
       btn.disabled = true; btn.textContent = 'Đang queue…';
       try {
-        var res = await window.api.post(
-          '/admin/writing/essays/' + _essayId + '/regrade',
-          {}
-        );
-        // Server returns { regrade_count, eta_seconds, message }.
-        // ETA is approximate — show it so Andy knows when to refresh.
+        var res = await window.api.post('/admin/writing/essays/' + _essayId + '/regrade', {});
         var eta = res.eta_seconds ? (' (~' + res.eta_seconds + 's)') : '';
-        setAlert('success',
-          'Đã queue regrade #' + res.regrade_count + '.' + eta +
-          ' Refresh trang để xem feedback mới.');
-        // Local state matches server: row is now `grading`, no admin
-        // edits, regrade counter bumped. Bridge by re-fetching rather
-        // than mutating in place — the BG grader writes feedback on
-        // its own timeline.
+        setAlert('success', 'Đã queue regrade #' + res.regrade_count + '.' + eta + ' Refresh trang để xem feedback mới.');
         clearDirty();
         await loadEssay();
       } catch (err) {
@@ -776,22 +929,120 @@
       }
     }
 
-    function handleAddMistake() {
-      var tbody = document.getElementById('mistakes-body');
-      // Strip "no mistakes" placeholder if present
-      if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
-      var i = tbody.querySelectorAll('tr[data-row]').length;
-      tbody.insertAdjacentHTML('beforeend', renderMistakeRow({}, i));
-      // Wire dirty listeners on the just-inserted row + adding a row is
-      // itself a dirty edit even if no field is filled in yet.
-      attachDirtyListeners(tbody.lastElementChild);
-      markDirty();
+    // ── Load + populate ──────────────────────────────────────────
+    function _formatDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('vi-VN'); } catch (_) { return iso; }
     }
 
-    // Browser-level guard against navigating away with unsaved edits.
-    // Modern browsers ignore the returned message but show a generic
-    // confirmation; the empty-string assignment is the canonical way
-    // to opt in.
+    function populate(detail) {
+      _essay     = detail;
+      _student   = detail.student || {};
+      _aiFeedback = (detail.feedback && detail.feedback.feedback_json) || {};
+      _adminEdits = detail.admin_edits_json || null;
+
+      // Sprint 2.5.1 fix #1: layered merge instead of XOR pick.
+      _currentFeedback = _mergeFeedback(_aiFeedback, _adminEdits || {});
+
+      // instructor_note is NOT in feedback_json — it's a sibling column.
+      _serverNote  = detail.instructor_note || '';
+      _currentNote = _serverNote;
+
+      // Header
+      document.getElementById('header-student').textContent =
+        (_student.student_code ? _student.student_code + ' — ' : '') + (_student.full_name || '');
+      var taskLabel = (detail.task_type || 'task —').replace('task1_academic', 'Task 1 (Academic)')
+                                                      .replace('task1_general',  'Task 1 (General)')
+                                                      .replace('task2',          'Task 2');
+      document.getElementById('header-meta-text').textContent =
+        taskLabel + ' · ' + _formatDate(detail.created_at);
+      setStatusPill(detail.status);
+
+      var fb = detail.feedback || {};
+      var band = fb.overall_band_score != null ? fb.overall_band_score : _currentFeedback.overallBandScore;
+      document.getElementById('band-score').textContent = (band != null) ? ('Band ' + band) : 'Band —';
+
+      // Audit badges (Phase 2.5)
+      document.getElementById('manual-flag-wrap').classList.toggle('hidden', !detail.is_manually_edited);
+      var regradeWrap = document.getElementById('regrade-wrap');
+      var n = detail.regrade_count || 0;
+      regradeWrap.classList.toggle('hidden', n < 1);
+      document.getElementById('regrade-badge').textContent = '🔄 Đã chấm lại' + (n > 1 ? ' (×' + n + ')' : '');
+
+      // Read-only essay
+      var promptBox = document.getElementById('prompt-box');
+      promptBox.textContent = detail.prompt_text ? '📝 ' + detail.prompt_text : '';
+      document.getElementById('essay-text').textContent = detail.essay_text || '—';
+
+      renderAllSections();
+      clearDirty();
+    }
+
+    async function loadEssay() {
+      try {
+        var detail = await window.api.get('/admin/writing/essays/' + _essayId);
+        populate(detail);
+      } catch (err) {
+        setAlert('error', 'Không tải được essay: ' + err.message);
+      }
+    }
+
+    // ── Smooth-scroll + scrollspy ────────────────────────────────
+    function wireNav() {
+      var navLinks = document.querySelectorAll('.nav-link');
+      navLinks.forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          var target = document.querySelector(link.getAttribute('href'));
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+
+      // Highlight whichever section the reader is currently on.
+      // rootMargin shrinks the top by the sticky-header height so a
+      // section becomes "active" when its top crosses just below the
+      // header, and shrinks the bottom by 50% so multiple visible
+      // sections don't fight for the active class on long screens.
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var id = entry.target.id;
+          navLinks.forEach(function (link) {
+            link.classList.toggle('is-active', link.getAttribute('href') === '#' + id);
+          });
+        });
+      }, { threshold: 0, rootMargin: '-72px 0px -50% 0px' });
+
+      document.querySelectorAll('.grade-section').forEach(function (s) { observer.observe(s); });
+    }
+
+    // ── Global event delegation for section edit forms ───────────
+    function wireSectionEdits() {
+      // Open
+      document.querySelectorAll('[data-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          _setEditOpen(btn.getAttribute('data-edit'), true);
+        });
+      });
+      // Cancel
+      document.querySelectorAll('[data-cancel]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          _setEditOpen(btn.getAttribute('data-cancel'), false);
+        });
+      });
+      // Save (per-section draft)
+      document.querySelectorAll('[data-save]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          _saveSectionDraft(btn.getAttribute('data-save'));
+        });
+      });
+      // Save instructor note (separate endpoint, no local-draft step)
+      document.querySelectorAll('[data-save-note]').forEach(function (btn) {
+        btn.addEventListener('click', handleSaveNote);
+      });
+    }
+
+    // ── beforeunload guard for unsaved edits ─────────────────────
     window.addEventListener('beforeunload', function (e) {
       if (_isDirty) {
         e.preventDefault();
@@ -800,26 +1051,22 @@
       }
     });
 
+    // ── Bootstrap ────────────────────────────────────────────────
     WC.bootstrap({
       onReady: function () {
         if (!_essayId) {
-          setAlert('error', 'Thiếu essay_id trong URL.');
+          setAlert('error', 'Thiếu essay id trong URL (?id=… hoặc ?essay_id=…).');
           return;
         }
-        initTabs();
-        document.getElementById('btn-save').addEventListener('click', handleSave);
-        document.getElementById('btn-copy').addEventListener('click', handleCopy);
+        wireNav();
+        wireSectionEdits();
+        document.getElementById('btn-save').addEventListener('click',     handleSave);
+        document.getElementById('btn-copy').addEventListener('click',     handleCopy);
         document.getElementById('btn-download').addEventListener('click', handleDownload);
-        document.getElementById('btn-deliver').addEventListener('click', handleDeliver);
-        document.getElementById('btn-add-mistake').addEventListener('click', handleAddMistake);
-        document.getElementById('mistakes-body').addEventListener('click', handleMistakeClick);
-        // Phase 2.5 — instructor note + regrade
-        var btnSaveNote = document.getElementById('btn-save-note');
-        if (btnSaveNote) btnSaveNote.addEventListener('click', handleSaveInstructorNote);
-        var btnRegrade = document.getElementById('btn-regrade');
-        if (btnRegrade) btnRegrade.addEventListener('click', handleRegrade);
+        document.getElementById('btn-deliver').addEventListener('click',  handleDeliver);
+        document.getElementById('btn-regrade').addEventListener('click',  handleRegrade);
         loadEssay();
-      }
+      },
     });
   </script>
 </body>
