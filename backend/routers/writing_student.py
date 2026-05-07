@@ -123,22 +123,51 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
         )
         raise HTTPException(status_code=500, detail="Lỗi khi tải danh sách bài viết")
 
+    rows = result.data or []
+
+    # Sprint 2.5.5 — surface the overall band on delivered essays so
+    # the dashboard card can render a band pill.  We re-fetch
+    # writing_feedback in a single batch query keyed on delivered
+    # essay ids; non-delivered essays skip the join entirely (no row
+    # exists yet, or the row is admin-internal).  Failure here is
+    # non-fatal: cards just render without a band pill.
+    band_by_essay: dict[str, float] = {}
+    delivered_ids = [r["id"] for r in rows if r.get("status") == "delivered"]
+    if delivered_ids:
+        try:
+            fb_result = (
+                supabase_admin.table("writing_feedback")
+                .select("essay_id, overall_band_score")
+                .in_("essay_id", delivered_ids)
+                .execute()
+            )
+            for fb in fb_result.data or []:
+                band = fb.get("overall_band_score")
+                if band is not None:
+                    band_by_essay[fb["essay_id"]] = band
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] band batch fetch failed student=%s: %s",
+                student["id"], exc,
+            )
+
     essays: list[dict] = []
-    for e in result.data or []:
+    for e in rows:
         prompt = e.get("prompt_text") or ""
         if len(prompt) > _PROMPT_PREVIEW_CHARS:
             prompt_preview = prompt[:_PROMPT_PREVIEW_CHARS].rstrip() + "..."
         else:
             prompt_preview = prompt
         essays.append({
-            "id":             e["id"],
-            "task_type":      e.get("task_type"),
-            "prompt_preview": prompt_preview,
-            "status":         e["status"],
-            "created_at":     e["created_at"],
-            "delivered_at":   e.get("delivered_at"),
-            "is_flagged":     bool(e.get("is_flagged")),
-            "flag_reasons":   e.get("flag_reasons") or [],
+            "id":                 e["id"],
+            "task_type":          e.get("task_type"),
+            "prompt_preview":     prompt_preview,
+            "status":             e["status"],
+            "created_at":         e["created_at"],
+            "delivered_at":       e.get("delivered_at"),
+            "is_flagged":         bool(e.get("is_flagged")),
+            "flag_reasons":       e.get("flag_reasons") or [],
+            "overall_band_score": band_by_essay.get(e["id"]),
         })
 
     return {
@@ -196,6 +225,7 @@ async def get_my_essay(
     essay = essay_result.data[0]
 
     feedback = None
+    instructor_note = None
     if essay.get("status") == "delivered":
         try:
             fb_result = (
@@ -222,10 +252,101 @@ async def get_my_essay(
                 essay_id, e,
             )
 
+        # Sprint 2.5.5 — student result page surfaces instructor_note
+        # as its own tab. Lives on writing_essays as a sibling column
+        # (Phase 2.5 + 1.5d), survives regrades, only delivered to the
+        # student once Andy clicks Mark delivered. We re-fetch here
+        # rather than threading another column through the SELECT
+        # above so the original projection stays unchanged.
+        try:
+            note_result = (
+                supabase_admin.table("writing_essays")
+                .select("instructor_note")
+                .eq("id", essay_id)
+                .eq("student_id", student["id"])
+                .limit(1)
+                .execute()
+            )
+            if note_result.data:
+                instructor_note = (
+                    note_result.data[0].get("instructor_note") or None
+                )
+        except Exception as e:
+            logger.warning(
+                "[writing-student] note fetch failed essay=%s: %s",
+                essay_id, e,
+            )
+
     return {
-        "essay":    essay,
-        "feedback": feedback,
+        "essay":           essay,
+        "feedback":        feedback,
+        "instructor_note": instructor_note,
     }
+
+
+@router.get("/my-essays/{essay_id}/export.docx")
+async def export_my_essay_docx(
+    essay_id: str,
+    student: dict = Depends(get_current_student),
+):
+    """Stream a .docx export of a delivered essay's feedback.
+
+    Same student_id ownership filter as get_my_essay — a request for
+    another student's essay 404s without revealing whether it exists.
+    Only delivered essays are exportable: an admin still iterating on
+    a 'graded' / 'reviewed' essay shouldn't have its in-progress AI
+    output leaking to the student via this download path.
+    """
+    import io
+    from fastapi.responses import StreamingResponse
+
+    from services.writing_word_exporter import render_essay_to_docx
+
+    # Ownership + delivery gate. Use a status SELECT first so we can
+    # 404 vs 403 distinctly: 404 for "not yours / doesn't exist" (no
+    # ownership leak), 403 for "yours but not delivered yet" (student
+    # already knows they own it from the dashboard).
+    try:
+        owner_result = (
+            supabase_admin.table("writing_essays")
+            .select("status")
+            .eq("id", essay_id)
+            .eq("student_id", student["id"])
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(
+            "[writing-student] export ownership lookup failed student=%s essay=%s: %s",
+            student["id"], essay_id, e,
+        )
+        raise HTTPException(status_code=500, detail="Lỗi khi tải bài viết")
+
+    if not owner_result.data:
+        raise HTTPException(status_code=404, detail="Essay không tìm thấy")
+
+    if owner_result.data[0].get("status") != "delivered":
+        raise HTTPException(
+            status_code=403,
+            detail="Bài chưa được giảng viên duyệt — chưa thể tải xuống.",
+        )
+
+    ctx = essay_service.get_essay_render_context(essay_id)
+    docx_bytes, filename = render_essay_to_docx(
+        feedback=ctx["feedback"],
+        essay_text=ctx["essay_text"],
+        prompt_text=ctx["prompt_text"],
+        task_type=ctx["task_type"],
+        student_name=ctx["student_name"],
+        student_code=ctx["student_code"],
+    )
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Phase 2.3b: assignments + draft + submit ─────────────────────────
