@@ -64,9 +64,11 @@ After the Sprint 2.6.1 hotfix:
    ORDER BY created_at DESC LIMIT 1;
    ```
 
-4. Expected: `v2.0`. If it returns `v1.0` after the env flip, the
+4. Expected: `v2.1` (current stamp after the Sprint 2.6.2 anti-
+   fabrication tuning). If it returns `v1.0` after the env flip, the
    rollout did NOT take effect — investigate before sampling more
-   essays.
+   essays. Stamps `v2.0` predate Sprint 2.6.2 and serve as the
+   pre-tuning baseline for A/B comparison.
 
 ## Quality bug v2 addresses
 
