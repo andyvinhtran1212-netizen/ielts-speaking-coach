@@ -123,15 +123,19 @@ def test_l1_doc_opens_and_has_expected_headings():
 
 
 def test_l5_doc_includes_all_advanced_subsections():
+    """Sprint 2.5.4 renamed:
+        Vocabulary Upgrade            → Vocabulary & Collocation
+        Idea Development / Data ...   → Idea Development & Coherence
+       Coherence & Flow stays as the secondary coherence sub-heading."""
     docx_bytes, _ = _build(_l5_payload())
     doc = _open(docx_bytes)
     headings = [
         p.text for p in doc.paragraphs if p.style and p.style.name.startswith("Heading")
     ]
     assert "Advanced Analysis" in headings
-    assert "Vocabulary Upgrade" in headings
+    assert "Vocabulary & Collocation" in headings
     assert "Sentence Structure Analysis" in headings
-    assert "Idea Development / Data Selection" in headings
+    assert "Idea Development & Coherence" in headings
     assert "Coherence & Flow" in headings
     assert "Counterargument" in headings
 
@@ -176,17 +180,19 @@ def test_doc_contains_mistake_table_rows():
 
 
 def test_doc_highlights_mistakes_in_essay():
-    """Each mistake's `original` should be wrapped in a yellow-highlighted run."""
+    """Sprint 2.5.4: highlight switched from yellow w:highlight to red-bg
+    w:shd shading (#FEE2E2) so the .docx visually matches the HTML/clipboard
+    render. Each mistake's `original` substring carries the shaded background."""
     docx_bytes, _ = _build(
         _l1_payload(),
         essay="I has been study for many years now.",
     )
     doc = _open(docx_bytes)
-    yellow_runs = [
+    shaded_runs = [
         run.text for p in doc.paragraphs for run in p.runs
-        if _is_yellow_highlight(run)
+        if _has_red_bg_shading(run)
     ]
-    assert "I has been study" in yellow_runs
+    assert "I has been study" in shaded_runs
 
 
 def test_doc_handles_empty_mistakes_list_without_table():
@@ -201,7 +207,7 @@ def test_doc_handles_empty_mistakes_list_without_table():
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _is_yellow_highlight(run) -> bool:
-    """Inspect run XML for w:highlight w:val='yellow' (set by the exporter)."""
+    """Inspect run XML for w:highlight w:val='yellow' (legacy mark)."""
     rPr = run._r.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}rPr")
     if rPr is None:
         return False
@@ -209,6 +215,20 @@ def _is_yellow_highlight(run) -> bool:
     if hl is None:
         return False
     return hl.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val") == "yellow"
+
+
+def _has_red_bg_shading(run) -> bool:
+    """Sprint 2.5.4: essay highlight now uses w:shd background fill,
+    not w:highlight, so a paste from .docx into Word/Google Docs preserves
+    a colour rather than the named yellow swatch."""
+    rPr = run._r.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}rPr")
+    if rPr is None:
+        return False
+    shd = rPr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}shd")
+    if shd is None:
+        return False
+    fill = shd.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}fill")
+    return (fill or "").upper() == "FEE2E2"
 
 
 # ── W3.2 Phase 3: threshold colors + native bullets ──────────────────
@@ -240,55 +260,55 @@ def _band_run_color(doc):
     return None
 
 
-def test_doc_overall_band_color_low_band():
-    """Low band (< 5.5) gets the red threshold color, not teal."""
-    payload = _l1_payload()
-    payload["overallBandScore"] = 4.5
-    payload["criteriaFeedback"]["mainCriterion"]["bandScore"] = 4
-    payload["criteriaFeedback"]["coherenceCohesion"]["bandScore"] = 4
-    payload["criteriaFeedback"]["lexicalResource"]["bandScore"] = 4
-    payload["criteriaFeedback"]["grammaticalRange"]["bandScore"] = 4
-    docx_bytes, _ = _build(payload)
-    doc = _open(docx_bytes)
-    assert _band_run_color(doc) == _COLOR_RED
+def test_doc_overall_band_always_blue():
+    """Sprint 2.5.4: overall band display is always blue (#2563EB) per
+    spec — visual emphasis comes from size (72pt) plus the blue token,
+    not from threshold-coloured run colour. The threshold colour now
+    lives on per-criterion band cells inside the 2×2 grid.
 
-
-def test_doc_overall_band_color_mid_band():
-    """Mid band (5.5 ≤ x < 7.0) gets amber."""
-    payload = _l1_payload()
-    payload["overallBandScore"] = 6.0
-    docx_bytes, _ = _build(payload)
-    doc = _open(docx_bytes)
-    assert _band_run_color(doc) == _COLOR_AMBER
-
-
-def test_doc_overall_band_color_high_band():
-    """High band (≥ 7.0) keeps teal."""
-    payload = _l1_payload()
-    payload["overallBandScore"] = 7.5
-    docx_bytes, _ = _build(payload)
-    doc = _open(docx_bytes)
-    assert _band_run_color(doc) == _COLOR_TEAL
+    Pinning the absolute colour rather than the threshold guards
+    against a regression where someone wires _band_color back in for
+    the overall display.
+    """
+    from docx.shared import RGBColor as _RGB
+    BLUE = _RGB(0x25, 0x63, 0xEB)
+    for score in (4.5, 6.0, 7.5):
+        payload = _l1_payload()
+        payload["overallBandScore"] = score
+        docx_bytes, _ = _build(payload)
+        doc = _open(docx_bytes)
+        # The 72pt band display is the FIRST centred paragraph after the title.
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        for p in doc.paragraphs:
+            if p.alignment == WD_ALIGN_PARAGRAPH.CENTER and p.runs and p.runs[0].font.size and p.runs[0].font.size.pt >= 60:
+                assert p.runs[0].font.color.rgb == BLUE, (
+                    f"score={score}: expected blue, got {p.runs[0].font.color.rgb}"
+                )
+                break
+        else:
+            raise AssertionError(f"score={score}: 72pt band paragraph not found")
 
 
 def test_doc_takeaways_use_word_bullet_style():
-    """Strengths + Areas for Improvement render with Word's 'List Bullet'
-    style — Andy's first-use feedback noted the prior render had no
-    visible bullet indents."""
+    """Sprint 2.5.4 takeaways layout is a 1×2 table (was 2-row header+data).
+    Each cell carries an inline bold heading + bullet-styled items."""
     docx_bytes, _ = _build(_l1_payload())
     doc = _open(docx_bytes)
-    # Key Takeaways is the first 2x2 table after the H1
+    # Key Takeaways is the first table — now 1 row × 2 columns.
     takeaways = doc.tables[0]
-    bullet_styles = []
-    for cell in (takeaways.rows[1].cells[0], takeaways.rows[1].cells[1]):
-        for p in cell.paragraphs:
-            if p.text:  # skip blank seed paragraph
-                bullet_styles.append(p.style.name)
-    assert bullet_styles, "no takeaway items rendered"
-    assert all(s == "List Bullet" for s in bullet_styles), (
-        f"Expected every populated takeaway paragraph to use 'List Bullet'; "
-        f"got {bullet_styles}"
+    assert len(takeaways.rows) == 1, (
+        f"Expected 1×2 takeaways layout, got {len(takeaways.rows)} rows"
     )
+    bullet_styles = []
+    for cell in (takeaways.rows[0].cells[0], takeaways.rows[0].cells[1]):
+        for p in cell.paragraphs:
+            # The first paragraph in each cell is the header (bold,
+            # not bullet-styled). Anything past it carrying text and
+            # styled "List Bullet" is a takeaway item.
+            if p.text and p.style.name == "List Bullet":
+                bullet_styles.append(p.style.name)
+    assert bullet_styles, "no bullet-styled takeaway items rendered"
+    assert all(s == "List Bullet" for s in bullet_styles)
 
 
 # ── Phase 1.5c — sentenceStructureAnalysis dual-shape rendering ──────
@@ -409,6 +429,87 @@ def test_doc_includes_footer_credit_line():
     doc = _open(docx_bytes)
     full = "\n".join(p.text for p in doc.paragraphs)
     assert "Aver Learning" in full
+
+
+# ── Sprint 2.5.4 — spec structure pins ───────────────────────────────
+
+
+def test_takeaways_table_is_1x2_layout():
+    """Sprint 2.5.4: takeaways became 1×2 (single row, two cells: green |
+    yellow). A future refactor that splits header into a separate row
+    would break the cell-shading pinning."""
+    docx_bytes, _ = _build(_l1_payload())
+    doc = _open(docx_bytes)
+    takeaways = doc.tables[0]
+    assert len(takeaways.rows) == 1
+    assert len(takeaways.rows[0].cells) == 2
+    assert "Strengths" in takeaways.rows[0].cells[0].text
+    assert "Improvement" in takeaways.rows[0].cells[1].text or \
+           "Areas for" in takeaways.rows[0].cells[1].text
+
+
+def test_criteria_grid_is_2x2_with_titles():
+    """Sprint 2.5.4 criteria grid: 2 rows × 2 cols, IELTS criterion names
+    fill the 4 cells (mapped from the named bundle to the spec's flat shape)."""
+    docx_bytes, _ = _build(_l1_payload())
+    doc = _open(docx_bytes)
+    grid = None
+    for t in doc.tables:
+        if (len(t.rows) == 2 and len(t.rows[0].cells) == 2
+                and "Task Response" in t.rows[0].cells[0].text):
+            grid = t
+            break
+    assert grid is not None, "2×2 criteria grid not found"
+    # All four criterion titles surface across the four cells.
+    cell_text = " ".join(
+        grid.rows[r].cells[c].text
+        for r in range(2) for c in range(2)
+    )
+    assert "Task Response" in cell_text
+    assert "Coherence" in cell_text
+    assert "Lexical Resource" in cell_text
+    assert "Grammatical Range" in cell_text
+
+
+def test_lexical_upgrade_3col_table():
+    """Sprint 2.5.4 vocabulary subsection: 3-column table — Original | → | Upgrade."""
+    docx_bytes, _ = _build(_l5_payload())
+    doc = _open(docx_bytes)
+    lex_table = None
+    for t in doc.tables:
+        if (len(t.rows) >= 2 and len(t.rows[0].cells) == 3
+                and "Original" in t.rows[0].cells[0].text
+                and "Upgrade" in t.rows[0].cells[2].text):
+            lex_table = t
+            break
+    assert lex_table is not None, "3-col lexical upgrade table not found"
+    # The data row carries the original word + first upgrade.
+    data_row_text = " ".join(c.text for c in lex_table.rows[1].cells)
+    assert "good" in data_row_text
+    assert "proficient" in data_row_text
+    assert "→" in data_row_text
+
+
+def test_essay_highlight_intervals_helper():
+    """find_highlight_intervals merges overlapping matches into one
+    interval — both the inner substring and the outer phrase coalesce."""
+    from services.writing_render import find_highlight_intervals
+    essay = "I are happy. I love English language."
+    mistakes = [{"original": "I are"}, {"original": "English language"}]
+    intervals = find_highlight_intervals(essay, mistakes)
+    assert len(intervals) == 2
+    assert intervals[0] == (0, 5)
+    assert intervals[1][0] == essay.index("English language")
+
+
+def test_essay_highlight_intervals_skips_short_originals():
+    """`original` strings shorter than 3 chars are skipped — single-letter
+    mistakes (eg "a" → "an") would otherwise highlight every 'a' in the essay."""
+    from services.writing_render import find_highlight_intervals
+    essay = "An example sentence."
+    mistakes = [{"original": "a"}, {"original": "An"}]
+    intervals = find_highlight_intervals(essay, mistakes)
+    assert intervals == []
 
 
 def test_doc_renders_legacy_sentence_upgrades_shape():
