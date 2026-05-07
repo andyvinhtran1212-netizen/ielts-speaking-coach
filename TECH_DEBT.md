@@ -1,7 +1,7 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-06 (PM)
-**Last reviewed:** 2026-05-06 (PM)
+**Last updated:** 2026-05-07 (PM, post Sprint 2.7.1 SAGA submit)
+**Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
 2026-04-28 to track state explicitly per item rather than by priority bucket.
@@ -1523,6 +1523,274 @@ here so a new collaborator can skim the prior-art:
     fields, type coercion, drop unknown) is mandatory for any LLM JSON
     interface; supplement with explicit ❌/✅ examples in prompt; consider
     Phase 1.5 systematic hardening (W-PHASE-1.5c).
+
+20. **3-segment Vercel rewrite paths break relative `<script>` srcs** —
+    added 2026-05-07 after Sprint 2.3a-1.1. The route
+    `/admin/writing/prompts` (3 path segments) made
+    `<script src="../js/api.js">` resolve to `/admin/js/api.js` → 404,
+    blanking the page. The 1- and 2-segment admin routes had been fine
+    because `..` only had to climb one or two levels. Lesson: every
+    Vercel-rewritten page should use absolute `<script src="/js/...">`
+    and `<link href="/...">`. Audit all relative tags whenever a new
+    rewrite lands at depth ≥3.
+
+21. **DOM ID rename without renderer audit leaves null lookups** —
+    added 2026-05-07 after Sprint 2.3b.1 production canary. Phase 2.3b
+    renamed the dashboard tab badge from `essay-count` to `essays-count`
+    (plural) but the existing `loadEssays()` renderer still wrote to
+    the singular id, returning `null` and crashing the script. Lesson:
+    on any DOM id rename, run `grep -rn "getElementById('OLD_ID')"
+    frontend/` AND `grep -rn '\bOLD_ID\b' frontend/ --include="*.html"
+    --include="*.js"` before merging. Add this as a code-review
+    checklist item for any rename PR.
+
+22. **Page-load snapshots vs server-stamped state become stale silently** —
+    added 2026-05-07 after Sprint 2.3c-3.1. The IELTS-mode timer banner
+    rendered "—" on the practice page because the initial GET happened
+    BEFORE the student typed; backend stamped `started_at` only on the
+    first PATCH /draft. The banner kept rendering off the pre-mutation
+    snapshot — countdown never started. Fix:
+    `maybeInitTimerAfterDraftSave()` re-polls /timer after each save.
+    Lesson: when a backend endpoint mutates state on call, the calling
+    frontend MUST either (a) refetch the affected resource, or (b)
+    receive the post-mutation state in the response payload. Pre-
+    mutation snapshots cannot be trusted for read-after-write reads.
+
+23. **Field fragmentation creates parallel-shape maintenance debt** —
+    added 2026-05-07 after Phase 1.5c initial implementation review.
+    First cut introduced a new `sentenceStructureFocus` field to avoid
+    breaking 4 legacy consumers of `sentenceStructureAnalysis`. Andy
+    rejected: dual fields meant every future consumer had to know
+    which to read, and the migration of legacy consumers off the old
+    field would never finish (no forcing function). Force-pushed
+    1eb4cff: single canonical field, dual-shape with a discriminator.
+    Lesson: don't add a parallel field just to avoid breaking N
+    consumers — either (a) overload the existing field with shape
+    variants and a discriminator, or (b) add a new field WITH explicit
+    deprecation + a removal date for the old one. Parallel fields
+    without a kill date become permanent.
+
+24. **PATCH responses must carry the read-after-write the client needs** —
+    added 2026-05-07 after Sprint 2.3c-3 / 2.3c-3.1. PATCH /draft
+    returned the updated draft row, but the same call also stamped
+    `started_at` on the assignment as a side-effect — and the frontend
+    needed the FRESH timer state to start the countdown. Frontend had
+    nothing to read from. Fix: separate /timer GET endpoint + explicit
+    re-fetch after each save (#22). Lesson: when an endpoint mutates
+    multiple resources, its response must include enough info for the
+    client to refresh OR an explicit pointer to the GET that does
+    (e.g. a `Location:` header or a `_links: {timer: '/...'}` block).
+    Silent multi-resource mutations leave the client guessing.
+
+25. **API secrets in chat planning threads** — added 2026-05-07 after
+    Phase 2.3c-1 (Cloudinary integration). Andy pasted a Cloudinary
+    API secret into the planning chat to "show what the env var
+    needs to look like" — secret is now in the chat history forever.
+    Andy rotated the secret + set Railway env vars directly. Lesson:
+    NEVER paste real API secrets / tokens / DB passwords in chat,
+    tickets, audit reports, or PR descriptions. Use a placeholder
+    (`<CLOUDINARY_API_SECRET>`) and have Andy paste into the Railway
+    / Vercel / Supabase dashboard directly. If a secret has appeared
+    in any persisted text, treat it as compromised and rotate.
+
+26. **Literal `</script>` token in `<script>` block comment terminates the tag** —
+    added 2026-05-07 after Sprint 2.6.1.2 hotfix (production outage
+    canary 2026-05-07). A planning comment inside an inline `<script>`
+    contained the token `</script>` — the HTML parser is context-blind
+    (no JS-comment escape) and ended the script tag at that point,
+    leaving ~100 lines of JS rendered as visible text below the
+    truncated tag. `main()` never ran, the dashboard was stuck on
+    "Đang tải...". Lesson: NEVER write the literal token `</script>`
+    inside an inline `<script>` block, even in a comment, even
+    inside a string literal — the parser doesn't understand JS
+    syntax inside HTML. Pre-commit hook recommended: count
+    `</script>` occurrences inside each `<script>...</script>` block
+    range and fail on >1. Filed under TODO infrastructure list.
+
+27. **Inline-script IIFE runs before DOM elements below it exist** —
+    added 2026-05-07 after Sprint 2.6.1.1 hotfix (same outage as
+    #26). The wireModal IIFE in writing-dashboard.html ran during
+    inline-script parse (`document.readyState === 'loading'`) and
+    called `getElementById('modal-close')` against a modal whose
+    markup lived BELOW the script in source order — `null` returned,
+    `addEventListener` crashed, halted the entire script. Lesson:
+    every inline script that queries the DOM must gate on
+    DOMContentLoaded (or move to end of `<body>`):
+
+    ```javascript
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initFn);
+    } else {
+        initFn();
+    }
+    ```
+
+    Defensive `if (!el) return;` null guards are belt-and-suspenders
+    but the gate is the actual fix.
+
+28. **Pre-read + later UPDATE on the same row is a TOCTOU race** —
+    added 2026-05-07 after Sprint 2.7 fix #3. The original
+    `submit_my_assignment` did `SELECT status` → validate → UPDATE
+    later. Two tabs submitting simultaneously could both pass the
+    pre-read (`status='in_progress'`), both create a writing_essays
+    row, both UPDATE the assignment — the second write silently
+    overwrote the first essay link, leaving an orphan. Codex audit
+    flagged it. Fix: single conditional UPDATE filtered on the
+    current state via `.in_("status", [...])`; only one tab gets
+    non-empty `data` back, the loser sees a clean 409. Lesson: for
+    any "claim a row" pattern, never split into pre-read + UPDATE.
+    Use a single conditional UPDATE with WHERE on the gate column
+    and let Postgres serialise.
+
+29. **Atomic claim still leaves a post-claim crash window without SAGA** —
+    added 2026-05-07 after Sprint 2.7.1 (Codex re-audit follow-up).
+    Sprint 2.7's atomic claim closed the two-tab race but left a
+    new failure mode: claim wrote `status='submitted'` first, then
+    essay creation ran, then a backfill UPDATE linked `essay_id`. A
+    Railway crash between claim and backfill (50ms-2s window)
+    froze the assignment in `submitted` with `essay_id=NULL` —
+    student dashboard locked the form but the result page had no
+    essay to render, recovery required manual SQL. Fix: invert the
+    order (SAGA pattern) — create the essay row FIRST (no link, no
+    job), then atomic claim+link in a single UPDATE, then schedule
+    grading job. A crash now leaves an orphan essay (admin can
+    `DELETE FROM writing_essays WHERE id NOT IN (SELECT essay_id
+    FROM writing_assignments ...)`) instead of a stuck assignment.
+    Lesson: when a multi-step operation touches a parent + child
+    pair, design the order so a crash leaves recoverable child
+    artifacts, not a stuck parent. SAGA reverse order is the
+    cheapest fix; full distributed transactions are overkill for a
+    solo-dev codebase, nightly cleanup jobs add operational
+    complexity.
+
+30. **`supabase_admin` + app-layer `eq("student_id", …)` filters are
+    one line of defense** — added 2026-05-07 after Sprint 2.7 fix
+    #1. Every student-facing endpoint runs through the service-role
+    `supabase_admin` client (RLS bypassed) and relies on a single
+    `.eq("student_id", student["id"])` filter for cross-student
+    isolation. A refactor that drops the filter would silently leak
+    one student's data into another's response. Sprint 2.7 fix:
+    9 isolation tests (`tests/test_writing_student_isolation.py`)
+    pin the filter on every endpoint — list, detail, draft, submit,
+    start, timer, paste-log. Lesson: when bypassing RLS for
+    operational convenience, the app-layer filter must be covered
+    by tests that explicitly construct a "student A asks for
+    student B's data" scenario. Long-term option: refactor
+    student-facing routes to use a JWT-scoped Supabase client so
+    RLS is enforced at the DB and the app filter becomes redundant
+    defense-in-depth.
+
+31. **`latin-1` decode never raises — encoding fallback chains need
+    output validation** — added 2026-05-07 after Sprint 2.7 fix #6.
+    `services/file_extract_service.extract_text_from_txt` tried
+    `utf-8-sig` → `utf-8` → `latin-1` → `cp1252` for student-
+    uploaded essays. Problem: `latin-1` is a 1-to-1 byte map that
+    NEVER raises `UnicodeDecodeError` — a renamed PNG/PDF/exe
+    decodes "successfully" as a wall of control characters and
+    sails into the textarea. Fix: `_is_likely_text()` heuristic
+    measures the printable+whitespace character ratio (≥0.85)
+    after decode; binary garbage is rejected with a 400. Lesson:
+    encoding fallback chains must validate the OUTPUT, not just
+    that decode didn't raise. `latin-1` is a "decode anything"
+    trap — its presence in a chain means a separate semantic check
+    is required downstream.
+
+32. **Read-modify-write on a JSONB array column races under
+    concurrency** — added 2026-05-07 after Sprint 2.7 fix #5
+    (LOW). The Sprint 2.6.1 `POST /paste-log` endpoint did
+    SELECT `paste_events` → append in Python → UPDATE write back.
+    Two near-simultaneous pastes from one student (fast-paste, or
+    a flaky network retry) could both read the array before either
+    UPDATE landed → second write overwrote first event → forensic
+    audit row missing. Fix: migration 042 `append_paste_event(...)`
+    SQL function uses `INSERT ... ON CONFLICT DO UPDATE SET
+    paste_events = COALESCE(...,'[]'::jsonb) || p_event` inside a
+    single statement. Postgres serialises under the row lock.
+    Endpoint switched to `.rpc("append_paste_event", {...})`.
+    Lesson: any "append to array column" pattern should use an
+    atomic SQL operation — `||` for JSONB, `array_append()` for
+    native arrays. `supabase-py` doesn't expose these natively, so
+    wrap them in a SQL function and call via `.rpc()`. Read-modify-
+    write JSONB is an audit-trail data-loss bug waiting to happen.
+
+33. **macOS Finder duplicate filenames (`* 2.py`) silently ship to
+    git** — added 2026-05-07 after Sprint 2.7 fix #10. A
+    `backend/tests/test_writing_history 2.py` file (with literal
+    space + "2") existed alongside the real file — created when
+    Finder duplicated during a copy/rename. Its assertion checked
+    the pre-Phase-1.5b "Lịch sử lỗi" header (now "Lịch sử của
+    học viên") and broke CI on the next merge. Lesson: pre-commit
+    hook should reject filenames matching `* [0-9]*.{py,html,js}`
+    or similar Finder-duplicate patterns. Or `.gitignore` such
+    patterns explicitly. macOS users should also disable
+    `Finder → Preferences → ... → Show extension warnings` to
+    reduce the rate of accidental duplicates during rename ops.
+
+---
+
+## Cross-cutting lessons — Sprint 2.3 through 2.7.1 cycle
+
+Higher-level process observations from the same arc that produced
+anti-patterns #20-#33. These don't map to a single bug but inform
+how prompts, audits, and ship gates should be structured going
+forward.
+
+L1. **Codex audits catch issues code review misses.** Both the
+Phase 2 Student Portal audit (2026-05-06) and the Phase 2.3+2.6
+audit (2026-05-07) surfaced AMBER concerns Andy + Code missed
+during the sprint cycle — the Sprint 2.7 PR shipped six AMBER
+fixes, all real, none caught by tests at the time of original
+implementation. Schedule a Codex audit after every 2-3 phases or
+whenever a sprint touches state-mutation logic. The Sprint 2.7.1
+SAGA refactor was driven by the re-audit catching what the first
+audit missed: the post-claim crash window.
+
+L2. **Production canary > test suite for UX issues.** Sprint
+2.6.1's tests passed, the dev build looked fine, but the page
+broke on real Vercel deploy because (a) tests don't run an actual
+HTML parser, (b) tests don't render modals or attach event
+listeners, (c) tests don't simulate browser script-execution
+order across `<script>` tags + DOM elements. Both 2.6.1.1 and
+2.6.1.2 outages were caught by Andy hitting the live URL after
+deploy. Lesson: every UX-touching sprint needs a canary check
+against the deployed Vercel preview, not just the local dev
+build. "Tests green" is a lower bar than "page renders + main()
+runs + buttons click in a real browser".
+
+L3. **Hotfix prompts should focus on a SINGLE root cause.**
+Sprint 2.6.1.1's prompt mentioned two hypotheses (markup missing
+OR script-order timing) with "defense in depth" framing — Code
+applied both. Post-hoc analysis showed the script-order timing
+fix was the only load-bearing change; the markup re-add was
+unnecessary. Lesson: when triaging a hotfix, identify the single
+most-likely root cause and ship just that. Defense-in-depth is
+right for green-field design; for hotfixes it doubles the
+diff size and dilutes the "what did we actually change" review.
+
+L4. **Spec deviations tracked in PR bodies prevent future drift.**
+Code consistently adapts spec when reality differs from the prompt
+— PUT vs PATCH (FastAPI signature), `require_authenticated_user`
+vs `get_current_student` (existing dependency), schema NOT NULL
+constraints (writing_feedback.overall_band_score), missing column
+warnings, etc. The pattern that's worked: PR body has a "Spec
+deviations" section listing each change + the reason. Six months
+later when someone wonders "why does this code differ from the
+sprint spec?", the answer is in git history rather than tribal
+memory. Sprint 2.6.1 + 2.7 + 2.7.1 PR bodies all include this
+section — keep doing it.
+
+L5. **Migration files document semantic intent, not just schema
+changes.** The Sprint 2.6.1 paste-tracking migration (041)
+included a long comment block documenting the semantic shift in
+`started_at` (auto-stamped on first PATCH /draft → explicitly
+stamped via POST /start) even though the trigger flip required
+no schema change. The comment pays off when investigating a
+future "why does started_at exist for assignments that were never
+PATCH'd?" question — the migration is the canonical
+chronological record of intent. Lesson: when a behaviour change
+ships alongside or even WITHOUT a schema change, write a
+migration file with the rationale even if the SQL is empty
+(or just a `COMMENT ON COLUMN`). Audit-trail value > terseness.
 
 ---
 
