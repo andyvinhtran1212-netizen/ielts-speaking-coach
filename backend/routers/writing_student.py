@@ -775,12 +775,6 @@ async def submit_my_assignment(
 
     assignment = _resolve_active_assignment(student_id, str(assignment_id))
 
-    if assignment["status"] not in _ACTIVE_ASSIGNMENT_STATES:
-        raise HTTPException(
-            409,
-            f"Không thể nộp — trạng thái bài là '{assignment['status']}'.",
-        )
-
     prompt = assignment.get("writing_prompts") or {}
     prompt_text = prompt.get("prompt_text")
     task_type   = prompt.get("task_type")
@@ -794,166 +788,244 @@ async def submit_my_assignment(
             "Đề bài của assignment không khả dụng. Vui lòng liên hệ giảng viên.",
         )
 
-    # Prefer the body-supplied essay_text; fall back to the saved
-    # draft so a student with bad connectivity who lost the form can
-    # still submit "what was last saved".  Sprint 2.6.1: ALSO read
-    # `paste_events` from the same draft row in one round-trip so we
-    # can copy the audit array onto the essay regardless of which
-    # branch (flagged / clean) we end up taking.
-    essay_text = (body.essay_text or "").strip() if body.essay_text else ""
-    paste_events: list = []
-    try:
-        d = (
-            supabase_admin.table("writing_drafts")
-            .select("draft_text, paste_events")
-            .eq("assignment_id", str(assignment_id))
-            .limit(1)
-            .execute()
-        )
-        if d.data:
-            if not essay_text:
-                essay_text = (d.data[0].get("draft_text") or "").strip()
-            paste_events = d.data[0].get("paste_events") or []
-    except Exception as exc:
-        logger.warning(
-            "[writing-student] draft fallback fetch failed "
-            "assignment=%s: %s",
-            assignment_id, exc,
-        )
-
-    # Sprint 2.6.1: an event with char_count >= 50 is the "log" tier
-    # that the frontend allowed but recorded; its presence is the
-    # admin signal "this submission warrants a closer look".
-    suspicious_paste = any(
-        (e or {}).get("char_count", 0) >= 50 for e in paste_events
-    )
-
-    # ── Phase 2.6: spam / quality flag gate ───────────────────────
-    # Replaces the pre-2.6 hard 400 "essay too short" reject. We now
-    # accept the submission, skip grading, and stamp the row with
-    # the triggered flag reasons so the student isn't stuck on a
-    # locked assignment and the admin still has full audit context.
-    flags = detect_flags(essay_text)
-    if flags:
-        return _persist_flagged_submission(
-            assignment_id    = assignment_id,
-            assignment       = assignment,
-            student_id       = student_id,
-            user_id          = user_id,
-            prompt_text      = prompt_text,
-            task_type        = task_type,
-            essay_text       = essay_text,
-            flags            = flags,
-            paste_events     = paste_events,
-            suspicious_paste = suspicious_paste,
-        )
-
-    # Reuse the admin-side submission pipeline. analysis_level=3 is
-    # the Phase-1 default (matches `services.essay_service` ETA
-    # table); admins still control the ceiling via the prompt-text /
-    # essay-text caps inside `create_essay_with_job`.
-    info = essay_service.create_essay_with_job(
-        data={
-            "student_id":     student_id,
-            "task_type":      task_type,
-            "prompt_text":    prompt_text,
-            "essay_text":     essay_text,
-            "analysis_level": 3,
-            "form_of_address": "em",
-            "selected_model":  "gemini-2.5-pro",
-        },
-        admin_id=user_id,  # see "Audit-field caveat" above
-    )
-
-    # Sprint 2.6.1: stamp paste audit onto the new essay row.  Done
-    # after `create_essay_with_job` rather than threaded through it
-    # so the service layer stays clean of submission-specific
-    # concerns.  Best-effort — failure here doesn't roll back the
-    # essay (grading is already queued).
-    if paste_events:
-        try:
-            (
-                supabase_admin.table("writing_essays")
-                .update({
-                    "paste_events":     paste_events,
-                    "suspicious_paste": suspicious_paste,
-                })
-                .eq("id", info["essay_id"])
-                .execute()
-            )
-        except Exception as exc:
-            logger.warning(
-                "[writing-student] paste audit stamp failed "
-                "essay=%s: %s",
-                info["essay_id"], exc,
-            )
-
-    background_tasks.add_task(
-        essay_service._bg_grade_essay,
-        info["essay_id"],
-        info["job_id"],
-    )
-
-    # Link essay back to the assignment + advance to `submitted`.
-    # Stamp `submitted_at` server-side so the dashboard never has to
-    # compute it client-side.
+    # ── Sprint 2.7 fix #3: atomic claim against two-tab race ──────
+    # Pre-2.7 we did a SELECT-then-UPDATE: tab A reads `in_progress`,
+    # tab B reads `in_progress`, both UPDATE → two essay rows for one
+    # assignment, the second overwrites the link. Replace with a
+    # single conditional UPDATE filtered on the current status —
+    # only one tab gets non-empty `data` back.
     #
-    # Phase 2.3c-3: also set `auto_submitted=true` when the timer
-    # was expired at submit time. The frontend triggers submit at
-    # 0:00 client-side, but a few-second drift between client and
-    # server clocks is normal — `_compute_timer_state` uses server
-    # time so the audit flag matches what the backend saw, not what
-    # the student's laptop clock said.
-    timer = _compute_timer_state(assignment)
+    # Status flips to `submitted` (the spam path will move it to
+    # `delivered` later, which is allowed by the state matrix).
+    # `submitted_at` + `auto_submitted` are stamped here so the
+    # audit timestamps match the moment we won the race, not the
+    # moment essay creation finished.
+    original_status     = assignment["status"]
+    timer               = _compute_timer_state(assignment)
     auto_submitted_flag = bool(timer["is_expired"])
+    now_iso             = datetime.now(timezone.utc).isoformat()
 
-    now_iso = datetime.now(timezone.utc).isoformat()
     try:
-        (
+        claim_resp = (
             supabase_admin.table("writing_assignments")
             .update({
-                "essay_id":       info["essay_id"],
                 "status":         "submitted",
                 "submitted_at":   now_iso,
                 "auto_submitted": auto_submitted_flag,
             })
             .eq("id", str(assignment_id))
+            .eq("student_id", student_id)
+            .in_("status", list(_ACTIVE_ASSIGNMENT_STATES))
             .execute()
         )
     except Exception as exc:
-        # Don't roll back the essay — grading is already in flight
-        # and the student saw a successful submit. Log loudly so
-        # admin can hand-link if needed.
         logger.error(
-            "[writing-student] assignment link failed "
-            "assignment=%s essay=%s: %s",
-            assignment_id, info["essay_id"], exc,
-        )
-
-    # Delete the draft now that it's been promoted to an essay.
-    # Best-effort — a stale draft after submit is recoverable, but
-    # showing it in the dashboard would be confusing.
-    try:
-        (
-            supabase_admin.table("writing_drafts")
-            .delete()
-            .eq("assignment_id", str(assignment_id))
-            .execute()
-        )
-    except Exception as exc:
-        logger.warning(
-            "[writing-student] draft cleanup failed assignment=%s: %s",
+            "[writing-student] atomic claim failed "
+            "assignment=%s: %s",
             assignment_id, exc,
         )
+        raise HTTPException(500, "Không nộp được bài. Vui lòng thử lại.")
 
-    return {
-        "essay_id":      info["essay_id"],
-        "job_id":        info["job_id"],
-        "assignment_id": str(assignment_id),
-        "status":        "submitted",
-        "eta_seconds":   info.get("eta_seconds"),
-        "message":       "Bài viết đã được nộp. Em sẽ nhận kết quả sớm.",
-    }
+    if not claim_resp.data:
+        # Lost the race (or the row drifted out of an active state
+        # between resolve and claim). Re-fetch the canonical status
+        # so the error message tells the student what happened.
+        try:
+            fresh = (
+                supabase_admin.table("writing_assignments")
+                .select("status")
+                .eq("id", str(assignment_id))
+                .eq("student_id", student_id)
+                .limit(1)
+                .execute()
+            )
+            cur = fresh.data[0]["status"] if fresh.data else "unknown"
+        except Exception:
+            cur = "unknown"
+        raise HTTPException(
+            409,
+            f"Không thể nộp — trạng thái bài là '{cur}' "
+            f"(có thể đã được nộp ở tab khác).",
+        )
+
+    # ── Post-claim work ───────────────────────────────────────────
+    # Wrapped in try/except: any HTTPException raised below means
+    # essay creation failed AFTER we claimed the row, so we have to
+    # roll the assignment back to its original status. Otherwise the
+    # student is stuck on a `submitted` row with no essay attached.
+    try:
+        # Prefer the body-supplied essay_text; fall back to the
+        # saved draft so a student with bad connectivity who lost
+        # the form can still submit "what was last saved".
+        # Sprint 2.6.1: ALSO read `paste_events` from the same draft
+        # row in one round-trip so we can copy the audit array onto
+        # the essay regardless of which branch (flagged / clean) we
+        # end up taking.
+        essay_text = (body.essay_text or "").strip() if body.essay_text else ""
+        paste_events: list = []
+        try:
+            d = (
+                supabase_admin.table("writing_drafts")
+                .select("draft_text, paste_events")
+                .eq("assignment_id", str(assignment_id))
+                .limit(1)
+                .execute()
+            )
+            if d.data:
+                if not essay_text:
+                    essay_text = (d.data[0].get("draft_text") or "").strip()
+                paste_events = d.data[0].get("paste_events") or []
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] draft fallback fetch failed "
+                "assignment=%s: %s",
+                assignment_id, exc,
+            )
+
+        # Sprint 2.6.1: an event with char_count >= 50 is the "log"
+        # tier that the frontend allowed but recorded; its presence
+        # is the admin signal "this submission warrants a closer
+        # look".
+        suspicious_paste = any(
+            (e or {}).get("char_count", 0) >= 50 for e in paste_events
+        )
+
+        # ── Phase 2.6: spam / quality flag gate ───────────────────
+        # Replaces the pre-2.6 hard 400 "essay too short" reject.
+        # We now accept the submission, skip grading, and stamp the
+        # row with the triggered flag reasons so the student isn't
+        # stuck on a locked assignment and the admin still has full
+        # audit context.
+        flags = detect_flags(essay_text)
+        if flags:
+            return _persist_flagged_submission(
+                assignment_id    = assignment_id,
+                assignment       = assignment,
+                student_id       = student_id,
+                user_id          = user_id,
+                prompt_text      = prompt_text,
+                task_type        = task_type,
+                essay_text       = essay_text,
+                flags            = flags,
+                paste_events     = paste_events,
+                suspicious_paste = suspicious_paste,
+            )
+
+        # Reuse the admin-side submission pipeline. analysis_level=3
+        # is the Phase-1 default (matches `services.essay_service`
+        # ETA table); admins still control the ceiling via the
+        # prompt-text / essay-text caps inside
+        # `create_essay_with_job`.
+        info = essay_service.create_essay_with_job(
+            data={
+                "student_id":      student_id,
+                "task_type":       task_type,
+                "prompt_text":     prompt_text,
+                "essay_text":      essay_text,
+                "analysis_level":  3,
+                "form_of_address": "em",
+                "selected_model":  "gemini-2.5-pro",
+            },
+            admin_id=user_id,  # see "Audit-field caveat" above
+        )
+
+        # Sprint 2.6.1: stamp paste audit onto the new essay row.
+        # Best-effort — failure here doesn't roll back the essay
+        # (grading is already queued).
+        if paste_events:
+            try:
+                (
+                    supabase_admin.table("writing_essays")
+                    .update({
+                        "paste_events":     paste_events,
+                        "suspicious_paste": suspicious_paste,
+                    })
+                    .eq("id", info["essay_id"])
+                    .execute()
+                )
+            except Exception as exc:
+                logger.warning(
+                    "[writing-student] paste audit stamp failed "
+                    "essay=%s: %s",
+                    info["essay_id"], exc,
+                )
+
+        background_tasks.add_task(
+            essay_service._bg_grade_essay,
+            info["essay_id"],
+            info["job_id"],
+        )
+
+        # Link the essay onto the already-claimed assignment row.
+        # Sprint 2.7 fix #3: status / submitted_at / auto_submitted
+        # were stamped by the atomic claim; this UPDATE only adds
+        # the essay_id so a `id IS NOT NULL` filter on the row
+        # surfaces it as "fully linked".
+        try:
+            (
+                supabase_admin.table("writing_assignments")
+                .update({"essay_id": info["essay_id"]})
+                .eq("id", str(assignment_id))
+                .execute()
+            )
+        except Exception as exc:
+            # Don't roll back the essay — grading is already in
+            # flight and the student saw a successful submit. Log
+            # loudly so admin can hand-link if needed.
+            logger.error(
+                "[writing-student] assignment link failed "
+                "assignment=%s essay=%s: %s",
+                assignment_id, info["essay_id"], exc,
+            )
+
+        # Delete the draft now that it's been promoted to an essay.
+        # Best-effort — a stale draft after submit is recoverable,
+        # but showing it in the dashboard would be confusing.
+        try:
+            (
+                supabase_admin.table("writing_drafts")
+                .delete()
+                .eq("assignment_id", str(assignment_id))
+                .execute()
+            )
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] draft cleanup failed assignment=%s: %s",
+                assignment_id, exc,
+            )
+
+        return {
+            "essay_id":      info["essay_id"],
+            "job_id":        info["job_id"],
+            "assignment_id": str(assignment_id),
+            "status":        "submitted",
+            "eta_seconds":   info.get("eta_seconds"),
+            "message":       "Bài viết đã được nộp. Em sẽ nhận kết quả sớm.",
+        }
+    except HTTPException:
+        # Roll the assignment back to its pre-claim state so the
+        # student can retry. We deliberately don't try to clean up
+        # writing_essays here — `create_essay_with_job` either
+        # raises before insert (nothing to clean) or after the
+        # essay row is committed (the row stands as an audit trail).
+        try:
+            (
+                supabase_admin.table("writing_assignments")
+                .update({
+                    "status":         original_status,
+                    "submitted_at":   None,
+                    "auto_submitted": False,
+                })
+                .eq("id", str(assignment_id))
+                .execute()
+            )
+        except Exception as exc:
+            logger.error(
+                "[writing-student] claim rollback failed "
+                "assignment=%s original=%s: %s",
+                assignment_id, original_status, exc,
+            )
+        raise
 
 
 # ── Phase 2.3c-3 — IELTS-mode timer state ────────────────────────────
@@ -1106,10 +1178,12 @@ async def log_paste(
     when they're copied onto `writing_essays.paste_events` (so the
     audit survives the draft delete).
 
-    We read-modify-write the JSONB array because the Supabase Python
-    client doesn't expose a `||`-style append; the race window is
-    tiny (a single student paste-spamming) and the cost is one
-    extra round-trip.
+    Sprint 2.7 fix #5: switched from a SELECT-then-UPDATE pattern to
+    the `append_paste_event` SQL function (migration 042) which does
+    INSERT...ON CONFLICT DO UPDATE with the JSONB `||` operator
+    inside a single statement. Eliminates the read-modify-write race
+    window where two near-simultaneous pastes could each write past
+    the other's append.
 
     Auth: ownership-checked through `get_current_student` + an
     explicit student_id filter on the assignment lookup so a paste
@@ -1140,55 +1214,33 @@ async def log_paste(
         "blocked":    bool(body.blocked),
     }
 
-    d_resp = (
-        supabase_admin.table("writing_drafts")
-        .select("draft_text, paste_events")
-        .eq("assignment_id", str(assignment_id))
-        .limit(1)
-        .execute()
-    )
-
-    if d_resp.data:
-        existing_events = d_resp.data[0].get("paste_events") or []
-        new_events = existing_events + [event]
-        try:
-            (
-                supabase_admin.table("writing_drafts")
-                .update({"paste_events": new_events})
-                .eq("assignment_id", str(assignment_id))
-                .execute()
-            )
-        except Exception as exc:
-            logger.warning(
-                "[writing-student] paste-log update failed "
-                "assignment=%s: %s",
-                assignment_id, exc,
-            )
-            raise HTTPException(500, "Không log được sự kiện paste")
-        return {"logged": True, "total_events": len(new_events)}
-
-    # No draft yet — create one carrying just the paste event.
-    # `draft_text=""` is fine; the upsert in PATCH /draft will fill
-    # it on the next save.
     try:
-        (
-            supabase_admin.table("writing_drafts")
-            .insert({
-                "assignment_id": str(assignment_id),
-                "student_id":    student_id,
-                "draft_text":    "",
-                "paste_events":  [event],
-            })
-            .execute()
-        )
+        rpc_resp = supabase_admin.rpc(
+            "append_paste_event",
+            {
+                "p_assignment_id": str(assignment_id),
+                "p_student_id":    student_id,
+                "p_event":         event,
+            },
+        ).execute()
     except Exception as exc:
         logger.warning(
-            "[writing-student] paste-log insert failed "
-            "assignment=%s: %s",
+            "[writing-student] paste-log rpc failed assignment=%s: %s",
             assignment_id, exc,
         )
         raise HTTPException(500, "Không log được sự kiện paste")
-    return {"logged": True, "total_events": 1}
+
+    # The RPC returns the new total event count as a scalar — older
+    # supabase-py clients wrap it in `data` as the raw value, newer
+    # ones surface a list. Handle both shapes defensively.
+    raw = getattr(rpc_resp, "data", None)
+    if isinstance(raw, list) and raw:
+        total = int(raw[0]) if raw[0] is not None else 0
+    elif isinstance(raw, (int, float)):
+        total = int(raw)
+    else:
+        total = 0
+    return {"logged": True, "total_events": total}
 
 
 # ── Phase 2.3c-2 — extract text from .docx / .txt upload ─────────────

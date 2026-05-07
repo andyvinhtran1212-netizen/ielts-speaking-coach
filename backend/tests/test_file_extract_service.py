@@ -22,6 +22,7 @@ from services.file_extract_service import (
     MAX_EXTRACTED_CHARS,
     MAX_FILE_SIZE_BYTES,
     FileExtractError,
+    _is_likely_text,
     extract_text,
     extract_text_from_docx,
     extract_text_from_txt,
@@ -150,6 +151,39 @@ def test_extract_case_insensitive_extension():
     docx_bytes = _make_docx_bytes(["test"])
     result = extract_text("ESSAY.DOCX", docx_bytes)
     assert "test" in result
+
+
+# ── Sprint 2.7 fix #6: binary garbage heuristic ──────────────────────
+
+
+def test_is_likely_text_clean_essay():
+    """A normal essay clears the threshold by a wide margin.  We pin
+    it explicitly so a regression that tightens the heuristic past
+    real prose surfaces here, not on the next student submission."""
+    text = (
+        "This is a clean essay with normal punctuation, varied "
+        "sentence lengths, and a sprinkling of Vietnamese: học "
+        "viên giỏi cần luyện tập đều đặn."
+    )
+    assert _is_likely_text(text) is True
+
+
+def test_is_likely_text_mostly_binary():
+    """Latin-1 decode of bytes 0..255 is dominated by control chars
+    (0x00–0x1F + 0x7F + 0x80–0x9F).  The heuristic must reject."""
+    # Decode the full latin-1 byte range as text — full of control
+    # characters that aren't `isprintable()` and aren't whitespace.
+    binary_decoded = bytes(range(256)).decode("latin-1")
+    assert _is_likely_text(binary_decoded) is False
+
+
+def test_extract_rejects_binary_renamed_txt():
+    """End-to-end: a PNG header + binary tail renamed `.txt` lands
+    on a 400 with the canonical Vietnamese binary-garbage message,
+    not silent wall-of-garbage in the student's draft."""
+    binary_bytes = b"\x89PNG\r\n\x1a\n" + bytes(range(256)) * 3
+    with pytest.raises(FileExtractError, match="binary garbage|không phải text"):
+        extract_text("essay.txt", binary_bytes)
 
 
 def test_extract_docx_with_table():

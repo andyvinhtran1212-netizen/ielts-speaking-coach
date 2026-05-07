@@ -72,6 +72,8 @@ class _Builder:
         self._action  = None
         self._payload = None
         self._filters: list[tuple] = []
+        # Sprint 2.7 fix #3: support `.in_()` on the atomic-claim UPDATE.
+        self._in: tuple[str, list] | None = None
 
     def select(self, *_a, **_kw): self._action = "select"; return self
     def insert(self, payload, *_a, **_kw): self._action = "insert"; self._payload = payload; return self
@@ -84,6 +86,9 @@ class _Builder:
 
     def order(self, *_a, **_kw):  return self
     def limit(self, *_a, **_kw):  return self
+    def in_(self, col, vals):
+        self._in = (col, list(vals))
+        return self
 
     def execute(self):
         rec = {
@@ -91,6 +96,7 @@ class _Builder:
             "action":  self._action,
             "payload": self._payload,
             "filters": list(self._filters),
+            "in":      self._in,
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -123,6 +129,16 @@ class _Client:
                     rows = [x for x in rows if str(x.get(col)) == str(val)]
                 r.data = rows
             elif a == "update":
+                # Sprint 2.7 fix #3: honor `.in_()` for the atomic claim
+                # — empty data ⇒ lost race ⇒ router raises 409.
+                if rec.get("in"):
+                    in_col, in_vals = rec["in"]
+                    matches = self._assignments
+                    for col, val in rec["filters"]:
+                        matches = [a2 for a2 in matches if str(a2.get(col)) == str(val)]
+                    if not matches or matches[0].get(in_col) not in in_vals:
+                        r.data = []
+                        return r
                 r.data = [{"id": rec["filters"][0][1] if rec["filters"] else None,
                            **(rec["payload"] or {})}]
         elif t == "writing_drafts":
@@ -277,11 +293,20 @@ def test_flagged_assignment_transitions_to_delivered(monkeypatch):
         student=_student(),
     ))
 
+    # Sprint 2.7 fix #3: with the atomic claim in place, the FIRST
+    # writing_assignments UPDATE is the claim (status=submitted). The
+    # flagged-path helper then issues a SECOND UPDATE that flips to
+    # `delivered` — find it by status to keep this test stable
+    # regardless of how many intermediate updates exist.
     a_updates = [c for c in client.calls
                  if c["table"] == "writing_assignments" and c["action"] == "update"]
     assert a_updates, "expected a writing_assignments update"
-    payload = a_updates[0]["payload"]
-    assert payload["status"]       == "delivered"
+    delivered = next(
+        (u for u in a_updates if (u["payload"] or {}).get("status") == "delivered"),
+        None,
+    )
+    assert delivered is not None, "expected a status=delivered update"
+    payload = delivered["payload"]
     assert payload["essay_id"]     == _ESSAY_ID
     assert payload["delivered_at"] is not None
 

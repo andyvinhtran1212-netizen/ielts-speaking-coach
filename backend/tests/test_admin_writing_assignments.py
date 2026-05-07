@@ -183,8 +183,16 @@ def test_create_bulk_assignment_surfaces_duplicate_warning():
 def test_patch_status_submitted_auto_stamps_submitted_at():
     """Setting status='submitted' adds `submitted_at` to the update
     payload server-side — the client never has to compute the
-    timestamp itself."""
+    timestamp itself.
+
+    Sprint 2.7 fix #2: handler now ALSO does a status pre-check
+    against the transition matrix.  We seed the select chain with
+    `in_progress` so the in_progress → submitted move is valid."""
     mock_db = MagicMock()
+    # Sprint 2.7: seed the new pre-check SELECT.
+    select_chain = (mock_db.table.return_value
+                    .select.return_value.eq.return_value.limit.return_value)
+    select_chain.execute.return_value = MagicMock(data=[{"status": "in_progress"}])
     update_chain = mock_db.table.return_value.update.return_value.eq.return_value
     update_chain.execute.return_value = MagicMock(data=[
         {"id": _ASSIGN_ID, "status": "submitted"},
@@ -209,6 +217,121 @@ def test_patch_status_submitted_auto_stamps_submitted_at():
     # Should NOT auto-stamp graded_at / delivered_at on a submitted move.
     assert "graded_at"    not in update_payload
     assert "delivered_at" not in update_payload
+
+
+# ── Sprint 2.7 fix #2: state transition matrix ───────────────────────
+
+
+def _patch_with_current_status(current: str):
+    """Helper — build a mock_db whose status SELECT returns `current`
+    and whose UPDATE returns a generic success row."""
+    mock_db = MagicMock()
+    select_chain = (mock_db.table.return_value
+                    .select.return_value.eq.return_value.limit.return_value)
+    select_chain.execute.return_value = MagicMock(data=[{"status": current}])
+    update_chain = mock_db.table.return_value.update.return_value.eq.return_value
+    update_chain.execute.return_value = MagicMock(data=[{"id": _ASSIGN_ID}])
+    return mock_db
+
+
+def test_patch_rejects_pending_to_graded_skip():
+    """Skipping the grader queue is the canonical illegal jump.
+    The pre-check fires 409 before the UPDATE round-trip."""
+    mock_db = _patch_with_current_status("pending")
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/assignments/{_ASSIGN_ID}",
+            json={"status": "graded"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    assert "Cannot transition" in r.json()["detail"]
+    # No UPDATE should have fired.
+    mock_db.table.return_value.update.assert_not_called()
+
+
+def test_patch_rejects_delivered_to_anything():
+    """`delivered` is terminal — every outbound transition rejects."""
+    for target in ("pending", "in_progress", "submitted", "graded"):
+        mock_db = _patch_with_current_status("delivered")
+        with patch("routers.admin_writing_assignments.require_admin",
+                   new=AsyncMock(return_value=_ADMIN_USER)), \
+             patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+            r = _client().patch(
+                f"/admin/writing/assignments/{_ASSIGN_ID}",
+                json={"status": target},
+                headers=_ADMIN_AUTH,
+            )
+        assert r.status_code == 409, f"target={target} should 409 from delivered"
+
+
+def test_patch_allows_pending_to_in_progress():
+    """The natural forward step — admin nudges a pending row to
+    in_progress without waiting for the student's first draft save."""
+    mock_db = _patch_with_current_status("pending")
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/assignments/{_ASSIGN_ID}",
+            json={"status": "in_progress"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+
+
+def test_patch_allows_pending_to_delivered_admin_override():
+    """Admin manual delivery (e.g., student emailed essay outside
+    the system) is the documented override path on the matrix."""
+    mock_db = _patch_with_current_status("pending")
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/assignments/{_ASSIGN_ID}",
+            json={"status": "delivered"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    update_payload = mock_db.table.return_value.update.call_args[0][0]
+    assert update_payload["status"] == "delivered"
+    assert "delivered_at" in update_payload
+
+
+def test_patch_idempotent_same_status_allowed():
+    """A re-save with the same status (admin updating instructions
+    only via a payload that happens to include status) must not
+    reject — keeps the admin UI's fire-and-forget workflow simple."""
+    mock_db = _patch_with_current_status("in_progress")
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/assignments/{_ASSIGN_ID}",
+            json={"status": "in_progress"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+
+
+def test_patch_404_when_assignment_missing_for_status_change():
+    """A status PATCH on a row that doesn't exist 404s on the
+    pre-check, before the matrix even runs."""
+    mock_db = MagicMock()
+    select_chain = (mock_db.table.return_value
+                    .select.return_value.eq.return_value.limit.return_value)
+    select_chain.execute.return_value = MagicMock(data=[])
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().patch(
+            f"/admin/writing/assignments/{_ASSIGN_ID}",
+            json={"status": "submitted"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 404
 
 
 def test_delete_pending_assignment_succeeds():
