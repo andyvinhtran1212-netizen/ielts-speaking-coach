@@ -77,6 +77,11 @@ class GeminiWritingGrader:
 
         # Idempotent — safe to call even though services/gemini.py also calls it
         genai.configure(api_key=api_key)
+        # Sprint 2.6: version-aware loader. settings.WRITING_PROMPT_VERSION
+        # picks v1/v2 at process start; per-essay grading inherits whichever
+        # version is configured. Per-essay override would happen by passing
+        # version= to get_prompt_loader() — not currently exposed since A/B
+        # test uses env-var sampling, not per-request flags.
         self.prompt_loader = get_prompt_loader()
 
     async def grade_essay(self, config: GraderConfig) -> GradingResult:
