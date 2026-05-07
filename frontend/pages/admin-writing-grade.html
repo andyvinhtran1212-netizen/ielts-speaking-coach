@@ -50,28 +50,50 @@
     .btn-dirty:hover { background: #d97706; }
     #last-saved   { font-size: 11px; color: rgba(255,255,255,0.4); }
 
-    /* ── 3-column body shell ─────────────────────────────────────── */
-    .grade-body  { display: flex; flex: 1; min-height: 0; align-items: flex-start; }
-    .grade-nav   {
-      width: 232px; flex-shrink: 0;
-      background: rgba(8, 24, 41, 0.5);
-      border-right: 1px solid rgba(255,255,255,0.08);
-      padding: 1.125rem 0.625rem;
-      position: sticky; top: 64px;
-      max-height: calc(100vh - 64px);
-      overflow-y: auto;
+    /* ── Tab-based body shell (Sprint 2.5.3) ─────────────────────── */
+    .grade-body  { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .grade-tabs {
+      position: sticky; top: 64px; z-index: 40;
+      display: flex; gap: 0.25rem;
+      padding: 0.625rem 2.5rem;
+      background: rgba(8, 24, 41, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      overflow-x: auto;
     }
-    .nav-link {
-      display: block; padding: 0.45rem 0.7rem;
-      margin-bottom: 0.125rem;
-      border-radius: 6px; text-decoration: none;
-      color: rgba(255,255,255,0.55); font-size: 13px; line-height: 1.3;
-      transition: background 0.12s, color 0.12s;
+    .tab-btn {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 1.05rem;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: rgba(255,255,255,0.55);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
     }
-    .nav-link:hover    { background: rgba(255,255,255,0.05); color: #e5e7eb; }
-    .nav-link.is-active{ background: rgba(15,118,110,0.18); color: #14b8a6; font-weight: 500; }
-    .grade-content { flex: 1; padding: 1.75rem 2rem 4rem; max-width: 920px; min-width: 0; }
+    .tab-btn:hover    { background: rgba(255,255,255,0.05); color: #e5e7eb; }
+    .tab-btn.is-active{
+      background: rgba(15,118,110,0.18);
+      color: #14b8a6;
+      border-color: rgba(15,118,110,0.3);
+    }
+    .tab-icon { font-size: 1rem; }
+    .tab-panel { display: none; }
+    .tab-panel.is-active { display: block; }
+
+    .grade-content {
+      max-width: 920px; margin: 0 auto;
+      width: 100%; padding: 1.5rem 2.5rem 4rem;
+    }
     #alert-area { margin-bottom: 0.75rem; }
+
+    /* Original essay (sticky-ish above tab panels) */
+    .essay-section {
+      margin-bottom: 2rem; padding-bottom: 1.75rem;
+      border-bottom: 2px solid rgba(255,255,255,0.08);
+    }
 
     /* ── Section card ────────────────────────────────────────────── */
     .grade-section { margin-bottom: 2.75rem; scroll-margin-top: 80px; }
@@ -401,21 +423,45 @@
       max-height: 480px; overflow-y: auto;
     }
 
+    /* ── Sprint 2.5.3 — Lexical simple-map render (word → suggestion) ─ */
+    .lexical-list {
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .lexical-list .lexical-row {
+      display: flex; align-items: center; gap: 0.625rem;
+      flex-wrap: wrap;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+    }
+    .lexical-list .lexical-original,
+    .lexical-list .lexical-upgrade {
+      font-family: 'Monaco', 'Menlo', monospace;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .lexical-list .lexical-original {
+      background: rgba(239,68,68,0.1); color: #f87171;
+    }
+    .lexical-list .lexical-upgrade {
+      background: rgba(16,185,129,0.1); color: #34d399;
+      flex: 1; min-width: 200px;
+    }
+
     /* ── Mobile collapse ─────────────────────────────────────────── */
     @media (max-width: 1024px) {
-      .grade-body { flex-direction: column; }
-      .grade-nav  {
-        position: static; width: 100%;
-        max-height: none; padding: 0.625rem 1rem;
-        border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1);
-        display: flex; flex-wrap: wrap; gap: 0.25rem;
-      }
-      .nav-link { font-size: 11.5px; padding: 0.3rem 0.55rem; }
       .grade-content { padding: 1.25rem 1rem 3rem; }
+      .grade-tabs { padding: 0.5rem 1rem; }
       .criteria-grid       { grid-template-columns: 1fr; }
       .stat-grid           { grid-template-columns: 1fr; }
       .criterion-mini-grid { grid-template-columns: repeat(2, 1fr); }
       .takeaway-grid       { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .tab-label { display: none; }
+      .tab-btn { padding: 0.45rem 0.75rem; }
+      .tab-icon { font-size: 1.15rem; }
     }
   </style>
 </head>
@@ -465,33 +511,29 @@
       </div>
     </header>
 
-    <!-- 3-column body -->
+    <!-- Sprint 2.5.3 — 4-tab body shell -->
     <div class="grade-body">
-      <!-- Sticky left nav (scrollspy target) -->
-      <nav class="grade-nav" aria-label="Section navigation">
-        <a href="#section-essay"              class="nav-link is-active">📄 Bài viết gốc</a>
-        <a href="#section-overview"           class="nav-link">📊 Tổng quan</a>
-        <a href="#section-criteria"           class="nav-link">🎯 4 tiêu chí</a>
-        <a href="#section-instructor-note"    class="nav-link">📝 Note giảng viên</a>
-        <a href="#section-mistakes"           class="nav-link">❌ Lỗi sai</a>
-        <a href="#section-recurring"          class="nav-link">🔁 Lỗi lặp lại</a>
-        <a href="#section-trajectory"         class="nav-link">📈 Diễn biến band</a>
-        <a href="#section-sentence-structure" class="nav-link">🏗 Cấu trúc câu</a>
-        <a href="#section-coherence"          class="nav-link">🧩 Coherence</a>
-        <a href="#section-lexical"            class="nav-link">📚 Lexical</a>
-        <a href="#section-idea-development"   class="nav-link">💡 Idea Development</a>
-        <a href="#section-counterargument"    class="nav-link">⚖ Counterargument</a>
-        <a href="#section-improved"           class="nav-link">✨ Bài cải thiện</a>
-        <a href="#section-ai-content"         class="nav-link">🤖 AI check</a>
-        <a href="#section-key-takeaways"      class="nav-link">🎓 Key takeaways</a>
+      <!-- Sticky tab bar -->
+      <nav class="grade-tabs" aria-label="Section tabs">
+        <button class="tab-btn is-active" data-tab="tongquan">
+          <span class="tab-icon">📊</span><span class="tab-label">Tổng quan</span>
+        </button>
+        <button class="tab-btn" data-tab="loi">
+          <span class="tab-icon">❌</span><span class="tab-label">Nhận xét lỗi</span>
+        </button>
+        <button class="tab-btn" data-tab="nangcao">
+          <span class="tab-icon">🔬</span><span class="tab-label">Phân tích nâng cao</span>
+        </button>
+        <button class="tab-btn" data-tab="baimau">
+          <span class="tab-icon">📚</span><span class="tab-label">Bài mẫu tham khảo</span>
+        </button>
       </nav>
 
-      <!-- Right scrollable content -->
       <main class="grade-content">
         <div id="alert-area"></div>
 
-        <!-- Read-only: original essay -->
-        <section id="section-essay" class="grade-section">
+        <!-- Always visible above tabs: original essay -->
+        <section id="section-essay" class="grade-section essay-section">
           <header class="section-header">
             <h2>📄 Bài viết gốc</h2>
           </header>
@@ -499,191 +541,202 @@
           <pre id="essay-text" class="essay-original">—</pre>
         </section>
 
-        <!-- Each editable section: header + content + edit form -->
-        <section id="section-overview" class="grade-section" data-section="overview">
-          <header class="section-header"><h2>📊 Tổng quan</h2><button class="btn-edit" data-edit="overview">✏ Sửa</button></header>
-          <div class="section-content" id="content-overview"></div>
-          <div class="section-edit hidden" id="edit-overview">
-            <textarea class="text-edit" rows="5" data-input="overview" placeholder="Tóm tắt tổng quan band score..."></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="overview">Lưu vào draft</button>
-              <button class="btn" data-cancel="overview">Hủy</button>
-              <span class="edit-error" data-error="overview"></span>
+        <!-- ── Tab 1: Tổng quan ── -->
+        <div class="tab-panel is-active" data-panel="tongquan">
+          <section id="section-criteria" class="grade-section" data-section="criteria">
+            <header class="section-header"><h2>🎯 4 tiêu chí IELTS</h2><button class="btn-edit" data-edit="criteria">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-criteria"></div>
+            <div class="section-edit hidden" id="edit-criteria">
+              <textarea class="json-edit" rows="14" data-input="criteria" placeholder='{"mainCriterion": {...}, ...}'></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="criteria">Lưu vào draft</button>
+                <button class="btn" data-cancel="criteria">Hủy</button>
+                <span class="edit-error" data-error="criteria"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-criteria" class="grade-section" data-section="criteria">
-          <header class="section-header"><h2>🎯 4 tiêu chí IELTS</h2><button class="btn-edit" data-edit="criteria">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-criteria"></div>
-          <div class="section-edit hidden" id="edit-criteria">
-            <textarea class="json-edit" rows="14" data-input="criteria" placeholder='{"mainCriterion": {...}, ...}'></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="criteria">Lưu vào draft</button>
-              <button class="btn" data-cancel="criteria">Hủy</button>
-              <span class="edit-error" data-error="criteria"></span>
+          <section id="section-overview" class="grade-section" data-section="overview">
+            <header class="section-header"><h2>📊 Tổng quan</h2><button class="btn-edit" data-edit="overview">✏ Sửa</button></header>
+            <div class="section-content" id="content-overview"></div>
+            <div class="section-edit hidden" id="edit-overview">
+              <textarea class="text-edit" rows="5" data-input="overview" placeholder="Tóm tắt tổng quan band score..."></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="overview">Lưu vào draft</button>
+                <button class="btn" data-cancel="overview">Hủy</button>
+                <span class="edit-error" data-error="overview"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-instructor-note" class="grade-section" data-section="instructor-note">
-          <header class="section-header"><h2>📝 Note giảng viên</h2><button class="btn-edit" data-edit="instructor-note">✏ Sửa</button></header>
-          <p class="text-xs mb-2" style="color:rgba(255,255,255,0.45);">
-            Personalized feedback — sibling column on writing_essays. Survives regrade. Lưu qua endpoint riêng (không dính vào JSON validation của Save edits).
-          </p>
-          <div class="section-content" id="content-instructor-note"></div>
-          <div class="section-edit hidden" id="edit-instructor-note">
-            <textarea class="text-edit" rows="6" data-input="instructor-note" placeholder="VD: Em viết tốt phần coherence, cần thêm linking words..."></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save-note="1">Lưu note</button>
-              <button class="btn" data-cancel="instructor-note">Hủy</button>
-              <span class="edit-error" data-error="instructor-note"></span>
+          <section id="section-trajectory" class="grade-section" data-section="trajectory">
+            <header class="section-header"><h2>📈 Diễn biến band</h2><button class="btn-edit" data-edit="trajectory">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-trajectory"></div>
+            <div class="section-edit hidden" id="edit-trajectory">
+              <textarea class="json-edit" rows="10" data-input="trajectory"></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="trajectory">Lưu vào draft</button>
+                <button class="btn" data-cancel="trajectory">Hủy</button>
+                <span class="edit-error" data-error="trajectory"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <section id="section-mistakes" class="grade-section" data-section="mistakes">
-          <header class="section-header"><h2>❌ Lỗi sai</h2><button class="btn-edit" data-edit="mistakes">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-mistakes"></div>
-          <div class="section-edit hidden" id="edit-mistakes">
-            <textarea class="json-edit" rows="16" data-input="mistakes" placeholder='[{"original": "...", "mistakeType": "...", ...}]'></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="mistakes">Lưu vào draft</button>
-              <button class="btn" data-cancel="mistakes">Hủy</button>
-              <span class="edit-error" data-error="mistakes"></span>
+        <!-- ── Tab 2: Nhận xét lỗi ── -->
+        <div class="tab-panel" data-panel="loi">
+          <section id="section-mistakes" class="grade-section" data-section="mistakes">
+            <header class="section-header"><h2>❌ Lỗi sai</h2><button class="btn-edit" data-edit="mistakes">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-mistakes"></div>
+            <div class="section-edit hidden" id="edit-mistakes">
+              <textarea class="json-edit" rows="16" data-input="mistakes" placeholder='[{"original": "...", "mistakeType": "...", ...}]'></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="mistakes">Lưu vào draft</button>
+                <button class="btn" data-cancel="mistakes">Hủy</button>
+                <span class="edit-error" data-error="mistakes"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-recurring" class="grade-section" data-section="recurring">
-          <header class="section-header"><h2>🔁 Lỗi lặp lại</h2><button class="btn-edit" data-edit="recurring">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-recurring"></div>
-          <div class="section-edit hidden" id="edit-recurring">
-            <textarea class="json-edit" rows="10" data-input="recurring"></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="recurring">Lưu vào draft</button>
-              <button class="btn" data-cancel="recurring">Hủy</button>
-              <span class="edit-error" data-error="recurring"></span>
+          <section id="section-recurring" class="grade-section" data-section="recurring">
+            <header class="section-header"><h2>🔁 Lỗi lặp lại</h2><button class="btn-edit" data-edit="recurring">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-recurring"></div>
+            <div class="section-edit hidden" id="edit-recurring">
+              <textarea class="json-edit" rows="10" data-input="recurring"></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="recurring">Lưu vào draft</button>
+                <button class="btn" data-cancel="recurring">Hủy</button>
+                <span class="edit-error" data-error="recurring"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <section id="section-trajectory" class="grade-section" data-section="trajectory">
-          <header class="section-header"><h2>📈 Diễn biến band</h2><button class="btn-edit" data-edit="trajectory">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-trajectory"></div>
-          <div class="section-edit hidden" id="edit-trajectory">
-            <textarea class="json-edit" rows="10" data-input="trajectory"></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="trajectory">Lưu vào draft</button>
-              <button class="btn" data-cancel="trajectory">Hủy</button>
-              <span class="edit-error" data-error="trajectory"></span>
+        <!-- ── Tab 3: Phân tích nâng cao ── -->
+        <div class="tab-panel" data-panel="nangcao">
+          <section id="section-lexical" class="grade-section" data-section="lexical">
+            <header class="section-header"><h2>📚 Lexical</h2><button class="btn-edit" data-edit="lexical">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-lexical"></div>
+            <div class="section-edit hidden" id="edit-lexical">
+              <textarea class="json-edit" rows="12" data-input="lexical"></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="lexical">Lưu vào draft</button>
+                <button class="btn" data-cancel="lexical">Hủy</button>
+                <span class="edit-error" data-error="lexical"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-sentence-structure" class="grade-section" data-section="sentence-structure">
-          <header class="section-header"><h2>🏗 Cấu trúc câu</h2><button class="btn-edit" data-edit="sentence-structure">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-sentence-structure"></div>
-          <div class="section-edit hidden" id="edit-sentence-structure">
-            <textarea class="json-edit" rows="12" data-input="sentence-structure"></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="sentence-structure">Lưu vào draft</button>
-              <button class="btn" data-cancel="sentence-structure">Hủy</button>
-              <span class="edit-error" data-error="sentence-structure"></span>
+          <section id="section-sentence-structure" class="grade-section" data-section="sentence-structure">
+            <header class="section-header"><h2>🏗 Cấu trúc câu</h2><button class="btn-edit" data-edit="sentence-structure">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-sentence-structure"></div>
+            <div class="section-edit hidden" id="edit-sentence-structure">
+              <textarea class="json-edit" rows="12" data-input="sentence-structure"></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="sentence-structure">Lưu vào draft</button>
+                <button class="btn" data-cancel="sentence-structure">Hủy</button>
+                <span class="edit-error" data-error="sentence-structure"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-coherence" class="grade-section" data-section="coherence">
-          <header class="section-header"><h2>🧩 Coherence</h2><button class="btn-edit" data-edit="coherence">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-coherence"></div>
-          <div class="section-edit hidden" id="edit-coherence">
-            <textarea class="json-edit" rows="12" data-input="coherence"></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="coherence">Lưu vào draft</button>
-              <button class="btn" data-cancel="coherence">Hủy</button>
-              <span class="edit-error" data-error="coherence"></span>
+          <section id="section-coherence" class="grade-section" data-section="coherence">
+            <header class="section-header"><h2>🧩 Coherence</h2><button class="btn-edit" data-edit="coherence">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-coherence"></div>
+            <div class="section-edit hidden" id="edit-coherence">
+              <textarea class="json-edit" rows="12" data-input="coherence"></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="coherence">Lưu vào draft</button>
+                <button class="btn" data-cancel="coherence">Hủy</button>
+                <span class="edit-error" data-error="coherence"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-lexical" class="grade-section" data-section="lexical">
-          <header class="section-header"><h2>📚 Lexical</h2><button class="btn-edit" data-edit="lexical">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-lexical"></div>
-          <div class="section-edit hidden" id="edit-lexical">
-            <textarea class="json-edit" rows="12" data-input="lexical"></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="lexical">Lưu vào draft</button>
-              <button class="btn" data-cancel="lexical">Hủy</button>
-              <span class="edit-error" data-error="lexical"></span>
+          <section id="section-idea-development" class="grade-section" data-section="idea-development">
+            <header class="section-header"><h2>💡 Idea Development</h2><button class="btn-edit" data-edit="idea-development">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-idea-development"></div>
+            <div class="section-edit hidden" id="edit-idea-development">
+              <textarea class="json-edit" rows="12" data-input="idea-development"></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="idea-development">Lưu vào draft</button>
+                <button class="btn" data-cancel="idea-development">Hủy</button>
+                <span class="edit-error" data-error="idea-development"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-idea-development" class="grade-section" data-section="idea-development">
-          <header class="section-header"><h2>💡 Idea Development</h2><button class="btn-edit" data-edit="idea-development">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-idea-development"></div>
-          <div class="section-edit hidden" id="edit-idea-development">
-            <textarea class="json-edit" rows="12" data-input="idea-development"></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="idea-development">Lưu vào draft</button>
-              <button class="btn" data-cancel="idea-development">Hủy</button>
-              <span class="edit-error" data-error="idea-development"></span>
+          <section id="section-counterargument" class="grade-section" data-section="counterargument">
+            <header class="section-header"><h2>⚖ Counterargument</h2><button class="btn-edit" data-edit="counterargument">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-counterargument"></div>
+            <div class="section-edit hidden" id="edit-counterargument">
+              <textarea class="json-edit" rows="10" data-input="counterargument"></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="counterargument">Lưu vào draft</button>
+                <button class="btn" data-cancel="counterargument">Hủy</button>
+                <span class="edit-error" data-error="counterargument"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <section id="section-counterargument" class="grade-section" data-section="counterargument">
-          <header class="section-header"><h2>⚖ Counterargument</h2><button class="btn-edit" data-edit="counterargument">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-counterargument"></div>
-          <div class="section-edit hidden" id="edit-counterargument">
-            <textarea class="json-edit" rows="10" data-input="counterargument"></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="counterargument">Lưu vào draft</button>
-              <button class="btn" data-cancel="counterargument">Hủy</button>
-              <span class="edit-error" data-error="counterargument"></span>
+        <!-- ── Tab 4: Bài mẫu tham khảo ── -->
+        <div class="tab-panel" data-panel="baimau">
+          <section id="section-instructor-note" class="grade-section" data-section="instructor-note">
+            <header class="section-header"><h2>📝 Note giảng viên</h2><button class="btn-edit" data-edit="instructor-note">✏ Sửa</button></header>
+            <p class="text-xs mb-2" style="color:rgba(255,255,255,0.45);">
+              Personalized feedback — sibling column on writing_essays. Survives regrade. Lưu qua endpoint riêng (không dính vào JSON validation của Save edits).
+            </p>
+            <div class="section-content" id="content-instructor-note"></div>
+            <div class="section-edit hidden" id="edit-instructor-note">
+              <textarea class="text-edit" rows="6" data-input="instructor-note" placeholder="VD: Em viết tốt phần coherence, cần thêm linking words..."></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save-note="1">Lưu note</button>
+                <button class="btn" data-cancel="instructor-note">Hủy</button>
+                <span class="edit-error" data-error="instructor-note"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-improved" class="grade-section" data-section="improved">
-          <header class="section-header"><h2>✨ Bài cải thiện</h2><button class="btn-edit" data-edit="improved">✏ Sửa</button></header>
-          <div class="section-content" id="content-improved"></div>
-          <div class="section-edit hidden" id="edit-improved">
-            <textarea class="text-edit" rows="20" data-input="improved" placeholder="Bài cải thiện band 8.0+ ..."></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="improved">Lưu vào draft</button>
-              <button class="btn" data-cancel="improved">Hủy</button>
-              <span class="edit-error" data-error="improved"></span>
+          <section id="section-improved" class="grade-section" data-section="improved">
+            <header class="section-header"><h2>✨ Bài cải thiện</h2><button class="btn-edit" data-edit="improved">✏ Sửa</button></header>
+            <div class="section-content" id="content-improved"></div>
+            <div class="section-edit hidden" id="edit-improved">
+              <textarea class="text-edit" rows="20" data-input="improved" placeholder="Bài cải thiện band 8.0+ ..."></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="improved">Lưu vào draft</button>
+                <button class="btn" data-cancel="improved">Hủy</button>
+                <span class="edit-error" data-error="improved"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-ai-content" class="grade-section" data-section="ai-content">
-          <header class="section-header"><h2>🤖 AI check</h2><button class="btn-edit" data-edit="ai-content">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-ai-content"></div>
-          <div class="section-edit hidden" id="edit-ai-content">
-            <textarea class="json-edit" rows="6" data-input="ai-content" placeholder='{"likelihood": 5, "explanation": "Natural"}'></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="ai-content">Lưu vào draft</button>
-              <button class="btn" data-cancel="ai-content">Hủy</button>
-              <span class="edit-error" data-error="ai-content"></span>
+          <section id="section-ai-content" class="grade-section" data-section="ai-content">
+            <header class="section-header"><h2>🤖 AI check</h2><button class="btn-edit" data-edit="ai-content">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-ai-content"></div>
+            <div class="section-edit hidden" id="edit-ai-content">
+              <textarea class="json-edit" rows="6" data-input="ai-content" placeholder='{"likelihood": 5, "explanation": "Natural"}'></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="ai-content">Lưu vào draft</button>
+                <button class="btn" data-cancel="ai-content">Hủy</button>
+                <span class="edit-error" data-error="ai-content"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="section-key-takeaways" class="grade-section" data-section="key-takeaways">
-          <header class="section-header"><h2>🎓 Key takeaways</h2><button class="btn-edit" data-edit="key-takeaways">✏ Sửa JSON</button></header>
-          <div class="section-content" id="content-key-takeaways"></div>
-          <div class="section-edit hidden" id="edit-key-takeaways">
-            <textarea class="json-edit" rows="8" data-input="key-takeaways" placeholder='{"strengths": [...], "areasForImprovement": [...]}'></textarea>
-            <div class="edit-actions">
-              <button class="btn btn-primary" data-save="key-takeaways">Lưu vào draft</button>
-              <button class="btn" data-cancel="key-takeaways">Hủy</button>
-              <span class="edit-error" data-error="key-takeaways"></span>
+          <section id="section-key-takeaways" class="grade-section" data-section="key-takeaways">
+            <header class="section-header"><h2>🎓 Key takeaways</h2><button class="btn-edit" data-edit="key-takeaways">✏ Sửa JSON</button></header>
+            <div class="section-content" id="content-key-takeaways"></div>
+            <div class="section-edit hidden" id="edit-key-takeaways">
+              <textarea class="json-edit" rows="8" data-input="key-takeaways" placeholder='{"strengths": [...], "areasForImprovement": [...]}'></textarea>
+              <div class="edit-actions">
+                <button class="btn btn-primary" data-save="key-takeaways">Lưu vào draft</button>
+                <button class="btn" data-cancel="key-takeaways">Hủy</button>
+                <span class="edit-error" data-error="key-takeaways"></span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </main>
     </div>
   </div>
@@ -1164,33 +1217,103 @@
       }).join('');
     }
 
-    // Section 9 — Lexical (Phase 1: {wordsToUpgrade: [{originalWord,
-    //   suggestedUpgrade, explanation}]} OR Gemini variants).
+    // Section 9 — Lexical.  Sprint 2.5.3: tolerate four shapes:
+    //   (a) {wordsToUpgrade: [{originalWord, suggestedUpgrade, ...}]}  ← Pydantic
+    //   (b) {upgrades: [...]}                                          ← Gemini variant
+    //   (c) [...] (raw array of upgrade objects)
+    //   (d) {word: "suggestion", word2: "..."}  ← simple map (Gemini sometimes
+    //       collapses the structured shape into a flat lookup table).
+    //   (e) string fallback.
+    // Andy reported (d) was rendering empty in Sprint 2.5.2 because the
+    // old branch keyed off Array.isArray(v.upgrades) and fell through.
     function _renderLexicalAnalysis(v) {
       if (_isEmpty(v)) return _emptyShape();
-      var words;
-      if (Array.isArray(v))                            words = v;
-      else if (Array.isArray(v.wordsToUpgrade))        words = v.wordsToUpgrade;
-      else if (Array.isArray(v.upgrades))              words = v.upgrades;
-      else                                              words = null;
 
-      if (!words || !words.length) return _emptyShape();
+      // (e) string
+      if (typeof v === 'string') {
+        return '<p class="prose-block">' + WC.escapeHtml(v) + '</p>';
+      }
 
-      return words.map(function (w) {
-        var orig    = w.originalWord    || w.original  || w.word     || '';
-        var upgrade = w.suggestedUpgrade || w.upgrade  || w.suggestion || w.upgraded || '';
-        var explain = w.explanation     || w.context  || '';
-        return (
-          '<div class="lexical-card">' +
+      // (a) (b) (c) — array of upgrade objects
+      var words = null;
+      if (Array.isArray(v))                       words = v;
+      else if (Array.isArray(v.wordsToUpgrade))   words = v.wordsToUpgrade;
+      else if (Array.isArray(v.upgrades))         words = v.upgrades;
+      else if (Array.isArray(v.suggestions))      words = v.suggestions;
+
+      if (Array.isArray(words)) {
+        if (!words.length) return _emptyShape();
+        return words.map(function (w) {
+          if (typeof w === 'string') {
+            return '<div class="lexical-card"><div class="lexical-row">' +
+              '<span class="lexical-original">' + WC.escapeHtml(w) + '</span>' +
+            '</div></div>';
+          }
+          var orig    = w.originalWord    || w.original  || w.word       || w.from || '';
+          var upgrade = w.suggestedUpgrade || w.upgrade  || w.suggestion || w.upgraded || w.to || w.improved || '';
+          var explain = w.explanation     || w.reason   || w.context    || '';
+          return (
+            '<div class="lexical-card">' +
+              '<div class="lexical-row">' +
+                '<span class="lexical-original">' + WC.escapeHtml(orig) + '</span>' +
+                '<span class="lexical-arrow">→</span>' +
+                '<span class="lexical-upgrade">'  + WC.escapeHtml(upgrade) + '</span>' +
+              '</div>' +
+              (explain ? '<div class="lexical-explain">' + WC.escapeHtml(explain) + '</div>' : '') +
+            '</div>'
+          );
+        }).join('');
+      }
+
+      // (d) — simple {word: suggestion} map.  Detect by: object, no known
+      // array keys, no known wrapper keys (summary/strengths) — every
+      // remaining property is treated as word→upgrade.
+      if (typeof v === 'object') {
+        var entries = Object.keys(v).filter(function (k) {
+          // Skip known wrapper keys so we don't accidentally render them
+          // as "word → suggestion".
+          return ['summary','strengths','wordsToUpgrade','upgrades','suggestions'].indexOf(k) === -1;
+        }).map(function (k) { return [k, v[k]]; });
+
+        var wrapper = '';
+        // Render structured wrapper fields first if present.
+        if (v.summary) {
+          wrapper += '<p class="prose-block" style="margin-bottom:0.625rem;">' +
+            WC.escapeHtml(String(v.summary)) + '</p>';
+        }
+        if (Array.isArray(v.strengths) && v.strengths.length) {
+          wrapper += '<div class="chip-list chip-success" style="margin-bottom:0.75rem;">' +
+            v.strengths.map(function (s) {
+              return '<span class="chip">' + WC.escapeHtml(String(s)) + '</span>';
+            }).join('') + '</div>';
+        }
+
+        if (!entries.length) {
+          // All meaningful keys handled by wrapper section; nothing left.
+          return wrapper || _emptyShape();
+        }
+
+        var rows = entries.map(function (kv) {
+          var word = kv[0];
+          var sugg = kv[1];
+          // If the value is itself an object/array, recurse so we don't
+          // dump JSON.  Most common case: plain string.
+          if (sugg && typeof sugg === 'object') {
+            return _renderLexicalAnalysis(sugg);
+          }
+          return (
             '<div class="lexical-row">' +
-              '<span class="lexical-original">' + WC.escapeHtml(orig) + '</span>' +
+              '<span class="lexical-original">' + WC.escapeHtml(String(word)) + '</span>' +
               '<span class="lexical-arrow">→</span>' +
-              '<span class="lexical-upgrade">'  + WC.escapeHtml(upgrade) + '</span>' +
-            '</div>' +
-            (explain ? '<div class="lexical-explain">' + WC.escapeHtml(explain) + '</div>' : '') +
-          '</div>'
-        );
-      }).join('');
+              '<span class="lexical-upgrade">'  + WC.escapeHtml(String(sugg ?? '')) + '</span>' +
+            '</div>'
+          );
+        }).join('');
+
+        return wrapper + '<div class="lexical-list">' + rows + '</div>';
+      }
+
+      return _emptyShape('— Định dạng không nhận diện —');
     }
 
     // Section 10 — Idea Development (array of {paragraph, originalIdea,
@@ -1356,6 +1479,7 @@
         renderSection(sectionKey, _currentFeedback[dataKey]);
       });
       renderInstructorNote(_currentNote);
+      maybeHideCounterargument();
     }
 
     // ── Edit toggle ──────────────────────────────────────────────
@@ -1631,33 +1755,36 @@
       }
     }
 
-    // ── Smooth-scroll + scrollspy ────────────────────────────────
+    // ── Tab toggle (Sprint 2.5.3 — replaces 15-link scrollspy) ───
     function wireNav() {
-      var navLinks = document.querySelectorAll('.nav-link');
-      navLinks.forEach(function (link) {
-        link.addEventListener('click', function (e) {
-          e.preventDefault();
-          var target = document.querySelector(link.getAttribute('href'));
-          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var key = btn.getAttribute('data-tab');
+          document.querySelectorAll('.tab-btn').forEach(function (b) {
+            b.classList.toggle('is-active', b === btn);
+          });
+          document.querySelectorAll('.tab-panel').forEach(function (p) {
+            p.classList.toggle('is-active', p.getAttribute('data-panel') === key);
+          });
+          // Scroll the page to the top of the just-revealed panel so
+          // the user lands at section 1 of the new tab, not at the
+          // scroll position carried over from the previous tab.
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         });
       });
+    }
 
-      // Highlight whichever section the reader is currently on.
-      // rootMargin shrinks the top by the sticky-header height so a
-      // section becomes "active" when its top crosses just below the
-      // header, and shrinks the bottom by 50% so multiple visible
-      // sections don't fight for the active class on long screens.
-      var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
-          var id = entry.target.id;
-          navLinks.forEach(function (link) {
-            link.classList.toggle('is-active', link.getAttribute('href') === '#' + id);
-          });
-        });
-      }, { threshold: 0, rootMargin: '-72px 0px -50% 0px' });
-
-      document.querySelectorAll('.grade-section').forEach(function (s) { observer.observe(s); });
+    // Auto-hide Counterargument when AI returns null/empty (Task 1
+    // essays don't have counterargument; Task 2 essays may legitimately
+    // omit it).  Called after every renderAllSections.
+    function maybeHideCounterargument() {
+      var section = document.getElementById('section-counterargument');
+      if (!section) return;
+      var v = _currentFeedback.counterargumentAnalysis;
+      var isEmpty = (v == null) ||
+        (Array.isArray(v) && v.length === 0) ||
+        (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+      section.style.display = isEmpty ? 'none' : '';
     }
 
     // ── Global event delegation for section edit forms ───────────
