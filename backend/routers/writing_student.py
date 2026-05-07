@@ -334,6 +334,8 @@ def _persist_flagged_submission(
     task_type: str,
     essay_text: str,
     flags: list[str],
+    paste_events: Optional[list] = None,
+    suspicious_paste: bool = False,
 ) -> dict:
     """Phase 2.6: write the row tree for a flagged submission.
 
@@ -394,6 +396,10 @@ def _persist_flagged_submission(
         # admin moderation queue can render it without re-running the
         # formatter.
         "error_message":      explanation_vi,
+        # Sprint 2.6.1: paste forensic trail. Carried straight into
+        # the row even when the essay never reached the grader.
+        "paste_events":       paste_events or [],
+        "suspicious_paste":   bool(suspicious_paste),
     }
 
     try:
@@ -676,33 +682,18 @@ async def upsert_my_draft(
             f"Không thể chỉnh draft — trạng thái bài là '{assignment['status']}'.",
         )
 
-    # Phase 2.3c-3 — IELTS-mode timer.
-    # 1. If timed and not yet started, stamp `started_at` BEFORE we
-    #    write the draft. Once stamped the timer is running, and
-    #    the very save that triggered it is the first valid save.
-    # 2. If already started, re-check expiry against server time
-    #    against the row we just stamped. A draft save that lands
-    #    after expiry must be rejected (410 Gone) — accepting it
-    #    would let a student keep editing past the deadline.
-    if assignment.get("is_timed") and not assignment.get("started_at"):
-        now_iso = datetime.now(timezone.utc).isoformat()
-        try:
-            (
-                supabase_admin.table("writing_assignments")
-                .update({"started_at": now_iso})
-                .eq("id", str(assignment_id))
-                .execute()
-            )
-        except Exception as exc:
-            logger.warning(
-                "[writing-student] started_at stamp failed "
-                "assignment=%s: %s",
-                assignment_id, exc,
-            )
-        # Reflect the stamp on the in-memory row so the expiry
-        # check below sees it.
-        assignment["started_at"] = now_iso
-
+    # Sprint 2.6.1 — IELTS-mode timer expiry check.
+    # The auto-stamp branch that used to live here was REMOVED:
+    # `started_at` is now stamped explicitly by POST /start when the
+    # student opens the submit modal, so a draft save can never be
+    # the first thing that starts the clock.  This rules out the
+    # "banner reads '—' until first save" canary 2026-05-06 and
+    # makes the timer behaviour match what the student sees the
+    # moment they click "Làm bài".
+    #
+    # We still re-check expiry here because a long-typing student
+    # can cross the deadline mid-keystroke; rejecting the save with
+    # 410 Gone is what tells the frontend to force-submit.
     timer = _compute_timer_state(assignment)
     if timer["is_expired"]:
         raise HTTPException(
@@ -805,25 +796,37 @@ async def submit_my_assignment(
 
     # Prefer the body-supplied essay_text; fall back to the saved
     # draft so a student with bad connectivity who lost the form can
-    # still submit "what was last saved".
+    # still submit "what was last saved".  Sprint 2.6.1: ALSO read
+    # `paste_events` from the same draft row in one round-trip so we
+    # can copy the audit array onto the essay regardless of which
+    # branch (flagged / clean) we end up taking.
     essay_text = (body.essay_text or "").strip() if body.essay_text else ""
-    if not essay_text:
-        try:
-            d = (
-                supabase_admin.table("writing_drafts")
-                .select("draft_text")
-                .eq("assignment_id", str(assignment_id))
-                .limit(1)
-                .execute()
-            )
-            if d.data:
+    paste_events: list = []
+    try:
+        d = (
+            supabase_admin.table("writing_drafts")
+            .select("draft_text, paste_events")
+            .eq("assignment_id", str(assignment_id))
+            .limit(1)
+            .execute()
+        )
+        if d.data:
+            if not essay_text:
                 essay_text = (d.data[0].get("draft_text") or "").strip()
-        except Exception as exc:
-            logger.warning(
-                "[writing-student] draft fallback fetch failed "
-                "assignment=%s: %s",
-                assignment_id, exc,
-            )
+            paste_events = d.data[0].get("paste_events") or []
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] draft fallback fetch failed "
+            "assignment=%s: %s",
+            assignment_id, exc,
+        )
+
+    # Sprint 2.6.1: an event with char_count >= 50 is the "log" tier
+    # that the frontend allowed but recorded; its presence is the
+    # admin signal "this submission warrants a closer look".
+    suspicious_paste = any(
+        (e or {}).get("char_count", 0) >= 50 for e in paste_events
+    )
 
     # ── Phase 2.6: spam / quality flag gate ───────────────────────
     # Replaces the pre-2.6 hard 400 "essay too short" reject. We now
@@ -833,14 +836,16 @@ async def submit_my_assignment(
     flags = detect_flags(essay_text)
     if flags:
         return _persist_flagged_submission(
-            assignment_id   = assignment_id,
-            assignment      = assignment,
-            student_id      = student_id,
-            user_id         = user_id,
-            prompt_text     = prompt_text,
-            task_type       = task_type,
-            essay_text      = essay_text,
-            flags           = flags,
+            assignment_id    = assignment_id,
+            assignment       = assignment,
+            student_id       = student_id,
+            user_id          = user_id,
+            prompt_text      = prompt_text,
+            task_type        = task_type,
+            essay_text       = essay_text,
+            flags            = flags,
+            paste_events     = paste_events,
+            suspicious_paste = suspicious_paste,
         )
 
     # Reuse the admin-side submission pipeline. analysis_level=3 is
@@ -859,6 +864,29 @@ async def submit_my_assignment(
         },
         admin_id=user_id,  # see "Audit-field caveat" above
     )
+
+    # Sprint 2.6.1: stamp paste audit onto the new essay row.  Done
+    # after `create_essay_with_job` rather than threaded through it
+    # so the service layer stays clean of submission-specific
+    # concerns.  Best-effort — failure here doesn't roll back the
+    # essay (grading is already queued).
+    if paste_events:
+        try:
+            (
+                supabase_admin.table("writing_essays")
+                .update({
+                    "paste_events":     paste_events,
+                    "suspicious_paste": suspicious_paste,
+                })
+                .eq("id", info["essay_id"])
+                .execute()
+            )
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] paste audit stamp failed "
+                "essay=%s: %s",
+                info["essay_id"], exc,
+            )
 
     background_tasks.add_task(
         essay_service._bg_grade_essay,
@@ -973,6 +1001,194 @@ async def get_timer_state(
     timer["status"]         = row["status"]
     timer["auto_submitted"] = bool(row.get("auto_submitted"))
     return timer
+
+
+# ── Sprint 2.6.1 — explicit start trigger + paste-event log ──────────
+
+
+class PasteLog(BaseModel):
+    """Body for POST /paste-log. The frontend's paste handler decides
+    whether to block (>200 chars) or just log (50-200 chars) and
+    reports the verdict via `blocked` so the audit trail records
+    BOTH branches.  We don't trust char_count to be honest — it's a
+    forensic signal, not a security boundary."""
+    char_count: int  = Field(..., ge=0,    le=100_000)
+    blocked:    bool = False
+
+
+@router.post("/my-assignments/{assignment_id}/start")
+async def start_assignment(
+    assignment_id: UUID,
+    student: dict = Depends(get_current_student),
+):
+    """Explicit timer start, called when the student clicks "Làm bài".
+
+    Replaces the pre-2.6.1 pattern where `started_at` was auto-stamped
+    on the first PATCH /draft. The auto-stamp had a 3-second visible
+    delay (the auto-save debounce) during which the timer banner
+    rendered '—' — confusing canary 2026-05-06.
+
+    Behaviour:
+      • Stamps `started_at` if NULL (timer begins now).
+      • Transitions status `pending` → `in_progress` if pending.
+      • Both writes are idempotent — re-clicking "Làm bài" on an
+        already-started timed assignment is a no-op for `started_at`
+        (we never overwrite a running clock).
+
+    Returns the fresh timer state so the frontend can start the
+    countdown immediately without a follow-up GET.
+    """
+    student_id = student["id"]
+
+    r = (
+        supabase_admin.table("writing_assignments")
+        .select(
+            "status, is_timed, time_limit_minutes, started_at, auto_submitted"
+        )
+        .eq("id", str(assignment_id))
+        .eq("student_id", student_id)
+        .limit(1)
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(404, "Assignment không tìm thấy")
+    row = r.data[0]
+
+    # Past `in_progress` means the row has been handed to the grader
+    # (or already delivered). Re-starting it would silently reset
+    # the audit trail; bounce with 409 so the frontend can show the
+    # right state instead.
+    if row["status"] not in _ACTIVE_ASSIGNMENT_STATES:
+        raise HTTPException(
+            409,
+            f"Không thể bắt đầu — trạng thái bài là '{row['status']}'.",
+        )
+
+    update_payload: dict = {}
+    if row["status"] == "pending":
+        update_payload["status"] = "in_progress"
+    if not row.get("started_at"):
+        update_payload["started_at"] = datetime.now(timezone.utc).isoformat()
+
+    if update_payload:
+        try:
+            (
+                supabase_admin.table("writing_assignments")
+                .update(update_payload)
+                .eq("id", str(assignment_id))
+                .execute()
+            )
+            # Reflect the patch on the local row so the timer state
+            # we return matches what the DB will return on the next
+            # read.
+            row.update(update_payload)
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] start stamp failed assignment=%s: %s",
+                assignment_id, exc,
+            )
+
+    timer = _compute_timer_state(row)
+    timer["status"]         = row["status"]
+    timer["auto_submitted"] = bool(row.get("auto_submitted"))
+    return {"started": True, "timer": timer}
+
+
+@router.post("/my-assignments/{assignment_id}/paste-log")
+async def log_paste(
+    assignment_id: UUID,
+    body: PasteLog,
+    student: dict = Depends(get_current_student),
+):
+    """Append a paste event to the assignment's draft row.
+
+    The events stay on `writing_drafts.paste_events` until submit,
+    when they're copied onto `writing_essays.paste_events` (so the
+    audit survives the draft delete).
+
+    We read-modify-write the JSONB array because the Supabase Python
+    client doesn't expose a `||`-style append; the race window is
+    tiny (a single student paste-spamming) and the cost is one
+    extra round-trip.
+
+    Auth: ownership-checked through `get_current_student` + an
+    explicit student_id filter on the assignment lookup so a paste
+    log for someone else's assignment 404s instead of leaking.
+    """
+    student_id = student["id"]
+
+    a_resp = (
+        supabase_admin.table("writing_assignments")
+        .select("id, status")
+        .eq("id", str(assignment_id))
+        .eq("student_id", student_id)
+        .limit(1)
+        .execute()
+    )
+    if not a_resp.data:
+        raise HTTPException(404, "Assignment không tìm thấy")
+    if a_resp.data[0]["status"] not in _ACTIVE_ASSIGNMENT_STATES:
+        # No point logging pastes against a submitted/delivered row.
+        raise HTTPException(
+            409,
+            f"Không thể log paste — trạng thái bài là '{a_resp.data[0]['status']}'.",
+        )
+
+    event = {
+        "at":         datetime.now(timezone.utc).isoformat(),
+        "char_count": body.char_count,
+        "blocked":    bool(body.blocked),
+    }
+
+    d_resp = (
+        supabase_admin.table("writing_drafts")
+        .select("draft_text, paste_events")
+        .eq("assignment_id", str(assignment_id))
+        .limit(1)
+        .execute()
+    )
+
+    if d_resp.data:
+        existing_events = d_resp.data[0].get("paste_events") or []
+        new_events = existing_events + [event]
+        try:
+            (
+                supabase_admin.table("writing_drafts")
+                .update({"paste_events": new_events})
+                .eq("assignment_id", str(assignment_id))
+                .execute()
+            )
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] paste-log update failed "
+                "assignment=%s: %s",
+                assignment_id, exc,
+            )
+            raise HTTPException(500, "Không log được sự kiện paste")
+        return {"logged": True, "total_events": len(new_events)}
+
+    # No draft yet — create one carrying just the paste event.
+    # `draft_text=""` is fine; the upsert in PATCH /draft will fill
+    # it on the next save.
+    try:
+        (
+            supabase_admin.table("writing_drafts")
+            .insert({
+                "assignment_id": str(assignment_id),
+                "student_id":    student_id,
+                "draft_text":    "",
+                "paste_events":  [event],
+            })
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] paste-log insert failed "
+            "assignment=%s: %s",
+            assignment_id, exc,
+        )
+        raise HTTPException(500, "Không log được sự kiện paste")
+    return {"logged": True, "total_events": 1}
 
 
 # ── Phase 2.3c-2 — extract text from .docx / .txt upload ─────────────
