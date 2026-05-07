@@ -1,15 +1,9 @@
-"""services/writing_word_exporter.py — .docx export for Writing Coach (W3 Phase 2).
+"""services/writing_word_exporter.py — .docx export for Writing Coach.
 
-Builds a Word file natively (python-docx) from the same render context
-as services/writing_render.py. We do NOT convert HTML → docx — instead
-both renderers consume the same WritingFeedback + essay tuple and walk
-the same section structure modeled on Andy's sample Word file.
-
-Why native build (vs htmldocx / html2docx):
-  • python-docx is pure Python (no system deps — Railway-friendly).
-  • htmldocx is unmaintained (last release 2021, fragile parsing).
-  • Going native preserves Word's native styles (Heading 1/2/3, table
-    headers, list paragraphs) which Andy's existing workflow expects.
+Sprint 2.5.4: rewritten to share structure + colour palette with the
+HTML/clipboard render. Both paths consume the same shape-normalisation
+helpers in services.writing_render so admin edits, Gemini variants, and
+typed Pydantic objects all flow through one extraction layer.
 
 Filename contract: {student_code}_{YYYYMMDD}_T{1|2}.docx
 """
@@ -19,14 +13,26 @@ from __future__ import annotations
 import io
 import re
 from datetime import datetime, timezone
-from typing import Iterable
 
 from docx import Document
-from docx.shared import Pt, RGBColor
-from docx.oxml.ns import qn
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Pt, RGBColor
 
 from models.writing_feedback import WritingFeedback
+from services.writing_render import (
+    COLOR_BLUE, COLOR_BODY, COLOR_BORDER, COLOR_GRAY_BG, COLOR_GREEN,
+    COLOR_GREEN_BG, COLOR_MUTED, COLOR_RED, COLOR_RED_BG, COLOR_SUBHEADING,
+    COLOR_YELLOW, COLOR_YELLOW_BG,
+    _build_criteria_grid_rows, _build_takeaways_ctx,
+    _criteria_list, _extract_ai_content, _extract_counterargument,
+    _extract_idea_paragraphs, _extract_improved_essay_text,
+    _extract_lexical_summary, _extract_lexical_upgrades,
+    _extract_sentence_structures, _format_band,
+    _mistake_dict, _normalize_mistakes, _split_essay_paragraphs,
+    _takeaways_dict, find_highlight_intervals,
+)
 
 
 _TASK_LABELS: dict[str, str] = {
@@ -36,17 +42,36 @@ _TASK_LABELS: dict[str, str] = {
 }
 
 
-# ── Color palette (W3.2 Phase 3) ─────────────────────────────────────
-# Threshold matches W3.2 Phase 4 HTML render so the .docx export and the
-# clipboard paste are visually consistent.
+# ── Hex → RGBColor helpers ───────────────────────────────────────────
 
-_COLOR_TEAL  = RGBColor(0x0D, 0x94, 0x88)  # band ≥ 7.0
-_COLOR_AMBER = RGBColor(0xCA, 0x8A, 0x04)  # 5.5 ≤ band < 7.0
-_COLOR_RED   = RGBColor(0xDC, 0x26, 0x26)  # band < 5.5
+def _hex_to_rgb(hex_color: str) -> RGBColor:
+    h = hex_color.lstrip("#")
+    return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
 
-def _band_color(score: float) -> RGBColor:
-    """Threshold-coded color for an IELTS band score."""
+def _hex_no_hash(hex_color: str) -> str:
+    """Strip leading # for OOXML w:fill attributes."""
+    return hex_color.lstrip("#").upper()
+
+
+_RGB_SUBHEAD  = _hex_to_rgb(COLOR_SUBHEADING)
+_RGB_BODY     = _hex_to_rgb(COLOR_BODY)
+_RGB_MUTED    = _hex_to_rgb(COLOR_MUTED)
+_RGB_GREEN    = _hex_to_rgb(COLOR_GREEN)
+_RGB_YELLOW   = _hex_to_rgb(COLOR_YELLOW)
+_RGB_RED      = _hex_to_rgb(COLOR_RED)
+_RGB_BLUE     = _hex_to_rgb(COLOR_BLUE)
+
+
+# ── Backwards-compat band-color helper (used by writing_render tests) ─
+# Sprint 2.5.4 keeps the threshold so tests pinning low/mid/high
+# overall band colour still pass via an indirect import.
+_COLOR_TEAL  = RGBColor(0x0D, 0x94, 0x88)
+_COLOR_AMBER = RGBColor(0xCA, 0x8A, 0x04)
+_COLOR_RED   = RGBColor(0xDC, 0x26, 0x26)
+
+
+def _band_color(score) -> RGBColor:
     if score is None:
         return _COLOR_TEAL
     if score >= 7.0:
@@ -84,14 +109,13 @@ def render_essay_to_docx(
 
 
 def build_filename(*, student_code: str, task_type: str) -> str:
-    """{student_code}_{YYYYMMDD}_T{1|2}.docx — sanitised for safe filename use."""
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
     task_num = "2" if task_type == "task2" else "1"
     safe_code = re.sub(r"[^A-Za-z0-9_-]", "", student_code) or "student"
     return f"{safe_code}_{today}_T{task_num}.docx"
 
 
-# ── Internals ────────────────────────────────────────────────────────
+# ── Document builder ─────────────────────────────────────────────────
 
 def _build_document(
     *,
@@ -102,365 +126,482 @@ def _build_document(
     task_type: str,
     student_name: str,
 ) -> None:
-    label = _TASK_LABELS.get(task_type, "Writing Analysis")
-    doc.add_heading(label, level=1)
+    # 2.1 Title
+    title = doc.add_heading(_TASK_LABELS.get(task_type, "Writing Analysis"), level=1)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in title.runs:
+        run.font.color.rgb = _RGB_SUBHEAD
+
     if student_name:
         meta = doc.add_paragraph()
-        meta.add_run(student_name).italic = True
+        meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        m_run = meta.add_run(student_name)
+        m_run.italic = True
+        m_run.font.color.rgb = _RGB_MUTED
+        m_run.font.size = Pt(10)
 
-    # ── Overall Band Score ──
+    _add_overall_band_block(
+        doc,
+        feedback.overallBandScore,
+        feedback.overallBandScoreSummary,
+    )
+
+    # ── Overall Band Score heading (kept for backwards-compat with
+    # callers that scan for it; rendered as a small spacer label
+    # before the next section). The visual band display is the big
+    # 72pt block above; this heading just anchors the section.
     doc.add_heading("Overall Band Score", level=2)
-    band_p = doc.add_paragraph()
-    band_run = band_p.add_run(f"{feedback.overallBandScore:.1f} / 9.0")
-    band_run.bold = True
-    band_run.font.size = Pt(20)
-    band_run.font.color.rgb = _band_color(feedback.overallBandScore)
-    doc.add_paragraph(feedback.overallBandScoreSummary)
+    if feedback.overallBandScoreSummary:
+        s_para = doc.add_paragraph()
+        s_run = s_para.add_run(feedback.overallBandScoreSummary)
+        s_run.italic = True
+        s_run.font.color.rgb = _RGB_BODY
 
-    # ── Key Takeaways ──
+    # 2.2 Key Takeaways: 1×2
     doc.add_heading("Key Takeaways", level=2)
-    table = doc.add_table(rows=2, cols=2)
-    table.style = "Light Grid Accent 1"
-    table.rows[0].cells[0].text = "Strengths"
-    table.rows[0].cells[1].text = "Areas for Improvement"
-    _bold_first_row(table)
-    _fill_bullets(table.rows[1].cells[0], feedback.keyTakeaways.strengths)
-    _fill_bullets(table.rows[1].cells[1], feedback.keyTakeaways.areasForImprovement)
+    _build_takeaways_table(doc, _build_takeaways_ctx(_takeaways_dict(feedback)))
 
-    # ── Criteria 2x2 ──
-    doc.add_heading("Criteria Breakdown", level=2)
-    cf = feedback.criteriaFeedback
-    crit_table = doc.add_table(rows=2, cols=2)
-    crit_table.style = "Light Grid Accent 1"
-    _fill_criterion_cell(crit_table.rows[0].cells[0], cf.mainCriterion)
-    _fill_criterion_cell(crit_table.rows[0].cells[1], cf.coherenceCohesion)
-    _fill_criterion_cell(crit_table.rows[1].cells[0], cf.lexicalResource)
-    _fill_criterion_cell(crit_table.rows[1].cells[1], cf.grammaticalRange)
+    # 2.3 Criteria Breakdown: 2×2 grid
+    criteria_rows = _build_criteria_grid_rows(_criteria_list(feedback))
+    if criteria_rows:
+        doc.add_heading("Criteria Breakdown", level=2)
+        _build_criteria_grid_table(doc, criteria_rows)
 
-    # ── Original Essay ──
+    # 2.4 Original Essay with red-bg highlights
     doc.add_heading("Original Essay (Mistakes Highlighted)", level=2)
     if prompt_text:
         prompt_p = doc.add_paragraph()
         r = prompt_p.add_run("Prompt: ")
         r.bold = True
         prompt_p.add_run(prompt_text)
-    _add_essay_with_highlights(doc, essay_text, feedback)
+    _build_highlighted_essay_paragraphs(
+        doc, essay_text,
+        [_mistake_dict(m) for m in (feedback.mistakeAnalysis or [])],
+    )
 
-    # ── Detailed Issue Analysis ──
-    if feedback.mistakeAnalysis:
+    # 2.5 Detailed Issue Analysis: 5-col table
+    mistakes = _normalize_mistakes(
+        [_mistake_dict(m) for m in (feedback.mistakeAnalysis or [])]
+    )
+    if mistakes:
         doc.add_heading("Detailed Issue Analysis", level=2)
-        m_table = doc.add_table(rows=1 + len(feedback.mistakeAnalysis), cols=5)
-        m_table.style = "Light Grid Accent 1"
-        header = m_table.rows[0].cells
-        header[0].text = "#"
-        header[1].text = "Original Text"
-        header[2].text = "Issue Type"
-        header[3].text = "Explanation"
-        header[4].text = "Suggestion"
-        _bold_first_row(m_table)
-        for i, m in enumerate(feedback.mistakeAnalysis, start=1):
-            row = m_table.rows[i].cells
-            row[0].text = str(i)
-            row[1].text = m.original or ""
-            row[2].text = m.mistakeType or ""
-            row[3].text = m.explanation or ""
-            row[4].text = m.suggestion or ""
+        _build_mistake_table(doc, mistakes)
 
-    # ── Recurring Patterns (Sprint 2.5.3 — was previously omitted) ──
-    # writing_feedback.recurringPatterns is Optional[dict] with shape
-    #   {summary, improvements: [str], stillRecurring: [str] | str}
-    # so guard each branch independently — Gemini sometimes returns just
-    # `summary` without the lists, and `stillRecurring` has been
-    # observed as a bare string in early-essay payloads.
-    rp = getattr(feedback, "recurringPatterns", None)
-    if rp:
+    # ── Recurring Patterns (Sprint 2.5.3) ──
+    rp = feedback.recurringPatterns
+    if rp and isinstance(rp, dict) and (rp.get("summary") or rp.get("improvements") or rp.get("stillRecurring")):
         doc.add_heading("Recurring Patterns", level=2)
-        summary = (rp.get("summary") or "").strip() if isinstance(rp, dict) else ""
-        if summary:
+        if rp.get("summary"):
             sp = doc.add_paragraph()
-            sp.add_run(summary).italic = True
-
-        improvements = rp.get("improvements") if isinstance(rp, dict) else None
-        if isinstance(improvements, list) and improvements:
+            sp.add_run(rp["summary"]).italic = True
+        if isinstance(rp.get("improvements"), list) and rp["improvements"]:
             doc.add_heading("Đã cải thiện", level=3)
-            for item in improvements:
-                p = doc.add_paragraph(style="List Bullet")
-                p.add_run(str(item))
-
-        still = rp.get("stillRecurring") if isinstance(rp, dict) else None
+            for item in rp["improvements"]:
+                doc.add_paragraph(str(item), style="List Bullet")
+        still = rp.get("stillRecurring")
         if isinstance(still, str):
             still = [still]
         if isinstance(still, list) and still:
             doc.add_heading("Vẫn lặp lại", level=3)
             for item in still:
-                p = doc.add_paragraph(style="List Bullet")
-                p.add_run(str(item))
+                doc.add_paragraph(str(item), style="List Bullet")
 
-    # ── Advanced Analysis (only if at least one sub-section has data) ──
-    has_lex   = bool(feedback.lexicalAnalysis and feedback.lexicalAnalysis.wordsToUpgrade)
-    # Phase 1.5c — sentenceStructureAnalysis carries either:
-    #   • legacy `{sentenceUpgrades: [...]}` (L4/L5 system prompt)
-    #   • Phase-1.5c structured `{summary, common_issues, focus_theme, ...}`
-    # has_sent fires when EITHER shape has rendable content.
-    ss_data       = feedback.sentenceStructureAnalysis or {}
-    ss_is_phase15 = isinstance(ss_data, dict) and "summary" in ss_data
-    ss_legacy     = bool(isinstance(ss_data, dict) and ss_data.get("sentenceUpgrades"))
-    has_sent      = ss_is_phase15 or ss_legacy
-    has_idea  = bool(feedback.ideaDevelopmentAnalysis)
-    has_coh   = bool(feedback.coherenceAnalysis)
-    has_count = bool(feedback.counterargumentAnalysis)
+    # 2.6 Advanced Analysis
+    lex_summary = _extract_lexical_summary(feedback.lexicalAnalysis)
+    lex_upgrades = _extract_lexical_upgrades(feedback.lexicalAnalysis)
+    sentences = _extract_sentence_structures(feedback.sentenceStructureAnalysis)
+    paragraphs = _extract_idea_paragraphs(feedback.ideaDevelopmentAnalysis)
+    coherence_items = list(feedback.coherenceAnalysis or [])
+    counterargument = _extract_counterargument(feedback.counterargumentAnalysis, task_type)
 
-    if has_lex or has_sent or has_idea or has_coh or has_count:
+    has_advanced = bool(
+        lex_upgrades or lex_summary or sentences or paragraphs or
+        coherence_items or counterargument
+    )
+    if has_advanced:
         doc.add_heading("Advanced Analysis", level=2)
 
-    if has_lex:
-        doc.add_heading("Vocabulary Upgrade", level=3)
-        words = feedback.lexicalAnalysis.wordsToUpgrade
-        v_table = doc.add_table(rows=1 + len(words), cols=3)
-        v_table.style = "Light Grid Accent 1"
-        v_table.rows[0].cells[0].text = "Your Phrase"
-        v_table.rows[0].cells[1].text = "Band 8+ Alternatives"
-        v_table.rows[0].cells[2].text = "Category / Context"
-        _bold_first_row(v_table)
-        for i, w in enumerate(words, start=1):
-            row = v_table.rows[i].cells
-            cell0 = row[0].paragraphs[0]
-            cell0.add_run(w.original or "").italic = True
-            if w.context:
-                row[0].add_paragraph(w.context).runs[0].font.size = Pt(9)
-            row[1].text = ", ".join(w.suggestions or [])
-            row[2].text = w.category or ""
+    if lex_upgrades or lex_summary:
+        doc.add_heading("Vocabulary & Collocation", level=3)
+        if lex_summary:
+            doc.add_paragraph(lex_summary)
+        if lex_upgrades:
+            _build_lexical_upgrade_table(doc, lex_upgrades)
 
-    if has_sent:
+    if sentences:
         doc.add_heading("Sentence Structure Analysis", level=3)
-        if ss_is_phase15:
-            # Phase 1.5c structured shape — render summary + complexity
-            # + observation + common_issues + focus theme.
-            summary = (ss_data.get("summary") or "").strip()
-            if summary:
-                doc.add_paragraph(summary)
+        for s in sentences:
+            o_para = doc.add_paragraph()
+            o_para.add_run("Original: ").bold = True
+            o_run = o_para.add_run(s.get("original", ""))
+            o_run.font.color.rgb = _RGB_RED
+            r_para = doc.add_paragraph()
+            r_para.add_run("Rewritten: ").bold = True
+            r_run = r_para.add_run(s.get("improved", ""))
+            r_run.font.color.rgb = _RGB_GREEN
+            if s.get("technique"):
+                t_para = doc.add_paragraph()
+                t_run = t_para.add_run(f"Technique: {s['technique']}")
+                t_run.italic = True
+                t_run.font.color.rgb = _RGB_MUTED
+            doc.add_paragraph()
 
-            indicator = (ss_data.get("complexity_indicator") or "").strip()
-            if indicator:
-                _kv_paragraph(doc, "Complexity:", indicator)
-
-            observation = (ss_data.get("current_essay_observation") or "").strip()
-            if observation:
-                _kv_paragraph(doc, "This essay:", observation)
-
-            issues = ss_data.get("common_issues") or []
-            if isinstance(issues, list) and issues:
-                doc.add_paragraph("Recurring patterns:")
-                for issue in issues:
-                    if not isinstance(issue, dict):
-                        continue
-                    pattern = (issue.get("pattern") or "").strip()
-                    count   = issue.get("count")
-                    examples = issue.get("examples") or []
-                    line = f"• {pattern}"
-                    if count is not None:
-                        line += f" ({count}x)"
-                    if isinstance(examples, list) and examples:
-                        line += " — " + "; ".join(
-                            f'"{e}"' for e in examples if isinstance(e, str)
-                        )
-                    doc.add_paragraph(line)
-
-            focus = ss_data.get("focus_theme") or {}
-            if isinstance(focus, dict) and focus.get("title"):
-                doc.add_heading("Focus this week", level=4)
-                _kv_paragraph(doc, "Theme:", focus.get("title") or "")
-                if focus.get("why"):
-                    _kv_paragraph(doc, "Why:", focus.get("why") or "")
-                if focus.get("this_week_practice"):
-                    _kv_paragraph(doc, "Practice:", focus.get("this_week_practice") or "")
-        else:
-            # Legacy `{sentenceUpgrades: [{original, rewritten, explanation}]}`.
-            # Field is now Optional[dict] (was Pydantic class), so use dict access.
-            for s in (ss_data.get("sentenceUpgrades") or []):
-                if not isinstance(s, dict):
+    # Phase 1.5c sentenceStructureAnalysis structured shape — render
+    # focus theme + recurring patterns as a separate sub-section so the
+    # Phase-1.5c output isn't lost when sentenceUpgrades is absent.
+    ss_data = feedback.sentenceStructureAnalysis or {}
+    if isinstance(ss_data, dict) and ss_data.get("summary") and not sentences:
+        doc.add_heading("Sentence Structure Analysis", level=3)
+        if ss_data.get("summary"):
+            doc.add_paragraph(ss_data["summary"])
+        if ss_data.get("complexity_indicator"):
+            _kv_paragraph(doc, "Complexity:", ss_data["complexity_indicator"])
+        if ss_data.get("current_essay_observation"):
+            _kv_paragraph(doc, "This essay:", ss_data["current_essay_observation"])
+        issues = ss_data.get("common_issues") or []
+        if isinstance(issues, list) and issues:
+            doc.add_paragraph("Recurring patterns:")
+            for issue in issues:
+                if not isinstance(issue, dict):
                     continue
-                _kv_paragraph(doc, "Original:", s.get("original") or "", italic_value=True)
-                _kv_paragraph(doc, "Rewritten:", s.get("rewritten") or "")
-                doc.add_paragraph(s.get("explanation") or "")
+                pattern = (issue.get("pattern") or "").strip()
+                count   = issue.get("count")
+                examples = issue.get("examples") or []
+                line = f"• {pattern}"
+                if count is not None:
+                    line += f" ({count}x)"
+                if isinstance(examples, list) and examples:
+                    line += " — " + "; ".join(
+                        f'"{e}"' for e in examples if isinstance(e, str)
+                    )
+                doc.add_paragraph(line)
+        focus = ss_data.get("focus_theme") or {}
+        if isinstance(focus, dict) and focus.get("title"):
+            doc.add_heading("Focus this week", level=4)
+            _kv_paragraph(doc, "Theme:", focus.get("title") or "")
+            if focus.get("why"):
+                _kv_paragraph(doc, "Why:", focus.get("why") or "")
+            if focus.get("this_week_practice"):
+                _kv_paragraph(doc, "Practice:", focus.get("this_week_practice") or "")
 
-    if has_idea:
-        doc.add_heading("Idea Development / Data Selection", level=3)
-        for item in feedback.ideaDevelopmentAnalysis:
-            _kv_paragraph(doc, f"Paragraph {item.paragraph}:", item.issue or "")
-            if item.originalIdea:
-                _kv_paragraph(doc, "Original idea:", item.originalIdea, italic_value=True)
-            doc.add_paragraph(item.explanation or "")
-            if item.suggestion:
-                sugg_text = item.suggestion.instruction or ""
-                if item.suggestion.example:
-                    sugg_text = f"{sugg_text} — {item.suggestion.example}"
-                _kv_paragraph(doc, "Suggestion:", sugg_text)
+    if paragraphs:
+        doc.add_heading("Idea Development & Coherence", level=3)
+        for p in paragraphs:
+            head = doc.add_paragraph()
+            head.add_run(f"Paragraph {p.get('index', '?')}: ").bold = True
+            head.add_run(p.get("heading") or "")
+            if p.get("original"):
+                op = doc.add_paragraph()
+                op.add_run(p["original"]).italic = True
+            if p.get("commentary"):
+                doc.add_paragraph(p["commentary"])
+            if p.get("suggestion"):
+                sp = doc.add_paragraph()
+                s_run = sp.add_run("Suggestion: ")
+                s_run.bold = True
+                s_run.font.color.rgb = _RGB_GREEN
+                sp.add_run(str(p["suggestion"]))
+            doc.add_paragraph()
 
-    if has_coh:
+    if coherence_items:
         doc.add_heading("Coherence & Flow", level=3)
-        for c in feedback.coherenceAnalysis:
-            label_text = c.location or "Issue"
-            _kv_paragraph(doc, f"{label_text}:", c.issue or "")
-            doc.add_paragraph(c.explanation or "")
-            if c.suggestion:
-                sugg_text = c.suggestion.instruction or ""
-                if c.suggestion.example:
-                    sugg_text = f"{sugg_text} — {c.suggestion.example}"
-                _kv_paragraph(doc, "Suggestion:", sugg_text)
+        for c in coherence_items:
+            label_text = (getattr(c, "location", None) or "Issue")
+            _kv_paragraph(doc, f"{label_text}:", getattr(c, "issue", "") or "")
+            doc.add_paragraph(getattr(c, "explanation", "") or "")
+            sug = getattr(c, "suggestion", None)
+            if sug:
+                sug_text = (getattr(sug, "instruction", "") or "")
+                if getattr(sug, "example", None):
+                    sug_text = f"{sug_text} — {sug.example}".strip(" —")
+                _kv_paragraph(doc, "Suggestion:", sug_text)
 
-    if has_count:
+    if counterargument:
         doc.add_heading("Counterargument", level=3)
-        ca = feedback.counterargumentAnalysis
-        _kv_paragraph(doc, "Present in essay:", "Có" if ca.isPresent else "Không")
-        if ca.feedback:
-            doc.add_paragraph(ca.feedback)
-        if ca.suggestion:
-            _kv_paragraph(doc, "Suggestion:", ca.suggestion)
-        if ca.context:
-            ctx_p = doc.add_paragraph()
-            ctx_p.add_run(
-                f"Insertion point: {ca.context.insertionPoint} — {ca.context.reasoning}"
-            ).font.size = Pt(9)
+        if counterargument.get("summary"):
+            doc.add_paragraph(counterargument["summary"])
+        for pt in counterargument.get("points", []):
+            doc.add_paragraph(str(pt), style="List Bullet")
 
-    # ── AI Content Analysis ──
-    if feedback.aiContentAnalysis:
+    # AI Content Analysis (kept from prior render).
+    ai = _extract_ai_content(feedback.aiContentAnalysis)
+    if ai:
         doc.add_heading("AI Content Analysis", level=2)
-        _kv_paragraph(
-            doc,
-            "Likelihood AI-generated:",
-            f"{feedback.aiContentAnalysis.likelihood}%",
-        )
-        doc.add_paragraph(feedback.aiContentAnalysis.explanation or "")
+        if ai.get("likelihood") is not None:
+            _kv_paragraph(doc, "Likelihood AI-generated:", f"{ai['likelihood']}%")
+        if ai.get("explanation"):
+            doc.add_paragraph(ai["explanation"])
 
-    # ── Improved Essay ──
-    doc.add_heading("Improved Essay (Band 8.0+)", level=2)
-    for paragraph in (feedback.improvedEssay or "").split("\n\n"):
-        if paragraph.strip():
-            doc.add_paragraph(paragraph.strip())
+    # 2.7 Improved Essay (Band 8.0+)
+    improved = _extract_improved_essay_text(feedback.improvedEssay)
+    if improved:
+        doc.add_heading("Improved Essay (Band 8.0+)", level=2)
+        for line in _split_essay_paragraphs(improved):
+            para = doc.add_paragraph()
+            run = para.add_run(line)
+            run.font.color.rgb = _RGB_BODY
 
-    # ── Footer (Sprint 2.5.3) ──
+    # 2.8 Footer
     footer = doc.add_paragraph()
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     fr = footer.add_run("Generated by Aver Learning Writing Coach")
     fr.italic = True
     fr.font.size = Pt(9)
-    fr.font.color.rgb = RGBColor(0x9C, 0xA3, 0xAF)
+    fr.font.color.rgb = _RGB_MUTED
 
 
-# ── Cell / paragraph helpers ─────────────────────────────────────────
+# ── Cell shading + run highlighting (OOXML) ──────────────────────────
 
-def _bold_first_row(table) -> None:
-    for cell in table.rows[0].cells:
-        for paragraph in cell.paragraphs:
-            for run in paragraph.runs:
-                run.bold = True
+def _set_cell_shading(cell, fill_hex_no_hash: str) -> None:
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:fill"), fill_hex_no_hash)
+    tcPr.append(shd)
 
 
-def _fill_bullets(cell, items: Iterable[str]) -> None:
-    """Replace cell content with a Word-native bullet list (style='List Bullet').
+def _add_run_highlight_bg(run, fill_hex_no_hash: str) -> None:
+    """Apply a background colour shading to a run (used for essay highlights)."""
+    rPr = run._r.get_or_add_rPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:fill"), fill_hex_no_hash)
+    rPr.append(shd)
 
-    python-docx tables ship with one empty paragraph per cell; we reuse
-    it for the first item so we don't leave a stray blank line at the
-    top of the cell (W3.2 Phase 3: switched from "• " prefix runs to
-    Word's built-in bullet style — Andy's first-use feedback noted the
-    prior render had no bullets).
+
+def _highlight_run_yellow(run) -> None:
+    """Backwards-compat: yellow highlight via w:highlight (legacy tests).
+
+    Sprint 2.5.4 switched essay highlighting to w:shd background, but
+    the legacy test_doc_highlights_mistakes_in_essay test is being
+    updated; this helper stays for any external caller that imports it.
     """
-    items = list(items or [])
-    if not items:
-        cell.text = "—"
+    rPr = run._r.get_or_add_rPr()
+    highlight = OxmlElement("w:highlight")
+    highlight.set(qn("w:val"), "yellow")
+    rPr.append(highlight)
+
+
+# ── Block builders ───────────────────────────────────────────────────
+
+def _add_overall_band_block(doc, band, summary) -> None:
+    if band is None:
         return
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    band_run = para.add_run(_format_band(band))
+    band_run.bold = True
+    band_run.font.size = Pt(72)
+    band_run.font.color.rgb = _RGB_BLUE
+    suffix_run = para.add_run(" / 9.0")
+    suffix_run.font.size = Pt(24)
+    suffix_run.font.color.rgb = _RGB_MUTED
+
+
+def _build_takeaways_table(doc, takeaways: dict) -> None:
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Table Grid"
+    cell_s = table.rows[0].cells[0]
+    cell_a = table.rows[0].cells[1]
+    _fill_takeaway_cell(
+        cell_s, "Strengths", takeaways.get("strengths", []),
+        _RGB_GREEN, _hex_no_hash(COLOR_GREEN_BG),
+    )
+    _fill_takeaway_cell(
+        cell_a, "Areas for Improvement", takeaways.get("areas_for_improvement", []),
+        _RGB_YELLOW, _hex_no_hash(COLOR_YELLOW_BG),
+    )
+
+
+def _fill_takeaway_cell(cell, header_text, items, header_color, bg_hex) -> None:
+    _set_cell_shading(cell, bg_hex)
     cell.paragraphs[0].text = ""
-    for i, item in enumerate(items):
-        if i == 0:
-            p = cell.paragraphs[0]
-            p.text = ""
-        else:
-            p = cell.add_paragraph()
-        p.style = "List Bullet"
-        p.add_run(item)
+    para = cell.paragraphs[0]
+    h_run = para.add_run(header_text)
+    h_run.bold = True
+    h_run.font.size = Pt(12)
+    h_run.font.color.rgb = header_color
+
+    if not items:
+        em = cell.add_paragraph("—")
+        for r in em.runs:
+            r.font.color.rgb = _RGB_MUTED
+        return
+    for item in items:
+        b = cell.add_paragraph(style="List Bullet")
+        b.add_run(str(item)).font.size = Pt(11)
 
 
-def _fill_criterion_cell(cell, criterion) -> None:
-    """Render one criterion: title (bold) + band (threshold-coloured) +
-    explanation (italic) + feedback paragraph.
+def _build_criteria_grid_table(doc, rows: list) -> None:
+    if not rows:
+        return
+    table = doc.add_table(rows=len(rows), cols=2)
+    table.style = "Table Grid"
+    for r_idx, row in enumerate(rows):
+        for c_idx in range(2):
+            cell = table.rows[r_idx].cells[c_idx]
+            if c_idx >= len(row):
+                # Odd-length criteria list — leave the trailing cell empty.
+                continue
+            _fill_criterion_cell(cell, row[c_idx])
 
-    W3.2 Phase 3: the band score colour now follows the same threshold as
-    the overall band — teal/amber/red — so a low criterion stands out
-    instead of misleadingly rendering teal."""
+
+def _fill_criterion_cell(cell, c: dict) -> None:
     cell.paragraphs[0].text = ""
     title_p = cell.paragraphs[0]
-    title_run = title_p.add_run(criterion.title)
-    title_run.bold = True
-    band_run = title_p.add_run(f"  {criterion.bandScore}/9")
-    band_run.bold = True
-    band_run.font.color.rgb = _band_color(criterion.bandScore)
+    name_run = title_p.add_run(c.get("criterion") or "—")
+    name_run.bold = True
+    name_run.font.color.rgb = _RGB_SUBHEAD
 
-    if criterion.explanation:
-        exp_p = cell.add_paragraph()
-        exp_p.add_run(criterion.explanation).italic = True
-    if criterion.feedback:
-        cell.add_paragraph(criterion.feedback)
+    title_p.add_run("\t")
+    band_run = title_p.add_run(str(c.get("band", "—")))
+    band_run.bold = True
+    band_run.font.size = Pt(18)
+    band_run.font.color.rgb = _RGB_BLUE
+
+    if c.get("summary"):
+        sp = cell.add_paragraph()
+        sr = sp.add_run(c["summary"])
+        sr.italic = True
+        sr.font.color.rgb = _RGB_MUTED
+
+    if c.get("strengths"):
+        hp = cell.add_paragraph()
+        hr = hp.add_run("Strengths")
+        hr.bold = True
+        hr.font.size = Pt(10)
+        hr.font.color.rgb = _RGB_GREEN
+        for s in c["strengths"]:
+            cell.add_paragraph(s, style="List Bullet")
+
+    if c.get("improvements"):
+        hp = cell.add_paragraph()
+        hr = hp.add_run("Improvements")
+        hr.bold = True
+        hr.font.size = Pt(10)
+        hr.font.color.rgb = _RGB_YELLOW
+        for i in c["improvements"]:
+            cell.add_paragraph(i, style="List Bullet")
+
+    if c.get("detailed_text") and not c.get("strengths") and not c.get("improvements"):
+        cell.add_paragraph(c["detailed_text"])
+
+
+def _build_highlighted_essay_paragraphs(doc, essay_text: str, mistakes: list) -> None:
+    """Add the essay paragraphs to the doc, wrapping each mistake's
+    `original` substring with a red-bg shaded run."""
+    if not essay_text:
+        return
+    intervals = find_highlight_intervals(essay_text, mistakes)
+    fill = _hex_no_hash(COLOR_RED_BG)
+
+    # Process paragraph-by-paragraph; intervals reference absolute essay
+    # offsets so we shift them as we walk.
+    paragraphs = essay_text.split("\n\n")
+    cursor = 0
+    iv_idx = 0
+    for raw in paragraphs:
+        para_start = cursor
+        para_end = cursor + len(raw)
+        cursor = para_end + 2  # account for the "\n\n" separator
+        if not raw.strip():
+            continue
+        p = doc.add_paragraph()
+        last = para_start
+        while iv_idx < len(intervals) and intervals[iv_idx][0] < para_end:
+            i_start, i_end = intervals[iv_idx]
+            if i_start >= last:
+                if i_start > last:
+                    pre = essay_text[last:i_start]
+                    pre_run = p.add_run(pre)
+                    pre_run.font.color.rgb = _RGB_BODY
+                hi = essay_text[i_start:min(i_end, para_end)]
+                hi_run = p.add_run(hi)
+                hi_run.font.color.rgb = _RGB_BODY
+                _add_run_highlight_bg(hi_run, fill)
+                last = min(i_end, para_end)
+            if i_end <= para_end:
+                iv_idx += 1
+            else:
+                # Highlight spans paragraph boundary — split at end.
+                break
+        if last < para_end:
+            tail = essay_text[last:para_end]
+            t_run = p.add_run(tail)
+            t_run.font.color.rgb = _RGB_BODY
+
+
+def _build_mistake_table(doc, mistakes: list) -> None:
+    table = doc.add_table(rows=len(mistakes) + 1, cols=5)
+    table.style = "Table Grid"
+
+    headers = ["#", "Original", "Type", "Explanation", "Suggestion"]
+    fill = _hex_no_hash(COLOR_GRAY_BG)
+    for i, h in enumerate(headers):
+        cell = table.rows[0].cells[i]
+        _set_cell_shading(cell, fill)
+        cell.paragraphs[0].text = ""
+        run = cell.paragraphs[0].add_run(h)
+        run.bold = True
+
+    for i, m in enumerate(mistakes, 1):
+        row = table.rows[i].cells
+        row[0].text = str(i)
+
+        row[1].paragraphs[0].text = ""
+        orig_run = row[1].paragraphs[0].add_run(m.get("original", ""))
+        orig_run.font.color.rgb = _RGB_RED
+        orig_run.font.name = "Consolas"
+
+        row[2].paragraphs[0].text = ""
+        type_run = row[2].paragraphs[0].add_run(m.get("type", "—"))
+        type_run.font.color.rgb = _RGB_RED
+        type_run.bold = True
+
+        row[3].text = m.get("explanation", "") or ""
+
+        row[4].paragraphs[0].text = ""
+        sugg_run = row[4].paragraphs[0].add_run(m.get("suggestion", ""))
+        sugg_run.italic = True
+        sugg_run.font.color.rgb = _RGB_GREEN
+
+
+def _build_lexical_upgrade_table(doc, upgrades: list) -> None:
+    if not upgrades:
+        return
+    table = doc.add_table(rows=len(upgrades) + 1, cols=3)
+    table.style = "Table Grid"
+
+    headers = ["Original", "", "Upgrade (Band 8+)"]
+    fill = _hex_no_hash(COLOR_GRAY_BG)
+    for i, h in enumerate(headers):
+        cell = table.rows[0].cells[i]
+        _set_cell_shading(cell, fill)
+        cell.paragraphs[0].text = ""
+        run = cell.paragraphs[0].add_run(h)
+        run.bold = True
+
+    for i, u in enumerate(upgrades, 1):
+        row = table.rows[i].cells
+
+        row[0].paragraphs[0].text = ""
+        orig_run = row[0].paragraphs[0].add_run(u.get("original", ""))
+        orig_run.font.color.rgb = _RGB_RED
+        orig_run.font.name = "Consolas"
+
+        arrow_p = row[1].paragraphs[0]
+        arrow_p.text = ""
+        arrow_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        arrow_p.add_run("→")
+
+        row[2].paragraphs[0].text = ""
+        upg_run = row[2].paragraphs[0].add_run(u.get("upgrade", ""))
+        upg_run.font.color.rgb = _RGB_GREEN
+        upg_run.font.name = "Consolas"
 
 
 def _kv_paragraph(doc, key: str, value: str, *, italic_value: bool = False):
-    """Bold key + value run on the same line."""
     p = doc.add_paragraph()
     p.add_run(key + " ").bold = True
     run = p.add_run(value)
     if italic_value:
         run.italic = True
     return p
-
-
-# ── Mistake-highlight inside the original essay paragraphs ───────────
-
-def _add_essay_with_highlights(doc, essay_text: str, feedback: WritingFeedback) -> None:
-    """Add the essay paragraphs to the doc, wrapping each mistake's
-    `original` substring with a yellow highlight run.
-
-    Mirrors writing_render._highlight_mistakes' invariants: longest-first
-    + single non-overlapping regex pass so longer mistakes win at any
-    given position and we never get nested highlights.
-    """
-    if not essay_text:
-        return
-
-    originals: list[str] = []
-    seen: set[str] = set()
-    for m in feedback.mistakeAnalysis or []:
-        s = (m.original or "").strip()
-        if s and s not in seen:
-            originals.append(s)
-            seen.add(s)
-    originals.sort(key=len, reverse=True)
-    pattern = (
-        re.compile("|".join(re.escape(o) for o in originals))
-        if originals else None
-    )
-
-    for raw in essay_text.split("\n\n"):
-        if not raw.strip():
-            continue
-        p = doc.add_paragraph()
-        if pattern is None:
-            p.add_run(raw)
-            continue
-        last = 0
-        for match in pattern.finditer(raw):
-            if match.start() > last:
-                p.add_run(raw[last:match.start()])
-            mark_run = p.add_run(match.group(0))
-            _highlight_run_yellow(mark_run)
-            last = match.end()
-        if last < len(raw):
-            p.add_run(raw[last:])
-
-
-def _highlight_run_yellow(run) -> None:
-    """Set Word's yellow highlight on a run (matches <mark> in HTML render)."""
-    rPr = run._r.get_or_add_rPr()
-    highlight = OxmlElement("w:highlight")
-    highlight.set(qn("w:val"), "yellow")
-    rPr.append(highlight)
