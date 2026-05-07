@@ -50,6 +50,13 @@
     table.mistakes th, table.mistakes td { border: 1px solid rgba(255,255,255,0.08); padding: 6px 8px; vertical-align: top; font-size: 13px; }
     table.mistakes th { background: rgba(255,255,255,0.04); font-weight: 500; color: rgba(255,255,255,0.6); text-align: left; }
     .read-only-block { background: rgba(255,255,255,0.02); border-left: 3px solid rgba(20,184,166,0.4); padding: 8px 12px; margin: 8px 0; font-size: 13px; color: rgba(255,255,255,0.7); }
+    /* Phase 2.5 — instructor view affordances */
+    .badge-manual-edit { display: inline-flex; align-items: center; gap: 4px; background: rgba(245,158,11,0.18); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .badge-regraded    { display: inline-flex; align-items: center; gap: 4px; background: rgba(99,102,241,0.18); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .btn-regrade { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); padding: 7px 12px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; }
+    .btn-regrade:hover { background: rgba(245,158,11,0.25); }
+    .btn-regrade:disabled { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.10); cursor: not-allowed; }
+    .instructor-note-card { border-left: 3px solid rgba(99,102,241,0.5); }
   </style>
 </head>
 <body>
@@ -64,6 +71,8 @@
     </div>
     <div class="flex items-center gap-2">
       <span id="status-pill" class="pill" style="background:rgba(255,255,255,0.06);">—</span>
+      <span id="badge-manual-edit" class="badge-manual-edit hidden" title="Andy đã sửa thủ công feedback của AI">✏ Đã sửa</span>
+      <span id="badge-regraded"    class="badge-regraded hidden"    title="Bài đã được chấm lại bởi admin">🔄 Đã chấm lại</span>
       <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
     </div>
   </header>
@@ -85,6 +94,7 @@
       <button id="btn-download" class="btn-secondary" title="Download .docx">⬇ Download .docx</button>
       <span id="dirty-indicator" class="hidden text-sm font-medium" style="color:#fbbf24;" title="Unsaved changes">● Có thay đổi chưa lưu</span>
       <span class="flex-1"></span>
+      <button id="btn-regrade" class="btn-regrade" title="Chấm lại bằng AI — sẽ ghi đè AI feedback hiện tại">🔄 Chấm lại</button>
       <button id="btn-deliver"  class="btn-success">✓ Mark delivered</button>
       <span id="last-saved" class="text-xs ml-2" style="color:rgba(255,255,255,0.4);"></span>
     </div>
@@ -94,6 +104,7 @@
     <!-- Tab bar (W3.2 Phase 1) — single Save button persists edits across all tabs -->
     <div class="tab-bar" role="tablist">
       <button type="button" class="tab-btn active" data-tab="overview"  role="tab">Tổng quan</button>
+      <button type="button" class="tab-btn"        data-tab="instructor-note" role="tab">📝 Note giảng viên</button>
       <button type="button" class="tab-btn"        data-tab="mistakes"  role="tab">Phân tích lỗi</button>
       <button type="button" class="tab-btn"        data-tab="advanced"  role="tab">Phân tích nâng cao</button>
       <button type="button" class="tab-btn"        data-tab="improved"  role="tab">Bài tham khảo</button>
@@ -128,6 +139,23 @@
       <div class="card p-4 space-y-3">
         <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">Criteria</h3>
         <div id="criteria-blocks" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Note giảng viên — free-text personal feedback (Phase 2.5) ── -->
+    <div class="tab-panel mt-4" data-panel="instructor-note" role="tabpanel">
+      <div class="card p-4 instructor-note-card">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm" style="color:rgba(255,255,255,0.7);">📝 Note giảng viên</h3>
+          <button id="btn-save-note" type="button" class="btn-secondary text-xs">Lưu note</button>
+        </div>
+        <p class="text-xs mb-3" style="color:rgba(255,255,255,0.45);">
+          Free-text feedback cá nhân của giảng viên — hiển thị nổi bật trên bài chấm của học viên,
+          tách biệt với feedback AI. Note này được giữ nguyên khi bấm "Chấm lại" (regrade chỉ ghi đè AI grade).
+        </p>
+        <textarea id="f-instructor-note" rows="8" class="input"
+                  placeholder="VD: Em viết tốt phần coherence, cần thêm linking words..."></textarea>
+        <p id="instructor-note-status" class="text-xs mt-2" style="color:rgba(255,255,255,0.4);"></p>
       </div>
     </div>
 
@@ -217,7 +245,7 @@
 
     // ── Tab nav (W3.2 Phase 1) ─────────────────────────────────────
     var _TAB_LS_KEY = 'wcGradeActiveTab';
-    var _VALID_TABS = ['overview', 'mistakes', 'advanced', 'improved'];
+    var _VALID_TABS = ['overview', 'instructor-note', 'mistakes', 'advanced', 'improved'];
 
     function activateTab(name) {
       if (_VALID_TABS.indexOf(name) === -1) name = 'overview';
@@ -463,6 +491,26 @@
         (detail.task_type || '') + ' · ' + (detail.created_at ? new Date(detail.created_at).toLocaleString() : '');
       setStatusPill(detail.status);
 
+      // Phase 2.5 — surface manual-edit and regrade audit as header
+      // badges. Both are derived from writing_essays columns so they
+      // survive even when admin_edits_json is null (e.g. immediately
+      // after a regrade — the row is freshly graded but Andy hasn't
+      // re-reviewed).
+      var manualBadge   = document.getElementById('badge-manual-edit');
+      var regradeBadge  = document.getElementById('badge-regraded');
+      if (manualBadge)  manualBadge.classList.toggle('hidden',  !detail.is_manually_edited);
+      if (regradeBadge) {
+        var n = detail.regrade_count || 0;
+        regradeBadge.textContent = '🔄 Đã chấm lại' + (n > 1 ? ' (' + n + ')' : '');
+        regradeBadge.classList.toggle('hidden', n < 1);
+      }
+
+      // Phase 2.5 — load instructor_note into its tab. Note is a
+      // top-level column on writing_essays, NOT inside admin_edits_json,
+      // so it survives a regrade.
+      var noteEl = document.getElementById('f-instructor-note');
+      if (noteEl) noteEl.value = detail.instructor_note || '';
+
       // Left pane: prompt + highlighted essay
       document.getElementById('prompt-box').textContent =
         detail.prompt_text ? '📝 ' + detail.prompt_text : '';
@@ -658,6 +706,76 @@
       target.classList.add('pulse');
     }
 
+    // ── Phase 2.5 — instructor note + regrade ────────────────────
+    async function handleSaveInstructorNote() {
+      var noteEl = document.getElementById('f-instructor-note');
+      var statusEl = document.getElementById('instructor-note-status');
+      var btn = document.getElementById('btn-save-note');
+      var note = (noteEl.value || '').trim();
+      btn.disabled = true;
+      var orig = btn.textContent;
+      btn.textContent = 'Đang lưu…';
+      try {
+        await window.api.patch(
+          '/admin/writing/essays/' + _essayId + '/instructor-note',
+          { instructor_note: note }
+        );
+        statusEl.textContent = '✓ Đã lưu lúc ' + new Date().toLocaleTimeString();
+        statusEl.style.color = '#86efac';
+      } catch (err) {
+        statusEl.textContent = 'Lỗi: ' + err.message;
+        statusEl.style.color = '#f87171';
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
+    async function handleRegrade() {
+      // Two confirms because regrade is destructive: it clears
+      // admin_edits_json AND replaces the writing_feedback row.
+      // Andy's instructor_note + the original essay_text survive.
+      if (_isDirty && !confirm(
+            'Có thay đổi chưa lưu trên feedback. Tiếp tục regrade ' +
+            'sẽ XÓA chỉnh sửa của bạn và thay bằng bản AI mới. Tiếp tục?'
+          )) {
+        return;
+      }
+      if (!confirm(
+            'Chấm lại bằng AI? Hành động này:\n' +
+            '• Xóa AI feedback hiện tại\n' +
+            '• Xóa các chỉnh sửa thủ công của admin\n' +
+            '• GIỮ NGUYÊN note giảng viên (instructor_note)\n' +
+            '• Tăng regrade_count'
+          )) {
+        return;
+      }
+      var btn = document.getElementById('btn-regrade');
+      var orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Đang queue…';
+      try {
+        var res = await window.api.post(
+          '/admin/writing/essays/' + _essayId + '/regrade',
+          {}
+        );
+        // Server returns { regrade_count, eta_seconds, message }.
+        // ETA is approximate — show it so Andy knows when to refresh.
+        var eta = res.eta_seconds ? (' (~' + res.eta_seconds + 's)') : '';
+        setAlert('success',
+          'Đã queue regrade #' + res.regrade_count + '.' + eta +
+          ' Refresh trang để xem feedback mới.');
+        // Local state matches server: row is now `grading`, no admin
+        // edits, regrade counter bumped. Bridge by re-fetching rather
+        // than mutating in place — the BG grader writes feedback on
+        // its own timeline.
+        clearDirty();
+        await loadEssay();
+      } catch (err) {
+        setAlert('error', 'Regrade failed: ' + err.message);
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
     function handleAddMistake() {
       var tbody = document.getElementById('mistakes-body');
       // Strip "no mistakes" placeholder if present
@@ -695,6 +813,11 @@
         document.getElementById('btn-deliver').addEventListener('click', handleDeliver);
         document.getElementById('btn-add-mistake').addEventListener('click', handleAddMistake);
         document.getElementById('mistakes-body').addEventListener('click', handleMistakeClick);
+        // Phase 2.5 — instructor note + regrade
+        var btnSaveNote = document.getElementById('btn-save-note');
+        if (btnSaveNote) btnSaveNote.addEventListener('click', handleSaveInstructorNote);
+        var btnRegrade = document.getElementById('btn-regrade');
+        if (btnRegrade) btnRegrade.addEventListener('click', handleRegrade);
         loadEssay();
       }
     });
