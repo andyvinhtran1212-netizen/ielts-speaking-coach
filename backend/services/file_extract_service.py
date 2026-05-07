@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import io
 import logging
+from typing import Optional
 
 import docx  # python-docx — same dep used by services/word_export.py
 
@@ -81,18 +82,77 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     return "\n\n".join(parts).strip()
 
 
+# Sprint 2.7 fix #6: binary-detection threshold for the printable
+# heuristic.  0.85 lets through clean prose (typical essays score
+# 0.99+) and Vietnamese diacritics (all printable Unicode letters)
+# while rejecting renamed PNGs / PDFs whose latin-1 decode is full
+# of control bytes (0x00–0x1F + 0x7F + 0x80–0x9F).  Tuning lower
+# than 0.85 starts admitting binary garbage; higher than 0.90
+# starts catching legitimate poetry with heavy whitespace
+# formatting.
+_TXT_PRINTABLE_THRESHOLD = 0.85
+
+
+def _is_likely_text(decoded: str, threshold: float = _TXT_PRINTABLE_THRESHOLD) -> bool:
+    """Return True when at least `threshold` fraction of characters
+    are printable or common whitespace.
+
+    Why we need this: latin-1 decode never raises (it's a 1-to-1 byte
+    map), so a binary file renamed `.txt` would otherwise sail
+    through the fallback chain and land in the textarea as a
+    payload of control characters.  The student then sees garbage
+    and the grader gets a corrupted essay row.
+
+    `str.isprintable()` returns False for control characters (Cc),
+    formatting marks (Cf), and surrogates (Cs); whitelisting
+    `\\n \\r \\t` keeps real text files from tripping the heuristic
+    on their line breaks.
+    """
+    if not decoded:
+        return True  # empty is handled by the size/empty checks elsewhere
+
+    printable_count = sum(
+        1 for c in decoded
+        if c.isprintable() or c in "\n\r\t"
+    )
+    return (printable_count / len(decoded)) >= threshold
+
+
 def extract_text_from_txt(file_bytes: bytes) -> str:
-    """Try a fallback chain of encodings — UTF-8 first (incl. BOM
-    variant), then the two encodings most often produced by Vietnamese
-    Windows installs (latin-1, cp1252).  latin-1 will always succeed
-    on any byte stream, so it's the implicit safety net."""
+    """Try a fallback chain of encodings, then validate the decoded
+    output looks like text.
+
+    UTF-8 (incl. BOM) is tried first because that's what Word /
+    Pages / VS Code emit by default; latin-1 / cp1252 cover the
+    common Vietnamese-Windows exports.  latin-1 will always succeed
+    on any byte stream, so it's the implicit safety net for the
+    decode step — but a successful decode of a binary file is still
+    semantic garbage, which is what `_is_likely_text` catches.
+
+    Sprint 2.7 fix #6: the printable-ratio heuristic AFTER decode.
+    A renamed PNG/PDF/exe would previously sail through latin-1 and
+    paste a wall of control characters into the student's draft;
+    now it raises a 400 with the canonical Vietnamese message.
+    """
     encodings = ["utf-8-sig", "utf-8", "latin-1", "cp1252"]
+    decoded: Optional[str] = None
     for enc in encodings:
         try:
-            return file_bytes.decode(enc).strip()
+            decoded = file_bytes.decode(enc)
+            break
         except UnicodeDecodeError:
             continue
-    raise FileExtractError("Không đọc được file .txt — encoding không hỗ trợ.")
+
+    if decoded is None:
+        raise FileExtractError("Không đọc được file .txt — encoding không hỗ trợ.")
+
+    if not _is_likely_text(decoded):
+        raise FileExtractError(
+            "File .txt chứa nội dung không phải text (binary garbage). "
+            "Vui lòng upload file text thuần."
+        )
+
+    return decoded.strip()
 
 
 def extract_text(filename: str, file_bytes: bytes) -> str:

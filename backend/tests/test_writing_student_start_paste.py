@@ -66,6 +66,8 @@ class _Builder:
         self._action  = None
         self._payload = None
         self._filters: list[tuple] = []
+        # Sprint 2.7 fix #3: support `.in_()` on the atomic-claim UPDATE.
+        self._in: tuple[str, list] | None = None
 
     def select(self, *_a, **_kw): self._action = "select"; return self
     def insert(self, payload, *_a, **_kw): self._action = "insert"; self._payload = payload; return self
@@ -78,6 +80,9 @@ class _Builder:
 
     def order(self, *_a, **_kw):  return self
     def limit(self, *_a, **_kw):  return self
+    def in_(self, col, vals):
+        self._in = (col, list(vals))
+        return self
 
     def execute(self):
         rec = {
@@ -85,6 +90,7 @@ class _Builder:
             "action":  self._action,
             "payload": self._payload,
             "filters": list(self._filters),
+            "in":      self._in,
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -98,8 +104,36 @@ class _Client:
         self._student_row = student_row or {"flag_count": 0, "is_under_review": False}
         self._essay_id    = essay_id
         self.calls: list[dict] = []
+        # Sprint 2.7 fix #5: paste-log now goes through .rpc() instead
+        # of read-modify-write. The dispatcher records the call and
+        # returns a count derived from the seeded drafts so existing
+        # tests keep their "total_events == N+1" semantics.
+        self.rpc_calls: list[dict] = []
 
     def table(self, name): return _Builder(self, name)
+
+    def rpc(self, name, params):
+        # Lazy mock object that records the call on .execute() so the
+        # test bodies can assert the right arguments were passed.
+        client_self = self
+        class _RpcCall:
+            def execute(self_rpc):
+                rec = {"name": name, "params": params}
+                client_self.rpc_calls.append(rec)
+                # Compute the would-be total: matching draft's events
+                # array length + 1, or 1 if no draft exists.
+                aid = str(params.get("p_assignment_id"))
+                match = next(
+                    (d for d in client_self._drafts
+                     if str(d.get("assignment_id")) == aid),
+                    None,
+                )
+                prior = len((match or {}).get("paste_events") or [])
+                class _R: pass
+                r = _R()
+                r.data = prior + 1
+                return r
+        return _RpcCall()
 
     def _respond(self, rec):
         class _R: pass
@@ -113,6 +147,15 @@ class _Client:
                     rows = [x for x in rows if str(x.get(col)) == str(val)]
                 r.data = rows
             elif a == "update":
+                # Sprint 2.7 fix #3: honor `.in_()` on atomic claim.
+                if rec.get("in"):
+                    in_col, in_vals = rec["in"]
+                    matches = self._assignments
+                    for col, val in rec["filters"]:
+                        matches = [a2 for a2 in matches if str(a2.get(col)) == str(val)]
+                    if not matches or matches[0].get(in_col) not in in_vals:
+                        r.data = []
+                        return r
                 r.data = [{"id": rec["filters"][0][1] if rec["filters"] else None,
                            **(rec["payload"] or {})}]
         elif t == "writing_drafts":
@@ -240,9 +283,12 @@ def test_start_404_on_wrong_owner(monkeypatch):
 # ── /paste-log ───────────────────────────────────────────────────────
 
 
-def test_paste_log_appends_to_existing_draft(monkeypatch):
-    """A draft already exists with one prior paste event — the new
-    event lands as the second entry and the older one is preserved."""
+def test_paste_log_appends_via_rpc(monkeypatch):
+    """A draft already exists with one prior paste event — the
+    /paste-log endpoint dispatches to the `append_paste_event` RPC
+    (migration 042) and returns the new total. Pin: the RPC is the
+    one and only write the endpoint issues; no SELECT-then-UPDATE
+    pattern remains."""
     prior = {"at": "2026-05-06T10:00:00+00:00", "char_count": 60, "blocked": False}
     client = _Client(
         assignments_data=[
@@ -264,20 +310,29 @@ def test_paste_log_appends_to_existing_draft(monkeypatch):
 
     assert result == {"logged": True, "total_events": 2}
 
-    updates = [c for c in client.calls
-               if c["table"] == "writing_drafts" and c["action"] == "update"]
-    assert len(updates) == 1
-    new_array = updates[0]["payload"]["paste_events"]
-    assert len(new_array) == 2
-    assert new_array[0] == prior
-    assert new_array[1]["char_count"] == 120
-    assert new_array[1]["blocked"] is False
+    # The RPC must be the only mutation against writing_drafts —
+    # no fallback UPDATE / INSERT / DELETE.
+    assert len(client.rpc_calls) == 1
+    call = client.rpc_calls[0]
+    assert call["name"] == "append_paste_event"
+    assert call["params"]["p_assignment_id"] == _ASSIGNMENT_ID
+    assert call["params"]["p_student_id"]    == _STUDENT_ID
+    event = call["params"]["p_event"]
+    assert event["char_count"] == 120
+    assert event["blocked"]    is False
+
+    # The pre-2.7 SELECT-then-UPDATE pattern must be gone.
+    assert not any(
+        c["table"] == "writing_drafts" and c["action"] in ("update", "insert")
+        for c in client.calls
+    )
 
 
-def test_paste_log_creates_draft_if_missing(monkeypatch):
+def test_paste_log_creates_draft_via_rpc_when_missing(monkeypatch):
     """Student pastes BEFORE typing anything → no draft row exists
-    yet. The endpoint inserts a fresh draft carrying just the paste
-    event; the next /draft save will fill draft_text."""
+    yet. The RPC's INSERT...ON CONFLICT path creates the row with
+    the first event; we observe the RPC fires and the response total
+    is 1."""
     client = _Client(
         assignments_data=[
             {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
@@ -295,13 +350,16 @@ def test_paste_log_creates_draft_if_missing(monkeypatch):
 
     assert result == {"logged": True, "total_events": 1}
 
-    inserts = [c for c in client.calls
-               if c["table"] == "writing_drafts" and c["action"] == "insert"]
-    assert len(inserts) == 1
-    payload = inserts[0]["payload"]
-    assert payload["draft_text"] == ""
-    assert len(payload["paste_events"]) == 1
-    assert payload["paste_events"][0]["blocked"] is True
+    assert len(client.rpc_calls) == 1
+    event = client.rpc_calls[0]["params"]["p_event"]
+    assert event["char_count"] == 300
+    assert event["blocked"]    is True
+
+    # No legacy paths.
+    assert not any(
+        c["table"] == "writing_drafts" and c["action"] in ("update", "insert", "select")
+        for c in client.calls
+    )
 
 
 def test_paste_log_blocks_on_submitted_assignment(monkeypatch):

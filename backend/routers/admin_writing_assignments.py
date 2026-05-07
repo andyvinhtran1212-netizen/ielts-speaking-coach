@@ -43,6 +43,51 @@ router = APIRouter(
 _STATUS_PATTERN = r"^(pending|in_progress|submitted|graded|delivered)$"
 
 
+# Sprint 2.7 fix #2: explicit state-machine matrix for admin PATCH.
+# Codex AMBER finding called out the pre-2.7 PATCH handler accepting
+# any status value within the regex, including illegal jumps like
+# `pending → graded` that skip the grader queue and orphan a row.
+#
+# Allowed transitions:
+#   pending     → in_progress (admin nudges to "started" without a draft save)
+#                 delivered   (admin override — student emailed essay manually)
+#   in_progress → submitted   (admin advances after seeing draft progress)
+#                 delivered   (admin override path same as above)
+#   submitted   → graded      (Andy's normal grading workflow)
+#                 delivered   (admin shortcuts grading on a flagged row)
+#   graded      → delivered   (Andy delivers after editing AI output)
+#   delivered   → ()          (terminal — no further transitions)
+#
+# Idempotent same-status writes are allowed (admin re-saves the row
+# without changing status); the transition validator returns early
+# when current == target.
+_ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "pending":     {"in_progress", "delivered"},
+    "in_progress": {"submitted",   "delivered"},
+    "submitted":   {"graded",      "delivered"},
+    "graded":      {"delivered"},
+    "delivered":   set(),
+}
+
+
+def _validate_status_transition(current: str, target: str) -> None:
+    """Raise HTTPException(409) when admin tries to move a row to
+    a status not reachable from `current` per the matrix above.
+
+    Same-status writes are no-ops so the admin UI can re-save
+    deadline / instructions without re-validating the workflow."""
+    if current == target:
+        return
+    allowed = _ALLOWED_STATUS_TRANSITIONS.get(current, set())
+    if target not in allowed:
+        allowed_str = ", ".join(sorted(allowed)) if allowed else "(terminal state)"
+        raise HTTPException(
+            409,
+            f"Cannot transition from '{current}' to '{target}'. "
+            f"Allowed: {allowed_str}.",
+        )
+
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
@@ -273,7 +318,24 @@ async def update_assignment(
         patch["instructions"] = fields["instructions"]
 
     if "status" in fields and fields["status"] is not None:
+        # Sprint 2.7 fix #2: validate the requested transition against
+        # the explicit state-machine matrix. We fetch the current
+        # status BEFORE building the patch so an illegal jump fails
+        # fast (409) without an UPDATE round-trip.
+        current_resp = (
+            supabase_admin.table("writing_assignments")
+            .select("status")
+            .eq("id", str(assignment_id))
+            .limit(1)
+            .execute()
+        )
+        if not current_resp.data:
+            raise HTTPException(404, "Assignment not found")
+        current_status = current_resp.data[0]["status"]
+
         new_status = fields["status"]
+        _validate_status_transition(current_status, new_status)
+
         patch["status"] = new_status
         if new_status == "submitted":
             patch["submitted_at"] = _now_iso()

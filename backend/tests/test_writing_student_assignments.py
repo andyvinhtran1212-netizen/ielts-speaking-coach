@@ -73,6 +73,12 @@ class _Builder:
         self._action  = None
         self._payload = None
         self._filters: list[tuple] = []
+        # Sprint 2.7 fix #3: atomic-claim UPDATE filters on
+        # `status IN ('pending', 'in_progress')`. We capture the IN-list
+        # so `_respond` can mimic Postgres's `RETURNING …` behaviour:
+        # a row whose current status is outside the list yields zero
+        # affected rows, which is how the router detects a lost race.
+        self._in: tuple[str, list] | None = None
 
     def select(self, *_a, **_kw):
         self._action = "select"
@@ -104,12 +110,17 @@ class _Builder:
     def order(self, *_a, **_kw):  return self
     def limit(self, *_a, **_kw):  return self
 
+    def in_(self, col, vals):
+        self._in = (col, list(vals))
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,
             "action":  self._action,
             "payload": self._payload,
             "filters": list(self._filters),
+            "in":      self._in,
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -144,6 +155,19 @@ class _Client:
                     rows = [a for a in rows if str(a.get(col)) == str(val)]
                 r.data = rows
             elif action == "update":
+                # Sprint 2.7 fix #3: if the UPDATE carried an `.in_(col, [...])`
+                # filter (the atomic claim does this on `status`), look up
+                # the current row by the eq filters and short-circuit to
+                # empty data when its column value is outside the list —
+                # that's the "lost race" signal the router detects.
+                if rec.get("in"):
+                    in_col, in_vals = rec["in"]
+                    matches = self._assignments
+                    for col, val in rec["filters"]:
+                        matches = [a for a in matches if str(a.get(col)) == str(val)]
+                    if not matches or matches[0].get(in_col) not in in_vals:
+                        r.data = []
+                        return r
                 # Echo the patch + id back as if Supabase returned it.
                 r.data = [{"id": rec["filters"][0][1] if rec["filters"] else None,
                            **(rec["payload"] or {})}]
@@ -400,16 +424,88 @@ def test_submit_links_essay_and_advances_status(monkeypatch):
         student=_student(),
     ))
 
-    # Find the link UPDATE call.
-    updates = [c for c in client.calls
-               if c["table"] == "writing_assignments" and c["action"] == "update"]
-    assert updates, "expected an assignment link update on submit"
-    payload = updates[0]["payload"]
-    assert payload["essay_id"] == "essay-uuid-eeee"
-    assert payload["status"]   == "submitted"
-    assert "submitted_at"      in payload
+    # Sprint 2.7 fix #3: the atomic claim does the status / submitted_at
+    # / auto_submitted stamp; the link UPDATE that follows only carries
+    # `essay_id`. Both writes target writing_assignments — pin each
+    # one separately so a regression in either the claim or the link
+    # surfaces a specific failure.
+    a_updates = [c for c in client.calls
+                 if c["table"] == "writing_assignments" and c["action"] == "update"]
+    assert len(a_updates) >= 2, "expected atomic claim + link update"
+
+    claim = a_updates[0]["payload"]
+    assert claim["status"]       == "submitted"
+    assert "submitted_at"        in claim
+    assert "auto_submitted"      in claim
+    # The claim must be `.in_()`-filtered on status so a second tab
+    # whose row already moved past `in_progress` gets zero rows back.
+    assert a_updates[0].get("in") == ("status", list(["pending", "in_progress"])) or \
+           a_updates[0].get("in") == ("status", list(["in_progress", "pending"]))
+
+    link_update = next(
+        (u for u in a_updates if (u["payload"] or {}).get("essay_id")), None
+    )
+    assert link_update is not None, "expected a link update with essay_id"
+    assert link_update["payload"]["essay_id"] == "essay-uuid-eeee"
+
     # Draft cleanup is best-effort but should be attempted.
     assert any(c["table"] == "writing_drafts" and c["action"] == "delete"
                for c in client.calls)
-    assert result["essay_id"]  == "essay-uuid-eeee"
-    assert result["status"]    == "submitted"
+    assert result["essay_id"] == "essay-uuid-eeee"
+    assert result["status"]   == "submitted"
+
+
+# ── Sprint 2.7 fix #3: atomic-claim race protection ──────────────────
+
+
+def test_submit_lost_race_returns_409_without_creating_essay(monkeypatch):
+    """Two-tab race: tab A submits first, the row moves to `submitted`.
+    Tab B's `_resolve_active_assignment` happens to read the still-
+    cached `in_progress`, but by the time the atomic claim fires the
+    row is already past. Pin: the conditional UPDATE returns zero
+    rows, the router 409s, and `create_essay_with_job` is NEVER
+    called.
+
+    Without the atomic claim, this scenario produced two writing_essays
+    rows for one assignment with the second silently overwriting the
+    first link — the original Codex AMBER #3 finding."""
+    # Seed: the resolved assignment dict says in_progress (what the
+    # router caches), but the dispatcher's row is already `submitted`
+    # — i.e. tab A's commit landed during the resolve→claim window.
+    # We mimic that by pre-mutating the row before claim runs.
+    row = {
+        "id":          _ASSIGNMENT_ID,
+        "student_id":  _STUDENT_ID,
+        "status":      "submitted",   # winning tab already advanced it
+        "writing_prompts": {
+            "id":          _PROMPT_ID,
+            "title":       "T",
+            "prompt_text": "P",
+            "task_type":   "task2",
+        },
+    }
+    client = _Client(assignments_data=[row])
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    fake_create = _patch_essay_service(monkeypatch)
+
+    bg = MagicMock(); bg.add_task = MagicMock()
+    long_text = "Valid essay body with multiple meaningful words here. " * 25
+    with pytest.raises(HTTPException) as exc:
+        _run(submit_my_assignment(
+            assignment_id=_ASSIGNMENT_ID,
+            body=SubmitEssay(essay_text=long_text),
+            background_tasks=bg,
+            student=_student(),
+        ))
+    assert exc.value.status_code == 409
+    # The whole point of the fix: no essay row, no BG task.
+    fake_create.assert_not_called()
+    bg.add_task.assert_not_called()
+    # We expect the claim UPDATE to have fired but returned no rows
+    # (lost race); the link UPDATE that depends on it must NOT have
+    # fired.
+    a_updates = [c for c in client.calls
+                 if c["table"] == "writing_assignments" and c["action"] == "update"]
+    # The claim is allowed (it'll come back empty). No further
+    # essay_id-bearing update should follow.
+    assert not any((u["payload"] or {}).get("essay_id") for u in a_updates)
