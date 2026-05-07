@@ -23,6 +23,16 @@
     th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
     th { color: rgba(255,255,255,0.5); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
     .modal-bg { background: rgba(0,0,0,0.6); }
+    /* Phase 2.5 — student summary modal */
+    .stat-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
+    .stat-num { font-size: 24px; font-weight: 700; color: #14b8a6; }
+    .stat-label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; }
+    .pill-flagged { background: rgba(245,158,11,0.18); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .pill-status  { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .summary-list { max-height: 200px; overflow-y: auto; }
+    .summary-list li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
+    .summary-list a { color: #5eead4; }
+    .summary-list a:hover { color: #14b8a6; }
   </style>
 </head>
 <body>
@@ -80,6 +90,39 @@
       </table>
     </div>
   </main>
+
+  <!-- Phase 2.5 — Per-student instructor summary modal -->
+  <div id="summary-modal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
+    <div class="card max-w-3xl w-full p-6">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+        <div>
+          <h2 id="summary-title" class="text-lg font-semibold">—</h2>
+          <p id="summary-subtitle" class="text-xs mt-1" style="color:rgba(255,255,255,0.5);">—</p>
+        </div>
+        <button id="summary-close" class="btn-secondary">Đóng</button>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="stat-card"><div class="stat-label">Tổng bài</div><div id="stat-total" class="stat-num mt-1">—</div></div>
+        <div class="stat-card"><div class="stat-label">Đã chấm</div><div id="stat-graded" class="stat-num mt-1">—</div></div>
+        <div class="stat-card"><div class="stat-label">Flagged</div><div id="stat-flagged" class="stat-num mt-1" style="color:#fbbf24;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Avg band 5 bài gần nhất</div><div id="stat-avg-band" class="stat-num mt-1">—</div></div>
+      </div>
+
+      <!-- Two-column lists -->
+      <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <h3 class="text-xs font-semibold mb-2" style="color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.04em;">Bài viết gần đây</h3>
+          <ul id="summary-essays" class="summary-list"></ul>
+        </div>
+        <div>
+          <h3 class="text-xs font-semibold mb-2" style="color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.04em;">Đề bài giao gần đây</h3>
+          <ul id="summary-assignments" class="summary-list"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Edit / Create modal -->
   <div id="modal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
@@ -158,6 +201,7 @@
           '<td>' + cBand + '</td>' +
           '<td>' + date + '</td>' +
           '<td class="text-right">' +
+            '<button class="btn-secondary" data-act="summary" data-id="' + WC.escapeHtml(r.id) + '" data-name="' + name + '">📊 Tổng quan</button> ' +
             '<button class="btn-secondary" data-act="essay" data-id="' + WC.escapeHtml(r.id) + '">📝 New Essay</button> ' +
             '<button class="btn-secondary" data-act="edit" data-id="' + WC.escapeHtml(r.id) + '">Edit</button> ' +
             '<button class="btn-danger" data-act="delete" data-id="' + WC.escapeHtml(r.id) + '" data-code="' + code + '">Delete</button>' +
@@ -229,6 +273,10 @@
       var id = btn.dataset.id;
       var act = btn.dataset.act;
 
+      if (act === 'summary') {
+        await openSummary(id, btn.dataset.name || '');
+        return;
+      }
       if (act === 'essay') {
         window.location.href = '/pages/admin-writing-new.html?student_id=' + encodeURIComponent(id);
         return;
@@ -249,6 +297,101 @@
           loadStudents();
         } catch (e) { setAlert('error', e.message); }
       }
+    }
+
+    // ── Phase 2.5 — student summary modal ───────────────────────
+    function _formatBand(v) {
+      return (v == null || v === '') ? '—' : v;
+    }
+    function _formatDateShort(iso) {
+      if (!iso) return '—';
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+    function _bandFromEssay(e) {
+      // PostgREST embed returns writing_feedback as an array (empty
+      // when no feedback row exists). Defensive about both shapes
+      // because the embed cardinality flips between supabase-py
+      // versions and we don't want a render crash on the modal.
+      var fb = e.writing_feedback;
+      if (Array.isArray(fb) && fb.length) return fb[0].overall_band_score;
+      if (fb && typeof fb === 'object')   return fb.overall_band_score;
+      return null;
+    }
+
+    async function openSummary(studentId, fallbackName) {
+      var modal = document.getElementById('summary-modal');
+      // Title placeholder while we fetch — reuses the Edit button's
+      // data-name so the modal feels instant.
+      document.getElementById('summary-title').textContent =
+        fallbackName || 'Đang tải…';
+      document.getElementById('summary-subtitle').textContent = '';
+      document.getElementById('stat-total').textContent = '—';
+      document.getElementById('stat-graded').textContent = '—';
+      document.getElementById('stat-flagged').textContent = '—';
+      document.getElementById('stat-avg-band').textContent = '—';
+      document.getElementById('summary-essays').innerHTML =
+        '<li style="color:rgba(255,255,255,0.4);">Đang tải…</li>';
+      document.getElementById('summary-assignments').innerHTML = '';
+      modal.classList.remove('hidden');
+
+      try {
+        var s = await window.api.get('/admin/writing/students/' + studentId + '/summary');
+        var stu = s.student || {};
+        document.getElementById('summary-title').textContent =
+          (stu.student_code ? stu.student_code + ' — ' : '') + (stu.full_name || '');
+        var subtitle = [];
+        if (stu.target_band       != null) subtitle.push('Target: ' + stu.target_band);
+        if (stu.current_band_estimate != null) subtitle.push('Current: ' + stu.current_band_estimate);
+        if (stu.target_date)               subtitle.push('Target date: ' + stu.target_date);
+        if (stu.is_under_review)           subtitle.push('🚩 Under review');
+        document.getElementById('summary-subtitle').textContent = subtitle.join(' · ') || '—';
+
+        var st = s.stats || {};
+        document.getElementById('stat-total').textContent    = st.total_essays || 0;
+        document.getElementById('stat-graded').textContent   = st.graded_count || 0;
+        document.getElementById('stat-flagged').textContent  = st.flagged_count || 0;
+        document.getElementById('stat-avg-band').textContent = _formatBand(st.average_band_last5);
+
+        var essays = s.recent_essays || [];
+        var essaysHtml = essays.length
+          ? essays.map(function (e) {
+              var band = _bandFromEssay(e);
+              var bandLabel = band != null ? 'Band ' + band : WC.escapeHtml(e.status || '—');
+              var flagged = e.is_flagged
+                ? ' <span class="pill-flagged">⚠ Flagged</span>'
+                : '';
+              var regraded = (e.regrade_count || 0) > 0
+                ? ' <span class="pill-status">🔄 ×' + e.regrade_count + '</span>'
+                : '';
+              return '<li>' +
+                '<a href="/pages/admin-writing-grade.html?essay_id=' + WC.escapeHtml(e.id) + '">' +
+                  _formatDateShort(e.created_at) + ' · ' + WC.escapeHtml(bandLabel) +
+                '</a>' + flagged + regraded +
+              '</li>';
+            }).join('')
+          : '<li style="color:rgba(255,255,255,0.4);">Chưa có bài viết.</li>';
+        document.getElementById('summary-essays').innerHTML = essaysHtml;
+
+        var assigns = s.recent_assignments || [];
+        var assignsHtml = assigns.length
+          ? assigns.map(function (a) {
+              var p = a.writing_prompts || {};
+              return '<li>' +
+                WC.escapeHtml(p.title || '—') +
+                ' <span class="pill-status">' + WC.escapeHtml(a.status || '—') + '</span>' +
+              '</li>';
+            }).join('')
+          : '<li style="color:rgba(255,255,255,0.4);">Chưa có bài giao.</li>';
+        document.getElementById('summary-assignments').innerHTML = assignsHtml;
+      } catch (err) {
+        setAlert('error', 'Không tải được tổng quan: ' + err.message);
+        modal.classList.add('hidden');
+      }
+    }
+    function closeSummary() {
+      document.getElementById('summary-modal').classList.add('hidden');
     }
 
     async function handleCsvImport(e) {
@@ -279,6 +422,18 @@
         document.getElementById('student-form').addEventListener('submit', handleSave);
         document.getElementById('students-tbody').addEventListener('click', handleTableClick);
         document.getElementById('csv-input').addEventListener('change', handleCsvImport);
+        // Phase 2.5 — student summary modal close + ESC dismiss.
+        document.getElementById('summary-close').addEventListener('click', closeSummary);
+        document.getElementById('summary-modal').addEventListener('click', function (e) {
+          // Click on dim backdrop (the modal-bg div itself, not inner card) closes.
+          if (e.target.id === 'summary-modal') closeSummary();
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') {
+            var m = document.getElementById('summary-modal');
+            if (m && !m.classList.contains('hidden')) closeSummary();
+          }
+        });
 
         var debounced = WC.debounce(function () {
           _searchValue = document.getElementById('search-input').value.trim();

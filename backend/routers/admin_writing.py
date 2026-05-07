@@ -164,7 +164,7 @@ async def update_feedback(
     failure (failed); 'delivered' is immutable until explicit reopen
     (deferred to Phase 1.5).
     """
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     try:
         validated = WritingFeedback(**edits)
@@ -181,13 +181,22 @@ async def update_feedback(
             ),
         )
 
+    # Phase 2.5: stamp manual-edit audit fields alongside the existing
+    # admin_edits_json / admin_reviewed_at writes. is_manually_edited
+    # drives the "✏ Đã sửa thủ công" badge in the admin grading UI;
+    # last_edited_by + last_edited_at give Andy a per-essay audit trail
+    # without joining writing_feedback.
+    now_iso = _now_iso()
     try:
         r = (
             supabase_admin.table("writing_essays")
             .update({
-                "admin_edits_json":   validated.model_dump(mode="json"),
-                "admin_reviewed_at":  _now_iso(),
-                "status":             "reviewed",
+                "admin_edits_json":     validated.model_dump(mode="json"),
+                "admin_reviewed_at":    now_iso,
+                "status":               "reviewed",
+                "is_manually_edited":   True,
+                "last_edited_by":       admin["id"],
+                "last_edited_at":       now_iso,
             })
             .eq("id", str(essay_id))
             .execute()
@@ -313,3 +322,303 @@ async def get_writing_stats(authorization: str | None = Header(None)):
     """Volume, cost, queue length. (Sprint W3)"""
     await require_admin(authorization)
     raise HTTPException(501, "Not implemented yet — Sprint W3")
+
+
+# ── Phase 2.5 — instructor view + regrade ────────────────────────────
+
+
+class InstructorNoteUpdate(BaseModel):
+    """Body for PATCH /essays/{id}/instructor-note. Free-text note from
+    Andy that lives alongside the AI grade — separate from admin_edits_json
+    so it survives a regrade and so the WritingFeedback Pydantic
+    validator doesn't reject it."""
+    instructor_note: str = Field(default="", max_length=5000)
+
+
+@router.patch("/essays/{essay_id}/instructor-note")
+async def update_instructor_note(
+    essay_id: UUID,
+    body: InstructorNoteUpdate,
+    authorization: str | None = Header(None),
+):
+    """Set the free-text instructor_note for an essay.
+
+    Independent from PATCH /feedback because:
+      • It's a sibling column on writing_essays (not inside admin_edits_json),
+        so a regrade — which clears admin_edits_json — leaves the note alone.
+      • The existing PATCH /feedback validates against WritingFeedback;
+        the note isn't part of that schema and shouldn't pollute it.
+
+    State machine: any state EXCEPT pending/grading/failed accepts a note.
+    Empty string is accepted (it's how Andy clears a note he no longer
+    wants to ship).
+    """
+    admin = await require_admin(authorization)
+
+    current_status = _fetch_status_or_404(str(essay_id))
+    if current_status in ("pending", "grading", "failed"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot set instructor note on essay with status "
+                f"{current_status!r}. Wait for grading to complete."
+            ),
+        )
+
+    now_iso = _now_iso()
+    try:
+        r = (
+            supabase_admin.table("writing_essays")
+            .update({
+                "instructor_note": body.instructor_note,
+                "last_edited_by":  admin["id"],
+                "last_edited_at":  now_iso,
+            })
+            .eq("id", str(essay_id))
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Database update failed: {exc}")
+
+    if not r.data:
+        raise HTTPException(404, "Essay not found")
+    return {
+        "essay_id":        str(essay_id),
+        "instructor_note": body.instructor_note,
+    }
+
+
+@router.post("/essays/{essay_id}/regrade", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_regrade(
+    essay_id: UUID,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
+    """Re-run AI grading on an existing essay.
+
+    Workflow:
+      1. Verify essay exists, is_flagged=False, status in (graded, reviewed,
+         delivered, failed). pending/grading rejected — already in flight.
+      2. DELETE the existing writing_feedback row (UNIQUE constraint on
+         essay_id means the BG grader's INSERT would otherwise raise).
+      3. Clear admin_edits_json + is_manually_edited (the new AI grade
+         supersedes any prior manual edits — Andy must re-review).
+         instructor_note is NOT cleared — Andy's personal feedback
+         survives regrades on purpose (it's about the student, not the
+         grade).
+      4. Bump regrade_count + last_regraded_at/by, set status='grading'.
+      5. Schedule the grading job + BG task.
+
+    The flagged-essay block is the one hard reject: spam-flagged essays
+    are in terminal `delivered` state and were never AI-graded. Regrading
+    them would queue a job for an essay that the spam detector has
+    already classified as not worth grading. Admin who really wants to
+    grade a flagged essay must unflag it manually first.
+    """
+    admin = await require_admin(authorization)
+
+    er = (
+        supabase_admin.table("writing_essays")
+        .select(
+            "id, student_id, prompt_text, prompt_image_url, essay_text, "
+            "task_type, analysis_level, form_of_address, selected_model, "
+            "is_flagged, status, regrade_count"
+        )
+        .eq("id", str(essay_id))
+        .limit(1)
+        .execute()
+    )
+    if not er.data:
+        raise HTTPException(404, "Essay not found")
+    essay = er.data[0]
+
+    if essay.get("is_flagged"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Cannot regrade flagged essay — spam-flagged submissions "
+                "skip grading by design. Unflag the essay first if you "
+                "want to AI-grade it."
+            ),
+        )
+
+    if essay["status"] not in ("graded", "reviewed", "delivered", "failed"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot regrade essay with status {essay['status']!r}. "
+                f"Wait for the current grading run to finish."
+            ),
+        )
+
+    # Drop the existing feedback row so the BG grader's INSERT doesn't
+    # collide on the essay_id UNIQUE constraint. Best-effort: a missing
+    # row (essay never reached `graded`) just produces an empty result.
+    try:
+        (
+            supabase_admin.table("writing_feedback")
+            .delete()
+            .eq("essay_id", str(essay_id))
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Failed to clear prior feedback: {exc}")
+
+    now_iso = _now_iso()
+    new_count = (essay.get("regrade_count") or 0) + 1
+    try:
+        (
+            supabase_admin.table("writing_essays")
+            .update({
+                "status":             "grading",
+                "regrade_count":      new_count,
+                "last_regraded_at":   now_iso,
+                "last_regraded_by":   admin["id"],
+                # The new AI grade supersedes any prior manual edit, so
+                # both fields reset to a clean slate.
+                "admin_edits_json":   None,
+                "is_manually_edited": False,
+            })
+            .eq("id", str(essay_id))
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Database update failed: {exc}")
+
+    # Reuse the SAGA leg from Sprint 2.7.1: schedule_grading_job inserts
+    # the writing_jobs row and returns the job id; the router adds the
+    # BG task. Same pattern as POST /admin/writing/essays + the student
+    # submit path use.
+    job_info = essay_service.schedule_grading_job(
+        essay_id       = str(essay_id),
+        analysis_level = essay.get("analysis_level") or 3,
+        selected_model = essay.get("selected_model") or "gemini-2.5-pro",
+    )
+    background_tasks.add_task(
+        essay_service._bg_grade_essay,
+        str(essay_id),
+        job_info["job_id"],
+    )
+
+    return {
+        "essay_id":      str(essay_id),
+        "job_id":        job_info["job_id"],
+        "regrade_count": new_count,
+        "eta_seconds":   job_info["eta_seconds"],
+        "message":       "Đang chấm lại bài. Refresh sau ~30s để xem kết quả.",
+    }
+
+
+@router.get("/students/{student_id}/summary")
+async def get_student_summary(
+    student_id: UUID,
+    authorization: str | None = Header(None),
+):
+    """Aggregated student stats for the instructor view.
+
+    Returns a single payload the admin-students.html "Tổng quan" modal
+    can render without N+1 fetches:
+      • student profile (code, name, target/current band, target date)
+      • essay counters: total / graded (excluding flagged) / flagged
+      • average band of the last 5 valid (non-flagged, graded) essays
+      • last 10 essays with status + band score (when present)
+      • last 5 assignments with prompt title + status
+
+    "Last 5 valid" walks newest → oldest looking for graded non-flagged
+    rows — students with a mix of regular + flagged submissions still
+    get a meaningful average (the flagged rows just skip).
+    """
+    await require_admin(authorization)
+
+    sr = (
+        supabase_admin.table("students")
+        .select(
+            "id, student_code, full_name, target_band, "
+            "current_band_estimate, target_date, persona_notes, "
+            "flag_count, is_under_review, last_flagged_at"
+        )
+        .eq("id", str(student_id))
+        .limit(1)
+        .execute()
+    )
+    if not sr.data:
+        raise HTTPException(404, "Student not found")
+    student = sr.data[0]
+
+    # Recent essays + their feedback bands in one round-trip via the
+    # foreign-key embed syntax.  `writing_feedback(...)` joins on
+    # writing_feedback.essay_id = writing_essays.id and returns the
+    # nested rows (or [] when no feedback exists).
+    essays_resp = (
+        supabase_admin.table("writing_essays")
+        .select(
+            "id, status, is_flagged, task_type, created_at, delivered_at, "
+            "regrade_count, last_regraded_at, "
+            "writing_feedback(overall_band_score)"
+        )
+        .eq("student_id", str(student_id))
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+    essays = essays_resp.data or []
+
+    assignments_resp = (
+        supabase_admin.table("writing_assignments")
+        .select(
+            "id, status, deadline, created_at, submitted_at, delivered_at, "
+            "writing_prompts(title, task_type)"
+        )
+        .eq("student_id", str(student_id))
+        .order("created_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+
+    # Stats
+    flagged_count = sum(1 for e in essays if e.get("is_flagged"))
+    graded_count  = sum(
+        1 for e in essays
+        if not e.get("is_flagged") and e.get("status") in ("graded", "reviewed", "delivered")
+    )
+
+    # Band trajectory: walk newest → oldest, take the first 5 valid
+    # (graded, non-flagged) bands. Order is preserved from the SELECT
+    # which already sorted desc on created_at.
+    valid_bands: list[float] = []
+    for e in essays:
+        if e.get("is_flagged"):
+            continue
+        fb = e.get("writing_feedback") or []
+        # Embedded relation can come back as a list (PostgREST default)
+        # or a single object depending on the join cardinality. Be
+        # defensive about both.
+        if isinstance(fb, list):
+            band = fb[0].get("overall_band_score") if fb else None
+        elif isinstance(fb, dict):
+            band = fb.get("overall_band_score")
+        else:
+            band = None
+        if band is None:
+            continue
+        try:
+            valid_bands.append(float(band))
+        except (TypeError, ValueError):
+            continue
+        if len(valid_bands) >= 5:
+            break
+
+    avg_band = round(sum(valid_bands) / len(valid_bands), 1) if valid_bands else None
+
+    return {
+        "student": student,
+        "stats": {
+            "total_essays":        len(essays),
+            "graded_count":        graded_count,
+            "flagged_count":       flagged_count,
+            "average_band_last5":  avg_band,
+            "valid_band_sample":   len(valid_bands),
+        },
+        "recent_essays":      essays[:10],
+        "recent_assignments": (assignments_resp.data or [])[:5],
+    }
