@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     FLASHCARD_ENABLED: bool = False
     FLASHCARD_DAILY_REVIEW_LIMIT: int = 500
 
+    # Sprint 2.6 — Writing grader prompt version selector. v1 stays the
+    # default until A/B testing confirms v2 is at least as good. Flip
+    # WRITING_PROMPT_VERSION=v2 in the environment to swap without a
+    # code change. Per-essay logging through writing_feedback.prompt_version
+    # lets Andy diff quality metrics by version.
+    WRITING_PROMPT_VERSION: str = "v1"
+
     class Config:
         env_file = ".env"
 
