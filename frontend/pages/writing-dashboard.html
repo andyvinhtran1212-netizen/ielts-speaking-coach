@@ -392,18 +392,26 @@
       });
     }
 
-    // ── Phase 2.3b — assignments tab ────────────────────────────────
+    // ── Sprint 2.6.1 — submit-modal state ───────────────────────────
     //
-    // The "Bài giao" tab is the entry point for active assignments
-    // (pending + in_progress). Clicking a card expands an inline
-    // submit form below the card header — no separate page, the
-    // textarea state lives in `_draftSaveTimers` (per-assignment
-    // setTimeout handles for the 3-second debounce).
+    // Phase 2.3b's inline-form region was retired this sprint in
+    // favour of a single full-screen modal.  The modal owns ALL
+    // textarea / timer / auto-save state so we keep one assignment
+    // active at a time and don't have to thread region references
+    // through helper after helper.
+    //
+    // Anti-paste thresholds — match the forensic columns added by
+    // migration 041.  >200 chars: e.preventDefault() + alert + log.
+    // 50–200 chars: allow + log.  <50 chars: silent (no log either).
+    var modalState = {
+      assignmentId:      null,
+      autoSaveTimer:     null,
+      countdownInterval: null,
+    };
+    var PASTE_BLOCK_THRESHOLD = 200;
+    var PASTE_LOG_THRESHOLD   = 50;
 
-    var _draftSaveTimers = {};                  // assignment_id → timeout handle
-    var _timerIntervals  = {};                  // assignment_id → setInterval handle (Phase 2.3c-3)
-
-    // ── Phase 2.3c-3: IELTS-mode countdown helpers ──────────────────
+    // ── Phase 2.3c-3 utilities (kept; now used by the modal) ────────
     function formatTimer(seconds) {
       if (seconds === null || seconds === undefined) return '—';
       if (seconds <= 0) return 'Hết giờ';
@@ -414,60 +422,12 @@
 
     function showTimerToast(message) {
       var toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg font-medium';
+      toast.className = 'fixed top-4 right-4 z-[60] px-4 py-3 rounded shadow-lg font-medium';
       toast.style.background = '#f59e0b';
       toast.style.color = '#0a1628';
       toast.textContent = message;
       document.body.appendChild(toast);
       setTimeout(function () { toast.remove(); }, 5000);
-    }
-
-    function stopCountdown(assignmentId) {
-      if (_timerIntervals[assignmentId]) {
-        clearInterval(_timerIntervals[assignmentId]);
-        delete _timerIntervals[assignmentId];
-      }
-    }
-
-    // Sprint 2.3c-3.1 — race fix.
-    //
-    // GET /my-assignments/{id} returns `timer.started_at = null`
-    // before the student's first draft save (by design — the timer
-    // starts when the student begins writing, not when they open
-    // the card).  That means the initial render path can't kick
-    // off the countdown.  PATCH /draft is what stamps started_at
-    // server-side, but its response is the draft row, not the
-    // refreshed timer state.
-    //
-    // This helper closes the gap: after every successful saveDraft
-    // we re-poll /timer.  When the row was just stamped, the next
-    // /timer response carries a real `time_remaining_seconds` and
-    // we can finally start the local interval.  After that first
-    // initialization the helper is a no-op (gated by
-    // `_timerIntervals[assignmentId]`) so subsequent saves don't
-    // burn an extra GET.
-    async function maybeInitTimerAfterDraftSave(assignmentId, region, textarea) {
-      if (_timerIntervals[assignmentId]) return;        // already running
-      if (!region.querySelector('.timer-banner')) return;  // not a timed assignment
-
-      try {
-        var fresh = await window.api.get(
-          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/timer'
-        );
-        if (!fresh || !fresh.is_timed || fresh.is_expired) return;
-        if (typeof fresh.time_remaining_seconds !== 'number') return;
-        if (fresh.time_remaining_seconds <= 0) return;
-
-        // Replace the "Bắt đầu khi gõ" placeholder before kicking
-        // off the interval so the first paint isn't a 1s delay.
-        var display = region.querySelector('.timer-display');
-        if (display) display.textContent = formatTimer(fresh.time_remaining_seconds);
-
-        startCountdown(region, assignmentId, fresh.time_remaining_seconds, textarea);
-      } catch (e) {
-        // Non-fatal — the next save will retry.
-        console.warn('Timer init after stamp failed:', e);
-      }
     }
 
     function formatRelativeTime(iso) {
@@ -508,6 +468,11 @@
       }
       empty.classList.add('hidden');
 
+      // Sprint 2.6.1: card now shows TITLE ONLY (no prompt preview).
+      // The prompt body is revealed inside the modal once the
+      // student commits to "Làm bài" — keeps the dashboard list a
+      // pure index and prevents passive-reading the prompt before
+      // the timer starts.
       list.innerHTML = assignments.map(function (a) {
         var prompt = a.writing_prompts || {};
         var statusKey = a.status || 'pending';
@@ -527,7 +492,7 @@
           ? '<span class="text-xs text-amber-300">Hạn: ' + formatDate(a.deadline) + '</span>'
           : '';
 
-        var toggleLabel = a.has_draft ? 'Tiếp tục viết' : 'Bắt đầu viết';
+        var startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
 
         return (
           '<div class="assignment-card rounded-lg p-4" data-assignment-id="' + escapeHtml(a.id) + '">' +
@@ -545,427 +510,339 @@
               deadlineLine +
             '</div>' +
             draftHint +
-            '<button type="button" class="btn-toggle text-sm text-teal-light hover:text-white">' +
-              escapeHtml(toggleLabel) + ' →' +
+            '<button type="button" class="btn-start-assignment text-sm bg-teal hover:bg-teal-dark text-white px-4 py-2 rounded font-medium" '
+              + 'style="background:#0d9488">' +
+              escapeHtml(startLabel) + ' →' +
             '</button>' +
-            '<div class="form-region hidden mt-4 pt-4 border-t border-white/10"></div>' +
           '</div>'
         );
       }).join('');
 
-      // Wire the toggle buttons via event delegation. Phase 2.2.1 ban
-      // on inline onclick handlers still applies (anti-pattern #18).
-      list.querySelectorAll('.btn-toggle').forEach(function (btn) {
+      // Wire the start buttons via delegation (anti-pattern #18 still
+      // applies — no inline onclick).  Each click opens the modal
+      // which then POSTs /start to stamp the timer trigger.
+      list.querySelectorAll('.btn-start-assignment').forEach(function (btn) {
         btn.addEventListener('click', function () {
           var card = btn.closest('.assignment-card');
           if (!card) return;
           var assignmentId = card.getAttribute('data-assignment-id');
-          toggleSubmitForm(card, assignmentId, btn);
+          openSubmitModal(assignmentId);
         });
       });
     }
 
-    async function toggleSubmitForm(card, assignmentId, toggleBtn) {
-      var region = card.querySelector('.form-region');
 
-      // Collapse if already open.
-      if (!region.classList.contains('hidden')) {
-        region.classList.add('hidden');
-        // Stop the IELTS-mode countdown when the card collapses —
-        // otherwise the interval keeps ticking and burning a network
-        // call every 30s for a banner the student can't see.
-        stopCountdown(assignmentId);
-        toggleBtn.textContent = (toggleBtn.textContent || '').replace(/^Đang viết/, 'Tiếp tục viết');
-        return;
-      }
+    // ── Sprint 2.6.1 — full-screen submit modal ─────────────────────
+    //
+    // openSubmitModal is the single entry point: it POSTs /start to
+    // stamp the timer trigger (Phase 2.3c-3 column on the row), then
+    // GETs the full assignment + draft and renders the modal body
+    // around them.  Timer countdown kicks off immediately on the
+    // returned `time_remaining_seconds` so the banner ticks the
+    // second the modal opens — no longer waits for the first save.
+    async function openSubmitModal(assignmentId) {
+      modalState.assignmentId = assignmentId;
+
+      var modal = document.getElementById('submit-modal');
+      modal.classList.remove('hidden');
+      document.getElementById('modal-loading').classList.remove('hidden');
+      document.getElementById('modal-content').classList.add('hidden');
 
       try {
-        var data = await window.api.get('/api/writing/my-assignments/' + encodeURIComponent(assignmentId));
-        if (!data) return;
-        renderSubmitForm(region, assignmentId, data, toggleBtn);
-        toggleBtn.textContent = 'Đang viết · click để đóng';
+        // 1. Stamp started_at + transition pending → in_progress.
+        //    Returns the fresh timer state we render the banner from.
+        var startResult = await window.api.post(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/start',
+          {}
+        );
+
+        // 2. Fetch the assignment + draft + prompt body.
+        var data = await window.api.get(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId)
+        );
+
+        renderModal(data, startResult ? startResult.timer : null);
+        document.getElementById('modal-loading').classList.add('hidden');
+        document.getElementById('modal-content').classList.remove('hidden');
+
+        document.getElementById('modal-essay-textarea').focus();
       } catch (err) {
-        alert('Không tải được bài giao: ' + (err.message || 'không xác định'));
+        alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
+        closeModal();
       }
     }
 
-    function renderSubmitForm(region, assignmentId, data, toggleBtn) {
+    function renderModal(data, freshTimer) {
       var assignment = data.assignment || {};
       var prompt     = assignment.writing_prompts || {};
       var draft      = data.draft || {};
-      var draftText  = draft.draft_text || '';
+      var timer      = freshTimer || data.timer || {};
 
-      var instructionsHtml = assignment.instructions
-        ? '<div class="mb-3 p-3 rounded text-xs leading-relaxed" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);color:#fcd34d">' +
-            '📌 ' + escapeHtml(assignment.instructions) +
-          '</div>'
-        : '';
+      // Header + prompt panel
+      document.getElementById('modal-title').textContent = prompt.title || 'Làm bài';
+      var meta = (TASK_LABELS[prompt.task_type] || prompt.task_type || '—')
+                 + ' · ' + formatDate(assignment.created_at);
+      document.getElementById('modal-prompt-meta').textContent  = meta;
+      document.getElementById('modal-prompt-title').textContent = prompt.title || '';
+      document.getElementById('modal-prompt-text').textContent  = prompt.prompt_text || '';
 
-      // Phase 2.3c-1: Task 1 Academic prompts can carry a chart/diagram
-      // image. Render it above the prompt text so the student sees the
-      // visual before reading the description.
-      var promptImageHtml = prompt.prompt_image_url
-        ? '<img src="' + escapeHtml(prompt.prompt_image_url) + '" alt="" '
-            + 'class="mb-3 max-w-full rounded border border-white/10" loading="lazy" />'
-        : '';
-
-      // Phase 2.3c-3: IELTS-mode banner. Renders only when the
-      // assignment is timed AND a time_limit is set (the migration's
-      // CHECK constraint guarantees the pair, but we still defend
-      // against a legacy row missing one or the other).
-      var timer = data.timer || {};
-      var isTimed = timer.is_timed && timer.time_limit_minutes;
-      var initialRemaining = (timer.time_remaining_seconds === null
-                               || timer.time_remaining_seconds === undefined)
-        ? null
-        : timer.time_remaining_seconds;
-      // Pre-stamp display: when `started_at` is still NULL the
-      // countdown can't run yet — show a hint that the clock starts
-      // on first save instead of a literal '—', which production
-      // canary 2026-05-06 read as "broken".
-      var initialDisplay = initialRemaining !== null
-        ? formatTimer(initialRemaining)
-        : 'Bắt đầu khi gõ';
-      var timerHtml = isTimed
-        ? ('<div class="timer-banner mb-3 p-3 rounded flex items-center justify-between" '
-            + 'style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25)">'
-          +   '<div>'
-          +     '<div class="text-xs uppercase tracking-wider text-amber-400 mb-1">⏱️ IELTS-mode</div>'
-          +     '<div class="text-xs text-gray-400">Tổng thời gian: '
-          +       timer.time_limit_minutes + ' phút</div>'
-          +   '</div>'
-          +   '<div class="timer-display text-xl font-mono font-bold text-amber-400">'
-          +     escapeHtml(initialDisplay)
-          +   '</div>'
-          + '</div>')
-        : '';
-
-      region.innerHTML =
-        timerHtml +
-        promptImageHtml +
-        '<div class="mb-3 p-3 rounded text-sm text-gray-300 leading-relaxed" style="background:rgba(255,255,255,0.04)">' +
-          escapeHtml(prompt.prompt_text || '') +
-        '</div>' +
-        instructionsHtml +
-        // Phase 2.3c-2 — file upload: text from .docx/.txt is APPENDED
-        // to the textarea (preserves any current draft).  The hidden
-        // <input type="file"> sits inside the <label> so a click on
-        // the visible text triggers the picker.
-        '<div class="mb-3 flex items-center gap-3">' +
-          '<label class="inline-flex items-center gap-1 text-sm text-teal-400 hover:text-teal-300 cursor-pointer">' +
-            '<span>📎 Tải file (.docx, .txt)</span>' +
-            '<input type="file" class="essay-file-input hidden" accept=".docx,.txt" />' +
-          '</label>' +
-          '<span class="upload-status text-xs hidden"></span>' +
-        '</div>' +
-        '<textarea class="essay-textarea" rows="14" placeholder="Bắt đầu viết bài…">' +
-          escapeHtml(draftText) +
-        '</textarea>' +
-        '<div class="flex flex-wrap items-center justify-between gap-3 mt-3">' +
-          '<div class="text-xs text-gray-400 flex items-center gap-3">' +
-            '<span><span class="word-counter">0</span> từ</span>' +
-            '<span class="save-saved hidden text-emerald-400">✓ Đã lưu</span>' +
-            '<span class="save-pending hidden text-amber-300">💾 Đang lưu…</span>' +
-            '<span class="save-error hidden text-red-300"></span>' +
-          '</div>' +
-          '<div class="flex gap-2">' +
-            '<button type="button" class="btn-secondary btn-save-draft">Lưu bản nháp</button>' +
-            '<button type="button" class="btn-primary btn-submit">Nộp bài</button>' +
-          '</div>' +
-        '</div>';
-
-      region.classList.remove('hidden');
-
-      var textarea  = region.querySelector('.essay-textarea');
-      var counter   = region.querySelector('.word-counter');
-      var savedEl   = region.querySelector('.save-saved');
-      var pendingEl = region.querySelector('.save-pending');
-      var errorEl   = region.querySelector('.save-error');
-
-      function refreshCount() { counter.textContent = countWords(textarea.value); }
-      refreshCount();
-
-      // Auto-save: clear any pending timer, mark "Đang lưu…", fire
-      // the PATCH after 3s of inactivity.
-      textarea.addEventListener('input', function () {
-        refreshCount();
-        savedEl.classList.add('hidden');
-        errorEl.classList.add('hidden');
-        pendingEl.classList.remove('hidden');
-
-        if (_draftSaveTimers[assignmentId]) {
-          clearTimeout(_draftSaveTimers[assignmentId]);
-        }
-        _draftSaveTimers[assignmentId] = setTimeout(function () {
-          saveDraft(assignmentId, textarea.value, region);
-        }, 3000);
-      });
-
-      region.querySelector('.btn-save-draft').addEventListener('click', function () {
-        if (_draftSaveTimers[assignmentId]) {
-          clearTimeout(_draftSaveTimers[assignmentId]);
-        }
-        saveDraft(assignmentId, textarea.value, region);
-      });
-      region.querySelector('.btn-submit').addEventListener('click', function () {
-        // Cancel any pending auto-save — submit replaces it.
-        if (_draftSaveTimers[assignmentId]) {
-          clearTimeout(_draftSaveTimers[assignmentId]);
-        }
-        submitEssay(assignmentId, textarea.value, region);
-      });
-
-      // Phase 2.3c-2 — file upload (.docx / .txt). Append to textarea
-      // and dispatch an `input` event so the existing word-counter +
-      // 3s auto-save flow runs unchanged.
-      var fileInput    = region.querySelector('.essay-file-input');
-      var uploadStatus = region.querySelector('.upload-status');
-
-      function setUploadStatus(text, tone) {
-        uploadStatus.textContent = text;
-        uploadStatus.classList.remove('hidden', 'text-gray-400', 'text-emerald-400', 'text-red-400');
-        var toneClass = (
-          tone === 'success' ? 'text-emerald-400' :
-          tone === 'error'   ? 'text-red-400'     :
-                               'text-gray-400'
-        );
-        uploadStatus.classList.add(toneClass);
+      // Phase 2.3c-1 — Task 1 Academic chart/diagram image, when present.
+      var imgEl = document.getElementById('modal-prompt-image');
+      if (prompt.prompt_image_url) {
+        imgEl.src = prompt.prompt_image_url;
+        imgEl.classList.remove('hidden');
+      } else {
+        imgEl.removeAttribute('src');
+        imgEl.classList.add('hidden');
       }
 
-      fileInput.addEventListener('change', async function (ev) {
-        var file = ev.target.files && ev.target.files[0];
-        if (!file) return;
+      // Optional admin instructions panel.
+      if (assignment.instructions) {
+        document.getElementById('modal-instructions').classList.remove('hidden');
+        document.getElementById('modal-instructions-text').textContent = assignment.instructions;
+      } else {
+        document.getElementById('modal-instructions').classList.add('hidden');
+      }
 
-        // Client-side size pre-check — saves a round-trip; the
-        // backend re-validates with the same 2MB cap.
-        if (file.size > 2 * 1024 * 1024) {
-          setUploadStatus('✕ File quá lớn (tối đa 2MB)', 'error');
-          fileInput.value = '';
+      // Timer banner — render only when the assignment is timed.
+      var bannerEl  = document.getElementById('modal-timer');
+      var totalEl   = document.getElementById('modal-timer-total');
+      var displayEl = document.getElementById('modal-timer-display');
+      var isTimed   = timer.is_timed && timer.time_limit_minutes;
+
+      // Reset color classes between opens — a previous expired timer
+      // would otherwise leave the display stuck on red.
+      displayEl.classList.remove('text-red-500');
+      displayEl.classList.add('text-amber-400');
+
+      if (isTimed) {
+        bannerEl.classList.remove('hidden');
+        totalEl.textContent = 'Tổng thời gian: ' + timer.time_limit_minutes + ' phút';
+        if (timer.is_expired) {
+          // Edge case: student opens an assignment whose deadline
+          // ALREADY passed (timer ran out while the tab was closed).
+          // Render "Hết giờ" + auto-submit so the row exits the
+          // active state cleanly.
+          displayEl.textContent = 'Hết giờ';
+          showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
+          submitFromModal(/* force */ true);
+        } else if (typeof timer.time_remaining_seconds === 'number') {
+          displayEl.textContent = formatTimer(timer.time_remaining_seconds);
+          startModalCountdown(timer.time_remaining_seconds);
+        } else {
+          displayEl.textContent = '—';
+        }
+      } else {
+        bannerEl.classList.add('hidden');
+      }
+
+      // Textarea + counters.
+      var textarea = document.getElementById('modal-essay-textarea');
+      textarea.value = (draft && draft.draft_text) || '';
+      updateModalWordCount();
+    }
+
+    function updateModalWordCount() {
+      var textarea = document.getElementById('modal-essay-textarea');
+      var wc = countWords(textarea.value);
+      document.getElementById('modal-word-counter').textContent = wc;
+    }
+
+    // Auto-save: 3-second debounce, identical contract to Phase 2.3b.
+    function scheduleModalAutoSave() {
+      if (modalState.autoSaveTimer) clearTimeout(modalState.autoSaveTimer);
+      document.getElementById('modal-save-pending').classList.remove('hidden');
+      document.getElementById('modal-save-status').classList.add('hidden');
+      modalState.autoSaveTimer = setTimeout(saveDraft, 3000);
+    }
+
+    async function saveDraft() {
+      if (!modalState.assignmentId) return;
+      var pending = document.getElementById('modal-save-pending');
+      var saved   = document.getElementById('modal-save-status');
+      var textarea = document.getElementById('modal-essay-textarea');
+
+      pending.classList.remove('hidden');
+      saved.classList.add('hidden');
+
+      try {
+        await window.api.patch(
+          '/api/writing/my-assignments/'
+            + encodeURIComponent(modalState.assignmentId) + '/draft',
+          { draft_text: textarea.value || '' }
+        );
+        pending.classList.add('hidden');
+        saved.classList.remove('hidden');
+        setTimeout(function () { saved.classList.add('hidden'); }, 2000);
+      } catch (err) {
+        pending.classList.add('hidden');
+        var msg = (err && err.message) || 'lỗi khi lưu';
+        // 410 Gone = backend confirmed the timer is past expiry.
+        // Force-submit immediately so the assignment exits the
+        // active state instead of looping on save failures.
+        if (msg.indexOf('Hết giờ') !== -1) {
+          showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
+          await submitFromModal(/* force */ true);
           return;
         }
-
-        setUploadStatus('📤 Đang xử lý ' + file.name + '…', 'pending');
-
-        try {
-          var fd = new FormData();
-          fd.append('file', file);
-          // `window.api.upload` skips the JSON Content-Type so the
-          // browser's multipart boundary is preserved (same helper
-          // the admin image uploader uses).
-          var result = await window.api.upload('/api/writing/extract-text', fd);
-
-          var current   = textarea.value;
-          var separator = current.trim() ? '\n\n' : '';
-          textarea.value = current + separator + result.text;
-
-          // Re-fire `input` so the word counter + auto-save debounce
-          // pick up the appended text — same path as a manual edit.
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-
-          setUploadStatus('✓ Đã thêm ' + result.word_count + ' từ', 'success');
-          setTimeout(function () { uploadStatus.classList.add('hidden'); }, 3000);
-        } catch (err) {
-          setUploadStatus('✕ ' + ((err && err.message) || 'Lỗi xử lý file'), 'error');
-        } finally {
-          // Clear the file input so re-selecting the same file still
-          // fires `change` (browsers suppress it otherwise).
-          fileInput.value = '';
-        }
-      });
-
-      // ── Phase 2.3c-3 — IELTS-mode countdown ──────────────────────
-      // We only kick off the interval when the assignment IS timed
-      // and the server already stamped started_at. Until the student
-      // makes their first draft save the timer is dormant by design.
-      if (isTimed && initialRemaining !== null && initialRemaining > 0) {
-        startCountdown(region, assignmentId, initialRemaining, textarea);
-      } else if (isTimed && timer.is_expired
-                 && assignment.status !== 'submitted'
-                 && assignment.status !== 'graded'
-                 && assignment.status !== 'delivered') {
-        // The student opened a card whose timer ALREADY expired —
-        // submit whatever's in the textarea (or the saved draft if
-        // empty) so the row exits the active state cleanly. The
-        // backend marks `auto_submitted=true` because it sees the
-        // timer is expired at submit time.
-        showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
-        submitEssay(assignmentId, textarea.value, region, /* force */ true);
+        alert('Không lưu được bản nháp: ' + msg);
       }
     }
 
-    function startCountdown(region, assignmentId, initialRemaining, textarea) {
-      var display = region.querySelector('.timer-display');
-      if (!display) return;
+    // Server-authoritative countdown.  Local 1s tick + 30s server
+    // reconciliation; snaps when drift > 10s. Identical to the
+    // Phase 2.3c-3 logic, just modal-scoped instead of region-scoped.
+    function startModalCountdown(initialSeconds) {
+      if (modalState.countdownInterval) {
+        clearInterval(modalState.countdownInterval);
+      }
 
-      // Replace any stale interval for this assignment — re-opening
-      // a card while a previous interval is still running would
-      // double-tick the display.
-      stopCountdown(assignmentId);
+      var remaining   = initialSeconds;
+      var lastSync    = Date.now();
+      var warned5min  = false;
+      var displayEl   = document.getElementById('modal-timer-display');
 
-      var remaining = initialRemaining;
-      var lastSync  = Date.now();
-      var warned5min = false;
-
-      _timerIntervals[assignmentId] = setInterval(async function () {
+      modalState.countdownInterval = setInterval(async function () {
         remaining -= 1;
-        display.textContent = formatTimer(remaining);
+        displayEl.textContent = formatTimer(remaining);
 
-        // ≤5 min: shift the banner colour to red so peripheral
-        // vision picks it up. The class swap is idempotent.
-        if (remaining <= 300 && !display.classList.contains('text-red-500')) {
-          display.classList.remove('text-amber-400');
-          display.classList.add('text-red-500');
+        if (remaining <= 300 && !displayEl.classList.contains('text-red-500')) {
+          displayEl.classList.remove('text-amber-400');
+          displayEl.classList.add('text-red-500');
         }
-
-        // One-shot 5-minute warning toast.
         if (!warned5min && remaining <= 300 && remaining > 295) {
           warned5min = true;
           showTimerToast('⚠️ Còn 5 phút!');
         }
 
-        // 0:00 → auto-submit. We clear the interval BEFORE awaiting
-        // submitEssay so a slow network request can't fire a second
-        // tick that re-enters this branch.
         if (remaining <= 0) {
-          stopCountdown(assignmentId);
+          clearInterval(modalState.countdownInterval);
+          modalState.countdownInterval = null;
           showTimerToast('⏰ Hết giờ! Đang nộp bài…');
-          await submitEssay(assignmentId, textarea.value, region, /* force */ true);
+          await submitFromModal(/* force */ true);
           return;
         }
 
-        // Server reconciliation every ~30s — protects against client
-        // clock drift (or a student tabbing away and the OS de-
-        // scheduling the JS event loop). We snap when the drift
-        // exceeds 10s, which is the smallest gap a human notices.
         if (Date.now() - lastSync > 30000) {
           lastSync = Date.now();
           try {
             var fresh = await window.api.get(
               '/api/writing/my-assignments/'
-              + encodeURIComponent(assignmentId) + '/timer'
+                + encodeURIComponent(modalState.assignmentId) + '/timer'
             );
-            if (fresh.is_expired) {
+            if (fresh && fresh.is_expired) {
               remaining = 0;
-            } else if (typeof fresh.time_remaining_seconds === 'number') {
+            } else if (fresh && typeof fresh.time_remaining_seconds === 'number') {
               if (Math.abs(fresh.time_remaining_seconds - remaining) > 10) {
                 remaining = fresh.time_remaining_seconds;
               }
             }
           } catch (e) {
-            // Sync failure is non-fatal — keep ticking locally.
             console.warn('Timer sync failed:', e);
           }
         }
       }, 1000);
     }
 
-    async function saveDraft(assignmentId, text, region) {
-      var savedEl   = region.querySelector('.save-saved');
-      var pendingEl = region.querySelector('.save-pending');
-      var errorEl   = region.querySelector('.save-error');
-      var textarea  = region.querySelector('.essay-textarea');
+    // Anti-paste: hybrid block-or-log.  Frontend is the security
+    // BOUNDARY for the block; backend just records what the
+    // frontend reports for forensics (we don't trust char_count
+    // for any auth decision, only for audit).
+    function setupAntiPaste(textarea) {
+      textarea.addEventListener('paste', async function (ev) {
+        var pasted = (ev.clipboardData || window.clipboardData).getData('text');
+        var len = (pasted || '').length;
 
-      pendingEl.classList.remove('hidden');
-      savedEl.classList.add('hidden');
-      errorEl.classList.add('hidden');
-
-      try {
-        // PATCH (not PUT) — api.js exposes get/post/patch/delete only,
-        // and the backend declares this endpoint as PATCH for the same
-        // reason (matches the project-wide convention from
-        // admin_writing_prompts / admin_writing_assignments).
-        await window.api.patch(
-          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/draft',
-          { draft_text: text || '' }
-        );
-        pendingEl.classList.add('hidden');
-        savedEl.classList.remove('hidden');
-        // Auto-fade the "✓ Đã lưu" hint after 2s so it doesn't linger.
-        setTimeout(function () { savedEl.classList.add('hidden'); }, 2000);
-
-        // Sprint 2.3c-3.1: this PATCH may have just stamped
-        // started_at server-side. Re-poll /timer + start the
-        // countdown if the row is timed and not yet ticking.
-        if (textarea) {
-          maybeInitTimerAfterDraftSave(assignmentId, region, textarea);
-        }
-      } catch (err) {
-        pendingEl.classList.add('hidden');
-        var msg = (err && err.message) || 'lỗi khi lưu';
-
-        // Sprint 2.3c-3.1: backend returns 410 Gone when a draft
-        // save lands AFTER the timer has expired (the Vietnamese
-        // detail string is the canonical signal). When that happens
-        // the local countdown is either gone or never started — we
-        // force-submit with the current textarea so the row exits
-        // the active state cleanly. Backend stamps auto_submitted=true.
-        if (msg.indexOf('Hết giờ') !== -1) {
-          stopCountdown(assignmentId);
-          showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
-          if (textarea) {
-            await submitEssay(assignmentId, textarea.value, region, /* force */ true);
+        if (len > PASTE_BLOCK_THRESHOLD) {
+          ev.preventDefault();
+          alert(
+            '⚠ Không cho phép paste nội dung dài (' + len + ' ký tự). '
+            + 'Vui lòng tự gõ bài.'
+          );
+          if (modalState.assignmentId) {
+            try {
+              await window.api.post(
+                '/api/writing/my-assignments/'
+                  + encodeURIComponent(modalState.assignmentId) + '/paste-log',
+                { char_count: len, blocked: true }
+              );
+            } catch (e) {
+              console.warn('Paste log failed:', e);
+            }
           }
           return;
         }
 
-        errorEl.textContent = '⚠ ' + msg;
-        errorEl.classList.remove('hidden');
-      }
+        if (len > PASTE_LOG_THRESHOLD && modalState.assignmentId) {
+          try {
+            await window.api.post(
+              '/api/writing/my-assignments/'
+                + encodeURIComponent(modalState.assignmentId) + '/paste-log',
+              { char_count: len, blocked: false }
+            );
+          } catch (e) {
+            console.warn('Paste log failed:', e);
+          }
+        }
+        // <50 chars: silent.  Browsers paste tiny snippets all the
+        // time (one-word corrections, smart quotes); logging those
+        // would drown the audit trail in noise.
+      });
     }
 
-    async function submitEssay(assignmentId, text, region, force) {
-      var trimmed = (text || '').trim();
-      var wc = countWords(trimmed);
+    async function submitFromModal(force) {
+      if (!modalState.assignmentId) return;
+      var textarea = document.getElementById('modal-essay-textarea');
+      var text     = textarea.value;
+      var wc       = countWords(text);
 
-      // `force=true` is set by the IELTS-mode auto-submit path. We
-      // skip every interactive prompt — the timer hit zero, there's
-      // no time to ask "are you sure". The 50-char minimum is also
-      // bypassed because a near-empty submission still has audit
-      // value (auto_submitted=true gets stamped server-side).
       if (!force) {
-        if (trimmed.length < 50) {
-          alert('Bài viết quá ngắn (cần ít nhất 50 ký tự).');
-          return;
-        }
         if (wc < 100) {
           if (!confirm(
-            'Bài viết chỉ có ' + wc + ' từ.\n' +
-            'IELTS Task 2 yêu cầu tối thiểu 250 từ.\n' +
-            'Em chắc muốn nộp bài?'
+            'Bài viết chỉ có ' + wc + ' từ.\n'
+            + 'IELTS Task 2 yêu cầu tối thiểu 250 từ.\n'
+            + 'Em chắc muốn nộp bài?'
           )) return;
         }
         if (!confirm('Sau khi nộp em không thể chỉnh sửa. Em chắc muốn nộp bài?')) return;
       }
 
-      var submitBtn = region.querySelector('.btn-submit');
-      var saveBtn   = region.querySelector('.btn-save-draft');
+      var submitBtn = document.getElementById('modal-btn-submit');
+      var saveBtn   = document.getElementById('modal-btn-save');
       if (submitBtn) submitBtn.disabled = true;
       if (saveBtn)   saveBtn.disabled   = true;
 
+      // Cancel pending auto-save — submit replaces it.
+      if (modalState.autoSaveTimer) {
+        clearTimeout(modalState.autoSaveTimer);
+        modalState.autoSaveTimer = null;
+      }
+
       try {
         var result = await window.api.post(
-          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/submit',
+          '/api/writing/my-assignments/'
+            + encodeURIComponent(modalState.assignmentId) + '/submit',
           { essay_text: text }
         );
-        // Stop any IELTS-mode countdown — the row is now `submitted`
-        // and the timer banner will be gone after the next render.
-        stopCountdown(assignmentId);
 
-        // Phase 2.6 — flagged submission. The backend accepted the
-        // essay (status=delivered, no grading) but stamped is_flagged.
-        // Surface a friendly Vietnamese explanation so the student
-        // understands why there's no feedback waiting and can fix the
-        // issue on the next assignment instead of feeling stuck.
+        if (modalState.countdownInterval) {
+          clearInterval(modalState.countdownInterval);
+          modalState.countdownInterval = null;
+        }
+
+        // Phase 2.6: flagged path surfaces a friendlier alert
+        // (Vietnamese explanation from the backend) instead of the
+        // generic success copy.
         if (result && result.is_flagged) {
           alert(
-            '⚠ ' + (result.message || 'Bài đã nộp nhưng không được chấm.') +
-            '\n\nNếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
+            '⚠ ' + (result.message || 'Bài đã nộp nhưng không được chấm.')
+            + '\n\nNếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
           );
         } else if (!force) {
           alert('✓ Đã nộp bài. Em sẽ nhận kết quả sớm.');
         }
-        // Refresh both tabs — the card moves out of "Bài giao" into
-        // "Bài đã nộp" once the essay row appears.
+
+        closeModal();
         await Promise.all([loadAssignments(), loadEssays()]);
       } catch (err) {
         alert('Lỗi nộp bài: ' + ((err && err.message) || 'không xác định'));
@@ -974,6 +851,20 @@
         if (saveBtn)   saveBtn.disabled   = false;
       }
     }
+
+    function closeModal() {
+      if (modalState.countdownInterval) {
+        clearInterval(modalState.countdownInterval);
+        modalState.countdownInterval = null;
+      }
+      if (modalState.autoSaveTimer) {
+        clearTimeout(modalState.autoSaveTimer);
+        modalState.autoSaveTimer = null;
+      }
+      document.getElementById('submit-modal').classList.add('hidden');
+      modalState.assignmentId = null;
+    }
+
 
     async function loadAssignments() {
       try {
@@ -1055,6 +946,71 @@
       setTabActive('essays');
     });
 
+    // ── Sprint 2.6.1 — wire the submit modal ─────────────────────────
+    (function wireModal() {
+      var textarea = document.getElementById('modal-essay-textarea');
+
+      // Close button: save draft first (best-effort, fire-and-forget
+      // so close feels instant), then teardown.
+      document.getElementById('modal-close').addEventListener('click', function () {
+        if (textarea && textarea.value && modalState.assignmentId) {
+          saveDraft();  // unawaited intentionally
+        }
+        closeModal();
+      });
+
+      document.getElementById('modal-btn-save')
+        .addEventListener('click', function () { saveDraft(); });
+      document.getElementById('modal-btn-submit')
+        .addEventListener('click', function () { submitFromModal(false); });
+
+      textarea.addEventListener('input', function () {
+        updateModalWordCount();
+        scheduleModalAutoSave();
+      });
+      setupAntiPaste(textarea);
+
+      // Phase 2.3c-2 file upload — same contract as before, just
+      // re-wired against the modal's hidden file input.
+      document.getElementById('modal-file-input').addEventListener('change', async function (ev) {
+        var file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+          alert('File quá lớn (tối đa 2MB)');
+          ev.target.value = '';
+          return;
+        }
+
+        var status = document.getElementById('modal-upload-status');
+        status.textContent = '📤 Đang xử lý ' + file.name + '…';
+        status.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
+        status.classList.add('text-gray-400');
+
+        try {
+          var fd = new FormData();
+          fd.append('file', file);
+          var result = await window.api.upload('/api/writing/extract-text', fd);
+
+          var current   = textarea.value;
+          var separator = current.trim() ? '\n\n' : '';
+          textarea.value = current + separator + result.text;
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+          status.textContent = '✓ Đã thêm ' + result.word_count + ' từ';
+          status.classList.remove('text-gray-400');
+          status.classList.add('text-emerald-400');
+          setTimeout(function () { status.classList.add('hidden'); }, 3000);
+        } catch (err) {
+          status.textContent = '✕ ' + ((err && err.message) || 'Lỗi xử lý file');
+          status.classList.remove('text-gray-400');
+          status.classList.add('text-red-400');
+        } finally {
+          ev.target.value = '';
+        }
+      });
+    })();
+
     // ── Logout ──────────────────────────────────────────────────────
     document.getElementById('logout-btn').addEventListener('click', async function () {
       try {
@@ -1066,5 +1022,103 @@
 
     main();
   </script>
+
+  <!--
+    Sprint 2.6.1 — full-screen submit modal.
+    Replaces the inline form-region that lived inside each card.
+    The modal renders the prompt + image + textarea + footer; one
+    instance reused across every assignment.
+
+    `data-gramm` / `data-gramm_editor` / `data-enable-grammarly` are
+    the documented opt-out attributes for the Grammarly extension.
+    Combined with `spellcheck="false"`, `autocorrect="off"`, and
+    `autocomplete="off"` they form the strongest browser-side
+    defence we have against IDE-style "help" leaking into a timed
+    IELTS exercise.
+  -->
+  <div id="submit-modal" class="hidden fixed inset-0 z-50 overflow-y-auto"
+       style="background:#0a1628">
+    <div class="max-w-3xl mx-auto px-4 py-6">
+      <header class="flex items-center justify-between mb-6">
+        <h1 class="text-xl font-semibold" id="modal-title">Làm bài</h1>
+        <button id="modal-close" type="button"
+                class="text-gray-400 hover:text-white text-2xl leading-none"
+                aria-label="Đóng">✕</button>
+      </header>
+
+      <div id="modal-loading" class="text-center py-12 text-gray-400">Đang tải…</div>
+
+      <div id="modal-content" class="hidden">
+        <!-- Timer banner — only shown for IELTS-mode assignments -->
+        <div id="modal-timer" class="hidden mb-4 p-3 rounded flex items-center justify-between"
+             style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25)">
+          <div>
+            <div class="text-xs uppercase tracking-wider text-amber-400 mb-1">⏱️ IELTS-mode</div>
+            <div class="text-xs text-gray-400" id="modal-timer-total">Tổng thời gian: — phút</div>
+          </div>
+          <div id="modal-timer-display" class="text-3xl font-mono font-bold text-amber-400">--:--</div>
+        </div>
+
+        <!-- Prompt panel -->
+        <div class="mb-4 p-4 rounded" style="background:rgba(255,255,255,0.04)">
+          <div class="text-xs uppercase tracking-wider text-gray-400 mb-2" id="modal-prompt-meta">— · —</div>
+          <h2 class="text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
+          <img id="modal-prompt-image" class="hidden max-w-full rounded mb-3 border border-white/10"
+               alt="" loading="lazy" />
+          <p class="text-sm text-gray-300 leading-relaxed whitespace-pre-line" id="modal-prompt-text">—</p>
+        </div>
+
+        <!-- Optional admin instructions -->
+        <div id="modal-instructions" class="hidden mb-4 p-3 rounded text-xs leading-relaxed"
+             style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);color:#fcd34d">
+          📌 <span id="modal-instructions-text"></span>
+        </div>
+
+        <!-- File upload -->
+        <div class="mb-3 flex items-center gap-3">
+          <label class="inline-flex items-center gap-1 text-sm text-teal-400 hover:text-teal-300 cursor-pointer">
+            <span>📎 Tải file (.docx, .txt)</span>
+            <input id="modal-file-input" type="file" class="hidden" accept=".docx,.txt" />
+          </label>
+          <span id="modal-upload-status" class="hidden text-xs"></span>
+        </div>
+
+        <!-- Essay textarea — Grammarly + autocorrect + spellcheck disabled -->
+        <textarea id="modal-essay-textarea"
+                  class="w-full rounded p-3 text-sm text-white"
+                  style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);min-height:24rem"
+                  rows="20"
+                  placeholder="Bắt đầu viết bài…"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  data-gramm="false"
+                  data-gramm_editor="false"
+                  data-enable-grammarly="false"></textarea>
+
+        <!-- Footer -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mt-3">
+          <div class="text-xs text-gray-400 flex items-center gap-3">
+            <span><span id="modal-word-counter">0</span> từ</span>
+            <span id="modal-save-status" class="hidden text-emerald-400">✓ Đã lưu draft</span>
+            <span id="modal-save-pending" class="hidden text-amber-300">💾 Đang lưu…</span>
+          </div>
+          <div class="flex gap-2">
+            <button id="modal-btn-save" type="button"
+                    class="text-sm rounded px-4 py-2"
+                    style="background:rgba(255,255,255,0.06);color:#e2e8f0;border:1px solid rgba(255,255,255,0.10)">
+              Lưu bản nháp
+            </button>
+            <button id="modal-btn-submit" type="button"
+                    class="text-sm font-medium rounded px-4 py-2"
+                    style="background:#0d9488;color:#fff">
+              Nộp bài
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
