@@ -93,6 +93,87 @@ def test_create_essay_rejects_invalid_model():
     assert r.status_code == 422
 
 
+# ── Sprint 2.7a — grading_tier on submission ─────────────────────────
+
+
+def test_create_essay_default_grading_tier_is_standard():
+    """A pre-2.7a client that doesn't send `grading_tier` must hit the
+    grader with `tier='standard'` (backward-compat). The router fills
+    the default; the service-layer call sees it on the data dict."""
+    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 45}
+    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
+
+    body = _valid_create_body()
+    assert "grading_tier" not in body  # sanity — we're testing the missing case
+
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.create_essay_with_job",
+               return_value=info) as mock_create, \
+         patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+
+    assert r.status_code == 202, r.text
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs["data"]["grading_tier"] == "standard", (
+        "Missing grading_tier must default to 'standard' so pre-2.7a "
+        "clients keep their pipeline behaviour"
+    )
+
+
+def test_create_essay_propagates_grading_tier_quick():
+    """An explicit grading_tier='quick' is forwarded to essay_service
+    (and thence to the writing_essays.grading_tier column + GraderConfig)."""
+    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 12}
+    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
+
+    body = _valid_create_body()
+    body["grading_tier"] = "quick"
+
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.create_essay_with_job",
+               return_value=info) as mock_create, \
+         patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+
+    assert r.status_code == 202, r.text
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs["data"]["grading_tier"] == "quick"
+
+
+def test_create_essay_rejects_invalid_grading_tier():
+    """Unknown tier strings get rejected at the Pydantic boundary so
+    the service layer never sees a bad value."""
+    body = _valid_create_body()
+    body["grading_tier"] = "premium"  # not in {quick, standard, deep, instructor}
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+    assert r.status_code == 422
+
+
+def test_create_essay_accepts_reserved_tiers_at_api_boundary():
+    """Deep + Instructor are forward-defined enum values (Sprint 2.7b/c).
+    The API accepts them at the boundary so the picker can render them
+    as disabled-coming-soon options without 422-blocking the submit;
+    the grader is what raises NotImplementedError when a Deep/Instructor
+    job actually runs (covered in test_writing_grader_tier.py)."""
+    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 60}
+    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
+
+    for tier in ("deep", "instructor"):
+        body = _valid_create_body()
+        body["grading_tier"] = tier
+        with patch("routers.admin_writing.require_admin",
+                   new=AsyncMock(return_value=_ADMIN_USER)), \
+             patch("routers.admin_writing.essay_service.create_essay_with_job",
+                   return_value=info), \
+             patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
+            r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+        assert r.status_code == 202, f"{tier}: {r.text}"
+
+
 # ── Payload size guards (W2.2 audit) ─────────────────────────────────
 
 def test_submission_rejects_oversize_essay():

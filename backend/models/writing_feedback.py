@@ -10,9 +10,29 @@ Conditional analysis fields populate based on `analysis_level`:
   Level 4-5 — + lexicalAnalysis, sentenceStructureAnalysis
 """
 
+from enum import Enum
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, conint, confloat, model_validator
+
+
+# ── Sprint 2.7a — grading tier ────────────────────────────────────────
+
+class GradingTier(str, Enum):
+    """Grading depth tier (Sprint 2.7a foundation).
+
+    quick      — Flash model, 5-section subset, ~$0.01, ~10s. Sprint 2.7a.
+    standard   — Pro model, full 12-section analysis. Sprint 2.7a default.
+    deep       — Pro multi-pass + sentence rewrite. Sprint 2.7b (reserved).
+    instructor — AI Standard + human edit + note. Sprint 2.7c (reserved).
+
+    Reserved values raise NotImplementedError in the grader until 2.7b/c
+    land — the enum is forward-defined so migration 044 doesn't churn.
+    """
+    QUICK = "quick"
+    STANDARD = "standard"
+    DEEP = "deep"
+    INSTRUCTOR = "instructor"
 
 
 # ── Sub-types ─────────────────────────────────────────────────────────
@@ -207,6 +227,35 @@ class WritingFeedback(BaseModel):
     recurringPatterns: Optional[dict] = None
 
 
+# ── Sprint 2.7a — Quick tier subset schema ────────────────────────────
+
+class WritingFeedbackQuick(BaseModel):
+    """Quick tier output — 5-section subset of WritingFeedback.
+
+    The 5 sections (per Sprint 2.7a spec):
+      1-4. The 4 IELTS criteria scores, kept inside the existing
+           `criteriaFeedback` bundle so per-criterion DB columns
+           (band_main_criterion etc.) and the renderer's card-criterion
+           markup keep working unchanged.
+      5.   `mistakeAnalysis` — actionable feedback for the student.
+
+    Plus `overallBandScore` + `overallBandScoreSummary` so the result
+    page header can render. NOT included (vs. WritingFeedback): keyTakeaways,
+    aiContentAnalysis, improvedEssay, and all conditional analyses
+    (idea/coherence/counterargument/lexical/sentenceStructure) plus
+    history-aware fields. Token-minimised for Flash + ~$0.01 essays.
+
+    Renderers consume `feedback_json` and skip null sections via
+    `isEmpty()` (writing-renderers.js) so the Standard pipeline keeps
+    working when the row's `feedback_json` is the Quick subset.
+    """
+
+    overallBandScore: confloat(ge=0, le=9)
+    overallBandScoreSummary: str
+    criteriaFeedback: CriteriaFeedbackBundle
+    mistakeAnalysis: List[MistakeAnalysis]
+
+
 # ── Input/config types ────────────────────────────────────────────────
 
 class GraderConfig(BaseModel):
@@ -221,6 +270,12 @@ class GraderConfig(BaseModel):
     analysis_level: conint(ge=1, le=5)
     form_of_address: Literal['bạn', 'em', 'anh', 'chị'] = 'em'
     selected_model: Literal['gemini-2.5-pro', 'gemini-2.5-flash'] = 'gemini-2.5-pro'
+
+    # Sprint 2.7a — grading depth tier. Default 'standard' so historical
+    # callers and existing tests keep their pre-2.7a behaviour. Quick
+    # tier overrides `selected_model` internally inside the grader (Quick
+    # always uses GEMINI_FLASH_MODEL regardless of this field's value).
+    grading_tier: GradingTier = GradingTier.STANDARD
 
     # Phase 1.5a (recurring-patterns aggregator): pre-aggregated dict
     # produced by services.writing_history.get_recurring_patterns(),
@@ -250,9 +305,21 @@ class GraderConfig(BaseModel):
 
 
 class GradingResult(BaseModel):
-    """Wrapper around feedback + metadata."""
+    """Wrapper around feedback + metadata.
 
-    feedback: WritingFeedback
+    `feedback` is the union of WritingFeedback (Standard/Deep/Instructor
+    tiers) and WritingFeedbackQuick (Quick tier). Pydantic accepts both
+    via the parent class; consumers discriminate on `grading_tier` or
+    on the presence of optional fields. The pipeline (`essay_service.
+    _bg_grade_essay` line 297-311) reads `overallBandScore` and the
+    nested `criteriaFeedback.<criterion>.bandScore` — both shapes have
+    those, so the persistence path is shape-agnostic.
+    """
+
+    # Pydantic v2 allows the union via `BaseModel` superclass; we type
+    # as `BaseModel` explicitly so static checkers don't reject the
+    # Quick subset at construction time.
+    feedback: BaseModel
 
     model_used: str
     tokens_input: Optional[int] = None
@@ -260,3 +327,12 @@ class GradingResult(BaseModel):
     cost_usd: Optional[float] = None
     grading_duration_ms: int
     prompt_version: str
+
+    # Sprint 2.7a — surface tier on the result so callers (essay_service
+    # persistence, future telemetry) can introspect without re-reading
+    # the writing_essays row. Mirrors the value on GraderConfig.
+    grading_tier: GradingTier = GradingTier.STANDARD
+
+    # Allow the BaseModel (WritingFeedback OR WritingFeedbackQuick) to
+    # be assigned without strict mode rejecting the subclass.
+    model_config = {"arbitrary_types_allowed": True}

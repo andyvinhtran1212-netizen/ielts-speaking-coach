@@ -18,6 +18,25 @@
     .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
     textarea.input { font-family: ui-monospace, SFMono-Regular, monospace; }
     .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+
+    /* Sprint 2.7a — tier picker */
+    .tier-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.625rem; }
+    .tier-option { cursor:pointer; }
+    .tier-option input { position:absolute; opacity:0; pointer-events:none; }
+    .tier-card {
+      display:flex; flex-direction:column; gap:0.25rem;
+      padding:0.875rem 1rem; border-radius:10px;
+      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.10);
+      transition:border-color 0.15s, background 0.15s;
+    }
+    .tier-option input:checked + .tier-card {
+      border-color:#14b8a6; background:rgba(20,184,166,0.08);
+    }
+    .tier-option.disabled .tier-card { opacity:0.5; cursor:not-allowed; }
+    .tier-option.disabled { cursor:not-allowed; }
+    .tier-name { font-size:14px; font-weight:600; color:#e2e8f0; }
+    .tier-meta { font-size:11px; color:#9ca3af; }
+    .tier-desc { font-size:12px; color:#cbd5e1; line-height:1.45; margin-top:0.25rem; }
   </style>
 </head>
 <body>
@@ -90,6 +109,45 @@
         </div>
       </div>
 
+      <!-- Sprint 2.7a — Grading depth tier -->
+      <div>
+        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Grading tier</label>
+        <div class="tier-picker mt-2">
+          <label class="tier-option">
+            <input type="radio" name="grading_tier" value="quick">
+            <div class="tier-card">
+              <span class="tier-name">Quick</span>
+              <span class="tier-meta">~10s · 5 sections · Flash</span>
+              <span class="tier-desc">Band scores + key mistakes. Cheap, fast iteration.</span>
+            </div>
+          </label>
+          <label class="tier-option">
+            <input type="radio" name="grading_tier" value="standard" checked>
+            <div class="tier-card">
+              <span class="tier-name">Standard</span>
+              <span class="tier-meta">~30–60s · 12 sections · Pro</span>
+              <span class="tier-desc">Full analysis: improved essay, lexical, counterargument.</span>
+            </div>
+          </label>
+          <label class="tier-option disabled" title="Coming Sprint 2.7b">
+            <input type="radio" name="grading_tier" value="deep" disabled>
+            <div class="tier-card">
+              <span class="tier-name">Deep</span>
+              <span class="tier-meta">Coming Sprint 2.7b</span>
+              <span class="tier-desc">Multi-pass + sentence rewrite.</span>
+            </div>
+          </label>
+          <label class="tier-option disabled" title="Coming Sprint 2.7c">
+            <input type="radio" name="grading_tier" value="instructor" disabled>
+            <div class="tier-card">
+              <span class="tier-name">Instructor</span>
+              <span class="tier-meta">Coming Sprint 2.7c</span>
+              <span class="tier-desc">AI Standard + human edit + note.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <!-- Prompt + Essay -->
       <div>
         <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Đề bài (prompt) *</label>
@@ -156,12 +214,16 @@
       btn.textContent = 'Đang gửi…';
 
       var foa = document.querySelector('input[name="foa"]:checked');
+      // Sprint 2.7a — tier picker. Default 'standard' if no radio is
+      // selected (defensive — the form ships with one checked).
+      var tier = document.querySelector('input[name="grading_tier"]:checked');
       var payload = {
         student_id:      document.getElementById('f-student').value,
         task_type:       document.getElementById('f-task-type').value,
         analysis_level:  parseInt(document.getElementById('f-level').value, 10),
         selected_model:  document.getElementById('f-model').value,
         form_of_address: foa ? foa.value : 'em',
+        grading_tier:    tier ? tier.value : 'standard',
         prompt_text:     document.getElementById('f-prompt').value.trim(),
         essay_text:      document.getElementById('f-essay').value.trim(),
       };

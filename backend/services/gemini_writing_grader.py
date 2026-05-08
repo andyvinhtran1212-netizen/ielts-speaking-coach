@@ -29,7 +29,13 @@ import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
 
 from config import settings
-from models.writing_feedback import GraderConfig, GradingResult, WritingFeedback
+from models.writing_feedback import (
+    GraderConfig,
+    GradingResult,
+    GradingTier,
+    WritingFeedback,
+    WritingFeedbackQuick,
+)
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
 
@@ -90,48 +96,94 @@ class GeminiWritingGrader:
     async def grade_essay(self, config: GraderConfig) -> GradingResult:
         """Grade an essay per config. Returns GradingResult with feedback + metadata.
 
+        Sprint 2.7a: tier-aware. Standard tier (default) keeps the
+        pre-2.7a Pro+12-section pipeline bit-for-bit identical. Quick
+        tier swaps in `loader.load_quick()` + Flash model + the
+        WritingFeedbackQuick subset schema. Deep + Instructor tiers are
+        reserved for Sprint 2.7b/c — calling them now raises
+        NotImplementedError with a pointer at the responsible sprint.
+
         Raises:
             AISafetyBlockError — content blocked by safety filter (no retry made)
             APIRetryFailedError — all 3 retries exhausted
             InvalidJSONError — response not valid JSON / schema mismatch
+            NotImplementedError — Deep / Instructor tier (Sprint 2.7b/c)
+            ValueError — unknown tier value
         """
         start = time.time()
 
         # Sprint 2.6.1 hotfix: resolve loader per call so a mid-process
-        # WRITING_PROMPT_VERSION change is honoured. The same loader
-        # instance is reused for both .load() and .PROMPT_VERSION below
-        # so the stamp can never drift from the prompt actually sent.
+        # WRITING_PROMPT_VERSION change is honoured. Sprint 2.7a: also
+        # resolve tier per call (anti-pattern #28) — never cache tier
+        # state on `self` because get_grader() is a process-wide
+        # singleton and a cached tier would lock all subsequent calls.
         loader = get_prompt_loader()
+        tier = config.grading_tier
 
-        system_prompt = loader.load(
-            level=config.analysis_level,
-            form_of_address=config.form_of_address,
-        )
+        # Tier dispatch — pick prompt, model, response schema, stamp.
+        if tier == GradingTier.QUICK:
+            system_prompt = loader.load_quick(
+                level=config.analysis_level,
+                form_of_address=config.form_of_address,
+            )
+            # Quick tier always uses Flash, regardless of selected_model.
+            # The whole point of Quick is the cost/latency profile of
+            # Flash; an admin who set selected_model='gemini-2.5-pro'
+            # then chose Quick gets Flash anyway.
+            model_name = settings.GEMINI_FLASH_MODEL
+            response_schema = WritingFeedbackQuick
+            # Stamp suffix lets A/B SQL split Quick rows from Standard
+            # without a separate column lookup:
+            #   GROUP BY split_part(prompt_version, '-', 1),
+            #            COALESCE(split_part(prompt_version, '-', 2), 'standard')
+            stamp = f"{loader.PROMPT_VERSION}-quick"
+        elif tier == GradingTier.STANDARD:
+            system_prompt = loader.load(
+                level=config.analysis_level,
+                form_of_address=config.form_of_address,
+            )
+            model_name = config.selected_model
+            response_schema = WritingFeedback
+            stamp = loader.PROMPT_VERSION
+        elif tier == GradingTier.DEEP:
+            raise NotImplementedError(
+                "Deep tier (multi-pass + sentence rewrite) is planned for "
+                "Sprint 2.7b. Use 'quick' or 'standard' for now."
+            )
+        elif tier == GradingTier.INSTRUCTOR:
+            raise NotImplementedError(
+                "Instructor tier (human-reviewed) is planned for Sprint "
+                "2.7c. Use 'quick' or 'standard' for now."
+            )
+        else:
+            raise ValueError(f"Unknown grading tier: {tier!r}")
+
         user_prompt = self._build_user_prompt(config)
 
         response_text, usage = await self._call_with_retry(
-            model_name=config.selected_model,
+            model_name=model_name,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
         )
 
-        feedback = self._parse_response(response_text)
+        feedback = self._parse_response(response_text, schema=response_schema)
 
         duration_ms = int((time.time() - start) * 1000)
         cost = self._calculate_cost(
-            model=config.selected_model,
+            model=model_name,
             tokens_in=usage.get("input_tokens"),
             tokens_out=usage.get("output_tokens"),
         )
 
         return GradingResult(
             feedback=feedback,
-            model_used=config.selected_model,
+            model_used=model_name,
             tokens_input=usage.get("input_tokens"),
             tokens_output=usage.get("output_tokens"),
             cost_usd=cost,
             grading_duration_ms=duration_ms,
-            prompt_version=loader.PROMPT_VERSION,
+            prompt_version=stamp,
+            grading_tier=tier,
         )
 
     # ── Internal helpers ──────────────────────────────────────────────
@@ -225,11 +277,16 @@ class GeminiWritingGrader:
 
         raise APIRetryFailedError(f"All {MAX_RETRIES} retries failed: {last_error}")
 
-    def _parse_response(self, response_text: str) -> WritingFeedback:
-        """Parse Gemini JSON response → WritingFeedback.
+    def _parse_response(self, response_text: str, schema=WritingFeedback):
+        """Parse Gemini JSON response → schema instance.
 
         Defensively extracts the outermost {...} even if Gemini adds prose
         around the JSON despite response_mime_type='application/json'.
+
+        Sprint 2.7a: takes a `schema` parameter so Quick tier can parse
+        into WritingFeedbackQuick (5-section subset) instead of the full
+        WritingFeedback. Default is WritingFeedback so historical
+        callers keep their pre-2.7a behaviour.
         """
         first = response_text.find("{")
         last = response_text.rfind("}")
@@ -244,7 +301,7 @@ class GeminiWritingGrader:
             raise InvalidJSONError(f"JSON parse failed: {e}") from e
 
         try:
-            return WritingFeedback(**data)
+            return schema(**data)
         except Exception as e:
             raise InvalidJSONError(f"Schema validation failed: {e}") from e
 

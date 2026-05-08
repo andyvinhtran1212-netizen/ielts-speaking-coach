@@ -36,6 +36,12 @@
     .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); }
     .badge-manual    { background: rgba(245,158,11,0.18); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .badge-regraded  { background: rgba(99,102,241,0.18); color: #a5b4fc; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    /* Sprint 2.7a — grading tier badge */
+    .tier-badge      { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .tier-quick      { background: rgba(253,224,71,0.20);  color: #fde68a; }
+    .tier-standard   { background: rgba(167,139,250,0.20); color: #c4b5fd; }
+    .tier-deep       { background: rgba(244,114,182,0.20); color: #f9a8d4; }
+    .tier-instructor { background: rgba(74,222,128,0.20);  color: #86efac; }
     .header-actions  { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
     .btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 6px 11px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
     .btn:hover { background: rgba(255,255,255,0.1); }
@@ -496,6 +502,10 @@
             <span id="regrade-wrap" class="hidden">
               <span class="separator">·</span>
               <span id="regrade-badge" class="badge-regraded" title="Bài đã được chấm lại bởi admin">🔄 Đã chấm lại</span>
+            </span>
+            <span id="tier-wrap" class="hidden">
+              <span class="separator">·</span>
+              <span id="tier-badge" class="tier-badge tier-standard" title="Grading tier">Standard</span>
             </span>
           </p>
         </div>
@@ -1736,6 +1746,18 @@
       var n = detail.regrade_count || 0;
       regradeWrap.classList.toggle('hidden', n < 1);
       document.getElementById('regrade-badge').textContent = '🔄 Đã chấm lại' + (n > 1 ? ' (×' + n + ')' : '');
+
+      // Sprint 2.7a — grading tier badge. Hidden for the default
+      // "standard" tier (existing essays + the dominant Standard
+      // pipeline don't need a redundant label); shown for any
+      // non-standard tier so admins immediately see Quick / Deep /
+      // Instructor essays at a glance.
+      var tier = (detail.grading_tier || 'standard').toLowerCase();
+      var tierWrap = document.getElementById('tier-wrap');
+      var tierBadge = document.getElementById('tier-badge');
+      tierWrap.classList.toggle('hidden', tier === 'standard');
+      tierBadge.textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
+      tierBadge.className = 'tier-badge tier-' + tier;
 
       // Read-only essay
       var promptBox = document.getElementById('prompt-box');
