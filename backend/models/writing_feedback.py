@@ -19,17 +19,26 @@ from pydantic import BaseModel, Field, conint, confloat, model_validator
 # ── Sprint 2.7a — grading tier ────────────────────────────────────────
 
 class GradingTier(str, Enum):
-    """Grading depth tier (Sprint 2.7a foundation).
+    """Grading depth tier (Sprint 2.7a foundation; Quick removed 2.7a.1).
 
-    quick      — Flash model, 5-section subset, ~$0.01, ~10s. Sprint 2.7a.
-    standard   — Pro model, full 12-section analysis. Sprint 2.7a default.
+    standard   — Pro model, full 12-section analysis. The only tier that
+                 runs an actual Gemini call today.
+    quick      — Removed in Sprint 2.7a.1. The 5-section subset conflicted
+                 with Levels L3-L5 which target sections Quick dropped
+                 (counterargument, lexical, sentence-structure). The enum
+                 value stays so legacy rows + Postgres `grading_tier_enum`
+                 don't need a destructive migration; the API layer rejects
+                 with 400 and the grader raises ValueError as defence-in-
+                 depth.
     deep       — Pro multi-pass + sentence rewrite. Sprint 2.7b (reserved).
     instructor — AI Standard + human edit + note. Sprint 2.7c (reserved).
 
     Reserved values raise NotImplementedError in the grader until 2.7b/c
-    land — the enum is forward-defined so migration 044 doesn't churn.
+    land. Legacy enum value stays so migration 044 + the database enum
+    type don't churn; pruning Postgres enum values is a destructive,
+    multi-step operation we explicitly chose not to do (TECH_DEBT #36).
     """
-    QUICK = "quick"
+    QUICK = "quick"          # removed 2.7a.1; enum value retained
     STANDARD = "standard"
     DEEP = "deep"
     INSTRUCTOR = "instructor"
@@ -227,35 +236,6 @@ class WritingFeedback(BaseModel):
     recurringPatterns: Optional[dict] = None
 
 
-# ── Sprint 2.7a — Quick tier subset schema ────────────────────────────
-
-class WritingFeedbackQuick(BaseModel):
-    """Quick tier output — 5-section subset of WritingFeedback.
-
-    The 5 sections (per Sprint 2.7a spec):
-      1-4. The 4 IELTS criteria scores, kept inside the existing
-           `criteriaFeedback` bundle so per-criterion DB columns
-           (band_main_criterion etc.) and the renderer's card-criterion
-           markup keep working unchanged.
-      5.   `mistakeAnalysis` — actionable feedback for the student.
-
-    Plus `overallBandScore` + `overallBandScoreSummary` so the result
-    page header can render. NOT included (vs. WritingFeedback): keyTakeaways,
-    aiContentAnalysis, improvedEssay, and all conditional analyses
-    (idea/coherence/counterargument/lexical/sentenceStructure) plus
-    history-aware fields. Token-minimised for Flash + ~$0.01 essays.
-
-    Renderers consume `feedback_json` and skip null sections via
-    `isEmpty()` (writing-renderers.js) so the Standard pipeline keeps
-    working when the row's `feedback_json` is the Quick subset.
-    """
-
-    overallBandScore: confloat(ge=0, le=9)
-    overallBandScoreSummary: str
-    criteriaFeedback: CriteriaFeedbackBundle
-    mistakeAnalysis: List[MistakeAnalysis]
-
-
 # ── Input/config types ────────────────────────────────────────────────
 
 class GraderConfig(BaseModel):
@@ -307,18 +287,14 @@ class GraderConfig(BaseModel):
 class GradingResult(BaseModel):
     """Wrapper around feedback + metadata.
 
-    `feedback` is the union of WritingFeedback (Standard/Deep/Instructor
-    tiers) and WritingFeedbackQuick (Quick tier). Pydantic accepts both
-    via the parent class; consumers discriminate on `grading_tier` or
-    on the presence of optional fields. The pipeline (`essay_service.
-    _bg_grade_essay` line 297-311) reads `overallBandScore` and the
-    nested `criteriaFeedback.<criterion>.bandScore` — both shapes have
-    those, so the persistence path is shape-agnostic.
+    `feedback` is a WritingFeedback. Sprint 2.7a accepted WritingFeedbackQuick
+    here too via a BaseModel union; Sprint 2.7a.1 removed Quick so the
+    only live shape is WritingFeedback again. The base-class type hint
+    is preserved (rather than narrowed to `WritingFeedback`) so future
+    Deep/Instructor tier subclasses can flow through without re-touching
+    this signature.
     """
 
-    # Pydantic v2 allows the union via `BaseModel` superclass; we type
-    # as `BaseModel` explicitly so static checkers don't reject the
-    # Quick subset at construction time.
     feedback: BaseModel
 
     model_used: str

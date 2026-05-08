@@ -103,8 +103,36 @@ async def create_essay(
     authorization: str | None = Header(None),
 ):
     """Submit essay for grading. Returns 202 with essay_id + job_id + ETA.
-    Grading runs asynchronously in the BG worker (in-task retry only)."""
+    Grading runs asynchronously in the BG worker (in-task retry only).
+
+    Sprint 2.7a.1 — Quick tier was removed (orthogonality conflict with
+    persona Levels L3-L5: those Levels target sections that Quick drops).
+    Deep + Instructor are reserved for Sprint 2.7b/c. Standard is the
+    only tier that runs an actual grade today; everything else is a
+    400 here so the bad request never reaches the BG queue.
+    """
     admin = await require_admin(authorization)
+
+    if body.grading_tier == "quick":
+        raise HTTPException(
+            400,
+            "Quick tier was removed in Sprint 2.7a.1 (orthogonality "
+            "conflict: Levels L3–L5 target sections that Quick drops). "
+            "Use 'standard' tier with the appropriate Level (L1–L5) "
+            "instead — Levels and tiers are now independent axes.",
+        )
+    if body.grading_tier == "deep":
+        raise HTTPException(
+            400,
+            "Deep tier (multi-pass + sentence rewrite) is reserved for "
+            "Sprint 2.7b. Use 'standard' for now.",
+        )
+    if body.grading_tier == "instructor":
+        raise HTTPException(
+            400,
+            "Instructor tier (human-reviewed) is reserved for Sprint "
+            "2.7c. Use 'standard' for now.",
+        )
 
     data = body.model_dump()
     data["student_id"] = str(data["student_id"])  # UUID → str for Supabase

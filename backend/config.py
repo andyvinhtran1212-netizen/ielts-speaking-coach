@@ -65,14 +65,15 @@ class Settings(BaseSettings):
     # lets Andy diff quality metrics by version.
     WRITING_PROMPT_VERSION: str = "v1"
 
-    # Sprint 2.7a — Writing grading tier model selectors. Standard tier
-    # uses GEMINI_PRO_MODEL by default (Pro, full 12-section analysis);
-    # admins can still override per-essay via the existing
-    # `selected_model` field on CreateEssayRequest. Quick tier always
-    # uses GEMINI_FLASH_MODEL regardless of selected_model — the cheap
-    # 5-section pass is the whole point of Quick. Settings let ops swap
-    # the underlying Gemini model name without a code change if Google
-    # renames or releases new versions.
+    # Sprint 2.7a — Writing grading model selectors. Standard tier uses
+    # GEMINI_PRO_MODEL by default (Pro, full 12-section analysis);
+    # admins can still override per-essay to Flash via the existing
+    # `selected_model` field on CreateEssayRequest. Sprint 2.7a.1 removed
+    # the Quick tier (orthogonality conflict with Levels L3-L5), so
+    # GEMINI_FLASH_MODEL no longer has an automatic call site today —
+    # it stays as named config for the per-essay Flash override and so
+    # ops can swap the underlying Gemini model name without a code
+    # change if Google renames or releases new versions.
     GEMINI_PRO_MODEL: str = "gemini-2.5-pro"
     GEMINI_FLASH_MODEL: str = "gemini-2.5-flash"
 

@@ -53,9 +53,12 @@
     .band-display {
       color: #14b8a6; font-weight: 600; font-size: 1rem;
     }
-    /* Sprint 2.7a — grading tier badge (mirrors admin-writing-grade.html) */
+    /* Sprint 2.7a — grading tier badge (Quick removed 2.7a.1; mirrors
+       admin-writing-grade.html). The .tier-quick rule stays as a
+       neutral fallback for any legacy 'quick' row that slipped past
+       migration 045 — UI shouldn't crash on stale data. */
     .tier-badge      { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-    .tier-quick      { background: rgba(253,224,71,0.20);  color: #fde68a; }
+    .tier-quick      { background: rgba(148,163,184,0.20); color: #cbd5e1; }
     .tier-standard   { background: rgba(167,139,250,0.20); color: #c4b5fd; }
     .tier-deep       { background: rgba(244,114,182,0.20); color: #f9a8d4; }
     .tier-instructor { background: rgba(74,222,128,0.20);  color: #86efac; }
@@ -507,7 +510,10 @@
         (feedback.overall_band_score != null ? feedback.overall_band_score : '—');
 
       // Sprint 2.7a — grading tier badge. Hidden for default 'standard';
-      // shown for Quick (and any future Deep/Instructor).
+      // shown for any non-standard tier (Deep/Instructor when those land,
+      // and the legacy 'quick' fallback if a row slipped past migration
+      // 045 — Quick was removed in Sprint 2.7a.1 but the badge still
+      // renders neutrally so stale rows don't break the UI).
       var tier = (essay.grading_tier || 'standard').toLowerCase();
       var tierWrap = document.getElementById('tier-wrap');
       var tierBadge = document.getElementById('tier-badge');
@@ -516,10 +522,6 @@
         tierBadge.textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
         tierBadge.className = 'tier-badge tier-' + tier;
       }
-      // Quick tier doesn't support .docx export (server returns 400);
-      // hide the download button rather than surfacing the error.
-      var btnDownload = document.getElementById('btn-download');
-      if (btnDownload) btnDownload.classList.toggle('hidden', tier === 'quick');
 
       // Body — original essay
       document.getElementById('essay-text').textContent = essay.essay_text || '—';

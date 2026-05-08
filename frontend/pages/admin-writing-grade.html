@@ -36,9 +36,11 @@
     .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); }
     .badge-manual    { background: rgba(245,158,11,0.18); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .badge-regraded  { background: rgba(99,102,241,0.18); color: #a5b4fc; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    /* Sprint 2.7a — grading tier badge */
+    /* Sprint 2.7a — grading tier badge (Quick removed 2.7a.1; tier-quick
+       fallback kept as neutral chip in case any legacy 'quick' row
+       slipped through without migration 045 — never crashes the UI). */
     .tier-badge      { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .tier-quick      { background: rgba(253,224,71,0.20);  color: #fde68a; }
+    .tier-quick      { background: rgba(148,163,184,0.20); color: #cbd5e1; }
     .tier-standard   { background: rgba(167,139,250,0.20); color: #c4b5fd; }
     .tier-deep       { background: rgba(244,114,182,0.20); color: #f9a8d4; }
     .tier-instructor { background: rgba(74,222,128,0.20);  color: #86efac; }
