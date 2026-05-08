@@ -58,6 +58,15 @@ async def get_queue(
         default=None,
         description="Filter to reviews claimed by this instructor (e.g. 'my claims' view).",
     ),
+    essay_id: Optional[UUID] = Query(
+        default=None,
+        description="Filter to the review for one essay. Sprint 2.7d.2: "
+                    "the admin grading page uses this to fetch the review "
+                    "row without scanning the full queue. Note: the default "
+                    "status filter is still applied — pass status=queued,"
+                    "claimed,delivered explicitly when the essay's review "
+                    "may already be in any of those states.",
+    ),
     authorization: str | None = Header(default=None),
 ) -> list[InstructorQueueItem]:
     """List instructor queue items joined with essay + student email.
@@ -80,6 +89,7 @@ async def get_queue(
     return instructor_workflow.get_queue(
         status_filter=status_filter,
         instructor_id=instructor_id,
+        essay_id=essay_id,
     )
 
 

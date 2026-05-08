@@ -207,11 +207,16 @@
     <a id="error-back" href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
   </div>
 
-  <!-- Not-yet-delivered state -->
+  <!-- Not-yet-delivered state. Sprint 2.7d.2: title + body are
+       set dynamically so Instructor-tier essays show a tier-aware
+       message (24-48h human review) instead of the generic
+       "duyệt" wording. The Standard/Deep wording is the default
+       (used when grading_tier is unset or not 'instructor'). -->
   <div id="state-not-delivered" class="state-block hidden">
-    <div class="icon">⏳</div>
-    <h2>Bài đang được duyệt</h2>
-    <p>Giảng viên đang xem lại feedback. Em sẽ thấy kết quả khi bài được duyệt xong.</p>
+    <div class="icon" id="not-delivered-icon">⏳</div>
+    <h2 id="not-delivered-title">Bài đang được duyệt</h2>
+    <p id="not-delivered-body">Giảng viên đang xem lại feedback. Em sẽ thấy kết quả khi bài được duyệt xong.</p>
+    <p id="not-delivered-meta" class="hidden" style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:8px;"></p>
     <a id="not-delivered-back" href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
   </div>
 
@@ -518,6 +523,31 @@
 
       // Status gate — only delivered essays show feedback.
       if (essay.status !== 'delivered' || !feedback) {
+        // Sprint 2.7d.2 — tier-aware not-delivered messaging.
+        // Instructor essays sit in 'graded' (or similar non-delivered)
+        // for ~24-48h waiting on a human. The generic "đang được
+        // duyệt" copy is fine for legacy essays; Instructor tier
+        // gets a more specific message + a submission timestamp so
+        // the student knows what they're waiting for.
+        var tierLower = (essay.grading_tier || 'standard').toLowerCase();
+        var titleEl = document.getElementById('not-delivered-title');
+        var bodyEl  = document.getElementById('not-delivered-body');
+        var metaEl  = document.getElementById('not-delivered-meta');
+        var iconEl  = document.getElementById('not-delivered-icon');
+
+        if (tierLower === 'instructor') {
+          if (iconEl)  iconEl.textContent  = '👤';
+          if (titleEl) titleEl.textContent = 'Giảng viên đang review bài';
+          if (bodyEl)  bodyEl.textContent  =
+            'Bài của em đang được giảng viên review trực tiếp. Thời gian ' +
+            'thường ~24–48 giờ. Em sẽ thấy feedback đầy đủ và tin nhắn ' +
+            'từ giảng viên ngay tại đây khi xong.';
+          if (metaEl) {
+            metaEl.textContent = 'Đã nộp: ' + formatDate(essay.created_at);
+            metaEl.classList.remove('hidden');
+          }
+        }
+        // Else: leave the default Vietnamese copy in the HTML.
         showState('state-not-delivered');
         return;
       }

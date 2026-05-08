@@ -44,6 +44,40 @@
     .tier-standard   { background: rgba(167,139,250,0.20); color: #c4b5fd; }
     .tier-deep       { background: rgba(244,114,182,0.20); color: #f9a8d4; }
     .tier-instructor { background: rgba(74,222,128,0.20);  color: #86efac; }
+
+    /* Sprint 2.7d.2 — Instructor review panel. Only renders when the
+       essay is Instructor-tier; the variant shown depends on the
+       review's status + whether the current admin is the claimant. */
+    .instructor-panel {
+      margin: 12px 0 16px; padding: 14px 18px; border-radius: 10px;
+      background: rgba(74,222,128,0.06);
+      border: 1px solid rgba(74,222,128,0.20);
+    }
+    .instructor-panel.locked {
+      background: rgba(234,179,8,0.06);
+      border-color: rgba(234,179,8,0.25);
+    }
+    .instructor-panel.delivered {
+      background: rgba(148,163,184,0.06);
+      border-color: rgba(148,163,184,0.20);
+    }
+    .instructor-panel-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 600; color: #86efac;
+    }
+    .instructor-panel.locked    .instructor-panel-title { color: #fde68a; }
+    .instructor-panel.delivered .instructor-panel-title { color: #cbd5e1; }
+    .instructor-panel-meta { font-size: 11.5px; color: rgba(255,255,255,0.55); margin-top: 4px; }
+    .instructor-panel textarea {
+      width: 100%; margin-top: 10px; min-height: 70px; padding: 8px 10px;
+      background: rgba(0,0,0,0.20); border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 6px; color: #e2e8f0; font-size: 13px; line-height: 1.5;
+      font-family: 'Inter', ui-sans-serif, system-ui;
+    }
+    .instructor-panel textarea:focus { outline: none; border-color: #14b8a6; }
+    .instructor-panel-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .instructor-panel-hint { font-size: 11.5px; color: rgba(255,255,255,0.45); margin-top: 8px; line-height: 1.5; }
+
     .header-actions  { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
     .btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 6px 11px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
     .btn:hover { background: rgba(255,255,255,0.1); }
@@ -523,6 +557,30 @@
       </div>
     </header>
 
+    <!-- Sprint 2.7d.2 — Instructor review panel. Hidden by default;
+         loadInstructorContext() unhides + populates with one of three
+         variants (claimed by me / locked by other / delivered). -->
+    <aside id="instructor-panel" class="instructor-panel hidden" style="display: none;">
+      <div class="instructor-panel-title" id="instructor-panel-title"></div>
+      <div class="instructor-panel-meta"  id="instructor-panel-meta"></div>
+
+      <textarea
+        id="instructor-note-input"
+        placeholder="Tin nhắn cho học viên (tùy chọn) — sẽ hiện trên trang kết quả sau khi deliver..."
+        maxlength="1000"
+      ></textarea>
+
+      <div class="instructor-panel-actions" id="instructor-panel-actions">
+        <button id="btn-instructor-deliver" class="btn btn-primary" type="button">✓ Mark delivered</button>
+        <button id="btn-instructor-release" class="btn"            type="button">↩ Release claim</button>
+      </div>
+
+      <p class="instructor-panel-hint">
+        Lưu các edit bằng nút <strong>💾 Save edits</strong> ở header trước. Khi sẵn sàng,
+        bấm <strong>Mark delivered</strong> — học viên sẽ thấy feedback + tin nhắn ngay sau đó.
+      </p>
+    </aside>
+
     <!-- Sprint 2.5.3 — 4-tab body shell -->
     <div class="grade-body">
       <!-- Sticky tab bar -->
@@ -764,6 +822,11 @@
     // bookmarks).  Prefer the spec name when both are present.
     var _qs = new URLSearchParams(window.location.search);
     var _essayId = _qs.get('id') || _qs.get('essay_id');
+
+    // Sprint 2.7d.2 — current admin user_id, captured from /auth/me
+    // by WC.bootstrap onReady. Used by the instructor panel to gate
+    // Mark Delivered / Release Claim on ownership of the review row.
+    var _currentAdminId = null;
 
     // ── Section key map ──────────────────────────────────────────
     // Section ID (DOM) → feedback_json key.  Drives both the read-side
@@ -1761,6 +1824,13 @@
       tierBadge.textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
       tierBadge.className = 'tier-badge tier-' + tier;
 
+      // Sprint 2.7d.2 — Instructor tier panel. Loaded async so the
+      // rest of populate() doesn't block on a queue fetch. Standard /
+      // Deep essays skip this entirely.
+      if (tier === 'instructor') {
+        loadInstructorContext(detail.id || _essayId);
+      }
+
       // Read-only essay
       var promptBox = document.getElementById('prompt-box');
       promptBox.textContent = detail.prompt_text ? '📝 ' + detail.prompt_text : '';
@@ -1776,6 +1846,168 @@
         populate(detail);
       } catch (err) {
         setAlert('error', 'Không tải được essay: ' + err.message);
+      }
+    }
+
+    // ── Sprint 2.7d.2 — Instructor review panel ──────────────────
+    //
+    // Triggered from populate() when essay.grading_tier == 'instructor'.
+    // Fetches the queue row for THIS essay (essay_id filter — Sprint
+    // 2.7d.2 backend extension) across all states the panel cares
+    // about, then renders one of three variants. The legacy
+    // header `btn-deliver` is hidden whenever the panel takes over;
+    // Instructor delivery flows through the queue endpoint, not the
+    // legacy /mark-delivered path.
+
+    var _currentReview = null;
+
+    async function loadInstructorContext(essayId) {
+      try {
+        // Pass all status values the panel handles. Default of
+        // {queued, claimed} would miss already-delivered essays so
+        // we explicitly request the broader set.
+        var qs = ['queued', 'claimed', 'edited', 'delivered']
+          .map(function (s) { return 'status=' + encodeURIComponent(s); })
+          .join('&') + '&essay_id=' + encodeURIComponent(essayId);
+        var items = await window.api.get('/admin/instructor/queue?' + qs);
+        _currentReview = (items && items.length) ? items[0].review : null;
+      } catch (err) {
+        // Non-fatal — log and leave panel hidden. Admin can still
+        // edit the essay; just no instructor-flow controls.
+        if (window.console) console.warn('[instructor] queue fetch failed:', err);
+        return;
+      }
+
+      if (!_currentReview) {
+        // Edge case: tier=instructor but no review row (create_review
+        // post-grading hook failed). Surface a soft warning so the
+        // admin knows the queue is in an inconsistent state.
+        setAlert('warn', 'Bài tier Instructor nhưng chưa có review row. Có thể cần regrade để re-tạo queue entry.');
+        return;
+      }
+
+      renderInstructorPanel(_currentReview);
+    }
+
+    function _hidePanelButton(buttonId) {
+      var b = document.getElementById(buttonId);
+      if (b) b.style.display = 'none';
+    }
+
+    function renderInstructorPanel(review) {
+      var panel       = document.getElementById('instructor-panel');
+      var titleEl     = document.getElementById('instructor-panel-title');
+      var metaEl      = document.getElementById('instructor-panel-meta');
+      var noteEl      = document.getElementById('instructor-note-input');
+      var actionsEl   = document.getElementById('instructor-panel-actions');
+      var status      = review.status;
+      var isMine      = !!_currentAdminId && review.claimed_by === _currentAdminId;
+
+      panel.classList.remove('locked', 'delivered');
+      panel.style.display = '';
+
+      if (status === 'delivered') {
+        // Read-only — admin can review what was delivered, but no
+        // further action.
+        panel.classList.add('delivered');
+        titleEl.innerHTML = '✓ Đã giao cho học viên';
+        metaEl.textContent = review.delivered_at
+          ? 'Delivered ' + WC.escapeHtml(_relTime(review.delivered_at))
+          : 'Delivered';
+        noteEl.value = review.instructor_note || '';
+        noteEl.disabled = true;
+        actionsEl.style.display = 'none';
+        // Legacy delivery button is irrelevant in this state.
+        _hidePanelButton('btn-deliver');
+        return;
+      }
+
+      if (status === 'claimed' && isMine) {
+        // Active state — the admin can edit + deliver + release.
+        titleEl.innerHTML = '🟢 Bạn đã claim bài này';
+        metaEl.textContent = review.claimed_at
+          ? 'Claimed ' + WC.escapeHtml(_relTime(review.claimed_at))
+          : 'Claimed by you';
+        noteEl.value = review.instructor_note || '';
+        noteEl.disabled = false;
+        actionsEl.style.display = '';
+        // Hide the legacy mark-delivered button — Instructor flow
+        // uses the queue's deliver endpoint instead, which atomically
+        // updates the review row + writing_essays.instructor_note +
+        // writing_feedback prompt_version stamp.
+        _hidePanelButton('btn-deliver');
+        return;
+      }
+
+      if (status === 'claimed' && !isMine) {
+        // Locked by another admin — read-only warning. We don't hide
+        // the regular Save button (it would 500 / 409 if they try),
+        // but the panel makes the lock explicit.
+        panel.classList.add('locked');
+        titleEl.innerHTML = '🔒 Bài đang được instructor khác review';
+        metaEl.textContent = 'Locked. Không nên save edits cho đến khi họ release hoặc deliver.';
+        noteEl.disabled = true;
+        actionsEl.style.display = 'none';
+        _hidePanelButton('btn-deliver');
+        return;
+      }
+
+      // queued / edited / released — fall back to claimed-by-other UX
+      // (panel visible but no per-admin actions). Claim happens from
+      // the queue page, not here.
+      titleEl.innerHTML = '⏳ Trong hàng đợi instructor';
+      metaEl.textContent = 'Vào /pages/admin-instructor-queue.html để claim trước khi review.';
+      noteEl.disabled = true;
+      actionsEl.style.display = 'none';
+      _hidePanelButton('btn-deliver');
+    }
+
+    function _relTime(iso) {
+      try {
+        var d = new Date(iso);
+        var diffH = (Date.now() - d) / (1000 * 60 * 60);
+        if (diffH < 1) return Math.round(diffH * 60) + ' phút trước';
+        if (diffH < 24) return Math.round(diffH) + 'h trước';
+        return d.toLocaleDateString('vi-VN');
+      } catch (_) { return iso; }
+    }
+
+    async function handleInstructorDeliver() {
+      if (!_currentReview) return;
+      if (_isDirty) {
+        if (!confirm('Bạn có edits chưa lưu. Save trước khi deliver?')) return;
+        // User chose to proceed without saving — surface the risk.
+      }
+      var note = (document.getElementById('instructor-note-input').value || '').trim();
+      var msg = 'Deliver bài này cho học viên? Họ sẽ thấy feedback + tin nhắn ngay sau đó. ' +
+                'Đảm bảo bạn đã Save edits qua nút 💾 ở header.';
+      if (!confirm(msg)) return;
+
+      try {
+        await window.api.post(
+          '/admin/instructor/reviews/' + encodeURIComponent(_currentReview.id) + '/deliver',
+          { instructor_note: note || null },
+        );
+        setAlert('success', 'Đã deliver. Học viên có thể xem bài.');
+        // Reload to surface the read-only delivered state cleanly.
+        setTimeout(function () { window.location.reload(); }, 1200);
+      } catch (err) {
+        setAlert('error', 'Lỗi deliver: ' + (err.message || ''));
+      }
+    }
+
+    async function handleInstructorRelease() {
+      if (!_currentReview) return;
+      var msg = 'Release claim? Bài về queue cho instructor khác. ' +
+                'Edits đã save vẫn giữ; edits chưa save sẽ mất.';
+      if (!confirm(msg)) return;
+      try {
+        await window.api.post(
+          '/admin/instructor/reviews/' + encodeURIComponent(_currentReview.id) + '/release', {},
+        );
+        window.location.href = '/pages/admin-instructor-queue.html';
+      } catch (err) {
+        setAlert('error', 'Lỗi release: ' + (err.message || ''));
       }
     }
 
@@ -1848,11 +2080,16 @@
 
     // ── Bootstrap ────────────────────────────────────────────────
     WC.bootstrap({
-      onReady: function () {
+      onReady: function (me) {
         if (!_essayId) {
           setAlert('error', 'Thiếu essay id trong URL (?id=… hoặc ?essay_id=…).');
           return;
         }
+        // Sprint 2.7d.2 — capture admin id for instructor-panel
+        // ownership checks (Mark Delivered / Release Claim are
+        // gated on review.claimed_by === _currentAdminId).
+        _currentAdminId = me && me.id;
+
         wireNav();
         wireSectionEdits();
         document.getElementById('btn-save').addEventListener('click',     handleSave);
@@ -1860,6 +2097,14 @@
         document.getElementById('btn-download').addEventListener('click', handleDownload);
         document.getElementById('btn-deliver').addEventListener('click',  handleDeliver);
         document.getElementById('btn-regrade').addEventListener('click',  handleRegrade);
+
+        // Sprint 2.7d.2 — instructor panel buttons. Wired even when
+        // panel is hidden; renderInstructorPanel toggles visibility.
+        document.getElementById('btn-instructor-deliver')
+          .addEventListener('click', handleInstructorDeliver);
+        document.getElementById('btn-instructor-release')
+          .addEventListener('click', handleInstructorRelease);
+
         loadEssay();
       },
     });
