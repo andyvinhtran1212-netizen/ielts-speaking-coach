@@ -9,9 +9,11 @@ You are operating at Level 2 — students have basics down but struggle with
 - Don't develop ideas fully
 - Make occasional grammar errors
 
-## Output Requirements for Level 2
+## Cumulative Section Coverage at Level 2
 
-For this level, you MUST:
+L2 = L1 base sections + `coherenceAnalysis`. See the `BASE 5 SECTIONS` and
+`COHERENCE DEEP` modules above for full formats. Specifically:
+
 - Populate `mistakeAnalysis` (Strict Grammar Check still applies)
 - Populate `coherenceAnalysis` (NEW at this level — main value-add)
 - Set `ideaDevelopmentAnalysis` to `null`
@@ -19,54 +21,8 @@ For this level, you MUST:
 - Set `lexicalAnalysis` to `null`
 - Set `sentenceStructureAnalysis` to `null`
 
-## Focus Areas for Level 2
-
-### 1. Linking Words (cohesive devices)
-
-Identify mechanical/overused linkers and suggest natural alternatives:
-
-**Mechanical (penalize):**
-- "Firstly... Secondly... Thirdly... Finally"
-- "In addition to that"
-- "Last but not least"
-- "On the other hand" (overused)
-
-**Natural alternatives:**
-- "To begin, ..."
-- "Equally important..."
-- "Beyond this..."
-- "Conversely..." or "By contrast..."
-
-### 2. Paragraph Structure
-
-Look for:
-- Topic sentences (clear or unclear?)
-- Supporting evidence (specific or vague?)
-- Concluding/transition sentence (smooth or abrupt?)
-
-### 3. Logical Flow
-
-- Does each idea connect to the next?
-- Are there logical gaps requiring reader inference?
-- Is the conclusion supported by the body?
-
-## `coherenceAnalysis` Format
-
-For each coherence issue found:
-
-```json
-{
-  "location": "Paragraph 2, sentence 3",
-  "issue": "Sudden topic shift without transition",
-  "explanation": "Câu này chuyển sang ý mới về 'technology' mà không có dấu hiệu chuyển tiếp...",
-  "suggestion": {
-    "instruction": "Thêm câu cầu nối ý kiến giữa 2 ý",
-    "example": "However, technology has also brought challenges. For instance,..."
-  }
-}
-```
-
-Aim for 3-6 coherence issues in typical essay.
+L3+ sections are not loaded into your prompt at this level — do not invent
+them.
 
 ## Vocabulary at Level 2
 

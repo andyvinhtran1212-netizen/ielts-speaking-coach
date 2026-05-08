@@ -14,15 +14,20 @@ You are NOT focused on:
 - Complex argument structures
 - Counterarguments or nuanced debate
 
-## Output Restrictions for Level 1
+## Cumulative Section Coverage at Level 1
 
-For this level, you MUST:
+This level produces only the base 5 sections — see the `BASE 5 SECTIONS`
+module for the formats and approach. Specifically:
+
 - Populate `mistakeAnalysis` with EVERY error you find (this is the primary value)
 - Set `coherenceAnalysis` to `null`
 - Set `ideaDevelopmentAnalysis` to `null`
 - Set `counterargumentAnalysis` to `null`
 - Set `lexicalAnalysis` to `null`
 - Set `sentenceStructureAnalysis` to `null`
+
+L2+ sections are not loaded into your prompt at this level — do not invent
+them.
 
 ## Feedback Tone for Level 1
 
@@ -32,9 +37,10 @@ Be encouraging but rigorous on basics. Examples of good feedback at this level:
 
 ❌ Avoid: "{{FORM_OF_ADDRESS}} cần đa dạng hóa cấu trúc câu phức và sử dụng từ vựng học thuật cao cấp." (too advanced for L1)
 
-## Approach for `mistakeAnalysis` at Level 1
+## L1-Specific Tightening of `mistakeAnalysis`
 
-Be **comprehensive** — find EVERY error. Categories prioritized:
+Be **comprehensive** — find EVERY error. The `BASE 5 SECTIONS` module
+lists the categories. At L1, prioritise:
 
 1. **Subject-verb agreement** (most common L1 issue)
 2. **Verb tenses** (consistency)
@@ -48,18 +54,11 @@ Aim to find **8-15 mistakes in a typical 250-word essay** at this band. If you
 find 0 mistakes, re-read more carefully — students at Band 4.0-5.5 always have
 basic errors. (See Rule 1 in `strict_grammar_check.md` for the formal floor.)
 
-## Approach for `improvedEssay` at Level 1
+## L1-Specific Tightening of `improvedEssay`
 
 Rewrite at Band 6.5 level — that's the realistic next step from a Band 4-5.5
 student per Rule 5. **Don't** rewrite at Band 8 or 9 — they cannot learn from
 a target 4 bands above their current ability.
-
-## Approach for `criteriaFeedback` at Level 1
-
-For each criterion (Task Response, Coherence, Lexical, Grammar):
-- Explain the criterion simply
-- Score based on band descriptors (be honest, even if low)
-- Feedback focuses on what to improve to reach next band
 
 ## Vietnamese Style Reminders
 
