@@ -152,14 +152,41 @@ async def test_quick_tier_raises_value_error_with_removal_message(grader):
         await grader.grade_essay(cfg)
 
 
-# ── Instructor — reserved tier ────────────────────────────────────────
+# ── Sprint 2.7d.1 — Instructor tier ───────────────────────────────────
+
 
 @pytest.mark.asyncio
-async def test_instructor_tier_raises_not_implemented_with_sprint_pointer(grader):
-    """Instructor tier is reserved for Sprint 2.7c."""
+async def test_instructor_tier_runs_standard_pass1_with_pending_stamp(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Instructor tier reuses _grade_standard for AI Pass 1 and
+    stamps `-instructor-pending` so a SQL filter can split
+    awaiting-review essays from delivered ones. The grader returns
+    the Standard feedback unchanged; the queue/claim/deliver
+    lifecycle lives in instructor_workflow.py."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
+
+    captured_calls: list[str] = []
+    async def fake_call(model_name, system_prompt, user_prompt):
+        captured_calls.append(model_name)
+        return json.dumps(VALID_FEEDBACK_STANDARD), {"input_tokens": 100, "output_tokens": 100}
+
     cfg = _standard_config(grading_tier=GradingTier.INSTRUCTOR)
-    with pytest.raises(NotImplementedError, match="2.7c"):
-        await grader.grade_essay(cfg)
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    # Single Gemini call — Instructor is AI Standard + queue, not multi-pass.
+    assert len(captured_calls) == 1
+    assert result.grading_tier == GradingTier.INSTRUCTOR
+    # Stamp ends with -instructor-pending so the deliver action can
+    # strip the suffix and replace with -instructor cleanly.
+    assert result.prompt_version == "v2.1-instructor-pending", (
+        f"Expected -instructor-pending stamp, got {result.prompt_version!r}"
+    )
+    # Feedback shape identical to Standard — Pass 1 IS Standard.
+    assert isinstance(result.feedback, WritingFeedback)
+    assert result.feedback.overallBandScore == VALID_FEEDBACK_STANDARD["overallBandScore"]
 
 
 # ── Sprint 2.7b — Deep tier 3-pass flow ───────────────────────────────

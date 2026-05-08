@@ -193,19 +193,29 @@ def test_create_essay_deep_tier_succeeds_after_2_7b():
     assert kwargs["data"]["grading_tier"] == "deep"
 
 
-def test_create_essay_rejects_instructor_tier_with_2_7c_pointer():
-    """Instructor tier is reserved for Sprint 2.7c — same gate as Deep."""
+def test_create_essay_instructor_tier_succeeds_after_2_7d_1():
+    """Sprint 2.7d.1: Instructor tier is now live. The API accepts
+    the request (no 400 gate), forwards 'instructor' to essay_service,
+    and schedules the BG grading job. AI Pass 1 will run; the queue
+    row is created post-grading by the _bg_grade_essay hook (covered
+    in test_essay_service_instructor_hook). Replaces the 2.7a-era
+    rejection test that asserted the 2.7c pointer."""
+    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 60}
+    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
+
     body = _valid_create_body()
     body["grading_tier"] = "instructor"
 
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.essay_service.create_essay_with_job") as mock_create:
+         patch("routers.admin_writing.essay_service.create_essay_with_job",
+               return_value=info) as mock_create, \
+         patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
         r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
 
-    assert r.status_code == 400
-    assert "2.7c" in r.json().get("detail", "")
-    mock_create.assert_not_called()
+    assert r.status_code == 202, r.text
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs["data"]["grading_tier"] == "instructor"
 
 
 def test_create_essay_rejects_invalid_grading_tier():

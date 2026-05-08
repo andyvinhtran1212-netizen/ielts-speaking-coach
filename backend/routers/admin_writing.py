@@ -122,13 +122,11 @@ async def create_essay(
             "instead — Levels and tiers are now independent axes.",
         )
     # Sprint 2.7b: 'deep' is now allowed (3-pass flow ships).
-    # 'instructor' stays gated until Sprint 2.7c.
-    if body.grading_tier == "instructor":
-        raise HTTPException(
-            400,
-            "Instructor tier (human-reviewed) is reserved for Sprint "
-            "2.7c. Use 'standard' or 'deep' for now.",
-        )
+    # Sprint 2.7d.1: 'instructor' is now allowed — AI Standard Pass 1
+    # grades the essay, then a queue row is created for human review.
+    # The student doesn't see the feedback until an admin delivers
+    # the review (instructor_workflow.deliver flips writing_essays
+    # status='delivered'). Quick is the only tier still rejected here.
 
     data = body.model_dump()
     data["student_id"] = str(data["student_id"])  # UUID → str for Supabase
