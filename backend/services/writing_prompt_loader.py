@@ -121,6 +121,60 @@ class WritingPromptLoader:
         full_prompt = full_prompt.replace("{{FORM_OF_ADDRESS}}", form_of_address)
         return full_prompt
 
+    # ── Sprint 2.7b — Deep tier prompts (Pass 2 + Pass 3) ─────────────
+    #
+    # Both pass prompts are SHARED across L1-L5 (same instructions
+    # regardless of persona). Persona-specific tuning may land in a
+    # later iteration; the spec explicitly defers per-level Pass 2/3
+    # variants.
+
+    DEEP_PASS2_FILE = "shared/deep_pass2_refine.md"
+    DEEP_PASS3_FILE = "shared/deep_pass3_rewrite.md"
+
+    def load_deep_pass2(
+        self,
+        level: Literal[1, 2, 3, 4, 5],
+    ) -> str:
+        """Load the Pass 2 (refinement) prompt for Deep tier grading.
+
+        Pass 2 is a delta-against-Pass-1 review, not a re-grade. The
+        prompt is currently shared across all 5 levels — `level` is
+        accepted for parity with `load()` so a future per-level
+        Pass 2 variant doesn't break the call site signature.
+
+        Sprint 2.7b. Deep is v2-only by the same logic that gates
+        load_quick was — the cost/quality story relies on v2's
+        structured rules. v1 has no Deep variant.
+        """
+        if self.version == "v1":
+            raise ValueError(
+                "Deep tier is only supported on v2+. Current version: "
+                f"{self.version!r}. Set WRITING_PROMPT_VERSION=v2 (or "
+                f"pass version='v2' explicitly) to enable Deep grading."
+            )
+        if level not in self.LEVEL_FILES:
+            raise ValueError(f"Invalid level: {level}. Must be 1-5.")
+        # The level-specific load() return-value isn't needed here —
+        # we just want the same per-version cache + loud-fail behaviour
+        # on missing files that `_load_file` provides.
+        return self._load_file(self.DEEP_PASS2_FILE)
+
+    def load_deep_pass3(
+        self,
+        level: Literal[1, 2, 3, 4, 5],
+    ) -> str:
+        """Load the Pass 3 (sentence rewrite) prompt for Deep tier
+        grading. Same shared-across-levels pattern as load_deep_pass2.
+        """
+        if self.version == "v1":
+            raise ValueError(
+                "Deep tier is only supported on v2+. Current version: "
+                f"{self.version!r}."
+            )
+        if level not in self.LEVEL_FILES:
+            raise ValueError(f"Invalid level: {level}. Must be 1-5.")
+        return self._load_file(self.DEEP_PASS3_FILE)
+
     def list_available_levels(self) -> list[int]:
         return sorted(self.LEVEL_FILES.keys())
 

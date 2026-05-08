@@ -280,10 +280,42 @@
   flex: 1; min-width: 200px;
 }
 
+/* Sprint 2.7b — Deep tier sentenceRewrites (Pass 3 output) */
+.rewrite-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-left: 3px solid #f9a8d4;       /* matches .tier-deep accent */
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 0.625rem;
+}
+.rewrite-row {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  font-size: 13.5px; line-height: 1.6; margin-bottom: 0.25rem;
+}
+.rewrite-label {
+  flex-shrink: 0; width: 4.5rem;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: #9ca3af;
+}
+.rewrite-text {
+  flex: 1; color: #e2e8f0;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+.rewrite-original .rewrite-text  { color: #fca5a5; }
+.rewrite-improved .rewrite-text  { color: #6ee7b7; }
+.rewrite-rationale {
+  margin-top: 0.5rem; padding-top: 0.5rem;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  color: #cbd5e1; font-size: 12.5px; line-height: 1.55;
+}
+
 /* Mobile collapse */
 @media (max-width: 1024px) {
   .criteria-grid       { grid-template-columns: 1fr; }
   .stat-grid           { grid-template-columns: 1fr; }
   .criterion-mini-grid { grid-template-columns: repeat(2, 1fr); }
   .takeaway-grid       { grid-template-columns: 1fr; }
+  .rewrite-row         { flex-direction: column; }
+  .rewrite-label       { width: auto; }
 }

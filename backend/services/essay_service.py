@@ -51,9 +51,22 @@ _ETA_TABLE: dict[tuple[int, str], int] = {
 _ETA_DEFAULT_SECONDS = 60
 
 
-def estimate_eta_seconds(*, analysis_level: int, selected_model: str) -> int:
-    """Lookup grading-time estimate for (level, model). Used for client
-    polling UX — not authoritative."""
+def estimate_eta_seconds(
+    *,
+    analysis_level: int,
+    selected_model: str,
+    grading_tier: str = "standard",
+) -> int:
+    """Lookup grading-time estimate for (level, model, tier). Used for
+    client polling UX — not authoritative.
+
+    Sprint 2.7b: Deep tier overrides the (level, model) table. Deep
+    runs three sequential Gemini calls; the per-pass timeouts are
+    90 / 90 / 180s, so a generous estimate for the polling client
+    is ~3 minutes (180s). Standard tier behaviour unchanged.
+    """
+    if grading_tier == "deep":
+        return 240  # ~4 min — covers all three passes plus margin
     return _ETA_TABLE.get((analysis_level, selected_model), _ETA_DEFAULT_SECONDS)
 
 
@@ -159,6 +172,7 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
     eta = estimate_eta_seconds(
         analysis_level=analysis_level,
         selected_model=selected_model,
+        grading_tier=grading_tier,
     )
     return {"essay_id": essay["id"], "eta_seconds": eta}
 
@@ -168,6 +182,7 @@ def schedule_grading_job(
     essay_id: str,
     analysis_level: int,
     selected_model: str = "gemini-2.5-pro",
+    grading_tier: str = "standard",
 ) -> dict:
     """Sprint 2.7.1: insert ONE writing_jobs row pointing at an
     already-created essay. Returns {"job_id": <uuid>, "eta_seconds": <int>}.
@@ -198,6 +213,7 @@ def schedule_grading_job(
     eta = estimate_eta_seconds(
         analysis_level=analysis_level,
         selected_model=selected_model,
+        grading_tier=grading_tier,
     )
     return {"job_id": job["id"], "eta_seconds": eta}
 
@@ -220,6 +236,7 @@ def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
             essay_id=essay_id,
             analysis_level=data["analysis_level"],
             selected_model=data.get("selected_model", "gemini-2.5-pro"),
+            grading_tier=data.get("grading_tier", "standard"),
         )
     except HTTPException:
         # Roll back the orphan essay so the legacy contract holds:
@@ -320,9 +337,20 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             "grading_duration_ms":      result.grading_duration_ms,
         }
         supabase_admin.table("writing_feedback").insert(feedback_row).execute()
-        supabase_admin.table("writing_essays").update({
-            "status": "graded",
-        }).eq("id", essay_id).execute()
+
+        # Sprint 2.7b — persist Deep tier per-pass metadata to the
+        # writing_essays.grading_tier_metadata JSONB column so the
+        # cost/latency/degradation breakdown is queryable without
+        # re-running the grader. Standard tier writes {} (the existing
+        # writing_feedback flat columns already carry single-pass
+        # tokens / cost / duration). Empty dicts skipped to avoid
+        # unnecessary writes.
+        essay_update: dict = {"status": "graded"}
+        if result.tier_metadata:
+            essay_update["grading_tier_metadata"] = result.tier_metadata
+        supabase_admin.table("writing_essays").update(
+            essay_update,
+        ).eq("id", essay_id).execute()
         supabase_admin.table("writing_jobs").update({
             "status":       "completed",
             "completed_at": _now(),
@@ -494,10 +522,18 @@ def get_essay_render_context(essay_id: str) -> dict:
 
 
 def get_essay_status(essay_id: str) -> dict:
-    """Lightweight status payload for polling. Cheaper than full detail."""
+    """Lightweight status payload for polling. Cheaper than full detail.
+
+    Sprint 2.7b: also returns `grading_tier` so the polling page can
+    show tier-aware messaging (e.g. Deep tier rotates Pass 1/2/3
+    progress hints over the longer 3-5 minute wait).
+    """
     er = (
         supabase_admin.table("writing_essays")
-        .select("id, status, error_message, analysis_level, selected_model, created_at")
+        .select(
+            "id, status, error_message, analysis_level, "
+            "selected_model, grading_tier, created_at"
+        )
         .eq("id", essay_id)
         .limit(1)
         .execute()
@@ -506,14 +542,17 @@ def get_essay_status(essay_id: str) -> dict:
         raise HTTPException(404, "Essay not found")
     essay = er.data[0]
 
+    grading_tier = essay.get("grading_tier") or "standard"
     eta = estimate_eta_seconds(
         analysis_level=essay["analysis_level"],
         selected_model=essay["selected_model"],
+        grading_tier=grading_tier,
     )
     return {
         "essay_id":      essay["id"],
         "status":        essay["status"],
         "error_message": essay.get("error_message"),
         "eta_seconds":   eta,
+        "grading_tier":  grading_tier,
         "created_at":    essay["created_at"],
     }

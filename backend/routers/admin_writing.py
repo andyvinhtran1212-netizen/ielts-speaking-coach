@@ -121,17 +121,13 @@ async def create_essay(
             "Use 'standard' tier with the appropriate Level (L1–L5) "
             "instead — Levels and tiers are now independent axes.",
         )
-    if body.grading_tier == "deep":
-        raise HTTPException(
-            400,
-            "Deep tier (multi-pass + sentence rewrite) is reserved for "
-            "Sprint 2.7b. Use 'standard' for now.",
-        )
+    # Sprint 2.7b: 'deep' is now allowed (3-pass flow ships).
+    # 'instructor' stays gated until Sprint 2.7c.
     if body.grading_tier == "instructor":
         raise HTTPException(
             400,
             "Instructor tier (human-reviewed) is reserved for Sprint "
-            "2.7c. Use 'standard' for now.",
+            "2.7c. Use 'standard' or 'deep' for now.",
         )
 
     data = body.model_dump()

@@ -170,20 +170,27 @@ def test_create_essay_rejects_quick_tier_with_400():
     mock_create.assert_not_called()
 
 
-def test_create_essay_rejects_deep_tier_with_2_7b_pointer():
-    """Deep tier is reserved for Sprint 2.7b — API rejects with 400
-    naming the sprint so admins know when to expect support."""
+def test_create_essay_deep_tier_succeeds_after_2_7b():
+    """Sprint 2.7b: Deep tier is now live. The API accepts the request
+    (no 400 gate), forwards 'deep' to essay_service, and schedules the
+    BG grading job. Replaces the 2.7a-era rejection test that asserted
+    the 2.7b pointer."""
+    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 240}
+    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
+
     body = _valid_create_body()
     body["grading_tier"] = "deep"
 
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.essay_service.create_essay_with_job") as mock_create:
+         patch("routers.admin_writing.essay_service.create_essay_with_job",
+               return_value=info) as mock_create, \
+         patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
         r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
 
-    assert r.status_code == 400
-    assert "2.7b" in r.json().get("detail", "")
-    mock_create.assert_not_called()
+    assert r.status_code == 202, r.text
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs["data"]["grading_tier"] == "deep"
 
 
 def test_create_essay_rejects_instructor_tier_with_2_7c_pointer():

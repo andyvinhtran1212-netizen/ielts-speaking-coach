@@ -1,12 +1,17 @@
 """Tests for tier-aware GeminiWritingGrader (Sprint 2.7a foundation;
-Quick removed Sprint 2.7a.1).
+Quick removed Sprint 2.7a.1; Deep added Sprint 2.7b).
 
 Covers:
   - GraderConfig defaults grading_tier to STANDARD (backward compat)
   - Standard tier behaviour bit-for-bit identical pre-2.7a
   - Quick tier raises ValueError ("removed in 2.7a.1") at the grader —
     defence-in-depth; the API layer rejects with 400 first
-  - Deep / Instructor raise NotImplementedError pointing at 2.7b/c
+  - Deep tier 3-pass orchestration: full success, Pass 2 fail → degraded
+    fallback to Pass 1, Pass 3 fail → degraded fallback to merged
+    Pass 1+2; tier_metadata captures per-pass timing/tokens/cost
+  - Deep merge semantics: band-score adjustments applied, added_mistakes
+    appended, removed_mistake_indexes filtered out
+  - Instructor raises NotImplementedError pointing at 2.7c
   - Invalid tier strings rejected at the GraderConfig boundary
   - Removal verification: WritingFeedbackQuick gone; load_quick gone;
     quick/ prompt directory gone
@@ -26,6 +31,7 @@ from models.writing_feedback import (
     GraderConfig,
     GradingTier,
     WritingFeedback,
+    WritingFeedbackDeep,
 )
 from services.gemini_writing_grader import GeminiWritingGrader
 
@@ -146,16 +152,7 @@ async def test_quick_tier_raises_value_error_with_removal_message(grader):
         await grader.grade_essay(cfg)
 
 
-# ── Deep / Instructor — reserved tiers ────────────────────────────────
-
-@pytest.mark.asyncio
-async def test_deep_tier_raises_not_implemented_with_sprint_pointer(grader):
-    """Deep tier is reserved for Sprint 2.7b. The error must name the
-    sprint so a developer hitting this knows when to expect support."""
-    cfg = _standard_config(grading_tier=GradingTier.DEEP)
-    with pytest.raises(NotImplementedError, match="2.7b"):
-        await grader.grade_essay(cfg)
-
+# ── Instructor — reserved tier ────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_instructor_tier_raises_not_implemented_with_sprint_pointer(grader):
@@ -163,6 +160,376 @@ async def test_instructor_tier_raises_not_implemented_with_sprint_pointer(grader
     cfg = _standard_config(grading_tier=GradingTier.INSTRUCTOR)
     with pytest.raises(NotImplementedError, match="2.7c"):
         await grader.grade_essay(cfg)
+
+
+# ── Sprint 2.7b — Deep tier 3-pass flow ───────────────────────────────
+#
+# Pass 1 reuses _grade_standard, so we drive it via _call_with_retry
+# returning the Standard JSON payload. Pass 2 + Pass 3 are private
+# helpers; we mock them directly to keep tests focused on the
+# orchestration contract (success, fallback, merge, telemetry) rather
+# than re-asserting the full prompt-loader path that other tests cover.
+
+
+VALID_PASS2_EMPTY = {
+    "band_score_adjustments": {
+        "overall": None, "mainCriterion": None, "coherenceCohesion": None,
+        "lexicalResource": None, "grammaticalRange": None,
+    },
+    "added_mistakes": [],
+    "removed_mistake_indexes": [],
+    "rationale": "Pass 1 đã chính xác.",
+}
+
+VALID_PASS2_WITH_DELTAS = {
+    "band_score_adjustments": {
+        "overall": 7.0,
+        "mainCriterion": 7,
+        "coherenceCohesion": None,
+        "lexicalResource": None,
+        "grammaticalRange": None,
+    },
+    "added_mistakes": [
+        {
+            "original":    "she go to school",
+            "mistakeType": "Grammar",
+            "explanation": "Sai chia động từ ngôi thứ ba số ít",
+            "suggestion":  "she goes to school",
+            "criterion":   "Grammatical Range",
+        }
+    ],
+    "removed_mistake_indexes": [0],   # drop Pass 1's only mistake
+    "rationale": "Cần thêm lỗi chia động từ; gỡ lỗi không hợp lệ.",
+}
+
+VALID_PASS3_RESPONSE = {
+    "sentence_rewrites": [
+        {
+            "original_sentence":  "I has been study English",
+            "rewritten_sentence": "I have been studying English",
+            "mistakes_addressed": [0],
+            "rationale": "Sửa thì hiện tại hoàn thành tiếp diễn.",
+        },
+        {
+            "original_sentence":  "she go to school",
+            "rewritten_sentence": "She goes to school",
+            "mistakes_addressed": [1],
+            "rationale": "Chia động từ đúng ngôi thứ ba số ít.",
+        },
+    ],
+}
+
+
+def _deep_config(**overrides) -> GraderConfig:
+    base = dict(
+        task_type="task2",
+        prompt_text="Some prompt",
+        essay_text="Some essay",
+        analysis_level=3,
+        grading_tier=GradingTier.DEEP,
+    )
+    base.update(overrides)
+    return GraderConfig(**base)
+
+
+def _patch_v2_loader(monkeypatch):
+    """Pin the prompt version to v2 so Deep tier's load_deep_pass2/3
+    paths don't raise the v1-rejection ValueError mid-test."""
+    from config import settings
+    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_runs_3_passes_on_full_success(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """All 3 passes succeed. Pass 1 returns the Standard payload,
+    Pass 2 returns an empty refinement, Pass 3 returns 1 rewrite.
+    Result is WritingFeedbackDeep stamped 'v2.1-deep'."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    pass2_json = json.dumps(VALID_PASS2_EMPTY)
+    pass3_json = json.dumps({
+        "sentence_rewrites": [VALID_PASS3_RESPONSE["sentence_rewrites"][0]],
+    })
+
+    # _call_with_retry is invoked once per pass — Pass 1 (via
+    # _grade_standard), Pass 2, Pass 3, in order.
+    call_log: list[str] = []
+    async def fake_call(model_name, system_prompt, user_prompt):
+        call_log.append(model_name)
+        if len(call_log) == 1:
+            return pass1_json, {"input_tokens": 3000, "output_tokens": 2000}
+        if len(call_log) == 2:
+            return pass2_json, {"input_tokens": 1500, "output_tokens": 500}
+        return pass3_json, {"input_tokens": 1800, "output_tokens": 1200}
+
+    cfg = _deep_config(selected_model="gemini-2.5-pro")
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    assert len(call_log) == 3, "Deep tier must run exactly 3 Gemini calls"
+    assert result.grading_tier == GradingTier.DEEP
+    assert isinstance(result.feedback, WritingFeedbackDeep)
+    assert result.prompt_version == "v2.1-deep"
+    assert "degraded" not in result.prompt_version
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_includes_sentence_rewrites_on_success(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Pass 3 output flows through to feedback.sentenceRewrites verbatim."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    pass2_json = json.dumps(VALID_PASS2_EMPTY)
+    pass3_json = json.dumps(VALID_PASS3_RESPONSE)
+
+    responses = iter([
+        (pass1_json, {"input_tokens": 100, "output_tokens": 100}),
+        (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
+        (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
+    ])
+    async def fake_call(model_name, system_prompt, user_prompt):
+        return next(responses)
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    assert len(result.feedback.sentenceRewrites) == 2
+    assert result.feedback.sentenceRewrites[0].original_sentence == "I has been study English"
+    assert result.feedback.sentenceRewrites[0].rewritten_sentence == "I have been studying English"
+    assert result.feedback.pass2_refinements is not None
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_pass2_failure_falls_back_to_pass1(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Pass 2 raises → Deep returns Pass 1's feedback, empty rewrites,
+    no pass2_refinements, stamp ends with '-deep-degraded'."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    call_log: list[int] = []
+    async def fake_call(model_name, system_prompt, user_prompt):
+        call_log.append(1)
+        if len(call_log) == 1:
+            return pass1_json, {"input_tokens": 100, "output_tokens": 100}
+        # Pass 2 raises — Pass 3 must NOT be reached.
+        raise RuntimeError("simulated Pass 2 API outage")
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    # Exactly Pass 1 + Pass 2 attempted; Pass 3 skipped.
+    assert len(call_log) == 2
+    assert result.grading_tier == GradingTier.DEEP
+    assert result.prompt_version == "v2.1-deep-degraded"
+    assert isinstance(result.feedback, WritingFeedbackDeep)
+    # Pass 1 feedback preserved bit-for-bit.
+    assert result.feedback.overallBandScore == VALID_FEEDBACK_STANDARD["overallBandScore"]
+    assert result.feedback.sentenceRewrites == []
+    assert result.feedback.pass2_refinements is None
+    assert result.tier_metadata.get("degraded_at") == "pass2"
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_pass3_failure_falls_back_to_merged_pass1_pass2(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Pass 3 raises → Deep returns merged Pass 1+2 feedback, empty
+    rewrites, pass2_refinements preserved, stamp '-deep-degraded'."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    pass2_json = json.dumps(VALID_PASS2_EMPTY)
+    call_log: list[int] = []
+    async def fake_call(model_name, system_prompt, user_prompt):
+        call_log.append(1)
+        if len(call_log) == 1:
+            return pass1_json, {"input_tokens": 100, "output_tokens": 100}
+        if len(call_log) == 2:
+            return pass2_json, {"input_tokens": 50, "output_tokens": 50}
+        raise RuntimeError("simulated Pass 3 API outage")
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    assert len(call_log) == 3, "All 3 passes must be attempted"
+    assert result.prompt_version == "v2.1-deep-degraded"
+    assert isinstance(result.feedback, WritingFeedbackDeep)
+    assert result.feedback.sentenceRewrites == []
+    # Pass 2 result still flows through (refinement worked, only
+    # rewrites were lost) — admin can still see the rationale.
+    assert result.feedback.pass2_refinements is not None
+    assert result.tier_metadata.get("degraded_at") == "pass3"
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_metadata_tracks_per_pass_timing(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """tier_metadata captures pass1/pass2/pass3 entries with
+    duration_ms + token counts. Persisted to writing_essays.
+    grading_tier_metadata for cost telemetry / per-pass cost split."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    pass2_json = json.dumps(VALID_PASS2_EMPTY)
+    pass3_json = json.dumps({"sentence_rewrites": []})
+
+    responses = iter([
+        (pass1_json, {"input_tokens": 3000, "output_tokens": 2000}),
+        (pass2_json, {"input_tokens": 1500, "output_tokens": 500}),
+        (pass3_json, {"input_tokens": 1800, "output_tokens": 1200}),
+    ])
+    async def fake_call(model_name, system_prompt, user_prompt):
+        return next(responses)
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    md = result.tier_metadata
+    for k in ("pass1", "pass2", "pass3"):
+        assert k in md, f"tier_metadata missing {k}"
+        assert "duration_ms" in md[k]
+
+    assert md["pass1"]["tokens_input"] == 3000
+    assert md["pass2"]["tokens_input"] == 1500
+    assert md["pass3"]["tokens_input"] == 1800
+    # Top-level token totals = sum across passes (used for cost
+    # telemetry without summing on the consumer side).
+    assert result.tokens_input == 3000 + 1500 + 1800
+    assert result.tokens_output == 2000 + 500 + 1200
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_band_adjustments_apply_to_merged_feedback(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Pass 2 band_score_adjustments fields override Pass 1's
+    overallBandScore and the corresponding criteriaFeedback bandScore.
+    Non-None fields apply; None fields are no-ops."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    pass2_json = json.dumps(VALID_PASS2_WITH_DELTAS)
+    pass3_json = json.dumps({"sentence_rewrites": []})
+
+    responses = iter([
+        (pass1_json, {"input_tokens": 100, "output_tokens": 100}),
+        (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
+        (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
+    ])
+    async def fake_call(model_name, system_prompt, user_prompt):
+        return next(responses)
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    fb = result.feedback
+    # Pass 2 set overall=7.0, mainCriterion=7. Both must apply.
+    assert fb.overallBandScore == 7.0
+    assert fb.criteriaFeedback.mainCriterion.bandScore == 7
+    # Pass 2 left these as None — Pass 1's values must persist.
+    assert fb.criteriaFeedback.coherenceCohesion.bandScore == 6
+    assert fb.criteriaFeedback.lexicalResource.bandScore == 7
+    assert fb.criteriaFeedback.grammaticalRange.bandScore == 6
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_added_mistakes_appended_to_merged_feedback(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """added_mistakes from Pass 2 land in feedback.mistakeAnalysis
+    (after the kept Pass 1 entries)."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    # Pass 2 adds 1 mistake but does NOT remove any from Pass 1.
+    pass2_payload = {**VALID_PASS2_WITH_DELTAS, "removed_mistake_indexes": []}
+    pass2_json = json.dumps(pass2_payload)
+    pass3_json = json.dumps({"sentence_rewrites": []})
+
+    responses = iter([
+        (pass1_json, {"input_tokens": 100, "output_tokens": 100}),
+        (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
+        (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
+    ])
+    async def fake_call(model_name, system_prompt, user_prompt):
+        return next(responses)
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    mistakes = result.feedback.mistakeAnalysis
+    # Pass 1 had 1 mistake; Pass 2 added 1; none removed → 2 total,
+    # additions appended after kept Pass 1 entries.
+    assert len(mistakes) == 2
+    assert mistakes[0].original == "I has been study"            # Pass 1 kept
+    assert mistakes[1].original == "she go to school"            # Pass 2 added
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_removed_mistakes_filtered_from_merged_feedback(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """removed_mistake_indexes from Pass 2 drops Pass 1 entries by
+    index (defensive against out-of-range indexes — `_merge_pass1_pass2`
+    guards on `0 <= i < len(...)`)."""
+    _patch_v2_loader(monkeypatch)
+
+    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
+    # Pass 2 removes Pass 1's only mistake (index 0) and adds nothing.
+    pass2_payload = {
+        **VALID_PASS2_EMPTY,
+        "removed_mistake_indexes": [0, 99],   # 99 is out of range — must not crash
+    }
+    pass2_json = json.dumps(pass2_payload)
+    pass3_json = json.dumps({"sentence_rewrites": []})
+
+    responses = iter([
+        (pass1_json, {"input_tokens": 100, "output_tokens": 100}),
+        (pass2_json, {"input_tokens": 50,  "output_tokens": 50}),
+        (pass3_json, {"input_tokens": 80,  "output_tokens": 80}),
+    ])
+    async def fake_call(model_name, system_prompt, user_prompt):
+        return next(responses)
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(cfg)
+
+    assert result.feedback.mistakeAnalysis == [], (
+        "Pass 1's only mistake must be removed; out-of-range index 99 ignored"
+    )
+
+
+@pytest.mark.asyncio
+async def test_deep_tier_pass1_failure_re_raises(
+    grader, monkeypatch, reset_loader_cache,
+):
+    """Pass 1 is the baseline — if it fails there's no graceful
+    fallback. The error must propagate so essay_service marks the
+    job as failed (same behaviour as a pre-2.7b Standard failure)."""
+    _patch_v2_loader(monkeypatch)
+
+    async def fake_call(model_name, system_prompt, user_prompt):
+        raise RuntimeError("Pass 1 API outage")
+
+    cfg = _deep_config()
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        with pytest.raises(RuntimeError, match="Pass 1 API outage"):
+            await grader.grade_essay(cfg)
 
 
 # ── Validation at the GraderConfig boundary ───────────────────────────
