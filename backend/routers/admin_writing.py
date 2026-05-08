@@ -51,6 +51,18 @@ class CreateEssayRequest(BaseModel):
         pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash)$",
     )
 
+    # Sprint 2.7a — grading depth tier. Default 'standard' so clients
+    # that pre-date 2.7a (curl scripts, the existing admin form before
+    # the tier-picker UI ships) keep getting the Pro+12-section
+    # pipeline. Quick + Standard active in 2.7a; Deep / Instructor are
+    # accepted at the API boundary (so the picker can offer them as
+    # disabled/coming-soon options) but the grader raises
+    # NotImplementedError until 2.7b/c.
+    grading_tier: str = Field(
+        default="standard",
+        pattern=r"^(quick|standard|deep|instructor)$",
+    )
+
 
 _ALLOWED_DELIVERY_METHODS = {
     "google_docs_paste",

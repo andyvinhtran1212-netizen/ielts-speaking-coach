@@ -48,6 +48,26 @@ class WritingPromptLoader:
         "shared/output_schema_instructions.md",
     ]
 
+    # Sprint 2.7a — Quick tier file map. Each level reuses persona +
+    # anti-fabrication rules from `shared/`, swaps the Standard output
+    # schema for `shared/output_schema_instructions_quick.md` (5-section
+    # subset), and points at a Quick-specific level file under `quick/`.
+    # Calibration is intentionally omitted for Quick (token savings;
+    # acceptable drift trade-off — see the Sprint 2.7a strategic note).
+    QUICK_LEVEL_FILES: dict[int, str] = {
+        1: "quick/system_l1_quick.md",
+        2: "quick/system_l2_quick.md",
+        3: "quick/system_l3_quick.md",
+        4: "quick/system_l4_quick.md",
+        5: "quick/system_l5_quick.md",
+    }
+
+    QUICK_SHARED_FILES: list[str] = [
+        "shared/persona_vn_examiner.md",
+        "shared/strict_grammar_check.md",
+        "shared/output_schema_instructions_quick.md",
+    ]
+
     def __init__(self, version: Optional[str] = None) -> None:
         self.version = version or DEFAULT_VERSION
         self.prompts_dir = PROMPTS_BASE_DIR / self.version
@@ -116,6 +136,38 @@ class WritingPromptLoader:
             components.append(self._load_file(cal_relative))
 
         components.append(self._load_file(self.LEVEL_FILES[level]))
+
+        full_prompt = "\n\n---\n\n".join(components)
+        full_prompt = full_prompt.replace("{{FORM_OF_ADDRESS}}", form_of_address)
+        return full_prompt
+
+    def load_quick(
+        self,
+        level: Literal[1, 2, 3, 4, 5],
+        form_of_address: Literal["bạn", "em", "anh", "chị"] = "em",
+    ) -> str:
+        """Compose the Quick-tier prompt for one grading call (Sprint 2.7a).
+
+        Quick tier reuses the persona + anti-fabrication shared modules
+        (Sprint 2.6.2 quality guards apply on Flash too) but swaps in the
+        smaller `output_schema_instructions_quick.md` (5-section schema,
+        5-step CoT) and a condensed level file under `quick/`.
+
+        Quick is v2-only — v1 has no Quick variant because v1 was the
+        pre-tier baseline; the cost/quality split only makes sense once
+        v2's structured rules exist.
+        """
+        if self.version == "v1":
+            raise ValueError(
+                "Quick tier is only supported on v2+. Current version: "
+                f"{self.version!r}. Set WRITING_PROMPT_VERSION=v2 (or pass "
+                f"version='v2' explicitly) to enable Quick grading."
+            )
+        if level not in self.QUICK_LEVEL_FILES:
+            raise ValueError(f"Invalid level: {level}. Must be 1-5.")
+
+        components: list[str] = [self._load_file(f) for f in self.QUICK_SHARED_FILES]
+        components.append(self._load_file(self.QUICK_LEVEL_FILES[level]))
 
         full_prompt = "\n\n---\n\n".join(components)
         full_prompt = full_prompt.replace("{{FORM_OF_ADDRESS}}", form_of_address)

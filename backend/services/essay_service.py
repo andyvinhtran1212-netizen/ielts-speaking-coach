@@ -117,6 +117,10 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
     analysis_level   = data["analysis_level"]
     form_of_address  = data.get("form_of_address",  "em")
     selected_model   = data.get("selected_model",   "gemini-2.5-pro")
+    # Sprint 2.7a — grading_tier defaults to 'standard' so legacy
+    # callers that don't pass the field get pre-2.7a Pro+12-section
+    # behaviour. Migration 044 backfilled existing rows the same way.
+    grading_tier     = data.get("grading_tier",     "standard")
     prompt_image_url = data.get("prompt_image_url")
     status           = data.get("status",           "pending")
 
@@ -133,6 +137,7 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
         "analysis_level":     analysis_level,
         "form_of_address":    form_of_address,
         "selected_model":     selected_model,
+        "grading_tier":       grading_tier,
         "status":             status,
     }
     # Pull the optional fields through verbatim — None values would
@@ -251,11 +256,13 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
 
         # Load essay payload — student_id pulled in for Phase 1.5a so we
         # can fetch this student's recurring-patterns aggregate before
-        # constructing GraderConfig.
+        # constructing GraderConfig. Sprint 2.7a: also pull
+        # grading_tier so the grader picks the right model + prompt
+        # variant + response schema.
         er = (
             supabase_admin.table("writing_essays")
             .select("task_type, prompt_text, essay_text, analysis_level, "
-                    "form_of_address, selected_model, student_id")
+                    "form_of_address, selected_model, grading_tier, student_id")
             .eq("id", essay_id)
             .limit(1)
             .execute()
@@ -285,6 +292,9 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             analysis_level=essay["analysis_level"],
             form_of_address=essay["form_of_address"],
             selected_model=essay["selected_model"],
+            # Sprint 2.7a — fall back to "standard" if the row predates
+            # migration 044 in some replicated/test environment.
+            grading_tier=essay.get("grading_tier") or "standard",
             history=recurring_patterns,
             trajectory=band_trajectory,
             sentence_structure=sentence_structure,
@@ -437,7 +447,7 @@ def get_essay_render_context(essay_id: str) -> dict:
         supabase_admin.table("writing_essays")
         .select(
             "id, student_id, task_type, prompt_text, essay_text, "
-            "admin_edits_json, status"
+            "admin_edits_json, status, grading_tier"
         )
         .eq("id", essay_id)
         .limit(1)
@@ -446,6 +456,25 @@ def get_essay_render_context(essay_id: str) -> dict:
     if not er.data:
         raise HTTPException(404, "Essay not found")
     essay = er.data[0]
+
+    # Sprint 2.7a — the render/export pipelines (HTML clipboard,
+    # .docx export) consume the full WritingFeedback shape. Quick
+    # tier intentionally omits ~7 sections (improvedEssay,
+    # keyTakeaways, aiContentAnalysis, etc.) so the row's
+    # feedback_json fails WritingFeedback schema validation. Rather
+    # than silently emitting a degraded export, return a clear 400
+    # so admins know to either regrade in Standard or read the Quick
+    # output directly in the admin UI (which uses the GET essay
+    # endpoint and reads raw JSON without schema validation).
+    if essay.get("grading_tier") == "quick":
+        raise HTTPException(
+            400,
+            "Export (HTML / Word) is not supported for Quick tier essays. "
+            "Quick tier returns 5 sections only (4 criteria + mistakes); "
+            "the export templates expect the full 12-section Standard "
+            "feedback. Regrade in Standard tier for an exportable "
+            "feedback document.",
+        )
 
     fr = (
         supabase_admin.table("writing_feedback")
