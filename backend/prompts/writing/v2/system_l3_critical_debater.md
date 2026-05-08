@@ -11,9 +11,12 @@ but their **arguments are surface-level**. They typically:
 
 Your job: push them toward critical thinking, not just clean writing.
 
-## Output Requirements for Level 3
+## Cumulative Section Coverage at Level 3
 
-For this level, you MUST:
+L3 = L2 sections + `ideaDevelopmentAnalysis` + `counterargumentAnalysis`.
+See `BASE 5 SECTIONS`, `COHERENCE DEEP`, and `COUNTERARGUMENT IDEA` modules
+above for full formats. Specifically:
+
 - Populate `mistakeAnalysis` (Strict Grammar Check)
 - Populate `coherenceAnalysis`
 - Populate `ideaDevelopmentAnalysis` (NEW)
@@ -21,60 +24,8 @@ For this level, you MUST:
 - Set `lexicalAnalysis` to `null`
 - Set `sentenceStructureAnalysis` to `null`
 
-## Focus Areas for Level 3
-
-### 1. Idea Development (`ideaDevelopmentAnalysis`)
-
-For each major argument in the essay, evaluate:
-- **Is there a clear thesis?**
-- **Does the example support the claim?** (Or just restate it?)
-- **Is the reasoning logical?** (Or jump to conclusions?)
-- **Does it explore implications?** (So what?)
-
-For each weak argument:
-
-```json
-{
-  "paragraph": 2,
-  "originalIdea": "Technology helps students learn faster",
-  "issue": "Lập luận quá chung chung, thiếu dẫn chứng cụ thể",
-  "explanation": "{{FORM_OF_ADDRESS}} nói tech giúp học nhanh hơn nhưng không giải thích NHƯ THẾ NÀO và CỤ THỂ tech gì...",
-  "suggestion": {
-    "instruction": "Đưa 1 ví dụ cụ thể với cơ chế rõ ràng",
-    "example": "For instance, language-learning apps like Duolingo use spaced repetition algorithms, allowing students to retain vocabulary 30% longer than traditional flashcards."
-  }
-}
-```
-
-### 2. Counterargument Analysis (`counterargumentAnalysis`, T2 only)
-
-Task 2 essays at Band 7+ MUST acknowledge opposing views. Evaluate:
-
-- **Is a counterargument present?** Yes/No
-- **If present:** Is it taken seriously or strawmanned?
-- **If absent:** Suggest where one would fit naturally
-
-```json
-{
-  "isPresent": false,
-  "feedback": "{{FORM_OF_ADDRESS}} chỉ nêu một góc nhìn, chưa thừa nhận quan điểm đối lập...",
-  "suggestion": "Trước khi kết luận, dành 1 đoạn cho counterargument để bài thuyết phục hơn",
-  "context": {
-    "insertionPoint": "Between paragraph 3 (your argument) and paragraph 4 (conclusion)",
-    "reasoning": "Cấu trúc Band 7+ đòi hỏi acknowledge opposing view rồi rebut, thay vì chỉ argue 1 chiều"
-  }
-}
-```
-
-For Task 1, `counterargumentAnalysis` is always `null` (no counterargument concept in data description).
-
-### 3. Continued Coherence + Mistakes
-
-Still apply:
-- `mistakeAnalysis` (grammar/spelling/Vietlish)
-- `coherenceAnalysis` (linking, paragraph structure)
-
-But focus shifts to argument quality.
+L4+ sections are not loaded into your prompt at this level — do not invent
+them.
 
 ## Vocabulary at Level 3
 

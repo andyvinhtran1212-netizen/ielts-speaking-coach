@@ -48,6 +48,41 @@ class WritingPromptLoader:
         "shared/output_schema_instructions.md",
     ]
 
+    # Sprint 2.7c — cumulative section composition (v2 only).
+    #
+    # Each entry lists the section module files for that level, in
+    # cumulative order: L_N includes everything L_{N-1} did plus its
+    # own new section module. The composer (in `load`) joins them
+    # before the level-specific persona file so the persona prompt
+    # can reference the section modules by name.
+    #
+    # The L5 entry includes `pedantic_full.md` — that module adds the
+    # L5-only rigor refinements (word nuance, rhythm, redundancy
+    # patterns) on top of L4's section coverage. There are no new
+    # top-level analysis fields at L5; the spec's `vietlishAnalysis`
+    # / `structureAnalysis` names do not exist as separate fields in
+    # `WritingFeedback` — Vietlish lives inside `mistakeAnalysis`
+    # entries (`mistakeType: "Vietlish"`) and structural-coherence
+    # lives in `coherenceAnalysis`. Reusing existing fields, not
+    # fragmenting (anti-pattern #23).
+    LEVEL_SECTIONS: dict[int, list[str]] = {
+        1: ["shared/sections/base_5_sections.md"],
+        2: ["shared/sections/base_5_sections.md",
+            "shared/sections/coherence_deep.md"],
+        3: ["shared/sections/base_5_sections.md",
+            "shared/sections/coherence_deep.md",
+            "shared/sections/counterargument_idea.md"],
+        4: ["shared/sections/base_5_sections.md",
+            "shared/sections/coherence_deep.md",
+            "shared/sections/counterargument_idea.md",
+            "shared/sections/lexical_sentence.md"],
+        5: ["shared/sections/base_5_sections.md",
+            "shared/sections/coherence_deep.md",
+            "shared/sections/counterargument_idea.md",
+            "shared/sections/lexical_sentence.md",
+            "shared/sections/pedantic_full.md"],
+    }
+
     def __init__(self, version: Optional[str] = None) -> None:
         self.version = version or DEFAULT_VERSION
         self.prompts_dir = PROMPTS_BASE_DIR / self.version
@@ -114,6 +149,15 @@ class WritingPromptLoader:
                     f"WRITING_PROMPT_VERSION=v1."
                 )
             components.append(self._load_file(cal_relative))
+
+            # Sprint 2.7c — cumulative section composition. Each level
+            # adds the next section module on top of the lower-level
+            # set. The persona/level file (appended below) references
+            # these modules by name (e.g., "see the COHERENCE DEEP
+            # module above"), so the section files MUST come BEFORE
+            # the level file in the composed prompt.
+            for section_relative in self.LEVEL_SECTIONS[level]:
+                components.append(self._load_file(section_relative))
 
         components.append(self._load_file(self.LEVEL_FILES[level]))
 

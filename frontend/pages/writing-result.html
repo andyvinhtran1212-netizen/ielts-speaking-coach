@@ -453,13 +453,37 @@
       }
     }
 
+    function _isEmptyValue(value) {
+      return (value == null) ||
+        (Array.isArray(value) && value.length === 0) ||
+        (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0);
+    }
+
     function maybeHideCounterargument(value) {
       var section = document.getElementById('section-counterargument');
       if (!section) return;
-      var isEmpty = (value == null) ||
-        (Array.isArray(value) && value.length === 0) ||
-        (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0);
-      section.style.display = isEmpty ? 'none' : '';
+      section.style.display = _isEmptyValue(value) ? 'none' : '';
+    }
+
+    // Sprint 2.7c — student-facing hide-empty for L2+ optional sections.
+    // Without this, an L1 essay (where the prompt explicitly nulls
+    // L2+ sections) would still render Coherence/Lexical/etc. cards
+    // with "— Chưa có nội dung —" inside, confusing students. Admin
+    // page deliberately leaves these visible (editor can still add
+    // content to a missing section). Pre-required L1 sections —
+    // overview, criteria, mistakes, key-takeaways, ai-content,
+    // improved — always render.
+    function maybeHideOptionalSections(fj) {
+      var optional = [
+        'coherence', 'lexical', 'idea-development',
+        'sentence-structure', 'recurring', 'trajectory',
+      ];
+      optional.forEach(function (sectionKey) {
+        var section = document.getElementById('section-' + sectionKey);
+        if (!section) return;
+        var dataKey = WritingRenderers.SECTION_KEYS[sectionKey];
+        section.style.display = _isEmptyValue(fj[dataKey]) ? 'none' : '';
+      });
     }
 
     // ── Load + render ────────────────────────────────────────────
@@ -536,6 +560,13 @@
       // Auto-hide Counterargument when AI returned null/empty (Task 1
       // essays don't have it; Task 2 may legitimately omit).
       maybeHideCounterargument(fj.counterargumentAnalysis);
+
+      // Sprint 2.7c — also hide L2+ optional sections that came back
+      // null/empty for this level (e.g., L1 essay → no Coherence card,
+      // no Lexical card). Cumulative refactor surfaces this gap more
+      // visibly because the prompt explicitly nulls non-applicable
+      // sections per level.
+      maybeHideOptionalSections(fj);
 
       // Tab 5 Note giảng viên — only show button + render if non-empty.
       if (instructorNote && instructorNote.trim()) {

@@ -24,7 +24,11 @@ from typing import Optional
 from fastapi import HTTPException
 
 from database import supabase_admin
-from models.writing_feedback import GraderConfig, WritingFeedback
+from models.writing_feedback import (
+    GraderConfig,
+    WritingFeedback,
+    validate_level_coverage,
+)
 from services.gemini_writing_grader import (
     AISafetyBlockError,
     APIRetryFailedError,
@@ -318,6 +322,18 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
         )
 
         result = await get_grader().grade_essay(config)
+
+        # Sprint 2.7c — post-grading level-coverage check. Logs a
+        # warning per missing required section but never raises:
+        # rejecting a near-complete grading because the LLM dropped
+        # one section is worse UX than rendering with the gap. The
+        # warning surfaces in monitoring; the student still sees the
+        # rest of the feedback.
+        validate_level_coverage(
+            result.feedback,
+            level=config.analysis_level,
+            task_type=config.task_type,
+        )
 
         # Persist feedback (1:1 with essay)
         fb = result.feedback

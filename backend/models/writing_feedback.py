@@ -8,12 +8,22 @@ Conditional analysis fields populate based on `analysis_level`:
   Level 2 — + coherenceAnalysis
   Level 3 — + ideaDevelopmentAnalysis, counterargumentAnalysis (T2 only)
   Level 4-5 — + lexicalAnalysis, sentenceStructureAnalysis
+
+Sprint 2.7c added `LEVEL_REQUIRED_FIELDS` + `validate_level_coverage` so
+post-grading we can warn (not raise) when a level's expected sections are
+missing. The cumulative-prompt refactor pushed the section coverage
+contract into the prompt loader's LEVEL_SECTIONS map; this module mirrors
+that contract on the OUTPUT side so an LLM that drops a section gets
+caught in monitoring before students see it.
 """
 
+import logging
 from enum import Enum
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, conint, confloat, model_validator
+
+logger = logging.getLogger(__name__)
 
 
 # ── Sprint 2.7a — grading tier ────────────────────────────────────────
@@ -390,3 +400,84 @@ class GradingResult(BaseModel):
     # in 2.7b; previously WritingFeedbackQuick before 2.7a.1's revert)
     # to flow through without strict-mode rejecting the subclass.
     model_config = {"arbitrary_types_allowed": True}
+
+
+# ── Sprint 2.7c — cumulative level coverage contract ─────────────────
+#
+# Mirrors `WritingPromptLoader.LEVEL_SECTIONS` on the OUTPUT side. The
+# loader instructs Gemini what sections to produce per level; this
+# constant lets us check after grading whether the expected sections
+# actually came through. Names use the ACTUAL `WritingFeedback`
+# attribute names (anti-pattern #23 — reuse existing fields, don't
+# fragment with L-suffixed variants).
+#
+# Always-on fields not listed here (overallBandScore, criteriaFeedback,
+# mistakeAnalysis, keyTakeaways, aiContentAnalysis, improvedEssay) are
+# Pydantic-required at parse time, so they CAN'T be missing — the
+# parser would have rejected the response upstream. We list only the
+# Optional fields that become required-at-this-level under the
+# cumulative contract.
+#
+# `counterargumentAnalysis` is T2-only; `validate_level_coverage`
+# accepts a `task_type` parameter so a T1 essay at L3+ doesn't trigger
+# a spurious warning when its counterargument is rightfully None.
+
+LEVEL_REQUIRED_FIELDS: dict[int, list[str]] = {
+    1: [],
+    2: ["coherenceAnalysis"],
+    3: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis"],
+    4: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
+        "lexicalAnalysis", "sentenceStructureAnalysis"],
+    5: ["coherenceAnalysis", "ideaDevelopmentAnalysis", "counterargumentAnalysis",
+        "lexicalAnalysis", "sentenceStructureAnalysis"],
+}
+
+
+def validate_level_coverage(
+    feedback: "WritingFeedback",
+    level: int,
+    task_type: Optional[str] = None,
+) -> list[str]:
+    """Return a list of expected-but-missing field names for `level`.
+
+    Logs a warning per missing field but DOES NOT raise — an LLM that
+    occasionally drops a section is a quality-monitoring signal, not a
+    show-stopper for the student. Reject-on-missing would be worse UX
+    than rendering with a missing section.
+
+    Returns the list of missing field names so the caller can decide
+    whether to surface it (e.g., admin dashboard counter, alert if
+    rate exceeds threshold). An empty list means full coverage.
+
+    `task_type`: when provided and starts with "task1", the
+    `counterargumentAnalysis` field is excluded from the L3+ required
+    set (T1 has no counterargument concept).
+    """
+    if level not in LEVEL_REQUIRED_FIELDS:
+        return []
+
+    required = list(LEVEL_REQUIRED_FIELDS[level])
+    if task_type and task_type.startswith("task1"):
+        required = [f for f in required if f != "counterargumentAnalysis"]
+
+    missing: list[str] = []
+    for field_name in required:
+        value = getattr(feedback, field_name, None)
+        if value is None:
+            missing.append(field_name)
+            continue
+        # Empty list / empty dict counts as missing — Gemini emitted
+        # the key but didn't fill it in. The grading prompt explicitly
+        # says null vs [] are NOT interchangeable for required sections.
+        if isinstance(value, list) and len(value) == 0:
+            missing.append(field_name)
+        elif isinstance(value, dict) and len(value) == 0:
+            missing.append(field_name)
+
+    if missing:
+        logger.warning(
+            "[level-coverage] L%s grading missing required section(s): %s "
+            "(task_type=%s) — surface in monitoring, do not block student",
+            level, ", ".join(missing), task_type,
+        )
+    return missing
