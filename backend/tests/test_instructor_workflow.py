@@ -1,0 +1,388 @@
+"""Tests for services/instructor_workflow.py (Sprint 2.7d.1).
+
+Covers the workflow service in isolation by stubbing
+`supabase_admin` with a stateful in-memory fake. The fake
+implements just enough of the Supabase Python client surface
+(`.table().select()/.insert()/.update()/.eq()/.in_()/.limit()/.execute()`)
+to exercise the queue/claim/release/deliver lifecycle.
+
+What we pin:
+  - create_review is idempotent (duplicate calls return existing row)
+  - claim is atomic — concurrent claims, only one succeeds, loser
+    raises ConflictError
+  - claim against a non-queued row raises ConflictError with the
+    current status in the message
+  - release auth — non-owner raises PermissionError
+  - deliver mirrors instructor_note onto writing_essays AND flips
+    writing_essays.status='delivered' AND stamps writing_feedback
+    prompt_version with -instructor (idempotent)
+  - get_review_for_essay returns None for non-Instructor essays
+"""
+
+from __future__ import annotations
+
+import threading
+from datetime import datetime, timezone
+from unittest.mock import patch
+from uuid import UUID, uuid4
+
+import pytest
+
+from models.instructor_review import (
+    InstructorReview,
+    InstructorReviewStatus,
+)
+
+
+# ── In-memory fake for supabase_admin ─────────────────────────────────
+
+
+class _Response:
+    def __init__(self, data):
+        self.data = data
+
+
+class _Query:
+    """Builder that records filters and resolves on .execute()."""
+
+    def __init__(self, fake, table_name):
+        self.fake = fake
+        self.table_name = table_name
+        self.op = None              # 'select' | 'insert' | 'update'
+        self.payload = None
+        self.filters = []           # list of (field, op, value)
+        self.in_filters = []        # list of (field, [values])
+        self.limit_n = None
+        self.order_by = None
+
+    # Builder methods —— each returns self for chaining.
+    def select(self, *_args, **_kw):
+        self.op = "select"
+        return self
+
+    def insert(self, payload):
+        self.op = "insert"
+        self.payload = payload
+        return self
+
+    def update(self, payload):
+        self.op = "update"
+        self.payload = payload
+        return self
+
+    def eq(self, field, value):
+        self.filters.append((field, "eq", value))
+        return self
+
+    def in_(self, field, values):
+        self.in_filters.append((field, list(values)))
+        return self
+
+    def limit(self, n):
+        self.limit_n = n
+        return self
+
+    def order(self, field, desc=False):
+        self.order_by = (field, desc)
+        return self
+
+    def _matches(self, row):
+        for field, op, value in self.filters:
+            if row.get(field) != value:
+                return False
+        for field, values in self.in_filters:
+            if row.get(field) not in values:
+                return False
+        return True
+
+    def execute(self):
+        rows = self.fake.tables.setdefault(self.table_name, [])
+
+        if self.op == "insert":
+            with self.fake.lock:
+                # Honour UNIQUE on (essay_id) for instructor_reviews.
+                if self.table_name == "instructor_reviews":
+                    new_essay_id = self.payload.get("essay_id")
+                    for r in rows:
+                        if r.get("essay_id") == new_essay_id:
+                            raise Exception(
+                                "duplicate key value violates unique "
+                                "constraint \"one_review_per_essay\""
+                            )
+                row = {
+                    "id":         str(uuid4()),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "claimed_by": None,
+                    "claimed_at": None,
+                    "delivered_at": None,
+                    "instructor_note": None,
+                    **self.payload,
+                }
+                rows.append(row)
+                return _Response([row])
+
+        if self.op == "select":
+            matched = [r for r in rows if self._matches(r)]
+            if self.order_by:
+                field, desc = self.order_by
+                matched.sort(key=lambda r: r.get(field) or "", reverse=desc)
+            if self.limit_n is not None:
+                matched = matched[: self.limit_n]
+            return _Response(matched)
+
+        if self.op == "update":
+            with self.fake.lock:
+                changed = []
+                for r in rows:
+                    if self._matches(r):
+                        r.update(self.payload)
+                        r["updated_at"] = datetime.now(timezone.utc).isoformat()
+                        changed.append(r)
+                return _Response(changed)
+
+        raise AssertionError(f"Unsupported op: {self.op!r}")
+
+
+class FakeSupabase:
+    """Stateful in-memory stand-in for `database.supabase_admin`."""
+
+    def __init__(self):
+        self.tables: dict[str, list[dict]] = {}
+        self.lock = threading.Lock()
+
+    def table(self, name: str) -> _Query:
+        return _Query(self, name)
+
+
+# ── Fixtures ──────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def fake_db(monkeypatch):
+    """Replace `services.instructor_workflow.supabase_admin` with a fake."""
+    fake = FakeSupabase()
+    monkeypatch.setattr(
+        "services.instructor_workflow.supabase_admin", fake,
+    )
+    return fake
+
+
+@pytest.fixture
+def workflow():
+    """Re-import after monkeypatching is applied."""
+    from services import instructor_workflow
+    return instructor_workflow
+
+
+# ── create_review ─────────────────────────────────────────────────────
+
+
+def test_create_review_inserts_queued_row(fake_db, workflow):
+    essay_id = uuid4()
+    review = workflow.create_review(essay_id)
+    assert review.essay_id == essay_id
+    assert review.status == InstructorReviewStatus.QUEUED
+    assert review.claimed_by is None
+
+
+def test_create_review_idempotent_returns_existing(fake_db, workflow):
+    """A duplicate call must not raise — returns the existing row.
+    Matters for retry from `_bg_grade_essay` after a partial failure."""
+    essay_id = uuid4()
+    first = workflow.create_review(essay_id)
+    second = workflow.create_review(essay_id)
+    assert first.id == second.id
+    assert first.status == second.status
+
+
+# ── claim ─────────────────────────────────────────────────────────────
+
+
+def test_claim_queued_review_succeeds(fake_db, workflow):
+    review = workflow.create_review(uuid4())
+    instructor = uuid4()
+    claimed = workflow.claim(review.id, instructor)
+    assert claimed.status == InstructorReviewStatus.CLAIMED
+    assert claimed.claimed_by == instructor
+    assert claimed.claimed_at is not None
+
+
+def test_claim_already_claimed_raises_conflict(fake_db, workflow):
+    review = workflow.create_review(uuid4())
+    a, b = uuid4(), uuid4()
+    workflow.claim(review.id, a)
+    with pytest.raises(workflow.ConflictError, match="cannot claim"):
+        workflow.claim(review.id, b)
+
+
+def test_claim_nonexistent_review_raises_not_found(fake_db, workflow):
+    with pytest.raises(workflow.NotFoundError, match="not found"):
+        workflow.claim(uuid4(), uuid4())
+
+
+def test_concurrent_claim_only_one_succeeds(fake_db, workflow):
+    """Two threads race to claim the same review. Postgres UPDATE
+    WHERE atomic semantics ensure exactly one wins; the loser sees
+    zero affected rows. Our in-memory fake mirrors that with a
+    threading.Lock around UPDATE — same contract."""
+    review = workflow.create_review(uuid4())
+    a, b = uuid4(), uuid4()
+    results: list = []
+    barrier = threading.Barrier(2)
+
+    def attempt(instructor_id):
+        try:
+            barrier.wait(timeout=1)
+            results.append(("ok", workflow.claim(review.id, instructor_id)))
+        except workflow.ConflictError as e:
+            results.append(("conflict", e))
+        except Exception as e:  # noqa: BLE001
+            results.append(("error", e))
+
+    t1 = threading.Thread(target=attempt, args=(a,))
+    t2 = threading.Thread(target=attempt, args=(b,))
+    t1.start(); t2.start()
+    t1.join(timeout=2); t2.join(timeout=2)
+
+    successes = [r for tag, r in results if tag == "ok"]
+    conflicts = [r for tag, r in results if tag == "conflict"]
+    assert len(successes) == 1, (
+        f"expected exactly 1 successful claim, got {len(successes)} "
+        f"(results: {results})"
+    )
+    assert len(conflicts) == 1
+
+
+# ── release ───────────────────────────────────────────────────────────
+
+
+def test_release_returns_to_queue(fake_db, workflow):
+    review = workflow.create_review(uuid4())
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+    released = workflow.release(review.id, instructor)
+    assert released.status == InstructorReviewStatus.QUEUED
+    assert released.claimed_by is None
+    assert released.claimed_at is None
+
+
+def test_release_by_non_owner_raises_permission_error(fake_db, workflow):
+    review = workflow.create_review(uuid4())
+    a, b = uuid4(), uuid4()
+    workflow.claim(review.id, a)
+    with pytest.raises(PermissionError, match="not claimed by instructor"):
+        workflow.release(review.id, b)
+
+
+# ── deliver ───────────────────────────────────────────────────────────
+
+
+def test_deliver_marks_review_delivered_and_writes_note(fake_db, workflow):
+    """Deliver flips review status, mirrors note onto writing_essays
+    (student-facing column from migration 043), flips essay status,
+    and stamps writing_feedback prompt_version with -instructor."""
+    essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [{
+        "id": str(essay_id),
+        "status": "graded",
+        "instructor_note": None,
+    }]
+    fake_db.tables["writing_feedback"] = [{
+        "essay_id": str(essay_id),
+        "prompt_version": "v2.1-instructor-pending",
+    }]
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+
+    delivered = workflow.deliver(
+        review.id, instructor,
+        instructor_note="Great work, em!",
+    )
+    assert delivered.status == InstructorReviewStatus.DELIVERED
+    assert delivered.instructor_note == "Great work, em!"
+    assert delivered.delivered_at is not None
+
+    # Side effects: writing_essays + writing_feedback updated.
+    essay = fake_db.tables["writing_essays"][0]
+    assert essay["status"] == "delivered"
+    assert essay["instructor_note"] == "Great work, em!"
+
+    fb = fake_db.tables["writing_feedback"][0]
+    assert fb["prompt_version"] == "v2.1-instructor", (
+        "deliver must strip -instructor-pending and replace with -instructor"
+    )
+
+
+def test_deliver_without_note_does_not_clobber_existing_writing_essays_note(fake_db, workflow):
+    """Existing instructor_note on writing_essays (set via the legacy
+    PATCH /instructor-note path before deliver) must survive when
+    deliver is called with note=None. Same column, two writers — the
+    deliver action must not blank it."""
+    essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [{
+        "id": str(essay_id),
+        "status": "graded",
+        "instructor_note": "Pre-set via legacy PATCH",
+    }]
+    fake_db.tables["writing_feedback"] = [{
+        "essay_id": str(essay_id),
+        "prompt_version": "v2.1-instructor-pending",
+    }]
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+    workflow.deliver(review.id, instructor, instructor_note=None)
+
+    essay = fake_db.tables["writing_essays"][0]
+    assert essay["instructor_note"] == "Pre-set via legacy PATCH", (
+        "deliver(note=None) must not clobber a pre-set instructor_note"
+    )
+
+
+def test_deliver_by_non_owner_raises(fake_db, workflow):
+    review = workflow.create_review(uuid4())
+    a, b = uuid4(), uuid4()
+    workflow.claim(review.id, a)
+    with pytest.raises(PermissionError, match="cannot be delivered"):
+        workflow.deliver(review.id, b, instructor_note="hi")
+
+
+def test_deliver_stamp_idempotent_no_double_suffix(fake_db, workflow):
+    """A re-deliver (admin clicks twice) must NOT produce
+    `v2.1-instructor-instructor`. Stamp is normalised before append."""
+    essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [{
+        "id": str(essay_id),
+        "status": "graded",
+        "instructor_note": None,
+    }]
+    fake_db.tables["writing_feedback"] = [{
+        "essay_id": str(essay_id),
+        "prompt_version": "v2.1-instructor",  # already suffixed
+    }]
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+    workflow.deliver(review.id, instructor, instructor_note="x")
+
+    assert fake_db.tables["writing_feedback"][0]["prompt_version"] == "v2.1-instructor"
+
+
+# ── get_review_for_essay ──────────────────────────────────────────────
+
+
+def test_get_review_for_essay_returns_none_for_no_row(fake_db, workflow):
+    """Standard / Deep tier essays have no instructor_reviews row.
+    Caller (student-facing status endpoint) must treat None as
+    'no instructor flow involved'."""
+    assert workflow.get_review_for_essay(uuid4()) is None
+
+
+def test_get_review_for_essay_returns_existing_row(fake_db, workflow):
+    essay_id = uuid4()
+    created = workflow.create_review(essay_id)
+    fetched = workflow.get_review_for_essay(essay_id)
+    assert fetched is not None
+    assert fetched.id == created.id

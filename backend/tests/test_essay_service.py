@@ -433,6 +433,116 @@ async def test_bg_grade_essay_passes_band_trajectory_to_grader():
     assert captured["config"].trajectory == trajectory
 
 
+# ── Sprint 2.7d.1 — Instructor tier post-grading hook ────────────────
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_instructor_tier_creates_review_row():
+    """When grading_tier=instructor, _bg_grade_essay must call
+    instructor_workflow.create_review(essay_id) AFTER the feedback
+    row is persisted. Idempotency + error-tolerance live in the
+    workflow service; this test pins the call site."""
+    from models.writing_feedback import GradingTier
+
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        return MagicMock(
+            feedback=_valid_feedback_obj(),
+            model_used="gemini-2.5-pro",
+            tokens_input=3000, tokens_output=2000,
+            cost_usd=0.025, grading_duration_ms=5000,
+            prompt_version="v2.1-instructor-pending",
+            grading_tier=GradingTier.INSTRUCTOR,
+            tier_metadata={},
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None), \
+         patch("services.instructor_workflow.create_review") as mock_create_review:
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    mock_create_review.assert_called_once()
+    # Called with the essay UUID (passed as a UUID object, not str).
+    called_arg = mock_create_review.call_args[0][0]
+    assert str(called_arg) == _ESSAY_ID
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_standard_tier_does_not_create_review_row():
+    """Pin: only Instructor tier triggers the queue creation. A
+    Standard-tier grading must not touch the instructor_reviews table."""
+    from models.writing_feedback import GradingTier
+
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        return MagicMock(
+            feedback=_valid_feedback_obj(),
+            model_used="gemini-2.5-pro",
+            tokens_input=100, tokens_output=100,
+            cost_usd=0.001, grading_duration_ms=3000,
+            prompt_version="v2.1",
+            grading_tier=GradingTier.STANDARD,
+            tier_metadata={},
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None), \
+         patch("services.instructor_workflow.create_review") as mock_create_review:
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    mock_create_review.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_instructor_review_creation_failure_does_not_fail_grading():
+    """If create_review raises (DB hiccup), the grading must still
+    succeed — the feedback row is already persisted, the queue row
+    is recoverable. Pin so a future change that propagates the
+    exception (and loses the AI grade) surfaces here."""
+    from models.writing_feedback import GradingTier
+
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        return MagicMock(
+            feedback=_valid_feedback_obj(),
+            model_used="gemini-2.5-pro",
+            tokens_input=100, tokens_output=100,
+            cost_usd=0.001, grading_duration_ms=3000,
+            prompt_version="v2.1-instructor-pending",
+            grading_tier=GradingTier.INSTRUCTOR,
+            tier_metadata={},
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None), \
+         patch("services.instructor_workflow.create_review",
+               side_effect=RuntimeError("simulated DB hiccup")):
+        # Must NOT raise — grading completes, queue row create is
+        # logged-and-swallowed.
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    # Feedback row still inserted, essay still marked graded.
+    ops = [(c["table"], c["op"]) for c in fake.calls]
+    assert ("writing_feedback", "insert") in ops
+    final_essay = [c for c in fake.calls if c["table"] == "writing_essays" and c["op"] == "update"][-1]
+    assert final_essay["payload"]["status"] == "graded"
+
+
 # ── Read paths ───────────────────────────────────────────────────────
 
 def test_list_essays_rejects_invalid_status():

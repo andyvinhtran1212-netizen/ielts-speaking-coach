@@ -26,6 +26,7 @@ from fastapi import HTTPException
 from database import supabase_admin
 from models.writing_feedback import (
     GraderConfig,
+    GradingTier,
     WritingFeedback,
     validate_level_coverage,
 )
@@ -371,6 +372,26 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             "status":       "completed",
             "completed_at": _now(),
         }).eq("id", job_id).execute()
+
+        # Sprint 2.7d.1 — Instructor tier: post-grading hook creates
+        # an instructor_reviews queue row so the admin queue page
+        # surfaces this essay for human review. Idempotent — a
+        # retried grade run will see the existing row and no-op.
+        # Failure to create the row logs but does not fail the grade
+        # — the essay still has its AI Pass 1 feedback persisted; an
+        # admin can manually create the review row if needed (or
+        # reschedule the grade so the create_review hook re-runs).
+        if result.grading_tier == GradingTier.INSTRUCTOR:
+            try:
+                from services import instructor_workflow
+                from uuid import UUID
+                instructor_workflow.create_review(UUID(essay_id))
+            except Exception:  # noqa: BLE001 — never block delivery on this
+                logger.exception(
+                    "[grade %s] failed to create instructor review row "
+                    "post-grading; manual create may be needed",
+                    essay_id,
+                )
 
         logger.info(
             "[grade %s] done band=%s tokens=%s/%s cost=%s",

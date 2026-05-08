@@ -104,17 +104,20 @@ class GeminiWritingGrader:
           deep       — Sprint 2.7b: 3-pass flow (Standard → Refine →
                        Rewrite). Pass 2/3 fall back gracefully on
                        failure with a `-deep-degraded` stamp.
+          instructor — Sprint 2.7d.1: AI Standard Pass 1 + human
+                       review queue. Returns the Standard grading
+                       output stamped `-instructor-pending`; the
+                       essay_service post-grading hook then creates
+                       an instructor_reviews row. Final stamp flips
+                       to `-instructor` on `instructor_workflow.deliver`.
           quick      — removed in Sprint 2.7a.1 (orthogonality conflict
                        with Levels L3-L5). Raises ValueError as
                        defence-in-depth — the API layer rejects with 400.
-          instructor — reserved for Sprint 2.7c. Raises
-                       NotImplementedError.
 
         Raises:
             AISafetyBlockError — content blocked by safety filter
             APIRetryFailedError — all 3 retries exhausted
             InvalidJSONError — response not valid JSON / schema mismatch
-            NotImplementedError — Instructor tier (Sprint 2.7c)
             ValueError — Quick tier (removed) or unknown tier
         """
         # Sprint 2.6.1 hotfix: resolve loader per call so a mid-process
@@ -129,6 +132,8 @@ class GeminiWritingGrader:
             return await self._grade_standard(config, loader)
         if tier == GradingTier.DEEP:
             return await self._grade_deep(config, loader)
+        if tier == GradingTier.INSTRUCTOR:
+            return await self._grade_instructor(config, loader)
         if tier == GradingTier.QUICK:
             raise ValueError(
                 "Quick tier was removed in Sprint 2.7a.1 (orthogonality "
@@ -137,12 +142,33 @@ class GeminiWritingGrader:
                 "layer rejects this earlier with 400 — reaching the "
                 "grader means a bypass; investigate the call site."
             )
-        if tier == GradingTier.INSTRUCTOR:
-            raise NotImplementedError(
-                "Instructor tier (human-reviewed) is planned for Sprint "
-                "2.7c. Use 'standard' for now."
-            )
         raise ValueError(f"Unknown grading tier: {tier!r}")
+
+    async def _grade_instructor(
+        self,
+        config: GraderConfig,
+        loader,
+    ) -> GradingResult:
+        """Instructor tier — AI Standard Pass 1 + human review queue.
+
+        Pass 1 reuses `_grade_standard` so the AI output is identical
+        to a Standard-tier grading. The only difference is the stamp:
+        `-instructor-pending` flags this row as awaiting human review.
+        The actual queue/claim/deliver lifecycle lives in
+        `services/instructor_workflow.py`; this grader stays focused
+        on the AI grading half of the flow.
+
+        After delivery, `instructor_workflow.deliver` rewrites
+        prompt_version to `<base>-instructor` (no -pending suffix) so
+        a SQL filter can split the two cohorts cleanly.
+        """
+        result = await self._grade_standard(config, loader)
+        # Mutate the stamp + tier in place. GradingResult is a Pydantic
+        # model — `model_copy` would also work, but the result object
+        # is freshly constructed here so direct assignment is safe.
+        result.prompt_version = f"{result.prompt_version}-instructor-pending"
+        result.grading_tier = GradingTier.INSTRUCTOR
+        return result
 
     async def _grade_standard(
         self,
