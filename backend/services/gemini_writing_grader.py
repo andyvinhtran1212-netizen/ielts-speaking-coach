@@ -34,7 +34,6 @@ from models.writing_feedback import (
     GradingResult,
     GradingTier,
     WritingFeedback,
-    WritingFeedbackQuick,
 )
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
@@ -96,19 +95,20 @@ class GeminiWritingGrader:
     async def grade_essay(self, config: GraderConfig) -> GradingResult:
         """Grade an essay per config. Returns GradingResult with feedback + metadata.
 
-        Sprint 2.7a: tier-aware. Standard tier (default) keeps the
-        pre-2.7a Pro+12-section pipeline bit-for-bit identical. Quick
-        tier swaps in `loader.load_quick()` + Flash model + the
-        WritingFeedbackQuick subset schema. Deep + Instructor tiers are
-        reserved for Sprint 2.7b/c — calling them now raises
-        NotImplementedError with a pointer at the responsible sprint.
+        Sprint 2.7a.1 (revert): Quick tier removed — it was an
+        orthogonality bug, dropping the very sections that Levels L3-L5
+        target. Standard tier is the only one that runs an actual
+        Gemini call today. Deep + Instructor are reserved for Sprint
+        2.7b/c and raise NotImplementedError. Quick raises ValueError
+        (defence-in-depth — the API layer rejects with 400 first;
+        anything that reaches here is a bypass / direct caller).
 
         Raises:
             AISafetyBlockError — content blocked by safety filter (no retry made)
             APIRetryFailedError — all 3 retries exhausted
             InvalidJSONError — response not valid JSON / schema mismatch
             NotImplementedError — Deep / Instructor tier (Sprint 2.7b/c)
-            ValueError — unknown tier value
+            ValueError — Quick tier (removed in 2.7a.1) or unknown tier
         """
         start = time.time()
 
@@ -120,24 +120,8 @@ class GeminiWritingGrader:
         loader = get_prompt_loader()
         tier = config.grading_tier
 
-        # Tier dispatch — pick prompt, model, response schema, stamp.
-        if tier == GradingTier.QUICK:
-            system_prompt = loader.load_quick(
-                level=config.analysis_level,
-                form_of_address=config.form_of_address,
-            )
-            # Quick tier always uses Flash, regardless of selected_model.
-            # The whole point of Quick is the cost/latency profile of
-            # Flash; an admin who set selected_model='gemini-2.5-pro'
-            # then chose Quick gets Flash anyway.
-            model_name = settings.GEMINI_FLASH_MODEL
-            response_schema = WritingFeedbackQuick
-            # Stamp suffix lets A/B SQL split Quick rows from Standard
-            # without a separate column lookup:
-            #   GROUP BY split_part(prompt_version, '-', 1),
-            #            COALESCE(split_part(prompt_version, '-', 2), 'standard')
-            stamp = f"{loader.PROMPT_VERSION}-quick"
-        elif tier == GradingTier.STANDARD:
+        # Tier dispatch — Standard is the only path that runs Gemini.
+        if tier == GradingTier.STANDARD:
             system_prompt = loader.load(
                 level=config.analysis_level,
                 form_of_address=config.form_of_address,
@@ -145,15 +129,23 @@ class GeminiWritingGrader:
             model_name = config.selected_model
             response_schema = WritingFeedback
             stamp = loader.PROMPT_VERSION
+        elif tier == GradingTier.QUICK:
+            raise ValueError(
+                "Quick tier was removed in Sprint 2.7a.1 (orthogonality "
+                "conflict with Levels L3–L5). Use 'standard' tier with "
+                "the appropriate Level (L1–L5) instead. Note: the API "
+                "layer rejects this earlier with 400 — reaching the "
+                "grader means a bypass; investigate the call site."
+            )
         elif tier == GradingTier.DEEP:
             raise NotImplementedError(
                 "Deep tier (multi-pass + sentence rewrite) is planned for "
-                "Sprint 2.7b. Use 'quick' or 'standard' for now."
+                "Sprint 2.7b. Use 'standard' for now."
             )
         elif tier == GradingTier.INSTRUCTOR:
             raise NotImplementedError(
                 "Instructor tier (human-reviewed) is planned for Sprint "
-                "2.7c. Use 'quick' or 'standard' for now."
+                "2.7c. Use 'standard' for now."
             )
         else:
             raise ValueError(f"Unknown grading tier: {tier!r}")

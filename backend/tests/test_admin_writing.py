@@ -94,6 +94,7 @@ def test_create_essay_rejects_invalid_model():
 
 
 # ── Sprint 2.7a — grading_tier on submission ─────────────────────────
+# (Quick rejection added in Sprint 2.7a.1)
 
 
 def test_create_essay_default_grading_tier_is_standard():
@@ -121,14 +122,14 @@ def test_create_essay_default_grading_tier_is_standard():
     )
 
 
-def test_create_essay_propagates_grading_tier_quick():
-    """An explicit grading_tier='quick' is forwarded to essay_service
-    (and thence to the writing_essays.grading_tier column + GraderConfig)."""
-    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 12}
+def test_create_essay_explicit_standard_tier_succeeds():
+    """An explicit grading_tier='standard' is forwarded to essay_service
+    and the request returns 202 with the BG task scheduled."""
+    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 45}
     sentinel_bg = MagicMock(__name__="_bg_grade_essay")
 
     body = _valid_create_body()
-    body["grading_tier"] = "quick"
+    body["grading_tier"] = "standard"
 
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -139,39 +140,76 @@ def test_create_essay_propagates_grading_tier_quick():
 
     assert r.status_code == 202, r.text
     kwargs = mock_create.call_args.kwargs
-    assert kwargs["data"]["grading_tier"] == "quick"
+    assert kwargs["data"]["grading_tier"] == "standard"
+
+
+# ── Sprint 2.7a.1 — Quick + reserved-tier API rejection ───────────────
+
+
+def test_create_essay_rejects_quick_tier_with_400():
+    """Sprint 2.7a.1: Quick tier is removed (orthogonality conflict
+    with Levels L3-L5). The API gates with a 400 + a helpful message
+    that points the caller at Standard. Critically, NO BG task is
+    scheduled — a Quick request must never reach the grader queue."""
+    body = _valid_create_body()
+    body["grading_tier"] = "quick"
+
+    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.create_essay_with_job") as mock_create, \
+         patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+
+    assert r.status_code == 400, r.text
+    detail = r.json().get("detail", "")
+    assert "Quick" in detail and "2.7a.1" in detail, (
+        f"Rejection message should explain the removal; got: {detail!r}"
+    )
+    # No essay was created — the gate fires before create_essay_with_job.
+    mock_create.assert_not_called()
+
+
+def test_create_essay_rejects_deep_tier_with_2_7b_pointer():
+    """Deep tier is reserved for Sprint 2.7b — API rejects with 400
+    naming the sprint so admins know when to expect support."""
+    body = _valid_create_body()
+    body["grading_tier"] = "deep"
+
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.create_essay_with_job") as mock_create:
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+
+    assert r.status_code == 400
+    assert "2.7b" in r.json().get("detail", "")
+    mock_create.assert_not_called()
+
+
+def test_create_essay_rejects_instructor_tier_with_2_7c_pointer():
+    """Instructor tier is reserved for Sprint 2.7c — same gate as Deep."""
+    body = _valid_create_body()
+    body["grading_tier"] = "instructor"
+
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.create_essay_with_job") as mock_create:
+        r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
+
+    assert r.status_code == 400
+    assert "2.7c" in r.json().get("detail", "")
+    mock_create.assert_not_called()
 
 
 def test_create_essay_rejects_invalid_grading_tier():
-    """Unknown tier strings get rejected at the Pydantic boundary so
-    the service layer never sees a bad value."""
+    """Unknown tier strings get rejected at the Pydantic boundary (422)
+    so the service layer never sees a bad value."""
     body = _valid_create_body()
     body["grading_tier"] = "premium"  # not in {quick, standard, deep, instructor}
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
     assert r.status_code == 422
-
-
-def test_create_essay_accepts_reserved_tiers_at_api_boundary():
-    """Deep + Instructor are forward-defined enum values (Sprint 2.7b/c).
-    The API accepts them at the boundary so the picker can render them
-    as disabled-coming-soon options without 422-blocking the submit;
-    the grader is what raises NotImplementedError when a Deep/Instructor
-    job actually runs (covered in test_writing_grader_tier.py)."""
-    info = {"essay_id": _ESSAY_ID, "job_id": _JOB_ID, "eta_seconds": 60}
-    sentinel_bg = MagicMock(__name__="_bg_grade_essay")
-
-    for tier in ("deep", "instructor"):
-        body = _valid_create_body()
-        body["grading_tier"] = tier
-        with patch("routers.admin_writing.require_admin",
-                   new=AsyncMock(return_value=_ADMIN_USER)), \
-             patch("routers.admin_writing.essay_service.create_essay_with_job",
-                   return_value=info), \
-             patch("routers.admin_writing.essay_service._bg_grade_essay", new=sentinel_bg):
-            r = _client().post("/admin/writing/essays", json=body, headers=_ADMIN_AUTH)
-        assert r.status_code == 202, f"{tier}: {r.text}"
 
 
 # ── Payload size guards (W2.2 audit) ─────────────────────────────────

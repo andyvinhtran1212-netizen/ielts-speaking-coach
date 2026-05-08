@@ -447,7 +447,7 @@ def get_essay_render_context(essay_id: str) -> dict:
         supabase_admin.table("writing_essays")
         .select(
             "id, student_id, task_type, prompt_text, essay_text, "
-            "admin_edits_json, status, grading_tier"
+            "admin_edits_json, status"
         )
         .eq("id", essay_id)
         .limit(1)
@@ -456,25 +456,6 @@ def get_essay_render_context(essay_id: str) -> dict:
     if not er.data:
         raise HTTPException(404, "Essay not found")
     essay = er.data[0]
-
-    # Sprint 2.7a — the render/export pipelines (HTML clipboard,
-    # .docx export) consume the full WritingFeedback shape. Quick
-    # tier intentionally omits ~7 sections (improvedEssay,
-    # keyTakeaways, aiContentAnalysis, etc.) so the row's
-    # feedback_json fails WritingFeedback schema validation. Rather
-    # than silently emitting a degraded export, return a clear 400
-    # so admins know to either regrade in Standard or read the Quick
-    # output directly in the admin UI (which uses the GET essay
-    # endpoint and reads raw JSON without schema validation).
-    if essay.get("grading_tier") == "quick":
-        raise HTTPException(
-            400,
-            "Export (HTML / Word) is not supported for Quick tier essays. "
-            "Quick tier returns 5 sections only (4 criteria + mistakes); "
-            "the export templates expect the full 12-section Standard "
-            "feedback. Regrade in Standard tier for an exportable "
-            "feedback document.",
-        )
 
     fr = (
         supabase_admin.table("writing_feedback")

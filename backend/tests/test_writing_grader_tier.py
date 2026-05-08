@@ -1,12 +1,15 @@
-"""Tests for tier-aware GeminiWritingGrader (Sprint 2.7a).
+"""Tests for tier-aware GeminiWritingGrader (Sprint 2.7a foundation;
+Quick removed Sprint 2.7a.1).
 
 Covers:
-  - Quick tier returns the 5-section subset (WritingFeedbackQuick)
-  - Quick tier uses the Flash model regardless of selected_model
-  - Quick tier stamp ends with `-quick` so A/B SQL can split rows
-  - Standard tier behaviour is bit-for-bit identical pre-2.7a
-  - Deep / Instructor raise NotImplementedError pointing at 2.7b/c
   - GraderConfig defaults grading_tier to STANDARD (backward compat)
+  - Standard tier behaviour bit-for-bit identical pre-2.7a
+  - Quick tier raises ValueError ("removed in 2.7a.1") at the grader —
+    defence-in-depth; the API layer rejects with 400 first
+  - Deep / Instructor raise NotImplementedError pointing at 2.7b/c
+  - Invalid tier strings rejected at the GraderConfig boundary
+  - Removal verification: WritingFeedbackQuick gone; load_quick gone;
+    quick/ prompt directory gone
 
 All tests mock the Gemini SDK — no real network IO.
 """
@@ -14,6 +17,7 @@ All tests mock the Gemini SDK — no real network IO.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -22,14 +26,12 @@ from models.writing_feedback import (
     GraderConfig,
     GradingTier,
     WritingFeedback,
-    WritingFeedbackQuick,
 )
 from services.gemini_writing_grader import GeminiWritingGrader
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────
+# ── Fixture payload — Standard 12-section response ────────────────────
 
-# Reusable Gemini-shaped Standard payload (12-section).
 VALID_FEEDBACK_STANDARD = {
     "overallBandScore": 6.5,
     "overallBandScoreSummary": "Bài đạt mức Band 6.5",
@@ -56,27 +58,6 @@ VALID_FEEDBACK_STANDARD = {
     "improvedEssay": "Improved version…",
 }
 
-# Quick-tier shape — strict subset (4 criteria + mistakes + summary).
-VALID_FEEDBACK_QUICK = {
-    "overallBandScore": 6.5,
-    "overallBandScoreSummary": "Quick: Band 6.5",
-    "criteriaFeedback": {
-        "mainCriterion":     {"title": "Task Response",       "explanation": "...", "feedback": "...", "bandScore": 6},
-        "coherenceCohesion": {"title": "Coherence & Cohesion", "explanation": "...", "feedback": "...", "bandScore": 6},
-        "lexicalResource":   {"title": "Lexical Resource",     "explanation": "...", "feedback": "...", "bandScore": 7},
-        "grammaticalRange":  {"title": "Grammatical Range",    "explanation": "...", "feedback": "...", "bandScore": 6},
-    },
-    "mistakeAnalysis": [
-        {
-            "original":    "I has been study",
-            "mistakeType": "Grammar",
-            "explanation": "Sai trợ động từ",
-            "suggestion":  "I have been studying",
-            "criterion":   "Grammatical Range",
-        }
-    ],
-}
-
 
 @pytest.fixture
 def grader():
@@ -84,8 +65,6 @@ def grader():
     with patch("services.gemini_writing_grader.settings") as mock_settings, \
          patch("services.gemini_writing_grader.genai.configure"):
         mock_settings.GEMINI_API_KEY = "test-key-fake"
-        # Quick-tier model selection reads these from settings — provide
-        # stable values for the patched module.
         mock_settings.GEMINI_FLASH_MODEL = "gemini-2.5-flash"
         mock_settings.GEMINI_PRO_MODEL = "gemini-2.5-pro"
         yield GeminiWritingGrader()
@@ -101,18 +80,6 @@ def reset_loader_cache():
     yield
     wpl._loader_instances.clear()
     wpl._loader_instances.update(saved)
-
-
-def _quick_config(**overrides) -> GraderConfig:
-    base = dict(
-        task_type="task2",
-        prompt_text="Some prompt",
-        essay_text="Some essay",
-        analysis_level=1,
-        grading_tier=GradingTier.QUICK,
-    )
-    base.update(overrides)
-    return GraderConfig(**base)
 
 
 def _standard_config(**overrides) -> GraderConfig:
@@ -137,97 +104,15 @@ def test_grader_config_defaults_to_standard():
     assert cfg.grading_tier == GradingTier.STANDARD
 
 
-# ── Quick tier ────────────────────────────────────────────────────────
-
-@pytest.mark.asyncio
-async def test_quick_tier_uses_flash_model_regardless_of_selected_model(
-    grader, monkeypatch, reset_loader_cache,
-):
-    """Quick tier always grades on Flash even when an admin set
-    selected_model='gemini-2.5-pro' on the request — the cost/latency
-    profile of Flash is the whole point of Quick."""
-    from config import settings
-    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
-
-    # Capture which model `_call_with_retry` is invoked with.
-    captured: dict = {}
-
-    async def fake_call(model_name, system_prompt, user_prompt):
-        captured["model_name"] = model_name
-        return json.dumps(VALID_FEEDBACK_QUICK), {"input_tokens": 1, "output_tokens": 1}
-
-    cfg = _quick_config(selected_model="gemini-2.5-pro")
-    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
-        result = await grader.grade_essay(cfg)
-
-    # Flash forced regardless of cfg.selected_model.
-    assert "flash" in captured["model_name"].lower(), (
-        f"Quick tier must use Flash, got {captured['model_name']!r}"
-    )
-    assert result.model_used == "gemini-2.5-flash"
-
-
-@pytest.mark.asyncio
-async def test_quick_tier_returns_5_section_subset(
-    grader, monkeypatch, reset_loader_cache,
-):
-    """Quick tier feedback parses as WritingFeedbackQuick (subset).
-    The Standard-only fields (improvedEssay, keyTakeaways,
-    aiContentAnalysis) must not be present on the result.feedback."""
-    from config import settings
-    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
-
-    json_payload = json.dumps(VALID_FEEDBACK_QUICK)
-    usage = {"input_tokens": 1, "output_tokens": 1}
-
-    cfg = _quick_config()
-    with patch.object(grader, "_call_with_retry", return_value=(json_payload, usage)):
-        result = await grader.grade_essay(cfg)
-
-    assert isinstance(result.feedback, WritingFeedbackQuick)
-    # Subset shape — no improvedEssay / keyTakeaways / aiContentAnalysis
-    assert not hasattr(result.feedback, "improvedEssay") or result.feedback.__class__ is WritingFeedbackQuick
-    # Required Quick fields are populated.
-    assert result.feedback.overallBandScore == 6.5
-    assert len(result.feedback.mistakeAnalysis) == 1
-    # The 4 criteria scores survive — essay_service persistence depends on this.
-    assert result.feedback.criteriaFeedback.mainCriterion.bandScore == 6
-
-
-@pytest.mark.asyncio
-async def test_quick_tier_stamp_includes_quick_suffix(
-    grader, monkeypatch, reset_loader_cache,
-):
-    """Quick stamp must end with '-quick' so A/B SQL can split rows
-    via `split_part(prompt_version, '-', 2)`."""
-    from config import settings
-    monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
-
-    json_payload = json.dumps(VALID_FEEDBACK_QUICK)
-    usage = {"input_tokens": 1, "output_tokens": 1}
-
-    cfg = _quick_config()
-    with patch.object(grader, "_call_with_retry", return_value=(json_payload, usage)):
-        result = await grader.grade_essay(cfg)
-
-    assert result.prompt_version.endswith("-quick"), (
-        f"Quick stamp must end with -quick, got {result.prompt_version!r}"
-    )
-    # Concretely v2.1-quick at time of writing — pin so a stamp drift
-    # surfaces.
-    assert result.prompt_version == "v2.1-quick"
-    assert result.grading_tier == GradingTier.QUICK
-
-
-# ── Standard tier — backward-compat ───────────────────────────────────
+# ── Standard tier — backward compat ───────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_standard_tier_uses_pro_and_full_schema(
     grader, monkeypatch, reset_loader_cache,
 ):
-    """Standard tier (the default) must keep pre-2.7a behaviour:
-    Pro model (or whatever selected_model says), full WritingFeedback
-    schema, stamp without `-quick` suffix."""
+    """Standard tier (the default) keeps pre-2.7a behaviour: Pro model
+    (or whatever selected_model says), full WritingFeedback schema,
+    stamp without any tier suffix."""
     from config import settings
     monkeypatch.setattr(settings, "WRITING_PROMPT_VERSION", "v2")
 
@@ -243,10 +128,22 @@ async def test_standard_tier_uses_pro_and_full_schema(
 
     assert captured["model_name"] == "gemini-2.5-pro"
     assert isinstance(result.feedback, WritingFeedback)
-    assert result.feedback.improvedEssay == "Improved version…"  # full schema field
-    assert result.prompt_version == "v2.1"  # no -quick suffix
-    assert "-quick" not in result.prompt_version
+    assert result.feedback.improvedEssay == "Improved version…"  # full-schema field
+    assert result.prompt_version == "v2.1"
+    assert "-quick" not in result.prompt_version  # removed in 2.7a.1
     assert result.grading_tier == GradingTier.STANDARD
+
+
+# ── Quick tier removal (Sprint 2.7a.1) ────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_quick_tier_raises_value_error_with_removal_message(grader):
+    """Quick tier reaching the grader is a code-path bypass — the API
+    layer rejects with 400 first. The grader still raises ValueError
+    with the orthogonality-conflict explanation as defence-in-depth."""
+    cfg = _standard_config(grading_tier=GradingTier.QUICK)
+    with pytest.raises(ValueError, match="Quick tier was removed"):
+        await grader.grade_essay(cfg)
 
 
 # ── Deep / Instructor — reserved tiers ────────────────────────────────
@@ -282,3 +179,60 @@ def test_invalid_tier_string_rejected_at_config_layer():
             analysis_level=1,
             grading_tier="not-a-tier",  # invalid
         )
+
+
+# ── Removal verification (Sprint 2.7a.1) ──────────────────────────────
+#
+# These tests pin that Quick tier code paths are GONE. A regression that
+# silently re-adds load_quick / WritingFeedbackQuick / the quick/ prompt
+# directory must surface here, not on a production grading attempt.
+
+
+def test_writing_feedback_quick_model_removed():
+    """WritingFeedbackQuick was removed in Sprint 2.7a.1."""
+    from models import writing_feedback
+    assert not hasattr(writing_feedback, "WritingFeedbackQuick"), (
+        "WritingFeedbackQuick should be removed in 2.7a.1 — Quick tier "
+        "is gone, the subset schema serves no live caller."
+    )
+
+
+def test_loader_no_load_quick_method():
+    """load_quick() was removed from WritingPromptLoader in 2.7a.1."""
+    from services.writing_prompt_loader import WritingPromptLoader
+    loader = WritingPromptLoader(version="v2")
+    assert not hasattr(loader, "load_quick"), (
+        "load_quick() should be removed in 2.7a.1 — Quick tier is gone, "
+        "the method has no live caller."
+    )
+
+
+def test_loader_no_quick_constants():
+    """The QUICK_LEVEL_FILES + QUICK_SHARED_FILES class constants on
+    WritingPromptLoader were removed in 2.7a.1."""
+    from services.writing_prompt_loader import WritingPromptLoader
+    assert not hasattr(WritingPromptLoader, "QUICK_LEVEL_FILES")
+    assert not hasattr(WritingPromptLoader, "QUICK_SHARED_FILES")
+
+
+def test_quick_prompt_directory_removed():
+    """prompts/writing/v2/quick/ + the Quick output schema markdown
+    file were deleted in 2.7a.1."""
+    base = Path(__file__).parent.parent / "prompts" / "writing" / "v2"
+    assert not (base / "quick").exists(), (
+        "prompts/writing/v2/quick/ should be removed in 2.7a.1"
+    )
+    assert not (base / "shared" / "output_schema_instructions_quick.md").exists(), (
+        "shared/output_schema_instructions_quick.md should be removed in 2.7a.1"
+    )
+
+
+def test_grading_tier_enum_still_has_quick_value():
+    """We intentionally KEEP the QUICK enum value (and the Postgres enum
+    grading_tier_enum keeps 'quick') so legacy rows + the database type
+    don't need a destructive migration. The value just isn't reachable
+    from any live caller — API rejects, grader raises ValueError.
+    Pin this so a future cleanup that drops the value surfaces the
+    trade-off explicitly."""
+    assert GradingTier.QUICK.value == "quick"
+    assert GradingTier.QUICK in set(GradingTier)

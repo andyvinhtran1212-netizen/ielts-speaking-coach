@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-07 (PM, post Sprint 2.7.1 SAGA submit)
+**Last updated:** 2026-05-08 (Sprint 2.7a.1 — Quick tier revert + anti-pattern #36 logged + Sprint 2.6.x deferred items restored)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -368,6 +368,77 @@ add WITH CHECK to RLS UPDATE policies.
   dashboard, async queue with Redis (replace BackgroundTasks for scale).
 - **Effort:** TBD based on business model.
 - **Trigger:** Business validation post Phase 3.
+
+### Writing Coach Sprint 2.6.x — quality polish deferred (logged 2026-05-07)
+
+> **Strategic context:** Sprint 2.6 shipped v2 prompt system parallel to v1
+> (PR #99). Sprint 2.6.1 fixed grader hot-flip routing (PR #101). Sprint
+> 2.6.2 tuned anti-fabrication wording and bumped stamp v2.0 → v2.1
+> (PR #102). 2-case smoke passed (AI band-6.5 apostrophe canary + real
+> student band 5–6) — enough confidence to run production at
+> `WRITING_PROMPT_VERSION=v2` (stamps `v2.1`). Andy decided 2026-05-07 to
+> prioritise new feature build (Speaking dashboard, Reading skill, Mock
+> test orchestration) over further Writing-grading polish. Pragmatic: a
+> working grader with known guardrails > perfect grader that delays
+> platform breadth.
+
+#### DEBT-2026-05-07-A: v1 vs v2.1 prompt benchmark (DEFERRED)
+- **Type:** Quality validation, not blocker.
+- **What's deferred:** Manual benchmark of 10 test essays graded under
+  both `v1.0` and `v2.1` to produce a quantitative SHIP / TUNE / ROLLBACK
+  verdict across the band spectrum.
+- **Resumption asset:** `BENCHMARK_V1_VS_V2_1_TEMPLATE.md` (drafted in
+  the Sprint 2.6.x decision conversation; needs to be saved into the
+  repo when the work resumes — content should be re-pasted from the
+  prior session or re-drafted).
+- **Risk of deferring:**
+  - No quantitative win-rate measurement of v2.1 vs v1.0 across band 4–8.
+  - Edge cases that 2-case smoke doesn't cover may slip through.
+  - `WRITING_PROMPT_VERSION` default in `config.py` is still `"v1"` —
+    production relies on the Railway env var being set explicitly. If
+    Railway env is reset, the system silently rolls back to v1 with no
+    visible signal until a stamp query notices.
+- **Mitigation in place:**
+  - Stamp distinction `v2.0` (pre-tuning canary) vs `v2.1` (post-tuning)
+    means an A/B SQL query can still split rows after the fact.
+  - 42 prompt + grader tests pin behavior (8 v1 + 17 v2 + 17 grader).
+  - Andy can spot-check periodically while grading real student essays.
+- **Trigger to un-defer:**
+  - Student feedback complaints about grading quality, **or**
+  - Prep for monetisation (Pro tier paid users → grading must be rock
+    solid), **or**
+  - Idle time between two larger sprints.
+- **Effort when picked up:** ~1.5–2 hours per the template.
+
+#### DEBT-2026-05-07-B: AMBER #3 post-parse semantic validator (DEFERRED)
+- **Type:** Defense-in-depth, not blocker. Originally flagged as AMBER #3
+  in the Codex Sprint 2.6 audit (2026-05-07).
+- **What's deferred:** Backend Python validator that runs after Gemini
+  response parse and verifies (band-aware) the same rules the v2 prompt
+  asks the LLM to self-police:
+  - `mistake_count` consistent with band per Rule 1's typical distribution.
+  - Improved-essay band ≤ student band + 1.5 (Rule 5).
+  - 4 criteria scores within 1.5 of each other (Rule 3).
+  - Every mistake has `original != corrected` after Unicode normalisation
+    (Sprint 2.6.2 anti-fabrication rule).
+  - On violation: reject + retry, **or** log + flag for review.
+- **Risk of deferring:**
+  - LLM may still fabricate in edge cases the prompt tuning doesn't cover.
+  - Bug 0caf5e59 (zero-mistake-low-band) could re-emerge.
+- **Mitigation in place:**
+  - Sprint 2.6.2 anti-fabrication wording in `strict_grammar_check.md`
+    Rule 1 + Rule 4.
+  - CoT Step 6.1 authenticity check in `output_schema_instructions.md`
+    (`original == suggestion` after Unicode normalisation → drop).
+  - 2-case smoke saw no fabrication.
+  - `v2.1` stamp lets us track post-tuning rows separately for any
+    backfill validation.
+- **Trigger to un-defer:**
+  - Benchmark (DEBT-A) shows fabrication rate ≥ 2/10, **or**
+  - Real-student complaint about a fabricated mistake, **or**
+  - Before opening to public / monetising.
+- **Effort when picked up:** ~1 day mini-sprint (validator function +
+  5–8 unit tests + grader integration).
 
 ### Design system migration (Pack v2 received 2026-05-04, integration deferred)
 
@@ -1725,6 +1796,35 @@ here so a new collaborator can skim the prior-art:
     patterns explicitly. macOS users should also disable
     `Finder → Preferences → ... → Show extension warnings` to
     reduce the rate of accidental duplicates during rename ops.
+
+> Note on numbering: entries #34 and #35 were referenced in PR
+> bodies during the Sprint 2.5.6 / 2.6.x / 2.7a cycle but never
+> got their own codified entry here. The next entry is logged as
+> #36 to match the number the Sprint 2.7a.1 spec called out;
+> #34/#35 may be back-filled later from the relevant PR bodies.
+
+36. **Conflating orthogonal axes** — added 2026-05-08 after Sprint
+    2.7a.1's revert of the Quick tier shipped one day earlier in 2.7a.
+    Sprint 2.7a designed a 4-tier system (Quick / Standard / Deep /
+    Instructor) where each tier had a different output schema (Quick
+    = 5 sections, Standard = 12 sections). But the persona Levels
+    L1-L5 ALSO controlled which sections matter (L3 = Counterargument
+    focus, L4 = Lexical focus, L5 = Sentence-structure focus). Quick
+    tier with L3 selected = drop counterargument = contradiction:
+    the user picked L3 to GET the counterargument analysis, then
+    Quick tier silently stripped it. **Lesson:** when designing
+    feature axes, verify they're truly orthogonal. If axis A
+    constrains output dimension X and axis B also constrains X,
+    they're not independent — pick one or merge them. Spec-phase
+    check: for each combination (A_i, B_j), is the output
+    well-defined? If any combination is contradictory or strictly
+    less informative than a sibling, re-design before ship. **Cost:**
+    1 sprint to ship + 1 sprint to revert (2.7a → 2.7a.1, ~24h
+    apart). Cleanup carries forward: the Postgres `grading_tier_enum`
+    keeps the `'quick'` value (removing enum values is destructive
+    multi-step DDL), the `GradingTier.QUICK` Python enum value is
+    retained for legacy-row introspection, and the API + grader
+    both reject `quick` requests with helpful messages.
 
 ---
 
