@@ -400,9 +400,9 @@ def test_get_queue_essay_id_filter_returns_single_review(fake_db, workflow):
     # Seed essay rows so the queue's join doesn't filter the target out.
     fake_db.tables["writing_essays"] = [
         {"id": str(target_essay), "student_id": None,
-         "level": 3, "task_type": "task2", "created_at": "2026-05-08"},
+         "analysis_level": 3, "task_type": "task2", "created_at": "2026-05-08"},
         {"id": str(other_essay),  "student_id": None,
-         "level": 4, "task_type": "task1_academic", "created_at": "2026-05-08"},
+         "analysis_level": 4, "task_type": "task1_academic", "created_at": "2026-05-08"},
     ]
     target_review = workflow.create_review(target_essay)
     workflow.create_review(other_essay)
@@ -418,3 +418,83 @@ def test_get_queue_essay_id_no_match_returns_empty(fake_db, workflow):
     """No review for that essay → empty list, not error."""
     items = workflow.get_queue(essay_id=uuid4())
     assert items == []
+
+
+# ── Sprint 2.7d.1.1 hotfix — schema-aware regression ──────────────────
+
+
+def test_get_queue_select_columns_match_writing_essays_migration():
+    """Schema-aware regression for the 2.7d.1.1 hotfix.
+
+    The original 2.7d.1 implementation SELECTed `level` from
+    writing_essays — but migration 033 named the column
+    `analysis_level`. The in-memory FakeSupabase fixture didn't
+    enforce schema, so the 30 tests passed while production
+    crashed with "column writing_essays.level does not exist".
+
+    This test reads migration 033 directly and verifies that
+    every column the workflow's get_queue() SELECTs from
+    writing_essays actually exists in the migration's CREATE
+    TABLE block. A future SELECT that references a non-existent
+    column (or a typo like `level` vs `analysis_level`) surfaces
+    HERE instead of in production.
+
+    See TECH_DEBT.md anti-pattern #37 — schema-naive test fixtures.
+    """
+    import re
+    from pathlib import Path
+
+    migration_path = (
+        Path(__file__).parent.parent / "migrations"
+        / "033_writing_coach_tables.sql"
+    )
+    sql = migration_path.read_text(encoding="utf-8")
+
+    # Extract the writing_essays CREATE TABLE block — everything
+    # between `CREATE TABLE ... writing_essays (` and the matching
+    # `);`. The migration file may have other tables; we want only
+    # the writing_essays columns.
+    match = re.search(
+        r"CREATE TABLE[^(]*writing_essays\s*\((.*?)\n\)\s*;",
+        sql, re.DOTALL | re.IGNORECASE,
+    )
+    assert match, "migration 033 must have a CREATE TABLE writing_essays block"
+    block = match.group(1)
+
+    # Extract column names (first identifier on each line that isn't
+    # a CHECK / CONSTRAINT / FOREIGN / PRIMARY / etc.). Tolerant —
+    # commented lines and comma-only lines skipped.
+    columns: set[str] = set()
+    for raw_line in block.splitlines():
+        line = raw_line.strip().rstrip(",")
+        if not line or line.startswith("--"):
+            continue
+        upper = line.upper()
+        if any(upper.startswith(kw) for kw in (
+            "CONSTRAINT", "PRIMARY", "FOREIGN", "CHECK", "UNIQUE", "REFERENCES",
+        )):
+            continue
+        m = re.match(r"([a-zA-Z_][a-zA-Z0-9_]*)", line)
+        if m:
+            columns.add(m.group(1).lower())
+
+    # Pin the columns the workflow's SELECT actually uses. Update
+    # this list (and the workflow's SELECT in lockstep) when the
+    # query changes.
+    selected_columns = {
+        "id", "student_id", "analysis_level", "task_type", "created_at",
+    }
+
+    missing = selected_columns - columns
+    assert not missing, (
+        f"get_queue() SELECTs columns from writing_essays that don't "
+        f"exist in migration 033: {missing}. Either the column was "
+        f"renamed (update both migration + SELECT) or the SELECT has "
+        f"a typo. The column most commonly mistaken: 'level' → real "
+        f"name is 'analysis_level' (Sprint 2.7d.1.1 hotfix)."
+    )
+    # Specifically: 'level' (no underscore prefix) MUST NOT be the
+    # column name. This is the exact bug 2.7d.1.1 fixed.
+    assert "level" not in columns or "analysis_level" in columns, (
+        "writing_essays must define `analysis_level`, not bare `level`"
+    )

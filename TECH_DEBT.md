@@ -1,6 +1,6 @@
 # Tech Debt — IELTS Speaking Coach
 
-**Last updated:** 2026-05-08 (Sprint 2.7a.1 — Quick tier revert + anti-pattern #36 logged + Sprint 2.6.x deferred items restored)
+**Last updated:** 2026-05-08 (Sprint 2.7d.1.1 — Instructor-queue column hotfix + anti-pattern #37 logged)
 **Last reviewed:** 2026-05-07 (PM)
 
 Comprehensive snapshot of tech debt + improvement opportunities, restructured
@@ -1825,6 +1825,30 @@ here so a new collaborator can skim the prior-art:
     multi-step DDL), the `GradingTier.QUICK` Python enum value is
     retained for legacy-row introspection, and the API + grader
     both reject `quick` requests with helpful messages.
+
+37. **Schema-naive test fixtures** — added 2026-05-08 after Sprint
+    2.7d.1.1 hotfix. Sprint 2.7d.1 shipped the Instructor queue
+    workflow with a `SELECT id, student_id, level, task_type,
+    created_at FROM writing_essays` query — but migration 033
+    named the column `analysis_level`, not `level`. The 30 backend
+    tests for the workflow used an in-memory `FakeSupabase`
+    fixture that accepted ANY column name and returned ANY shape
+    on the seeded rows. Tests passed locally; production crashed
+    with `column writing_essays.level does not exist` on the very
+    first GET /admin/instructor/queue call. **Lesson:** mock
+    fixtures that don't enforce real schema only test the code's
+    self-consistency, not its production correctness. For any
+    new endpoint that issues SELECTs against a real table, ship
+    AT LEAST ONE schema-aware regression that pins the SELECT
+    column list against the actual migration's CREATE TABLE block
+    (parse the SQL or run against a test DB). The Sprint 2.7d.1.1
+    hotfix added `test_get_queue_select_columns_match_writing_essays_migration`
+    which reads `migrations/033_writing_coach_tables.sql` and
+    asserts every column the workflow's SELECT references actually
+    exists. **Cost:** 1 production crash, 1 hotfix sprint. Mock
+    libraries are seductive — they test the wrong thing efficiently.
+    A 5-minute round-trip to a real DB beats a 30-test mock-only
+    suite that lies.
 
 ---
 
