@@ -386,3 +386,35 @@ def test_get_review_for_essay_returns_existing_row(fake_db, workflow):
     fetched = workflow.get_review_for_essay(essay_id)
     assert fetched is not None
     assert fetched.id == created.id
+
+
+# ── Sprint 2.7d.2 — essay_id filter on get_queue ──────────────────────
+
+
+def test_get_queue_essay_id_filter_returns_single_review(fake_db, workflow):
+    """The grading page passes essay_id to fetch the review for one
+    essay without scanning the full queue. Must return exactly the
+    matching review (or empty list)."""
+    target_essay = uuid4()
+    other_essay = uuid4()
+    # Seed essay rows so the queue's join doesn't filter the target out.
+    fake_db.tables["writing_essays"] = [
+        {"id": str(target_essay), "student_id": None,
+         "level": 3, "task_type": "task2", "created_at": "2026-05-08"},
+        {"id": str(other_essay),  "student_id": None,
+         "level": 4, "task_type": "task1_academic", "created_at": "2026-05-08"},
+    ]
+    target_review = workflow.create_review(target_essay)
+    workflow.create_review(other_essay)
+
+    items = workflow.get_queue(essay_id=target_essay)
+
+    assert len(items) == 1
+    assert items[0].review.id == target_review.id
+    assert items[0].essay_id == target_essay
+
+
+def test_get_queue_essay_id_no_match_returns_empty(fake_db, workflow):
+    """No review for that essay → empty list, not error."""
+    items = workflow.get_queue(essay_id=uuid4())
+    assert items == []

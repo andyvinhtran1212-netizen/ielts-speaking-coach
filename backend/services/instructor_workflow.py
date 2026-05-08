@@ -313,6 +313,7 @@ def get_review_for_essay(essay_id: UUID) -> Optional[InstructorReview]:
 def get_queue(
     status_filter: Optional[Iterable[InstructorReviewStatus]] = None,
     instructor_id: Optional[UUID] = None,
+    essay_id: Optional[UUID] = None,
 ) -> list[InstructorQueueItem]:
     """Return queue items joined with student email + essay metadata.
 
@@ -322,6 +323,12 @@ def get_queue(
 
     `instructor_id`, when set, filters to only reviews claimed by that
     instructor. Useful for a "my claims" view.
+
+    `essay_id`, when set, returns at most one item — the review for
+    that essay (or empty list if none exists). Sprint 2.7d.2: the
+    grading page uses this to fetch the review row for the essay it's
+    editing without scanning the full queue. Cheaper than a dedicated
+    `by-essay` endpoint and avoids a router proliferation.
 
     Sort: created_at ASC so the oldest queued essays surface first
     (FIFO is the right default for a review queue).
@@ -339,6 +346,8 @@ def get_queue(
     )
     if instructor_id is not None:
         q = q.eq("claimed_by", str(instructor_id))
+    if essay_id is not None:
+        q = q.eq("essay_id", str(essay_id))
     response = q.order("created_at", desc=False).execute()
 
     if not response.data:

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Instructor Queue — Writing Coach Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
+
+    .filter-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.7); cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .filter-btn:hover { background: rgba(255,255,255,0.07); }
+    .filter-btn.active { background: rgba(20,184,166,0.10); border-color: #14b8a6; color: #5eead4; }
+
+    .queue-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .queue-table th {
+      text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.45);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .queue-table td {
+      padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle;
+    }
+    .queue-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* Sprint 2.7d.2 — age color coding. Display-only soft SLA. */
+    .age-fresh    { color: #6ee7b7; }                /* < 24h */
+    .age-warning  { color: #fde68a; }                /* 24–48h */
+    .age-overdue  { color: #fca5a5; font-weight: 600; }  /* > 48h */
+
+    /* Pills mirror the existing tier-badge / status pill conventions. */
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .status-queued    { background: rgba(234,179,8,0.18);  color: #fde68a; }
+    .status-claimed   { background: rgba(59,130,246,0.18); color: #93c5fd; }
+    .status-edited    { background: rgba(168,85,247,0.18); color: #d8b4fe; }
+    .status-delivered { background: rgba(34,197,94,0.18);  color: #86efac; }
+    .status-released  { background: rgba(148,163,184,0.18); color: #cbd5e1; }
+
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-act {
+      padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: none; text-decoration: none; display: inline-block;
+    }
+    .btn-claim   { background: #14b8a6; color: #0a1628; }
+    .btn-claim:hover { background: #0d9488; }
+    .btn-edit    { background: rgba(20,184,166,0.15); color: #5eead4; border: 1px solid rgba(20,184,166,0.25); }
+    .btn-release { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.10); }
+    .btn-view    { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.08); }
+    .btn-act:hover { filter: brightness(1.1); }
+    .locked-tag {
+      font-size: 12px; color: rgba(255,255,255,0.45); font-style: italic;
+    }
+
+    .meta-line { font-size: 11px; color: rgba(255,255,255,0.40); margin-top: 2px; }
+
+    .empty-state { text-align: center; padding: 48px 16px; color: rgba(255,255,255,0.40); }
+  </style>
+</head>
+<body>
+  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
+    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+  </header>
+
+  <div id="state-loading" class="flex items-center justify-center py-32">
+    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+  </div>
+
+  <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
+    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
+    <a href="/pages/dashboard.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+  </div>
+
+  <main id="state-ready" class="hidden max-w-6xl mx-auto px-6 py-8">
+    <div class="flex items-baseline justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold">Instructor Queue</h1>
+        <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">
+          Bài tier <strong>Instructor</strong> đã chấm xong AI Pass 1, chờ giảng viên review &amp; deliver.
+        </p>
+      </div>
+      <div class="text-xs" style="color:rgba(255,255,255,0.4);">
+        Auto-refresh mỗi 30s · <span id="queue-count">0</span> bài
+      </div>
+    </div>
+
+    <div id="alert-area" class="mt-4"></div>
+
+    <div class="filter-bar mt-5">
+      <button class="filter-btn active" data-filter="all_active">All Active</button>
+      <button class="filter-btn" data-filter="queued">Queued</button>
+      <button class="filter-btn" data-filter="my_claims">My Claims</button>
+      <button class="filter-btn" data-filter="delivered">Delivered (recent)</button>
+    </div>
+
+    <div class="card mt-5 overflow-x-auto">
+      <table class="queue-table">
+        <thead>
+          <tr>
+            <th>Submitted</th>
+            <th>Age</th>
+            <th>Student</th>
+            <th>Lvl</th>
+            <th>Task</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="queue-rows">
+          <tr><td colspan="7" class="empty-state">Đang tải…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/writing-admin.js"></script>
+  <script>
+    'use strict';
+
+    // ── State ─────────────────────────────────────────────────────────
+    var POLL_INTERVAL_MS = 30000;
+
+    // currentAdminId comes from WC.bootstrap's onReady callback (which
+    // wraps /auth/me — same pattern as every other admin-writing page).
+    var _currentAdminId = null;
+    var _currentFilter  = 'all_active';
+    var _pollTimer      = null;
+
+    // Filter → status query params. 'my_claims' also filters by
+    // claimed_by=currentAdminId server-side (instructor_id query param).
+    var FILTERS = {
+      all_active: { statuses: ['queued', 'claimed'] },
+      queued:     { statuses: ['queued'] },
+      my_claims:  { statuses: ['claimed'], scopeToMe: true },
+      delivered:  { statuses: ['delivered'] },
+    };
+
+    var TASK_LABEL = {
+      task1_academic: 'T1 Academic',
+      task1_general:  'T1 General',
+      task2:          'T2',
+    };
+
+    // ── Helpers ───────────────────────────────────────────────────────
+
+    function setAlert(kind, msg) {
+      var area = document.getElementById('alert-area');
+      var color = kind === 'error' ? '#f87171' : kind === 'success' ? '#86efac' : '#fde68a';
+      var bg    = kind === 'error' ? 'rgba(239,68,68,0.10)' : kind === 'success' ? 'rgba(134,239,172,0.08)' : 'rgba(234,179,8,0.08)';
+      var border = kind === 'error' ? 'rgba(239,68,68,0.25)' : kind === 'success' ? 'rgba(134,239,172,0.25)' : 'rgba(234,179,8,0.25)';
+      area.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+    }
+
+    function clearAlert() {
+      document.getElementById('alert-area').innerHTML = '';
+    }
+
+    function ageClass(hours) {
+      if (hours < 24) return 'age-fresh';
+      if (hours < 48) return 'age-warning';
+      return 'age-overdue';
+    }
+
+    function formatAge(hours) {
+      if (hours == null || isNaN(hours)) return '—';
+      if (hours < 1) return Math.round(hours * 60) + 'm';
+      if (hours < 24) return hours.toFixed(0) + 'h';
+      return Math.floor(hours / 24) + 'd ' + Math.floor(hours % 24) + 'h';
+    }
+
+    function formatDateTime(isoString) {
+      if (!isoString) return '—';
+      try {
+        var d = new Date(isoString);
+        var now = new Date();
+        var diffH = (now - d) / (1000 * 60 * 60);
+        if (diffH < 1) return Math.round(diffH * 60) + ' phút trước';
+        if (diffH < 24) return Math.round(diffH) + 'h trước';
+        return d.toLocaleDateString('vi-VN');
+      } catch (_) { return isoString; }
+    }
+
+    // ── Render ────────────────────────────────────────────────────────
+
+    function renderStatusPill(status) {
+      var label = status || 'queued';
+      return '<span class="pill status-' + WC.escapeHtml(label) + '">' + WC.escapeHtml(label) + '</span>';
+    }
+
+    function renderActions(item) {
+      var review = item.review || {};
+      var status = review.status;
+      var isMine = !!_currentAdminId && review.claimed_by === _currentAdminId;
+      var essayId = item.essay_id || '';
+      var reviewId = review.id || '';
+
+      if (status === 'queued') {
+        return '<div class="row-actions">' +
+          '<button class="btn-act btn-claim" data-action="claim" data-review-id="' +
+          WC.escapeHtml(reviewId) + '">Claim</button>' +
+        '</div>';
+      }
+
+      if (status === 'claimed' && isMine) {
+        return '<div class="row-actions">' +
+          '<a class="btn-act btn-edit" href="/pages/admin-writing-grade.html?essay_id=' +
+          encodeURIComponent(essayId) + '">Edit</a>' +
+          '<button class="btn-act btn-release" data-action="release" data-review-id="' +
+          WC.escapeHtml(reviewId) + '">Release</button>' +
+        '</div>';
+      }
+
+      if (status === 'claimed' && !isMine) {
+        return '<span class="locked-tag">🔒 Locked by another instructor</span>';
+      }
+
+      if (status === 'delivered') {
+        return '<div class="row-actions">' +
+          '<a class="btn-act btn-view" href="/pages/admin-writing-grade.html?essay_id=' +
+          encodeURIComponent(essayId) + '">View</a>' +
+        '</div>';
+      }
+
+      // edited / released / unknown — no primary action; show pill only.
+      return '';
+    }
+
+    function renderRow(item) {
+      var review = item.review || {};
+      var ageH = item.age_hours || 0;
+      var taskLabel = TASK_LABEL[item.task_type] || item.task_type || '—';
+      var studentEmail = item.student_email || '— unknown —';
+
+      return '<tr data-review-id="' + WC.escapeHtml(review.id || '') + '">' +
+        '<td>' + WC.escapeHtml(formatDateTime(item.submitted_at)) + '</td>' +
+        '<td class="' + ageClass(ageH) + '">' + WC.escapeHtml(formatAge(ageH)) + '</td>' +
+        '<td>' + WC.escapeHtml(studentEmail) + '</td>' +
+        '<td>L' + WC.escapeHtml(String(item.student_level || '?')) + '</td>' +
+        '<td>' + WC.escapeHtml(taskLabel) + '</td>' +
+        '<td>' + renderStatusPill(review.status) + '</td>' +
+        '<td>' + renderActions(item) + '</td>' +
+      '</tr>';
+    }
+
+    function renderQueue(items) {
+      var tbody = document.getElementById('queue-rows');
+      document.getElementById('queue-count').textContent = items.length;
+
+      if (!items.length) {
+        var msg = _currentFilter === 'my_claims'
+          ? 'Bạn chưa claim bài nào.'
+          : _currentFilter === 'delivered'
+            ? 'Chưa có bài đã deliver gần đây.'
+            : 'Hàng đợi trống. 🎉';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">' + WC.escapeHtml(msg) + '</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map(renderRow).join('');
+    }
+
+    // ── Actions ───────────────────────────────────────────────────────
+
+    async function handleClaim(reviewId) {
+      try {
+        var review = await window.api.post('/admin/instructor/reviews/' + encodeURIComponent(reviewId) + '/claim', {});
+        if (!review || !review.essay_id) {
+          setAlert('error', 'Phản hồi server thiếu essay_id.');
+          return;
+        }
+        // Navigate straight to the grading page for editing.
+        window.location.href = '/pages/admin-writing-grade.html?essay_id=' + encodeURIComponent(review.essay_id);
+      } catch (e) {
+        // window.api.post throws Error with `message` from backend's
+        // `detail` field. Conflict (409) text comes from the backend's
+        // ConflictError message — render plainly + auto-refresh.
+        var msg = (e && e.message) || 'Lỗi claim';
+        if (/already claimed|cannot claim/i.test(msg)) {
+          setAlert('warn', 'Bài đã được instructor khác claim. Đang refresh…');
+          loadQueue();
+        } else {
+          setAlert('error', msg);
+        }
+      }
+    }
+
+    async function handleRelease(reviewId) {
+      if (!confirm('Release claim? Bài sẽ trở về queue cho instructor khác.')) return;
+      try {
+        await window.api.post('/admin/instructor/reviews/' + encodeURIComponent(reviewId) + '/release', {});
+        setAlert('success', 'Đã release. Bài về queue.');
+        loadQueue();
+      } catch (e) {
+        setAlert('error', (e && e.message) || 'Lỗi release');
+      }
+    }
+
+    // Event delegation — buttons are re-rendered every poll, so we
+    // bind once on the tbody rather than per-row.
+    document.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('button[data-action]');
+      if (!btn) return;
+      var action = btn.dataset.action;
+      var reviewId = btn.dataset.reviewId;
+      if (!reviewId) return;
+      if (action === 'claim')   handleClaim(reviewId);
+      if (action === 'release') handleRelease(reviewId);
+    });
+
+    // ── Loading ───────────────────────────────────────────────────────
+
+    async function loadQueue() {
+      var filter = FILTERS[_currentFilter] || FILTERS.all_active;
+      var qs = filter.statuses.map(function (s) { return 'status=' + encodeURIComponent(s); }).join('&');
+      if (filter.scopeToMe && _currentAdminId) {
+        qs += '&instructor_id=' + encodeURIComponent(_currentAdminId);
+      }
+
+      try {
+        var items = await window.api.get('/admin/instructor/queue?' + qs);
+        renderQueue(items || []);
+      } catch (e) {
+        setAlert('error', 'Không tải được queue: ' + ((e && e.message) || ''));
+      }
+    }
+
+    function setFilter(name) {
+      if (!(name in FILTERS)) return;
+      _currentFilter = name;
+      document.querySelectorAll('.filter-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.filter === name);
+      });
+      clearAlert();
+      loadQueue();
+    }
+
+    // Filter button wire-up.
+    document.querySelectorAll('.filter-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { setFilter(btn.dataset.filter); });
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────
+
+    WC.bootstrap({
+      onReady: function (me) {
+        _currentAdminId = me && me.id;
+        loadQueue();
+        // Soft-poll every 30s. Acceptable trade-off: another admin's
+        // claim is up to 30s stale on this page; the 409 path on
+        // claim attempt covers the race.
+        _pollTimer = setInterval(loadQueue, POLL_INTERVAL_MS);
+      },
+    });
+
+    // Pause polling when tab hidden — saves backend load + battery.
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+      } else if (!_pollTimer) {
+        loadQueue();
+        _pollTimer = setInterval(loadQueue, POLL_INTERVAL_MS);
+      }
+    });
+  </script>
+</body>
+</html>
