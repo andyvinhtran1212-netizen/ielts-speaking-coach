@@ -88,6 +88,16 @@
       failed:    { color: '#f87171', bg: 'rgba(239,68,68,0.18)',  text: 'Chấm bài thất bại.' },
     };
 
+    // Sprint 2.7b — Deep tier runs 3 passes (~3-5 phút). Time-based
+    // rotation gives the admin a sense of progress without realtime
+    // events. Boundaries are heuristics matching the per-pass timeouts:
+    // 0-90s = Pass 1, 90-180s = Pass 2, 180s+ = Pass 3.
+    function deepGradingMessage(elapsedSeconds) {
+      if (elapsedSeconds < 90)  return 'Deep tier · Pass 1 of 3 (Standard analysis)…';
+      if (elapsedSeconds < 180) return 'Deep tier · Pass 2 of 3 (Refinement)…';
+      return                          'Deep tier · Pass 3 of 3 (Sentence rewrite)…';
+    }
+
     function updateUI(payload) {
       var s = payload.status || 'pending';
       var meta = STATUS_DISPLAY[s] || STATUS_DISPLAY.pending;
@@ -96,7 +106,16 @@
       pill.style.background = meta.bg;
       pill.style.color = meta.color;
       if (TERMINAL[s]) pill.classList.remove('pulse'); else pill.classList.add('pulse');
-      document.getElementById('status-text').textContent = meta.text;
+      // Tier-aware status text. Deep tier rotates Pass 1/2/3 hints
+      // while status='grading'; Standard / non-grading states use the
+      // generic message from STATUS_DISPLAY.
+      var tier = (payload.grading_tier || 'standard').toLowerCase();
+      var elapsedSec = Math.floor((Date.now() - _startedAt) / 1000);
+      if (s === 'grading' && tier === 'deep') {
+        document.getElementById('status-text').textContent = deepGradingMessage(elapsedSec);
+      } else {
+        document.getElementById('status-text').textContent = meta.text;
+      }
 
       _eta = payload.eta_seconds || _eta;
       var elapsed = Math.floor((Date.now() - _startedAt) / 1000);

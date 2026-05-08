@@ -33,7 +33,10 @@ from models.writing_feedback import (
     GraderConfig,
     GradingResult,
     GradingTier,
+    Pass2Refinement,
+    Pass3Rewrites,
     WritingFeedback,
+    WritingFeedbackDeep,
 )
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
@@ -95,23 +98,25 @@ class GeminiWritingGrader:
     async def grade_essay(self, config: GraderConfig) -> GradingResult:
         """Grade an essay per config. Returns GradingResult with feedback + metadata.
 
-        Sprint 2.7a.1 (revert): Quick tier removed — it was an
-        orthogonality bug, dropping the very sections that Levels L3-L5
-        target. Standard tier is the only one that runs an actual
-        Gemini call today. Deep + Instructor are reserved for Sprint
-        2.7b/c and raise NotImplementedError. Quick raises ValueError
-        (defence-in-depth — the API layer rejects with 400 first;
-        anything that reaches here is a bypass / direct caller).
+        Tier dispatch:
+          standard   — single Gemini call, full 12-section schema. The
+                       only tier with a fast response time.
+          deep       — Sprint 2.7b: 3-pass flow (Standard → Refine →
+                       Rewrite). Pass 2/3 fall back gracefully on
+                       failure with a `-deep-degraded` stamp.
+          quick      — removed in Sprint 2.7a.1 (orthogonality conflict
+                       with Levels L3-L5). Raises ValueError as
+                       defence-in-depth — the API layer rejects with 400.
+          instructor — reserved for Sprint 2.7c. Raises
+                       NotImplementedError.
 
         Raises:
-            AISafetyBlockError — content blocked by safety filter (no retry made)
+            AISafetyBlockError — content blocked by safety filter
             APIRetryFailedError — all 3 retries exhausted
             InvalidJSONError — response not valid JSON / schema mismatch
-            NotImplementedError — Deep / Instructor tier (Sprint 2.7b/c)
-            ValueError — Quick tier (removed in 2.7a.1) or unknown tier
+            NotImplementedError — Instructor tier (Sprint 2.7c)
+            ValueError — Quick tier (removed) or unknown tier
         """
-        start = time.time()
-
         # Sprint 2.6.1 hotfix: resolve loader per call so a mid-process
         # WRITING_PROMPT_VERSION change is honoured. Sprint 2.7a: also
         # resolve tier per call (anti-pattern #28) — never cache tier
@@ -120,16 +125,11 @@ class GeminiWritingGrader:
         loader = get_prompt_loader()
         tier = config.grading_tier
 
-        # Tier dispatch — Standard is the only path that runs Gemini.
         if tier == GradingTier.STANDARD:
-            system_prompt = loader.load(
-                level=config.analysis_level,
-                form_of_address=config.form_of_address,
-            )
-            model_name = config.selected_model
-            response_schema = WritingFeedback
-            stamp = loader.PROMPT_VERSION
-        elif tier == GradingTier.QUICK:
+            return await self._grade_standard(config, loader)
+        if tier == GradingTier.DEEP:
+            return await self._grade_deep(config, loader)
+        if tier == GradingTier.QUICK:
             raise ValueError(
                 "Quick tier was removed in Sprint 2.7a.1 (orthogonality "
                 "conflict with Levels L3–L5). Use 'standard' tier with "
@@ -137,19 +137,32 @@ class GeminiWritingGrader:
                 "layer rejects this earlier with 400 — reaching the "
                 "grader means a bypass; investigate the call site."
             )
-        elif tier == GradingTier.DEEP:
-            raise NotImplementedError(
-                "Deep tier (multi-pass + sentence rewrite) is planned for "
-                "Sprint 2.7b. Use 'standard' for now."
-            )
-        elif tier == GradingTier.INSTRUCTOR:
+        if tier == GradingTier.INSTRUCTOR:
             raise NotImplementedError(
                 "Instructor tier (human-reviewed) is planned for Sprint "
                 "2.7c. Use 'standard' for now."
             )
-        else:
-            raise ValueError(f"Unknown grading tier: {tier!r}")
+        raise ValueError(f"Unknown grading tier: {tier!r}")
 
+    async def _grade_standard(
+        self,
+        config: GraderConfig,
+        loader,
+    ) -> GradingResult:
+        """Standard tier — single Gemini call, full WritingFeedback schema.
+
+        Extracted from the original `grade_essay()` body during Sprint
+        2.7b so Deep tier (Pass 1) can reuse this exact path. The
+        behaviour is bit-for-bit identical to pre-2.7b Standard grading.
+        """
+        start = time.time()
+
+        system_prompt = loader.load(
+            level=config.analysis_level,
+            form_of_address=config.form_of_address,
+        )
+        model_name = config.selected_model
+        stamp = loader.PROMPT_VERSION
         user_prompt = self._build_user_prompt(config)
 
         response_text, usage = await self._call_with_retry(
@@ -158,7 +171,7 @@ class GeminiWritingGrader:
             user_prompt=user_prompt,
         )
 
-        feedback = self._parse_response(response_text, schema=response_schema)
+        feedback = self._parse_response(response_text, schema=WritingFeedback)
 
         duration_ms = int((time.time() - start) * 1000)
         cost = self._calculate_cost(
@@ -175,7 +188,305 @@ class GeminiWritingGrader:
             cost_usd=cost,
             grading_duration_ms=duration_ms,
             prompt_version=stamp,
-            grading_tier=tier,
+            grading_tier=GradingTier.STANDARD,
+        )
+
+    # ── Sprint 2.7b — Deep tier 3-pass flow ───────────────────────────
+    #
+    # Pass 1: Standard grading (reuses _grade_standard)
+    # Pass 2: Refinement — review Pass 1 as a delta; rare adjustments
+    # Pass 3: Sentence Rewrite — rewrite each sentence containing a mistake
+    #
+    # Failure handling: Pass 2 or Pass 3 failure falls back to the last
+    # successful state (NEVER raises) and stamps "-deep-degraded" so the
+    # admin UI can flag the row + cost telemetry can split degraded vs
+    # full Deep runs. Premium tier paying for 3 passes must never lose
+    # the Pass 1 baseline if a downstream pass fails.
+
+    DEEP_PASS_TIMEOUTS_S = {
+        "pass1": 90,    # Standard pass; existing 3-retry pattern with backoff
+        "pass2": 90,    # Refinement; smaller payload, similar retry budget
+        "pass3": 180,   # Rewrite; larger output (per-sentence), more time
+    }
+
+    async def _grade_deep(
+        self,
+        config: GraderConfig,
+        loader,
+    ) -> GradingResult:
+        """Deep tier — 3-pass flow with graceful per-pass degradation."""
+
+        tier_metadata: dict = {}
+
+        # ── Pass 1: Standard grading ──────────────────────────────────
+        try:
+            pass1 = await asyncio.wait_for(
+                self._grade_standard(config, loader),
+                timeout=self.DEEP_PASS_TIMEOUTS_S["pass1"],
+            )
+        except (asyncio.TimeoutError, Exception) as e:
+            # Pass 1 is the baseline — if it fails, we cannot degrade
+            # gracefully. Re-raise so essay_service marks the job as
+            # failed (the same behaviour as a pre-2.7b Standard failure).
+            logger.error("[deep] Pass 1 failed: %s", e)
+            raise
+
+        tier_metadata["pass1"] = {
+            "duration_ms":   pass1.grading_duration_ms,
+            "tokens_input":  pass1.tokens_input,
+            "tokens_output": pass1.tokens_output,
+            "cost_usd":      pass1.cost_usd,
+        }
+
+        # Build the eventual Deep result we'll return — we mutate this
+        # as later passes succeed; if they fail, the previous state is
+        # what gets returned (graceful degradation).
+        merged_feedback: WritingFeedback = pass1.feedback
+        deep_stamp = f"{loader.PROMPT_VERSION}-deep"
+        pass2_output: Pass2Refinement | None = None
+
+        # ── Pass 2: Refinement ────────────────────────────────────────
+        pass2_start = time.time()
+        try:
+            pass2_output, pass2_usage = await asyncio.wait_for(
+                self._run_deep_pass2(config, loader, pass1.feedback),
+                timeout=self.DEEP_PASS_TIMEOUTS_S["pass2"],
+            )
+        except Exception as e:
+            logger.warning("[deep] Pass 2 failed, degrading to Pass 1: %s", e)
+            tier_metadata["pass2"] = {
+                "duration_ms": int((time.time() - pass2_start) * 1000),
+                "error": str(e)[:500],
+            }
+            tier_metadata["degraded_at"] = "pass2"
+            tier_metadata["degraded_error"] = str(e)[:500]
+            return self._build_deep_result(
+                feedback=WritingFeedbackDeep(
+                    **pass1.feedback.model_dump(),
+                    sentenceRewrites=[],
+                    pass2_refinements=None,
+                ),
+                pass1=pass1,
+                pass2_cost=None,
+                pass3_cost=None,
+                tier_metadata=tier_metadata,
+                stamp=f"{deep_stamp}-degraded",
+            )
+
+        pass2_cost = self._calculate_cost(
+            model=settings.GEMINI_PRO_MODEL,
+            tokens_in=pass2_usage.get("input_tokens"),
+            tokens_out=pass2_usage.get("output_tokens"),
+        )
+        tier_metadata["pass2"] = {
+            "duration_ms":       int((time.time() - pass2_start) * 1000),
+            "tokens_input":      pass2_usage.get("input_tokens"),
+            "tokens_output":     pass2_usage.get("output_tokens"),
+            "cost_usd":          pass2_cost,
+            "added_mistakes":    len(pass2_output.added_mistakes),
+            "removed_mistakes":  len(pass2_output.removed_mistake_indexes),
+            "refinements_count": (
+                len(pass2_output.added_mistakes)
+                + len(pass2_output.removed_mistake_indexes)
+                + sum(
+                    1
+                    for v in pass2_output.band_score_adjustments.model_dump().values()
+                    if v is not None
+                )
+            ),
+        }
+
+        # Apply Pass 2 deltas to a fresh merged-feedback copy.
+        merged_feedback = self._merge_pass1_pass2(pass1.feedback, pass2_output)
+
+        # ── Pass 3: Sentence Rewrite ──────────────────────────────────
+        pass3_start = time.time()
+        try:
+            pass3_output, pass3_usage = await asyncio.wait_for(
+                self._run_deep_pass3(config, loader, merged_feedback),
+                timeout=self.DEEP_PASS_TIMEOUTS_S["pass3"],
+            )
+        except Exception as e:
+            logger.warning(
+                "[deep] Pass 3 failed, degrading to merged Pass 1+2: %s", e,
+            )
+            tier_metadata["pass3"] = {
+                "duration_ms": int((time.time() - pass3_start) * 1000),
+                "error": str(e)[:500],
+            }
+            tier_metadata["degraded_at"] = "pass3"
+            tier_metadata["degraded_error"] = str(e)[:500]
+            return self._build_deep_result(
+                feedback=WritingFeedbackDeep(
+                    **merged_feedback.model_dump(),
+                    sentenceRewrites=[],
+                    pass2_refinements=pass2_output,
+                ),
+                pass1=pass1,
+                pass2_cost=pass2_cost,
+                pass3_cost=None,
+                tier_metadata=tier_metadata,
+                stamp=f"{deep_stamp}-degraded",
+            )
+
+        pass3_cost = self._calculate_cost(
+            model=settings.GEMINI_PRO_MODEL,
+            tokens_in=pass3_usage.get("input_tokens"),
+            tokens_out=pass3_usage.get("output_tokens"),
+        )
+        tier_metadata["pass3"] = {
+            "duration_ms":    int((time.time() - pass3_start) * 1000),
+            "tokens_input":   pass3_usage.get("input_tokens"),
+            "tokens_output":  pass3_usage.get("output_tokens"),
+            "cost_usd":       pass3_cost,
+            "rewrites_count": len(pass3_output.sentence_rewrites),
+        }
+
+        # All 3 passes succeeded — full Deep result.
+        deep_feedback = WritingFeedbackDeep(
+            **merged_feedback.model_dump(),
+            sentenceRewrites=pass3_output.sentence_rewrites,
+            pass2_refinements=pass2_output,
+        )
+        return self._build_deep_result(
+            feedback=deep_feedback,
+            pass1=pass1,
+            pass2_cost=pass2_cost,
+            pass3_cost=pass3_cost,
+            tier_metadata=tier_metadata,
+            stamp=deep_stamp,
+        )
+
+    async def _run_deep_pass2(
+        self,
+        config: GraderConfig,
+        loader,
+        pass1_feedback: WritingFeedback,
+    ) -> tuple[Pass2Refinement, dict]:
+        """Execute Pass 2 (refinement). Returns (parsed output, usage)."""
+        system_prompt = loader.load_deep_pass2(level=config.analysis_level)
+        user_prompt = json.dumps(
+            {
+                "task_type":    config.task_type,
+                "task_prompt":  config.prompt_text,
+                "essay":        config.essay_text,
+                "pass1_output": pass1_feedback.model_dump(mode="json"),
+            },
+            ensure_ascii=False,
+        )
+        response_text, usage = await self._call_with_retry(
+            model_name=settings.GEMINI_PRO_MODEL,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
+        return self._parse_response(response_text, schema=Pass2Refinement), usage
+
+    async def _run_deep_pass3(
+        self,
+        config: GraderConfig,
+        loader,
+        merged_feedback: WritingFeedback,
+    ) -> tuple[Pass3Rewrites, dict]:
+        """Execute Pass 3 (sentence rewrite). Returns (parsed output, usage)."""
+        system_prompt = loader.load_deep_pass3(level=config.analysis_level)
+        user_prompt = json.dumps(
+            {
+                "essay":    config.essay_text,
+                "mistakes": [m.model_dump() for m in merged_feedback.mistakeAnalysis],
+            },
+            ensure_ascii=False,
+        )
+        response_text, usage = await self._call_with_retry(
+            model_name=settings.GEMINI_PRO_MODEL,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
+        return self._parse_response(response_text, schema=Pass3Rewrites), usage
+
+    @staticmethod
+    def _merge_pass1_pass2(
+        pass1_feedback: WritingFeedback,
+        pass2: Pass2Refinement,
+    ) -> WritingFeedback:
+        """Apply Pass 2 deltas to Pass 1 feedback. Returns a new
+        WritingFeedback with adjustments applied:
+
+          - removed_mistake_indexes: dropped from mistakeAnalysis
+          - added_mistakes: appended to mistakeAnalysis
+          - band_score_adjustments: applied to overallBandScore +
+            criteriaFeedback.<criterion>.bandScore for each non-None field
+
+        Pass 1's data is the baseline; null/empty Pass 2 fields are no-ops.
+        """
+        merged = pass1_feedback.model_copy(deep=True)
+
+        # Mistake list: drop removed indexes (defensive bounds check),
+        # then append additions. removed_mistake_indexes referenced into
+        # the ORIGINAL Pass 1 list, so we filter before appending.
+        removed_set = {
+            i for i in pass2.removed_mistake_indexes
+            if 0 <= i < len(merged.mistakeAnalysis)
+        }
+        kept = [
+            m for i, m in enumerate(merged.mistakeAnalysis)
+            if i not in removed_set
+        ]
+        merged.mistakeAnalysis = kept + list(pass2.added_mistakes)
+
+        # Band score adjustments — apply only the non-None ones.
+        adj = pass2.band_score_adjustments
+        if adj.overall is not None:
+            merged.overallBandScore = adj.overall
+        if adj.mainCriterion is not None:
+            merged.criteriaFeedback.mainCriterion.bandScore = adj.mainCriterion
+        if adj.coherenceCohesion is not None:
+            merged.criteriaFeedback.coherenceCohesion.bandScore = adj.coherenceCohesion
+        if adj.lexicalResource is not None:
+            merged.criteriaFeedback.lexicalResource.bandScore = adj.lexicalResource
+        if adj.grammaticalRange is not None:
+            merged.criteriaFeedback.grammaticalRange.bandScore = adj.grammaticalRange
+
+        return merged
+
+    @staticmethod
+    def _build_deep_result(
+        feedback: WritingFeedbackDeep,
+        pass1: GradingResult,
+        pass2_cost: Optional[float],
+        pass3_cost: Optional[float],
+        tier_metadata: dict,
+        stamp: str,
+    ) -> GradingResult:
+        """Assemble the GradingResult for a Deep run.
+
+        Aggregates token counts + cost across all completed passes (a
+        degraded run has None for the failed/skipped passes' costs).
+        `grading_duration_ms` is the SUM of pass1+pass2+pass3 durations
+        from tier_metadata so callers can present a wall-clock latency
+        without summing themselves.
+        """
+        total_tokens_in  = pass1.tokens_input or 0
+        total_tokens_out = pass1.tokens_output or 0
+        total_cost = (pass1.cost_usd or 0.0)
+        total_duration_ms = pass1.grading_duration_ms
+
+        for pass_key in ("pass2", "pass3"):
+            meta = tier_metadata.get(pass_key, {})
+            total_tokens_in  += meta.get("tokens_input") or 0
+            total_tokens_out += meta.get("tokens_output") or 0
+            total_cost       += meta.get("cost_usd") or 0.0
+            total_duration_ms += meta.get("duration_ms") or 0
+
+        return GradingResult(
+            feedback=feedback,
+            model_used=settings.GEMINI_PRO_MODEL,
+            tokens_input=total_tokens_in,
+            tokens_output=total_tokens_out,
+            cost_usd=round(total_cost, 6),
+            grading_duration_ms=total_duration_ms,
+            prompt_version=stamp,
+            grading_tier=GradingTier.DEEP,
+            tier_metadata=tier_metadata,
         )
 
     # ── Internal helpers ──────────────────────────────────────────────

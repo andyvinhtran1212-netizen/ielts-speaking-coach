@@ -236,6 +236,75 @@ class WritingFeedback(BaseModel):
     recurringPatterns: Optional[dict] = None
 
 
+# ── Sprint 2.7b — Deep tier (multi-pass + sentence rewrite) ───────────
+
+class SentenceRewrite(BaseModel):
+    """Pass 3 output: a rewrite of one sentence that contained mistakes.
+
+    Sprint 2.7b. The rewrite addresses every mistake whose index appears
+    in `mistakes_addressed` and stays close to the student's original
+    register (per Rule 5 — improved-essay realism cap of +1.5 bands).
+    `mistakes_addressed` indexes into the merged `mistakeAnalysis` list
+    on the parent `WritingFeedbackDeep`.
+    """
+    original_sentence: str
+    rewritten_sentence: str
+    mistakes_addressed: List[int] = Field(default_factory=list)
+    rationale: str = ""
+
+
+class CriterionAdjustments(BaseModel):
+    """Pass 2 band-score adjustments. Each field is the new value the
+    refinement pass wants applied (or None to leave Pass 1's score
+    unchanged). Names mirror the nested CriteriaFeedbackBundle keys.
+    """
+    overall: Optional[float] = None
+    mainCriterion: Optional[int] = None
+    coherenceCohesion: Optional[int] = None
+    lexicalResource: Optional[int] = None
+    grammaticalRange: Optional[int] = None
+
+
+class Pass2Refinement(BaseModel):
+    """Pass 2 (refinement) Gemini output — Sprint 2.7b.
+
+    The refinement pass is a delta against Pass 1, not a re-grade.
+    Empty arrays + all-None adjustments mean "Pass 1 was correct, no
+    changes" — that is the expected outcome for ~well-written essays
+    and the prompt explicitly tells the model never to invent changes
+    just to look productive.
+    """
+    band_score_adjustments: CriterionAdjustments = Field(default_factory=CriterionAdjustments)
+    added_mistakes: List[MistakeAnalysis] = Field(default_factory=list)
+    removed_mistake_indexes: List[int] = Field(default_factory=list)
+    rationale: str = ""
+
+
+class Pass3Rewrites(BaseModel):
+    """Pass 3 (sentence rewrite) Gemini output — Sprint 2.7b."""
+    sentence_rewrites: List[SentenceRewrite] = Field(default_factory=list)
+
+
+class WritingFeedbackDeep(WritingFeedback):
+    """Deep tier output — Sprint 2.7b.
+
+    Extends WritingFeedback (the Standard 12-section schema) with two
+    Deep-only fields. Subclassing keeps the existing persistence path
+    (`fb.criteriaFeedback.mainCriterion.bandScore` etc.) unchanged
+    when the row was graded in Deep — `essay_service._bg_grade_essay`
+    pulls from the same nested fields.
+
+      sentenceRewrites    — Pass 3 output, one rewrite per sentence
+                            that contained a mistake.
+      pass2_refinements   — raw Pass 2 output (adjustments + rationale)
+                            stored alongside for transparency. Frontend
+                            shows the rationale string; the rest is
+                            kept for audit/debugging.
+    """
+    sentenceRewrites: List[SentenceRewrite] = Field(default_factory=list)
+    pass2_refinements: Optional[Pass2Refinement] = None
+
+
 # ── Input/config types ────────────────────────────────────────────────
 
 class GraderConfig(BaseModel):
@@ -309,6 +378,15 @@ class GradingResult(BaseModel):
     # the writing_essays row. Mirrors the value on GraderConfig.
     grading_tier: GradingTier = GradingTier.STANDARD
 
-    # Allow the BaseModel (WritingFeedback OR WritingFeedbackQuick) to
-    # be assigned without strict mode rejecting the subclass.
+    # Sprint 2.7b — Deep tier per-pass metadata (timing, tokens, cost,
+    # counts of refinements/rewrites). Empty {} for Standard tier; the
+    # existing flat fields (model_used, tokens_input/output, cost_usd,
+    # grading_duration_ms) cover Standard's single-pass story. Persisted
+    # to `writing_essays.grading_tier_metadata` JSONB column. Keys
+    # documented on that column's COMMENT (migration 046).
+    tier_metadata: dict = Field(default_factory=dict)
+
+    # Allow the BaseModel union (WritingFeedback OR WritingFeedbackDeep
+    # in 2.7b; previously WritingFeedbackQuick before 2.7a.1's revert)
+    # to flow through without strict-mode rejecting the subclass.
     model_config = {"arbitrary_types_allowed": True}

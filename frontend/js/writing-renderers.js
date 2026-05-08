@@ -551,6 +551,36 @@
     return '<div class="instructor-note-block">' + renderString(String(note)) + '</div>';
   }
 
+  // ── Section 15 — Sentence Rewrites (Sprint 2.7b Deep tier) ────────
+  // Pass 3 of the Deep flow emits one rewrite per unique sentence that
+  // contained mistakes. Standard tier essays don't have this field;
+  // the data-driven dispatch in writing-result.html / admin-writing-grade
+  // skips the renderer when feedback_json.sentenceRewrites is empty/absent
+  // (the same `isEmpty` guard the other renderers use).
+  function renderSentenceRewrites(items) {
+    if (isEmpty(items) || !Array.isArray(items)) return emptyShape();
+    return items.map(function (rw) {
+      if (!rw || typeof rw !== 'object') return '';
+      var orig    = escapeHtml(rw.original_sentence || '');
+      var rewrite = escapeHtml(rw.rewritten_sentence || '');
+      var rationale = rw.rationale ? escapeHtml(rw.rationale) : '';
+      var html = '<div class="rewrite-card">' +
+        '<div class="rewrite-row rewrite-original">' +
+          '<span class="rewrite-label">Original</span>' +
+          '<span class="rewrite-text">' + orig + '</span>' +
+        '</div>' +
+        '<div class="rewrite-row rewrite-improved">' +
+          '<span class="rewrite-label">Improved</span>' +
+          '<span class="rewrite-text">' + rewrite + '</span>' +
+        '</div>';
+      if (rationale) {
+        html += '<div class="rewrite-rationale">' + rationale + '</div>';
+      }
+      html += '</div>';
+      return html;
+    }).join('');
+  }
+
   // ── Dispatch table + JSON-key map ────────────────────────────────
   var SECTION_RENDERERS = {
     'overview':           renderOverview,
@@ -566,6 +596,7 @@
     'improved':           renderImprovedEssay,
     'ai-content':         renderAIContent,
     'key-takeaways':      renderKeyTakeaways,
+    'sentence-rewrites':  renderSentenceRewrites,
   };
 
   var SECTION_KEYS = {
@@ -582,6 +613,7 @@
     'improved':           'improvedEssay',
     'ai-content':         'aiContentAnalysis',
     'key-takeaways':      'keyTakeaways',
+    'sentence-rewrites':  'sentenceRewrites',
   };
 
   // Public surface — only what the page needs.
