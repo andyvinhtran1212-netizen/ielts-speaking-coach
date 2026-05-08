@@ -355,9 +355,17 @@ def get_queue(
 
     # Hydrate essay + student fields. We do one batched lookup per table
     # rather than N round trips so the queue scales to dozens of rows.
+    #
+    # Sprint 2.7d.1.1 hotfix: the column on `writing_essays` is named
+    # `analysis_level` (per migration 033 line 99), NOT `level`. The
+    # original 2.7d.1 implementation crashed in production with
+    # "column writing_essays.level does not exist" — the in-memory
+    # FakeSupabase test fixture didn't enforce real schema, so the
+    # 30 backend tests passed with mock data while production failed.
+    # See TECH_DEBT.md anti-pattern #37.
     essay_ids = [row["essay_id"] for row in response.data]
     essays_resp = supabase_admin.table("writing_essays").select(
-        "id, student_id, level, task_type, created_at",
+        "id, student_id, analysis_level, task_type, created_at",
     ).in_("id", essay_ids).execute()
     essays_by_id = {e["id"]: e for e in (essays_resp.data or [])}
 
@@ -394,7 +402,11 @@ def get_queue(
             review=review,
             essay_id=review.essay_id,
             student_email=student_email,
-            student_level=essay.get("level") or 1,
+            # Sprint 2.7d.1.1 hotfix: source column is `analysis_level`
+            # (see SELECT above). The Pydantic field on
+            # InstructorQueueItem stays `student_level` for frontend
+            # backward compat.
+            student_level=essay.get("analysis_level") or 1,
             task_type=essay.get("task_type") or "task2",
             submitted_at=essay.get("created_at") or review.created_at,
             age_hours=review.age_hours,
