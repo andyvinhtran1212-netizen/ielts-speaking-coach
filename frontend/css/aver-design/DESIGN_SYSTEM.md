@@ -217,7 +217,7 @@ Per-page rewrite, one page per sprint. Priority order is documented in `UNIFIED_
 1. Adds `tokens.css` + `components.css` + `theme-toggle.js`
 2. Adds inline anti-flash IIFE in `<head>`
 3. Replaces page-specific styles with `.av-*` classes where possible
-4. **Preserves JS-coupled class names** (`.btn-primary`, `.skill-card`, `.tab-btn`, `.main-tab-btn`, `.essay-card`, `.session-row`, `.skill-cta-primary`, `.skill-cta-secondary`, `.preview-mode-banner`, `.page-moved-banner`, `.skill-card-locked`, `.btn-test`, `.btn-start`, `.btn-fulltest`, `.btn-locked`) — these are immutable during migration
+4. **Preserves JS-coupled class names** (`.btn-primary`, `.skill-card`, `.tab-btn`, `.main-tab-btn`, `.essay-card`, `.session-row`, `.skill-cta-primary`, `.skill-cta-secondary`, `.preview-mode-banner`, `.page-moved-banner`, `.btn-test`, `.btn-start`, `.btn-fulltest`, `.btn-locked`) — these are immutable during migration. **Note:** `.skill-card-locked` was previously listed here as a JS-coupled lock class, but the actual homepage runtime uses `.coming-soon` + `data-locked="true"` (rendered by `js/home.js renderSkillCard`); see `UNIFIED_DESIGN_BRIEF.md` § 3.6.1 for the per-page lock-state inventory. Always verify against the page's JS before assuming a lock class.
 5. Tests in both themes before merge
 
 ### 11.3 Coexistence
@@ -225,3 +225,38 @@ Per-page rewrite, one page per sprint. Priority order is documented in `UNIFIED_
 `--ds-*` and `--av-*` tokens coexist throughout the migration. `ds.css` continues to ship. Old pages continue to use `--ds-*` until their redesign sprint touches them. There is no "flag day".
 
 Once all pages are migrated, a cleanup sprint removes `ds.css` and the legacy class definitions. Until then: don't rip out the legacy system.
+
+---
+
+## 12. Architectural notes — iframe composition pattern
+
+The vocabulary landing (`/pages/vocabulary.html`) mounts three same-origin app pages — `my-vocabulary.html`, `flashcards.html`, and `exercises.html` — inside `<iframe>` elements (Sprint 6.0 Approach B). The embedded-mode contract (Sprint 6.0.1) hides the child page's nav and "page moved" banner via `html.embedded-mode` so the composed surface reads as one page.
+
+### 12.1 This is a UX composition pattern, NOT a security boundary
+
+The iframes do **not** declare a `sandbox` attribute. Child pages are first-party, same-origin pages we control:
+
+- The auth gate runs in each child page independently — access control is preserved
+- Same-origin means parent (`vocabulary.html`) can read/write child DOM and storage freely
+- A future XSS or DOM bug in any child page would have full reach into the parent
+
+The pattern is using `<iframe>` as a **composition shortcut** to embed an existing self-contained page into a tab without rewriting it as a module. It is **not** providing isolation.
+
+### 12.2 When to revisit (un-defer triggers)
+
+Module-extraction was the alternative considered (Sprint 6.0 Approach A). It was deferred because the child pages were too self-contained at the time (each carries its own auth bootstrap, Supabase init, modal lifecycle). The iframe pattern stays acceptable while:
+
+- Child pages remain first-party and same-origin
+- No sensitive data flows through the iframe boundary that doesn't already flow through the parent
+- Mobile performance stays acceptable (currently fine — `loading="lazy"` defers off-tab iframes)
+
+Trigger an architectural revisit when any of these flips — see `TECH_DEBT.md` → `DEBT-2026-05-09-B` for the canonical un-defer trigger list.
+
+### 12.3 What NOT to do as a quick fix
+
+Adding `sandbox="allow-same-origin allow-scripts ..."` to the existing iframes does **not** add isolation — `allow-same-origin` keeps the parent and child in the same origin and reintroduces all the same-origin reach the unprefixed iframe already has. A real isolation boundary requires either:
+
+- Cross-origin iframes (different subdomain), which breaks the auth-gate-runs-in-each-child contract, or
+- Genuine module extraction (Approach A), which is the deferred alternative
+
+Until module extraction lands, the iframe approach should be treated as an internal composition tool, not a containment claim.
