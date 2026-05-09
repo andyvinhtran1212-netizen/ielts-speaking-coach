@@ -5,6 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Vocab Bank — IELTS Speaking Coach</title>
+
+  <!-- Sprint 6.0.1 — embedded-mode toggle. When this page is mounted
+       inside the unified vocabulary landing as an iframe (URL carries
+       ?embedded=1), the parent supplies the chrome and we suppress
+       our own. Run synchronously in <head> before any styling loads
+       so there's no flash-of-unhidden-chrome. -->
+  <script>
+    (function () {
+      try {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('embedded') === '1') {
+          document.documentElement.classList.add('embedded-mode');
+        }
+      } catch (e) { /* noop */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/embedded-mode.css" />
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {

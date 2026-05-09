@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Exercises — IELTS Speaking Coach</title>
+
+  <!-- Sprint 6.0.1 — embedded-mode toggle. See /css/embedded-mode.css. -->
+  <script>
+    (function () {
+      try {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('embedded') === '1') {
+          document.documentElement.classList.add('embedded-mode');
+        }
+      } catch (e) { /* noop */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/embedded-mode.css" />
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {

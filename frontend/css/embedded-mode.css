@@ -1,0 +1,49 @@
+/* css/embedded-mode.css — Sprint 6.0.1 hotfix.
+ *
+ * Hides page-level chrome (top header, "page moved" banner) when a
+ * standalone page is loaded inside an iframe via the unified
+ * /pages/vocabulary.html landing. The activation toggle is the
+ * `embedded-mode` class on <html>, set synchronously in <head> by a
+ * tiny script before render so there's no flash-of-unhidden-chrome.
+ *
+ * Why hide chrome at all? The parent landing already supplies its
+ * own top nav, page header, and tab affordance. Re-rendering them
+ * inside the iframe wastes vertical space, breaks the visual
+ * hierarchy (two headers stacked), and worst — the iframe's "Vocab"
+ * link would re-navigate the iframe to /pages/vocabulary.html,
+ * creating an infinite-nest scenario.
+ *
+ * The selectors here match the shared header pattern across
+ * my-vocabulary.html, flashcards.html, and exercises.html:
+ *   <body>
+ *     <header style="background:#0C2340 ...">  ← top chrome bar
+ *     <main>
+ *       <div id="vocab-moved-banner">          ← Sprint 6.0 banner
+ *       ...
+ * Future iframe-mounted pages can opt in by importing this file
+ * and adding the trigger script (see embedded-mode-init.html
+ * snippet in repo, inlined into each page <head>). New chrome
+ * surfaces should be added here, not duplicated in every page.
+ */
+
+html.embedded-mode > body > header,
+html.embedded-mode #vocab-moved-banner,
+html.embedded-mode .vocab-moved-banner {
+  display: none !important;
+}
+
+html.embedded-mode body {
+  /* The iframe panel in vocabulary.css already provides the breathing
+     room; remove the page's own top spacing so content butts cleanly
+     up to the iframe's top edge. */
+  padding-top: 0 !important;
+}
+
+/* Some pages set body { background: navy gradient } for a dark canvas
+   that bleeds behind the header. Inside the iframe the parent's
+   navy ground already shows through — but transparent ground would
+   show the parent. Keep the body opaque so each tab feels like its
+   own surface. (No override needed — the existing `background` rules
+   in each page's <style> already produce navy. Documenting here so a
+   future refactor doesn't make the body transparent and break the
+   look.) */
