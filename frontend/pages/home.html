@@ -4,38 +4,83 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Aver Learning — Trang chủ</title>
+  <title>Trang chủ — Aver Learning</title>
 
-  <!-- Display font: Fraunces (variable, distinctive serif). Body: Manrope. -->
+  <!-- ── Anti-flash theme bootstrap (must run BEFORE any stylesheet) ── -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- ── Fonts: Plus Jakarta Sans (body) + JetBrains Mono (numerics) ── -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
 
+  <!-- ── Aver Design System (tokens MUST load before components) ───── -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+
+  <!-- ── Page-specific styles ───────────────────────────────────────── -->
   <link rel="stylesheet" href="../css/home.css" />
+
+  <!-- ── Lucide icons (line icons, no emoji) ────────────────────────── -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="ds-canvas">
+<body class="av-page">
   <div class="shell">
 
-    <!-- ── Top nav ─────────────────────────────────────────────────── -->
+    <!-- ── Top nav (brand, nav links, theme toggle, user pill) ─────── -->
     <nav class="topnav" aria-label="Primary">
       <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
 
       <div class="nav-links">
-        <a href="/pages/home.html" class="active">Home</a>
+        <a href="/pages/home.html" class="active">Trang chủ</a>
         <a href="/pages/writing-dashboard.html">Writing</a>
         <a href="/pages/speaking.html">Speaking</a>
         <a href="/grammar.html">Grammar</a>
-        <a href="/pages/my-vocabulary.html">Vocab</a>
+        <a href="/pages/vocabulary.html">Vocabulary</a>
         <span class="locked" aria-disabled="true">Reading</span>
         <span class="locked" aria-disabled="true">Listening</span>
       </div>
 
-      <a href="/pages/profile.html" class="user-pill" id="user-pill" aria-label="Profile">
-        <span class="avatar" id="user-avatar">·</span>
-        <span id="user-pill-name">…</span>
-      </a>
+      <div class="topnav-right">
+        <!-- Theme toggle: sun shows in dark, moon shows in light -->
+        <button class="av-theme-toggle" id="theme-toggle" type="button">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+
+        <a href="/pages/profile.html" class="user-pill" id="user-pill" aria-label="Hồ sơ">
+          <span class="avatar" id="user-avatar">·</span>
+          <span id="user-pill-name">…</span>
+        </a>
+      </div>
     </nav>
 
     <!-- ── Optional error banner ───────────────────────────────────── -->
@@ -44,37 +89,53 @@
     <!-- ── Greeting + hero stats ───────────────────────────────────── -->
     <header class="greeting">
       <div>
-        <h1>Xin chào, <span class="name" id="greeting-name">…</span><span class="wave" aria-hidden="true">👋</span></h1>
-        <p>Tiếp tục hành trình IELTS của bạn — luyện đều mỗi ngày để giữ đà tiến bộ.</p>
+        <p class="eyebrow">Trang chủ</p>
+        <h1>Xin chào, <span class="name" id="greeting-name">…</span></h1>
+        <p class="lede">Tiếp tục hành trình IELTS của bạn — luyện đều mỗi ngày để giữ đà tiến bộ.</p>
       </div>
 
       <div class="hero-stats" aria-label="Tổng quan">
+        <!--
+          Each stat keeps its existing id ('hero-streak', 'hero-sessions',
+          'hero-essays') and inner .value-num + .unit elements because
+          home.js reaches in by id (renderHero in js/home.js). Don't
+          rename these without also updating the JS.
+        -->
         <div class="hero-stat streak" id="hero-streak">
           <span class="label">Streak</span>
           <span class="value">
             <span class="value-num">0</span>
             <span class="unit">ngày</span>
-            <span class="flame" aria-hidden="true">🔥</span>
+            <span class="flame" aria-hidden="true">
+              <i data-lucide="flame"></i>
+            </span>
           </span>
         </div>
         <div class="hero-stat" id="hero-sessions">
           <span class="label">Speaking</span>
           <span class="value">
             <span class="value-num">0</span>
-            <span class="unit">sessions</span>
+            <span class="unit">buổi</span>
           </span>
         </div>
         <div class="hero-stat" id="hero-essays">
           <span class="label">Writing</span>
           <span class="value">
             <span class="value-num">0</span>
-            <span class="unit">essays</span>
+            <span class="unit">bài</span>
           </span>
         </div>
       </div>
     </header>
 
     <!-- ── Active skills ───────────────────────────────────────────── -->
+    <!--
+      home.js renders each .skill-card.skeleton by replacing innerHTML
+      with: .head > .icon + .arrow|.lock-tag, h3, .metric-row > .metric,
+      .sub-metric, .footer > .last-activity + .cta. The CSS in home.css
+      styles each of those inner classes — keep them in sync if home.js
+      ever changes the rendered structure.
+    -->
     <section>
       <div class="section-head">
         <h2>Kỹ năng IELTS</h2>
@@ -83,49 +144,10 @@
       </div>
 
       <div class="skill-grid">
-        <article class="skill-card skeleton" data-skill="writing">
-          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
-          <h3>Writing</h3>
-          <div class="metric">·</div>
-          <div class="sub-metric">·</div>
-          <div class="footer">
-            <span class="last-activity">·</span>
-            <span class="cta">·</span>
-          </div>
-        </article>
-
-        <article class="skill-card skeleton" data-skill="speaking">
-          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
-          <h3>Speaking</h3>
-          <div class="metric">·</div>
-          <div class="sub-metric">·</div>
-          <div class="footer">
-            <span class="last-activity">·</span>
-            <span class="cta">·</span>
-          </div>
-        </article>
-
-        <article class="skill-card skeleton" data-skill="grammar">
-          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
-          <h3>Grammar</h3>
-          <div class="metric">·</div>
-          <div class="sub-metric">·</div>
-          <div class="footer">
-            <span class="last-activity">·</span>
-            <span class="cta">·</span>
-          </div>
-        </article>
-
-        <article class="skill-card skeleton" data-skill="vocabulary">
-          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
-          <h3>Vocabulary</h3>
-          <div class="metric">·</div>
-          <div class="sub-metric">·</div>
-          <div class="footer">
-            <span class="last-activity">·</span>
-            <span class="cta">·</span>
-          </div>
-        </article>
+        <article class="skill-card skeleton" data-skill="writing"></article>
+        <article class="skill-card skeleton" data-skill="speaking"></article>
+        <article class="skill-card skeleton" data-skill="grammar"></article>
+        <article class="skill-card skeleton" data-skill="vocabulary"></article>
       </div>
     </section>
 
@@ -138,25 +160,15 @@
       </div>
 
       <div class="skill-grid">
-        <article class="skill-card coming-soon" data-skill="reading">
-          <div class="head">
-            <div class="icon">✸</div>
-            <span class="lock-tag">Sắp ra mắt</span>
-          </div>
-          <h3>Reading</h3>
-          <p class="desc">Bài đọc IELTS với phân tích cấu trúc đoạn và chiến lược tìm ý chính.</p>
-        </article>
-
-        <article class="skill-card coming-soon" data-skill="listening">
-          <div class="head">
-            <div class="icon">◐</div>
-            <span class="lock-tag">Sắp ra mắt</span>
-          </div>
-          <h3>Listening</h3>
-          <p class="desc">Bài nghe với note-taking pattern và phân tích bẫy đáp án.</p>
-        </article>
+        <article class="skill-card skeleton" data-skill="reading"></article>
+        <article class="skill-card skeleton" data-skill="listening"></article>
       </div>
     </section>
+
+    <footer class="page-footer">
+      <span>Cần trợ giúp? <a class="aver-link" href="mailto:hello@averlearning.com">Liên hệ giảng viên →</a></span>
+      <span class="version">Aver Learning · Light theme default</span>
+    </footer>
 
   </div>
 
@@ -164,15 +176,30 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
   <script>
-    // Same Supabase config as login.html — keep inline so the script
-    // bundle stays small. If credentials change, update both places.
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
   </script>
   <script src="../js/home.js"></script>
+
+  <!-- ── Theme toggle wiring (ES module, after legacy scripts) ────── -->
+  <script type="module">
+    import { bindToggleButton } from '../js/theme-toggle.js';
+    bindToggleButton(document.getElementById('theme-toggle'));
+  </script>
+
+  <!-- ── Lucide icon hydration ────────────────────────────────────── -->
   <script>
-    // Pill: drop in the user's email/initial once Supabase resolves.
+    function _renderLucide() { if (window.lucide && window.lucide.createIcons) window.lucide.createIcons(); }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _renderLucide);
+    } else {
+      _renderLucide();
+    }
+  </script>
+
+  <!-- ── User-pill bootstrap (same pattern as legacy home.html) ───── -->
+  <script>
     (async () => {
       try {
         const sb = getSupabase();
