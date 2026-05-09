@@ -352,6 +352,23 @@ def test_vocabulary_excludes_archived_from_word_count(fake_db, aggregator):
     assert payload["skills"]["vocabulary"]["words_learned"] == 1
 
 
+def test_vocabulary_excludes_skipped_from_word_count(fake_db, aggregator):
+    """Sprint 5.2.1 hotfix — pre-5.2.1 the query only filtered
+    is_archived, so soft-skipped rows leaked into words_learned and
+    inflated the homepage count. Pin: skipped rows must NOT count."""
+    user_id = str(uuid4())
+    _seed_vocab(fake_db, user_id, is_archived=False, is_skipped=False)
+    _seed_vocab(fake_db, user_id, is_archived=False, is_skipped=True)
+    _seed_vocab(fake_db, user_id, is_archived=True,  is_skipped=False)
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    # Only the row that's neither archived nor skipped should count.
+    assert payload["skills"]["vocabulary"]["words_learned"] == 1
+
+
 def test_speaking_card_falls_back_to_completed_band_when_latest_ungraded(
     fake_db, aggregator,
 ):

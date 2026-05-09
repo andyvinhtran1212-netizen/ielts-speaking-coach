@@ -286,11 +286,18 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
     """`words_learned` excludes archived + skipped rows (the active wallet);
     `flashcards_due` is the SRS queue at "now". Both queries are cheap —
     indexed on (user_id, ...)."""
+    # Sprint 5.2.1 hotfix — docstring says "excludes archived + skipped"
+    # but pre-5.2.1 the query only filtered is_archived. Skipped rows
+    # were leaking into words_learned and inflating the homepage count.
+    # The is_skipped column ships with migration 030; treating a NULL
+    # value (older rows) as not-skipped is the safe default — those
+    # rows predate the soft-skip feature anyway.
     words_res = (
         sb.table("user_vocabulary")
         .select("id, created_at", count="exact")
         .eq("user_id", user_id)
         .eq("is_archived", False)
+        .eq("is_skipped", False)
         .order("created_at", desc=True)
         .limit(1)
         .execute()

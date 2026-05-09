@@ -99,6 +99,40 @@ async def get_current_student(
     return result.data[0]
 
 
+async def require_writing_permission(
+    student: dict = Depends(get_current_student),
+) -> dict:
+    """FastAPI dependency: resolve the current student AND assert they
+    hold the Writing permission.
+
+    Sprint 5.2.1 hotfix — pre-5.2.1 only the final-submit endpoint was
+    gated, leaving 6 mutation routes (assignments list/detail, draft,
+    start, paste-log, extract-text) reachable by Speaking-only users
+    through direct API calls. This dependency composes
+    get_current_student (so the student row is still passed through to
+    handlers that need it) and runs the same `has_writing_permission`
+    check the existing inline guard uses, with the same 403 message
+    so users see consistent copy regardless of which endpoint they hit.
+
+    Why a dependency instead of an inline check on every handler?
+      - DRY across the 6 endpoints — adding one missed copy of the
+        check in a future handler is the exact bug this hotfix fixes.
+      - FastAPI dependency caching means get_current_student is
+        resolved once per request even when both this dependency and
+        a handler-level Depends(get_current_student) coexist.
+    """
+    user_id = student.get("user_id") or student.get("id")
+    if not has_writing_permission(get_user_access_code_permissions(user_id)):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Quyền Writing chưa được kích hoạt cho tài khoản này. "
+                "Liên hệ admin để được hỗ trợ."
+            ),
+        )
+    return student
+
+
 @router.get("/my-essays")
 async def list_my_essays(student: dict = Depends(get_current_student)):
     """List all essays for the authenticated student, newest first.
@@ -728,7 +762,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
 @router.get("/my-assignments")
 async def list_my_assignments(
     status_filter: Optional[str] = None,
-    student: dict = Depends(get_current_student),
+    student: dict = Depends(require_writing_permission),
 ):
     """List the calling student's writing assignments, newest first.
 
@@ -810,7 +844,7 @@ async def list_my_assignments(
 @router.get("/my-assignments/{assignment_id}")
 async def get_my_assignment(
     assignment_id: UUID,
-    student: dict = Depends(get_current_student),
+    student: dict = Depends(require_writing_permission),
 ):
     """Single-assignment detail with the full prompt embedded plus
     the draft (if any). The dashboard's expandable inline form hits
@@ -843,7 +877,7 @@ async def get_my_assignment(
 async def upsert_my_draft(
     assignment_id: UUID,
     body: DraftUpsert,
-    student: dict = Depends(get_current_student),
+    student: dict = Depends(require_writing_permission),
 ):
     """Upsert the student's draft for one assignment.
 
@@ -1245,7 +1279,7 @@ class PasteLog(BaseModel):
 @router.post("/my-assignments/{assignment_id}/start")
 async def start_assignment(
     assignment_id: UUID,
-    student: dict = Depends(get_current_student),
+    student: dict = Depends(require_writing_permission),
 ):
     """Explicit timer start, called when the student clicks "Làm bài".
 
@@ -1324,7 +1358,7 @@ async def start_assignment(
 async def log_paste(
     assignment_id: UUID,
     body: PasteLog,
-    student: dict = Depends(get_current_student),
+    student: dict = Depends(require_writing_permission),
 ):
     """Append a paste event to the assignment's draft row.
 
@@ -1403,7 +1437,7 @@ async def log_paste(
 @router.post("/extract-text")
 async def extract_essay_text(
     file: UploadFile = File(...),
-    student: dict = Depends(get_current_student),
+    student: dict = Depends(require_writing_permission),
 ):
     """Parse a student-uploaded .docx / .txt and return plain text.
 

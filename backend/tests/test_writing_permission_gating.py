@@ -242,3 +242,238 @@ def test_patch_access_code_rejects_unknown_permission():
         )
     assert r.status_code == 400, r.text
     assert "foo_bar" in r.json()["detail"]
+
+
+# ── Sprint 5.2.1 — gate the 6 student-mutation endpoints ──────────────
+
+
+_GATED_ENDPOINTS = [
+    ("GET",   "/api/writing/my-assignments"),
+    ("GET",   "/api/writing/my-assignments/{aid}"),
+    ("PATCH", "/api/writing/my-assignments/{aid}/draft"),
+    ("POST",  "/api/writing/my-assignments/{aid}/start"),
+    ("POST",  "/api/writing/my-assignments/{aid}/paste-log"),
+]
+# extract-text takes a multipart upload — test separately below.
+
+
+import pytest
+
+
+@pytest.mark.parametrize("method,path", _GATED_ENDPOINTS)
+def test_assignment_endpoints_403_without_writing_permission(method, path):
+    """Speaking-only student calling a Writing student endpoint must
+    hit the new require_writing_permission dependency and 403."""
+    from main import app
+    from routers.writing_student import get_current_student
+
+    aid = str(uuid4())
+    actual_path = path.replace("{aid}", aid)
+    app.dependency_overrides[get_current_student] = lambda: _STUDENT
+    try:
+        with patch(
+            "routers.writing_student.get_user_access_code_permissions",
+            return_value=["practice_single"],
+        ):
+            # Body content doesn't matter — the gate fires before any
+            # validation. Use a benign payload for write methods.
+            json_body = (
+                {"draft_text": "hi"} if "draft" in actual_path
+                else {"char_count": 1, "fragment": "x"} if "paste-log" in actual_path
+                else None
+            )
+            r = _client().request(method, actual_path, headers=_USER_AUTH, json=json_body)
+    finally:
+        app.dependency_overrides.clear()
+
+    assert r.status_code == 403, f"{method} {actual_path} → {r.status_code} {r.text}"
+    assert "Writing" in r.json()["detail"]
+
+
+def test_extract_text_403_without_writing_permission():
+    """extract-text is a multipart endpoint, hit it with a tiny upload."""
+    from main import app
+    from routers.writing_student import get_current_student
+
+    app.dependency_overrides[get_current_student] = lambda: _STUDENT
+    try:
+        with patch(
+            "routers.writing_student.get_user_access_code_permissions",
+            return_value=["practice_single"],
+        ):
+            r = _client().post(
+                "/api/writing/extract-text",
+                headers=_USER_AUTH,
+                files={"file": ("essay.txt", b"hello world", "text/plain")},
+            )
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 403
+    assert "Writing" in r.json()["detail"]
+
+
+def test_get_essays_history_NOT_gated_for_speaking_only_student():
+    """View endpoints for already-submitted essays remain accessible
+    even without Writing permission — the spec calls this 'preview
+    mode' and a regression that gates GET /my-essays would lock
+    students out of work they already submitted."""
+    from main import app
+    from routers.writing_student import get_current_student
+
+    app.dependency_overrides[get_current_student] = lambda: _STUDENT
+    try:
+        # No `with patch(...)` for the permission lookup — the autouse
+        # conftest fixture defaults to ["all"], BUT the production
+        # behavior we're pinning is "no permission check on this route
+        # at all". Patch the supabase query so the empty-list path is
+        # deterministic.
+        with patch(
+            "routers.writing_student.supabase_admin"
+        ) as sb:
+            sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value.data = []
+            r = _client().get("/api/writing/my-essays", headers=_USER_AUTH)
+    finally:
+        app.dependency_overrides.clear()
+    # The test asserts the route doesn't 403 — body shape tolerated.
+    assert r.status_code != 403, r.text
+
+
+def test_existing_submit_endpoint_still_gates_inline():
+    """Pre-Sprint 5.2.1 the submit endpoint had its own inline gate.
+    The hotfix didn't refactor it (out of scope) so this test pins the
+    inline gate is still active even when the new dependency isn't
+    applied to /submit."""
+    from main import app
+    from routers.writing_student import get_current_student
+
+    app.dependency_overrides[get_current_student] = lambda: _STUDENT
+    try:
+        with patch(
+            "routers.writing_student.get_user_access_code_permissions",
+            return_value=["practice_single"],
+        ):
+            r = _client().post(
+                f"/api/writing/my-assignments/{uuid4()}/submit",
+                headers=_USER_AUTH,
+                json={"essay_text": "essay body"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 403
+    assert "Writing" in r.json()["detail"]
+
+
+# ── Sprint 5.2.1 — /auth/activate expiry rejection ───────────────────
+
+
+from datetime import datetime, timedelta, timezone
+
+
+def test_activate_rejects_expired_code():
+    """A code whose expires_at is in the past must 400 from /activate
+    with a Vietnamese 'đã hết hạn' message."""
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    code_row = {
+        "id": str(uuid4()),
+        "code": "EXPIRED1",
+        "is_used": False,
+        "is_revoked": False,
+        "is_active": True,
+        "permissions": ["writing"],
+        "expires_at": yesterday,
+    }
+    auth_user = {"id": _USER["id"], "email": "x@y.com", "user_metadata": {}}
+
+    with patch(
+        "routers.auth.get_supabase_user",
+        new=AsyncMock(return_value=auth_user),
+    ), patch(
+        "routers.auth.supabase_admin"
+    ) as sb:
+        # First call: lookup the code by code-string.
+        sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [code_row]
+        r = _client().post(
+            "/auth/activate",
+            headers=_USER_AUTH,
+            json={"access_code": "EXPIRED1"},
+        )
+
+    assert r.status_code == 400
+    assert "hết hạn" in r.json()["detail"]
+
+
+def test_activate_accepts_unexpired_code():
+    """A code with expires_at in the future passes the expiry check.
+    The handler still does additional work (upsert user, mark used,
+    etc.) which we patch through so the test only exercises the gate."""
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    code_row = {
+        "id": str(uuid4()),
+        "code": "VALID001",
+        "is_used": False,
+        "is_revoked": False,
+        "is_active": True,
+        "permissions": ["writing"],
+        "expires_at": tomorrow,
+    }
+    auth_user = {"id": _USER["id"], "email": "x@y.com", "user_metadata": {}}
+
+    with patch(
+        "routers.auth.get_supabase_user",
+        new=AsyncMock(return_value=auth_user),
+    ), patch(
+        "routers.auth.supabase_admin"
+    ) as sb:
+        # Sequence of calls inside /activate:
+        #   1. SELECT * FROM access_codes WHERE code=...
+        #   2. SELECT id FROM users WHERE id=...
+        #   3. UPDATE users SET is_active=true ...
+        #   4. UPDATE access_codes SET is_used=true ...
+        #   5. INSERT INTO user_code_assignments ...
+        # We don't care about the bodies — just need each chain to
+        # resolve to a benign empty/data dict so the handler completes.
+        sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [code_row]
+        sb.table.return_value.update.return_value.eq.return_value.execute.return_value.data = []
+        sb.table.return_value.insert.return_value.execute.return_value.data = []
+
+        r = _client().post(
+            "/auth/activate",
+            headers=_USER_AUTH,
+            json={"access_code": "VALID001"},
+        )
+    # The handler does many things after the gate; we only assert it
+    # didn't 400 on expiry. 200/201/202 all acceptable.
+    assert r.status_code != 400 or "hết hạn" not in r.json().get("detail", ""), r.text
+
+
+def test_activate_accepts_null_expiry_code():
+    """expires_at = NULL → never expires."""
+    code_row = {
+        "id": str(uuid4()),
+        "code": "NEVERX01",
+        "is_used": False,
+        "is_revoked": False,
+        "is_active": True,
+        "permissions": ["all"],
+        "expires_at": None,
+    }
+    auth_user = {"id": _USER["id"], "email": "x@y.com", "user_metadata": {}}
+
+    with patch(
+        "routers.auth.get_supabase_user",
+        new=AsyncMock(return_value=auth_user),
+    ), patch(
+        "routers.auth.supabase_admin"
+    ) as sb:
+        sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [code_row]
+        sb.table.return_value.update.return_value.eq.return_value.execute.return_value.data = []
+        sb.table.return_value.insert.return_value.execute.return_value.data = []
+
+        r = _client().post(
+            "/auth/activate",
+            headers=_USER_AUTH,
+            json={"access_code": "NEVERX01"},
+        )
+    # Same logic as test_activate_accepts_unexpired_code — assert no
+    # expiry-specific 400.
+    assert r.status_code != 400 or "hết hạn" not in r.json().get("detail", ""), r.text

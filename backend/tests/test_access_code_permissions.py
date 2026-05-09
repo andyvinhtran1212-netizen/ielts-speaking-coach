@@ -312,3 +312,124 @@ class TestGetStudentAccessCodePermissions:
             {"id": student_id, "user_id": None},
         )
         assert perms.get_student_access_code_permissions(student_id) == []
+
+
+# ── Sprint 5.2.1 — expires_at enforcement ────────────────────────────
+
+
+class TestExpiryHelpers:
+    """The expiry parser + comparator are isolated from the supabase
+    layer so the corner cases (None, naive datetime, Z suffix, exact
+    boundary) are easy to pin without seeding a fake DB."""
+
+    def test_parse_expires_at_handles_iso_string_with_z(self, perms):
+        from datetime import datetime, timezone
+        parsed = perms._parse_expires_at("2026-05-09T12:00:00Z")
+        assert parsed == datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc)
+
+    def test_parse_expires_at_handles_iso_string_with_offset(self, perms):
+        from datetime import datetime, timezone
+        parsed = perms._parse_expires_at("2026-05-09T12:00:00+00:00")
+        assert parsed == datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc)
+
+    def test_parse_expires_at_returns_none_for_null_or_empty(self, perms):
+        assert perms._parse_expires_at(None) is None
+        assert perms._parse_expires_at("") is None
+
+    def test_parse_expires_at_assumes_utc_for_naive_datetime(self, perms):
+        from datetime import datetime, timezone
+        naive = datetime(2026, 5, 9, 12, 0)
+        parsed = perms._parse_expires_at(naive)
+        assert parsed.tzinfo == timezone.utc
+
+    def test_is_expired_yesterday_true_tomorrow_false(self, perms):
+        from datetime import datetime, timedelta, timezone
+        now = datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc)
+        yesterday = (now - timedelta(days=1)).isoformat()
+        tomorrow = (now + timedelta(days=1)).isoformat()
+        assert perms._is_expired(yesterday, now) is True
+        assert perms._is_expired(tomorrow, now) is False
+
+    def test_is_expired_null_means_never_expires(self, perms):
+        from datetime import datetime, timezone
+        now = datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc)
+        assert perms._is_expired(None, now) is False
+
+    def test_is_expired_at_exact_now_is_excluded(self, perms):
+        """Edge case the spec calls out: a code that expires AT now is
+        already expired (use <= comparison, not <)."""
+        from datetime import datetime, timezone
+        now = datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc)
+        assert perms._is_expired(now.isoformat(), now) is True
+
+
+class TestExpiryEnforcementInLookup:
+    """Modern + legacy paths must both filter expired codes. A fix that
+    only patches one path leaves a backdoor depending on how the code
+    was assigned (user_code_assignments vs legacy access_codes.used_by).
+    """
+
+    def _yesterday_iso(self):
+        from datetime import datetime, timedelta, timezone
+        return (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+
+    def _tomorrow_iso(self):
+        from datetime import datetime, timedelta, timezone
+        return (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+
+    def test_expired_code_modern_path_excluded(self, fake_db, perms):
+        user_id = str(uuid4())
+        code_id = str(uuid4())
+        _seed_assignment(fake_db, user_id, code_id)
+        _seed_code(fake_db, code_id, ["writing"], expires_at=self._yesterday_iso())
+
+        assert perms.get_user_access_code_permissions(user_id) == []
+
+    def test_expired_code_legacy_path_excluded(self, fake_db, perms):
+        user_id = str(uuid4())
+        code_id = str(uuid4())
+        _seed_code(
+            fake_db, code_id, ["writing"],
+            used_by=user_id, expires_at=self._yesterday_iso(),
+        )
+
+        assert perms.get_user_access_code_permissions(user_id) == []
+
+    def test_unexpired_code_still_included(self, fake_db, perms):
+        user_id = str(uuid4())
+        code_id = str(uuid4())
+        _seed_assignment(fake_db, user_id, code_id)
+        _seed_code(fake_db, code_id, ["writing"], expires_at=self._tomorrow_iso())
+
+        assert perms.get_user_access_code_permissions(user_id) == ["writing"]
+
+    def test_null_expires_at_treated_as_never_expires(self, perms, fake_db):
+        # Default _seed_code doesn't set expires_at → defaults to None
+        # in the fixture, matching the production `expires_at IS NULL`
+        # case. The lookup must NOT exclude these.
+        user_id = str(uuid4())
+        code_id = str(uuid4())
+        _seed_assignment(fake_db, user_id, code_id)
+        _seed_code(fake_db, code_id, ["practice_part"])  # no expires_at kw
+        assert perms.get_user_access_code_permissions(user_id) == ["practice_part"]
+
+    def test_expired_modern_plus_unexpired_legacy_returns_only_legacy(
+        self, fake_db, perms,
+    ):
+        """Mixed: one path expired, the other valid — the union must
+        carry only the valid one. Catches regressions where one branch
+        skipped the filter and produced a "bonus" permission."""
+        user_id = str(uuid4())
+        modern_id = str(uuid4())
+        legacy_id = str(uuid4())
+        _seed_assignment(fake_db, user_id, modern_id)
+        _seed_code(
+            fake_db, modern_id, ["writing"], expires_at=self._yesterday_iso(),
+        )
+        _seed_code(
+            fake_db, legacy_id, ["practice_full"],
+            used_by=user_id, expires_at=self._tomorrow_iso(),
+        )
+
+        result = perms.get_user_access_code_permissions(user_id)
+        assert result == ["practice_full"]
