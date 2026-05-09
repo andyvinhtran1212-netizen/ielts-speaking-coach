@@ -1,0 +1,396 @@
+"""Tests for services/student_home_aggregator.py (Sprint 5.1).
+
+Pins behaviour:
+  - Active student with mixed activity → all four skill cards populated
+  - Cross-skill streak counts unique activity dates back from today
+  - Reading + Listening always surface as ``status='coming_soon'``
+  - Brand-new student (no activity, no students row) returns zeros not 500
+  - Per-skill failure isolates to ``_errors`` and the rest of the payload
+    still renders
+  - Vocabulary "due count" reflects flashcard_reviews.next_review_at <= now
+  - Writing card resolves through students.user_id (the join the actual
+    aggregator does); a user without a students row gets an empty card,
+    not a 403 (the homepage is more permissive than /api/writing/*)
+
+Pattern: an in-memory FakeSupabase (mirrors test_speaking_session_aggregator
+but extended for `.count`, `.order`, `.gte`, `.lte`, `.not_.is_`). The fake
+intentionally doesn't simulate JOINs or RLS — the aggregator never relies
+on either, so the gap is acceptable.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta, timezone
+from uuid import uuid4
+
+import pytest
+
+
+# ── Minimal in-memory Supabase fake ───────────────────────────────────
+
+
+class _Resp:
+    def __init__(self, data, count=None):
+        self.data = data
+        self.count = count
+
+
+class _NotProxy:
+    """Stub for `.not_.is_(col, "null")` — only "null" is asserted."""
+    def __init__(self, query):
+        self.query = query
+
+    def is_(self, field, value):
+        # Match the aggregator: filter rows where field is NOT NULL.
+        self.query.filters.append((field, "not_null", value))
+        return self.query
+
+
+class _TableQuery:
+    def __init__(self, fake, table_name):
+        self.fake = fake
+        self.table_name = table_name
+        self.filters: list[tuple[str, str, object]] = []
+        self.limit_n = None
+        self.order_field = None
+        self.order_desc = False
+        self.count_mode = None
+
+    def select(self, *_args, count=None, **_kw):
+        self.count_mode = count
+        return self
+
+    def eq(self, field, value):
+        self.filters.append((field, "eq", value))
+        return self
+
+    def gte(self, field, value):
+        self.filters.append((field, "gte", value))
+        return self
+
+    def lte(self, field, value):
+        self.filters.append((field, "lte", value))
+        return self
+
+    def order(self, field, desc=False):
+        self.order_field = field
+        self.order_desc = desc
+        return self
+
+    def limit(self, n):
+        self.limit_n = n
+        return self
+
+    @property
+    def not_(self):
+        return _NotProxy(self)
+
+    def execute(self):
+        rows = self.fake.tables.get(self.table_name, [])
+        matched = [r for r in rows if self._matches(r)]
+        # Capture full count BEFORE limiting — `.select(count="exact")` returns
+        # the unfiltered total post-eq filters. Mirrors PostgREST.
+        full_count = len(matched)
+        if self.order_field:
+            matched.sort(
+                key=lambda r: r.get(self.order_field) or "",
+                reverse=self.order_desc,
+            )
+        if self.limit_n is not None:
+            matched = matched[: self.limit_n]
+        return _Resp(matched, count=full_count if self.count_mode == "exact" else None)
+
+    def _matches(self, row):
+        for field, op, value in self.filters:
+            v = row.get(field)
+            if op == "eq" and v != value:
+                return False
+            if op == "gte" and (v is None or v < value):
+                return False
+            if op == "lte" and (v is None or v > value):
+                return False
+            if op == "not_null" and v is None:
+                return False
+        return True
+
+
+class FakeSupabase:
+    def __init__(self):
+        self.tables: dict[str, list[dict]] = {
+            "sessions": [],
+            "writing_essays": [],
+            "writing_feedback": [],
+            "students": [],
+            "article_views": [],
+            "user_vocabulary": [],
+            "flashcard_reviews": [],
+        }
+
+    def table(self, name: str) -> _TableQuery:
+        return _TableQuery(self, name)
+
+
+# ── Fixtures ──────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def fake_db():
+    return FakeSupabase()
+
+
+@pytest.fixture
+def aggregator():
+    from services import student_home_aggregator
+    return student_home_aggregator
+
+
+# Helpers ----------------------------------------------------------------
+
+
+def _today_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _days_ago_iso(days: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+
+def _seed_session(fake, user_id, **fields):
+    row = {
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "started_at": _today_iso(),
+        "overall_band": None,
+        "status": "completed",
+    }
+    row.update(fields)
+    fake.tables["sessions"].append(row)
+
+
+def _seed_essay(fake, student_id, **fields):
+    row = {
+        "id": str(uuid4()),
+        "student_id": student_id,
+        "created_at": _today_iso(),
+        "status": "delivered",
+    }
+    row.update(fields)
+    fake.tables["writing_essays"].append(row)
+
+
+def _seed_article_view(fake, user_id, **fields):
+    row = {
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "article_slug": "noun-phrase",
+        "last_viewed_at": _today_iso(),
+    }
+    row.update(fields)
+    fake.tables["article_views"].append(row)
+
+
+def _seed_vocab(fake, user_id, **fields):
+    row = {
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "headword": "ephemeral",
+        "is_archived": False,
+        "is_skipped": False,
+        "mastery_status": "learning",
+        "created_at": _today_iso(),
+    }
+    row.update(fields)
+    fake.tables["user_vocabulary"].append(row)
+
+
+def _seed_review(fake, user_id, **fields):
+    row = {
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "vocabulary_id": str(uuid4()),
+        "next_review_at": _today_iso(),
+    }
+    row.update(fields)
+    fake.tables["flashcard_reviews"].append(row)
+
+
+# ── Tests ─────────────────────────────────────────────────────────────
+
+
+def test_active_student_returns_all_skill_cards(fake_db, aggregator):
+    """Smoke: a student with activity in every skill gets every card
+    populated and Reading/Listening still surface as coming_soon."""
+    user_id = str(uuid4())
+    student_id = str(uuid4())
+    fake_db.tables["students"].append({"id": student_id, "user_id": user_id})
+
+    _seed_session(fake_db, user_id, overall_band=6.0, status="completed")
+    _seed_essay(fake_db, student_id, status="delivered")
+    _seed_article_view(fake_db, user_id)
+    _seed_vocab(fake_db, user_id)
+    _seed_review(fake_db, user_id, next_review_at=_days_ago_iso(1))
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="Tran", email="tran@x.com",
+    )
+
+    assert payload["student"] == {"name": "Tran", "email": "tran@x.com"}
+    assert payload["skills"]["speaking"]["status"] == "active"
+    assert payload["skills"]["writing"]["status"] == "active"
+    assert payload["skills"]["grammar"]["status"] == "active"
+    assert payload["skills"]["vocabulary"]["status"] == "active"
+    assert payload["skills"]["reading"]["status"] == "coming_soon"
+    assert payload["skills"]["listening"]["status"] == "coming_soon"
+    assert payload["totals"]["speaking_sessions"] == 1
+    assert payload["totals"]["writing_essays"] == 1
+    assert payload["totals"]["grammar_lessons_viewed"] == 1
+    assert payload["totals"]["vocab_words_learned"] == 1
+    assert payload["skills"]["vocabulary"]["flashcards_due"] == 1
+
+
+def test_brand_new_student_returns_zeros_not_errors(fake_db, aggregator):
+    """No data, no students row — every counter is 0, no error keys."""
+    user_id = str(uuid4())
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="Newbie", email="new@x.com",
+    )
+
+    assert payload["totals"]["speaking_sessions"] == 0
+    assert payload["totals"]["writing_essays"] == 0
+    assert payload["skills"]["writing"]["last_activity_at"] is None
+    assert payload["skills"]["speaking"]["last_activity_at"] is None
+    assert payload["streak"]["current_days"] == 0
+    assert payload["streak"]["longest_days"] == 0
+    assert "_errors" not in payload, (
+        f"Expected no errors for empty student, got {payload.get('_errors')}"
+    )
+
+
+def test_reading_and_listening_marked_coming_soon(fake_db, aggregator):
+    """Pin: Reading + Listening never become active until the aggregator
+    learns about new tables. A drive-by code change that flips the flag
+    here has to update this test — that's the point."""
+    user_id = str(uuid4())
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+    assert payload["skills"]["reading"]["status"] == "coming_soon"
+    assert payload["skills"]["reading"]["primary_cta_url"] is None
+    assert payload["skills"]["listening"]["status"] == "coming_soon"
+    assert payload["skills"]["listening"]["primary_cta_url"] is None
+
+
+def test_writing_card_returns_empty_when_no_students_row(fake_db, aggregator):
+    """A user without a `students` row is a brand-new account that hasn't
+    been admin-linked. /api/writing/my-essays returns 403 there, but the
+    homepage degrades to a zero card — no point gating the whole page on
+    a flow the student doesn't even know exists yet."""
+    user_id = str(uuid4())
+    # Seed Speaking activity so the rest of the page populates.
+    _seed_session(fake_db, user_id, overall_band=5.5, status="completed")
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    assert payload["skills"]["writing"]["essays_count"] == 0
+    assert payload["skills"]["writing"]["last_activity_at"] is None
+    assert payload["skills"]["speaking"]["sessions_count"] == 1
+    assert payload["skills"]["speaking"]["last_band"] == 5.5
+    assert "_errors" not in payload
+
+
+def test_streak_counts_consecutive_days_back_from_today(fake_db, aggregator):
+    """Streak = consecutive days walking back from today through any
+    cross-skill activity. Today + yesterday + day-before = 3."""
+    user_id = str(uuid4())
+    _seed_session(fake_db, user_id, started_at=_today_iso())
+    _seed_session(fake_db, user_id, started_at=_days_ago_iso(1))
+    _seed_article_view(fake_db, user_id, last_viewed_at=_days_ago_iso(2))
+    # Gap on day 3 — streak should stop at 3, not include day 4.
+    _seed_vocab(fake_db, user_id, created_at=_days_ago_iso(4))
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    assert payload["streak"]["current_days"] == 3
+    # Longest run includes the day-4 island plus the today-back-to-day-2
+    # block; longest island here is the 3-day current streak.
+    assert payload["streak"]["longest_days"] >= 3
+
+
+def test_vocabulary_due_count_excludes_future_reviews(fake_db, aggregator):
+    """flashcards_due reflects reviews whose next_review_at <= now.
+    Future reviews don't count."""
+    user_id = str(uuid4())
+    _seed_vocab(fake_db, user_id)
+    # Due now (1 day overdue):
+    _seed_review(fake_db, user_id, next_review_at=_days_ago_iso(1))
+    # Not due (5 days from now):
+    future = (datetime.now(timezone.utc) + timedelta(days=5)).isoformat()
+    _seed_review(fake_db, user_id, next_review_at=future)
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    assert payload["skills"]["vocabulary"]["flashcards_due"] == 1
+
+
+def test_vocabulary_excludes_archived_from_word_count(fake_db, aggregator):
+    """words_learned is the active wallet — archived rows out."""
+    user_id = str(uuid4())
+    _seed_vocab(fake_db, user_id, is_archived=False)
+    _seed_vocab(fake_db, user_id, is_archived=True)
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    assert payload["skills"]["vocabulary"]["words_learned"] == 1
+
+
+def test_speaking_card_falls_back_to_completed_band_when_latest_ungraded(
+    fake_db, aggregator,
+):
+    """If the most recent session hasn't finished grading, surface the
+    most recent *completed* band so the dashboard isn't blank right after
+    a recording."""
+    user_id = str(uuid4())
+    # Latest session: ungraded.
+    _seed_session(fake_db, user_id,
+        started_at=_today_iso(), overall_band=None, status="grading")
+    # Older completed session with a band.
+    _seed_session(fake_db, user_id,
+        started_at=_days_ago_iso(2), overall_band=6.5, status="completed")
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    assert payload["skills"]["speaking"]["last_band"] == 6.5
+
+
+def test_per_skill_failure_isolates_to_errors_map(fake_db, aggregator, monkeypatch):
+    """A SQL failure in one skill fills the _errors map and leaves the
+    rest of the payload intact — same resilience pattern as
+    dashboard_aggregator."""
+    user_id = str(uuid4())
+    _seed_session(fake_db, user_id, overall_band=6.0, status="completed")
+
+    # Force the grammar builder to blow up.
+    def explode(*_args, **_kw):
+        raise RuntimeError("simulated grammar failure")
+
+    monkeypatch.setattr(aggregator, "_build_grammar", explode)
+
+    payload = aggregator.get_home_summary(
+        fake_db, user_id, name="X", email="x@x.com",
+    )
+
+    assert "_errors" in payload
+    assert "grammar" in payload["_errors"]
+    # Speaking still rendered fine.
+    assert payload["skills"]["speaking"]["sessions_count"] == 1

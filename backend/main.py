@@ -32,6 +32,7 @@ from routers.exercises import (
 from routers.flashcards import user_router as flashcards_user_router
 from routers.health import router as health_router
 from routers.dashboard import router as dashboard_router
+from routers.student_home import router as student_home_router
 
 # Configure logging to emit INFO+ to stdout (Railway captures stdout).
 # Sprint 6.6: backend never called basicConfig before, so Python defaulted
@@ -114,6 +115,7 @@ app.include_router(exercises_admin_router)
 app.include_router(flashcards_user_router)
 app.include_router(health_router)
 app.include_router(dashboard_router)
+app.include_router(student_home_router)
 
 
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers
