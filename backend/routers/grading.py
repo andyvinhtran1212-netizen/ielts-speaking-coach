@@ -35,6 +35,17 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["grading"])
 
+
+# Sprint 6.0 — Speaking grading no longer persists `needs_review`
+# (error phrases) as vocabulary. Module-level constant so tests + the
+# persist loop in _run_vocab_extraction_bg share the same source of
+# truth, and a future change to re-add a category surfaces here in
+# diff review. See routers/grading.py persist loop and migration 048.
+_PERSISTED_SOURCE_TYPES: frozenset[str] = frozenset({
+    "used_well",
+    "upgrade_suggested",
+})
+
 _AUDIO_BUCKET  = "audio-responses"
 _MAX_BYTES     = 50 * 1024 * 1024   # 50 MB hard limit before upload
 
@@ -673,7 +684,23 @@ async def _run_vocab_extraction(
             ("upgrade_suggested", result.upgrade_suggested),
         ]
 
+        # Sprint 6.0 — Speaking grading no longer persists `needs_review`
+        # as vocabulary. Error phrases are not vocabulary; they belong
+        # in a future error-tracking surface (Sprint 6.1+). The AI
+        # extraction layer (result.needs_review above) is preserved on
+        # purpose so the classification stays addressable; we just stop
+        # writing those rows. Migration 048 archives the 24 legacy ones.
+        # Allowlist lives at module level — see _PERSISTED_SOURCE_TYPES.
+
         for source_type, items in category_map:
+            if source_type not in _PERSISTED_SOURCE_TYPES:
+                if items:
+                    logger.info(
+                        "[vocab_bg] Sprint 6.0 — skipping persist of %d "
+                        "%s items (extraction kept for future surfacing)",
+                        len(items), source_type,
+                    )
+                continue
             count = 0
             for item in items:
                 if count >= max_per_category:

@@ -175,6 +175,28 @@
   </header>
 
   <main class="max-w-3xl mx-auto px-4 py-8">
+    <!-- Sprint 6.0 — banner pointing at unified Vocabulary landing.
+         Hidden when embedded as a tab iframe (URL ?embedded=1). -->
+    <div id="vocab-moved-banner" class="rounded-lg p-3 mb-5 text-sm flex items-center gap-3 hidden"
+         style="background:rgba(20,184,166,0.08); border:1px solid rgba(20,184,166,0.25);">
+      <span style="font-size:18px;line-height:1;">📍</span>
+      <div style="color:rgba(255,255,255,0.78);">
+        Flashcards giờ là một tab trong trang
+        <a href="/pages/vocabulary.html#flashcards" style="color:#14b8a6;font-weight:600;">Từ vựng</a>
+        — quản lý vocab + ôn flashcards trong một nơi.
+      </div>
+    </div>
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          if (params.get('embedded') !== '1') {
+            document.getElementById('vocab-moved-banner').classList.remove('hidden');
+          }
+        } catch (e) { /* best-effort */ }
+      })();
+    </script>
+
     <!-- flashcards.js renders into #fc-container -->
     <div id="fc-container">
       <div class="state-msg"><div class="spinner"></div></div>
