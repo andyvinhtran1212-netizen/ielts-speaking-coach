@@ -264,6 +264,15 @@ async def activate_account(
     if access_code_row.get("is_revoked"):
         raise HTTPException(status_code=400, detail="Access code này đã bị thu hồi")
 
+    # Sprint 5.2.1 RED hotfix — refuse activation of a code past its
+    # expiry. Activating an expired code would create a "ghost" link in
+    # user_code_assignments that the live permission lookup correctly
+    # ignores (post-Sprint 5.2.1) but that admins can't easily explain.
+    # Better to fail loudly here so the user contacts support.
+    from services.access_code_permissions import _is_expired  # local — avoid cycle
+    if _is_expired(access_code_row.get("expires_at"), datetime.now(timezone.utc)):
+        raise HTTPException(status_code=400, detail="Access code này đã hết hạn")
+
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     try:
         existing = (

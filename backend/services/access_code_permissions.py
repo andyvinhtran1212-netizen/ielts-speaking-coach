@@ -28,12 +28,50 @@ Why query the live source on every gated request?
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
 from database import supabase_admin
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_expires_at(value) -> Optional[datetime]:
+    """Coerce a Supabase timestamp value into a tz-aware UTC datetime.
+
+    PostgREST returns timestamptz columns as ISO 8601 strings (with the
+    `Z` or `+00:00` suffix). Supabase's Python client occasionally
+    materialises them as `datetime` already — handle both. Naïve
+    datetimes are assumed UTC, matching how the column is stored.
+
+    Returns None for None / empty input so callers can do
+    `if parsed and parsed <= now: skip` without a separate truthiness
+    branch.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        # `Z` is valid ISO 8601 but Python's fromisoformat only learned
+        # to parse it in 3.11+. Normalise so older runtimes stay safe.
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    raise TypeError(f"Unsupported expires_at type: {type(value).__name__}")
+
+
+def _is_expired(value, now: datetime) -> bool:
+    """A code with `expires_at <= now` is past its expiry.
+
+    Sprint 5.2.1 hotfix: NULL `expires_at` means "never expires" —
+    those codes always pass. Use `<=` rather than `<` so the exact-
+    second boundary excludes the code (a code "expiring at NOW" is
+    expired).
+    """
+    parsed = _parse_expires_at(value)
+    if parsed is None:
+        return False
+    return parsed <= now
 
 
 # ── Allowlist + canonical names ───────────────────────────────────────
@@ -150,6 +188,9 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     """
     user_id_str = str(user_id)
     permissions: set[str] = set()
+    # Compute `now` once per request — anti-pattern #28 (TOCTOU) says
+    # don't re-read the clock between the modern and legacy paths.
+    now = datetime.now(timezone.utc)
 
     # ── Modern path: assignments → codes ─────────────────────────────
     try:
@@ -172,7 +213,7 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
         if code_ids:
             codes = (
                 supabase_admin.table("access_codes")
-                .select("id, permissions, is_revoked, is_active")
+                .select("id, permissions, is_revoked, is_active, expires_at")
                 .in_("id", code_ids)
                 .execute()
             )
@@ -180,6 +221,10 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
                 if row.get("is_revoked"):
                     continue
                 if row.get("is_active") is False:
+                    continue
+                # Sprint 5.2.1 RED hotfix — expired codes must not
+                # grant permissions even when is_active=true.
+                if _is_expired(row.get("expires_at"), now):
                     continue
                 for p in row.get("permissions") or []:
                     if isinstance(p, str):
@@ -201,7 +246,7 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     try:
         legacy = (
             supabase_admin.table("access_codes")
-            .select("permissions, is_revoked, is_active")
+            .select("permissions, is_revoked, is_active, expires_at")
             .eq("used_by", user_id_str)
             .execute()
         )
@@ -209,6 +254,10 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
             if row.get("is_revoked"):
                 continue
             if row.get("is_active") is False:
+                continue
+            # Sprint 5.2.1 RED hotfix — same expiry guard as the modern
+            # path. A code reachable via either route gets the same gate.
+            if _is_expired(row.get("expires_at"), now):
                 continue
             for p in row.get("permissions") or []:
                 if isinstance(p, str):
