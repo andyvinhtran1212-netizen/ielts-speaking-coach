@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Từ vựng — Aver Learning</title>
+
+  <!-- Match home.html: Fraunces (variable serif) display + Manrope body. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/vocabulary.css" />
+</head>
+<body>
+  <div class="shell">
+
+    <!-- ── Top nav (parallel to home.html) ──────────────────────── -->
+    <nav class="topnav" aria-label="Primary">
+      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
+
+      <div class="nav-links">
+        <a href="/pages/home.html">Home</a>
+        <a href="/pages/writing-dashboard.html">Writing</a>
+        <a href="/pages/speaking.html">Speaking</a>
+        <a href="/grammar.html">Grammar</a>
+        <a href="/pages/vocabulary.html" class="active">Vocab</a>
+        <span class="locked" aria-disabled="true">Reading</span>
+        <span class="locked" aria-disabled="true">Listening</span>
+      </div>
+    </nav>
+
+    <!-- ── Header ────────────────────────────────────────────────── -->
+    <header class="vocab-header">
+      <h1>Từ vựng <span class="accent">của bạn</span></h1>
+      <p class="subtitle">
+        Quản lý vốn từ, ôn tập flashcards theo lịch tự động, và luyện tập từ vựng — tất cả trong một trang.
+      </p>
+    </header>
+
+    <!-- ── Stats strip ───────────────────────────────────────────── -->
+    <div class="vocab-stats" aria-label="Tổng quan từ vựng">
+      <div class="stat">
+        <span class="label">Từ đã học</span>
+        <span class="value">
+          <span id="stat-words-count" class="skeleton-num"></span>
+          <span class="unit">từ</span>
+        </span>
+      </div>
+      <div class="stat heat">
+        <span class="label">Cần ôn hôm nay</span>
+        <span class="value">
+          <span id="stat-flashcards-due" class="skeleton-num"></span>
+          <span class="unit">thẻ</span>
+        </span>
+      </div>
+      <div class="stat">
+        <span class="label">Bộ flashcards</span>
+        <span class="value">
+          <span id="stat-stacks-count" class="skeleton-num"></span>
+          <span class="unit">bộ</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Tab nav ───────────────────────────────────────────────── -->
+    <nav class="vocab-tabs" role="tablist" aria-label="Vocabulary sections">
+      <button class="tab active" data-tab="my-vocab" role="tab"
+              aria-selected="true" aria-controls="panel-my-vocab" id="tab-my-vocab">
+        <span class="ico" aria-hidden="true">📚</span>
+        Từ vựng của tôi
+      </button>
+      <button class="tab" data-tab="flashcards" role="tab"
+              aria-selected="false" aria-controls="panel-flashcards" id="tab-flashcards" tabindex="-1">
+        <span class="ico" aria-hidden="true">🔄</span>
+        Flashcards
+      </button>
+      <button class="tab" data-tab="exercises" role="tab"
+              aria-selected="false" aria-controls="panel-exercises" id="tab-exercises" tabindex="-1">
+        <span class="ico" aria-hidden="true">✏︎</span>
+        Bài tập
+      </button>
+      <button class="tab" data-tab="topic-bank" role="tab"
+              aria-selected="false" aria-controls="panel-topic-bank" id="tab-topic-bank" tabindex="-1">
+        <span class="ico" aria-hidden="true">✸</span>
+        Kho theo chủ đề
+        <span class="lock-tag">Soon</span>
+      </button>
+    </nav>
+
+    <!-- ── Tab panels ────────────────────────────────────────────── -->
+
+    <section class="tab-panel" data-panel="my-vocab" id="panel-my-vocab"
+             role="tabpanel" aria-labelledby="tab-my-vocab">
+      <iframe class="tab-frame" title="Từ vựng của tôi"
+              loading="lazy" referrerpolicy="same-origin"></iframe>
+    </section>
+
+    <section class="tab-panel" data-panel="flashcards" id="panel-flashcards"
+             role="tabpanel" aria-labelledby="tab-flashcards" hidden>
+      <iframe class="tab-frame" title="Flashcards"
+              loading="lazy" referrerpolicy="same-origin"></iframe>
+    </section>
+
+    <section class="tab-panel" data-panel="exercises" id="panel-exercises"
+             role="tabpanel" aria-labelledby="tab-exercises" hidden>
+      <iframe class="tab-frame" title="Bài tập từ vựng"
+              loading="lazy" referrerpolicy="same-origin"></iframe>
+    </section>
+
+    <section class="tab-panel" data-panel="topic-bank" id="panel-topic-bank"
+             role="tabpanel" aria-labelledby="tab-topic-bank" hidden>
+      <div class="coming-soon">
+        <div class="icon" aria-hidden="true">✸</div>
+        <h2>Kho từ vựng theo chủ đề</h2>
+        <p>Sẽ ra mắt trong bản cập nhật tới — bạn sẽ duyệt từ vựng theo chủ đề (Du lịch, Công nghệ, Học tập, ...) và import trực tiếp vào danh sách cá nhân.</p>
+        <p class="hint">Sprint 6.2 sẽ mở khoá kho chủ đề + tính năng import.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Scripts: supabase → api.js → page logic. Same pattern as home.html. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    // Same Supabase config as login.html / home.html.
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+  </script>
+  <script src="../js/vocab-landing.js"></script>
+  <script>
+    // Auth gate: redirect to login if no session.
+    (async () => {
+      try {
+        const sb = getSupabase();
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) {
+          window.location.href = '../login.html';
+        }
+      } catch (e) {
+        console.error('[vocabulary] auth check failed:', e);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -213,6 +213,32 @@
 
   <main class="max-w-3xl mx-auto px-4 py-6">
 
+    <!-- Sprint 6.0 — banner pointing at the unified Vocabulary landing.
+         Hidden when this page is embedded as a tab iframe (the URL
+         carries ?embedded=1) so it doesn't show twice. -->
+    <div id="vocab-moved-banner" class="rounded-lg p-3 mb-5 text-sm flex items-center gap-3 hidden"
+         style="background:rgba(20,184,166,0.08); border:1px solid rgba(20,184,166,0.25);">
+      <span style="font-size:18px;line-height:1;">📍</span>
+      <div style="color:rgba(255,255,255,0.78);">
+        Trang này đã được tích hợp vào trang
+        <a href="/pages/vocabulary.html#my-vocab" style="color:#14b8a6;font-weight:600;">Từ vựng</a>
+        — bạn có thể truy cập My Vocabulary, Flashcards và Bài tập trong một nơi.
+      </div>
+    </div>
+    <script>
+      // Show the banner unless we're embedded as an iframe inside the
+      // unified vocabulary landing — the parent page already provides
+      // the navigation context, so a banner there would be redundant.
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          if (params.get('embedded') !== '1') {
+            document.getElementById('vocab-moved-banner').classList.remove('hidden');
+          }
+        } catch (e) { /* best-effort */ }
+      })();
+    </script>
+
     <!-- Stats bar -->
     <div id="stats-bar" class="hidden flex items-center gap-6 mb-5 text-sm">
       <span class="text-slate-400">Total: <strong id="stat-total" class="text-white">0</strong></span>

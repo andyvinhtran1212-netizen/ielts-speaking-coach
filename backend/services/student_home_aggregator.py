@@ -321,13 +321,20 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.debug("flashcards due-count failed: %s", _short_error(e))
 
+    # Sprint 6.0 — both branches now point at the unified
+    # /pages/vocabulary.html landing. The hash deep-links into the
+    # right tab so a student with due cards lands on the Flashcards
+    # tab, while a student with no due cards lands on My Vocabulary.
     return {
         "status": "active",
         "last_activity_at": last_activity,
         "words_learned": int(words_count),
         "flashcards_due": due_count,
         "primary_cta": "Practice flashcards" if due_count else "Browse vocabulary",
-        "primary_cta_url": "/pages/flashcards.html" if due_count else "/pages/my-vocabulary.html",
+        "primary_cta_url": (
+            "/pages/vocabulary.html#flashcards" if due_count
+            else "/pages/vocabulary.html#my-vocab"
+        ),
     }
 
 
