@@ -440,6 +440,112 @@ add WITH CHECK to RLS UPDATE policies.
 - **Effort when picked up:** ~1 day mini-sprint (validator function +
   5–8 unit tests + grader integration).
 
+### Sprint 2.7 / Sprint 5–6 follow-ups (logged 2026-05-08 / 2026-05-09)
+
+#### DEBT-2026-05-08-A: Instructor review row create reconciliation (DEFERRED)
+- **Type:** AMBER from Sprint 2.7 audit. Race-condition risk between
+  parallel instructor reviewers.
+- **What's deferred:** When two instructors open the same essay simultaneously
+  and both click "claim review", the second click creates a duplicate
+  `instructor_reviews` row (no unique constraint on `(submission_id, instructor_id)`).
+  Reconciliation logic should idempotently return the existing row.
+- **Risk of deferring:** Low at current 1-instructor volume. Becomes real
+  when admin headcount scales.
+- **Mitigation in place:** Single instructor today, no observed dupes.
+- **Trigger to un-defer:** Instructor headcount > 1 in production, **or**
+  pre-commercial-launch hardening sprint.
+- **Effort when picked up:** ~1 sprint (DB unique constraint + service-layer
+  upsert + 2-3 race tests via `pytest-asyncio`).
+
+#### DEBT-2026-05-08-B: Instructor deliver atomic transaction (DEFERRED)
+- **Type:** AMBER from Sprint 2.7 audit. Multi-step write integrity.
+- **What's deferred:** `POST /api/admin/writing/{id}/deliver` performs three
+  writes (mark `instructor_reviews.status='delivered'`, populate
+  `submission.delivered_feedback`, set `submission.status='delivered'`)
+  outside a transaction. Partial failure leaves the system in an
+  inconsistent state.
+- **Risk of deferring:** Low frequency (deliver is a manual instructor
+  action). High blast radius when it does happen — student sees stale
+  pending status while instructor sees delivered.
+- **Mitigation in place:** Manual workflow + low volume; admin can spot
+  and re-run.
+- **Trigger to un-defer:** Instructor volume tăng (multiple deliveries/day),
+  **or** pre-commercial-launch hardening.
+- **Effort when picked up:** ~1 sprint (Supabase RPC for atomic update or
+  app-side compensating action + 3-4 tests covering each partial-failure path).
+
+#### DEBT-2026-05-08-C: Staging schema sync (DEFERRED)
+- **Type:** AMBER from Sprint 2.7 audit. Dev/staging/prod schema drift risk.
+- **What's deferred:** No automated check that staging Supabase schema
+  matches production after migrations apply. Drift discovered manually
+  via failed prod migrations or runtime errors.
+- **Risk of deferring:** Schema-aware tests (#37) catch column existence
+  but not type/constraint changes. A migration that runs locally but fails
+  on prod blocks deploys.
+- **Mitigation in place:** All migrations idempotent (`IF NOT EXISTS` /
+  `IF EXISTS`); Andy reviews each migration before prod apply.
+- **Trigger to un-defer:** Pre-commercial-launch hardening, **or** first
+  production migration failure.
+- **Effort when picked up:** ~4-6 hours (script: `pg_dump --schema-only`
+  staging + prod, diff, fail CI on drift).
+
+#### DEBT-2026-05-09-A: Sprint 5.0/5.0.1 Speaking parser/aggregator possibly unused (DEFERRED)
+- **Type:** Dead-code risk from a sprint that pivoted.
+- **What's deferred:** Sprint 5.0 + 5.0.1 built a dual-shape speaking feedback
+  parser + aggregator intended for a Speaking dashboard refactor that then
+  pivoted to a different layout. The parser ships in
+  `services/claude_grader.py`'s post-processing path AND in a frontend
+  helper that may not have any caller after the pivot.
+- **Risk of deferring:** Dead code accumulates; future Code reads it as
+  load-bearing and reasons about it incorrectly.
+- **Mitigation in place:** All tests still green — code is internally
+  consistent even if no consumer.
+- **Trigger to un-defer:** If still unused after 1-2 more sprints, **or**
+  if the Speaking detail-page redesign starts and could consume it.
+- **Effort when picked up:** ~1 hour to delete (with grep audit) **or**
+  ~1 sprint to wire into the new Speaking detail page.
+
+#### DEBT-2026-05-09-B: Vocabulary tabs use iframe instead of module extraction (DEFERRED)
+- **Type:** Architectural — chosen "Approach B" in Sprint 6.0.
+- **What's deferred:** `pages/vocabulary.html` mounts `my-vocabulary.html`,
+  `flashcards.html`, `exercises.html` as iframes (Sprint 6.0 Approach B).
+  Each tab loads its own auth bootstrap, Supabase init, and Tailwind copy.
+  Clean but heavy: 4 separate JS contexts, no shared state, embedded-mode
+  CSS hides chrome via `html.embedded-mode` selector (Sprint 6.0.1).
+- **Risk of deferring:** Performance on mobile (4 iframe initializations);
+  no shared state between tabs (e.g., adding a word in My Vocab doesn't
+  reflect in Flashcards without refresh).
+- **Mitigation in place:** Iframes lazy-loaded (`loading="lazy"` + `src`
+  set on first visit only); embedded-mode CSS suppresses redundant
+  navigation.
+- **Trigger to un-defer:** Mobile performance complaints, **or** need for
+  cross-tab live state (e.g., flashcard study reflects new vocab adds
+  without reload).
+- **Effort when picked up:** ~1 sprint refactor — extract shared modules
+  (auth bootstrap, Supabase client, Tailwind config) to top-level shell;
+  per-tab modules render into in-page panels instead of iframes.
+
+#### DEBT-2026-05-09-C: Sprint 6.2 + 6.2.1 typography migration becomes redesign-replaceable (ACTIVE)
+- **Type:** Active tech debt — known throwaway.
+- **What:** Sprint 6.2 migrated 7 Tier 1 pages to Manrope + Fraunces +
+  `--ds-*` token namespace + `body.ds-canvas` atmosphere overlay. Sprint
+  6.2.1 added `font-family: 'Manrope'` to the body.ds-canvas rule to fix
+  a Tailwind CDN compile race. The unified design system foundation
+  (Sprint design-foundation, this PR) introduces `--av-*` tokens + Plus
+  Jakarta Sans + JetBrains Mono.
+- **What replaces it:** Per-page redesign sprints will move pages from
+  the `--ds-*` namespace + Manrope/Fraunces fonts to the `--av-*`
+  namespace + Plus Jakarta Sans/JetBrains Mono.
+- **Risk of carrying:** Two parallel token namespaces during the
+  migration window; visual inconsistency between migrated and
+  not-yet-migrated pages.
+- **Mitigation in place:** New tokens added alongside existing
+  (`--ds-*` not removed); migration is page-by-page to limit blast
+  radius; existing JS-coupled class names preserved.
+- **Trigger:** Per-page redesign rollout — Phase 1 priority order is
+  home → speaking → practice → result.
+- **Effort:** Per-page replacement during redesign, not a separate task.
+
 ### Design system migration (Pack v2 received 2026-05-04, integration deferred)
 
 #### DES-1: Roadmap re-generation (14 → 22 topics)
