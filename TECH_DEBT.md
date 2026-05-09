@@ -520,7 +520,17 @@ add WITH CHECK to RLS UPDATE policies.
   navigation.
 - **Trigger to un-defer:** Mobile performance complaints, **or** need for
   cross-tab live state (e.g., flashcard study reflects new vocab adds
-  without reload).
+  without reload), **or** future XSS/DOM concern in any child surface
+  (because the iframes are same-origin without `sandbox`, a child-page
+  bug has parent-page reach), **or** commercial launch prep (Phase E).
+- **Codex audit 2026-05-09 (AMBER #2):** Confirmed iframes are a UX
+  composition pattern, NOT a security sandbox. The frames do not declare
+  a `sandbox` attribute and child pages are first-party same-origin —
+  composition is the correct mental model, isolation is not. Documented
+  in `frontend/css/aver-design/DESIGN_SYSTEM.md` § 12 (architectural
+  notes). Adding `sandbox="allow-same-origin ..."` is **not** a quick
+  fix — it preserves same-origin reach. Module extraction (Approach A
+  in Sprint 6.0) remains the canonical un-defer path.
 - **Effort when picked up:** ~1 sprint refactor — extract shared modules
   (auth bootstrap, Supabase client, Tailwind config) to top-level shell;
   per-tab modules render into in-page panels instead of iframes.

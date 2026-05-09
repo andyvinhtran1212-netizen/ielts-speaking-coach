@@ -1,4 +1,4 @@
-name: Backend tests
+name: Tests
 
 # Sprint 4 Phase 7 — backend test suite gate.
 # Includes the grammar anchor drift gate (test_anchor_drift.py) which
@@ -14,6 +14,15 @@ name: Backend tests
 # importantly, frontend changes that consume the recommendation shape
 # (anchor field) want the same gate. Cheap insurance — the job is
 # 10 min and runs only on PRs.
+#
+# Sprint 6.3.1 added the frontend-tests job (Codex audit AMBER #1):
+# Sprint 6 introduced node:test contract suites for theme-toggle,
+# embedded-mode, vocab-landing, typography-tier1, home (existing) and
+# home-redesign. Without this job, a refactor that renamed
+# class="av-theme-toggle" → class="theme-toggle" would fail locally
+# but ship through the PR gate. The frontend job runs in parallel
+# to the backend job — slow Python install doesn't block fast Node
+# checks and vice versa.
 
 on:
   pull_request:
@@ -23,7 +32,8 @@ on:
       - '.github/workflows/backend-tests.yml'
 
 jobs:
-  test:
+  backend:
+    name: Backend (pytest + anchor drift)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -53,3 +63,37 @@ jobs:
         working-directory: .
         run: |
           python backend/scripts/verify_anchor_drift.py
+
+  frontend:
+    name: Frontend (node --test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # The frontend tests are pure node:test files — no transpile, no
+    # bundler. They exercise contracts (HTML structure, CSS token
+    # discipline, theme-toggle exports, IIFE patterns) rather than
+    # rendered behavior, so a single Node setup with no dependencies
+    # is enough. Test files are listed explicitly rather than via glob
+    # so a rogue *.test.js committed to the wrong directory can't
+    # silently break the gate.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run frontend contract tests
+        run: |
+          node --test \
+            frontend/tests/brief-lock-contract.test.mjs \
+            frontend/tests/embedded-mode.test.js \
+            frontend/tests/home.test.js \
+            frontend/tests/home-redesign.test.mjs \
+            frontend/tests/iframe-composition-docs.test.mjs \
+            frontend/tests/theme-toggle.test.mjs \
+            frontend/tests/typography-tier1.test.js \
+            frontend/tests/vocab-landing.test.js

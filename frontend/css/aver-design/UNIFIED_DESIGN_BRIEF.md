@@ -97,11 +97,39 @@ Test embed-mode rendering in BOTH themes after the redesign.
 
 ### 3.6 Permission gating contract
 
-If the page is `writing-dashboard.html`, `writing-result.html`, or any vocabulary surface, preserve the Sprint 5.2 / 5.2.1 gating UI states:
+The Sprint 5.2 / 5.2.1 permission gating uses **per-page lock contracts** — the class names and DOM shape used to render a "locked" skill card are NOT shared across pages. Every redesign sprint MUST inspect the page's own JS render functions before assuming class names. Following this brief blindly without checking the runtime is exactly the doc/runtime drift that breaks JS-coupled redesigns.
 
-- `.skill-card-locked` muted variant when permission missing
-- Locked-CTA modal copy (Vietnamese) intact
-- The `Liên hệ admin` action wired to the support email/Telegram link
+**Inspection workflow:**
+
+1. Open the page's JS render module (e.g., `frontend/js/home.js`).
+2. Search for `permission`, `locked`, `is_active`, or `disabled` to find the gate logic.
+3. Note the exact class names + data attributes the JS adds when the gate fails.
+4. Preserve those exactly in the redesigned markup; style them in the page's CSS.
+
+#### 3.6.1 Lock-state inventory (verified against shipped JS)
+
+| Page | Locked class | Data attribute | Renderer | Notes |
+|---|---|---|---|---|
+| `pages/home.html` | `.coming-soon` (NOT `.skill-card-locked`) | `data-locked="true"` | `js/home.js` `renderSkillCard` (PR #115 / 6.0, lock branch lines ~155–173) | The Writing card receives this when `permissions.writing === false`. Locked markup is rendered by `home.js` (innerHTML replace), not pre-baked in HTML. Click handler navigates to a Vietnamese alert, not a route. |
+| `pages/writing-dashboard.html` | TBD — verify in `js/writing-dashboard.js` before redesign | TBD | TBD | Sprint 5.2 added the gate at the route level (`require_writing_permission`); the UI surface is a separate concern that hasn't been redesigned yet. |
+| `pages/writing-result.html` | TBD — verify before redesign | TBD | TBD | Same as writing-dashboard. |
+| Vocabulary surfaces (`my-vocabulary.html`, `flashcards.html`, etc.) | TBD — likely no lock state since vocab is permission-default-on | n/a | n/a | Sprint 6.0 didn't introduce a per-skill gate here. |
+
+Each redesign sprint fills in the page's row above by reading the JS, not by guessing.
+
+#### 3.6.2 Anti-pattern (avoid)
+
+- ❌ Assuming `.skill-card-locked` is the universal lock class because the brief once said so. **It isn't.** The shipped homepage uses `.coming-soon` + `data-locked="true"`.
+- ❌ Renaming whatever class the JS *does* use during redesign — that breaks the gate silently.
+- ❌ Pre-baking locked markup into HTML — `home.js` replaces `innerHTML` wholesale on the `.skill-card.skeleton` placeholder, so any baked-in copy gets overwritten anyway.
+
+#### 3.6.3 Correct pattern
+
+- ✅ Read the page's JS render functions BEFORE rewriting HTML
+- ✅ Preserve exact class names + data attributes the JS depends on
+- ✅ Add new visual styling on top via composition (don't rename)
+- ✅ Vietnamese microcopy (e.g., "🔒 Chưa kích hoạt", *"Quyền Writing chưa được kích hoạt cho tài khoản này. Liên hệ giảng viên để được hỗ trợ."*) lives in the JS render template — preserve it verbatim or update the JS template, not just the HTML
+- ✅ The `Liên hệ admin` action stays wired to the support email/Telegram link in the JS handler, not the HTML
 
 ### 3.7 Vietnamese typography review
 
