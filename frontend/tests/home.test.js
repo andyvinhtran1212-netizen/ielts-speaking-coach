@@ -46,6 +46,8 @@ function makeElement(tagName = 'div', attrs = {}) {
     attributes: { ...attrs },
     innerHTML: '',
     textContent: '',
+    dataset: {},     // Sprint 5.2 — home.js sets `card.dataset.locked` on the lock branch.
+    tabIndex: -1,
     classList: {
       _set: new Set(),
       add(...cs) { cs.forEach(c => this._set.add(c)); },
@@ -121,11 +123,13 @@ function makeFakeDocument() {
 function loadHome(doc) {
   const scriptPath = path.join(__dirname, '..', 'js', 'home.js');
   const code = fs.readFileSync(scriptPath, 'utf8');
+  const alertCalls = [];
   const sandbox = {
     document: doc,
     setTimeout,
     clearTimeout,
     console,
+    alert: (msg) => { alertCalls.push(msg); },
     window: {
       // Stub the API to return null — loadHome short-circuits on falsy
       // payloads (the production flow uses that branch for the 401
@@ -133,6 +137,7 @@ function loadHome(doc) {
       // rendering layer directly via window.__home.
       api: { get: async () => null },
       location: { href: '' },
+      __alertCalls: alertCalls,
     },
   };
   // home.js sets `window.__home`; expose `window` itself on the sandbox
@@ -258,4 +263,97 @@ test('renderSkillCard renders coming_soon variant without click handler', () => 
   card.dispatchEvent({ type: 'click' });
   assert.equal(win.location.href, '__before__',
     'coming_soon cards must not navigate on click');
+});
+
+// ── Sprint 5.2 — Writing permission lock state ────────────────────────
+
+test('renderSkillCard locks Writing card when permissions.writing is false', () => {
+  const doc = makeFakeDocument();
+  const win = loadHome(doc);
+
+  // Active skill data — but permissions object says writing=false.
+  win.__home.renderSkillCard(
+    'writing',
+    {
+      status: 'active',
+      last_band: 6.5,
+      essays_count: 3,
+      essays_in_progress: 0,
+      last_activity_at: new Date().toISOString(),
+      primary_cta: 'Submit new essay',
+      primary_cta_url: '/pages/writing-dashboard.html',
+    },
+    { writing: false },
+  );
+
+  const card = doc._skillCards.writing;
+  assert.ok(card.classList.contains('coming-soon'),
+    'locked card uses the coming-soon visual treatment');
+  assert.equal(card.dataset.locked, 'true',
+    'data-locked discriminator distinguishes lock vs coming-soon for tests/CSS');
+  assert.match(card.innerHTML, /Chưa kích hoạt/);
+
+  // Click → alert, NOT navigation. The card has a real CTA URL but the
+  // lock branch must short-circuit it.
+  win.location.href = '__before__';
+  card.dispatchEvent({ type: 'click' });
+  assert.equal(win.location.href, '__before__',
+    'locked Writing card must not navigate on click');
+  assert.ok(win.__alertCalls.length >= 1,
+    'locked card click should surface a Vietnamese activation message');
+  assert.match(win.__alertCalls[0], /chưa được kích hoạt/i);
+});
+
+test('renderSkillCard does NOT lock Writing card when permissions.writing is true', () => {
+  const doc = makeFakeDocument();
+  const win = loadHome(doc);
+
+  win.__home.renderSkillCard(
+    'writing',
+    {
+      status: 'active',
+      last_band: 6.5,
+      essays_count: 3,
+      essays_in_progress: 0,
+      last_activity_at: new Date().toISOString(),
+      primary_cta: 'Submit new essay',
+      primary_cta_url: '/pages/writing-dashboard.html',
+    },
+    { writing: true },
+  );
+
+  const card = doc._skillCards.writing;
+  assert.ok(!card.classList.contains('coming-soon'),
+    'unlocked Writing card must not be styled as coming-soon');
+
+  // Click → navigate.
+  card.dispatchEvent({ type: 'click' });
+  assert.equal(win.location.href, '/pages/writing-dashboard.html');
+});
+
+test('renderSkillCard ignores permissions for non-Writing skills', () => {
+  /* Sprint 5.2 only gates Writing. Speaking/Grammar/Vocab cards must
+     not change behaviour based on the permissions payload — adding a
+     wholesale "lock everything" code path would silently regress the
+     UX on every other skill. */
+  const doc = makeFakeDocument();
+  const win = loadHome(doc);
+
+  win.__home.renderSkillCard(
+    'speaking',
+    {
+      status: 'active',
+      last_band: 6.0,
+      sessions_count: 12,
+      last_activity_at: new Date().toISOString(),
+      primary_cta: 'Continue practice',
+      primary_cta_url: '/pages/speaking.html',
+    },
+    { writing: false }, // Writing locked but Speaking should still navigate.
+  );
+
+  const card = doc._skillCards.speaking;
+  assert.ok(!card.classList.contains('coming-soon'));
+  card.dispatchEvent({ type: 'click' });
+  assert.equal(win.location.href, '/pages/speaking.html');
 });

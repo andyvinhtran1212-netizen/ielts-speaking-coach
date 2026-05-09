@@ -139,11 +139,39 @@
   }
 
   // ── Render: one skill card ──────────────────────────────────────────
-  function renderSkillCard(skillId, data) {
+  // `permissions` is the GET /api/student/permissions payload. When a
+  // skill the user lacks permission for (Sprint 5.2: Writing) the card
+  // renders in "locked" mode — same layout as coming-soon but the copy
+  // points at the activation flow rather than a future release.
+  function renderSkillCard(skillId, data, permissions) {
     const card = document.querySelector('[data-skill="' + skillId + '"]');
     if (!card) return;
 
     const meta = SKILL_META[skillId] || {};
+
+    // Locked path: skill exists but the user's access code doesn't grant
+    // it. Sprint 5.2 only checks Writing — extend to Speaking modes if
+    // the same gate becomes desired there.
+    if (skillId === 'writing' && permissions && permissions.writing === false) {
+      card.classList.remove('skeleton');
+      card.classList.add('coming-soon');
+      card.dataset.locked = 'true';
+      card.innerHTML =
+        '<div class="head">'
+          + '<div class="icon">' + meta.icon + '</div>'
+          + '<span class="lock-tag">🔒 Chưa kích hoạt</span>'
+        + '</div>'
+        + '<h3>' + meta.name + '</h3>'
+        + '<p class="desc">Quyền Writing chưa được kích hoạt cho tài khoản này. Liên hệ giảng viên để được hỗ trợ.</p>';
+      // Click → toast (no navigation). Keyboard handled identically.
+      const lockedAlert = () => alert('Quyền Writing chưa được kích hoạt. Liên hệ admin để được hỗ trợ.');
+      card.tabIndex = 0;
+      card.addEventListener('click', lockedAlert);
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lockedAlert(); }
+      });
+      return;
+    }
 
     // Coming-soon path: render once from static metadata, no API needed.
     if (data && data.status === 'coming_soon') {
@@ -208,8 +236,19 @@
   // ── Boot ────────────────────────────────────────────────────────────
   async function loadHome() {
     let data;
+    let permissions = null;
     try {
-      data = await window.api.get('/api/student/home-summary');
+      // Fetch in parallel — home-summary is heavy, permissions is cheap.
+      // Permissions failure is non-fatal: skill cards render unlocked
+      // by default and the backend gate still enforces.
+      const results = await Promise.allSettled([
+        window.api.get('/api/student/home-summary'),
+        window.api.get('/api/student/permissions'),
+      ]);
+      if (results[0].status === 'fulfilled') data = results[0].value;
+      else throw results[0].reason;
+      if (results[1].status === 'fulfilled') permissions = results[1].value;
+      else console.warn('permissions fetch failed:', results[1].reason);
     } catch (err) {
       console.error('home-summary fetch failed:', err);
       renderError('Không tải được trang chủ. Vui lòng thử lại sau.');
@@ -218,8 +257,8 @@
     if (!data) return; // 401 → api.js redirects to login
 
     renderHero(data);
-    SKILLS_ORDER.forEach(id => renderSkillCard(id, data.skills[id]));
-    COMING_SOON_ORDER.forEach(id => renderSkillCard(id, data.skills[id] || { status: 'coming_soon' }));
+    SKILLS_ORDER.forEach(id => renderSkillCard(id, data.skills[id], permissions));
+    COMING_SOON_ORDER.forEach(id => renderSkillCard(id, data.skills[id] || { status: 'coming_soon' }, permissions));
   }
 
   // Wait for Supabase + auth to be ready before fetching.

@@ -611,16 +611,20 @@
                   <span class="text-xs font-semibold" style="color:#14b8a6;">All / Toàn quyền</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
+                  <input type="checkbox" id="perm-writing" value="writing" disabled style="accent-color:#14b8a6;" />
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Writing</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
                   <input type="checkbox" id="perm-single" value="practice_single" disabled style="accent-color:#14b8a6;" />
-                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Luyện tập</span>
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Luyện tập (Speaking)</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
                   <input type="checkbox" id="perm-part" value="practice_part" disabled style="accent-color:#14b8a6;" />
-                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Luyện từng Part</span>
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Luyện từng Part (Speaking)</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
                   <input type="checkbox" id="perm-full" value="practice_full" disabled style="accent-color:#14b8a6;" />
-                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Full Test</span>
+                  <span class="text-xs perm-individual-label" style="color:rgba(255,255,255,0.3);">Full Test (Speaking)</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer perm-individual-row">
                   <input type="checkbox" id="perm-admin" value="admin" disabled style="accent-color:#14b8a6;" />
@@ -2110,6 +2114,40 @@
       }
     }
 
+    // Sprint 5.2 — render the permissions array as Vietnamese-labelled
+    // badges instead of a raw "writing, practice_single" comma list.
+    // Empty list / "all" / known values get distinct colours; unknown
+    // values fall through to a muted badge so admins can spot drift.
+    var PERM_BADGE_META = {
+      all:             { text: 'Toàn quyền',                style: 'background:rgba(220,38,38,0.18);color:#fca5a5;border:1px solid rgba(220,38,38,0.35);' },
+      writing:         { text: 'Writing',                   style: 'background:rgba(245,158,11,0.18);color:#fbbf24;border:1px solid rgba(245,158,11,0.35);' },
+      practice_single: { text: 'Speaking · Luyện tập',      style: 'background:rgba(59,130,246,0.18);color:#93c5fd;border:1px solid rgba(59,130,246,0.35);' },
+      practice_part:   { text: 'Speaking · Theo Part',      style: 'background:rgba(59,130,246,0.18);color:#93c5fd;border:1px solid rgba(59,130,246,0.35);' },
+      practice_full:   { text: 'Speaking · Full Test',      style: 'background:rgba(59,130,246,0.18);color:#93c5fd;border:1px solid rgba(59,130,246,0.35);' },
+      admin:           { text: 'Admin',                     style: 'background:rgba(244,114,182,0.18);color:#f9a8d4;border:1px solid rgba(244,114,182,0.35);' },
+    };
+    function renderPermissionBadges(permissions) {
+      var BADGE_BASE = 'display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;line-height:1.5;margin-right:4px;margin-bottom:2px;font-weight:500;';
+      var arr = Array.isArray(permissions)
+        ? permissions
+        : (typeof permissions === 'string' ? permissions.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : []);
+      if (!arr.length) {
+        return '<span style="' + BADGE_BASE + 'background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);">Không quyền</span>';
+      }
+      // "all" beats everything — render only the wildcard badge.
+      if (arr.indexOf('all') !== -1) {
+        return '<span style="' + BADGE_BASE + PERM_BADGE_META.all.style + '">' + PERM_BADGE_META.all.text + '</span>';
+      }
+      return arr.map(function (p) {
+        var meta = PERM_BADGE_META[p];
+        if (meta) {
+          return '<span style="' + BADGE_BASE + meta.style + '">' + meta.text + '</span>';
+        }
+        // Unknown permission — muted so it surfaces visually but doesn't crash.
+        return '<span style="' + BADGE_BASE + 'background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);" title="Quyền không xác định">' + esc(p) + '</span>';
+      }).join('');
+    }
+
     function renderCodes(codes) {
       document.getElementById('codes-loading').classList.add('hidden');
       document.getElementById('codes-count').textContent = codes.length + ' mã';
@@ -2127,7 +2165,7 @@
           : c.is_used
             ? '<span class="badge-used">Đã dùng</span>'
             : '<span class="badge-on">Chưa dùng</span>';
-        var perms = Array.isArray(c.permissions) ? c.permissions.join(', ') : (c.permissions || 'all');
+        var permsHtml = renderPermissionBadges(c.permissions);
         var userCount = c.assigned_user_count || 0;
         var assignedUsers = Array.isArray(c.assigned_users) ? c.assigned_users : [];
         var userBadge;
@@ -2169,7 +2207,7 @@
           + '<td style="color:rgba(255,255,255,0.35);font-size:12px;">' + fmtDate(c.created_at) + '</td>'
           + '<td style="font-size:12px;">' + limitTxt + '</td>'
           + '<td style="font-size:12px;">' + expiryTxt + '</td>'
-          + '<td style="color:rgba(255,255,255,0.55);font-size:12px;">' + esc(perms) + '</td>'
+          + '<td style="font-size:12px;">' + permsHtml + '</td>'
           + '<td style="white-space:nowrap;">' + detailBtn + editBtn + revokeBtn + deleteBtn + '</td>'
           + '</tr>';
       }).join('');
@@ -2189,7 +2227,7 @@
 
     function getSelectedPerms() {
       if (document.getElementById('perm-all').checked) return ['all'];
-      var vals = ['perm-single', 'perm-part', 'perm-full', 'perm-admin']
+      var vals = ['perm-writing', 'perm-single', 'perm-part', 'perm-full', 'perm-admin']
         .map(function (id) { return document.getElementById(id); })
         .filter(function (el) { return el && el.checked; })
         .map(function (el) { return el.value; });
@@ -2298,7 +2336,7 @@
       try {
         var detail = await apiGet('/admin/access-codes/' + codeId);
         var assignments = detail.assignments || [];
-        var perms = Array.isArray(detail.permissions) ? detail.permissions.join(', ') : (detail.permissions || 'all');
+        var permsHtml = renderPermissionBadges(detail.permissions);
 
         var metaHtml = '<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;">'
           + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
@@ -2309,7 +2347,7 @@
             : '<span class="badge-on">Chưa dùng</span>') + '</div>'
           + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">GIỚI HẠN SESSIONS</span><span style="color:rgba(255,255,255,0.7);">' + (detail.session_limit != null ? detail.session_limit : 'Không giới hạn') + '</span></div>'
           + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">HẾT HẠN</span><span style="color:rgba(255,255,255,0.7);">' + (detail.expires_at ? fmtDate(detail.expires_at) : 'Không hết hạn') + '</span></div>'
-          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">QUYỀN</span><span style="color:rgba(255,255,255,0.7);">' + esc(perms) + '</span></div>'
+          + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">QUYỀN</span><span style="color:rgba(255,255,255,0.7);">' + permsHtml + '</span></div>'
           + '<div><span style="color:rgba(255,255,255,0.4);font-size:11px;display:block;margin-bottom:2px;">NGÀY TẠO</span><span style="color:rgba(255,255,255,0.7);font-size:12px;">' + fmtDate(detail.created_at) + '</span></div>'
           + '</div>'
           + '</div>';
@@ -2411,9 +2449,10 @@
       overlay.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
 
       var PERM_OPTS = [
-        { id: 'ep-single', value: 'practice_single', label: 'Luyện tập' },
-        { id: 'ep-part',   value: 'practice_part',   label: 'Luyện từng Part' },
-        { id: 'ep-full',   value: 'practice_full',   label: 'Full Test' },
+        { id: 'ep-writing', value: 'writing',         label: 'Writing' },
+        { id: 'ep-single', value: 'practice_single', label: 'Luyện tập (Speaking)' },
+        { id: 'ep-part',   value: 'practice_part',   label: 'Luyện từng Part (Speaking)' },
+        { id: 'ep-full',   value: 'practice_full',   label: 'Full Test (Speaking)' },
         { id: 'ep-admin',  value: 'admin',            label: 'Admin' },
       ];
 
@@ -2494,9 +2533,10 @@
       if (!c) { alert('Không tìm thấy code.'); return; }
 
       var PERM_OPTS = [
-        { id: 'ec-single', value: 'practice_single', label: 'Luyện tập' },
-        { id: 'ec-part',   value: 'practice_part',   label: 'Luyện từng Part' },
-        { id: 'ec-full',   value: 'practice_full',   label: 'Full Test' },
+        { id: 'ec-writing', value: 'writing',         label: 'Writing' },
+        { id: 'ec-single', value: 'practice_single', label: 'Luyện tập (Speaking)' },
+        { id: 'ec-part',   value: 'practice_part',   label: 'Luyện từng Part (Speaking)' },
+        { id: 'ec-full',   value: 'practice_full',   label: 'Full Test (Speaking)' },
         { id: 'ec-admin',  value: 'admin',            label: 'Admin' },
       ];
 

@@ -23,6 +23,10 @@ from database import supabase_admin
 from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
 from services import essay_service
+from services.access_code_permissions import (
+    get_student_access_code_permissions,
+    has_writing_permission,
+)
 from services.writing_render import render_feedback_html, render_plain_text
 from services.writing_word_exporter import render_essay_to_docx
 
@@ -127,6 +131,21 @@ async def create_essay(
     # The student doesn't see the feedback until an admin delivers
     # the review (instructor_workflow.deliver flips writing_essays
     # status='delivered'). Quick is the only tier still rejected here.
+
+    # Sprint 5.2 — Writing permission gate. Admin submits on behalf of
+    # the student named in body.student_id; we check that *student's*
+    # permissions, not the admin's. This means an admin can't bypass
+    # the gate by submitting under their own auth — billing/access
+    # intent follows the essay owner, not the requester.
+    student_perms = get_student_access_code_permissions(body.student_id)
+    if not has_writing_permission(student_perms):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Học viên này chưa được kích hoạt quyền Writing. "
+                "Cập nhật access code hoặc gán mã có quyền Writing trước khi submit."
+            ),
+        )
 
     data = body.model_dump()
     data["student_id"] = str(data["student_id"])  # UUID → str for Supabase
