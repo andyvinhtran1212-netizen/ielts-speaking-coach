@@ -14,16 +14,22 @@
             navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
             teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
-          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+          fontFamily: {
+            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
+            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+          },
         },
       },
     };
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="css/ds.css" />
   <style>
-    body { background: linear-gradient(135deg, #0C2340 0%, #112d52 60%, #0d5f58 100%); min-height: 100vh; }
+    /* Background and atmosphere now provided by body.ds-canvas in ds.css. */
 
     /* Progress bar */
     #progress-fill { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -99,7 +105,7 @@
     #error-banner { display: none; }
   </style>
 </head>
-<body class="text-white font-sans antialiased flex flex-col min-h-screen">
+<body class="text-white font-sans antialiased flex flex-col min-h-screen ds-canvas">
 
   <!-- Top nav -->
   <nav class="px-6 py-4 flex items-center gap-2">
