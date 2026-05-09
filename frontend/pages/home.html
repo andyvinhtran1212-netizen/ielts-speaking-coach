@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Aver Learning — Trang chủ</title>
+
+  <!-- Display font: Fraunces (variable, distinctive serif). Body: Manrope. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/home.css" />
+</head>
+<body>
+  <div class="shell">
+
+    <!-- ── Top nav ─────────────────────────────────────────────────── -->
+    <nav class="topnav" aria-label="Primary">
+      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
+
+      <div class="nav-links">
+        <a href="/pages/home.html" class="active">Home</a>
+        <a href="/pages/writing-dashboard.html">Writing</a>
+        <a href="/pages/speaking.html">Speaking</a>
+        <a href="/grammar.html">Grammar</a>
+        <a href="/pages/my-vocabulary.html">Vocab</a>
+        <span class="locked" aria-disabled="true">Reading</span>
+        <span class="locked" aria-disabled="true">Listening</span>
+      </div>
+
+      <a href="/pages/profile.html" class="user-pill" id="user-pill" aria-label="Profile">
+        <span class="avatar" id="user-avatar">·</span>
+        <span id="user-pill-name">…</span>
+      </a>
+    </nav>
+
+    <!-- ── Optional error banner ───────────────────────────────────── -->
+    <div id="error-banner" class="error-banner hidden" role="alert" hidden></div>
+
+    <!-- ── Greeting + hero stats ───────────────────────────────────── -->
+    <header class="greeting">
+      <div>
+        <h1>Xin chào, <span class="name" id="greeting-name">…</span><span class="wave" aria-hidden="true">👋</span></h1>
+        <p>Tiếp tục hành trình IELTS của bạn — luyện đều mỗi ngày để giữ đà tiến bộ.</p>
+      </div>
+
+      <div class="hero-stats" aria-label="Tổng quan">
+        <div class="hero-stat streak" id="hero-streak">
+          <span class="label">Streak</span>
+          <span class="value">
+            <span class="value-num">0</span>
+            <span class="unit">ngày</span>
+            <span class="flame" aria-hidden="true">🔥</span>
+          </span>
+        </div>
+        <div class="hero-stat" id="hero-sessions">
+          <span class="label">Speaking</span>
+          <span class="value">
+            <span class="value-num">0</span>
+            <span class="unit">sessions</span>
+          </span>
+        </div>
+        <div class="hero-stat" id="hero-essays">
+          <span class="label">Writing</span>
+          <span class="value">
+            <span class="value-num">0</span>
+            <span class="unit">essays</span>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Active skills ───────────────────────────────────────────── -->
+    <section>
+      <div class="section-head">
+        <h2>Kỹ năng IELTS</h2>
+        <span class="rule" aria-hidden="true"></span>
+        <span class="meta">4 kỹ năng đang mở</span>
+      </div>
+
+      <div class="skill-grid">
+        <article class="skill-card skeleton" data-skill="writing">
+          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
+          <h3>Writing</h3>
+          <div class="metric">·</div>
+          <div class="sub-metric">·</div>
+          <div class="footer">
+            <span class="last-activity">·</span>
+            <span class="cta">·</span>
+          </div>
+        </article>
+
+        <article class="skill-card skeleton" data-skill="speaking">
+          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
+          <h3>Speaking</h3>
+          <div class="metric">·</div>
+          <div class="sub-metric">·</div>
+          <div class="footer">
+            <span class="last-activity">·</span>
+            <span class="cta">·</span>
+          </div>
+        </article>
+
+        <article class="skill-card skeleton" data-skill="grammar">
+          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
+          <h3>Grammar</h3>
+          <div class="metric">·</div>
+          <div class="sub-metric">·</div>
+          <div class="footer">
+            <span class="last-activity">·</span>
+            <span class="cta">·</span>
+          </div>
+        </article>
+
+        <article class="skill-card skeleton" data-skill="vocabulary">
+          <div class="head"><div class="icon">·</div><span class="arrow">→</span></div>
+          <h3>Vocabulary</h3>
+          <div class="metric">·</div>
+          <div class="sub-metric">·</div>
+          <div class="footer">
+            <span class="last-activity">·</span>
+            <span class="cta">·</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Coming soon ─────────────────────────────────────────────── -->
+    <section>
+      <div class="section-head">
+        <h2>Sắp ra mắt</h2>
+        <span class="rule" aria-hidden="true"></span>
+        <span class="meta">Đang phát triển</span>
+      </div>
+
+      <div class="skill-grid">
+        <article class="skill-card coming-soon" data-skill="reading">
+          <div class="head">
+            <div class="icon">✸</div>
+            <span class="lock-tag">Sắp ra mắt</span>
+          </div>
+          <h3>Reading</h3>
+          <p class="desc">Bài đọc IELTS với phân tích cấu trúc đoạn và chiến lược tìm ý chính.</p>
+        </article>
+
+        <article class="skill-card coming-soon" data-skill="listening">
+          <div class="head">
+            <div class="icon">◐</div>
+            <span class="lock-tag">Sắp ra mắt</span>
+          </div>
+          <h3>Listening</h3>
+          <p class="desc">Bài nghe với note-taking pattern và phân tích bẫy đáp án.</p>
+        </article>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ── Scripts: order matters — supabase → api.js → home.js ─────── -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    // Same Supabase config as login.html — keep inline so the script
+    // bundle stays small. If credentials change, update both places.
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+  </script>
+  <script src="../js/home.js"></script>
+  <script>
+    // Pill: drop in the user's email/initial once Supabase resolves.
+    (async () => {
+      try {
+        const sb = getSupabase();
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) {
+          window.location.href = '../login.html';
+          return;
+        }
+        const email = (session.user && session.user.email) || '';
+        const meta  = (session.user && session.user.user_metadata) || {};
+        const name  = meta.display_name || meta.full_name || meta.name || (email.split('@')[0] || 'bạn');
+        const initial = (name[0] || '·').toUpperCase();
+        const avatar = document.getElementById('user-avatar');
+        const pill = document.getElementById('user-pill-name');
+        if (avatar) avatar.textContent = initial;
+        if (pill) pill.textContent = name.length > 14 ? name.slice(0, 13) + '…' : name;
+      } catch (e) {
+        console.error('user-pill init failed:', e);
+      }
+    })();
+  </script>
+</body>
+</html>

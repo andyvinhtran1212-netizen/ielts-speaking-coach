@@ -60,7 +60,7 @@
     base: _API_BASE,
     // url(path) — resolve a same-site page path relative to the app root,
     // safe on both localhost and GitHub Pages project sites.
-    // Usage: window.api.url('pages/dashboard.html')
+    // Usage: window.api.url('pages/home.html')
     url:    function (path)        { return _appRoot + path; },
     get:    function (path)        { return _apiRequest('GET',    path); },
     post:   function (path, body)  { return _apiRequest('POST',   path, body); },

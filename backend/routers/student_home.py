@@ -1,0 +1,46 @@
+"""routers/student_home.py — multi-skill student homepage endpoint.
+
+Sprint 5.1. Powers /pages/home.html, the post-login landing.
+
+  GET /api/student/home-summary
+
+Single round-trip aggregating Writing + Speaking + Grammar + Vocabulary
+data for the homepage's first paint. Reading + Listening surfaced as
+``status='coming_soon'`` placeholders so the layout is stable when those
+skills ship — flip the flag in the aggregator, no frontend churn.
+
+Auth: standard Supabase JWT via get_supabase_user. The aggregator runs
+under supabase_admin (service-role) — see services/student_home_aggregator
+docstring for why a JWT-scoped client can't span the cross-table
+auth.users → students join. Every query carries an explicit user_id /
+student_id filter as defense-in-depth.
+"""
+
+from fastapi import APIRouter, Header
+
+from database import supabase_admin
+from routers.auth import get_supabase_user
+from services.student_home_aggregator import get_home_summary
+
+
+router = APIRouter(prefix="/api/student", tags=["student-home"])
+
+
+@router.get("/home-summary")
+async def home_summary(authorization: str | None = Header(default=None)):
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    # Pull display name + email from the JWT-resolved user; fall back to
+    # the email's local-part if no display_name is set so the greeting
+    # never says "Xin chào, !".
+    metadata = auth_user.get("user_metadata") or {}
+    email = auth_user.get("email") or ""
+    name = (
+        metadata.get("display_name")
+        or metadata.get("full_name")
+        or metadata.get("name")
+        or (email.split("@", 1)[0] if email else "bạn")
+    )
+
+    return get_home_summary(supabase_admin, user_id, name=name, email=email)

@@ -402,7 +402,7 @@
         });
 
         // Redirect to practice with selected topic
-        window.location.href = 'pages/dashboard.html?first_topic=' + encodeURIComponent(stepData.topic);
+        window.location.href = 'pages/home.html?first_topic=' + encodeURIComponent(stepData.topic);
       } catch (err) {
         showError(err.message || 'Không thể lưu thông tin. Vui lòng thử lại.');
         btnNext.disabled    = false;
@@ -422,7 +422,7 @@
       try {
         var user = await window.api.get('/auth/me');
         if (user && user.onboarding_completed) {
-          window.location.href = 'pages/dashboard.html';
+          window.location.href = 'pages/home.html';
         }
         // else: stay on this page
       } catch (e) {
