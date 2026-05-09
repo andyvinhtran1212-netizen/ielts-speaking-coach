@@ -1,0 +1,331 @@
+/* frontend/css/aver-design/tokens.css
+ *
+ * Aver Learning unified design tokens — foundation sprint 2026-05-09.
+ *
+ * This file defines the canonical --av-* token namespace, with parallel
+ * light + dark theme values switched via [data-theme] on <html>. It
+ * coexists with the legacy --ds-* tokens (which remain in ds.css and stay
+ * functional during migration). Per-page redesign sprints move pages
+ * from --ds-* → --av-* one at a time.
+ *
+ * Theme resolution priority (applied by js/theme-toggle.js):
+ *   1. localStorage 'av-theme' (explicit user choice)
+ *   2. prefers-color-scheme media query (system preference)
+ *   3. light (final fallback)
+ *
+ * Anti-flash: an inline IIFE in <head> sets data-theme on <html> BEFORE
+ * any stylesheet loads, then theme-toggle.js wires up the toggle button
+ * and the system-preference change listener. The .theme-loading class
+ * suppresses transitions during initial paint to avoid the flicker that
+ * comes from animating from a default to the resolved theme.
+ *
+ * Brand: Deep teal primary, warm off-white / deep navy surfaces,
+ * Plus Jakarta Sans body + JetBrains Mono numerics. Vietnamese
+ * diacritic safety: line-height defaults are nudged up so accent
+ * marks don't collide with descenders on adjacent lines.
+ */
+
+
+/* ── Theme-agnostic tokens ─────────────────────────────────────────── */
+
+:root {
+  /* Typography — chosen for distinctiveness (avoiding Inter/Roboto/Arial
+     per frontend-design skill). Plus Jakarta Sans is geometric-humanist
+     with strong Vietnamese diacritic rendering. JetBrains Mono carries
+     numerics (band scores, streak counts) where mono alignment matters. */
+  --av-font-sans:    'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --av-font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --av-font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* Type scale — 16px base, 1.125 ratio (tightened for compact app UI) */
+  --av-fs-xs:   0.75rem;     /* 12px */
+  --av-fs-sm:   0.875rem;    /* 14px */
+  --av-fs-base: 1rem;        /* 16px */
+  --av-fs-lg:   1.125rem;    /* 18px */
+  --av-fs-xl:   1.25rem;     /* 20px */
+  --av-fs-2xl:  1.5rem;      /* 24px */
+  --av-fs-3xl:  1.875rem;    /* 30px */
+  --av-fs-4xl:  2.25rem;     /* 36px */
+  --av-fs-5xl:  3rem;        /* 48px */
+
+  /* Line-height — 1.55 default for Vietnamese diacritic safety; descenders
+     + accent marks need ~10% extra vs Latin-only design. */
+  --av-lh-tight:   1.2;      /* display headings only */
+  --av-lh-snug:    1.4;      /* short headings, buttons */
+  --av-lh-normal:  1.55;     /* body — Vietnamese-safe default */
+  --av-lh-relaxed: 1.7;      /* long-form reading (results, articles) */
+
+  /* Font weights — kept narrow to avoid loading too many weights */
+  --av-fw-regular:  400;
+  --av-fw-medium:   500;
+  --av-fw-semibold: 600;
+  --av-fw-bold:     700;
+
+  /* Letter-spacing — tighter on display, wider on labels */
+  --av-tracking-tight:   -0.02em;
+  --av-tracking-normal:  0;
+  --av-tracking-wide:    0.04em;
+  --av-tracking-widest:  0.18em;  /* uppercase labels */
+
+  /* Spacing scale — 4px base. Skip 5/7/9/10/11/13/14/15 to enforce
+     scale discipline; use combinations (--av-space-4 + --av-space-2)
+     in the rare case 24px-equivalent isn't enough. */
+  --av-space-0:  0;
+  --av-space-1:  4px;
+  --av-space-2:  8px;
+  --av-space-3:  12px;
+  --av-space-4:  16px;
+  --av-space-6:  24px;
+  --av-space-8:  32px;
+  --av-space-12: 48px;
+  --av-space-16: 64px;
+  --av-space-20: 80px;
+  --av-space-24: 96px;
+
+  /* Border radius — discrete steps */
+  --av-radius-sm:   4px;
+  --av-radius-md:   8px;
+  --av-radius-lg:   12px;
+  --av-radius-xl:   16px;
+  --av-radius-2xl:  24px;
+  --av-radius-pill: 999px;
+
+  /* Motion — three durations + one default easing */
+  --av-duration-fast: 150ms;
+  --av-duration-base: 250ms;
+  --av-duration-slow: 400ms;
+  --av-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --av-easing-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Theme transition — applied to body so background + color animate
+     when [data-theme] flips. The .theme-loading class suppresses this
+     during initial paint to prevent flicker on first load. */
+  --av-theme-transition:
+    background-color var(--av-duration-base) var(--av-easing-default),
+    color var(--av-duration-base) var(--av-easing-default),
+    border-color var(--av-duration-base) var(--av-easing-default);
+
+  /* Z-index scale — anchored to known UI layers */
+  --av-z-base:    0;
+  --av-z-raised:  10;     /* sticky top-nav */
+  --av-z-dropdown: 100;
+  --av-z-modal:    1000;
+  --av-z-toast:    2000;
+
+  /* Brand-shared colors — the same teal pulse appears on both themes,
+     just with different opacities applied per surface. */
+  --av-brand-teal-50:  #ECFDF5;
+  --av-brand-teal-100: #D1FAE5;
+  --av-brand-teal-200: #A7F3D0;
+  --av-brand-teal-300: #6EE7B7;
+  --av-brand-teal-400: #34D399;
+  --av-brand-teal-500: #14B8A6;  /* mid */
+  --av-brand-teal-600: #0D9488;
+  --av-brand-teal-700: #0F766E;  /* canonical brand teal */
+  --av-brand-teal-800: #115E59;
+  --av-brand-teal-900: #134E4A;
+
+  /* Warm amber — streaks, encouragement, "you did it" moments.
+     Same value across themes; rendered against different surfaces. */
+  --av-brand-amber-400: #FBBF24;
+  --av-brand-amber-500: #F59E0B;
+  --av-brand-amber-600: #D97706;
+}
+
+
+/* ── Light theme (default) ──────────────────────────────────────────
+ *
+ * Welcoming, editorial, magazine-like. Warm off-white surfaces (not
+ * clinical white), deep navy text, teal accent that reads on cream
+ * without losing contrast.
+ */
+
+:root,
+:root[data-theme="light"] {
+  /* Primary — defaults to canonical teal */
+  --av-primary:        var(--av-brand-teal-700);
+  --av-primary-hover:  var(--av-brand-teal-800);
+  --av-primary-active: var(--av-brand-teal-900);
+  --av-primary-soft:   rgba(15, 118, 110, 0.08);    /* tint backgrounds */
+  --av-primary-border: rgba(15, 118, 110, 0.32);
+
+  /* Accent — warm amber */
+  --av-accent:         var(--av-brand-amber-500);
+  --av-accent-soft:    rgba(245, 158, 11, 0.10);
+
+  /* Surfaces — warm off-white scale */
+  --av-surface-page:      #FAFAF9;   /* warm off-white, not pure white */
+  --av-surface-card:      #FFFFFF;
+  --av-surface-elevated:  #FFFFFF;
+  --av-surface-sunken:    #F5F5F4;
+  --av-surface-overlay:   rgba(15, 23, 42, 0.55);   /* modal backdrop */
+
+  /* Borders — low-opacity navy */
+  --av-border-subtle:   rgba(15, 23, 42, 0.06);
+  --av-border-default:  rgba(15, 23, 42, 0.12);
+  --av-border-strong:   rgba(15, 23, 42, 0.20);
+  --av-border-focus:    var(--av-primary);
+
+  /* Text — deep navy scale */
+  --av-text-primary:    rgba(15, 23, 42, 0.92);
+  --av-text-secondary:  rgba(15, 23, 42, 0.68);
+  --av-text-muted:      rgba(15, 23, 42, 0.50);
+  --av-text-faint:      rgba(15, 23, 42, 0.32);
+  --av-text-on-primary: #FFFFFF;
+  --av-text-inverse:    #FAFAF9;
+
+  /* Semantic — readable on light surfaces */
+  --av-success:         #047857;
+  --av-success-soft:    rgba(4, 120, 87, 0.08);
+  --av-warning:         #B45309;
+  --av-warning-soft:    rgba(180, 83, 9, 0.08);
+  --av-error:           #B91C1C;
+  --av-error-soft:      rgba(185, 28, 28, 0.08);
+  --av-info:            #1D4ED8;
+  --av-info-soft:       rgba(29, 78, 216, 0.08);
+
+  /* Shadows — navy-tinted, low opacity (light theme reads softer) */
+  --av-shadow-sm:    0 1px 2px rgba(15, 23, 42, 0.05);
+  --av-shadow-md:    0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
+  --av-shadow-lg:    0 4px 8px rgba(15, 23, 42, 0.06), 0 12px 32px rgba(15, 23, 42, 0.08);
+  --av-shadow-xl:    0 8px 16px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.12);
+  --av-shadow-focus: 0 0 0 3px rgba(15, 118, 110, 0.25);
+}
+
+
+/* ── Dark theme ─────────────────────────────────────────────────────
+ *
+ * Focus mode. Deep navy ground continues from the legacy --ds-bg
+ * (#0a1628) for visual continuity during migration. Teal accents
+ * shift one step lighter to maintain WCAG AA on dark surfaces.
+ */
+
+:root[data-theme="dark"] {
+  /* Primary — lift one step lighter for dark contrast */
+  --av-primary:        var(--av-brand-teal-500);   /* #14B8A6 */
+  --av-primary-hover:  var(--av-brand-teal-400);
+  --av-primary-active: var(--av-brand-teal-300);
+  --av-primary-soft:   rgba(20, 184, 166, 0.12);
+  --av-primary-border: rgba(20, 184, 166, 0.40);
+
+  /* Accent — same amber, reads warmer on dark */
+  --av-accent:         var(--av-brand-amber-400);
+  --av-accent-soft:    rgba(251, 191, 36, 0.10);
+
+  /* Surfaces — deep navy continues from legacy --ds-bg */
+  --av-surface-page:      #0A1628;
+  --av-surface-card:      #112236;
+  --av-surface-elevated:  #15273D;
+  --av-surface-sunken:    #061021;
+  --av-surface-overlay:   rgba(0, 0, 0, 0.72);
+
+  /* Borders — low-opacity white */
+  --av-border-subtle:   rgba(255, 255, 255, 0.06);
+  --av-border-default:  rgba(255, 255, 255, 0.12);
+  --av-border-strong:   rgba(255, 255, 255, 0.20);
+  --av-border-focus:    var(--av-primary);
+
+  /* Text — warm white scale */
+  --av-text-primary:    rgba(241, 245, 249, 0.95);
+  --av-text-secondary:  rgba(241, 245, 249, 0.72);
+  --av-text-muted:      rgba(241, 245, 249, 0.55);
+  --av-text-faint:      rgba(241, 245, 249, 0.32);
+  --av-text-on-primary: #0A1628;     /* dark text on bright teal button */
+  --av-text-inverse:    #15273D;
+
+  /* Semantic — lifted for dark legibility */
+  --av-success:         #34D399;
+  --av-success-soft:    rgba(52, 211, 153, 0.10);
+  --av-warning:         var(--av-brand-amber-400);
+  --av-warning-soft:    rgba(251, 191, 36, 0.10);
+  --av-error:           #F87171;
+  --av-error-soft:      rgba(248, 113, 113, 0.10);
+  --av-info:            #60A5FA;
+  --av-info-soft:       rgba(96, 165, 250, 0.10);
+
+  /* Shadows — black-tinted, deeper for navy ground */
+  --av-shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.30);
+  --av-shadow-md:    0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.40);
+  --av-shadow-lg:    0 4px 8px rgba(0, 0, 0, 0.40), 0 12px 32px rgba(0, 0, 0, 0.50);
+  --av-shadow-xl:    0 8px 16px rgba(0, 0, 0, 0.50), 0 24px 48px rgba(15, 118, 110, 0.18);
+  --av-shadow-focus: 0 0 0 3px rgba(20, 184, 166, 0.40);
+}
+
+
+/* ── System preference fallback ─────────────────────────────────────
+ *
+ * If the user has NOT explicitly chosen a theme (no [data-theme] set
+ * because the inline IIFE ran in a browser without localStorage, or
+ * the script was blocked), follow the OS-level preference.
+ *
+ * The IIFE applies data-theme="light" or data-theme="dark" before
+ * first paint, so this @media block is a safety net rather than the
+ * primary path. It still matters for environments where JS is
+ * disabled — the page shouldn't render in the wrong theme.
+ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --av-primary:        var(--av-brand-teal-500);
+    --av-primary-hover:  var(--av-brand-teal-400);
+    --av-primary-active: var(--av-brand-teal-300);
+    --av-primary-soft:   rgba(20, 184, 166, 0.12);
+    --av-primary-border: rgba(20, 184, 166, 0.40);
+
+    --av-accent:         var(--av-brand-amber-400);
+    --av-accent-soft:    rgba(251, 191, 36, 0.10);
+
+    --av-surface-page:      #0A1628;
+    --av-surface-card:      #112236;
+    --av-surface-elevated:  #15273D;
+    --av-surface-sunken:    #061021;
+    --av-surface-overlay:   rgba(0, 0, 0, 0.72);
+
+    --av-border-subtle:   rgba(255, 255, 255, 0.06);
+    --av-border-default:  rgba(255, 255, 255, 0.12);
+    --av-border-strong:   rgba(255, 255, 255, 0.20);
+
+    --av-text-primary:    rgba(241, 245, 249, 0.95);
+    --av-text-secondary:  rgba(241, 245, 249, 0.72);
+    --av-text-muted:      rgba(241, 245, 249, 0.55);
+    --av-text-faint:      rgba(241, 245, 249, 0.32);
+    --av-text-on-primary: #0A1628;
+    --av-text-inverse:    #15273D;
+
+    --av-success:         #34D399;
+    --av-success-soft:    rgba(52, 211, 153, 0.10);
+    --av-warning:         var(--av-brand-amber-400);
+    --av-warning-soft:    rgba(251, 191, 36, 0.10);
+    --av-error:           #F87171;
+    --av-error-soft:      rgba(248, 113, 113, 0.10);
+    --av-info:            #60A5FA;
+    --av-info-soft:       rgba(96, 165, 250, 0.10);
+
+    --av-shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.30);
+    --av-shadow-md:    0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.40);
+    --av-shadow-lg:    0 4px 8px rgba(0, 0, 0, 0.40), 0 12px 32px rgba(0, 0, 0, 0.50);
+    --av-shadow-xl:    0 8px 16px rgba(0, 0, 0, 0.50), 0 24px 48px rgba(15, 118, 110, 0.18);
+    --av-shadow-focus: 0 0 0 3px rgba(20, 184, 166, 0.40);
+  }
+}
+
+
+/* ── Smooth theme transition + anti-flash ───────────────────────────
+ *
+ * Apply transition to body so theme flips animate. The .theme-loading
+ * class on <html> (added by initTheme() and removed after the first
+ * frame) suppresses ALL transitions during the initial paint — without
+ * this guard, the page visibly animates from the default theme to the
+ * resolved theme on every page load.
+ */
+
+body {
+  transition: var(--av-theme-transition);
+}
+
+html.theme-loading,
+html.theme-loading * {
+  transition: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}

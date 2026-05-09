@@ -1,0 +1,227 @@
+# Aver Learning Design System
+
+> Foundation sprint: 2026-05-09. This document defines the design language used by every page that opts into the unified system. It is the source of truth — when the codebase and this doc disagree, fix the codebase.
+
+---
+
+## 1. Brand identity
+
+| Aspect | Direction |
+|---|---|
+| Voice | Vietnamese-first, "warm teacher" tone. Patient, encouraging, never condescending. |
+| Pronouns | Speak to the student as `bạn` (informal-respectful "you"). The AI grader speaks in third person ("the model thinks..."), never "I". |
+| Casing | Sentence case throughout. Never Title Case headlines, never ALL CAPS body text. Uppercase reserved for short labels (`STREAK`, `TUẦN NÀY`) where the wide tracking earns it. |
+| Mood | Calm, professional, encouraging. The student is preparing for an exam — the surface should reduce anxiety, not amplify it. |
+| Avoid | Emoji confetti, gamification fanfare, generic "AI assistant" framing. Avoid the visual tropes the `frontend-design` skill calls out (Inter, purple gradients, predictable card grids). |
+
+---
+
+## 2. Theme system
+
+### 2.1 Light + dark are both first-class
+
+Both themes are equally supported. The user can toggle anytime. Neither is the "real" design.
+
+| Theme | Purpose | Mood |
+|---|---|---|
+| **Light** (default for new users) | Welcoming, editorial, hub-style | Spacious, calm, magazine-like |
+| **Dark** | Focus mode for active learning | Quiet, professional, low-fatigue for long sessions |
+
+### 2.2 Resolution priority
+
+When the page boots, the active theme is decided in this order:
+
+1. **User's explicit choice** — `localStorage` key `av-theme` set to `"light"` or `"dark"`
+2. **System preference** — `window.matchMedia('(prefers-color-scheme: dark)')`
+3. **Light** — final fallback
+
+The mechanism is implemented by `frontend/js/theme-toggle.js` plus an inline IIFE in `<head>` that runs before any stylesheet loads (anti-flash).
+
+### 2.3 Implementation
+
+- Tokens live in `frontend/css/aver-design/tokens.css` — single source for both themes.
+- The active theme is signaled by `[data-theme="light"]` or `[data-theme="dark"]` on `<html>`.
+- Components reference `--av-*` tokens only — **no hardcoded colors**. Switching `[data-theme]` flips every component automatically.
+- The theme toggle (`.av-theme-toggle`) sits in the page nav, near the user menu. Single icon-button, swaps sun↔moon glyph based on active theme.
+- `aria-label` updates dynamically in Vietnamese: `"Chuyển sang giao diện sáng"` / `"Chuyển sang giao diện tối"`. `aria-pressed` reflects the active theme.
+
+### 2.4 Anti-flash pattern
+
+Every redesigned page MUST include this **inline IIFE in `<head>`, before any stylesheet `<link>`**:
+
+```html
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('av-theme');
+      var prefersDark = window.matchMedia &&
+                        window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = (stored === 'light' || stored === 'dark')
+                  ? stored
+                  : (prefersDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
+```
+
+The IIFE is synchronous — it runs and applies `data-theme` before the browser parses any subsequent `<link rel="stylesheet">`. No flash of wrong theme.
+
+After the page loads, `theme-toggle.js` calls `initTheme()` which adds `theme-loading` to `<html>` for one frame to suppress transitions during initial paint, then removes it.
+
+### 2.5 Per-page checklist
+
+Every page that opts into the system MUST:
+
+- [ ] Include the inline anti-flash IIFE in `<head>` before any `<link>` to a stylesheet
+- [ ] Link `tokens.css` BEFORE `components.css`
+- [ ] Link any page-specific stylesheet AFTER `components.css`
+- [ ] Place `.av-theme-toggle` button in the navigation header
+- [ ] Use `--av-*` tokens; no hardcoded colors
+- [ ] Render correctly in both themes — visually verify before merging
+
+---
+
+## 3. Typography
+
+### 3.1 Stack
+
+| Role | Font | Why |
+|---|---|---|
+| Body | **Plus Jakarta Sans** | Geometric-humanist sans, distinctive without being eccentric, strong Vietnamese diacritic rendering |
+| Mono | **JetBrains Mono** | Tabular numerals (band scores, streak counts, timer countdowns) need true mono |
+| Display | Plus Jakarta Sans (700/600) | Single family for headings; emphasis comes from weight + size, not a separate display face |
+
+Avoid: Inter, Roboto, Arial, Helvetica, system-ui as the primary face. The `frontend-design` skill flags these as generic "AI slop" choices.
+
+### 3.2 Vietnamese typography
+
+Vietnamese text carries diacritics above and below the baseline. Default leading must accommodate them without collision.
+
+- Body line-height defaults to **1.55** (`--av-lh-normal`). Don't go tighter for paragraphs.
+- Long-form reading (results, articles) uses **1.7** (`--av-lh-relaxed`).
+- Display headings can go to **1.2** (`--av-lh-tight`) but only at sizes ≥ `--av-fs-3xl`.
+- **Avoid uppercase on long Vietnamese strings** — accent marks become illegible. Reserve uppercase for short labels (≤ 3 words).
+- Test every page with sample strings containing rich diacritics: `"Học viên đang luyện tập"`, `"Đã hoàn thành phần thi"`, `"Tất cả các kỹ năng IELTS"`.
+
+### 3.3 Type scale
+
+Defined as `--av-fs-xs` through `--av-fs-5xl` in `tokens.css`. 16px base, ratio ~1.125 (compact for app UI; not editorial 1.25).
+
+---
+
+## 4. Color
+
+The full token catalog lives in `tokens.css`. Highlights:
+
+| Concept | Light | Dark | Notes |
+|---|---|---|---|
+| Page surface | `#FAFAF9` warm off-white | `#0A1628` deep navy | Warm both ways — not clinical white, not gray-on-black |
+| Card surface | `#FFFFFF` | `#112236` slightly raised navy | One step elevated from page |
+| Primary | `#0F766E` (teal-700) | `#14B8A6` (teal-500) | Lighter shift on dark for AA contrast |
+| Accent | `#F59E0B` amber-500 | `#FBBF24` amber-400 | Same hue, slight value shift |
+| Text primary | `rgba(15,23,42,0.92)` | `rgba(241,245,249,0.95)` | High-emphasis copy |
+| Text muted | `rgba(15,23,42,0.50)` | `rgba(241,245,249,0.55)` | Secondary metadata |
+
+**Never hardcode** these values in component CSS. Always reference the token. If a new shade is needed, add it to `tokens.css` first.
+
+---
+
+## 5. Spacing
+
+4px base scale: `--av-space-1` (4) through `--av-space-24` (96). Skip 5/7/9/10/11/13/14/15 deliberately to enforce scale discipline. If 24px isn't enough between two elements, use 32px (`--av-space-8`), not 28px.
+
+Common patterns:
+
+- Card padding: `--av-space-6` (24px)
+- Stack between cards: `--av-space-4` (16px)
+- Section margin: `--av-space-12` (48px)
+- Form field gap: `--av-space-3` (12px)
+
+---
+
+## 6. Border radius
+
+Five steps: `sm` (4) / `md` (8) / `lg` (12) / `xl` (16) / `2xl` (24) / `pill` (999). Cards default to `lg`, modals to `xl`, buttons to `md`, badges to `pill`.
+
+---
+
+## 7. Components
+
+The `.av-*` namespace is documented inline in `components.css`. Catalog:
+
+| Component | Class | Variants |
+|---|---|---|
+| Theme toggle | `.av-theme-toggle` | (single) |
+| Button | `.av-button` | `-primary`, `-secondary`, `-tertiary`, `-destructive`, `-icon`, size `-sm` `-lg` |
+| Card | `.av-card` | `-interactive`, `-elevated`, `-flat`, `-locked` |
+| Stat | `.av-stat-block` | `.is-streak` modifier for amber emphasis |
+| Badge | `.av-badge` | `-neutral`, `-primary`, `-success`, `-warning`, `-error`, `-locked`, `-used-well`, `-needs-review` |
+| Tabs | `.av-tabs` + `.av-tab` | `[aria-selected]` / `.is-active` |
+| Forms | `.av-input`, `.av-select`, `.av-textarea`, `.av-label`, `.av-help-text`, `.av-error-text`, `.av-check` | — |
+| Modal | `.av-modal-backdrop` + `.av-modal` | `-header`, `-body`, `-footer` |
+| Audio | `.av-recorder` (`.is-recording` state), `.av-player` | — |
+| Feedback | `.av-feedback-card`, `.av-feedback-criterion`, `.av-feedback-band`, `.av-correction`, `.av-sample-answer` | — |
+| Toast | `.av-toast` | `.is-shown` state |
+
+Class names are deliberately distinct from the legacy `.btn-primary`, `.skill-card`, `.tab-btn`, `.main-tab-btn`, `.essay-card`, `.session-row` names — JS hooks target those, and renaming would break click handlers.
+
+---
+
+## 8. Iconography
+
+- **Lucide CDN** for line icons (sun, moon, mic, check, chevron, etc.). Stroke-width 2, 18-20px in nav, 14-16px inline with text.
+- **Brand SVGs** (`logo-mark.svg`, `wordmark.svg`) embedded inline for crisp rendering.
+- **Avoid emoji in UI chrome.** Exception: `.av-badge-*` chips for vocab review states (e.g., 🔥 in streak badge) — but only as flair, never as the only signal.
+
+---
+
+## 9. Motion
+
+Three durations: `fast` (150ms), `base` (250ms), `slow` (400ms). Default easing is `cubic-bezier(0.4, 0, 0.2, 1)`. Theme transitions use `base`. Hover micro-interactions use `fast`.
+
+`prefers-reduced-motion: reduce` suppresses transitions on buttons, cards, tabs, recorder, toast.
+
+---
+
+## 10. Accessibility
+
+WCAG AA contrast minimum **in both themes**. Verified against the `--av-text-primary` × `--av-surface-page` pair:
+
+- Light: `rgba(15,23,42,0.92)` on `#FAFAF9` → ~13.8:1 (AAA)
+- Dark: `rgba(241,245,249,0.95)` on `#0A1628` → ~17.5:1 (AAA)
+
+Other rules:
+
+- Touch targets ≥ 44×44 px for primary actions
+- Every icon-only button has `aria-label` (translated to Vietnamese)
+- Theme toggle: `aria-label` + `aria-pressed` both update dynamically
+- Focus-visible ring uses `--av-shadow-focus` (3px outer ring, primary color, 25-40% opacity) — visible on both surfaces
+- Keyboard navigation: every interactive element reachable via `Tab`; `Enter` and `Space` activate buttons
+- Modal focus trap + `Escape` to close (implemented in component JS, not CSS)
+
+---
+
+## 11. Migration plan
+
+### 11.1 New pages
+
+Use `.av-*` classes from day 1. Both themes from day 1. Inline anti-flash IIFE mandatory.
+
+### 11.2 Existing pages
+
+Per-page rewrite, one page per sprint. Priority order is documented in `UNIFIED_DESIGN_BRIEF.md`. The rewrite:
+
+1. Adds `tokens.css` + `components.css` + `theme-toggle.js`
+2. Adds inline anti-flash IIFE in `<head>`
+3. Replaces page-specific styles with `.av-*` classes where possible
+4. **Preserves JS-coupled class names** (`.btn-primary`, `.skill-card`, `.tab-btn`, `.main-tab-btn`, `.essay-card`, `.session-row`, `.skill-cta-primary`, `.skill-cta-secondary`, `.preview-mode-banner`, `.page-moved-banner`, `.skill-card-locked`, `.btn-test`, `.btn-start`, `.btn-fulltest`, `.btn-locked`) — these are immutable during migration
+5. Tests in both themes before merge
+
+### 11.3 Coexistence
+
+`--ds-*` and `--av-*` tokens coexist throughout the migration. `ds.css` continues to ship. Old pages continue to use `--ds-*` until their redesign sprint touches them. There is no "flag day".
+
+Once all pages are migrated, a cleanup sprint removes `ds.css` and the legacy class definitions. Until then: don't rip out the legacy system.

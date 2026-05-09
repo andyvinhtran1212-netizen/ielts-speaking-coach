@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Theme test — Aver Learning</title>
+
+  <!-- ── Anti-flash IIFE: must run BEFORE any stylesheet ─────────── -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- ── Fonts: Plus Jakarta Sans + JetBrains Mono ───────────────── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <!-- ── Design system: tokens MUST load before components ────────── -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+
+  <style>
+    /* Page-specific layout — kept minimal so the components do the talking. */
+    .shell {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: var(--av-space-12) var(--av-space-6);
+    }
+    .shell > section { margin-bottom: var(--av-space-12); }
+    .shell h1 {
+      font-size: var(--av-fs-4xl);
+      font-weight: var(--av-fw-bold);
+      letter-spacing: var(--av-tracking-tight);
+      line-height: var(--av-lh-tight);
+      margin: 0 0 var(--av-space-2);
+    }
+    .shell h2 {
+      font-size: var(--av-fs-xl);
+      font-weight: var(--av-fw-semibold);
+      letter-spacing: var(--av-tracking-tight);
+      margin: 0 0 var(--av-space-4);
+    }
+    .shell .lede {
+      color: var(--av-text-secondary);
+      max-width: 60ch;
+      margin: 0 0 var(--av-space-8);
+      line-height: var(--av-lh-relaxed);
+    }
+    .topnav {
+      display: flex;
+      align-items: center;
+      gap: var(--av-space-4);
+      padding: var(--av-space-4) var(--av-space-6);
+      border-bottom: 1px solid var(--av-border-subtle);
+    }
+    .topnav .brand {
+      font-weight: var(--av-fw-bold);
+      letter-spacing: var(--av-tracking-tight);
+      font-size: var(--av-fs-lg);
+      margin-right: auto;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--av-space-4);
+    }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-3);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--av-space-3);
+      align-items: center;
+    }
+  </style>
+</head>
+<body class="av-page">
+
+  <!-- ── Top nav with theme toggle ────────────────────────────────── -->
+  <nav class="topnav">
+    <span class="brand">Aver<span style="color: var(--av-primary);">.</span>Learning</span>
+    <span class="av-badge av-badge-neutral">theme test page</span>
+    <button class="av-theme-toggle" type="button" id="theme-toggle">
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </nav>
+
+  <main class="shell">
+
+    <header style="margin-bottom: var(--av-space-12);">
+      <h1>Theme test surface</h1>
+      <p class="lede">
+        Standalone page for verifying the unified design system in both
+        light and dark themes. Click the toggle in the top-right to flip;
+        reload to verify persistence; clear <code>localStorage</code> to
+        verify the system-preference fallback. Not linked from production
+        navigation. Vietnamese sample: <em>Học viên đang luyện tập, tất cả
+        các kỹ năng IELTS.</em>
+      </p>
+    </header>
+
+    <!-- ── Stats ──────────────────────────────────────────────────── -->
+    <section>
+      <h2>Stats</h2>
+      <div class="grid">
+        <div class="av-card">
+          <div class="av-stat-block is-streak">
+            <span class="av-stat-label">Streak</span>
+            <span class="av-stat-value">7<span class="av-stat-unit">ngày</span></span>
+          </div>
+        </div>
+        <div class="av-card">
+          <div class="av-stat-block">
+            <span class="av-stat-label">Speaking</span>
+            <span class="av-stat-value">42<span class="av-stat-unit">sessions</span></span>
+          </div>
+        </div>
+        <div class="av-card">
+          <div class="av-stat-block">
+            <span class="av-stat-label">Writing</span>
+            <span class="av-stat-value">18<span class="av-stat-unit">essays</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Buttons ────────────────────────────────────────────────── -->
+    <section>
+      <h2>Buttons</h2>
+      <div class="row">
+        <button class="av-button av-button-primary">Bắt đầu luyện tập</button>
+        <button class="av-button av-button-secondary">Tiếp tục</button>
+        <button class="av-button av-button-tertiary">Xem chi tiết</button>
+        <button class="av-button av-button-destructive">Xoá</button>
+        <button class="av-button av-button-primary" disabled>Đã hoàn thành</button>
+      </div>
+      <div class="row" style="margin-top: var(--av-space-3);">
+        <button class="av-button av-button-primary av-button-sm">Small</button>
+        <button class="av-button av-button-primary">Default</button>
+        <button class="av-button av-button-primary av-button-lg">Large</button>
+      </div>
+    </section>
+
+    <!-- ── Cards ──────────────────────────────────────────────────── -->
+    <section>
+      <h2>Cards</h2>
+      <div class="grid">
+        <div class="av-card av-card-interactive" tabindex="0">
+          <h3 style="margin: 0 0 var(--av-space-2);">Speaking</h3>
+          <p style="color: var(--av-text-secondary); margin: 0 0 var(--av-space-3);">
+            Luyện tập với câu hỏi IELTS Part 1, 2 và 3.
+          </p>
+          <span class="av-badge av-badge-primary">Đang mở</span>
+        </div>
+        <div class="av-card av-card-interactive" tabindex="0">
+          <h3 style="margin: 0 0 var(--av-space-2);">Writing</h3>
+          <p style="color: var(--av-text-secondary); margin: 0 0 var(--av-space-3);">
+            Nộp bài viết Task 1 và Task 2, nhận điểm chi tiết.
+          </p>
+          <span class="av-badge av-badge-success">Đã chấm</span>
+        </div>
+        <div class="av-card av-card-locked" aria-disabled="true">
+          <h3 style="margin: 0 0 var(--av-space-2);">Reading</h3>
+          <p style="color: var(--av-text-muted); margin: 0 0 var(--av-space-3);">
+            Sắp ra mắt — đang phát triển.
+          </p>
+          <span class="av-badge av-badge-locked">Sắp ra mắt</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Badges ─────────────────────────────────────────────────── -->
+    <section>
+      <h2>Badges</h2>
+      <div class="row">
+        <span class="av-badge av-badge-neutral">Neutral</span>
+        <span class="av-badge av-badge-primary">Primary</span>
+        <span class="av-badge av-badge-success">Success</span>
+        <span class="av-badge av-badge-warning">Warning</span>
+        <span class="av-badge av-badge-error">Error</span>
+        <span class="av-badge av-badge-locked">Locked</span>
+        <span class="av-badge av-badge-used-well">Used well</span>
+        <span class="av-badge av-badge-needs-review">Needs review</span>
+      </div>
+    </section>
+
+    <!-- ── Tabs ───────────────────────────────────────────────────── -->
+    <section>
+      <h2>Tabs</h2>
+      <div class="av-tabs" role="tablist">
+        <button class="av-tab" role="tab" aria-selected="true">My vocabulary</button>
+        <button class="av-tab" role="tab" aria-selected="false">Flashcards</button>
+        <button class="av-tab" role="tab" aria-selected="false">Exercises</button>
+        <button class="av-tab" role="tab" aria-selected="false" disabled>Topic Bank</button>
+      </div>
+    </section>
+
+    <!-- ── Forms ──────────────────────────────────────────────────── -->
+    <section>
+      <h2>Forms</h2>
+      <div class="stack" style="max-width: 420px;">
+        <div>
+          <label class="av-label" for="t-input">Tên hiển thị</label>
+          <input class="av-input" id="t-input" type="text" placeholder="Ví dụ: Học viên 01" />
+          <p class="av-help-text">Hiển thị trên hồ sơ và bảng xếp hạng.</p>
+        </div>
+        <div>
+          <label class="av-label" for="t-select">Mục tiêu band</label>
+          <select class="av-select" id="t-select">
+            <option>6.0</option>
+            <option selected>6.5</option>
+            <option>7.0</option>
+            <option>7.5+</option>
+          </select>
+        </div>
+        <div>
+          <label class="av-label" for="t-textarea">Ghi chú</label>
+          <textarea class="av-textarea" id="t-textarea" placeholder="Mục tiêu học tập của bạn..."></textarea>
+        </div>
+        <label class="av-check">
+          <input type="checkbox" checked />
+          Nhận thông báo nhắc luyện tập hằng ngày
+        </label>
+      </div>
+    </section>
+
+    <!-- ── Feedback ───────────────────────────────────────────────── -->
+    <section>
+      <h2>Feedback panel</h2>
+      <div class="av-feedback-card">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom: var(--av-space-3);">
+          <span class="av-feedback-criterion">Grammatical range</span>
+          <span class="av-feedback-band">6.5</span>
+        </div>
+        <p style="color: var(--av-text-secondary); margin: 0 0 var(--av-space-4);">
+          Cấu trúc câu đã đa dạng nhưng vẫn còn một số lỗi nhỏ ở phần modal verbs.
+        </p>
+
+        <div class="av-correction">
+          <div class="av-correction-original">I am go to school yesterday</div>
+          <div class="av-correction-corrected">I went to school yesterday</div>
+          <div class="av-correction-explanation">
+            Past simple cần V2 (<code>went</code>), không phải <code>am go</code>.
+          </div>
+        </div>
+
+        <div class="av-sample-answer" style="margin-top: var(--av-space-4);">
+          <strong>Sample answer:</strong> Yesterday I went to school by bus, and the
+          journey took about thirty minutes. I usually sit by the window because
+          I like watching the city wake up.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Audio ──────────────────────────────────────────────────── -->
+    <section>
+      <h2>Audio</h2>
+      <div class="row">
+        <button class="av-recorder" type="button" aria-label="Bắt đầu ghi âm">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <span class="av-player">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          0:42 / 1:30
+        </span>
+      </div>
+    </section>
+
+    <!-- ── Toast trigger ──────────────────────────────────────────── -->
+    <section>
+      <h2>Toast</h2>
+      <button class="av-button av-button-secondary" id="toast-trigger" type="button">
+        Hiện toast
+      </button>
+      <div class="av-toast" id="t-toast">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Đã lưu thay đổi
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Theme toggle wiring + toast demo ──────────────────────────── -->
+  <script type="module">
+    import { bindToggleButton } from '../js/theme-toggle.js';
+    bindToggleButton(document.getElementById('theme-toggle'));
+
+    const toastBtn = document.getElementById('toast-trigger');
+    const toast = document.getElementById('t-toast');
+    if (toastBtn && toast) {
+      toastBtn.addEventListener('click', () => {
+        toast.classList.add('is-shown');
+        setTimeout(() => toast.classList.remove('is-shown'), 2200);
+      });
+    }
+  </script>
+</body>
+</html>
