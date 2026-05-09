@@ -6,9 +6,24 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Hồ sơ — AverLearning</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
+            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+          },
+        },
+      },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="../css/ds.css" />
   <!-- Scripts: supabase CDN → api.js → credentials + init (same order as all other pages) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
@@ -19,7 +34,7 @@
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: #0C2340; color: #fff; min-height: 100vh; }
+    body { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; color: #fff; min-height: 100vh; }
 
     .card {
       background: rgba(255,255,255,0.04);
@@ -159,7 +174,7 @@
     .skeleton { background: rgba(255,255,255,0.08); border-radius: 8px; animation: shimmer 1.4s infinite; }
   </style>
 </head>
-<body>
+<body class="ds-canvas">
 
   <!-- ─── HEADER ───────────────────────────────────────────────── -->
   <header class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between"

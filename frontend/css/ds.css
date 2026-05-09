@@ -21,6 +21,75 @@
   --ds-lr:  #a78bfa;   /* violet-400 */
   --ds-gra: #fb923c;   /* orange-400 */
   --ds-p:   #f472b6;   /* pink-400 */
+
+  /* ── Sprint 6.2 skill-direction tokens ───────────────────────────────────
+   * Migrated from home.css + vocabulary.css unprefixed namespace
+   * (Sprint 5.1 / 6.0). These coexist with the legacy --ds-bg / --ds-surface
+   * / --ds-muted tokens above so 18 pre-Sprint-6.2 pages keep their existing
+   * appearance while skill-aligned pages (home, vocabulary, Tier 1) opt into
+   * the more refined opacity scale via these names.
+   */
+  --ds-bg-elevated:        rgba(255,255,255,0.035);
+  --ds-bg-elevated-hover:  rgba(20,184,166,0.06);
+  --ds-border-hover:       rgba(20,184,166,0.4);
+  --ds-border-strong:      rgba(255,255,255,0.16);
+  --ds-text-muted:         rgba(241,245,249,0.55);  /* readable secondary */
+  --ds-text-faint:         rgba(241,245,249,0.32);  /* tertiary / hints */
+  --ds-accent-warm:        #f59e0b;                  /* amber heat */
+  --ds-shadow-card:        0 12px 40px rgba(7, 12, 24, 0.4);
+  --ds-shadow-lift:        0 20px 60px rgba(15, 118, 110, 0.18);
+}
+
+/* ── Skill-direction page canvas (.ds-canvas) ────────────────────────────────
+ * Opt-in body class that supplies the canonical Sprint 5.1 navy ground +
+ * atmosphere overlay (faint film grain + corner radial gradient mesh).
+ * Lifted from home.css so any Tier 1/Tier 0 page can reuse the look with
+ * one class instead of duplicating ~30 lines of pseudo-element CSS per
+ * page. Atmosphere is fixed-positioned + pointer-events: none, so it never
+ * intercepts clicks or scrolls with content.
+ *
+ * Legacy pages that don't link this class keep their existing solid /
+ * gradient backgrounds — opt-in keeps the migration risk surface contained
+ * to whoever's actively touching their page.
+ */
+body.ds-canvas {
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  position: relative;
+  min-height: 100vh;
+}
+body.ds-canvas::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+body.ds-canvas::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(900px 600px at 12% -10%, rgba(20, 184, 166, 0.12), transparent 60%),
+    radial-gradient(700px 500px at 88% 105%, rgba(15, 118, 110, 0.10), transparent 60%);
+}
+
+/* ── Display utility (Fraunces variable serif) ──────────────────────────────
+ * Hand-applied to hero headings + page titles only — NOT a blanket replace
+ * for every h1/h2. Functional headings (form labels, modal titles) stay in
+ * the body sans (Manrope) so the contrast stays meaningful.
+ */
+.ds-display,
+.display {
+  font-family: 'Fraunces', ui-serif, Georgia, serif;
+  font-optical-sizing: auto;
+  font-variation-settings: "opsz" 144;
+  letter-spacing: -0.02em;
+  font-weight: 400;
 }
 
 /* ── Fade-in animation ─────────────────────────────────────────────────────── */

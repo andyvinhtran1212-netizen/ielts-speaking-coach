@@ -15,16 +15,23 @@
             navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
             teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
-          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+          fontFamily: {
+            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
+            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+          },
         },
       },
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../css/ds.css" />
   <style>
-    body { background: #0a1628; color: #e2e8f0; }
+    /* Background and atmosphere now provided by body.ds-canvas in ds.css. */
+    body { color: #e2e8f0; }
 
     .card {
       background: rgba(255,255,255,0.04);
@@ -116,7 +123,7 @@
     .fade-up-5 { animation-delay: 0.36s; }
   </style>
 </head>
-<body class="font-sans min-h-screen">
+<body class="font-sans min-h-screen ds-canvas">
 
   <!-- ── Header ── -->
   <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="px-6 py-4 sticky top-0 z-20">
