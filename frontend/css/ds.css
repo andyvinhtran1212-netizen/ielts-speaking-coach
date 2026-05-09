@@ -57,6 +57,17 @@ body.ds-canvas {
   color: var(--ds-text);
   position: relative;
   min-height: 100vh;
+  /* Sprint 6.2.1 — explicit font stack so pages get Manrope without
+     depending on Tailwind CDN's runtime compile of `font-sans`. The
+     CDN compile is timing-sensitive (it runs after first paint on slow
+     networks) and several Tier 1 pages were rendering Inter as the
+     browser fallback before this declaration landed. The Google Fonts
+     <link> already loads Manrope; this just wires it into the cascade
+     deterministically. */
+  font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 body.ds-canvas::before {
   content: "";

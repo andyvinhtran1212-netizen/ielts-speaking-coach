@@ -134,3 +134,56 @@ test('Tier 1 pages link ds.css (token + atmosphere source)', () => {
     );
   }
 });
+
+
+// ── Sprint 6.2.1 — ds.css must wire fonts into the cascade ─────────
+
+
+test('ds.css body.ds-canvas declares font-family: Manrope', () => {
+  // Why this test exists: Sprint 6.2 added Tailwind config + the
+  // <link> imports for Manrope to all 7 Tier 1 pages, but pages were
+  // still rendering Inter (browser fallback) because Tailwind CDN's
+  // runtime compile of `font-sans` is timing-sensitive. The fix was
+  // to declare font-family directly on body.ds-canvas in ds.css, so
+  // every page that opts in gets Manrope without depending on the CDN
+  // compiling at the right moment. Pin the rule.
+  const css = fs.readFileSync(
+    path.join(__dirname, '..', 'css', 'ds.css'),
+    'utf8',
+  );
+  // Match the body.ds-canvas opening brace through to its closing
+  // brace (no nested braces, so a non-greedy match on `[^}]*` suffices).
+  const m = css.match(/body\.ds-canvas\s*\{([^}]+)\}/);
+  assert.ok(
+    m,
+    'body.ds-canvas rule not found in ds.css — did Sprint 6.0.1 / 6.2 ' +
+    'restructure the file? Update the regex above.',
+  );
+  assert.match(
+    m[1],
+    /font-family\s*:\s*['"]Manrope['"]/,
+    'body.ds-canvas is missing the Manrope font-family declaration. ' +
+    'Without it, Tier 1 pages fall back to the browser default (Inter ' +
+    'on most systems). See Sprint 6.2.1.',
+  );
+});
+
+
+test('ds.css .display utility declares font-family: Fraunces', () => {
+  // .display is the hand-applied Fraunces utility — only attached to
+  // hero headings and page titles. Without the declaration here, the
+  // utility class becomes a no-op and pages lose their display serif.
+  const css = fs.readFileSync(
+    path.join(__dirname, '..', 'css', 'ds.css'),
+    'utf8',
+  );
+  // Match `.display { ... font-family: 'Fraunces' ... }` allowing the
+  // optional `.ds-display,` companion selector that lives next to it.
+  assert.match(
+    css,
+    /\.display\s*\{[^}]*font-family\s*:\s*['"]Fraunces['"]/,
+    '.display utility is missing the Fraunces font-family declaration. ' +
+    'See Sprint 6.2 (the utility was added) and 6.2.1 (this test was ' +
+    'added to pin it).',
+  );
+});
