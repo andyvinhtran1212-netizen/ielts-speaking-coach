@@ -37,6 +37,10 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services import essay_service
+from services.access_code_permissions import (
+    get_user_access_code_permissions,
+    has_writing_permission,
+)
 from services.file_extract_service import FileExtractError, extract_text
 from services.spam_detector import detect_flags, format_flag_explanation_vi
 
@@ -952,6 +956,19 @@ async def submit_my_assignment(
         # Should be unreachable: get_current_student already filters
         # by user_id = auth.uid().
         raise HTTPException(403, "Tài khoản chưa được link với học viên đầy đủ.")
+
+    # Sprint 5.2 — Writing permission gate. Self-submit path: the student
+    # is the essay owner, so we check their own access-code permissions.
+    # Admin path is gated symmetrically in routers/admin_writing.py;
+    # both flows must pass the same check so neither becomes a backdoor.
+    if not has_writing_permission(get_user_access_code_permissions(user_id)):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Quyền Writing chưa được kích hoạt cho tài khoản này. "
+                "Liên hệ admin để được hỗ trợ."
+            ),
+        )
 
     assignment = _resolve_active_assignment(student_id, str(assignment_id))
 

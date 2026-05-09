@@ -228,6 +228,21 @@
 
     <!-- Main content -->
     <div id="content" class="hidden">
+      <!-- Sprint 5.2 — Writing permission preview banner (hidden by default,
+           revealed when GET /api/student/permissions returns writing=false). -->
+      <div id="writing-preview-banner" class="hidden mb-6 rounded-lg p-4 flex items-start gap-3"
+           style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.35);">
+        <span style="font-size:22px; line-height:1;" aria-hidden="true">🔒</span>
+        <div class="text-sm">
+          <strong class="block mb-1" style="color:#fbbf24;">Chế độ xem trước</strong>
+          <p style="color:rgba(255,255,255,0.75); margin:0;">
+            Quyền Writing chưa được kích hoạt cho tài khoản này. Em vẫn có thể xem
+            các bài đã nộp trước đây — liên hệ giảng viên để được kích hoạt
+            tính năng nộp bài mới.
+          </p>
+        </div>
+      </div>
+
       <!-- Greeting -->
       <section class="mb-8">
         <h1 class="text-2xl md:text-3xl font-semibold mb-2">
@@ -1068,12 +1083,62 @@
     }
 
     // ── Bootstrap ───────────────────────────────────────────────────
+    // Sprint 5.2 — Writing permission preview state. Cached for the
+    // page lifetime so submitFromModal can re-check before issuing the
+    // POST (defense-in-depth — backend gates independently).
+    var _writingPermitted = true;
+
+    async function applyWritingPermissionGating() {
+      try {
+        var perms = await window.api.get('/api/student/permissions');
+        if (!perms) return;
+        _writingPermitted = perms.writing === true;
+      } catch (err) {
+        // Permissions endpoint unreachable: don't lock the UI on a
+        // network blip — the backend gate still enforces. Log so the
+        // operator notices.
+        console.warn('[writing] permission fetch failed:', err);
+        return;
+      }
+
+      if (_writingPermitted) return;
+
+      // Reveal preview banner.
+      var banner = document.getElementById('writing-preview-banner');
+      if (banner) banner.classList.remove('hidden');
+
+      // Disable every "start assignment" button. They're rendered after
+      // loadAssignments resolves, so we run this AFTER the load.
+      document.querySelectorAll('.btn-start-assignment').forEach(function (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        btn.title = 'Quyền Writing chưa được kích hoạt';
+        btn.textContent = '🔒 Chưa kích hoạt';
+      });
+
+      // Disable the modal submit button. The modal markup is below the
+      // script in source order so this is safe to run here.
+      var modalSubmit = document.getElementById('modal-btn-submit');
+      if (modalSubmit) {
+        modalSubmit.disabled = true;
+        modalSubmit.classList.add('opacity-50', 'cursor-not-allowed');
+        modalSubmit.title = 'Quyền Writing chưa được kích hoạt';
+      }
+    }
+
     async function main() {
       try {
         // Default tab is "Bài giao". Both lists load in parallel so
         // the badge counts populate immediately even if the user
         // switches tabs before either request completes.
         await Promise.all([loadAssignments(), loadEssays()]);
+
+        // Apply Writing permission gating AFTER the lists render — the
+        // start-assignment buttons we disable are rendered by
+        // renderAssignments(), so this needs to wait. The permissions
+        // endpoint is independent so a failure here doesn't block the
+        // dashboard from rendering.
+        await applyWritingPermissionGating();
 
         hide('loading');
         show('content');

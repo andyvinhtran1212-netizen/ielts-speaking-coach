@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from config import settings
 from database import supabase_admin
+from services.access_code_permissions import validate_permissions_or_raise
 from routers.auth import get_supabase_user
 from services.gemini import (
     generate_part1_questions,
@@ -692,6 +693,14 @@ async def generate_access_codes(
     """Generate N new unused access codes and persist them."""
     await require_admin(authorization)
 
+    # Sprint 5.2 — fail loudly on typo'd permission strings instead of
+    # silently inserting a code that grants nothing-and-no-one. Allowed
+    # values live in services.access_code_permissions.ALLOWED_PERMISSIONS.
+    try:
+        validate_permissions_or_raise(body.permissions)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
     codes = [_gen_code() for _ in range(body.count)]
     row_base: dict = {"is_used": False, "is_active": True, "permissions": body.permissions}
     if body.session_limit is not None:
@@ -815,6 +824,13 @@ async def patch_access_code(
 ):
     """Update permissions on an existing access code."""
     await require_admin(authorization)
+
+    # Sprint 5.2 — same allowlist guard as the generate endpoint.
+    if "permissions" in body.model_fields_set and body.permissions is not None:
+        try:
+            validate_permissions_or_raise(body.permissions)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
 
     # Use model_fields_set to distinguish "field omitted" vs "field set to null"
     set_fields = body.model_fields_set

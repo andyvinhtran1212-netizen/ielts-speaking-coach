@@ -20,6 +20,10 @@ from fastapi import APIRouter, Header
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.access_code_permissions import (
+    get_user_access_code_permissions,
+    get_user_permissions_summary,
+)
 from services.student_home_aggregator import get_home_summary
 
 
@@ -44,3 +48,18 @@ async def home_summary(authorization: str | None = Header(default=None)):
     )
 
     return get_home_summary(supabase_admin, user_id, name=name, email=email)
+
+
+@router.get("/permissions")
+async def my_permissions(authorization: str | None = Header(default=None)):
+    """Per-skill permission flags for the authenticated user.
+
+    Sprint 5.2. Frontend uses this to decide whether to render the
+    Writing skill card as locked, gate the writing-dashboard submit
+    button into preview mode, etc. Backend remains the source of truth
+    — this endpoint is convenience for the UI; every gated action is
+    re-checked at request time on the relevant POST.
+    """
+    auth_user = await get_supabase_user(authorization)
+    permissions = get_user_access_code_permissions(auth_user["id"])
+    return get_user_permissions_summary(permissions)
