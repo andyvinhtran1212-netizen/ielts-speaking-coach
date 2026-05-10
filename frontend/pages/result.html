@@ -7,16 +7,20 @@
   <title>Kết quả — Aver Learning</title>
 
   <!-- Sprint 6.6: result.html supports both light + dark themes from
-       day 1 (Sprint 6.4.1/6.4.2/6.5.1 lessons applied). The IIFE below
-       mirrors the canonical anti-flash bootstrap from home / speaking /
-       practice: localStorage 'av-theme' wins, system preference is the
-       fallback, hardcoded 'light' is the last-resort catch. -->
+       day 1 (Sprint 6.4.1/6.4.2/6.5.1 lessons applied). Sprint 6.6.1
+       normalized the IIFE to match the canonical home.html bootstrap and
+       theme-toggle.js VALID_THEMES validation — closes Codex audit Phase 1
+       AMBER #1. A garbage value in localStorage no longer flows through
+       to data-theme; the IIFE falls back to system preference instead. -->
   <script>
     (function () {
       try {
         var stored = localStorage.getItem('av-theme');
-        var theme = stored
-          || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'light');

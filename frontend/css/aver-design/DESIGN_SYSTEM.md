@@ -271,3 +271,131 @@ Adding `sandbox="allow-same-origin allow-scripts ..."` to the existing iframes d
 - Genuine module extraction (Approach A), which is the deferred alternative
 
 Until module extraction lands, the iframe approach should be treated as an internal composition tool, not a containment claim.
+
+
+## 13. Canonical anti-flash theme bootstrap
+
+Every redesigned page MUST embed this exact IIFE in `<head>` BEFORE any stylesheet — it sets `[data-theme]` on `<html>` synchronously so the first paint already matches the user's theme. Without it, the page paints in the default (light) and snaps to dark on the next frame.
+
+```html
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('av-theme');
+      var prefersDark = window.matchMedia &&
+                        window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = (stored === 'light' || stored === 'dark')
+                  ? stored
+                  : (prefersDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
+```
+
+Three properties hold across every page:
+
+1. **The stored value is validated.** Only `'light'` or `'dark'` are passed through; anything else falls through to system preference. This mirrors `VALID_THEMES` in `frontend/js/theme-toggle.js` so the IIFE and the runtime validator agree on what counts as a valid choice.
+2. **`window.matchMedia` is tested for existence** before being called — the page still loads in environments without `matchMedia` (very old browsers, headless test runners) and falls back to `'light'`.
+3. **`try/catch` wraps the localStorage access.** Privacy-mode browsers and third-party-cookie-blocked contexts throw on `localStorage.getItem`; the catch-all hard-codes `'light'` so the page renders something instead of breaking.
+
+### Anti-pattern (Codex audit Phase 1, AMBER #1)
+
+❌ Don't use the unvalidated short-circuit:
+
+```javascript
+var theme = stored
+  || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+```
+
+This pattern lets *any* truthy string in `localStorage['av-theme']` flow through to `data-theme`. The CSS today only keys `[data-theme="dark"]`, so a garbage value resolves as light by accident — the page works, but the contract is wrong. The next person who adds an `[data-theme="high-contrast"]` selector inherits a silent bug: stale corrupted entries from a prior session can land users in a half-broken UI. Validate at the IIFE.
+
+### Pin tests
+
+Each per-page redesign suite (`*-redesign.test.mjs`) should pin:
+
+- The IIFE includes a validation check (`(stored === 'light' || stored === 'dark')` or equivalent `validValues.indexOf(stored)` / `VALID_THEMES.includes(stored)`)
+- The IIFE has the `try { … } catch { … }` wrapping
+- The IIFE falls back to `prefers-color-scheme: dark` when the stored value is missing or invalid
+- The IIFE does not use the weak `var theme = stored ||` short-circuit pattern
+
+`frontend/tests/anti-flash-iife-canonical.test.mjs` enforces these properties across every redesigned page in one suite, so a future page that copies an older snippet is caught at the gate.
+
+
+## 14. Phase 1 hybrid state — what migrated, what remains
+
+The app is in a **HYBRID state** post-Phase 1 (Sprints 6.3 → 6.6.1, May 2026). Four pages have migrated to the Aver Design System with full light + dark theme support; the rest remain on the Sprint 6.2 dark-navy era. Both systems coexist via the `body.av-page` opt-in pattern.
+
+This section is the canonical reference for the migration state — Codex audit Phase 1 AMBER #2 closure (Sprint 6.6.1).
+
+### 14.1 Redesigned pages (Phase 1 complete, 2026-05-10)
+
+| Page | Sprint | PR | Notes |
+|---|---|---|---|
+| `frontend/pages/home.html` | 6.3 | #121 | First page on `--av-*`, established the canonical anti-flash IIFE |
+| `frontend/pages/speaking.html` | 6.4 / 6.4.1 / 6.4.2 | #123 / #124 / #125 | Closes DEBT-2026-05-10-A; contrast hotfix lessons folded into UNIFIED_DESIGN_BRIEF.md § 11 |
+| `frontend/pages/practice.html` | 6.5 / 6.5.1 | #127 / #128 | Light + dark from day 1; ds.css legacy override pattern (UNIFIED_DESIGN_BRIEF.md § 12) |
+| `frontend/pages/result.html` | 6.6 / 6.6.1 | #130 / TBD | Surgical migration on inline-JS rendering; IIFE normalized |
+
+Properties of every redesigned page:
+
+- **Token namespace:** `--av-*` (canonical going forward; `frontend/css/aver-design/tokens.css`)
+- **Typography:** Plus Jakarta Sans (body) + JetBrains Mono (numerics)
+- **Theme:** Light default + dark toggle, persisted via `localStorage['av-theme']`. Anti-flash IIFE (validated, see § 13) sets `[data-theme]` on `<html>` synchronously before any stylesheet loads
+- **Component library:** `.av-*` classes from `frontend/css/aver-design/components.css`
+- **Theme runtime:** `frontend/js/theme-toggle.js` (8 named exports, `VALID_THEMES = ['light', 'dark']` validator that the IIFE mirrors)
+
+### 14.2 Legacy pages (pre-redesign)
+
+All other pages still render on the Sprint 6.2 dark-navy era:
+
+- `frontend/index.html` (landing)
+- `frontend/pages/dashboard.html`, `pages/full-test-result.html`, `pages/profile.html`, `pages/writing-dashboard.html`, `pages/vocabulary.html` (+ Phase B sub-pages)
+- `frontend/onboarding.html`
+- `frontend/admin.html` (~3,667 lines, partial `--ds-*` use)
+- `frontend/grammar.html` + Grammar Wiki cluster (6 pages on DM Sans + Lora intentionally)
+- Era B: `pricing.html`
+
+Properties of the legacy era:
+
+- Theme: dark-navy `#0a1628` + `body.ds-canvas` atmosphere overlay (no theme toggle)
+- Tokens: `--ds-*` (legacy)
+- Typography: Manrope + Fraunces (Tier 1 transition pages) or Inter (Era B landing/pricing)
+- Component classes: ad-hoc (`.skill-card`, `.btn-primary`, `.main-tab-btn`, `.tab-btn`, `.essay-card`, `.session-row`) — JS-coupled, immutable
+- Icons: mostly emoji (🎤 ✍️ 📚 ✦ 🔥) + some Lucide CDN
+
+### 14.3 Compatibility layer
+
+`frontend/css/ds.css` is retained as the bridge between the two eras. Phase 1 redesigned pages keep linking it because the inline JS in `practice.html` / `result.html` still emits `.ds-band-*` / `.ds-crit*` / `.ds-cue-*` classes. ds.css hardcodes `color: #fff` and `rgba(255,255,255,X)` in many selectors — invisible on the cream light surface — so the redesigned pages override the broken selectors via scoped blocks under `body.av-page` (the **Sprint 6.5.1 ds.css override pattern**, documented in UNIFIED_DESIGN_BRIEF.md § 12).
+
+**ds.css MUST NOT be modified during Phase 2+.** It is shared infrastructure across legacy pages, and a fix targeted at a redesigned page would silently break a legacy one. Override under `body.av-page` instead.
+
+### 14.4 Foundation files
+
+```
+frontend/css/aver-design/
+  ├── tokens.css              — light + dark theme variables (--av-*)
+  ├── components.css          — .av-* component library + .av-page surface
+  ├── DESIGN_SYSTEM.md        — design language, canonical IIFE (§ 13), hybrid state (§ 14)
+  └── UNIFIED_DESIGN_BRIEF.md — per-page redesign brief + cumulative lessons
+
+frontend/js/
+  └── theme-toggle.js         — VALID_THEMES validator, 8 named exports
+```
+
+### 14.5 Forward path (Phase 2–4)
+
+| Phase | Sprint range | Pages |
+|---|---|---|
+| Phase 2 | 6.7 – 6.9 | `writing-dashboard.html` and writing flow |
+| Phase 3 | 6.10 – 6.11 | `vocabulary.html` + sub-pages, `profile.html` |
+| Phase 4 | 6.12 – 6.14 | Marketing (`index.html`, `pricing.html`), `admin.html`, Grammar Wiki |
+
+When the last legacy page migrates, `ds.css` is retired and the `--ds-*` token namespace is removed. The `.av-page` opt-in becomes redundant and gets dropped in a cleanup sprint.
+
+### 14.6 Audit history
+
+- `DESIGN_AUDIT_REPORT.md` (repo root, gitignored) — Phase 1 inventory
+- `CODEX_AUDIT_PHASE_1.md` (repo root, gitignored) — Codex Phase 1 ship audit; AMBER findings (IIFE drift + architecture doc stale) closed in Sprint 6.6.1

@@ -6,20 +6,21 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Speaking — Aver Learning</title>
 
-  <!-- Sprint 6.4.1: speaking.html now supports both light + dark themes
-       after the inline-style sweep (DEBT-2026-05-10-A closed). The IIFE
-       below mirrors the canonical anti-flash bootstrap from home.html /
-       vocabulary.html: localStorage 'av-theme' wins, system preference
-       is the fallback, and a hardcoded 'light' is the last-resort catch.
-       The .theme-loading guard (defined in tokens.css) suppresses
-       transitions during initial paint so we don't see the page animate
-       from a default to the resolved theme on every load. -->
+  <!-- Sprint 6.4.1: speaking.html supports both light + dark themes
+       (DEBT-2026-05-10-A closed). Sprint 6.6.1 normalized the IIFE to
+       match the canonical home.html bootstrap and theme-toggle.js
+       VALID_THEMES validation — closes Codex audit Phase 1 AMBER #1.
+       A garbage value in localStorage no longer flows through to
+       data-theme; the IIFE falls back to system preference instead. -->
   <script>
     (function () {
       try {
         var stored = localStorage.getItem('av-theme');
-        var theme = stored
-          || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'light');
