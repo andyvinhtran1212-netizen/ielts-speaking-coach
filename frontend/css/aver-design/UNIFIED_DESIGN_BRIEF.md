@@ -544,3 +544,134 @@ The following classes are in the upstream Aver Learning Design System but **not*
 - `.av-button-accent`, `.av-card-selected`, `.av-input-error`, `.av-badge-info`, `.av-badge-upgrade`
 - `.av-modal-sm` / `-md` / `-lg`, `.av-modal-close`
 - `.av-toast-success` / `-error` / `-warning` / `-info` + the `-icon` / `-body` / `-title` / `-msg` substructure
+
+---
+
+## 11. Text token decision tree
+
+The four text tokens (`--av-text-primary`, `--av-text-secondary`, `--av-text-muted`, `--av-text-faint`) form a **semantic** hierarchy, not an opacity ladder. Sprint 6.4.1 → 6.4.2 lesson: a per-page redesign that maps legacy `rgba(255,255,255,X)` values to tokens by opacity number ships invisible text on light theme. Sprint 6.4.1 mapped 25 elements to `--av-text-faint` based on their original 0.30/0.35 opacities; on the cream light surface that resolves to ~32% deep navy = ~3:1 contrast, failing WCAG AA. Sprint 6.4.2 fixed it by re-mapping per **semantic role**.
+
+This section codifies the rule so future per-page redesigns (Sprint 6.5+) don't re-discover the bug.
+
+### 11.1 Decision tree
+
+For each piece of copy, walk this tree once. The default at the bottom (`--av-text-secondary`) is the safe fallback when a label sits between buckets:
+
+```
+Is it primary user-facing content the user came here to read?
+(headings, body copy, helper text, eyebrow labels, sub-labels)
+├─ YES → --av-text-primary  (headings, body)
+│        --av-text-secondary  (helper, eyebrow, sub-content)
+│
+└─ NO → Is it secondary metadata (durations, counts, empty-state copy,
+   stat-card sub-text, "X minutes ago"-style hints)?
+   ├─ YES → --av-text-muted  (~4.6:1 AA in light)
+   │
+   └─ NO → Is it TRULY auxiliary?
+      (em-dash placeholders, disabled state, raw timestamps that
+      sit alongside other primary content, tab-input::placeholder)
+      ├─ YES → --av-text-faint  (~3:1 — fails AA, OK only because
+      │        the user reads adjacent primary copy first)
+      │
+      └─ Default → --av-text-secondary
+```
+
+### 11.2 Token contrast guarantees
+
+Verified against `--av-surface-page` (`#FAFAF9` light / `#0A1628` dark):
+
+| Token | Light contrast | Dark contrast | Use case |
+|---|---|---|---|
+| `--av-text-primary`   (~92% / 95% opacity) | ~13.8:1 AAA | ~17.5:1 AAA | Body, headings, page titles |
+| `--av-text-secondary` (~68% / 72% opacity) | ~6.0:1  AAA | ~7.8:1  AAA | Helper text, eyebrow labels, sub-content |
+| `--av-text-muted`     (~50% / 55% opacity) | ~4.6:1  AA  | ~5.6:1  AAA | Meta info, durations, counts, empty states |
+| `--av-text-faint`     (~32% / 32% opacity) | ~3.0:1  ⚠️  | ~3.0:1  ⚠️  | Em-dashes, disabled state, placeholders only |
+
+`--av-text-faint` does NOT meet WCAG AA for content. Use it only when the user reads adjacent primary copy first (e.g., an em-dash next to a band score, a timestamp next to an article title) — never as the sole content of an element.
+
+### 11.3 When migrating legacy `rgba(255,255,255,X)` colors
+
+**Don't map by opacity number — map by semantic role.** The legacy opacity ladder was tuned against deep navy ground; the same opacities re-applied as tokens on cream are invisible.
+
+| Legacy pattern | Common semantic | Migrate to |
+|---|---|---|
+| `rgba(...,0.95–0.85)` body / heading | Primary content | `--av-text-primary` |
+| `rgba(...,0.8 –0.7)` helper / sub-heading | Primary content | `--av-text-primary` or `--av-text-secondary` |
+| `rgba(...,0.65–0.55)` field labels, hints in parens | Secondary content | `--av-text-secondary` |
+| `rgba(...,0.5)` short metadata | Tertiary meta | `--av-text-muted` |
+| `rgba(...,0.45–0.4)` durations, counts, sub-text | Tertiary meta | `--av-text-muted` |
+| `rgba(...,0.35–0.3)` em-dash, disabled badge | Truly auxiliary | `--av-text-faint` |
+| `rgba(...,0.25)` raw timestamps | Truly auxiliary | `--av-text-faint` |
+
+The `0.35–0.3` row is the trap Sprint 6.4.1 hit. Inline opacities at that tier in Sprint 5.1 era code were used for sub-labels like "5 câu hỏi" and helper text in parentheses — both are **content**, not auxiliary. Run the decision tree before defaulting to `--av-text-faint`.
+
+### 11.4 Anti-pattern: opacity-driven migration
+
+❌ **Wrong** — Sprint 6.4.1 mistake (mechanical opacity-to-token map):
+
+```python
+# Don't do this. Opacities don't translate 1:1 across light/dark surfaces.
+0.85 → text-primary
+0.7  → text-secondary
+0.55 → text-secondary
+0.5  → text-muted
+0.4  → text-muted
+0.35 → text-faint  # ← becomes invisible on cream
+0.30 → text-faint  # ← becomes invisible on cream
+```
+
+Result on speaking.html: 25 elements mapped to `--av-text-faint`. Andy's smoke test in light theme found Ngữ pháp eyebrows, Full Test "(tùy chọn — ...)" helper, PART sub-labels (`1 cue card`, `5 câu hỏi`), and stat-card sub-text all unreadable. Required a hotfix sprint (6.4.2) and a rerun of the entire migration script.
+
+✅ **Correct** — Sprint 6.4.2 pattern (semantic role per element):
+
+For each rgba occurrence, look at the surrounding markup:
+
+1. Is this primary content the user reads (heading, body, helper, eyebrow)? → `--av-text-primary` or `--av-text-secondary`
+2. Is this secondary meta (duration, count, empty state, stat sub-text)? → `--av-text-muted`
+3. Is this truly auxiliary (em-dash, disabled state, raw timestamp)? → `--av-text-faint`
+
+Final distribution on speaking.html after Sprint 6.4.2:
+
+```
+--av-text-primary    : ~25
+--av-text-secondary  : 19  (helper text, eyebrow, sub-labels)
+--av-text-muted      : 59  (durations, counts, meta)
+--av-text-faint      :  5  (em-dash + disabled + 3× timestamps)
+```
+
+The `--av-text-faint` count dropped to 5 — exactly the truly auxiliary cases.
+
+### 11.5 Inventory tracking — log the distribution in every redesign PR
+
+When migrating each page, count token usage in the served HTML body and CSS, and put the table in the PR body:
+
+```
+Token usage in <page>:
+  --av-text-primary   : N
+  --av-text-secondary : N
+  --av-text-muted     : N
+  --av-text-faint     : N  (target ≤ 10 per page)
+```
+
+If `--av-text-faint` count exceeds ~10 on a page, flag it in PR review. That's almost always over-mapping; walk back through the decision tree.
+
+### 11.6 Verification approach
+
+Before declaring a per-page migration done:
+
+1. Open the page in **both** themes via the toggle. Walk the page top to bottom — every text element must be readable.
+2. Sample 3 elements per page in DevTools → Computed → `color`. Paste each value into [WebAIM contrast checker](https://webaim.org/resources/contrastchecker/) against `--av-surface-page`.
+3. Confirm `text-secondary` is used **at least 3× more often** than `text-faint` on a content-heavy page.
+4. Add a `--av-text-faint` cap to the page's pin tests (e.g., `frontend/tests/<page>-redesign.test.mjs`) so a regression fails CI.
+
+### 11.7 Existing pin in the test suite
+
+`frontend/tests/speaking-redesign.test.mjs` enforces the rules above for speaking.html:
+
+- `--av-text-faint` HTML count ≤ 8 (the 5 legitimate uses + slack)
+- helper text "(tùy chọn — ...)" must use `--av-text-secondary`
+- PART sub-labels (`1 cue card`, `5 câu hỏi`, `3 chủ đề × 3 câu = 9 câu`) must NOT use `--av-text-faint`
+- stat-card sub-text uses `--av-text-muted`
+- speaking.css `--av-text-faint` references restricted to `::placeholder` rules (rule-walking allowlist)
+
+Mirror these pins in each new per-page redesign sprint.
