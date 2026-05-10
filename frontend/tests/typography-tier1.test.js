@@ -34,8 +34,17 @@ const path   = require('node:path');
 // ── Tier 1 page set per Sprint 6.2 spec ────────────────────────────
 
 
+// Pages still on the Sprint 6.2 typography era (Manrope + Fraunces +
+// body.ds-canvas atmosphere). As each page migrates to the Aver Design
+// System foundation in a per-page redesign sprint, it leaves this list:
+//
+//   • home.html      — migrated Sprint 6.3 (PR #121, --av-* tokens, Plus Jakarta Sans)
+//   • speaking.html  — migrated Sprint 6.4 (this PR, dark-only pending inline-style sweep)
+//
+// Pin tests for the migrated pages live in their own *-redesign.test.mjs
+// suites. This list keeps shrinking; eventually it goes empty and the
+// file gets deleted in the cleanup sprint.
 const TIER_1_PAGES = [
-  'pages/speaking.html',
   'pages/writing-dashboard.html',
   'pages/practice.html',
   'pages/result.html',

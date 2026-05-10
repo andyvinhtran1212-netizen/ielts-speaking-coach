@@ -1,0 +1,608 @@
+/* css/speaking.css — Sprint 6.4 Speaking dashboard redesign.
+ *
+ * Migrates the Sprint 5.1 dashboard inline <style> block (296 lines) to a
+ * standalone file using the canonical --av-* token namespace defined in
+ * /css/aver-design/tokens.css. Class names are unchanged so the inline JS
+ * state machine (switchMainTab, openTopicModal, the chart hooks, the
+ * grammar dashboard, the history filters) keeps working without edits.
+ *
+ * Theme: dark-only on this page in Sprint 6.4. The inline <head> IIFE in
+ * speaking.html forces data-theme="dark" because the rest of the page
+ * (other tab panels, modal, history table) still ships ~159 hardcoded
+ * `rgba(255, 255, 255, X)` inline color values from Sprint 5.1 that
+ * would render invisible on light theme. A follow-up sprint sweeps
+ * those values; the theme toggle returns to this page when that lands.
+ *
+ * Tokens used (resolve to dark theme values via data-theme="dark"):
+ *   --av-surface-page / -card / -sunken / -elevated   layered backgrounds
+ *   --av-border-subtle / -default / -strong            hairline → loud
+ *   --av-text-primary / -secondary / -muted / -faint   copy hierarchy
+ *   --av-primary / -hover / -soft / -border             teal pulse
+ *   --av-accent / -soft                                  warm amber (streak)
+ *   --av-error / -soft                                   destructive (test/abort)
+ *   --av-radius-sm / -md / -lg / -xl / -pill            corner scale
+ *   --av-shadow-sm / -md / -lg                           elevation scale
+ *   --av-duration-fast / -base + --av-easing-default     motion
+ *   --av-font-sans / -mono                               typography
+ *   --av-fs-* / --av-fw-* / --av-lh-*                    type scale
+ *   --av-space-1..16                                     4px-grid spacing
+ */
+
+
+/* ── Page chrome ───────────────────────────────────────────────── */
+
+/* Sticky header strip — navy panel that anchors the avatar dropdown.
+   The class name is preserved from Sprint 5.1 (.sidebar-bg) even though
+   the layout is no longer sidebar-style; renaming would touch JS. */
+.sidebar-bg {
+  background: var(--av-surface-elevated);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+/* Main content well behind the tab panels. */
+.main-bg {
+  background: var(--av-surface-page);
+}
+
+
+/* ── Stat / card surfaces ──────────────────────────────────────── */
+
+.stat-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  transition:
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    background var(--av-duration-fast) var(--av-easing-default);
+}
+.stat-card:hover {
+  border-color: var(--av-primary-border);
+  background: var(--av-primary-soft);
+}
+
+.part-card {
+  background:
+    linear-gradient(
+      145deg,
+      var(--av-surface-card) 0%,
+      var(--av-primary-soft) 100%
+    );
+  border: 1px solid var(--av-border-subtle);
+  transition:
+    transform var(--av-duration-base) var(--av-easing-default),
+    border-color var(--av-duration-base) var(--av-easing-default),
+    box-shadow var(--av-duration-base) var(--av-easing-default);
+}
+.part-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-md);
+}
+
+
+/* ── Buttons (legacy class names preserved for JS coupling) ────── */
+
+.btn-start {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+.btn-start:hover { background: var(--av-primary-hover); transform: translateY(-1px); }
+.btn-start:active { transform: translateY(0); }
+
+/* Full-test CTA keeps the diagonal accent gradient — it's the page's
+   one moment of "this is the headline action". */
+.btn-fulltest {
+  background:
+    linear-gradient(
+      90deg,
+      var(--av-primary),
+      var(--av-info)
+    );
+  color: var(--av-text-on-primary);
+  transition:
+    opacity var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+.btn-fulltest:hover { opacity: 0.9; transform: translateY(-1px); }
+
+/* "Test your mic" destructive-ish action. */
+.btn-test {
+  background: var(--av-error-soft);
+  color: var(--av-error);
+  border: 1px solid var(--av-error);
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+  flex-shrink: 0;
+}
+.btn-test:hover {
+  background: var(--av-error);
+  color: var(--av-text-on-primary);
+  transform: translateY(-1px);
+}
+
+.avatar-ring {
+  box-shadow: 0 0 0 2px var(--av-primary);
+}
+
+
+/* ── Skeleton shimmer ──────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background:
+    linear-gradient(
+      90deg,
+      var(--av-border-subtle) 25%,
+      var(--av-border-default) 50%,
+      var(--av-border-subtle) 75%
+    );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--av-radius-md);
+}
+
+
+/* ── Session history rows + status badges ─────────────────────── */
+
+.session-row { transition: background var(--av-duration-fast) var(--av-easing-default); }
+.session-row:hover { background: var(--av-primary-soft); }
+
+.badge-done {
+  background: var(--av-success-soft);
+  color: var(--av-success);
+}
+.badge-pending {
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+}
+
+
+/* ── Custom scrollbar (visible on dense panels) ────────────────── */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+}
+
+
+/* ── Topic modal ──────────────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--av-z-modal);
+  background: var(--av-surface-overlay);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--av-space-4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--av-duration-base) var(--av-easing-default);
+}
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.modal-box {
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-xl);
+  width: 100%;
+  max-width: 480px;
+  padding: var(--av-space-8);
+  transform: translateY(12px);
+  transition: transform var(--av-duration-base) var(--av-easing-default);
+}
+.modal-backdrop.open .modal-box { transform: translateY(0); }
+
+.topic-tab {
+  flex: 1;
+  padding: var(--av-space-2) var(--av-space-3);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+  border-radius: var(--av-radius-md);
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--av-text-muted);
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    color var(--av-duration-fast) var(--av-easing-default);
+}
+.topic-tab.active {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+}
+
+.topic-input,
+.tab-input {
+  width: 100%;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3) var(--av-space-4);
+  color: var(--av-text-primary);
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-sm);
+  outline: none;
+  transition: border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.topic-input:focus,
+.tab-input:focus {
+  border-color: var(--av-primary);
+  box-shadow: var(--av-shadow-focus);
+}
+.topic-input::placeholder,
+.tab-input::placeholder { color: var(--av-text-faint); }
+.topic-input option,
+.tab-input option { background: var(--av-surface-elevated); }
+
+.btn-confirm {
+  width: 100%;
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  border: none;
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-bold);
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+.btn-confirm:hover { background: var(--av-primary-hover); transform: translateY(-1px); }
+.btn-confirm:active { transform: translateY(0); }
+.btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.modal-error,
+.tab-error {
+  font-size: var(--av-fs-xs);
+  color: var(--av-error);
+  min-height: 18px;
+  margin-top: var(--av-space-1);
+}
+
+
+/* ── Main tab navigation ──────────────────────────────────────── */
+
+.main-tab-nav {
+  background: var(--av-surface-elevated);
+  border-bottom: 1px solid var(--av-border-subtle);
+  padding: 0 var(--av-space-6);
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.main-tab-nav::-webkit-scrollbar { display: none; }
+
+.main-tab-btn {
+  padding: var(--av-space-3) var(--av-space-5) calc(var(--av-space-3) + 2px);
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-muted);
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    background var(--av-duration-fast) var(--av-easing-default);
+  margin-bottom: -1px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-2);
+}
+.main-tab-btn:hover {
+  color: var(--av-text-primary);
+  background: var(--av-primary-soft);
+}
+.main-tab-btn.active {
+  color: var(--av-primary);
+  border-bottom-color: var(--av-primary);
+  background: var(--av-primary-soft);
+}
+.main-tab-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.main-tab-label { white-space: nowrap; }
+.main-tab-sub {
+  /* Sprint 6.4: the secondary subline pattern is dropped from the
+     redesign — labels stay punchy and single-line. The class is kept
+     in case any inline JS still queries it. */
+  display: none;
+}
+
+.main-tab-panel { display: none; }
+.main-tab-panel.active { display: block; }
+
+
+/* ── Tab panel cards (practice / partbpart / fulltest) ─────────── */
+
+.option-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  padding: var(--av-space-6);
+  transition: border-color var(--av-duration-base) var(--av-easing-default);
+}
+.option-card:hover { border-color: var(--av-primary-border); }
+
+.part-select-btn {
+  flex: 1;
+  padding: var(--av-space-3) var(--av-space-2);
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  color: var(--av-text-secondary);
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    color var(--av-duration-fast) var(--av-easing-default);
+}
+.part-select-btn:hover { border-color: var(--av-primary-border); color: var(--av-primary); }
+.part-select-btn.selected {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary);
+  color: var(--av-primary);
+}
+
+.pbp-part-card {
+  background:
+    linear-gradient(
+      145deg,
+      var(--av-surface-card) 0%,
+      var(--av-primary-soft) 100%
+    );
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  padding: var(--av-space-5);
+  cursor: pointer;
+  transition:
+    transform var(--av-duration-base) var(--av-easing-default),
+    border-color var(--av-duration-base) var(--av-easing-default),
+    box-shadow var(--av-duration-base) var(--av-easing-default);
+}
+.pbp-part-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-md);
+}
+.pbp-part-card.selected {
+  border-color: var(--av-primary);
+  background:
+    linear-gradient(
+      145deg,
+      var(--av-primary-soft) 0%,
+      var(--av-primary-soft) 100%
+    );
+  box-shadow: var(--av-shadow-md);
+}
+
+.ft-part-row {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-4) var(--av-space-5);
+}
+
+
+/* ── Grammar dashboard panel ──────────────────────────────────── */
+
+.grammar-section {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  padding: var(--av-space-6);
+}
+
+.grammar-sub-title {
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-widest);
+  color: var(--av-text-faint);
+  margin-bottom: var(--av-space-3);
+}
+
+.grammar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-1);
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+  border-radius: var(--av-radius-pill);
+  padding: var(--av-space-1) var(--av-space-3);
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.grammar-pill:hover {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  border-color: var(--av-primary);
+}
+.grammar-pill-sub {
+  display: block;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-regular);
+  color: var(--av-text-faint);
+  margin-top: 1px;
+}
+
+.grammar-weak-item {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-3);
+  padding: var(--av-space-2) var(--av-space-3);
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  text-decoration: none;
+  transition:
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    background var(--av-duration-fast) var(--av-easing-default);
+}
+.grammar-weak-item:hover {
+  border-color: var(--av-error);
+  background: var(--av-error-soft);
+}
+
+.grammar-weak-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--av-error);
+}
+
+.grammar-recent-item {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  padding: var(--av-space-2) var(--av-space-3);
+  border-radius: var(--av-radius-md);
+  text-decoration: none;
+  transition: background var(--av-duration-fast) var(--av-easing-default);
+}
+.grammar-recent-item:hover { background: var(--av-surface-sunken); }
+
+.grammar-saved-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-2);
+  padding: var(--av-space-2) var(--av-space-3);
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+}
+
+.grammar-empty-text {
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-faint);
+  text-align: center;
+  padding: var(--av-space-4) 0;
+}
+
+
+/* ── Sprint 6.4 dashboard refinements (additive, not replacing legacy) ── */
+
+/* Greeting section: remove the gradient-text effect from Sprint 5.1 in
+   favor of a solid primary accent for the name. The gradient added
+   visual weight at the cost of legibility on mid-band displays. */
+#tab-dashboard h1 {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-3xl);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-tight);
+  line-height: var(--av-lh-tight);
+  color: var(--av-text-primary);
+  margin: 0 0 var(--av-space-2);
+}
+#tab-dashboard h1 #greeting-name {
+  /* Override the inline gradient style. The `background` and
+     `-webkit-background-clip` from the inline style attribute are
+     reset here so the new solid color actually applies. */
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  -webkit-text-fill-color: initial !important;
+  color: var(--av-primary) !important;
+}
+
+/* Stat numerics get the mono treatment so a 7.5 doesn't kerning-drift
+   next to a 0 or — placeholder. */
+#stat-band,
+#stat-total,
+#stat-streak,
+#stat-last-date {
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+  letter-spacing: var(--av-tracking-tight);
+}
+
+/* Section titles use the system's smaller h-scale so the page reads
+   as a calm dashboard, not a marketing layout. */
+#tab-dashboard h2,
+#tab-practice h2,
+#tab-partbpart h2,
+#tab-fulltest h2 {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-tight);
+  color: var(--av-text-primary);
+}
+
+/* Continue CTA — preserve the inline gradient (it's a known affordance
+   moment) but harmonize the inner CTA button styling via the existing
+   .btn-primary class which lives in ds.css. The container has fixed
+   inline gradient values; we don't override them here. */
+#continue-cta { box-shadow: var(--av-shadow-sm); }
+
+/* Empty-state tweaks — the .ds-empty class still ships from ds.css but
+   we override its color stack so it reads against the new palette. */
+.ds-empty {
+  text-align: center;
+  padding: var(--av-space-8) var(--av-space-6);
+  background: var(--av-surface-card);
+}
+.ds-empty-icon { font-size: 2rem; margin-bottom: var(--av-space-2); opacity: 0.7; }
+.ds-empty-title {
+  font-size: var(--av-fs-base);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-primary);
+  margin-bottom: var(--av-space-1);
+}
+.ds-empty-sub {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  line-height: var(--av-lh-normal);
+  max-width: 48ch;
+  margin: 0 auto var(--av-space-4);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .stat-card,
+  .part-card,
+  .btn-start,
+  .btn-fulltest,
+  .btn-test,
+  .pbp-part-card,
+  .session-row,
+  .grammar-pill,
+  .grammar-weak-item,
+  .modal-backdrop,
+  .modal-box,
+  .skeleton {
+    animation: none !important;
+    transition: none !important;
+  }
+}

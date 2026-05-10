@@ -535,6 +535,39 @@ add WITH CHECK to RLS UPDATE policies.
   (auth bootstrap, Supabase client, Tailwind config) to top-level shell;
   per-tab modules render into in-page panels instead of iframes.
 
+#### DEBT-2026-05-10-A: speaking.html inline rgba(255,255,255) sweep (ACTIVE)
+- **Type:** Active tech debt — known incomplete migration.
+- **What:** Sprint 6.4 redesigned `/pages/speaking.html` onto the Aver
+  Design System foundation (Plus Jakarta Sans, --av-* tokens, Lucide
+  icons, extracted /css/speaking.css). The page stays dark-only on this
+  sprint because ~159 hardcoded `rgba(255, 255, 255, X)` inline color
+  values remain in the tab panels (practice / partbpart / fulltest),
+  topic modal, history table, and grammar dashboard. On light theme,
+  those values render invisible against the cream surface.
+- **What's deferred:** A focused sweep PR that walks every inline
+  `style="color:rgba(255,255,255,X)"` and `style="...rgba(255,255,255,X)"`
+  attribute and either:
+    (a) removes it (let the new tokens cascade through), or
+    (b) replaces it with a `var(--av-text-{primary,secondary,muted,faint})`
+        equivalent that resolves correctly on both themes.
+- **Why it stays dark today:** The IIFE in speaking.html `<head>` forces
+  `data-theme="dark"` for THIS page only. The user's global localStorage
+  preference is left untouched, so home / vocabulary / etc. resume their
+  preferred theme on navigation.
+- **Risk of carrying:** New users default to light on home, then see a
+  visual jump to dark when they enter speaking.html. The transition is
+  abrupt rather than chosen.
+- **Mitigation in place:** No light-theme rendering of speaking.html
+  ships, so the user never sees the broken state. Theme toggle button
+  is omitted on speaking.html for the same reason.
+- **Trigger to un-defer:** Sprint 6.4.1 follow-up sweep, or as a
+  prerequisite for the practice.html / result.html redesigns if
+  cross-page theme continuity becomes a complaint.
+- **Effort when picked up:** ~2-3 hours of mechanical rgba() →
+  var(--av-text-*) replacement. Pin tests in
+  `frontend/tests/speaking-redesign.test.mjs` will need a "no inline
+  rgba(255,255,255) in speaking.html" rule added once the sweep ships.
+
 #### DEBT-2026-05-09-C: Sprint 6.2 + 6.2.1 typography migration becomes redesign-replaceable (ACTIVE)
 - **Type:** Active tech debt — known throwaway.
 - **What:** Sprint 6.2 migrated 7 Tier 1 pages to Manrope + Fraunces +
