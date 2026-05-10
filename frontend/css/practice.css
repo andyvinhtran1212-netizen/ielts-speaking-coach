@@ -464,7 +464,11 @@
   font-feature-settings: 'tnum';
 }
 
-.practice-rec-hint { color: var(--av-text-muted); }
+/* Sprint 6.5.1: bumped from --av-text-muted to --av-text-secondary —
+   "Đang ghi âm — nói rõ ràng vào microphone" is primary recording
+   guidance (the user reads it while the mic is open), so it sits in
+   the helper-text tier per UNIFIED_DESIGN_BRIEF.md § 11.1. */
+.practice-rec-hint { color: var(--av-text-secondary); }
 
 .practice-rec-canvas {
   width: 100%;
@@ -790,4 +794,80 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+
+/* ── Sprint 6.5.1 — ds.css legacy-class overrides for light theme ──
+ *
+ * ds.css is shared infrastructure (linked by every page that hasn't
+ * fully migrated yet). Several of its selectors hardcode `color: #fff`
+ * or `rgba(255,255,255,X)`, which on the cream light surface render as
+ * white-on-cream. The Sprint 6.5 redesign linked ds.css so the page
+ * could keep using `.ds-question-card`, `.ds-cue-card`, `.ds-band-hero`,
+ * etc. — but inherited the white-text bug.
+ *
+ * Andy's smoke test surfaced the question card text "What kind of
+ * building do you live in?" disappearing on light theme. The overrides
+ * below are SCOPED to `body.av-page` so:
+ *   • only Aver-themed pages (currently practice + speaking + home) use them
+ *   • dark-only legacy pages still linking ds.css render unchanged
+ *
+ * If/when ds.css is deleted in the cleanup sprint, these overrides go
+ * away too. Until then they are the bridge.
+ */
+
+/* Question card: deep navy text + warm card surface in light, the
+   original deep navy ground in dark (via the token cascade). */
+body.av-page .ds-question-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-left: 4px solid var(--av-primary);
+}
+body.av-page .ds-question-card .ds-q-label {
+  color: var(--av-primary);
+}
+body.av-page .ds-question-card .ds-q-text {
+  /* Sprint 6.5.1 fix: ds.css line 133 hardcodes color:#fff. The
+     question text is the single most important content on the page —
+     the user reads it to answer. Lift to --av-text-primary so it
+     reads at AAA contrast in both themes. */
+  color: var(--av-text-primary);
+}
+
+/* Cue card (Part 2): same teal-tint surface + readable bullet copy. */
+body.av-page .ds-cue-card {
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+}
+body.av-page .ds-cue-bullet {
+  /* ds.css line 148 hardcodes rgba(255,255,255,0.8). Bullets list
+     the cue points the user must speak about — primary content,
+     lift to --av-text-secondary. */
+  color: var(--av-text-secondary);
+}
+
+/* Strength / improve list items (rendered by JS in feedback state).
+   ds.css lines 273 + 288 hardcode rgba(255,255,255,0.8). These are
+   the bullet points the user reads to learn what worked + what to
+   improve — primary content. */
+body.av-page .ds-strength-item,
+body.av-page .ds-improve-item {
+  color: var(--av-text-secondary);
+}
+
+/* Empty-state copy on legacy ds-empty containers (used by feedback
+   render paths that fall back to the dashboard pattern). */
+body.av-page .ds-empty-title {
+  color: var(--av-text-secondary);
+}
+body.av-page .ds-empty-sub {
+  color: var(--av-text-muted);
+}
+
+/* Callout fallback (the .practice-warning-callout / .practice-error-
+   callout already override this on Sprint 6.5 markup, but a future
+   ds.callout instance without a `.practice-*` modifier still needs
+   to read on cream). */
+body.av-page .ds-callout {
+  color: var(--av-text-secondary);
 }

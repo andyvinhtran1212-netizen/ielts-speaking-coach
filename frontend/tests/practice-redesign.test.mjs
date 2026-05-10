@@ -546,3 +546,97 @@ describe('practice.css / contrast discipline (Sprint 6.4.2 lesson)', () => {
     );
   });
 });
+
+
+// ── Sprint 6.5.1 — question card contrast hotfix ───────────────────
+
+
+describe('practice.css / Sprint 6.5.1 contrast fix', () => {
+  test('practice.css has zero hardcoded white text values', () => {
+    // The question card bug came from `color: #fff` in ds.css. This pin
+    // catches a regression where someone re-introduces the same pattern
+    // inside practice.css.
+    const lines = css.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s*\/\*|^\s*\*/.test(line)) continue;
+      assert.ok(
+        !/color\s*:\s*#fff\b/i.test(line),
+        `practice.css line ${i + 1} hardcodes color:#fff — use var(--av-text-primary). ` +
+        `Line: ${line.trim()}`,
+      );
+      assert.ok(
+        !/color\s*:\s*white\b/i.test(line),
+        `practice.css line ${i + 1} hardcodes color:white — use var(--av-text-primary). ` +
+        `Line: ${line.trim()}`,
+      );
+      assert.ok(
+        !/color\s*:\s*rgba\(255\s*,\s*255\s*,\s*255/i.test(line),
+        `practice.css line ${i + 1} hardcodes color:rgba(255,255,255,X) — use a token. ` +
+        `Line: ${line.trim()}`,
+      );
+    }
+  });
+
+  test('overrides .ds-question-card .ds-q-text on .av-page (light theme readable)', () => {
+    // ds.css line 133 sets `color: #fff` on the question text. On the
+    // cream light surface that's white-on-cream = invisible. The override
+    // must lift question text to --av-text-primary so the user can read
+    // the IELTS question while answering.
+    const re = /body\.av-page\s+\.ds-question-card\s+\.ds-q-text\s*\{[^}]*color\s*:\s*var\(--av-text-primary\)/;
+    assert.match(
+      css,
+      re,
+      'practice.css must override .ds-question-card .ds-q-text → --av-text-primary on .av-page',
+    );
+  });
+
+  test('overrides .ds-question-card chrome (background + border) for light theme', () => {
+    // The card surface + 4px left accent must also flip to tokens or
+    // they stay washed white-on-white in light theme.
+    const re = /body\.av-page\s+\.ds-question-card\s*\{[\s\S]*?(background[\s\S]*?var\(--av-surface[\s\S]*?border[\s\S]*?var\(--av-border|border[\s\S]*?var\(--av-border[\s\S]*?background[\s\S]*?var\(--av-surface)/;
+    assert.match(
+      css,
+      re,
+      '.ds-question-card must use --av-surface-* + --av-border-* tokens (override of ds.css hardcoded rgba whites)',
+    );
+    // Plus the question label color should track the brand teal token,
+    // not the legacy --ds-teal-lt that resolves to a dark-only value.
+    assert.match(
+      css,
+      /body\.av-page\s+\.ds-question-card\s+\.ds-q-label\s*\{[^}]*color\s*:\s*var\(--av-primary\)/,
+      '.ds-q-label must use var(--av-primary) so the eyebrow flips with theme',
+    );
+  });
+
+  test('overrides .ds-cue-bullet, .ds-strength-item, .ds-improve-item to readable tokens', () => {
+    // All three are JS-rendered list-item rows that ds.css paints with
+    // rgba(255,255,255,0.8) — invisible on light. They render the
+    // user-facing content (cue points, strengths, things to improve),
+    // so they belong in --av-text-secondary.
+    for (const sel of ['.ds-cue-bullet', '.ds-strength-item', '.ds-improve-item']) {
+      const re = new RegExp(
+        `body\\.av-page\\s+(\\.[\\w-]+\\s*,\\s*body\\.av-page\\s+)*${sel.replace('.', '\\.')}` +
+        `[^{]*\\{[^}]*color\\s*:\\s*var\\(--av-text-secondary\\)`,
+      );
+      assert.match(
+        css,
+        re,
+        `${sel} must be overridden to --av-text-secondary on .av-page`,
+      );
+    }
+  });
+
+  test('rec-hint (recording guidance copy) uses --av-text-secondary', () => {
+    // "Đang ghi âm — nói rõ ràng vào microphone" is primary recording
+    // guidance; it must read clearly. Sprint 6.5 originally used
+    // --av-text-muted; 6.5.1 lifts to --av-text-secondary per § 11.1.
+    const m = css.match(/\.practice-rec-hint\s*\{([^}]+)\}/);
+    assert.ok(m, '.practice-rec-hint rule must exist');
+    assert.match(
+      m[1],
+      /color\s*:\s*var\(--av-text-secondary\)/,
+      '.practice-rec-hint must use --av-text-secondary so the recording instruction reads on cream',
+    );
+  });
+});
