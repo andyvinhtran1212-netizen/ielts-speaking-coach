@@ -1,23 +1,29 @@
 /**
- * frontend/tests/speaking-redesign.test.mjs — Sprint 6.4.
+ * frontend/tests/speaking-redesign.test.mjs — Sprint 6.4 + 6.4.1.
  *
  * Run with: node --test frontend/tests/speaking-redesign.test.mjs
  *
- * Pins the Sprint 6.4 redesign of /pages/speaking.html. The page is
- * 2,200+ lines with deeply inline JS, so the redesign was scoped:
+ * Pins the Sprint 6.4 redesign of /pages/speaking.html and the 6.4.1
+ * hotfix. The page is 2,300+ lines with deeply inline JS, so the
+ * redesign was scoped:
  *   • fonts swapped: Manrope+Fraunces → Plus Jakarta Sans + JetBrains Mono
  *   • Aver Design System foundation linked (tokens.css + components.css)
  *   • inline <style> block extracted to /css/speaking.css using --av-* tokens
  *   • main-tab-nav emojis replaced with Lucide icons
  *   • dashboard quick-access card emojis replaced with Lucide icons
  *
- * Scope-deviated (deliberate, called out in PR body):
- *   • The page stays dark-only on Sprint 6.4. The inline <head> IIFE
- *     forces data-theme="dark" because ~159 hardcoded rgba(255,255,255)
- *     inline color values in tab panels + history table would render
- *     invisible on light theme. Theme toggle button is omitted.
- *   • A follow-up sweep sprint will migrate the inline color values and
- *     restore the toggle.
+ * Sprint 6.4.1 closed DEBT-2026-05-10-A:
+ *   • all ~136 inline rgba(255,255,255,X) values migrated to --av-text-*
+ *     / --av-border-* / --av-surface-* tokens
+ *   • IIFE switched from force-dark to the canonical anti-flash bootstrap
+ *     (localStorage 'av-theme' → system preference → 'light')
+ *   • theme toggle re-enabled (.av-theme-toggle in header, bindToggleButton
+ *     wired via /js/theme-toggle.js)
+ *   • Chart.js options resolve --av-* tokens via getComputedStyle so axes
+ *     re-color on theme flip; window._dashboard.refreshCharts is exposed
+ *     and wired to a MutationObserver on <html data-theme>
+ *   • the broken `var(--av-space-5)` references (3 places — token isn't
+ *     defined; the scale skips 5/7/9) re-pinned to --av-space-4 / -6
  *
  * What this test guards: the redesign decisions above and the JS
  * coupling that mustn't break (every #mtab-* button, every #stat-*
@@ -89,36 +95,69 @@ describe('speaking.html / foundation links', () => {
 // ── Dark-only stance (Sprint 6.4 scope deviation) ─────────────────
 
 
-describe('speaking.html / dark-only stance', () => {
-  test('inline IIFE forces data-theme="dark" before stylesheets', () => {
-    // The IIFE must run before any <link rel="stylesheet">. Without
-    // it, the page would render in the user's globally chosen theme,
-    // which is light by default → the ~159 inline rgba(255,255,255)
-    // color values would all become invisible.
-    const iifeIdx = html.indexOf("setAttribute('data-theme', 'dark')");
+describe('speaking.html / theme support (Sprint 6.4.1)', () => {
+  test('anti-flash IIFE reads localStorage av-theme + system preference', () => {
+    // The IIFE must run BEFORE any <link rel="stylesheet"> to prevent a
+    // flash. It must NOT hardcode 'dark' (Sprint 6.4 force-dark was
+    // un-deferred in 6.4.1 once the inline rgba sweep landed).
+    const iifeIdx = html.search(/localStorage\.getItem\(['"]av-theme['"]\)/);
     const firstLinkIdx = html.search(/<link\s+rel="stylesheet"/);
-    assert.ok(iifeIdx > -1, 'data-theme="dark" force-IIFE must be present');
+    assert.ok(iifeIdx > -1, "IIFE must read localStorage 'av-theme'");
     assert.ok(firstLinkIdx > -1, 'page must link at least one stylesheet');
     assert.ok(
       iifeIdx < firstLinkIdx,
-      'force-dark IIFE must run BEFORE any stylesheet to prevent flash',
+      'theme bootstrap IIFE must run BEFORE any stylesheet to prevent flash',
+    );
+    assert.match(
+      html,
+      /prefers-color-scheme:\s*dark/,
+      'IIFE must fall back to system preference when no stored theme',
     );
   });
 
-  test('does NOT include the theme toggle button', () => {
-    // The toggle is intentionally omitted on this page. Adding it
-    // back without first sweeping the inline color values means the
-    // user can flip into a broken light-theme state.
+  test('IIFE does NOT hardcode data-theme="dark" (force-dark removed)', () => {
+    // Sprint 6.4 wrote `setAttribute('data-theme', 'dark')` unconditionally.
+    // Sprint 6.4.1 replaced that with the conditional bootstrap. The only
+    // hardcoded 'dark' allowed is inside string literals or comments —
+    // never as a setAttribute(...) call.
+    const forceDark = /setAttribute\(\s*['"]data-theme['"]\s*,\s*['"]dark['"]\s*\)/.test(html);
     assert.ok(
-      !/class="av-theme-toggle"/.test(html),
-      'speaking.html must NOT show the theme toggle until the inline-style sweep ships',
+      !forceDark,
+      "force-dark setAttribute call must be removed — the IIFE should resolve theme via localStorage/system preference",
     );
   });
 
-  test('does NOT call bindToggleButton (no toggle wired)', () => {
-    assert.ok(
-      !/bindToggleButton/.test(html),
-      'no toggle is rendered, so bindToggleButton must not be imported',
+  test('header includes the theme toggle button (.av-theme-toggle)', () => {
+    assert.match(
+      html,
+      /class="av-theme-toggle"/,
+      'speaking.html must show the theme toggle (Sprint 6.4.1 — DEBT-2026-05-10-A closed)',
+    );
+  });
+
+  test('binds the toggle via /js/theme-toggle.js bindToggleButton import', () => {
+    assert.match(
+      html,
+      /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"][^'"]*theme-toggle\.js['"]/,
+      'speaking.html must import bindToggleButton',
+    );
+    assert.match(
+      html,
+      /bindToggleButton\s*\(/,
+      'speaking.html must call bindToggleButton on the toggle element',
+    );
+  });
+
+  test('exposes window._dashboard.refreshCharts for theme flip', () => {
+    assert.match(
+      html,
+      /window\._dashboard\.refreshCharts\s*=/,
+      'a refreshCharts hook must exist so the MutationObserver can rebuild charts on theme flip',
+    );
+    assert.match(
+      html,
+      /MutationObserver[\s\S]{0,300}data-theme/,
+      'a MutationObserver must watch [data-theme] to trigger refreshCharts',
     );
   });
 });
@@ -365,6 +404,150 @@ describe('speaking.html / body class', () => {
     assert.ok(
       !/<body[^>]*class="[^"]*\bds-canvas\b[^"]*"/.test(html),
       'speaking.html should drop ds-canvas — av-page + [data-theme] handle theming',
+    );
+  });
+
+  test('body does NOT hardcode text-white (Sprint 6.4.1)', () => {
+    // Sprint 6.4 left `text-white` on <body> as a fallback while
+    // ~159 inline rgba(255,255,255) values rendered the page. Sprint
+    // 6.4.1 swept those values to tokens; the body now inherits color
+    // from .av-page (var(--av-text-primary)). Keeping text-white on
+    // body would re-paint cream-on-cream in light theme.
+    const m = html.match(/<body[^>]*class="([^"]+)"/);
+    assert.ok(m, '<body> must have a class attribute');
+    assert.ok(
+      !/\btext-white\b/.test(m[1]),
+      `<body> must not include Tailwind's text-white — light theme would render the page invisibly`,
+    );
+  });
+});
+
+
+// ── Sprint 6.4.1 — inline color sweep + tab nav fix ───────────────
+
+
+describe('speaking.html / Sprint 6.4.1 hotfix', () => {
+  test('zero live inline rgba(255,255,255,X) declarations remain', () => {
+    // The Sprint 5.1 inline color ladder was migrated to tokens. Any
+    // future regression that re-introduces a hardcoded white-with-alpha
+    // would render invisible on the cream light surface.
+    //
+    // Scan only HTML content, not comments — the explanatory comment
+    // about the original sweep can mention the literal.
+    const stripped = html.replace(/<!--[\s\S]*?-->/g, '');
+    const matches = stripped.match(/rgba\(\s*255\s*,\s*255\s*,\s*255/gi) || [];
+    assert.equal(
+      matches.length,
+      0,
+      `expected 0 inline rgba(255,255,255,X) values in HTML, found ${matches.length}. ` +
+      `Sprint 6.4.1 swept these to --av-text-* / --av-border-* / --av-surface-* tokens.`,
+    );
+  });
+
+  test('chart configs resolve --av-* tokens via getComputedStyle (not raw CSS strings)', () => {
+    // Chart.js does NOT understand `var(--av-text-muted)` as a string.
+    // The dashboard must call getComputedStyle().getPropertyValue() for
+    // each token used in axes/grid/tooltip/series colors. The token
+    // name is passed as a variable (e.g. _tokenColor('--av-text-muted'))
+    // so we don't strictly require the literal at the call site — but
+    // we DO require token literals to appear in the helper invocations.
+    assert.match(
+      html,
+      /getComputedStyle\(\s*document\.documentElement\s*\)/,
+      'renderCharts() must read tokens via getComputedStyle on the documentElement',
+    );
+    assert.match(
+      html,
+      /\.getPropertyValue\(/,
+      'renderCharts() must invoke getPropertyValue (likely via a token-resolver helper)',
+    );
+    // At least one --av-* token literal must appear in the chart code so
+    // the colors are actually wired to the design system.
+    assert.match(
+      html,
+      /['"]--av-(text|border|surface|primary)/,
+      'chart code must reference at least one --av-* token literal',
+    );
+  });
+
+  test('removed `text-white` Tailwind class on stat numbers got a token-aware override', () => {
+    // The dashboard PR keeps `text-white` on a few elements (stat-total,
+    // stat-last-date, stat-streak, continue-cta copy) so the inline JS
+    // that mutates those nodes doesn't have to be touched. speaking.css
+    // must override Tailwind's `.text-white` for THIS page so light
+    // theme remains readable.
+    assert.match(
+      css,
+      /body\.av-page\s+\.text-white\s*\{[^}]*color\s*:\s*var\(--av-text-/,
+      'speaking.css must override .text-white on .av-page to use --av-text-* (else light theme paints white-on-cream)',
+    );
+  });
+});
+
+
+// ── Sprint 6.4.1 — speaking.css token + spacing discipline ────────
+
+
+describe('speaking.css / Sprint 6.4.1 fixes', () => {
+  test('does NOT reference the non-existent --av-space-5 token', () => {
+    // The 4px-grid scale in tokens.css intentionally skips 5/7/9. Sprint
+    // 6.4 used --av-space-5 in 3 places (tab nav, pbp card, ft-part-row),
+    // which silently invalidated the padding declaration → crowded UI.
+    assert.ok(
+      !/var\(--av-space-5\)/.test(css),
+      'speaking.css references --av-space-5, which is NOT defined in tokens.css. Use --av-space-4 or --av-space-6 instead.',
+    );
+    assert.ok(
+      !/var\(--av-space-(7|9|10|11|13|14|15)\)/.test(css),
+      'speaking.css uses a skipped step in the 4px scale. Allowed steps: 0,1,2,3,4,6,8,12,16,20,24.',
+    );
+  });
+
+  test('.main-tab-btn has both horizontal padding AND nowrap (Sprint 6.4.1 fix)', () => {
+    // Andy's smoke-test report: tab nav was crowded because the original
+    // padding referenced --av-space-5 (silently invalid). The fix uses
+    // --av-space-4 horizontal + white-space: nowrap so labels never wrap.
+    const m = css.match(/\.main-tab-btn\s*\{([^}]+)\}/);
+    assert.ok(m, '.main-tab-btn rule must exist');
+    assert.match(
+      m[1],
+      /padding\s*:\s*var\(--av-space-3\)\s+var\(--av-space-[46]/,
+      '.main-tab-btn padding must use a non-skipped scale step (--av-space-4 or --av-space-6)',
+    );
+    assert.match(
+      m[1],
+      /white-space\s*:\s*nowrap/,
+      '.main-tab-btn must declare white-space: nowrap so labels never wrap',
+    );
+  });
+
+  test('.ft-part-row + .pbp-part-card have generous padding (--av-space-6)', () => {
+    // Andy's report: "Chủ đề 1/2/3" in Full Test had inputs sát viền.
+    // Padding was --av-space-4 var(--av-space-5) — the second arg was
+    // invalid → effectively 16px / 0. The fix bumps both to --av-space-6.
+    const ft = css.match(/\.ft-part-row\s*\{([^}]+)\}/);
+    assert.ok(ft, '.ft-part-row rule must exist');
+    assert.match(
+      ft[1],
+      /padding\s*:\s*var\(--av-space-6\)/,
+      '.ft-part-row padding must be --av-space-6 (24px) so Full Test inputs breathe',
+    );
+    const pbp = css.match(/\.pbp-part-card\s*\{([^}]+)\}/);
+    assert.ok(pbp, '.pbp-part-card rule must exist');
+    assert.match(
+      pbp[1],
+      /padding\s*:\s*var\(--av-space-6\)/,
+      '.pbp-part-card padding must be --av-space-6 so Part 1/2/3 cards breathe',
+    );
+  });
+
+  test('declares a .text-white override scoped to .av-page', () => {
+    // See body-class assertion above for the why; this one pins the CSS
+    // side of the contract.
+    assert.match(
+      css,
+      /body\.av-page\s+\.text-white\b/,
+      'speaking.css must scope its .text-white override to body.av-page so it never leaks to other pages',
     );
   });
 });

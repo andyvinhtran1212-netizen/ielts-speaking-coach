@@ -6,17 +6,24 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Speaking — Aver Learning</title>
 
-  <!-- Sprint 6.4: speaking.html stays dark-only pending an inline-style
-       sweep (the page still ships ~159 hardcoded `rgba(255,255,255, X)`
-       values from Sprint 5.1 inside tab panels and the history table).
-       The IIFE forces data-theme="dark" for THIS page only — the user's
-       global localStorage preference is left untouched, so home /
-       vocabulary / etc. resume their preferred theme on navigation.
-       The theme toggle button is intentionally omitted on this page; it
-       returns once the inline-style sweep ships. -->
+  <!-- Sprint 6.4.1: speaking.html now supports both light + dark themes
+       after the inline-style sweep (DEBT-2026-05-10-A closed). The IIFE
+       below mirrors the canonical anti-flash bootstrap from home.html /
+       vocabulary.html: localStorage 'av-theme' wins, system preference
+       is the fallback, and a hardcoded 'light' is the last-resort catch.
+       The .theme-loading guard (defined in tokens.css) suppresses
+       transitions during initial paint so we don't see the page animate
+       from a default to the resolved theme on every load. -->
   <script>
     (function () {
-      document.documentElement.setAttribute('data-theme', 'dark');
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme = stored
+          || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
     })();
   </script>
 
@@ -73,7 +80,7 @@
        inline JS state machine continues to find what it expects. */
   </style>
 </head>
-<body class="av-page text-white font-sans antialiased min-h-screen flex flex-col">
+<body class="av-page font-sans antialiased min-h-screen flex flex-col">
 
   <!-- ─── HEADER ─────────────────────────────────────────── -->
   <header class="sidebar-bg sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
@@ -86,37 +93,50 @@
 
     <!-- User info -->
     <div class="flex items-center gap-3">
+      <!-- Sprint 6.4.1: theme toggle re-enabled. The .av-theme-toggle
+           class is styled by /css/aver-design/components.css; the icon
+           swap (sun ↔ moon) is handled by /js/theme-toggle.js. -->
+      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+        <svg class="av-theme-toggle__icon av-theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="av-theme-toggle__icon av-theme-toggle__icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+
       <!-- Name skeleton → replaced by JS -->
       <div id="user-name-skeleton" class="skeleton h-4 w-28 hidden sm:block"></div>
-      <span id="user-name" class="hidden text-sm font-medium" style="color:rgba(255,255,255,0.85);"></span>
+      <span id="user-name" class="hidden text-sm font-medium" style="color:var(--av-text-primary);"></span>
 
       <!-- Avatar + dropdown -->
       <div class="relative" id="avatar-dropdown-wrap">
         <button id="avatar-wrap"
                 onclick="document.getElementById('avatar-menu').classList.toggle('hidden')"
                 class="w-8 h-8 rounded-full overflow-hidden avatar-ring bg-navy-light flex items-center justify-center text-xs font-bold cursor-pointer focus:outline-none"
-                style="background:#112d52;">
+                style="background:var(--av-surface-elevated);">
           <span id="avatar-initials">—</span>
           <img id="avatar-img" class="hidden w-full h-full object-cover" alt="avatar" />
         </button>
         <!-- Dropdown menu -->
         <div id="avatar-menu"
              class="hidden absolute right-0 mt-2 w-44 rounded-xl shadow-xl z-50"
-             style="background:#112d52;border:1px solid rgba(255,255,255,0.1);">
+             style="background:var(--av-surface-elevated);border:1px solid var(--av-border-default);">
           <a href="profile.html"
              class="flex items-center gap-2 px-4 py-2.5 text-sm rounded-t-xl transition"
-             style="color:rgba(255,255,255,0.8);"
-             onmouseover="this.style.background='rgba(255,255,255,0.06)'"
+             style="color:var(--av-text-primary);"
+             onmouseover="this.style.background='var(--av-primary-soft)'"
              onmouseout="this.style.background=''">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
             Hồ sơ
           </a>
-          <div style="height:1px;background:rgba(255,255,255,0.07);margin:0 12px;"></div>
+          <div style="height:1px;background:var(--av-border-subtle);margin:0 12px;"></div>
           <button id="btn-logout"
                   class="flex w-full items-center gap-2 px-4 py-2.5 text-sm rounded-b-xl transition"
-                  style="color:rgba(255,255,255,0.45);"
+                  style="color:var(--av-text-muted);"
                   onmouseover="this.style.color='#f87171'"
-                  onmouseout="this.style.color='rgba(255,255,255,0.45)'">
+                  onmouseout="this.style.color='var(--av-text-muted)'">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
             </svg>
@@ -188,37 +208,37 @@
     <!-- Page title -->
     <div class="mb-8">
       <h1 class="text-2xl font-bold mb-1">Xin chào, <span id="greeting-name" class="text-transparent bg-clip-text" style="background:linear-gradient(90deg,#14b8a6,#38bdf8);-webkit-background-clip:text;">bạn</span>! 👋</h1>
-      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Hãy luyện tập thêm hôm nay để cải thiện band score của bạn.</p>
+      <p class="text-sm" style="color:var(--av-text-muted);">Hãy luyện tập thêm hôm nay để cải thiện band score của bạn.</p>
     </div>
 
     <!-- ── PART 1: Quick Stats ──────────────────────────────── -->
     <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Band TB 30 ngày</p>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Band TB 30 ngày</p>
         <p id="stat-band" class="text-3xl font-extrabold" style="color:#14b8a6;">—</p>
-        <p id="stat-band-sub" class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">Chưa có dữ liệu</p>
+        <p id="stat-band-sub" class="text-xs mt-1" style="color:var(--av-text-faint);">Chưa có dữ liệu</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Tổng sessions</p>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Tổng sessions</p>
         <p id="stat-total" class="text-3xl font-extrabold text-white">0</p>
-        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">Kể từ khi tham gia</p>
+        <p class="text-xs mt-1" style="color:var(--av-text-faint);">Kể từ khi tham gia</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Buổi học gần nhất</p>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Buổi học gần nhất</p>
         <p id="stat-last-date" class="text-xl font-extrabold text-white">—</p>
-        <p id="stat-last-topic" class="text-xs mt-1 truncate" style="color:rgba(255,255,255,0.3);">Chưa có buổi học nào</p>
+        <p id="stat-last-topic" class="text-xs mt-1 truncate" style="color:var(--av-text-faint);">Chưa có buổi học nào</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.4);">Streak hiện tại</p>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Streak hiện tại</p>
         <div class="flex items-end gap-1.5">
           <p id="stat-streak" class="text-3xl font-extrabold text-white">0</p>
-          <p class="text-lg font-semibold mb-0.5" style="color:rgba(255,255,255,0.3);">ngày</p>
+          <p class="text-lg font-semibold mb-0.5" style="color:var(--av-text-faint);">ngày</p>
         </div>
-        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.3);">🔥 Duy trì chuỗi!</p>
+        <p class="text-xs mt-1" style="color:var(--av-text-faint);">🔥 Duy trì chuỗi!</p>
       </div>
 
     </section>
@@ -227,13 +247,13 @@
     <div id="continue-cta" class="hidden mb-8 flex items-center justify-between rounded-2xl px-6 py-4" style="background:linear-gradient(135deg,rgba(15,118,110,0.25),rgba(14,116,144,0.2));border:1px solid rgba(20,184,166,0.2);">
       <div>
         <p class="text-sm font-semibold text-white">Tiếp tục luyện tập</p>
-        <p id="cta-topic-label" class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Chủ đề gần nhất</p>
+        <p id="cta-topic-label" class="text-xs mt-0.5" style="color:var(--av-text-muted);">Chủ đề gần nhất</p>
       </div>
       <a id="continue-cta-link" href="practice.html" class="btn-primary text-sm">Luyện tiếp ngay →</a>
     </div>
 
     <!-- ── Empty state (no sessions yet) ─────────────────────── -->
-    <div id="dashboard-empty" class="hidden mb-10 rounded-2xl ds-empty" style="border:1px dashed rgba(255,255,255,0.1);">
+    <div id="dashboard-empty" class="hidden mb-10 rounded-2xl ds-empty" style="border:1px dashed var(--av-border-default);">
       <div class="ds-empty-icon">🎙️</div>
       <p class="ds-empty-title">Bắt đầu buổi học đầu tiên</p>
       <p class="ds-empty-sub">Hoàn thành ít nhất một session để xem thống kê và biểu đồ tiến độ.</p>
@@ -251,7 +271,7 @@
           <div id="line-chart-wrap" style="position:relative;height:220px;">
             <canvas id="chart-line"></canvas>
           </div>
-          <p id="line-chart-empty" class="hidden text-center text-sm py-16" style="color:rgba(255,255,255,0.3);">
+          <p id="line-chart-empty" class="hidden text-center text-sm py-16" style="color:var(--av-text-faint);">
             Cần ít nhất 2 sessions để hiện biểu đồ
           </p>
         </div>
@@ -259,12 +279,12 @@
         <!-- Radar chart -->
         <div class="stat-card rounded-2xl p-5">
           <p class="ds-section-head mb-1">Điểm mạnh yếu 4 tiêu chí
-            <span class="ml-1 normal-case font-normal" style="color:rgba(255,255,255,0.22);">5 sessions gần nhất</span>
+            <span class="ml-1 normal-case font-normal" style="color:var(--av-text-faint);">5 sessions gần nhất</span>
           </p>
           <div id="radar-chart-wrap" style="position:relative;height:235px;">
             <canvas id="chart-radar"></canvas>
           </div>
-          <p id="radar-chart-empty" class="hidden text-center text-sm py-16" style="color:rgba(255,255,255,0.3);">
+          <p id="radar-chart-empty" class="hidden text-center text-sm py-16" style="color:var(--av-text-faint);">
             Chưa có dữ liệu tiêu chí chi tiết
           </p>
         </div>
@@ -289,7 +309,7 @@
               <h3 class="font-bold text-sm leading-tight">Practice</h3>
             </div>
           </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:var(--av-text-muted);">
             Tự chọn chủ đề hoặc nhập câu hỏi riêng. Luyện từng câu và nhận nhận xét ngay sau mỗi lần trả lời.
           </p>
           <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
@@ -308,7 +328,7 @@
               <h3 class="font-bold text-sm leading-tight">Part-by-Part</h3>
             </div>
           </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:var(--av-text-muted);">
             Luyện theo từng Part của IELTS Speaking với đúng cấu trúc câu hỏi. Kết thúc mỗi buổi, bạn sẽ nhận đánh giá theo 4 tiêu chí.
           </p>
           <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
@@ -327,7 +347,7 @@
               <h3 class="font-bold text-sm leading-tight">IELTS Simulation</h3>
             </div>
           </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:rgba(255,255,255,0.5);">
+          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:var(--av-text-muted);">
             Mô phỏng trọn vẹn bài thi IELTS Speaking từ Part 1 đến Part 3. Phù hợp để luyện tâm lý phòng thi và theo dõi band score tổng thể.
           </p>
           <button class="btn-fulltest text-white text-xs font-semibold py-2.5 rounded-xl w-full"
@@ -342,7 +362,7 @@
       <div class="flex items-center justify-between mb-5">
         <div>
           <h2 class="text-lg font-bold">Ngữ pháp của bạn</h2>
-          <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Dựa trên phản hồi từ các buổi luyện</p>
+          <p class="text-xs mt-0.5" style="color:var(--av-text-muted);">Dựa trên phản hồi từ các buổi luyện</p>
         </div>
         <a href="/grammar.html" class="text-xs font-semibold" style="color:#14b8a6;">Xem tất cả →</a>
       </div>
@@ -390,7 +410,7 @@
       <div id="grammar-empty" class="hidden text-center py-6">
         <div class="text-3xl mb-3">📚</div>
         <p class="text-sm font-semibold mb-1">Chưa có dữ liệu ngữ pháp</p>
-        <p class="text-xs" style="color:rgba(255,255,255,0.4);">Hoàn thành một buổi luyện để nhận phản hồi ngữ pháp cá nhân hoá.</p>
+        <p class="text-xs" style="color:var(--av-text-muted);">Hoàn thành một buổi luyện để nhận phản hồi ngữ pháp cá nhân hoá.</p>
       </div>
     </section>
 
@@ -412,7 +432,7 @@
       </div>
       <div id="vocab-updates-list"
            class="rounded-2xl"
-           style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); padding:6px 8px;">
+           style="background:var(--av-surface-card); border:1px solid var(--av-border-subtle); padding:6px 8px;">
         <!-- populated by loadVocabUpdates() -->
       </div>
     </section>
@@ -427,14 +447,14 @@
       <!-- Search / filter / sort controls (Phase 2.5) -->
       <div id="history-filters"
            class="rounded-xl mb-3"
-           style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); padding:14px 16px;">
+           style="background:var(--av-surface-card); border:1px solid var(--av-border-subtle); padding:14px 16px;">
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <input type="search" id="hf-search" placeholder="Tìm theo chủ đề…"
                  class="text-sm rounded-lg px-3 py-2"
-                 style="flex:1 1 220px; min-width:200px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+                 style="flex:1 1 220px; min-width:200px;">
           <select id="hf-sort"
                   class="text-sm rounded-lg px-3 py-2"
-                  style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+                  >
             <option value="newest">Mới nhất</option>
             <option value="oldest">Cũ nhất</option>
             <option value="score_desc">Điểm cao → thấp</option>
@@ -442,17 +462,17 @@
           </select>
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
-          <label style="font-size:12px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:6px;">
+          <label style="font-size:12px; color:var(--av-text-secondary); display:flex; align-items:center; gap:6px;">
             Từ:
             <input type="date" id="hf-date-from"
                    class="text-xs rounded-lg px-2 py-1.5"
-                   style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+                   >
           </label>
-          <label style="font-size:12px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:6px;">
+          <label style="font-size:12px; color:var(--av-text-secondary); display:flex; align-items:center; gap:6px;">
             Đến:
             <input type="date" id="hf-date-to"
                    class="text-xs rounded-lg px-2 py-1.5"
-                   style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+                   >
           </label>
           <button onclick="window._dashboard && window._dashboard.applyHistoryFilters()"
                   class="text-xs px-3 py-1.5 rounded-lg"
@@ -461,16 +481,16 @@
           </button>
           <button onclick="window._dashboard && window._dashboard.clearHistoryFilters()"
                   class="text-xs px-3 py-1.5 rounded-lg"
-                  style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.65);">
+                  style="background:transparent; border:1px solid var(--av-border-default); color:var(--av-text-secondary);">
             Xóa lọc
           </button>
           <span id="history-filter-info" class="hidden text-xs ml-auto"
-                style="color:rgba(255,255,255,0.55);"></span>
+                style="color:var(--av-text-secondary);"></span>
         </div>
       </div>
 
       <!-- Table wrapper -->
-      <div class="rounded-2xl overflow-hidden border" style="border-color:rgba(255,255,255,0.08);">
+      <div class="rounded-2xl overflow-hidden border" style="border-color:var(--av-border-subtle);">
 
         <!-- Empty state (default) -->
         <div id="history-empty" class="ds-empty">
@@ -487,16 +507,16 @@
         <div id="history-table-wrap" class="hidden overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr style="background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.07);">
-                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Ngày</th>
-                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Part</th>
-                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Chế độ</th>
-                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Chủ đề</th>
-                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Band</th>
-                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:rgba(255,255,255,0.4);">Xem lại</th>
+              <tr style="background:var(--av-surface-sunken);border-bottom:1px solid var(--av-border-subtle);">
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:var(--av-text-muted);">Ngày</th>
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:var(--av-text-muted);">Part</th>
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:var(--av-text-muted);">Chế độ</th>
+                <th class="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:var(--av-text-muted);">Chủ đề</th>
+                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:var(--av-text-muted);">Band</th>
+                <th class="text-center px-5 py-3.5 text-xs font-semibold uppercase tracking-wider" style="color:var(--av-text-muted);">Xem lại</th>
               </tr>
             </thead>
-            <tbody id="history-tbody" style="border-top:1px solid rgba(255,255,255,0.05);"></tbody>
+            <tbody id="history-tbody" style="border-top:1px solid var(--av-border-subtle);"></tbody>
           </table>
         </div>
 
@@ -505,7 +525,7 @@
       <!-- Pagination (Phase 2.5) — hidden when no filters applied -->
       <div id="history-pagination"
            class="hidden mt-4"
-           style="display:none; justify-content:center; align-items:center; gap:8px; font-size:13px; color:rgba(255,255,255,0.7);"></div>
+           style="display:none; justify-content:center; align-items:center; gap:8px; font-size:13px; color:var(--av-text-secondary);"></div>
     </section>
 
   </div><!-- /inner padding wrapper -->
@@ -518,7 +538,7 @@
 
     <div class="mb-8">
       <h1 class="text-2xl font-bold mb-1">Luyện tập</h1>
-      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
+      <p class="text-sm" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
     </div>
 
     <div class="grid md:grid-cols-2 gap-6">
@@ -530,13 +550,13 @@
                style="background:rgba(15,118,110,0.2);">✍️</div>
           <div>
             <h3 class="font-bold text-sm">Câu hỏi tùy chỉnh</h3>
-            <p class="text-xs" style="color:rgba(255,255,255,0.4);">Nhập câu hỏi — bỏ qua bước AI tạo</p>
+            <p class="text-xs" style="color:var(--av-text-muted);">Nhập câu hỏi — bỏ qua bước AI tạo</p>
           </div>
         </div>
 
         <div class="mb-3">
-          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">
-            Câu hỏi <span style="color:rgba(255,255,255,0.3);">(mỗi dòng một câu, tối đa 10)</span>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
+            Câu hỏi <span style="color:var(--av-text-faint);">(mỗi dòng một câu, tối đa 10)</span>
           </label>
           <textarea id="prac-custom-q" rows="5" class="tab-input" style="resize:vertical;min-height:110px;"
                     placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable experience."
@@ -544,7 +564,7 @@
         </div>
 
         <div class="mb-3">
-          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Part (để xác định ngữ cảnh)</label>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">Part (để xác định ngữ cảnh)</label>
           <div class="flex gap-2">
             <button class="part-select-btn selected" id="prac-part-1" onclick="setPracPart(1)">Part 1</button>
             <button class="part-select-btn"           id="prac-part-2" onclick="setPracPart(2)">Part 2</button>
@@ -563,12 +583,12 @@
                style="background:rgba(15,118,110,0.2);">📚</div>
           <div>
             <h3 class="font-bold text-sm">Chủ đề từ thư viện</h3>
-            <p class="text-xs" style="color:rgba(255,255,255,0.4);">AI tạo câu hỏi theo chủ đề</p>
+            <p class="text-xs" style="color:var(--av-text-muted);">AI tạo câu hỏi theo chủ đề</p>
           </div>
         </div>
 
         <div class="mb-3">
-          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Chọn Part</label>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">Chọn Part</label>
           <div class="flex gap-2">
             <button class="part-select-btn selected" id="prac-tp-part-1" onclick="setPracTopicPart(1)">Part 1</button>
             <button class="part-select-btn"           id="prac-tp-part-2" onclick="setPracTopicPart(2)">Part 2</button>
@@ -577,17 +597,17 @@
         </div>
 
         <div class="mb-3">
-          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Chủ đề từ thư viện</label>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">Chủ đề từ thư viện</label>
           <div style="position:relative;">
             <select id="prac-topic-select" class="tab-input" style="appearance:none;padding-right:36px;">
               <option value="" disabled selected>— Chọn tab để tải... —</option>
             </select>
-            <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:rgba(255,255,255,0.4);">▾</span>
+            <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--av-text-muted);">▾</span>
           </div>
         </div>
 
         <div class="mb-3">
-          <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Hoặc nhập chủ đề tự do</label>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">Hoặc nhập chủ đề tự do</label>
           <input id="prac-topic-custom" type="text" class="tab-input"
                  placeholder="Ví dụ: AI technology, Work-life balance..."
                  maxlength="120" />
@@ -608,7 +628,7 @@
 
     <div class="mb-8">
       <h1 class="text-2xl font-bold mb-1">Luyện từng Part</h1>
-      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
+      <p class="text-sm" style="color:var(--av-text-muted);">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
     </div>
 
     <!-- Part cards -->
@@ -623,10 +643,10 @@
             <h3 class="font-bold text-sm leading-tight">Introduction &amp; Interview</h3>
           </div>
         </div>
-        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.5);">
+        <p class="text-xs leading-relaxed" style="color:var(--av-text-muted);">
           3 câu hỏi về chủ đề quen thuộc. Phản hồi coaching chi tiết.
         </p>
-        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</p>
+        <p class="text-xs mt-2" style="color:var(--av-text-faint);">⏱ 4–5 phút</p>
       </div>
 
       <div class="pbp-part-card" id="pbp-card-2" onclick="selectPbpPart(2)">
@@ -638,10 +658,10 @@
             <h3 class="font-bold text-sm leading-tight">Individual Long Turn</h3>
           </div>
         </div>
-        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.5);">
+        <p class="text-xs leading-relaxed" style="color:var(--av-text-muted);">
           1 cue card, nói 2 phút sau 1 phút chuẩn bị.
         </p>
-        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.3);">⏱ 3–4 phút</p>
+        <p class="text-xs mt-2" style="color:var(--av-text-faint);">⏱ 3–4 phút</p>
       </div>
 
       <div class="pbp-part-card" id="pbp-card-3" onclick="selectPbpPart(3)">
@@ -653,10 +673,10 @@
             <h3 class="font-bold text-sm leading-tight">Two-way Discussion</h3>
           </div>
         </div>
-        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.5);">
+        <p class="text-xs leading-relaxed" style="color:var(--av-text-muted);">
           3 câu hỏi thảo luận chuyên sâu về vấn đề xã hội.
         </p>
-        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.3);">⏱ 4–5 phút</p>
+        <p class="text-xs mt-2" style="color:var(--av-text-faint);">⏱ 4–5 phút</p>
       </div>
 
     </div>
@@ -668,16 +688,16 @@
 
         <div class="grid md:grid-cols-2 gap-4 mb-3">
           <div>
-            <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Từ thư viện</label>
+            <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">Từ thư viện</label>
             <div style="position:relative;">
               <select id="pbp-topic-select" class="tab-input" style="appearance:none;padding-right:36px;">
                 <option value="" disabled selected>— Đang tải... —</option>
               </select>
-              <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:rgba(255,255,255,0.4);">▾</span>
+              <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--av-text-muted);">▾</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">Hoặc nhập chủ đề tự do</label>
+            <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">Hoặc nhập chủ đề tự do</label>
             <input id="pbp-topic-custom" type="text" class="tab-input"
                    placeholder="Ví dụ: Social media, Climate change..."
                    maxlength="120" />
@@ -699,7 +719,7 @@
 
     <div class="mb-8">
       <h1 class="text-2xl font-bold mb-1">Full Test</h1>
-      <p class="text-sm" style="color:rgba(255,255,255,0.4);">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
+      <p class="text-sm" style="color:var(--av-text-muted);">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
     </div>
 
     <!-- Info banner -->
@@ -708,7 +728,7 @@
       <span class="text-lg flex-shrink-0">🔊</span>
       <div>
         <p class="text-sm font-semibold mb-1" style="color:#38bdf8;">Chế độ Listening (mặc định)</p>
-        <p class="text-xs leading-relaxed" style="color:rgba(255,255,255,0.55);">
+        <p class="text-xs leading-relaxed" style="color:var(--av-text-secondary);">
           Câu hỏi sẽ được đọc to bởi AI (giọng nói tự nhiên). Văn bản câu hỏi ẩn mặc định — bạn có thể bật hiển thị bất cứ lúc nào. Đánh giá theo 4 tiêu chí IELTS: FC, LR, GRA, Pronunciation.
         </p>
       </div>
@@ -723,11 +743,11 @@
                style="background:rgba(15,118,110,0.2);">💬</div>
           <div>
             <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
-            <span class="text-xs ml-2" style="color:rgba(255,255,255,0.35);">3 chủ đề × 3 câu = 9 câu</span>
+            <span class="text-xs ml-2" style="color:var(--av-text-faint);">3 chủ đề × 3 câu = 9 câu</span>
           </div>
         </div>
-        <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">
-          3 chủ đề <span style="color:rgba(255,255,255,0.3);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
+        <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
+          3 chủ đề <span style="color:var(--av-text-faint);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
         </label>
         <div class="space-y-2">
           <input id="ft-p1-topic-1" type="text" class="tab-input"
@@ -749,11 +769,11 @@
                style="background:rgba(15,118,110,0.2);">🗒️</div>
           <div>
             <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
-            <span class="text-xs ml-2" style="color:rgba(255,255,255,0.35);">1 cue card</span>
+            <span class="text-xs ml-2" style="color:var(--av-text-faint);">1 cue card</span>
           </div>
         </div>
-        <label class="block text-xs font-medium mb-1.5" style="color:rgba(255,255,255,0.5);">
-          Chủ đề <span style="color:rgba(255,255,255,0.3);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
+        <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
+          Chủ đề <span style="color:var(--av-text-faint);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
         </label>
         <input id="ft-p2-topic" type="text" class="tab-input"
                placeholder="Ví dụ: A person you admire, A memorable journey..."
@@ -767,10 +787,10 @@
                style="background:rgba(15,118,110,0.2);">🧠</div>
           <div>
             <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
-            <span class="text-xs ml-2" style="color:rgba(255,255,255,0.35);">5 câu hỏi</span>
+            <span class="text-xs ml-2" style="color:var(--av-text-faint);">5 câu hỏi</span>
           </div>
         </div>
-        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.4);">
+        <p class="text-xs mt-2" style="color:var(--av-text-muted);">
           Tự động tạo từ chủ đề Part 2 — không cần nhập.
         </p>
       </div>
@@ -798,18 +818,18 @@
         <h2 class="font-bold text-base">Chọn chủ đề luyện tập</h2>
         <button onclick="closeTopicModal()"
                 class="w-8 h-8 flex items-center justify-center rounded-full transition"
-                style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.55);"
-                onmouseover="this.style.background='rgba(255,255,255,0.13)'"
-                onmouseout="this.style.background='rgba(255,255,255,0.07)'">✕</button>
+                style="background:var(--av-surface-card);color:var(--av-text-secondary);"
+                onmouseover="this.style.background='var(--av-primary-soft)'"
+                onmouseout="this.style.background='var(--av-surface-card)'">✕</button>
       </div>
 
       <!-- Subtitle -->
-      <p id="modal-subtitle" class="text-sm mb-5" style="color:rgba(255,255,255,0.55);">
+      <p id="modal-subtitle" class="text-sm mb-5" style="color:var(--av-text-secondary);">
         Bạn muốn luyện tập Part 1 với chủ đề nào?
       </p>
 
       <!-- Tabs -->
-      <div class="flex gap-1.5 mb-5 p-1 rounded-xl" style="background:rgba(255,255,255,0.05);">
+      <div class="flex gap-1.5 mb-5 p-1 rounded-xl" style="background:var(--av-surface-sunken);">
         <button id="tab-list" class="topic-tab active" onclick="switchTopicTab('list')">
           📚 Chọn từ danh sách
         </button>
@@ -823,18 +843,18 @@
 
       <!-- Panel: Chọn từ danh sách -->
       <div id="panel-list">
-        <label class="block text-xs font-medium mb-2" style="color:rgba(255,255,255,0.5);">Chủ đề đề xuất</label>
+        <label class="block text-xs font-medium mb-2" style="color:var(--av-text-muted);">Chủ đề đề xuất</label>
         <div id="topic-select-wrap" style="position:relative;">
           <select id="topic-select" class="topic-input" style="appearance:none;padding-right:36px;">
             <option value="" disabled selected>— Đang tải danh sách... —</option>
           </select>
-          <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:rgba(255,255,255,0.4);">▾</span>
+          <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--av-text-muted);">▾</span>
         </div>
       </div>
 
       <!-- Panel: Tự nhập -->
       <div id="panel-custom" class="hidden">
-        <label class="block text-xs font-medium mb-2" style="color:rgba(255,255,255,0.5);">Nhập chủ đề của bạn</label>
+        <label class="block text-xs font-medium mb-2" style="color:var(--av-text-muted);">Nhập chủ đề của bạn</label>
         <input id="topic-custom-input" type="text" class="topic-input"
                placeholder="Ví dụ: AI technology, Fast food, Work-life balance..."
                maxlength="120"
@@ -843,11 +863,11 @@
 
       <!-- Panel: Câu hỏi riêng -->
       <div id="panel-myq" class="hidden">
-        <label class="block text-xs font-medium mb-2" style="color:rgba(255,255,255,0.5);">Nhập câu hỏi của bạn (mỗi dòng một câu)</label>
+        <label class="block text-xs font-medium mb-2" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn (mỗi dòng một câu)</label>
         <textarea id="myq-input" rows="5" class="topic-input" style="resize:vertical;min-height:100px;"
                   placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable trip you have taken."
                   maxlength="2000"></textarea>
-        <p class="text-xs mt-1.5" style="color:rgba(255,255,255,0.35);">
+        <p class="text-xs mt-1.5" style="color:var(--av-text-faint);">
           Tối đa 10 câu hỏi. App sẽ bỏ qua bước tạo câu hỏi AI và đi thẳng vào luyện tập.
         </p>
       </div>
@@ -923,7 +943,7 @@
           banner.style.cssText = 'margin:32px auto;max-width:400px;text-align:center;padding:28px 20px;border-radius:16px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);';
           banner.innerHTML = '<div style="font-size:2rem;margin-bottom:8px;">🔒</div>'
             + '<p style="font-weight:700;margin-bottom:6px;">' + def.label + ' không khả dụng</p>'
-            + '<p style="font-size:13px;color:rgba(255,255,255,0.5);">Gói truy cập của bạn không bao gồm tính năng này. Liên hệ admin để nâng cấp.</p>';
+            + '<p style="font-size:13px;color:var(--av-text-muted);">Gói truy cập của bạn không bao gồm tính năng này. Liên hệ admin để nâng cấp.</p>';
           panel.insertAdjacentElement('afterbegin', banner);
         }
       });
@@ -1148,20 +1168,20 @@
               ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(251,146,60,0.12);color:#fb923c;font-weight:600;white-space:nowrap;">Đang phân tích</span>`
               : isFailed
                 ? `<span style="font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(239,68,68,0.1);color:#f87171;font-weight:600;white-space:nowrap;">Lỗi phân tích</span>`
-                : '<span style="color:rgba(255,255,255,0.3);">—</span>';
+                : '<span style="color:var(--av-text-faint);">—</span>';
           const viewBtn = s.id
             ? (isPending || isFailed)
-              ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.08);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
+              ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:var(--av-text-faint);border:1px solid var(--av-border-subtle);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
               : `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
             : '—';
           const mode = s.mode || 'practice';
           const modeBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${modeColor[mode] || modeColor.practice};color:${modeTxt[mode] || modeTxt.practice};font-weight:600;">${modeLabel[mode] || mode}</span>`;
           return `
-            <tr class="session-row" style="border-bottom:1px solid rgba(255,255,255,0.04);">
-              <td class="px-5 py-3.5 text-xs" style="color:rgba(255,255,255,0.55);">${date}</td>
+            <tr class="session-row" style="border-bottom:1px solid var(--av-border-subtle);">
+              <td class="px-5 py-3.5 text-xs" style="color:var(--av-text-secondary);">${date}</td>
               <td class="px-5 py-3.5 text-xs font-semibold" style="color:#14b8a6;">Part ${s.part || '?'}</td>
               <td class="px-5 py-3.5 text-xs">${modeBadge}</td>
-              <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:rgba(255,255,255,0.7);">${s.topic || '—'}</td>
+              <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:var(--av-text-secondary);">${s.topic || '—'}</td>
               <td class="px-5 py-3.5 text-center">${band}</td>
               <td class="px-5 py-3.5 text-center">${viewBtn}</td>
             </tr>`;
@@ -1241,8 +1261,8 @@
         el.style.display = 'none';
         return;
       }
-      var btnStyle = 'background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.85); padding:5px 12px; border-radius:8px; font-size:12px; cursor:pointer;';
-      var disabledStyle = 'background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); color:rgba(255,255,255,0.25); padding:5px 12px; border-radius:8px; font-size:12px; cursor:not-allowed;';
+      var btnStyle = 'background:var(--av-surface-card); border:1px solid var(--av-border-default); color:var(--av-text-primary); padding:5px 12px; border-radius:8px; font-size:12px; cursor:pointer;';
+      var disabledStyle = 'background:var(--av-surface-sunken); border:1px solid var(--av-border-subtle); color:var(--av-text-faint); padding:5px 12px; border-radius:8px; font-size:12px; cursor:not-allowed;';
       var prevBtn = page > 1
         ? '<button onclick="window._dashboard.goToHistoryPage(' + (page - 1) + ')" style="' + btnStyle + '">← Trước</button>'
         : '<button disabled style="' + disabledStyle + '">← Trước</button>';
@@ -1250,7 +1270,7 @@
         ? '<button onclick="window._dashboard.goToHistoryPage(' + (page + 1) + ')" style="' + btnStyle + '">Sau →</button>'
         : '<button disabled style="' + disabledStyle + '">Sau →</button>';
       el.innerHTML = prevBtn
-        + '<span style="margin:0 12px; color:#14b8a6; font-weight:600;">Trang ' + page + ' / ' + totalPages + '</span>'
+        + '<span style="margin:0 12px; color:var(--av-primary); font-weight:600;">Trang ' + page + ' / ' + totalPages + '</span>'
         + nextBtn;
       el.style.display = 'flex';
     }
@@ -1318,21 +1338,53 @@
     window._dashboard.goToHistoryPage     = goToHistoryPage;
 
     // ── Charts ───────────────────────────────────────────────
+    //
+    // Sprint 6.4.1: Chart.js does NOT understand CSS custom properties —
+    // `'var(--av-text-muted)'` would render as undefined/black. We resolve
+    // each token to its computed RGB string at render time and stash the
+    // last `sessions` payload so refreshCharts() can rebuild on theme flip
+    // (the MutationObserver in <script type="module"> below the <body>
+    // listens for [data-theme] changes and calls refreshCharts).
     var _chartLine  = null;
     var _chartRadar = null;
+    var _lastChartSessions = null;
+
+    function _tokenColor(name) {
+      // getPropertyValue returns the resolved value of the CSS custom
+      // property at :root; trim because the cascade preserves leading
+      // whitespace from the source declaration.
+      return getComputedStyle(document.documentElement)
+        .getPropertyValue(name).trim() || '#888';
+    }
 
     function renderCharts(sessions) {
+      _lastChartSessions = sessions;
+
       // Only completed sessions with an overall band, sorted oldest→newest, max 20
       var completed = sessions
         .filter(function (s) { return s.status === 'completed' && s.overall_band != null; })
         .sort(function (a, b) { return new Date(a.started_at) - new Date(b.started_at); })
         .slice(-20);
 
+      var COLOR_TEXT_MUTED   = _tokenColor('--av-text-muted');
+      var COLOR_TEXT_FAINT   = _tokenColor('--av-text-faint');
+      var COLOR_TEXT_PRIMARY = _tokenColor('--av-text-primary');
+      var COLOR_TEXT_SECOND  = _tokenColor('--av-text-secondary');
+      var COLOR_BORDER_SUB   = _tokenColor('--av-border-subtle');
+      var COLOR_BORDER_DEF   = _tokenColor('--av-border-default');
+      var COLOR_SURFACE_ELEV = _tokenColor('--av-surface-elevated');
+      var COLOR_PRIMARY      = _tokenColor('--av-primary');
+      var COLOR_PRIMARY_SOFT = _tokenColor('--av-primary-soft');
+
       // ── Line chart ────────────────────────────────────────
       if (completed.length < 2) {
         document.getElementById('line-chart-wrap').classList.add('hidden');
         document.getElementById('line-chart-empty').classList.remove('hidden');
+        if (_chartLine) { _chartLine.destroy(); _chartLine = null; }
       } else {
+        document.getElementById('line-chart-wrap').classList.remove('hidden');
+        document.getElementById('line-chart-empty').classList.add('hidden');
+
         var labels = completed.map(function (s) {
           var d = new Date(s.started_at);
           return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
@@ -1377,22 +1429,22 @@
                 max: 9,
                 ticks: {
                   stepSize: 1,
-                  color: 'rgba(255,255,255,0.38)',
+                  color: COLOR_TEXT_MUTED,
                   font: { size: 11 },
                 },
-                grid: { color: 'rgba(255,255,255,0.06)' },
-                border: { color: 'rgba(255,255,255,0.08)' },
+                grid:   { color: COLOR_BORDER_SUB },
+                border: { color: COLOR_BORDER_SUB },
               },
               x: {
-                ticks: { color: 'rgba(255,255,255,0.38)', font: { size: 11 }, maxRotation: 0 },
-                grid: { display: false },
-                border: { color: 'rgba(255,255,255,0.08)' },
+                ticks:  { color: COLOR_TEXT_MUTED, font: { size: 11 }, maxRotation: 0 },
+                grid:   { display: false },
+                border: { color: COLOR_BORDER_SUB },
               },
             },
             plugins: {
               legend: {
                 labels: {
-                  color: 'rgba(255,255,255,0.55)',
+                  color: COLOR_TEXT_SECOND,
                   boxWidth: 10,
                   boxHeight: 10,
                   font: { size: 11 },
@@ -1400,10 +1452,10 @@
                 },
               },
               tooltip: {
-                backgroundColor: 'rgba(12,35,64,0.95)',
-                titleColor: 'rgba(255,255,255,0.7)',
-                bodyColor: 'rgba(255,255,255,0.85)',
-                borderColor: 'rgba(255,255,255,0.1)',
+                backgroundColor: COLOR_SURFACE_ELEV,
+                titleColor: COLOR_TEXT_SECOND,
+                bodyColor:  COLOR_TEXT_PRIMARY,
+                borderColor: COLOR_BORDER_DEF,
                 borderWidth: 1,
                 callbacks: {
                   label: function (ctx) {
@@ -1424,7 +1476,11 @@
       if (last5.length === 0) {
         document.getElementById('radar-chart-wrap').classList.add('hidden');
         document.getElementById('radar-chart-empty').classList.remove('hidden');
+        if (_chartRadar) { _chartRadar.destroy(); _chartRadar = null; }
       } else {
+        document.getElementById('radar-chart-wrap').classList.remove('hidden');
+        document.getElementById('radar-chart-empty').classList.add('hidden');
+
         function avgCrit(key) {
           var vals = last5.map(function (s) { return s[key]; }).filter(function (v) { return v != null; });
           return vals.length ? Math.round((vals.reduce(function (a, b) { return a + b; }, 0) / vals.length) * 10) / 10 : 0;
@@ -1439,11 +1495,11 @@
             datasets: [{
               label: 'Band trung bình',
               data: [avgCrit('band_fc'), avgCrit('band_lr'), avgCrit('band_gra'), avgCrit('band_p')],
-              backgroundColor: 'rgba(20,184,166,0.15)',
-              borderColor: '#14b8a6',
+              backgroundColor: COLOR_PRIMARY_SOFT,
+              borderColor:     COLOR_PRIMARY,
               borderWidth: 2,
-              pointBackgroundColor: '#14b8a6',
-              pointBorderColor: '#0a1628',
+              pointBackgroundColor: COLOR_PRIMARY,
+              pointBorderColor:     COLOR_SURFACE_ELEV,
               pointBorderWidth: 1.5,
               pointRadius: 4,
               pointHoverRadius: 6,
@@ -1458,21 +1514,21 @@
                 max: 9,
                 ticks: {
                   stepSize: 3,
-                  color: 'rgba(255,255,255,0.35)',
+                  color: COLOR_TEXT_FAINT,
                   font: { size: 10 },
                   backdropColor: 'transparent',
                 },
-                grid: { color: 'rgba(255,255,255,0.1)' },
-                angleLines: { color: 'rgba(255,255,255,0.1)' },
-                pointLabels: { color: 'rgba(255,255,255,0.55)', font: { size: 11 } },
+                grid:        { color: COLOR_BORDER_DEF },
+                angleLines:  { color: COLOR_BORDER_DEF },
+                pointLabels: { color: COLOR_TEXT_SECOND, font: { size: 11 } },
               },
             },
             plugins: {
               legend: { display: false },
               tooltip: {
-                backgroundColor: 'rgba(12,35,64,0.95)',
-                bodyColor: 'rgba(255,255,255,0.85)',
-                borderColor: 'rgba(255,255,255,0.1)',
+                backgroundColor: COLOR_SURFACE_ELEV,
+                bodyColor:       COLOR_TEXT_PRIMARY,
+                borderColor:     COLOR_BORDER_DEF,
                 borderWidth: 1,
                 callbacks: {
                   label: function (ctx) {
@@ -1485,6 +1541,14 @@
         });
       }
     }
+
+    // Sprint 6.4.1: theme flip handler. The <script type="module"> at the
+    // bottom of the body wires a MutationObserver on <html data-theme>
+    // and calls this on each flip so axes/grid/tooltip recolor.
+    function refreshCharts() {
+      if (_lastChartSessions) renderCharts(_lastChartSessions);
+    }
+    window._dashboard.refreshCharts = refreshCharts;
 
     // ── Topic Modal ───────────────────────────────────────────
     var _modalPart = 1;
@@ -2036,12 +2100,12 @@
         ? preview.map(w => `<code style="background:rgba(20,184,166,0.08);color:#5eead4;padding:1px 6px;border-radius:6px;font-size:11px;">${w}</code>`).join(' ') + more
         : '';
       return `
-        <div style="display:flex;gap:12px;padding:12px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <div style="display:flex;gap:12px;padding:12px 12px;border-bottom:1px solid var(--av-border-subtle);">
           <span style="font-size:18px;line-height:1;">✨</span>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:rgba(255,255,255,0.85);">${heading}</div>
-            ${previewHtml ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;color:rgba(255,255,255,0.5);font-size:12px;">${previewHtml}</div>` : ''}
-            <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.35);">${_vocabUpdateRel(event.timestamp)}</div>
+            <div style="font-size:13px;color:var(--av-text-primary);">${heading}</div>
+            ${previewHtml ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;color:var(--av-text-muted);font-size:12px;">${previewHtml}</div>` : ''}
+            <div style="margin-top:4px;font-size:11px;color:var(--av-text-faint);">${_vocabUpdateRel(event.timestamp)}</div>
           </div>
         </div>`;
     }
@@ -2138,8 +2202,8 @@
             a.href = url;
             a.innerHTML = `
               <span class="grammar-weak-dot"></span>
-              <span class="text-sm font-medium flex-1" style="color:rgba(255,255,255,0.8);">${escHtml(item.label_vi || item.tag)}</span>
-              <span class="text-xs" style="color:rgba(255,255,255,0.3);">${item.occurrence_count}× lỗi</span>`;
+              <span class="text-sm font-medium flex-1" style="color:var(--av-text-primary);">${escHtml(item.label_vi || item.tag)}</span>
+              <span class="text-xs" style="color:var(--av-text-faint);">${item.occurrence_count}× lỗi</span>`;
             weakList.appendChild(a);
           });
           if (!weakList.children.length) weakWrap.classList.add('hidden');
@@ -2158,9 +2222,9 @@
             a.className = 'grammar-recent-item';
             a.href = url;
             a.innerHTML = `
-              <span class="text-sm" style="color:rgba(255,255,255,0.55);">↗</span>
-              <span class="text-sm flex-1" style="color:rgba(255,255,255,0.75);">${escHtml(item.title || item.slug)}</span>
-              <span class="text-xs" style="color:rgba(255,255,255,0.25);">${fmtRelTime(item.last_viewed_at)}</span>`;
+              <span class="text-sm" style="color:var(--av-text-secondary);">↗</span>
+              <span class="text-sm flex-1" style="color:var(--av-text-secondary);">${escHtml(item.title || item.slug)}</span>
+              <span class="text-xs" style="color:var(--av-text-faint);">${fmtRelTime(item.last_viewed_at)}</span>`;
             recentList.appendChild(a);
           });
           if (!recentList.children.length) recentWrap.classList.add('hidden');
@@ -2178,10 +2242,10 @@
             const div = document.createElement('div');
             div.className = 'grammar-saved-item';
             div.innerHTML = `
-              <a href="${artUrl}" class="text-sm flex-1" style="color:rgba(255,255,255,0.8);text-decoration:none;">
+              <a href="${artUrl}" class="text-sm flex-1" style="color:var(--av-text-primary);text-decoration:none;">
                 🔖 ${escHtml(item.title || item.slug)}
               </a>
-              <span class="text-xs" style="color:rgba(255,255,255,0.3);">${fmtRelTime(item.saved_at)}</span>`;
+              <span class="text-xs" style="color:var(--av-text-faint);">${fmtRelTime(item.saved_at)}</span>`;
             savedList.appendChild(div);
           });
           if (!savedList.children.length) savedWrap.classList.add('hidden');
@@ -2236,6 +2300,37 @@
       // Also rerun once Lucide finishes loading (it's deferred).
       window.addEventListener('load', _renderLucide);
     })();
+  </script>
+
+  <!-- ── Theme toggle binding (Sprint 6.4.1) ─────────────────
+       The IIFE in <head> already applied data-theme synchronously to
+       prevent a flash. theme-toggle.js auto-runs initTheme() on import
+       (re-applies + manages the .theme-loading guard) and then we wire
+       the click handler to the .av-theme-toggle button in the header.
+
+       Charts on the dashboard read tokens via getComputedStyle, so we
+       also listen for theme flips and rebuild them so colors track. -->
+  <script type="module">
+    import { bindToggleButton } from '../js/theme-toggle.js';
+
+    const btn = document.querySelector('.av-theme-toggle');
+    if (btn) bindToggleButton(btn);
+
+    // Charts (#chart-line, #chart-radar) read --av-* tokens via
+    // getComputedStyle in renderCharts(). Re-render on theme flip so the
+    // axes/grid/tooltip colors swap. The dashboard module exposes a
+    // refresh hook on window._dashboard for exactly this.
+    const html = document.documentElement;
+    let lastTheme = html.getAttribute('data-theme');
+    new MutationObserver(() => {
+      const t = html.getAttribute('data-theme');
+      if (t !== lastTheme) {
+        lastTheme = t;
+        if (window._dashboard && typeof window._dashboard.refreshCharts === 'function') {
+          window._dashboard.refreshCharts();
+        }
+      }
+    }).observe(html, { attributes: true, attributeFilter: ['data-theme'] });
   </script>
 
 </body>
