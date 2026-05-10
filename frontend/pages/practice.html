@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Luyện tập Ghi âm — Aver Learning</title>
+
+  <!-- Sprint 6.5: practice.html supports both light + dark themes from
+       day 1 (Sprint 6.4.1/6.4.2 lessons applied). The IIFE below mirrors
+       the canonical anti-flash bootstrap from home / speaking / vocabulary:
+       localStorage 'av-theme' wins, system preference is the fallback,
+       a hardcoded 'light' is the last-resort catch. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme = stored
+          || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -15,8 +34,8 @@
             teal: { DEFAULT: '#0F766E', light: '#14b8a6' },
           },
           fontFamily: {
-            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
-            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         },
       },
@@ -25,119 +44,52 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css and practice.css. ds.css is kept because the page
+       still references .ds-question-card / .ds-cue-card / .ds-band-hero /
+       .ds-rec-ring / .ds-section-head / .ds-badge / .ds-fadein / .ds-callout
+       — moving those to --av-* equivalents is a follow-up cleanup. -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/ds.css" />
+  <link rel="stylesheet" href="../css/practice.css" />
 
-  <style>
-    /* Background and atmosphere now provided by body.ds-canvas in ds.css. */
-
-    /* ── State visibility ── */
-    .state            { display: none; }
-    .state.active     { display: flex; }
-    .state.block-state { display: none; }
-    .state.block-state.active { display: block; }
-
-    /* ── Recording dot pulse ── */
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1;   transform: scale(1); }
-      50%       { opacity: 0.3; transform: scale(0.7); }
-    }
-
-    /* ── Spinner (STATE: Processing) ── */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      width: 48px; height: 48px;
-      border-radius: 50%;
-      border: 4px solid rgba(255,255,255,0.08);
-      border-top-color: #14b8a6;
-      animation: spin 0.8s linear infinite;
-    }
-
-    /* ── Cards / panels ── */
-    .card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 20px;
-    }
-    .cue-card {
-      background: rgba(15,118,110,0.1);
-      border: 1px solid rgba(20,184,166,0.2);
-      border-radius: 14px;
-    }
-
-    /* ── Buttons ── */
-    .btn-primary {
-      background: #0F766E;
-      color: #fff;
-      font-weight: 700;
-      border-radius: 14px;
-      transition: background 0.15s, transform 0.1s;
-    }
-    .btn-primary:hover { background: #0d5f58; transform: translateY(-1px); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    .btn-danger {
-      background: rgba(239,68,68,0.15);
-      color: #f87171;
-      border: 2px solid rgba(239,68,68,0.4);
-      font-weight: 700;
-      border-radius: 14px;
-      transition: all 0.15s;
-    }
-    .btn-danger:hover { background: rgba(239,68,68,0.25); border-color: #f87171; }
-
-    .btn-ghost {
-      background: rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.6);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 12px;
-      transition: all 0.15s;
-    }
-    .btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
-
-    /* ── Feedback band circle ── */
-    .band-circle {
-      width: 80px; height: 80px;
-      border-radius: 50%;
-      background: rgba(20,184,166,0.12);
-      border: 3px solid rgba(20,184,166,0.4);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 28px; font-weight: 800;
-      color: #14b8a6;
-    }
-
-    /* ── Custom scrollbar ── */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
-
-    /* ── Part 2 textarea ── */
-    #p2b-notes::placeholder { color: rgba(255,255,255,0.25); }
-  </style>
+  <!-- Lucide icons (line glyphs replacing the legacy emoji chrome). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="text-white font-sans antialiased min-h-screen flex flex-col ds-canvas">
+<body class="av-page font-sans antialiased min-h-screen flex flex-col">
 
   <!-- ─── HEADER ─────────────────────────────────────────────────────────────── -->
-  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);"
-          class="sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
+  <header class="practice-header sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <a href="speaking.html"
-         class="text-xs px-3 py-1.5 rounded-lg transition"
-         style="color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.1);"
-         onmouseover="this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.3)'"
-         onmouseout="this.style.color='rgba(255,255,255,0.4)';this.style.borderColor='rgba(255,255,255,0.1)'">
-        ← Dashboard
+      <a href="speaking.html" class="practice-back-link">
+        <i data-lucide="chevron-left"></i>
+        Dashboard
       </a>
       <span class="font-bold text-sm tracking-tight">
-        Aver<span style="color:#14b8a6;">Learning</span>
+        Aver<span style="color:var(--av-primary);">Learning</span>
       </span>
     </div>
 
     <div class="flex items-center gap-3 min-w-0">
       <span id="hdr-info"
-            class="hidden text-xs font-medium truncate"
-            style="color:rgba(255,255,255,0.5);max-width:200px;"></span>
+            class="hidden text-xs font-medium truncate practice-hdr-info"></span>
       <span id="hdr-progress" class="hidden ds-badge ds-badge-teal" style="white-space:nowrap;"></span>
+
+      <!-- Sprint 6.5: theme toggle. The .av-theme-toggle class is styled
+           by /css/aver-design/components.css; bound by /js/theme-toggle.js. -->
+      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+        <svg class="av-theme-toggle__icon av-theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="av-theme-toggle__icon av-theme-toggle__icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -145,35 +97,34 @@
   <main class="flex-1 flex flex-col">
 
     <!-- TEST MODE BANNER (hidden in practice mode) -->
-    <div id="test-mode-banner" style="display:none;background:linear-gradient(90deg,rgba(239,68,68,0.18),rgba(220,38,38,0.1));border-bottom:1px solid rgba(239,68,68,0.35);padding:8px 20px;text-align:center;">
-      <span style="color:#f87171;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;">
-        🚨 TEST MODE — KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG
+    <div id="test-mode-banner" class="practice-test-banner" style="display:none;">
+      <span class="practice-test-banner__label">
+        <i data-lucide="alert-triangle"></i>
+        TEST MODE — KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG
       </span>
     </div>
 
     <!-- PROGRESS BAR (test modes only — controlled by JS) -->
-    <div id="progress-bar-wrap" style="display:none;">
-      <div id="progress-bar-label"
-           style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.35);
-                  padding:5px 20px 3px;text-align:center;letter-spacing:0.01em;"></div>
-      <div style="height:2px;background:rgba(255,255,255,0.06);">
-        <div id="progress-bar-fill"
-             style="height:100%;background:linear-gradient(90deg,#0F766E,#14b8a6);
-                    transition:width 0.35s ease;width:0%;"></div>
+    <div id="progress-bar-wrap" class="practice-progress-wrap" style="display:none;">
+      <div id="progress-bar-label" class="practice-progress-label"></div>
+      <div class="practice-progress-rail">
+        <div id="progress-bar-fill" class="practice-progress-fill" style="width:0%;"></div>
       </div>
     </div>
 
     <!-- STATE: Loading ──────────────────────────────────────────────────────── -->
     <div id="state-loading" class="state active flex-1 items-center justify-center flex-col gap-4">
       <div class="spinner"></div>
-      <p id="loading-msg" class="text-sm" style="color:rgba(255,255,255,0.4);">Đang tải...</p>
+      <p id="loading-msg" class="practice-loading-msg text-sm">Đang tải...</p>
     </div>
 
     <!-- STATE: Error ────────────────────────────────────────────────────────── -->
     <div id="state-error" class="state flex-1 items-center justify-center flex-col gap-4 px-6">
-      <div class="text-5xl">⚠️</div>
+      <div class="practice-error-icon">
+        <i data-lucide="alert-triangle"></i>
+      </div>
       <h2 class="text-lg font-bold">Đã xảy ra lỗi</h2>
-      <p id="error-msg" class="text-sm text-center max-w-xs" style="color:rgba(255,255,255,0.5);"></p>
+      <p id="error-msg" class="practice-error-msg text-sm text-center max-w-xs"></p>
       <a href="speaking.html"
          class="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block">
         Về Dashboard
@@ -183,34 +134,30 @@
     <!-- STATE: Mode Choice ──────────────────────────────────────────────────── -->
     <div id="state-mode-choice" class="state block-state flex-1 px-5 py-12 max-w-xl mx-auto w-full ds-fadein">
       <div class="text-center mb-8">
-        <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.3);letter-spacing:.1em;">
+        <p class="practice-mode-eyebrow text-xs font-bold uppercase tracking-wider mb-3">
           Câu hỏi sẽ được trình bày như thế nào?
         </p>
         <h2 class="text-xl font-bold mb-2">Chọn chế độ câu hỏi</h2>
-        <p class="text-sm" style="color:rgba(255,255,255,0.4);">Lựa chọn này áp dụng cho toàn bộ phiên luyện tập</p>
+        <p class="practice-mode-desc text-sm">Lựa chọn này áp dụng cho toàn bộ phiên luyện tập</p>
       </div>
       <div class="flex flex-col gap-4">
         <button onclick="PracticeApp.chooseModeAndStart('visual')"
-                class="w-full text-left px-6 py-6 rounded-2xl font-bold"
-                style="background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);
-                       transition:all 0.15s;cursor:pointer;"
-                onmouseover="this.style.background='rgba(255,255,255,0.09)';this.style.borderColor='rgba(255,255,255,0.25)'"
-                onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)'">
-          <div style="font-size:2rem;margin-bottom:8px;line-height:1;">👁</div>
-          <div style="font-size:1rem;color:#fff;margin-bottom:4px;">Visual</div>
-          <div style="font-size:0.8rem;color:rgba(255,255,255,0.45);font-weight:400;line-height:1.4;">
+                class="practice-mode-card w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <div class="practice-mode-card__icon">
+            <i data-lucide="eye"></i>
+          </div>
+          <div class="practice-mode-card__title">Visual</div>
+          <div class="practice-mode-card__desc">
             Đọc câu hỏi trực tiếp trên màn hình
           </div>
         </button>
         <button onclick="PracticeApp.chooseModeAndStart('listening')"
-                class="w-full text-left px-6 py-6 rounded-2xl font-bold"
-                style="background:rgba(15,118,110,0.12);border:2px solid rgba(20,184,166,0.3);
-                       transition:all 0.15s;cursor:pointer;"
-                onmouseover="this.style.background='rgba(15,118,110,0.22)';this.style.borderColor='rgba(20,184,166,0.6)'"
-                onmouseout="this.style.background='rgba(15,118,110,0.12)';this.style.borderColor='rgba(20,184,166,0.3)'">
-          <div style="font-size:2rem;margin-bottom:8px;line-height:1;">🔊</div>
-          <div style="font-size:1rem;color:#14b8a6;margin-bottom:4px;">Listening</div>
-          <div style="font-size:0.8rem;color:rgba(255,255,255,0.45);font-weight:400;line-height:1.4;">
+                class="practice-mode-card practice-mode-card--recommended w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <div class="practice-mode-card__icon">
+            <i data-lucide="volume-2"></i>
+          </div>
+          <div class="practice-mode-card__title practice-mode-card__title--accent">Listening</div>
+          <div class="practice-mode-card__desc">
             Nghe câu hỏi phát ra loa — giống phòng thi thật. Câu hỏi sẽ tự phát mỗi lần.
           </div>
         </button>
@@ -221,46 +168,46 @@
     <div id="state-prep" class="state block-state flex-1 px-5 py-8 max-w-xl mx-auto w-full ds-fadein">
 
       <!-- AI unavailable warning (shown only when Gemini failed and fallback questions are used) -->
-      <div id="prep-fallback-warning" class="ds-callout"
-           style="display:none;background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.25);border-left-color:#fbbf24;color:#fbbf24;margin-bottom:14px;">
-        ⚠️ AI chưa sẵn sàng — đang dùng câu hỏi dự phòng. Chất lượng có thể thấp hơn bình thường.
+      <div id="prep-fallback-warning" class="ds-callout practice-warning-callout" style="display:none;">
+        <i data-lucide="alert-triangle"></i>
+        <span>AI chưa sẵn sàng — đang dùng câu hỏi dự phòng. Chất lượng có thể thấp hơn bình thường.</span>
       </div>
 
       <!-- Part badge + topic -->
       <div class="flex items-center gap-2 mb-4 flex-wrap">
         <span id="prep-part-badge" class="ds-badge ds-badge-teal"></span>
         <span id="prep-topic"
-              class="text-sm font-medium"
-              style="color:rgba(255,255,255,0.55);"></span>
+              class="practice-prep-topic text-sm font-medium"></span>
         <span id="prep-q-counter"
-              class="ml-auto text-xs font-semibold"
-              style="color:rgba(255,255,255,0.3);"></span>
+              class="practice-prep-counter ml-auto text-xs font-semibold"></span>
       </div>
 
-      <!-- Mode toggle (Part 1 & 3 only; hidden for Part 2 by JS) -->
-      <div id="prep-mode-toggle"
-           class="flex gap-1 mb-4 p-1 rounded-xl"
-           style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+      <!-- Mode toggle (Part 1 & 3 only; hidden for Part 2 by JS).
+           Background + selection styling lives in practice.css under
+           .practice-mode-toggle so JS can flip the .is-active modifier
+           on each button without touching inline color. -->
+      <div id="prep-mode-toggle" class="practice-mode-toggle flex gap-1 mb-4 p-1 rounded-xl">
         <button id="prep-mode-visual"
-                class="flex-1 py-1.5 text-xs font-semibold rounded-lg"
-                style="transition:background 0.15s,color 0.15s;"
+                class="practice-mode-toggle__btn flex-1 py-1.5 text-xs font-semibold rounded-lg"
                 onclick="PracticeApp.setQMode('visual')">
-          👁 Visual
+          <i data-lucide="eye"></i>
+          Visual
         </button>
         <button id="prep-mode-listening"
-                class="flex-1 py-1.5 text-xs font-semibold rounded-lg"
-                style="transition:background 0.15s,color 0.15s;"
+                class="practice-mode-toggle__btn flex-1 py-1.5 text-xs font-semibold rounded-lg"
                 onclick="PracticeApp.setQMode('listening')">
-          🔊 Listening
+          <i data-lucide="volume-2"></i>
+          Listening
         </button>
       </div>
 
       <!-- Listening-mode play/replay bar (hidden in visual mode) -->
       <div id="prep-listen-bar" style="display:none;" class="mb-4 flex items-center justify-center">
         <button id="prep-play-btn"
-                class="btn-primary px-7 py-2.5 text-sm font-bold"
+                class="btn-primary practice-icon-btn px-7 py-2.5 text-sm font-bold"
                 onclick="PracticeApp.playQuestion()">
-          🔊 Nghe câu hỏi
+          <i data-lucide="volume-2"></i>
+          Nghe câu hỏi
         </button>
       </div>
 
@@ -273,53 +220,53 @@
         </div>
         <!-- Reveal button: only shown in Full Test mode -->
         <button id="prep-reveal-btn"
+                class="practice-reveal-btn w-full text-xs py-2 px-4 rounded-lg font-medium transition"
                 style="display:none;"
-                class="w-full text-xs py-2 px-4 rounded-lg font-medium transition"
-                style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.1);"
-                onmouseover="this.style.background='rgba(255,255,255,0.1)'"
-                onmouseout="this.style.background='rgba(255,255,255,0.06)'"
                 onclick="PracticeApp.revealQuestionText()">
-          👁 Hiện câu hỏi
+          <i data-lucide="eye"></i>
+          Hiện câu hỏi
         </button>
       </div>
 
       <!-- Cue card (Part 2 only) -->
       <div id="prep-cue" class="hidden ds-cue-card mb-6">
-        <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#14b8a6;">
-          📋 Cue Card — Hãy nói về:
+        <p class="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">
+          <i data-lucide="clipboard-list"></i>
+          Cue Card — Hãy nói về:
         </p>
         <div id="prep-cue-bullets" class="mb-3"></div>
-        <p id="prep-cue-reflection" class="text-sm italic" style="color:rgba(255,255,255,0.45);"></p>
+        <p id="prep-cue-reflection" class="practice-cue-card__reflection text-sm italic"></p>
       </div>
 
       <!-- Instruction (text swapped by JS based on mode) -->
-      <p id="prep-instruction" class="text-xs text-center mb-6" style="color:rgba(255,255,255,0.3);">
+      <p id="prep-instruction" class="practice-prep-instruction text-xs text-center mb-6">
         Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.
       </p>
 
-      <button id="prep-start-btn" class="btn-primary w-full py-4 text-base"
+      <button id="prep-start-btn" class="btn-primary practice-icon-btn w-full py-4 text-base"
               onclick="PracticeApp.goToRecording()">
-        🎙 Bắt đầu ghi âm
+        <i data-lucide="mic"></i>
+        Bắt đầu ghi âm
       </button>
 
       <!-- ── Inline recording controls (shown after clicking start) ──────── -->
       <div id="inline-rec-section" style="display:none;margin-top:16px;">
 
         <!-- Error banner -->
-        <div id="rec-error" class="ds-callout"
-             style="display:none;background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.3);border-left-color:#f87171;color:#f87171;margin-bottom:16px;"></div>
+        <div id="rec-error" class="ds-callout practice-error-callout" style="display:none;"></div>
 
         <!-- Sub-state A: idle (shown on re-record; recording starts immediately on first click) -->
         <div id="rec-idle" style="display:none;">
           <div class="text-center py-4">
-            <div class="ds-rec-ring mb-3" style="border-color:rgba(20,184,166,0.35);background:rgba(20,184,166,0.06);animation:none;">
-              <span style="font-size:2rem;">🎙️</span>
+            <div class="ds-rec-ring practice-rec-ring--idle mb-3">
+              <i data-lucide="mic" class="practice-rec-ring__icon"></i>
             </div>
-            <p class="text-sm font-medium mb-1" style="color:rgba(255,255,255,0.6);">Sẵn sàng ghi âm</p>
+            <p class="practice-rec-idle-label text-sm font-medium mb-1">Sẵn sàng ghi âm</p>
           </div>
-          <button class="btn-primary w-full py-4 text-base"
+          <button class="btn-primary practice-icon-btn w-full py-4 text-base"
                   onclick="PracticeApp.startRecording()">
-            🎙 Bắt đầu ghi âm
+            <i data-lucide="mic"></i>
+            Bắt đầu ghi âm
           </button>
         </div>
 
@@ -327,44 +274,43 @@
         <div id="rec-recording" style="display:none;">
           <div class="text-center mb-4">
             <div class="flex items-center justify-center gap-3 mb-2">
-              <span style="width:10px;height:10px;border-radius:50%;background:#f87171;
-                           display:inline-block;animation:pulse-dot 1.2s ease infinite;"></span>
+              <span class="practice-rec-dot"></span>
               <span id="rec-timer"
-                    class="text-5xl font-extrabold tabular-nums"
-                    style="letter-spacing:-0.02em;color:#fff;">0:00</span>
+                    class="practice-rec-timer text-5xl font-extrabold tabular-nums">0:00</span>
             </div>
-            <p class="text-xs" style="color:rgba(255,255,255,0.3);">
+            <p class="practice-rec-hint text-xs">
               Đang ghi âm — nói rõ ràng vào microphone
             </p>
           </div>
-          <canvas id="rec-canvas" width="600" height="56"
-                  style="width:100%;border-radius:12px;display:block;margin-bottom:16px;
-                         background:rgba(255,255,255,0.03);
-                         border:1px solid rgba(255,255,255,0.06);"></canvas>
-          <button class="btn-danger w-full py-4 text-sm font-bold"
+          <canvas id="rec-canvas" width="600" height="56" class="practice-rec-canvas"></canvas>
+          <button class="btn-danger practice-icon-btn w-full py-4 text-sm font-bold"
                   onclick="PracticeApp.stopRecording()">
-            ⏹ Dừng ghi âm
+            <i data-lucide="square"></i>
+            Dừng ghi âm
           </button>
         </div>
 
         <!-- Sub-state C: recorded -->
         <div id="rec-recorded" style="display:none;">
           <div class="text-center py-4">
-            <div style="font-size:48px;line-height:1;margin-bottom:10px;">✅</div>
-            <p class="text-sm font-semibold mb-1" style="color:#4ade80;">Đã ghi âm xong!</p>
-            <p id="rec-duration-display"
-               class="text-xs" style="color:rgba(255,255,255,0.35);"></p>
+            <div class="practice-rec-success">
+              <i data-lucide="check-circle"></i>
+            </div>
+            <p class="practice-rec-success-label text-sm font-semibold mb-1">Đã ghi âm xong!</p>
+            <p id="rec-duration-display" class="practice-rec-duration text-xs"></p>
           </div>
           <div class="flex gap-3">
-            <button class="btn-ghost py-3 text-sm font-semibold"
+            <button class="btn-ghost practice-icon-btn py-3 text-sm font-semibold"
                     style="flex:1;"
                     onclick="PracticeApp.resetRecording()">
-              🔄 Ghi lại
+              <i data-lucide="rotate-ccw"></i>
+              Ghi lại
             </button>
-            <button class="btn-primary py-3 text-sm font-bold"
+            <button class="btn-primary practice-icon-btn py-3 text-sm font-bold"
                     style="flex:2;"
                     onclick="PracticeApp.submitRecording()">
-              📤 Nộp để chấm điểm
+              <i data-lucide="upload"></i>
+              Nộp để chấm điểm
             </button>
           </div>
         </div>
@@ -376,46 +322,38 @@
     <div id="state-p2a" class="state block-state flex-1 px-5 py-6 max-w-xl mx-auto w-full">
       <div class="flex items-center gap-2 mb-5">
         <span class="ds-badge ds-badge-teal">Part 2</span>
-        <span id="p2a-topic" class="text-sm" style="color:rgba(255,255,255,0.45);"></span>
+        <span id="p2a-topic" class="practice-p2a-topic text-sm"></span>
       </div>
-      <div class="card p-5 mb-5" style="border:1px solid rgba(20,184,166,0.25);">
-        <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#14b8a6;">Cue Card</p>
+      <div class="card practice-card--cue p-5 mb-5">
+        <p class="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">Cue Card</p>
         <p id="p2a-question"
-           class="text-base font-semibold mb-4"
-           style="color:rgba(255,255,255,0.9);line-height:1.6;"></p>
+           class="practice-p2a-question text-base font-semibold mb-4"></p>
         <ul id="p2a-bullets" class="space-y-2 mb-3" style="list-style:none;padding:0;margin:0;"></ul>
-        <p id="p2a-reflection" class="text-sm" style="color:rgba(255,255,255,0.55);font-style:italic;"></p>
+        <p id="p2a-reflection" class="practice-p2a-reflection text-sm"></p>
       </div>
-      <p class="text-xs text-center mb-5" style="color:rgba(255,255,255,0.3);">
+      <p class="practice-prep-instruction text-xs text-center mb-5">
         Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.
       </p>
-      <button class="btn-primary w-full py-4 text-sm font-bold"
+      <button class="btn-primary practice-icon-btn w-full py-4 text-sm font-bold"
               onclick="PracticeApp.startP2Prep()">
-        ▶ Bắt đầu 1 phút chuẩn bị
+        <i data-lucide="play"></i>
+        Bắt đầu 1 phút chuẩn bị
       </button>
     </div>
 
     <!-- STATE: P2-B — Prep countdown ───────────────────────────────────────── -->
     <div id="state-p2b" class="state block-state flex-1 px-5 py-6 max-w-xl mx-auto w-full">
-      <p class="text-xs font-bold uppercase tracking-wider text-center mb-3"
-         style="color:rgba(255,255,255,0.3);">Thời gian chuẩn bị</p>
-      <p id="p2b-timer"
-         class="text-6xl font-extrabold tabular-nums text-center mb-6"
-         style="letter-spacing:-0.03em;color:#f97316;">1:00</p>
+      <p class="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p>
+      <p id="p2b-timer" class="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6">1:00</p>
       <div class="card p-4 mb-4">
-        <p class="text-xs font-bold uppercase tracking-wider mb-2"
-           style="color:rgba(255,255,255,0.3);">Câu hỏi</p>
-        <p id="p2b-question" class="text-sm"
-           style="color:rgba(255,255,255,0.7);line-height:1.6;"></p>
+        <p class="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Câu hỏi</p>
+        <p id="p2b-question" class="practice-p2b-question text-sm"></p>
       </div>
       <div class="card p-4 mb-5">
-        <p class="text-xs font-bold uppercase tracking-wider mb-2"
-           style="color:rgba(255,255,255,0.3);">Ghi chú của bạn</p>
+        <p class="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Ghi chú của bạn</p>
         <textarea id="p2b-notes" rows="4"
-                  placeholder="Ghi nhanh ý chính, từ vựng quan trọng..."
-                  style="width:100%;background:transparent;border:none;outline:none;
-                         color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;
-                         resize:none;font-family:inherit;"></textarea>
+                  class="practice-p2b-notes"
+                  placeholder="Ghi nhanh ý chính, từ vựng quan trọng..."></textarea>
       </div>
       <button class="btn-ghost w-full py-3 text-sm font-semibold"
               onclick="PracticeApp.startP2SpeakingEarly()">
@@ -427,23 +365,18 @@
     <div id="state-p2c" class="state block-state flex-1 px-5 py-6 max-w-xl mx-auto w-full">
       <div class="text-center mb-6">
         <div class="flex items-center justify-center gap-3 mb-2">
-          <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;
-                       display:inline-block;animation:pulse-dot 1.2s ease infinite;"></span>
-          <span id="p2c-timer"
-                class="text-5xl font-extrabold tabular-nums"
-                style="letter-spacing:-0.02em;color:#fff;">2:00</span>
+          <span class="practice-rec-dot"></span>
+          <span id="p2c-timer" class="practice-rec-timer text-5xl font-extrabold tabular-nums">2:00</span>
         </div>
-        <p class="text-xs" style="color:rgba(255,255,255,0.3);">
+        <p class="practice-rec-hint text-xs">
           Đang ghi âm — nói về chủ đề trên cue card
         </p>
       </div>
-      <canvas id="p2c-canvas" width="600" height="56"
-              style="width:100%;border-radius:12px;display:block;margin-bottom:20px;
-                     background:rgba(255,255,255,0.03);
-                     border:1px solid rgba(255,255,255,0.06);"></canvas>
-      <button class="btn-danger w-full py-4 text-sm font-bold"
+      <canvas id="p2c-canvas" width="600" height="56" class="practice-rec-canvas practice-rec-canvas--p2c"></canvas>
+      <button class="btn-danger practice-icon-btn w-full py-4 text-sm font-bold"
               onclick="PracticeApp.stopP2SpeakingEarly()">
-        ⏹ Dừng sớm
+        <i data-lucide="square"></i>
+        Dừng sớm
       </button>
     </div>
 
@@ -452,9 +385,8 @@
       <div class="spinner"></div>
       <div>
         <p id="processing-text"
-           class="text-base font-semibold"
-           style="color:rgba(255,255,255,0.75);min-height:1.5em;"></p>
-        <p class="text-xs mt-2" style="color:rgba(255,255,255,0.3);">Vui lòng không đóng trang này</p>
+           class="practice-processing-text text-base font-semibold"></p>
+        <p class="practice-processing-sub text-xs mt-2">Vui lòng không đóng trang này</p>
       </div>
     </div>
 
@@ -478,7 +410,7 @@
 
       <!-- Comments / criterion feedback -->
       <div class="card p-5 mb-4">
-        <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:rgba(255,255,255,0.3);">
+        <p class="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-3">
           Nhận xét
         </p>
         <div id="feedback-comments"></div>
@@ -486,36 +418,34 @@
 
       <!-- Transcript -->
       <div id="feedback-transcript" class="card p-4 mb-4" style="display:none;">
-        <p class="text-xs font-bold uppercase tracking-wider mb-2"
-           style="color:rgba(255,255,255,0.2);">Văn bản nhận dạng</p>
+        <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p>
         <p id="feedback-transcript-text"
-           class="text-xs leading-relaxed"
-           style="color:rgba(255,255,255,0.45);"></p>
+           class="practice-transcript-text text-xs leading-relaxed"></p>
       </div>
 
       <!-- Audio replay / download (JS-populated, only shown when local recording available) -->
-      <div id="feedback-audio-section" style="display:none;margin-bottom:20px;">
+      <div id="feedback-audio-section" class="practice-feedback-audio" style="display:none;">
         <div class="flex gap-2">
-          <button class="btn-ghost py-2.5 text-xs font-semibold"
+          <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
                   style="flex:1;"
                   onclick="PracticeApp.replayAudio()">
-            🔊 Nghe lại
+            <i data-lucide="volume-2"></i>
+            Nghe lại
           </button>
-          <button class="btn-ghost py-2.5 text-xs font-semibold"
+          <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
                   style="flex:1;"
                   onclick="PracticeApp.downloadAudio()">
-            ⬇ Tải audio
+            <i data-lucide="download"></i>
+            Tải audio
           </button>
         </div>
       </div>
 
       <!-- Grammar Resources (populated by JS after grading) -->
-      <div id="grammar-resources" style="display:none;margin-bottom:20px;">
-        <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:20px;">
-          <p class="text-xs font-bold uppercase tracking-wider mb-1"
-             style="color:#14b8a6;letter-spacing:.08em;">Quick Grammar Tip</p>
-          <p class="text-xs mb-3"
-             style="color:rgba(255,255,255,0.35);line-height:1.5;">
+      <div id="grammar-resources" class="practice-feedback-divider" style="display:none;">
+        <div class="practice-feedback-divider__inner">
+          <p class="practice-feedback-eyebrow text-xs font-bold uppercase tracking-wider mb-1">Quick Grammar Tip</p>
+          <p class="practice-feedback-sub text-xs mb-3">
             Dựa trên lỗi ngữ pháp trong câu trả lời vừa rồi
           </p>
           <div id="grammar-resources-cards" class="flex flex-col gap-2.5"></div>
@@ -523,14 +453,14 @@
       </div>
 
       <!-- Pronunciation Assessment (practice mode: auto-triggered inline) -->
-      <div id="pronunciation-section" style="display:none;margin-bottom:20px;">
-        <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:20px;">
-          <p style="font-size:10px;font-weight:700;color:#14b8a6;text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px;">Phân tích phát âm chuyên sâu</p>
-          <p style="font-size:11px;color:rgba(255,255,255,0.32);line-height:1.6;margin:0 0 14px;">Ngoài nhận xét chung ở trên, hệ thống cũng phân tích kỹ hơn phần phát âm để bạn biết nên luyện thêm ở đâu.</p>
+      <div id="pronunciation-section" class="practice-feedback-divider" style="display:none;">
+        <div class="practice-feedback-divider__inner">
+          <p class="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p>
+          <p class="practice-feedback-sub practice-feedback-sub--xs">Ngoài nhận xét chung ở trên, hệ thống cũng phân tích kỹ hơn phần phát âm để bạn biết nên luyện thêm ở đâu.</p>
           <!-- Loading state — separate from result, toggled independently -->
-          <div id="pron-loading-block" style="display:none;padding:12px 14px;background:rgba(20,184,166,0.04);border:1px solid rgba(20,184,166,0.12);border-radius:12px;align-items:center;gap:10px;">
-            <div class="spinner" style="width:14px;height:14px;border-width:2px;flex-shrink:0;"></div>
-            <p style="font-size:11px;color:rgba(255,255,255,0.38);margin:0;">Đang phân tích bài nói của bạn...</p>
+          <div id="pron-loading-block" class="practice-pron-loading" style="display:none;">
+            <div class="spinner practice-pron-loading__spinner"></div>
+            <p class="practice-pron-loading__text">Đang phân tích bài nói của bạn...</p>
           </div>
           <!-- Result block — shown only when assessment is ready -->
           <div id="pron-result-block" style="display:none;"></div>
@@ -540,16 +470,18 @@
       <!-- Navigation buttons (JS controls display) -->
       <div class="flex flex-col gap-3">
         <button id="btn-next-q"
-                class="btn-primary w-full py-3.5 text-sm"
+                class="btn-primary practice-icon-btn w-full py-3.5 text-sm"
                 style="display:none;"
                 onclick="PracticeApp.nextQuestion()">
-          Câu tiếp theo →
+          Câu tiếp theo
+          <i data-lucide="arrow-right"></i>
         </button>
         <button id="btn-finish"
-                class="btn-primary w-full py-3.5 text-sm"
+                class="btn-primary practice-icon-btn w-full py-3.5 text-sm"
                 style="display:none;"
                 onclick="PracticeApp.finishSession()">
-          Hoàn thành phiên luyện ✓
+          <i data-lucide="check"></i>
+          Hoàn thành phiên luyện
         </button>
       </div>
     </div>
@@ -558,53 +490,43 @@
     <div id="state-completion" class="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center">
 
       <!-- Check icon -->
-      <div style="width:72px;height:72px;border-radius:50%;background:rgba(20,184,166,0.12);border:2px solid rgba(20,184,166,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
-        <svg style="width:32px;height:32px;" fill="none" viewBox="0 0 24 24" stroke="#14b8a6" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-        </svg>
+      <div class="practice-completion-check">
+        <i data-lucide="check"></i>
       </div>
 
-      <h2 style="font-size:1.25rem;font-weight:700;color:#e2e8f0;margin-bottom:8px;">Bạn đã hoàn thành Full Test!</h2>
-      <p style="font-size:0.875rem;color:rgba(255,255,255,0.5);margin-bottom:28px;max-width:360px;line-height:1.65;">
+      <h2 class="practice-completion-title">Bạn đã hoàn thành Full Test!</h2>
+      <p class="practice-completion-desc">
         Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.
       </p>
 
       <!-- Info card -->
-      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px 22px;max-width:360px;width:100%;margin-bottom:28px;text-align:left;">
-        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
-          <div style="width:28px;height:28px;border-radius:8px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
-            <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="#14b8a6" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
+      <div class="practice-completion-info">
+        <div class="practice-completion-info__row">
+          <div class="practice-completion-info__icon">
+            <i data-lucide="clock"></i>
           </div>
           <div>
-            <p style="font-size:0.8rem;font-weight:600;color:#e2e8f0;margin:0 0 3px;">Kết quả sẽ có trong ít phút</p>
-            <p style="font-size:0.75rem;color:rgba(255,255,255,0.45);line-height:1.55;margin:0;">Thường trong vòng 10–15 phút, band score và nhận xét đầy đủ sẽ xuất hiện tại <strong style="color:rgba(255,255,255,0.7);">Lịch sử sessions</strong> trên Dashboard.</p>
+            <p class="practice-completion-info__title">Kết quả sẽ có trong ít phút</p>
+            <p class="practice-completion-info__desc">Thường trong vòng 10–15 phút, band score và nhận xét đầy đủ sẽ xuất hiện tại <strong>Lịch sử sessions</strong> trên Dashboard.</p>
           </div>
         </div>
-        <div style="display:flex;align-items:flex-start;gap:12px;">
-          <div style="width:28px;height:28px;border-radius:8px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
-            <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="#14b8a6" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
+        <div class="practice-completion-info__row">
+          <div class="practice-completion-info__icon">
+            <i data-lucide="check-circle-2"></i>
           </div>
           <div>
-            <p style="font-size:0.8rem;font-weight:600;color:#e2e8f0;margin:0 0 3px;">Bạn không cần ngồi chờ ở đây</p>
-            <p style="font-size:0.75rem;color:rgba(255,255,255,0.45);line-height:1.55;margin:0;">Hệ thống sẽ xử lý phần còn lại. Bạn có thể về Dashboard hoặc luyện thêm ngay bây giờ.</p>
+            <p class="practice-completion-info__title">Bạn không cần ngồi chờ ở đây</p>
+            <p class="practice-completion-info__desc">Hệ thống sẽ xử lý phần còn lại. Bạn có thể về Dashboard hoặc luyện thêm ngay bây giờ.</p>
           </div>
         </div>
       </div>
 
       <!-- CTAs -->
-      <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px;">
-        <a href="speaking.html"
-           style="display:block;padding:14px;border-radius:14px;font-size:0.875rem;font-weight:700;background:#0F766E;color:#fff;text-decoration:none;text-align:center;"
-           onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <div class="practice-completion-ctas">
+        <a href="speaking.html" class="practice-completion-cta practice-completion-cta--primary">
           Về Dashboard
         </a>
-        <a href="speaking.html#history"
-           style="display:block;padding:14px;border-radius:14px;font-size:0.875rem;font-weight:600;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);text-decoration:none;text-align:center;border:1px solid rgba(255,255,255,0.1);"
-           onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+        <a href="speaking.html#history" class="practice-completion-cta practice-completion-cta--ghost">
           Xem Lịch sử sessions
         </a>
       </div>
@@ -612,46 +534,45 @@
 
     <!-- STATE: Break (Full Test inter-part pause) ───────────────────────────── -->
     <div id="state-break" class="state flex-1 items-center justify-center flex-col gap-4 px-6 text-center">
-      <p id="break-part-label" class="text-sm font-semibold uppercase tracking-wider"
-         style="color:#14b8a6;"></p>
-      <p id="break-timer" class="font-bold" style="color:#f97316;font-size:5rem;line-height:1;">30</p>
-      <p class="text-sm" style="color:rgba(255,255,255,0.5);">Phần tiếp theo sẽ bắt đầu tự động</p>
+      <p id="break-part-label" class="practice-break-label text-sm font-semibold uppercase tracking-wider"></p>
+      <p id="break-timer" class="practice-break-timer font-bold">30</p>
+      <p class="practice-break-hint text-sm">Phần tiếp theo sẽ bắt đầu tự động</p>
     </div>
 
     <!-- STATE: Test Results ──────────────────────────────────────────────────── -->
     <div id="state-test-results" class="state block-state flex-1 px-5 py-8 max-w-2xl mx-auto w-full">
       <h2 class="text-xl font-bold mb-2 text-center">Kết quả bài Test</h2>
-      <p class="text-xs text-center mb-6" style="color:rgba(255,255,255,0.4);">Tổng hợp tất cả câu trả lời trong buổi test</p>
+      <p class="practice-test-results-sub text-xs text-center mb-6">Tổng hợp tất cả câu trả lời trong buổi test</p>
 
       <!-- Overall band -->
-      <div id="test-overall-wrap" class="card p-6 mb-6 text-center" style="border:1px solid rgba(20,184,166,0.3);">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#14b8a6;">Overall Band (trung bình)</p>
-        <div id="test-overall-band" class="text-6xl font-bold" style="color:#14b8a6;">—</div>
+      <div id="test-overall-wrap" class="card practice-overall-wrap p-6 mb-6 text-center">
+        <p class="practice-overall-eyebrow text-xs font-semibold uppercase tracking-wider mb-2">Overall Band (trung bình)</p>
+        <div id="test-overall-band" class="practice-overall-band text-6xl font-bold">—</div>
       </div>
 
       <!-- Per-question results -->
       <div id="test-results-list" class="flex flex-col gap-4 mb-6"></div>
 
       <!-- Full-test Pronunciation Assessment block (populated async by JS) -->
-      <div id="full-pron-section" style="display:none;margin-bottom:24px;">
-        <p style="font-size:10px;font-weight:700;color:#14b8a6;text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px;">Phân tích phát âm chuyên sâu</p>
-        <p style="font-size:11px;color:rgba(255,255,255,0.32);line-height:1.6;margin:0 0 12px;">Dựa trên các bài nói của bạn trong cả ba phần, hệ thống tổng hợp nhận xét phát âm để bạn thấy rõ điểm cần luyện thêm.</p>
+      <div id="full-pron-section" class="practice-full-pron-section" style="display:none;">
+        <p class="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p>
+        <p class="practice-feedback-sub practice-feedback-sub--xs">Dựa trên các bài nói của bạn trong cả ba phần, hệ thống tổng hợp nhận xét phát âm để bạn thấy rõ điểm cần luyện thêm.</p>
         <div id="full-pron-block"></div>
       </div>
 
       <!-- Export PDF -->
       <button id="btn-export-pdf"
               onclick="PracticeApp.downloadPDFs(this)"
-              class="w-full py-3 rounded-2xl font-bold text-sm mb-3"
-              style="background:rgba(20,184,166,0.15);color:#14b8a6;border:1px solid rgba(20,184,166,0.3);transition:all 0.15s;">
-        📄 Tải xuống báo cáo PDF
+              class="practice-pdf-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm mb-3">
+        <i data-lucide="file-down"></i>
+        Tải xuống báo cáo PDF
       </button>
 
       <!-- Back to dashboard -->
       <button onclick="PracticeApp.finishSession()"
-              class="w-full py-3 rounded-2xl font-bold text-sm"
-              style="background:#0F766E;color:#fff;">
-        Về Dashboard →
+              class="practice-finish-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm">
+        Về Dashboard
+        <i data-lucide="arrow-right"></i>
       </button>
     </div>
 
@@ -672,6 +593,36 @@
     document.getElementById('hdr-progress').classList.remove('hidden');
 
     PracticeApp.init();
+  </script>
+
+  <!-- ── Lucide icon hydration (Sprint 6.5) ────────────────────────
+       The Lucide CDN script is loaded with `defer` in <head>; we still
+       run a render on DOMContentLoaded + window.load as a belt-and-
+       suspenders fallback (matches the speaking.html pattern). -->
+  <script>
+    (function () {
+      function _renderLucide() {
+        if (window.lucide && window.lucide.createIcons) {
+          window.lucide.createIcons();
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _renderLucide);
+      } else {
+        _renderLucide();
+      }
+      window.addEventListener('load', _renderLucide);
+    })();
+  </script>
+
+  <!-- ── Theme toggle binding (Sprint 6.5) ──────────────────────────
+       The IIFE in <head> already applied data-theme synchronously to
+       prevent a flash. theme-toggle.js auto-runs initTheme() on import
+       and we wire the click handler to the .av-theme-toggle button. -->
+  <script type="module">
+    import { bindToggleButton } from '../js/theme-toggle.js';
+    const btn = document.querySelector('.av-theme-toggle');
+    if (btn) bindToggleButton(btn);
   </script>
 </body>
 </html>
