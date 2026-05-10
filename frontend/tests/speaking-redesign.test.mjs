@@ -488,6 +488,151 @@ describe('speaking.html / Sprint 6.4.1 hotfix', () => {
 // ── Sprint 6.4.1 — speaking.css token + spacing discipline ────────
 
 
+// ── Sprint 6.4.2 — light theme contrast hotfix ───────────────────
+
+
+describe('speaking.html / Sprint 6.4.2 light contrast', () => {
+  test('--av-text-faint usage is capped to truly auxiliary contexts', () => {
+    // Sprint 6.4.1 over-mapped rgba opacity 0.30/0.35 → --av-text-faint.
+    // On light theme, faint resolves to ~32% navy = ~3:1 contrast against
+    // the cream surface, failing WCAG AA. Sprint 6.4.2 lifted helper
+    // text + sub-labels + stat sub-text to --av-text-secondary or
+    // --av-text-muted. The only legitimate uses left are: em-dash empty
+    // cells, disabled pagination buttons, and relative timestamps.
+    const matches = html.match(/var\(--av-text-faint\)/g) || [];
+    assert.ok(
+      matches.length <= 8,
+      `--av-text-faint usage in HTML is ${matches.length}; expected ≤ 8 ` +
+      `(em-dash, disabled-state, timestamps). Anything more means helper ` +
+      `text or sub-labels are being painted at ~3:1 contrast on light theme.`,
+    );
+  });
+
+  test('helper text in parentheses uses --av-text-secondary', () => {
+    // Andy's smoke report: "(tùy chọn — để trống = ngẫu nhiên từ thư viện)"
+    // was unreadable on light theme. Pin both occurrences (PART 1 + PART 2)
+    // and the question hint "(mỗi dòng một câu, tối đa 10)".
+    const tuyChonMatches = html.match(/\(tùy chọn — để trống = ngẫu nhiên từ thư viện\)/g) || [];
+    assert.equal(tuyChonMatches.length, 2, 'expected 2 occurrences of the optional-helper string');
+
+    // Each occurrence must wrap in --av-text-secondary, not --av-text-faint.
+    const faintHelper = /color:var\(--av-text-faint\);">\(tùy chọn/.test(html);
+    assert.ok(
+      !faintHelper,
+      'Full Test helper text "(tùy chọn — ...)" must use --av-text-secondary, not --av-text-faint',
+    );
+  });
+
+  test('PART sub-labels (cue card / câu hỏi / câu) use --av-text-secondary', () => {
+    // The small inline labels next to "PART 1" / "PART 2" / "PART 3"
+    // (e.g. "1 cue card", "5 câu hỏi", "3 chủ đề × 3 câu = 9 câu") are
+    // structural cues, not auxiliary metadata.
+    const candidates = [
+      '3 chủ đề × 3 câu = 9 câu',
+      '1 cue card',
+      '5 câu hỏi',
+    ];
+    for (const label of candidates) {
+      // Build a regex that requires --av-text-secondary (or stronger)
+      // immediately preceding the label inside the same span style.
+      const faintRe = new RegExp(`color:var\\(--av-text-faint\\);">\\s*${label.replace(/[\.\*\+\?\(\)\\\[\]]/g, '\\$&')}\\s*<`);
+      assert.ok(
+        !faintRe.test(html),
+        `PART sub-label "${label}" must NOT use --av-text-faint (fails WCAG AA on light theme)`,
+      );
+    }
+  });
+
+  test('stat-card sub-text (Chưa có dữ liệu / Kể từ khi tham gia) uses --av-text-muted', () => {
+    // Stat-card sub-lines are visible to every user on first load. The
+    // empty-data placeholder ("Chưa có dữ liệu") and the meta line
+    // ("Kể từ khi tham gia", "Chưa có buổi học nào") need to read clearly
+    // even when they're the only content the user sees.
+    const noData = /id="stat-band-sub"[^>]*style="color:var\(--av-text-muted\)/.test(html);
+    assert.ok(noData, '#stat-band-sub must use --av-text-muted on light theme');
+
+    const lastTopic = /id="stat-last-topic"[^>]*style="color:var\(--av-text-muted\)/.test(html);
+    assert.ok(lastTopic, '#stat-last-topic must use --av-text-muted on light theme');
+  });
+});
+
+
+describe('speaking.css / Sprint 6.4.2 fixes', () => {
+  test('.grammar-sub-title uses --av-text-secondary (eyebrow labels)', () => {
+    // Eyebrow labels (CẦN LUYỆN, ĐIỂM YẾU, ĐÃ XEM, BÀI ĐÃ LƯU) drive
+    // the grammar dashboard's information hierarchy. They were faint
+    // in 6.4.1 and disappeared on light cream surface.
+    const m = css.match(/\.grammar-sub-title\s*\{([^}]+)\}/);
+    assert.ok(m, '.grammar-sub-title rule must exist');
+    assert.match(
+      m[1],
+      /color\s*:\s*var\(--av-text-secondary\)/,
+      '.grammar-sub-title must use --av-text-secondary so the eyebrow labels read on cream',
+    );
+  });
+
+  test('.grammar-empty-text uses --av-text-secondary (only visible copy)', () => {
+    // Empty-state copy in the grammar dashboard is the entire content
+    // when the user has no data. It must read as primary copy, not
+    // ghost text.
+    const m = css.match(/\.grammar-empty-text\s*\{([^}]+)\}/);
+    assert.ok(m, '.grammar-empty-text rule must exist');
+    assert.match(
+      m[1],
+      /color\s*:\s*var\(--av-text-secondary\)/,
+      '.grammar-empty-text must use --av-text-secondary',
+    );
+  });
+
+  test('.grammar-pill-sub uses --av-text-muted (legible secondary copy)', () => {
+    const m = css.match(/\.grammar-pill-sub\s*\{([^}]+)\}/);
+    assert.ok(m, '.grammar-pill-sub rule must exist');
+    assert.match(
+      m[1],
+      /color\s*:\s*var\(--av-text-muted\)/,
+      '.grammar-pill-sub must use --av-text-muted (was --av-text-faint in 6.4.1)',
+    );
+  });
+
+  test('--av-text-faint usage in CSS is limited to placeholder rules', () => {
+    // Placeholder convention (browser default UX) is the only place the
+    // 32%-opacity tier reads correctly — the user expects ghost text.
+    // Anything else is a contrast bug waiting to happen.
+    const faintMatches = css.match(/var\(--av-text-faint\)/g) || [];
+    assert.ok(
+      faintMatches.length <= 4,
+      `speaking.css references --av-text-faint ${faintMatches.length} times; ` +
+      `expected ≤ 4 (placeholder rules only)`,
+    );
+
+    // Each remaining --av-text-faint reference must be on a ::placeholder
+    // selector or inside a rule whose selector contains "placeholder".
+    const lines = css.split('\n');
+    let inRule = false;
+    let ruleSelector = '';
+    let ruleBody = '';
+    for (const line of lines) {
+      if (line.includes('{')) {
+        inRule = true;
+        ruleSelector = line.split('{')[0].trim();
+        ruleBody = '';
+      }
+      if (inRule) ruleBody += line + '\n';
+      if (line.includes('}')) {
+        if (/var\(--av-text-faint\)/.test(ruleBody)) {
+          assert.ok(
+            /placeholder/.test(ruleSelector),
+            `speaking.css uses --av-text-faint in non-placeholder rule "${ruleSelector}" — ` +
+            `lift to --av-text-muted or --av-text-secondary`,
+          );
+        }
+        inRule = false;
+      }
+    }
+  });
+});
+
+
 describe('speaking.css / Sprint 6.4.1 fixes', () => {
   test('does NOT reference the non-existent --av-space-5 token', () => {
     // The 4px-grid scale in tokens.css intentionally skips 5/7/9. Sprint
