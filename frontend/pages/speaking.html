@@ -217,28 +217,28 @@
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Band TB 30 ngày</p>
         <p id="stat-band" class="text-3xl font-extrabold" style="color:#14b8a6;">—</p>
-        <p id="stat-band-sub" class="text-xs mt-1" style="color:var(--av-text-faint);">Chưa có dữ liệu</p>
+        <p id="stat-band-sub" class="text-xs mt-1" style="color:var(--av-text-muted);">Chưa có dữ liệu</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Tổng sessions</p>
         <p id="stat-total" class="text-3xl font-extrabold text-white">0</p>
-        <p class="text-xs mt-1" style="color:var(--av-text-faint);">Kể từ khi tham gia</p>
+        <p class="text-xs mt-1" style="color:var(--av-text-muted);">Kể từ khi tham gia</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Buổi học gần nhất</p>
         <p id="stat-last-date" class="text-xl font-extrabold text-white">—</p>
-        <p id="stat-last-topic" class="text-xs mt-1 truncate" style="color:var(--av-text-faint);">Chưa có buổi học nào</p>
+        <p id="stat-last-topic" class="text-xs mt-1 truncate" style="color:var(--av-text-muted);">Chưa có buổi học nào</p>
       </div>
 
       <div class="stat-card rounded-2xl p-5">
         <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Streak hiện tại</p>
         <div class="flex items-end gap-1.5">
           <p id="stat-streak" class="text-3xl font-extrabold text-white">0</p>
-          <p class="text-lg font-semibold mb-0.5" style="color:var(--av-text-faint);">ngày</p>
+          <p class="text-lg font-semibold mb-0.5" style="color:var(--av-text-muted);">ngày</p>
         </div>
-        <p class="text-xs mt-1" style="color:var(--av-text-faint);">🔥 Duy trì chuỗi!</p>
+        <p class="text-xs mt-1" style="color:var(--av-text-muted);">🔥 Duy trì chuỗi!</p>
       </div>
 
     </section>
@@ -271,7 +271,7 @@
           <div id="line-chart-wrap" style="position:relative;height:220px;">
             <canvas id="chart-line"></canvas>
           </div>
-          <p id="line-chart-empty" class="hidden text-center text-sm py-16" style="color:var(--av-text-faint);">
+          <p id="line-chart-empty" class="hidden text-center text-sm py-16" style="color:var(--av-text-muted);">
             Cần ít nhất 2 sessions để hiện biểu đồ
           </p>
         </div>
@@ -279,12 +279,12 @@
         <!-- Radar chart -->
         <div class="stat-card rounded-2xl p-5">
           <p class="ds-section-head mb-1">Điểm mạnh yếu 4 tiêu chí
-            <span class="ml-1 normal-case font-normal" style="color:var(--av-text-faint);">5 sessions gần nhất</span>
+            <span class="ml-1 normal-case font-normal" style="color:var(--av-text-muted);">5 sessions gần nhất</span>
           </p>
           <div id="radar-chart-wrap" style="position:relative;height:235px;">
             <canvas id="chart-radar"></canvas>
           </div>
-          <p id="radar-chart-empty" class="hidden text-center text-sm py-16" style="color:var(--av-text-faint);">
+          <p id="radar-chart-empty" class="hidden text-center text-sm py-16" style="color:var(--av-text-muted);">
             Chưa có dữ liệu tiêu chí chi tiết
           </p>
         </div>
@@ -556,7 +556,7 @@
 
         <div class="mb-3">
           <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
-            Câu hỏi <span style="color:var(--av-text-faint);">(mỗi dòng một câu, tối đa 10)</span>
+            Câu hỏi <span style="color:var(--av-text-secondary);">(mỗi dòng một câu, tối đa 10)</span>
           </label>
           <textarea id="prac-custom-q" rows="5" class="tab-input" style="resize:vertical;min-height:110px;"
                     placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable experience."
@@ -646,7 +646,7 @@
         <p class="text-xs leading-relaxed" style="color:var(--av-text-muted);">
           3 câu hỏi về chủ đề quen thuộc. Phản hồi coaching chi tiết.
         </p>
-        <p class="text-xs mt-2" style="color:var(--av-text-faint);">⏱ 4–5 phút</p>
+        <p class="text-xs mt-2" style="color:var(--av-text-muted);">⏱ 4–5 phút</p>
       </div>
 
       <div class="pbp-part-card" id="pbp-card-2" onclick="selectPbpPart(2)">
@@ -661,7 +661,7 @@
         <p class="text-xs leading-relaxed" style="color:var(--av-text-muted);">
           1 cue card, nói 2 phút sau 1 phút chuẩn bị.
         </p>
-        <p class="text-xs mt-2" style="color:var(--av-text-faint);">⏱ 3–4 phút</p>
+        <p class="text-xs mt-2" style="color:var(--av-text-muted);">⏱ 3–4 phút</p>
       </div>
 
       <div class="pbp-part-card" id="pbp-card-3" onclick="selectPbpPart(3)">
@@ -676,7 +676,7 @@
         <p class="text-xs leading-relaxed" style="color:var(--av-text-muted);">
           3 câu hỏi thảo luận chuyên sâu về vấn đề xã hội.
         </p>
-        <p class="text-xs mt-2" style="color:var(--av-text-faint);">⏱ 4–5 phút</p>
+        <p class="text-xs mt-2" style="color:var(--av-text-muted);">⏱ 4–5 phút</p>
       </div>
 
     </div>
@@ -743,11 +743,11 @@
                style="background:rgba(15,118,110,0.2);">💬</div>
           <div>
             <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 1</span>
-            <span class="text-xs ml-2" style="color:var(--av-text-faint);">3 chủ đề × 3 câu = 9 câu</span>
+            <span class="text-xs ml-2" style="color:var(--av-text-secondary);">3 chủ đề × 3 câu = 9 câu</span>
           </div>
         </div>
         <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
-          3 chủ đề <span style="color:var(--av-text-faint);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
+          3 chủ đề <span style="color:var(--av-text-secondary);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
         </label>
         <div class="space-y-2">
           <input id="ft-p1-topic-1" type="text" class="tab-input"
@@ -769,11 +769,11 @@
                style="background:rgba(15,118,110,0.2);">🗒️</div>
           <div>
             <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 2</span>
-            <span class="text-xs ml-2" style="color:var(--av-text-faint);">1 cue card</span>
+            <span class="text-xs ml-2" style="color:var(--av-text-secondary);">1 cue card</span>
           </div>
         </div>
         <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
-          Chủ đề <span style="color:var(--av-text-faint);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
+          Chủ đề <span style="color:var(--av-text-secondary);">(tùy chọn — để trống = ngẫu nhiên từ thư viện)</span>
         </label>
         <input id="ft-p2-topic" type="text" class="tab-input"
                placeholder="Ví dụ: A person you admire, A memorable journey..."
@@ -787,7 +787,7 @@
                style="background:rgba(15,118,110,0.2);">🧠</div>
           <div>
             <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Part 3</span>
-            <span class="text-xs ml-2" style="color:var(--av-text-faint);">5 câu hỏi</span>
+            <span class="text-xs ml-2" style="color:var(--av-text-secondary);">5 câu hỏi</span>
           </div>
         </div>
         <p class="text-xs mt-2" style="color:var(--av-text-muted);">
@@ -867,7 +867,7 @@
         <textarea id="myq-input" rows="5" class="topic-input" style="resize:vertical;min-height:100px;"
                   placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable trip you have taken."
                   maxlength="2000"></textarea>
-        <p class="text-xs mt-1.5" style="color:var(--av-text-faint);">
+        <p class="text-xs mt-1.5" style="color:var(--av-text-secondary);">
           Tối đa 10 câu hỏi. App sẽ bỏ qua bước tạo câu hỏi AI và đi thẳng vào luyện tập.
         </p>
       </div>
@@ -1171,7 +1171,7 @@
                 : '<span style="color:var(--av-text-faint);">—</span>';
           const viewBtn = s.id
             ? (isPending || isFailed)
-              ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:var(--av-text-faint);border:1px solid var(--av-border-subtle);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
+              ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:var(--av-text-muted);border:1px solid var(--av-border-subtle);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
               : `<a href="result.html?id=${s.id}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:#14b8a6;border:1px solid rgba(20,184,166,0.3);" onmouseover="this.style.background='rgba(20,184,166,0.1)'" onmouseout="this.style.background='transparent'">Xem lại</a>`
             : '—';
           const mode = s.mode || 'practice';
@@ -2203,7 +2203,7 @@
             a.innerHTML = `
               <span class="grammar-weak-dot"></span>
               <span class="text-sm font-medium flex-1" style="color:var(--av-text-primary);">${escHtml(item.label_vi || item.tag)}</span>
-              <span class="text-xs" style="color:var(--av-text-faint);">${item.occurrence_count}× lỗi</span>`;
+              <span class="text-xs" style="color:var(--av-text-muted);">${item.occurrence_count}× lỗi</span>`;
             weakList.appendChild(a);
           });
           if (!weakList.children.length) weakWrap.classList.add('hidden');

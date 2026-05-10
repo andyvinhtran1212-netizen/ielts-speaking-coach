@@ -430,7 +430,13 @@
   font-weight: var(--av-fw-semibold);
   text-transform: uppercase;
   letter-spacing: var(--av-tracking-widest);
-  color: var(--av-text-faint);
+  /* Sprint 6.4.2: section eyebrows (CẦN LUYỆN, ĐIỂM YẾU, ĐÃ XEM,
+     BÀI ĐÃ LƯU) are primary navigation cues, not auxiliary metadata.
+     --av-text-faint resolves to ~32% opacity navy in light theme,
+     which fails WCAG AA against the cream surface. Lift to
+     --av-text-secondary (~68% in light) so the labels read crisply
+     in both themes. */
+  color: var(--av-text-secondary);
   margin-bottom: var(--av-space-3);
 }
 
@@ -461,7 +467,9 @@
   display: block;
   font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-regular);
-  color: var(--av-text-faint);
+  /* Sprint 6.4.2: was --av-text-faint; bumped to --av-text-muted so
+     the pill subtitle stays legible on cream surface. */
+  color: var(--av-text-muted);
   margin-top: 1px;
 }
 
@@ -515,7 +523,10 @@
 
 .grammar-empty-text {
   font-size: var(--av-fs-xs);
-  color: var(--av-text-faint);
+  /* Sprint 6.4.2: empty-state copy is the only thing visible in this
+     section when the user has no data — it must read clearly. Lifted
+     from --av-text-faint to --av-text-secondary. */
+  color: var(--av-text-secondary);
   text-align: center;
   padding: var(--av-space-4) 0;
 }
