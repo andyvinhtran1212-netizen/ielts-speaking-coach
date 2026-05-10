@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Speaking — Aver Learning</title>
+
+  <!-- Sprint 6.4: speaking.html stays dark-only pending an inline-style
+       sweep (the page still ships ~159 hardcoded `rgba(255,255,255, X)`
+       values from Sprint 5.1 inside tab panels and the history table).
+       The IIFE forces data-theme="dark" for THIS page only — the user's
+       global localStorage preference is left untouched, so home /
+       vocabulary / etc. resume their preferred theme on navigation.
+       The theme toggle button is intentionally omitted on this page; it
+       returns once the inline-style sweep ships. -->
+  <script>
+    (function () {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -15,8 +30,8 @@
             teal:  { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
           fontFamily: {
-            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
-            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         },
       },
@@ -25,307 +40,40 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css and speaking.css. ds.css is kept because the page
+       still references .ds-empty / .ds-section-head / .ds-badge from
+       Sprint 5.1 — moving those is a follow-up cleanup. -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/ds.css" />
+  <link rel="stylesheet" href="../css/speaking.css" />
+
+  <!-- Lucide icons (line glyphs replacing the Sprint 5.1 emoji nav). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+
   <style>
-    /* Background and atmosphere now provided by body.ds-canvas in ds.css. */
-
-    .sidebar-bg { background: #0C2340; border-right: 1px solid rgba(255,255,255,0.06); }
-    .main-bg    { background: #0d1e35; }
-
-    .stat-card  {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .stat-card:hover { border-color: rgba(15,118,110,0.35); background: rgba(15,118,110,0.07); }
-
-    .part-card {
-      background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(15,118,110,0.08) 100%);
-      border: 1px solid rgba(255,255,255,0.09);
-      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
-    }
-    .part-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(20,184,166,0.4);
-      box-shadow: 0 12px 32px rgba(15,118,110,0.2);
-    }
-
-    .btn-start {
-      background: #0F766E;
-      transition: background 0.15s, transform 0.15s;
-    }
-    .btn-start:hover { background: #0d5f58; transform: translateY(-1px); }
-    .btn-start:active { transform: translateY(0); }
-
-    .btn-fulltest {
-      background: linear-gradient(90deg, #0F766E, #0ea5e9);
-      transition: opacity 0.15s, transform 0.15s;
-    }
-    .btn-fulltest:hover { opacity: 0.9; transform: translateY(-1px); }
-
-    .btn-test {
-      background: rgba(239,68,68,0.12);
-      color: #f87171;
-      border: 1px solid rgba(239,68,68,0.3);
-      transition: background 0.15s, transform 0.15s;
-      flex-shrink: 0;
-    }
-    .btn-test:hover { background: rgba(239,68,68,0.22); transform: translateY(-1px); }
-
-    .avatar-ring { box-shadow: 0 0 0 2px #0F766E; }
-
-    /* skeleton shimmer */
-    @keyframes shimmer {
-      0%   { background-position: -400px 0; }
-      100% { background-position:  400px 0; }
-    }
-    .skeleton {
-      background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
-      background-size: 800px 100%;
-      animation: shimmer 1.4s infinite;
-      border-radius: 6px;
-    }
-
-    /* table row hover */
-    .session-row { transition: background 0.15s; }
-    .session-row:hover { background: rgba(15,118,110,0.08); }
-
-    /* badge */
-    .badge-done    { background: rgba(20,184,166,0.15); color: #14b8a6; }
-    .badge-pending { background: rgba(250,204,21,0.12); color: #fbbf24; }
-
-    /* custom scrollbar */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
-
-    /* ── Topic Modal ──────────────────────────────────────── */
-    .modal-backdrop {
-      position: fixed; inset: 0; z-index: 50;
-      background: rgba(0,0,0,0.65);
-      backdrop-filter: blur(4px);
-      display: flex; align-items: center; justify-content: center;
-      padding: 16px;
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.2s ease;
-    }
-    .modal-backdrop.open { opacity: 1; pointer-events: auto; }
-
-    .modal-box {
-      background: #0C2340;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 20px;
-      width: 100%; max-width: 480px;
-      padding: 28px;
-      transform: translateY(12px);
-      transition: transform 0.22s ease;
-    }
-    .modal-backdrop.open .modal-box { transform: translateY(0); }
-
-    .topic-tab {
-      flex: 1; padding: 8px 12px; font-size: 13px; font-weight: 600;
-      border-radius: 10px; border: none; cursor: pointer;
-      background: transparent; color: rgba(255,255,255,0.45);
-      transition: background 0.15s, color 0.15s;
-    }
-    .topic-tab.active {
-      background: rgba(15,118,110,0.25);
-      color: #14b8a6;
-    }
-
-    .topic-input {
-      width: 100%; background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px; padding: 10px 14px;
-      color: #fff; font-size: 14px; outline: none;
-      transition: border-color 0.15s;
-    }
-    .topic-input:focus { border-color: rgba(20,184,166,0.5); }
-    .topic-input option { background: #0C2340; }
-
-    .btn-confirm {
-      width: 100%; background: #0F766E; color: #fff;
-      border: none; border-radius: 12px;
-      padding: 12px; font-size: 14px; font-weight: 700;
-      cursor: pointer; transition: background 0.15s, transform 0.12s;
-    }
-    .btn-confirm:hover { background: #0d5f58; transform: translateY(-1px); }
-    .btn-confirm:active { transform: translateY(0); }
-    .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    .modal-error {
-      font-size: 12px; color: #f87171;
-      min-height: 18px; margin-top: 6px;
-    }
-
-    /* ── Main Tab Navigation ──────────────────────────────── */
-    .main-tab-nav {
-      background: #0C2340;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      padding: 0 24px;
-      display: flex;
-      gap: 2px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .main-tab-nav::-webkit-scrollbar { display: none; }
-    .main-tab-btn {
-      padding: 12px 20px 14px;
-      font-size: 14px; font-weight: 600;
-      color: rgba(255,255,255,0.45);
-      border: none;
-      border-bottom: 3px solid transparent;
-      background: transparent;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s, background 0.15s;
-      margin-bottom: -1px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 3px;
-    }
-    .main-tab-btn:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.03); }
-    .main-tab-btn.active { color: #14b8a6; border-bottom-color: #14b8a6; background: rgba(20,184,166,0.06); }
-    .main-tab-label { white-space: nowrap; }
-    .main-tab-sub {
-      font-size: 11px;
-      font-weight: 400;
-      color: rgba(255,255,255,0.3);
-      white-space: nowrap;
-    }
-    .main-tab-btn.active .main-tab-sub { color: rgba(20,184,166,0.6); }
-    .main-tab-btn:hover .main-tab-sub { color: rgba(255,255,255,0.5); }
-    .main-tab-panel { display: none; }
-    .main-tab-panel.active { display: block; }
-
-    /* ── Tab panel cards ──────────────────────────────────── */
-    .option-card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 24px;
-      transition: border-color 0.2s;
-    }
-    .option-card:hover { border-color: rgba(20,184,166,0.2); }
-    .part-select-btn {
-      flex: 1; padding: 12px 8px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      color: rgba(255,255,255,0.6);
-      font-size: 13px; font-weight: 600;
-      cursor: pointer; text-align: center;
-      transition: all 0.15s;
-    }
-    .part-select-btn:hover { border-color: rgba(20,184,166,0.4); color: #14b8a6; }
-    .part-select-btn.selected {
-      background: rgba(15,118,110,0.2);
-      border-color: #14b8a6; color: #14b8a6;
-    }
-    .tab-input {
-      width: 100%; background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px; padding: 10px 14px;
-      color: #fff; font-size: 14px; outline: none;
-      transition: border-color 0.15s;
-    }
-    .tab-input:focus { border-color: rgba(20,184,166,0.5); }
-    .tab-input::placeholder { color: rgba(255,255,255,0.28); }
-    .tab-input option { background: #0C2340; }
-    .pbp-part-card {
-      background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(15,118,110,0.08) 100%);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 16px; padding: 20px;
-      cursor: pointer;
-      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
-    }
-    .pbp-part-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(20,184,166,0.35);
-      box-shadow: 0 8px 24px rgba(15,118,110,0.15);
-    }
-    .pbp-part-card.selected {
-      border-color: #14b8a6;
-      background: linear-gradient(145deg, rgba(20,184,166,0.1) 0%, rgba(15,118,110,0.15) 100%);
-      box-shadow: 0 4px 16px rgba(20,184,166,0.2);
-    }
-    .ft-part-row {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 14px; padding: 18px 20px;
-    }
-    .tab-error { font-size: 12px; color: #f87171; min-height: 18px; margin-top: 6px; }
-
-    /* ── Grammar Dashboard Section ───────────────────────── */
-    .grammar-section {
-      background: rgba(255,255,255,0.02);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 20px;
-      padding: 24px;
-    }
-    .grammar-sub-title {
-      font-size: 11px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.08em;
-      color: rgba(255,255,255,0.35);
-      margin-bottom: 10px;
-    }
-    .grammar-pill {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(15,118,110,0.18);
-      border: 1px solid rgba(20,184,166,0.25);
-      border-radius: 999px;
-      padding: 5px 12px;
-      font-size: 12px; font-weight: 600; color: #14b8a6;
-      text-decoration: none;
-      transition: background 0.15s, border-color 0.15s;
-      cursor: pointer;
-    }
-    .grammar-pill:hover { background: rgba(15,118,110,0.3); border-color: rgba(20,184,166,0.5); }
-    .grammar-pill-sub {
-      display: block;
-      font-size: 11px; font-weight: 400;
-      color: rgba(255,255,255,0.35);
-      margin-top: 1px;
-    }
-    .grammar-weak-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 12px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-      text-decoration: none;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .grammar-weak-item:hover { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
-    .grammar-weak-dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-      background: #f87171;
-    }
-    .grammar-recent-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 10px;
-      border-radius: 8px;
-      text-decoration: none;
-      transition: background 0.15s;
-    }
-    .grammar-recent-item:hover { background: rgba(255,255,255,0.05); }
-    .grammar-saved-item {
-      display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      padding: 8px 12px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-    }
-    .grammar-empty-text {
-      font-size: 12px; color: rgba(255,255,255,0.3);
-      text-align: center; padding: 14px 0;
-    }
+    /* Sprint 5.1 / 6.4 — page-local overrides retained:
+       inline <style> below intentionally empty after Sprint 6.4
+       extracted the dashboard CSS into /css/speaking.css. Kept as a
+       hook so a future bug-fix can apply a one-off rule without
+       creating yet another stylesheet. */
+  </style>
+  <style id="legacy-removed">
+    /* The 296-line Sprint 5.1 inline <style> block lived here (rules
+       for .sidebar-bg / .main-bg / .stat-card / .part-card / .btn-* /
+       .skeleton / .session-row / .badge-* / .modal-* / .topic-* /
+       .main-tab-nav / .main-tab-btn / .option-card / .part-select-btn /
+       .tab-input / .pbp-part-card / .ft-part-row / .grammar-* etc.)
+       Sprint 6.4 moved every rule to /css/speaking.css using --av-*
+       tokens. Class names + selectors are byte-identical so the
+       inline JS state machine continues to find what it expects. */
   </style>
 </head>
-<body class="text-white font-sans antialiased min-h-screen flex flex-col ds-canvas">
+<body class="av-page text-white font-sans antialiased min-h-screen flex flex-col">
 
   <!-- ─── HEADER ─────────────────────────────────────────── -->
   <header class="sidebar-bg sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
@@ -389,31 +137,43 @@
   </script>
 
   <!-- ─── MAIN TAB NAV ─────────────────────────────────────── -->
+  <!-- Sprint 6.4: emoji icons (📊🎯📋🏆📖📚) swapped for Lucide line
+       glyphs to match the design system direction. The button id /
+       class / onclick attributes are unchanged so switchMainTab(...)
+       and the active-state CSS still resolve. .main-tab-sub is kept
+       in markup but hidden by speaking.css for a calmer single-line
+       nav row. -->
   <nav class="main-tab-nav">
     <button id="mtab-dashboard" class="main-tab-btn active" onclick="switchMainTab('dashboard')">
-      <span class="main-tab-label">📊 Dashboard</span>
+      <i data-lucide="layout-dashboard"></i>
+      <span class="main-tab-label">Dashboard</span>
     </button>
     <button id="mtab-practice"  class="main-tab-btn"        onclick="switchMainTab('practice')">
-      <span class="main-tab-label">🎯 Luyện tập</span>
+      <i data-lucide="target"></i>
+      <span class="main-tab-label">Luyện tập</span>
       <span class="main-tab-sub">Luyện từng câu, nhận phản hồi tức thì</span>
     </button>
     <button id="mtab-partbpart" class="main-tab-btn"        onclick="switchMainTab('partbpart')">
-      <span class="main-tab-label">📋 Luyện từng Part</span>
+      <i data-lucide="list-checks"></i>
+      <span class="main-tab-label">Luyện từng Part</span>
       <span class="main-tab-sub">Luyện đúng cấu trúc từng Part IELTS</span>
     </button>
     <button id="mtab-fulltest"  class="main-tab-btn"        onclick="switchMainTab('fulltest')">
-      <span class="main-tab-label">🏆 Full Test</span>
+      <i data-lucide="trophy"></i>
+      <span class="main-tab-label">Full Test</span>
       <span class="main-tab-sub">Thi thật — Part 1, 2, 3 liên tiếp</span>
     </button>
     <a href="../grammar.html" class="main-tab-btn" style="text-decoration:none;">
-      <span class="main-tab-label">📖 Grammar Wiki</span>
+      <i data-lucide="book-open"></i>
+      <span class="main-tab-label">Grammar Wiki</span>
       <span class="main-tab-sub">Tra cứu ngữ pháp IELTS</span>
     </a>
     <!-- Sprint 6.0 — Vocabulary + Flashcards + Exercises moved to the
          unified /pages/vocabulary.html landing. A single nav link
          replaces the three separate sidebar entries. -->
     <a href="/pages/vocabulary.html" class="main-tab-btn" style="text-decoration:none;">
-      <span class="main-tab-label">📚 Từ vựng</span>
+      <i data-lucide="library"></i>
+      <span class="main-tab-label">Từ vựng</span>
       <span class="main-tab-sub">My vocab · Flashcards · Bài tập</span>
     </a>
   </nav>
@@ -520,8 +280,10 @@
         <!-- Quick: Practice -->
         <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('practice')">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
-                 style="background:rgba(15,118,110,0.2);">🎯</div>
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center"
+                 style="background:rgba(15,118,110,0.2);color:#14b8a6;">
+              <i data-lucide="target" style="width:22px;height:22px;"></i>
+            </div>
             <div>
               <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Luyện tập</span>
               <h3 class="font-bold text-sm leading-tight">Practice</h3>
@@ -537,8 +299,10 @@
         <!-- Quick: Part-by-Part -->
         <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('partbpart')">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
-                 style="background:rgba(15,118,110,0.2);">📋</div>
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center"
+                 style="background:rgba(15,118,110,0.2);color:#14b8a6;">
+              <i data-lucide="list-checks" style="width:22px;height:22px;"></i>
+            </div>
             <div>
               <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Luyện từng Part</span>
               <h3 class="font-bold text-sm leading-tight">Part-by-Part</h3>
@@ -554,8 +318,10 @@
         <!-- Quick: Full Test -->
         <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('fulltest')">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl"
-                 style="background:rgba(15,118,110,0.2);">🏆</div>
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center"
+                 style="background:rgba(15,118,110,0.2);color:#14b8a6;">
+              <i data-lucide="trophy" style="width:22px;height:22px;"></i>
+            </div>
             <div>
               <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Full Test</span>
               <h3 class="font-bold text-sm leading-tight">IELTS Simulation</h3>
@@ -2448,6 +2214,28 @@
     }
 
     init();
+  </script>
+
+  <!-- ── Lucide icon hydration (Sprint 6.4) ───────────────── -->
+  <!-- Renders any <i data-lucide="..."> elements in the page. The
+       Lucide CDN script is loaded with `defer` in <head>, so the
+       global `lucide` may or may not be present by the time this
+       runs — the listener is the safe fallback. -->
+  <script>
+    (function () {
+      function _renderLucide() {
+        if (window.lucide && window.lucide.createIcons) {
+          window.lucide.createIcons();
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _renderLucide);
+      } else {
+        _renderLucide();
+      }
+      // Also rerun once Lucide finishes loading (it's deferred).
+      window.addEventListener('load', _renderLucide);
+    })();
   </script>
 
 </body>
