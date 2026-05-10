@@ -4,7 +4,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Kết quả — IELTS Speaking Coach</title>
+  <title>Kết quả — Aver Learning</title>
+
+  <!-- Sprint 6.6: result.html supports both light + dark themes from
+       day 1 (Sprint 6.4.1/6.4.2/6.5.1 lessons applied). The IIFE below
+       mirrors the canonical anti-flash bootstrap from home / speaking /
+       practice: localStorage 'av-theme' wins, system preference is the
+       fallback, hardcoded 'light' is the last-resort catch. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme = stored
+          || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -15,8 +34,8 @@
             teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
           fontFamily: {
-            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
-            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         },
       },
@@ -25,89 +44,63 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css and result.css. ds.css is kept because the page
+       still references .ds-band-hero / .ds-band-value / .ds-band-label /
+       .ds-crit / .ds-crit-fc/-lr/-gra/-p / .ds-crit-score / .ds-crit-label /
+       .ds-section-head / .ds-fadein. result.css adds scoped overrides
+       under body.av-page (Sprint 6.5.1 pattern). -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/ds.css" />
-  <style>
-    /* Background and atmosphere now provided by body.ds-canvas in ds.css. */
+  <link rel="stylesheet" href="../css/result.css" />
 
-    .band-high  { color: #14b8a6; }
-    .band-mid   { color: #fbbf24; }
-    .band-low   { color: #f97316; }
-    .band-none  { color: #6b7280; }
-
-    .criterion-card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 16px;
-      text-align: center;
-    }
-
-    .acc-body { display: none; }
-    .acc-body.open { display: block; }
-    .acc-chevron { transition: transform 0.2s; }
-    .acc-chevron.rotated { transform: rotate(180deg); }
-
-    .transcript-block {
-      border-left: 3px solid #0d9488;
-      background: rgba(13,148,136,0.07);
-      border-radius: 0 6px 6px 0;
-      padding: 12px 16px;
-      font-style: italic;
-      color: #94a3b8;
-    }
-
-    .improved-block {
-      border-left: 3px solid #3b82f6;
-      background: rgba(59,130,246,0.07);
-      border-radius: 0 6px 6px 0;
-      padding: 12px 16px;
-      color: #93c5fd;
-    }
-
-    .card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-    }
-
-    .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid rgba(20,184,166,0.2);
-      border-top-color: #14b8a6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  <!-- Lucide icons (line glyphs replacing the legacy hand-rolled SVGs). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="text-slate-100 font-sans min-h-screen ds-canvas">
+<body class="av-page font-sans min-h-screen">
 
   <!-- Header -->
-  <header style="background:#0C2340; border-bottom:1px solid rgba(255,255,255,0.06);" class="px-6 py-4">
-    <div class="max-w-3xl mx-auto flex items-center gap-4">
-      <a href="speaking.html" class="text-teal-light hover:text-teal-light/80 transition-colors flex items-center gap-2 text-sm font-medium" style="color:#14b8a6;">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+  <header class="result-header px-6 py-4">
+    <div class="max-w-3xl mx-auto flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <a href="speaking.html" class="result-back-link">
+          <i data-lucide="chevron-left"></i>
+          Dashboard
+        </a>
+        <span class="result-header__sep">|</span>
+        <h1 class="result-header__title text-base font-semibold">Kết quả luyện tập</h1>
+      </div>
+
+      <!-- Sprint 6.6: theme toggle (full theme support from day 1) -->
+      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+        <svg class="av-theme-toggle__icon av-theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
         </svg>
-        Dashboard
-      </a>
-      <span class="text-slate-600">|</span>
-      <h1 class="text-base font-semibold text-slate-200">Kết quả luyện tập</h1>
+        <svg class="av-theme-toggle__icon av-theme-toggle__icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
     </div>
   </header>
 
   <!-- Loading state -->
   <div id="state-loading" class="flex flex-col items-center justify-center py-32">
     <div class="spinner mb-4"></div>
-    <p class="text-slate-400 text-sm">Đang tải kết quả…</p>
+    <p class="result-loading-msg text-sm">Đang tải kết quả…</p>
   </div>
 
   <!-- Error state -->
   <div id="state-error" class="hidden max-w-3xl mx-auto px-6 py-16 text-center">
-    <p class="text-red-400 text-lg font-semibold mb-2">Không thể tải kết quả</p>
-    <p id="error-msg" class="text-slate-400 text-sm mb-6"></p>
+    <div class="result-error-icon">
+      <i data-lucide="alert-triangle"></i>
+    </div>
+    <p class="result-error-title text-lg font-semibold mb-2">Không thể tải kết quả</p>
+    <p id="error-msg" class="result-error-msg text-sm mb-6"></p>
     <a href="speaking.html" class="btn-primary">Quay lại Dashboard</a>
   </div>
 
@@ -117,10 +110,10 @@
     <!-- Session meta -->
     <div class="card p-5">
       <div class="flex flex-wrap items-center gap-3 mb-1">
-        <span id="meta-part" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" style="background:rgba(20,184,166,0.15);color:#14b8a6;"></span>
-        <span id="meta-topic" class="text-lg font-semibold text-slate-100"></span>
+        <span id="meta-part" class="result-meta-part text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"></span>
+        <span id="meta-topic" class="result-meta-topic text-lg font-semibold"></span>
       </div>
-      <p id="meta-date" class="text-slate-400 text-sm"></p>
+      <p id="meta-date" class="result-meta-date text-sm"></p>
     </div>
 
     <!-- Overall band + criteria -->
@@ -155,22 +148,22 @@
     <!-- Strengths / Improvements -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="card p-5">
-        <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#14b8a6;">Điểm mạnh</h3>
-        <ul id="strengths-list" class="space-y-2 text-sm text-slate-300"></ul>
+        <h3 class="result-card-eyebrow result-card-eyebrow--strength text-xs font-bold uppercase tracking-wider mb-3">Điểm mạnh</h3>
+        <ul id="strengths-list" class="result-feedback-list space-y-2 text-sm"></ul>
       </div>
       <div class="card p-5">
-        <h3 class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#fbbf24;">Cần cải thiện</h3>
-        <ul id="improvements-list" class="space-y-2 text-sm text-slate-300"></ul>
+        <h3 class="result-card-eyebrow result-card-eyebrow--improve text-xs font-bold uppercase tracking-wider mb-3">Cần cải thiện</h3>
+        <ul id="improvements-list" class="result-feedback-list space-y-2 text-sm"></ul>
       </div>
     </div>
 
     <!-- Grammar Resources -->
-    <div id="grammar-resources" style="display:none;">
-      <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:24px;">
-        <p class="text-xs font-bold uppercase tracking-wider mb-1" style="color:#14b8a6;letter-spacing:.08em;">
+    <div id="grammar-resources" class="result-grammar-section" style="display:none;">
+      <div class="result-grammar-section__inner">
+        <p class="result-card-eyebrow result-card-eyebrow--brand text-xs font-bold uppercase tracking-wider mb-1">
           Grammar Resources
         </p>
-        <p class="text-sm mb-4" style="color:rgba(255,255,255,0.35);">
+        <p class="result-grammar-sub text-sm mb-4">
           Bài học ngữ pháp liên quan đến lỗi hoặc điểm cần cải thiện trong bài của bạn
         </p>
         <div id="grammar-resources-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
@@ -179,28 +172,22 @@
 
     <!-- Per-question accordion -->
     <div>
-      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Chi tiết từng câu hỏi</h2>
+      <h2 class="result-section-eyebrow text-xs font-bold uppercase tracking-wider mb-3">Chi tiết từng câu hỏi</h2>
       <div id="accordion-container" class="space-y-3"></div>
     </div>
 
     <!-- Action buttons -->
     <div class="flex flex-wrap gap-3 justify-center pb-8">
-      <button id="btn-pdf" class="btn-primary">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        </svg>
+      <button id="btn-pdf" class="btn-primary result-icon-btn">
+        <i data-lucide="file-down"></i>
         Tải báo cáo PDF
       </button>
-      <a href="speaking.html" class="btn-secondary">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
+      <a href="speaking.html" class="btn-secondary result-icon-btn">
+        <i data-lucide="layout-dashboard"></i>
         Dashboard
       </a>
-      <button id="btn-retry" class="btn-secondary">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
+      <button id="btn-retry" class="btn-secondary result-icon-btn">
+        <i data-lucide="rotate-ccw"></i>
         Luyện lại chủ đề này
       </button>
     </div>
@@ -303,7 +290,7 @@
       var el = document.getElementById(elId);
       if (!el) return;
       if (!items || items.length === 0) {
-        el.innerHTML = '<li class="text-slate-500 italic text-xs">Không có dữ liệu</li>';
+        el.innerHTML = '<li class="av-text-faint italic text-xs">Không có dữ liệu</li>';
         return;
       }
       el.innerHTML = items.map(function (item) {
@@ -333,7 +320,7 @@
       }).join('');
       return '<div>'
         + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:' + color + ';">' + title + '</div>'
-        + '<ul class="space-y-1 text-sm" style="color:rgba(255,255,255,0.75);list-style:none;padding:0;">' + lis + '</ul>'
+        + '<ul class="space-y-1 text-sm" style="color:var(--av-text-secondary);list-style:none;padding:0;">' + lis + '</ul>'
         + '</div>';
     }
 
@@ -351,32 +338,32 @@
           var href = '/grammar.html?category=' + encodeURIComponent(rec.category)
             + '&slug=' + encodeURIComponent(rec.slug)
             + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
-          linkHtml = ' <a href="' + href + '" style="color:#818cf8;font-size:11px;'
+          linkHtml = ' <a href="' + href + '" style="color:var(--av-info);font-size:11px;'
             + 'text-decoration:underline;opacity:0.85;" target="_blank">'
             + '→ ' + escHtml(rec.title || rec.slug) + '</a>';
         }
         return '<li class="flex gap-2">'
-          + '<span style="color:#f87171;margin-top:2px;flex-shrink:0;">●</span>'
+          + '<span style="color:var(--av-error);margin-top:2px;flex-shrink:0;">●</span>'
           + '<span>' + issueHtml + linkHtml + '</span>'
           + '</li>';
       }).join('');
       return '<div>'
-        + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:#f87171;">Grammar Issues</div>'
-        + '<ul class="space-y-1 text-sm" style="color:rgba(255,255,255,0.75);list-style:none;padding:0;">' + lis + '</ul>'
+        + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:var(--av-error);">Grammar Issues</div>'
+        + '<ul class="space-y-1 text-sm" style="color:var(--av-text-secondary);list-style:none;padding:0;">' + lis + '</ul>'
         + '</div>';
     }
 
     function _fbCorrections(corrections) {
       if (!corrections || corrections.length === 0) return '';
       var rows = corrections.map(function (c) {
-        return '<div style="padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:8px;margin-bottom:8px;">'
-          + '<div class="text-sm mb-1" style="color:#f87171;">❌ ' + escHtml(c.original) + '</div>'
-          + '<div class="text-sm mb-1" style="color:#4ade80;">✓ ' + escHtml(c.corrected) + '</div>'
-          + '<div class="text-xs italic" style="color:rgba(255,255,255,0.5);">' + escHtml(c.explanation) + '</div>'
+        return '<div style="padding:10px 12px;background:var(--av-surface-card);border:1px solid var(--av-border-subtle);border-radius:8px;margin-bottom:8px;">'
+          + '<div class="text-sm mb-1" style="color:var(--av-error);">❌ ' + escHtml(c.original) + '</div>'
+          + '<div class="text-sm mb-1" style="color:var(--av-success);">✓ ' + escHtml(c.corrected) + '</div>'
+          + '<div class="text-xs italic" style="color:var(--av-text-muted);">' + escHtml(c.explanation) + '</div>'
           + '</div>';
       }).join('');
       return '<div>'
-        + '<div class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#fb923c;">Corrections</div>'
+        + '<div class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:var(--av-warning);">Corrections</div>'
         + rows + '</div>';
     }
 
@@ -391,7 +378,7 @@
       if (!container) return;
 
       if (!questions || questions.length === 0) {
-        container.innerHTML = '<p class="text-slate-500 text-sm">Không có câu hỏi nào.</p>';
+        container.innerHTML = '<p class="av-text-faint text-sm">Không có câu hỏi nào.</p>';
         return;
       }
 
@@ -418,7 +405,7 @@
           var cls = bandClass(parseFloat(fb.overall_band));
           bandHtml = '<span class="text-xs font-semibold ' + cls + ' mr-2">Band: '
             + roundHalf(parseFloat(fb.overall_band)).toFixed(1) + '</span>'
-            + '<span class="text-xs" style="color:rgba(255,255,255,0.4);">Practice mode</span>';
+            + '<span class="text-xs" style="color:var(--av-text-muted);">Practice mode</span>';
         }
 
         var transcript = (r && r.transcript) ? escHtml(r.transcript) : null;
@@ -430,7 +417,7 @@
         if (audioUrl) {
           var safeUrl = escHtml(audioUrl);
           var dlName  = 'recording-q' + (idx + 1) + '.webm';
-          audioHtml = '<div style="padding:8px 20px;border-top:1px solid rgba(255,255,255,0.06);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+          audioHtml = '<div style="padding:8px 20px;border-top:1px solid var(--av-border-subtle);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
             + '<button onclick="toggleAudio(this, \'' + safeUrl + '\')" data-playing="false" class="btn-secondary" style="font-size:12px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;">'
             +   '<svg xmlns=\'http://www.w3.org/2000/svg\' class=\'w-3.5 h-3.5\' fill=\'currentColor\' viewBox=\'0 0 24 24\'><path d=\'M8 5v14l11-7z\'/></svg>'
             +   'Nghe lại'
@@ -447,7 +434,7 @@
 
         if (transcript) {
           bodyHtml += '<div>'
-            + '<div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Bản ghi lời nói</div>'
+            + '<div class="text-xs font-semibold av-text-muted uppercase tracking-wider mb-1.5">Bản ghi lời nói</div>'
             + '<div class="transcript-block text-sm">' + transcript + '</div>'
             + '</div>';
         }
@@ -458,17 +445,17 @@
             : r.stt_status === 'failed'
               ? 'Không nhận dạng được giọng nói (STT thất bại).'
               : 'Chấm điểm chưa hoàn thành. Vui lòng thử lại sau.';
-          bodyHtml += '<div class="text-sm text-amber-400/80 italic">' + statusMsg + '</div>';
+          bodyHtml += '<div class="text-sm result-acc-failed italic">' + statusMsg + '</div>';
         } else if (fb && isPractice) {
           // Practice mode: coaching sections
-          bodyHtml += _fbSection('Strengths', fb.strengths, '#4ade80');
+          bodyHtml += _fbSection('Strengths', fb.strengths, 'var(--av-success)');
           bodyHtml += _fbGrammarIssues(fb.grammar_issues, fb.grammar_recommendations);
-          bodyHtml += _fbSection('Vocabulary Issues', fb.vocabulary_issues, '#fb923c');
+          bodyHtml += _fbSection('Vocabulary Issues', fb.vocabulary_issues, 'var(--av-warning)');
           bodyHtml += _fbSection('Pronunciation', fb.pronunciation_issues, '#a78bfa');
           bodyHtml += _fbCorrections(fb.corrections);
           if (fb.sample_answer) {
             bodyHtml += '<div>'
-              + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:#14b8a6;">Sample Answer</div>'
+              + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:var(--av-primary);">Sample Answer</div>'
               + '<div class="improved-block text-sm">' + escHtml(fb.sample_answer) + '</div>'
               + '</div>';
           }
@@ -479,16 +466,16 @@
                            gra_feedback: 'Grammar &amp; Accuracy', p_feedback: 'Pronunciation' };
             if (fb[key]) {
               bodyHtml += '<div>'
-                + '<div class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:#14b8a6;">' + labels[key] + '</div>'
-                + '<div class="text-sm" style="color:rgba(255,255,255,0.75);line-height:1.65;">' + escHtml(fb[key]) + '</div>'
+                + '<div class="text-xs font-semibold uppercase tracking-wider mb-1" style="color:var(--av-primary);">' + labels[key] + '</div>'
+                + '<div class="text-sm" style="color:var(--av-text-secondary);line-height:1.65;">' + escHtml(fb[key]) + '</div>'
                 + '</div>';
             }
           });
-          bodyHtml += _fbSection('Điểm mạnh', fb.strengths, '#4ade80');
-          bodyHtml += _fbSection('Cần cải thiện', fb.improvements, '#fb923c');
+          bodyHtml += _fbSection('Điểm mạnh', fb.strengths, 'var(--av-success)');
+          bodyHtml += _fbSection('Cần cải thiện', fb.improvements, 'var(--av-warning)');
           if (fb.improved_response) {
             bodyHtml += '<div>'
-              + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:#14b8a6;">Câu trả lời mẫu</div>'
+              + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:var(--av-primary);">Câu trả lời mẫu</div>'
               + '<div class="improved-block text-sm">' + escHtml(fb.improved_response) + '</div>'
               + '</div>';
           }
@@ -497,12 +484,12 @@
         var pronHtml = _buildPronBlock(r || null, sessionId || '', audioUrl);
 
         return '<div class="card overflow-hidden">'
-          + '<button onclick="toggleAccordion(' + idx + ')" class="w-full text-left px-5 py-4 flex items-start justify-between gap-3 hover:bg-white/5 transition-colors">'
+          + '<button onclick="toggleAccordion(' + idx + ')" class="result-acc-btn w-full text-left px-5 py-4 flex items-start justify-between gap-3 transition-colors">'
           +   '<div class="flex-1">'
-          +     '<div class="text-sm font-semibold text-slate-200 mb-1">' + escHtml(q.question_text || '') + '</div>'
-          +     '<div class="flex flex-wrap gap-1">' + (bandHtml || (gradingFailed ? '<span class="text-xs text-amber-500">Chấm điểm không thành công</span>' : '<span class="text-xs text-slate-500">Chưa có câu trả lời</span>')) + '</div>'
+          +     '<div class="text-sm font-semibold result-acc-title mb-1">' + escHtml(q.question_text || '') + '</div>'
+          +     '<div class="flex flex-wrap gap-1">' + (bandHtml || (gradingFailed ? '<span class="text-xs result-acc-failed">Chấm điểm không thành công</span>' : '<span class="text-xs av-text-faint">Chưa có câu trả lời</span>')) + '</div>'
           +   '</div>'
-          +   '<svg id="chev-' + idx + '" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-400 acc-chevron shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">'
+          +   '<svg id="chev-' + idx + '" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 av-text-muted acc-chevron shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">'
           +     '<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />'
           +   '</svg>'
           + '</button>'
@@ -568,10 +555,10 @@
 
     // ── Pronunciation Assessment helpers ──────────────────────────────────────
     function _pronScoreColor(score) {
-      if (score == null) return '#6b7280';
-      if (score >= 75) return '#14b8a6';
-      if (score >= 55) return '#fbbf24';
-      return '#f97316';
+      if (score == null) return 'var(--av-text-muted)';
+      if (score >= 75) return 'var(--av-success)';
+      if (score >= 55) return 'var(--av-warning)';
+      return 'var(--av-error)';
     }
 
     function _pronResultHtml(result) {
@@ -585,7 +572,7 @@
         if (s.val == null) return '';
         var color = _pronScoreColor(s.val);
         return '<span style="font-size:11px;padding:3px 9px;border-radius:999px;font-weight:600;'
-          + 'background:rgba(255,255,255,0.06);color:' + color + ';">'
+          + 'background:var(--av-surface-card);color:' + color + ';">'
           + s.label + ': ' + s.val.toFixed(0) + '</span>';
       }).join(' ');
 
@@ -593,16 +580,14 @@
       if (Array.isArray(result.short_summary) && result.short_summary.length) {
         summary = '<ul style="margin:8px 0 0;padding:0;list-style:none;">'
           + result.short_summary.map(function (line) {
-              return '<li style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.5;padding:2px 0;">• ' + escHtml(line) + '</li>';
+              return '<li style="font-size:12px;color:var(--av-text-secondary);line-height:1.5;padding:2px 0;">• ' + escHtml(line) + '</li>';
             }).join('')
           + '</ul>';
       }
 
-      return '<div style="margin-top:10px;padding:10px 14px;background:rgba(139,92,246,0.07);'
-        + 'border:1px solid rgba(139,92,246,0.2);border-radius:10px;">'
-        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;'
-        + 'color:rgba(139,92,246,0.85);margin-bottom:6px;">Phát âm (Azure AI)</div>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + pills + '</div>'
+      return '<div class="result-pron-block">'
+        + '<div class="result-pron-block__eyebrow">Phát âm (Azure AI)</div>'
+        + '<div class="result-pron-block__pills">' + pills + '</div>'
         + summary
         + '</div>';
     }
@@ -650,7 +635,7 @@
           + '<path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>'
           + ' Đánh giá phát âm';
         var errDiv = document.createElement('div');
-        errDiv.style.cssText = 'font-size:12px;color:#f87171;margin-top:6px;';
+        errDiv.style.cssText = 'font-size:12px;color:var(--av-error);margin-top:6px;';
         errDiv.textContent = 'Lỗi: ' + (err.message || 'không thể đánh giá phát âm');
         resEl.appendChild(errDiv);
       }
@@ -867,37 +852,21 @@
       var reason = _grReason(match.topField, match.topic);
 
       if (isPrimary) {
-        return '<a href="' + href + '" target="_blank" rel="noopener"'
-          + ' style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;'
-          + 'background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.28);'
-          + 'border-left:3px solid #14b8a6;border-radius:14px;text-decoration:none;'
-          + 'transition:background 0.15s;"'
-          + ' onmouseover="this.style.background=\'rgba(20,184,166,0.12)\'"'
-          + ' onmouseout="this.style.background=\'rgba(20,184,166,0.07)\'">'
-          + '<div style="flex:1;min-width:0;">'
-          + '<p style="font-size:13px;font-weight:600;color:#e2e8f0;margin:0 0 3px;'
-          + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _grEsc(meta.title) + '</p>'
-          + '<p style="font-size:12px;color:rgba(255,255,255,0.45);margin:0 0 6px;line-height:1.4;">'
-          + _grEsc(meta.summary) + '</p>'
-          + '<p style="font-size:11px;color:rgba(20,184,166,0.7);margin:0;">' + _grEsc(reason) + '</p>'
+        return '<a href="' + href + '" target="_blank" rel="noopener" class="result-grammar-card result-grammar-card--primary">'
+          + '<div class="result-grammar-card__body">'
+          + '<p class="result-grammar-card__title">' + _grEsc(meta.title) + '</p>'
+          + '<p class="result-grammar-card__summary">' + _grEsc(meta.summary) + '</p>'
+          + '<p class="result-grammar-card__reason">' + _grEsc(reason) + '</p>'
           + '</div>'
-          + '<span style="flex-shrink:0;font-size:11px;font-weight:700;color:#14b8a6;'
-          + 'background:rgba(20,184,166,0.14);border-radius:8px;padding:5px 10px;'
-          + 'white-space:nowrap;align-self:center;">Học ngay →</span>'
+          + '<span class="result-grammar-card__cta">Học ngay →</span>'
           + '</a>';
       }
-      return '<a href="' + href + '" target="_blank" rel="noopener"'
-        + ' style="display:flex;align-items:center;gap:10px;padding:10px 14px;'
-        + 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
-        + 'border-radius:12px;text-decoration:none;transition:border-color 0.15s,background 0.15s;"'
-        + ' onmouseover="this.style.borderColor=\'rgba(20,184,166,0.25)\';this.style.background=\'rgba(20,184,166,0.05)\'"'
-        + ' onmouseout="this.style.borderColor=\'rgba(255,255,255,0.07)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
-        + '<div style="flex:1;min-width:0;">'
-        + '<p style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);margin:0 0 2px;'
-        + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _grEsc(meta.title) + '</p>'
-        + '<p style="font-size:11px;color:rgba(255,255,255,0.3);margin:0;">' + _grEsc(reason) + '</p>'
+      return '<a href="' + href + '" target="_blank" rel="noopener" class="result-grammar-card result-grammar-card--secondary">'
+        + '<div class="result-grammar-card__body">'
+        + '<p class="result-grammar-card__title">' + _grEsc(meta.title) + '</p>'
+        + '<p class="result-grammar-card__reason">' + _grEsc(reason) + '</p>'
         + '</div>'
-        + '<span style="flex-shrink:0;font-size:11px;color:rgba(255,255,255,0.25);">→</span>'
+        + '<span class="result-grammar-card__chevron">→</span>'
         + '</a>';
     }
 
@@ -1042,7 +1011,7 @@
 
         // ── Strengths / improvements ─────────────────────────────────────────
         var lists = aggregateLists(responses);
-        renderList('strengths-list', lists.strengths, '#14b8a6');
+        renderList('strengths-list', lists.strengths, 'var(--av-success)');
 
         // Practice-mode feedback has no `improvements` field — hide the card to avoid an empty section.
         var isPracticeSession = responses.some(function (r) {
@@ -1053,7 +1022,7 @@
           var improvCard = document.getElementById('improvements-list').closest('.card');
           if (improvCard) improvCard.style.display = 'none';
         } else {
-          renderList('improvements-list', lists.improvements, '#fbbf24');
+          renderList('improvements-list', lists.improvements, 'var(--av-warning)');
         }
 
         // ── Audio signed URLs (non-blocking) ─────────────────────────────────
@@ -1102,6 +1071,33 @@
 
     main();
   }());
+  </script>
+
+  <script>
+    // Lucide hydration + theme-toggle binding (mirrors practice.html pattern).
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { hydrateIcons(); bindToggleButton(); });
+      } else {
+        hydrateIcons();
+        bindToggleButton();
+      }
+    })();
   </script>
 </body>
 </html>

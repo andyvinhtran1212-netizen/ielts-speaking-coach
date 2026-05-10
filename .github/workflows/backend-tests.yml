@@ -96,6 +96,7 @@ jobs:
             frontend/tests/home-redesign.test.mjs \
             frontend/tests/iframe-composition-docs.test.mjs \
             frontend/tests/practice-redesign.test.mjs \
+            frontend/tests/result-redesign.test.mjs \
             frontend/tests/speaking-redesign.test.mjs \
             frontend/tests/theme-toggle.test.mjs \
             frontend/tests/typography-tier1.test.js \
