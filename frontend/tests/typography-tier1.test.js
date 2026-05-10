@@ -39,14 +39,14 @@ const path   = require('node:path');
 // System foundation in a per-page redesign sprint, it leaves this list:
 //
 //   • home.html      — migrated Sprint 6.3 (PR #121, --av-* tokens, Plus Jakarta Sans)
-//   • speaking.html  — migrated Sprint 6.4 (this PR, dark-only pending inline-style sweep)
+//   • speaking.html  — migrated Sprint 6.4 (PR #123, full theme support post-6.4.1)
+//   • practice.html  — migrated Sprint 6.5 (this PR, full light + dark from day 1)
 //
 // Pin tests for the migrated pages live in their own *-redesign.test.mjs
 // suites. This list keeps shrinking; eventually it goes empty and the
 // file gets deleted in the cleanup sprint.
 const TIER_1_PAGES = [
   'pages/writing-dashboard.html',
-  'pages/practice.html',
   'pages/result.html',
   'pages/full-test-result.html',
   'pages/profile.html',
