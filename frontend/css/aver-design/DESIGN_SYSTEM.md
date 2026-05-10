@@ -122,8 +122,19 @@ The full token catalog lives in `tokens.css`. Highlights:
 | Card surface | `#FFFFFF` | `#112236` slightly raised navy | One step elevated from page |
 | Primary | `#0F766E` (teal-700) | `#14B8A6` (teal-500) | Lighter shift on dark for AA contrast |
 | Accent | `#F59E0B` amber-500 | `#FBBF24` amber-400 | Same hue, slight value shift |
-| Text primary | `rgba(15,23,42,0.92)` | `rgba(241,245,249,0.95)` | High-emphasis copy |
-| Text muted | `rgba(15,23,42,0.50)` | `rgba(241,245,249,0.55)` | Secondary metadata |
+
+### Text tokens — semantic tiers + WCAG contrast
+
+Choose the token by **semantic role**, not by what the legacy opacity number was. Per Sprint 6.4.1 → 6.4.2 lesson (see `UNIFIED_DESIGN_BRIEF.md` § 11), opacity-driven migration ships invisible text on light theme. Verified contrast is against `--av-surface-page`.
+
+| Token | Light | Dark | Contrast (light / dark) | When to use |
+|---|---|---|---|---|
+| `--av-text-primary`   | `rgba(15,23,42,0.92)` | `rgba(241,245,249,0.95)` | ~13.8:1 / ~17.5:1 — AAA | Body, headings, page titles |
+| `--av-text-secondary` | `rgba(15,23,42,0.68)` | `rgba(241,245,249,0.72)` | ~6.0:1  / ~7.8:1  — AAA | Helper text, eyebrow labels, sub-content |
+| `--av-text-muted`     | `rgba(15,23,42,0.50)` | `rgba(241,245,249,0.55)` | ~4.6:1  / ~5.6:1  — AA  | Meta info, durations, counts, empty states |
+| `--av-text-faint`     | `rgba(15,23,42,0.32)` | `rgba(241,245,249,0.32)` | ~3.0:1  ⚠️ fails AA     | Em-dashes, disabled state, placeholders only |
+
+`--av-text-faint` is auxiliary-only. Use it when the user reads adjacent primary copy first (em-dash next to a band score, timestamp next to an article title) — never as the sole content of an element.
 
 **Never hardcode** these values in component CSS. Always reference the token. If a new shade is needed, add it to `tokens.css` first.
 
