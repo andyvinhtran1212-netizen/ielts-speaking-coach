@@ -237,6 +237,14 @@ Per-page rewrite, one page per sprint. Priority order is documented in `UNIFIED_
 
 Once all pages are migrated, a cleanup sprint removes `ds.css` and the legacy class definitions. Until then: don't rip out the legacy system.
 
+### 11.4 Redesigned pages that still link `ds.css`
+
+A redesigned page may still link `ds.css` because it consumes legacy chrome classes (e.g. practice.html keeps `.ds-question-card`, `.ds-cue-card`, `.ds-cue-bullet`, `.ds-strength-item`). Those `ds.css` declarations hardcode `color: #fff` / `rgba(255,255,255,X)` from the dark-only era — invisible on cream surfaces.
+
+**Don't edit `ds.css` to fix this.** It would ripple to un-redesigned pages. Instead, add a scoped override block at the bottom of the page-specific CSS, under `body.av-page`, that re-paints the affected ds-* selectors with `--av-*` tokens. See `UNIFIED_DESIGN_BRIEF.md` § 12 for the full pattern (lessons + grep recipes + verification checklist).
+
+Sprint 6.5.1 was the canonical case: the IELTS question text disappeared on light theme until practice.css added the `body.av-page .ds-question-card .ds-q-text { color: var(--av-text-primary); }` override.
+
 ---
 
 ## 12. Architectural notes — iframe composition pattern

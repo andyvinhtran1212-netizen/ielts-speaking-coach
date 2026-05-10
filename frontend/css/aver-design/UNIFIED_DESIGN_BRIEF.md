@@ -655,6 +655,19 @@ Token usage in <page>:
 
 If `--av-text-faint` count exceeds ~10 on a page, flag it in PR review. That's almost always over-mapping; walk back through the decision tree.
 
+#### Reference distributions from shipped sprints
+
+Use these as a sanity check when reviewing a new redesign PR. A page whose distribution is wildly off these ranges (especially on `text-faint`) is almost certainly over- or under-mapped.
+
+| Page | Sprint | primary | secondary | muted | faint |
+|---|---|---|---|---|---|
+| home.html       | 6.3   | ≈ 18 | ≈ 16 | ≈ 30 | ≈ 4 |
+| speaking.html   | 6.4.2 | ≈ 25 | 19   | 59   | 5   |
+| practice.html   | 6.5   | 13   | 9    | 24   | 4   |
+| practice.html   | 6.5.1 | 14   | 14   | 24   | 4   |
+
+The Sprint 6.5 → 6.5.1 delta on practice.html is instructive: a 5-point bump in `secondary` came entirely from re-mapping legacy ds-* selectors that were rendering white-on-cream (see § 12 below). Faint did not move — the over-mapping problem from Sprint 6.4.1 didn't recur.
+
 ### 11.6 Verification approach
 
 Before declaring a per-page migration done:
@@ -675,3 +688,126 @@ Before declaring a per-page migration done:
 - speaking.css `--av-text-faint` references restricted to `::placeholder` rules (rule-walking allowlist)
 
 Mirror these pins in each new per-page redesign sprint.
+
+---
+
+## 12. ds.css legacy override pattern
+
+Sprint 6.5.1 lesson: a redesigned page that links `/css/ds.css` for legacy chrome (`.ds-question-card`, `.ds-cue-card`, `.ds-strength-item`, `.ds-improve-item`, etc.) inherits a separate class of bug. `ds.css` is the Sprint 5.x stylesheet, written when every page was dark-only — several of its declarations hardcode `color: #fff` or `rgba(255,255,255,X)`. On the cream `--av-surface-page` those resolve to white-on-cream = invisible.
+
+Sprint 6.5.1 surfaced the canonical example: the IELTS question text "What kind of building do you live in?" disappeared on light theme because `ds.css:133` paints `.ds-question-card .ds-q-text` with `color: #fff`. Three sibling selectors had the same bug (`.ds-cue-bullet`, `.ds-strength-item`, `.ds-improve-item` — all on `rgba(255,255,255,0.8)`).
+
+This section codifies the pattern so Sprint 6.6+ doesn't re-discover it.
+
+### 12.1 When this pattern applies
+
+A redesigned page (under `body.av-page`) imports `ds.css` because it still relies on legacy chrome:
+
+- Recording UI components — `.ds-question-card`, `.ds-q-label`, `.ds-q-text`, `.ds-cue-card`, `.ds-cue-bullet`, `.ds-rec-ring`
+- Result feedback components — `.ds-band-hero`, `.ds-band-value`, `.ds-strength-item`, `.ds-improve-item`, `.ds-crit*`
+- Empty-state + callout chrome — `.ds-empty*`, `.ds-callout`
+- Other Sprint 5.x components reused as-is
+
+If the redesigned page imports `ds.css`, you MUST audit which ds-* selectors it consumes and override the ones that hardcode whites.
+
+### 12.2 Don't modify `ds.css` directly
+
+`ds.css` is shared infrastructure. Pages that haven't been redesigned yet (and the Sprint 6.2 typography-tier1 pages still on `body.ds-canvas`) all link the same file. A patch that rewrites `ds.css` declarations to use `--av-*` tokens would either:
+
+- break dark-only legacy pages that depend on the hardcoded white text, or
+- silently change colors on pages that were never reviewed against the new tokens.
+
+Until `ds.css` is retired (Sprint 7+ cleanup, when the legacy pages have all migrated), the safe path is **scoped overrides in the redesigned page's own CSS**, never edits to `ds.css`.
+
+### 12.3 Pattern: scoped override block in the page CSS
+
+Add an override block at the bottom of the page-specific CSS, scoped under `body.av-page` so the override only applies to redesigned pages:
+
+```css
+/* === Sprint X.X — ds.css legacy-class overrides for light theme ===
+ *
+ * ds.css is shared infrastructure. Several of its selectors hardcode
+ * `color: #fff` or `rgba(255,255,255,X)`, which on the cream light
+ * surface render as white-on-cream. The Sprint X.X redesign linked
+ * ds.css so the page could keep using `.ds-question-card`, `.ds-cue-
+ * card`, etc. — the overrides below are scoped to body.av-page so:
+ *   • only Aver-themed pages use them
+ *   • dark-only legacy pages still linking ds.css render unchanged
+ */
+
+body.av-page .ds-question-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-left: 4px solid var(--av-primary);
+}
+body.av-page .ds-question-card .ds-q-label {
+  color: var(--av-primary);
+}
+body.av-page .ds-question-card .ds-q-text {
+  color: var(--av-text-primary);   /* was color:#fff in ds.css */
+}
+
+body.av-page .ds-cue-card {
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+}
+body.av-page .ds-cue-bullet,
+body.av-page .ds-strength-item,
+body.av-page .ds-improve-item {
+  color: var(--av-text-secondary);  /* was rgba(255,255,255,0.8) */
+}
+```
+
+Keep the override block at the end of the file, after all the page's own component declarations, so it's the last word and no later rule fights it.
+
+### 12.4 Identification — which ds-* classes does the page consume?
+
+Before shipping the page redesign, run two greps:
+
+```bash
+# Class names embedded in the markup (HTML side)
+grep -oE 'ds-[a-z-]+' frontend/pages/<page>.html | sort -u
+
+# Class names referenced in the page's own CSS (in case the page CSS
+# itself selects ds-* classes — e.g. for layout tweaks)
+grep -oE '\.ds-[a-z-]+' frontend/css/<page>.css | sort -u
+```
+
+For each unique `ds-*` class returned, open `ds.css` and check whether the rule sets `color: #fff` or `rgba(255,255,255,X)` on text. If yes, add an override.
+
+A faster heuristic — search ds.css for the bug pattern directly:
+
+```bash
+grep -nE 'color:\s*(#fff\b|white\b|rgba\(255\s*,\s*255\s*,\s*255)' frontend/css/ds.css
+```
+
+Cross-reference each line with the class names you collected. Override the intersection.
+
+### 12.5 Verification
+
+Before shipping the redesign:
+
+1. Open the page in **both** themes via the toggle.
+2. Hit every ds-*-styled element the user can reach (question card, cue bullets, strength/improve lists in feedback, callouts, empty states).
+3. Confirm each is readable against the cream surface.
+4. Add a pin test in the page's `*-redesign.test.mjs` suite asserting:
+   - Zero `color:#fff` / `color:white` / `color:rgba(255,255,255,X)` in the page's own CSS.
+   - Each overridden ds-* selector resolves to an `--av-*` token in the override block.
+
+`frontend/tests/practice-redesign.test.mjs` (Sprint 6.5.1) ships those pins for practice.html. Mirror the pattern.
+
+### 12.6 Future-proofing
+
+Track which ds-* selectors each redesigned page consumes — the override block in the page CSS *is* the tracking. When every page has migrated, `ds.css` can be retired (Sprint 7+ cleanup).
+
+A reviewer can audit retirement readiness with:
+
+```bash
+# Which pages still link ds.css?
+grep -lE 'href="[^"]*ds\.css"' frontend/pages/*.html frontend/*.html
+
+# Which ds-* class names are still referenced anywhere in the codebase?
+grep -roE '(class="[^"]*\bds-[a-z-]+|\.ds-[a-z-]+)' frontend/ | sort -u
+```
+
+When the first list is empty (or contains only marketing/auth shells that never use `--av-*`), `ds.css` is ready to delete and every override block in this brief becomes dead weight.

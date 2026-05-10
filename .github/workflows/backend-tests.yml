@@ -90,6 +90,7 @@ jobs:
         run: |
           node --test \
             frontend/tests/brief-contrast-guidance.test.mjs \
+            frontend/tests/brief-lessons.test.mjs \
             frontend/tests/brief-lock-contract.test.mjs \
             frontend/tests/embedded-mode.test.js \
             frontend/tests/home.test.js \
