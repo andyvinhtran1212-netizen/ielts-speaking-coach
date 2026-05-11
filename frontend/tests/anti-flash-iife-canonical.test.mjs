@@ -50,6 +50,7 @@ const REDESIGNED_PAGES = [
   'frontend/pages/my-vocabulary.html',
   'frontend/pages/flashcards.html',
   'frontend/pages/exercises.html',
+  'frontend/pages/profile.html',
 ];
 
 

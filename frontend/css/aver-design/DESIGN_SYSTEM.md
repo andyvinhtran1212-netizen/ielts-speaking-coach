@@ -374,6 +374,7 @@ This section is the canonical reference for the migration state — Codex audit 
 | 3 | `frontend/pages/flashcards.html` | 6.11b | TBD | Phase 3 page 3 — surgical migration on the Phase D Wave 2 stack-list page (286-line HTML / 408-line JS). Sprint 6.0.1 IIFE preserved; JS-coupled contract intact (`#fc-container`, `#fc-modal`, 11 modal field IDs, 4 chip categories, `.stack-card[data-stack-id]`, `#fc-toast`). Preview-error template literal migrated to `.fc-preview-error` class. `btn-primary` CTA routes through `--av-text-on-primary` (Sprint 6.7.1). |
 | 3 | `frontend/pages/exercises.html` | 6.11b | TBD | Phase 3 page 4 — surgical migration on the drill hub (227-line HTML, inline feature-flag gating script preserved byte-identical). Default-deny DOM removal for `card-d1` / `card-flashcards` / `card-d3` and the `/auth/me` flag-check contract are unchanged. |
 | 3 | `js/my-vocabulary.js` `_renderPreviewModal` | 6.11b | TBD | Phase 3 cleanup — closes the Sprint 6.11a documented seam. ~15 inline `style="…"` template-literal emissions in `_renderPreviewModal` migrated to class hooks (`mv-preview-modal`, `mv-preview-modal__panel/__close`, `mv-preview-face/face--front/face--back/face__label/face__headword`, `mv-preview-ipa`, `mv-preview-def-vi/-en`, `mv-preview-example`, `mv-preview-context`, `mv-preview-no-back`). The `#fc-preview-close` ID + event wiring preserved byte-identical. |
+| 3 | `frontend/pages/profile.html` | 6.12a | TBD | Phase 3 final cluster page 1 of 2 — surgical migration on the standalone profile route (498-line page; ~140-line inline `<style>` + ~165-line inline JS at the bottom). NOT iframe-embedded (opened from `home.html → user-pill`), so no Sprint 6.0.1 IIFE. All 21 JS-coupled IDs preserved (`header-avatar`/`-initials`, `profile-avatar`/`-initials`/`-avatar-img`/`-display-name`/`-email`/`-joined`, 3 stat cards, `profile-form`, 4 form inputs, `band-btns`, `level-options`, `goal-display`, `btn-save`, `toast`); 4 `.level-card[data-level]` options + `saveProfile()` onclick + `window.saveProfile` global + BANDS array + GET/PATCH `/auth/profile` + GET `/auth/me` fallback all unchanged. Toast `style.background = isError ? '#dc2626' : '#0D7377'` migrated to `.pf-toast--error` class toggle. Spec ZIP claimed 3 tabs / Chart.js / password / sign-out / access-code forms — pre-work falsified all five; production is a single linear form. |
 
 Properties of every redesigned page:
 
@@ -388,8 +389,8 @@ Properties of every redesigned page:
 All other pages still render on the Sprint 6.2 dark-navy era:
 
 - `frontend/index.html` (landing)
-- `frontend/pages/dashboard.html`, `pages/profile.html` (+ vocabulary iframe children `pages/my-vocabulary.html`, `pages/flashcards.html`, `pages/exercises.html` — Sprint 6.11 batch)
-- `frontend/onboarding.html`
+- `frontend/pages/dashboard.html`
+- `frontend/onboarding.html` (Sprint 6.12b target)
 - `frontend/admin.html` (~3,667 lines, partial `--ds-*` use)
 - `frontend/grammar.html` + Grammar Wiki cluster (6 pages on DM Sans + Lora intentionally)
 - Era B: `pricing.html`
@@ -426,8 +427,9 @@ frontend/js/
 | Phase | Sprint range | Pages |
 |---|---|---|
 | Phase 2 | 6.7 – 6.9 | `writing-dashboard.html`, `writing-result.html`, `full-test-result.html` (closed in Sprint 6.9) |
-| Phase 3 | 6.10 – 6.11 | `vocabulary.html` (Sprint 6.10 ✅), iframe children + `profile.html` (Sprint 6.11) |
-| Phase 4 | 6.12 – 6.14 | Marketing (`index.html`, `pricing.html`), `admin.html`, Grammar Wiki |
+| Phase 3 | 6.10 – 6.12a | `vocabulary.html` (6.10 ✅), `my-vocabulary.html` (6.11a ✅), `flashcards.html` + `exercises.html` + `_renderPreviewModal` (6.11b ✅), `profile.html` (6.12a ✅) |
+| Phase 3 closure | 6.12b | `onboarding.html` (final Tier 1 page) |
+| Phase 4 | 6.13 – 6.15 | Marketing (`index.html`, `pricing.html`), `dashboard.html`, `admin.html`, Grammar Wiki |
 
 When the last legacy page migrates, `ds.css` is retired and the `--ds-*` token namespace is removed. The `.av-page` opt-in becomes redundant and gets dropped in a cleanup sprint.
 

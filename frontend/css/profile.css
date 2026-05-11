@@ -1,0 +1,321 @@
+/* css/profile.css — Sprint 6.12a (Phase 3 final cluster, page 1 of 2).
+ *
+ * Migrates /pages/profile.html (498-line standalone profile route) to
+ * the Aver Design System with full light + dark theme support from day
+ * 1. Surgical scope: HTML chrome + CSS rewrite. The inline JS at the
+ * bottom of profile.html stays byte-identical (auth check, GET/PATCH
+ * /auth/profile, BANDS render, level-card toggling, slider sync,
+ * toast UX). All JS-coupled selectors preserved.
+ *
+ * Color migration (semantic role):
+ *   page surface, identity name           → --av-text-primary
+ *   section titles, body copy             → --av-text-secondary
+ *   field labels (uppercase eyebrow)      → --av-text-muted
+ *   joined date, slider scale, placeholder → --av-text-faint (≤10 cap)
+ *
+ * Brand mapping:
+ *   teal #14b8a6 / #0F766E / #0D7377 → --av-primary  (CTA gradient end,
+ *                                                     stats, band-active,
+ *                                                     level-active,
+ *                                                     slider thumb,
+ *                                                     toast success)
+ *   red  #dc2626                     → --av-error    (toast error variant)
+ *
+ * Pre-existing JS contract preserved:
+ *   - .band-btn / .band-btn.active toggling (rendered by JS)
+ *   - .level-card[data-level] / .level-card.active toggling
+ *   - #toast.show open/close cycle
+ *   - .btn-save :disabled state
+ */
+
+
+/* ── Page chrome ──────────────────────────────────────────────────── */
+
+.pf-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--av-z-raised);
+  background: var(--av-surface-elevated);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+.pf-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-1);
+  color: var(--av-primary);
+  text-decoration: none;
+  transition: opacity var(--av-duration-fast) var(--av-easing-default);
+}
+.pf-back-link:hover { opacity: 0.8; }
+.pf-back-link i,
+.pf-back-link svg { width: 14px; height: 14px; }
+
+.pf-header__title { color: var(--av-text-primary); }
+.pf-header__brand { color: var(--av-primary); }
+
+.pf-header__avatar {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  box-shadow: 0 0 0 2px var(--av-primary-border);
+}
+
+
+/* ── Page title ──────────────────────────────────────────────────── */
+
+.pf-title    { color: var(--av-text-primary); }
+.pf-subtitle { color: var(--av-text-muted); }
+
+
+/* ── Cards ───────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.pf-section-title { color: var(--av-text-secondary); }
+
+.pf-divider {
+  border: none;
+  border-top: 1px solid var(--av-border-subtle);
+  margin: 0;
+}
+
+
+/* ── Identity card ───────────────────────────────────────────────── */
+
+.pf-avatar {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  box-shadow: 0 0 0 2px var(--av-primary-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.pf-identity__name   { color: var(--av-text-primary); }
+.pf-identity__email  { color: var(--av-text-muted); }
+.pf-identity__joined { color: var(--av-text-faint); }
+
+
+/* ── Stats grid ──────────────────────────────────────────────────── */
+
+.stat-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-4);
+  text-align: center;
+  box-shadow: var(--av-shadow-sm);
+}
+.stat-card__label { color: var(--av-text-muted); }
+.stat-card__value {
+  color: var(--av-primary);
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+}
+
+
+/* ── Form fields ─────────────────────────────────────────────────── */
+
+.field-label {
+  display: block;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-widest);
+  color: var(--av-text-muted);
+  margin-bottom: var(--av-space-2);
+  text-transform: uppercase;
+}
+
+.field-input {
+  width: 100%;
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-2) var(--av-space-3);
+  font-size: var(--av-fs-sm);
+  font-family: var(--av-font-sans);
+  color: var(--av-text-primary);
+  outline: none;
+  transition:
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    box-shadow   var(--av-duration-fast) var(--av-easing-default);
+}
+.field-input:focus {
+  border-color: var(--av-primary);
+  box-shadow: var(--av-shadow-focus);
+}
+.field-input[readonly] {
+  color: var(--av-text-muted);
+  cursor: default;
+}
+.field-input::placeholder { color: var(--av-text-faint); }
+
+
+/* ── Band selector ───────────────────────────────────────────────── */
+
+.band-btn {
+  flex: 1;
+  padding: var(--av-space-2) var(--av-space-1);
+  border-radius: var(--av-radius-md);
+  font-size: var(--av-fs-sm);
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+  font-weight: var(--av-fw-semibold);
+  text-align: center;
+  border: 1px solid var(--av-border-default);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    color var(--av-duration-fast) var(--av-easing-default);
+}
+.band-btn:hover {
+  border-color: var(--av-primary-border);
+  color: var(--av-text-primary);
+}
+.band-btn.active {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary);
+  color: var(--av-primary);
+}
+
+
+/* ── Level radio cards ───────────────────────────────────────────── */
+
+.level-card {
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-2) var(--av-space-3);
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+  background: var(--av-surface-sunken);
+}
+.level-card:hover { border-color: var(--av-primary-border); }
+.level-card.active {
+  border-color: var(--av-primary);
+  background: var(--av-primary-soft);
+}
+.level-card input { display: none; }
+
+.level-card__title { color: var(--av-text-primary); }
+.level-card__band  { color: var(--av-text-muted); }
+
+
+/* ── Slider ──────────────────────────────────────────────────────── */
+
+.goal-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--av-radius-sm);
+  background: var(--av-border-default);
+  outline: none;
+}
+.goal-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px var(--av-primary-soft);
+}
+.goal-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary);
+  cursor: pointer;
+  border: none;
+}
+.goal-slider:focus-visible {
+  box-shadow: var(--av-shadow-focus);
+  border-radius: var(--av-radius-sm);
+}
+
+.pf-goal__value {
+  color: var(--av-primary);
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+  font-weight: var(--av-fw-semibold);
+}
+.pf-goal__scale { color: var(--av-text-faint); }
+
+
+/* ── Save button (CTA) ───────────────────────────────────────────── */
+
+.btn-save {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  font-weight: var(--av-fw-semibold);
+  font-size: var(--av-fs-sm);
+  padding: var(--av-space-3) var(--av-space-8);
+  border-radius: var(--av-radius-md);
+  border: none;
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default),
+    opacity var(--av-duration-fast) var(--av-easing-default);
+}
+.btn-save:hover {
+  background: var(--av-primary-hover);
+  transform: translateY(-1px);
+}
+.btn-save:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+
+/* ── Toast ───────────────────────────────────────────────────────── */
+
+.pf-toast {
+  position: fixed;
+  bottom: var(--av-space-8);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+  padding: var(--av-space-3) var(--av-space-6);
+  border-radius: var(--av-radius-pill);
+  box-shadow: var(--av-shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--av-duration-base) var(--av-easing-default),
+    transform var(--av-duration-base) var(--av-easing-default);
+  white-space: nowrap;
+  z-index: var(--av-z-toast);
+}
+.pf-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.pf-toast.pf-toast--error {
+  background: var(--av-error);
+}
+
+
+/* ── Dark theme exam-date polish ─────────────────────────────────── */
+
+[data-theme="dark"] .field-input[type="date"] {
+  color-scheme: dark;
+}
