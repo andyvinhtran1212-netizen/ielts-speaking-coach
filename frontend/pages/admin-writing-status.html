@@ -5,61 +5,103 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Grading Status — Writing Coach Admin</title>
+
+  <!-- Sprint 6.14a: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
-    .progress-track { background: rgba(255,255,255,0.06); border-radius: 999px; height: 8px; overflow: hidden; }
-    .progress-bar   { background: linear-gradient(90deg, #14b8a6, #0d9488); height: 100%; transition: width 0.4s ease; }
-    .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-    .pulse { animation: pulse 1.6s ease-in-out infinite; }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+  <link rel="stylesheet" href="../css/admin-writing.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body>
-  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
-    <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
-    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+<body class="av-page font-sans antialiased">
+
+  <header class="aw-header sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <a href="/pages/admin-writing.html" class="aw-back-link text-sm font-medium">← Writing Coach</a>
+    <div class="flex items-center gap-3">
+      <span id="header-email" class="aw-header__email hidden text-xs"></span>
+      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <div id="state-loading" class="flex items-center justify-center py-32">
-    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+    <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>
   </div>
 
   <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
-    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
-    <a href="/pages/home.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+    <h2 class="aw-state-denied__title text-xl font-bold">🔒 Admin Access Required</h2>
+    <a href="/pages/home.html" class="aw-state-denied__back mt-4 inline-block text-sm">← Quay lại Dashboard</a>
   </div>
 
   <main id="state-ready" class="hidden max-w-2xl mx-auto px-6 py-12">
-    <h1 class="text-2xl font-bold">Grading in progress</h1>
-    <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">Bạn có thể đóng tab — bài sẽ tiếp tục chấm trong nền.</p>
+    <h1 class="aw-h1 text-2xl font-bold">Grading in progress</h1>
+    <p class="aw-subtitle mt-1 text-sm">Bạn có thể đóng tab — bài sẽ tiếp tục chấm trong nền.</p>
 
-    <div class="card mt-8 p-6">
+    <div class="aw-card mt-8 p-6">
       <div class="flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-3">
-          <span id="status-pill" class="pill pulse" style="background:rgba(234,179,8,0.18);color:#fde68a;">queued</span>
-          <span id="status-text" class="text-sm" style="color:rgba(255,255,255,0.6);">Đang xếp hàng…</span>
+          <span id="status-pill" class="aw-status-pill aw-pulse" data-status="pending">queued</span>
+          <span id="status-text" class="aw-status__text text-sm">Đang xếp hàng…</span>
         </div>
-        <span id="elapsed" class="text-xs" style="color:rgba(255,255,255,0.4);">0s</span>
+        <span id="elapsed" class="aw-status__elapsed text-xs">0s</span>
       </div>
 
-      <div class="mt-5 progress-track">
-        <div id="progress-bar" class="progress-bar" style="width:5%;"></div>
+      <div class="aw-progress-track mt-5">
+        <div id="progress-bar" class="aw-progress-bar" style="width:5%;"></div>
       </div>
 
-      <p id="eta-text" class="mt-3 text-xs" style="color:rgba(255,255,255,0.45);">ETA: tính toán…</p>
+      <p id="eta-text" class="aw-status__eta mt-3 text-xs">ETA: tính toán…</p>
 
-      <div id="error-box" class="hidden mt-5 p-3 rounded-lg" style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.25);color:#f87171;">
+      <div id="error-box" class="aw-alert aw-alert--error hidden mt-5">
         <p class="text-sm font-medium">Có lỗi khi chấm bài</p>
         <p id="error-msg" class="mt-1 text-xs" style="opacity:0.85;"></p>
       </div>
 
       <div class="mt-6 flex justify-between items-center">
-        <a id="link-essay" href="#" class="text-xs" style="color:rgba(255,255,255,0.4);"></a>
-        <a id="btn-view" class="hidden btn-primary" style="background:#14b8a6;color:#0a1628;font-weight:600;padding:8px 16px;border-radius:8px;text-decoration:none;">→ Xem kết quả</a>
+        <a id="link-essay" href="#" class="aw-status__essay-id text-xs"></a>
+        <a id="btn-view" class="aw-btn-primary hidden" style="text-decoration:none;">→ Xem kết quả</a>
       </div>
     </div>
   </main>
@@ -80,12 +122,12 @@
     var _notified = false;
 
     var STATUS_DISPLAY = {
-      pending:   { color: '#fde68a', bg: 'rgba(234,179,8,0.18)',  text: 'Đang xếp hàng…' },
-      grading:   { color: '#93c5fd', bg: 'rgba(59,130,246,0.18)', text: 'Gemini đang chấm bài…' },
-      graded:    { color: '#86efac', bg: 'rgba(34,197,94,0.18)',  text: 'Đã chấm xong! 🎉' },
-      reviewed:  { color: '#86efac', bg: 'rgba(34,197,94,0.18)',  text: 'Admin đã review.' },
-      delivered: { color: '#86efac', bg: 'rgba(34,197,94,0.18)',  text: 'Đã giao cho học viên.' },
-      failed:    { color: '#f87171', bg: 'rgba(239,68,68,0.18)',  text: 'Chấm bài thất bại.' },
+      pending:   { text: 'Đang xếp hàng…' },
+      grading:   { text: 'Gemini đang chấm bài…' },
+      graded:    { text: 'Đã chấm xong! 🎉' },
+      reviewed:  { text: 'Admin đã review.' },
+      delivered: { text: 'Đã giao cho học viên.' },
+      failed:    { text: 'Chấm bài thất bại.' },
     };
 
     // Sprint 2.7b — Deep tier runs 3 passes (~3-5 phút). Time-based
@@ -103,9 +145,8 @@
       var meta = STATUS_DISPLAY[s] || STATUS_DISPLAY.pending;
       var pill = document.getElementById('status-pill');
       pill.textContent = s;
-      pill.style.background = meta.bg;
-      pill.style.color = meta.color;
-      if (TERMINAL[s]) pill.classList.remove('pulse'); else pill.classList.add('pulse');
+      pill.setAttribute('data-status', s);
+      if (TERMINAL[s]) pill.classList.remove('aw-pulse'); else pill.classList.add('aw-pulse');
       // Tier-aware status text. Deep tier rotates Pass 1/2/3 hints
       // while status='grading'; Standard / non-grading states use the
       // generic message from STATUS_DISPLAY.
@@ -125,8 +166,10 @@
       if (s === 'graded' || s === 'reviewed' || s === 'delivered') pct = 100;
       else if (s === 'failed') pct = 100;
       else pct = Math.min(95, Math.round((elapsed / _eta) * 100));
-      document.getElementById('progress-bar').style.width = pct + '%';
-      if (s === 'failed') document.getElementById('progress-bar').style.background = 'rgba(239,68,68,0.5)';
+      var bar = document.getElementById('progress-bar');
+      bar.style.width = pct + '%';
+      if (s === 'failed') bar.classList.add('aw-progress-bar--failed');
+      else                bar.classList.remove('aw-progress-bar--failed');
 
       if (!TERMINAL[s]) {
         document.getElementById('eta-text').textContent =
@@ -178,6 +221,35 @@
         _timer = setInterval(pollOnce, POLL_INTERVAL_MS);
       }
     });
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14a) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
   </script>
 </body>
 </html>

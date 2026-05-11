@@ -5,66 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Submit Essay — Writing Coach Admin</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
-    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 8px 12px; width: 100%; }
-    .input:focus { outline: none; border-color: #14b8a6; }
-    .btn-primary { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
-    .btn-primary:hover { background: #0d9488; }
-    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
-    textarea.input { font-family: ui-monospace, SFMono-Regular, monospace; }
-    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
 
-    /* Sprint 2.7a — tier picker */
-    .tier-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.625rem; }
-    .tier-option { cursor:pointer; }
-    .tier-option input { position:absolute; opacity:0; pointer-events:none; }
-    .tier-card {
-      display:flex; flex-direction:column; gap:0.25rem;
-      padding:0.875rem 1rem; border-radius:10px;
-      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.10);
-      transition:border-color 0.15s, background 0.15s;
-    }
-    .tier-option input:checked + .tier-card {
-      border-color:#14b8a6; background:rgba(20,184,166,0.08);
-    }
-    .tier-option.disabled .tier-card { opacity:0.5; cursor:not-allowed; }
-    .tier-option.disabled { cursor:not-allowed; }
-    .tier-name { font-size:14px; font-weight:600; color:#e2e8f0; }
-    .tier-meta { font-size:11px; color:#9ca3af; }
-    .tier-desc { font-size:12px; color:#cbd5e1; line-height:1.45; margin-top:0.25rem; }
-  </style>
+  <!-- Sprint 6.14a: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Aver Design System foundation. -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+  <link rel="stylesheet" href="../css/admin-writing.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body>
-  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
-    <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
-    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+<body class="av-page font-sans antialiased">
+
+  <header class="aw-header sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <a href="/pages/admin-writing.html" class="aw-back-link text-sm font-medium">← Writing Coach</a>
+    <div class="flex items-center gap-3">
+      <span id="header-email" class="aw-header__email hidden text-xs"></span>
+      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <div id="state-loading" class="flex items-center justify-center py-32">
-    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+    <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>
   </div>
 
   <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
-    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
-    <a href="/pages/home.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+    <h2 class="aw-state-denied__title text-xl font-bold">🔒 Admin Access Required</h2>
+    <a href="/pages/home.html" class="aw-state-denied__back mt-4 inline-block text-sm">← Quay lại Dashboard</a>
   </div>
 
   <main id="state-ready" class="hidden max-w-4xl mx-auto px-6 py-8">
-    <h1 class="text-2xl font-bold">Submit New Essay</h1>
-    <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">Chọn học viên, dán đề + bài viết, AI sẽ chấm trong nền.</p>
+    <h1 class="aw-h1 text-2xl font-bold">Submit New Essay</h1>
+    <p class="aw-subtitle mt-1 text-sm">Chọn học viên, dán đề + bài viết, AI sẽ chấm trong nền.</p>
 
     <div id="alert-area" class="mt-4"></div>
 
-    <form id="essay-form" class="card mt-5 p-6 space-y-5">
+    <form id="essay-form" class="aw-card mt-5 p-6 space-y-5">
       <!-- Student picker -->
       <div>
-        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Học viên *</label>
-        <select id="f-student" class="input mt-1" required>
+        <label class="aw-label text-xs font-medium">Học viên *</label>
+        <select id="f-student" class="aw-input mt-1" required>
           <option value="">— Đang tải danh sách —</option>
         </select>
       </div>
@@ -72,16 +94,16 @@
       <!-- Task type + level + model -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Task Type *</label>
-          <select id="f-task-type" class="input mt-1" required>
+          <label class="aw-label text-xs font-medium">Task Type *</label>
+          <select id="f-task-type" class="aw-input mt-1" required>
             <option value="task2">Task 2</option>
             <option value="task1_academic">Task 1 — Academic</option>
             <option value="task1_general">Task 1 — General</option>
           </select>
         </div>
         <div>
-          <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Analysis Level *</label>
-          <select id="f-level" class="input mt-1" required>
+          <label class="aw-label text-xs font-medium">Analysis Level *</label>
+          <select id="f-level" class="aw-input mt-1" required>
             <option value="1">Level 1 — Mistake-only</option>
             <option value="2">Level 2 — + Coherence</option>
             <option value="3" selected>Level 3 — + Idea / Counterargument</option>
@@ -90,8 +112,8 @@
           </select>
         </div>
         <div>
-          <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Model *</label>
-          <select id="f-model" class="input mt-1" required>
+          <label class="aw-label text-xs font-medium">Model *</label>
+          <select id="f-model" class="aw-input mt-1" required>
             <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro</option>
             <option value="gemini-2.5-flash">Gemini 2.5 Flash (rẻ hơn, nhanh hơn)</option>
           </select>
@@ -100,41 +122,41 @@
 
       <!-- Form of address -->
       <div>
-        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Cách xưng hô (form of address)</label>
+        <label class="aw-label text-xs font-medium">Cách xưng hô (form of address)</label>
         <div class="mt-1 flex gap-2 flex-wrap">
-          <label class="pill" style="background:rgba(255,255,255,0.06);cursor:pointer;"><input type="radio" name="foa" value="bạn"> bạn</label>
-          <label class="pill" style="background:rgba(20,184,166,0.18);color:#5eead4;cursor:pointer;"><input type="radio" name="foa" value="em" checked> em</label>
-          <label class="pill" style="background:rgba(255,255,255,0.06);cursor:pointer;"><input type="radio" name="foa" value="anh"> anh</label>
-          <label class="pill" style="background:rgba(255,255,255,0.06);cursor:pointer;"><input type="radio" name="foa" value="chị"> chị</label>
+          <label class="aw-foa-pill"><input type="radio" name="foa" value="bạn" class="sr-only"> bạn</label>
+          <label class="aw-foa-pill aw-foa-pill--checked"><input type="radio" name="foa" value="em" checked class="sr-only"> em</label>
+          <label class="aw-foa-pill"><input type="radio" name="foa" value="anh" class="sr-only"> anh</label>
+          <label class="aw-foa-pill"><input type="radio" name="foa" value="chị" class="sr-only"> chị</label>
         </div>
       </div>
 
       <!-- Sprint 2.7a — Grading depth tier (Quick removed in 2.7a.1) -->
       <div>
-        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Grading tier</label>
-        <div class="tier-picker mt-2">
-          <label class="tier-option">
+        <label class="aw-label text-xs font-medium">Grading tier</label>
+        <div class="aw-tier-picker mt-2">
+          <label class="aw-tier-option">
             <input type="radio" name="grading_tier" value="standard" checked>
-            <div class="tier-card">
-              <span class="tier-name">Standard</span>
-              <span class="tier-meta">~30–60s · 12 sections · Pro</span>
-              <span class="tier-desc">Full analysis: improved essay, lexical, counterargument.</span>
+            <div class="aw-tier-card">
+              <span class="aw-tier__name">Standard</span>
+              <span class="aw-tier__meta">~30–60s · 12 sections · Pro</span>
+              <span class="aw-tier__desc">Full analysis: improved essay, lexical, counterargument.</span>
             </div>
           </label>
-          <label class="tier-option">
+          <label class="aw-tier-option">
             <input type="radio" name="grading_tier" value="deep">
-            <div class="tier-card">
-              <span class="tier-name">Deep</span>
-              <span class="tier-meta">~3–5 phút · 12 sections + sentence rewrite · Pro multi-pass</span>
-              <span class="tier-desc">Refined band scores + sentence-by-sentence rewrite for mistakes. ~$0.50</span>
+            <div class="aw-tier-card">
+              <span class="aw-tier__name">Deep</span>
+              <span class="aw-tier__meta">~3–5 phút · 12 sections + sentence rewrite · Pro multi-pass</span>
+              <span class="aw-tier__desc">Refined band scores + sentence-by-sentence rewrite for mistakes. ~$0.50</span>
             </div>
           </label>
-          <label class="tier-option">
+          <label class="aw-tier-option">
             <input type="radio" name="grading_tier" value="instructor">
-            <div class="tier-card">
-              <span class="tier-name">Instructor</span>
-              <span class="tier-meta">~24–48h · Human review</span>
-              <span class="tier-desc">AI Standard Pass 1 + giảng viên review &amp; deliver kèm tin nhắn.</span>
+            <div class="aw-tier-card">
+              <span class="aw-tier__name">Instructor</span>
+              <span class="aw-tier__meta">~24–48h · Human review</span>
+              <span class="aw-tier__desc">AI Standard Pass 1 + giảng viên review &amp; deliver kèm tin nhắn.</span>
             </div>
           </label>
         </div>
@@ -142,20 +164,20 @@
 
       <!-- Prompt + Essay -->
       <div>
-        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">Đề bài (prompt) *</label>
-        <textarea id="f-prompt" class="input mt-1" rows="4" required placeholder="Some people think that…"></textarea>
+        <label class="aw-label text-xs font-medium">Đề bài (prompt) *</label>
+        <textarea id="f-prompt" class="aw-input mt-1" rows="4" required placeholder="Some people think that…"></textarea>
       </div>
       <div>
-        <label class="text-xs font-medium" style="color:rgba(255,255,255,0.6);">
+        <label class="aw-label text-xs font-medium">
           Bài viết của học viên *
-          <span id="word-count" class="ml-2" style="color:rgba(255,255,255,0.4);">0 từ</span>
+          <span id="word-count" class="aw-word-count ml-2">0 từ</span>
         </label>
-        <textarea id="f-essay" class="input mt-1" rows="14" required placeholder="Paste essay here…"></textarea>
+        <textarea id="f-essay" class="aw-input mt-1" rows="14" required placeholder="Paste essay here…"></textarea>
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
-        <a href="/pages/admin-writing.html" class="px-4 py-2 text-sm" style="color:rgba(255,255,255,0.5);">Hủy</a>
-        <button type="submit" id="btn-submit" class="btn-primary">Submit for grading</button>
+        <a href="/pages/admin-writing.html" class="aw-btn-cancel px-4 py-2 text-sm">Hủy</a>
+        <button type="submit" id="btn-submit" class="aw-btn-primary">Submit for grading</button>
       </div>
     </form>
   </main>
@@ -168,10 +190,8 @@
 
     function setAlert(kind, msg) {
       var area = document.getElementById('alert-area');
-      var color = kind === 'error' ? '#f87171' : kind === 'success' ? '#86efac' : '#fde68a';
-      var bg    = kind === 'error' ? 'rgba(239,68,68,0.10)' : kind === 'success' ? 'rgba(134,239,172,0.08)' : 'rgba(234,179,8,0.08)';
-      var border = kind === 'error' ? 'rgba(239,68,68,0.25)' : kind === 'success' ? 'rgba(134,239,172,0.25)' : 'rgba(234,179,8,0.25)';
-      area.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+      var cls  = kind === 'error' ? 'aw-alert--error' : kind === 'success' ? 'aw-alert--success' : 'aw-alert--warn';
+      area.innerHTML = '<div class="aw-alert ' + cls + '">' + WC.escapeHtml(msg) + '</div>';
     }
 
     async function loadStudents(presetId) {
@@ -197,6 +217,18 @@
       var t = document.getElementById('f-essay').value.trim();
       var n = t === '' ? 0 : t.split(/\s+/).length;
       document.getElementById('word-count').textContent = n + ' từ';
+    }
+
+    function bindFoaPills() {
+      // Visual swap for the FOA radio group — the underlying <input>
+      // stays the source of truth (form submit reads :checked).
+      var pills = document.querySelectorAll('.aw-foa-pill');
+      pills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+          pills.forEach(function (p) { p.classList.remove('aw-foa-pill--checked'); });
+          pill.classList.add('aw-foa-pill--checked');
+        });
+      });
     }
 
     async function handleSubmit(e) {
@@ -243,8 +275,38 @@
         loadStudents(preset);
         document.getElementById('f-essay').addEventListener('input', updateWordCount);
         document.getElementById('essay-form').addEventListener('submit', handleSubmit);
+        bindFoaPills();
       }
     });
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14a) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
   </script>
 </body>
 </html>
