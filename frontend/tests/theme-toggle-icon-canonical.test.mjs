@@ -46,6 +46,7 @@ const REDESIGNED_PAGES = [
   'frontend/pages/writing-result.html',
   'frontend/pages/full-test-result.html',
   'frontend/pages/vocabulary.html',
+  'frontend/pages/my-vocabulary.html',
 ];
 
 // Variants of the BEM drift that surfaced across Phase 1+2 pages. Any
@@ -184,6 +185,7 @@ describe('Per-page CSS does not duplicate the components.css canonical rule', ()
     'frontend/css/writing-result.css',
     'frontend/css/full-test-result.css',
     'frontend/css/vocabulary.css',
+    'frontend/css/my-vocabulary.css',
   ];
 
   for (const rel of PER_PAGE_CSS) {

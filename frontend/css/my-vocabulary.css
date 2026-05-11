@@ -1,0 +1,524 @@
+/* css/my-vocabulary.css — Sprint 6.11a (Phase 3 page 2 redesign).
+ *
+ * Migrates the Sprint 6.0 / Phase D Personal Vocab Bank page from
+ * legacy navy / Tailwind-utility soup (160-line inline <style> block,
+ * 23 inline `style="…"` attrs, 65 rgba() + 26 hex literals) to the
+ * Aver Design System with full light + dark theme support from day 1.
+ *
+ * Surgical scope: HTML chrome + CSS tokens + ds.css scoped overrides.
+ * js/my-vocabulary.js logic is preserved — only the inline `style="…"`
+ * strings inside cardHtml + flashToast template literals migrate to
+ * class hooks (mv-def-block / mv-context / mv-reason / mv-toast--*),
+ * which this file styles. The Sprint 6.0.1 embedded-mode IIFE block
+ * stays byte-identical because embedded-mode.test.js pins it across
+ * my-vocabulary / flashcards / exercises.
+ *
+ * Color migration (semantic role, UNIFIED_DESIGN_BRIEF §11):
+ *   primary content (headwords, modal titles)      → --av-text-primary
+ *   secondary (def-en, modal body)                  → --av-text-secondary
+ *   meta (def-vi, context-sentence quotes)          → --av-text-muted
+ *   auxiliary (reason, "no data" placeholders)      → --av-text-faint (≤10)
+ *
+ * Source / mastery / action palette mapping:
+ *   teal   → --av-primary    (used_well, source link, mastery-mastered)
+ *   amber  → --av-warning    (needs_review badge, mastery-learning, suggestion hint)
+ *   purple → --av-info       (upgrade_suggested badge + upgrade hint + +Stack action)
+ *                            (Aver doesn't ship a separate "accent-purple" token —
+ *                             info reads as purple in both themes via tokens.css)
+ *   indigo → --av-info       (manual source badge)
+ *   green  → --av-success    (vocab-action--fixed)
+ *   red    → --av-error      (vocab-action--skip, vocab-action--locked, report)
+ *   sky    → --av-info       (vocab-action--practice)
+ *   slate  → --av-text-secondary  (vocab-action--preview)
+ *
+ * Sprint 6.11a leaves the _renderPreviewModal JS-built modal on its
+ * legacy dark styling because that modal is transient (user clicks
+ * "Xem trước", reads, closes) and lives entirely inside a JS template
+ * literal with ~15 nested inline styles. Sprint 6.11b will migrate
+ * it alongside flashcards.html which owns the same visual language.
+ *
+ * Sprint 6.5.1 ds.css legacy overrides scoped under `body.av-page` at
+ * the bottom of this file. ds.css MUST NOT be modified directly.
+ */
+
+
+/* ── Page chrome ──────────────────────────────────────────────────── */
+
+.mv-header {
+  background: var(--av-surface-elevated);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+.mv-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-1);
+  color: var(--av-primary);
+  text-decoration: none;
+  transition: opacity var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-back-link:hover { opacity: 0.8; }
+.mv-back-link i,
+.mv-back-link svg { width: 14px; height: 14px; }
+
+.mv-header__sep   { color: var(--av-text-faint); }
+.mv-header__title { color: var(--av-text-primary); }
+
+.mv-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+  color: var(--av-primary);
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-add-btn:hover {
+  background: var(--av-primary-soft);
+  filter: brightness(1.05);
+  border-color: var(--av-primary);
+}
+.mv-add-btn i,
+.mv-add-btn svg { width: 14px; height: 14px; }
+
+
+/* ── Sprint 6.0 banner ───────────────────────────────────────────── */
+
+.mv-banner {
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+}
+.mv-banner__icon { font-size: 18px; line-height: 1; }
+.mv-banner__body { color: var(--av-text-secondary); }
+.mv-banner__link {
+  color: var(--av-primary);
+  font-weight: var(--av-fw-semibold);
+  text-decoration: none;
+}
+.mv-banner__link:hover { text-decoration: underline; }
+
+
+/* ── Stats bar ───────────────────────────────────────────────────── */
+
+.mv-stat            { color: var(--av-text-muted); }
+.mv-stat__val       { color: var(--av-text-primary); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.mv-stat__val--learning { color: var(--av-warning); }
+.mv-stat__val--mastered { color: var(--av-primary); }
+
+.mv-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-1);
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-export-btn i,
+.mv-export-btn svg { width: 12px; height: 12px; }
+
+.mv-export-btn--primary {
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+  color: var(--av-primary);
+}
+.mv-export-btn--primary:hover { filter: brightness(1.05); }
+
+.mv-export-btn--secondary {
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-subtle);
+  color: var(--av-text-secondary);
+}
+.mv-export-btn--secondary:hover {
+  background: var(--av-surface-card);
+  border-color: var(--av-border-default);
+  color: var(--av-text-primary);
+}
+
+
+/* ── Manual add form ─────────────────────────────────────────────── */
+
+.mv-add-form {
+  display: none;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+}
+.mv-add-form.open { display: block; }
+.mv-add-form__title { color: var(--av-text-primary); }
+
+.mv-input {
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-subtle);
+  color: var(--av-text-primary);
+  transition: border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-input::placeholder { color: var(--av-text-faint); }
+.mv-input:focus {
+  outline: none;
+  border-color: var(--av-primary);
+  box-shadow: var(--av-shadow-focus);
+}
+.mv-input--textarea { resize: none; }
+
+.mv-save-btn {
+  background: var(--av-primary);
+  border: 1px solid var(--av-primary);
+  color: var(--av-text-on-primary);
+  cursor: pointer;
+  transition: filter var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-save-btn:hover { filter: brightness(1.05); }
+
+.mv-cancel-btn {
+  background: transparent;
+  color: var(--av-text-secondary);
+  border: 1px solid var(--av-border-subtle);
+  cursor: pointer;
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-cancel-btn:hover {
+  color: var(--av-text-primary);
+  border-color: var(--av-border-default);
+}
+
+.mv-add-error { color: var(--av-error); }
+
+
+/* ── Filter pills ────────────────────────────────────────────────── */
+
+.filter-btn {
+  padding: 5px 14px;
+  border-radius: var(--av-radius-pill);
+  font-size: 13px;
+  font-weight: var(--av-fw-medium);
+  background: transparent;
+  border: 1px solid var(--av-border-subtle);
+  color: var(--av-text-muted);
+  cursor: pointer;
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    background var(--av-duration-fast) var(--av-easing-default);
+}
+.filter-btn:hover {
+  border-color: var(--av-primary-border);
+  color: var(--av-text-primary);
+}
+.filter-btn.active {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary);
+  color: var(--av-primary);
+}
+
+
+/* ── Vocab card list ─────────────────────────────────────────────── */
+
+.vocab-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  padding: var(--av-space-4);
+  transition: border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.vocab-card:hover { border-color: var(--av-primary-border); }
+
+/* Headword text */
+.vocab-card .font-semibold,
+.vocab-card strong { color: var(--av-text-primary); }
+
+/* JS template hooks (replace the inline style="..." emissions
+   inside cardHtml). One class per former inline string. */
+.mv-def-block       { color: var(--av-text-secondary); }
+.mv-def-vi          { color: var(--av-text-muted); }
+.mv-upgrade-hint    { color: var(--av-info); }
+.mv-suggestion-hint { color: var(--av-warning); }
+.mv-context         { color: var(--av-text-muted); }
+.mv-reason          { color: var(--av-text-faint); }
+
+
+/* ── Source badges (used_well / needs_review / upgrade / manual) ─ */
+
+.source-badge {
+  font-size: 10px;
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px var(--av-space-2);
+  border-radius: var(--av-radius-pill);
+}
+.badge-used_well {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border: 1px solid var(--av-primary-border);
+}
+.badge-needs_review {
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+  border: 1px solid var(--av-warning);
+}
+.badge-upgrade_suggested {
+  background: var(--av-info-soft);
+  color: var(--av-info);
+  border: 1px solid var(--av-info);
+}
+.badge-manual {
+  background: var(--av-info-soft);
+  color: var(--av-info);
+  border: 1px solid var(--av-info);
+}
+
+
+/* ── Mastery pills (Learning / Mastered) ─────────────────────────── */
+
+.mastery-btn {
+  font-size: 11px;
+  padding: 3px var(--av-space-3);
+  border-radius: var(--av-radius-pill);
+  cursor: pointer;
+  border: 1px solid;
+  background: transparent;
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.mastery-learning {
+  border-color: var(--av-warning);
+  color: var(--av-warning);
+  background: var(--av-warning-soft);
+}
+.mastery-mastered {
+  border-color: var(--av-primary);
+  color: var(--av-primary);
+  background: var(--av-primary-soft);
+}
+
+
+/* ── Vocab action buttons (8 variants) ───────────────────────────── */
+
+.vocab-action {
+  font-size: 12px;
+  line-height: 1.3;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--av-radius-sm);
+  padding: 3px var(--av-space-2);
+  text-decoration: none;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    color var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    transform 0.08s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-1);
+  user-select: none;
+}
+.vocab-action:hover  { transform: translateY(-1px); }
+.vocab-action:active { transform: translateY(0); }
+
+.vocab-action--source { color: var(--av-primary); }
+.vocab-action--source:hover {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary-border);
+}
+
+.vocab-action--practice { color: var(--av-info); }
+.vocab-action--practice:hover {
+  background: var(--av-info-soft);
+  border-color: var(--av-info);
+}
+
+.vocab-action--preview { color: var(--av-text-secondary); }
+.vocab-action--preview:hover {
+  color: var(--av-text-primary);
+  background: var(--av-surface-elevated);
+  border-color: var(--av-border-default);
+}
+
+.vocab-action--stack { color: var(--av-info); }
+.vocab-action--stack:hover {
+  background: var(--av-info-soft);
+  border-color: var(--av-info);
+}
+
+.vocab-action--accept {
+  color: var(--av-info);
+  background: var(--av-info-soft);
+  border-color: var(--av-info);
+}
+.vocab-action--accept:hover { filter: brightness(1.05); }
+
+/* Locked cue: explicitly NOT clickable (cursor:not-allowed). */
+.vocab-action--locked {
+  color: var(--av-error);
+  background: var(--av-error-soft);
+  border-color: var(--av-error);
+  cursor: not-allowed;
+}
+.vocab-action--locked:hover { transform: none; }
+
+/* PR-B triage actions on needs_review rows. */
+.vocab-action--fixed {
+  color: var(--av-success);
+  background: var(--av-success-soft);
+  border-color: var(--av-success);
+}
+.vocab-action--fixed:hover { filter: brightness(1.05); }
+
+.vocab-action--skip {
+  color: var(--av-error);
+  background: var(--av-error-soft);
+  border-color: var(--av-error);
+}
+.vocab-action--skip:hover { filter: brightness(1.05); }
+
+
+/* ── Report button ───────────────────────────────────────────────── */
+
+.report-btn {
+  font-size: 11px;
+  color: var(--av-text-faint);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  transition: color var(--av-duration-fast) var(--av-easing-default);
+}
+.report-btn:hover { color: var(--av-error); }
+
+
+/* ── Modals (HTML-defined fc-picker + report) ────────────────────── */
+
+.mv-modal {
+  background: var(--av-surface-overlay);
+}
+.mv-modal__panel {
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-subtle);
+}
+.mv-modal__title    { color: var(--av-text-primary); }
+.mv-modal__subtitle { color: var(--av-text-muted); }
+
+.mv-modal__new-link {
+  background: var(--av-primary-soft);
+  border: 1px dashed var(--av-primary);
+  color: var(--av-primary);
+  text-decoration: none;
+}
+
+.mv-modal__close-btn {
+  background: transparent;
+  color: var(--av-text-secondary);
+  border: 1px solid var(--av-border-subtle);
+  cursor: pointer;
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-modal__close-btn:hover {
+  color: var(--av-text-primary);
+  border-color: var(--av-border-default);
+}
+
+.mv-report-submit {
+  background: var(--av-error-soft);
+  border: 1px solid var(--av-error);
+  color: var(--av-error);
+  cursor: pointer;
+  transition: filter var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-report-submit:hover { filter: brightness(1.05); }
+
+
+/* ── Spinner + empty state ───────────────────────────────────────── */
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--av-primary-soft);
+  border-top-color: var(--av-primary);
+  border-radius: 50%;
+  animation: mv-spin 0.8s linear infinite;
+}
+@keyframes mv-spin { to { transform: rotate(360deg); } }
+
+.empty-state { color: var(--av-text-muted); }
+.empty-state .text-lg { color: var(--av-text-primary); }
+
+
+/* ── Flash toast (rendered by JS, palette hooks) ─────────────────── */
+
+.mv-toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--av-space-3) var(--av-space-4);
+  border-radius: var(--av-radius-md);
+  font-size: 13px;
+  font-weight: var(--av-fw-medium);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+.mv-toast--success {
+  background: var(--av-success-soft);
+  border: 1px solid var(--av-success);
+  color: var(--av-success);
+}
+.mv-toast--info {
+  background: var(--av-info-soft);
+  border: 1px solid var(--av-info);
+  color: var(--av-info);
+}
+.mv-toast--error {
+  background: var(--av-error-soft);
+  border: 1px solid var(--av-error);
+  color: var(--av-error);
+}
+
+
+/* ── Flashcard picker stack rows (rendered by JS) ────────────────── */
+
+.mv-stack-row {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: var(--av-text-primary);
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-stack-row:hover {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary-border);
+}
+.mv-stack-row__name  { color: var(--av-text-primary); font-weight: var(--av-fw-semibold); }
+.mv-stack-row__count { color: var(--av-text-muted); font-size: 11px; }
+
+.mv-picker-msg       { color: var(--av-text-muted); }
+.mv-picker-msg--error { color: var(--av-error); }
+
+
+/* ── Sprint 6.5.1 — ds.css legacy override scoped under body.av-page ──
+ *
+ * ds.css still ships color: #fff and rgba(255,255,255,X) defaults that
+ * are invisible on the cream light surface. The redesigned page links
+ * ds.css for compatibility with the legacy iframe-parent contract, so
+ * we override under body.av-page to keep the cascade safe.
+ */
+
+body.av-page {
+  color: var(--av-text-primary);
+}
