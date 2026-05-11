@@ -5,60 +5,108 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Writing Coach Admin — IELTS Speaking Coach</title>
+
+  <!-- Sprint 6.14a: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
-    .scaffold-banner { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Aver Design System foundation (tokens before components before page CSS). -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+  <link rel="stylesheet" href="../css/admin-writing.css" />
+
+  <!-- Lucide icons (chrome glyphs). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body>
-  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+<body class="av-page font-sans antialiased">
+
+  <header class="aw-header sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <a href="/admin.html" class="flex items-center gap-2 text-sm font-medium" style="color:rgba(255,255,255,0.45);">
+      <a href="/admin.html" class="aw-back-link flex items-center gap-2 text-sm font-medium">
         ← Admin
       </a>
-      <span style="color:rgba(255,255,255,0.15);">|</span>
+      <span class="aw-header__divider">|</span>
       <div class="flex items-center gap-2">
-        <span class="font-bold text-base">Writing<span style="color:#14b8a6;">Coach</span></span>
-        <span class="text-xs font-bold px-2 py-0.5 rounded-md" style="background:rgba(239,68,68,0.18);color:#f87171;">ADMIN</span>
+        <span class="aw-brand font-bold text-base">Writing<span class="aw-brand__accent">Coach</span></span>
+        <span class="aw-badge-admin text-xs font-bold px-2 py-0.5 rounded-md">ADMIN</span>
       </div>
     </div>
-    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+    <div class="flex items-center gap-3">
+      <span id="header-email" class="aw-header__email hidden text-xs"></span>
+      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <div id="state-loading" class="flex items-center justify-center py-32">
-    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+    <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>
   </div>
 
   <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
-    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
-    <p class="mt-2" style="color:rgba(255,255,255,0.5);">Bạn cần quyền admin để truy cập Writing Coach.</p>
-    <a href="/pages/home.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+    <h2 class="aw-state-denied__title text-xl font-bold">🔒 Admin Access Required</h2>
+    <p class="aw-state-denied__body mt-2">Bạn cần quyền admin để truy cập Writing Coach.</p>
+    <a href="/pages/home.html" class="aw-state-denied__back mt-4 inline-block text-sm">← Quay lại Dashboard</a>
   </div>
 
   <main id="state-ready" class="hidden max-w-7xl mx-auto px-6 py-8">
-    <h1 class="text-2xl font-bold">Writing Coach Admin</h1>
-    <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">Quản lý bài writing — chấm bài + theo dõi học viên</p>
+    <h1 class="aw-h1 text-2xl font-bold">Writing Coach Admin</h1>
+    <p class="aw-subtitle mt-1 text-sm">Quản lý bài writing — chấm bài + theo dõi học viên</p>
 
     <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <a href="/pages/admin-writing-new.html" class="card p-5 hover:border-teal-light transition" style="text-decoration:none;color:inherit;">
-        <h3 class="font-semibold">📝 Submit New Essay</h3>
-        <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.5);">Paste essay → AI grades</p>
+      <a href="/pages/admin-writing-new.html" class="aw-hub-card p-5">
+        <h3 class="aw-hub-card__title font-semibold">📝 Submit New Essay</h3>
+        <p class="aw-hub-card__body mt-2 text-sm">Paste essay → AI grades</p>
       </a>
-      <a href="/pages/admin-writing-grade.html" class="card p-5 hover:border-teal-light transition" style="text-decoration:none;color:inherit;">
-        <h3 class="font-semibold">✏️ Review + Edit</h3>
-        <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.5);">Spot-check AI output</p>
+      <a href="/pages/admin-writing-grade.html" class="aw-hub-card p-5">
+        <h3 class="aw-hub-card__title font-semibold">✏️ Review + Edit</h3>
+        <p class="aw-hub-card__body mt-2 text-sm">Spot-check AI output</p>
       </a>
-      <a href="/pages/admin-instructor-queue.html" class="card p-5 hover:border-teal-light transition" style="text-decoration:none;color:inherit;">
-        <h3 class="font-semibold">👤 Instructor Queue</h3>
-        <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.5);">Bài Instructor tier chờ review</p>
+      <a href="/pages/admin-instructor-queue.html" class="aw-hub-card p-5">
+        <h3 class="aw-hub-card__title font-semibold">👤 Instructor Queue</h3>
+        <p class="aw-hub-card__body mt-2 text-sm">Bài Instructor tier chờ review</p>
       </a>
-      <a href="/pages/admin-students.html" class="card p-5 hover:border-teal-light transition" style="text-decoration:none;color:inherit;">
-        <h3 class="font-semibold">👥 Students</h3>
-        <p class="mt-2 text-sm" style="color:rgba(255,255,255,0.5);">Profile + history</p>
+      <a href="/pages/admin-students.html" class="aw-hub-card p-5">
+        <h3 class="aw-hub-card__title font-semibold">👥 Students</h3>
+        <p class="aw-hub-card__body mt-2 text-sm">Profile + history</p>
       </a>
     </div>
   </main>
@@ -69,6 +117,35 @@
   <script>
     'use strict';
     WC.bootstrap();
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14a) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
   </script>
 </body>
 </html>
