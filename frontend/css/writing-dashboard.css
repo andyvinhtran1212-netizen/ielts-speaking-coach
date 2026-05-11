@@ -174,7 +174,7 @@ main { position: relative; z-index: 1; }
 
 .btn-start-assignment {
   background: var(--av-primary);
-  color: #ffffff;
+  color: var(--av-text-on-primary);
   border: none;
   cursor: pointer;
   transition:
@@ -214,7 +214,7 @@ main { position: relative; z-index: 1; }
  */
 .btn-primary {
   background: var(--av-primary);
-  color: #ffffff;
+  color: var(--av-text-on-primary);
   font-weight: var(--av-fw-semibold);
   padding: var(--av-space-2) var(--av-space-4);
   border-radius: var(--av-radius-md);
@@ -395,7 +395,7 @@ main { position: relative; z-index: 1; }
 
 .wd-modal-btn-submit {
   background: var(--av-primary);
-  color: #ffffff;
+  color: var(--av-text-on-primary);
   border: none;
   cursor: pointer;
   transition: background var(--av-duration-fast) var(--av-easing-default);

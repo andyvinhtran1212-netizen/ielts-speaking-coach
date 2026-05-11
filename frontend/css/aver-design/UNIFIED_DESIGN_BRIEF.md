@@ -111,7 +111,7 @@ The Sprint 5.2 / 5.2.1 permission gating uses **per-page lock contracts** — th
 | Page | Locked class | Data attribute | Renderer | Notes |
 |---|---|---|---|---|
 | `pages/home.html` | `.coming-soon` (NOT `.skill-card-locked`) | `data-locked="true"` | `js/home.js` `renderSkillCard` (PR #115 / 6.0, lock branch lines ~155–173) | The Writing card receives this when `permissions.writing === false`. Locked markup is rendered by `home.js` (innerHTML replace), not pre-baked in HTML. Click handler navigates to a Vietnamese alert, not a route. |
-| `pages/writing-dashboard.html` | TBD — verify in `js/writing-dashboard.js` before redesign | TBD | TBD | Sprint 5.2 added the gate at the route level (`require_writing_permission`); the UI surface is a separate concern that hasn't been redesigned yet. |
+| `pages/writing-dashboard.html` | `#writing-preview-banner` revealed via `.classList.remove('hidden')` + `.btn-start-assignment` and `#modal-btn-submit` flagged `.opacity-50.cursor-not-allowed` | None (banner shown as a discrete element; disabled buttons identified by their fixed IDs/classes) | Inline IIFE in `writing-dashboard.html` — `applyWritingPermissionGating()` at line ~972 reads `GET /api/student/permissions`; cached in `_writingPermitted` | Sprint 6.7 (PR #132) shipped surgical redesign. Backend `require_writing_permission` is authoritative; UI gate is defense-in-depth. Disabled state survives the redesign because the JS toggles class names byte-identical. |
 | `pages/writing-result.html` | TBD — verify before redesign | TBD | TBD | Same as writing-dashboard. |
 | Vocabulary surfaces (`my-vocabulary.html`, `flashcards.html`, etc.) | TBD — likely no lock state since vocab is permission-default-on | n/a | n/a | Sprint 6.0 didn't introduce a per-skill gate here. |
 
@@ -130,6 +130,30 @@ Each redesign sprint fills in the page's row above by reading the JS, not by gue
 - ✅ Add new visual styling on top via composition (don't rename)
 - ✅ Vietnamese microcopy (e.g., "🔒 Chưa kích hoạt", *"Quyền Writing chưa được kích hoạt cho tài khoản này. Liên hệ giảng viên để được hỗ trợ."*) lives in the JS render template — preserve it verbatim or update the JS template, not just the HTML
 - ✅ The `Liên hệ admin` action stays wired to the support email/Telegram link in the JS handler, not the HTML
+
+#### 3.6.4 Writing IA — teacher-assignment vs self-directed (Sprint 6.7 finding)
+
+The Sprint 6.7 redesign of `writing-dashboard.html` surfaced a contract gap that future Writing-flow sprints must respect.
+
+**Writing skill (shipped):** teacher-assignment workflow.
+
+- Essays come from teacher-created assignments — students never pick prompts
+- 2 tabs: `#tab-assignments` ("Bài giao") + `#tab-essays` ("Bài đã nộp")
+- 6-state essay pill (`STATUS_CONFIG`: pending/grading/graded/reviewed/delivered/failed) + 5-state assignment pill (`ASSIGNMENT_STATUS`: pending/in_progress/submitted/graded/delivered)
+- Permission gate: `writing` permission from access code → `#writing-preview-banner` + disabled buttons when false
+
+**Speaking skill (contrast):** self-directed workflow.
+
+- User picks mode (visual/listening) + part (1/2/3/Full Test) + topic
+- No teacher dependency; no permission gate (Speaking is permission-default-on)
+- No assignment lifecycle — every session is on-demand
+
+**Implication for future redesigns:**
+
+- `writing-result.html` (Sprint 6.8), `full-test-writing.html`, any other Writing surface — they all inherit the teacher-assignment IA. Don't design self-directed UI elements (Task 1 / Task 2 self-select cards, prompt library browser, "start new essay" CTAs) unless the IA decision changes upstream.
+- The Sprint 6.7 spec proposed a self-directed dashboard; that PR (PR #132) deviated to surgical migration and preserved the teacher-assignment workflow exactly. The same deviation will likely be correct for the rest of the Writing flow.
+
+**Phase 5+ IA question (deferred):** should Writing offer a self-directed mode where students pick their own prompts? Currently no — every essay is teacher-driven. Revisit when Phase 4 closes and the product roadmap reopens.
 
 ### 3.7 Vietnamese typography review
 
