@@ -5,6 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>So sánh — Grammar Wiki — IELTS Speaking Coach</title>
+    <!-- Canonical anti-flash theme bootstrap (DESIGN_SYSTEM § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme;
+        if (stored === 'light' || stored === 'dark') {
+          theme = stored;
+        } else {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- Tailwind CDN + custom navy/teal palette preserved (Sprint 6.15 Phase B
+       finding — js/grammar.js renderer depends on text-teal-light, bg-teal/15,
+       etc.). fontFamily key dropped; grammar-wiki.css owns font discipline. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -14,123 +35,28 @@
             navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
             teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
-          fontFamily: { sans: ['DM Sans', 'ui-sans-serif', 'system-ui'] },
         },
       },
     }
   </script>
+
+  <!-- DM Sans + Lora sub-system preserved per § 14.2 -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Foundation: tokens → components → ds (Sprint 6.5.1 pattern) →
+       grammar-wiki.css. admin-writing.css NOT linked (different cluster).
+       writing-renderers.css NOT linked (Sprint 6.8 finding extends). -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/ds.css" />
-  <style>
-    body {
-      background: #07111f;
-      background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
-      background-size: 28px 28px;
-      font-family: 'DM Sans', ui-sans-serif, system-ui;
-    }
-
-    /* Article body — matches grammar-article.html */
-    .article-body {
-      color: rgba(255,255,255,0.82);
-      line-height: 1.8;
-      font-size: 15.5px;
-    }
-    .article-body h2 {
-      font-family: 'Lora', serif;
-      font-size: 1.3rem; font-weight: 700; color: #fff;
-      margin-top: 2.5rem; margin-bottom: 0.85rem;
-      padding-left: 12px;
-      border-left: 3px solid #0F766E;
-      scroll-margin-top: 80px;
-    }
-    .article-body h3 {
-      font-size: 1.05rem; font-weight: 600;
-      color: rgba(255,255,255,0.92);
-      margin-top: 1.75rem; margin-bottom: 0.6rem;
-      scroll-margin-top: 80px;
-      letter-spacing: 0.01em;
-    }
-    .article-body p { margin-bottom: 1.1rem; }
-    .article-body ul, .article-body ol {
-      padding-left: 1.5rem; margin-bottom: 1.1rem;
-    }
-    .article-body ul li { list-style: disc; margin-bottom: 0.4rem; }
-    .article-body ol li { list-style: decimal; margin-bottom: 0.4rem; }
-    .article-body strong { color: #fff; font-weight: 600; }
-    .article-body em { color: #14b8a6; font-style: normal; font-weight: 500; }
-    .article-body code {
-      background: rgba(20,184,166,0.08);
-      border: 1px solid rgba(20,184,166,0.15);
-      padding: 0.15em 0.45em; border-radius: 5px;
-      font-size: 0.88em; font-family: ui-monospace, monospace;
-      color: #14b8a6;
-    }
-    .article-body pre {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 14px; padding: 18px 22px;
-      overflow-x: auto; margin-bottom: 1.25rem;
-    }
-    .article-body pre code { background: none; border: none; padding: 0; font-size: 0.875rem; color: rgba(255,255,255,0.85); }
-    .article-body table {
-      width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;
-      font-size: 0.875rem; display: block; overflow-x: auto;
-      border-radius: 10px;
-    }
-    .article-body table th {
-      background: rgba(15,118,110,0.2);
-      color: #14b8a6; font-weight: 600;
-      padding: 10px 14px; text-align: left;
-      border: 1px solid rgba(20,184,166,0.15);
-      white-space: nowrap;
-    }
-    .article-body table td {
-      padding: 9px 14px;
-      border: 1px solid rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.8);
-    }
-    .article-body table tr:nth-child(even) td { background: rgba(255,255,255,0.025); }
-    .article-body table tr:hover td { background: rgba(20,184,166,0.04); }
-    .article-body blockquote {
-      position: relative;
-      padding: 18px 20px 14px 24px;
-      margin: 1.5rem 0;
-      background: rgba(20,184,166,0.05);
-      border: 1px solid rgba(20,184,166,0.15);
-      border-radius: 12px;
-      color: rgba(255,255,255,0.78);
-      font-style: italic;
-    }
-    .article-body blockquote::before {
-      content: '\201C';
-      font-family: 'Lora', serif;
-      font-size: 3.5rem; line-height: 1;
-      color: rgba(20,184,166,0.25);
-      position: absolute; top: -4px; left: 12px;
-      pointer-events: none;
-    }
-    .article-body a { color: #14b8a6; text-decoration: underline; text-decoration-color: rgba(20,184,166,0.35); text-underline-offset: 3px; transition: text-decoration-color 0.15s; }
-    .article-body a:hover { text-decoration-color: #14b8a6; }
-
-    /* Column panel */
-    .compare-col {
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 16px;
-      padding: 24px;
-      background: rgba(255,255,255,0.02);
-    }
-
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
-  </style>
+  <link rel="stylesheet" href="../css/grammar-wiki.css" />
 </head>
-<body class="text-white min-h-screen font-sans antialiased">
+<body class="av-page text-white min-h-screen font-sans antialiased">
 
   <!-- Top nav -->
-  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: rgba(10,22,40,0.92); backdrop-filter: blur(12px);">
+  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: var(--av-surface-sunken); backdrop-filter: blur(12px);">
     <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
       <div id="breadcrumb" class="flex items-center text-sm text-white/40 flex-wrap gap-0">
         <a href="../grammar.html" class="hover:text-teal-light transition-colors">Grammar Wiki</a>
@@ -138,7 +64,11 @@
         <span class="text-white/80">So sánh</span>
       </div>
       <a href="../pages/home.html" class="text-xs text-white/30 hover:text-white/60 transition-colors">Dashboard</a>
-    </div>
+        <button id="theme-toggle" class="av-theme-toggle ml-2" type="button" aria-label="Toggle theme">
+        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      </div>
   </nav>
 
   <!-- Skeleton -->
@@ -179,6 +109,13 @@
   <script src="../js/grammar.js"></script>
   <script>
     grammarWiki.loadGrammarCompare();
+  </script>
+
+  <!-- Canonical theme-toggle binding (Sprint 6.10.1). -->
+  <script type="module">
+    import { bindToggleButton } from '../js/theme-toggle.js';
+    var btn = document.getElementById('theme-toggle');
+    if (btn) bindToggleButton(btn);
   </script>
 </body>
 </html>

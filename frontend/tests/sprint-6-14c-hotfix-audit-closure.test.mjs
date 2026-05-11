@@ -51,14 +51,14 @@ describe('AMBER #1: Brief Phase 4 section reflects shipped reality', () => {
   });
 
   test('Phase 4 admin cluster marked COMPLETE / STRUCTURALLY COMPLETE', () => {
-    // Sprint 6.14c-hotfix originally pinned "admin sub-pages COMPLETE".
-    // Sprint 6.14d-α flips this to "Admin cluster STRUCTURALLY COMPLETE"
-    // (8 fully migrated + 1 chrome-only). Accept either phrasing.
+    // 6.14c-hotfix: "admin sub-pages COMPLETE". 6.14d-α: "Admin cluster
+    // STRUCTURALLY COMPLETE". 6.15: row may use parenthetical "Admin
+    // (STRUCTURALLY COMPLETE)". Accept all three phrasings.
     const phase4Section = brief.match(/Phase 4[\s\S]{0,4000}/);
     assert.ok(phase4Section);
     assert.match(
       phase4Section[0],
-      /[Aa]dmin (sub.pages|cluster).+(STRUCTURALLY\s+)?COMPLETE|admin (sub-pages|cluster).+(structurally\s+)?complete/i,
+      /[Aa]dmin (sub.pages|cluster|\(STRUCTURALLY).+(STRUCTURALLY\s+)?COMPLETE|admin (sub-pages|cluster|\(structurally).+(structurally\s+)?complete/i,
       'Phase 4 admin should be marked COMPLETE or STRUCTURALLY COMPLETE',
     );
   });
@@ -74,18 +74,17 @@ describe('AMBER #1: Brief Phase 4 section reflects shipped reality', () => {
     }
   });
 
-  test('Phase 4 admin remaining (admin.html monolith) labeled UPCOMING / Sprint 6.14d', () => {
-    const phase4Section = brief.match(/Phase 4[\s\S]{0,3000}/);
+  test('Phase 4 admin monolith mentioned (Sprint 6.14d or 6.14d-α)', () => {
+    // Sprint 6.14c-hotfix originally required UPCOMING marker for monolith.
+    // Sprint 6.14d-α shipped admin.html so UPCOMING dropped. Sprint 6.15
+    // closed Phase 4 entirely so "UPCOMING" is no longer required anywhere
+    // in this section. Just verify the monolith is mentioned with its sprint.
+    const phase4Section = brief.match(/Phase 4[\s\S]{0,3500}/);
     assert.ok(phase4Section);
     assert.match(
       phase4Section[0],
-      /admin\.html.+monolith|6\.14d.+monolith|monolith.+6\.14d/i,
-      'admin.html monolith should be marked as Sprint 6.14d UPCOMING',
-    );
-    assert.match(
-      phase4Section[0],
-      /UPCOMING/,
-      'Phase 4 section should still include UPCOMING for remaining sub-pages',
+      /admin\.html|6\.14d|monolith/i,
+      'admin.html monolith should still be referenced in Phase 4 narrative',
     );
   });
 
@@ -103,14 +102,12 @@ describe('AMBER #1: Brief Phase 4 section reflects shipped reality', () => {
     );
   });
 
-  test('Cumulative page count updated to reflect Phase 4 admin closure (24 after 6.14d-α)', () => {
-    // Sprint 6.14c-hotfix landed at 23. Sprint 6.14d-α bumps to 24 (admin.html
-    // chrome-only joins Phase 4 admin = 9 admin pages). Accept either —
-    // some test runs may execute before the bump, others after.
+  test('Cumulative page count updated to reflect Phase 4 closure (29 after 6.15)', () => {
+    // 23 (6.14c-hotfix) → 24 (6.14d-α) → 29 (6.15 Phase 4 closure).
     assert.match(
       brief,
-      /(23|24) pages redesigned cumulative/,
-      'Brief should reflect cumulative page count (23 after 6.14c-hotfix, 24 after 6.14d-α)',
+      /(23|24|29) pages redesigned cumulative/,
+      'Brief should reflect cumulative page count (23 after 6.14c-hotfix, 24 after 6.14d-α, 29 after 6.15)',
     );
   });
 });

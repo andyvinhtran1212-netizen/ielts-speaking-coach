@@ -92,26 +92,24 @@ describe('AMBER #1 closure: UNIFIED_DESIGN_BRIEF.md § 2 phase map matches shipp
   });
 
   test('Phase 4 listed in phase map and contains marketing + admin + Grammar Wiki', () => {
-    // Sprint 6.14c-hotfix: Phase 4 Status column flipped from "UPCOMING"
-    // to "IN PROGRESS" after 10/11 sub-pages shipped (marketing 2 + admin 8).
-    // The remaining UPCOMING markers live inside the Pages cell now.
-    const phase4 = brief.match(/\*\*Phase 4\*\*[\s\S]{0,3000}IN PROGRESS/i);
-    assert.ok(phase4, 'Phase 4 row should be marked IN PROGRESS (Sprint 6.14c-hotfix)');
+    // Sprint 6.14c-hotfix: Phase 4 Status flipped from "UPCOMING" to "IN
+    // PROGRESS". Sprint 6.15: Status flipped from "IN PROGRESS" to
+    // "COMPLETE" (Phase 4 closure). Accept either or "COMPLETE".
+    const phase4 = brief.match(/\*\*Phase 4\*\*[\s\S]{0,3500}(IN PROGRESS|COMPLETE)/i);
+    assert.ok(phase4, 'Phase 4 row should be marked IN PROGRESS or COMPLETE');
     assert.match(phase4[0], /index\.html|landing\.html/, 'Phase 4 missing marketing pages');
     assert.match(phase4[0], /admin\.html/,                 'Phase 4 missing admin');
     assert.match(phase4[0], /Grammar Wiki|grammar\.html/,  'Phase 4 missing Grammar Wiki');
-    assert.match(phase4[0], /UPCOMING/,                    'Phase 4 missing UPCOMING marker for remaining work');
-    assert.match(phase4[0], /COMPLETE/,                    'Phase 4 missing COMPLETE marker for shipped sub-pages');
+    assert.match(phase4[0], /COMPLETE/,                    'Phase 4 missing COMPLETE marker for shipped work');
   });
 
-  test('brief references the 24-page cumulative count (Sprint 6.14d-α snapshot)', () => {
-    // Sprint 6.14d-α bump: count went 23 → 24 (admin.html chrome-only added
-    // to Phase 4 admin = 9 admin pages total). Next update due if Sprint
-    // 6.15 Grammar Wiki cluster ships (~5 pages → 29).
+  test('brief references the 29-page cumulative count (Sprint 6.15 Phase 4 closure)', () => {
+    // Sprint 6.15 bump: count went 24 → 29 (Grammar Wiki cluster 5 pages).
+    // Phase 4 COMPLETE after this PR.
     assert.match(
       brief,
-      /24 pages redesigned cumulative/i,
-      'Brief should call out the 24-page cumulative count',
+      /29 pages redesigned cumulative/i,
+      'Brief should call out the 29-page cumulative count',
     );
   });
 

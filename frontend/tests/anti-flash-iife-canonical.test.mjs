@@ -63,6 +63,11 @@ const REDESIGNED_PAGES = [
   'frontend/pages/admin-instructor-queue.html',
   'frontend/pages/admin-writing-grade.html',
   'frontend/admin.html',
+  'frontend/grammar.html',
+  'frontend/pages/grammar-roadmap.html',
+  'frontend/pages/grammar-article.html',
+  'frontend/pages/grammar-search.html',
+  'frontend/pages/grammar-compare.html',
 ];
 
 
