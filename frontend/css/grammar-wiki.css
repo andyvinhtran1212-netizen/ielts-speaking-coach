@@ -1,0 +1,437 @@
+/* grammar-wiki.css — Grammar Wiki cluster chrome + content
+ * ----------------------------------------------------------------
+ * Established Sprint 6.15 (FINAL Phase 4 sub-cluster). Shared by 5
+ * pages: grammar.html (landing) + grammar-roadmap / grammar-article /
+ * grammar-search / grammar-compare (under /pages/).
+ *
+ * Foundation order: tokens.css → components.css → grammar-wiki.css.
+ *   - admin-writing.css NOT linked (different cluster, at-cap)
+ *   - writing-renderers.css NOT linked (Sprint 6.8 finding extends)
+ *
+ * Typography sub-system (DM Sans body + Lora display) preserved
+ * intentionally per DESIGN_SYSTEM § 14.2 sub-system decision.
+ * Grammar Wiki = long-form reading content; editorial typography
+ * distinct from utilitarian dashboards (Plus Jakarta Sans elsewhere).
+ *
+ * Tailwind CDN + custom navy/teal palette config preserved per Phase A
+ * finding — `frontend/js/grammar.js` renderer (1,034 lines) emits
+ * `text-teal-light`, `bg-teal/15`, etc. utility classes that depend on
+ * the palette. Dropping it would break runtime rendering. Removal can
+ * happen in a future Tailwind utility-class refactor sprint analogous
+ * to the deferred Sprint 6.14d-β.
+ *
+ * Class names emitted by `grammar.js` and inline HTML markup preserved
+ * byte-identical (`.cat-card`, `.article-card`, `.search-input`,
+ * `.btn-cta`, `.btn-primary`, `.btn-outline`, `.section-head`,
+ * `.hero-title`, `.roadmap-card`, `.group-card`, `.article-body`,
+ * `.toc-link`, `.toc-sidebar`, `.section-label`, `.skeleton`,
+ * `.grammar-anchor-pulse`, `.compare-col`, `.group-article-row`).
+ *
+ * New gw-* namespace primitives reserved for future cross-page
+ * grammar-wiki additions; none defined yet (token-only chrome
+ * migration scope).
+ */
+
+
+/* ── Body surface + DM Sans + Lora sub-system override ─────────── */
+
+body.av-page {
+  /* DM Sans wins on cascade because grammar-wiki.css loads after
+     components.css. Preserves the sub-system per § 14.2. */
+  font-family: 'DM Sans', ui-sans-serif, system-ui;
+  background: var(--av-surface-page);
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--av-text-primary) 2.5%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 28px 28px;
+  color: var(--av-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tailwind utility neutralizer (mirror 6.14d-α discipline) */
+body.av-page .text-white { color: var(--av-text-primary); }
+
+/* Font-stack discipline under Tailwind utility classes */
+body.av-page .font-sans { font-family: 'DM Sans', ui-sans-serif, system-ui; }
+body.av-page .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; }
+
+/* Lora-display headings — opt-in via .gw-display or class on element */
+.gw-display,
+.hero-title,
+#article-title,
+#search-heading {
+  font-family: 'Lora', Georgia, serif;
+}
+
+
+/* ── Hero glow + section labels (shared across landing + sub-pages) ─ */
+
+.hero-glow {
+  position: absolute;
+  top: -80px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 400px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--av-primary) 18%, transparent) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.section-head,
+.section-label {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--av-text-muted);
+  margin-bottom: 18px;
+}
+.section-head::before,
+.section-label::before {
+  content: '';
+  display: inline-block;
+  width: 18px; height: 2px;
+  background: linear-gradient(90deg, var(--av-primary), transparent);
+  border-radius: 2px;
+}
+
+.section-label { font-size: 10px; }
+.section-label::before { width: 14px; }
+
+
+/* ── Category cards (grammar.html landing) ─────────────────────── */
+
+.cat-card {
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.cat-card::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--av-primary) 4%, transparent) 0%,
+    transparent 60%
+  );
+  opacity: 0; transition: opacity 0.2s;
+}
+.cat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--av-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--av-primary) 35%, transparent) !important;
+  background: color-mix(in srgb, var(--av-primary) 6%, transparent) !important;
+}
+.cat-card:hover::after { opacity: 1; }
+
+
+/* ── Article card + group card (landing) ─────────────────────── */
+
+.article-card {
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.article-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--av-text-primary) 25%, transparent);
+  border-color: color-mix(in srgb, var(--av-primary) 30%, transparent) !important;
+}
+
+.group-card {
+  position: relative; overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+.group-card:hover {
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--av-text-primary) 30%, transparent);
+}
+
+.group-article-row { transition: background 0.15s; border-radius: 6px; }
+.group-article-row:hover { background: var(--av-surface-card); }
+
+
+/* ── Search input (landing + grammar-search.html) ──────────────── */
+
+.search-input {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: 999px;
+  padding: 14px 20px 14px 48px;
+  color: var(--av-text-primary);
+  font-size: 15px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  width: 100%;
+}
+.search-input:focus {
+  background: var(--av-surface-elevated);
+  border-color: var(--av-primary-border);
+  box-shadow: 0 0 0 4px var(--av-primary-soft);
+}
+.search-input::placeholder { color: var(--av-text-faint); }
+
+
+/* ── Buttons / CTAs (landing) ─────────────────────────────────── */
+
+.btn-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 22px; border-radius: 999px;
+  font-weight: 600; font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.18s;
+  cursor: pointer; border: none; text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--av-primary-hover), var(--av-primary));
+  color: var(--av-text-on-primary);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--av-primary) 40%, transparent);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--av-primary-active), var(--av-primary-hover));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--av-primary) 50%, transparent);
+}
+
+.btn-outline {
+  background: var(--av-surface-card);
+  color: var(--av-text-secondary);
+  border: 1px solid var(--av-border-default);
+}
+.btn-outline:hover {
+  background: var(--av-surface-elevated);
+  border-color: var(--av-primary-border);
+  color: var(--av-primary);
+  transform: translateY(-1px);
+}
+
+
+/* ── Roadmap CTA card (landing) ───────────────────────────────── */
+
+.roadmap-card {
+  background: linear-gradient(
+    135deg,
+    var(--av-primary-soft) 0%,
+    var(--av-surface-card) 100%
+  );
+  border: 1px solid var(--av-primary-border);
+  position: relative; overflow: hidden;
+}
+.roadmap-card::before {
+  content: '';
+  position: absolute; top: -40px; right: -40px;
+  width: 160px; height: 160px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--av-primary) 8%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+
+/* ── Skeleton shimmer + stagger fade-in (landing) ──────────────── */
+
+@keyframes gw-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--av-surface-card) 25%,
+    var(--av-surface-elevated) 50%,
+    var(--av-surface-card) 75%
+  );
+  background-size: 800px 100%;
+  animation: gw-shimmer 1.4s infinite;
+}
+
+@keyframes gw-fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#category-cards > *,
+#featured-list > *,
+#groups-list > * {
+  animation: gw-fadeUp 0.35s ease both;
+}
+#category-cards > *:nth-child(2), #featured-list > *:nth-child(2), #groups-list > *:nth-child(2) { animation-delay: 0.06s; }
+#category-cards > *:nth-child(3), #featured-list > *:nth-child(3), #groups-list > *:nth-child(3) { animation-delay: 0.12s; }
+#category-cards > *:nth-child(4), #featured-list > *:nth-child(4), #groups-list > *:nth-child(4) { animation-delay: 0.18s; }
+#category-cards > *:nth-child(5), #featured-list > *:nth-child(5), #groups-list > *:nth-child(5) { animation-delay: 0.24s; }
+#category-cards > *:nth-child(6), #featured-list > *:nth-child(6), #groups-list > *:nth-child(6) { animation-delay: 0.30s; }
+#groups-list > *:nth-child(7) { animation-delay: 0.35s; }
+#groups-list > *:nth-child(8) { animation-delay: 0.40s; }
+
+
+/* ── Reading progress bar (grammar-article.html) ─────────────── */
+
+#reading-progress {
+  position: fixed; top: 0; left: 0; z-index: 50;
+  height: 2px; width: 0%;
+  background: linear-gradient(90deg, var(--av-primary-hover), var(--av-primary));
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+
+/* ── Sticky TOC sidebar (grammar-article.html) ───────────────── */
+
+.toc-sidebar {
+  position: sticky;
+  top: 72px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+}
+
+.toc-link {
+  transition: color 0.15s, border-color 0.15s, padding-left 0.15s;
+}
+.toc-link.text-teal-light {
+  border-left: 2px solid var(--av-primary);
+  padding-left: 10px;
+  color: var(--av-primary) !important;
+}
+
+
+/* ── Article body typography (grammar-article + grammar-compare) ─ */
+
+.article-body {
+  color: var(--av-text-primary);
+  line-height: 1.8;
+  font-size: 15.5px;
+}
+
+/* Sprint 5 deep-link anchor scroll offset + pulse highlight */
+.article-body .grammar-anchor { scroll-margin-top: 80px; }
+.grammar-anchor-pulse {
+  animation: gw-grammarAnchorPulse 3s ease-out;
+  border-radius: 6px;
+}
+@keyframes gw-grammarAnchorPulse {
+  0%   { background-color: transparent; }
+  15%  { background-color: var(--av-primary-soft); }
+  100% { background-color: transparent; }
+}
+
+.article-body h2 {
+  font-family: 'Lora', serif;
+  font-size: 1.3rem; font-weight: 700;
+  color: var(--av-text-primary);
+  margin-top: 2.5rem; margin-bottom: 0.85rem;
+  padding-left: 12px;
+  border-left: 3px solid var(--av-primary-hover);
+  scroll-margin-top: 80px;
+}
+.article-body h3 {
+  font-size: 1.05rem; font-weight: 600;
+  color: var(--av-text-primary);
+  margin-top: 1.75rem; margin-bottom: 0.6rem;
+  scroll-margin-top: 80px;
+  letter-spacing: 0.01em;
+}
+.article-body p { margin-bottom: 1.1rem; }
+.article-body ul,
+.article-body ol {
+  padding-left: 1.5rem; margin-bottom: 1.1rem;
+}
+.article-body ul li { list-style: disc; margin-bottom: 0.4rem; }
+.article-body ol li { list-style: decimal; margin-bottom: 0.4rem; }
+.article-body strong { color: var(--av-text-primary); font-weight: 600; }
+.article-body em {
+  color: var(--av-primary);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.article-body code {
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+  padding: 0.15em 0.45em; border-radius: 5px;
+  font-size: 0.88em;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--av-primary);
+}
+.article-body pre {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: 14px; padding: 18px 22px;
+  overflow-x: auto; margin-bottom: 1.25rem;
+}
+.article-body pre code {
+  background: none; border: none; padding: 0;
+  font-size: 0.875rem;
+  color: var(--av-text-primary);
+}
+
+.article-body table {
+  width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;
+  font-size: 0.875rem; display: block; overflow-x: auto;
+  border-radius: 10px;
+}
+.article-body table th {
+  background: var(--av-primary-soft);
+  color: var(--av-primary); font-weight: 600;
+  padding: 10px 14px; text-align: left;
+  border: 1px solid var(--av-primary-border);
+  white-space: nowrap;
+}
+.article-body table td {
+  padding: 9px 14px;
+  border: 1px solid var(--av-border-subtle);
+  color: var(--av-text-secondary);
+}
+.article-body table tr:nth-child(even) td { background: var(--av-surface-sunken); }
+.article-body table tr:hover td { background: var(--av-primary-soft); }
+
+.article-body blockquote {
+  position: relative;
+  padding: 18px 20px 14px 24px;
+  margin: 1.5rem 0;
+  background: var(--av-primary-soft);
+  border: 1px solid var(--av-primary-border);
+  border-radius: 12px;
+  color: var(--av-text-secondary);
+  font-style: italic;
+}
+.article-body blockquote::before {
+  content: '\201C';
+  font-family: 'Lora', serif;
+  font-size: 3.5rem; line-height: 1;
+  color: color-mix(in srgb, var(--av-primary) 25%, transparent);
+  position: absolute; top: -4px; left: 12px;
+  pointer-events: none;
+}
+
+.article-body a {
+  color: var(--av-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--av-primary) 35%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+.article-body a:hover { text-decoration-color: var(--av-primary); }
+
+
+/* ── Compare column panels (grammar-compare.html) ─────────────── */
+
+.compare-col {
+  border: 1px solid var(--av-border-subtle);
+  border-radius: 16px;
+  padding: 24px;
+  background: var(--av-surface-card);
+}
+
+
+/* ── Scrollbar polish (all pages) ─────────────────────────────── */
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--av-border-default);
+  border-radius: 9999px;
+}

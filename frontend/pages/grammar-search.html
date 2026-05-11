@@ -5,6 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Tìm kiếm — Grammar Wiki — IELTS Speaking Coach</title>
+    <!-- Canonical anti-flash theme bootstrap (DESIGN_SYSTEM § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme;
+        if (stored === 'light' || stored === 'dark') {
+          theme = stored;
+        } else {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- Tailwind CDN + custom navy/teal palette preserved (Sprint 6.15 Phase B
+       finding — js/grammar.js renderer depends on text-teal-light, bg-teal/15,
+       etc.). fontFamily key dropped; grammar-wiki.css owns font discipline. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -14,67 +35,28 @@
             navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
             teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
-          fontFamily: { sans: ['DM Sans', 'ui-sans-serif', 'system-ui'] },
         },
       },
     }
   </script>
+
+  <!-- DM Sans + Lora sub-system preserved per § 14.2 -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Foundation: tokens → components → ds (Sprint 6.5.1 pattern) →
+       grammar-wiki.css. admin-writing.css NOT linked (different cluster).
+       writing-renderers.css NOT linked (Sprint 6.8 finding extends). -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/ds.css" />
-  <style>
-    body {
-      background: #07111f;
-      background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
-      background-size: 28px 28px;
-      font-family: 'DM Sans', ui-sans-serif, system-ui;
-    }
-
-    .search-input {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 999px;
-      padding: 14px 20px 14px 48px;
-      color: #fff;
-      font-size: 15px;
-      font-family: 'DM Sans', sans-serif;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-      width: 100%;
-    }
-    .search-input:focus {
-      background: rgba(255,255,255,0.06);
-      border-color: rgba(20,184,166,0.45);
-      box-shadow: 0 0 0 4px rgba(20,184,166,0.08);
-    }
-    .search-input::placeholder { color: rgba(255,255,255,0.28); }
-
-    /* Results heading */
-    #search-heading { font-family: 'Lora', serif; }
-
-    /* Section label */
-    .section-label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
-      text-transform: uppercase; color: rgba(255,255,255,0.25);
-      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
-    }
-    .section-label::before {
-      content: '';
-      display: inline-block; width: 14px; height: 2px;
-      background: linear-gradient(90deg, #0F766E, transparent);
-      border-radius: 2px;
-    }
-
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
-  </style>
+  <link rel="stylesheet" href="../css/grammar-wiki.css" />
 </head>
-<body class="text-white min-h-screen font-sans antialiased">
+<body class="av-page text-white min-h-screen font-sans antialiased">
 
   <!-- Top nav -->
-  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: rgba(10,22,40,0.92); backdrop-filter: blur(12px);">
+  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: var(--av-surface-sunken); backdrop-filter: blur(12px);">
     <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
       <div id="breadcrumb" class="flex items-center text-sm text-white/40 flex-wrap gap-0">
         <a href="../grammar.html" class="hover:text-teal-light transition-colors">Grammar Wiki</a>
@@ -82,7 +64,11 @@
         <span class="text-white/80">Tìm kiếm</span>
       </div>
       <a href="../pages/home.html" class="text-xs text-white/30 hover:text-white/60 transition-colors">Dashboard</a>
-    </div>
+        <button id="theme-toggle" class="av-theme-toggle ml-2" type="button" aria-label="Toggle theme">
+        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      </div>
   </nav>
 
   <!-- Skeleton -->
@@ -133,6 +119,13 @@
     grammarWiki.setupSearch('search-input', 'search-btn', function (q) {
       window.location.href = '?q=' + encodeURIComponent(q);
     });
+  </script>
+
+  <!-- Canonical theme-toggle binding (Sprint 6.10.1). -->
+  <script type="module">
+    import { bindToggleButton } from '../js/theme-toggle.js';
+    var btn = document.getElementById('theme-toggle');
+    if (btn) bindToggleButton(btn);
   </script>
 </body>
 </html>

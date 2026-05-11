@@ -5,6 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Grammar Wiki — Aver Learning</title>
+
+  <!-- Canonical anti-flash theme bootstrap (DESIGN_SYSTEM § 13).
+       Must run BEFORE any stylesheet load to prevent FOUC. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme;
+        if (stored === 'light' || stored === 'dark') {
+          theme = stored;
+        } else {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- Tailwind CDN + custom navy/teal palette preserved per Sprint 6.15
+       Phase B finding (js/grammar.js renderer at 1,034 lines emits
+       text-teal-light, bg-teal/15, etc. utility classes that depend on
+       the palette). Utility-class refactor + palette removal deferred to
+       a future grammar-wiki-β sprint analogous to Sprint 6.14d-β.
+       fontFamily key dropped — grammar-wiki.css owns font discipline
+       under body.av-page (DM Sans + Lora sub-system preserved per § 14.2). -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -14,195 +41,34 @@
             navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
             teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
-          fontFamily: { sans: ['DM Sans', 'ui-sans-serif', 'system-ui'] },
         },
       },
     }
   </script>
+
+  <!-- DM Sans (body) + Lora (display) sub-system preserved per
+       DESIGN_SYSTEM § 14.2 — Grammar Wiki = long-form reading content,
+       editorial typography distinct from utilitarian dashboards. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Foundation order (Sprint 6.14c-hotfix § 2.1):
+       tokens.css → components.css → ds.css → grammar-wiki.css.
+       ds.css kept (Sprint 6.5.1 pattern) — pages use .ds-badge,
+       .ds-badge-teal, .ds-fadein legacy classes. grammar-wiki.css
+       loads last and provides scoped overrides under body.av-page.
+       admin-writing.css NOT linked (different cluster, at cap 10/10).
+       writing-renderers.css NOT linked (Sprint 6.8 finding extends). -->
+  <link rel="stylesheet" href="css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="css/aver-design/components.css" />
   <link rel="stylesheet" href="css/ds.css" />
-  <style>
-    body {
-      background: #07111f;
-      background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
-      background-size: 28px 28px;
-      font-family: 'DM Sans', ui-sans-serif, system-ui;
-    }
-
-    .hero-glow {
-      position: absolute;
-      top: -80px; left: 50%; transform: translateX(-50%);
-      width: 600px; height: 400px;
-      background: radial-gradient(ellipse at center, rgba(15,118,110,0.18) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .cat-card { cursor: pointer; }
-
-    /* Category card polish */
-    .cat-card {
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-    }
-    .cat-card::after {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(135deg, rgba(20,184,166,0.04) 0%, transparent 60%);
-      opacity: 0; transition: opacity 0.2s;
-    }
-    .cat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(20,184,166,0.12);
-      border-color: rgba(20,184,166,0.35) !important;
-      background: rgba(20,184,166,0.06) !important;
-    }
-    .cat-card:hover::after { opacity: 1; }
-
-    /* Featured / search card */
-    .article-card {
-      position: relative;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-    .article-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
-      border-color: rgba(20,184,166,0.3) !important;
-    }
-
-    .search-input {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 999px;
-      padding: 14px 20px 14px 48px;
-      color: #fff;
-      font-size: 15px;
-      font-family: 'DM Sans', sans-serif;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-      width: 100%;
-    }
-    .search-input:focus {
-      background: rgba(255,255,255,0.06);
-      border-color: rgba(20,184,166,0.45);
-      box-shadow: 0 0 0 4px rgba(20,184,166,0.08);
-    }
-    .search-input::placeholder { color: rgba(255,255,255,0.28); }
-
-    .btn-cta {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 11px 22px; border-radius: 999px; font-weight: 600; font-size: 14px;
-      font-family: 'DM Sans', sans-serif;
-      transition: all 0.18s; cursor: pointer; border: none; text-decoration: none;
-      letter-spacing: 0.01em;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #0F766E, #14b8a6);
-      color: #fff;
-      box-shadow: 0 2px 12px rgba(15,118,110,0.4);
-    }
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #0d5f58, #0F766E);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(15,118,110,0.5);
-    }
-    .btn-outline {
-      background: rgba(255,255,255,0.04);
-      color: rgba(255,255,255,0.75);
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .btn-outline:hover {
-      background: rgba(255,255,255,0.08);
-      border-color: rgba(20,184,166,0.35);
-      color: #14b8a6;
-      transform: translateY(-1px);
-    }
-
-    .section-head {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em;
-      text-transform: uppercase; color: rgba(255,255,255,0.28);
-      margin-bottom: 18px;
-    }
-    .section-head::before {
-      content: '';
-      display: inline-block;
-      width: 18px; height: 2px;
-      background: linear-gradient(90deg, #0F766E, transparent);
-      border-radius: 2px;
-    }
-
-    /* Hero serif headline */
-    .hero-title { font-family: 'Lora', serif; }
-
-    /* Roadmap CTA card */
-    .roadmap-card {
-      background: linear-gradient(135deg, rgba(15,118,110,0.08) 0%, rgba(255,255,255,0.02) 100%);
-      border: 1px solid rgba(20,184,166,0.18);
-      position: relative; overflow: hidden;
-    }
-    .roadmap-card::before {
-      content: '';
-      position: absolute; top: -40px; right: -40px;
-      width: 160px; height: 160px;
-      background: radial-gradient(circle, rgba(20,184,166,0.08) 0%, transparent 70%);
-    }
-
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9999px; }
-
-    /* Skeleton shimmer (same as home.html) */
-    @keyframes shimmer {
-      0%   { background-position: -400px 0; }
-      100% { background-position:  400px 0; }
-    }
-    .skeleton {
-      background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
-      background-size: 800px 100%;
-      animation: shimmer 1.4s infinite;
-    }
-
-    /* Stagger fade-in for grid items */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    #category-cards > *, #featured-list > * { animation: fadeUp 0.35s ease both; }
-    #category-cards > *:nth-child(2), #featured-list > *:nth-child(2) { animation-delay: 0.06s; }
-    #category-cards > *:nth-child(3), #featured-list > *:nth-child(3) { animation-delay: 0.12s; }
-    #category-cards > *:nth-child(4), #featured-list > *:nth-child(4) { animation-delay: 0.18s; }
-    #category-cards > *:nth-child(5), #featured-list > *:nth-child(5) { animation-delay: 0.24s; }
-    #category-cards > *:nth-child(6), #featured-list > *:nth-child(6) { animation-delay: 0.30s; }
-
-    /* Group cards */
-    .group-card {
-      position: relative; overflow: hidden;
-      transition: box-shadow 0.2s ease;
-    }
-    .group-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
-
-    /* Article row in group card */
-    .group-article-row { transition: background 0.15s; border-radius: 6px; }
-    .group-article-row:hover { background: rgba(255,255,255,0.04); }
-
-    /* Stagger group cards */
-    #groups-list > * { animation: fadeUp 0.4s ease both; }
-    #groups-list > *:nth-child(2) { animation-delay: 0.05s; }
-    #groups-list > *:nth-child(3) { animation-delay: 0.10s; }
-    #groups-list > *:nth-child(4) { animation-delay: 0.15s; }
-    #groups-list > *:nth-child(5) { animation-delay: 0.20s; }
-    #groups-list > *:nth-child(6) { animation-delay: 0.25s; }
-    #groups-list > *:nth-child(7) { animation-delay: 0.30s; }
-    #groups-list > *:nth-child(8) { animation-delay: 0.35s; }
-  </style>
+  <link rel="stylesheet" href="css/grammar-wiki.css" />
 </head>
-<body class="text-white min-h-screen font-sans antialiased">
+<body class="av-page text-white min-h-screen font-sans antialiased">
 
   <!-- Top nav -->
-  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: rgba(10,22,40,0.92); backdrop-filter: blur(12px);">
+  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: var(--av-surface-sunken); backdrop-filter: blur(12px);">
     <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-4">
         <a href="pages/home.html" class="text-white/40 hover:text-white transition-colors text-sm flex items-center gap-1.5">
@@ -218,6 +84,10 @@
         <span class="ds-badge"><span id="total-articles">...</span> bài</span>
         <span class="text-white/15">·</span>
         <span class="ds-badge">8 nhóm chủ đề</span>
+        <button id="theme-toggle" class="av-theme-toggle" type="button" aria-label="Toggle theme">
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
       </div>
     </div>
   </nav>
@@ -235,7 +105,7 @@
       </div>
       <h1 class="hero-title text-4xl sm:text-5xl font-extrabold mb-4 leading-tight">
         Học ngữ pháp như một<br class="hidden sm:block"/>
-        <span class="text-transparent bg-clip-text" style="background-image: linear-gradient(90deg, #14b8a6, #0ea5e9);">hệ thống liên kết</span>
+        <span class="text-transparent bg-clip-text" style="background-image: linear-gradient(90deg, var(--av-primary), #0ea5e9);">hệ thống liên kết</span>
       </h1>
       <p class="text-white/50 text-lg mb-8 max-w-xl mx-auto">
         Tra cứu nhanh, học theo roadmap, ứng dụng vào IELTS Speaking &amp; Writing.
@@ -356,6 +226,13 @@
 
     // Load page content
     grammarWiki.loadGrammarHome();
+  </script>
+
+  <!-- Canonical theme-toggle binding (Sprint 6.10.1) -->
+  <script type="module">
+    import { bindToggleButton } from './js/theme-toggle.js';
+    var btn = document.getElementById('theme-toggle');
+    if (btn) bindToggleButton(btn);
   </script>
 </body>
 </html>
