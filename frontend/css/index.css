@@ -1,0 +1,444 @@
+/* css/index.css — Sprint 6.13a (Phase 4 opening, marketing landing).
+ *
+ * Migrates frontend/index.html (the canonical marketing landing + login
+ * entry — Era A `#0C2340` navy / `#0F766E` teal) onto the Aver Design
+ * System. Drops Inter for Plus Jakarta Sans + JetBrains Mono. Replaces
+ * 37 Tailwind palette + inline hex literals with --av-* tokens.
+ *
+ * Atomic Era B reconciliation: this PR also deletes frontend/landing.html
+ * (the orphan #1B3A5C / #0D7377 duplicate that no production code links
+ * to).
+ *
+ * Surgical scope: visual layer only. All CTAs target /login.html
+ * (8 of them) byte-identical. /grammar.html (2 links) + /pricing.html
+ * (1 link) + /frontend/pages/home.html (footer) preserved. Anchor
+ * links (#features, #how-it-works, #pricing) preserved. Pricing
+ * section keeps its inline `style="display:none"` pre-launch hide.
+ *
+ * Theme strategy:
+ *   Hero + final CTA + footer are "always-dark" by design (marketing
+ *   atmosphere). The mid-page sections (social proof / features /
+ *   how-it-works / pricing / testimonials) follow the active theme.
+ *   This matches the legacy page's contrast story while letting users
+ *   on dark systems get a dark-flavor of the body sections.
+ *
+ * Color migration (semantic role on themed sections):
+ *   stat numbers, feature card titles, h2 headings → --av-text-primary
+ *   feature card bodies, step bodies, testimonial body → --av-text-secondary
+ *   stat labels, eyebrow on light, feature-tag bg muted → --av-text-muted
+ *   "(tuỳ chọn)" hints + nav-link default → --av-text-faint (≤10 cap)
+ *
+ * Brand mapping:
+ *   navy #0C2340                                      → --av-text-primary (heading on light) +
+ *                                                       hard-coded gradient base (hero stays dark)
+ *   teal #0F766E                                      → --av-primary (CTAs, eyebrows, check marks)
+ *   #14b8a6 (teal-500 on dark hero) / teal-300 accent → --av-brand-teal-300 (kept literal — hero
+ *                                                       gradient is always dark, this is intentional)
+ *   slate-500 / slate-600 body copy                   → --av-text-secondary
+ *   slate-100 dividers                                → --av-border-subtle
+ *   yellow-400 testimonial stars                      → --av-warning (semantic yellow)
+ */
+
+
+/* ── Top nav ──────────────────────────────────────────────────────── */
+
+.ix-nav {
+  background: color-mix(in srgb, var(--av-surface-elevated) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--av-border-subtle);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.ix-logo__mark {
+  background: var(--av-text-primary);
+  color: var(--av-surface-card);
+}
+.ix-logo__mark svg { fill: var(--av-surface-card); }
+.ix-logo__text { color: var(--av-text-primary); }
+
+.ix-nav-link {
+  color: var(--av-text-muted);
+  position: relative;
+  transition: color var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-nav-link:hover { color: var(--av-text-primary); }
+.ix-nav-link::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 0;
+  background: var(--av-primary);
+  transition: width var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-nav-link:hover::after { width: 100%; }
+
+.ix-nav-signin {
+  color: var(--av-text-primary);
+  transition: color var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-nav-signin:hover { color: var(--av-primary); }
+
+.ix-nav-cta {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  box-shadow: var(--av-shadow-sm);
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    box-shadow var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-nav-cta:hover {
+  background: var(--av-primary-hover);
+  box-shadow: var(--av-shadow-md);
+}
+
+
+/* ── Hero (always-dark atmosphere) ────────────────────────────────── */
+
+.ix-hero {
+  background: linear-gradient(
+    135deg,
+    var(--av-brand-teal-900) 0%,
+    color-mix(in srgb, var(--av-brand-teal-900) 50%, var(--av-brand-teal-700) 50%) 40%,
+    var(--av-brand-teal-700) 100%
+  );
+  color: var(--av-surface-card);
+}
+
+.ix-hero__glow {
+  background: radial-gradient(
+    ellipse 60% 50% at 70% 50%,
+    color-mix(in srgb, var(--av-brand-teal-500) 35%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+.ix-hero__grid {
+  opacity: 0.05;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.ix-hero__eyebrow {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+}
+.ix-hero__eyebrow-dot { background: var(--av-brand-teal-300); }
+.ix-hero__eyebrow-text { color: rgba(255, 255, 255, 0.80); }
+
+.ix-hero__title { color: #FFFFFF; }
+.ix-hero__title-accent { color: var(--av-brand-teal-300); }
+
+.ix-hero__lead { color: rgba(255, 255, 255, 0.75); }
+.ix-hero__note { color: rgba(255, 255, 255, 0.50); }
+
+
+/* ── Hero mock screenshot (right column) ─────────────────────────── */
+
+.ix-mock__frame {
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: var(--av-shadow-xl);
+}
+.ix-mock__body {
+  background: var(--av-brand-teal-900);
+}
+.ix-mock__chrome { border-bottom: 1px solid rgba(255, 255, 255, 0.10); }
+.ix-mock__dot--red    { background: rgba(248, 113, 113, 0.60); }
+.ix-mock__dot--yellow { background: rgba(250, 204, 21, 0.60); }
+.ix-mock__dot--green  { background: rgba(74, 222, 128, 0.60); }
+.ix-mock__crumb       { color: rgba(255, 255, 255, 0.40); }
+
+.ix-mock__qcard       { background: rgba(255, 255, 255, 0.05); }
+.ix-mock__qlabel      { color: rgba(255, 255, 255, 0.50); }
+.ix-mock__qtext       { color: #FFFFFF; }
+
+.ix-mock__wave        { background: color-mix(in srgb, var(--av-brand-teal-500) 20%, transparent); }
+.ix-mock__mic         { background: var(--av-brand-teal-500); color: #FFFFFF; }
+.ix-mock__bar {
+  width: 4px;
+  background: var(--av-brand-teal-300);
+  border-radius: var(--av-radius-pill);
+}
+.ix-mock__time        { color: var(--av-brand-teal-200); }
+
+.ix-mock__score       { background: rgba(255, 255, 255, 0.05); }
+.ix-mock__score-num   { color: var(--av-brand-teal-300); font-family: var(--av-font-mono); font-feature-settings: 'tnum'; }
+.ix-mock__score-label { color: rgba(255, 255, 255, 0.40); }
+
+.ix-badge {
+  background: var(--av-surface-card);
+  box-shadow: var(--av-shadow-xl);
+}
+.ix-badge__icon {
+  background: color-mix(in srgb, var(--av-primary) 10%, transparent);
+  color: var(--av-primary);
+}
+.ix-badge__title { color: var(--av-text-primary); }
+.ix-badge__hint  { color: var(--av-text-muted); }
+
+
+/* ── Hero CTAs (inverse pills on dark hero) ───────────────────────── */
+
+.ix-cta-light {
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  box-shadow: var(--av-shadow-lg);
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    transform  var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-cta-light:hover {
+  background: var(--av-brand-teal-50);
+  transform: translateY(-1px);
+}
+.ix-cta-light:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+
+.ix-cta-ghost {
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  color: #FFFFFF;
+  transition: background var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-cta-ghost:hover { background: rgba(255, 255, 255, 0.10); }
+.ix-cta-ghost:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+
+
+/* ── Social proof / stats bar ─────────────────────────────────────── */
+
+.ix-stats-bar {
+  background: var(--av-surface-card);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+.ix-stat__num {
+  background: linear-gradient(135deg, var(--av-primary), var(--av-text-primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+}
+.ix-stat__label   { color: var(--av-text-muted); }
+.ix-stat--bordered {
+  border-left: 1px solid var(--av-border-subtle);
+  border-right: 1px solid var(--av-border-subtle);
+}
+
+
+/* ── Section surfaces ─────────────────────────────────────────────── */
+
+.ix-section          { background: var(--av-surface-card); }
+.ix-section-sunken   { background: var(--av-surface-sunken); }
+
+.ix-eyebrow   { color: var(--av-primary); }
+.ix-heading   { color: var(--av-text-primary); }
+.ix-subtitle  { color: var(--av-text-secondary); }
+
+
+/* ── Feature cards ────────────────────────────────────────────────── */
+
+.ix-feature-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  box-shadow: var(--av-shadow-sm);
+  transition:
+    transform   var(--av-duration-fast) var(--av-easing-default),
+    box-shadow  var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--av-shadow-lg);
+}
+
+.ix-feature-card--popular {
+  border: 1px solid var(--av-primary-border);
+}
+.ix-feature-card__badge {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+}
+
+.ix-feature-card__icon {
+  background: color-mix(in srgb, var(--av-text-primary) 5%, transparent);
+  color: var(--av-text-primary);
+}
+.ix-feature-card__icon--accent {
+  background: color-mix(in srgb, var(--av-primary) 10%, transparent);
+  color: var(--av-primary);
+}
+
+.ix-feature-card__title { color: var(--av-text-primary); }
+.ix-feature-card__body  { color: var(--av-text-secondary); }
+
+.ix-feature-card__tag {
+  background: color-mix(in srgb, var(--av-text-primary) 5%, transparent);
+  color: var(--av-text-primary);
+}
+.ix-feature-card__tag--accent {
+  background: color-mix(in srgb, var(--av-primary) 10%, transparent);
+  color: var(--av-primary);
+}
+
+
+/* ── How-it-works steps ───────────────────────────────────────────── */
+
+.ix-step-line {
+  background: linear-gradient(90deg, var(--av-primary), var(--av-text-primary));
+  opacity: 0.20;
+}
+.ix-step-line--right {
+  left: 58.33%;
+  right: 8.33%;
+}
+
+.ix-step__icon {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  box-shadow: var(--av-shadow-lg);
+}
+.ix-step__icon--alt {
+  background: var(--av-text-primary);
+  color: var(--av-surface-card);
+}
+.ix-step__icon--alt svg { color: var(--av-surface-card); }
+
+.ix-step__label                  { color: var(--av-brand-teal-300); }
+.ix-step__label--on-primary      { color: var(--av-brand-teal-100); }
+
+.ix-step__title { color: var(--av-text-primary); }
+.ix-step__body  { color: var(--av-text-secondary); }
+
+
+/* ── Pricing cards ────────────────────────────────────────────────── */
+
+.ix-price-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.ix-price-card--popular {
+  background: linear-gradient(135deg, var(--av-primary) 0%, var(--av-primary-hover) 100%);
+  border: none;
+  box-shadow: var(--av-shadow-xl);
+}
+
+.ix-price-card__tier             { color: var(--av-text-muted); }
+.ix-price-card__tier--on-primary { color: var(--av-brand-teal-200); }
+
+.ix-price-card__amount             { color: var(--av-text-primary); font-family: var(--av-font-mono); font-feature-settings: 'tnum'; }
+.ix-price-card__amount--on-primary { color: var(--av-text-on-primary); }
+
+.ix-price-card__unit             { color: var(--av-text-muted); }
+.ix-price-card__unit--on-primary { color: var(--av-brand-teal-200); }
+
+.ix-price-card__period             { color: var(--av-text-muted); }
+.ix-price-card__period--on-primary { color: var(--av-brand-teal-200); }
+
+.ix-price-card__feat             { color: var(--av-text-secondary); }
+.ix-price-card__feat--off        { color: var(--av-text-muted); }
+.ix-price-card__feat--on-primary { color: var(--av-brand-teal-50); }
+
+.ix-price-card__check             { color: var(--av-primary); }
+.ix-price-card__check--on-primary { color: var(--av-brand-teal-200); }
+
+.ix-price-card__cross             { color: var(--av-text-muted); }
+
+.ix-price-card__ribbon {
+  background: rgba(255, 255, 255, 0.20);
+  color: var(--av-text-on-primary);
+}
+
+.ix-price-card__cta {
+  border: 2px solid var(--av-text-primary);
+  color: var(--av-text-primary);
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    color      var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-price-card__cta:hover {
+  background: var(--av-text-primary);
+  color: var(--av-surface-card);
+}
+.ix-price-card__cta--popular {
+  border: none;
+  background: var(--av-surface-card);
+  color: var(--av-primary);
+  box-shadow: var(--av-shadow-sm);
+}
+.ix-price-card__cta--popular:hover {
+  background: var(--av-brand-teal-50);
+  color: var(--av-primary);
+}
+
+.ix-price-note { color: var(--av-text-muted); }
+.ix-price-note__link {
+  color: var(--av-primary);
+  transition: color var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-price-note__link:hover { color: var(--av-primary-hover); }
+
+
+/* ── Testimonials ─────────────────────────────────────────────────── */
+
+.ix-testimonial {
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-subtle);
+}
+.ix-testimonial__quote {
+  font-family: Georgia, serif;
+  font-size: 5rem;
+  line-height: 1;
+  color: var(--av-primary);
+  opacity: 0.20;
+}
+.ix-testimonial__body { color: var(--av-text-secondary); }
+
+.ix-testimonial__avatar {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+}
+.ix-testimonial__avatar--alt {
+  background: var(--av-text-primary);
+  color: var(--av-surface-card);
+}
+
+.ix-testimonial__name  { color: var(--av-text-primary); }
+.ix-testimonial__meta  { color: var(--av-text-muted); }
+.ix-testimonial__star  { color: var(--av-warning); }
+
+
+/* ── Footer (always-dark, brand atmosphere) ───────────────────────── */
+
+.ix-footer {
+  background: var(--av-brand-teal-900);
+  color: rgba(255, 255, 255, 0.60);
+}
+
+.ix-footer__logo-mark {
+  background: var(--av-primary);
+  color: #FFFFFF;
+}
+.ix-footer__logo-mark svg { fill: #FFFFFF; }
+.ix-footer__brand   { color: #FFFFFF; }
+.ix-footer__tagline { color: rgba(255, 255, 255, 0.50); }
+
+.ix-footer__heading { color: rgba(255, 255, 255, 0.30); }
+.ix-footer__link {
+  color: rgba(255, 255, 255, 0.60);
+  transition: color var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-footer__link:hover { color: #FFFFFF; }
+
+.ix-footer__divider { border-top: 1px solid rgba(255, 255, 255, 0.10); }
+.ix-footer__copy    { color: rgba(255, 255, 255, 0.30); }
+.ix-footer__powered { color: rgba(255, 255, 255, 0.20); }
