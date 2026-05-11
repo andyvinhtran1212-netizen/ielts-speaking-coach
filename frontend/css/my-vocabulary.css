@@ -511,6 +511,129 @@
 .mv-picker-msg--error { color: var(--av-error); }
 
 
+/* ── Preview-flashcard modal (Sprint 6.11b) ──────────────────────
+ *
+ * JS-rendered modal emitted by _renderPreviewModal() in my-vocabulary.js.
+ * Sprint 6.11a deliberately left this on legacy dark styling — Sprint
+ * 6.11b closes that seam by giving it tokenized class hooks so the
+ * cascade themes both light + dark. The IDs (#fc-preview-close) are
+ * preserved byte-identical so the JS event wiring still finds them.
+ */
+
+.mv-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--av-surface-overlay);
+  padding: var(--av-space-4);
+}
+
+.mv-preview-modal__panel {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: var(--av-surface-elevated);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  padding: var(--av-space-6);
+}
+
+.mv-preview-modal__close {
+  position: absolute;
+  top: var(--av-space-3);
+  right: var(--av-space-3);
+  background: transparent;
+  border: none;
+  color: var(--av-text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: var(--av-space-1) var(--av-space-2);
+  transition: color var(--av-duration-fast) var(--av-easing-default);
+}
+.mv-preview-modal__close:hover { color: var(--av-text-primary); }
+
+.mv-preview-face {
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-4);
+  margin-bottom: var(--av-space-4);
+}
+.mv-preview-face--front {
+  background: var(--av-primary-soft);
+  text-align: center;
+}
+.mv-preview-face--back {
+  background: var(--av-surface-card);
+}
+
+.mv-preview-face__label {
+  font-size: 10px;
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av-text-muted);
+  margin: 0 0 var(--av-space-2);
+}
+
+.mv-preview-face__headword {
+  font-size: 24px;
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.mv-preview-ipa {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--av-info);
+  padding: 2px var(--av-space-2);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-info-soft);
+  border: 1px solid var(--av-info);
+  display: inline-block;
+  margin-top: var(--av-space-2);
+}
+
+.mv-preview-def-vi {
+  font-size: 15px;
+  color: var(--av-text-primary);
+  font-weight: var(--av-fw-medium);
+  margin: 0 0 var(--av-space-2);
+}
+.mv-preview-def-en {
+  font-size: 13px;
+  color: var(--av-text-secondary);
+  font-style: italic;
+  margin: 0 0 var(--av-space-3);
+}
+.mv-preview-example {
+  font-size: 13px;
+  color: var(--av-primary);
+  padding: var(--av-space-3);
+  background: var(--av-primary-soft);
+  border-left: 2px solid var(--av-primary);
+  border-radius: var(--av-radius-sm);
+  margin-bottom: var(--av-space-3);
+}
+.mv-preview-context {
+  font-size: 12px;
+  color: var(--av-text-muted);
+  font-style: italic;
+  margin: var(--av-space-2) 0 0;
+}
+.mv-preview-no-back {
+  font-size: 12px;
+  color: var(--av-text-faint);
+  text-align: center;
+  padding: var(--av-space-6) 0;
+}
+
+
 /* ── Sprint 6.5.1 — ds.css legacy override scoped under body.av-page ──
  *
  * ds.css still ships color: #fff and rgba(255,255,255,X) defaults that
