@@ -371,11 +371,11 @@ This section is the canonical reference for the migration state — Codex audit 
 | 2 | `frontend/pages/full-test-result.html` | 6.9 | #136 | Phase 2 closure — surgical migration on 611-line mock-test summary (3 sessions in one view, Chart.js radar, 25 JS-coupled IDs); first page to apply the Chart.js A.2 theme-aware pattern reused from Sprint 6.4.1 (getComputedStyle + MutationObserver on `[data-theme]` re-renders the radar so axes/dataset/tooltip track the active theme) |
 | 3 | `frontend/pages/vocabulary.html` | 6.10 | #138 | Phase 3 page 1 — surgical migration on the 4-tab iframe landing (Sprint 6.0 PR #115 / 6.0.1 PR #116). `vocab-landing.js` test seam untouched. DEBT-2026-05-09-B (iframe → module extraction) remains **deferred** — pre-work confirmed no un-defer triggers fired. Iframe children stay legacy dark-only until Sprint 6.11 migrates them and adds same-origin localStorage theme propagation. |
 | 3 | `frontend/pages/my-vocabulary.html` | 6.11a | #140 | Phase 3 page 2 — surgical migration on the Personal Vocab Bank (400-line page, 710-line JS). Sprint 6.0.1 embedded-mode IIFE preserved byte-identical (pinned by `embedded-mode.test.js`). All JS-coupled selectors preserved: 5 states, 7 filter buttons, 4 source badges, 2 mastery pills, 8 vocab-action variants, 2 modals, manual add form, stats bar exports, `window._myVocab` test seam. `cardHtml` + `flashToast` template-literal inline styles migrated to class hooks (mv-def-block / mv-context / mv-toast--*). The JS-rendered `_renderPreviewModal` was left on legacy dark styling and **closed in Sprint 6.11b**. |
-| 3 | `frontend/pages/flashcards.html` | 6.11b | TBD | Phase 3 page 3 — surgical migration on the Phase D Wave 2 stack-list page (286-line HTML / 408-line JS). Sprint 6.0.1 IIFE preserved; JS-coupled contract intact (`#fc-container`, `#fc-modal`, 11 modal field IDs, 4 chip categories, `.stack-card[data-stack-id]`, `#fc-toast`). Preview-error template literal migrated to `.fc-preview-error` class. `btn-primary` CTA routes through `--av-text-on-primary` (Sprint 6.7.1). |
-| 3 | `frontend/pages/exercises.html` | 6.11b | TBD | Phase 3 page 4 — surgical migration on the drill hub (227-line HTML, inline feature-flag gating script preserved byte-identical). Default-deny DOM removal for `card-d1` / `card-flashcards` / `card-d3` and the `/auth/me` flag-check contract are unchanged. |
-| 3 | `js/my-vocabulary.js` `_renderPreviewModal` | 6.11b | TBD | Phase 3 cleanup — closes the Sprint 6.11a documented seam. ~15 inline `style="…"` template-literal emissions in `_renderPreviewModal` migrated to class hooks (`mv-preview-modal`, `mv-preview-modal__panel/__close`, `mv-preview-face/face--front/face--back/face__label/face__headword`, `mv-preview-ipa`, `mv-preview-def-vi/-en`, `mv-preview-example`, `mv-preview-context`, `mv-preview-no-back`). The `#fc-preview-close` ID + event wiring preserved byte-identical. |
-| 3 | `frontend/pages/profile.html` | 6.12a | TBD | Phase 3 final cluster page 1 of 2 — surgical migration on the standalone profile route (498-line page; ~140-line inline `<style>` + ~165-line inline JS at the bottom). NOT iframe-embedded (opened from `home.html → user-pill`), so no Sprint 6.0.1 IIFE. All 21 JS-coupled IDs preserved (`header-avatar`/`-initials`, `profile-avatar`/`-initials`/`-avatar-img`/`-display-name`/`-email`/`-joined`, 3 stat cards, `profile-form`, 4 form inputs, `band-btns`, `level-options`, `goal-display`, `btn-save`, `toast`); 4 `.level-card[data-level]` options + `saveProfile()` onclick + `window.saveProfile` global + BANDS array + GET/PATCH `/auth/profile` + GET `/auth/me` fallback all unchanged. Toast `style.background = isError ? '#dc2626' : '#0D7377'` migrated to `.pf-toast--error` class toggle. Spec ZIP claimed 3 tabs / Chart.js / password / sign-out / access-code forms — pre-work falsified all five; production is a single linear form. |
-| 3 | `frontend/onboarding.html` | 6.12b | TBD | **Phase 3 closure** — surgical migration on the post-signup 3-step wizard (442-line page; ~75-line inline `<style>` + ~177-line inline state machine). At the frontend root, NOT `/pages/`. All 14 JS-coupled IDs preserved (`step-label`, `step-pct`, `progress-fill`, `error-banner`, `step-1`/`-2`/`-3`, `btn-back`, `btn-next`, `nav-row`, `target-band`, `exam-date`, `level-cards`, `topic-cards`); 4 level + 3 topic `.opt-card[data-value]` options; `currentStep`/`goingBack`/`stepData` state preserved; `.step-panel.active`/`.slide-back` animation hooks renamed to `ob-slide-in`/`ob-slide-back` keyframes; PATCH `/auth/profile` (5 fields incl. `onboarding_completed: true`) + GET `/auth/me` already-onboarded redirect + login-guard + submit redirect to `pages/home.html?first_topic=…` all byte-identical. Error banner migrated from inline `style.display = 'block'` to `.show` class. **Production typo `#14a8ae` (used in 3 places) normalized to `--av-primary` — the intended `#14b8a6` was off by a digit.** typography-tier1 `TIER_1_PAGES` list now empty; sentinel test pins emptiness. |
+| 3 | `frontend/pages/flashcards.html` | 6.11b | #141 | Phase 3 page 3 — surgical migration on the Phase D Wave 2 stack-list page (286-line HTML / 408-line JS). Sprint 6.0.1 IIFE preserved; JS-coupled contract intact (`#fc-container`, `#fc-modal`, 11 modal field IDs, 4 chip categories, `.stack-card[data-stack-id]`, `#fc-toast`). Preview-error template literal migrated to `.fc-preview-error` class. `btn-primary` CTA routes through `--av-text-on-primary` (Sprint 6.7.1). |
+| 3 | `frontend/pages/exercises.html` | 6.11b | #141 | Phase 3 page 4 — surgical migration on the drill hub (227-line HTML, inline feature-flag gating script preserved byte-identical). Default-deny DOM removal for `card-d1` / `card-flashcards` / `card-d3` and the `/auth/me` flag-check contract are unchanged. |
+| 3 | `js/my-vocabulary.js` `_renderPreviewModal` | 6.11b | #141 | Phase 3 cleanup — closes the Sprint 6.11a documented seam. ~15 inline `style="…"` template-literal emissions in `_renderPreviewModal` migrated to class hooks (`mv-preview-modal`, `mv-preview-modal__panel/__close`, `mv-preview-face/face--front/face--back/face__label/face__headword`, `mv-preview-ipa`, `mv-preview-def-vi/-en`, `mv-preview-example`, `mv-preview-context`, `mv-preview-no-back`). The `#fc-preview-close` ID + event wiring preserved byte-identical. |
+| 3 | `frontend/pages/profile.html` | 6.12a | #142 | Phase 3 final cluster page 1 of 2 — surgical migration on the standalone profile route (498-line page; ~140-line inline `<style>` + ~165-line inline JS at the bottom). NOT iframe-embedded (opened from `home.html → user-pill`), so no Sprint 6.0.1 IIFE. All 21 JS-coupled IDs preserved (`header-avatar`/`-initials`, `profile-avatar`/`-initials`/`-avatar-img`/`-display-name`/`-email`/`-joined`, 3 stat cards, `profile-form`, 4 form inputs, `band-btns`, `level-options`, `goal-display`, `btn-save`, `toast`); 4 `.level-card[data-level]` options + `saveProfile()` onclick + `window.saveProfile` global + BANDS array + GET/PATCH `/auth/profile` + GET `/auth/me` fallback all unchanged. Toast `style.background = isError ? '#dc2626' : '#0D7377'` migrated to `.pf-toast--error` class toggle. Spec ZIP claimed 3 tabs / Chart.js / password / sign-out / access-code forms — pre-work falsified all five; production is a single linear form. |
+| 3 | `frontend/onboarding.html` | 6.12b | #143 | **Phase 3 closure** — surgical migration on the post-signup 3-step wizard (442-line page; ~75-line inline `<style>` + ~177-line inline state machine). At the frontend root, NOT `/pages/`. All 14 JS-coupled IDs preserved (`step-label`, `step-pct`, `progress-fill`, `error-banner`, `step-1`/`-2`/`-3`, `btn-back`, `btn-next`, `nav-row`, `target-band`, `exam-date`, `level-cards`, `topic-cards`); 4 level + 3 topic `.opt-card[data-value]` options; `currentStep`/`goingBack`/`stepData` state preserved; `.step-panel.active`/`.slide-back` animation hooks renamed to `ob-slide-in`/`ob-slide-back` keyframes; PATCH `/auth/profile` (5 fields incl. `onboarding_completed: true`) + GET `/auth/me` already-onboarded redirect + login-guard + submit redirect to `pages/home.html?first_topic=…` all byte-identical. Error banner migrated from inline `style.display = 'block'` to `.show` class. **Production typo `#14a8ae` (used in 3 places) normalized to `--av-primary` — the intended `#14b8a6` was off by a digit.** typography-tier1 `TIER_1_PAGES` list now empty; sentinel test pins emptiness. |
 
 Properties of every redesigned page:
 
@@ -676,3 +676,146 @@ For line charts, also resolve `--av-text-muted` for x/y tick labels (Sprint 6.4.
 - Sprint 6.9 (PR #136) — full-test-result.html `pron-radar` — first deliberate reuse; lifted the helper signature byte-identical.
 
 When the next chart-bearing page needs theme support, lift from these two — don't reinvent.
+
+
+## 17. Audit checklist gates (formalized Sprint 6.12c)
+
+**Origin:** Codex audit Phase 3 AMBER #3 (PR #143 ship audit, 2026-05-11). Sprint 6.10.1 caught cumulative drift across 6 prior redesigned pages — BEM-style icon classes shipped with no matching CSS rule, leaving BOTH sun + moon SVGs visible stacked. Codex Phase 1 and Phase 2 audits **missed** this because they verified IIFE *behavior* (theme persistence + system-preference fallback) but never IIFE *rendering correctness* (does the icon actually swap visually). That is a documented blind spot.
+
+This section formalizes the audit gates a Codex reviewer (or a maintainer running self-audit before merge) should walk through for every per-page redesign and every Phase-closure audit. The gates are intentionally narrow — they pin patterns where drift has already happened once.
+
+### 17.1 Standing audit gates
+
+Apply every gate below to every per-page redesign audit. If a gate doesn't apply (e.g., Gate 6 on a non-iframe page), mark it N/A in the audit report rather than silently skipping.
+
+#### Gate 1: JS contract preservation
+
+- [ ] Every element `id` consumed by JS is preserved byte-identical
+- [ ] Every `data-*` attribute consumed by JS is preserved byte-identical
+- [ ] Render-function names + global handlers (`window.saveProfile`, `window._myVocab`, etc.) unchanged
+- [ ] State-machine transitions (`currentStep`, `_ftAllSessionIds`, etc.) unchanged
+- [ ] Backend endpoint contracts (path + payload shape) unchanged
+- [ ] `localStorage` key names preserved (`av-theme`, `av-onboarding-progress`, etc.)
+
+**Why this matters:** The 13 Phase 1–3 migrations are surgical. A renamed ID or a coerced field shape would surface as a runtime regression, not a visual one, so audits must spot it before merge.
+
+#### Gate 2: Canonical theme infrastructure (§ 13)
+
+- [ ] Canonical anti-flash IIFE present in `<head>` before any stylesheet `<link>`
+- [ ] Validates stored value (`(stored === 'light' || stored === 'dark')`)
+- [ ] Falls back to `prefers-color-scheme` system preference
+- [ ] Wraps `localStorage.getItem` in `try/catch`
+- [ ] Catch arm sets `data-theme="light"` (last-resort fallback)
+- [ ] For iframe children: Sprint 6.0.1 embedded-mode IIFE runs FIRST, canonical theme IIFE runs AFTER (no collision; `embedded-mode.test.js` still passes)
+
+#### Gate 3: Theme toggle icon rendering (NEW — Sprint 6.10.1 blind-spot closure)
+
+This gate exists because Codex Phase 1 + 2 audits passed pages that were visually broken — the IIFE worked, but both sun + moon SVGs rendered simultaneously because the toggle button used BEM classes that components.css never styled.
+
+- [ ] HTML uses canonical `.icon-sun` + `.icon-moon` class names on the two SVGs inside `.av-theme-toggle`
+- [ ] **Zero BEM drift variants** in markup or CSS — none of `theme-toggle__icon`, `av-theme-toggle__icon--sun`, `av-theme-toggle__icon--moon`, `av-theme-toggle__sun`, `av-theme-toggle__moon`
+- [ ] `components.css` lines ~78–82 own the visibility swap; page CSS does NOT redefine it
+- [ ] Visual verification: light theme shows ONLY sun; dark theme shows ONLY moon. No stacking, no flicker on toggle
+
+**Detection commands:**
+
+```bash
+# Page markup: no BEM drift
+grep -E "theme-toggle__icon|av-theme-toggle__sun|av-theme-toggle__moon" frontend/pages/<page>.html
+
+# Page CSS: does NOT redefine the canonical swap
+grep -E "\.av-theme-toggle\s+\.icon-(sun|moon)\s*\{[^}]*display\s*:" frontend/css/<page>.css
+```
+
+Both should return 0 matches. Both are pinned by `theme-toggle-icon-canonical.test.mjs` — if that suite fails on a page added to its `REDESIGNED_PAGES` list, this gate is failing.
+
+#### Gate 4: Color migration discipline
+
+- [ ] No hardcoded `color: #...`, `color: white`, or `color: black` in the page's CSS file (runtime paths only — `@media print` exceptions documented per UNIFIED_DESIGN_BRIEF.md § 12.5 are OK)
+- [ ] CTA text routes through `--av-text-on-primary` (Sprint 6.7.1 — never hardcode `#ffffff` because the value flips between themes)
+- [ ] `--av-text-faint` references stay ≤ 10 combined across HTML + page CSS (Sprint 6.4.2 anti-pattern guard — `text-faint` fails AA contrast)
+- [ ] Semantic role mapping: pick the token by what the text *is* (heading, helper, meta, em-dash), not by what its legacy opacity *was*
+
+**Detection commands:**
+
+```bash
+# No hardcoded runtime colors
+grep -E "^\s*color:\s*(#[0-9a-fA-F]{3,6}|white|black);" frontend/css/<page>.css
+
+# CTAs route through --av-text-on-primary
+grep -E "\.(btn|av-button)[^{]*\{[^}]*color:" frontend/css/<page>.css
+```
+
+The first should return 0 (or only documented `@media print` exceptions). The second should show every CTA rule referencing `var(--av-text-on-primary)`.
+
+#### Gate 5: `ds.css` legacy override pattern (Sprint 6.5.1 lesson)
+
+`ds.css` is the bridge between the dark-navy legacy era and the Aver Design System. It carries hardcoded `#fff` + `rgba(255,…)` rules invisible on the light-theme cream surface. Redesigns must **override locally** under `body.av-page`, never patch the shared sheet.
+
+- [ ] `ds.css` not modified by this PR (last legitimate edit: Sprint 6.2.1 font hotfix)
+- [ ] If the redesigned page consumes legacy classes (`.ds-band-*`, `.ds-crit*`, etc.), the page CSS overrides them under `body.av-page { ... }` scope
+- [ ] The override block is commented with `Sprint 6.5.1 ds.css override pattern` (or equivalent)
+
+**Verification:**
+
+```bash
+git log --oneline -- frontend/css/ds.css | head -5
+```
+
+#### Gate 6: Iframe embedded-mode preservation (if applicable)
+
+Only applies to iframe-child pages (currently `my-vocabulary.html`, `flashcards.html`, `exercises.html`).
+
+- [ ] Sprint 6.0.1 IIFE (`?embedded=1` → adds `html.embedded-mode`) is the FIRST `<script>` in `<head>`
+- [ ] `embedded-mode.css` is linked
+- [ ] Canonical theme IIFE runs AFTER the embedded-mode IIFE, both before stylesheets
+- [ ] `embedded-mode.test.js` still passes (7/7 pins)
+
+#### Gate 7: Pre-work documentation (§ 15 lesson)
+
+- [ ] Pre-work findings recorded in the PR body (steps 1–8 from § 15.2)
+- [ ] Spec-assumption falsifications listed explicitly (e.g., "ZIP claimed X — production has Y")
+- [ ] Scope rationale stated (Option A surgical vs Option B refactor — and why)
+
+### 17.2 Brand-color regression guard
+
+Sprint 6.12b discovered a production typo (`#14a8ae` in 3 places where `#14b8a6` was intended) that pre-migration testing never surfaced because the typo rendered as "close enough to teal." The migration eliminated it by routing through `--av-primary`. Standing check:
+
+```bash
+grep -rn "#14a8ae" frontend/ backend/
+```
+
+Should return 0 matches. Any reappearance is either (a) the same typo recurring or (b) someone copy-pasting historical context — in either case it's worth a quick `git blame` + fix.
+
+### 17.3 Sentinel tests — verify these pass during audit
+
+The following suites pin canonical patterns. An audit should confirm all of them still pass on the audited branch:
+
+| Suite | Pins | Sprint |
+|---|---|---|
+| `frontend/tests/anti-flash-iife-canonical.test.mjs` | Canonical IIFE compliance + DESIGN_SYSTEM § 13/14 narrative integrity | 6.6.1 |
+| `frontend/tests/theme-toggle-icon-canonical.test.mjs` | Icon class drift (NEW Sprint 6.10.1 gate) + per-page CSS no-duplicate-of-canonical-swap | 6.10.1 |
+| `frontend/tests/typography-tier1.test.js` | `TIER_1_PAGES` emptiness sentinel (Phase 3 closure) — catches any page reverting to Manrope+Fraunces | 6.12b |
+| `frontend/tests/embedded-mode.test.js` | Sprint 6.0.1 iframe contract — byte-identical IIFE on the 3 iframe-child pages | 6.0.1 |
+
+Plus the per-page `*-redesign.test.mjs` for the page under audit (`profile-redesign`, `onboarding-redesign`, `flashcards-redesign`, etc.).
+
+### 17.4 Anti-pattern: audit blind spots
+
+❌ **Don't verify "theme works" only by checking IIFE behavior.** Codex Phase 1 + 2 passed pages whose IIFE was correct but whose icon-swap CSS was missing. The icon swap is a separate gate (Gate 3).
+
+❌ **Don't trust spec assumptions without pre-work verification.** Sprint 6.12a falsified five ZIP-reference claims (tabs / Chart.js / password / sign-out / access-code) and Sprint 6.12b falsified two more (localStorage progress / skip option). Audit reports that simply quote the spec back are not doing the work.
+
+❌ **Don't accept "shared" CSS file comments at face value.** Sprint 6.8 found `writing-renderers.css` was annotated as shared but was de-facto single-consumer. The audit method is to grep for actual imports, not to trust the file's docstring.
+
+❌ **Don't skip documentation table maintenance.** Codex Phase 3 AMBER #1 + #2 were both pure documentation drift — the kind that compounds into "we have three partially overlapping stories" if not cleaned at each phase boundary.
+
+### 17.5 When to extend this section
+
+Add a new gate when any of the following happens:
+
+- An audit (Codex or self-audit) discovers a cumulative-drift pattern that prior audits missed (Gate 3 came from this trigger)
+- A production bug surfaces during migration and gets normalized via the token system (§ 17.2 came from this trigger)
+- A new canonical pattern is formalized in DESIGN_SYSTEM.md (Chart.js A.2 from § 16, pre-work from § 15, etc.) — the gate verifies adherence to the pattern
+
+When extending, name the originating sprint + finding in the gate's preamble so future readers know what the gate is defending against.
