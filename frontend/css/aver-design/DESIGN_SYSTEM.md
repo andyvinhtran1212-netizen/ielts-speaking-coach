@@ -367,8 +367,8 @@ This section is the canonical reference for the migration state — Codex audit 
 | 1 | `frontend/pages/practice.html` | 6.5 / 6.5.1 | #127 / #128 | Light + dark from day 1; ds.css legacy override pattern (UNIFIED_DESIGN_BRIEF.md § 12) |
 | 1 | `frontend/pages/result.html` | 6.6 / 6.6.1 | #130 / #131 | Surgical migration on inline-JS rendering; IIFE normalized |
 | 2 | `frontend/pages/writing-dashboard.html` | 6.7 / 6.7.1 | #132 / #133 / #134 | Surgical migration on 1060-line teacher-assignment workflow (2 tabs / 6-state pill / submit modal); Tailwind utility overrides under body.av-page; Sprint 6.7.1 closed AMBER on hardcoded #ffffff CTA text |
-| 2 | `frontend/pages/writing-result.html` | 6.8 | TBD | Surgical migration on 671-line graded-essay view (5 states / 5 tabs / sticky header / tier-aware Instructor copy); 87-color writing-renderers.css migrated to tokens; Era A/B reconcile premise falsified by pre-work (backend uniformly v2.1) |
-| 2 | `frontend/pages/full-test-result.html` | 6.9 | TBD | Phase 2 closure — surgical migration on 611-line mock-test summary (3 sessions in one view, Chart.js radar, 25 JS-coupled IDs); first page to apply the Chart.js A.2 theme-aware pattern reused from Sprint 6.4.1 (getComputedStyle + MutationObserver on `[data-theme]` re-renders the radar so axes/dataset/tooltip track the active theme) |
+| 2 | `frontend/pages/writing-result.html` | 6.8 | #135 | Surgical migration on 671-line graded-essay view (5 states / 5 tabs / sticky header / tier-aware Instructor copy); 87-color writing-renderers.css migrated to tokens; Era A/B reconcile premise falsified by pre-work (backend uniformly v2.1) |
+| 2 | `frontend/pages/full-test-result.html` | 6.9 | #136 | Phase 2 closure — surgical migration on 611-line mock-test summary (3 sessions in one view, Chart.js radar, 25 JS-coupled IDs); first page to apply the Chart.js A.2 theme-aware pattern reused from Sprint 6.4.1 (getComputedStyle + MutationObserver on `[data-theme]` re-renders the radar so axes/dataset/tooltip track the active theme) |
 
 Properties of every redesigned page:
 
@@ -430,3 +430,241 @@ When the last legacy page migrates, `ds.css` is retired and the `--ds-*` token n
 
 - `DESIGN_AUDIT_REPORT.md` (repo root, gitignored) — Phase 1 inventory
 - `CODEX_AUDIT_PHASE_1.md` (repo root, gitignored) — Codex Phase 1 ship audit; AMBER findings (IIFE drift + architecture doc stale) closed in Sprint 6.6.1
+- `CODEX_AUDIT_PHASE_2.md` (repo root, gitignored) — Codex Phase 2 ship audit; 2 AMBER findings (brief/test drift + central architecture-insights placement) + 2 pattern formalization recommendations closed in Sprint 6.9.1
+
+
+## 15. Pre-work discipline pattern (formalized Sprint 6.9.1)
+
+**Origin:** Sprint 6.8 introduced the mandatory pre-work phase after Sprint 6.7's spec mismatch (self-directed vs teacher-assignment writing-dashboard). Sprint 6.9 reused the pattern. Codex audit Phase 2 recommends formalization so future redesign sprints don't have to rediscover it.
+
+### 15.1 When to apply
+
+Pre-work is **mandatory** before implementing a redesign for any page with **any** of these traits:
+
+- Complex inline JS (> 200 lines)
+- Multi-state state machine
+- Dual-shape or version-tolerant rendering
+- Permission gating logic
+- Chart.js or canvas-based UI elements
+- An entry-point dependency that varies by mode/tier/role
+
+For trivially static pages (e.g., a marketing page with no JS), pre-work is optional but still encouraged.
+
+### 15.2 The 7-step checklist
+
+```
+Step 1 — File structure inventory
+  • Total lines + file size (bytes)
+  • Inline <style> block lines + color counts (rgba(), hex)
+  • Inline JS lines
+  • External CSS/JS files linked (note CDN vs local)
+
+Step 2 — JS-coupled selector inventory
+  • All element IDs the JS targets (grep id="...")
+  • data-* attributes the JS reads
+  • Render function names + state machine IDs
+  • onclick / inline handlers
+
+Step 3 — Page-specific contracts
+  • URL params (e.g., ?session_id, ?p1=&p2=&p3=)
+  • Entry-point dependencies (which page hands users off here, with what URL shape)
+  • Backend endpoint contracts (route + query + body shape + response shape)
+
+Step 4 — Permission gating pattern verification
+  • UI banner element? (e.g., #writing-preview-banner)
+  • JS gating function name?
+  • Or server-authoritative only?
+  • Required permission key in the access-code shape?
+
+Step 5 — External dependency check
+  • Tailwind utility classes consumed (which ones, where)
+  • Chart.js / canvas dependencies and how they integrate
+  • ds.css legacy class consumption (which .ds-* classes does the JS emit?)
+
+Step 6 — Backend coordination check
+  • Era / parser version stamping
+  • Schema version compatibility with current production
+  • Migration history relevant to the data shape
+
+Step 7 — Comparison with precedent pages
+  • Reusable patterns from earlier sprints (link the Sprint/PR)
+  • Differences that require new work
+  • A.1 vs A.2 decisions for theme-aware behavior (see § 16)
+```
+
+### 15.3 Output format
+
+Generate the pre-work summary **before** committing implementation. Paste it into the PR description draft under a `## Pre-work findings` heading:
+
+```markdown
+## Pre-work findings
+
+### File structure
+[lines, size, inline <style> count, inline JS count]
+
+### JS-coupled contract
+[IDs, data-*, function list, onclick handlers]
+
+### Migration scope
+[rgba count, hex count, external CSS scope, ds-* classes consumed]
+
+### Permission gating
+[Pattern verified: banner + JS gate / server-only / none]
+
+### Comparison with Sprint X.Y
+[Reusable patterns documented, e.g., "reusing Chart.js A.2 from Sprint 6.4.1"]
+
+### Specific concerns
+[Concerns flagged for user decision before scope is locked]
+
+## Scope recommendation
+[Option A / B / C with rationale + effort estimate]
+```
+
+### 15.4 Outcome evidence (Phase 2 sprints)
+
+| Sprint | Pre-work catch | Time saved |
+|---|---|---|
+| 6.7 | Self-directed vs teacher-assignment IA mismatch (spec proposed a self-directed dashboard; production is teacher-assignment) | ~4–6h of invented work |
+| 6.8 | Era A/B reconcile premise falsified (backend stamps uniformly v2.1; renderer already era-tolerant) | ~4h of invented work |
+| 6.9 | Chart.js A.2 precedent identified in Sprint 6.4.1 (`_tokenColor` + `MutationObserver` already shipped) | ~1.5h of reinvention |
+
+Pre-work has paid back its investment **every sprint in Phase 2**. The 30–60 min spent on pre-work consistently saves multiples of that in avoided rework.
+
+### 15.5 Anti-pattern
+
+❌ **Don't skip pre-work to "save time."** Phase 2 evidence shows pre-work consistently saves multiples of its cost.
+
+❌ **Don't paraphrase spec assumptions in pre-work.** Verify against production code, DB schema, or shipped JS — not against what the spec claims.
+
+❌ **Don't bury findings in pin-test comments.** Pre-work findings that have architectural implications belong in `UNIFIED_DESIGN_BRIEF.md` (per-page contracts) or this file (cross-page patterns), not only in `*.test.mjs` comments.
+
+
+## 16. Chart.js theme-aware rendering recipe (A.2 pattern)
+
+**Origin:** Sprint 6.4.1 (speaking.html line + radar charts on the dashboard) → Sprint 6.9 (full-test-result.html pronunciation radar) reuse. Codex audit Phase 2 recommends formalization so the next chart-bearing page doesn't reinvent the pattern (or skip it).
+
+### 16.1 The problem
+
+Chart.js draws to `<canvas>`. The canvas API cannot consume CSS custom properties — passing `'var(--av-primary)'` as a `borderColor` renders as the literal string and Chart.js falls back to undefined/black. So tokens must be **resolved to their computed value at draw time**, and the chart must be **re-rendered when the theme changes** so the resolved values track the active palette.
+
+### 16.2 A.1 vs A.2 — pick A.2 by default
+
+| Option | Cost | Behavior on theme toggle |
+|---|---|---|
+| **A.1** Leave literals + log DEBT | 0 lines of JS | Chart keeps its baked-in palette → looks dark-themed in light mode, or vice-versa. Visual inconsistency, sometimes a contrast failure inside the widget. |
+| **A.2** Read tokens + re-render | ~30 lines of JS | Chart palette flips immediately with the rest of the page. Theme-consistent. |
+
+**Default to A.2.** Use A.1 only when pre-work documents a specific reason (e.g., the chart lives in an iframe whose theme is owned by the parent, or the chart is third-party and not under our control).
+
+### 16.3 Canonical recipe (lift verbatim)
+
+The pattern below is shipped in `frontend/pages/speaking.html` (Sprint 6.4.1) and `frontend/pages/full-test-result.html` (Sprint 6.9). Lift the four building blocks into your page:
+
+```javascript
+// 1. Token reader — Chart.js cannot consume CSS vars directly, so
+//    resolve them at draw time. Trim because the cascade preserves
+//    leading whitespace from the source declaration.
+function _tokenColor(name) {
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name).trim() || '#888';
+}
+
+// 2. Cache the last payload so theme-flip can re-render without
+//    re-fetching the data.
+var _lastPayload = null;
+var _chart = null;
+
+// 3. Build / rebuild the chart from tokens resolved RIGHT NOW.
+function renderChart(payload) {
+  _lastPayload = payload;
+  var ctx = document.getElementById('my-chart').getContext('2d');
+  if (_chart) _chart.destroy();
+  _chart = new Chart(ctx, {
+    type: 'radar', // or line/bar/etc.
+    data: {
+      labels: payload.labels,
+      datasets: [{
+        data: payload.values,
+        backgroundColor: _tokenColor('--av-primary-soft'),
+        borderColor:     _tokenColor('--av-primary'),
+        pointBackgroundColor: _tokenColor('--av-primary'),
+        pointBorderColor:     _tokenColor('--av-surface-elevated'),
+      }],
+    },
+    options: {
+      scales: {
+        r: {
+          ticks:       { color: _tokenColor('--av-text-faint') },
+          grid:        { color: _tokenColor('--av-border-default') },
+          angleLines:  { color: _tokenColor('--av-border-default') },
+          pointLabels: { color: _tokenColor('--av-text-secondary') },
+        },
+      },
+      plugins: {
+        tooltip: {
+          backgroundColor: _tokenColor('--av-surface-elevated'),
+          titleColor:      _tokenColor('--av-text-secondary'),
+          bodyColor:       _tokenColor('--av-text-primary'),
+          borderColor:     _tokenColor('--av-border-default'),
+          borderWidth: 1,
+        },
+      },
+    },
+  });
+}
+
+// 4. Re-render hook + MutationObserver wiring (in <script type="module">
+//    at the bottom of <body>, so the canonical IIFE has already set
+//    data-theme before this runs).
+function refreshChart() {
+  if (_lastPayload) renderChart(_lastPayload);
+}
+window._myPage = window._myPage || {};
+window._myPage.refreshChart = refreshChart;
+
+var html = document.documentElement;
+var lastTheme = html.getAttribute('data-theme');
+new MutationObserver(function () {
+  var t = html.getAttribute('data-theme');
+  if (t !== lastTheme) {
+    lastTheme = t;
+    refreshChart();
+  }
+}).observe(html, { attributes: true, attributeFilter: ['data-theme'] });
+```
+
+### 16.4 Token reference for chart styling
+
+Use the same semantic ladder Chart.js elements would otherwise hardcode. The defaults below match what Sprint 6.4.1 and Sprint 6.9 ship.
+
+| Chart element | Token | Notes |
+|---|---|---|
+| Primary dataset fill | `--av-primary-soft` | Translucent so overlapping datasets stay legible |
+| Primary dataset border / line | `--av-primary` | Solid brand color |
+| Point background | `--av-primary` | Matches the line so points read as part of the curve |
+| Point border / outline | `--av-surface-elevated` | Reads as a "halo" around each point in both themes |
+| Radar grid / angle lines | `--av-border-default` | Stronger than `--av-border-subtle` because grid lines compete with the dataset |
+| Tick labels (axis numbers) | `--av-text-faint` | Auxiliary — counts against the § 11 cap of ≤10 references |
+| Axis labels (radar pointLabels, line x/y) | `--av-text-secondary` | Primary readable axis labels |
+| Tooltip background | `--av-surface-elevated` | Matches `--av-surface-card` siblings |
+| Tooltip title | `--av-text-secondary` | Meta-level inside the tooltip |
+| Tooltip body | `--av-text-primary` | Most readable text in the tooltip |
+| Tooltip border | `--av-border-default` | |
+
+For line charts, also resolve `--av-text-muted` for x/y tick labels (Sprint 6.4.1 uses this for the band-trend chart).
+
+### 16.5 Anti-patterns
+
+❌ **Don't hardcode chart colors as literals.** They won't track theme toggles, and they're a silent contrast bug in the off-theme palette.
+
+❌ **Don't read CSS vars only at initial render** and call it done. The values need to be resolved fresh on every theme flip, which means the rebuild path has to run again.
+
+❌ **Don't use Chart.js without the MutationObserver hook** on `[data-theme]`. The IIFE applies the theme synchronously before paint, but `theme-toggle.js` flips it mid-session — without the observer, the chart freezes on whichever palette it first rendered with.
+
+### 16.6 Sprint precedent
+
+- Sprint 6.4.1 (PR #124) — speaking.html `chart-line` + `chart-radar` — first ship of the pattern.
+- Sprint 6.9 (PR #136) — full-test-result.html `pron-radar` — first deliberate reuse; lifted the helper signature byte-identical.
+
+When the next chart-bearing page needs theme support, lift from these two — don't reinvent.

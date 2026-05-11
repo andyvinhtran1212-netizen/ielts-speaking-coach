@@ -101,6 +101,7 @@ jobs:
             frontend/tests/result-redesign.test.mjs \
             frontend/tests/speaking-redesign.test.mjs \
             frontend/tests/sprint-6-7-1-audit-closure.test.mjs \
+            frontend/tests/sprint-6-9-1-audit-closure.test.mjs \
             frontend/tests/theme-toggle.test.mjs \
             frontend/tests/typography-tier1.test.js \
             frontend/tests/vocab-landing.test.js \

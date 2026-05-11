@@ -112,7 +112,7 @@ The Sprint 5.2 / 5.2.1 permission gating uses **per-page lock contracts** — th
 |---|---|---|---|---|
 | `pages/home.html` | `.coming-soon` (NOT `.skill-card-locked`) | `data-locked="true"` | `js/home.js` `renderSkillCard` (PR #115 / 6.0, lock branch lines ~155–173) | The Writing card receives this when `permissions.writing === false`. Locked markup is rendered by `home.js` (innerHTML replace), not pre-baked in HTML. Click handler navigates to a Vietnamese alert, not a route. |
 | `pages/writing-dashboard.html` | `#writing-preview-banner` revealed via `.classList.remove('hidden')` + `.btn-start-assignment` and `#modal-btn-submit` flagged `.opacity-50.cursor-not-allowed` | None (banner shown as a discrete element; disabled buttons identified by their fixed IDs/classes) | Inline IIFE in `writing-dashboard.html` — `applyWritingPermissionGating()` at line ~972 reads `GET /api/student/permissions`; cached in `_writingPermitted` | Sprint 6.7 (PR #132) shipped surgical redesign. Backend `require_writing_permission` is authoritative; UI gate is defense-in-depth. Disabled state survives the redesign because the JS toggles class names byte-identical. |
-| `pages/writing-result.html` | TBD — verify before redesign | TBD | TBD | Same as writing-dashboard. |
+| `pages/writing-result.html` | None — no UI lock banner, no JS gating function | None | Inline IIFE in `writing-result.html` reads permission at fetch time, but does NOT render a `#writing-preview-banner` or disable any control. Backend route is server-authoritative (`/api/student/writing/essays/{id}/feedback` returns 403 without permission). | Sprint 6.8 (PR #135) shipped surgical redesign. Permission is enforced at the backend route only; UI relies on server response shape (5-state machine: `loading/error/not-delivered/flagged/ready`). This is **asymmetric to writing-dashboard.html** — see § 13 "Writing flow asymmetries and shared-style boundaries". |
 | Vocabulary surfaces (`my-vocabulary.html`, `flashcards.html`, etc.) | TBD — likely no lock state since vocab is permission-default-on | n/a | n/a | Sprint 6.0 didn't introduce a per-skill gate here. |
 
 Each redesign sprint fills in the page's row above by reading the JS, not by guessing.
@@ -811,3 +811,67 @@ All three pins live in the per-page redesign test suites. Future Writing-flow / 
 - Sprint 6.4.1 / 6.4.2 PRs #124 / #125 (speaking.html contrast hotfix series)
 - Sprint 6.5.1 PR #128 (practice.html question-card contrast hotfix)
 - Sprint 6.7.1 PR #133 (writing-dashboard.html CTA inverse-token fix; this section)
+
+
+## 13. Writing flow asymmetries and shared-style boundaries
+
+Phase 2 (Sprint 6.7 → 6.9) revealed three architectural truths about the Writing flow that future redesigns and refactors MUST respect. Codex audit Phase 2 flagged that "tests know more than the central brief in a few places" — this section moves those findings out of test-only pin comments and into the central brief so the next contributor doesn't have to reverse-engineer them.
+
+### 13.1 Era A/B reconcile is non-issue (Sprint 6.8 finding)
+
+**Premise (falsified):** Writing has a dual-shape feedback parser (Era A v2.1 + Era B v1) requiring reconcile work during redesign.
+
+**Production reality (Sprint 6.8 pre-work verified):**
+
+- Backend stamps essays UNIFORMLY as `v2.1` (Sprint 2.6.2 anti-fabrication tuning).
+- Migration `045_quick_to_standard_migrate.sql` already migrated `v2.1-quick → v2.1`.
+- What VARIES is `grading_tier` (`standard` / `deep` / `instructor`) — handled via tier-aware copy + tier badge classes in `writing-renderers.js`.
+- `feedback_json` shape varies per L1 / L2+ level — the renderer's `emptyShape()` + `maybeHideOptionalSections()` already handle the matrix gracefully.
+- Legacy quick rows are tolerated (Sprint 2.7a.1 note: *"stale rows don't break the UI"*).
+
+**Implication for future Writing pages:** No Era reconcile work. Renderer dispatch is era-tolerant via `emptyShape()` fallbacks. Tier handling is already abstracted. Don't write reconcile code unless pre-work proves the production shape has actually diverged.
+
+### 13.2 Permission gating asymmetry — dashboard vs result
+
+Different Writing pages use different permission patterns. **Don't assume one pattern applies to all.**
+
+| Page | UI banner | JS gating function | Authority |
+|---|---|---|---|
+| `writing-dashboard.html` | `#writing-preview-banner` (revealed via `classList.remove('hidden')`) | `applyWritingPermissionGating()` disables `.btn-start-assignment` + `#modal-btn-submit` | Backend route-level (`require_writing_permission`) + UI defense-in-depth |
+| `writing-result.html` | None | None | Backend route-level only (server-authoritative `/api/student/writing/essays/{id}/feedback` returns 403) |
+| `full-test-result.html` | None | None | Backend route-level only (server-authoritative) |
+
+**Rule:** Verify permission pattern per page during pre-work. The dashboard is the only Writing page with a UI lock banner; the result pages rely entirely on server-authoritative 403s.
+
+### 13.3 `writing-renderers.css` is de-facto single-consumer (Sprint 6.8 finding)
+
+The file's header comment describes it as "shared", but production reality (verified Sprint 6.8 pre-work):
+
+- 321 lines, 87 color declarations (migrated to 202 `--av-*` refs in Sprint 6.8).
+- `admin-writing-grade.html` does **NOT** link it — it has its own inline styles.
+- Only `writing-result.html` consumes it.
+
+**Rule:** Treat as page-specific in future maintenance. Don't assume "shared" comments mean cross-page contract — verify cross-page consumption with `grep -rn "writing-renderers.css" frontend/pages/` before treating any file as shared.
+
+### 13.4 Discovery checklist — before redesigning any Writing page
+
+Run these checks during pre-work. Each one cheap; together they prevent invented work like the falsified Era A/B reconcile.
+
+```bash
+# 1. Verify Era / version stamping in the backend
+grep -rn "stamp\|version\|v2\.1\|era_" backend/services/ | grep -i writ
+
+# 2. Verify permission gating pattern (UI banner + JS gating fn)
+grep -i "permission\|preview-banner\|hasWriting" frontend/pages/<page>.html
+grep -i "permission" frontend/js/<page>.js 2>/dev/null
+
+# 3. Verify CSS file consumption breadth (is the "shared" file really shared?)
+grep -rn "<page>.css\|writing-renderers.css" frontend/pages/
+
+# 4. Verify renderer dispatch dependencies (SECTION_RENDERERS map / hooks)
+grep -rn "SECTION_RENDERERS\|renderSection\|<page>Renderer" frontend/js/
+```
+
+Record each finding in the pre-work summary section of the PR description (see `DESIGN_SYSTEM.md` § 15 "Pre-work discipline pattern" for the canonical template). This is the protocol that prevents future inventions and ensures discoveries land centrally instead of in pin-test comments.
+
+**Phase 2 evidence:** Sprint 6.7 pre-work caught the self-directed vs teacher-assignment IA mismatch (~4–6h saved). Sprint 6.8 pre-work falsified the Era A/B reconcile premise (~4h saved). Sprint 6.9 pre-work identified the Chart.js A.2 reuse opportunity (~1.5h saved vs reinventing).
