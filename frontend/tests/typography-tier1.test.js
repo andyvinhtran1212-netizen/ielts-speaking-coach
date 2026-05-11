@@ -42,13 +42,14 @@ const path   = require('node:path');
 //   • speaking.html          — migrated Sprint 6.4 (PR #123, full theme support post-6.4.1)
 //   • practice.html          — migrated Sprint 6.5 (PR #127, full light + dark from day 1)
 //   • result.html            — migrated Sprint 6.6 (PR #130, surgical migration on inline-JS rendering)
-//   • writing-dashboard.html — migrated Sprint 6.7 (this PR, surgical on 1060-line teacher-assignment workflow)
+//   • writing-dashboard.html — migrated Sprint 6.7 (PR #132, surgical on 1060-line teacher-assignment workflow)
+//   • writing-result.html    — migrated Sprint 6.8 (surgical on 671-line graded-essay view)
+//   • full-test-result.html  — migrated Sprint 6.9 (this PR, Phase 2 closure; A.2 Chart.js theme-aware pattern)
 //
 // Pin tests for the migrated pages live in their own *-redesign.test.mjs
 // suites. This list keeps shrinking; eventually it goes empty and the
 // file gets deleted in the cleanup sprint.
 const TIER_1_PAGES = [
-  'pages/full-test-result.html',
   'pages/profile.html',
   'onboarding.html',
 ];
