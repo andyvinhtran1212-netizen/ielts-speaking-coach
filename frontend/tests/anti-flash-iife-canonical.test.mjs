@@ -53,6 +53,7 @@ const REDESIGNED_PAGES = [
   'frontend/pages/profile.html',
   'frontend/onboarding.html',
   'frontend/index.html',
+  'frontend/pricing.html',
 ];
 
 
