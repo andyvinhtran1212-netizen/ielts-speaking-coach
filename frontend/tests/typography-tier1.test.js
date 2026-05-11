@@ -1,26 +1,26 @@
 /**
- * frontend/tests/typography-tier1.test.js — Sprint 6.2.
+ * frontend/tests/typography-tier1.test.js — Sprint 6.2 (now Phase 3 closure
+ * sentinel as of Sprint 6.12b).
  *
  * Run with: node --test frontend/tests/typography-tier1.test.js
  *
- * Pins the Sprint 6.2 typography migration: every Tier 1 learner-facing
- * page (speaking, writing-dashboard, practice, result, full-test-result,
- * profile, onboarding) ships Manrope + Fraunces (the `frontend-design`
- * skill direction) — never Inter (the "generic AI sans-serif" the skill
- * explicitly avoids).
+ * Originally pinned the Sprint 6.2 typography migration: every Tier 1
+ * learner-facing page (speaking, writing-dashboard, practice, result,
+ * full-test-result, profile, onboarding) shipping Manrope + Fraunces.
  *
- * What these tests catch:
- *   - A future PR that re-introduces Inter on a Tier 1 page
- *   - A page that drops the canonical body.ds-canvas atmosphere hook
- *   - A page that ships a Tailwind config still pointing fontFamily.sans
- *     at Inter (visual breakage even if the <link> is right)
+ * As of **Sprint 6.12b (Phase 3 closure)**, the Tier 1 list is empty —
+ * every learner-facing page has migrated to the Aver Design System
+ * (Plus Jakarta Sans + JetBrains Mono + --av-* tokens + body.av-page).
+ * Pin tests for each redesigned page live in their own *-redesign.test.mjs
+ * suite.
  *
- * Why string-match the page source instead of running a headless browser?
- * Tailwind CDN config is static text in <head>; the Google Fonts URL is
- * static text in <head>. A regex is the cheapest pin that still catches
- * a regression. If a future page swaps CDN Tailwind for compiled Tailwind
- * (config moved to a build step), this test will need a new strategy —
- * but that day isn't today.
+ * Why keep the file? Two reasons:
+ *   1. The sentinel suite below asserts the list is empty, catching any
+ *      future PR that accidentally re-introduces a Tier 1 page (e.g., by
+ *      reverting a redesign or shipping a new page on the legacy stack).
+ *   2. The ds.css typography-source tests are still relevant for legacy
+ *      pages still on the dark-navy era (dashboard, admin, landing,
+ *      Grammar Wiki) — those will migrate in Phase 4.
  */
 
 'use strict';
@@ -50,13 +50,13 @@ const path   = require('node:path');
 //   • flashcards.html        — migrated Sprint 6.11b (PR #141, Phase 3 page 3)
 //   • exercises.html         — migrated Sprint 6.11b (PR #141, Phase 3 page 4)
 //   • profile.html           — migrated Sprint 6.12a (Phase 3 final cluster, page 1 of 2; standalone profile route)
+//   • onboarding.html        — migrated Sprint 6.12b (Phase 3 closure; post-signup 3-step wizard)
 //
 // Pin tests for the migrated pages live in their own *-redesign.test.mjs
-// suites. This list keeps shrinking; eventually it goes empty and the
-// file gets deleted in the cleanup sprint.
-const TIER_1_PAGES = [
-  'onboarding.html',
-];
+// suites. **Phase 3 closure (Sprint 6.12b): this list is now empty.**
+// The sentinel test below pins emptiness so any future Tier 1 regression
+// is caught at the gate.
+const TIER_1_PAGES = [];
 
 
 function _read(rel) {
@@ -68,6 +68,22 @@ function _read(rel) {
 
 
 // ── Tests ───────────────────────────────────────────────────────────
+
+
+test('Phase 3 closure sentinel: TIER_1_PAGES is empty (Sprint 6.12b)', () => {
+  // Pin that the Tier 1 list stays empty after Sprint 6.12b. If a
+  // future PR adds a page back to this list (e.g., reverting a redesign
+  // or shipping a new page on the legacy Manrope/Fraunces stack), this
+  // test fails at the gate. Adding a Tier 1 page back is a Phase 3
+  // regression — handle it consciously, don't drift in.
+  assert.deepEqual(
+    TIER_1_PAGES,
+    [],
+    'TIER_1_PAGES must remain empty post-Sprint-6.12b. ' +
+    'Every learner-facing page should ship on the Aver Design System ' +
+    '(Plus Jakarta Sans + JetBrains Mono + --av-* tokens + body.av-page).',
+  );
+});
 
 
 test('Tier 1 pages do NOT import Inter from Google Fonts', () => {

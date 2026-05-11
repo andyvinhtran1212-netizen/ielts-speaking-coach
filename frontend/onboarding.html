@@ -5,18 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Thiết lập tài khoản — Aver Learning</title>
+
+  <!-- Sprint 6.12b: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13).
+       Must run before any stylesheet so [data-theme] is set on <html>
+       before paint. onboarding.html is the post-signup wizard entry —
+       reached from login.html, no iframe embedding, no Sprint 6.0.1 IIFE. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
-            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
-          },
           fontFamily: {
-            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
-            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         },
       },
@@ -25,92 +42,37 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
+
+  <!-- Aver Design System foundation (tokens before components before page CSS). -->
+  <link rel="stylesheet" href="css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="css/aver-design/components.css" />
   <link rel="stylesheet" href="css/ds.css" />
-  <style>
-    /* Background and atmosphere now provided by body.ds-canvas in ds.css. */
+  <link rel="stylesheet" href="css/onboarding.css" />
 
-    /* Progress bar */
-    #progress-fill { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-
-    /* Step panel slide animation */
-    .step-panel { display: none; }
-    .step-panel.active { display: block; animation: slideIn 0.3s ease-out; }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(18px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
-    .step-panel.slide-back.active { animation: slideBack 0.3s ease-out; }
-    @keyframes slideBack {
-      from { opacity: 0; transform: translateX(-18px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
-
-    /* Option cards */
-    .opt-card {
-      border: 2px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.06);
-      border-radius: 14px;
-      cursor: pointer;
-      transition: border-color 0.18s, background 0.18s, transform 0.15s;
-    }
-    .opt-card:hover { border-color: rgba(15,118,110,0.55); background: rgba(15,118,110,0.12); transform: translateY(-1px); }
-    .opt-card.selected { border-color: #0F766E; background: rgba(15,118,110,0.22); }
-    .opt-card.selected .check-icon { opacity: 1; transform: scale(1); }
-    .check-icon { opacity: 0; transform: scale(0.6); transition: opacity 0.18s, transform 0.18s; }
-
-    /* Form inputs */
-    .form-input {
-      background: rgba(255,255,255,0.07);
-      border: 1.5px solid rgba(255,255,255,0.14);
-      border-radius: 10px;
-      color: #fff;
-      padding: 11px 14px;
-      font-size: 0.9rem;
-      width: 100%;
-      transition: border-color 0.18s;
-      -webkit-appearance: none;
-    }
-    .form-input:focus { outline: none; border-color: #0F766E; background: rgba(15,118,110,0.1); }
-    .form-input option { background: #0C2340; color: #fff; }
-
-    /* Buttons */
-    .btn-primary {
-      background: linear-gradient(135deg, #0F766E, #14b8a6);
-      color: #fff;
-      font-weight: 600;
-      font-size: 0.9rem;
-      padding: 12px 28px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      transition: opacity 0.18s, transform 0.15s;
-    }
-    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-    .btn-back {
-      background: rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.7);
-      font-size: 0.88rem;
-      padding: 11px 22px;
-      border-radius: 10px;
-      border: 1.5px solid rgba(255,255,255,0.12);
-      cursor: pointer;
-      transition: background 0.18s;
-    }
-    .btn-back:hover { background: rgba(255,255,255,0.13); }
-
-    /* Error */
-    #error-banner { display: none; }
-  </style>
+  <!-- Lucide icons (chrome glyphs only). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="text-white font-sans antialiased flex flex-col min-h-screen ds-canvas">
+<body class="av-page font-sans antialiased flex flex-col min-h-screen">
 
   <!-- Top nav -->
-  <nav class="px-6 py-4 flex items-center gap-2">
-    <span class="text-xl">🎙️</span>
-    <span class="font-bold text-base tracking-tight">Aver<span style="color:#14a8ae;">Learning</span></span>
+  <nav class="ob-nav px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="text-xl" aria-hidden="true">🎙️</span>
+      <span class="ob-wordmark font-bold text-base tracking-tight">
+        Aver<span class="ob-wordmark__brand">Learning</span>
+      </span>
+    </div>
+    <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
   </nav>
 
   <!-- Main card -->
@@ -118,32 +80,31 @@
     <div class="w-full max-w-lg">
 
       <!-- Card -->
-      <div class="rounded-2xl p-8 sm:p-10"
-           style="background:rgba(255,255,255,0.05);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 8px 40px rgba(0,0,0,0.3);">
+      <div class="ob-card rounded-2xl p-8 sm:p-10">
 
         <!-- Progress -->
         <div class="mb-8">
           <div class="flex justify-between items-center mb-2">
-            <span id="step-label" class="text-xs font-semibold uppercase tracking-widest" style="color:#14a8ae;">Bước 1 / 3</span>
-            <span id="step-pct" class="text-xs" style="color:rgba(255,255,255,0.4);">33%</span>
+            <span id="step-label" class="ob-step-label text-xs font-semibold uppercase tracking-widest">Bước 1 / 3</span>
+            <span id="step-pct" class="ob-step-pct text-xs">33%</span>
           </div>
-          <div class="h-1.5 rounded-full" style="background:rgba(255,255,255,0.1);">
-            <div id="progress-fill" class="h-1.5 rounded-full" style="width:33%;background:linear-gradient(90deg,#0F766E,#14b8a6);"></div>
+          <div class="ob-progress-track h-1.5 rounded-full">
+            <div id="progress-fill" class="ob-progress-fill h-1.5 rounded-full" style="width:33%;"></div>
           </div>
         </div>
 
         <!-- Error banner -->
-        <div id="error-banner" class="mb-4 px-4 py-3 rounded-xl text-sm" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;"></div>
+        <div id="error-banner" class="ob-error-banner mb-4 px-4 py-3 rounded-xl text-sm"></div>
 
         <!-- ── STEP 1 ── -->
         <div id="step-1" class="step-panel active">
-          <h1 class="text-2xl font-bold mb-1">Chào mừng đến Aver Learning! 👋</h1>
-          <p class="text-sm mb-7" style="color:rgba(255,255,255,0.5);">Chúng mình cần biết thêm về bạn để lên lịch luyện tập phù hợp nhất.</p>
+          <h1 class="ob-step__title text-2xl font-bold mb-1">Chào mừng đến Aver Learning! 👋</h1>
+          <p class="ob-step__subtitle text-sm mb-7">Chúng mình cần biết thêm về bạn để lên lịch luyện tập phù hợp nhất.</p>
 
           <div class="space-y-5">
             <!-- Target band -->
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.55);">Mục tiêu band score</label>
+              <label class="ob-field-label block text-xs font-semibold uppercase tracking-wider mb-2" for="target-band">Mục tiêu band score</label>
               <select id="target-band" class="form-input">
                 <option value="">-- Chọn band mục tiêu --</option>
                 <option value="5.0">5.0</option>
@@ -158,8 +119,8 @@
 
             <!-- Exam date -->
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color:rgba(255,255,255,0.55);">
-                Ngày thi dự kiến <span style="color:rgba(255,255,255,0.3);">(tuỳ chọn)</span>
+              <label class="ob-field-label block text-xs font-semibold uppercase tracking-wider mb-2" for="exam-date">
+                Ngày thi dự kiến <span class="ob-field-label__hint">(tuỳ chọn)</span>
               </label>
               <input id="exam-date" type="date" class="form-input" />
             </div>
@@ -168,80 +129,80 @@
 
         <!-- ── STEP 2 ── -->
         <div id="step-2" class="step-panel">
-          <h2 class="text-xl font-bold mb-1">Trình độ hiện tại của bạn? 📊</h2>
-          <p class="text-sm mb-6" style="color:rgba(255,255,255,0.5);">Chọn mức phù hợp nhất — AI sẽ điều chỉnh câu hỏi theo trình độ của bạn.</p>
+          <h2 class="ob-step__title text-xl font-bold mb-1">Trình độ hiện tại của bạn? 📊</h2>
+          <p class="ob-step__subtitle text-sm mb-6">Chọn mức phù hợp nhất — AI sẽ điều chỉnh câu hỏi theo trình độ của bạn.</p>
 
           <div class="space-y-3" id="level-cards">
             <div class="opt-card p-4 flex items-center gap-4" data-value="beginner">
-              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">🌱</div>
+              <div class="opt-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" aria-hidden="true">🌱</div>
               <div class="flex-1">
-                <p class="font-semibold text-sm">Mới bắt đầu</p>
-                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Chưa quen với IELTS Speaking, cần câu hỏi đơn giản và gợi ý nhiều</p>
+                <p class="opt-card__title font-semibold text-sm">Mới bắt đầu</p>
+                <p class="opt-card__hint text-xs mt-0.5">Chưa quen với IELTS Speaking, cần câu hỏi đơn giản và gợi ý nhiều</p>
               </div>
-              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <svg class="check-icon w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             </div>
 
             <div class="opt-card p-4 flex items-center gap-4" data-value="intermediate">
-              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">📚</div>
+              <div class="opt-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" aria-hidden="true">📚</div>
               <div class="flex-1">
-                <p class="font-semibold text-sm">Trung cấp (Band 5–6)</p>
-                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Có thể giao tiếp cơ bản, đang hướng tới band 6.0–6.5</p>
+                <p class="opt-card__title font-semibold text-sm">Trung cấp (Band 5–6)</p>
+                <p class="opt-card__hint text-xs mt-0.5">Có thể giao tiếp cơ bản, đang hướng tới band 6.0–6.5</p>
               </div>
-              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <svg class="check-icon w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             </div>
 
             <div class="opt-card p-4 flex items-center gap-4" data-value="upper_intermediate">
-              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">🚀</div>
+              <div class="opt-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" aria-hidden="true">🚀</div>
               <div class="flex-1">
-                <p class="font-semibold text-sm">Trên trung cấp (Band 6–7)</p>
-                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Giao tiếp tốt, muốn nâng cao từ vựng và cấu trúc câu phức tạp hơn</p>
+                <p class="opt-card__title font-semibold text-sm">Trên trung cấp (Band 6–7)</p>
+                <p class="opt-card__hint text-xs mt-0.5">Giao tiếp tốt, muốn nâng cao từ vựng và cấu trúc câu phức tạp hơn</p>
               </div>
-              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <svg class="check-icon w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             </div>
 
             <div class="opt-card p-4 flex items-center gap-4" data-value="advanced">
-              <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background:rgba(255,255,255,0.08);">🏆</div>
+              <div class="opt-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" aria-hidden="true">🏆</div>
               <div class="flex-1">
-                <p class="font-semibold text-sm">Nâng cao (Band 7+)</p>
-                <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.45);">Sử dụng tiếng Anh thành thạo, cần câu hỏi chuyên sâu và phản hồi tinh tế</p>
+                <p class="opt-card__title font-semibold text-sm">Nâng cao (Band 7+)</p>
+                <p class="opt-card__hint text-xs mt-0.5">Sử dụng tiếng Anh thành thạo, cần câu hỏi chuyên sâu và phản hồi tinh tế</p>
               </div>
-              <svg class="check-icon w-5 h-5 shrink-0" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <svg class="check-icon w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             </div>
           </div>
         </div>
 
         <!-- ── STEP 3 ── -->
         <div id="step-3" class="step-panel">
-          <h2 class="text-xl font-bold mb-1">Chọn chủ đề đầu tiên 🎯</h2>
-          <p class="text-sm mb-6" style="color:rgba(255,255,255,0.5);">Bạn sẽ luyện với chủ đề này ngay sau khi hoàn tất. Có thể đổi chủ đề bất cứ lúc nào.</p>
+          <h2 class="ob-step__title text-xl font-bold mb-1">Chọn chủ đề đầu tiên 🎯</h2>
+          <p class="ob-step__subtitle text-sm mb-6">Bạn sẽ luyện với chủ đề này ngay sau khi hoàn tất. Có thể đổi chủ đề bất cứ lúc nào.</p>
 
           <div class="grid grid-cols-1 gap-3" id="topic-cards">
 
             <div class="opt-card p-5 flex items-start gap-4" data-value="work">
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background:rgba(255,255,255,0.08);">💼</div>
+              <div class="opt-card__icon opt-card__icon--lg w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" aria-hidden="true">💼</div>
               <div class="flex-1">
-                <p class="font-semibold">Công việc & Nghề nghiệp</p>
-                <p class="text-xs mt-1 leading-relaxed" style="color:rgba(255,255,255,0.45);">Kế hoạch career, môi trường làm việc, kỹ năng nghề nghiệp — phù hợp với hầu hết thí sinh IELTS</p>
+                <p class="opt-card__title font-semibold">Công việc & Nghề nghiệp</p>
+                <p class="opt-card__hint text-xs mt-1 leading-relaxed">Kế hoạch career, môi trường làm việc, kỹ năng nghề nghiệp — phù hợp với hầu hết thí sinh IELTS</p>
               </div>
-              <svg class="check-icon w-5 h-5 shrink-0 mt-1" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <svg class="check-icon w-5 h-5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             </div>
 
             <div class="opt-card p-5 flex items-start gap-4" data-value="technology">
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background:rgba(255,255,255,0.08);">💻</div>
+              <div class="opt-card__icon opt-card__icon--lg w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" aria-hidden="true">💻</div>
               <div class="flex-1">
-                <p class="font-semibold">Công nghệ & Xã hội số</p>
-                <p class="text-xs mt-1 leading-relaxed" style="color:rgba(255,255,255,0.45);">AI, mạng xã hội, tác động của công nghệ — chủ đề xuất hiện nhiều trong đề thi gần đây</p>
+                <p class="opt-card__title font-semibold">Công nghệ & Xã hội số</p>
+                <p class="opt-card__hint text-xs mt-1 leading-relaxed">AI, mạng xã hội, tác động của công nghệ — chủ đề xuất hiện nhiều trong đề thi gần đây</p>
               </div>
-              <svg class="check-icon w-5 h-5 shrink-0 mt-1" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <svg class="check-icon w-5 h-5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             </div>
 
             <div class="opt-card p-5 flex items-start gap-4" data-value="education">
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style="background:rgba(255,255,255,0.08);">🎓</div>
+              <div class="opt-card__icon opt-card__icon--lg w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" aria-hidden="true">🎓</div>
               <div class="flex-1">
-                <p class="font-semibold">Giáo dục & Học tập</p>
-                <p class="text-xs mt-1 leading-relaxed" style="color:rgba(255,255,255,0.45);">Hệ thống giáo dục, phương pháp học, du học — quen thuộc và dễ triển khai ý tưởng</p>
+                <p class="opt-card__title font-semibold">Giáo dục & Học tập</p>
+                <p class="opt-card__hint text-xs mt-1 leading-relaxed">Hệ thống giáo dục, phương pháp học, du học — quen thuộc và dễ triển khai ý tưởng</p>
               </div>
-              <svg class="check-icon w-5 h-5 shrink-0 mt-1" style="color:#14a8ae;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              <svg class="check-icon w-5 h-5 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             </div>
 
           </div>
@@ -261,6 +222,36 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.12b) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
+
   <script>
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
@@ -292,10 +283,10 @@
     // ── Helpers ───────────────────────────────────────────────────────────────
     function showError(msg) {
       errorBanner.textContent = msg;
-      errorBanner.style.display = 'block';
+      errorBanner.classList.add('show');
     }
     function clearError() {
-      errorBanner.style.display = 'none';
+      errorBanner.classList.remove('show');
       errorBanner.textContent = '';
     }
 

@@ -51,6 +51,7 @@ const REDESIGNED_PAGES = [
   'frontend/pages/flashcards.html',
   'frontend/pages/exercises.html',
   'frontend/pages/profile.html',
+  'frontend/onboarding.html',
 ];
 
 
@@ -181,11 +182,14 @@ describe('DESIGN_SYSTEM.md / Phase 1 hybrid state (AMBER #2)', () => {
     'utf8',
   );
 
-  test('has a Phase 1 hybrid state section (§ 14)', () => {
+  test('has a Phase 1+ hybrid state section (§ 14)', () => {
+    // The heading evolved from "Phase 1 hybrid state" (Sprint 6.6.1) to
+    // "Phase 1–3 hybrid state" (Sprint 6.12b closure). Accept either —
+    // the section number (§ 14) is what really matters.
     assert.match(
       md,
-      /## 14\. Phase 1 hybrid state|Phase 1 hybrid state — what migrated/,
-      'DESIGN_SYSTEM.md must have a "Phase 1 hybrid state" section (§ 14)',
+      /## 14\.\s+Phase 1(?:[–-]\d+)? hybrid state/,
+      'DESIGN_SYSTEM.md must have a "Phase 1+ hybrid state" section (§ 14)',
     );
   });
 
