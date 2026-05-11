@@ -5,255 +5,209 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>averlearning — Luyện IELTS Speaking cùng AI</title>
+
+  <!-- Sprint 6.13a: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13).
+       Must run before any stylesheet so [data-theme] is set on <html>
+       before paint. Marketing landing — not iframe-embedded — so no
+       Sprint 6.0.1 IIFE. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            navy: {
-              DEFAULT: '#0C2340',
-              50:  '#EDF2F8',
-              100: '#C8D8EC',
-              200: '#93B2D9',
-              300: '#5E8BC6',
-              400: '#3465B3',
-              500: '#0C2340',
-              600: '#091C33',
-              700: '#071526',
-              800: '#040E19',
-              900: '#02070D',
-            },
-            teal: {
-              DEFAULT: '#0F766E',
-              50:  '#E6F4F3',
-              100: '#BDE2DF',
-              200: '#7DC5C0',
-              300: '#3DA8A1',
-              400: '#1D8F87',
-              500: '#0F766E',
-              600: '#0D5F58',
-              700: '#0A4842',
-              800: '#07312C',
-              900: '#031A16',
-            },
-          },
           fontFamily: {
-            sans: ['Inter', 'sans-serif'],
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         },
       },
-    }
+    };
   </script>
-  <style>
-    /* Gradient mesh background for hero */
-    .hero-bg {
-      background: linear-gradient(135deg, #0C2340 0%, #0d2e45 40%, #0F766E 100%);
-    }
-    .hero-glow {
-      background: radial-gradient(ellipse 60% 50% at 70% 50%, rgba(15,118,110,0.35) 0%, transparent 70%);
-    }
-    /* Card hover lift */
-    .card-lift {
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .card-lift:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(12,35,64,0.12);
-    }
-    /* Pricing card highlight */
-    .pricing-popular {
-      background: linear-gradient(135deg, #0F766E 0%, #0d5f58 100%);
-    }
-    /* Subtle section divider */
-    .section-divider {
-      background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
-      height: 1px;
-    }
-    /* Step connector line */
-    .step-line {
-      background: linear-gradient(90deg, #0F766E, #0C2340);
-    }
-    /* Animated underline for nav links */
-    .nav-link::after {
-      content: '';
-      display: block;
-      height: 2px;
-      width: 0;
-      background: #0F766E;
-      transition: width 0.2s ease;
-    }
-    .nav-link:hover::after {
-      width: 100%;
-    }
-    /* Testimonial quote mark */
-    .quote-mark {
-      font-family: Georgia, serif;
-      font-size: 5rem;
-      line-height: 1;
-      color: #0F766E;
-      opacity: 0.2;
-    }
-    /* Stat counter animation placeholder */
-    .stat-num {
-      background: linear-gradient(135deg, #0F766E, #0C2340);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Aver Design System foundation (tokens before components before page CSS). -->
+  <link rel="stylesheet" href="css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="css/aver-design/components.css" />
+  <link rel="stylesheet" href="css/index.css" />
+
+  <!-- Lucide icons (chrome glyphs only). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="font-sans text-slate-800 antialiased">
+<body class="av-page font-sans antialiased">
 
   <!-- ─── NAVBAR ─────────────────────────────────────────────────── -->
-  <nav class="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
+  <nav class="ix-nav fixed top-0 inset-x-0 z-50">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <!-- Logo -->
-      <a href="#" class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-navy flex items-center justify-center">
-          <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white" xmlns="http://www.w3.org/2000/svg">
+      <a href="#" class="ix-logo flex items-center gap-2">
+        <div class="ix-logo__mark w-8 h-8 rounded-lg flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
           </svg>
         </div>
-        <span class="font-bold text-navy text-lg tracking-tight">averlearning</span>
+        <span class="ix-logo__text font-bold text-lg tracking-tight">averlearning</span>
       </a>
 
       <!-- Desktop nav -->
       <div class="hidden md:flex items-center gap-8">
-        <a href="/grammar.html" class="nav-link text-sm font-medium text-slate-600 hover:text-navy transition-colors pb-1">Grammar Wiki</a>
-        <a href="#features" class="nav-link text-sm font-medium text-slate-600 hover:text-navy transition-colors pb-1">Tính năng</a>
+        <a href="/grammar.html" class="ix-nav-link text-sm font-medium pb-1">Grammar Wiki</a>
+        <a href="#features" class="ix-nav-link text-sm font-medium pb-1">Tính năng</a>
         <!-- Pricing link hidden (pre-launch) -->
       </div>
 
       <!-- CTA buttons -->
       <div class="flex items-center gap-3">
-        <a href="/login.html" class="hidden sm:inline-flex text-sm font-medium text-navy hover:text-teal transition-colors px-3 py-2">
+        <a href="/login.html" class="ix-nav-signin hidden sm:inline-flex text-sm font-medium px-3 py-2">
           Đăng nhập
         </a>
-        <a href="/login.html" class="inline-flex items-center gap-1.5 bg-teal text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors shadow-sm">
+        <a href="/login.html" class="ix-nav-cta inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg">
           Dùng thử miễn phí
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
         </a>
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
       </div>
     </div>
   </nav>
 
   <!-- ─── HERO ──────────────────────────────────────────────────── -->
-  <section class="hero-bg relative overflow-hidden pt-28 pb-20 md:pt-36 md:pb-28">
-    <div class="hero-glow absolute inset-0 pointer-events-none"></div>
+  <section class="ix-hero relative overflow-hidden pt-28 pb-20 md:pt-36 md:pb-28">
+    <div class="ix-hero__glow absolute inset-0 pointer-events-none"></div>
 
     <!-- Background grid pattern -->
-    <div class="absolute inset-0 opacity-5 pointer-events-none"
-         style="background-image: linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px); background-size: 40px 40px;">
-    </div>
+    <div class="ix-hero__grid absolute inset-0 pointer-events-none"></div>
 
     <div class="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="grid lg:grid-cols-2 gap-12 items-center">
         <!-- Left: Copy -->
         <div>
-          <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
-            <span class="w-2 h-2 rounded-full bg-teal-300 animate-pulse"></span>
-            <span class="text-white/80 text-sm font-medium">AI IELTS Speaking Coach</span>
+          <div class="ix-hero__eyebrow inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-6">
+            <span class="ix-hero__eyebrow-dot w-2 h-2 rounded-full animate-pulse"></span>
+            <span class="ix-hero__eyebrow-text text-sm font-medium">AI IELTS Speaking Coach</span>
           </div>
 
-          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight mb-6">
+          <h1 class="ix-hero__title text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight mb-6">
             Nói tự tin hơn.<br/>
-            <span class="text-teal-300">Đạt band cao hơn.</span>
+            <span class="ix-hero__title-accent">Đạt band cao hơn.</span>
           </h1>
 
-          <p class="text-lg text-white/75 leading-relaxed mb-8 max-w-lg">
+          <p class="ix-hero__lead text-lg leading-relaxed mb-8 max-w-lg">
             Luyện IELTS Speaking 1–1 cùng AI — phản hồi tức thì về từ vựng, ngữ pháp, phát âm và mạch lạc. Không cần đặt lịch, không cần chờ đợi.
           </p>
 
           <div class="flex flex-col sm:flex-row gap-4">
             <a href="/login.html"
-               class="inline-flex items-center justify-center gap-2 bg-white text-navy font-bold px-6 py-3.5 rounded-xl hover:bg-teal-50 transition-colors shadow-lg text-base">
+               class="ix-cta-light inline-flex items-center justify-center gap-2 font-bold px-6 py-3.5 rounded-xl text-base">
               Bắt đầu miễn phí
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
             </a>
             <a href="#how-it-works"
-               class="inline-flex items-center justify-center gap-2 border border-white/30 text-white font-semibold px-6 py-3.5 rounded-xl hover:bg-white/10 transition-colors text-base">
+               class="ix-cta-ghost inline-flex items-center justify-center gap-2 font-semibold px-6 py-3.5 rounded-xl text-base">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               Xem cách hoạt động
             </a>
           </div>
 
-          <p class="mt-5 text-white/50 text-sm">Không cần thẻ tín dụng · Dùng thử 3 buổi miễn phí</p>
+          <p class="ix-hero__note mt-5 text-sm">Không cần thẻ tín dụng · Dùng thử 3 buổi miễn phí</p>
         </div>
 
         <!-- Right: App screenshot placeholder -->
         <div class="hidden lg:block">
           <div class="relative">
-            <div class="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-2 shadow-2xl">
-              <div class="bg-navy-800 rounded-xl overflow-hidden" style="background:#0d2540;">
+            <div class="ix-mock__frame rounded-2xl p-2">
+              <div class="ix-mock__body rounded-xl overflow-hidden">
                 <!-- Mock app UI -->
-                <div class="px-4 pt-4 pb-2 border-b border-white/10 flex items-center gap-2">
-                  <div class="w-3 h-3 rounded-full bg-red-400/60"></div>
-                  <div class="w-3 h-3 rounded-full bg-yellow-400/60"></div>
-                  <div class="w-3 h-3 rounded-full bg-green-400/60"></div>
-                  <span class="ml-2 text-white/40 text-xs font-mono">IELTS Speaking — Part 1</span>
+                <div class="ix-mock__chrome px-4 pt-4 pb-2 flex items-center gap-2">
+                  <div class="ix-mock__dot ix-mock__dot--red w-3 h-3 rounded-full"></div>
+                  <div class="ix-mock__dot ix-mock__dot--yellow w-3 h-3 rounded-full"></div>
+                  <div class="ix-mock__dot ix-mock__dot--green w-3 h-3 rounded-full"></div>
+                  <span class="ix-mock__crumb ml-2 text-xs font-mono">IELTS Speaking — Part 1</span>
                 </div>
                 <div class="p-5 space-y-4">
-                  <div class="bg-white/5 rounded-xl p-4">
-                    <p class="text-white/50 text-xs uppercase tracking-wider mb-2 font-semibold">Câu hỏi</p>
-                    <p class="text-white text-sm leading-relaxed">"Do you prefer living in the city or the countryside? Why?"</p>
+                  <div class="ix-mock__qcard rounded-xl p-4">
+                    <p class="ix-mock__qlabel text-xs uppercase tracking-wider mb-2 font-semibold">Câu hỏi</p>
+                    <p class="ix-mock__qtext text-sm leading-relaxed">"Do you prefer living in the city or the countryside? Why?"</p>
                   </div>
                   <!-- Waveform placeholder -->
-                  <div class="bg-teal/20 rounded-xl p-4 flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-teal flex items-center justify-center flex-shrink-0">
-                      <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2H3v2a9 9 0 008 8.94V23h2v-2.06A9 9 0 0021 12v-2h-2z"/></svg>
+                  <div class="ix-mock__wave rounded-xl p-4 flex items-center gap-3">
+                    <div class="ix-mock__mic w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2H3v2a9 9 0 008 8.94V23h2v-2.06A9 9 0 0021 12v-2h-2z"/></svg>
                     </div>
                     <div class="flex-1 flex items-center gap-0.5 h-10">
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:30%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:60%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:90%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:70%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:50%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:80%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:40%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:65%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:85%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:55%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:75%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:45%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:95%"></div>
-                      <div class="w-1 bg-teal-300 rounded-full" style="height:60%"></div>
+                      <div class="ix-mock__bar" style="height:30%"></div>
+                      <div class="ix-mock__bar" style="height:60%"></div>
+                      <div class="ix-mock__bar" style="height:90%"></div>
+                      <div class="ix-mock__bar" style="height:70%"></div>
+                      <div class="ix-mock__bar" style="height:50%"></div>
+                      <div class="ix-mock__bar" style="height:80%"></div>
+                      <div class="ix-mock__bar" style="height:40%"></div>
+                      <div class="ix-mock__bar" style="height:65%"></div>
+                      <div class="ix-mock__bar" style="height:85%"></div>
+                      <div class="ix-mock__bar" style="height:55%"></div>
+                      <div class="ix-mock__bar" style="height:75%"></div>
+                      <div class="ix-mock__bar" style="height:45%"></div>
+                      <div class="ix-mock__bar" style="height:95%"></div>
+                      <div class="ix-mock__bar" style="height:60%"></div>
                     </div>
-                    <span class="text-teal-200 text-sm font-mono">0:42</span>
+                    <span class="ix-mock__time text-sm font-mono">0:42</span>
                   </div>
                   <!-- Feedback cards -->
                   <div class="grid grid-cols-4 gap-2">
-                    <div class="bg-white/5 rounded-lg p-2 text-center">
-                      <p class="text-teal-300 font-bold text-lg">7.0</p>
-                      <p class="text-white/40 text-xs">Từ vựng</p>
+                    <div class="ix-mock__score rounded-lg p-2 text-center">
+                      <p class="ix-mock__score-num font-bold text-lg">7.0</p>
+                      <p class="ix-mock__score-label text-xs">Từ vựng</p>
                     </div>
-                    <div class="bg-white/5 rounded-lg p-2 text-center">
-                      <p class="text-teal-300 font-bold text-lg">6.5</p>
-                      <p class="text-white/40 text-xs">Ngữ pháp</p>
+                    <div class="ix-mock__score rounded-lg p-2 text-center">
+                      <p class="ix-mock__score-num font-bold text-lg">6.5</p>
+                      <p class="ix-mock__score-label text-xs">Ngữ pháp</p>
                     </div>
-                    <div class="bg-white/5 rounded-lg p-2 text-center">
-                      <p class="text-teal-300 font-bold text-lg">7.5</p>
-                      <p class="text-white/40 text-xs">Mạch lạc</p>
+                    <div class="ix-mock__score rounded-lg p-2 text-center">
+                      <p class="ix-mock__score-num font-bold text-lg">7.5</p>
+                      <p class="ix-mock__score-label text-xs">Mạch lạc</p>
                     </div>
-                    <div class="bg-white/5 rounded-lg p-2 text-center">
-                      <p class="text-teal-300 font-bold text-lg">7.0</p>
-                      <p class="text-white/40 text-xs">Phát âm</p>
+                    <div class="ix-mock__score rounded-lg p-2 text-center">
+                      <p class="ix-mock__score-num font-bold text-lg">7.0</p>
+                      <p class="ix-mock__score-label text-xs">Phát âm</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             <!-- Floating badge -->
-            <div class="absolute -bottom-4 -right-4 bg-white rounded-xl shadow-xl px-4 py-3 flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-teal/10 flex items-center justify-center">
-                <svg class="w-5 h-5 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="ix-badge absolute -bottom-4 -right-4 rounded-xl px-4 py-3 flex items-center gap-3">
+              <div class="ix-badge__icon w-10 h-10 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </div>
               <div>
-                <p class="font-bold text-navy text-sm">Phản hồi tức thì</p>
-                <p class="text-slate-400 text-xs">Sau mỗi câu trả lời</p>
+                <p class="ix-badge__title font-bold text-sm">Phản hồi tức thì</p>
+                <p class="ix-badge__hint text-xs">Sau mỗi câu trả lời</p>
               </div>
             </div>
           </div>
@@ -263,91 +217,91 @@
   </section>
 
   <!-- ─── SOCIAL PROOF BAR ──────────────────────────────────────── -->
-  <section class="bg-white border-b border-slate-100">
+  <section class="ix-stats-bar">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div class="grid grid-cols-3 gap-8 text-center">
         <div>
-          <p class="stat-num text-4xl font-extrabold">500+</p>
-          <p class="text-slate-500 text-sm mt-1 font-medium">Học viên đang luyện tập</p>
+          <p class="ix-stat__num text-4xl font-extrabold">500+</p>
+          <p class="ix-stat__label text-sm mt-1 font-medium">Học viên đang luyện tập</p>
         </div>
-        <div class="border-x border-slate-100">
-          <p class="stat-num text-4xl font-extrabold">10.000+</p>
-          <p class="text-slate-500 text-sm mt-1 font-medium">Buổi luyện đã hoàn thành</p>
+        <div class="ix-stat--bordered">
+          <p class="ix-stat__num text-4xl font-extrabold">10.000+</p>
+          <p class="ix-stat__label text-sm mt-1 font-medium">Buổi luyện đã hoàn thành</p>
         </div>
         <div>
-          <p class="stat-num text-4xl font-extrabold">+1.2</p>
-          <p class="text-slate-500 text-sm mt-1 font-medium">Band điểm tăng trung bình</p>
+          <p class="ix-stat__num text-4xl font-extrabold">+1.2</p>
+          <p class="ix-stat__label text-sm mt-1 font-medium">Band điểm tăng trung bình</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ─── FEATURES ──────────────────────────────────────────────── -->
-  <section id="features" class="bg-slate-50 py-20 md:py-28">
+  <section id="features" class="ix-section-sunken py-20 md:py-28">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-14">
-        <span class="inline-block text-teal text-sm font-bold uppercase tracking-widest mb-3">Tính năng</span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-navy leading-tight">
+        <span class="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">Tính năng</span>
+        <h2 class="ix-heading text-3xl sm:text-4xl font-extrabold leading-tight">
           Mọi thứ bạn cần để<br/>nâng band Speaking
         </h2>
-        <p class="mt-4 text-slate-500 max-w-xl mx-auto text-lg leading-relaxed">
+        <p class="ix-subtitle mt-4 max-w-xl mx-auto text-lg leading-relaxed">
           Kết hợp AI phân tích ngôn ngữ chuyên sâu và kho đề luyện phong phú để tối ưu từng buổi học.
         </p>
       </div>
 
       <div class="grid md:grid-cols-3 gap-8">
         <!-- Feature 1 -->
-        <div class="card-lift bg-white rounded-2xl p-8 border border-slate-100 shadow-sm">
-          <div class="w-12 h-12 rounded-xl bg-navy/5 flex items-center justify-center mb-6">
-            <svg class="w-6 h-6 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="ix-feature-card rounded-2xl p-8">
+          <div class="ix-feature-card__icon w-12 h-12 rounded-xl flex items-center justify-center mb-6">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
             </svg>
           </div>
-          <h3 class="text-xl font-bold text-navy mb-3">Phản hồi AI chi tiết</h3>
-          <p class="text-slate-500 leading-relaxed">
+          <h3 class="ix-feature-card__title text-xl font-bold mb-3">Phản hồi AI chi tiết</h3>
+          <p class="ix-feature-card__body leading-relaxed">
             Sau mỗi câu trả lời, AI nhận xét về từ vựng, ngữ pháp, mạch lạc và phát âm theo đúng tiêu chí IELTS. Không chung chung — chỉ ra đúng chỗ cần cải thiện.
           </p>
           <div class="mt-5 flex flex-wrap gap-2">
-            <span class="bg-navy/5 text-navy text-xs font-semibold px-3 py-1 rounded-full">Từ vựng (LR)</span>
-            <span class="bg-navy/5 text-navy text-xs font-semibold px-3 py-1 rounded-full">Ngữ pháp (GRA)</span>
-            <span class="bg-navy/5 text-navy text-xs font-semibold px-3 py-1 rounded-full">Mạch lạc (CC)</span>
+            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Từ vựng (LR)</span>
+            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Ngữ pháp (GRA)</span>
+            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Mạch lạc (CC)</span>
           </div>
         </div>
 
         <!-- Feature 2 -->
-        <div class="card-lift bg-white rounded-2xl p-8 border border-teal/20 shadow-sm relative overflow-hidden">
-          <div class="absolute top-4 right-4 bg-teal text-white text-xs font-bold px-3 py-1 rounded-full">Nổi bật</div>
-          <div class="w-12 h-12 rounded-xl bg-teal/10 flex items-center justify-center mb-6">
-            <svg class="w-6 h-6 text-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="ix-feature-card ix-feature-card--popular rounded-2xl p-8 relative overflow-hidden">
+          <div class="ix-feature-card__badge absolute top-4 right-4 text-xs font-bold px-3 py-1 rounded-full">Nổi bật</div>
+          <div class="ix-feature-card__icon ix-feature-card__icon--accent w-12 h-12 rounded-xl flex items-center justify-center mb-6">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
             </svg>
           </div>
-          <h3 class="text-xl font-bold text-navy mb-3">Chấm điểm phát âm</h3>
-          <p class="text-slate-500 leading-relaxed">
+          <h3 class="ix-feature-card__title text-xl font-bold mb-3">Chấm điểm phát âm</h3>
+          <p class="ix-feature-card__body leading-relaxed">
             Phân tích phát âm chi tiết đến từng từ — chỉ ra những từ bạn phát âm chưa chuẩn và gợi ý cách cải thiện, giúp người nghe hiểu bạn rõ hơn.
           </p>
           <div class="mt-5 flex flex-wrap gap-2">
-            <span class="bg-teal/10 text-teal text-xs font-semibold px-3 py-1 rounded-full">Độ rõ âm</span>
-            <span class="bg-teal/10 text-teal text-xs font-semibold px-3 py-1 rounded-full">Độ lưu loát</span>
-            <span class="bg-teal/10 text-teal text-xs font-semibold px-3 py-1 rounded-full">Nhịp điệu</span>
+            <span class="ix-feature-card__tag ix-feature-card__tag--accent text-xs font-semibold px-3 py-1 rounded-full">Độ rõ âm</span>
+            <span class="ix-feature-card__tag ix-feature-card__tag--accent text-xs font-semibold px-3 py-1 rounded-full">Độ lưu loát</span>
+            <span class="ix-feature-card__tag ix-feature-card__tag--accent text-xs font-semibold px-3 py-1 rounded-full">Nhịp điệu</span>
           </div>
         </div>
 
         <!-- Feature 3 -->
-        <div class="card-lift bg-white rounded-2xl p-8 border border-slate-100 shadow-sm">
-          <div class="w-12 h-12 rounded-xl bg-navy/5 flex items-center justify-center mb-6">
-            <svg class="w-6 h-6 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="ix-feature-card rounded-2xl p-8">
+          <div class="ix-feature-card__icon w-12 h-12 rounded-xl flex items-center justify-center mb-6">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
             </svg>
           </div>
-          <h3 class="text-xl font-bold text-navy mb-3">Grammar Wiki</h3>
-          <p class="text-slate-500 leading-relaxed">
+          <h3 class="ix-feature-card__title text-xl font-bold mb-3">Grammar Wiki</h3>
+          <p class="ix-feature-card__body leading-relaxed">
             Thư viện ngữ pháp tích hợp — tra cứu nhanh các cấu trúc câu phổ biến trong IELTS, ví dụ minh hoạ rõ ràng, không cần rời khỏi ứng dụng.
           </p>
           <div class="mt-5 flex flex-wrap gap-2">
-            <span class="bg-navy/5 text-navy text-xs font-semibold px-3 py-1 rounded-full">Cấu trúc câu</span>
-            <span class="bg-navy/5 text-navy text-xs font-semibold px-3 py-1 rounded-full">Ví dụ thực tế</span>
-            <span class="bg-navy/5 text-navy text-xs font-semibold px-3 py-1 rounded-full">Tìm kiếm nhanh</span>
+            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Cấu trúc câu</span>
+            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Ví dụ thực tế</span>
+            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Tìm kiếm nhanh</span>
           </div>
         </div>
       </div>
@@ -355,57 +309,57 @@
   </section>
 
   <!-- ─── HOW IT WORKS ──────────────────────────────────────────── -->
-  <section id="how-it-works" class="bg-white py-20 md:py-28">
+  <section id="how-it-works" class="ix-section py-20 md:py-28">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
-        <span class="inline-block text-teal text-sm font-bold uppercase tracking-widest mb-3">Cách hoạt động</span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-navy">3 bước đơn giản</h2>
-        <p class="mt-4 text-slate-500 max-w-lg mx-auto text-lg">Từ đăng ký đến buổi luyện đầu tiên chỉ trong vài phút.</p>
+        <span class="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">Cách hoạt động</span>
+        <h2 class="ix-heading text-3xl sm:text-4xl font-extrabold">3 bước đơn giản</h2>
+        <p class="ix-subtitle mt-4 max-w-lg mx-auto text-lg">Từ đăng ký đến buổi luyện đầu tiên chỉ trong vài phút.</p>
       </div>
 
       <div class="relative grid md:grid-cols-3 gap-10">
         <!-- Connector line (desktop) -->
-        <div class="hidden md:block absolute top-12 left-1/4 right-1/4 h-0.5 step-line opacity-20"></div>
-        <div class="hidden md:block absolute top-12 left-1/2 right-1/4 h-0.5 step-line opacity-20" style="left:58.33%; right:8.33%;"></div>
+        <div class="ix-step-line hidden md:block absolute top-12 left-1/4 right-1/4 h-0.5"></div>
+        <div class="ix-step-line ix-step-line--right hidden md:block absolute top-12 h-0.5"></div>
 
         <!-- Step 1 -->
         <div class="relative text-center">
-          <div class="w-24 h-24 rounded-2xl bg-navy flex flex-col items-center justify-center mx-auto mb-6 shadow-lg">
-            <span class="text-teal-300 text-xs font-bold uppercase tracking-widest mb-1">Bước 1</span>
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="ix-step__icon ix-step__icon--alt w-24 h-24 rounded-2xl flex flex-col items-center justify-center mx-auto mb-6">
+            <span class="ix-step__label text-xs font-bold uppercase tracking-widest mb-1">Bước 1</span>
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
             </svg>
           </div>
-          <h3 class="text-xl font-bold text-navy mb-3">Tạo tài khoản</h3>
-          <p class="text-slate-500 leading-relaxed max-w-xs mx-auto">
+          <h3 class="ix-step__title text-xl font-bold mb-3">Tạo tài khoản</h3>
+          <p class="ix-step__body leading-relaxed max-w-xs mx-auto">
             Đăng ký miễn phí bằng email. Không cần thẻ tín dụng. Bắt đầu ngay với 3 buổi luyện thử.
           </p>
         </div>
 
         <!-- Step 2 -->
         <div class="relative text-center">
-          <div class="w-24 h-24 rounded-2xl bg-teal flex flex-col items-center justify-center mx-auto mb-6 shadow-lg">
-            <span class="text-teal-100 text-xs font-bold uppercase tracking-widest mb-1">Bước 2</span>
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="ix-step__icon w-24 h-24 rounded-2xl flex flex-col items-center justify-center mx-auto mb-6">
+            <span class="ix-step__label ix-step__label--on-primary text-xs font-bold uppercase tracking-widest mb-1">Bước 2</span>
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
             </svg>
           </div>
-          <h3 class="text-xl font-bold text-navy mb-3">Trả lời câu hỏi</h3>
-          <p class="text-slate-500 leading-relaxed max-w-xs mx-auto">
+          <h3 class="ix-step__title text-xl font-bold mb-3">Trả lời câu hỏi</h3>
+          <p class="ix-step__body leading-relaxed max-w-xs mx-auto">
             Chọn Part 1, 2 hoặc 3. AI tạo câu hỏi ngẫu nhiên, bạn ghi âm trả lời như trong phòng thi thật.
           </p>
         </div>
 
         <!-- Step 3 -->
         <div class="relative text-center">
-          <div class="w-24 h-24 rounded-2xl bg-navy flex flex-col items-center justify-center mx-auto mb-6 shadow-lg">
-            <span class="text-teal-300 text-xs font-bold uppercase tracking-widest mb-1">Bước 3</span>
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="ix-step__icon ix-step__icon--alt w-24 h-24 rounded-2xl flex flex-col items-center justify-center mx-auto mb-6">
+            <span class="ix-step__label text-xs font-bold uppercase tracking-widest mb-1">Bước 3</span>
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
             </svg>
           </div>
-          <h3 class="text-xl font-bold text-navy mb-3">Nhận phản hồi ngay</h3>
-          <p class="text-slate-500 leading-relaxed max-w-xs mx-auto">
+          <h3 class="ix-step__title text-xl font-bold mb-3">Nhận phản hồi ngay</h3>
+          <p class="ix-step__body leading-relaxed max-w-xs mx-auto">
             Kết quả chấm điểm và nhận xét chi tiết xuất hiện ngay sau khi nộp bài — không cần chờ giáo viên.
           </p>
         </div>
@@ -414,173 +368,173 @@
   </section>
 
   <!-- ─── PRICING (hidden pre-launch) ───────────────────────────── -->
-  <section id="pricing" class="bg-slate-50 py-20 md:py-28" style="display:none">
+  <section id="pricing" class="ix-section-sunken py-20 md:py-28" style="display:none">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-14">
-        <span class="inline-block text-teal text-sm font-bold uppercase tracking-widest mb-3">Bảng giá</span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-navy">Bắt đầu miễn phí,<br/>nâng cấp khi sẵn sàng</h2>
-        <p class="mt-4 text-slate-500 max-w-lg mx-auto text-lg">Không có cam kết dài hạn. Huỷ bất kỳ lúc nào.</p>
+        <span class="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">Bảng giá</span>
+        <h2 class="ix-heading text-3xl sm:text-4xl font-extrabold">Bắt đầu miễn phí,<br/>nâng cấp khi sẵn sàng</h2>
+        <p class="ix-subtitle mt-4 max-w-lg mx-auto text-lg">Không có cam kết dài hạn. Huỷ bất kỳ lúc nào.</p>
       </div>
 
       <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
         <!-- Free tier -->
-        <div class="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm flex flex-col">
+        <div class="ix-price-card rounded-2xl p-8 flex flex-col">
           <div class="mb-6">
-            <p class="font-bold text-slate-400 text-sm uppercase tracking-widest mb-2">Miễn phí</p>
-            <p class="text-4xl font-extrabold text-navy">0<span class="text-xl text-slate-400 font-normal">đ</span></p>
-            <p class="text-slate-400 text-sm mt-1">mãi mãi</p>
+            <p class="ix-price-card__tier text-sm font-bold uppercase tracking-widest mb-2">Miễn phí</p>
+            <p class="ix-price-card__amount text-4xl font-extrabold">0<span class="ix-price-card__unit text-xl font-normal">đ</span></p>
+            <p class="ix-price-card__period text-sm mt-1">mãi mãi</p>
           </div>
           <ul class="space-y-3 flex-1 mb-8">
-            <li class="flex items-start gap-2.5 text-slate-600 text-sm">
-              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               3 buổi luyện mỗi ngày
             </li>
-            <li class="flex items-start gap-2.5 text-slate-600 text-sm">
-              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Part 1, 2, 3
             </li>
-            <li class="flex items-start gap-2.5 text-slate-600 text-sm">
-              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Phản hồi AI cơ bản
             </li>
-            <li class="flex items-start gap-2.5 text-slate-400 text-sm">
-              <svg class="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            <li class="ix-price-card__feat ix-price-card__feat--off flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__cross w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
               Chấm điểm phát âm
             </li>
-            <li class="flex items-start gap-2.5 text-slate-400 text-sm">
-              <svg class="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            <li class="ix-price-card__feat ix-price-card__feat--off flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__cross w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
               Full Test mode
             </li>
           </ul>
-          <a href="/login.html" class="block text-center border-2 border-navy text-navy font-bold py-3 rounded-xl hover:bg-navy hover:text-white transition-colors">
+          <a href="/login.html" class="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
             Bắt đầu miễn phí
           </a>
         </div>
 
         <!-- Student tier (popular) -->
-        <div class="pricing-popular rounded-2xl p-8 shadow-xl flex flex-col relative overflow-hidden">
-          <div class="absolute top-0 right-0 bg-white/20 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">Phổ biến nhất</div>
+        <div class="ix-price-card ix-price-card--popular rounded-2xl p-8 flex flex-col relative overflow-hidden">
+          <div class="ix-price-card__ribbon absolute top-0 right-0 text-xs font-bold px-4 py-1.5 rounded-bl-xl">Phổ biến nhất</div>
           <div class="mb-6">
-            <p class="font-bold text-teal-200 text-sm uppercase tracking-widest mb-2">Học viên</p>
-            <p class="text-4xl font-extrabold text-white">299K<span class="text-xl text-teal-200 font-normal">/tháng</span></p>
-            <p class="text-teal-200 text-sm mt-1">tương đương 10K/ngày</p>
+            <p class="ix-price-card__tier ix-price-card__tier--on-primary text-sm font-bold uppercase tracking-widest mb-2">Học viên</p>
+            <p class="ix-price-card__amount ix-price-card__amount--on-primary text-4xl font-extrabold">299K<span class="ix-price-card__unit ix-price-card__unit--on-primary text-xl font-normal">/tháng</span></p>
+            <p class="ix-price-card__period ix-price-card__period--on-primary text-sm mt-1">tương đương 10K/ngày</p>
           </div>
           <ul class="space-y-3 flex-1 mb-8">
-            <li class="flex items-start gap-2.5 text-teal-50 text-sm">
-              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat ix-price-card__feat--on-primary flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check ix-price-card__check--on-primary w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Không giới hạn buổi luyện
             </li>
-            <li class="flex items-start gap-2.5 text-teal-50 text-sm">
-              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat ix-price-card__feat--on-primary flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check ix-price-card__check--on-primary w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Phản hồi AI chi tiết đầy đủ
             </li>
-            <li class="flex items-start gap-2.5 text-teal-50 text-sm">
-              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat ix-price-card__feat--on-primary flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check ix-price-card__check--on-primary w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Chấm điểm phát âm
             </li>
-            <li class="flex items-start gap-2.5 text-teal-50 text-sm">
-              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat ix-price-card__feat--on-primary flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check ix-price-card__check--on-primary w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Full Test mode (3 parts)
             </li>
-            <li class="flex items-start gap-2.5 text-teal-50 text-sm">
-              <svg class="w-4 h-4 text-teal-200 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat ix-price-card__feat--on-primary flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check ix-price-card__check--on-primary w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Grammar Wiki đầy đủ
             </li>
           </ul>
-          <a href="/login.html" class="block text-center bg-white text-teal font-bold py-3 rounded-xl hover:bg-teal-50 transition-colors shadow-sm">
+          <a href="/login.html" class="ix-price-card__cta ix-price-card__cta--popular block text-center font-bold py-3 rounded-xl">
             Chọn gói này
           </a>
         </div>
 
         <!-- Intensive tier -->
-        <div class="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm flex flex-col">
+        <div class="ix-price-card rounded-2xl p-8 flex flex-col">
           <div class="mb-6">
-            <p class="font-bold text-slate-400 text-sm uppercase tracking-widest mb-2">Luyện thi cấp tốc</p>
-            <p class="text-4xl font-extrabold text-navy">699K<span class="text-xl text-slate-400 font-normal">/tháng</span></p>
-            <p class="text-slate-400 text-sm mt-1">cho kỳ thi gần nhất</p>
+            <p class="ix-price-card__tier text-sm font-bold uppercase tracking-widest mb-2">Luyện thi cấp tốc</p>
+            <p class="ix-price-card__amount text-4xl font-extrabold">699K<span class="ix-price-card__unit text-xl font-normal">/tháng</span></p>
+            <p class="ix-price-card__period text-sm mt-1">cho kỳ thi gần nhất</p>
           </div>
           <ul class="space-y-3 flex-1 mb-8">
-            <li class="flex items-start gap-2.5 text-slate-600 text-sm">
-              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Tất cả tính năng Học viên
             </li>
-            <li class="flex items-start gap-2.5 text-slate-600 text-sm">
-              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Đề thi theo chủ đề mục tiêu
             </li>
-            <li class="flex items-start gap-2.5 text-slate-600 text-sm">
-              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Phân tích tiến độ theo tuần
             </li>
-            <li class="flex items-start gap-2.5 text-slate-600 text-sm">
-              <svg class="w-4 h-4 text-teal flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <li class="ix-price-card__feat flex items-start gap-2.5 text-sm">
+              <svg class="ix-price-card__check w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
               Ưu tiên hỗ trợ kỹ thuật
             </li>
           </ul>
-          <a href="/login.html" class="block text-center border-2 border-navy text-navy font-bold py-3 rounded-xl hover:bg-navy hover:text-white transition-colors">
+          <a href="/login.html" class="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
             Chọn gói này
           </a>
         </div>
       </div>
 
-      <p class="text-center mt-8 text-slate-400 text-sm">
-        Giá hiển thị là dự kiến — xem chi tiết tại <a href="/pricing.html" class="text-teal underline underline-offset-2 hover:text-teal-600">trang bảng giá</a>.
+      <p class="ix-price-note text-center mt-8 text-sm">
+        Giá hiển thị là dự kiến — xem chi tiết tại <a href="/pricing.html" class="ix-price-note__link underline underline-offset-2">trang bảng giá</a>.
       </p>
     </div>
   </section>
 
   <!-- ─── TESTIMONIALS ──────────────────────────────────────────── -->
-  <section class="bg-white py-20 md:py-28">
+  <section class="ix-section py-20 md:py-28">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-14">
-        <span class="inline-block text-teal text-sm font-bold uppercase tracking-widest mb-3">Học viên nói gì</span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-navy">Kết quả thực tế</h2>
+        <span class="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">Học viên nói gì</span>
+        <h2 class="ix-heading text-3xl sm:text-4xl font-extrabold">Kết quả thực tế</h2>
       </div>
 
       <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
         <!-- Testimonial 1 -->
-        <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 relative">
-          <div class="quote-mark absolute top-4 left-6 select-none">"</div>
+        <div class="ix-testimonial rounded-2xl p-8 relative">
+          <div class="ix-testimonial__quote absolute top-4 left-6 select-none" aria-hidden="true">"</div>
           <div class="relative">
-            <p class="text-slate-600 leading-relaxed mb-6 text-base italic">
+            <p class="ix-testimonial__body leading-relaxed mb-6 text-base italic">
               "Mình luyện mỗi tối khoảng 30 phút, sau 6 tuần điểm Speaking tăng từ 6.0 lên 7.0. Điều mình thích nhất là phần nhận xét phát âm — nó chỉ ra đúng những từ mình phát âm sai mà mình không tự nhận ra."
             </p>
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-navy flex items-center justify-center text-white font-bold text-sm flex-shrink-0">NT</div>
+              <div class="ix-testimonial__avatar ix-testimonial__avatar--alt w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">NT</div>
               <div>
-                <p class="font-bold text-navy text-sm">Nguyễn Thanh</p>
-                <p class="text-slate-400 text-xs">Band 7.0 Speaking · Hà Nội</p>
+                <p class="ix-testimonial__name font-bold text-sm">Nguyễn Thanh</p>
+                <p class="ix-testimonial__meta text-xs">Band 7.0 Speaking · Hà Nội</p>
               </div>
               <div class="ml-auto flex gap-0.5">
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Testimonial 2 -->
-        <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 relative">
-          <div class="quote-mark absolute top-4 left-6 select-none">"</div>
+        <div class="ix-testimonial rounded-2xl p-8 relative">
+          <div class="ix-testimonial__quote absolute top-4 left-6 select-none" aria-hidden="true">"</div>
           <div class="relative">
-            <p class="text-slate-600 leading-relaxed mb-6 text-base italic">
+            <p class="ix-testimonial__body leading-relaxed mb-6 text-base italic">
               "Trước kia mình ngại nói vì sợ mắc lỗi. Giờ luyện với AI mình không còn sợ vì biết rõ mình cần cải thiện gì. Phần phản hồi ngữ pháp rất cụ thể, không bị chung chung như các app khác."
             </p>
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-teal flex items-center justify-center text-white font-bold text-sm flex-shrink-0">LA</div>
+              <div class="ix-testimonial__avatar w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">LA</div>
               <div>
-                <p class="font-bold text-navy text-sm">Lê Anh</p>
-                <p class="text-slate-400 text-xs">Band 6.5 Speaking · TP.HCM</p>
+                <p class="ix-testimonial__name font-bold text-sm">Lê Anh</p>
+                <p class="ix-testimonial__meta text-xs">Band 6.5 Speaking · TP.HCM</p>
               </div>
               <div class="ml-auto flex gap-0.5">
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <svg class="ix-testimonial__star w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
               </div>
             </div>
           </div>
@@ -590,26 +544,24 @@
   </section>
 
   <!-- ─── CTA ───────────────────────────────────────────────────── -->
-  <section class="hero-bg py-20 md:py-28 relative overflow-hidden">
-    <div class="hero-glow absolute inset-0 pointer-events-none"></div>
-    <div class="absolute inset-0 opacity-5 pointer-events-none"
-         style="background-image: linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px); background-size: 40px 40px;">
-    </div>
+  <section class="ix-hero ix-hero--cta py-20 md:py-28 relative overflow-hidden">
+    <div class="ix-hero__glow absolute inset-0 pointer-events-none"></div>
+    <div class="ix-hero__grid absolute inset-0 pointer-events-none"></div>
     <div class="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl sm:text-5xl font-extrabold text-white leading-tight mb-6">
+      <h2 class="ix-hero__title text-3xl sm:text-5xl font-extrabold leading-tight mb-6">
         Sẵn sàng nâng band<br/>Speaking của bạn?
       </h2>
-      <p class="text-lg text-white/70 mb-10 max-w-xl mx-auto leading-relaxed">
+      <p class="ix-hero__lead text-lg mb-10 max-w-xl mx-auto leading-relaxed">
         Bắt đầu ngay hôm nay — 3 buổi luyện thử hoàn toàn miễn phí, không cần thẻ tín dụng.
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <a href="/login.html"
-           class="inline-flex items-center justify-center gap-2 bg-white text-navy font-bold px-8 py-4 rounded-xl hover:bg-teal-50 transition-colors shadow-lg text-lg">
+           class="ix-cta-light inline-flex items-center justify-center gap-2 font-bold px-8 py-4 rounded-xl text-lg">
           Dùng thử miễn phí ngay
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
         </a>
         <a href="/login.html"
-           class="inline-flex items-center justify-center gap-2 border border-white/30 text-white font-semibold px-8 py-4 rounded-xl hover:bg-white/10 transition-colors text-lg">
+           class="ix-cta-ghost inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-xl text-lg">
           Đăng nhập
         </a>
       </div>
@@ -617,51 +569,79 @@
   </section>
 
   <!-- ─── FOOTER ────────────────────────────────────────────────── -->
-  <footer class="bg-navy py-12">
+  <footer class="ix-footer py-12">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="grid md:grid-cols-4 gap-8 mb-10">
         <!-- Brand -->
         <div class="md:col-span-2">
           <div class="flex items-center gap-2 mb-4">
-            <div class="w-8 h-8 rounded-lg bg-teal flex items-center justify-center">
-              <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white" xmlns="http://www.w3.org/2000/svg">
+            <div class="ix-footer__logo-mark w-8 h-8 rounded-lg flex items-center justify-center">
+              <svg viewBox="0 0 24 24" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
               </svg>
             </div>
-            <span class="font-bold text-white text-lg tracking-tight">averlearning</span>
+            <span class="ix-footer__brand font-bold text-lg tracking-tight">averlearning</span>
           </div>
-          <p class="text-white/50 text-sm leading-relaxed max-w-xs">
+          <p class="ix-footer__tagline text-sm leading-relaxed max-w-xs">
             Nền tảng luyện IELTS Speaking với AI — phản hồi tức thì, chính xác và mang tính sư phạm.
           </p>
         </div>
 
         <!-- Links -->
         <div>
-          <p class="text-white/30 text-xs font-bold uppercase tracking-widest mb-4">Tính năng</p>
+          <p class="ix-footer__heading text-xs font-bold uppercase tracking-widest mb-4">Tính năng</p>
           <ul class="space-y-2.5">
-            <li><a href="#features" class="text-white/60 text-sm hover:text-white transition-colors">AI Feedback</a></li>
-            <li><a href="#features" class="text-white/60 text-sm hover:text-white transition-colors">Chấm điểm phát âm</a></li>
-            <li><a href="/grammar.html" class="text-white/60 text-sm hover:text-white transition-colors">Grammar Wiki</a></li>
+            <li><a href="#features" class="ix-footer__link text-sm">AI Feedback</a></li>
+            <li><a href="#features" class="ix-footer__link text-sm">Chấm điểm phát âm</a></li>
+            <li><a href="/grammar.html" class="ix-footer__link text-sm">Grammar Wiki</a></li>
             <!-- Pricing link hidden (pre-launch) -->
           </ul>
         </div>
 
         <div>
-          <p class="text-white/30 text-xs font-bold uppercase tracking-widest mb-4">Tài khoản</p>
+          <p class="ix-footer__heading text-xs font-bold uppercase tracking-widest mb-4">Tài khoản</p>
           <ul class="space-y-2.5">
-            <li><a href="/login.html" class="text-white/60 text-sm hover:text-white transition-colors">Đăng nhập</a></li>
-            <li><a href="/login.html" class="text-white/60 text-sm hover:text-white transition-colors">Đăng ký</a></li>
-            <li><a href="/frontend/pages/home.html" class="text-white/60 text-sm hover:text-white transition-colors">Dashboard</a></li>
+            <li><a href="/login.html" class="ix-footer__link text-sm">Đăng nhập</a></li>
+            <li><a href="/login.html" class="ix-footer__link text-sm">Đăng ký</a></li>
+            <li><a href="/frontend/pages/home.html" class="ix-footer__link text-sm">Dashboard</a></li>
           </ul>
         </div>
       </div>
 
-      <div class="border-t border-white/10 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <p class="text-white/30 text-sm">© 2025 averlearning. Mọi quyền được bảo lưu.</p>
-        <p class="text-white/20 text-xs">Powered by Claude AI · Whisper STT · Azure Pronunciation</p>
+      <div class="ix-footer__divider pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <p class="ix-footer__copy text-sm">© 2025 averlearning. Mọi quyền được bảo lưu.</p>
+        <p class="ix-footer__powered text-xs">Powered by Claude AI · Whisper STT · Azure Pronunciation</p>
       </div>
     </div>
   </footer>
 
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.13a) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
 </body>
 </html>
