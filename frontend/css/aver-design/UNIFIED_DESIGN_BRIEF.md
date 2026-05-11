@@ -699,3 +699,115 @@ Before declaring a per-page migration done:
 - speaking.css `--av-text-faint` references restricted to `::placeholder` rules (rule-walking allowlist)
 
 Mirror these pins in each new per-page redesign sprint.
+
+
+## 12. Hardcoded colors = silent theme bugs
+
+Hardcoded `#ffffff`, `#000000`, or any literal color value in dual-theme page CSS can pass visual review in one theme yet **silently fail WCAG AA in the other**. The bug is invisible until a user toggles themes.
+
+This isn't style drift — it's a semantic correctness failure that bypasses the theme system's contrast guarantees.
+
+### 12.1 The Sprint 6.7.1 finding (PR #133)
+
+Three CTAs in `writing-dashboard.css` shipped with `color: #ffffff`:
+
+- `.btn-start-assignment` (the "Làm bài" / "Tiếp tục làm bài" CTA on every assignment card)
+- `.btn-primary` (legacy class API kept for parity)
+- `.wd-modal-btn-submit` (the "Nộp bài" CTA inside the submit modal)
+
+Codex initially flagged them as "token discipline drift". Investigation surfaced a real WCAG AA failure in dark theme:
+
+| Theme | CTA background (`--av-primary`) | Token `--av-text-on-primary` resolves to | Hardcoded `#ffffff` contrast |
+|---|---|---|---|
+| Light | `#0F766E` deep teal-700 | `#FFFFFF` | ~6.8:1 — AA ✅ |
+| Dark  | `#14B8A6` bright teal-500 | `#0A1628` deep navy | ~1.6:1 — **fails AA** ❌ |
+
+The page was tested in light theme during the Sprint 6.7 redesign; the dark-theme failure shipped unreviewed because the same CSS line rendered "white text on teal background" in both themes — which looks plausible but is wrong on bright teal.
+
+### 12.2 The rule
+
+**All colors in `body.av-page`-scoped CSS MUST use tokens.** Tokens encapsulate theme-flip logic; literals don't. The 4-tier text ladder (§ 11.2) covers text on page/card surfaces; for text on a brand-colored background, use the inverse token (`--av-text-on-primary` and friends).
+
+### 12.3 Detection — run before every merge
+
+```bash
+grep -nE "color:\s*#[0-9a-fA-F]{3,6}|color:\s*white\b|color:\s*black\b" frontend/css/<page>.css
+```
+
+Expected output on a redesigned page: **0 matches**. Any match is either:
+
+- a literal color that should use a token (the AMBER case)
+- a deliberate exception (rare; document it in a comment + cite the design system section)
+
+The same grep is wired into per-page redesign tests (e.g., `writing-dashboard-redesign.test.mjs` has a "zero hardcoded white text values" pin).
+
+### 12.4 Token mapping — common CTA + chip patterns
+
+Pick the inverse token by the **background** the text sits on, not by the literal color you want:
+
+| Background | Light theme text | Dark theme text | Use token |
+|---|---|---|---|
+| Brand primary (`var(--av-primary)`) | white | dark navy | `var(--av-text-on-primary)` |
+| Page surface (`var(--av-surface-page)`) | dark navy | warm white | `var(--av-text-primary)` |
+| Card surface (`var(--av-surface-card)`) | dark navy | warm white | `var(--av-text-primary)` |
+| Primary-soft tint (`var(--av-primary-soft)`) | deep teal | bright teal | `var(--av-primary)` (the brand color reads on its own tint) |
+| Warning-soft (`var(--av-warning-soft)`) | amber-800 | amber-300 | `var(--av-warning)` |
+| Error-soft (`var(--av-error-soft)`) | red-700 | red-300 | `var(--av-error)` |
+
+For inverse tokens that don't yet exist (`--av-text-on-warning`, `--av-text-on-error`, etc.), don't invent literals — open a follow-up to add the token, then consume it. Token catalog stays the source of truth.
+
+### 12.5 Anti-pattern — wrong vs right
+
+❌ **Wrong** — passes light theme review, fails dark theme contrast:
+
+```css
+.btn-primary {
+  background: var(--av-primary);
+  color: #ffffff;            /* breaks AA in dark — bright teal needs dark text */
+}
+```
+
+✅ **Right** — theme-aware via the token:
+
+```css
+.btn-primary {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+}
+```
+
+✅ **Also right** — if no inverse token covers your case, document the exception inline and cite the design system section:
+
+```css
+.unusual-chip {
+  background: var(--av-color-amethyst-500);
+  /* No --av-text-on-amethyst yet; #fff verified AA in both themes
+     against this fixed background. Follow-up: DESIGN-NEW-TOKEN. */
+  color: #ffffff;
+}
+```
+
+Document inline is a much higher bar than just writing the literal — the bar exists to prevent silent-bug recurrence.
+
+### 12.6 Why this matters more than style discipline
+
+Hardcoded colors don't just look inconsistent — they're **semantic bugs** that bypass the theme system's contrast guarantees. A CTA hardcoded white might pass light-theme review (white on teal works) but silently fail dark-theme contrast (white on bright teal fails AA). The bug is invisible until a user toggles themes, and a Vietnamese student reviewing their writing assignment at 10pm with system-preference dark would be the one to find it — not the dev.
+
+The token system was designed to make this class of bug impossible. Using the token isn't ceremony; it's the contract.
+
+### 12.7 Cumulative color lessons — apply ALL in every redesign
+
+Each per-page redesign sprint compounds the prior lessons. Three lessons now apply universally:
+
+| Sprint | Lesson | Pin pattern |
+|---|---|---|
+| **6.4.1 / 6.4.2** | Semantic-role mapping, not opacity-number mapping. `rgba(0.30–0.35)` is **not** automatically `--av-text-faint`; pick the tier by what the element *means* (primary content / helper text / meta / em-dash) | `--av-text-faint` count ≤ 10, `text-secondary` count > `text-faint` |
+| **6.5.1** | ds.css legacy override pattern. The shared `ds.css` hardcodes `color:#fff` and `rgba(255,255,255,X)`; on the cream light surface those are invisible. Override under `body.av-page` instead of modifying ds.css | `body.av-page .ds-* { color: var(--av-...) }` selectors present |
+| **6.7.1** | Hardcoded literals = silent theme bugs. Token discipline IS contrast discipline (this section) | Zero `color:\s*#[0-9a-fA-F]+` / `white` / `black` in page CSS |
+
+All three pins live in the per-page redesign test suites. Future Writing-flow / Vocabulary / Profile / Admin / Marketing redesigns must apply all three; the test files are the enforcement layer.
+
+**Sprint history references:**
+- Sprint 6.4.1 / 6.4.2 PRs #124 / #125 (speaking.html contrast hotfix series)
+- Sprint 6.5.1 PR #128 (practice.html question-card contrast hotfix)
+- Sprint 6.7.1 PR #133 (writing-dashboard.html CTA inverse-token fix; this section)
