@@ -44,6 +44,7 @@ const REDESIGNED_PAGES = [
   'frontend/pages/practice.html',
   'frontend/pages/result.html',
   'frontend/pages/writing-dashboard.html',
+  'frontend/pages/writing-result.html',
 ];
 
 
