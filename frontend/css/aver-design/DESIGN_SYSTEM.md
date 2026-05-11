@@ -397,25 +397,32 @@ Properties of every redesigned page:
 - **Component library:** `.av-*` classes from `frontend/css/aver-design/components.css`
 - **Theme runtime:** `frontend/js/theme-toggle.js` (8 named exports, `VALID_THEMES = ['light', 'dark']` validator that the IIFE mirrors)
 
-### 14.2 Legacy pages (pre-redesign) + typography sub-system narrative
+### 14.2 Token system status + typography sub-systems (post Sprint 6.15.2)
 
-After Sprint 6.15 (Phase 4 closure), only one legacy page remains:
+**All 29 redesigned pages use `--av-*` tokens exclusively.** Zero pages remain on `--ds-*` tokens. Phase 4 closure is clean — there is no legacy-page outlier.
 
-- `frontend/pages/dashboard.html`
+**Sprint 6.15.2 narrative correction:** Sprint 6.15 (PR #154) shipped with a claim that `frontend/pages/dashboard.html` was the sole remaining legacy `--ds-*` outlier. **That claim was factually wrong.** Sprint 6.15.1 investigation confirmed `dashboard.html` was deleted in Sprint 5.1 (commit `3f4ff14`) when the multi-skill `frontend/pages/home.html` shipped. A Vercel `permanent: true` 301 redirect (`frontend/vercel.json` line 12) handles legacy bookmarks → `/pages/speaking.html`. PR #155 (Sprint 6.15.2) corrected this narrative.
 
-**Phase 4 admin closure note (Sprint 6.14d-α):** `frontend/admin.html` is no longer legacy. It ships STRUCTURALLY COMPLETE — canonical IIFE + Plus Jakarta Sans + JetBrains Mono + `body.av-page` + foundation order, with the Tailwind utility-class refactor + per-tab primitive polish deferred to Sprint 6.14d-β / 6.14d-γ per the un-defer triggers in § 14.5.2 / § 14.5.3.
+**`frontend/css/ds.css` is intentionally retained** as the Sprint 6.5.1 compatibility bridge:
 
-**Typography sub-system resolution (Sprint 6.15 closure):** The Grammar Wiki cluster (`frontend/grammar.html` landing + 4 sub-pages under `/pages/`) was previously flagged "decision pending on DM Sans + Lora sub-system vs unification" in brief § 2. **Decision: SUB-SYSTEM PRESERVED.** Grammar Wiki is the authoritative DM Sans (body) + Lora (display) consumer. Rationale: Grammar Wiki = long-form reading content; editorial typography distinct from utilitarian dashboards. Pattern matches academic/dictionary sites. Plus Jakarta Sans + JetBrains Mono remains the canonical type system for all other redesigned pages. Sprint 6.15 migration brought the cluster onto `--av-*` tokens + canonical IIFE + canonical theme toggle while preserving the typography sub-system via a `body.av-page { font-family: 'DM Sans', ...; }` cascade-winning override in `frontend/css/grammar-wiki.css`.
+- Inline JS in `practice.html` + `result.html` emits `.ds-band-*`, `.ds-crit*`, `.ds-cue-*` classes at runtime.
+- `ds.css` defines tokens + base styling for those legacy class names.
+- Redesigned pages override hardcoded `color: #fff` / `rgba(255,…)` rules via scoped `body.av-page .ds-* { color: var(--av-text-X) }` blocks (Sprint 6.5.1 pattern, documented in `UNIFIED_DESIGN_BRIEF.md` § 12).
+- `ds.css` retirement is a Phase 5+ decision — fires only when the renderer-emitted `.ds-*` class emissions are eliminated from `practice.html` + `result.html` inline JS.
 
-All Tier 1 learner-facing pages have migrated — the `typography-tier1.test.js` `TIER_1_PAGES` list is empty as of Sprint 6.12b. The sentinel test in that file catches any future Tier 1 regression.
+**`frontend/css/result.css` has 3 `var(--ds-*)` references — all inside CSS comments only.** They document the legacy `ds.css` behavior that `result.css` overrides; zero functional consumption.
 
-Properties of the remaining legacy `dashboard.html`:
+**Phase 4 admin closure (Sprint 6.14d-α):** `frontend/admin.html` ships STRUCTURALLY COMPLETE — canonical IIFE + Plus Jakarta Sans + JetBrains Mono + `body.av-page` + foundation order, with the Tailwind utility-class refactor + per-tab primitive polish deferred to Sprint 6.14d-β / 6.14d-γ per the un-defer triggers in § 14.5.2 / § 14.5.3.
 
-- Theme: dark-navy `#0a1628` + `body.ds-canvas` atmosphere overlay (no theme toggle)
-- Tokens: `--ds-*` (legacy)
-- Typography: Manrope + Fraunces (Tier 1 transition era) or Inter (Era B landing/pricing era)
-- Component classes: ad-hoc (`.skill-card`, `.btn-primary`, `.main-tab-btn`, `.tab-btn`, `.essay-card`, `.session-row`) — JS-coupled, immutable
-- Icons: mostly emoji (🎤 ✍️ 📚 ✦ 🔥) + some Lucide CDN
+**Typography sub-system resolution (Sprint 6.15 closure):** The Grammar Wiki cluster (`frontend/grammar.html` landing + 4 sub-pages under `/pages/`) was previously flagged "decision pending on DM Sans + Lora sub-system vs unification" in brief § 2. **Decision: SUB-SYSTEM PRESERVED.** Grammar Wiki is the authoritative DM Sans (body) + Lora (display) consumer. Rationale: Grammar Wiki = long-form reading content; editorial typography distinct from utilitarian dashboards. Pattern matches academic/dictionary sites. Plus Jakarta Sans + JetBrains Mono remains the canonical type system for all other redesigned pages (24 utilitarian pages). Sprint 6.15 brought the cluster onto `--av-*` tokens + canonical IIFE + canonical theme toggle while preserving the typography sub-system via a `body.av-page { font-family: 'DM Sans', ...; }` cascade-winning override in `frontend/css/grammar-wiki.css`.
+
+All Tier 1 learner-facing pages migrated in Phase 1-3 — the `typography-tier1.test.js` `TIER_1_PAGES` list is empty as of Sprint 6.12b. The sentinel test in that file catches any future Tier 1 regression.
+
+**Cumulative typography summary:**
+
+- **Plus Jakarta Sans + JetBrains Mono** — 24 utilitarian pages (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9).
+- **DM Sans + Lora** — 5 Grammar Wiki pages (editorial sub-system, intentional per § 14.2).
+- **Total: 29 pages on `--av-*` tokens.** Zero pages on legacy `--ds-*`.
 
 ### 14.3 Compatibility layer
 
@@ -443,7 +450,7 @@ frontend/js/
 | Phase 2 | 6.7 – 6.9 | `writing-dashboard.html`, `writing-result.html`, `full-test-result.html` (closed in Sprint 6.9) |
 | Phase 3 | 6.10 – 6.12b ✅ | `vocabulary.html` (6.10 ✅), `my-vocabulary.html` (6.11a ✅), `flashcards.html` + `exercises.html` + `_renderPreviewModal` (6.11b ✅), `profile.html` (6.12a ✅), `onboarding.html` (6.12b ✅) — **closure** |
 | Phase 3 audit closure | 6.12c ✅ | Documentation drift closures (3 AMBER) + § 17 audit checklist gates formalized |
-| Phase 4 | 6.13 – 6.15 | **✅ COMPLETE.** Sprint 6.13a: `index.html` ✅. Sprint 6.13b: `pricing.html` ✅. Sprint 6.14 pre-work (PR #148). Sprint 6.14a: small writing admin cluster ✅ (4 pages). Sprint 6.14b: table pages ✅ (2 pages). Sprint 6.14c: instructor queue + grading ✅ (2 pages). **Sprint 6.14d-α: `admin.html` monolith chrome-only ✅** (STRUCTURALLY COMPLETE; 6.14d-β / 6.14d-γ deferred with triggers — see § 14.5.2 / § 14.5.3). **Sprint 6.15: Grammar Wiki cluster ✅** (5 pages atomic, DM Sans + Lora sub-system PRESERVED per § 14.2 — closes Phase 4). **29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 + Phase 4 Grammar Wiki: 5). Only `frontend/pages/dashboard.html` remains on the legacy `--ds-*` system. |
+| Phase 4 | 6.13 – 6.15 | **✅ COMPLETE.** Sprint 6.13a: `index.html` ✅. Sprint 6.13b: `pricing.html` ✅. Sprint 6.14 pre-work (PR #148). Sprint 6.14a: small writing admin cluster ✅ (4 pages). Sprint 6.14b: table pages ✅ (2 pages). Sprint 6.14c: instructor queue + grading ✅ (2 pages). **Sprint 6.14d-α: `admin.html` monolith chrome-only ✅** (STRUCTURALLY COMPLETE; 6.14d-β / 6.14d-γ deferred with triggers — see § 14.5.2 / § 14.5.3). **Sprint 6.15: Grammar Wiki cluster ✅** (5 pages atomic, DM Sans + Lora sub-system PRESERVED per § 14.2 — closes Phase 4). **29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 + Phase 4 Grammar Wiki: 5). **Zero pages remain on `--ds-*` tokens.** `ds.css` is preserved as the Sprint 6.5.1 compatibility bridge for renderer-emitted `.ds-*` classes (see § 14.2). |
 
 ### 14.5.1 Phase 4 admin status after Sprint 6.14d-α — STRUCTURALLY COMPLETE
 

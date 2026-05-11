@@ -17,7 +17,7 @@ IELTS Speaking Coach is a web app for IELTS Speaking exam preparation. Users rec
 | What | File |
 |------|------|
 | Landing / Login / Activation | `frontend/index.html` |
-| Dashboard | `frontend/pages/dashboard.html` |
+| Student home (multi-skill) | `frontend/pages/home.html` (replaced legacy `dashboard.html` in Sprint 5.1; `vercel.json` 301-redirects the old path → `/pages/speaking.html`) |
 | **Practice page** (main) | `frontend/pages/practice.html` ← real one |
 | Result page | `frontend/pages/result.html` |
 | Full Test result | `frontend/pages/full-test-result.html` |

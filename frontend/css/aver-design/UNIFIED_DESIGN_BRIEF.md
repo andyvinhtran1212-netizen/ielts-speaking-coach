@@ -14,7 +14,7 @@ Exception: pages that are sibling iframe panels (e.g., `my-vocabulary.html` + `f
 
 ## 2. Priority order
 
-The redesign program runs in phases. Phases 1–4 are complete: **29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 STRUCTURALLY COMPLETE + Phase 4 Grammar Wiki: 5 with DM Sans + Lora sub-system preserved per § 14.2). Sprint 6.14d-β/γ + the legacy `dashboard.html` migration remain as Phase 5+ deferrals.
+The redesign program runs in phases. Phases 1–4 are complete: **29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 STRUCTURALLY COMPLETE + Phase 4 Grammar Wiki: 5 with DM Sans + Lora sub-system preserved per § 14.2). Phase 5+ deferrals are limited to: Sprint 6.14d-β Tailwind utility-class refactor (DESIGN_SYSTEM.md § 14.5.2 triggers), Sprint 6.14d-γ per-tab primitive adoption polish (§ 14.5.3 triggers), DEBT-2026-05-09-B vocabulary iframe → module extraction, and commercial launch readiness sprints (Stripe / email infra / SEO).
 
 | Phase | Pages | Status |
 |---|---|---|
@@ -24,7 +24,7 @@ The redesign program runs in phases. Phases 1–4 are complete: **29 pages redes
 | **Phase 4** — Marketing + Admin + Grammar Wiki | **Marketing:** `index.html` surgical + multi-skill repositioning (6.13a + 6.13a-ext, PRs #145/#146); `pricing.html` (6.13b, PR #147); Era B `landing.html` duplicate eliminated. **Admin (STRUCTURALLY COMPLETE):** small writing cluster (6.14a, PR #149); table pages (6.14b, PR #150); instructor queue + grading (6.14c, PR #151); `admin.html` monolith chrome-only (6.14d-α, PR #153 — 8/9 fully migrated + 1/9 STRUCTURALLY COMPLETE). Sprint 6.14d-β + 6.14d-γ deferred with triggers (§ 14.5.2 / § 14.5.3). Pre-work PR #148 + cap-monitoring hotfix PR #152. **Grammar Wiki:** atomic 5-page cluster — `grammar.html` landing + roadmap/article/search/compare (6.15, PR #154). DM Sans + Lora typography sub-system PRESERVED intentionally per § 14.2 (sub-system decision resolved). | **✅ COMPLETE** |
 | **Phase 5+** — Deferred | Writing IA self-directed option; DEBT-2026-05-09-B vocabulary iframe → module extraction (no un-defer triggers fired); Stripe (Sprint 2.7e); email infra (Sprint 2.8). | **DEFERRED** |
 
-**29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 + Phase 4 Grammar Wiki: 5). **Phases 1–4 COMPLETE.** Only `frontend/pages/dashboard.html` remains on the legacy `--ds-*` system — Phase 5+ work pending.
+**29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 + Phase 4 Grammar Wiki: 5). **Phases 1–4 COMPLETE — zero pages on legacy `--ds-*` tokens.** `ds.css` retained as the Sprint 6.5.1 compatibility bridge for renderer-emitted `.ds-*` classes on `practice.html` + `result.html` (DESIGN_SYSTEM.md § 14.2).
 
 Every redesigned page ships:
 
