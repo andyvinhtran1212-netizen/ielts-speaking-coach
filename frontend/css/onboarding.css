@@ -1,0 +1,241 @@
+/* css/onboarding.css — Sprint 6.12b (Phase 3 closure).
+ *
+ * Final Tier 1 migration. onboarding.html is the post-signup wizard
+ * (3 linear steps — target_band/exam_date → self_level → first_topic
+ * → PATCH /auth/profile with onboarding_completed: true → redirect to
+ * home.html?first_topic=…).
+ *
+ * Surgical scope: HTML chrome + CSS rewrite. The inline state machine
+ * (lines 264+) stays byte-identical (currentStep / goingBack flags,
+ * showStep slide-back animation hook, initCardGroup opt-card selector,
+ * validateStep per-step guards, submitOnboarding PATCH contract,
+ * already-onboarded /auth/me check).
+ *
+ * Color migration (semantic role):
+ *   step titles, wordmark, opt-card titles  → --av-text-primary
+ *   step subtitles, opt-card hints          → --av-text-secondary
+ *   field labels (uppercase eyebrow), step-pct → --av-text-muted
+ *   field-label "(tuỳ chọn)" hint           → --av-text-faint (≤10 cap)
+ *
+ * Brand mapping:
+ *   teal #0F766E / #14b8a6              → --av-primary  (progress
+ *                                                       fill, opt-card
+ *                                                       selected,
+ *                                                       check-icon,
+ *                                                       primary CTA)
+ *   typo #14a8ae (production bug)        → --av-primary  (normalized)
+ *   red  #ef4444 / #fca5a5              → --av-error    (error banner)
+ *
+ * Pre-existing JS contract preserved:
+ *   - .step-panel.active / .step-panel.slide-back animation hooks
+ *   - .opt-card[data-value] / .opt-card.selected toggling
+ *   - .btn-back.hidden visibility toggle (Tailwind utility)
+ *   - .btn-primary :disabled state during submit
+ *   - #error-banner.show open/close (migrated from inline display:block)
+ */
+
+
+/* ── Top nav ──────────────────────────────────────────────────────── */
+
+.ob-nav {
+  background: var(--av-surface-elevated);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+.ob-wordmark        { color: var(--av-text-primary); }
+.ob-wordmark__brand { color: var(--av-primary); }
+
+
+/* ── Card surface ────────────────────────────────────────────────── */
+
+.ob-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  box-shadow: var(--av-shadow-lg);
+}
+
+
+/* ── Progress indicator ──────────────────────────────────────────── */
+
+.ob-step-label {
+  color: var(--av-primary);
+}
+.ob-step-pct {
+  color: var(--av-text-muted);
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+}
+.ob-progress-track {
+  background: var(--av-border-subtle);
+}
+.ob-progress-fill {
+  background: var(--av-primary);
+  transition: width var(--av-duration-slow) var(--av-easing-default);
+}
+
+
+/* ── Step typography ─────────────────────────────────────────────── */
+
+.ob-step__title    { color: var(--av-text-primary); }
+.ob-step__subtitle { color: var(--av-text-secondary); }
+
+
+/* ── Form fields ─────────────────────────────────────────────────── */
+
+.ob-field-label {
+  color: var(--av-text-muted);
+}
+.ob-field-label__hint {
+  color: var(--av-text-faint);
+}
+
+.form-input {
+  background: var(--av-surface-sunken);
+  border: 1.5px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  color: var(--av-text-primary);
+  font-family: var(--av-font-sans);
+  padding: var(--av-space-3) var(--av-space-3);
+  font-size: var(--av-fs-sm);
+  width: 100%;
+  transition:
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    box-shadow   var(--av-duration-fast) var(--av-easing-default);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--av-primary);
+  box-shadow: var(--av-shadow-focus);
+}
+.form-input::placeholder { color: var(--av-text-faint); }
+.form-input option {
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+}
+
+
+/* ── Step panel slide animations ─────────────────────────────────── */
+
+.step-panel { display: none; }
+.step-panel.active {
+  display: block;
+  animation: ob-slide-in var(--av-duration-base) var(--av-easing-default);
+}
+@keyframes ob-slide-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.step-panel.slide-back.active {
+  animation: ob-slide-back var(--av-duration-base) var(--av-easing-default);
+}
+@keyframes ob-slide-back {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+
+/* ── Option cards (level + topic) ────────────────────────────────── */
+
+.opt-card {
+  border: 2px solid var(--av-border-default);
+  background: var(--av-surface-sunken);
+  border-radius: var(--av-radius-lg);
+  cursor: pointer;
+  transition:
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    background   var(--av-duration-fast) var(--av-easing-default),
+    transform    var(--av-duration-fast) var(--av-easing-default);
+}
+.opt-card:hover {
+  border-color: var(--av-primary-border);
+  background: var(--av-primary-soft);
+  transform: translateY(-1px);
+}
+.opt-card.selected {
+  border-color: var(--av-primary);
+  background: var(--av-primary-soft);
+}
+.opt-card.selected .check-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.opt-card__icon {
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+}
+.opt-card__title { color: var(--av-text-primary); }
+.opt-card__hint  { color: var(--av-text-secondary); }
+
+.check-icon {
+  opacity: 0;
+  transform: scale(0.6);
+  color: var(--av-primary);
+  transition:
+    opacity   var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+
+.btn-primary {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  font-weight: var(--av-fw-semibold);
+  font-size: var(--av-fs-sm);
+  padding: var(--av-space-3) var(--av-space-8);
+  border-radius: var(--av-radius-md);
+  border: none;
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    transform  var(--av-duration-fast) var(--av-easing-default),
+    opacity    var(--av-duration-fast) var(--av-easing-default);
+}
+.btn-primary:hover {
+  background: var(--av-primary-hover);
+  transform: translateY(-1px);
+}
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-back {
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+  padding: var(--av-space-3) var(--av-space-6);
+  border-radius: var(--av-radius-md);
+  border: 1.5px solid var(--av-border-default);
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.btn-back:hover {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary-border);
+  color: var(--av-text-primary);
+}
+
+
+/* ── Error banner ────────────────────────────────────────────────── */
+
+.ob-error-banner {
+  display: none;
+  background: var(--av-error-soft);
+  border: 1px solid var(--av-error);
+  color: var(--av-error);
+}
+.ob-error-banner.show {
+  display: block;
+}
