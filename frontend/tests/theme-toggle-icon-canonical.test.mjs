@@ -61,6 +61,7 @@ const REDESIGNED_PAGES = [
   'frontend/pages/admin-students.html',
   'frontend/pages/admin-instructor-queue.html',
   'frontend/pages/admin-writing-grade.html',
+  'frontend/admin.html',
 ];
 
 // Variants of the BEM drift that surfaced across Phase 1+2 pages. Any

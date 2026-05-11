@@ -104,15 +104,14 @@ describe('AMBER #1 closure: UNIFIED_DESIGN_BRIEF.md § 2 phase map matches shipp
     assert.match(phase4[0], /COMPLETE/,                    'Phase 4 missing COMPLETE marker for shipped sub-pages');
   });
 
-  test('brief references the 23-page cumulative count (Sprint 6.14c-hotfix snapshot)', () => {
-    // Sprint 6.14c-hotfix: count updated from 13 (Phase 1-3 only) to 23
-    // (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 +
-    //  Phase 4 admin sub-pages: 8). Next update due when Sprint 6.14d
-    // ships admin.html monolith → 24.
+  test('brief references the 24-page cumulative count (Sprint 6.14d-α snapshot)', () => {
+    // Sprint 6.14d-α bump: count went 23 → 24 (admin.html chrome-only added
+    // to Phase 4 admin = 9 admin pages total). Next update due if Sprint
+    // 6.15 Grammar Wiki cluster ships (~5 pages → 29).
     assert.match(
       brief,
-      /23 pages redesigned cumulative/i,
-      'Brief should call out the 23-page cumulative count',
+      /24 pages redesigned cumulative/i,
+      'Brief should call out the 24-page cumulative count',
     );
   });
 
