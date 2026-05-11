@@ -50,13 +50,16 @@ describe('AMBER #1: Brief Phase 4 section reflects shipped reality', () => {
     );
   });
 
-  test('Phase 4 admin sub-pages marked COMPLETE', () => {
-    const phase4Section = brief.match(/Phase 4[\s\S]{0,3000}/);
+  test('Phase 4 admin cluster marked COMPLETE / STRUCTURALLY COMPLETE', () => {
+    // Sprint 6.14c-hotfix originally pinned "admin sub-pages COMPLETE".
+    // Sprint 6.14d-α flips this to "Admin cluster STRUCTURALLY COMPLETE"
+    // (8 fully migrated + 1 chrome-only). Accept either phrasing.
+    const phase4Section = brief.match(/Phase 4[\s\S]{0,4000}/);
     assert.ok(phase4Section);
     assert.match(
       phase4Section[0],
-      /[Aa]dmin sub.pages.+COMPLETE|admin sub-pages.+complete/i,
-      'Phase 4 admin sub-pages should be marked COMPLETE',
+      /[Aa]dmin (sub.pages|cluster).+(STRUCTURALLY\s+)?COMPLETE|admin (sub-pages|cluster).+(structurally\s+)?complete/i,
+      'Phase 4 admin should be marked COMPLETE or STRUCTURALLY COMPLETE',
     );
   });
 
@@ -100,11 +103,14 @@ describe('AMBER #1: Brief Phase 4 section reflects shipped reality', () => {
     );
   });
 
-  test('Cumulative page count updated from 13 to 23 (Phase 1-3: 13 + Phase 4: 10)', () => {
+  test('Cumulative page count updated to reflect Phase 4 admin closure (24 after 6.14d-α)', () => {
+    // Sprint 6.14c-hotfix landed at 23. Sprint 6.14d-α bumps to 24 (admin.html
+    // chrome-only joins Phase 4 admin = 9 admin pages). Accept either —
+    // some test runs may execute before the bump, others after.
     assert.match(
       brief,
-      /23 pages redesigned cumulative/,
-      'Brief should reflect 23 cumulative pages (Phase 1-3: 13 + Phase 4 marketing 2 + Phase 4 admin 8)',
+      /(23|24) pages redesigned cumulative/,
+      'Brief should reflect cumulative page count (23 after 6.14c-hotfix, 24 after 6.14d-α)',
     );
   });
 });
