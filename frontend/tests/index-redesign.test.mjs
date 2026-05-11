@@ -138,9 +138,14 @@ describe('index.html / conversion flow preserved byte-identical', () => {
     assert.ok(count >= 8, `Expected ≥8 /login.html CTAs; found ${count}`);
   });
 
-  test('href="/grammar.html" appears in both nav + footer', () => {
+  test('href="/grammar.html" appears in nav + Grammar Wiki skill card + footer', () => {
+    // Sprint 6.13a (PR #145): 2 links (nav + footer).
+    // Sprint 6.13a-extension: +1 link from the Grammar Wiki skill card
+    // CTA. Anonymous landing routes the Grammar card directly to the
+    // Wiki because grammar.html is public (unlike speaking/writing/
+    // vocabulary which gate behind /login.html).
     const count = (html.match(/href=["']\/grammar\.html["']/g) || []).length;
-    assert.equal(count, 2, `Expected 2 /grammar.html links (nav + footer); found ${count}`);
+    assert.equal(count, 3, `Expected 3 /grammar.html links (nav + skill card + footer); found ${count}`);
   });
 
   test('href="/pricing.html" inline link preserved (price-note)', () => {
@@ -349,9 +354,10 @@ describe('index.html / Vietnamese marketing microcopy preserved exactly', () => 
   // the strings most visible to a prospect.
   const phrases = [
     'Luyện IELTS Speaking cùng AI',                   // <title>
-    'Nói tự tin hơn.',                                // hero h1
-    'Đạt band cao hơn.',                              // hero h1 accent
-    'Luyện IELTS Speaking 1–1 cùng AI',               // hero lead
+    'Nền tảng luyện thi IELTS',                       // hero eyebrow (NEW Sprint 6.13a-ext)
+    'Luyện thi IELTS toàn diện',                      // hero h1 (NEW)
+    'cùng AI Coach.',                                 // hero h1 accent (NEW)
+    'Speaking, Writing, Từ vựng và Grammar',          // hero lead (NEW multi-skill)
     'Bắt đầu miễn phí',                               // hero primary CTA + free-tier CTA
     'Dùng thử miễn phí',                              // nav CTA
     'Dùng thử miễn phí ngay',                         // final CTA
@@ -360,14 +366,12 @@ describe('index.html / Vietnamese marketing microcopy preserved exactly', () => 
     'Học viên đang luyện tập',                        // stat label
     'Buổi luyện đã hoàn thành',
     'Band điểm tăng trung bình',
-    'Mọi thứ bạn cần để',                             // features h2
-    'Phản hồi AI chi tiết',                           // feature 1 title
-    'Chấm điểm phát âm',                              // feature 2 title
-    'Grammar Wiki',                                   // feature 3 title + nav link
+    '4 kỹ năng IELTS,',                               // features h2 (NEW multi-skill)
+    'một nền tảng',                                   // features h2 (NEW)
     '3 bước đơn giản',                                // how-it-works h2
     'Tạo tài khoản',
-    'Trả lời câu hỏi',
-    'Nhận phản hồi ngay',
+    'Luyện kỹ năng mục tiêu',                         // how-it-works step 2 (NEW reframed)
+    'Theo dõi tiến độ',                               // how-it-works step 3 (NEW reframed)
     'Bắt đầu miễn phí,',                              // pricing h2
     'nâng cấp khi sẵn sàng',
     'Phổ biến nhất',
@@ -386,6 +390,187 @@ describe('index.html / Vietnamese marketing microcopy preserved exactly', () => 
       assert.ok(html.includes(phrase), `Missing exact Vietnamese phrase: ${phrase}`);
     });
   }
+});
+
+
+// ── Multi-skill grid (Sprint 6.13a-extension) ─────────────────────
+
+
+describe('Multi-skill grid / 4-card contract (Sprint 6.13a-extension)', () => {
+  test('section eyebrow + multi-skill heading + multi-skill subtitle', () => {
+    // The features section now positions the platform as multi-skill,
+    // not single-skill Speaking. Pin the eyebrow + h2 + subtitle.
+    assert.match(html, /class=["'][^"']*\bix-eyebrow\b[^"']*["'][^>]*>\s*Tính năng\s*</);
+    assert.match(html, /4 kỹ năng IELTS,/);
+    assert.match(html, /một nền tảng/);
+    assert.match(html, /Speaking với Claude/);
+    assert.match(html, /Writing với Gemini/);
+    assert.match(html, /SRS thông minh/);
+    assert.match(html, /Grammar Wiki tra cứu/);
+  });
+
+  test('4 .ix-skill-card[data-skill] cards present in correct order', () => {
+    // Order matters for visual hierarchy: Speaking (primary daily-use)
+    // → Writing (popular badge) → Từ vựng → Grammar.
+    const skills = ['speaking', 'writing', 'vocabulary', 'grammar'];
+    for (const skill of skills) {
+      assert.match(
+        html,
+        new RegExp(`<article[^>]*class=["'][^"']*\\bix-skill-card\\b[^"']*["'][^>]*data-skill=["']${skill}["']`),
+        `Missing .ix-skill-card[data-skill="${skill}"]`,
+      );
+    }
+    // Order check: Speaking first, Grammar last.
+    const positions = skills.map(s =>
+      html.search(new RegExp(`data-skill=["']${s}["']`)),
+    );
+    assert.ok(positions.every((p, i) => i === 0 || p > positions[i - 1]),
+      `Skill cards out of order — expected ${skills.join(' → ')}, got positions ${positions}`);
+  });
+
+  test('Writing card carries the .ix-skill-card--popular variant + Nổi bật badge', () => {
+    assert.match(
+      html,
+      /<article[^>]*ix-skill-card--popular[^>]*data-skill=["']writing["']/,
+    );
+    assert.match(html, /class=["']ix-skill-card__badge["'][^>]*>\s*Nổi bật/);
+  });
+
+  test('each skill card has the canonical Lucide icon', () => {
+    const skillIcons = {
+      speaking:   'mic',
+      writing:    'pencil-line',
+      vocabulary: 'library',
+      grammar:    'book-open',
+    };
+    for (const [skill, icon] of Object.entries(skillIcons)) {
+      // Card region: from `data-skill="<skill>"` to the next `</article>`.
+      const cardMatch = html.match(
+        new RegExp(`data-skill=["']${skill}["'][\\s\\S]*?</article>`),
+      );
+      assert.ok(cardMatch, `${skill} card not found`);
+      assert.match(
+        cardMatch[0],
+        new RegExp(`data-lucide=["']${icon}["']`),
+        `${skill} card missing data-lucide="${icon}"`,
+      );
+    }
+  });
+
+  test('each skill card has eyebrow + title + body + feats list + CTA', () => {
+    const skills = ['speaking', 'writing', 'vocabulary', 'grammar'];
+    for (const skill of skills) {
+      const cardMatch = html.match(
+        new RegExp(`data-skill=["']${skill}["'][\\s\\S]*?</article>`),
+      );
+      assert.ok(cardMatch, `${skill} card not found`);
+      const card = cardMatch[0];
+      assert.match(card, /class=["']ix-skill-card__eyebrow["']/, `${skill} missing eyebrow`);
+      assert.match(card, /class=["']ix-skill-card__title["']/,   `${skill} missing title`);
+      assert.match(card, /class=["']ix-skill-card__body["']/,    `${skill} missing body`);
+      assert.match(card, /class=["']ix-skill-card__feats["']/,   `${skill} missing feats list`);
+      assert.match(card, /class=["']ix-skill-card__cta["']/,     `${skill} missing CTA`);
+      // Each card lists exactly 3 feature bullets.
+      const bullets = (card.match(/<li>/g) || []).length;
+      assert.equal(bullets, 3, `${skill} card should have 3 feature bullets, got ${bullets}`);
+    }
+  });
+
+  test('skill-specific terminology lifted from production redesigned pages', () => {
+    // Speaking: Part 1/2/3 + Full Test + 4-criterion codes
+    assert.match(html, /Part 1, 2, 3 và Full Test/);
+    assert.match(html, /Chấm 4 tiêu chí: FC · LR · GRA · P/);
+
+    // Writing: Academic + General Training + Gemini
+    assert.match(html, /Task 1 \(Academic \+ General Training\)/);
+    assert.match(html, /Gemini 2\.5 Pro/);
+    assert.match(html, /Academic \+ General Training/);
+
+    // Vocabulary: SRS rating (Quên/Khó/Dễ/Đã thuộc) — exact terms from my-vocabulary
+    assert.match(html, /SRS rating: Quên · Khó · Dễ · Đã thuộc/);
+    assert.match(html, /Flashcards lặp lại theo lịch tự động/);
+
+    // Grammar: Roadmap + Articles
+    assert.match(html, /Roadmap ngữ pháp IELTS/);
+    assert.match(html, /Articles tra cứu/);
+  });
+
+  test('Speaking, Writing, Vocabulary skill CTAs target /login.html', () => {
+    // Auth-gated skills: anonymous landing routes them through signup.
+    for (const skill of ['speaking', 'writing', 'vocabulary']) {
+      const cardMatch = html.match(
+        new RegExp(`data-skill=["']${skill}["'][\\s\\S]*?</article>`),
+      );
+      assert.ok(cardMatch);
+      assert.match(
+        cardMatch[0],
+        /class=["']ix-skill-card__cta["'][^>]*href=["']\/login\.html["']|href=["']\/login\.html["'][^>]*class=["']ix-skill-card__cta["']/,
+        `${skill} card CTA should target /login.html`,
+      );
+    }
+  });
+
+  test('Grammar Wiki skill CTA targets /grammar.html directly (no auth gate)', () => {
+    // Grammar Wiki is public — no need to send anonymous visitors
+    // through /login.html. Route directly to the wiki.
+    const cardMatch = html.match(/data-skill=["']grammar["'][\s\S]*?<\/article>/);
+    assert.ok(cardMatch);
+    assert.match(
+      cardMatch[0],
+      /class=["']ix-skill-card__cta["'][^>]*href=["']\/grammar\.html["']|href=["']\/grammar\.html["'][^>]*class=["']ix-skill-card__cta["']/,
+      'Grammar Wiki card CTA should target /grammar.html',
+    );
+  });
+
+  test('skill-card CTAs preserve original /login.html count (no regression)', () => {
+    // Sprint 6.13a pinned ≥8 /login.html CTAs. After Sprint 6.13a-ext
+    // the count went UP (added 3 skill cards routing to /login.html
+    // for Speaking/Writing/Vocabulary). Pin ≥10 so a future PR can't
+    // silently drop CTAs while passing.
+    const count = (html.match(/href=["']\/login\.html["']/g) || []).length;
+    assert.ok(count >= 10, `Expected ≥10 /login.html CTAs after multi-skill grid; found ${count}`);
+  });
+});
+
+
+describe('Multi-skill grid / index.css rules defined', () => {
+  test('all .ix-skill-card-* selectors defined', () => {
+    for (const sel of [
+      '.ix-skill-grid',
+      '.ix-skill-card',
+      '.ix-skill-card--popular',
+      '.ix-skill-card__badge',
+      '.ix-skill-card__icon',
+      '.ix-skill-card__icon--accent',
+      '.ix-skill-card__eyebrow',
+      '.ix-skill-card__title',
+      '.ix-skill-card__body',
+      '.ix-skill-card__feats',
+      '.ix-skill-card__cta',
+    ]) {
+      assert.match(css, new RegExp(sel.replace(/[.\-]/g, m => '\\' + m)), `Missing rule for ${sel}`);
+    }
+  });
+
+  test('skill-card hover lift defined (transform translateY)', () => {
+    assert.match(css, /\.ix-skill-card:hover[\s\S]{0,300}translateY/);
+  });
+
+  test('skill-card CTA focus-visible affordance defined', () => {
+    assert.match(css, /\.ix-skill-card__cta:focus-visible[\s\S]{0,200}--av-shadow-focus/);
+  });
+
+  test('skill-card popular badge routes through --av-text-on-primary', () => {
+    const block = css.match(/\.ix-skill-card__badge\s*\{[^}]*\}/);
+    assert.ok(block);
+    assert.match(block[0], /--av-text-on-primary/);
+  });
+
+  test('skill-card responsive grid does not introduce off-grid spacing', () => {
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const forbidden = stripped.match(/--av-space-(5|7|9|10|11|13|14|15)\b/g) || [];
+    assert.deepEqual(forbidden, []);
+  });
 });
 
 

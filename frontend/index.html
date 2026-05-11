@@ -110,16 +110,16 @@
         <div>
           <div class="ix-hero__eyebrow inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-6">
             <span class="ix-hero__eyebrow-dot w-2 h-2 rounded-full animate-pulse"></span>
-            <span class="ix-hero__eyebrow-text text-sm font-medium">AI IELTS Speaking Coach</span>
+            <span class="ix-hero__eyebrow-text text-sm font-medium">Nền tảng luyện thi IELTS</span>
           </div>
 
           <h1 class="ix-hero__title text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight mb-6">
-            Nói tự tin hơn.<br/>
-            <span class="ix-hero__title-accent">Đạt band cao hơn.</span>
+            Luyện thi IELTS toàn diện<br/>
+            <span class="ix-hero__title-accent">cùng AI Coach.</span>
           </h1>
 
           <p class="ix-hero__lead text-lg leading-relaxed mb-8 max-w-lg">
-            Luyện IELTS Speaking 1–1 cùng AI — phản hồi tức thì về từ vựng, ngữ pháp, phát âm và mạch lạc. Không cần đặt lịch, không cần chờ đợi.
+            Speaking, Writing, Từ vựng và Grammar — một nền tảng, phản hồi chi tiết theo từng tiêu chí IELTS cho mỗi buổi luyện. Không chung chung, không chờ đợi.
           </p>
 
           <div class="flex flex-col sm:flex-row gap-4">
@@ -242,68 +242,98 @@
       <div class="text-center mb-14">
         <span class="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">Tính năng</span>
         <h2 class="ix-heading text-3xl sm:text-4xl font-extrabold leading-tight">
-          Mọi thứ bạn cần để<br/>nâng band Speaking
+          4 kỹ năng IELTS,<br/>một nền tảng
         </h2>
         <p class="ix-subtitle mt-4 max-w-xl mx-auto text-lg leading-relaxed">
-          Kết hợp AI phân tích ngôn ngữ chuyên sâu và kho đề luyện phong phú để tối ưu từng buổi học.
+          Speaking với Claude, Writing với Gemini, từ vựng SRS thông minh và Grammar Wiki tra cứu nhanh — đủ để bạn luyện trọn vẹn mỗi ngày.
         </p>
       </div>
 
-      <div class="grid md:grid-cols-3 gap-8">
-        <!-- Feature 1 -->
-        <div class="ix-feature-card rounded-2xl p-8">
-          <div class="ix-feature-card__icon w-12 h-12 rounded-xl flex items-center justify-center mb-6">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
+      <div class="ix-skill-grid grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Speaking -->
+        <article class="ix-skill-card" data-skill="speaking">
+          <div class="ix-skill-card__icon">
+            <i data-lucide="mic"></i>
           </div>
-          <h3 class="ix-feature-card__title text-xl font-bold mb-3">Phản hồi AI chi tiết</h3>
-          <p class="ix-feature-card__body leading-relaxed">
-            Sau mỗi câu trả lời, AI nhận xét về từ vựng, ngữ pháp, mạch lạc và phát âm theo đúng tiêu chí IELTS. Không chung chung — chỉ ra đúng chỗ cần cải thiện.
+          <p class="ix-skill-card__eyebrow">AI Coach realtime</p>
+          <h3 class="ix-skill-card__title">Speaking</h3>
+          <p class="ix-skill-card__body">
+            Luyện Part 1, 2, 3 và Full Test cùng AI Claude — phản hồi sau mỗi câu trả lời về phát âm, lưu loát, từ vựng, ngữ pháp.
           </p>
-          <div class="mt-5 flex flex-wrap gap-2">
-            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Từ vựng (LR)</span>
-            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Ngữ pháp (GRA)</span>
-            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Mạch lạc (CC)</span>
-          </div>
-        </div>
+          <ul class="ix-skill-card__feats">
+            <li>4 chế độ luyện: Part 1, 2, 3, Full Test</li>
+            <li>Chấm 4 tiêu chí: FC · LR · GRA · P</li>
+            <li>Lịch sử band và tiến độ theo tuần</li>
+          </ul>
+          <a href="/login.html" class="ix-skill-card__cta">
+            Bắt đầu luyện Speaking
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+        </article>
 
-        <!-- Feature 2 -->
-        <div class="ix-feature-card ix-feature-card--popular rounded-2xl p-8 relative overflow-hidden">
-          <div class="ix-feature-card__badge absolute top-4 right-4 text-xs font-bold px-3 py-1 rounded-full">Nổi bật</div>
-          <div class="ix-feature-card__icon ix-feature-card__icon--accent w-12 h-12 rounded-xl flex items-center justify-center mb-6">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-            </svg>
+        <!-- Writing -->
+        <article class="ix-skill-card ix-skill-card--popular" data-skill="writing">
+          <span class="ix-skill-card__badge">Nổi bật</span>
+          <div class="ix-skill-card__icon ix-skill-card__icon--accent">
+            <i data-lucide="pencil-line"></i>
           </div>
-          <h3 class="ix-feature-card__title text-xl font-bold mb-3">Chấm điểm phát âm</h3>
-          <p class="ix-feature-card__body leading-relaxed">
-            Phân tích phát âm chi tiết đến từng từ — chỉ ra những từ bạn phát âm chưa chuẩn và gợi ý cách cải thiện, giúp người nghe hiểu bạn rõ hơn.
+          <p class="ix-skill-card__eyebrow">AI Grader Gemini</p>
+          <h3 class="ix-skill-card__title">Writing</h3>
+          <p class="ix-skill-card__body">
+            Task 1 (Academic + General Training) và Task 2 chấm chi tiết bằng Gemini 2.5 Pro — chỉ ra đúng lỗi câu, gợi ý sửa cụ thể.
           </p>
-          <div class="mt-5 flex flex-wrap gap-2">
-            <span class="ix-feature-card__tag ix-feature-card__tag--accent text-xs font-semibold px-3 py-1 rounded-full">Độ rõ âm</span>
-            <span class="ix-feature-card__tag ix-feature-card__tag--accent text-xs font-semibold px-3 py-1 rounded-full">Độ lưu loát</span>
-            <span class="ix-feature-card__tag ix-feature-card__tag--accent text-xs font-semibold px-3 py-1 rounded-full">Nhịp điệu</span>
-          </div>
-        </div>
+          <ul class="ix-skill-card__feats">
+            <li>Academic + General Training</li>
+            <li>Chấm 4 tiêu chí IELTS chuẩn</li>
+            <li>Feedback từng câu, không chung chung</li>
+          </ul>
+          <a href="/login.html" class="ix-skill-card__cta">
+            Bắt đầu luyện Writing
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+        </article>
 
-        <!-- Feature 3 -->
-        <div class="ix-feature-card rounded-2xl p-8">
-          <div class="ix-feature-card__icon w-12 h-12 rounded-xl flex items-center justify-center mb-6">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-            </svg>
+        <!-- Vocabulary -->
+        <article class="ix-skill-card" data-skill="vocabulary">
+          <div class="ix-skill-card__icon">
+            <i data-lucide="library"></i>
           </div>
-          <h3 class="ix-feature-card__title text-xl font-bold mb-3">Grammar Wiki</h3>
-          <p class="ix-feature-card__body leading-relaxed">
-            Thư viện ngữ pháp tích hợp — tra cứu nhanh các cấu trúc câu phổ biến trong IELTS, ví dụ minh hoạ rõ ràng, không cần rời khỏi ứng dụng.
+          <p class="ix-skill-card__eyebrow">SRS thông minh</p>
+          <h3 class="ix-skill-card__title">Từ vựng</h3>
+          <p class="ix-skill-card__body">
+            Flashcards lặp lại theo lịch tự động, tự thêm từ vựng sau mỗi buổi Speaking, exercises ôn tập theo chủ đề.
           </p>
-          <div class="mt-5 flex flex-wrap gap-2">
-            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Cấu trúc câu</span>
-            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Ví dụ thực tế</span>
-            <span class="ix-feature-card__tag text-xs font-semibold px-3 py-1 rounded-full">Tìm kiếm nhanh</span>
+          <ul class="ix-skill-card__feats">
+            <li>SRS rating: Quên · Khó · Dễ · Đã thuộc</li>
+            <li>Tự lưu từ "used well" sau buổi Speaking</li>
+            <li>Exercises ôn tập theo chủ đề</li>
+          </ul>
+          <a href="/login.html" class="ix-skill-card__cta">
+            Khám phá từ vựng
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+        </article>
+
+        <!-- Grammar Wiki -->
+        <article class="ix-skill-card" data-skill="grammar">
+          <div class="ix-skill-card__icon">
+            <i data-lucide="book-open"></i>
           </div>
-        </div>
+          <p class="ix-skill-card__eyebrow">Roadmap · Articles</p>
+          <h3 class="ix-skill-card__title">Grammar Wiki</h3>
+          <p class="ix-skill-card__body">
+            Roadmap ngữ pháp IELTS theo bước, thư viện articles tra cứu nhanh, công cụ so sánh các điểm ngữ pháp dễ nhầm.
+          </p>
+          <ul class="ix-skill-card__feats">
+            <li>Curriculum roadmap có thứ tự</li>
+            <li>Articles tra cứu cho Speaking &amp; Writing</li>
+            <li>So sánh các cấu trúc dễ nhầm</li>
+          </ul>
+          <a href="/grammar.html" class="ix-skill-card__cta">
+            Mở Grammar Wiki
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+        </article>
       </div>
     </div>
   </section>
@@ -314,7 +344,7 @@
       <div class="text-center mb-16">
         <span class="ix-eyebrow inline-block text-sm font-bold uppercase tracking-widest mb-3">Cách hoạt động</span>
         <h2 class="ix-heading text-3xl sm:text-4xl font-extrabold">3 bước đơn giản</h2>
-        <p class="ix-subtitle mt-4 max-w-lg mx-auto text-lg">Từ đăng ký đến buổi luyện đầu tiên chỉ trong vài phút.</p>
+        <p class="ix-subtitle mt-4 max-w-lg mx-auto text-lg">Từ đăng ký đến buổi luyện đầu tiên — Speaking, Writing, Từ vựng hay Grammar — chỉ trong vài phút.</p>
       </div>
 
       <div class="relative grid md:grid-cols-3 gap-10">
@@ -344,9 +374,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
             </svg>
           </div>
-          <h3 class="ix-step__title text-xl font-bold mb-3">Trả lời câu hỏi</h3>
+          <h3 class="ix-step__title text-xl font-bold mb-3">Luyện kỹ năng mục tiêu</h3>
           <p class="ix-step__body leading-relaxed max-w-xs mx-auto">
-            Chọn Part 1, 2 hoặc 3. AI tạo câu hỏi ngẫu nhiên, bạn ghi âm trả lời như trong phòng thi thật.
+            Chọn Speaking, Writing, Từ vựng hoặc Grammar. Mỗi buổi luyện được AI chấm theo đúng tiêu chí IELTS.
           </p>
         </div>
 
@@ -358,9 +388,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
             </svg>
           </div>
-          <h3 class="ix-step__title text-xl font-bold mb-3">Nhận phản hồi ngay</h3>
+          <h3 class="ix-step__title text-xl font-bold mb-3">Theo dõi tiến độ</h3>
           <p class="ix-step__body leading-relaxed max-w-xs mx-auto">
-            Kết quả chấm điểm và nhận xét chi tiết xuất hiện ngay sau khi nộp bài — không cần chờ giáo viên.
+            Lịch sử band Speaking, bài Writing đã chấm, từ vựng đã thuộc và các điểm ngữ pháp cần ôn — tất cả ở một chỗ.
           </p>
         </div>
       </div>
