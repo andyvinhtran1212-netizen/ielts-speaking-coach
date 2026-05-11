@@ -107,4 +107,5 @@ jobs:
             frontend/tests/vocab-landing.test.js \
             frontend/tests/writing-dashboard-redesign.test.mjs \
             frontend/tests/writing-result-redesign.test.mjs \
-            frontend/tests/full-test-result-redesign.test.mjs
+            frontend/tests/full-test-result-redesign.test.mjs \
+            frontend/tests/vocabulary-redesign.test.mjs
