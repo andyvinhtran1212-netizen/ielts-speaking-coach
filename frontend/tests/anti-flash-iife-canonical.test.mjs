@@ -43,6 +43,7 @@ const REDESIGNED_PAGES = [
   'frontend/pages/speaking.html',
   'frontend/pages/practice.html',
   'frontend/pages/result.html',
+  'frontend/pages/writing-dashboard.html',
 ];
 
 

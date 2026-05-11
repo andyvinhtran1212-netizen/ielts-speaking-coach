@@ -5,6 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Bài viết của em — Aver Learning</title>
+
+  <!-- Sprint 6.7: writing-dashboard.html surgical migration. The page is a
+       1377-line teacher-assignment workflow (2 tabs / 6-state essay pill /
+       5-state assignment pill / submit modal with timer + autosave). The
+       redesign is SURGICAL — the inline JS (~1060 lines) and every JS-
+       coupled selector + class hook + data-* attribute is preserved
+       byte-identical. Only fonts / tokens / anti-flash IIFE / theme toggle
+       / Lucide chrome icons swap.
+       Sprint 6.6.1 canonical anti-flash IIFE (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -15,8 +40,8 @@
             teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
           },
           fontFamily: {
-            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
-            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         },
       },
@@ -25,182 +50,45 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css and writing-dashboard.css. ds.css is kept because
+       the page still uses no .ds-* render classes directly, but inline
+       JS template literals emit Tailwind utilities (text-gray-*, etc.)
+       that the writing-dashboard.css override block re-routes to tokens
+       under body.av-page (Sprint 6.5.1 pattern). -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/ds.css" />
-  <style>
-    /* Background and atmosphere now provided by body.ds-canvas in ds.css. */
-    body { min-height: 100vh; color: #e5e7eb; }
-    .essay-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      backdrop-filter: blur(8px);
-      transition: transform 0.18s, border-color 0.18s, background 0.18s, box-shadow 0.18s;
-    }
-    .essay-card.clickable { cursor: pointer; }
-    .essay-card.clickable:hover {
-      background: rgba(15,118,110,0.12);
-      border-color: rgba(20,184,166,0.4);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 28px rgba(15,118,110,0.18);
-    }
-    .essay-card.clickable:focus-visible {
-      outline: 2px solid #14b8a6;
-      outline-offset: 2px;
-    }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-    .pill-green { background: rgba(20,184,166,0.15);  color: #14b8a6; }
-    .pill-amber { background: rgba(251,191,36,0.15);  color: #fbbf24; }
-    .pill-blue  { background: rgba(59,130,246,0.18);  color: #60a5fa; }
-    .pill-red   { background: rgba(239,68,68,0.18);   color: #f87171; }
-    .pill-gray  { background: rgba(156,163,175,0.18); color: #d1d5db; }
-    .pill-purple{ background: rgba(168,85,247,0.18);  color: #c4b5fd; }
-    .pill-timed { background: rgba(245,158,11,0.18);  color: #fbbf24; }
+  <link rel="stylesheet" href="../css/writing-dashboard.css" />
 
-    /* Phase 2.3b — tab nav + assignment cards */
-    .tab-btn {
-      padding: 0.5rem 1rem;
-      border-bottom: 2px solid transparent;
-      color: #9ca3af;
-      font-weight: 500;
-      cursor: pointer;
-      transition: color 0.18s, border-color 0.18s;
-    }
-    .tab-btn:hover { color: #e5e7eb; }
-    .tab-btn.active {
-      color: #14b8a6;
-      border-bottom-color: #14b8a6;
-    }
-    .assignment-card { /* same look as essay-card; written separately so the
-                         click semantics aren't accidentally inherited */
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      backdrop-filter: blur(8px);
-      transition: background 0.18s, border-color 0.18s;
-    }
-    .assignment-card:hover {
-      background: rgba(15,118,110,0.08);
-      border-color: rgba(20,184,166,0.3);
-    }
-    .essay-textarea {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #e5e7eb;
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 8px;
-      font-family: 'Manrope', ui-sans-serif, system-ui;
-      resize: vertical;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-    .essay-textarea:focus { outline: none; border-color: #14b8a6; }
-    .btn-primary {
-      background: #14b8a6;
-      color: #0a1628;
-      font-weight: 600;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .btn-primary:hover    { background: #0d9488; }
-    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
-    .btn-secondary {
-      background: rgba(255,255,255,0.06);
-      color: #e5e7eb;
-      padding: 0.45rem 0.9rem;
-      border-radius: 6px;
-      border: 1px solid rgba(255,255,255,0.10);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
-    .line-clamp-2 {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    main { position: relative; z-index: 1; }
-
-    /* ── Sprint 2.5.5 — essay filter sub-tabs ─────────────────────── */
-    .essay-filter-btn {
-      padding: 0.4rem 0.875rem;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: #9ca3af;
-      font-size: 0.825rem;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      transition: all 0.15s;
-    }
-    .essay-filter-btn:hover {
-      background: rgba(255,255,255,0.05);
-      color: #e5e7eb;
-    }
-    .essay-filter-btn.is-active {
-      background: rgba(15,118,110,0.18);
-      color: #14b8a6;
-      border-color: rgba(15,118,110,0.3);
-    }
-    .filter-count {
-      font-size: 0.7rem;
-      background: rgba(255,255,255,0.06);
-      padding: 0.05rem 0.4rem;
-      border-radius: 9999px;
-      color: #9ca3af;
-      min-width: 1.4rem;
-      text-align: center;
-    }
-    .essay-filter-btn.is-active .filter-count {
-      background: rgba(20,184,166,0.18);
-      color: #14b8a6;
-    }
-
-    /* ── Band-score pill on essay cards ───────────────────────────── */
-    .essay-band-pill {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.125rem 0.625rem;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      font-weight: 700;
-      line-height: 1.3;
-    }
-    .essay-band-pill.band-low  { background: rgba(239,68,68,0.18);  color: #fca5a5; }
-    .essay-band-pill.band-mid  { background: rgba(245,158,11,0.18); color: #fbbf24; }
-    .essay-band-pill.band-good { background: rgba(20,184,166,0.18); color: #5eead4; }
-    .essay-band-pill.band-high { background: rgba(16,185,129,0.18); color: #34d399; }
-  </style>
+  <!-- Lucide icons (line glyphs replacing the legacy ✕ close button). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="ds-canvas">
+<body class="av-page font-sans">
   <main class="max-w-3xl mx-auto px-4 py-6">
     <!-- Header -->
-    <header class="flex items-center justify-between mb-8">
-      <a href="../index.html" class="flex items-center gap-2 hover:opacity-80 transition">
-        <span class="text-xl font-bold">Aver<span class="text-teal-light">Learning</span></span>
+    <header class="wd-header flex items-center justify-between mb-8">
+      <a href="../index.html" class="wd-brand flex items-center gap-2 hover:opacity-80 transition">
+        <span class="text-xl font-bold">Aver<span class="wd-brand__accent">Learning</span></span>
       </a>
-      <button id="logout-btn"
-              class="text-sm text-gray-300 hover:text-white transition px-3 py-1.5 rounded-md border border-white/10 hover:border-white/30">
-        Đăng xuất
-      </button>
+      <div class="flex items-center gap-2">
+        <!-- Sprint 6.7: theme toggle (full theme support from day 1) -->
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="av-theme-toggle__icon av-theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="av-theme-toggle__icon av-theme-toggle__icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button id="logout-btn" class="wd-logout-btn text-sm transition px-3 py-1.5 rounded-md">
+          Đăng xuất
+        </button>
+      </div>
     </header>
 
     <!-- Loading state -->
@@ -225,12 +113,11 @@
     <div id="content" class="hidden">
       <!-- Sprint 5.2 — Writing permission preview banner (hidden by default,
            revealed when GET /api/student/permissions returns writing=false). -->
-      <div id="writing-preview-banner" class="hidden mb-6 rounded-lg p-4 flex items-start gap-3"
-           style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.35);">
-        <span style="font-size:22px; line-height:1;" aria-hidden="true">🔒</span>
+      <div id="writing-preview-banner" class="wd-preview-banner hidden mb-6 rounded-lg p-4 flex items-start gap-3">
+        <span class="wd-preview-banner__icon" aria-hidden="true">🔒</span>
         <div class="text-sm">
-          <strong class="block mb-1" style="color:#fbbf24;">Chế độ xem trước</strong>
-          <p style="color:rgba(255,255,255,0.75); margin:0;">
+          <strong class="wd-preview-banner__title block mb-1">Chế độ xem trước</strong>
+          <p class="wd-preview-banner__body">
             Quyền Writing chưa được kích hoạt cho tài khoản này. Em vẫn có thể xem
             các bài đã nộp trước đây — liên hệ giảng viên để được kích hoạt
             tính năng nộp bài mới.
@@ -472,7 +359,7 @@
         // explanation. Surface a pill on the card so the student
         // doesn't tap through expecting band scores.
         var flaggedPill = e.is_flagged
-          ? '<span class="pill" style="background:rgba(245,158,11,0.18);color:#fbbf24">⚠ Không chấm</span>'
+          ? '<span class="pill pill-timed">⚠ Không chấm</span>'
           : '';
 
         // Sprint 2.5.5 — band-score pill on the footer line of every
@@ -676,8 +563,7 @@
               deadlineLine +
             '</div>' +
             draftHint +
-            '<button type="button" class="btn-start-assignment text-sm bg-teal hover:bg-teal-dark text-white px-4 py-2 rounded font-medium" '
-              + 'style="background:#0d9488">' +
+            '<button type="button" class="btn-start-assignment text-sm px-4 py-2 rounded font-medium">' +
               escapeHtml(startLabel) + ' →' +
             '</button>' +
           '</div>'
@@ -1289,47 +1175,46 @@
     defence we have against IDE-style "help" leaking into a timed
     IELTS exercise.
   -->
-  <div id="submit-modal" class="hidden fixed inset-0 z-50 overflow-y-auto"
-       style="background:#0a1628">
+  <div id="submit-modal" class="wd-submit-modal hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="max-w-3xl mx-auto px-4 py-6">
       <header class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-semibold" id="modal-title">Làm bài</h1>
         <button id="modal-close" type="button"
-                class="text-gray-400 hover:text-white text-2xl leading-none"
-                aria-label="Đóng">✕</button>
+                class="wd-modal-close leading-none"
+                aria-label="Đóng">
+          <i data-lucide="x"></i>
+        </button>
       </header>
 
-      <div id="modal-loading" class="text-center py-12 text-gray-400">Đang tải…</div>
+      <div id="modal-loading" class="wd-modal-loading text-center py-12">Đang tải…</div>
 
       <div id="modal-content" class="hidden">
         <!-- Timer banner — only shown for IELTS-mode assignments -->
-        <div id="modal-timer" class="hidden mb-4 p-3 rounded flex items-center justify-between"
-             style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25)">
+        <div id="modal-timer" class="wd-modal-timer hidden mb-4 p-3 rounded flex items-center justify-between">
           <div>
-            <div class="text-xs uppercase tracking-wider text-amber-400 mb-1">⏱️ IELTS-mode</div>
-            <div class="text-xs text-gray-400" id="modal-timer-total">Tổng thời gian: — phút</div>
+            <div class="wd-modal-timer__label text-xs uppercase tracking-wider mb-1">⏱️ IELTS-mode</div>
+            <div class="wd-modal-timer__total text-xs" id="modal-timer-total">Tổng thời gian: — phút</div>
           </div>
-          <div id="modal-timer-display" class="text-3xl font-mono font-bold text-amber-400">--:--</div>
+          <div id="modal-timer-display" class="wd-modal-timer__display text-3xl font-mono font-bold">--:--</div>
         </div>
 
         <!-- Prompt panel -->
-        <div class="mb-4 p-4 rounded" style="background:rgba(255,255,255,0.04)">
-          <div class="text-xs uppercase tracking-wider text-gray-400 mb-2" id="modal-prompt-meta">— · —</div>
-          <h2 class="text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
-          <img id="modal-prompt-image" class="hidden max-w-full rounded mb-3 border border-white/10"
+        <div class="wd-modal-prompt-panel mb-4 p-4 rounded">
+          <div class="wd-modal-prompt__meta text-xs uppercase tracking-wider mb-2" id="modal-prompt-meta">— · —</div>
+          <h2 class="wd-modal-prompt__title text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
+          <img id="modal-prompt-image" class="wd-modal-prompt__image hidden max-w-full rounded mb-3"
                alt="" loading="lazy" />
-          <p class="text-sm text-gray-300 leading-relaxed whitespace-pre-line" id="modal-prompt-text">—</p>
+          <p class="wd-modal-prompt__body text-sm leading-relaxed whitespace-pre-line" id="modal-prompt-text">—</p>
         </div>
 
         <!-- Optional admin instructions -->
-        <div id="modal-instructions" class="hidden mb-4 p-3 rounded text-xs leading-relaxed"
-             style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);color:#fcd34d">
+        <div id="modal-instructions" class="wd-modal-instructions hidden mb-4 p-3 rounded text-xs leading-relaxed">
           📌 <span id="modal-instructions-text"></span>
         </div>
 
         <!-- File upload -->
         <div class="mb-3 flex items-center gap-3">
-          <label class="inline-flex items-center gap-1 text-sm text-teal-400 hover:text-teal-300 cursor-pointer">
+          <label class="wd-modal-file-label inline-flex items-center gap-1 text-sm cursor-pointer">
             <span>📎 Tải file (.docx, .txt)</span>
             <input id="modal-file-input" type="file" class="hidden" accept=".docx,.txt" />
           </label>
@@ -1338,8 +1223,7 @@
 
         <!-- Essay textarea — Grammarly + autocorrect + spellcheck disabled -->
         <textarea id="modal-essay-textarea"
-                  class="w-full rounded p-3 text-sm text-white"
-                  style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);min-height:24rem"
+                  class="wd-modal-textarea w-full rounded p-3 text-sm"
                   rows="20"
                   placeholder="Bắt đầu viết bài…"
                   autocomplete="off"
@@ -1352,20 +1236,18 @@
 
         <!-- Footer -->
         <div class="flex flex-wrap items-center justify-between gap-3 mt-3">
-          <div class="text-xs text-gray-400 flex items-center gap-3">
+          <div class="wd-modal-footer-meta text-xs flex items-center gap-3">
             <span><span id="modal-word-counter">0</span> từ</span>
-            <span id="modal-save-status" class="hidden text-emerald-400">✓ Đã lưu draft</span>
-            <span id="modal-save-pending" class="hidden text-amber-300">💾 Đang lưu…</span>
+            <span id="modal-save-status" class="wd-modal-save-status hidden">✓ Đã lưu draft</span>
+            <span id="modal-save-pending" class="wd-modal-save-pending hidden">💾 Đang lưu…</span>
           </div>
           <div class="flex gap-2">
             <button id="modal-btn-save" type="button"
-                    class="text-sm rounded px-4 py-2"
-                    style="background:rgba(255,255,255,0.06);color:#e2e8f0;border:1px solid rgba(255,255,255,0.10)">
+                    class="wd-modal-btn-save text-sm rounded px-4 py-2">
               Lưu bản nháp
             </button>
             <button id="modal-btn-submit" type="button"
-                    class="text-sm font-medium rounded px-4 py-2"
-                    style="background:#0d9488;color:#fff">
+                    class="wd-modal-btn-submit text-sm font-medium rounded px-4 py-2">
               Nộp bài
             </button>
           </div>
@@ -1373,5 +1255,32 @@
       </div>
     </div>
   </div>
+
+  <!-- Lucide hydration + theme-toggle binding (mirrors result.html pattern) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { hydrateIcons(); bindToggleButton(); });
+      } else {
+        hydrateIcons();
+        bindToggleButton();
+      }
+    })();
+  </script>
 </body>
 </html>

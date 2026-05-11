@@ -330,14 +330,15 @@ The app is in a **HYBRID state** post-Phase 1 (Sprints 6.3 → 6.6.1, May 2026).
 
 This section is the canonical reference for the migration state — Codex audit Phase 1 AMBER #2 closure (Sprint 6.6.1).
 
-### 14.1 Redesigned pages (Phase 1 complete, 2026-05-10)
+### 14.1 Redesigned pages (Phase 1 + Phase 2 in progress)
 
-| Page | Sprint | PR | Notes |
-|---|---|---|---|
-| `frontend/pages/home.html` | 6.3 | #121 | First page on `--av-*`, established the canonical anti-flash IIFE |
-| `frontend/pages/speaking.html` | 6.4 / 6.4.1 / 6.4.2 | #123 / #124 / #125 | Closes DEBT-2026-05-10-A; contrast hotfix lessons folded into UNIFIED_DESIGN_BRIEF.md § 11 |
-| `frontend/pages/practice.html` | 6.5 / 6.5.1 | #127 / #128 | Light + dark from day 1; ds.css legacy override pattern (UNIFIED_DESIGN_BRIEF.md § 12) |
-| `frontend/pages/result.html` | 6.6 / 6.6.1 | #130 / TBD | Surgical migration on inline-JS rendering; IIFE normalized |
+| Phase | Page | Sprint | PR | Notes |
+|---|---|---|---|---|
+| 1 | `frontend/pages/home.html` | 6.3 | #121 | First page on `--av-*`, established the canonical anti-flash IIFE |
+| 1 | `frontend/pages/speaking.html` | 6.4 / 6.4.1 / 6.4.2 | #123 / #124 / #125 | Closes DEBT-2026-05-10-A; contrast hotfix lessons folded into UNIFIED_DESIGN_BRIEF.md § 11 |
+| 1 | `frontend/pages/practice.html` | 6.5 / 6.5.1 | #127 / #128 | Light + dark from day 1; ds.css legacy override pattern (UNIFIED_DESIGN_BRIEF.md § 12) |
+| 1 | `frontend/pages/result.html` | 6.6 / 6.6.1 | #130 / #131 | Surgical migration on inline-JS rendering; IIFE normalized |
+| 2 | `frontend/pages/writing-dashboard.html` | 6.7 | TBD | Surgical migration on 1060-line teacher-assignment workflow (2 tabs / 6-state pill / submit modal); Tailwind utility overrides under body.av-page |
 
 Properties of every redesigned page:
 
