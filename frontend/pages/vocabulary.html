@@ -6,30 +6,71 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Từ vựng — Aver Learning</title>
 
-  <!-- Match home.html: Fraunces (variable serif) display + Manrope body. -->
+  <!-- Sprint 6.10: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13).
+       Validates the stored value against VALID_THEMES = ['light','dark']
+       and falls back to system preference, then 'light' as last resort. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- Fonts: Plus Jakarta Sans (body) + JetBrains Mono (numerics) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
 
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css and vocabulary.css. -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/vocabulary.css" />
+
+  <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
+       as Sprint 6.7+ functional microcopy). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="ds-canvas">
+<body class="av-page">
   <div class="shell">
 
-    <!-- ── Top nav (parallel to home.html) ──────────────────────── -->
+    <!-- ── Top nav (mirrors home.html Sprint 6.3 pattern) ──────────── -->
     <nav class="topnav" aria-label="Primary">
       <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
 
       <div class="nav-links">
-        <a href="/pages/home.html">Home</a>
+        <a href="/pages/home.html">Trang chủ</a>
         <a href="/pages/writing-dashboard.html">Writing</a>
         <a href="/pages/speaking.html">Speaking</a>
         <a href="/grammar.html">Grammar</a>
-        <a href="/pages/vocabulary.html" class="active">Vocab</a>
+        <a href="/pages/vocabulary.html" class="active">Vocabulary</a>
         <span class="locked" aria-disabled="true">Reading</span>
         <span class="locked" aria-disabled="true">Listening</span>
+      </div>
+
+      <div class="topnav-right">
+        <!-- Theme toggle: components.css owns the .icon-sun / .icon-moon
+             swap (show moon in light, sun in dark). -->
+        <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
       </div>
     </nav>
 
@@ -92,6 +133,14 @@
     </nav>
 
     <!-- ── Tab panels ────────────────────────────────────────────── -->
+    <!--
+      Sprint 6.10 preserves the Sprint 6.0 iframe contract byte-identical
+      (DEBT-2026-05-09-B remains deferred — no un-defer triggers fired).
+      The iframe children (my-vocabulary.html, flashcards.html, etc.) are
+      still legacy dark-only pages; Sprint 6.11 will migrate them and
+      propagate theme via same-origin localStorage. Until then the panels
+      render in legacy dark navy regardless of the parent's active theme.
+    -->
 
     <section class="tab-panel" data-panel="my-vocab" id="panel-my-vocab"
              role="tabpanel" aria-labelledby="tab-my-vocab">
@@ -145,6 +194,37 @@
       } catch (e) {
         console.error('[vocabulary] auth check failed:', e);
       }
+    })();
+  </script>
+
+  <!-- ── Lucide hydration + theme toggle binding (Sprint 6.10) ──────
+       Mirrors result.html / writing-dashboard.html pattern. The IIFE in
+       <head> already applied data-theme synchronously to prevent flash. -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
     })();
   </script>
 </body>

@@ -44,7 +44,8 @@ const path   = require('node:path');
 //   • result.html            — migrated Sprint 6.6 (PR #130, surgical migration on inline-JS rendering)
 //   • writing-dashboard.html — migrated Sprint 6.7 (PR #132, surgical on 1060-line teacher-assignment workflow)
 //   • writing-result.html    — migrated Sprint 6.8 (surgical on 671-line graded-essay view)
-//   • full-test-result.html  — migrated Sprint 6.9 (this PR, Phase 2 closure; A.2 Chart.js theme-aware pattern)
+//   • full-test-result.html  — migrated Sprint 6.9 (PR #136, Phase 2 closure; A.2 Chart.js theme-aware pattern)
+//   • vocabulary.html        — migrated Sprint 6.10 (this PR, Phase 3 page 1; iframe contract preserved, DEBT-2026-05-09-B still deferred)
 //
 // Pin tests for the migrated pages live in their own *-redesign.test.mjs
 // suites. This list keeps shrinking; eventually it goes empty and the
