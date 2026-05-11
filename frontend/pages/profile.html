@@ -5,14 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Hồ sơ — AverLearning</title>
+
+  <!-- Sprint 6.12a: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13).
+       Must run before any stylesheet so [data-theme] is set on <html>
+       before paint. profile.html is NOT iframe-embedded so no Sprint
+       6.0.1 IIFE is required (the page is opened as a top-level route
+       from the dashboard user pill). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
-            display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         },
       },
@@ -21,9 +43,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&family=Manrope:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
+
+  <!-- Aver Design System foundation (tokens before components before page CSS). -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
   <link rel="stylesheet" href="../css/ds.css" />
+  <link rel="stylesheet" href="../css/profile.css" />
+
+  <!-- Lucide icons (chrome glyphs only). -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+
   <!-- Scripts: supabase CDN → api.js → credentials + init (same order as all other pages) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
@@ -32,170 +63,34 @@
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
   </script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; color: #fff; min-height: 100vh; }
-
-    .card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-    }
-
-    .field-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: rgba(255,255,255,0.4);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-    }
-
-    .field-input {
-      width: 100%;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 14px;
-      color: #fff;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .field-input:focus { border-color: rgba(20,184,166,0.6); }
-    .field-input[readonly] { color: rgba(255,255,255,0.35); cursor: default; }
-    .field-input::placeholder { color: rgba(255,255,255,0.2); }
-
-    /* Band selector */
-    .band-btn {
-      flex: 1;
-      padding: 8px 4px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.04);
-      color: rgba(255,255,255,0.45);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .band-btn:hover { border-color: rgba(20,184,166,0.4); color: rgba(255,255,255,0.8); }
-    .band-btn.active { background: rgba(20,184,166,0.18); border-color: #14b8a6; color: #14b8a6; }
-
-    /* Level radio */
-    .level-card {
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
-      padding: 10px 14px;
-      cursor: pointer;
-      transition: all 0.15s;
-      background: rgba(255,255,255,0.03);
-    }
-    .level-card:hover { border-color: rgba(20,184,166,0.35); }
-    .level-card.active { border-color: #14b8a6; background: rgba(20,184,166,0.1); }
-    .level-card input { display: none; }
-
-    /* Slider */
-    .goal-slider {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 4px;
-      border-radius: 2px;
-      background: rgba(255,255,255,0.12);
-      outline: none;
-    }
-    .goal-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      background: #14b8a6;
-      cursor: pointer;
-      box-shadow: 0 0 0 3px rgba(20,184,166,0.2);
-    }
-    .goal-slider::-moz-range-thumb {
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      background: #14b8a6;
-      cursor: pointer;
-      border: none;
-    }
-
-    /* Stat card */
-    .stat-card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 12px;
-      padding: 16px;
-      text-align: center;
-    }
-
-    /* Save button */
-    .btn-save {
-      background: linear-gradient(135deg, #0D7377, #14b8a6);
-      color: #fff;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 11px 32px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    .btn-save:hover { opacity: 0.9; transform: translateY(-1px); }
-    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    /* Toast */
-    #toast {
-      position: fixed;
-      bottom: 28px;
-      left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: #0D7377;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 600;
-      padding: 10px 22px;
-      border-radius: 100px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s, transform 0.25s;
-      white-space: nowrap;
-      z-index: 999;
-    }
-    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    /* Avatar initials */
-    .avatar-ring { box-shadow: 0 0 0 2px #0F766E; }
-
-    /* Skeleton */
-    @keyframes shimmer { 0%,100%{opacity:.35} 50%{opacity:.7} }
-    .skeleton { background: rgba(255,255,255,0.08); border-radius: 8px; animation: shimmer 1.4s infinite; }
-  </style>
 </head>
-<body class="ds-canvas">
+<body class="av-page font-sans min-h-screen">
 
   <!-- ─── HEADER ───────────────────────────────────────────────── -->
-  <header class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between"
-          style="background:#081829;border-bottom:1px solid rgba(255,255,255,0.07);">
-    <a href="home.html" class="flex items-center gap-2 text-sm font-medium"
-       style="color:rgba(255,255,255,0.55);"
-       onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.55)'">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-           stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
-      Dashboard
-    </a>
-    <span class="font-bold text-base tracking-tight">
-      Aver<span style="color:#14b8a6;">Learning</span>
-    </span>
-    <!-- Avatar placeholder -->
-    <div id="header-avatar"
-         class="w-8 h-8 rounded-full avatar-ring flex items-center justify-center text-xs font-bold"
-         style="background:#112d52;">
-      <span id="header-initials">—</span>
+  <header class="pf-header px-6 py-4">
+    <div class="max-w-2xl mx-auto flex items-center justify-between gap-4">
+      <a href="home.html" class="pf-back-link text-sm font-medium flex items-center gap-1">
+        <i data-lucide="chevron-left"></i>
+        Dashboard
+      </a>
+      <span class="pf-header__title font-bold text-base tracking-tight">
+        Aver<span class="pf-header__brand">Learning</span>
+      </span>
+      <div class="flex items-center gap-3">
+        <div id="header-avatar"
+             class="pf-header__avatar w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold">
+          <span id="header-initials">—</span>
+        </div>
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -204,23 +99,21 @@
 
     <!-- Page title -->
     <div>
-      <h1 class="text-xl font-bold tracking-tight">Hồ sơ học viên</h1>
-      <p class="text-sm mt-1" style="color:rgba(255,255,255,0.4);">Cập nhật thông tin và mục tiêu luyện thi của bạn.</p>
+      <h1 class="pf-title text-xl font-bold tracking-tight">Hồ sơ học viên</h1>
+      <p class="pf-subtitle text-sm mt-1">Cập nhật thông tin và mục tiêu luyện thi của bạn.</p>
     </div>
 
     <!-- ── IDENTITY CARD ─────────────────────────────────────── -->
     <div class="card p-6 flex items-center gap-5">
-      <!-- Avatar -->
       <div id="profile-avatar"
-           class="w-16 h-16 rounded-full avatar-ring flex-shrink-0 flex items-center justify-center text-xl font-bold"
-           style="background:#112d52;">
+           class="pf-avatar w-16 h-16 rounded-full flex-shrink-0 flex items-center justify-center text-xl font-bold">
         <span id="profile-initials">—</span>
         <img id="profile-avatar-img" class="hidden w-full h-full object-cover rounded-full" alt="avatar" />
       </div>
       <div class="flex-1 min-w-0">
-        <p id="profile-display-name" class="font-semibold text-base truncate">—</p>
-        <p id="profile-email" class="text-sm mt-0.5 truncate" style="color:rgba(255,255,255,0.4);">—</p>
-        <p class="text-xs mt-1" style="color:rgba(255,255,255,0.25);">
+        <p id="profile-display-name" class="pf-identity__name font-semibold text-base truncate">—</p>
+        <p id="profile-email" class="pf-identity__email text-sm mt-0.5 truncate">—</p>
+        <p class="pf-identity__joined text-xs mt-1">
           Tham gia: <span id="profile-joined">—</span>
         </p>
       </div>
@@ -229,23 +122,23 @@
     <!-- ── STATS (readonly) ───────────────────────────────────── -->
     <div class="grid grid-cols-3 gap-3">
       <div class="stat-card">
-        <p class="text-xs mb-1" style="color:rgba(255,255,255,0.35);">Tổng sessions</p>
-        <p id="stat-sessions" class="text-2xl font-bold" style="color:#14b8a6;">—</p>
+        <p class="stat-card__label text-xs mb-1">Tổng sessions</p>
+        <p id="stat-sessions" class="stat-card__value text-2xl font-bold">—</p>
       </div>
       <div class="stat-card">
-        <p class="text-xs mb-1" style="color:rgba(255,255,255,0.35);">Band trung bình</p>
-        <p id="stat-avg-band" class="text-2xl font-bold" style="color:#14b8a6;">—</p>
+        <p class="stat-card__label text-xs mb-1">Band trung bình</p>
+        <p id="stat-avg-band" class="stat-card__value text-2xl font-bold">—</p>
       </div>
       <div class="stat-card">
-        <p class="text-xs mb-1" style="color:rgba(255,255,255,0.35);">Mục tiêu/tuần</p>
-        <p id="stat-weekly" class="text-2xl font-bold" style="color:#14b8a6;">—</p>
+        <p class="stat-card__label text-xs mb-1">Mục tiêu/tuần</p>
+        <p id="stat-weekly" class="stat-card__value text-2xl font-bold">—</p>
       </div>
     </div>
 
     <!-- ── LEARNING FORM ──────────────────────────────────────── -->
     <form id="profile-form" class="card p-6 space-y-6" onsubmit="return false;">
 
-      <h2 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Thông tin cá nhân</h2>
+      <h2 class="pf-section-title text-sm font-semibold">Thông tin cá nhân</h2>
 
       <!-- Display name -->
       <div>
@@ -256,12 +149,12 @@
 
       <!-- Email (readonly) -->
       <div>
-        <label class="field-label">Email</label>
+        <label class="field-label" for="inp-email">Email</label>
         <input id="inp-email" type="email" class="field-input" readonly />
       </div>
 
-      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);" />
-      <h2 class="text-sm font-semibold" style="color:rgba(255,255,255,0.7);">Mục tiêu luyện thi</h2>
+      <hr class="pf-divider" />
+      <h2 class="pf-section-title text-sm font-semibold">Mục tiêu luyện thi</h2>
 
       <!-- Target band -->
       <div>
@@ -274,8 +167,7 @@
       <!-- Exam date -->
       <div>
         <label class="field-label" for="inp-exam-date">Ngày thi dự kiến</label>
-        <input id="inp-exam-date" type="date" class="field-input"
-               style="color-scheme:dark;" />
+        <input id="inp-exam-date" type="date" class="field-input" />
       </div>
 
       <!-- Self level -->
@@ -284,32 +176,34 @@
         <div class="grid grid-cols-2 gap-2" id="level-options">
           <label class="level-card" data-level="beginner">
             <input type="radio" name="self_level" value="beginner" />
-            <p class="text-sm font-semibold">Mới bắt đầu</p>
-            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 3.0–4.5</p>
+            <p class="level-card__title text-sm font-semibold">Mới bắt đầu</p>
+            <p class="level-card__band text-xs mt-0.5">Band 3.0–4.5</p>
           </label>
           <label class="level-card" data-level="intermediate">
             <input type="radio" name="self_level" value="intermediate" />
-            <p class="text-sm font-semibold">Trung bình</p>
-            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 5.0–5.5</p>
+            <p class="level-card__title text-sm font-semibold">Trung bình</p>
+            <p class="level-card__band text-xs mt-0.5">Band 5.0–5.5</p>
           </label>
           <label class="level-card" data-level="upper_intermediate">
             <input type="radio" name="self_level" value="upper_intermediate" />
-            <p class="text-sm font-semibold">Khá</p>
-            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 6.0–6.5</p>
+            <p class="level-card__title text-sm font-semibold">Khá</p>
+            <p class="level-card__band text-xs mt-0.5">Band 6.0–6.5</p>
           </label>
           <label class="level-card" data-level="advanced">
             <input type="radio" name="self_level" value="advanced" />
-            <p class="text-sm font-semibold">Nâng cao</p>
-            <p class="text-xs mt-0.5" style="color:rgba(255,255,255,0.4);">Band 7.0+</p>
+            <p class="level-card__title text-sm font-semibold">Nâng cao</p>
+            <p class="level-card__band text-xs mt-0.5">Band 7.0+</p>
           </label>
         </div>
       </div>
 
       <!-- Weekly goal slider -->
       <div>
-        <label class="field-label">Mục tiêu luyện tập — <span id="goal-display">5</span> sessions/tuần</label>
+        <label class="field-label" for="inp-weekly-goal">
+          Mục tiêu luyện tập — <span id="goal-display" class="pf-goal__value">5</span> sessions/tuần
+        </label>
         <input id="inp-weekly-goal" type="range" min="1" max="14" value="5" class="goal-slider" />
-        <div class="flex justify-between text-xs mt-1" style="color:rgba(255,255,255,0.25);">
+        <div class="pf-goal__scale flex justify-between text-xs mt-1">
           <span>1</span><span>7</span><span>14</span>
         </div>
       </div>
@@ -325,7 +219,36 @@
   </main>
 
   <!-- Toast -->
-  <div id="toast">✓ Đã lưu thành công</div>
+  <div id="toast" class="pf-toast">✓ Đã lưu thành công</div>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.12a) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
 
   <script>
   (function () {
@@ -339,7 +262,7 @@
     function showToast(msg, isError) {
       var t = document.getElementById('toast');
       t.textContent = msg || '✓ Đã lưu thành công';
-      t.style.background = isError ? '#dc2626' : '#0D7377';
+      t.classList.toggle('pf-toast--error', !!isError);
       t.classList.add('show');
       setTimeout(function () { t.classList.remove('show'); }, 2800);
     }

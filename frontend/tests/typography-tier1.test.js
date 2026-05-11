@@ -46,12 +46,15 @@ const path   = require('node:path');
 //   • writing-result.html    — migrated Sprint 6.8 (surgical on 671-line graded-essay view)
 //   • full-test-result.html  — migrated Sprint 6.9 (PR #136, Phase 2 closure; A.2 Chart.js theme-aware pattern)
 //   • vocabulary.html        — migrated Sprint 6.10 (this PR, Phase 3 page 1; iframe contract preserved, DEBT-2026-05-09-B still deferred)
+//   • my-vocabulary.html     — migrated Sprint 6.11a (PR #140, surgical on the 1.3k-line card list view)
+//   • flashcards.html        — migrated Sprint 6.11b (PR #141, Phase 3 page 3)
+//   • exercises.html         — migrated Sprint 6.11b (PR #141, Phase 3 page 4)
+//   • profile.html           — migrated Sprint 6.12a (Phase 3 final cluster, page 1 of 2; standalone profile route)
 //
 // Pin tests for the migrated pages live in their own *-redesign.test.mjs
 // suites. This list keeps shrinking; eventually it goes empty and the
 // file gets deleted in the cleanup sprint.
 const TIER_1_PAGES = [
-  'pages/profile.html',
   'onboarding.html',
 ];
 
