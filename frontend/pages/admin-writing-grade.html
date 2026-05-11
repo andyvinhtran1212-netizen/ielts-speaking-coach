@@ -5,517 +5,69 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Review + Edit — Writing Coach Admin</title>
+
+  <!-- Sprint 6.14c: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Aver Design System foundation + grading-page CSS. -->
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+  <link rel="stylesheet" href="../css/admin-writing.css" />
+  <link rel="stylesheet" href="../css/admin-writing-grade.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+
+  <!-- Sprint 6.14c: minimal inline rules that the original 498-line
+       <style> block kept inline because they're tightly coupled to
+       the root layout. The bulk migrated to admin-writing-grade.css. -->
   <style>
-    /* Sprint 2.5.1 — full layout rewrite. Replaces the prior 5-tab
-       horizontal nav with a 3-column shell: sticky header + sticky
-       left nav + scrollable right content carrying all 15 sections
-       on a single page. */
-    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; margin: 0; }
+    /* Sprint 6.14c: only `.hidden` stays inline. The full 498-line
+       legacy <style> block migrated to admin-writing-grade.css. */
     .hidden { display: none !important; }
-
-    /* ── Sticky 2-row header ─────────────────────────────────────── */
-    .grade-header {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(8, 24, 41, 0.95);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      padding: 0.625rem 1.25rem;
-      display: flex; gap: 1rem;
-      align-items: center; justify-content: space-between; flex-wrap: wrap;
-    }
-    .header-left { flex: 1 1 360px; min-width: 0; display: flex; align-items: center; gap: 0.875rem; }
-    .back-link { color: rgba(255,255,255,0.45); font-size: 0.85rem; font-weight: 500; text-decoration: none; flex-shrink: 0; }
-    .back-link:hover { color: #14b8a6; }
-    .essay-meta h1 { font-size: 1rem; font-weight: 600; color: #e2e8f0; line-height: 1.3; }
-    .meta-line { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 0.125rem; line-height: 1.4; }
-    .meta-line .separator { margin: 0 0.4rem; opacity: 0.5; }
-    .band-score { color: #14b8a6; font-weight: 600; }
-    .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); }
-    .badge-manual    { background: rgba(245,158,11,0.18); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .badge-regraded  { background: rgba(99,102,241,0.18); color: #a5b4fc; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    /* Sprint 2.7a — grading tier badge (Quick removed 2.7a.1; tier-quick
-       fallback kept as neutral chip in case any legacy 'quick' row
-       slipped through without migration 045 — never crashes the UI). */
-    .tier-badge      { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .tier-quick      { background: rgba(148,163,184,0.20); color: #cbd5e1; }
-    .tier-standard   { background: rgba(167,139,250,0.20); color: #c4b5fd; }
-    .tier-deep       { background: rgba(244,114,182,0.20); color: #f9a8d4; }
-    .tier-instructor { background: rgba(74,222,128,0.20);  color: #86efac; }
-
-    /* Sprint 2.7d.2 — Instructor review panel. Only renders when the
-       essay is Instructor-tier; the variant shown depends on the
-       review's status + whether the current admin is the claimant. */
-    .instructor-panel {
-      margin: 12px 0 16px; padding: 14px 18px; border-radius: 10px;
-      background: rgba(74,222,128,0.06);
-      border: 1px solid rgba(74,222,128,0.20);
-    }
-    .instructor-panel.locked {
-      background: rgba(234,179,8,0.06);
-      border-color: rgba(234,179,8,0.25);
-    }
-    .instructor-panel.delivered {
-      background: rgba(148,163,184,0.06);
-      border-color: rgba(148,163,184,0.20);
-    }
-    .instructor-panel-title {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 13px; font-weight: 600; color: #86efac;
-    }
-    .instructor-panel.locked    .instructor-panel-title { color: #fde68a; }
-    .instructor-panel.delivered .instructor-panel-title { color: #cbd5e1; }
-    .instructor-panel-meta { font-size: 11.5px; color: rgba(255,255,255,0.55); margin-top: 4px; }
-    .instructor-panel textarea {
-      width: 100%; margin-top: 10px; min-height: 70px; padding: 8px 10px;
-      background: rgba(0,0,0,0.20); border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 6px; color: #e2e8f0; font-size: 13px; line-height: 1.5;
-      font-family: 'Inter', ui-sans-serif, system-ui;
-    }
-    .instructor-panel textarea:focus { outline: none; border-color: #14b8a6; }
-    .instructor-panel-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    .instructor-panel-hint { font-size: 11.5px; color: rgba(255,255,255,0.45); margin-top: 8px; line-height: 1.5; }
-
-    .header-actions  { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
-    .btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 6px 11px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
-    .btn:hover { background: rgba(255,255,255,0.1); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary  { background: #0f766e; border-color: #0f766e; color: #f0fdfa; }
-    .btn-primary:hover { background: #115e59; }
-    .btn-success  { background: rgba(34,197,94,0.16); border-color: rgba(34,197,94,0.3); color: #86efac; }
-    .btn-success:hover { background: rgba(34,197,94,0.26); }
-    .btn-warn     { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #fbbf24; }
-    .btn-warn:hover { background: rgba(245,158,11,0.25); }
-    .btn-dirty    { background: #f59e0b; border-color: #f59e0b; color: #1e1b4b; }
-    .btn-dirty:hover { background: #d97706; }
-    #last-saved   { font-size: 11px; color: rgba(255,255,255,0.4); }
-
-    /* ── Tab-based body shell (Sprint 2.5.3) ─────────────────────── */
-    .grade-body  { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    .grade-tabs {
-      position: sticky; top: 64px; z-index: 40;
-      display: flex; gap: 0.25rem;
-      padding: 0.625rem 2.5rem;
-      background: rgba(8, 24, 41, 0.95);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      overflow-x: auto;
-    }
-    .tab-btn {
-      display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.5rem 1.05rem;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      color: rgba(255,255,255,0.55);
-      font-size: 13px; font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.15s;
-    }
-    .tab-btn:hover    { background: rgba(255,255,255,0.05); color: #e5e7eb; }
-    .tab-btn.is-active{
-      background: rgba(15,118,110,0.18);
-      color: #14b8a6;
-      border-color: rgba(15,118,110,0.3);
-    }
-    .tab-icon { font-size: 1rem; }
-    .tab-panel { display: none; }
-    .tab-panel.is-active { display: block; }
-
-    .grade-content {
-      max-width: 920px; margin: 0 auto;
-      width: 100%; padding: 1.5rem 2.5rem 4rem;
-    }
-    #alert-area { margin-bottom: 0.75rem; }
-
-    /* Original essay (sticky-ish above tab panels) */
-    .essay-section {
-      margin-bottom: 2rem; padding-bottom: 1.75rem;
-      border-bottom: 2px solid rgba(255,255,255,0.08);
-    }
-
-    /* ── Section card ────────────────────────────────────────────── */
-    .grade-section { margin-bottom: 2.75rem; scroll-margin-top: 80px; }
-    .section-header { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding-bottom: 0.5rem; margin-bottom: 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .section-header h2 { font-size: 1.1rem; font-weight: 600; color: #e2e8f0; }
-    .btn-edit { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); padding: 4px 10px; border-radius: 4px; font-size: 11.5px; cursor: pointer; }
-    .btn-edit:hover { background: rgba(255,255,255,0.05); color: #e5e7eb; }
-
-    .section-content { color: #e5e7eb; font-size: 14.5px; line-height: 1.6; }
-    .section-content p { margin-bottom: 0.5rem; }
-    .section-content .empty { color: rgba(255,255,255,0.4); font-style: italic; }
-
-    .item-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px;
-      padding: 0.75rem 0.875rem;
-      margin-bottom: 0.625rem;
-    }
-    .item-row { font-size: 13px; line-height: 1.6; margin-bottom: 0.25rem; }
-    .item-row strong { color: rgba(255,255,255,0.55); font-weight: 500; min-width: 110px; display: inline-block; }
-    .item-row.full { display: block; }
-    .item-row.full strong { display: block; margin-bottom: 0.125rem; }
-
-    .object-row { padding: 0.625rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .object-row:last-child { border-bottom: none; }
-    .object-key { color: rgba(255,255,255,0.5); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; margin-bottom: 0.25rem; }
-
-    .json-view {
-      background: rgba(0,0,0,0.35); padding: 0.625rem 0.75rem;
-      border-radius: 6px; font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 12px; line-height: 1.5; color: #cbd5e1;
-      white-space: pre-wrap; word-break: break-word;
-      max-height: 320px; overflow-y: auto;
-    }
-
-    .essay-original {
-      background: rgba(0,0,0,0.3); padding: 1rem 1.125rem;
-      border-radius: 8px; white-space: pre-wrap;
-      font-size: 14px; line-height: 1.6; color: #cbd5e1;
-      max-height: 480px; overflow-y: auto;
-    }
-
-    .criterion-card {
-      background: rgba(255,255,255,0.03);
-      border-left: 3px solid #14b8a6;
-      border-radius: 6px;
-      padding: 0.75rem 1rem;
-      margin-bottom: 0.625rem;
-    }
-    .criterion-card .crit-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.375rem; }
-    .criterion-card h3 { font-size: 14px; font-weight: 600; color: #e2e8f0; }
-    .criterion-card .band { font-size: 18px; font-weight: 700; color: #14b8a6; }
-    .criterion-card .explanation { font-style: italic; color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 0.375rem; }
-    .criterion-card .feedback { font-size: 13.5px; line-height: 1.55; }
-
-    /* ── Edit form ───────────────────────────────────────────────── */
-    .section-edit { margin-top: 0.75rem; }
-    .json-edit, .text-edit {
-      width: 100%;
-      background: rgba(0,0,0,0.4);
-      color: #e5e7eb;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 6px;
-      padding: 0.625rem 0.75rem;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 12.5px;
-      line-height: 1.55;
-      resize: vertical;
-      box-sizing: border-box;
-    }
-    .json-edit:focus, .text-edit:focus { outline: none; border-color: #14b8a6; }
-    .text-edit { font-family: 'Inter', ui-sans-serif, system-ui; font-size: 14px; }
-
-    .edit-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: center; }
-    .edit-error { color: #fca5a5; font-size: 12px; margin-left: 0.5rem; }
-
-    /* ── Sprint 2.5.2 — design-token components ──────────────────── */
-    /* Vocabulary applied uniformly across all 14 section renderers
-       so a reader can scan any section and trust the visual grammar:
-         prose-block      = plain narrative
-         card-criterion   = IELTS band card
-         mistake-card     = severity-coded diff
-         chip / chip-list = labels for arrays
-         stat-tile        = large metric number
-         focus-theme-card = featured this-week practice
-         callout-info     = teal-accented explanatory note
-         callout-action   = teal-accented call to action
-         takeaway-block   = strengths / improvements 2-col grid
-         issue-card       = pattern + count + examples
-         complexity-meter = text-based indicator
-         likelihood-bar   = horizontal AI-content gauge */
-
-    .prose-block { color: #cbd5e1; font-size: 14.5px; line-height: 1.7; max-width: 70ch; }
-    .prose-block p { margin-bottom: 0.625rem; }
-
-    .empty-state { color: #6b7280; font-style: italic; font-size: 13px; }
-
-    .subsection-heading {
-      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
-      color: #9ca3af; margin-bottom: 0.5rem; font-weight: 600;
-    }
-
-    /* Generic chips for arrays of labels */
-    .chip-list { display: flex; flex-wrap: wrap; gap: 0.375rem; }
-    .chip      { padding: 0.25rem 0.625rem; border-radius: 12px; font-size: 12px; font-weight: 500; line-height: 1.4; }
-    .chip-success .chip { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
-    .chip-warning .chip { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
-    .chip-info    .chip { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
-
-    /* Callouts */
-    .callout-info, .callout-action {
-      padding: 0.75rem 1rem; border-radius: 6px; color: #cbd5e1;
-      font-size: 13.5px; line-height: 1.6;
-    }
-    .callout-info   { background: rgba(20,184,166,0.05); border-left: 3px solid #14b8a6; }
-    .callout-action { background: rgba(15,118,110,0.08); border-left: 3px solid #14b8a6; }
-    .callout-label {
-      display: block; font-size: 11px; font-weight: 600; color: #14b8a6;
-      margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em;
-    }
-
-    /* Instructor note (Phase 2.5) — teal-tinted highlighted block */
-    .instructor-note-block {
-      background: rgba(20,184,166,0.06); border-left: 3px solid #14b8a6;
-      padding: 1rem 1.125rem; border-radius: 6px;
-      color: #e2e8f0; font-size: 14px; line-height: 1.7;
-    }
-
-    /* IELTS criteria cards (4-up grid) */
-    .criteria-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.625rem; }
-    .card-criterion {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 8px; padding: 0.875rem 1rem;
-    }
-    .card-criterion-head {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      gap: 0.75rem; margin-bottom: 0.5rem;
-    }
-    .card-criterion-head h3 { font-size: 13.5px; font-weight: 600; color: #e2e8f0; line-height: 1.3; }
-    .band-pill {
-      font-size: 1.35rem; font-weight: 700; padding: 0.125rem 0.625rem;
-      border-radius: 6px; line-height: 1.2; flex-shrink: 0;
-    }
-    .band-low  { background: rgba(239,68,68,0.18); color: #fca5a5; }
-    .band-mid  { background: rgba(245,158,11,0.18); color: #fbbf24; }
-    .band-good { background: rgba(20,184,166,0.18); color: #5eead4; }
-    .band-high { background: rgba(16,185,129,0.18); color: #34d399; }
-    .card-criterion .summary  { font-size: 12.5px; font-style: italic; color: rgba(255,255,255,0.55); margin-bottom: 0.5rem; line-height: 1.5; }
-    .card-criterion .feedback { font-size: 13.5px; color: #cbd5e1; line-height: 1.6; }
-
-    /* Mistake cards — severity-coded diff layout */
-    .mistake-card {
-      background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b;
-      border-radius: 6px; padding: 0.875rem 1rem; margin-bottom: 0.625rem;
-    }
-    .mistake-card.mistake-high { border-left-color: #ef4444; }
-    .mistake-card.mistake-low  { border-left-color: #3b82f6; }
-    .mistake-header {
-      display: flex; gap: 0.5rem; flex-wrap: wrap;
-      align-items: center; margin-bottom: 0.625rem; font-size: 11.5px;
-    }
-    .mistake-type-badge {
-      background: rgba(255,255,255,0.06); padding: 0.125rem 0.5rem;
-      border-radius: 4px; color: #e5e7eb; font-weight: 500;
-    }
-    .mistake-criterion { color: #9ca3af; font-style: italic; }
-    .mistake-diff      { margin-bottom: 0.5rem; }
-    .mistake-original, .mistake-suggestion {
-      display: flex; align-items: baseline; gap: 0.5rem;
-      margin-bottom: 0.25rem; font-size: 13px; line-height: 1.5;
-    }
-    .mistake-original code, .mistake-suggestion code {
-      font-family: 'Monaco', 'Menlo', monospace; font-size: 12.5px;
-      background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px;
-      flex: 1; word-break: break-word;
-    }
-    .mistake-original code   { color: #fca5a5; }
-    .mistake-suggestion code { color: #6ee7b7; }
-    .diff-label {
-      flex-shrink: 0; width: 3rem; color: #9ca3af;
-      font-size: 11px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .mistake-explanation {
-      color: #cbd5e1; font-size: 13px; line-height: 1.6;
-      padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.05);
-    }
-
-    /* Stat tiles for band trajectory */
-    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; }
-    .stat-tile {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 8px; padding: 0.875rem; text-align: center;
-    }
-    .stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin-bottom: 0.5rem; font-weight: 600; }
-    .stat-value { font-size: 1.5rem; font-weight: 700; color: #e5e7eb; line-height: 1.2; }
-    .trend-improving { color: #34d399; }
-    .trend-stable    { color: #9ca3af; }
-    .trend-declining { color: #fca5a5; }
-
-    /* Per-criterion mini stats (band trajectory) */
-    .criterion-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-    .criterion-mini {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 6px; padding: 0.625rem; text-align: center;
-    }
-    .criterion-mini-label { font-size: 10.5px; color: #9ca3af; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    .criterion-mini-value { font-size: 1rem; font-weight: 600; }
-
-    /* Focus-theme card — featured this-week practice */
-    .focus-theme-card {
-      background: linear-gradient(135deg, rgba(15,118,110,0.12), rgba(20,184,166,0.05));
-      border: 1px solid rgba(20,184,166,0.25);
-      border-radius: 12px; padding: 1.125rem 1.25rem;
-    }
-    .focus-theme-eyebrow { font-size: 11.5px; color: #14b8a6; font-weight: 600; margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    .focus-theme-title   { font-size: 1.05rem; font-weight: 600; color: #e5e7eb; margin-bottom: 0.5rem; line-height: 1.35; }
-    .focus-theme-why     { font-size: 13.5px; color: #cbd5e1; line-height: 1.65; margin-bottom: 0.875rem; }
-    .focus-theme-action  { background: rgba(0,0,0,0.25); padding: 0.75rem 0.875rem; border-radius: 6px; }
-    .focus-theme-action .action-label { display: block; font-size: 10.5px; font-weight: 600; color: #14b8a6; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    .focus-theme-action p { color: #e2e8f0; font-size: 13px; line-height: 1.6; }
-
-    /* Issue cards — pattern + count + examples */
-    .issue-card {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 6px; padding: 0.75rem 0.875rem;
-    }
-    .issue-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-    .issue-pattern { font-size: 13px; color: #e5e7eb; font-weight: 500; }
-    .issue-count {
-      font-size: 11.5px; background: rgba(245,158,11,0.18); color: #fbbf24;
-      padding: 0.125rem 0.5rem; border-radius: 4px; font-weight: 600;
-    }
-    .issue-examples { margin-top: 0.5rem; padding-left: 0; list-style: none; }
-    .issue-examples li { margin-bottom: 0.25rem; font-size: 12.5px; color: #9ca3af; }
-    .issue-examples code {
-      font-family: 'Monaco', 'Menlo', monospace; background: rgba(0,0,0,0.3);
-      padding: 0.125rem 0.375rem; border-radius: 3px;
-    }
-
-    /* Complexity meter — text indicator */
-    .complexity-meter {
-      background: rgba(255,255,255,0.03); padding: 0.625rem 0.875rem;
-      border-radius: 6px; display: flex; gap: 0.625rem; align-items: center;
-    }
-    .complexity-label { color: #9ca3af; font-size: 13px; }
-    .complexity-value { font-weight: 600; }
-    .complexity-balanced { color: #34d399; }
-    .complexity-needs_more_simple, .complexity-needs_more_complex { color: #fbbf24; }
-
-    /* Takeaway 2-column grid */
-    .takeaway-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.875rem; }
-    .takeaway-block { border-radius: 8px; padding: 0.875rem 1rem; }
-    .takeaway-success { background: rgba(16,185,129,0.06); border-left: 3px solid #10b981; }
-    .takeaway-warning { background: rgba(245,158,11,0.06); border-left: 3px solid #f59e0b; }
-    .takeaway-heading { font-size: 13px; font-weight: 600; margin-bottom: 0.5rem; }
-    .takeaway-success .takeaway-heading { color: #34d399; }
-    .takeaway-warning .takeaway-heading { color: #fbbf24; }
-    .takeaway-list { padding-left: 1.125rem; list-style: disc; }
-    .takeaway-list li { font-size: 13px; line-height: 1.6; color: #cbd5e1; margin-bottom: 0.25rem; }
-
-    /* AI-content likelihood gauge */
-    .likelihood-row    { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.625rem; }
-    .likelihood-label  { font-size: 11.5px; color: #9ca3af; flex-shrink: 0; min-width: 8rem; }
-    .likelihood-track  { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
-    .likelihood-fill   { height: 100%; transition: width 0.3s ease; }
-    .likelihood-low    { background: #34d399; }
-    .likelihood-mid    { background: #fbbf24; }
-    .likelihood-high   { background: #fca5a5; }
-    .likelihood-pct    { font-size: 13px; font-weight: 600; flex-shrink: 0; min-width: 3rem; text-align: right; }
-
-    /* Idea-development paragraph cards */
-    .idea-card {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-      border-left: 3px solid #93c5fd; border-radius: 6px;
-      padding: 0.75rem 0.875rem; margin-bottom: 0.625rem;
-    }
-    .idea-card-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-    .idea-paragraph-tag {
-      background: rgba(59,130,246,0.18); color: #93c5fd;
-      padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 11px; font-weight: 600;
-    }
-    .idea-issue { font-size: 13px; color: #fde68a; font-weight: 500; }
-    .idea-row { font-size: 12.5px; line-height: 1.55; margin-bottom: 0.25rem; color: #cbd5e1; }
-    .idea-row strong { display: inline-block; min-width: 5.5rem; font-weight: 500; color: #9ca3af; }
-
-    /* Coherence list rows */
-    .coherence-card {
-      background: rgba(255,255,255,0.03); border-left: 3px solid #a5b4fc;
-      border-radius: 6px; padding: 0.75rem 0.875rem; margin-bottom: 0.5rem;
-    }
-    .coherence-card-head { display: flex; gap: 0.5rem; margin-bottom: 0.375rem; align-items: center; flex-wrap: wrap; }
-    .coherence-location { background: rgba(99,102,241,0.18); color: #a5b4fc; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .coherence-issue    { color: #fde68a; font-size: 13px; font-weight: 500; }
-    .coherence-explain  { color: #cbd5e1; font-size: 12.5px; line-height: 1.55; }
-    .coherence-suggest  { font-size: 12.5px; color: #6ee7b7; line-height: 1.55; margin-top: 0.375rem; }
-
-    /* Counterargument feedback */
-    .counter-block {
-      background: rgba(255,255,255,0.03); border-left: 3px solid #f59e0b;
-      padding: 0.875rem 1rem; border-radius: 6px;
-    }
-    .counter-status { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
-    .counter-pill { padding: 0.125rem 0.625rem; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
-    .counter-pill.present { background: rgba(16,185,129,0.18); color: #34d399; }
-    .counter-pill.absent  { background: rgba(245,158,11,0.18); color: #fbbf24; }
-
-    /* Lexical word-upgrade rows */
-    .lexical-card {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 6px; padding: 0.75rem 0.875rem; margin-bottom: 0.5rem;
-    }
-    .lexical-row { display: flex; gap: 0.625rem; align-items: baseline; flex-wrap: wrap; }
-    .lexical-original { color: #fca5a5; font-family: 'Monaco', monospace; font-size: 12.5px; background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px; }
-    .lexical-arrow    { color: #9ca3af; font-size: 13px; }
-    .lexical-upgrade  { color: #6ee7b7; font-family: 'Monaco', monospace; font-size: 12.5px; background: rgba(0,0,0,0.25); padding: 0.125rem 0.375rem; border-radius: 3px; }
-    .lexical-explain  { font-size: 12.5px; color: #cbd5e1; line-height: 1.55; margin-top: 0.375rem; }
-
-    /* Improved-essay block — same font as original essay */
-    .essay-improved-block {
-      background: rgba(20,184,166,0.04);
-      border-left: 3px solid #14b8a6;
-      border-radius: 8px; padding: 1rem 1.125rem;
-      white-space: pre-wrap; font-size: 14px;
-      line-height: 1.7; color: #e5e7eb;
-      max-height: 480px; overflow-y: auto;
-    }
-
-    /* ── Sprint 2.5.3 — Lexical simple-map render (word → suggestion) ─ */
-    .lexical-list {
-      display: flex; flex-direction: column; gap: 0.5rem;
-    }
-    .lexical-list .lexical-row {
-      display: flex; align-items: center; gap: 0.625rem;
-      flex-wrap: wrap;
-      padding: 0.5rem 0.75rem;
-      background: rgba(255,255,255,0.03);
-      border-radius: 6px;
-    }
-    .lexical-list .lexical-original,
-    .lexical-list .lexical-upgrade {
-      font-family: 'Monaco', 'Menlo', monospace;
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      font-size: 13px;
-    }
-    .lexical-list .lexical-original {
-      background: rgba(239,68,68,0.1); color: #f87171;
-    }
-    .lexical-list .lexical-upgrade {
-      background: rgba(16,185,129,0.1); color: #34d399;
-      flex: 1; min-width: 200px;
-    }
-
-    /* ── Mobile collapse ─────────────────────────────────────────── */
-    @media (max-width: 1024px) {
-      .grade-content { padding: 1.25rem 1rem 3rem; }
-      .grade-tabs { padding: 0.5rem 1rem; }
-      .criteria-grid       { grid-template-columns: 1fr; }
-      .stat-grid           { grid-template-columns: 1fr; }
-      .criterion-mini-grid { grid-template-columns: repeat(2, 1fr); }
-      .takeaway-grid       { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 640px) {
-      .tab-label { display: none; }
-      .tab-btn { padding: 0.45rem 0.75rem; }
-      .tab-icon { font-size: 1.15rem; }
-    }
   </style>
 </head>
-<body>
+<body class="av-page font-sans antialiased">
 
   <!-- Auth gates (kept identical to pre-2.5.1 — wired by WC.bootstrap) -->
   <div id="state-loading" class="flex items-center justify-center py-32">
-    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+    <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>
   </div>
   <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
-    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
-    <a href="/pages/home.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+    <h2 class="aw-state-denied__title text-xl font-bold">🔒 Admin Access Required</h2>
+    <a href="/pages/home.html" class="aw-state-denied__back mt-4 inline-block text-sm">← Quay lại Dashboard</a>
   </div>
 
   <div id="state-ready" class="hidden">
@@ -523,7 +75,7 @@
     <header class="grade-header">
       <div class="header-left">
         <a href="/pages/admin-writing.html" class="back-link">← Writing Coach</a>
-        <div class="essay-meta" style="min-width:0;">
+        <div class="essay-meta min-w-0">
           <h1 id="header-student">—</h1>
           <p class="meta-line">
             <span id="header-meta-text">—</span>
@@ -553,14 +105,23 @@
         <button id="btn-regrade"  class="btn btn-warn" title="Chấm lại bằng AI">🔄 Chấm lại</button>
         <button id="btn-deliver"  class="btn btn-success">✓ Mark delivered</button>
         <span id="last-saved"></span>
-        <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+        <span id="header-email" class="aw-header__email hidden text-xs"></span>
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
       </div>
     </header>
 
     <!-- Sprint 2.7d.2 — Instructor review panel. Hidden by default;
          loadInstructorContext() unhides + populates with one of three
          variants (claimed by me / locked by other / delivered). -->
-    <aside id="instructor-panel" class="instructor-panel hidden" style="display: none;">
+    <aside id="instructor-panel" class="instructor-panel hidden">
       <div class="instructor-panel-title" id="instructor-panel-title"></div>
       <div class="instructor-panel-meta"  id="instructor-panel-meta"></div>
 
@@ -607,7 +168,7 @@
           <header class="section-header">
             <h2>📄 Bài viết gốc</h2>
           </header>
-          <div id="prompt-box" class="text-xs mb-2" style="color:rgba(255,255,255,0.55);"></div>
+          <div id="prompt-box" class="aw-subtitle text-xs mb-2"></div>
           <pre id="essay-text" class="essay-original">—</pre>
         </section>
 
@@ -754,7 +315,7 @@
         <div class="tab-panel" data-panel="baimau">
           <section id="section-instructor-note" class="grade-section" data-section="instructor-note">
             <header class="section-header"><h2>📝 Note giảng viên</h2><button class="btn-edit" data-edit="instructor-note">✏ Sửa</button></header>
-            <p class="text-xs mb-2" style="color:rgba(255,255,255,0.45);">
+            <p class="aw-subtitle text-xs mb-2">
               Personalized feedback — sibling column on writing_essays. Survives regrade. Lưu qua endpoint riêng (không dính vào JSON validation của Save edits).
             </p>
             <div class="section-content" id="content-instructor-note"></div>
@@ -866,34 +427,24 @@
     // ── Alerts ───────────────────────────────────────────────────
     function setAlert(kind, msg) {
       var area = document.getElementById('alert-area');
-      var palette = {
-        error:   { color: '#fca5a5', bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.25)' },
-        success: { color: '#86efac', bg: 'rgba(34,197,94,0.10)',  border: 'rgba(34,197,94,0.25)' },
-        warn:    { color: '#fde68a', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.25)' },
-      }[kind] || { color: '#cbd5e1', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)' };
-      area.innerHTML =
-        '<div style="background:' + palette.bg + ';border:1px solid ' + palette.border + ';color:' + palette.color +
-        ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+      var cls = kind === 'error' ? 'aw-alert--error'
+              : kind === 'success' ? 'aw-alert--success'
+              : kind === 'warn' ? 'aw-alert--warn'
+              : 'aw-alert--info';
+      area.innerHTML = '<div class="aw-alert ' + cls + '">' + WC.escapeHtml(msg) + '</div>';
       if (kind !== 'error') {
         setTimeout(function () { if (area.firstChild) area.innerHTML = ''; }, 4000);
       }
     }
 
     // ── Status pill colour ───────────────────────────────────────
+    // Sprint 6.14c: migrated from inline style.background/color
+    // mutation to data-status attribute. The 6 status states map to
+    // CSS color-mix variants in admin-writing-grade.css.
     function setStatusPill(status) {
-      var styles = {
-        graded:    { bg: 'rgba(34,197,94,0.18)',  color: '#86efac' },
-        reviewed:  { bg: 'rgba(59,130,246,0.18)', color: '#93c5fd' },
-        delivered: { bg: 'rgba(20,184,166,0.18)', color: '#5eead4' },
-        failed:    { bg: 'rgba(239,68,68,0.18)',  color: '#f87171' },
-        pending:   { bg: 'rgba(234,179,8,0.18)',  color: '#fde68a' },
-        grading:   { bg: 'rgba(234,179,8,0.18)',  color: '#fde68a' },
-      };
-      var s = styles[status] || { bg: 'rgba(255,255,255,0.06)', color: '#e2e8f0' };
       var pill = document.getElementById('status-pill');
       pill.textContent = status || '—';
-      pill.style.background = s.bg;
-      pill.style.color = s.color;
+      pill.setAttribute('data-status', status || '');
     }
 
     // ── Dirty indicator ──────────────────────────────────────────
@@ -1477,7 +1028,7 @@
           return '<p class="empty-state">— —</p>';
         }
         if (typeof items === 'string') {
-          return '<p style="font-size:13px;color:#cbd5e1;">' + WC.escapeHtml(items) + '</p>';
+          return '<p class="prose-block" style="font-size:13px;">' + WC.escapeHtml(items) + '</p>';
         }
         return '<ul class="takeaway-list">' +
           items.map(function (i) { return '<li>' + WC.escapeHtml(String(i)) + '</li>'; }).join('') +
@@ -2108,6 +1659,35 @@
         loadEssay();
       },
     });
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14c) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
   </script>
 </body>
 </html>

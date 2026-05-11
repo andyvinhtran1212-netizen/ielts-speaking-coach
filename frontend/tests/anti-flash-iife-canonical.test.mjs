@@ -60,6 +60,8 @@ const REDESIGNED_PAGES = [
   'frontend/pages/admin-writing-prompts.html',
   'frontend/pages/admin-writing-assignments.html',
   'frontend/pages/admin-students.html',
+  'frontend/pages/admin-instructor-queue.html',
+  'frontend/pages/admin-writing-grade.html',
 ];
 
 
