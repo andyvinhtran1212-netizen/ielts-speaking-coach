@@ -5,75 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Students — Writing Coach Admin</title>
+
+  <!-- Sprint 6.14b: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; }
-    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
-    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 8px 12px; width: 100%; }
-    .input:focus { outline: none; border-color: #14b8a6; }
-    .btn-primary   { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
-    .btn-primary:hover { background: #0d9488; }
-    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.10); }
-    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
-    .btn-danger  { background: rgba(239,68,68,0.15); color: #f87171; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(239,68,68,0.25); }
-    .btn-danger:hover { background: rgba(239,68,68,0.25); }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
-    th { color: rgba(255,255,255,0.5); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .modal-bg { background: rgba(0,0,0,0.6); }
-    /* Phase 2.5 — student summary modal */
-    .stat-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
-    .stat-num { font-size: 24px; font-weight: 700; color: #14b8a6; }
-    .stat-label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; }
-    .pill-flagged { background: rgba(245,158,11,0.18); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .pill-status  { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
-    .summary-list { max-height: 200px; overflow-y: auto; }
-    .summary-list li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
-    .summary-list a { color: #5eead4; }
-    .summary-list a:hover { color: #14b8a6; }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+  <link rel="stylesheet" href="../css/admin-writing.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body>
-  <header style="background:#0C2340;border-bottom:1px solid rgba(255,255,255,0.06);" class="sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
-    <a href="/pages/admin-writing.html" class="text-sm font-medium" style="color:rgba(255,255,255,0.45);">← Writing Coach</a>
-    <span id="header-email" class="hidden text-xs" style="color:rgba(255,255,255,0.4);"></span>
+<body class="av-page font-sans antialiased">
+
+  <header class="aw-header sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <a href="/pages/admin-writing.html" class="aw-back-link text-sm font-medium">← Writing Coach</a>
+    <div class="flex items-center gap-3">
+      <span id="header-email" class="aw-header__email hidden text-xs"></span>
+      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <div id="state-loading" class="flex items-center justify-center py-32">
-    <p class="text-sm" style="color:rgba(255,255,255,0.4);">Đang kiểm tra quyền truy cập…</p>
+    <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>
   </div>
 
   <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
-    <h2 class="text-xl font-bold" style="color:#f87171;">🔒 Admin Access Required</h2>
-    <a href="/pages/home.html" class="mt-4 inline-block text-sm" style="color:#14b8a6;">← Quay lại Dashboard</a>
+    <h2 class="aw-state-denied__title text-xl font-bold">🔒 Admin Access Required</h2>
+    <a href="/pages/home.html" class="aw-state-denied__back mt-4 inline-block text-sm">← Quay lại Dashboard</a>
   </div>
 
   <main id="state-ready" class="hidden max-w-6xl mx-auto px-6 py-8">
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Students</h1>
-        <p class="mt-1 text-sm" style="color:rgba(255,255,255,0.5);">Quản lý profile + theo dõi lịch sử bài viết</p>
+        <h1 class="aw-h1 text-2xl font-bold">Students</h1>
+        <p class="aw-subtitle mt-1 text-sm">Quản lý profile + theo dõi lịch sử bài viết</p>
       </div>
       <div class="flex gap-2">
-        <label class="btn-secondary" style="display:inline-flex;align-items:center;gap:6px;">
+        <label class="aw-btn-secondary aw-file-button">
           📥 Import CSV
           <input id="csv-input" type="file" accept=".csv,text/csv" class="hidden" />
         </label>
-        <button id="btn-new" class="btn-primary">＋ New Student</button>
+        <button id="btn-new" class="aw-btn-primary">＋ New Student</button>
       </div>
     </div>
 
     <div class="mt-5 flex items-center gap-3">
-      <input id="search-input" class="input" style="max-width:360px;" placeholder="Tìm theo mã hoặc tên…" />
-      <span id="row-count" class="text-xs" style="color:rgba(255,255,255,0.4);"></span>
+      <input id="search-input" class="aw-input" style="max-width:360px;" placeholder="Tìm theo mã hoặc tên…" />
+      <span id="row-count" class="aw-search-meta text-xs"></span>
     </div>
 
     <div id="alert-area" class="mt-4"></div>
 
-    <div class="card mt-5 overflow-x-auto">
-      <table id="students-table">
+    <div class="aw-card mt-5 overflow-x-auto">
+      <table id="students-table" class="aw-table">
         <thead>
           <tr>
             <th>Code</th>
@@ -85,79 +110,79 @@
           </tr>
         </thead>
         <tbody id="students-tbody">
-          <tr><td colspan="6" class="text-center" style="color:rgba(255,255,255,0.4);padding:24px;">Đang tải…</td></tr>
+          <tr><td colspan="6" class="aw-table__empty">Đang tải…</td></tr>
         </tbody>
       </table>
     </div>
   </main>
 
   <!-- Phase 2.5 — Per-student instructor summary modal -->
-  <div id="summary-modal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
-    <div class="card max-w-3xl w-full p-6">
+  <div id="summary-modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="aw-modal-panel max-w-3xl w-full p-6">
       <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
         <div>
-          <h2 id="summary-title" class="text-lg font-semibold">—</h2>
-          <p id="summary-subtitle" class="text-xs mt-1" style="color:rgba(255,255,255,0.5);">—</p>
+          <h2 id="summary-title" class="aw-modal-title text-lg font-semibold">—</h2>
+          <p id="summary-subtitle" class="aw-subtitle text-xs mt-1">—</p>
         </div>
-        <button id="summary-close" class="btn-secondary">Đóng</button>
+        <button id="summary-close" class="aw-btn-secondary">Đóng</button>
       </div>
 
       <!-- Stat cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="stat-card"><div class="stat-label">Tổng bài</div><div id="stat-total" class="stat-num mt-1">—</div></div>
-        <div class="stat-card"><div class="stat-label">Đã chấm</div><div id="stat-graded" class="stat-num mt-1">—</div></div>
-        <div class="stat-card"><div class="stat-label">Flagged</div><div id="stat-flagged" class="stat-num mt-1" style="color:#fbbf24;">—</div></div>
-        <div class="stat-card"><div class="stat-label">Avg band 5 bài gần nhất</div><div id="stat-avg-band" class="stat-num mt-1">—</div></div>
+        <div class="aw-stat-card"><div class="aw-stat-label">Tổng bài</div><div id="stat-total" class="aw-stat-num">—</div></div>
+        <div class="aw-stat-card"><div class="aw-stat-label">Đã chấm</div><div id="stat-graded" class="aw-stat-num">—</div></div>
+        <div class="aw-stat-card"><div class="aw-stat-label">Flagged</div><div id="stat-flagged" class="aw-stat-num aw-stat-num--flagged">—</div></div>
+        <div class="aw-stat-card"><div class="aw-stat-label">Avg band 5 bài gần nhất</div><div id="stat-avg-band" class="aw-stat-num">—</div></div>
       </div>
 
       <!-- Two-column lists -->
       <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
         <div>
-          <h3 class="text-xs font-semibold mb-2" style="color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.04em;">Bài viết gần đây</h3>
-          <ul id="summary-essays" class="summary-list"></ul>
+          <h3 class="aw-summary-section-heading">Bài viết gần đây</h3>
+          <ul id="summary-essays" class="aw-summary-list"></ul>
         </div>
         <div>
-          <h3 class="text-xs font-semibold mb-2" style="color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.04em;">Đề bài giao gần đây</h3>
-          <ul id="summary-assignments" class="summary-list"></ul>
+          <h3 class="aw-summary-section-heading">Đề bài giao gần đây</h3>
+          <ul id="summary-assignments" class="aw-summary-list"></ul>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Edit / Create modal -->
-  <div id="modal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
-    <div class="card max-w-lg w-full p-6">
-      <h2 id="modal-title" class="text-lg font-semibold">New Student</h2>
+  <div id="modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="aw-modal-panel max-w-lg w-full p-6">
+      <h2 id="modal-title" class="aw-modal-title text-lg font-semibold">New Student</h2>
       <form id="student-form" class="mt-4 space-y-3">
         <div>
-          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Mã học viên *</label>
-          <input id="f-code" class="input mt-1" required maxlength="64" />
+          <label class="aw-label text-xs">Mã học viên *</label>
+          <input id="f-code" class="aw-input mt-1" required maxlength="64" />
         </div>
         <div>
-          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Họ và tên *</label>
-          <input id="f-name" class="input mt-1" required maxlength="255" />
+          <label class="aw-label text-xs">Họ và tên *</label>
+          <input id="f-name" class="aw-input mt-1" required maxlength="255" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="text-xs" style="color:rgba(255,255,255,0.5);">Target Band</label>
-            <input id="f-target-band" type="number" step="0.5" min="0" max="9" class="input mt-1" />
+            <label class="aw-label text-xs">Target Band</label>
+            <input id="f-target-band" type="number" step="0.5" min="0" max="9" class="aw-input mt-1" />
           </div>
           <div>
-            <label class="text-xs" style="color:rgba(255,255,255,0.5);">Current Band</label>
-            <input id="f-current-band" type="number" step="0.5" min="0" max="9" class="input mt-1" />
+            <label class="aw-label text-xs">Current Band</label>
+            <input id="f-current-band" type="number" step="0.5" min="0" max="9" class="aw-input mt-1" />
           </div>
         </div>
         <div>
-          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Target Date</label>
-          <input id="f-target-date" type="date" class="input mt-1" />
+          <label class="aw-label text-xs">Target Date</label>
+          <input id="f-target-date" type="date" class="aw-input mt-1" />
         </div>
         <div>
-          <label class="text-xs" style="color:rgba(255,255,255,0.5);">Persona Notes</label>
-          <textarea id="f-notes" class="input mt-1" rows="2"></textarea>
+          <label class="aw-label text-xs">Persona Notes</label>
+          <textarea id="f-notes" class="aw-input mt-1" rows="2"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" id="btn-cancel" class="btn-secondary">Cancel</button>
-          <button type="submit" id="btn-save" class="btn-primary">Save</button>
+          <button type="button" id="btn-cancel" class="aw-btn-secondary">Cancel</button>
+          <button type="submit" id="btn-save" class="aw-btn-primary">Save</button>
         </div>
       </form>
     </div>
@@ -174,10 +199,8 @@
 
     function setAlert(kind, msg) {
       var area = document.getElementById('alert-area');
-      var color = kind === 'error' ? '#f87171' : kind === 'success' ? '#86efac' : '#fde68a';
-      var bg    = kind === 'error' ? 'rgba(239,68,68,0.10)' : kind === 'success' ? 'rgba(134,239,172,0.08)' : 'rgba(234,179,8,0.08)';
-      var border = kind === 'error' ? 'rgba(239,68,68,0.25)' : kind === 'success' ? 'rgba(134,239,172,0.25)' : 'rgba(234,179,8,0.25)';
-      area.innerHTML = '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';" class="p-3 rounded-lg text-sm">' + WC.escapeHtml(msg) + '</div>';
+      var cls  = kind === 'error' ? 'aw-alert--error' : kind === 'success' ? 'aw-alert--success' : 'aw-alert--warn';
+      area.innerHTML = '<div class="aw-alert ' + cls + '">' + WC.escapeHtml(msg) + '</div>';
       if (kind !== 'error') setTimeout(function () { area.innerHTML = ''; }, 4000);
     }
 
@@ -185,7 +208,7 @@
       var tb = document.getElementById('students-tbody');
       document.getElementById('row-count').textContent = rows.length + ' học viên';
       if (!rows.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="text-center" style="color:rgba(255,255,255,0.4);padding:24px;">Chưa có học viên.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="aw-table__empty">Chưa có học viên.</td></tr>';
         return;
       }
       tb.innerHTML = rows.map(function (r) {
@@ -195,16 +218,16 @@
         var cBand = r.current_band_estimate == null ? '—' : r.current_band_estimate;
         var date  = r.target_date ? WC.escapeHtml(r.target_date) : '—';
         return '<tr>' +
-          '<td style="font-family:ui-monospace,monospace;">' + code + '</td>' +
+          '<td class="aw-table__code">' + code + '</td>' +
           '<td>' + name + '</td>' +
           '<td>' + tBand + '</td>' +
           '<td>' + cBand + '</td>' +
           '<td>' + date + '</td>' +
           '<td class="text-right">' +
-            '<button class="btn-secondary" data-act="summary" data-id="' + WC.escapeHtml(r.id) + '" data-name="' + name + '">📊 Tổng quan</button> ' +
-            '<button class="btn-secondary" data-act="essay" data-id="' + WC.escapeHtml(r.id) + '">📝 New Essay</button> ' +
-            '<button class="btn-secondary" data-act="edit" data-id="' + WC.escapeHtml(r.id) + '">Edit</button> ' +
-            '<button class="btn-danger" data-act="delete" data-id="' + WC.escapeHtml(r.id) + '" data-code="' + code + '">Delete</button>' +
+            '<button class="aw-btn-secondary" data-act="summary" data-id="' + WC.escapeHtml(r.id) + '" data-name="' + name + '">📊 Tổng quan</button> ' +
+            '<button class="aw-btn-secondary" data-act="essay" data-id="' + WC.escapeHtml(r.id) + '">📝 New Essay</button> ' +
+            '<button class="aw-btn-secondary" data-act="edit" data-id="' + WC.escapeHtml(r.id) + '">Edit</button> ' +
+            '<button class="aw-btn-danger" data-act="delete" data-id="' + WC.escapeHtml(r.id) + '" data-code="' + code + '">Delete</button>' +
           '</td>' +
         '</tr>';
       }).join('');
@@ -332,7 +355,7 @@
       document.getElementById('stat-flagged').textContent = '—';
       document.getElementById('stat-avg-band').textContent = '—';
       document.getElementById('summary-essays').innerHTML =
-        '<li style="color:rgba(255,255,255,0.4);">Đang tải…</li>';
+        '<li class="aw-summary-list__empty">Đang tải…</li>';
       document.getElementById('summary-assignments').innerHTML = '';
       modal.classList.remove('hidden');
 
@@ -360,10 +383,10 @@
               var band = _bandFromEssay(e);
               var bandLabel = band != null ? 'Band ' + band : WC.escapeHtml(e.status || '—');
               var flagged = e.is_flagged
-                ? ' <span class="pill-flagged">⚠ Flagged</span>'
+                ? ' <span class="aw-mini-pill aw-mini-pill--flagged">⚠ Flagged</span>'
                 : '';
               var regraded = (e.regrade_count || 0) > 0
-                ? ' <span class="pill-status">🔄 ×' + e.regrade_count + '</span>'
+                ? ' <span class="aw-mini-pill">🔄 ×' + e.regrade_count + '</span>'
                 : '';
               return '<li>' +
                 '<a href="/pages/admin-writing-grade.html?essay_id=' + WC.escapeHtml(e.id) + '">' +
@@ -371,7 +394,7 @@
                 '</a>' + flagged + regraded +
               '</li>';
             }).join('')
-          : '<li style="color:rgba(255,255,255,0.4);">Chưa có bài viết.</li>';
+          : '<li class="aw-summary-list__empty">Chưa có bài viết.</li>';
         document.getElementById('summary-essays').innerHTML = essaysHtml;
 
         var assigns = s.recent_assignments || [];
@@ -380,10 +403,10 @@
               var p = a.writing_prompts || {};
               return '<li>' +
                 WC.escapeHtml(p.title || '—') +
-                ' <span class="pill-status">' + WC.escapeHtml(a.status || '—') + '</span>' +
+                ' <span class="aw-mini-pill">' + WC.escapeHtml(a.status || '—') + '</span>' +
               '</li>';
             }).join('')
-          : '<li style="color:rgba(255,255,255,0.4);">Chưa có bài giao.</li>';
+          : '<li class="aw-summary-list__empty">Chưa có bài giao.</li>';
         document.getElementById('summary-assignments').innerHTML = assignsHtml;
       } catch (err) {
         setAlert('error', 'Không tải được tổng quan: ' + err.message);
@@ -444,6 +467,35 @@
         loadStudents();
       }
     });
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14b) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
   </script>
 </body>
 </html>

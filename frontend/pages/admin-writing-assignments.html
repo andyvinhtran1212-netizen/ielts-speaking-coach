@@ -5,53 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Bài giao — Writing Coach Admin</title>
+
+  <!-- Sprint 6.14b: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    body { background: #0a1628; font-family: 'Inter', ui-sans-serif, system-ui; color: #e2e8f0; min-height: 100vh; }
-    .card  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
-    .input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); color: #e2e8f0; border-radius: 8px; padding: 6px 10px; width: 100%; font-size: 14px; }
-    .input:focus { outline: none; border-color: #14b8a6; }
-    textarea.input { font-family: 'Inter', ui-sans-serif, system-ui; resize: vertical; min-height: 70px; }
-    .btn-primary   { background: #14b8a6; color: #0a1628; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer; border: none; font-size: 14px; }
-    .btn-primary:hover { background: #0d9488; }
-    .btn-primary:disabled { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.4); cursor: not-allowed; }
-    .btn-secondary { background: rgba(255,255,255,0.06); color: #e2e8f0; padding: 7px 12px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.10); font-weight: 500; font-size: 13px; }
-    .btn-secondary:hover { background: rgba(255,255,255,0.10); }
-    .btn-danger    { background: rgba(239,68,68,0.15); color: #fca5a5; padding: 6px 10px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(239,68,68,0.30); font-weight: 500; font-size: 12px; }
-    .btn-danger:hover { background: rgba(239,68,68,0.25); }
-    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-    .pill-pending     { background: rgba(156,163,175,0.15); color: #cbd5e1; }
-    .pill-in_progress { background: rgba(59,130,246,0.15);  color: #93c5fd; }
-    .pill-submitted   { background: rgba(245,158,11,0.15);  color: #fcd34d; }
-    .pill-graded      { background: rgba(168,85,247,0.15);  color: #d8b4fe; }
-    .pill-delivered   { background: rgba(16,185,129,0.15);  color: #86efac; }
-    .pill-task        { background: rgba(20,184,166,0.15);  color: #5eead4; }
-    .pill-timed       { background: rgba(245,158,11,0.15);  color: #f59e0b; }
-    .student-row     { padding: 4px 8px; border-radius: 6px; }
-    .student-row:hover { background: rgba(255,255,255,0.04); }
-    .modal-bg { background: rgba(10,22,40,0.85); backdrop-filter: blur(4px); }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="../css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="../css/aver-design/components.css" />
+  <link rel="stylesheet" href="../css/admin-writing.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body>
+<body class="av-page font-sans antialiased min-h-screen">
   <div class="max-w-5xl mx-auto px-4 py-6">
     <header class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-2">
-        <span class="text-xl font-bold">Aver<span style="color:#14b8a6">Learning</span></span>
-        <span class="text-sm text-gray-400 hidden md:inline">— Bài giao</span>
+        <span class="aw-brand text-xl font-bold">Aver<span class="aw-brand__accent">Learning</span></span>
+        <span class="aw-subtitle text-sm hidden md:inline">— Bài giao</span>
       </div>
-      <a href="/admin.html" class="text-sm text-gray-400 hover:text-white">← Admin home</a>
+      <div class="flex items-center gap-3">
+        <a href="/admin.html" class="aw-back-link text-sm">← Admin home</a>
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
     </header>
 
-    <h1 class="text-2xl font-semibold mb-1 flex items-center gap-2">
+    <h1 class="aw-h1 text-2xl font-semibold mb-1 flex items-center gap-2">
       <span aria-hidden="true">📋</span> Bài giao
     </h1>
-    <p class="text-sm text-gray-400 mb-6">Giao đề bài từ thư viện cho học viên.</p>
+    <p class="aw-subtitle text-sm mb-6">Giao đề bài từ thư viện cho học viên.</p>
 
     <!-- Filter bar -->
     <div class="flex flex-wrap gap-3 mb-4 items-center">
-      <select id="filter-status" class="input" style="width: auto; min-width: 200px;">
+      <select id="filter-status" class="aw-input" style="width: auto; min-width: 200px;">
         <option value="">Tất cả trạng thái</option>
         <option value="pending">⏳ Chờ làm</option>
         <option value="in_progress">📝 Đang làm</option>
@@ -59,84 +84,84 @@
         <option value="graded">✓ Đã chấm</option>
         <option value="delivered">📨 Đã trả</option>
       </select>
-      <button id="btn-create" type="button" class="btn-primary ml-auto">+ Giao bài mới</button>
+      <button id="btn-create" type="button" class="aw-btn-primary ml-auto">+ Giao bài mới</button>
     </div>
 
     <!-- States -->
-    <div id="state-loading" class="text-center py-10 text-gray-400">Đang tải…</div>
-    <div id="state-error"   class="hidden card p-4 text-red-300 text-sm"></div>
-    <div id="state-empty"   class="hidden text-center py-10 text-gray-400">Chưa có bài giao nào.</div>
+    <div id="state-loading" class="aw-state-loading text-center py-10">Đang tải…</div>
+    <div id="state-error"   class="aw-state-error hidden text-sm"></div>
+    <div id="state-empty"   class="aw-state-empty hidden text-center py-10">Chưa có bài giao nào.</div>
 
     <div id="assignments-list" class="space-y-3 hidden"></div>
   </div>
 
   <!-- Create assignment modal -->
-  <div id="modal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center px-4">
-    <div class="card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+  <div id="modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div class="aw-modal-panel max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">Giao bài mới</h2>
-        <button id="btn-close-modal" type="button" class="text-gray-400 hover:text-white text-2xl leading-none" aria-label="Close">&times;</button>
+        <h2 class="aw-modal-title text-lg font-semibold">Giao bài mới</h2>
+        <button id="btn-close-modal" type="button" class="aw-modal-close text-2xl leading-none" aria-label="Close">&times;</button>
       </div>
 
       <div class="space-y-4">
         <!-- Step 1 — pick prompt -->
         <div>
-          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">
+          <label class="aw-modal-step-label">
             Bước 1 — Chọn đề từ thư viện
           </label>
-          <select id="form-prompt" class="input">
+          <select id="form-prompt" class="aw-input">
             <option value="">— Chọn đề bài —</option>
           </select>
-          <div id="prompt-preview" class="hidden mt-2 p-3 rounded text-sm text-gray-300" style="background:rgba(255,255,255,0.03)"></div>
+          <div id="prompt-preview" class="aw-prompt-preview hidden mt-2 p-3 text-sm"></div>
         </div>
 
         <!-- Step 2 — pick students -->
         <div>
-          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">
+          <label class="aw-modal-step-label">
             Bước 2 — Chọn học viên
-            <span id="selected-count" class="ml-2 text-teal-300" style="color:#5eead4">(0 chọn)</span>
+            <span id="selected-count" class="aw-modal-step-label__count">(0 chọn)</span>
           </label>
           <div class="flex items-center gap-2 mb-2">
-            <input id="student-search" type="text" placeholder="Tìm theo tên hoặc mã học viên…" class="input" style="flex:1" />
-            <button id="btn-select-all" type="button" class="btn-secondary">Chọn tất cả</button>
-            <button id="btn-clear-all"  type="button" class="btn-secondary">Bỏ chọn</button>
+            <input id="student-search" type="text" placeholder="Tìm theo tên hoặc mã học viên…" class="aw-input" style="flex:1" />
+            <button id="btn-select-all" type="button" class="aw-btn-secondary">Chọn tất cả</button>
+            <button id="btn-clear-all"  type="button" class="aw-btn-secondary">Bỏ chọn</button>
           </div>
-          <div id="students-list" class="max-h-56 overflow-y-auto rounded p-2" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
-            <p id="students-empty" class="hidden text-xs text-gray-500 p-2">Không có học viên trùng bộ lọc.</p>
+          <div id="students-list" class="aw-student-picker max-h-56 overflow-y-auto p-2">
+            <p id="students-empty" class="aw-student-picker__empty hidden text-xs p-2">Không có học viên trùng bộ lọc.</p>
           </div>
         </div>
 
         <!-- Step 3 — optional fields -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Hạn nộp (tùy chọn)</label>
-            <input id="form-deadline" type="datetime-local" class="input" />
+            <label class="aw-modal-step-label">Hạn nộp (tùy chọn)</label>
+            <input id="form-deadline" type="datetime-local" class="aw-input" />
           </div>
           <div>
-            <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Ghi chú cho học viên (tùy chọn)</label>
-            <textarea id="form-instructions" class="input" placeholder="VD: Tập trung vào câu phức + linking words."></textarea>
+            <label class="aw-modal-step-label">Ghi chú cho học viên (tùy chọn)</label>
+            <textarea id="form-instructions" class="aw-input" placeholder="VD: Tập trung vào câu phức + linking words."></textarea>
           </div>
         </div>
 
         <!-- Step 4 — IELTS-mode timer (Phase 2.3c-3) -->
-        <div class="border-t border-white/10 pt-3 mt-1">
+        <div class="aw-modal-step-divider">
           <label class="flex items-center gap-2 cursor-pointer">
             <input id="form-is-timed" type="checkbox" class="cursor-pointer" />
             <span class="text-sm font-medium">⏱️ IELTS-mode (đếm ngược + tự nộp)</span>
           </label>
           <div id="timer-fields" class="hidden mt-2 ml-6">
-            <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Thời gian (phút)</label>
-            <input id="form-time-limit" type="number" min="1" max="180" placeholder="VD: 40" class="input" style="width: 8rem" />
-            <p class="text-xs text-gray-500 mt-1">Task 1: 20 phút · Task 2: 40 phút (chuẩn IELTS).</p>
+            <label class="aw-modal-step-label">Thời gian (phút)</label>
+            <input id="form-time-limit" type="number" min="1" max="180" placeholder="VD: 40" class="aw-input" style="width: 8rem" />
+            <p class="aw-help-text text-xs mt-1">Task 1: 20 phút · Task 2: 40 phút (chuẩn IELTS).</p>
           </div>
         </div>
       </div>
 
-      <div id="modal-error" class="hidden mt-3 text-sm text-red-300"></div>
+      <div id="modal-error" class="aw-upload-error hidden mt-3 text-sm"></div>
 
       <div class="flex justify-end gap-2 mt-6">
-        <button id="btn-cancel" type="button" class="btn-secondary">Hủy</button>
-        <button id="btn-save"   type="button" class="btn-primary">Giao bài</button>
+        <button id="btn-cancel" type="button" class="aw-btn-secondary">Hủy</button>
+        <button id="btn-save"   type="button" class="aw-btn-primary">Giao bài</button>
       </div>
     </div>
   </div>
@@ -229,31 +254,31 @@
         var taskLabel    = TASK_LABELS[prompt.task_type] || prompt.task_type || '—';
 
         var timerPill = a.is_timed && a.time_limit_minutes
-          ? '<span class="pill pill-timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
+          ? '<span class="aw-assign-pill aw-assign-pill--timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
           : '';
         var autoSubmittedHint = a.auto_submitted
-          ? '<span class="text-xs text-amber-400">⚠ Nộp tự động (hết giờ)</span>'
+          ? '<span class="aw-assign-auto-submitted text-xs">⚠ Nộp tự động (hết giờ)</span>'
           : '';
 
         return ''
-          + '<div class="card p-4">'
+          + '<div class="aw-card p-4">'
           +   '<div class="flex items-start justify-between gap-3 mb-2">'
           +     '<div class="min-w-0">'
-          +       '<h3 class="font-semibold text-gray-100 text-base truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>'
-          +       '<p class="text-xs text-gray-400 mt-1">→ ' + escapeHtml(studentLabel) + '</p>'
+          +       '<h3 class="aw-prompt-row__title font-semibold text-base truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>'
+          +       '<p class="aw-assign-meta text-xs mt-1">→ ' + escapeHtml(studentLabel) + '</p>'
           +     '</div>'
           +     '<div class="flex flex-col items-end gap-1 flex-shrink-0">'
-          +       '<span class="pill pill-' + statusKey + '">' + escapeHtml(STATUS_LABELS[statusKey] || statusKey) + '</span>'
-          +       '<span class="pill pill-task">' + escapeHtml(taskLabel) + '</span>'
+          +       '<span class="aw-assign-pill" data-status="' + escapeHtml(statusKey) + '">' + escapeHtml(STATUS_LABELS[statusKey] || statusKey) + '</span>'
+          +       '<span class="aw-assign-pill aw-assign-pill--task">' + escapeHtml(taskLabel) + '</span>'
           +       timerPill
           +     '</div>'
           +   '</div>'
           +   (autoSubmittedHint ? '<div class="mb-2">' + autoSubmittedHint + '</div>' : '')
-          +   '<div class="flex items-center justify-between flex-wrap gap-2 text-xs text-gray-500">'
+          +   '<div class="aw-assign-meta flex items-center justify-between flex-wrap gap-2 text-xs">'
           +     '<span>Giao: ' + formatDate(a.created_at) + '</span>'
           +     (a.deadline     ? '<span>Hạn: '       + formatDate(a.deadline)     + '</span>' : '')
           +     (a.submitted_at ? '<span>Nộp: '       + formatDate(a.submitted_at) + '</span>' : '')
-          +     (a.delivered_at ? '<span style="color:#86efac">Trả: ' + formatDate(a.delivered_at) + '</span>' : '')
+          +     (a.delivered_at ? '<span class="aw-assign-meta__delivered">Trả: ' + formatDate(a.delivered_at) + '</span>' : '')
           +   '</div>'
           + '</div>';
       }).join('');
@@ -319,10 +344,10 @@
         var checked = _selectedStudentIds.has(s.id) ? 'checked' : '';
         var label = s.full_name || s.student_code || '(Chưa đặt tên)';
         return ''
-          + '<label class="student-row flex items-center gap-2 cursor-pointer">'
-          +   '<input type="checkbox" data-student-id="' + escapeHtml(s.id) + '" ' + checked + ' style="accent-color:#14b8a6">'
-          +   '<span class="text-sm text-gray-200">' + escapeHtml(label) + '</span>'
-          +   '<span class="text-xs text-gray-500 ml-auto">' + escapeHtml(s.student_code || '') + '</span>'
+          + '<label class="aw-student-row flex items-center gap-2">'
+          +   '<input type="checkbox" class="aw-student-row__checkbox" data-student-id="' + escapeHtml(s.id) + '" ' + checked + '>'
+          +   '<span class="aw-student-row__name">' + escapeHtml(label) + '</span>'
+          +   '<span class="aw-student-row__code">' + escapeHtml(s.student_code || '') + '</span>'
           + '</label>';
       }).join('');
 
@@ -465,6 +490,35 @@
     });
 
     loadAssignments();
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14b) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
   </script>
 </body>
 </html>

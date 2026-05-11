@@ -458,3 +458,245 @@ textarea.aw-input {
 /* ── Footer note (status page link-essay etc.) ────────────────────── */
 
 .aw-help-text { color: var(--av-text-faint); }
+
+
+/* ════════════════════════════════════════════════════════════════════
+ * Sprint 6.14b additions — table pages cluster
+ * (admin-writing-assignments.html + admin-students.html).
+ *
+ * New primitives introduced here are deliberately namespace-shared
+ * with the 6.14a primitives (`.aw-*`) so Sprint 6.14c/d can extend
+ * the same stylesheet rather than spawn a new one.
+ * ════════════════════════════════════════════════════════════════════ */
+
+
+/* ── Step labels in modals (assignments page modal) ───────────────── */
+
+.aw-modal-step-label {
+  display: block;
+  font-size: var(--av-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-widest);
+  color: var(--av-text-muted);
+  margin-bottom: 4px;
+  font-weight: var(--av-fw-semibold);
+}
+.aw-modal-step-label__count {
+  margin-left: 8px;
+  color: var(--av-primary);
+  font-weight: var(--av-fw-bold);
+}
+
+.aw-modal-step-divider {
+  border-top: 1px solid var(--av-border-subtle);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.aw-prompt-preview {
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  border-radius: var(--av-radius-md);
+}
+
+
+/* ── Student picker (assignments modal: multi-select with search) ─── */
+
+.aw-student-picker {
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+}
+
+.aw-student-picker__empty { color: var(--av-text-faint); }
+
+.aw-student-row {
+  padding: 4px 8px;
+  border-radius: var(--av-radius-sm);
+  cursor: pointer;
+}
+.aw-student-row:hover { background: var(--av-surface-card); }
+
+.aw-student-row__checkbox { accent-color: var(--av-primary); }
+.aw-student-row__name     { color: var(--av-text-primary); font-size: var(--av-fs-sm); }
+.aw-student-row__code     {
+  color: var(--av-text-faint);
+  font-family: var(--av-font-mono);
+  margin-left: auto;
+  font-size: var(--av-fs-xs);
+}
+
+
+/* ── Assignment status pills (5 + timed) ──────────────────────────── */
+
+/* Assignments have their own status lifecycle that doesn't overlap with
+ * the essay-grading lifecycle (`.aw-status-pill[data-status]`):
+ *   pending     — chờ học viên làm
+ *   in_progress — học viên đang làm
+ *   submitted   — học viên đã nộp, chờ chấm
+ *   graded      — admin đã chấm, chưa giao lại
+ *   delivered   — đã giao lại học viên
+ * Use a separate namespace so the two systems can evolve independently.
+ */
+.aw-assign-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  font-family: var(--av-font-mono);
+}
+.aw-assign-pill[data-status="pending"]     { background: var(--av-surface-sunken); color: var(--av-text-secondary); }
+.aw-assign-pill[data-status="in_progress"] { background: color-mix(in srgb, var(--av-info) 18%, transparent);    color: var(--av-info); }
+.aw-assign-pill[data-status="submitted"]   { background: color-mix(in srgb, var(--av-warning) 18%, transparent); color: var(--av-warning); }
+.aw-assign-pill[data-status="graded"]      { background: var(--av-primary-soft); color: var(--av-primary); }
+.aw-assign-pill[data-status="delivered"]   { background: color-mix(in srgb, var(--av-success) 18%, transparent); color: var(--av-success); }
+
+.aw-assign-pill--timed  { background: color-mix(in srgb, var(--av-warning) 18%, transparent); color: var(--av-warning); }
+.aw-assign-pill--task   { background: color-mix(in srgb, var(--av-primary) 15%, transparent); color: var(--av-primary); }
+
+.aw-assign-meta         { color: var(--av-text-muted); }
+.aw-assign-meta__delivered { color: var(--av-success); }
+.aw-assign-auto-submitted  { color: var(--av-warning); }
+
+
+/* ── Tables (admin-students.html: real <table> rendering) ─────────── */
+
+.aw-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.aw-table th,
+.aw-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--av-border-subtle);
+  font-size: var(--av-fs-sm);
+}
+.aw-table th {
+  color: var(--av-text-muted);
+  font-weight: var(--av-fw-medium);
+  font-size: var(--av-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide);
+  background: var(--av-surface-sunken);
+}
+.aw-table tbody tr {
+  transition: background var(--av-duration-fast) var(--av-easing-default);
+}
+.aw-table tbody tr:hover {
+  background: color-mix(in srgb, var(--av-text-primary) 3%, transparent);
+}
+.aw-table__code {
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+  color: var(--av-text-primary);
+}
+.aw-table__empty {
+  color: var(--av-text-faint);
+  text-align: center;
+  padding: 24px;
+}
+.aw-table__row-count {
+  color: var(--av-text-muted);
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+}
+
+
+/* ── Stat cards (admin-students summary modal — Phase 2.5) ────────── */
+
+.aw-stat-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: 14px;
+}
+.aw-stat-num {
+  font-size: var(--av-fs-2xl);
+  font-weight: var(--av-fw-bold);
+  color: var(--av-primary);
+  font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+  margin-top: 4px;
+}
+.aw-stat-num--flagged { color: var(--av-warning); }
+
+.aw-stat-label {
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide);
+}
+
+.aw-summary-section-heading {
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide);
+  margin-bottom: 8px;
+}
+
+.aw-summary-list {
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.aw-summary-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--av-border-subtle);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+.aw-summary-list a {
+  color: var(--av-primary);
+  transition: color var(--av-duration-fast) var(--av-easing-default);
+}
+.aw-summary-list a:hover { color: var(--av-primary-hover); }
+.aw-summary-list__empty   { color: var(--av-text-faint); }
+
+
+/* ── Status mini-pills (summary modal: flagged, regrade) ──────────── */
+
+.aw-mini-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--av-radius-sm);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+}
+.aw-mini-pill--flagged {
+  background: color-mix(in srgb, var(--av-warning) 18%, transparent);
+  color: var(--av-warning);
+}
+
+
+/* ── Search row meta (admin-students.html: row count) ─────────────── */
+
+.aw-search-meta { color: var(--av-text-faint); font-family: var(--av-font-mono); font-feature-settings: 'tnum'; }
+
+
+/* ── File-input wrapper button (admin-students CSV import) ────────── */
+
+/* Tailwind .hidden takes care of the actual <input type="file"> — we
+ * just need to ensure the wrapping label looks like a button. The
+ * existing .aw-btn-secondary covers the visual; this rule keeps the
+ * label-as-button accessible by surfacing the file input on focus. */
+.aw-file-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.aw-file-button:focus-within {
+  box-shadow: var(--av-shadow-focus);
+  border-radius: var(--av-radius-md);
+}
+
