@@ -14,17 +14,19 @@ Exception: pages that are sibling iframe panels (e.g., `my-vocabulary.html` + `f
 
 ## 2. Priority order
 
-The redesign program runs in phases. Phases 1–3 are complete (13 pages redesigned cumulative); Phase 4 covers the remaining legacy surface.
+The redesign program runs in phases. Phases 1–3 are complete (13 pages); Phase 4 is in progress (10 of 11 pages shipped — marketing COMPLETE + admin sub-pages COMPLETE, `admin.html` monolith + Grammar Wiki cluster remaining).
 
 | Phase | Pages | Status |
 |---|---|---|
 | **Phase 1** — Speaking flow | `home.html` (Sprint 6.3, PR #121), `speaking.html` (6.4 / 6.4.1 / 6.4.2, PRs #123/#124/#125), `practice.html` (6.5 / 6.5.1, PRs #127/#128), `result.html` (6.6 / 6.6.1, PRs #130/#131) | **COMPLETE** |
 | **Phase 2** — Writing flow + Speaking aggregate | `writing-dashboard.html` (6.7 / 6.7.1, PRs #132/#133/#134), `writing-result.html` (6.8, PR #135), `full-test-result.html` (6.9, PR #136); audit hotfix Sprint 6.9.1 PR #137 | **COMPLETE** |
 | **Phase 3** — Vocabulary + Profile + Onboarding | `vocabulary.html` landing (6.10, PR #138); theme-toggle icon normalization (6.10.1, PR #139, 6-page drift fix); `my-vocabulary.html` (6.11a, PR #140); `flashcards.html` + `exercises.html` + `_renderPreviewModal` atomic (6.11b, PR #141); `profile.html` (6.12a, PR #142); `onboarding.html` (6.12b, PR #143) | **COMPLETE** |
-| **Phase 4** — Marketing + Admin + Grammar Wiki | Sprint 6.13: `index.html` + `pricing.html` (marketing). Sprint 6.14: `admin.html` + admin sub-pages (Tier 2 — bigger refactor; extract `admin.css` first). Sprint 6.15: Grammar Wiki cluster (`grammar.html` + 5 sub-pages, `vocab-article.html`; decision pending on DM Sans + Lora sub-system vs unification). | **UPCOMING** |
+| **Phase 4** — Marketing + Admin + Grammar Wiki | **Marketing COMPLETE:** `index.html` surgical migration + multi-skill repositioning (Sprint 6.13a + 6.13a-extension, PRs #145/#146); `pricing.html` (6.13b, PR #147); Era B `landing.html` duplicate eliminated atomically (Sprint 6.13a). **Admin sub-pages COMPLETE:** small writing cluster — `admin-writing.html` + `admin-writing-new.html` + `admin-writing-status.html` + `admin-writing-prompts.html` (6.14a, PR #149); table pages — `admin-writing-assignments.html` + `admin-students.html` (6.14b, PR #150); instructor queue + grading — `admin-instructor-queue.html` + `admin-writing-grade.html` (6.14c, PR #151); pre-work PR #148. **UPCOMING:** Sprint 6.14d `admin.html` monolith (~3,667 lines, 10-tab, 186 IDs); Sprint 6.15 Grammar Wiki cluster (`grammar.html` + 5 sub-pages, `vocab-article.html`; decision pending on DM Sans + Lora sub-system vs unification). | **IN PROGRESS** |
 | **Phase 5+** — Deferred | Writing IA self-directed option; DEBT-2026-05-09-B vocabulary iframe → module extraction (no un-defer triggers fired); Stripe (Sprint 2.7e); email infra (Sprint 2.8). | **DEFERRED** |
 
-**13 pages redesigned cumulative.** Every redesigned page ships:
+**23 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin sub-pages: 8). Phase 4 admin cluster: 8 of 9 admin sub-pages shipped — only `admin.html` monolith remains.
+
+Every redesigned page ships:
 
 - Plus Jakarta Sans (body) + JetBrains Mono (numerics) — drops legacy Manrope + Fraunces
 - Aver Design System `--av-*` tokens (light + dark from day 1)
@@ -39,6 +41,32 @@ The `frontend-design` skill warns against the Phase 1 trap of converging on iden
 - **Speaking dashboard** — dense session history with a calm hierarchy, not a marketing layout
 - **Practice** — focus mode, minimal chrome during recording, clear state machine affordances
 - **Result** — long-form reading; relaxed line-height, atmospheric breaks between criteria
+
+### 2.1 Sprint 6.14d strategy guidance (Codex audit recommendation)
+
+Per Codex audit Phase 4 admin (`CODEX_AUDIT_PHASE_4_ADMIN.md`, AMBER #2 closure), Sprint 6.14d `admin.html` monolith should follow the same surgical strategy used across Sprints 6.14a–6.14c, with one architecture-level decision: **don't extend `admin-writing.css` with monolith-specific selectors.**
+
+**Stylesheet architecture:**
+
+- **Dedicated `frontend/css/admin.css`** for monolith-specific selectors (each of the 10 tabs likely has unique patterns — e.g., the "Access Codes" tab's inline Supabase pattern). Place tab-specific styles, monolith-only modals, and admin-only stat widgets here.
+- **Reuse `aw-*` primitives** from `admin-writing.css` (~118 selectors available — `.aw-table`, `.aw-status-pill`, `.aw-stat-card`, `.aw-card`, `.aw-foa-pill`, `.aw-alert--*`, `.aw-mini-pill`, etc.). The monolith is a Tier 2 admin surface; the primitives already cover most cross-page idioms.
+- **DO NOT extend `admin-writing.css`** with monolith-specific styles. The file is at the documented `--av-text-faint ≤ 10` ceiling (10/10, no slack) — see DESIGN_SYSTEM.md § 17.6.
+- **DO NOT link `writing-renderers.css`** (Sprint 6.8 finding — admin pages own separate CSS; `writing-renderers.css` is de-facto single-consumer for `writing-result.html`).
+
+**Foundation order for `admin.html`:**
+
+```html
+<link rel="stylesheet" href="../css/aver-design/tokens.css">
+<link rel="stylesheet" href="../css/aver-design/components.css">
+<link rel="stylesheet" href="../css/admin-writing.css">  <!-- reuse aw-* primitives -->
+<link rel="stylesheet" href="../css/admin.css">          <!-- monolith-specific -->
+```
+
+**Outlier handling:**
+
+Keep monolith outliers explicit (don't normalize prematurely). The 10-tab architecture has unique patterns per tab (e.g., "Access Codes" tab inline Supabase init, ownership-fallback synthesis tables, the `detailToTableShape()` re-render path documented in project `CLAUDE.md`). Document outliers via the Sprint 6.14 pre-work pattern (§ 15.2) rather than silently folding them into the primitive layer.
+
+**Effort estimate (per Sprint 6.14 pre-work, PR #148):** 25–35h with its own mini pre-work sprint to inventory the 10 tabs + 186 JS-coupled IDs before any CSS work begins. If Sprint 6.14d Phase B pre-work reveals different scope, the estimate can be updated against findings.
 
 ---
 

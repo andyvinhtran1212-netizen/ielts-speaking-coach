@@ -828,3 +828,47 @@ Add a new gate when any of the following happens:
 - A new canonical pattern is formalized in DESIGN_SYSTEM.md (Chart.js A.2 from § 16, pre-work from § 15, etc.) — the gate verifies adherence to the pattern
 
 When extending, name the originating sprint + finding in the gate's preamble so future readers know what the gate is defending against.
+
+### 17.6 Shared CSS file cap monitoring (formalized Sprint 6.14c-hotfix)
+
+**Origin:** Sprint 6.14c proactively demoted 3 new selectors (`.aw-locked-tag`, `.aw-queue-table__empty`, `.aw-meta-line`) from `--av-text-faint` → `--av-text-muted` because `admin-writing.css` would otherwise have crossed the Gate 4 `--av-text-faint ≤ 10` ceiling. Codex audit Phase 4 admin (AMBER #2) confirmed the file is now exactly at 10/10 (no slack). This subsection formalizes the operating rule so the next admin cluster sprint doesn't silently re-cross the cap.
+
+**Rule for shared CSS files:**
+
+When a shared CSS file (consumed by multiple pages — e.g., `admin-writing.css` across the 8 admin sub-pages) reaches the `--av-text-faint ≤ 10` cap, treat the file as "at-cap" and apply the strategy below:
+
+1. **Don't add new `--av-text-faint` usages** to that file.
+2. **New page-specific styles** belong in a dedicated page stylesheet, not in the shared file.
+3. **New shared primitives** must use `--av-text-muted` or a stronger semantic-tier token.
+4. **Cap verification gate** (run before opening a PR that touches a shared CSS file):
+
+   ```bash
+   grep -c "var(--av-text-faint)" frontend/css/<shared>.css
+   ```
+
+   Should return ≤ 10. If approaching 10, demote the weakest semantic-role users first (italic captions, empty-state copy, hover-only hints) before adding new ones.
+
+**Current at-cap shared files (Sprint 6.14c-hotfix snapshot):**
+
+| Shared file | Faint count | Status |
+|---|---|---|
+| `frontend/css/admin-writing.css` | 10 / 10 | **AT CAP** — treat as full |
+
+**Strategy for upcoming sprints (Codex Phase 4 admin audit recommendation):**
+
+- **Sprint 6.14d `admin.html` monolith:** dedicated `frontend/css/admin.css` for monolith-specific selectors. Reuse `aw-*` primitives but don't extend `admin-writing.css`. Foundation order: `tokens.css` → `components.css` → `admin-writing.css` → `admin.css`. See UNIFIED_DESIGN_BRIEF.md § 2.1.
+- **Future admin work:** monolith-specific or tab-specific selectors belong in the page stylesheet unless the pattern is genuinely cross-page reusable.
+- **Re-evaluate cap** at the next major cluster opening (Grammar Wiki cluster, Sprint 6.15+).
+
+**Anti-patterns:**
+
+❌ Don't fold monolith-specific styles into shared `admin-writing.css` just because they happen to live under the admin namespace. The shared file is a primitive layer, not a dump.
+
+❌ Don't cross the `--av-text-faint ≤ 10` cap silently. If a new shared selector genuinely needs faint text, demote the weakest existing faint usage first and document the swap in the PR body.
+
+❌ Don't widen the cap from 10. The cap exists to prevent contrast-regression accumulation — `--av-text-faint` is the weakest readable tier (just above the AA contrast cliff), and 10 across HTML + CSS is the empirical maximum where the page still feels read-able rather than washed-out.
+
+**Sprint provenance:**
+
+- Cap value `10` established in Sprint 6.4.2 (`speaking.html` contrast hotfix); pinned by per-page redesign tests (`<page>-redesign.test.mjs` → `--av-text-faint usage stays under the 10-instance cap`).
+- Shared-file monitoring rule formalized in Sprint 6.14c-hotfix following Codex Phase 4 admin audit AMBER #2.

@@ -91,23 +91,32 @@ describe('AMBER #1 closure: UNIFIED_DESIGN_BRIEF.md § 2 phase map matches shipp
     );
   });
 
-  test('Phase 4 listed as UPCOMING and contains marketing + admin + Grammar Wiki', () => {
-    const phase4 = brief.match(/\*\*Phase 4\*\*[\s\S]{0,800}UPCOMING/i);
-    assert.ok(phase4, 'Phase 4 row should be marked UPCOMING');
+  test('Phase 4 listed in phase map and contains marketing + admin + Grammar Wiki', () => {
+    // Sprint 6.14c-hotfix: Phase 4 Status column flipped from "UPCOMING"
+    // to "IN PROGRESS" after 10/11 sub-pages shipped (marketing 2 + admin 8).
+    // The remaining UPCOMING markers live inside the Pages cell now.
+    const phase4 = brief.match(/\*\*Phase 4\*\*[\s\S]{0,3000}IN PROGRESS/i);
+    assert.ok(phase4, 'Phase 4 row should be marked IN PROGRESS (Sprint 6.14c-hotfix)');
     assert.match(phase4[0], /index\.html|landing\.html/, 'Phase 4 missing marketing pages');
     assert.match(phase4[0], /admin\.html/,                 'Phase 4 missing admin');
     assert.match(phase4[0], /Grammar Wiki|grammar\.html/,  'Phase 4 missing Grammar Wiki');
+    assert.match(phase4[0], /UPCOMING/,                    'Phase 4 missing UPCOMING marker for remaining work');
+    assert.match(phase4[0], /COMPLETE/,                    'Phase 4 missing COMPLETE marker for shipped sub-pages');
   });
 
-  test('brief references the 13-page cumulative count', () => {
+  test('brief references the 23-page cumulative count (Sprint 6.14c-hotfix snapshot)', () => {
+    // Sprint 6.14c-hotfix: count updated from 13 (Phase 1-3 only) to 23
+    // (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 +
+    //  Phase 4 admin sub-pages: 8). Next update due when Sprint 6.14d
+    // ships admin.html monolith → 24.
     assert.match(
       brief,
-      /13 pages redesigned cumulative/i,
-      'Brief should call out the 13-page cumulative count',
+      /23 pages redesigned cumulative/i,
+      'Brief should call out the 23-page cumulative count',
     );
   });
 
-  test('brief references the canonical patterns shared by all 13 pages', () => {
+  test('brief references the canonical patterns shared by all redesigned pages', () => {
     // The summary block beneath the phase table should call out the
     // cumulative-lesson canonical patterns: Plus Jakarta Sans + JetBrains
     // Mono, --av-* tokens, canonical IIFE, canonical .icon-sun/.icon-moon,
