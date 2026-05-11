@@ -14,13 +14,24 @@ Exception: pages that are sibling iframe panels (e.g., `my-vocabulary.html` + `f
 
 ## 2. Priority order
 
-| Phase | Pages | Reason |
+The redesign program runs in phases. Phases 1–3 are complete (13 pages redesigned cumulative); Phase 4 covers the remaining legacy surface.
+
+| Phase | Pages | Status |
 |---|---|---|
-| **Phase 1** | `home.html`, `speaking.html`, `practice.html`, `result.html` | Daily-use surfaces; biggest perceived-quality win |
-| **Phase 2** | `writing-dashboard.html`, `writing-result.html`, `full-test-result.html`, `profile.html`, `onboarding.html`, `vocabulary.html` (+ 4 iframe panels) | High-value but lower-frequency screens |
-| **Phase 3** | `admin.html` + 8 `admin-*` sub-pages | Internal-facing; bigger refactor (extract `admin.css` first) |
-| **Phase 4** | Grammar Wiki cluster (`grammar.html` + 5 sub-pages, `vocab-article.html`) | Decision pending — keep DM Sans + Lora as intentional sub-system, or unify |
-| **Phase 5** | `index.html`, `landing.html`, `pricing.html` | Marketing pages; reconcile Era B → Era A brand at the same time |
+| **Phase 1** — Speaking flow | `home.html` (Sprint 6.3, PR #121), `speaking.html` (6.4 / 6.4.1 / 6.4.2, PRs #123/#124/#125), `practice.html` (6.5 / 6.5.1, PRs #127/#128), `result.html` (6.6 / 6.6.1, PRs #130/#131) | **COMPLETE** |
+| **Phase 2** — Writing flow + Speaking aggregate | `writing-dashboard.html` (6.7 / 6.7.1, PRs #132/#133/#134), `writing-result.html` (6.8, PR #135), `full-test-result.html` (6.9, PR #136); audit hotfix Sprint 6.9.1 PR #137 | **COMPLETE** |
+| **Phase 3** — Vocabulary + Profile + Onboarding | `vocabulary.html` landing (6.10, PR #138); theme-toggle icon normalization (6.10.1, PR #139, 6-page drift fix); `my-vocabulary.html` (6.11a, PR #140); `flashcards.html` + `exercises.html` + `_renderPreviewModal` atomic (6.11b, PR #141); `profile.html` (6.12a, PR #142); `onboarding.html` (6.12b, PR #143) | **COMPLETE** |
+| **Phase 4** — Marketing + Admin + Grammar Wiki | Sprint 6.13: `index.html` + `pricing.html` (marketing). Sprint 6.14: `admin.html` + admin sub-pages (Tier 2 — bigger refactor; extract `admin.css` first). Sprint 6.15: Grammar Wiki cluster (`grammar.html` + 5 sub-pages, `vocab-article.html`; decision pending on DM Sans + Lora sub-system vs unification). | **UPCOMING** |
+| **Phase 5+** — Deferred | Writing IA self-directed option; DEBT-2026-05-09-B vocabulary iframe → module extraction (no un-defer triggers fired); Stripe (Sprint 2.7e); email infra (Sprint 2.8). | **DEFERRED** |
+
+**13 pages redesigned cumulative.** Every redesigned page ships:
+
+- Plus Jakarta Sans (body) + JetBrains Mono (numerics) — drops legacy Manrope + Fraunces
+- Aver Design System `--av-*` tokens (light + dark from day 1)
+- Canonical anti-flash IIFE (DESIGN_SYSTEM.md § 13) — validates `localStorage['av-theme']` against `light|dark`, falls back to system preference, try/catch to `light`
+- Canonical `.icon-sun` / `.icon-moon` theme-toggle classes (Sprint 6.10.1 — components.css owns the visibility swap; no BEM drift)
+- `ds.css` scoped overrides under `body.av-page` (Sprint 6.5.1) — the shared compatibility sheet is **never** modified during redesigns
+- `--av-text-on-primary` for CTA text on brand surfaces (Sprint 6.7.1) — never hardcoded `#ffffff`
 
 The `frontend-design` skill warns against the Phase 1 trap of converging on identical patterns across all pages. Each redesign should commit to a clear aesthetic direction for the page's purpose:
 
