@@ -343,7 +343,7 @@
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         setHtml('m-preview',
-          `<span class="text-xs" style="color:#fca5a5">${escape(err.detail || 'Bộ lọc không hợp lệ')}</span>`);
+          `<span class="text-xs fc-preview-error">${escape(err.detail || 'Bộ lọc không hợp lệ')}</span>`);
         return;
       }
       const body = await res.json();
@@ -363,7 +363,7 @@
     } catch (err) {
       console.error('[flashcards] preview', err);
       setHtml('m-preview',
-        '<span class="text-xs" style="color:#fca5a5">Không thể xem trước. Thử lại sau.</span>');
+        '<span class="text-xs fc-preview-error">Không thể xem trước. Thử lại sau.</span>');
     }
   }
 

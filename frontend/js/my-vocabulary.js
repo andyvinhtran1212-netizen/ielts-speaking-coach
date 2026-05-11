@@ -530,39 +530,40 @@
   }
 
   function _renderPreviewModal(vocab) {
+    // Sprint 6.11b: closes the Sprint 6.11a documented seam. All inline
+    // attribute styling has migrated to class hooks; my-vocabulary.css
+    // owns the visibility + colors so the modal flips with the active
+    // theme. The DOM structure + close affordance + event wiring are
+    // preserved byte-identical.
     const close = () => modal.remove();
     const ipa = vocab.ipa
-      ? `<div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#93c5fd;padding:2px 8px;border-radius:6px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);display:inline-block;margin-top:6px;">${esc(vocab.ipa)}</div>`
+      ? `<div class="mv-preview-ipa">${esc(vocab.ipa)}</div>`
       : '';
     const defVi = vocab.definition_vi
-      ? `<p style="font-size:15px;color:#fff;font-weight:500;margin:0 0 8px;">${esc(vocab.definition_vi)}</p>` : '';
+      ? `<p class="mv-preview-def-vi">${esc(vocab.definition_vi)}</p>` : '';
     const defEn = vocab.definition_en
-      ? `<p style="font-size:13px;color:rgba(255,255,255,0.7);font-style:italic;margin:0 0 12px;">${esc(vocab.definition_en)}</p>` : '';
+      ? `<p class="mv-preview-def-en">${esc(vocab.definition_en)}</p>` : '';
     const example = vocab.example_sentence
-      ? `<div style="font-size:13px;color:rgba(94,234,212,0.95);padding:10px 12px;background:rgba(20,184,166,0.06);border-left:2px solid rgba(20,184,166,0.4);border-radius:6px;margin-bottom:10px;">"${esc(vocab.example_sentence)}"</div>` : '';
+      ? `<div class="mv-preview-example">"${esc(vocab.example_sentence)}"</div>` : '';
     const context = vocab.context_sentence
-      ? `<p style="font-size:12px;color:rgba(148,163,184,0.8);font-style:italic;margin:6px 0 0;">Trong câu của bạn: "${esc(vocab.context_sentence)}"</p>` : '';
+      ? `<p class="mv-preview-context">Trong câu của bạn: "${esc(vocab.context_sentence)}"</p>` : '';
     const noBack = !defVi && !defEn && !example && !context
-      ? `<p style="font-size:12px;color:rgba(255,255,255,0.4);text-align:center;padding:24px 0;">Thẻ này chưa có nội dung mặt sau (đợi enrichment).</p>` : '';
+      ? `<p class="mv-preview-no-back">Thẻ này chưa có nội dung mặt sau (đợi enrichment).</p>` : '';
 
     const modal = document.createElement('div');
-    modal.className = 'fc-preview-modal';
-    modal.style.cssText =
-      'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;' +
-      'background:rgba(0,0,0,0.7);padding:16px;';
+    modal.className = 'mv-preview-modal';
     modal.innerHTML = `
-      <div style="position:relative;width:100%;max-width:480px;background:#0c1f36;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:22px;">
-        <button id="fc-preview-close" aria-label="Đóng"
-                style="position:absolute;top:10px;right:12px;background:transparent;border:none;color:rgba(255,255,255,0.6);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px;">×</button>
+      <div class="mv-preview-modal__panel">
+        <button id="fc-preview-close" aria-label="Đóng" class="mv-preview-modal__close">×</button>
 
-        <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;background:linear-gradient(145deg,rgba(255,255,255,0.04) 0%,rgba(15,118,110,0.06) 100%);text-align:center;margin-bottom:14px;">
-          <p style="font-size:10px;font-weight:600;letter-spacing:0.08em;color:rgba(255,255,255,0.4);margin:0 0 6px;text-transform:uppercase;">Mặt trước</p>
-          <h2 style="font-size:24px;font-weight:700;color:#fff;margin:0;line-height:1.2;">${esc(vocab.headword)}</h2>
+        <div class="mv-preview-face mv-preview-face--front">
+          <p class="mv-preview-face__label">Mặt trước</p>
+          <h2 class="mv-preview-face__headword">${esc(vocab.headword)}</h2>
           ${ipa}
         </div>
 
-        <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px;background:rgba(255,255,255,0.02);">
-          <p style="font-size:10px;font-weight:600;letter-spacing:0.08em;color:rgba(255,255,255,0.4);margin:0 0 10px;text-transform:uppercase;">Mặt sau</p>
+        <div class="mv-preview-face mv-preview-face--back">
+          <p class="mv-preview-face__label">Mặt sau</p>
           ${defVi}
           ${defEn}
           ${example}

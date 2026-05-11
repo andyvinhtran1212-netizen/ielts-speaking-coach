@@ -1,0 +1,110 @@
+/* css/exercises.css — Sprint 6.11b (Phase 3 page 4 redesign).
+ *
+ * Migrates the Phase D Wave 2 Exercises hub (227-line HTML + 36-line
+ * inline <style> + 5 inline style attrs + 11 rgba literals) to the
+ * Aver Design System with full light + dark theme support from day 1.
+ * Surgical scope: HTML chrome + CSS rewrite. The inline feature-flag
+ * gating script in <body> (D1 / Flashcards / D3) is preserved
+ * byte-identical.
+ *
+ * Color migration (semantic role):
+ *   primary content (titles, headings)         → --av-text-primary
+ *   secondary (card body copy)                  → --av-text-secondary
+ *   meta (hub subtitle, "available later" CTA)  → --av-text-muted
+ *   auxiliary (empty placeholder)               → --av-text-faint (≤10)
+ *
+ * Brand mapping:
+ *   teal #14b8a6 (pill-live + CTA arrow) → --av-primary
+ *   slate gray (pill-soon)               → --av-text-muted with neutral surface
+ */
+
+
+/* ── Page chrome ──────────────────────────────────────────────────── */
+
+.ex-header {
+  background: var(--av-surface-elevated);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+
+.ex-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-1);
+  color: var(--av-primary);
+  text-decoration: none;
+  transition: opacity var(--av-duration-fast) var(--av-easing-default);
+}
+.ex-back-link:hover { opacity: 0.8; }
+.ex-back-link i,
+.ex-back-link svg { width: 14px; height: 14px; }
+
+.ex-header__sep   { color: var(--av-text-faint); }
+.ex-header__title { color: var(--av-text-primary); }
+
+
+/* ── Hub section ─────────────────────────────────────────────────── */
+
+.ex-hub-title { color: var(--av-text-primary); }
+.ex-hub-sub   { color: var(--av-text-muted); }
+
+
+/* ── Empty / loading / error states ──────────────────────────────── */
+
+.empty-state { color: var(--av-text-muted); }
+.empty-state .text-lg { color: var(--av-text-primary); }
+
+
+/* ── Exercise cards ──────────────────────────────────────────────── */
+
+.ex-card {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  padding: var(--av-space-6);
+  transition:
+    transform 0.18s ease,
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    box-shadow var(--av-duration-fast) var(--av-easing-default);
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.ex-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-md);
+}
+.ex-card.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.ex-card.disabled:hover { transform: none; box-shadow: none; }
+
+.ex-card__title { color: var(--av-text-primary); }
+.ex-card__body  { color: var(--av-text-secondary); }
+.ex-card__cta   { color: var(--av-primary); font-weight: var(--av-fw-medium); }
+.ex-card__cta--soon { color: var(--av-text-muted); font-weight: var(--av-fw-regular); }
+
+
+/* ── Pills (Live / Coming soon) ──────────────────────────────────── */
+
+.ex-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px var(--av-space-2);
+  border-radius: var(--av-radius-pill);
+}
+.pill-live {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border: 1px solid var(--av-primary);
+}
+.pill-soon {
+  background: var(--av-surface-elevated);
+  color: var(--av-text-muted);
+  border: 1px solid var(--av-border-default);
+}
