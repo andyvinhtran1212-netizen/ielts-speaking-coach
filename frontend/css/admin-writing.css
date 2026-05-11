@@ -700,3 +700,157 @@ textarea.aw-input {
   border-radius: var(--av-radius-md);
 }
 
+
+/* ════════════════════════════════════════════════════════════════════
+ * Sprint 6.14c additions — instructor queue + grading cluster
+ * (admin-instructor-queue.html + admin-writing-grade.html).
+ *
+ * Queue primitives go here; grading-page primitives live in their own
+ * frontend/css/admin-writing-grade.css because the 3-column shell +
+ * 15-textarea form is genuinely page-specific (Sprint 6.8 finding:
+ * the grading page already owned its CSS pre-migration; we kept that
+ * separation).
+ * ════════════════════════════════════════════════════════════════════ */
+
+
+/* ── Filter chips (admin-instructor-queue.html: 4 filter buttons) ─── */
+
+.aw-filter-btn {
+  padding: 6px 14px;
+  border-radius: var(--av-radius-md);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-medium);
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  color: var(--av-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    color var(--av-duration-fast) var(--av-easing-default);
+}
+.aw-filter-btn:hover {
+  background: var(--av-surface-sunken);
+  color: var(--av-text-primary);
+}
+.aw-filter-btn--active {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary);
+  color: var(--av-primary);
+}
+
+
+/* ── Instructor queue status pills (5-status lifecycle) ───────────── */
+
+/* Distinct namespace from .aw-status-pill (essay grading lifecycle)
+ * and .aw-assign-pill (assignment lifecycle). Three pill systems run
+ * side-by-side in the admin cluster because each tracks a different
+ * domain object. */
+.aw-instructor-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  font-family: var(--av-font-mono);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+}
+.aw-instructor-pill[data-status="queued"]    { background: color-mix(in srgb, var(--av-warning) 18%, transparent); color: var(--av-warning); }
+.aw-instructor-pill[data-status="claimed"]   { background: color-mix(in srgb, var(--av-info) 18%, transparent);    color: var(--av-info); }
+.aw-instructor-pill[data-status="edited"]    { background: var(--av-primary-soft); color: var(--av-primary); }
+.aw-instructor-pill[data-status="delivered"] { background: color-mix(in srgb, var(--av-success) 18%, transparent); color: var(--av-success); }
+.aw-instructor-pill[data-status="released"]  { background: var(--av-surface-sunken); color: var(--av-text-muted); }
+
+
+/* ── Age cells (queue table: SLA color coding) ────────────────────── */
+
+/* Sprint 2.7d.2 — display-only soft SLA color coding for queue items. */
+.aw-age-cell                  { font-family: var(--av-font-mono); font-feature-settings: 'tnum'; }
+.aw-age-cell--fresh           { color: var(--av-success); }
+.aw-age-cell--warning         { color: var(--av-warning); }
+.aw-age-cell--overdue         { color: var(--av-error); font-weight: var(--av-fw-semibold); }
+
+
+/* ── Row action buttons (small, dense — queue table actions) ──────── */
+
+.aw-btn-act {
+  padding: 4px 10px;
+  border-radius: var(--av-radius-sm);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  display: inline-block;
+  transition:
+    background var(--av-duration-fast) var(--av-easing-default),
+    filter     var(--av-duration-fast) var(--av-easing-default);
+}
+.aw-btn-act:hover { filter: brightness(1.08); }
+.aw-btn-act:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+
+.aw-btn-act--claim   { background: var(--av-primary); color: var(--av-text-on-primary); }
+.aw-btn-act--claim:hover { background: var(--av-primary-hover); }
+
+.aw-btn-act--edit {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border-color: var(--av-primary-border);
+}
+
+.aw-btn-act--release {
+  background: var(--av-surface-card);
+  color: var(--av-text-secondary);
+  border-color: var(--av-border-default);
+}
+
+.aw-btn-act--view {
+  background: var(--av-surface-card);
+  color: var(--av-text-muted);
+  border-color: var(--av-border-subtle);
+}
+
+.aw-row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.aw-locked-tag {
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+  font-style: italic;
+}
+
+
+/* ── Queue table — denser variant of aw-table for high-density rows ─ */
+
+.aw-queue-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.aw-queue-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide);
+  color: var(--av-text-muted);
+  border-bottom: 1px solid var(--av-border-default);
+  background: var(--av-surface-sunken);
+}
+.aw-queue-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--av-border-subtle);
+  vertical-align: middle;
+}
+.aw-queue-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--av-text-primary) 3%, transparent);
+}
+.aw-queue-table__empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--av-text-muted);
+}
+
+
+/* ── Meta lines (small caption text under table cells) ────────────── */
+
+.aw-meta-line { font-size: var(--av-fs-xs); color: var(--av-text-muted); margin-top: 2px; }
+.aw-meta-count { color: var(--av-text-secondary); }
+
