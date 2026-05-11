@@ -244,6 +244,153 @@
 .ix-subtitle  { color: var(--av-text-secondary); }
 
 
+/* ── Multi-skill grid (Sprint 6.13a-extension) ───────────────────────
+ *
+ * 4-card grid replacing the 3-feature Speaking-only section. Borrows
+ * the visual language from home.html `.skill-card` (Sprint 6.3) but
+ * scoped to `.ix-skill-card` so home.html's JS-coupled
+ * `.skill-card.skeleton` injection contract stays untouched.
+ *
+ * Responsive: 4 cols (lg) → 2 cols (md) → 1 col (mobile). Card body
+ * uses `display: flex; flex-direction: column` so each card's CTA
+ * lines up at the bottom regardless of body length.
+ */
+
+.ix-skill-grid {
+  /* Tailwind utilities `grid md:grid-cols-2 lg:grid-cols-4 gap-6`
+     handle the responsive layout. Nothing additional needed here. */
+}
+
+.ix-skill-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-xl);
+  padding: var(--av-space-6);
+  box-shadow: var(--av-shadow-sm);
+  position: relative;
+  transition:
+    transform   var(--av-duration-fast) var(--av-easing-default),
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    box-shadow  var(--av-duration-fast) var(--av-easing-default);
+}
+.ix-skill-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-lg);
+}
+
+.ix-skill-card--popular {
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-md);
+}
+
+.ix-skill-card__badge {
+  position: absolute;
+  top: var(--av-space-4);
+  right: var(--av-space-4);
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  padding: var(--av-space-1) var(--av-space-3);
+  border-radius: var(--av-radius-pill);
+  letter-spacing: 0.02em;
+}
+
+.ix-skill-card__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--av-radius-lg);
+  background: color-mix(in srgb, var(--av-text-primary) 5%, transparent);
+  color: var(--av-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--av-space-4);
+}
+.ix-skill-card__icon--accent {
+  background: color-mix(in srgb, var(--av-primary) 10%, transparent);
+  color: var(--av-primary);
+}
+.ix-skill-card__icon i,
+.ix-skill-card__icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+}
+
+.ix-skill-card__eyebrow {
+  color: var(--av-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-widest);
+  margin-bottom: var(--av-space-2);
+}
+
+.ix-skill-card__title {
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-bold);
+  margin-bottom: var(--av-space-3);
+  letter-spacing: var(--av-tracking-tight);
+}
+
+.ix-skill-card__body {
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-relaxed);
+  margin-bottom: var(--av-space-4);
+}
+
+.ix-skill-card__feats {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--av-space-6);
+  flex: 1;
+}
+.ix-skill-card__feats li {
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+  padding-left: var(--av-space-4);
+  position: relative;
+  margin-bottom: var(--av-space-2);
+  line-height: var(--av-lh-normal);
+}
+.ix-skill-card__feats li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--av-primary);
+  font-weight: var(--av-fw-bold);
+}
+
+.ix-skill-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-1);
+  color: var(--av-primary);
+  font-weight: var(--av-fw-semibold);
+  font-size: var(--av-fs-sm);
+  transition:
+    gap   var(--av-duration-fast) var(--av-easing-default),
+    color var(--av-duration-fast) var(--av-easing-default);
+  margin-top: auto;
+}
+.ix-skill-card__cta:hover {
+  color: var(--av-primary-hover);
+  gap: var(--av-space-2);
+}
+.ix-skill-card__cta:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+  border-radius: var(--av-radius-sm);
+}
+
+
 /* ── Feature cards ────────────────────────────────────────────────── */
 
 .ix-feature-card {
