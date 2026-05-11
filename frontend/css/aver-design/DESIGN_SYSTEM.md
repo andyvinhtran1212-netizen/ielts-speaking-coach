@@ -138,6 +138,34 @@ Choose the token by **semantic role**, not by what the legacy opacity number was
 
 **Never hardcode** these values in component CSS. Always reference the token. If a new shade is needed, add it to `tokens.css` first.
 
+### Inverse-on-brand text — `--av-text-on-primary`
+
+CTA buttons place text on the brand-colored `--av-primary` background. The correct text color is **not** a member of the 4-tier semantic ladder above — those are for text on page/card surfaces. Use the dedicated inverse token:
+
+| Token | Light | Dark | When to use |
+|---|---|---|---|
+| `--av-text-on-primary` | `#FFFFFF` | `#0A1628` | Text on `var(--av-primary)` background (CTA buttons, primary action chips) |
+
+The token value **flips between themes** because the brand surface flips: in light the CTA is deep teal `#0F766E` (so text is white), in dark the CTA is bright teal `#14B8A6` (so text is deep navy for AA contrast). Hardcoding `color: #ffffff` on a CTA renders **correctly in light but wrong in dark** — white text on bright teal fails AA. Always use the token.
+
+**Anti-pattern (Codex audit Sprint 6.7 AMBER #1):**
+
+```css
+/* ❌ Wrong — breaks dark theme contrast */
+.btn-start-assignment {
+  background: var(--av-primary);
+  color: #ffffff;
+}
+
+/* ✅ Right — theme-aware via the token */
+.btn-start-assignment {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+}
+```
+
+`.av-button-primary`, `.btn-primary`, `.btn-start-assignment`, `.wd-modal-btn-submit` all consume this token. Any future CTA on a primary background should too.
+
 ---
 
 ## 5. Spacing
