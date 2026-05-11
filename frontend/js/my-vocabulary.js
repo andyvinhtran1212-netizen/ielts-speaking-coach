@@ -144,18 +144,18 @@
     const nextStatus = item.mastery_status === 'mastered' ? 'learning' : 'mastered';
 
     const defBlock = (item.definition_en || item.definition_vi)
-      ? `<div class="mt-2 text-xs" style="color:rgba(255,255,255,0.55);">
+      ? `<div class="mt-2 text-xs mv-def-block">
            ${item.definition_en ? `<span>${esc(item.definition_en)}</span>` : ''}
-           ${item.definition_vi ? `<span style="color:rgba(255,255,255,0.35);"> · ${esc(item.definition_vi)}</span>` : ''}
+           ${item.definition_vi ? `<span class="mv-def-vi"> · ${esc(item.definition_vi)}</span>` : ''}
          </div>`
       : '';
 
     const upgradeHint = item.source_type === 'upgrade_suggested' && item.original_word
-      ? `<p class="text-xs mt-1" style="color:rgba(192,132,252,0.65);">Nâng cấp từ: <em>${esc(item.original_word)}</em></p>`
+      ? `<p class="text-xs mt-1 mv-upgrade-hint">Nâng cấp từ: <em>${esc(item.original_word)}</em></p>`
       : '';
 
     const suggestionHint = item.source_type === 'needs_review' && item.suggestion
-      ? `<p class="text-xs mt-1" style="color:rgba(251,146,60,0.75);">Gợi ý: <em>${esc(item.suggestion)}</em></p>`
+      ? `<p class="text-xs mt-1 mv-suggestion-hint">Gợi ý: <em>${esc(item.suggestion)}</em></p>`
       : '';
 
     const sourceLink = item.session_id
@@ -234,12 +234,12 @@
 
         ${defBlock}
         ${item.context_sentence
-          ? `<p class="text-xs italic mt-2 mb-1" style="color:rgba(148,163,184,0.7);">"${esc(item.context_sentence)}"</p>`
+          ? `<p class="text-xs italic mt-2 mb-1 mv-context">"${esc(item.context_sentence)}"</p>`
           : ''}
         ${upgradeHint}
         ${suggestionHint}
         ${item.reason
-          ? `<p class="text-xs mt-1" style="color:rgba(255,255,255,0.25);">${esc(item.reason)}</p>`
+          ? `<p class="text-xs mt-1 mv-reason">${esc(item.reason)}</p>`
           : ''}
 
         <div class="flex items-center justify-between mt-3 flex-wrap gap-y-2">
@@ -369,7 +369,7 @@
     document.getElementById('fc-picker-headword').textContent = headword
       ? `Chọn stack để thêm "${headword}"` : '';
     const listEl = document.getElementById('fc-picker-list');
-    listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-3">Đang tải stacks…</p>';
+    listEl.innerHTML = '<p class="text-xs text-center py-3 mv-picker-msg">Đang tải stacks…</p>';
     document.getElementById('fc-picker-modal').classList.remove('hidden');
 
     // Always re-fetch — user may have created a new stack since the last
@@ -383,23 +383,20 @@
       _pickerStacksCache = all.filter(s => s.type === 'manual');
     } catch (err) {
       console.error('[vocab] picker stacks load failed:', err);
-      listEl.innerHTML = '<p class="text-xs text-center py-3" style="color:#fca5a5">Không tải được stacks.</p>';
+      listEl.innerHTML = '<p class="text-xs text-center py-3 mv-picker-msg mv-picker-msg--error">Không tải được stacks.</p>';
       return;
     }
 
     if (!_pickerStacksCache.length) {
-      listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-3">Bạn chưa có stack thủ công nào.<br/>Tạo stack mới ở dưới để bắt đầu.</p>';
+      listEl.innerHTML = '<p class="text-xs text-center py-3 mv-picker-msg">Bạn chưa có stack thủ công nào.<br/>Tạo stack mới ở dưới để bắt đầu.</p>';
       return;
     }
 
     listEl.innerHTML = _pickerStacksCache.map(s => `
-      <button class="text-left px-3 py-2 rounded-lg flex items-center justify-between"
-              style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); cursor:pointer;"
-              onmouseover="this.style.background='rgba(20,184,166,0.08)'"
-              onmouseout="this.style.background='rgba(255,255,255,0.04)'"
+      <button class="mv-stack-row flex items-center justify-between"
               onclick="addToFlashcardStack('${esc(s.id)}', '${esc(s.name)}')">
-        <span class="text-sm text-white">${esc(s.name)}</span>
-        <span class="text-xs text-slate-400">${s.card_count ?? 0} thẻ</span>
+        <span class="text-sm mv-stack-row__name">${esc(s.name)}</span>
+        <span class="mv-stack-row__count">${s.card_count ?? 0} thẻ</span>
       </button>
     `).join('');
   };
@@ -436,24 +433,18 @@
   };
 
   function flashToast(message, kind) {
-    // Reuse the page's existing toast pattern if any; otherwise build a
-    // disposable element so this module stays self-contained.
+    // Sprint 6.11a: positioning + transitions live in my-vocabulary.css
+    // under .mv-toast; the kind palette (success/info/error) is a class
+    // hook so the cascade can theme both light + dark.
     let el = document.getElementById('vocab-flash-toast');
     if (!el) {
       el = document.createElement('div');
       el.id = 'vocab-flash-toast';
-      el.style.cssText =
-        'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
-        'padding:10px 16px;border-radius:10px;font-size:13px;z-index:60;' +
-        'opacity:0;transition:opacity 0.2s;pointer-events:none;';
+      el.className = 'mv-toast';
       document.body.appendChild(el);
     }
-    const palette = {
-      success: 'background:rgba(20,184,166,0.18);border:1px solid rgba(20,184,166,0.4);color:#5eead4;',
-      info:    'background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);color:#a5b4fc;',
-      error:   'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;',
-    };
-    el.style.cssText += (palette[kind] || palette.info);
+    const variant = (kind === 'success' || kind === 'error') ? kind : 'info';
+    el.className = `mv-toast mv-toast--${variant}`;
     el.textContent = message;
     el.style.opacity = '1';
     clearTimeout(flashToast._t);
