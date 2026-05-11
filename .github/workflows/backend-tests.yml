@@ -104,4 +104,5 @@ jobs:
             frontend/tests/theme-toggle.test.mjs \
             frontend/tests/typography-tier1.test.js \
             frontend/tests/vocab-landing.test.js \
-            frontend/tests/writing-dashboard-redesign.test.mjs
+            frontend/tests/writing-dashboard-redesign.test.mjs \
+            frontend/tests/writing-result-redesign.test.mjs

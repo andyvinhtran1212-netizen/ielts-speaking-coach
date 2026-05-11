@@ -5,206 +5,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Phân tích bài viết — Aver Learning</title>
+
+  <!-- Sprint 6.8: writing-result.html surgical migration. The page is a
+       671-line graded-essay feedback view with 5 states + 5 tabs + a
+       sticky header. The redesign is SURGICAL — the inline JS (~290
+       lines) and every JS-coupled selector + section/content ID is
+       preserved byte-identical. Only fonts / tokens / IIFE / theme
+       toggle / chrome icons swap. The 87 colors in writing-renderers.css
+       (the shared section renderer styles) also migrate to --av-*.
+       Sprint 6.6.1 canonical anti-flash IIFE (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css, writing-renderers.css, and writing-result.css.
+       No ds.css linked — this page consumes 0 .ds-* classes per
+       Sprint 6.8 pre-work inventory. -->
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/writing-renderers.css" />
-  <style>
-    /* ── Page shell ─────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-      background: linear-gradient(135deg, #0C2340 0%, #0d2e45 40%, #0F766E 100%);
-      min-height: 100vh;
-      color: #e5e7eb;
-    }
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background: radial-gradient(ellipse 60% 50% at 70% 30%, rgba(15,118,110,0.18) 0%, transparent 70%);
-      pointer-events: none; z-index: 0;
-    }
+  <link rel="stylesheet" href="/css/writing-result.css" />
 
-    /* ── Sticky header (Sprint 2.5.5 admin-style read-only) ─────── */
-    .result-header {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(8, 24, 41, 0.95);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      padding: 1rem 1.5rem;
-      display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
-    }
-    .header-left { flex: 1; min-width: 0; }
-    .back-link {
-      color: #14b8a6; font-size: 0.85rem; text-decoration: none;
-      display: inline-block; margin-bottom: 0.5rem;
-    }
-    .back-link:hover { text-decoration: underline; }
-    .essay-meta h1 {
-      font-size: 1.05rem; font-weight: 600; color: #e5e7eb; margin: 0;
-      line-height: 1.4;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-    .meta-line { font-size: 0.85rem; color: #9ca3af; margin-top: 0.375rem; }
-    .meta-line .separator { margin: 0 0.5rem; opacity: 0.5; }
-    .band-display {
-      color: #14b8a6; font-weight: 600; font-size: 1rem;
-    }
-    /* Sprint 2.7a — grading tier badge (Quick removed 2.7a.1; mirrors
-       admin-writing-grade.html). The .tier-quick rule stays as a
-       neutral fallback for any legacy 'quick' row that slipped past
-       migration 045 — UI shouldn't crash on stale data. */
-    .tier-badge      { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-    .tier-quick      { background: rgba(148,163,184,0.20); color: #cbd5e1; }
-    .tier-standard   { background: rgba(167,139,250,0.20); color: #c4b5fd; }
-    .tier-deep       { background: rgba(244,114,182,0.20); color: #f9a8d4; }
-    .tier-instructor { background: rgba(74,222,128,0.20);  color: #86efac; }
-    .header-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
-    .btn-icon {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #e5e7eb;
-      padding: 0.5rem 0.875rem;
-      border-radius: 6px; font-size: 0.85rem;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .btn-icon:hover {
-      background: rgba(255,255,255,0.1);
-      border-color: rgba(255,255,255,0.2);
-    }
-    .btn-icon[disabled] { opacity: 0.5; cursor: not-allowed; }
-
-    /* ── Tab nav ────────────────────────────────────────────────── */
-    .result-tabs {
-      position: sticky; top: 80px; z-index: 40;
-      display: flex; gap: 0.25rem;
-      padding: 0.625rem 1.5rem;
-      background: rgba(8, 24, 41, 0.95);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      overflow-x: auto;
-    }
-    .tab-btn {
-      display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.5rem 1.05rem;
-      background: transparent; border: 1px solid transparent;
-      border-radius: 8px;
-      color: #9ca3af; font-size: 13px; font-weight: 500;
-      cursor: pointer; white-space: nowrap;
-      transition: all 0.15s;
-    }
-    .tab-btn:hover    { background: rgba(255,255,255,0.05); color: #e5e7eb; }
-    .tab-btn.is-active{
-      background: rgba(15,118,110,0.18);
-      color: #14b8a6;
-      border-color: rgba(15,118,110,0.3);
-    }
-    .tab-btn.hidden { display: none; }
-    .tab-icon { font-size: 1rem; }
-
-    .tab-panel { display: none; }
-    .tab-panel.is-active { display: block; }
-
-    /* ── Content area ───────────────────────────────────────────── */
-    main.result-content {
-      max-width: 920px; margin: 0 auto; width: 100%;
-      padding: 1.5rem 2rem 4rem;
-      position: relative; z-index: 1;
-    }
-
-    .essay-section {
-      margin-bottom: 2rem; padding-bottom: 1.75rem;
-      border-bottom: 2px solid rgba(255,255,255,0.08);
-    }
-    .grade-section { margin-bottom: 2.5rem; }
-    .section-header {
-      display: flex; justify-content: space-between; align-items: baseline;
-      gap: 0.75rem; padding-bottom: 0.5rem; margin-bottom: 0.875rem;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    .section-header h2 {
-      margin: 0;
-      font-size: 1.05rem; font-weight: 600; color: #e2e8f0;
-    }
-    .word-count { font-size: 0.8rem; color: #9ca3af; }
-
-    .section-content { color: #e5e7eb; font-size: 14.5px; line-height: 1.6; }
-    .section-content p { margin: 0 0 0.5rem; }
-    .section-content .empty { color: rgba(255,255,255,0.4); font-style: italic; }
-
-    .essay-original {
-      background: rgba(0,0,0,0.3);
-      padding: 1rem 1.125rem;
-      border-radius: 8px;
-      white-space: pre-wrap;
-      font-size: 14px; line-height: 1.7;
-      color: #cbd5e1;
-      font-family: inherit;
-      max-height: 480px; overflow-y: auto;
-      margin: 0;
-    }
-
-    /* ── Loading / error / not-delivered states ─────────────────── */
-    .state-block {
-      max-width: 32rem; margin: 0 auto;
-      padding: 4rem 2rem; text-align: center;
-      position: relative; z-index: 1;
-    }
-    .state-block .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
-    .state-block h2 { color: #e5e7eb; font-size: 1.25rem; font-weight: 600; margin: 0 0 0.5rem; }
-    .state-block p { color: #9ca3af; line-height: 1.6; margin: 0 0 1.25rem; }
-    .state-block .btn-link {
-      display: inline-block;
-      background: rgba(20,184,166,0.15); color: #14b8a6;
-      border: 1px solid rgba(20,184,166,0.3);
-      padding: 0.5rem 1rem; border-radius: 6px;
-      text-decoration: none; font-size: 0.875rem;
-    }
-    .state-block .btn-link:hover { background: rgba(20,184,166,0.25); }
-    .hidden { display: none !important; }
-
-    /* ── Print ──────────────────────────────────────────────────── */
-    @media print {
-      body, body::before { background: white !important; color: black !important; }
-      body { color: #111 !important; }
-      .result-header, .result-tabs, .header-actions { position: static; }
-      .result-tabs { display: none; }
-      .tab-panel { display: block !important; page-break-inside: avoid; }
-      main.result-content { max-width: 100%; padding: 1rem; }
-      .grade-section { page-break-inside: avoid; }
-      .essay-original { background: #f5f5f5 !important; color: #111 !important; max-height: none; }
-      .section-header h2, .essay-meta h1 { color: #111 !important; }
-      .meta-line, .word-count { color: #555 !important; }
-    }
-
-    /* ── Mobile ─────────────────────────────────────────────────── */
-    @media (max-width: 640px) {
-      .result-header { padding: 0.75rem 1rem; flex-direction: column; gap: 0.5rem; }
-      .result-tabs   { top: auto; padding: 0.5rem 1rem; }
-      .tab-label     { display: none; }
-      .tab-btn       { padding: 0.45rem 0.75rem; }
-      .tab-icon      { font-size: 1.15rem; }
-      main.result-content { padding: 1rem; }
-    }
-  </style>
+  <!-- Lucide icons (line glyphs replacing legacy ← back-arrow / ⬇ download / 🖨 print) -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body>
+<body class="av-page">
 
   <!-- Loading state -->
   <div id="state-loading" class="state-block">
-    <div class="icon">⏳</div>
+    <div class="icon"><i data-lucide="loader-2" class="state-icon-spin"></i></div>
     <p>Đang tải bài viết…</p>
   </div>
 
   <!-- Error state -->
   <div id="state-error" class="state-block hidden">
-    <div class="icon">⚠</div>
+    <div class="icon icon-error"><i data-lucide="alert-triangle"></i></div>
     <h2>Không tải được bài viết</h2>
     <p id="error-message">Có lỗi xảy ra. Vui lòng thử lại sau.</p>
-    <a id="error-back" href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
+    <a id="error-back" href="/writing/dashboard" class="btn-link">
+      <i data-lucide="chevron-left"></i> Quay lại Dashboard
+    </a>
   </div>
 
   <!-- Not-yet-delivered state. Sprint 2.7d.2: title + body are
@@ -216,23 +75,29 @@
     <div class="icon" id="not-delivered-icon">⏳</div>
     <h2 id="not-delivered-title">Bài đang được duyệt</h2>
     <p id="not-delivered-body">Giảng viên đang xem lại feedback. Em sẽ thấy kết quả khi bài được duyệt xong.</p>
-    <p id="not-delivered-meta" class="hidden" style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:8px;"></p>
-    <a id="not-delivered-back" href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
+    <p id="not-delivered-meta" class="not-delivered-meta hidden"></p>
+    <a id="not-delivered-back" href="/writing/dashboard" class="btn-link">
+      <i data-lucide="chevron-left"></i> Quay lại Dashboard
+    </a>
   </div>
 
   <!-- Flagged essay state -->
   <div id="state-flagged" class="state-block hidden">
-    <div class="icon">🚩</div>
+    <div class="icon icon-flagged"><i data-lucide="flag"></i></div>
     <h2>Bài viết bị đánh dấu cần xem xét</h2>
     <p id="flagged-message">Bài viết của em có dấu hiệu cần giảng viên xem xét trực tiếp. Vui lòng liên hệ giảng viên.</p>
-    <a href="/writing/dashboard" class="btn-link">← Quay lại Dashboard</a>
+    <a href="/writing/dashboard" class="btn-link">
+      <i data-lucide="chevron-left"></i> Quay lại Dashboard
+    </a>
   </div>
 
   <!-- Main content -->
   <div id="state-ready" class="hidden">
     <header class="result-header">
       <div class="header-left">
-        <a id="back-link" href="/writing/dashboard" class="back-link">← Bài viết của tôi</a>
+        <a id="back-link" href="/writing/dashboard" class="back-link">
+          <i data-lucide="chevron-left"></i> Bài viết của tôi
+        </a>
         <div class="essay-meta">
           <h1 id="prompt-title">Đang tải...</h1>
           <p class="meta-line">
@@ -249,8 +114,22 @@
         </div>
       </div>
       <div class="header-actions">
-        <button id="btn-download" class="btn-icon" title="Tải file Word">⬇ Tải .docx</button>
-        <button id="btn-print" class="btn-icon" title="In bài viết">🖨 In</button>
+        <!-- Sprint 6.8: theme toggle (full theme support from day 1) -->
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="av-theme-toggle__icon av-theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="av-theme-toggle__icon av-theme-toggle__icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button id="btn-download" class="btn-icon" title="Tải file Word">
+          <i data-lucide="download"></i> Tải .docx
+        </button>
+        <button id="btn-print" class="btn-icon" title="In bài viết">
+          <i data-lucide="printer"></i> In
+        </button>
       </div>
     </header>
 
@@ -279,7 +158,7 @@
           <h2>📄 Bài viết của em</h2>
           <span id="word-count" class="word-count">— từ</span>
         </header>
-        <div id="prompt-box" class="text-xs" style="color:rgba(255,255,255,0.55);font-size:12px;margin-bottom:0.5rem;"></div>
+        <div id="prompt-box" class="prompt-box"></div>
         <pre id="essay-text" class="essay-original">—</pre>
       </section>
 
@@ -666,6 +545,33 @@
     } else {
       loadEssay();
     }
+  </script>
+
+  <!-- Lucide hydration + theme-toggle binding (Sprint 6.8) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { hydrateIcons(); bindToggleButton(); });
+      } else {
+        hydrateIcons();
+        bindToggleButton();
+      }
+    })();
   </script>
 </body>
 </html>

@@ -366,7 +366,8 @@ This section is the canonical reference for the migration state — Codex audit 
 | 1 | `frontend/pages/speaking.html` | 6.4 / 6.4.1 / 6.4.2 | #123 / #124 / #125 | Closes DEBT-2026-05-10-A; contrast hotfix lessons folded into UNIFIED_DESIGN_BRIEF.md § 11 |
 | 1 | `frontend/pages/practice.html` | 6.5 / 6.5.1 | #127 / #128 | Light + dark from day 1; ds.css legacy override pattern (UNIFIED_DESIGN_BRIEF.md § 12) |
 | 1 | `frontend/pages/result.html` | 6.6 / 6.6.1 | #130 / #131 | Surgical migration on inline-JS rendering; IIFE normalized |
-| 2 | `frontend/pages/writing-dashboard.html` | 6.7 | TBD | Surgical migration on 1060-line teacher-assignment workflow (2 tabs / 6-state pill / submit modal); Tailwind utility overrides under body.av-page |
+| 2 | `frontend/pages/writing-dashboard.html` | 6.7 / 6.7.1 | #132 / #133 / #134 | Surgical migration on 1060-line teacher-assignment workflow (2 tabs / 6-state pill / submit modal); Tailwind utility overrides under body.av-page; Sprint 6.7.1 closed AMBER on hardcoded #ffffff CTA text |
+| 2 | `frontend/pages/writing-result.html` | 6.8 | TBD | Surgical migration on 671-line graded-essay view (5 states / 5 tabs / sticky header / tier-aware Instructor copy); 87-color writing-renderers.css migrated to tokens; Era A/B reconcile premise falsified by pre-work (backend uniformly v2.1) |
 
 Properties of every redesigned page:
 
