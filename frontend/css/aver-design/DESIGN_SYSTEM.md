@@ -368,6 +368,7 @@ This section is the canonical reference for the migration state — Codex audit 
 | 1 | `frontend/pages/result.html` | 6.6 / 6.6.1 | #130 / #131 | Surgical migration on inline-JS rendering; IIFE normalized |
 | 2 | `frontend/pages/writing-dashboard.html` | 6.7 / 6.7.1 | #132 / #133 / #134 | Surgical migration on 1060-line teacher-assignment workflow (2 tabs / 6-state pill / submit modal); Tailwind utility overrides under body.av-page; Sprint 6.7.1 closed AMBER on hardcoded #ffffff CTA text |
 | 2 | `frontend/pages/writing-result.html` | 6.8 | TBD | Surgical migration on 671-line graded-essay view (5 states / 5 tabs / sticky header / tier-aware Instructor copy); 87-color writing-renderers.css migrated to tokens; Era A/B reconcile premise falsified by pre-work (backend uniformly v2.1) |
+| 2 | `frontend/pages/full-test-result.html` | 6.9 | TBD | Phase 2 closure — surgical migration on 611-line mock-test summary (3 sessions in one view, Chart.js radar, 25 JS-coupled IDs); first page to apply the Chart.js A.2 theme-aware pattern reused from Sprint 6.4.1 (getComputedStyle + MutationObserver on `[data-theme]` re-renders the radar so axes/dataset/tooltip track the active theme) |
 
 Properties of every redesigned page:
 
@@ -382,7 +383,7 @@ Properties of every redesigned page:
 All other pages still render on the Sprint 6.2 dark-navy era:
 
 - `frontend/index.html` (landing)
-- `frontend/pages/dashboard.html`, `pages/full-test-result.html`, `pages/profile.html`, `pages/writing-dashboard.html`, `pages/vocabulary.html` (+ Phase B sub-pages)
+- `frontend/pages/dashboard.html`, `pages/profile.html`, `pages/vocabulary.html` (+ Phase B sub-pages)
 - `frontend/onboarding.html`
 - `frontend/admin.html` (~3,667 lines, partial `--ds-*` use)
 - `frontend/grammar.html` + Grammar Wiki cluster (6 pages on DM Sans + Lora intentionally)
@@ -419,7 +420,7 @@ frontend/js/
 
 | Phase | Sprint range | Pages |
 |---|---|---|
-| Phase 2 | 6.7 – 6.9 | `writing-dashboard.html` and writing flow |
+| Phase 2 | 6.7 – 6.9 | `writing-dashboard.html`, `writing-result.html`, `full-test-result.html` (closed in Sprint 6.9) |
 | Phase 3 | 6.10 – 6.11 | `vocabulary.html` + sub-pages, `profile.html` |
 | Phase 4 | 6.12 – 6.14 | Marketing (`index.html`, `pricing.html`), `admin.html`, Grammar Wiki |
 
