@@ -179,14 +179,15 @@ for (const [name, info] of Object.entries(PAGES)) {
 
     test('Tailwind utility classes preserved on body (β scope)', () => {
       // Sprint 6.15.5-hotfix dropped `text-white` from grammar-article.html
-      // body specifically — the descendant override couldn't match the
-      // body itself, and markdown-emitted class-less semantic HTML
-      // inherited Tailwind's raw white. The remaining 4 grammar pages
-      // keep the class because their content is all class-bearing.
-      if (name !== 'article') {
-        assert.match(pageContents[name], /<body[^>]*class=["'][^"']*\btext-white\b/,
-          `${name}: text-white retained on body for cascade neutralization`);
-      }
+      // body. Sprint 6.15.6-hotfix extended that fix to the remaining 4
+      // grammar pages — JS-renderer-emitted cards have class-less spans
+      // that inherited Tailwind's raw white via the body when the body
+      // itself still carried the text-white class. min-h-screen + font-sans
+      // remain on body as the legitimate utility-class scope.
+      assert.ok(
+        !/<body[^>]*class=["'][^"']*\btext-white\b/.test(pageContents[name]),
+        `${name}: text-white must be removed from body — cascade-winning descendant override cannot match body itself`,
+      );
       assert.match(pageContents[name], /<body[^>]*class=["'][^"']*\bmin-h-screen\b/);
     });
 

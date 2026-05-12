@@ -156,9 +156,10 @@ describe('Token discipline (no hardcoded colors in hotfix block)', () => {
   test('hotfix block contains zero hardcoded white literals', () => {
     // Inspect only the Sprint 6.15.5-hotfix block — earlier parts of
     // grammar-wiki.css legitimately use color-mix() and rgba() for
-    // surfaces.
+    // surfaces. Stop at the next hotfix-block boundary so later hotfix
+    // commentary that names the bug pattern in prose isn't scanned here.
     const block = grammarWikiCss.match(
-      /Sprint 6\.15\.5-hotfix[\s\S]*?(?=\/\* Lora-display)/,
+      /Sprint 6\.15\.5-hotfix[\s\S]*?(?=\/\* ── Sprint 6\.15\.6-hotfix|\/\* Lora-display)/,
     );
     assert.ok(block, 'Sprint 6.15.5-hotfix block must be findable');
     const hardcoded = block[0].match(

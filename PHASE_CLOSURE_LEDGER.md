@@ -2,7 +2,7 @@
 
 Single source-of-truth tracking page redesigns + PR refs + closure status across Phases 1-4.
 
-**Last updated:** Sprint 6.15.5-hotfix (2026-05-12)
+**Last updated:** Sprint 6.15.6-hotfix (2026-05-12)
 
 **Verification:** Test pin `frontend/tests/phase-closure-ledger.test.mjs` cross-references this ledger against:
 
@@ -103,7 +103,8 @@ When this ledger drifts from docs, the test fails — closure truth requires aud
 - Sprint 6.15.3-hotfix (PR #156) — closure audit AMBER closures + Gate 8 formalization
 - Sprint 6.15.4-hotfix (PR #157) — **RED bug fix**: light-theme `text-white/XX` opacity-variant coverage gap (cascade-winning override blind spot, same class as Sprint 6.10.1)
 - Sprint 6.16 (PR #158) — **fix sprint** (not audit hotfix): cross-page navigation label drift ("Dashboard" → "Trang chủ" / "Quay lại") + Speaking page IA cleanup
-- Sprint 6.15.5-hotfix (this PR) — **2nd RED bug fix on grammar-article.html**: Sprint 6.15.4 covered class-bearing elements but markdown emits class-less `<p>` / `<h2>` / `<li>` / `<td>` etc. that inherited Tailwind's raw `text-white` from the body element (descendant override couldn't match body itself). Fix: drop `text-white` from grammar-article body + defensive token-driven overrides in grammar-wiki.css.
+- Sprint 6.15.5-hotfix (PR #159) — **2nd RED bug fix on grammar-article.html**: Sprint 6.15.4 covered class-bearing elements but markdown emits class-less `<p>` / `<h2>` / `<li>` / `<td>` etc. that inherited Tailwind's raw `text-white` from the body element (descendant override couldn't match body itself). Fix: drop `text-white` from grammar-article body + defensive token-driven overrides in grammar-wiki.css.
+- Sprint 6.15.6-hotfix (this PR) — **3rd RED bug fix, comprehensive component pass**: cards (Học tiếp theo / Bài liên quan / category cards) invisible on all 5 grammar pages in light theme despite Sprint 6.15.4 covering every emitted `text-white/X` variant. Phase A audit surfaced multi-mechanism root cause. Fix bundles **6 items**: (1) `text-white` dropped from body on remaining 4 grammar pages (mirror Sprint 6.15.5); (2) 3 JS inline-color sites in grammar.js refactored to class hooks (`.gw-status-dot--planned`, `.gw-status-badge--planned`, `.gw-save-btn`, `.gw-progress-track`); (3) `.cat-card` / `.article-card` / `.group-card` / `.group-article-row` component class hooks gain explicit `--av-text-*` color rules; (4) card surfaces switch from invisible `bg-white/[0.03]` to `--av-surface-card`; (5) `body.av-page.text-white` compound-selector defensive guard; (6) Sprint 6.15.6-hotfix marker + 31-pin regression test file. **Strategy change vs prior 3 hotfixes:** comprehensive Phase A audit before fix (4th iteration warranted broader scope than L3 single-root-cause discipline).
 
 ---
 
@@ -123,7 +124,7 @@ When this ledger drifts from docs, the test fails — closure truth requires aud
 - **Zero pages on `--ds-*` tokens**
 - **`ds.css` preserved** as Sprint 6.5.1 compatibility bridge (renderer-emitted `.ds-band-*` / `.ds-crit*` / `.ds-cue-*` on `practice.html` + `result.html`)
 - **`admin-writing.css` at-cap** 10/10 `--av-text-faint` (frozen per § 17.6)
-- **10 audit hotfixes** cumulative: 6.6.1 (Phase 1), 6.7.1 (writing-dashboard CTA), 6.9.1 (Phase 2), 6.10.1 (theme-toggle icon drift), 6.12c (Phase 3), 6.14c-hotfix (Phase 4 admin), 6.15.2 (narrative correction), 6.15.3-hotfix (Phase 4 closure Gate 8), 6.15.4-hotfix (Grammar Wiki light-theme RED), 6.15.5-hotfix (grammar-article inherited-white RED — this PR)
+- **11 audit hotfixes** cumulative: 6.6.1 (Phase 1), 6.7.1 (writing-dashboard CTA), 6.9.1 (Phase 2), 6.10.1 (theme-toggle icon drift), 6.12c (Phase 3), 6.14c-hotfix (Phase 4 admin), 6.15.2 (narrative correction), 6.15.3-hotfix (Phase 4 closure Gate 8), 6.15.4-hotfix (Grammar Wiki light-theme RED), 6.15.5-hotfix (grammar-article inherited-white RED), 6.15.6-hotfix (Grammar Wiki comprehensive component pass — this PR)
 - **5 cumulative audits closed**: Phase 1 (6.6.1), Phase 2 (6.9.1), Phase 3 (6.12c), Phase 4 admin (6.14c-hotfix), Phase 4 closure (6.15.3-hotfix)
 - **Phase 4 closure audit:** 0 RED, 2 AMBER closed via 6.15.3-hotfix, 4 GREEN
 - **Sprint 6.15.4-hotfix RED bug:** Grammar Wiki cluster light-theme rendering. Root cause: Sprint 6.15 cascade-winning override neutralized only plain `.text-white`, missed 15 Tailwind opacity variants (`text-white/15..90`) + 5 hover + 4 border + 5 bg. Fix: comprehensive opacity-variant override block in grammar-wiki.css mapped to `--av-text-*` / `--av-border-*` / `--av-surface-*` tokens. Same blind-spot class as Sprint 6.10.1 icon rendering miss — § 17 audit-gate methodology note added (visual rendering smoke required in both themes for any cascade-winning override).

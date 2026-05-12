@@ -85,9 +85,9 @@ describe('PHASE_CLOSURE_LEDGER.md / ledger structure', () => {
     );
   });
 
-  test('10 cumulative audit hotfixes documented (post Sprint 6.15.5-hotfix)', () => {
-    assert.match(ledger, /10 audit hotfixes/i,
-      'Ledger should mention 10 cumulative audit hotfixes after Sprint 6.15.5-hotfix');
+  test('11 cumulative audit hotfixes documented (post Sprint 6.15.6-hotfix)', () => {
+    assert.match(ledger, /11 audit hotfixes/i,
+      'Ledger should mention 11 cumulative audit hotfixes after Sprint 6.15.6-hotfix');
   });
 });
 
