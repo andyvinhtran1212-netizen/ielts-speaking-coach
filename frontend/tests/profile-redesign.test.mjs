@@ -136,8 +136,12 @@ describe('profile.html / anti-flash IIFE runs before stylesheets', () => {
 
 
 describe('profile.html / JS-coupled selectors preserved byte-identical', () => {
+  // Sprint 6.17 chrome unification: 'header-avatar' wrapper removed
+  // (canonical .user-pill > .avatar wrapper replaces it). 'header-initials'
+  // span is preserved nested inside the new canonical user-avatar so
+  // profile.html's inline JS continues to set initials text content.
   const requiredIds = [
-    'header-avatar', 'header-initials',
+    'header-initials',
     'profile-avatar', 'profile-initials', 'profile-avatar-img',
     'profile-display-name', 'profile-email', 'profile-joined',
     'stat-sessions', 'stat-avg-band', 'stat-weekly',
@@ -205,17 +209,22 @@ describe('profile.html / body class + chrome', () => {
     }
   });
 
-  test('toggle binding wired (bindToggleButton + lucide hydration)', () => {
-    assert.match(html, /bindToggleButton\s*\(\s*\)/);
+  test('toggle binding wired (theme-toggle.js module + lucide hydration)', () => {
+    // Sprint 6.17: inline bindToggleButton() function replaced with the
+    // canonical /js/theme-toggle.js ES module import. Lucide hydration
+    // retained for icon glyphs used elsewhere on the page.
+    assert.match(html, /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/);
     assert.match(html, /lucide\.createIcons/);
   });
 
-  test('back link uses Lucide chevron-left', () => {
-    assert.match(html, /data-lucide=["']chevron-left["']/);
-  });
-
-  test('functional brand wordmark preserved (AverLearning)', () => {
-    assert.match(html, /Aver<span[^>]*>Learning<\/span>/);
+  test('Sprint 6.17 canonical chrome — full nav + user-pill dropdown', () => {
+    // Replaces the prior back-link + functional-brand pins. The canonical
+    // chrome ships skill nav (no standalone back-link) + Aver.Learning
+    // dotted brand (compound selector form vs the prior functional
+    // Aver<span>Learning</span> microcopy variant).
+    assert.match(html, /class=["']brand["']>Aver<span class=["']dot["']>\.<\/span>Learning/);
+    assert.match(html, /class=["']topnav["']/);
+    assert.match(html, /id=["']user-menu-logout["']/);
   });
 });
 
