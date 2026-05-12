@@ -339,7 +339,7 @@ describe('result.html / color migration', () => {
     for (const phrase of [
       'Đang tải kết quả',
       'Không thể tải kết quả',
-      'Quay lại Dashboard',
+      'Quay lại',
       'Band tổng quan',
       'Overall Band Score',
       'Điểm mạnh',

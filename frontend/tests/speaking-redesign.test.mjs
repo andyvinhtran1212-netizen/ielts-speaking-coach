@@ -289,9 +289,12 @@ describe('speaking.html / Lucide icon swap', () => {
     const nav = html.match(/<nav class="main-tab-nav">[\s\S]*?<\/nav>/);
     const navHtml = nav[0];
     const lucideCount = (navHtml.match(/<i\s+data-lucide=/g) || []).length;
+    // Sprint 6.16: dropped 2 anchor links (Grammar Wiki + Từ vựng) for IA
+    // cleanup — cross-skill discovery lives on home.html. Pin relaxed to
+    // ≥ 4 (the 4 internal tabs that switchMainTab() handles).
     assert.ok(
-      lucideCount >= 6,
-      `expected ≥ 6 Lucide icons in main-tab-nav (4 buttons + 2 anchor links), found ${lucideCount}`,
+      lucideCount >= 4,
+      `expected ≥ 4 Lucide icons in main-tab-nav (4 internal tabs after Sprint 6.16), found ${lucideCount}`,
     );
   });
 

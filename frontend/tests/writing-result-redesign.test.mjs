@@ -411,7 +411,7 @@ describe('writing-result.html / color migration', () => {
       'Bài viết bị đánh dấu cần xem xét',
       'Bài viết của tôi',
       'Tải .docx',
-      'Quay lại Dashboard',
+      'Quay lại',
       'Tổng quan',
       'Nhận xét lỗi',
       'Phân tích nâng cao',

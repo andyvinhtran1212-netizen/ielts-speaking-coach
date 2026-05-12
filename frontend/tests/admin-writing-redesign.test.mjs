@@ -128,7 +128,7 @@ describe('admin-writing.html / Vietnamese microcopy preserved exactly', () => {
     'Đang kiểm tra quyền truy cập…',
     'Admin Access Required',
     'Bạn cần quyền admin để truy cập Writing Coach.',
-    'Quay lại Dashboard',
+    'Quay lại trang chủ',
     'Submit New Essay',
     'Paste essay → AI grades',
     'Review + Edit',
