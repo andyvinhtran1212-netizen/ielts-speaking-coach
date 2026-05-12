@@ -224,8 +224,9 @@ describe('my-vocabulary.html / body class + chrome', () => {
     }
   });
 
-  test('header back-link uses Lucide chevron-left', () => {
-    assert.match(html, /data-lucide=["']chevron-left["']/);
+  test('Sprint 6.17.1 — back-link replaced by canonical full-nav skill tabs', () => {
+    assert.match(html, /class=["']topnav["']/);
+    assert.match(html, /href=["']\/pages\/vocabulary\.html["']\s+class=["']active["']/);
   });
 
   test('header add-word button uses Lucide plus', () => {

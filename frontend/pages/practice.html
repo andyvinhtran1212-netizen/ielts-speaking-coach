@@ -66,34 +66,59 @@
 </head>
 <body class="av-page font-sans antialiased min-h-screen flex flex-col">
 
-  <!-- ─── HEADER ─────────────────────────────────────────────────────────────── -->
-  <header class="practice-header sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
+  <!-- Canonical chrome (Sprint 6.17.1 — Speaking active). -->
+  <div class="topnav-wrap">
+    <nav class="topnav" aria-label="Primary">
+      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
+      <div class="nav-links">
+        <a href="/pages/home.html">Trang chủ</a>
+        <a href="/pages/writing-dashboard.html">Writing</a>
+        <a href="/pages/speaking.html" class="active">Speaking</a>
+        <a href="/grammar.html">Grammar</a>
+        <a href="/pages/vocabulary.html">Vocabulary</a>
+        <span class="locked" aria-disabled="true">Reading</span>
+        <span class="locked" aria-disabled="true">Listening</span>
+      </div>
+      <div class="topnav-right">
+        <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <div class="user-menu">
+          <button class="user-pill" id="user-pill" type="button"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
+            <span class="avatar" id="user-avatar">·</span>
+            <span id="user-pill-name">…</span>
+          </button>
+          <div class="user-menu-dropdown" role="menu" hidden>
+            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
+            <button type="button" class="user-menu-item user-menu-item--danger"
+                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- Practice context bar (Sprint 6.17.1 Q4 — session-state info preserved
+       below canonical chrome). #hdr-info + #hdr-progress are populated by
+       practice.js; both stay .hidden until the session metadata loads. -->
+  <header class="practice-header practice-context-bar sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <a href="speaking.html" class="practice-back-link">
+      <a href="/pages/speaking.html" class="practice-back-link">
         <i data-lucide="chevron-left"></i>
         Quay lại
       </a>
-      <span class="font-bold text-sm tracking-tight">
-        Aver<span style="color:var(--av-primary);">Learning</span>
-      </span>
     </div>
-
     <div class="flex items-center gap-3 min-w-0">
       <span id="hdr-info"
             class="hidden text-xs font-medium truncate practice-hdr-info"></span>
       <span id="hdr-progress" class="hidden ds-badge ds-badge-teal" style="white-space:nowrap;"></span>
-
-      <!-- Sprint 6.5: theme toggle. The .av-theme-toggle class is styled
-           by /css/aver-design/components.css; bound by /js/theme-toggle.js. -->
-      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
-        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="4"></circle>
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
-        </svg>
-        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-      </button>
     </div>
   </header>
 
@@ -619,14 +644,11 @@
     })();
   </script>
 
-  <!-- ── Theme toggle binding (Sprint 6.5) ──────────────────────────
-       The IIFE in <head> already applied data-theme synchronously to
-       prevent a flash. theme-toggle.js auto-runs initTheme() on import
-       and we wire the click handler to the .av-theme-toggle button. -->
+  <!-- Canonical theme/user-pill wiring (Sprint 6.17.1). -->
   <script type="module">
-    import { bindToggleButton } from '../js/theme-toggle.js';
-    const btn = document.querySelector('.av-theme-toggle');
-    if (btn) bindToggleButton(btn);
+    import { bindToggleButton } from '/js/theme-toggle.js';
+    bindToggleButton(document.getElementById('theme-toggle'));
   </script>
+  <script type="module" src="/js/user-pill.js"></script>
 </body>
 </html>

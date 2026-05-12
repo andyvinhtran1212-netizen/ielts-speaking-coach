@@ -248,13 +248,17 @@ describe('onboarding.html / body class + chrome', () => {
     }
   });
 
-  test('toggle binding wired (bindToggleButton + lucide hydration)', () => {
-    assert.match(html, /bindToggleButton\s*\(\s*\)/);
+  test('toggle binding wired (canonical /js/theme-toggle.js module — Sprint 6.17.1)', () => {
+    assert.match(
+      html,
+      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,
+    );
     assert.match(html, /lucide\.createIcons/);
   });
 
-  test('functional emoji preserved (🎙️ wordmark, step header emoji)', () => {
-    assert.match(html, /🎙️/);   // nav wordmark
+  test('step-header emoji preserved (Sprint 6.17.1 dropped 🎙️ nav wordmark; step emojis retained)', () => {
+    // Sprint 6.17.1 Q3: canonical brand only in chrome — 🎙️ removed from
+    // nav wordmark per Andy approval. Step-header emojis stay (page body).
     assert.match(html, /👋/);   // step 1 title
     assert.match(html, /📊/);   // step 2 title
     assert.match(html, /🎯/);   // step 3 title

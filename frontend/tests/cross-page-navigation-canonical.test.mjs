@@ -181,12 +181,14 @@ describe('Destination URLs preserved byte-identical', () => {
     // Sprint 6.17 chrome unification: profile.html now uses canonical
     // full-nav (no standalone back-link); home href moved to /pages/home.html.
     { page: 'frontend/pages/profile.html',                  href: '/pages/home.html' },
-    { page: 'frontend/pages/exercises.html',                href: 'home.html' },
-    { page: 'frontend/pages/flashcards.html',               href: 'home.html' },
+    // Sprint 6.17.1 chrome unification: exercises/flashcards back-links
+    // removed (canonical full nav provides skill navigation). practice,
+    // result, full-test-result still ship a Quay-lại link in their page
+    // context bar but using the absolute /pages/speaking.html form.
     { page: 'frontend/pages/admin-writing.html',            href: '/pages/home.html' },
-    { page: 'frontend/pages/practice.html',                 href: 'speaking.html' },
-    { page: 'frontend/pages/result.html',                   href: 'speaking.html' },
-    { page: 'frontend/pages/full-test-result.html',         href: 'speaking.html' },
+    { page: 'frontend/pages/practice.html',                 href: '/pages/speaking.html' },
+    { page: 'frontend/pages/result.html',                   href: '/pages/speaking.html' },
+    { page: 'frontend/pages/full-test-result.html',         href: '/pages/speaking.html' },
     { page: 'frontend/pages/writing-result.html',           href: '/writing/dashboard' },
     { page: 'frontend/admin.html',                          href: 'pages/home.html' },
     { page: 'frontend/grammar.html',                        href: 'pages/home.html' },

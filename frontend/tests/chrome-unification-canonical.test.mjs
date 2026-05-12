@@ -31,9 +31,21 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 
 
 const CANONICAL_CHROME_PAGES = [
+  // Phase C1 (Sprint 6.17, PR #164)
   'frontend/pages/home.html',
   'frontend/pages/vocabulary.html',
   'frontend/pages/profile.html',
+  // Phase C2 (Sprint 6.17.1)
+  'frontend/pages/speaking.html',
+  'frontend/pages/practice.html',
+  'frontend/pages/result.html',
+  'frontend/pages/full-test-result.html',
+  'frontend/pages/writing-dashboard.html',
+  'frontend/pages/writing-result.html',
+  'frontend/onboarding.html',
+  'frontend/pages/my-vocabulary.html',
+  'frontend/pages/flashcards.html',
+  'frontend/pages/exercises.html',
 ];
 
 
@@ -199,36 +211,34 @@ describe('Sprint 6.17 Phase C1 — canonical chrome on migrated pages', () => {
 // ── Phase C2 scope tracking ───────────────────────────────────────
 
 
-describe('Sprint 6.17 Phase C2 — deferred pages tracking (Sprint 6.17.1)', () => {
-  // Pin the deferred roster so we don't lose track of remaining work.
-  // When Sprint 6.17.1 migrates each page, move it from this list into
-  // CANONICAL_CHROME_PAGES above.
-  const DEFERRED_PAGES = [
-    'frontend/pages/speaking.html',          // has existing #avatar-menu dropdown — resolve conflict
-    'frontend/pages/practice.html',          // #hdr-info + #hdr-progress JS bindings
-    'frontend/pages/result.html',
-    'frontend/pages/full-test-result.html',
-    'frontend/pages/writing-dashboard.html', // logout integration into canonical pill
-    'frontend/pages/writing-result.html',
-    'frontend/onboarding.html',
-    'frontend/pages/my-vocabulary.html',     // embedded-mode contract
-    'frontend/pages/flashcards.html',        // embedded-mode contract
-    'frontend/pages/exercises.html',         // embedded-mode contract
+describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () => {
+  // Cat 2B pages mount under vocabulary.html as iframe tabs when the URL
+  // carries ?embedded=1. The IIFE in <head> adds .embedded-mode to <html>
+  // and embedded-mode.css hides direct-child chrome via the canonical
+  // selector. Sprint 6.17.1 extended that selector to include the
+  // canonical .topnav-wrap wrapper.
+  const EMBEDDED_PAGES = [
+    'frontend/pages/my-vocabulary.html',
+    'frontend/pages/flashcards.html',
+    'frontend/pages/exercises.html',
   ];
 
-  test('exactly 10 pages deferred to Sprint 6.17.1', () => {
-    assert.equal(
-      DEFERRED_PAGES.length, 10,
-      'If Phase C2 scope changes, update this count + the per-page roster comment',
+  test('embedded-mode.css hides .topnav-wrap when html.embedded-mode is set', () => {
+    const css = readFileSync(path.join(REPO_ROOT, 'frontend/css/embedded-mode.css'), 'utf8');
+    assert.match(
+      css,
+      /html\.embedded-mode\s*>\s*body\s*>\s*\.topnav-wrap/,
+      'embedded-mode.css must include html.embedded-mode > body > .topnav-wrap selector',
     );
   });
 
-  DEFERRED_PAGES.forEach((rel) => {
-    test(`${rel} still exists (deferred, not deleted)`, () => {
-      const abs = path.join(REPO_ROOT, rel);
-      assert.doesNotThrow(
-        () => readFileSync(abs, 'utf8'),
-        `${rel} should still exist while Sprint 6.17.1 is pending`,
+  EMBEDDED_PAGES.forEach((rel) => {
+    test(`${rel} preserves embedded-mode IIFE (sets html.embedded-mode synchronously)`, () => {
+      const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      assert.match(
+        html,
+        /classList\.add\(\s*['"]embedded-mode['"]\s*\)/,
+        `${rel} must still set the embedded-mode class on <html> when ?embedded=1`,
       );
     });
   });

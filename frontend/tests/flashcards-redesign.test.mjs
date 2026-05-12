@@ -165,8 +165,9 @@ describe('flashcards.html / body class + chrome', () => {
     for (const v of drifts) assert.ok(!html.includes(v));
   });
 
-  test('back link uses Lucide chevron-left', () => {
-    assert.match(html, /data-lucide=["']chevron-left["']/);
+  test('Sprint 6.17.1 — back-link replaced by canonical full-nav skill tabs', () => {
+    assert.match(html, /class=["']topnav["']/);
+    assert.match(html, /href=["']\/pages\/vocabulary\.html["']\s+class=["']active["']/);
   });
 
   test('functional microcopy preserved (📚 in title)', () => {

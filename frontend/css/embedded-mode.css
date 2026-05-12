@@ -27,6 +27,7 @@
  */
 
 html.embedded-mode > body > header,
+html.embedded-mode > body > .topnav-wrap,   /* Sprint 6.17.1: canonical chrome */
 html.embedded-mode #vocab-moved-banner,
 html.embedded-mode .vocab-moved-banner {
   display: none !important;
