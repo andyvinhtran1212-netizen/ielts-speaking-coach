@@ -37,6 +37,44 @@
 }
 
 
+/* ── Page eyebrow (Sprint 6.19 canonical primitive) ──────────────
+ *
+ * Uppercase, tracking-widest, primary-tinted label that sits above
+ * the page <h1>. Promoted from `.greeting .eyebrow` in home.css to a
+ * standalone primitive so every canonical-chrome page can adopt the
+ * same hierarchy:
+ *
+ *     <p class="eyebrow">SPEAKING</p>
+ *     <h1>Practice page title</h1>
+ *     <p class="subtitle">Supporting paragraph.</p>
+ *
+ * Per-page eyebrow values (Sprint 6.19 Phase B Andy approval):
+ *   - home.html                          → "Trang chủ"
+ *   - speaking / practice / result       → "Speaking"
+ *   - full-test-result.html              → "Speaking" (canonical),
+ *       "Overall Band Score" preserved as hero subtitle
+ *   - writing-dashboard / writing-result → "Writing"
+ *   - vocabulary / my-vocabulary /
+ *     flashcards / exercises             → "Vocabulary"
+ *   - grammar-roadmap / grammar-search /
+ *     grammar-compare / grammar-article  → "Grammar Wiki"
+ *   - grammar.html                       → preserved editorial badge
+ *       (.ds-badge.ds-badge-teal — § 14.2 sub-system, Phase B Q3)
+ *   - profile.html                       → "Hồ sơ"
+ *   - onboarding.html                    → "Bắt đầu"
+ *
+ * Margin-bottom uses --av-space-3 so the eyebrow sits ~12px above the
+ * <h1> — matches the existing home.css scoped rule byte-for-byte. */
+.eyebrow {
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-widest);
+  color: var(--av-primary);
+  text-transform: uppercase;
+  margin: 0 0 var(--av-space-3);
+}
+
+
 /* ── Theme toggle button ────────────────────────────────────────── */
 
 .av-theme-toggle {
