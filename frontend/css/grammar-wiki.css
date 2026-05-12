@@ -203,6 +203,177 @@ body.av-page #article-meta  { color: var(--av-text-muted); }
 body.av-page #breadcrumb    { color: var(--av-text-muted); }
 
 
+/* ── Sprint 6.15.6-hotfix — comprehensive component class-hook coverage ─
+ *
+ * 4th Grammar Wiki light-theme RED regression. Andy reported cards (Học
+ * tiếp theo, Bài liên quan) plus other component-level content invisible
+ * across all 5 grammar pages in light theme. Prior 3 hotfixes each closed
+ * ONE mechanism (Sprint 6.15.4 = cascade-winning Tailwind variants;
+ * Sprint 6.15.5 = body inheritance into class-less HTML on grammar-
+ * article.html). Each was scoped narrowly enough that the next mechanism
+ * surfaced on the next test pass.
+ *
+ * This hotfix is the deliberate belt-and-suspenders pass — six combined
+ * fixes mirrored across the Grammar Wiki cluster:
+ *
+ *   1. `text-white` removed from <body> on the remaining 4 grammar pages
+ *      (grammar.html + grammar-{roadmap,search,compare}.html). Mirrors
+ *      the Sprint 6.15.5 fix on grammar-article.html. The descendant
+ *      override cannot match body itself, so Tailwind's raw white was
+ *      still winning on body even after Sprint 6.15.4.
+ *
+ *   2. JS-emitted inline `style="color:rgba(255,255,255,X)"` sites in
+ *      grammar.js refactored to class hooks. Inline styles bypass
+ *      cascade overrides entirely — only direct refactor or !important
+ *      can fix them. We took the refactor path: introduced
+ *      `.gw-status-dot--planned`, `.gw-status-badge--planned`, and
+ *      `.gw-save-btn` (+ `--saved` modifier).
+ *
+ *   3. Component class hooks (.cat-card, .article-card, .group-card,
+ *      .group-article-row) get explicit `--av-text-*` color rules so
+ *      cards no longer depend on Tailwind cascade winning — they always
+ *      paint the token color regardless of source order.
+ *
+ *   4. Card surfaces switch from `bg-white/[0.03]` arbitrary-value
+ *      Tailwind backgrounds (uncovered by the Sprint 6.15.4 neutralizer
+ *      block) to `--av-surface-card` — visible pure-white surface on
+ *      cream page in light theme, dark surface in dark theme. Card
+ *      boundaries are no longer imperceptible.
+ *
+ *   5. `body.av-page.text-white` compound selector (no space) added as
+ *      a defensive guard — if any future Grammar Wiki page (or future
+ *      contributor) re-adds `text-white` to body, the body element
+ *      itself resolves to the token color.
+ *
+ *   6. Sprint 6.15.6-hotfix marker comment (this block) + regression
+ *      test pin file guard against future deletions.
+ *
+ * Why prior 3 hotfixes were incomplete (honest retrospection): each
+ * hotfix's L3 single-root-cause discipline narrowed scope so much that
+ * Phase A audit didn't enumerate every component class-hook and every
+ * mechanism. § 17.8 Gate 9 + Gate 9.5 covered cascade + inheritance;
+ * Gate 9.7 (deferred to its own sprint) is the per-component verification
+ * lesson from this iteration.
+ */
+
+
+/* Item 5 — compound selector body-element guard (defensive). */
+body.av-page.text-white { color: var(--av-text-primary); }
+
+
+/* Item 3 — Component class hook text colors (cards). */
+
+/* Landing category cards — h3 title + .text-xs meta + nested article list. */
+body.av-page .cat-card               { color: var(--av-text-primary); }
+body.av-page .cat-card h3            { color: var(--av-text-primary); }
+body.av-page .cat-card p             { color: var(--av-text-muted); }
+body.av-page .cat-card li,
+body.av-page .cat-card li a         { color: var(--av-text-secondary); }
+body.av-page .cat-card li:hover,
+body.av-page .cat-card li:hover a   { color: var(--av-text-primary); }
+
+/* Featured + article cards (article suggestion blocks on landing + sidebar). */
+body.av-page .article-card           { color: var(--av-text-primary); }
+body.av-page .article-card h3,
+body.av-page .article-card h4        { color: var(--av-text-primary); }
+body.av-page .article-card p         { color: var(--av-text-secondary); }
+body.av-page .article-card .meta,
+body.av-page .article-card .text-xs  { color: var(--av-text-muted); }
+
+/* Group cards (grammar-roadmap.html clusters). */
+body.av-page .group-card             { color: var(--av-text-primary); }
+body.av-page .group-card h3,
+body.av-page .group-card h4          { color: var(--av-text-primary); }
+body.av-page .group-card p           { color: var(--av-text-muted); }
+
+/* Group article rows (inside group-card, plus the renderer-emitted
+ * "Sắp ra mắt" / "Đang cập nhật" status states). */
+body.av-page .group-article-row             { color: var(--av-text-secondary); }
+body.av-page .group-article-row a           { color: var(--av-text-secondary); }
+body.av-page .group-article-row a:hover     { color: var(--av-text-primary); }
+
+
+/* Item 4 — Card surface visibility (replace invisible bg-white/[0.03]).
+ *
+ * The arbitrary-value `bg-white/[0.03]` Tailwind class is uncovered by
+ * the Sprint 6.15.4 bg-white neutralizer block (covers /5, /6, /8, /10
+ * only, not /[0.03]). On cream surface in light theme,
+ * `rgba(255,255,255,0.03)` is imperceptibly different from the page —
+ * card boundaries disappear. Force a visible surface on cards even when
+ * the renderer emits the arbitrary-value utility. */
+body.av-page .cat-card,
+body.av-page .article-card,
+body.av-page .group-card,
+body.av-page .group-article-row {
+  background-color: var(--av-surface-card);
+}
+
+/* Also cover the arbitrary-value class name directly — Tailwind compiles
+ * `bg-white/[0.03]` to `.bg-white\/\[0\.03\]`. Higher-specificity scoped
+ * override beats it. Same for /[0.07] used on hover. */
+body.av-page .bg-white\/\[0\.03\]  { background-color: var(--av-surface-card); }
+body.av-page .bg-white\/\[0\.04\]  { background-color: var(--av-surface-card); }
+body.av-page .bg-white\/\[0\.05\]  { background-color: var(--av-surface-card); }
+body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surface-elevated); }
+
+
+/* Item 2 — Class hooks for grammar.js inline-color refactor sites.
+ *
+ * Renderer previously emitted `style="background:rgba(255,255,255,X);
+ * color:rgba(255,255,255,Y)"` for the planned-status badge + save-article
+ * button. Inline styles bypass cascade — the only fix is to migrate them
+ * to class hooks. These rules define the token-driven base + state for
+ * each. */
+
+/* Planned-status dot (group-article-row, status === 'planned'). */
+.gw-status-dot--planned {
+  background-color: var(--av-text-faint);
+}
+
+/* Planned-status pill ("Sắp ra mắt"). Resolves to a muted-on-card surface
+ * in both themes. */
+.gw-status-badge--planned {
+  background-color: var(--av-surface-sunken);
+  color: var(--av-text-muted);
+}
+
+/* Save-article button (grammar-article.html header meta). Base state +
+ * `--saved` modifier. */
+.gw-save-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--av-border-default);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-muted);
+  transition: all 0.15s;
+}
+.gw-save-btn:hover {
+  border-color: var(--av-primary-border);
+  color: var(--av-text-primary);
+}
+.gw-save-btn--saved {
+  border-color: var(--av-primary-border);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+}
+.gw-save-btn--saved:hover {
+  color: var(--av-primary-hover);
+}
+
+/* Progress-bar track (roadmap card category-level progress visual).
+ * Was inline `style="background:rgba(255,255,255,0.06)"`. */
+.gw-progress-track {
+  background-color: var(--av-surface-sunken);
+}
+
+
 /* Lora-display headings — opt-in via .gw-display or class on element */
 .gw-display,
 .hero-title,

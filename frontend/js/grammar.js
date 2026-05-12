@@ -244,11 +244,13 @@
       // Article list rows
       var rows = (g.articles || []).map(function (a) {
         if (a.status === 'planned') {
+          // Sprint 6.15.6-hotfix: inline rgba(255,255,255,X) colors replaced
+          // with class hooks so light theme picks up token-driven colors via
+          // grammar-wiki.css. Inline styles bypass cascade overrides.
           return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
-                 '<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:rgba(255,255,255,0.12)"></span>' +
+                 '<span class="gw-status-dot gw-status-dot--planned w-1.5 h-1.5 rounded-full flex-shrink-0"></span>' +
                  '<span class="text-sm text-white/28 flex-1 truncate">' + a.title + '</span>' +
-                 '<span class="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0" ' +
-                 'style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.28)">Sắp ra mắt</span>' +
+                 '<span class="gw-status-badge gw-status-badge--planned text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">Sắp ra mắt</span>' +
                  '</div>';
         } else if (a.status === 'updating') {
           return '<div class="group-article-row flex items-center gap-2 px-2 py-1">' +
@@ -295,7 +297,10 @@
              '</div></div>' +
 
              // ── Progress bar ──
-             '<div class="h-0.5 rounded-full mb-4 overflow-hidden" style="background:rgba(255,255,255,0.06)">' +
+             // Sprint 6.15.6-hotfix: track background moved to class hook
+             // (gw-progress-track) so light theme picks up token surface.
+             // Fill colour stays inline because it's data-driven (pal.hex).
+             '<div class="gw-progress-track h-0.5 rounded-full mb-4 overflow-hidden">' +
              '<div class="h-full rounded-full transition-all" style="width:' + pct + '%;background:' + pal.hex + '"></div>' +
              '</div>' +
 
@@ -811,9 +816,12 @@
     if (!metaEl || !window.api || !window.api.post) return;
 
     // Create button
+    // Sprint 6.15.6-hotfix: inline rgba(255,255,255,X) colors moved to class
+    // hooks `.gw-save-btn` + `.gw-save-btn--saved` so light theme picks up
+    // token-driven colors via grammar-wiki.css. Inline styles bypass cascade.
     var btn = document.createElement('button');
     btn.id = 'save-article-btn';
-    btn.style.cssText = 'margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);transition:all 0.15s;';
+    btn.className = 'gw-save-btn';
     btn.innerHTML = '🔖 Lưu bài';
     metaEl.appendChild(btn);
 
@@ -821,9 +829,7 @@
     function _setSaved(saved) {
       btn.dataset.saved = saved ? '1' : '0';
       btn.innerHTML = saved ? '🔖 Đã lưu' : '🔖 Lưu bài';
-      btn.style.color = saved ? '#14b8a6' : 'rgba(255,255,255,0.55)';
-      btn.style.borderColor = saved ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.15)';
-      btn.style.background = saved ? 'rgba(15,118,110,0.18)' : 'rgba(255,255,255,0.05)';
+      btn.classList.toggle('gw-save-btn--saved', !!saved);
     }
 
     btn.addEventListener('click', async function () {
