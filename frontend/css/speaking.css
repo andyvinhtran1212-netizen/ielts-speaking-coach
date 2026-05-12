@@ -284,6 +284,9 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* Sprint 6.18 — canonical 64px gap below the secondary tab nav so
+   * the first speaking content block lands at the canonical position. */
+  margin-bottom: var(--av-chrome-bottom-margin);
 }
 .main-tab-nav::-webkit-scrollbar { display: none; }
 
