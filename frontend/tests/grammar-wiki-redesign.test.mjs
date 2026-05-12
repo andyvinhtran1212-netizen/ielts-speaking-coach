@@ -178,7 +178,15 @@ for (const [name, info] of Object.entries(PAGES)) {
     });
 
     test('Tailwind utility classes preserved on body (β scope)', () => {
-      assert.match(pageContents[name], /<body[^>]*class=["'][^"']*\btext-white\b/);
+      // Sprint 6.15.5-hotfix dropped `text-white` from grammar-article.html
+      // body specifically — the descendant override couldn't match the
+      // body itself, and markdown-emitted class-less semantic HTML
+      // inherited Tailwind's raw white. The remaining 4 grammar pages
+      // keep the class because their content is all class-bearing.
+      if (name !== 'article') {
+        assert.match(pageContents[name], /<body[^>]*class=["'][^"']*\btext-white\b/,
+          `${name}: text-white retained on body for cascade neutralization`);
+      }
       assert.match(pageContents[name], /<body[^>]*class=["'][^"']*\bmin-h-screen\b/);
     });
 
