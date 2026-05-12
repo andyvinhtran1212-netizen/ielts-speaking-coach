@@ -193,10 +193,14 @@ for (const [name, info] of Object.entries(PAGES)) {
 
     test('theme-toggle.js bindToggleButton wired', () => {
       assert.match(pageContents[name], /bindToggleButton/);
-      const expected = info.prefix + 'js/theme-toggle.js';
+      // Sprint 6.15.7-hotfix: all 5 grammar pages switched to absolute
+      // path `/js/theme-toggle.js` so Vercel rewrites (e.g.
+      // /grammar/:category/:slug) don't break relative resolution.
+      // Relative paths still acceptable for legacy callers, but the
+      // canonical for the grammar cluster is the absolute form.
       assert.ok(
-        pageContents[name].includes(expected) || pageContents[name].includes('./js/theme-toggle.js'),
-        `${name}: theme-toggle.js import path should reference ${expected}`,
+        pageContents[name].includes('/js/theme-toggle.js'),
+        `${name}: theme-toggle.js import path should include "/js/theme-toggle.js" (absolute) per Sprint 6.15.7-hotfix`,
       );
     });
 
