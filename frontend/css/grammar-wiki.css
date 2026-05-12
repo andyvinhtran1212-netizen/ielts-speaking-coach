@@ -120,6 +120,89 @@ body.av-page .bg-white\/8      { background-color: var(--av-surface-card); }
 body.av-page .bg-white\/6      { background-color: var(--av-surface-card); }
 body.av-page .bg-white\/5      { background-color: var(--av-surface-card); }
 
+
+/* ── Sprint 6.15.5-hotfix — grammar-article cascade hardening for light theme ─
+ *
+ * RED bug: grammar-article.html article body still rendered invisible in
+ * light theme after Sprint 6.15.4-hotfix shipped opacity-variant coverage.
+ * Other 4 grammar pages (landing, roadmap, search, compare) rendered fine
+ * because every text node sits inside an element with an explicit Tailwind
+ * utility class — the Sprint 6.15.4 override block neutralizes them.
+ *
+ * grammar-article.html is structurally different: the article body comes
+ * from the backend as markdown-converted HTML — bare semantic elements
+ * (`<p>`, `<h2>`, `<table>`, `<li>`, `<td>`, `<strong>`) with NO classes.
+ * Those elements inherit color from the nearest ancestor that has an
+ * explicit `color` declaration.
+ *
+ * Two combined hardenings ship in this hotfix:
+ *
+ * 1. Body class drift fix — `<body>` previously carried `text-white` even
+ *    on light theme. The descendant selector `body.av-page .text-white`
+ *    cannot match the body element itself; the body therefore picked up
+ *    Tailwind's plain `.text-white { color: rgb(255 255 255) }` and the
+ *    bare semantic elements inside the article inherited that white. The
+ *    `text-white` class was removed from `<body>` in grammar-article.html
+ *    in the same hotfix.
+ *
+ * 2. Defensive explicit color on the article body container + every bare
+ *    semantic descendant. Even if a future contributor re-adds `text-white`
+ *    or some other inherited-white selector wins on a parent, these rules
+ *    pin the article body content to the token-driven color hierarchy.
+ *
+ * Why Sprint 6.15.4-hotfix missed it: Gate 9 verified CSS cascade coverage
+ * for class-bearing elements but didn't model inheritance into class-less
+ * semantic HTML rendered at runtime by a markdown pipeline. Same blind-spot
+ * family as Sprint 6.10.1 (icon rendering) and the 6.15.4 cascade miss.
+ *
+ * § 17.8 Gate 9.5 (renderer-inherited color audit) ships in a follow-up.
+ */
+
+/* Defensive: any time body still carries text-white (e.g. another grammar
+ * page not yet de-classed), the body element itself must resolve to the
+ * token color. body.av-page (0,0,1,1) already beats Tailwind's .text-white
+ * (0,0,1,0) by specificity, but pairing the two classes on the same
+ * compound selector (0,0,2,1) leaves zero ambiguity even if Tailwind CDN
+ * later compiles to a higher-specificity utility. */
+body.av-page.text-white { color: var(--av-text-primary); }
+
+/* Article body container + every bare-semantic descendant a markdown
+ * pipeline can emit. Specificity 0,0,2,1 (body+av-page+article-body+tag)
+ * comfortably beats any Tailwind utility or inheritance chain. */
+body.av-page .article-body,
+body.av-page .article-body p,
+body.av-page .article-body li,
+body.av-page .article-body td,
+body.av-page .article-body span,
+body.av-page .article-body em,
+body.av-page .article-body blockquote {
+  color: var(--av-text-primary);
+}
+
+/* Article body bold + headings — preserve existing primary-color treatment.
+ * Already declared earlier in this file but re-pinned here at higher
+ * specificity for inherited-color robustness. */
+body.av-page .article-body strong,
+body.av-page .article-body h2,
+body.av-page .article-body h3 {
+  color: var(--av-text-primary);
+}
+
+/* Table headers preserve their teal accent (defined earlier in this file
+ * as .article-body table th). Repeat at higher specificity so the
+ * defensive paragraph rule above doesn't accidentally win on cascade
+ * source-order ties. */
+body.av-page .article-body table th {
+  color: var(--av-primary);
+}
+
+/* Article header chrome — pinned at high specificity for the same reason
+ * (bare H1 + meta div sit outside .article-body in grammar-article.html). */
+body.av-page #article-title { color: var(--av-text-primary); }
+body.av-page #article-meta  { color: var(--av-text-muted); }
+body.av-page #breadcrumb    { color: var(--av-text-muted); }
+
+
 /* Lora-display headings — opt-in via .gw-display or class on element */
 .gw-display,
 .hero-title,
