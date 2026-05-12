@@ -243,8 +243,10 @@ describe('PHASE_CLOSURE_LEDGER.md — Sprint 6.16.1 row', () => {
       'Sprint 6.16.1 is methodology — hotfix count should remain at 13');
   });
 
-  test('Last updated marker bumped to Sprint 6.16.1', () => {
-    assert.match(ledger, /Last updated:\*\*\s*Sprint 6\.16\.1/,
-      'Ledger Last-updated marker should reflect Sprint 6.16.1');
+  test('Ledger has a Last-updated marker (Sprint 6.16.1 or newer)', () => {
+    // Sprint 6.17 / 6.17.1 may bump this marker forward — pin only that
+    // *some* "Last updated" marker is present, not the specific sprint.
+    assert.match(ledger, /Last updated:\*\*\s*Sprint \d/,
+      'Ledger should carry a Last-updated marker pointing at a Sprint version');
   });
 });

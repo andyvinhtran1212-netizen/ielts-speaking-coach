@@ -135,17 +135,16 @@ describe('result.html / theme support', () => {
     assert.match(html, /class="av-theme-toggle"/);
   });
 
-  test('binds the toggle via querySelector(.av-theme-toggle)', () => {
-    // Result page is vanilla HTML (no /js/theme-toggle.js module import).
-    // The bottom-of-page IIFE wires the click handler directly.
+  test('binds the toggle via canonical /js/theme-toggle.js module (Sprint 6.17.1)', () => {
     assert.match(
       html,
-      /querySelector\(\s*['"]\.av-theme-toggle['"]\s*\)/,
+      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,
+      'result.html must import canonical theme-toggle module',
     );
     assert.match(
       html,
-      /setAttribute\(\s*['"]data-theme['"]\s*,\s*next\s*\)/,
-      'click handler must flip data-theme between dark/light',
+      /bindToggleButton\s*\(\s*document\.getElementById\(\s*['"]theme-toggle['"]\s*\)\s*\)/,
+      'result.html must bind via getElementById("theme-toggle")',
     );
   });
 });

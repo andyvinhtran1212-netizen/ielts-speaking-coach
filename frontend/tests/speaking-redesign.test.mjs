@@ -259,9 +259,19 @@ describe('speaking.html / JS-coupled selectors', () => {
     assert.match(html, /onclick="handleModalBackdropClick\(event\)"/);
   });
 
-  test('avatar dropdown IDs preserved', () => {
-    for (const id of ['user-name', 'user-name-skeleton', 'avatar-dropdown-wrap', 'avatar-wrap', 'avatar-menu', 'avatar-initials', 'avatar-img', 'btn-logout']) {
-      assert.match(html, new RegExp(`id="${id}"`), `#${id} must remain`);
+  test('Sprint 6.17.1 — avatar dropdown migrated to canonical user-pill', () => {
+    // Legacy custom dropdown IDs (#avatar-menu, #avatar-img, #avatar-initials,
+    // #btn-logout, #user-name, #user-name-skeleton, #avatar-dropdown-wrap,
+    // #avatar-wrap) replaced by canonical user-pill (#user-pill,
+    // #user-avatar, #user-pill-name, #user-menu-logout). /js/user-pill.js
+    // owns toggle + outside-click + signOut() + redirect.
+    for (const id of ['user-pill', 'user-avatar', 'user-pill-name', 'user-menu-logout']) {
+      assert.match(html, new RegExp(`id="${id}"`), `#${id} must exist (canonical pill)`);
+    }
+    // Legacy IDs must be gone (no zombie markup).
+    for (const id of ['avatar-menu', 'avatar-img', 'btn-logout', 'avatar-wrap', 'avatar-dropdown-wrap']) {
+      assert.ok(!new RegExp(`id="${id}"`).test(html),
+        `legacy #${id} must be removed (Sprint 6.17.1 migration)`);
     }
   });
 });

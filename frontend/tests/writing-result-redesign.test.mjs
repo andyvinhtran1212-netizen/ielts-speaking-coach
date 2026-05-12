@@ -131,12 +131,14 @@ describe('writing-result.html / theme support', () => {
     assert.match(html, /class="av-theme-toggle"/);
   });
 
-  test('binds the toggle via querySelector(.av-theme-toggle)', () => {
-    assert.match(html, /querySelector\(\s*['"]\.av-theme-toggle['"]\s*\)/);
+  test('binds the toggle via canonical /js/theme-toggle.js module (Sprint 6.17.1)', () => {
     assert.match(
       html,
-      /setAttribute\(\s*['"]data-theme['"]\s*,\s*next\s*\)/,
-      'click handler must flip data-theme between dark/light',
+      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,
+    );
+    assert.match(
+      html,
+      /bindToggleButton\s*\(\s*document\.getElementById\(\s*['"]theme-toggle['"]\s*\)\s*\)/,
     );
   });
 });
