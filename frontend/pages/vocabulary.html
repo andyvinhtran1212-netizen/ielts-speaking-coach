@@ -71,6 +71,20 @@
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
           </svg>
         </button>
+
+        <!-- Canonical user-menu dropdown (Sprint 6.17): profile + logout. -->
+        <div class="user-menu">
+          <button class="user-pill" id="user-pill" type="button"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
+            <span class="avatar" id="user-avatar">·</span>
+            <span id="user-pill-name">…</span>
+          </button>
+          <div class="user-menu-dropdown" role="menu" hidden>
+            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
+            <button type="button" class="user-menu-item user-menu-item--danger"
+                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
+          </div>
+        </div>
       </div>
     </nav>
 
@@ -227,5 +241,8 @@
       window.addEventListener('load', hydrateIcons);
     })();
   </script>
+
+  <!-- ── Canonical user pill dropdown (Sprint 6.17) ──────────────── -->
+  <script type="module" src="/js/user-pill.js"></script>
 </body>
 </html>

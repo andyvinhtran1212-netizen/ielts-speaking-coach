@@ -178,7 +178,9 @@ describe('Destination URLs preserved byte-identical', () => {
   const HREF_PINS = [
     { page: 'frontend/pages/grammar-article.html',          href: '/pages/home.html' },
     { page: 'frontend/pages/grammar-compare.html',          href: '../pages/home.html' },
-    { page: 'frontend/pages/profile.html',                  href: 'home.html' },
+    // Sprint 6.17 chrome unification: profile.html now uses canonical
+    // full-nav (no standalone back-link); home href moved to /pages/home.html.
+    { page: 'frontend/pages/profile.html',                  href: '/pages/home.html' },
     { page: 'frontend/pages/exercises.html',                href: 'home.html' },
     { page: 'frontend/pages/flashcards.html',               href: 'home.html' },
     { page: 'frontend/pages/admin-writing.html',            href: '/pages/home.html' },
