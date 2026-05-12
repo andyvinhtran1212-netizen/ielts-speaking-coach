@@ -1044,3 +1044,244 @@ For every such override, the audit must verify:
 | Gate 7 | Pre-work documentation | Sprint 6.9.1 / 6.12c |
 | Gate 8 | Phase closure ledger verification | Sprint 6.15.3-hotfix |
 | **Gate 9** | **Cascade-winning override coverage + both-theme smoke** | **Sprint 6.15.4-hotfix (this section)** |
+
+---
+
+### 17.9 Runtime-render inheritance — Gate 9.5 (formalized Sprint 6.16.1, filed Sprint 6.15.5-hotfix)
+
+**Origin:** Sprint 6.15.5-hotfix — `grammar-article.html` rendered `<body class="av-page text-white ...">` with the canonical descendant override `body.av-page .text-white { color: var(--av-text-primary); }` in grammar-wiki.css. The override worked correctly for every class-bearing descendant, but two structural facts the audit missed:
+
+1. A descendant selector (`body.av-page .text-white`) **cannot match the body element itself** — that requires a compound selector (`body.av-page.text-white`).
+2. Backend markdown (Python `markdown` library with `[tables, fenced_code, toc, attr_list]`) emits **class-less** semantic HTML — bare `<p>`, `<h2>`, `<li>`, `<td>`, `<code>` — which inherit `color` from the nearest ancestor with an explicit rule. The nearest ancestor was `<body>` itself, carrying raw Tailwind `text-white`.
+
+Effect: the article body — every paragraph, list item, table cell — rendered white-on-white in light theme. Class-bearing chrome and components were readable; the actual article content was not. Same blind-spot family as § 17.8 (Gate 9) but one rung deeper: not "did the override cover every variant?" but "did the override cover the *root* element + every inheritance chain leading to class-less children?"
+
+#### When this gate applies
+
+Any page that consumes runtime-rendered HTML where the runtime emits class-less semantic elements:
+
+- Backend markdown → HTML (`markdown` library, `mistune`, `commonmark`, etc.)
+- JS template literals that emit bare `<p>` / `<li>` / `<h2>` / `<code>` without class attributes
+- API responses that deliver HTML fragments (e.g., feedback rendering, comment threads)
+- Any pipeline where editors / content authors can produce HTML without enforced class hooks
+
+#### Verification
+
+1. **Runtime-render inventory.** Grep for every code path that injects HTML:
+   ```bash
+   grep -rn 'innerHTML\|insertAdjacentHTML\|outerHTML' frontend/js/ frontend/pages/
+   grep -rn 'markdown\.markdown\|markdown_to_html\|md\.render' backend/
+   ```
+   For each hit, sample the emitted HTML to confirm whether class-less semantic tags appear.
+2. **Body class audit.** Grep for `<body[^>]*class=`. If the body carries any utility that is *also* a property the runtime children inherit (`text-*`, `font-*`, `leading-*`, etc.), the descendant override pattern is insufficient — children inherit before any descendant rule fires.
+3. **Anti-pattern recognition.** `body.av-page .text-white` is a descendant selector. It does not cover the body itself. `body.av-page.text-white` (no space — compound) does cover the body. Both may be needed: the compound form for body itself, plus bare-tag overrides for inherited color on class-less children.
+4. **Fix pattern (Sprint 6.15.5 canonical).** Three moves bundled:
+   - Drop the Tailwind utility from the body element (`text-white` removed from `<body class="av-page text-white ...">` → `<body class="av-page ...">`).
+   - Add bare-tag overrides scoped to the article container: `body.av-page .article-body p, body.av-page .article-body li, body.av-page .article-body td { color: var(--av-text-primary); }`.
+   - Add a defensive compound-selector guard: `body.av-page.text-white { color: var(--av-text-primary); }` — catches future regressions that re-add the utility on body.
+5. **Smoke verification.** Inspect bare semantic tags (`<p>`, `<li>`, `<h2>`, `<td>`) in DevTools, both themes. Computed `color` must resolve to `--av-text-primary` (or another `--av-text-*` token), not the inherited Tailwind raw color.
+
+#### Anti-patterns
+
+❌ Rely on a descendant override (`body.X .Y`) to neutralize a utility carried on the body itself.
+
+❌ Trust that "all my classes look fine" means the page is fine — class-less runtime content has no class to check.
+
+❌ Forget to audit backend renderers — Python markdown + Tailwind body utility is the canonical Sprint 6.15.5 trap.
+
+✅ Drop the utility from the body, scope overrides to the runtime container, and ship a compound-selector defensive guard.
+
+#### Pages requiring Gate 9.5
+
+| Page | Runtime path | Status |
+|---|---|---|
+| `grammar-article.html` | Backend Python `markdown` → article body HTML | ✅ Fixed Sprint 6.15.5-hotfix |
+| `admin.html` (writing review surfaces) | JS template literals emitting class-less semantic tags | ⏳ Deferred (Sprint 6.14d-α chrome-only); revisit when admin content surfaces are migrated |
+| `result.html` / `practice.html` feedback | Whisper / Claude grader emits some class-less HTML in feedback strings | ✅ Class-bearing wrappers in place; periodic re-audit recommended |
+
+---
+
+### 17.10 Structural layout context — Gate 9.6 (formalized Sprint 6.16.1, filed Sprint 6.15.7-hotfix)
+
+**Origin:** Sprint 6.15.7-hotfix — on `grammar-roadmap.html`, `grammar-search.html`, `grammar-compare.html`, and `grammar-article.html` the theme toggle button was placed OUTSIDE the inner flex chrome wrapper. The Sprint 6.10.1 Gate 3 sentinel verified that `<button class="av-theme-toggle">` carries `.icon-sun` + `.icon-moon` markup, and the test passed — markup strings were correct. What it did *not* verify was the button's DOM-tree position. Block-flow placement of a button containing two absolutely-positioned icons (one with `display: none` until the theme inverts) produced a visibly stacked sun+moon at the page's top-left corner. Click also no-op'd because the click handler resolved relative paths that 404'd under Vercel rewrites.
+
+The bug was shipped by Sprint 6.15 (PR #154) — the original Grammar Wiki cluster ship — and survived 5 stacked subsequent PRs (#156-#160) because every PR's audit verified markup presence, not structural placement.
+
+#### When this gate applies
+
+- Any chrome control whose CSS layout assumes a specific parent (flex container, grid track, sticky bar)
+- Multi-icon swap components (`.icon-sun` / `.icon-moon`, before/after states) where the swap relies on the parent's display context
+- Components depending on positional context (header chrome, nav containers, fixed-position toolbars)
+- Any page served under a Vercel rewrite where the served URL's depth differs from the underlying HTML path
+
+#### Verification
+
+1. **Structural sentinel test (canonical pattern).** Walk the HTML with a lightweight tag-depth tracker. When you hit the target element, assert its immediate enclosing element matches the expected layout class (Tailwind `flex`/`inline-flex` or a known chrome wrapper such as `topnav-right`, `header-actions`, `aw-header`, `ob-nav`, etc.). Reference implementation: `frontend/tests/theme-toggle-layout-context.test.mjs` — uses `findToggleParent()` to extract the parent and assert against a `FLEX_HINTS` list of known-good wrapper classes. Coverage: all 29 redesigned pages carrying the toggle.
+
+2. **Belt-and-suspenders depth check.** Assert the element sits at depth ≥ 2 (e.g., `body > nav > button`). Direct-child-of-body placement is almost always a structural drift signal.
+
+3. **Cross-page sample manual smoke.** For each rewrite class (e.g. `/grammar/:category/:slug`, `/writing/dashboard`, `/admin/writing/*`), open one page from that class and verify:
+   - Toggle renders at the canonical right-aligned chrome position
+   - Single icon visible (sun in light, moon in dark)
+   - Click flips theme + persists across reload
+   - Network tab shows no 404 on `theme-toggle.js`, `tokens.css`, `components.css`
+
+4. **Relative-resource sweep.** Pages served under URL rewrites must use absolute paths for stylesheets, scripts, and any `<link>` / `<script src>` reference. Browser resolves relative paths against the served URL, not the rewritten target. (See Sprint 6.15.7-hotfix Item 3 + Sprint 6.15.8-hotfix Items 1-2 for the canonical absolutization sweep.)
+
+#### Anti-patterns
+
+❌ Sentinel test that verifies element existence only (markup strings present) — passes while the element is at the wrong DOM position.
+
+❌ Skip structural parent verification because "the markup is correct" — markup is necessary but not sufficient.
+
+❌ Trust dev-machine rendering — Vercel rewrites change the served URL depth, breaking relative imports that work locally.
+
+✅ Sentinel verifies parent-child layout context (immediate enclosing element matches expected class set).
+
+✅ Use absolute paths for scripts and stylesheets on any rewrite-served page (`/js/theme-toggle.js`, `/css/aver-design/tokens.css`).
+
+✅ Per-page manual smoke verifies position + click response, not just markup existence.
+
+#### Pages requiring Gate 9.6
+
+All 29 chrome-bearing redesigned pages. The `theme-toggle-layout-context.test.mjs` sentinel sweep covers the toggle universally; extend the same pattern to any new positional-context-dependent component (sticky CTAs, anchor-position popovers, scroll-pinned headers).
+
+---
+
+### 17.11 Per-component theme verification — Gate 9.7 (formalized Sprint 6.16.1, filed Sprint 6.15.6-hotfix)
+
+**Origin:** Sprint 6.15.6-hotfix — after three prior hotfixes (6.15.4 / 6.15.5 / pre-emptive prose updates) the Grammar Wiki cluster still rendered with invisible cards on `grammar.html`, `grammar-roadmap.html`, `grammar-search.html`, `grammar-compare.html`. Page-level "is the page readable?" smoke passed; component-level inspection surfaced **five distinct mechanisms** all contributing to the same symptom:
+
+1. Tailwind opacity variants `text-white/X` already covered by Sprint 6.15.4, but a few hover/border/bg variants slipped (e.g., `border-white/10`, `bg-white/[0.03]` arbitrary-value notation).
+2. Component class hooks (`.cat-card`, `.article-card`, `.group-card`, `.group-article-row`) had no explicit `color` rules — they relied on cascade-winning overrides on their children, which fired but didn't cover the card's own `<h3>` / `<p>` slots when those children carried a `text-white/X` utility with the variant gap.
+3. JS inline styles (`element.style.cssText = "background:rgba(255,255,255,0.06); ..."`) bypassed CSS entirely — `frontend/js/grammar.js` had four such sites (status dot, status badge, progress track, save button).
+4. Card surfaces used `bg-white/[0.03]` arbitrary-value notation — invisible against the light-theme page background (`--av-surface-page` is near-white in light mode).
+5. Hover utilities (`hover:text-white/85`, `hover:border-white/15`) needed their own override lines; Tailwind compiles each state variant as a separate class.
+
+Page-level "looks readable" smoke missed all five because they only surface when the audit inspects every visible component type separately, in both themes, with DevTools open.
+
+#### When this gate applies
+
+- Multi-component pages with custom card / panel / badge / chip classes
+- Pages layering Tailwind utilities on top of token-driven custom classes
+- JS renderers emitting multiple component types (`grammar.js`, `writing-renderers.js`, `practice.js`)
+- Pages using arbitrary-value Tailwind utilities (`bg-white/[0.03]`, `text-[#abc]`, `border-[1px]`)
+- Pages with inline `style="..."` attributes set via JS
+- Pages with hover/focus/active state variants
+
+#### Verification
+
+1. **Per-page element inventory.** Open the page and list every visible component type — cards, badges, breadcrumbs, TOCs, body copy, tables, lists, code blocks, hover states, focus rings, disabled states. Write the list down before opening DevTools.
+
+2. **Per-component DevTools inspection × both themes.** For each component type, inspect computed `color`, `background-color`, `border-color`. Verify they resolve through `var(--av-*)` tokens, not raw Tailwind colors or hardcoded hex.
+
+3. **Comprehensive Tailwind utility enumeration (including arbitrary values).**
+   ```bash
+   grep -oE 'class="[^"]*\b(text|bg|border|hover:text|hover:bg|hover:border)-[a-z]+(-[0-9]+)?(/[\[0-9.\]]+)?[^"]*"' page.html \
+     | grep -oE '\b(text|bg|border)-[a-z]+(-[0-9]+)?(/[\[0-9.\]]+)?' | sort -u
+   ```
+   The arbitrary-value pattern `(/[\[0-9.\]]+)?` catches `bg-white/[0.03]`-style notation that plain `text-white/15` regex misses.
+
+4. **JS inline style audit.**
+   ```bash
+   grep -nE 'style\s*=\s*["\x27][^"\x27]*(color|background|border)' frontend/js/*.js
+   grep -nE '\.style\.(color|background|borderColor|cssText)\s*=' frontend/js/*.js
+   ```
+   Each hit is a candidate to refactor into a class hook with `var(--av-*)` token color.
+
+5. **Component class hook strategy.** Custom component classes (`.cat-card`, `.gw-save-btn`, etc.) should set color explicitly via `var(--av-text-*)` — don't depend on cascade-winning overrides reaching the right element through inheritance.
+
+#### Anti-patterns
+
+❌ Claim "the page is readable" based on page-level smoke without per-component verification.
+
+❌ Rely on a cascade-winning override (Gate 9) to color a custom component class — the override fires on Tailwind utilities, not on the component's own slots.
+
+❌ Use `bg-white/[arbitrary]` (or any arbitrary-value Tailwind utility) without a scoped override mapping it to `--av-surface-*`.
+
+❌ Leave JS `element.style.cssText = "..."` or `style="..."` attributes in renderers — they bypass the entire token system.
+
+✅ Component class hooks set `color: var(--av-text-*)` explicitly.
+
+✅ Per-component DevTools inspection × both themes is mandatory before signing off a multi-component page.
+
+✅ Tailwind comprehensive search includes arbitrary-value variants and hover/focus/active state variants.
+
+✅ Refactor JS inline styles into class hooks; let CSS own color discipline.
+
+#### Pages requiring Gate 9.7
+
+- All 5 Grammar Wiki pages (✅ fixed Sprint 6.15.6-hotfix)
+- `admin.html` (multi-component, chrome-only migrated Sprint 6.14d-α — content surfaces deferred; per-component sweep required before any content-surface migration)
+- `practice.html` and `result.html` feedback panels (multiple class-bearing component types, runtime renderer)
+- Any future page introducing a new card / panel / badge component family
+
+---
+
+### 17.12 Audit gate evolution through blind-spot recognition
+
+The § 17 audit gates evolve through cumulative experience. Each new gate closes a single class of blind spot that prior gates didn't cover. The pattern is honest: five sprints, five distinct mechanisms, one systemic methodology gap that progressively narrowed as each was filed.
+
+| Sprint | Blind spot | Resolution gate |
+|---|---|---|
+| 6.10.1 | Icon rendering missed by IIFE-focused audit (canonical class names not enforced) | Gate 3 — Theme toggle icon rendering (canonical `.icon-sun` / `.icon-moon`) |
+| 6.15.4-hotfix | Tailwind opacity variant coverage missed by cascade-winning override audit | Gate 9 — Cascade-winning override coverage + both-theme smoke |
+| 6.15.5-hotfix | Body inheritance into class-less runtime-rendered HTML | Gate 9.5 — Runtime-render inheritance verification |
+| 6.15.6-hotfix | 5 component-level mechanisms across multi-component pages | Gate 9.7 — Per-component theme verification |
+| 6.15.7-hotfix | Toggle markup outside intended flex wrapper (sentinel verified existence, not structure) | Gate 9.6 — Structural layout context verification |
+
+#### Pattern principle
+
+Sentinel tests progressively get smarter as gates are filed:
+
+- **Gate 3** — verify required class names are present in the markup
+- **Gate 9** — verify cascade order (the override exists, applies, and covers every variant of the targeted utility)
+- **Gate 9.5** — verify the body element doesn't carry an inherited utility that escapes the descendant override
+- **Gate 9.6** — verify structural parent-child context (the element sits inside the expected layout container)
+- **Gate 9.7** — verify per-component computed styles across the full element inventory
+
+#### Pre-empt the next blind spot
+
+Audit reviewers should ask before signing § 17 compliance:
+
+1. What rendering path might bypass this verification? (backend markdown? JS template literals? API HTML fragments?)
+2. What component types haven't been per-component inspected? (cards? badges? hover/focus/active states?)
+3. What utility variants haven't been comprehensively enumerated? (opacity? arbitrary values? state variants?)
+4. What inheritance chains run from class-bearing parents to class-less children?
+5. What layout-context assumptions could be violated by malformed markup or stale wrappers?
+6. What URL rewrites could break relative imports? (CSS, JS, fonts, anything resolved against the served URL)
+
+Each unanswered question is a candidate for the next gate.
+
+---
+
+### 17.13 Audit gate consolidation (post Sprint 6.16.1)
+
+§ 17 audit checklist gates — cumulative 12 gates:
+
+| Gate | Purpose | Formalized |
+|---|---|---|
+| Gate 1 | JS contract preservation | Sprint 6.12c |
+| Gate 2 | Canonical theme infrastructure (IIFE) | Sprint 6.12c |
+| Gate 3 | Theme toggle icon rendering | Sprint 6.10.1 / 6.12c |
+| Gate 4 | Color migration discipline | Sprint 6.12c |
+| Gate 5 | `ds.css` legacy override pattern | Sprint 6.5.1 / 6.12c |
+| Gate 6 | Iframe embedded mode (where applicable) | Sprint 6.0.1 / 6.12c |
+| Gate 7 | Pre-work documentation | Sprint 6.9.1 / 6.12c |
+| Gate 8 | Phase closure ledger verification | Sprint 6.15.3-hotfix |
+| Gate 9 | Cascade-winning override coverage + both-theme smoke | Sprint 6.15.4-hotfix |
+| **Gate 9.5** | **Runtime-render inheritance verification** | **Sprint 6.16.1 (filed Sprint 6.15.5-hotfix)** |
+| **Gate 9.6** | **Structural layout context verification** | **Sprint 6.16.1 (filed Sprint 6.15.7-hotfix)** |
+| **Gate 9.7** | **Per-component theme verification** | **Sprint 6.16.1 (filed Sprint 6.15.6-hotfix)** |
+
+Plus methodology sections:
+
+- § 17.4 — Audit blind-spots anti-pattern catalog
+- § 17.5 — When to extend § 17
+- § 17.6 — Shared CSS file cap monitoring (Sprint 6.14c-hotfix)
+- § 17.7 — Phase closure ledger (Sprint 6.15.3-hotfix)
+- § 17.8 — Cascade-winning override discipline (Sprint 6.15.4-hotfix)
+- § 17.9 — Runtime-render inheritance (Sprint 6.16.1)
+- § 17.10 — Structural layout context (Sprint 6.16.1)
+- § 17.11 — Per-component theme verification (Sprint 6.16.1)
+- § 17.12 — Audit gate evolution through blind-spot recognition (Sprint 6.16.1)
