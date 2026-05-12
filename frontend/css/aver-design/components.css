@@ -761,14 +761,27 @@
 }
 .nav-links .locked::after {
   content: "Soon";
+  font-family: var(--av-font-sans);
   font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-medium);
   text-transform: uppercase;
   letter-spacing: var(--av-tracking-wide);
+  line-height: 1;
   margin-left: var(--av-space-1);
   padding: 2px 6px;
-  border: 1px solid var(--av-border-subtle);
+  /* Sprint 6.17.2: explicit border-color (not shorthand) so the
+     Tailwind CDN preflight `*, ::before, ::after { border-color: currentColor }`
+     reset on speaking.html doesn't repaint the badge with the link's
+     muted color. */
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--av-border-subtle);
   border-radius: var(--av-radius-sm);
   opacity: 0.7;
+  /* Tailwind CDN preflight sets `*, ::before, ::after { box-sizing: border-box }`
+     which is fine here, but pin it explicitly so future preflight changes
+     don't shrink the badge. */
+  box-sizing: border-box;
 }
 
 .topnav-right {
