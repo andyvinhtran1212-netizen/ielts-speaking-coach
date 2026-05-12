@@ -915,3 +915,78 @@ When a shared CSS file (consumed by multiple pages — e.g., `admin-writing.css`
 
 - Cap value `10` established in Sprint 6.4.2 (`speaking.html` contrast hotfix); pinned by per-page redesign tests (`<page>-redesign.test.mjs` → `--av-text-faint usage stays under the 10-instance cap`).
 - Shared-file monitoring rule formalized in Sprint 6.14c-hotfix following Codex Phase 4 admin audit AMBER #2.
+
+
+### 17.7 Phase closure ledger — Gate 8 (formalized Sprint 6.15.3-hotfix)
+
+**Origin:** Two independent findings converged:
+
+1. Sprint 6.15+ HANDOFF discovery — PR #129 was tracked as merged in the handoff document but was actually never merged (stale tracking error caught only by manual re-audit).
+2. Codex Phase 4 closure audit AMBER #2 — Phase 4 closure truth was spread across `CLAUDE.md` + `DESIGN_SYSTEM.md` + `UNIFIED_DESIGN_BRIEF.md` + per-page redesign tests + `frontend/vercel.json` redirects. The same fact (e.g., "29 pages redesigned cumulative") was repeated in 4 separate files, and the Sprint 6.15 PR #154 narrative shipped a factually wrong claim ("Only `frontend/pages/dashboard.html` remains on the legacy `--ds-*` system") that survived review because no single document was the source of truth.
+
+**Pattern:** Documentation closure truth requires (a) a central source-of-truth file and (b) an automated cross-reference test that fails when the ledger drifts from the docs that reference it.
+
+#### Gate 8 — Phase closure ledger verification
+
+`PHASE_CLOSURE_LEDGER.md` at repo root is the canonical closure record. It tracks:
+
+- Per-page redesign status (path + PR number + Sprint + status)
+- Phase closure milestones
+- Deleted pages history (with replacement + Vercel redirect status)
+- Cumulative metrics (page count, `--ds-*` state, at-cap shared files, audit-hotfix count)
+- Deferred items with un-defer trigger references
+- Phase 5+ pending decisions
+
+**Verification:** `frontend/tests/phase-closure-ledger.test.mjs` cross-references the ledger against:
+
+- `DESIGN_SYSTEM.md` § 14.1 / § 14.2 / § 14.5 row claims
+- `UNIFIED_DESIGN_BRIEF.md` § 2 phase map + cumulative count line
+- Per-page file existence (deleted pages verified absent; replacement pages verified present)
+- `frontend/vercel.json` redirect preservation
+- `admin-writing.css` `--av-text-faint` cap (≤ 10 per § 17.6)
+
+When the ledger drifts from those docs, the test fails — closure truth requires audit before proceeding.
+
+**Update protocol:**
+
+- After every per-page redesign sprint ship
+- After every audit closure
+- After every page deletion
+- After every Phase closure milestone
+- Sprint hotfix prompts include a ledger-update step
+
+**Anti-patterns:**
+
+❌ Don't track closure state in ad-hoc Slack messages, HANDOFF docs, or sprint prompts. Those drift; the ledger is canonical.
+
+❌ Don't claim a Phase status (COMPLETE / IN PROGRESS / STRUCTURALLY COMPLETE) in `DESIGN_SYSTEM.md` or `UNIFIED_DESIGN_BRIEF.md` without a corresponding ledger update in the same PR.
+
+❌ Don't merge a per-page redesign PR without adding its ledger row.
+
+❌ Don't delete a page without adding a ledger deletion row (with replacement + Vercel redirect status).
+
+❌ Don't write closure narrative claims that contradict the ledger. If you find such a claim, the ledger wins and the contradicting doc must be corrected (mirror Sprint 6.15.2 pattern).
+
+#### Audit gate consolidation (cumulative through Sprint 6.15.3-hotfix)
+
+§ 17 audit checklist gates:
+
+| Gate | Purpose | Formalized |
+|---|---|---|
+| Gate 1 | JS contract preservation | Sprint 6.12c |
+| Gate 2 | Canonical theme infrastructure (IIFE) | Sprint 6.12c |
+| Gate 3 | Theme toggle icon rendering | Sprint 6.10.1 / 6.12c |
+| Gate 4 | Color migration discipline | Sprint 6.12c |
+| Gate 5 | `ds.css` legacy override pattern | Sprint 6.5.1 / 6.12c |
+| Gate 6 | Iframe embedded mode (where applicable) | Sprint 6.0.1 / 6.12c |
+| Gate 7 | Pre-work documentation | Sprint 6.9.1 / 6.12c |
+| **Gate 8** | **Phase closure ledger verification** | **Sprint 6.15.3-hotfix (this section)** |
+
+Plus standing sections:
+
+- § 17.2 — Brand-color regression guard (#14a8ae typo)
+- § 17.3 — Sentinel tests inventory
+- § 17.4 — Audit blind-spots anti-pattern catalog
+- § 17.5 — When to extend § 17
+- § 17.6 — Shared CSS file cap monitoring (Sprint 6.14c-hotfix)
+- § 17.7 — Phase closure ledger (this section, Sprint 6.15.3-hotfix)
