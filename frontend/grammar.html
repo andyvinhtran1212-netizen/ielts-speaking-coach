@@ -67,27 +67,58 @@
 </head>
 <body class="av-page min-h-screen font-sans antialiased">
 
-  <!-- Top nav -->
-  <nav class="sticky top-0 z-30 border-b border-white/5" style="background: var(--av-surface-sunken); backdrop-filter: blur(12px);">
-    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <a href="pages/home.html" class="text-white/40 hover:text-white transition-colors text-sm flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-          </svg>
-          Trang chủ
-        </a>
-        <span class="text-white/15">|</span>
-        <span class="font-semibold text-white">Grammar Wiki</span>
+  <!-- Canonical chrome (Sprint 6.17.2 — Grammar active; Cat 3 exclusion
+       overridden by Andy. Editorial breadcrumb + stats badges moved to
+       secondary nav below). -->
+  <div class="topnav-wrap">
+    <nav class="topnav" aria-label="Primary">
+      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
+      <div class="nav-links">
+        <a href="/pages/home.html">Trang chủ</a>
+        <a href="/pages/writing-dashboard.html">Writing</a>
+        <a href="/pages/speaking.html">Speaking</a>
+        <a href="/grammar.html" class="active">Grammar</a>
+        <a href="/pages/vocabulary.html">Vocabulary</a>
+        <span class="locked" aria-disabled="true">Reading</span>
+        <span class="locked" aria-disabled="true">Listening</span>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="topnav-right">
+        <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <div class="user-menu">
+          <button class="user-pill" id="user-pill" type="button"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
+            <span class="avatar" id="user-avatar">·</span>
+            <span id="user-pill-name">…</span>
+          </button>
+          <div class="user-menu-dropdown" role="menu" hidden>
+            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
+            <button type="button" class="user-menu-item user-menu-item--danger"
+                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- Grammar Wiki secondary nav (editorial tier — breadcrumb + stats).
+       Preserves the Sprint 6.15 visual context that distinguishes the
+       Grammar Wiki as an editorial sub-tier of the IA. -->
+  <nav class="gw-subnav sticky top-0 z-20 border-b border-white/5" aria-label="Grammar Wiki"
+       style="background: var(--av-surface-sunken); backdrop-filter: blur(12px);">
+    <div class="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between">
+      <span class="text-sm font-semibold text-white">Grammar Wiki</span>
+      <div class="flex items-center gap-3 text-sm">
         <span class="ds-badge"><span id="total-articles">...</span> bài</span>
         <span class="text-white/15">·</span>
         <span class="ds-badge">8 nhóm chủ đề</span>
-        <button id="theme-toggle" class="av-theme-toggle" type="button" aria-label="Toggle theme">
-          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </button>
       </div>
     </div>
   </nav>
@@ -228,11 +259,11 @@
     grammarWiki.loadGrammarHome();
   </script>
 
-  <!-- Canonical theme-toggle binding (Sprint 6.10.1) -->
+  <!-- Canonical theme-toggle + user-pill wiring (Sprint 6.17.2). -->
   <script type="module">
     import { bindToggleButton } from '/js/theme-toggle.js';
-    var btn = document.getElementById('theme-toggle');
-    if (btn) bindToggleButton(btn);
+    bindToggleButton(document.getElementById('theme-toggle'));
   </script>
+  <script type="module" src="/js/user-pill.js"></script>
 </body>
 </html>

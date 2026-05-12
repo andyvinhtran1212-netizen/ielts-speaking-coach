@@ -239,10 +239,12 @@ describe('Grammar Wiki cluster — Sprint 6.15.7-hotfix nav wrapper', () => {
     });
   });
 
-  // The 4 sub-pages (article/roadmap/search/compare) all share the
-  // restructured wrapper — `<div class="flex items-center gap-2">` or
-  // `<div class="flex items-center gap-3">` wrapping the "Trang chủ"
-  // link + theme-toggle button as the right-hand chrome.
+  // Sprint 6.17.2: the 4 grammar sub-pages now ship the canonical full
+  // nav (Cat 3 exclusion overridden). The Sprint 6.15.7-hotfix wrapper
+  // requirement was specific to the breadcrumb-style chrome; under the
+  // canonical chrome the toggle lives inside .topnav-right which is
+  // itself a flex container — already pinned by the structural sentinel
+  // earlier in this file (`toggle's immediate parent has flex layout`).
   const SUB_PAGES = [
     'frontend/pages/grammar-article.html',
     'frontend/pages/grammar-roadmap.html',
@@ -251,15 +253,13 @@ describe('Grammar Wiki cluster — Sprint 6.15.7-hotfix nav wrapper', () => {
   ];
 
   SUB_PAGES.forEach((rel) => {
-    test(`${rel} — Trang chủ link + theme-toggle button share a flex wrapper`, () => {
+    test(`${rel} — theme toggle sits inside canonical .topnav-right flex container`, () => {
       const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-      // Match: <div class="flex items-center gap-{2,3}"> ... Trang chủ
-      // </a> ... <button id="theme-toggle"> ... </div>
-      // (with arbitrary whitespace/attrs)
-      const wrapperPattern = /<div[^>]*class="[^"]*\bflex\b[^"]*\bitems-center\b[^"]*\bgap-[23]\b[^"]*"[^>]*>[\s\S]{0,500}Trang chủ[\s\S]{0,1200}<button[^>]*\bav-theme-toggle\b[\s\S]{0,1500}<\/button>[\s\S]{0,100}<\/div>/;
+      // Match: <div class="topnav-right"> ... <button class="av-theme-toggle"> ... </div>
+      const wrapperPattern = /<div[^>]*class="[^"]*\btopnav-right\b[^"]*"[^>]*>[\s\S]{0,500}<button[^>]*\bav-theme-toggle\b[\s\S]{0,1500}<\/button>/;
       assert.match(
         html, wrapperPattern,
-        `${rel}: "Trang chủ" link and theme-toggle button must share a single <div class="flex items-center gap-2|3"> wrapper`,
+        `${rel}: theme-toggle button must sit inside <div class="topnav-right"> (canonical chrome)`,
       );
     });
   });

@@ -46,6 +46,12 @@ const CANONICAL_CHROME_PAGES = [
   'frontend/pages/my-vocabulary.html',
   'frontend/pages/flashcards.html',
   'frontend/pages/exercises.html',
+  // Sprint 6.17.2 — Grammar cluster migration (Cat 3 exclusion overridden)
+  'frontend/grammar.html',
+  'frontend/pages/grammar-roadmap.html',
+  'frontend/pages/grammar-search.html',
+  'frontend/pages/grammar-compare.html',
+  'frontend/pages/grammar-article.html',
 ];
 
 

@@ -176,8 +176,10 @@ describe('Destination URLs preserved byte-identical', () => {
   // Sprint 6.16 was label-only — no href changes. These pins guard
   // against accidental destination shifts during the edit pass.
   const HREF_PINS = [
+    // Sprint 6.17.2 grammar canonical migration: all grammar pages now
+    // use absolute /pages/home.html via canonical full-nav skill tabs.
     { page: 'frontend/pages/grammar-article.html',          href: '/pages/home.html' },
-    { page: 'frontend/pages/grammar-compare.html',          href: '../pages/home.html' },
+    { page: 'frontend/pages/grammar-compare.html',          href: '/pages/home.html' },
     // Sprint 6.17 chrome unification: profile.html now uses canonical
     // full-nav (no standalone back-link); home href moved to /pages/home.html.
     { page: 'frontend/pages/profile.html',                  href: '/pages/home.html' },
@@ -191,7 +193,7 @@ describe('Destination URLs preserved byte-identical', () => {
     { page: 'frontend/pages/full-test-result.html',         href: '/pages/speaking.html' },
     { page: 'frontend/pages/writing-result.html',           href: '/writing/dashboard' },
     { page: 'frontend/admin.html',                          href: 'pages/home.html' },
-    { page: 'frontend/grammar.html',                        href: 'pages/home.html' },
+    { page: 'frontend/grammar.html',                        href: '/pages/home.html' },
   ];
 
   HREF_PINS.forEach(({ page, href }) => {
