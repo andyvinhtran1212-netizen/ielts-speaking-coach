@@ -43,9 +43,12 @@
   <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body class="av-page">
-  <div class="shell">
 
-    <!-- ── Top nav (mirrors home.html Sprint 6.3 pattern) ──────────── -->
+  <!-- ── Top nav (mirrors home.html Sprint 6.20 canonical pattern) ───
+       Sprint 6.20 — lifted out of <div class="shell"> into canonical
+       .topnav-wrap direct body child to anchor chrome at viewport edges
+       identically across all 18 canonical chrome pages. -->
+  <div class="topnav-wrap">
     <nav class="topnav" aria-label="Primary">
       <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
 
@@ -87,6 +90,9 @@
         </div>
       </div>
     </nav>
+  </div>
+
+  <div class="shell">
 
     <!-- ── Header ────────────────────────────────────────────────── -->
     <header class="vocab-header">
