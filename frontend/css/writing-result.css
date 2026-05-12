@@ -215,7 +215,10 @@ main.result-content {
   max-width: 920px;
   margin: 0 auto;
   width: 100%;
-  padding: var(--av-space-6) var(--av-space-8) var(--av-space-16);
+  /* Sprint 6.18: top padding lifted to --av-space-20 (80px) so content
+     clears the sticky .result-tabs band (top:80px from viewport) and
+     matches the canonical chrome-to-content rhythm. */
+  padding: var(--av-space-20) var(--av-space-8) var(--av-space-16);
   position: relative;
   z-index: 1;
 }

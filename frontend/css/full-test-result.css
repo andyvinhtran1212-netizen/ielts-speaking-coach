@@ -46,6 +46,8 @@
 .ftr-header {
   background: var(--av-surface-elevated);
   border-bottom: 1px solid var(--av-border-subtle);
+  /* Sprint 6.18 — canonical 64px gap below the secondary context bar. */
+  margin-bottom: var(--av-chrome-bottom-margin);
 }
 
 .ftr-back-link {

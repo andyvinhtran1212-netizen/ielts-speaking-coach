@@ -82,6 +82,24 @@
   --av-space-20: 80px;
   --av-space-24: 96px;
 
+  /* Canonical chrome spacing — Sprint 6.18.
+   * Semantic tokens for the canonical full-nav chrome contract. Derived
+   * from home.html .shell + .topnav stack:
+   *   - --av-chrome-top-padding: top padding of the page body wrapper
+   *     immediately under <body> (matches .shell padding-top = 24px).
+   *   - --av-chrome-bottom-margin: margin-bottom on .topnav AND on any
+   *     secondary nav (.gw-subnav, .practice-context-bar, .result-header,
+   *     .ftr-header) so the first content block sits 64px below chrome.
+   *   - --av-chrome-to-content-single: total chrome-to-content gap on
+   *     pages without a secondary nav (24px top + 64px bottom = 88px).
+   *   - --av-secondary-nav-height: typical height of editorial secondary
+   *     nav strip (Grammar Wiki breadcrumb, practice context bar) so
+   *     consumers can budget vertical room when stacking. */
+  --av-chrome-top-padding:         var(--av-space-6);   /* 24px */
+  --av-chrome-bottom-margin:       var(--av-space-16);  /* 64px */
+  --av-chrome-to-content-single:   88px;
+  --av-secondary-nav-height:       48px;
+
   /* Border radius — discrete steps */
   --av-radius-sm:   4px;
   --av-radius-md:   8px;

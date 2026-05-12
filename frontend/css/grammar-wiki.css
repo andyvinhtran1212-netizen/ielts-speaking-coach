@@ -383,6 +383,17 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
 }
 
 
+/* ── Sprint 6.18 — secondary nav canonical bottom margin ───────── *
+ * .gw-subnav is the Grammar Wiki editorial breadcrumb that lives
+ * BELOW the canonical .topnav. Sticky `top:0` already keeps it
+ * pinned during scroll; the margin-bottom restores the canonical
+ * 64px chrome-to-content rhythm so the first body block lands at
+ * the same vertical position as on canonical-chrome-only pages. */
+.gw-subnav {
+  margin-bottom: var(--av-chrome-bottom-margin);
+}
+
+
 /* ── Hero glow + section labels (shared across landing + sub-pages) ─ */
 
 .hero-glow {
