@@ -2,7 +2,7 @@
 
 Single source-of-truth tracking page redesigns + PR refs + closure status across Phases 1-4.
 
-**Last updated:** Sprint 6.15.4-hotfix (2026-05-12)
+**Last updated:** Sprint 6.16 (2026-05-12)
 
 **Verification:** Test pin `frontend/tests/phase-closure-ledger.test.mjs` cross-references this ledger against:
 
@@ -101,7 +101,8 @@ When this ledger drifts from docs, the test fails — closure truth requires aud
 **Phase 4 closure events:**
 - Sprint 6.15.2 (PR #155) — narrative correction (dashboard.html non-existence + zero `--ds-*` state)
 - Sprint 6.15.3-hotfix (PR #156) — closure audit AMBER closures + Gate 8 formalization
-- Sprint 6.15.4-hotfix (this PR) — **RED bug fix**: light-theme `text-white/XX` opacity-variant coverage gap (cascade-winning override blind spot, same class as Sprint 6.10.1)
+- Sprint 6.15.4-hotfix (PR #157) — **RED bug fix**: light-theme `text-white/XX` opacity-variant coverage gap (cascade-winning override blind spot, same class as Sprint 6.10.1)
+- Sprint 6.16 (this PR) — **fix sprint** (not audit hotfix): cross-page navigation label drift ("Dashboard" → "Trang chủ" / "Quay lại") + Speaking page IA cleanup (removed 2 redundant cross-skill tab-links). 17 pages touched. Audit hotfix count unchanged (9).
 
 ---
 

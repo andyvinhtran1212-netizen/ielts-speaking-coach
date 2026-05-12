@@ -459,7 +459,7 @@ describe('admin.html / Vietnamese microcopy preserved', () => {
     'Quản lý toàn bộ hệ thống IELTS Speaking Coach',
     'Đang kiểm tra quyền truy cập',
     'Truy cập bị từ chối',
-    'Quay lại Dashboard',
+    'Quay lại trang chủ',
   ];
   for (const phrase of phrases) {
     test(`microcopy preserved: "${phrase.slice(0, 40)}…"`, () => {

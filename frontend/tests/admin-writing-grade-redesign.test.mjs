@@ -329,7 +329,7 @@ describe('admin-writing-grade.html / Vietnamese microcopy preserved', () => {
     'Review + Edit — Writing Coach Admin',
     'Đang kiểm tra quyền truy cập…',
     'Admin Access Required',
-    'Quay lại Dashboard',
+    'Quay lại trang chủ',
     'Save edits',
     'Mark delivered',
     'Chấm lại',
