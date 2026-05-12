@@ -989,4 +989,58 @@ Plus standing sections:
 - § 17.4 — Audit blind-spots anti-pattern catalog
 - § 17.5 — When to extend § 17
 - § 17.6 — Shared CSS file cap monitoring (Sprint 6.14c-hotfix)
-- § 17.7 — Phase closure ledger (this section, Sprint 6.15.3-hotfix)
+- § 17.7 — Phase closure ledger (Sprint 6.15.3-hotfix)
+- § 17.8 — Cascade-winning override coverage smoke (Sprint 6.15.4-hotfix)
+
+---
+
+### 17.8 Cascade-winning override coverage smoke (formalized Sprint 6.15.4-hotfix)
+
+**Origin:** Sprint 6.15 shipped grammar-wiki.css with a cascade-winning override (`body.av-page .text-white { color: var(--av-text-primary); }`) that worked correctly for plain `.text-white` but missed every Tailwind opacity variant (`text-white/15` through `text-white/90`). The 5 grammar pages + `frontend/js/grammar.js` renderer emit ~30 such variants. Dark-theme smoke test passed (white-on-dark renders fine); light theme was not exercised, so the bug shipped to production. Anonymous users could not read any Grammar Wiki content in light theme.
+
+Same blind-spot class as Sprint 6.10.1 icon rendering miss: structural verification (override block exists, correct foundation order, no hardcoded whites in own file) is necessary but **not sufficient**.
+
+#### Methodology amendment — when a page ships a cascade-winning override
+
+A "cascade-winning override" is any rule of the form `body.av-page <selector> { ... }` (or equivalent scoped to a page-owned class) intended to neutralize an upstream framework / legacy file. Examples:
+
+- Tailwind utility neutralizers (`.text-white`, `.bg-white`, etc.)
+- ds.css legacy-class scoped overrides (Sprint 6.5.1 pattern)
+- Custom palette neutralizers in admin pages
+
+For every such override, the audit must verify:
+
+1. **Coverage audit (grep, not eyeballing).** Enumerate every variant of the targeted utility/class consumed by the page or its JS renderer. For `text-white`, this means `grep -hoE 'text-white(/[0-9]+)?' page.html renderer.js | sort -u`. Each variant requires its own override line OR a documented decision to leave it uncovered (with rationale).
+2. **Both-theme smoke test.** Verify visual rendering in light theme AND dark theme. Dark-theme-only smoke is a known blind spot. Mobile 375px regression checked alongside.
+3. **JS renderer coverage.** If the page has a runtime renderer (`grammar.js`, writing-renderers, etc.), grep the renderer source for emitted utility classes too. Static-markup-only audit misses 50%+ of class usage on renderer-heavy pages.
+4. **Hover / focus / state variants.** `hover:text-white`, `focus:text-white`, etc. each need their own override. Tailwind compiles each state variant as a separate class.
+
+#### Verification
+
+`frontend/tests/grammar-wiki-light-theme-rendering.test.mjs` is the canonical regression pin for grammar-wiki.css coverage. Future cascade-winning override sprints should ship a parallel coverage-pin test for the file they touch.
+
+#### Anti-patterns
+
+❌ Don't trust a cascade-winning override based on the override block existing. The block can be present but incomplete — exactly the Sprint 6.15 bug.
+
+❌ Don't smoke-test only the active theme. Toggle between light + dark at least once per cascade-winning sprint.
+
+❌ Don't ignore the JS renderer. Pages with runtime renderers (grammar, practice, writing) emit utilities the static HTML grep won't find.
+
+❌ Don't add new white-utility variants to grammar pages or `grammar.js` without extending the grammar-wiki.css override block first. (Marker comment in grammar-wiki.css enforces this convention.)
+
+#### Cumulative audit gate table (refresh)
+
+§ 17 audit checklist gates after this hotfix:
+
+| Gate | Purpose | Formalized |
+|---|---|---|
+| Gate 1 | JS contract preservation | Sprint 6.12c |
+| Gate 2 | Canonical theme infrastructure (IIFE) | Sprint 6.12c |
+| Gate 3 | Theme toggle icon rendering | Sprint 6.10.1 / 6.12c |
+| Gate 4 | Color migration discipline | Sprint 6.12c |
+| Gate 5 | `ds.css` legacy override pattern | Sprint 6.5.1 / 6.12c |
+| Gate 6 | Iframe embedded mode (where applicable) | Sprint 6.0.1 / 6.12c |
+| Gate 7 | Pre-work documentation | Sprint 6.9.1 / 6.12c |
+| Gate 8 | Phase closure ledger verification | Sprint 6.15.3-hotfix |
+| **Gate 9** | **Cascade-winning override coverage + both-theme smoke** | **Sprint 6.15.4-hotfix (this section)** |
