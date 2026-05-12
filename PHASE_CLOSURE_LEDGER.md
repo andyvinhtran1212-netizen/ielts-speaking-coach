@@ -2,7 +2,7 @@
 
 Single source-of-truth tracking page redesigns + PR refs + closure status across Phases 1-4.
 
-**Last updated:** Sprint 6.15.3-hotfix (2026-05-12)
+**Last updated:** Sprint 6.15.4-hotfix (2026-05-12)
 
 **Verification:** Test pin `frontend/tests/phase-closure-ledger.test.mjs` cross-references this ledger against:
 
@@ -100,7 +100,8 @@ When this ledger drifts from docs, the test fails — closure truth requires aud
 
 **Phase 4 closure events:**
 - Sprint 6.15.2 (PR #155) — narrative correction (dashboard.html non-existence + zero `--ds-*` state)
-- Sprint 6.15.3-hotfix (this PR, #156) — closure audit AMBER closures + Gate 8 formalization
+- Sprint 6.15.3-hotfix (PR #156) — closure audit AMBER closures + Gate 8 formalization
+- Sprint 6.15.4-hotfix (this PR) — **RED bug fix**: light-theme `text-white/XX` opacity-variant coverage gap (cascade-winning override blind spot, same class as Sprint 6.10.1)
 
 ---
 
@@ -120,9 +121,10 @@ When this ledger drifts from docs, the test fails — closure truth requires aud
 - **Zero pages on `--ds-*` tokens**
 - **`ds.css` preserved** as Sprint 6.5.1 compatibility bridge (renderer-emitted `.ds-band-*` / `.ds-crit*` / `.ds-cue-*` on `practice.html` + `result.html`)
 - **`admin-writing.css` at-cap** 10/10 `--av-text-faint` (frozen per § 17.6)
-- **8 audit hotfixes** cumulative: 6.6.1 (Phase 1), 6.7.1 (writing-dashboard CTA), 6.9.1 (Phase 2), 6.10.1 (theme-toggle icon drift), 6.12c (Phase 3), 6.14c-hotfix (Phase 4 admin), 6.15.2 (narrative correction), 6.15.3-hotfix (Phase 4 closure — this PR)
+- **9 audit hotfixes** cumulative: 6.6.1 (Phase 1), 6.7.1 (writing-dashboard CTA), 6.9.1 (Phase 2), 6.10.1 (theme-toggle icon drift), 6.12c (Phase 3), 6.14c-hotfix (Phase 4 admin), 6.15.2 (narrative correction), 6.15.3-hotfix (Phase 4 closure Gate 8), 6.15.4-hotfix (Grammar Wiki light-theme RED — this PR)
 - **5 cumulative audits closed**: Phase 1 (6.6.1), Phase 2 (6.9.1), Phase 3 (6.12c), Phase 4 admin (6.14c-hotfix), Phase 4 closure (6.15.3-hotfix)
-- **Phase 4 closure audit:** 0 RED, 2 AMBER closed via this hotfix, 4 GREEN
+- **Phase 4 closure audit:** 0 RED, 2 AMBER closed via 6.15.3-hotfix, 4 GREEN
+- **Sprint 6.15.4-hotfix RED bug:** Grammar Wiki cluster light-theme rendering. Root cause: Sprint 6.15 cascade-winning override neutralized only plain `.text-white`, missed 15 Tailwind opacity variants (`text-white/15..90`) + 5 hover + 4 border + 5 bg. Fix: comprehensive opacity-variant override block in grammar-wiki.css mapped to `--av-text-*` / `--av-border-*` / `--av-surface-*` tokens. Same blind-spot class as Sprint 6.10.1 icon rendering miss — § 17 audit-gate methodology note added (visual rendering smoke required in both themes for any cascade-winning override).
 
 ---
 

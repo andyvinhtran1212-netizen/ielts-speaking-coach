@@ -57,6 +57,69 @@ body.av-page .text-white { color: var(--av-text-primary); }
 body.av-page .font-sans { font-family: 'DM Sans', ui-sans-serif, system-ui; }
 body.av-page .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; }
 
+
+/* ── Sprint 6.15.4-hotfix — Tailwind white-utility opacity-variant coverage ─
+ *
+ * RED bug fix: light theme rendered all 5 Grammar Wiki pages illegible because
+ * Sprint 6.15's cascade-winning override only neutralized plain `.text-white`
+ * (line 54 above). Both the static markup AND `frontend/js/grammar.js`
+ * renderer (1,034 lines) emit Tailwind opacity variants — `text-white/15`
+ * through `text-white/90` — which compile to hardcoded `rgb(255 255 255 / X)`.
+ * Against the light-theme `--av-surface-page` (#FAFAF9 warm off-white), white
+ * text with any opacity is invisible.
+ *
+ * Map each variant to color-mix(--av-text-primary, X%) so the four-tier
+ * semantic hierarchy (primary / secondary / muted / faint) survives in both
+ * themes. Borders + backgrounds with white opacities follow the same pattern
+ * via av-border-* / av-surface-* tokens.
+ *
+ * Why this slipped Sprint 6.15: cascade-winning override discipline correct
+ * in principle, but the smoke test exercised dark theme only (white-on-dark
+ * renders fine). Same blind-spot class as Sprint 6.10.1 icon rendering miss.
+ * § 17 audit-gate methodology amendment ships with this hotfix.
+ *
+ * DO NOT add new hardcoded white utilities to grammar pages or grammar.js
+ * renderer. When a variant outside this table is needed, extend this block
+ * first, then use it.
+ */
+
+/* text color */
+body.av-page .text-white\/90 { color: color-mix(in srgb, var(--av-text-primary) 90%, transparent); }
+body.av-page .text-white\/85 { color: color-mix(in srgb, var(--av-text-primary) 85%, transparent); }
+body.av-page .text-white\/80 { color: color-mix(in srgb, var(--av-text-primary) 80%, transparent); }
+body.av-page .text-white\/70 { color: var(--av-text-secondary); }
+body.av-page .text-white\/65 { color: var(--av-text-secondary); }
+body.av-page .text-white\/60 { color: var(--av-text-secondary); }
+body.av-page .text-white\/55 { color: var(--av-text-secondary); }
+body.av-page .text-white\/50 { color: var(--av-text-muted); }
+body.av-page .text-white\/40 { color: var(--av-text-muted); }
+body.av-page .text-white\/35 { color: var(--av-text-muted); }
+body.av-page .text-white\/30 { color: var(--av-text-faint); }
+body.av-page .text-white\/28 { color: var(--av-text-faint); }
+body.av-page .text-white\/25 { color: var(--av-text-faint); }
+body.av-page .text-white\/20 { color: var(--av-text-faint); }
+body.av-page .text-white\/15 { color: var(--av-text-faint); }
+
+/* hover state — mirror the text-color hierarchy */
+body.av-page .hover\:text-white:hover     { color: var(--av-text-primary); }
+body.av-page .hover\:text-white\/90:hover { color: color-mix(in srgb, var(--av-text-primary) 90%, transparent); }
+body.av-page .hover\:text-white\/85:hover { color: color-mix(in srgb, var(--av-text-primary) 85%, transparent); }
+body.av-page .hover\:text-white\/70:hover { color: var(--av-text-secondary); }
+body.av-page .hover\:text-white\/60:hover { color: var(--av-text-secondary); }
+
+/* border color */
+body.av-page .border-white\/10 { border-color: var(--av-border-default); }
+body.av-page .border-white\/8  { border-color: var(--av-border-default); }
+body.av-page .border-white\/6  { border-color: var(--av-border-subtle); }
+body.av-page .border-white\/5  { border-color: var(--av-border-subtle); }
+
+/* background color */
+body.av-page .bg-white         { background-color: var(--av-surface-card); }
+body.av-page .bg-white\/10     { background-color: var(--av-surface-elevated); }
+body.av-page .bg-white\/8      { background-color: var(--av-surface-card); }
+body.av-page .bg-white\/6      { background-color: var(--av-surface-card); }
+body.av-page .bg-white\/5      { background-color: var(--av-surface-card); }
+
 /* Lora-display headings — opt-in via .gw-display or class on element */
 .gw-display,
 .hero-title,
