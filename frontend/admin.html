@@ -1711,6 +1711,19 @@
     // badges instead of a raw "writing, practice_single" comma list.
     // Empty list / "all" / known values get distinct colours; unknown
     // values fall through to a muted badge so admins can spot drift.
+    // ─────────────────────────────────────────────────────────────────
+    // SPRINT 6.14d-α DEFERRED: renderer-emitted inline palette
+    //
+    // This PERM_BADGE_META map still uses hardcoded rgba/hex literals
+    // in inline style strings. INTENTIONAL DEFERRAL per Sprint 6.14d-α
+    // chrome-only scope (DESIGN_SYSTEM.md § 14.5.2/3 un-defer triggers).
+    //
+    // DO NOT add more inline hex/rgba palette logic here. When triggers
+    // fire, this region migrates to tokenized class hooks via Sprint
+    // 6.14d-β/γ.
+    //
+    // Treatment: "chrome-complete, renderer-deferred"
+    // ─────────────────────────────────────────────────────────────────
     var PERM_BADGE_META = {
       all:             { text: 'Toàn quyền',                style: 'background:rgba(220,38,38,0.18);color:#fca5a5;border:1px solid rgba(220,38,38,0.35);' },
       writing:         { text: 'Writing',                   style: 'background:rgba(245,158,11,0.18);color:#fbbf24;border:1px solid rgba(245,158,11,0.35);' },
@@ -1787,6 +1800,20 @@
         var limitTxt = c.session_limit != null ? c.session_limit + ' sessions' : '<span style="color:rgba(255,255,255,0.25);">Không giới hạn</span>';
         var expiryTxt = c.expires_at ? fmtDate(c.expires_at) : '<span style="color:rgba(255,255,255,0.25);">Không hết hạn</span>';
         var BTN = 'font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;margin:2px;white-space:nowrap;font-weight:600;';
+        // ─────────────────────────────────────────────────────────────────
+        // SPRINT 6.14d-α DEFERRED: renderer-emitted inline palette
+        //
+        // Access-code row action buttons (Chi tiết / Sửa / Toggle / Thu
+        // hồi / Xóa) emit inline rgba/hex palette through the BTN base
+        // style string. INTENTIONAL DEFERRAL per Sprint 6.14d-α chrome-
+        // only scope (DESIGN_SYSTEM.md § 14.5.2/3 un-defer triggers).
+        //
+        // DO NOT add more inline hex/rgba palette logic here. When
+        // triggers fire, this region migrates to tokenized class hooks
+        // via Sprint 6.14d-β/γ.
+        //
+        // Treatment: "chrome-complete, renderer-deferred"
+        // ─────────────────────────────────────────────────────────────────
         var detailBtn  = '<button onclick="viewCodeDetail(\'' + esc(c.id) + '\')" style="' + BTN + 'color:#a78bfa;border:1px solid rgba(167,139,250,0.35);background:rgba(167,139,250,0.1);">Chi tiết</button>';
         var editBtn    = '<button onclick="editCode(\'' + esc(c.id) + '\')" style="' + BTN + 'color:#60a5fa;border:1px solid rgba(96,165,250,0.35);background:rgba(96,165,250,0.1);">Sửa</button>';
         var revokeBtn  = c.is_revoked
@@ -2059,6 +2086,20 @@
           + '</label>';
       }).join('');
 
+      // ─────────────────────────────────────────────────────────────────
+      // SPRINT 6.14d-α DEFERRED: renderer-emitted inline palette
+      //
+      // Permission-edit modal overlay emits the modal box + headings +
+      // form rows via inline rgba/hex literals. INTENTIONAL DEFERRAL per
+      // Sprint 6.14d-α chrome-only scope (DESIGN_SYSTEM.md § 14.5.2/3
+      // un-defer triggers).
+      //
+      // DO NOT add more inline hex/rgba palette logic here. When
+      // triggers fire, this overlay migrates to a tokenized .modal-box
+      // primitive via Sprint 6.14d-β/γ.
+      //
+      // Treatment: "chrome-complete, renderer-deferred"
+      // ─────────────────────────────────────────────────────────────────
       overlay.innerHTML = '<div style="background:#0C2340;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;min-width:280px;max-width:360px;width:90%;">'
         + '<h3 style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:16px;">Sửa quyền access code</h3>'
         + '<div style="margin-bottom:10px;">'
@@ -3135,6 +3176,20 @@
         //   rejected  → Publish / (no Reject — already terminal)
         var actions = '';
         if (it.status === 'published') {
+          // ─────────────────────────────────────────────────────────────────
+          // SPRINT 6.14d-α DEFERRED: renderer-emitted inline palette
+          //
+          // Vocab Exercises action buttons (Unpublish / Approve / Reject)
+          // emit inline rgba/hex palette per status state. INTENTIONAL
+          // DEFERRAL per Sprint 6.14d-α chrome-only scope (DESIGN_SYSTEM.md
+          // § 14.5.2/3 un-defer triggers).
+          //
+          // DO NOT add more inline hex/rgba palette logic here. When
+          // triggers fire, these buttons migrate to .aw-btn-act-style class
+          // hooks via Sprint 6.14d-β/γ.
+          //
+          // Treatment: "chrome-complete, renderer-deferred"
+          // ─────────────────────────────────────────────────────────────────
           actions =
             '<button class="text-xs px-2 py-1 rounded-lg" style="background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.3); color:#fb923c;" onclick="ve_setStatus(\'' + ve_esc(it.id) + '\', \'unpublish\')">Unpublish</button>';
         } else if (it.status === 'rejected') {
