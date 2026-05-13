@@ -1,42 +1,27 @@
-// js/vocab-landing.js — Sprint 6.0 unified vocabulary landing.
+// js/vocab-landing.js — vocabulary landing tab switcher.
 //
-// Tab-switching + lazy iframe loading + URL-hash deep-linking for
-// /pages/vocabulary.html. Distinct from /js/vocabulary.js (which
-// powers the Vocabulary Wiki at /vocabulary.html and predates this
-// sprint by a wide margin).
+// Tab-switching + URL-hash deep-linking for /pages/vocabulary.html.
+// Distinct from /js/vocabulary.js (which powers the Vocabulary Wiki at
+// /vocabulary.html and predates this sprint by a wide margin).
 //
-// Approach: each tab panel contains an <iframe> pointing at the
-// existing standalone page (my-vocabulary.html, flashcards.html,
-// exercises.html). The iframe `src` stays empty until the tab is
-// first activated, at which point we set it. Subsequent visits to
-// the same tab reuse the already-loaded iframe so its state — modal
-// open, scroll position, in-flight fetches — survives tab switches.
+// Architecture (post DEBT-2026-05-09-B closure, Sprint 7.6):
+//   Each vocab tab dynamic-imports its module from /js/vocab-modules/*
+//   and mounts it into `[data-panel="<tab>"] .tab-mount`. The legacy
+//   Sprint 6.0 iframe pattern was retired across Sprint 7.3 → 7.6;
+//   embedded-mode.css and the per-page IIFE are gone.
 //
-// Why iframe instead of module extraction:
-//   The existing pages are full self-contained surfaces (each owns
-//   its auth bootstrap, Supabase init, Tailwind import, modal
-//   lifecycle). Extracting them into reusable modules would touch
-//   ~600 LOC and risk breaking production-stable pages for an
-//   architectural win that doesn't unlock new product capability in
-//   this sprint. Documented as a Sprint 6.0 deviation; revisited in
-//   6.1+ when click-to-add introduces cross-tab state worth the
-//   refactor.
+// Sprint history (for context only — see PHASE_CLOSURE_LEDGER.md):
+//   - Sprint 6.0  shipped iframe-mounted vocab tabs (deferred refactor)
+//   - Sprint 7.3 / 7.4 / 7.5 migrated each child to an ES module
+//   - Sprint 7.6 retired the iframe code path here + embedded-mode.css
 
 (function () {
   'use strict';
 
-  // Iframe path (Sprint 6.0 legacy). Sprint 7.5 retired the last entry
-  // (exercises); the map is now empty. Sprint 7.6 deletes the path
-  // entirely along with embedded-mode.css.
-  const TAB_SOURCES = {
-    // 'topic-bank' has no src — it's a static placeholder panel.
-  };
-
-  // Sprint 7.3 — module path. Tabs in this map dynamic-import their
-  // module and mount into `[data-panel="<tab>"] .tab-mount`, bypassing
-  // the iframe path entirely. Sprint 7.4 added flashcards; Sprint 7.5
-  // added exercises. All 3 vocab children are now on the module path;
-  // Sprint 7.6 retires the iframe branch in activateTab() + TAB_SOURCES.
+  // Module-mount registry. Each entry dynamic-imports the named module
+  // and the parent activateTab() calls mod.mount(container, { embedded: true }).
+  // The container's `data-mounted` attribute is the idempotency guard
+  // (see vocab-modules/_loader.js guardMount()).
   const TAB_LOADERS = {
     'my-vocab':   () => import('/js/vocab-modules/my-vocab.js'),
     'flashcards': () => import('/js/vocab-modules/flashcards.js'),
@@ -47,11 +32,6 @@
   const VALID_TABS = new Set([
     'my-vocab', 'flashcards', 'exercises', 'topic-bank',
   ]);
-
-  // Track which tab panels have had their iframe `src` set so we don't
-  // re-fetch on every tab click. (Module path tracks via container's
-  // `data-mounted` attribute — see guardMount() in _loader.js.)
-  const _loaded = new Set();
 
   function $(sel) { return document.querySelector(sel); }
   function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
@@ -70,10 +50,9 @@
       panel.hidden = !isTarget;
     });
 
-    // Sprint 7.3 — module path takes priority. If the tab has a
-    // TAB_LOADERS entry, dynamic-import the module and mount it; iframe
-    // path is bypassed for this tab. `data-mounted` on the container
-    // is the idempotency guard (see vocab-modules/_loader.js).
+    // Dynamic-import the module for this tab and mount it. Tabs not in
+    // TAB_LOADERS (currently only `topic-bank`, a static placeholder)
+    // are pure CSS reveals — no module load needed.
     const loader = TAB_LOADERS[tabName];
     if (loader) {
       const container = document.querySelector(
@@ -94,18 +73,6 @@
           console.error('[vocab-landing] loader helper import failed:', err);
           container.innerHTML = '<p style="text-align:center;padding:3rem;">Không tải được module. Vui lòng tải lại trang.</p>';
         });
-      }
-    } else {
-      // Iframe path (Sprint 6.0 legacy) — preserved for unmigrated tabs.
-      const src = TAB_SOURCES[tabName];
-      if (src && !_loaded.has(tabName)) {
-        const frame = document.querySelector(
-          `[data-panel="${tabName}"] .tab-frame`,
-        );
-        if (frame) {
-          frame.src = src;
-          _loaded.add(tabName);
-        }
       }
     }
 
@@ -198,6 +165,5 @@
     DEFAULT_TAB,
     VALID_TABS: Array.from(VALID_TABS),
     TAB_LOADERS: Object.keys(TAB_LOADERS),
-    TAB_SOURCES: Object.keys(TAB_SOURCES),
   };
 })();

@@ -164,14 +164,11 @@ test('activateTab marks the target tab active and reveals its panel', () => {
   assert.equal(myVocabPanel.hidden, true, 'previously-active panel is hidden');
 });
 
-// Sprint 7.5 — the lazy-mount iframe test was deleted here. Before
-// Sprint 7.3 / 7.4 / 7.5 all three vocab children went through the
-// TAB_SOURCES iframe path; the test exercised `frame.src` assignment
-// + re-visit no-op. With all 3 children now on TAB_LOADERS, no iframe
-// gets its src set anymore, and the test-side iframe stubs are inert.
-// Sprint 7.6 deletes the iframe branch in activateTab() + TAB_SOURCES.
+// Sprint 7.6 — DEBT-2026-05-09-B CLOSED. The legacy iframe path
+// (TAB_SOURCES + _loaded Set + frame.src else-branch) was retired
+// in this sprint. All 3 vocab children go through TAB_LOADERS only.
 
-test('all 3 vocab children are registered in TAB_LOADERS (Sprint 7.5 milestone)', () => {
+test('all 3 vocab children are registered in TAB_LOADERS', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
@@ -179,20 +176,18 @@ test('all 3 vocab children are registered in TAB_LOADERS (Sprint 7.5 milestone)'
   assert.deepEqual(
     [...loaders].sort(),
     ['exercises', 'flashcards', 'my-vocab'],
-    'TAB_LOADERS must list all 3 vocab children after Sprint 7.5 migration',
+    'TAB_LOADERS must list all 3 vocab children',
   );
 });
 
-test('TAB_SOURCES is empty post Sprint 7.5 (iframe path retired in 7.6)', () => {
+test('TAB_SOURCES no longer exposed on the test seam (Sprint 7.6 retirement)', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
-  // Test seam exposes TAB_SOURCES keys; expect empty array now that
-  // exercises has joined the module path.
-  assert.deepEqual(
-    [...win.__vocabLanding.TAB_SOURCES].sort(),
-    [],
-    'TAB_SOURCES must be empty after Sprint 7.5 (all vocab children migrated)',
+  assert.equal(
+    win.__vocabLanding.TAB_SOURCES,
+    undefined,
+    'TAB_SOURCES seam must be removed after Sprint 7.6 (the const itself is gone)',
   );
 });
 

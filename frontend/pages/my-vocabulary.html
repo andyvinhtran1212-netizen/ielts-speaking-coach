@@ -6,15 +6,10 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Vocab Bank — Aver Learning</title>
 
-  <!-- Sprint 7.3 — embedded-mode IIFE retired. my-vocabulary.html is now a
-       standalone shell only; the embedded path goes through
-       /js/vocab-modules/my-vocab.js mounted into vocabulary.html. The
-       Sprint 6.0.1 IIFE that detected ?embedded=1 is no longer needed —
-       this page is never loaded as an iframe under the canonical chrome
-       unification post-Sprint 7.3. The embedded-mode.css link is kept
-       for the duration of Sprint 7.3 → 7.5 because flashcards.html +
-       exercises.html still depend on it; Sprint 7.6 retires the file. -->
-  <link rel="stylesheet" href="/css/embedded-mode.css" />
+  <!-- Sprint 7.6 — DEBT-2026-05-09-B CLOSED. The page is a standalone
+       shell; the embedded path goes through /js/vocab-modules/my-vocab.js
+       mounted into vocabulary.html. The Sprint 6.0.1 embedded-mode IIFE
+       and the matching embedded-mode.css stylesheet have been retired. -->
 
   <!-- Sprint 6.11a: canonical anti-flash theme bootstrap (DESIGN_SYSTEM.md § 13). -->
   <script>
