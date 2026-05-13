@@ -142,6 +142,101 @@ describe('Sprint 6.17 foundation — /js/user-pill.js shared module', () => {
   test('redirects to /index.html after sign-out', () => {
     assert.match(pill, /window\.location\.href\s*=\s*['"]\/index\.html['"]/);
   });
+
+  // Sprint 7.8-hotfix — populate canonicalization. Bug 2 (3 pages stuck at
+  // "...") + Bug 3 (1-letter vs 2-letter initials) closed by extending
+  // user-pill.js to own pill population with canonical 2-letter initials.
+  test('exports populateUserPill() + canonicalInitials() (Sprint 7.8-hotfix)', () => {
+    assert.match(pill, /export\s+async\s+function\s+populateUserPill\s*\(/);
+    assert.match(pill, /export\s+function\s+canonicalInitials\s*\(/);
+  });
+
+  test('canonicalInitials uses 2-letter algorithm (split + map + slice(0,2))', () => {
+    // Canonical: "Vinh Tran" → "VT", "Vinh" → "V". Mismatched 1-letter
+    // logic (legacy home.html) regresses to "V" for "Vinh Tran".
+    assert.match(pill, /\.split\(\/\\s\+\/\)/);
+    assert.match(pill, /\.slice\(0,\s*2\)/);
+    assert.match(pill, /\.toUpperCase\(\)/);
+  });
+
+  test('populateUserPill defers to page-bootstrapped values (placeholder detection)', () => {
+    // The HTML defaults are "…" (U+2026) and "·" (U+00B7). If a page
+    // bootstrap (e.g., speaking.html renderUser) has already written
+    // real values, populateUserPill must NOT overwrite.
+    assert.match(pill, /textContent\s*===\s*['"]…['"]/);
+    assert.match(pill, /textContent\s*===\s*['"]·['"]/);
+  });
+
+  test('populateUserPill is idempotent (data-user-pill-populated guard)', () => {
+    assert.match(pill, /data-user-pill-populated|userPillPopulated/);
+  });
+
+  test('auto-bind runs both bindUserPill + populateUserPill', () => {
+    // The DOMContentLoaded handler must call both — populate is what
+    // closes Bug 2 on the 3 pages that stuck at "...".
+    assert.match(pill, /bindUserPill\(\)[\s\S]{0,80}populateUserPill\(\)/);
+  });
+});
+
+
+// ── Sprint 7.8-hotfix — chrome size consistency (Bug 1) ───────────
+
+
+describe('Sprint 7.8-hotfix — .brand chrome consistency across pages', () => {
+  // Bug 1: 3 different logo sizes across 5 pages. Two root causes
+  // confirmed: (a) vocabulary.css explicit font-size override (1.35rem
+  // vs canonical 1.125rem); (b) grammar-wiki.css body.av-page DM Sans
+  // font-family cascading into .brand. Both fixed in Sprint 7.8-hotfix.
+
+  test('vocabulary.css no longer overrides .brand font-size', () => {
+    const css = readFileSync(
+      path.join(REPO_ROOT, 'frontend/css/vocabulary.css'),
+      'utf8',
+    );
+    // The previous override was `.brand { font-size: 1.35rem; ... }`.
+    // Sprint 7.8-hotfix removed the whole `.brand` rule so the canonical
+    // components.css rule (var(--av-fs-lg) = 1.125rem) wins.
+    assert.ok(
+      !/^\.brand\s*\{/m.test(css),
+      'vocabulary.css must NOT redeclare .brand — let canonical components.css rule apply',
+    );
+    assert.ok(
+      !/font-size:\s*1\.35rem/.test(css),
+      'vocabulary.css must NOT carry the 1.35rem .brand override',
+    );
+  });
+
+  test('grammar-wiki.css preserves canonical font on chrome (.brand stays Plus Jakarta Sans)', () => {
+    const css = readFileSync(
+      path.join(REPO_ROOT, 'frontend/css/grammar-wiki.css'),
+      'utf8',
+    );
+    // body.av-page font-family switches to DM Sans (sub-system § 14.2),
+    // which previously cascaded into .brand. The fix scopes the chrome
+    // selectors back to var(--av-font-sans) explicitly.
+    assert.match(
+      css,
+      /\.brand[\s\S]{0,200}font-family:\s*var\(--av-font-sans\)/,
+      'grammar-wiki.css must explicitly keep .brand on var(--av-font-sans)',
+    );
+  });
+
+  test('components.css canonical .brand rule uses var(--av-fs-lg)', () => {
+    const components = readFileSync(
+      path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'),
+      'utf8',
+    );
+    assert.match(
+      components,
+      /\.brand\s*\{[^}]*font-size:\s*var\(--av-fs-lg\)/,
+      'components.css must keep canonical .brand font-size token',
+    );
+    assert.match(
+      components,
+      /\.brand\s*\{[^}]*font-family:\s*var\(--av-font-sans\)/,
+      'components.css must keep canonical .brand font-family token',
+    );
+  });
 });
 
 

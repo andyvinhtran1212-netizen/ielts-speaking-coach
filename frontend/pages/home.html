@@ -217,7 +217,9 @@
     }
   </script>
 
-  <!-- ── User-pill bootstrap (same pattern as legacy home.html) ───── -->
+  <!-- ── Auth gate (Sprint 7.8-hotfix: pill populate moved to
+       /js/user-pill.js for single source of truth on initials logic).
+       This block now only redirects unauthenticated visitors to /login. -->
   <script>
     (async () => {
       try {
@@ -225,18 +227,9 @@
         const { data: { session } } = await sb.auth.getSession();
         if (!session) {
           window.location.href = '../login.html';
-          return;
         }
-        const email = (session.user && session.user.email) || '';
-        const meta  = (session.user && session.user.user_metadata) || {};
-        const name  = meta.display_name || meta.full_name || meta.name || (email.split('@')[0] || 'bạn');
-        const initial = (name[0] || '·').toUpperCase();
-        const avatar = document.getElementById('user-avatar');
-        const pill = document.getElementById('user-pill-name');
-        if (avatar) avatar.textContent = initial;
-        if (pill) pill.textContent = name.length > 14 ? name.slice(0, 13) + '…' : name;
       } catch (e) {
-        console.error('user-pill init failed:', e);
+        console.error('[home] auth check failed:', e);
       }
     })();
   </script>
