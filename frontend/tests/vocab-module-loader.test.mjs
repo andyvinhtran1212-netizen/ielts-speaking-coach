@@ -312,6 +312,36 @@ describe('Sprint 7.3 — /pages/vocabulary.html my-vocab tab uses mount containe
       'vocabulary.html must contain ZERO <iframe> elements after Sprint 7.5 milestone',
     );
   });
+
+  test('Sprint 7.7-hotfix — vocab module resources eagerly loaded for embedded path', () => {
+    // The 3 vocab modules render embedded into this page; their HTML
+    // templates depend on Tailwind utility classes (`hidden`, `grid`,
+    // `flex`, `text-*`, font-weight, spacing) + per-module CSS namespaces
+    // (`.mv-*`, `.fc-*`, `.ex-*`). Without these the embedded render
+    // shows unstyled / stacked-state regression. Sprint 7.3 → 7.6
+    // migrations moved page bodies into modules but missed the resource
+    // import migration — this pin prevents the regression from
+    // re-occurring (drop of any one import = test fail).
+    assert.match(
+      html,
+      /<script\s+src="https:\/\/cdn\.tailwindcss\.com"/,
+      'vocabulary.html must load Tailwind CDN so module templates that ' +
+      'use `.hidden`, `.grid`, etc. render correctly when embedded',
+    );
+    assert.match(
+      html,
+      /tailwind\.config\s*=\s*\{[\s\S]{0,400}Plus Jakarta Sans/,
+      'vocabulary.html must declare the canonical Tailwind config ' +
+      '(navy/teal palette + Plus Jakarta Sans) — matches standalone shells',
+    );
+    for (const css of ['my-vocabulary.css', 'flashcards.css', 'exercises.css']) {
+      const re = new RegExp(`<link\\s+rel="stylesheet"\\s+href="/css/${css.replace('.', '\\.')}"`);
+      assert.match(
+        html, re,
+        `vocabulary.html must load /css/${css} so the embedded module renders styled`,
+      );
+    }
+  });
 });
 
 

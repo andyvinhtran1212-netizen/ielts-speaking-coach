@@ -38,6 +38,36 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/vocabulary.css" />
 
+  <!-- Sprint 7.7-hotfix — vocab module resources.
+       The 3 vocab modules (my-vocab / flashcards / exercises) are mounted
+       embedded into this page via /js/vocab-modules/*.js. Their HTML
+       templates rely on Tailwind utility classes (.hidden, .grid, .flex,
+       text-*, mb-*, etc.) and per-module CSS namespaces (.mv-* / .fc-* /
+       .ex-*). Standalone shells load these resources themselves; when
+       embedded, the parent must supply them — Sprint 7.3 → 7.6 migrations
+       moved the page body into JS modules but didn't migrate the
+       resource imports, causing an unstyled render regression. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/css/my-vocabulary.css" />
+  <link rel="stylesheet" href="/css/flashcards.css" />
+  <link rel="stylesheet" href="/css/exercises.css" />
+
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
        as Sprint 6.7+ functional microcopy). -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
