@@ -6,27 +6,17 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Vocab Bank — Aver Learning</title>
 
-  <!-- Sprint 6.0.1 — embedded-mode toggle. When this page is mounted
-       inside the unified vocabulary landing as an iframe (URL carries
-       ?embedded=1), the parent supplies the chrome and we suppress
-       our own. Run synchronously in <head> before any styling loads
-       so there's no flash-of-unhidden-chrome. -->
-  <script>
-    (function () {
-      try {
-        var p = new URLSearchParams(window.location.search);
-        if (p.get('embedded') === '1') {
-          document.documentElement.classList.add('embedded-mode');
-        }
-      } catch (e) { /* noop */ }
-    })();
-  </script>
+  <!-- Sprint 7.3 — embedded-mode IIFE retired. my-vocabulary.html is now a
+       standalone shell only; the embedded path goes through
+       /js/vocab-modules/my-vocab.js mounted into vocabulary.html. The
+       Sprint 6.0.1 IIFE that detected ?embedded=1 is no longer needed —
+       this page is never loaded as an iframe under the canonical chrome
+       unification post-Sprint 7.3. The embedded-mode.css link is kept
+       for the duration of Sprint 7.3 → 7.5 because flashcards.html +
+       exercises.html still depend on it; Sprint 7.6 retires the file. -->
   <link rel="stylesheet" href="/css/embedded-mode.css" />
 
-  <!-- Sprint 6.11a: canonical anti-flash theme bootstrap (DESIGN_SYSTEM.md § 13).
-       Runs AFTER the Sprint 6.0.1 embedded-mode IIFE — order matters because
-       the embedded-mode IIFE is byte-identical-pinned by embedded-mode.test.js
-       and must remain the first script in <head>. -->
+  <!-- Sprint 6.11a: canonical anti-flash theme bootstrap (DESIGN_SYSTEM.md § 13). -->
   <script>
     (function () {
       try {
@@ -67,10 +57,7 @@
     rel="stylesheet" />
 
   <!-- Aver Design System foundation. tokens.css MUST load before
-       components.css and my-vocabulary.css. ds.css stays linked because
-       the page still consumes a handful of .ds-* helpers; the body.av-page
-       overrides at the bottom of my-vocabulary.css lift the white-on-cream
-       defaults to tokens (Sprint 6.5.1 pattern). -->
+       components.css and my-vocabulary.css. -->
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/ds.css" />
@@ -81,8 +68,7 @@
 </head>
 <body class="av-page font-sans min-h-screen">
 
-  <!-- Canonical chrome (Sprint 6.17.1 — Vocabulary active; embedded-mode.css
-       hides .topnav-wrap when ?embedded=1 is set via the head IIFE). -->
+  <!-- Canonical chrome (Sprint 6.17.1 / 6.20 — Vocabulary active). -->
   <div class="topnav-wrap">
     <nav class="topnav" aria-label="Primary">
       <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
@@ -121,165 +107,12 @@
     </nav>
   </div>
 
-  <!-- Page context bar (preserves Add-word affordance + page title). -->
-  <header class="mv-header mv-context-bar px-6 py-4">
-    <div class="max-w-3xl mx-auto flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <p class="eyebrow" style="margin:0;">Vocabulary</p>
-        <span class="mv-header__sep">|</span>
-        <h1 class="mv-header__title text-base font-semibold">My Vocab Bank</h1>
-      </div>
-      <button onclick="toggleAddForm()" class="mv-add-btn text-sm font-medium px-4 py-1.5 rounded-lg">
-        <i data-lucide="plus"></i>
-        Add word
-      </button>
-    </div>
-  </header>
+  <!-- Sprint 7.3 — module mount container. The page body (context bar,
+       stats, add form, filters, list, modals) lives inside the
+       /js/vocab-modules/my-vocab.js template and is injected here. -->
+  <main id="mount" class="vocab-module-mount"></main>
 
-  <main class="max-w-3xl mx-auto px-4 pt-20 pb-6">
-
-    <!-- Sprint 6.0 — banner pointing at the unified Vocabulary landing.
-         Hidden when this page is embedded as a tab iframe (the URL
-         carries ?embedded=1) so it doesn't show twice. -->
-    <div id="vocab-moved-banner" class="mv-banner rounded-lg p-3 mb-5 text-sm flex items-center gap-3 hidden">
-      <span class="mv-banner__icon" aria-hidden="true">📍</span>
-      <div class="mv-banner__body">
-        Trang này đã được tích hợp vào trang
-        <a href="/pages/vocabulary.html#my-vocab" class="mv-banner__link">Từ vựng</a>
-        — bạn có thể truy cập My Vocabulary, Flashcards và Bài tập trong một nơi.
-      </div>
-    </div>
-    <script>
-      // Show the banner unless we're embedded as an iframe inside the
-      // unified vocabulary landing — the parent page already provides
-      // the navigation context, so a banner there would be redundant.
-      (function () {
-        try {
-          var params = new URLSearchParams(window.location.search);
-          if (params.get('embedded') !== '1') {
-            document.getElementById('vocab-moved-banner').classList.remove('hidden');
-          }
-        } catch (e) { /* best-effort */ }
-      })();
-    </script>
-
-    <!-- Stats bar -->
-    <div id="stats-bar" class="mv-stats hidden flex items-center gap-6 mb-5 text-sm">
-      <span class="mv-stat">Total: <strong id="stat-total" class="mv-stat__val mv-stat__val--total">0</strong></span>
-      <span class="mv-stat">Learning: <strong id="stat-learning" class="mv-stat__val mv-stat__val--learning">0</strong></span>
-      <span class="mv-stat">Mastered: <strong id="stat-mastered" class="mv-stat__val mv-stat__val--mastered">0</strong></span>
-      <!-- Export download buttons (Phase 2.5) -->
-      <span class="ml-auto flex items-center gap-2">
-        <button id="btn-export-csv"
-                onclick="window._myVocab && window._myVocab.downloadCsv && window._myVocab.downloadCsv()"
-                class="mv-export-btn mv-export-btn--primary text-xs px-3 py-1 rounded-lg"
-                title="Tải về CSV (Excel-compatible)">
-          <i data-lucide="download"></i> CSV
-        </button>
-        <button id="btn-export-json"
-                onclick="window._myVocab && window._myVocab.downloadJson && window._myVocab.downloadJson()"
-                class="mv-export-btn mv-export-btn--secondary text-xs px-3 py-1 rounded-lg"
-                title="Tải về JSON (full backup)">
-          <i data-lucide="download"></i> JSON
-        </button>
-      </span>
-    </div>
-
-    <!-- Manual add form -->
-    <div id="add-form" class="mv-add-form mb-5 p-4 rounded-xl">
-      <h3 class="mv-add-form__title text-sm font-semibold mb-3">Add a word manually</h3>
-      <div class="flex flex-col gap-3">
-        <input id="add-headword" type="text" placeholder="Word or phrase *"
-               class="mv-input w-full px-3 py-2 rounded-lg text-sm" />
-        <input id="add-context" type="text" placeholder="Example sentence (optional)"
-               class="mv-input w-full px-3 py-2 rounded-lg text-sm" />
-        <div class="flex gap-2">
-          <button onclick="submitAddWord()" class="mv-save-btn px-4 py-1.5 text-sm font-medium rounded-lg">
-            Save
-          </button>
-          <button onclick="toggleAddForm()" class="mv-cancel-btn px-4 py-1.5 text-sm rounded-lg">
-            Cancel
-          </button>
-        </div>
-        <p id="add-error" class="mv-add-error text-xs hidden"></p>
-      </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="flex flex-wrap gap-2 mb-5">
-      <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">All</button>
-      <button class="filter-btn" data-filter="used_well" onclick="setFilter('used_well', this)">Used well</button>
-      <button class="filter-btn" data-filter="needs_review" onclick="setFilter('needs_review', this)">Needs review</button>
-      <button class="filter-btn" data-filter="upgrade_suggested" onclick="setFilter('upgrade_suggested', this)">Upgrade</button>
-      <button class="filter-btn" data-filter="manual" onclick="setFilter('manual', this)">Manual</button>
-      <button class="filter-btn" data-filter="learning" onclick="setFilter('learning', this)">Learning</button>
-      <button class="filter-btn" data-filter="mastered" onclick="setFilter('mastered', this)">Mastered</button>
-    </div>
-
-    <!-- Loading -->
-    <div id="state-loading" class="flex justify-center py-16">
-      <div class="spinner"></div>
-    </div>
-
-    <!-- Feature not available -->
-    <div id="state-disabled" class="hidden text-center py-16 empty-state">
-      <p class="text-lg font-medium mb-2">Vocab Bank is not enabled</p>
-      <p class="text-sm">This feature is available in the upcoming update.</p>
-    </div>
-
-    <!-- Error -->
-    <div id="state-error" class="hidden text-center py-16 empty-state">
-      <p class="text-sm">Failed to load your vocab bank. Please refresh.</p>
-    </div>
-
-    <!-- Empty -->
-    <div id="state-empty" class="hidden text-center py-16 empty-state">
-      <p class="text-lg font-medium mb-2">No words yet</p>
-      <p class="text-sm">Practice speaking and words will appear here automatically.</p>
-    </div>
-
-    <!-- Card list -->
-    <div id="vocab-list" class="hidden flex flex-col gap-3"></div>
-
-  </main>
-
-  <!-- Flashcard picker modal (Phase D Wave 2) -->
-  <div id="fc-picker-modal" class="mv-modal hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-    <div class="mv-modal__panel w-full max-w-md rounded-2xl p-5">
-      <h3 class="mv-modal__title text-sm font-semibold mb-1">📚 Thêm vào flashcard stack</h3>
-      <p id="fc-picker-headword" class="mv-modal__subtitle text-xs mb-3"></p>
-      <div id="fc-picker-list" class="flex flex-col gap-2 max-h-64 overflow-y-auto mb-3">
-        <!-- populated by my-vocabulary.js -->
-      </div>
-      <a id="fc-picker-new" href="flashcards.html"
-         class="mv-modal__new-link block text-xs text-center mb-3 py-2 rounded-lg">
-        + Tạo stack mới (sẽ rời trang này)
-      </a>
-      <div class="flex gap-2">
-        <button onclick="closeFlashcardPicker()" class="mv-modal__close-btn flex-1 py-2 text-sm rounded-lg">Đóng</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Report modal -->
-  <div id="report-modal" class="mv-modal hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-    <div class="mv-modal__panel w-full max-w-sm rounded-2xl p-5">
-      <h3 class="mv-modal__title text-sm font-semibold mb-3">Report incorrect word?</h3>
-      <p class="mv-modal__subtitle text-xs mb-4">This helps us improve extraction quality. The word will be removed from your bank.</p>
-      <textarea id="report-reason" rows="2" placeholder="Optional reason..."
-                class="mv-input mv-input--textarea w-full px-3 py-2 rounded-lg text-sm mb-3 resize-none"></textarea>
-      <div class="flex gap-2">
-        <button onclick="submitReport()" class="mv-report-submit flex-1 py-2 text-sm font-medium rounded-lg">
-          Report & Remove
-        </button>
-        <button onclick="closeReport()" class="mv-modal__close-btn flex-1 py-2 text-sm rounded-lg">
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- order matters: supabase CDN → api.js → my-vocabulary.js -->
+  <!-- Order matters: supabase CDN → api.js → bootstrap → vocab module. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
   <script>
@@ -288,7 +121,6 @@
       'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4'
     );
   </script>
-  <script src="../js/my-vocabulary.js"></script>
 
   <!-- Lucide hydration + canonical theme/user-pill wiring (Sprint 6.17.1). -->
   <script>
@@ -309,5 +141,12 @@
     bindToggleButton(document.getElementById('theme-toggle'));
   </script>
   <script type="module" src="/js/user-pill.js"></script>
+
+  <!-- Sprint 7.3 — mount the my-vocab module into <main id="mount">.
+       embedded:false because this is the standalone shell. -->
+  <script type="module">
+    import { mount } from '/js/vocab-modules/my-vocab.js';
+    mount(document.getElementById('mount'), { embedded: false });
+  </script>
 </body>
 </html>

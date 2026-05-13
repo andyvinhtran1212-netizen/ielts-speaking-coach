@@ -25,11 +25,20 @@
 (function () {
   'use strict';
 
+  // Iframe path (Sprint 6.0 legacy) — preserved for tabs not yet
+  // migrated to ES-module mount under DEBT-2026-05-09-B.
   const TAB_SOURCES = {
-    'my-vocab':   '/pages/my-vocabulary.html?embedded=1',
     'flashcards': '/pages/flashcards.html?embedded=1',
     'exercises':  '/pages/exercises.html?embedded=1',
     // 'topic-bank' has no src — it's a static placeholder panel.
+  };
+
+  // Sprint 7.3 — module path. Tabs in this map dynamic-import their
+  // module and mount into `[data-panel="<tab>"] .tab-mount`, bypassing
+  // the iframe path entirely. Phase-2..4 sprints (7.4 / 7.5) extend
+  // this map as flashcards + exercises migrate.
+  const TAB_LOADERS = {
+    'my-vocab': () => import('/js/vocab-modules/my-vocab.js'),
   };
 
   const DEFAULT_TAB = 'my-vocab';
@@ -38,7 +47,8 @@
   ]);
 
   // Track which tab panels have had their iframe `src` set so we don't
-  // re-fetch on every tab click.
+  // re-fetch on every tab click. (Module path tracks via container's
+  // `data-mounted` attribute — see guardMount() in _loader.js.)
   const _loaded = new Set();
 
   function $(sel) { return document.querySelector(sel); }
@@ -58,15 +68,42 @@
       panel.hidden = !isTarget;
     });
 
-    // Lazy-mount iframe on first visit.
-    const src = TAB_SOURCES[tabName];
-    if (src && !_loaded.has(tabName)) {
-      const frame = document.querySelector(
-        `[data-panel="${tabName}"] .tab-frame`,
+    // Sprint 7.3 — module path takes priority. If the tab has a
+    // TAB_LOADERS entry, dynamic-import the module and mount it; iframe
+    // path is bypassed for this tab. `data-mounted` on the container
+    // is the idempotency guard (see vocab-modules/_loader.js).
+    const loader = TAB_LOADERS[tabName];
+    if (loader) {
+      const container = document.querySelector(
+        `[data-panel="${tabName}"] .tab-mount`,
       );
-      if (frame) {
-        frame.src = src;
-        _loaded.add(tabName);
+      if (container && container.dataset.mounted !== 'true') {
+        // Render skeleton synchronously while import resolves.
+        import('/js/vocab-modules/_loader.js').then(({ renderSkeleton, renderError }) => {
+          renderSkeleton(container);
+          loader().then((mod) => mod.mount(container, { embedded: true })).catch((err) => {
+            console.error('[vocab-landing] module mount failed:', err);
+            renderError(container, err, {
+              onRetry: () => { container.innerHTML = ''; activateTab(tabName, { updateHash: false }); },
+            });
+          });
+        }).catch((err) => {
+          // _loader import itself failed — fall back to raw error text.
+          console.error('[vocab-landing] loader helper import failed:', err);
+          container.innerHTML = '<p style="text-align:center;padding:3rem;">Không tải được module. Vui lòng tải lại trang.</p>';
+        });
+      }
+    } else {
+      // Iframe path (Sprint 6.0 legacy) — preserved for unmigrated tabs.
+      const src = TAB_SOURCES[tabName];
+      if (src && !_loaded.has(tabName)) {
+        const frame = document.querySelector(
+          `[data-panel="${tabName}"] .tab-frame`,
+        );
+        if (frame) {
+          frame.src = src;
+          _loaded.add(tabName);
+        }
       }
     }
 
@@ -158,5 +195,7 @@
     activateTab,
     DEFAULT_TAB,
     VALID_TABS: Array.from(VALID_TABS),
+    TAB_LOADERS: Object.keys(TAB_LOADERS),
+    TAB_SOURCES: Object.keys(TAB_SOURCES),
   };
 })();

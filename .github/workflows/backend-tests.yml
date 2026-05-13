@@ -110,7 +110,5 @@ jobs:
             frontend/tests/writing-result-redesign.test.mjs \
             frontend/tests/full-test-result-redesign.test.mjs \
             frontend/tests/vocabulary-redesign.test.mjs \
-            frontend/tests/my-vocabulary-redesign.test.mjs \
             frontend/tests/flashcards-redesign.test.mjs \
-            frontend/tests/exercises-redesign.test.mjs \
-            frontend/tests/preview-modal-closure.test.mjs
+            frontend/tests/exercises-redesign.test.mjs

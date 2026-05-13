@@ -77,6 +77,10 @@ describe('Sprint 6.19 foundation — canonical .eyebrow promoted to components.c
 // ── Per-page canonical eyebrow values ─────────────────────────────
 
 describe('Sprint 6.19 per-page — canonical .eyebrow value present', () => {
+  // Sprint 7.3 — my-vocabulary.html dropped from this roster. Its eyebrow
+  // moved into the /js/vocab-modules/my-vocab.js template literal when
+  // the page became a thin shell. The Sprint 7.3 sentinel below pins
+  // the eyebrow in the module file instead.
   const EYEBROW_PINS = [
     { rel: 'frontend/pages/home.html',              text: 'Trang chủ' },
     { rel: 'frontend/pages/speaking.html',          text: 'Speaking' },
@@ -86,7 +90,6 @@ describe('Sprint 6.19 per-page — canonical .eyebrow value present', () => {
     { rel: 'frontend/pages/writing-dashboard.html', text: 'Writing' },
     { rel: 'frontend/pages/writing-result.html',    text: 'Writing' },
     { rel: 'frontend/pages/vocabulary.html',        text: 'Vocabulary' },
-    { rel: 'frontend/pages/my-vocabulary.html',     text: 'Vocabulary' },
     { rel: 'frontend/pages/flashcards.html',        text: 'Vocabulary' },
     { rel: 'frontend/pages/exercises.html',         text: 'Vocabulary' },
     { rel: 'frontend/pages/grammar-roadmap.html',   text: 'Grammar Wiki' },
@@ -250,6 +253,26 @@ describe('Sprint 6.19 alignment — centered exceptions documented + protected',
       html,
       /<section[^>]*\bclass=["'][^"']*\bftr-hero\b[^"']*\btext-center\b[^"']*["']/,
       'full-test-result.ftr-hero must preserve text-center hero layout (Phase A documented)',
+    );
+  });
+});
+
+
+// ── Sprint 7.3 — module template carries the eyebrow ──────────────
+
+describe('Sprint 7.3 — my-vocab module template ships canonical "Vocabulary" eyebrow', () => {
+  // my-vocabulary.html dropped from the per-page roster above because
+  // its body migrated into /js/vocab-modules/my-vocab.js. The eyebrow
+  // is now part of the module template; this pin guards it there.
+  test('/js/vocab-modules/my-vocab.js template carries <p class="eyebrow">Vocabulary</p>', () => {
+    const src = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/vocab-modules/my-vocab.js'),
+      'utf8',
+    );
+    assert.match(
+      src,
+      /<p[^>]*\bclass="eyebrow"[^>]*>\s*Vocabulary\s*<\/p>/,
+      'my-vocab module template must ship "Vocabulary" eyebrow (migrated from shell in Sprint 7.3)',
     );
   });
 });

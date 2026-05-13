@@ -152,9 +152,29 @@ describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
     });
   }
 
-  test('three iframes preserved (my-vocab + flashcards + exercises)', () => {
+  // Sprint 7.3 — my-vocab tab migrated from <iframe> to ES-module mount
+  // (DEBT-2026-05-09-B Phase 1). 2 iframes remain (flashcards + exercises);
+  // my-vocab uses <div class="tab-mount"> instead. Sprint 7.4 / 7.5
+  // shrink the count further; Sprint 7.6 retires the iframe path entirely.
+  test('two iframes preserved (flashcards + exercises) post Sprint 7.3', () => {
     const frameCount = (html.match(/<iframe\s+class=["']tab-frame["']/g) || []).length;
-    assert.equal(frameCount, 3, `Expected 3 .tab-frame iframes, got ${frameCount}`);
+    assert.equal(frameCount, 2, `Expected 2 .tab-frame iframes after Sprint 7.3, got ${frameCount}`);
+  });
+
+  test('my-vocab tab uses module-mount container (Sprint 7.3)', () => {
+    const myVocabSection = html.match(
+      /<section[^>]*data-panel=["']my-vocab["'][^>]*>[\s\S]+?<\/section>/,
+    );
+    assert.ok(myVocabSection, 'my-vocab tab-panel section missing');
+    assert.match(
+      myVocabSection[0],
+      /<div[^>]*class=["'][^"']*\btab-mount\b/,
+      'my-vocab panel must ship <div class="tab-mount"> for module mount',
+    );
+    assert.ok(
+      !/<iframe\b/.test(myVocabSection[0]),
+      'my-vocab panel must NOT contain <iframe> after Sprint 7.3 module migration',
+    );
   });
 
   test('topic-bank panel has the static "coming soon" placeholder (no iframe)', () => {
@@ -165,11 +185,11 @@ describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
     );
   });
 
-  test('iframes carry loading="lazy" + referrerpolicy="same-origin"', () => {
+  test('remaining iframes carry loading="lazy" + referrerpolicy="same-origin"', () => {
     const lazyCount = (html.match(/loading=["']lazy["']/g) || []).length;
     const refCount  = (html.match(/referrerpolicy=["']same-origin["']/g) || []).length;
-    assert.equal(lazyCount, 3);
-    assert.equal(refCount, 3);
+    assert.equal(lazyCount, 2);
+    assert.equal(refCount, 2);
   });
 
   test('three stat IDs preserved (vocab-landing.js reads by id)', () => {
