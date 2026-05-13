@@ -4,11 +4,14 @@
  * Run with: node --test frontend/tests/embedded-mode.test.js
  *
  * The detection script is a tiny IIFE inlined in <head> of each
- * iframe-mounted page (my-vocabulary.html / flashcards.html /
- * exercises.html). All three copies are byte-identical, so we test
- * the canonical form by extracting it from one of the pages and
- * running it inside a vm sandbox where we can fake
- * `window.location.search`.
+ * iframe-mounted page. Originally my-vocabulary / flashcards /
+ * exercises (all three byte-identical). Sprint 7.3 (DEBT-2026-05-09-B
+ * Phase 1) retired the IIFE from my-vocabulary.html when that page
+ * migrated to an ES-module mount. Until Sprint 7.4 + 7.5 migrate the
+ * remaining two, the IIFE still ships on flashcards.html +
+ * exercises.html. We extract the canonical form from one of the
+ * two surviving pages and run it inside a vm sandbox where we can
+ * fake `window.location.search`.
  *
  * What's pinned:
  *   - `?embedded=1` → adds `embedded-mode` class to <html>
@@ -35,20 +38,21 @@ const vm     = require('node:vm');
 
 
 function _extractDetectionScript() {
+  // Sprint 7.3 — extraction source moved from my-vocabulary.html
+  // (now a thin shell) to flashcards.html, which still carries the
+  // Sprint 6.0.1 IIFE byte-identical. Sprint 7.4 will retire it from
+  // flashcards; this extraction source then moves to exercises.html.
+  // Sprint 7.6 retires the IIFE entirely and this file can be deleted.
   const html = fs.readFileSync(
-    path.join(__dirname, '..', 'pages', 'my-vocabulary.html'),
+    path.join(__dirname, '..', 'pages', 'flashcards.html'),
     'utf8',
   );
-  // The IIFE sits between the marker comment and the closing </script>
-  // tag. Pull from the literal `(function ()` line up through the
-  // matching `})();`. A regex works because the snippet has no nested
-  // closure that would confuse the matcher.
   const m = html.match(
     /<!-- Sprint 6\.0\.1[\s\S]*?<script>([\s\S]*?)<\/script>/,
   );
   assert.ok(
     m,
-    'embedded-mode IIFE not found in my-vocabulary.html — did the ' +
+    'embedded-mode IIFE not found in flashcards.html — did the ' +
     'Sprint 6.0.1 marker comment move? Update the regex above.',
   );
   return m[1].trim();
@@ -103,12 +107,13 @@ test('embedded=1 still triggers when other params are present', () => {
   assert.equal(_runDetectionWith('?from=home&embedded=1&v=2'), true);
 });
 
-test('all three iframe-mounted pages carry the same detection snippet', () => {
-  // Pin: my-vocabulary.html / flashcards.html / exercises.html must
-  // all run identical detection. A divergence would be a Sprint 6.0.1
-  // regression — for example, if a future PR copy-pastes the snippet
-  // and tweaks the param name on one page only.
-  const pages = ['my-vocabulary.html', 'flashcards.html', 'exercises.html'];
+test('remaining iframe-mounted pages carry the same detection snippet', () => {
+  // Pin: the iframe-mounted pages must all run identical detection.
+  // Sprint 7.3 retired the IIFE from my-vocabulary.html (that page is
+  // now an ES-module mount). Until Sprint 7.4 + 7.5 retire it from
+  // flashcards + exercises, both must still share the byte-identical
+  // Sprint 6.0.1 snippet — a divergence would be a regression.
+  const pages = ['flashcards.html', 'exercises.html'];
   const snippets = pages.map(name => {
     const html = fs.readFileSync(
       path.join(__dirname, '..', 'pages', name),
@@ -123,12 +128,20 @@ test('all three iframe-mounted pages carry the same detection snippet', () => {
   assert.equal(
     snippets[0],
     snippets[1],
-    'my-vocabulary and flashcards must share the embedded-mode IIFE',
-  );
-  assert.equal(
-    snippets[1],
-    snippets[2],
     'flashcards and exercises must share the embedded-mode IIFE',
+  );
+});
+
+test('my-vocabulary.html no longer carries the embedded-mode IIFE (Sprint 7.3)', () => {
+  // Symmetric guard for the retired-from-this-page contract.
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'pages', 'my-vocabulary.html'),
+    'utf8',
+  );
+  assert.ok(
+    !/<!-- Sprint 6\.0\.1[\s\S]*?classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+    'my-vocabulary.html must NOT carry the Sprint 6.0.1 embedded-mode IIFE ' +
+    'after Sprint 7.3 (page migrated to /js/vocab-modules/my-vocab.js mount).',
   );
 });
 
