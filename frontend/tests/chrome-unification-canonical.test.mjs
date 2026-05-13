@@ -227,12 +227,11 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
   // Sprint 7.3 — my-vocabulary.html migrated to ES-module mount; its
   // embedded-mode IIFE retired (per-module incremental closure, Phase B
   // Q3). Sprint 7.4 — flashcards.html joined the module path; its IIFE
-  // retired. exercises.html still uses the iframe path until Sprint 7.5.
-  // The .topnav-wrap CSS selector stays in embedded-mode.css until
-  // Sprint 7.6 final retirement.
-  const EMBEDDED_PAGES = [
-    'frontend/pages/exercises.html',
-  ];
+  // retired. Sprint 7.5 — exercises.html joined the module path; its
+  // IIFE retired. **MILESTONE:** zero pages still ship the IIFE; the
+  // EMBEDDED_PAGES roster is now empty. The .topnav-wrap CSS selector
+  // stays in embedded-mode.css until Sprint 7.6 final retirement.
+  const EMBEDDED_PAGES = [];
 
   test('embedded-mode.css hides .topnav-wrap when html.embedded-mode is set', () => {
     const css = readFileSync(path.join(REPO_ROOT, 'frontend/css/embedded-mode.css'), 'utf8');
@@ -278,6 +277,21 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
     assert.ok(
       !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
       'flashcards.html must NOT set the embedded-mode class after Sprint 7.4 module migration',
+    );
+  });
+
+  // Sprint 7.5 — same symmetric guard for exercises.html. Standalone-only
+  // post-Phase 3; embedded path goes through /js/vocab-modules/exercises.js.
+  // **MILESTONE:** all 3 vocab children migrated; Sprint 7.6 retires
+  // embedded-mode.css and the iframe branch in vocab-landing.js.
+  test('exercises.html no longer ships embedded-mode IIFE (Sprint 7.5 module migration)', () => {
+    const html = readFileSync(
+      path.join(REPO_ROOT, 'frontend/pages/exercises.html'),
+      'utf8',
+    );
+    assert.ok(
+      !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+      'exercises.html must NOT set the embedded-mode class after Sprint 7.5 module migration',
     );
   });
 });

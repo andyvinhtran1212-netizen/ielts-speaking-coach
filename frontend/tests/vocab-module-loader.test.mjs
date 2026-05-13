@@ -26,8 +26,14 @@
  * data-actions and unmount cleanup. Section 6 covers the flashcards
  * module file, parent-loader update, and standalone-shell rewrite.
  *
- * Tests for the exercises module migration land in Sprint 7.5.
- * Sprint 7.6 retires embedded-mode.css.
+ * Sprint 7.5 — DEBT-2026-05-09-B Phase 3 extends this sentinel for the
+ * exercises module migration. Smallest of the three modules — a drill-hub
+ * landing with 3 cards gated by feature flags, no interactive handlers,
+ * no timers, no audio. Section 7 covers the exercises module + shell.
+ * **Milestone:** all 3 vocab children now on the module path.
+ *
+ * Sprint 7.6 retires embedded-mode.css + the iframe branch in
+ * vocab-landing.js.activateTab().
  */
 
 import { test, describe, before } from 'node:test';
@@ -201,18 +207,16 @@ describe('Sprint 7.3 — /js/vocab-landing.js gains TAB_LOADERS module path', ()
     );
   });
 
-  test('declares TAB_LOADERS with my-vocab + flashcards entries', () => {
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,400}['"]my-vocab['"]\s*:/);
+  test('declares TAB_LOADERS with my-vocab + flashcards + exercises entries', () => {
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,500}['"]my-vocab['"]\s*:/);
     assert.match(src, /import\(['"]\/js\/vocab-modules\/my-vocab\.js['"]\)/);
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,400}['"]flashcards['"]\s*:/);
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,500}['"]flashcards['"]\s*:/);
     assert.match(src, /import\(['"]\/js\/vocab-modules\/flashcards\.js['"]\)/);
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,500}['"]exercises['"]\s*:/);
+    assert.match(src, /import\(['"]\/js\/vocab-modules\/exercises\.js['"]\)/);
   });
 
-  test('TAB_SOURCES still includes exercises (iframe path preserved until Sprint 7.5)', () => {
-    assert.match(src, /['"]exercises['"]\s*:[\s\S]{0,200}exercises\.html\?embedded=1/);
-  });
-
-  test('TAB_SOURCES no longer carries my-vocab or flashcards entries (module path takes over)', () => {
+  test('TAB_SOURCES is empty after Sprint 7.5 — all 3 vocab children migrated', () => {
     // Match the TAB_SOURCES object literal only — avoid catching TAB_LOADERS.
     const sourcesBlock = src.match(/const TAB_SOURCES\s*=\s*\{[\s\S]+?\};/);
     assert.ok(sourcesBlock, 'TAB_SOURCES block not extractable');
@@ -223,6 +227,10 @@ describe('Sprint 7.3 — /js/vocab-landing.js gains TAB_LOADERS module path', ()
     assert.ok(
       !/['"]flashcards['"]\s*:/.test(sourcesBlock[0]),
       'TAB_SOURCES must not carry a flashcards entry after Sprint 7.4 (module path owns it)',
+    );
+    assert.ok(
+      !/['"]exercises['"]\s*:/.test(sourcesBlock[0]),
+      'TAB_SOURCES must not carry an exercises entry after Sprint 7.5 (module path owns it)',
     );
   });
 
@@ -275,12 +283,27 @@ describe('Sprint 7.3 — /pages/vocabulary.html my-vocab tab uses mount containe
     );
   });
 
-  test('exercises tab panel still uses iframe (legacy path preserved until Sprint 7.5)', () => {
+  test('exercises tab panel ships <div class="tab-mount"> (Sprint 7.5)', () => {
     const exSection = html.match(
       /<section[^>]*data-panel="exercises"[^>]*>[\s\S]+?<\/section>/,
     );
-    assert.ok(exSection && /<iframe\b/.test(exSection[0]),
-      'exercises tab must still use <iframe> until Sprint 7.5');
+    assert.ok(exSection, 'exercises tab-panel section not found');
+    assert.match(exSection[0], /<div[^>]*class=["'][^"']*\btab-mount\b/);
+    assert.ok(
+      !/<iframe\b/.test(exSection[0]),
+      'exercises tab-panel must NOT contain an <iframe> after Sprint 7.5',
+    );
+  });
+
+  test('no <iframe> elements remain anywhere in vocabulary.html — Sprint 7.5 milestone', () => {
+    // After Sprint 7.5 all 3 vocab children are on the module path.
+    // vocabulary.html should ship zero iframes. Sprint 7.6 retires the
+    // legacy iframe branch in vocab-landing.js.activateTab() + the
+    // _loaded Set + TAB_SOURCES.
+    assert.ok(
+      !/<iframe\b/.test(html),
+      'vocabulary.html must contain ZERO <iframe> elements after Sprint 7.5 milestone',
+    );
   });
 });
 
@@ -559,6 +582,181 @@ describe('Sprint 7.4 — /pages/flashcards.html is a thin shell that mounts the 
     assert.ok(
       !/<div[^>]*\bid="fc-container"/.test(body[0]),
       'fc-container must not appear in shell',
+    );
+  });
+});
+
+
+// ── 7. exercises module + shell (Sprint 7.5) ──────────────────────
+
+describe('Sprint 7.5 — /js/vocab-modules/exercises.js module', () => {
+  let src;
+  before(() => {
+    src = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/vocab-modules/exercises.js'),
+      'utf8',
+    );
+  });
+
+  test('imports guardMount + redirectToLogin from _loader', () => {
+    assert.match(
+      src,
+      /import\s*\{\s*guardMount\s*,\s*redirectToLogin\s*\}\s+from\s+['"]\.\/_loader\.js['"]/,
+    );
+  });
+
+  test('exports async mount(container, opts) → { unmount }', () => {
+    assert.match(src, /export\s+async\s+function\s+mount\s*\(\s*container\s*,/);
+    assert.match(src, /function\s+unmount\s*\(\s*\)/);
+  });
+
+  test('mount() consumes opts.embedded for auth-redirect routing', () => {
+    assert.match(src, /opts\s*=\s*\{\s*\}/);
+    assert.match(src, /redirectToLogin\s*\(\s*\{\s*embedded\s*\}/);
+  });
+
+  test('mount() respects idempotent guard (guardMount + alreadyMounted)', () => {
+    assert.match(src, /guardMount\s*\(\s*container\s*\)/);
+    assert.match(src, /alreadyMounted/);
+  });
+
+  test('HTML template ships the canonical ex-header + Vocabulary eyebrow', () => {
+    assert.match(src, /<header class="ex-header ex-context-bar/);
+    assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
+    assert.match(src, />Exercises<\/h1>/);
+  });
+
+  test('HTML template ships the 4 render states + 3 drill cards', () => {
+    // Render states use data-state attrs (scoped to container, not IDs).
+    for (const state of ['loading', 'disabled', 'error', 'hub']) {
+      const re = new RegExp(`data-state="${state}"`);
+      assert.match(src, re, `missing data-state="${state}"`);
+    }
+    // Cards use data-card attrs (scoped to container, not IDs).
+    for (const card of ['d1', 'flashcards', 'd3']) {
+      const re = new RegExp(`data-card="${card}"`);
+      assert.match(src, re, `missing data-card="${card}"`);
+    }
+  });
+
+  test('card hrefs are absolute paths (Sprint 6.15.8-hotfix lesson)', () => {
+    assert.match(src, /href="\/pages\/d1-exercise\.html"/);
+    assert.match(src, /href="\/pages\/flashcards\.html"/);
+    // No relative hrefs that would break under Vercel rewrites.
+    assert.ok(
+      !/href="d1-exercise\.html"/.test(src) &&
+      !/href="flashcards\.html"/.test(src),
+      'card hrefs must be absolute (no bare relative paths)',
+    );
+  });
+
+  test('no inline onclick / no event delegation needed (cards are plain links)', () => {
+    const m = src.match(/const HTML = \/\* html \*\/ `([\s\S]+?)`;/);
+    assert.ok(m, 'HTML template literal not extractable');
+    assert.ok(
+      !/onclick=/.test(m[1]),
+      'HTML template must not contain inline onclick attributes',
+    );
+    // Sanity: no data-action either (Phase A audit: zero interactive handlers).
+    assert.ok(
+      !/data-action=/.test(m[1]),
+      'exercises template has no interactive handlers — no data-action expected',
+    );
+  });
+
+  test('no leakage of window.* handler globals', () => {
+    const LEGACY_GLOBALS = [
+      'window.showState', 'window._exercises', 'window.exercisesInit',
+    ];
+    LEGACY_GLOBALS.forEach((g) => {
+      assert.ok(
+        !src.includes(g),
+        `module must NOT leak ${g} — closure-scoped state only`,
+      );
+    });
+  });
+
+  test('init() fetches /auth/me for feature flags + default-deny DOM mutation', () => {
+    assert.match(src, /\/auth\/me/);
+    // Default-deny D1: remove from DOM, not display:none.
+    assert.match(src, /parentNode\.removeChild\(card\)/);
+    // Default-deny flashcards: same pattern.
+    assert.match(src, /flashcardsCard\.parentNode\.removeChild/);
+  });
+
+  test('unmount() lifecycle: clears container + clears guard (no timers/listeners to clean)', () => {
+    assert.match(src, /container\.innerHTML\s*=\s*['"]['"]|container\.innerHTML\s*=\s*``/);
+    assert.match(src, /guard\.clearHandle\s*\(\s*\)/);
+  });
+});
+
+
+describe('Sprint 7.5 — /pages/exercises.html is a thin shell that mounts the module', () => {
+  let html;
+  before(() => {
+    html = readFileSync(
+      path.join(REPO_ROOT, 'frontend/pages/exercises.html'),
+      'utf8',
+    );
+  });
+
+  test('canonical chrome preserved (Sprint 6.17.1 / 6.20)', () => {
+    assert.match(html, /<div\s+class="topnav-wrap"/);
+    assert.match(html, /<nav\s+class="topnav"/);
+    assert.match(html, /class="av-theme-toggle"/);
+    assert.match(html, /id="user-pill"/);
+  });
+
+  test('embedded-mode IIFE retired (Sprint 7.5 Phase B Q3 final closure)', () => {
+    assert.ok(
+      !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+      'exercises.html must NOT set embedded-mode class anymore',
+    );
+  });
+
+  test('embedded-mode.css link preserved until Sprint 7.6 retires the file', () => {
+    assert.match(html, /css\/embedded-mode\.css/);
+  });
+
+  test('<main id="mount"> mount container present', () => {
+    assert.match(html, /<main\s+id="mount"/);
+  });
+
+  test('inline module script imports + calls mount() with embedded:false', () => {
+    assert.match(
+      html,
+      /import\s*\{\s*mount\s*\}\s+from\s+['"]\/js\/vocab-modules\/exercises\.js['"]/,
+    );
+    assert.match(html, /mount\s*\(\s*document\.getElementById\(\s*['"]mount['"]\s*\)\s*,\s*\{\s*embedded:\s*false/);
+  });
+
+  test('no inline body markup — context bar + 4 states + 3 cards live in the module', () => {
+    const body = html.match(/<body[\s\S]+?<\/body>/);
+    assert.ok(body, '<body> block not extractable');
+    assert.ok(
+      !/<header[^>]*\bex-header\b/.test(body[0]),
+      'ex-header must not appear in shell — module template owns it',
+    );
+    assert.ok(
+      !/<div[^>]*\bid="state-loading"/.test(body[0]),
+      'state-loading must not appear in shell',
+    );
+    assert.ok(
+      !/<div[^>]*\bid="hub"/.test(body[0]),
+      'hub must not appear in shell',
+    );
+    assert.ok(
+      !/<a[^>]*\bid="card-d1"/.test(body[0]),
+      'card-d1 must not appear in shell',
+    );
+  });
+
+  test('no inline auth-gate IIFE remains (logic moved to module init())', () => {
+    const body = html.match(/<body[\s\S]+?<\/body>/);
+    assert.ok(body, '<body> block not extractable');
+    assert.ok(
+      !/fetch\(`\$\{BASE\}\/auth\/me`/.test(body[0]),
+      'inline /auth/me fetch must not appear in shell — module owns it',
     );
   });
 });

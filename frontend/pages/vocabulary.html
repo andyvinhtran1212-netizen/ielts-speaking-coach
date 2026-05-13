@@ -186,8 +186,14 @@
 
     <section class="tab-panel" data-panel="exercises" id="panel-exercises"
              role="tabpanel" aria-labelledby="tab-exercises" hidden>
-      <iframe class="tab-frame" title="Bài tập từ vựng"
-              loading="lazy" referrerpolicy="same-origin"></iframe>
+      <!-- Sprint 7.5 — exercises tab migrated to ES-module mount, matching
+           Sprint 7.3 / 7.4 patterns. vocab-landing.js dynamic-imports
+           /js/vocab-modules/exercises.js and calls mount(container,
+           { embedded: true }). Milestone: zero iframe paths remain in
+           vocabulary.html — all 3 vocab children on module pattern.
+           Sprint 7.6 retires embedded-mode.css + the legacy iframe
+           branch in activateTab(). -->
+      <div class="tab-mount" id="mount-exercises"></div>
     </section>
 
     <section class="tab-panel" data-panel="topic-bank" id="panel-topic-bank"

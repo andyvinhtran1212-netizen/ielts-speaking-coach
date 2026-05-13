@@ -6,17 +6,13 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Exercises — Aver Learning</title>
 
-  <!-- Sprint 6.0.1 — embedded-mode toggle. See /css/embedded-mode.css. -->
-  <script>
-    (function () {
-      try {
-        var p = new URLSearchParams(window.location.search);
-        if (p.get('embedded') === '1') {
-          document.documentElement.classList.add('embedded-mode');
-        }
-      } catch (e) { /* noop */ }
-    })();
-  </script>
+  <!-- Sprint 7.5 — embedded-mode IIFE retired. exercises.html is now a
+       standalone shell only; the embedded path goes through
+       /js/vocab-modules/exercises.js mounted into vocabulary.html. This
+       is the final IIFE retirement — all 3 vocab children are now on the
+       module path. The embedded-mode.css link stays for the duration of
+       Sprint 7.5; Sprint 7.6 retires the file entirely along with the
+       legacy iframe branch in vocab-landing.js. -->
   <link rel="stylesheet" href="/css/embedded-mode.css" />
 
   <!-- Sprint 6.11b: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
@@ -68,8 +64,7 @@
 </head>
 <body class="av-page font-sans min-h-screen">
 
-  <!-- Canonical chrome (Sprint 6.17.1 — Vocabulary active; embedded-mode.css
-       hides .topnav-wrap when ?embedded=1 is set via the head IIFE). -->
+  <!-- Canonical chrome (Sprint 6.17.1 / 6.20 — Vocabulary active). -->
   <div class="topnav-wrap">
     <nav class="topnav" aria-label="Primary">
       <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
@@ -108,81 +103,12 @@
     </nav>
   </div>
 
-  <!-- Page context bar (preserves page title). -->
-  <header class="ex-header ex-context-bar px-6 py-4">
-    <div class="max-w-3xl mx-auto flex items-center gap-4">
-      <p class="eyebrow" style="margin:0;">Vocabulary</p>
-      <span class="ex-header__sep">|</span>
-      <h1 class="ex-header__title text-base font-semibold">Exercises</h1>
-    </div>
-  </header>
+  <!-- Sprint 7.5 — module mount container. The page body (context bar +
+       4 render states + 3 drill cards) lives inside the
+       /js/vocab-modules/exercises.js template and is injected here. -->
+  <main id="mount" class="vocab-module-mount"></main>
 
-  <main class="max-w-3xl mx-auto px-4 pt-20 pb-8">
-
-    <div id="state-loading" class="text-center py-16 empty-state">
-      <p class="text-sm">Loading…</p>
-    </div>
-
-    <div id="state-disabled" class="hidden text-center py-16 empty-state">
-      <p class="text-lg font-medium mb-2">Exercises are not enabled</p>
-      <p class="text-sm">This feature is rolling out. Check back soon.</p>
-    </div>
-
-    <div id="state-error" class="hidden text-center py-16 empty-state">
-      <p class="text-sm">Could not load exercise hub. Please refresh.</p>
-    </div>
-
-    <div id="hub" class="hidden">
-      <h2 class="ex-hub-title text-lg font-semibold mb-1">Pick a drill</h2>
-      <p class="ex-hub-sub text-sm mb-6">Short, targeted vocab practice tied to your bank.</p>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        <!-- D1: Fill blank -->
-        <a id="card-d1" href="d1-exercise.html" class="ex-card">
-          <div class="flex items-start justify-between mb-3">
-            <span class="text-2xl">📝</span>
-            <span class="ex-pill pill-live">Live</span>
-          </div>
-          <h3 class="ex-card__title text-base font-semibold mb-1">Fill the blank</h3>
-          <p class="ex-card__body text-sm">
-            A short sentence with one word missing. Pick the word that fits.
-          </p>
-          <p class="ex-card__cta text-xs mt-3">Start →</p>
-        </a>
-
-        <!-- Flashcards (Phase D Wave 2) — gated on flashcard_enabled. -->
-        <a id="card-flashcards" href="flashcards.html" class="ex-card hidden">
-          <div class="flex items-start justify-between mb-3">
-            <span class="text-2xl">📚</span>
-            <span class="ex-pill pill-live">Live</span>
-          </div>
-          <h3 class="ex-card__title text-base font-semibold mb-1">Flashcards</h3>
-          <p class="ex-card__body text-sm">
-            Ôn từ vựng cá nhân theo lịch tự động — thẻ nào sắp quên sẽ tự nổi lên trước.
-          </p>
-          <p class="ex-card__cta text-xs mt-3">Start →</p>
-        </a>
-
-        <!-- D3: Speak with target — deferred to Phase E (was Wave 2 before pivot). -->
-        <div id="card-d3" class="ex-card disabled" aria-disabled="true">
-          <div class="flex items-start justify-between mb-3">
-            <span class="text-2xl">🎙️</span>
-            <span class="ex-pill pill-soon">Coming soon</span>
-          </div>
-          <h3 class="ex-card__title text-base font-semibold mb-1">Speak with target</h3>
-          <p class="ex-card__body text-sm">
-            Record a short answer that uses a target word from your bank.
-          </p>
-          <p class="ex-card__cta ex-card__cta--soon text-xs mt-3">Available in a future update</p>
-        </div>
-
-      </div>
-    </div>
-
-  </main>
-
-  <!-- order matters: supabase CDN → api.js → exercises.js -->
+  <!-- Order matters: supabase CDN → api.js → bootstrap → vocab module. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
   <script>
@@ -190,64 +116,6 @@
       'https://nqhrtqspznepmveyurzm.supabase.co',
       'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4'
     );
-  </script>
-  <script>
-    (async function () {
-      // api.js (loaded just above) sets window.api.base from a single
-      // localhost/Railway switch — no per-page fallback duplication.
-      const BASE = window.api.base;
-
-      function showState(state) {
-        ['loading','disabled','error'].forEach(s => {
-          const el = document.getElementById('state-' + s);
-          if (el) el.classList.toggle('hidden', s !== state);
-        });
-        document.getElementById('hub').classList.toggle('hidden', state !== 'ready');
-      }
-
-      try {
-        const sb = window.getSupabase ? window.getSupabase() : null;
-        const { data } = sb ? await sb.auth.getSession() : { data: {} };
-        const token = data?.session?.access_token;
-        if (!token) { window.location.href = '../index.html'; return; }
-
-        const res = await fetch(`${BASE}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) { showState('disabled'); return; }
-        const me = await res.json();
-
-        const d1 = me.d1_enabled === true;
-        const d3 = me.d3_enabled === true;
-        const flashcards = me.flashcard_enabled === true;
-
-        if (!d1 && !d3 && !flashcards) { showState('disabled'); return; }
-
-        // Default-deny: REMOVE the D1 card from the DOM when its flag is off
-        // (mirror anti-pattern alert from PHASE_D_V3_PLAN — feature flag must
-        // remove DOM, not display:none).
-        if (!d1) {
-          const card = document.getElementById('card-d1');
-          if (card && card.parentNode) card.parentNode.removeChild(card);
-        }
-
-        // Flashcards (Phase D Wave 2): unhide the card when the user's flag
-        // is on; remove from DOM otherwise.  Same default-deny pattern.
-        const flashcardsCard = document.getElementById('card-flashcards');
-        if (flashcards) {
-          if (flashcardsCard) flashcardsCard.classList.remove('hidden');
-        } else if (flashcardsCard && flashcardsCard.parentNode) {
-          flashcardsCard.parentNode.removeChild(flashcardsCard);
-        }
-
-        // D3 stays "Coming soon" — deferred to Phase E.
-
-        showState('ready');
-      } catch (err) {
-        console.error('[exercises]', err);
-        showState('error');
-      }
-    })();
   </script>
 
   <!-- Lucide hydration + canonical theme/user-pill wiring (Sprint 6.17.1). -->
@@ -269,5 +137,12 @@
     bindToggleButton(document.getElementById('theme-toggle'));
   </script>
   <script type="module" src="/js/user-pill.js"></script>
+
+  <!-- Sprint 7.5 — mount the exercises module into <main id="mount">.
+       embedded:false because this is the standalone shell. -->
+  <script type="module">
+    import { mount } from '/js/vocab-modules/exercises.js';
+    mount(document.getElementById('mount'), { embedded: false });
+  </script>
 </body>
 </html>
