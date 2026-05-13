@@ -1220,7 +1220,7 @@ Page-level "looks readable" smoke missed all five because they only surface when
 
 ### 17.12 Audit gate evolution through blind-spot recognition
 
-The § 17 audit gates evolve through cumulative experience. Each new gate closes a single class of blind spot that prior gates didn't cover. The pattern is honest: five sprints, five distinct mechanisms, one systemic methodology gap that progressively narrowed as each was filed.
+The § 17 audit gates evolve through cumulative experience. Each new gate closes a single class of blind spot that prior gates didn't cover. The pattern is honest: six sprints, six distinct mechanisms, one systemic methodology gap that progressively narrowed as each was filed.
 
 | Sprint | Blind spot | Resolution gate |
 |---|---|---|
@@ -1229,6 +1229,7 @@ The § 17 audit gates evolve through cumulative experience. Each new gate closes
 | 6.15.5-hotfix | Body inheritance into class-less runtime-rendered HTML | Gate 9.5 — Runtime-render inheritance verification |
 | 6.15.6-hotfix | 5 component-level mechanisms across multi-component pages | Gate 9.7 — Per-component theme verification |
 | 6.15.7-hotfix | Toggle markup outside intended flex wrapper (sentinel verified existence, not structure) | Gate 9.6 — Structural layout context verification |
+| 6.20 | Markup contract tests passed Codex 9/9 GREEN while rendered nav position drifted cross-page (chrome nested inside `.shell` on 2 of 18 pages) | Gate 10 — Visual position verification (screenshot-level + cross-page) |
 
 #### Pattern principle
 
@@ -1239,6 +1240,7 @@ Sentinel tests progressively get smarter as gates are filed:
 - **Gate 9.5** — verify the body element doesn't carry an inherited utility that escapes the descendant override
 - **Gate 9.6** — verify structural parent-child context (the element sits inside the expected layout container)
 - **Gate 9.7** — verify per-component computed styles across the full element inventory
+- **Gate 10** — verify rendered pixel position is stationary across cross-page navigation (markup-correct ≠ position-correct)
 
 #### Pre-empt the next blind spot
 
@@ -1255,9 +1257,9 @@ Each unanswered question is a candidate for the next gate.
 
 ---
 
-### 17.13 Audit gate consolidation (post Sprint 6.16.1)
+### 17.13 Audit gate consolidation (post Sprint 6.20)
 
-§ 17 audit checklist gates — cumulative 12 gates:
+§ 17 audit checklist gates — cumulative 13 gates:
 
 | Gate | Purpose | Formalized |
 |---|---|---|
@@ -1273,6 +1275,7 @@ Each unanswered question is a candidate for the next gate.
 | **Gate 9.5** | **Runtime-render inheritance verification** | **Sprint 6.16.1 (filed Sprint 6.15.5-hotfix)** |
 | **Gate 9.6** | **Structural layout context verification** | **Sprint 6.16.1 (filed Sprint 6.15.7-hotfix)** |
 | **Gate 9.7** | **Per-component theme verification** | **Sprint 6.16.1 (filed Sprint 6.15.6-hotfix)** |
+| **Gate 10** | **Visual position verification (screenshot-level + cross-page)** | **Sprint 6.20** |
 
 Plus methodology sections:
 
@@ -1285,3 +1288,59 @@ Plus methodology sections:
 - § 17.10 — Structural layout context (Sprint 6.16.1)
 - § 17.11 — Per-component theme verification (Sprint 6.16.1)
 - § 17.12 — Audit gate evolution through blind-spot recognition (Sprint 6.16.1)
+- § 17.14 — Visual position verification — Gate 10 (Sprint 6.20)
+
+---
+
+### 17.14 Visual position verification — Gate 10 (formalized Sprint 6.20)
+
+**Origin.** Sprint 6.20 retrospection. Codex visual consistency audit of Sprint 6.19 reported 9/9 dimensions GREEN — canonical chrome structure, theme toggle integrity, color tokens, foundation order, eyebrow primitive, alignment exceptions, practice modes distinction, etc. — but Andy reported nav chrome position **drift** when navigating between pages: logo left edge + tabs + theme toggle + user pill shifted vertically by ~24px between `home.html` / `vocabulary.html` and the other 16 canonical chrome pages.
+
+Root cause: `home.html` and `vocabulary.html` nested `<nav class="topnav">` inside `<div class="shell">` (which has `padding-top: var(--av-space-6)` = 24px), while the other 16 canonical pages used `<div class="topnav-wrap"><nav class="topnav">` as a direct body child (no top padding). The chrome contract was structurally correct on every page individually; only **cross-page comparison** revealed the drift.
+
+The blind-spot pattern: contract tests verify markup presence and structure. They do not verify the **rendered pixel position** of an element relative to the viewport, and they cannot detect drift that only manifests when the user navigates from one page to another. This is the 6th cumulative blind-spot instance documented in § 17.12.
+
+**When this gate applies.**
+
+- Cross-page consistent visual anchors — chrome (logo, primary nav, theme toggle, user pill), sticky headers, anchored navigation rails
+- Sticky / fixed elements that interact with viewport edges
+- Pages that mix canonical chrome with bespoke per-page layout containers (`.shell`, `<main class="max-w-*">`, etc.)
+- Any element whose perceived "stationary" behavior across navigation is part of the design contract
+
+**Verification protocol.**
+
+1. **Per-page absolute position measurement** at canonical viewport sizes:
+   - Desktop 1440px (default editorial viewport)
+   - Tablet 768px (median tablet)
+   - Mobile 375px (canonical mobile)
+2. **Cross-page sample** — measure ≥ 5 pages spanning chrome categories (Cat 1 reference, Cat 2A canonical, Cat 2B embedded, Cat 3 grammar). Compare absolute pixel positions of:
+   - Brand logo left edge (px from viewport left)
+   - First nav tab left edge
+   - Nav tab-to-tab gap
+   - Theme toggle right edge (px from viewport right)
+   - User pill right edge
+3. **Drift threshold** — any cross-page discrepancy > 2px is drift. The chrome contract requires pixel-perfect stationary positions across navigation.
+4. **Manual smoke checklist (PR description requirement when chrome restructured):**
+   - [ ] Logo left edge stationary across navigation
+   - [ ] First nav tab left edge stationary
+   - [ ] Tab-to-tab gaps uniform
+   - [ ] Theme toggle right edge stationary
+   - [ ] User pill right edge stationary
+   - [ ] Measurements taken at 1440px / 768px / 375px viewports
+   - [ ] Measurements compared across ≥ 5 pages from different chrome categories
+
+**Anti-patterns.**
+
+- ❌ Don't trust markup contract tests for rendered position. A pin that asserts `<div class="topnav-wrap"><nav class="topnav">…</nav></div>` exists is satisfied even if the wrapper is nested inside `<div class="shell">` (where it inherits unwanted padding).
+- ❌ Don't skip cross-page visual smoke when restructuring chrome — a single-page smoke that "looks correct" can mask drift that only manifests at navigation time.
+- ❌ Don't conflate "Codex 9/9 GREEN" with "user-perceived chrome stationary." Contract green ≠ rendered green.
+- ✅ Measure absolute pixel positions on ≥ 2 pages and diff them.
+- ✅ Treat the chrome contract as a **cross-page** contract, not a per-page contract.
+
+**Sentinel pattern (chrome-anchoring pin).** Test that `<div class="topnav-wrap">` is a direct body child on every canonical chrome page (not nested inside `.shell`, `<main>`, or any per-page wrapper). This is the markup-level proxy for the rendered-position contract and lives in `chrome-unification-canonical.test.mjs`.
+
+#### Pages requiring Gate 10
+
+- All 18 canonical chrome pages (cross-page anchor consistency contract)
+- Any future page introducing sticky / fixed elements that interact with viewport edges
+- Any future page mixing canonical chrome with bespoke per-page layout containers

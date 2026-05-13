@@ -249,3 +249,59 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
     });
   });
 });
+
+
+// ── Sprint 6.20 — Gate 10 cross-page anchor sentinel ──────────────
+
+
+// Pages where the canonical chrome IS a direct body child via
+// `<div class="topnav-wrap"><nav class="topnav">...</nav></div>`. Gate
+// 10 (DESIGN_SYSTEM.md § 17.14) requires this anchoring so the rendered
+// nav position stays stationary cross-page. Two pages (home, vocabulary)
+// previously nested `<nav class="topnav">` inside `<div class="shell">`,
+// inheriting `.shell`'s 24px top padding — Andy reported nav drift on
+// page navigation. Sprint 6.20 lifted both to canonical.
+describe('Sprint 6.20 Gate 10 — .topnav-wrap is a direct <body> child on every canonical page', () => {
+  CANONICAL_CHROME_PAGES.forEach((rel) => {
+    test(`${rel} — .topnav-wrap is NOT nested inside .shell, <main>, <section>, or <article>`, () => {
+      const raw = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      // Strip HTML comments so commented-out tag text doesn't trip the
+      // depth counters. Sprint 6.17.2 + Sprint 6.20 changelog comments
+      // contain literal `<main class="...">` and `<div class="shell">`
+      // snippets that must not register as real elements.
+      const html = raw.replace(/<!--[\s\S]*?-->/g, '');
+
+      // Find the index of the first `.topnav-wrap` opening tag.
+      const openMatch = html.match(/<div[^>]*\bclass=["'][^"']*\btopnav-wrap\b[^"']*["'][^>]*>/);
+      assert.ok(openMatch,
+        `${rel}: <div class="topnav-wrap"> must be present (Sprint 6.17.2 / 6.20 chrome contract)`);
+      const wrapIdx = html.indexOf(openMatch[0]);
+      const head = html.slice(0, wrapIdx);
+
+      // .shell must not open before .topnav-wrap (Sprint 6.20 fix).
+      // If `<div class="shell">` appears in `head`, chrome inherits
+      // .shell's 24px top padding and drifts cross-page.
+      const shellOpens = (head.match(/<div\b[^>]*\bclass=["'][^"']*\bshell\b/g) || []).length;
+      assert.equal(
+        shellOpens, 0,
+        `${rel}: <div class="shell"> must NOT open before <div class="topnav-wrap"> ` +
+        `— Sprint 6.20 fix lifted chrome out of .shell so nav anchors at viewport top edge`,
+      );
+
+      // <main>, <section>, <article> must be balanced (no unclosed
+      // ancestor wrapping .topnav-wrap). These tags don't usually have
+      // matching close in `head` if they wrap the wrap; if they do
+      // have a balanced close, that's fine.
+      const balanceCheck = (tag) => {
+        const opens  = (head.match(new RegExp(`<${tag}\\b`, 'gi')) || []).length;
+        const closes = (head.match(new RegExp(`</${tag}>`,    'gi')) || []).length;
+        assert.ok(
+          opens - closes <= 0,
+          `${rel}: <${tag}> must NOT be open when <div class="topnav-wrap"> opens ` +
+          `(opens=${opens}, closes=${closes}). Gate 10 requires .topnav-wrap as a direct body child.`,
+        );
+      };
+      ['main', 'section', 'article'].forEach(balanceCheck);
+    });
+  });
+});

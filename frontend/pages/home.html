@@ -41,9 +41,13 @@
   <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body class="av-page">
-  <div class="shell">
 
-    <!-- ── Top nav (brand, nav links, theme toggle, user pill) ─────── -->
+  <!-- ── Top nav (brand, nav links, theme toggle, user pill) ─────────
+       Sprint 6.20 — lifted out of <div class="shell"> into canonical
+       .topnav-wrap direct body child. Matches the pattern shipping on
+       the other 16 canonical chrome pages so logo/tabs/pill positions
+       stay stationary across page navigation. -->
+  <div class="topnav-wrap">
     <nav class="topnav" aria-label="Primary">
       <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
 
@@ -91,6 +95,9 @@
         </div>
       </div>
     </nav>
+  </div>
+
+  <div class="shell">
 
     <!-- ── Optional error banner ───────────────────────────────────── -->
     <div id="error-banner" class="error-banner hidden" role="alert" hidden></div>
