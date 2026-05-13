@@ -505,35 +505,68 @@ add WITH CHECK to RLS UPDATE policies.
 - **Effort when picked up:** ~1 hour to delete (with grep audit) **or**
   ~1 sprint to wire into the new Speaking detail page.
 
-#### DEBT-2026-05-09-B: Vocabulary tabs use iframe instead of module extraction (DEFERRED)
-- **Type:** Architectural — chosen "Approach B" in Sprint 6.0.
-- **What's deferred:** `pages/vocabulary.html` mounts `my-vocabulary.html`,
-  `flashcards.html`, `exercises.html` as iframes (Sprint 6.0 Approach B).
-  Each tab loads its own auth bootstrap, Supabase init, and Tailwind copy.
-  Clean but heavy: 4 separate JS contexts, no shared state, embedded-mode
-  CSS hides chrome via `html.embedded-mode` selector (Sprint 6.0.1).
-- **Risk of deferring:** Performance on mobile (4 iframe initializations);
-  no shared state between tabs (e.g., adding a word in My Vocab doesn't
-  reflect in Flashcards without refresh).
-- **Mitigation in place:** Iframes lazy-loaded (`loading="lazy"` + `src`
-  set on first visit only); embedded-mode CSS suppresses redundant
-  navigation.
-- **Trigger to un-defer:** Mobile performance complaints, **or** need for
-  cross-tab live state (e.g., flashcard study reflects new vocab adds
-  without reload), **or** future XSS/DOM concern in any child surface
-  (because the iframes are same-origin without `sandbox`, a child-page
-  bug has parent-page reach), **or** commercial launch prep (Phase E).
-- **Codex audit 2026-05-09 (AMBER #2):** Confirmed iframes are a UX
-  composition pattern, NOT a security sandbox. The frames do not declare
-  a `sandbox` attribute and child pages are first-party same-origin —
-  composition is the correct mental model, isolation is not. Documented
-  in `frontend/css/aver-design/DESIGN_SYSTEM.md` § 12 (architectural
-  notes). Adding `sandbox="allow-same-origin ..."` is **not** a quick
-  fix — it preserves same-origin reach. Module extraction (Approach A
-  in Sprint 6.0) remains the canonical un-defer path.
-- **Effort when picked up:** ~1 sprint refactor — extract shared modules
-  (auth bootstrap, Supabase client, Tailwind config) to top-level shell;
-  per-tab modules render into in-page panels instead of iframes.
+#### DEBT-2026-05-09-B: Vocabulary tabs use iframe instead of module extraction (CLOSED 2026-05-13)
+- **Status:** ✅ CLOSED via the 4-sprint phased migration Sprint 7.3 → 7.6
+  (PRs #172, #173, #174, and the Sprint 7.6 closure PR).
+- **What was done:**
+  - **Sprint 7.1 (PR #170)** — pure discovery sprint. Mapped the current
+    architecture, audited 4 options (full inline / JS module dynamic
+    import / Web Components / iframe hybrid), recommended Option B
+    (module dynamic import). Effort estimate ~22h split across 4 PRs.
+  - **Sprint 7.2 (PR #171)** — Andy approval of 4 Phase B decisions:
+    (Q1) standalone URL preservation as hard requirement; (Q2) HTML body
+    as template literal inside JS module (single source of truth); (Q3)
+    per-module embedded-mode retirement (incremental closure as each
+    module migrates); (Q4) phased 4 PRs over Sprint 7.3 → 7.6.
+  - **Sprint 7.3 (PR #172)** — foundation + my-vocabulary migration.
+    NEW `/js/vocab-modules/_loader.js` (shared helper: `renderSkeleton`,
+    `renderError`, `redirectToLogin`, `guardMount`). NEW
+    `/js/vocab-modules/my-vocab.js` (~700 LOC). 11 legacy `window.*`
+    handler globals replaced by 16 `data-action` switch cases dispatched
+    via single container click listener (Phase B Q1 — event delegation).
+  - **Sprint 7.4 (PR #173)** — flashcards migration (~570 LOC module).
+    7 `data-action` cases + 3 input/change listeners; delete-stack
+    intercepts stack-card parent via `stopPropagation`. Preview timer +
+    toast timer cleaned up in `unmount()`.
+  - **Sprint 7.5 (PR #174)** — exercises migration (~155 LOC module —
+    smallest of the three; drill-hub landing with no interactive
+    handlers, no timers, no audio). **Milestone: zero iframe paths
+    remained in vocabulary.html.**
+  - **Sprint 7.6 (this PR)** — final cleanup. Deleted `embedded-mode.css`,
+    `embedded-mode.test.js`, `iframe-composition-docs.test.mjs`; removed
+    the 3 `<link rel="stylesheet" href="/css/embedded-mode.css">` tags;
+    retired the iframe else-branch in `vocab-landing.js.activateTab()`
+    (removed `TAB_SOURCES` const, `_loaded` Set, `frame.src` assignment,
+    `.tab-frame` queries); marked DESIGN_SYSTEM.md § 12 and Gate 6 as
+    historical/closed; updated § 17.3 sentinel suite list; updated
+    UNIFIED_DESIGN_BRIEF.md § 3.5 + § 1 exception.
+- **Total effort:** ~22h actual (matches Sprint 7.1 estimate).
+- **Hotfixes required:** 0 (Sprint 7.4 had two CI-level fixups for stale
+  workflow allowlist entries from deleted test files, but those were
+  in-sprint adjustments, not post-merge hotfixes).
+- **Reusable methodology:** Discovery sprint (Phase A audit, no code
+  changes) → approval sprint (Phase B Andy review of options) → phased
+  implementation (one PR per child module) → cleanup sprint. The
+  module contract (`mount(container, opts) → { unmount }` + idempotent
+  guard via `data-mounted` attribute + `opts.embedded` switching auth
+  redirect target) is reusable for any future iframe → module
+  conversion.
+
+> *Original deferral notes (Sprint 6.0 → Sprint 7.0) preserved below as
+> historical context. They describe what was true while the iframes
+> were still in production.*
+
+- **Type (original):** Architectural — chosen "Approach B" in Sprint 6.0.
+- **What was deferred (original):** `pages/vocabulary.html` mounted
+  `my-vocabulary.html`, `flashcards.html`, `exercises.html` as iframes.
+  Each tab loaded its own auth bootstrap, Supabase init, and Tailwind
+  copy. Clean but heavy: 4 separate JS contexts, no shared state,
+  embedded-mode CSS hid chrome via `html.embedded-mode` selector.
+- **Codex audit 2026-05-09 (AMBER #2, historical):** Confirmed iframes
+  were a UX composition pattern, NOT a security sandbox — the frames
+  did not declare a `sandbox` attribute and child pages were first-party
+  same-origin. Module extraction (Approach A) was the canonical un-defer
+  path, executed in Sprint 7.3 → 7.6.
 
 #### DEBT-2026-05-10-A: speaking.html inline rgba(255,255,255) sweep (CLOSED 2026-05-10)
 - **Status:** ✅ CLOSED in Sprint 6.4.1.

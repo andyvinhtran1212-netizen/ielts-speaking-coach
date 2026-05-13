@@ -30,10 +30,13 @@
  * exercises module migration. Smallest of the three modules — a drill-hub
  * landing with 3 cards gated by feature flags, no interactive handlers,
  * no timers, no audio. Section 7 covers the exercises module + shell.
- * **Milestone:** all 3 vocab children now on the module path.
  *
- * Sprint 7.6 retires embedded-mode.css + the iframe branch in
- * vocab-landing.js.activateTab().
+ * Sprint 7.6 — **DEBT-2026-05-09-B CLOSED**. embedded-mode.css deleted,
+ * the legacy iframe branch in vocab-landing.js.activateTab() retired,
+ * the 3 `<link rel="stylesheet" href="/css/embedded-mode.css">` tags
+ * removed from each shell. The "css link preserved" pins flipped to
+ * "css link removed" sentinels; the TAB_SOURCES + _loaded + frame.src
+ * pins flipped to retirement guards.
  */
 
 import { test, describe, before } from 'node:test';
@@ -216,21 +219,25 @@ describe('Sprint 7.3 — /js/vocab-landing.js gains TAB_LOADERS module path', ()
     assert.match(src, /import\(['"]\/js\/vocab-modules\/exercises\.js['"]\)/);
   });
 
-  test('TAB_SOURCES is empty after Sprint 7.5 — all 3 vocab children migrated', () => {
-    // Match the TAB_SOURCES object literal only — avoid catching TAB_LOADERS.
-    const sourcesBlock = src.match(/const TAB_SOURCES\s*=\s*\{[\s\S]+?\};/);
-    assert.ok(sourcesBlock, 'TAB_SOURCES block not extractable');
+  test('TAB_SOURCES + _loaded + iframe branch fully removed (Sprint 7.6 closure)', () => {
+    // The legacy iframe lazy-load path is gone. activateTab() has no
+    // else-branch anymore; tabs not in TAB_LOADERS (topic-bank only)
+    // are pure CSS reveals.
     assert.ok(
-      !/['"]my-vocab['"]\s*:/.test(sourcesBlock[0]),
-      'TAB_SOURCES must not carry a my-vocab entry after Sprint 7.3 (module path owns it)',
+      !/const\s+TAB_SOURCES\s*=/.test(src),
+      'TAB_SOURCES const must be removed after Sprint 7.6',
     );
     assert.ok(
-      !/['"]flashcards['"]\s*:/.test(sourcesBlock[0]),
-      'TAB_SOURCES must not carry a flashcards entry after Sprint 7.4 (module path owns it)',
+      !/const\s+_loaded\s*=\s*new Set/.test(src),
+      '_loaded Set must be removed after Sprint 7.6 (no iframe lazy-load to track)',
     );
     assert.ok(
-      !/['"]exercises['"]\s*:/.test(sourcesBlock[0]),
-      'TAB_SOURCES must not carry an exercises entry after Sprint 7.5 (module path owns it)',
+      !/frame\.src\s*=/.test(src),
+      'frame.src assignment must be removed after Sprint 7.6',
+    );
+    assert.ok(
+      !/\.tab-frame/.test(src),
+      '.tab-frame selector must be removed after Sprint 7.6',
     );
   });
 
@@ -349,9 +356,11 @@ describe('Sprint 7.3 — /pages/my-vocabulary.html is a thin shell that mounts t
     );
   });
 
-  test('embedded-mode.css link preserved (flashcards + exercises still depend on it)', () => {
-    // Sprint 7.6 retires the file; until then the link stays for cross-page CSS uniformity.
-    assert.match(html, /css\/embedded-mode\.css/);
+  test('embedded-mode.css link removed (Sprint 7.6 — file deleted)', () => {
+    assert.ok(
+      !/css\/embedded-mode\.css/.test(html),
+      'my-vocabulary.html must NOT link the deleted embedded-mode.css',
+    );
   });
 
   test('<main id="mount"> mount container present', () => {
@@ -541,8 +550,11 @@ describe('Sprint 7.4 — /pages/flashcards.html is a thin shell that mounts the 
     );
   });
 
-  test('embedded-mode.css link preserved (exercises still depends on it until Sprint 7.5)', () => {
-    assert.match(html, /css\/embedded-mode\.css/);
+  test('embedded-mode.css link removed (Sprint 7.6 — file deleted)', () => {
+    assert.ok(
+      !/css\/embedded-mode\.css/.test(html),
+      'flashcards.html must NOT link the deleted embedded-mode.css',
+    );
   });
 
   test('<main id="mount"> mount container present', () => {
@@ -714,8 +726,11 @@ describe('Sprint 7.5 — /pages/exercises.html is a thin shell that mounts the m
     );
   });
 
-  test('embedded-mode.css link preserved until Sprint 7.6 retires the file', () => {
-    assert.match(html, /css\/embedded-mode\.css/);
+  test('embedded-mode.css link removed (Sprint 7.6 — file deleted)', () => {
+    assert.ok(
+      !/css\/embedded-mode\.css/.test(html),
+      'exercises.html must NOT link the deleted embedded-mode.css',
+    );
   });
 
   test('<main id="mount"> mount container present', () => {

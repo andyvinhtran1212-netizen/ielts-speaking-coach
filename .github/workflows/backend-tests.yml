@@ -93,10 +93,8 @@ jobs:
             frontend/tests/brief-contrast-guidance.test.mjs \
             frontend/tests/brief-hardcoded-color-lesson.test.mjs \
             frontend/tests/brief-lock-contract.test.mjs \
-            frontend/tests/embedded-mode.test.js \
             frontend/tests/home.test.js \
             frontend/tests/home-redesign.test.mjs \
-            frontend/tests/iframe-composition-docs.test.mjs \
             frontend/tests/practice-redesign.test.mjs \
             frontend/tests/result-redesign.test.mjs \
             frontend/tests/speaking-redesign.test.mjs \

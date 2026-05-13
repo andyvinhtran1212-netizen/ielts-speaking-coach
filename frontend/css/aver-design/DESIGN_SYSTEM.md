@@ -267,38 +267,28 @@ Once all pages are migrated, a cleanup sprint removes `ds.css` and the legacy cl
 
 ---
 
-## 12. Architectural notes — iframe composition pattern
+## 12. Architectural notes — vocabulary module composition (historical)
 
-The vocabulary landing (`/pages/vocabulary.html`) mounts three same-origin app pages — `my-vocabulary.html`, `flashcards.html`, and `exercises.html` — inside `<iframe>` elements (Sprint 6.0 Approach B). The embedded-mode contract (Sprint 6.0.1) hides the child page's nav and "page moved" banner via `html.embedded-mode` so the composed surface reads as one page.
+> **Sprint 7.6 closure note:** This section originally documented the iframe-composition pattern shipped in Sprint 6.0 / 6.0.1 (`vocabulary.html` mounting three child app pages — `my-vocabulary.html`, `flashcards.html`, `exercises.html` — inside `<iframe>` elements, with an embedded-mode IIFE + `embedded-mode.css` hiding the child chrome). **DEBT-2026-05-09-B closed Sprint 7.6** retired the entire pattern: each child is now an ES module under `/js/vocab-modules/*` that exports `mount(container, opts) → { unmount }` and the parent dynamic-imports + mounts it into a `<div class="tab-mount">`. The iframe pattern, the embedded-mode IIFE, and the matching CSS no longer exist anywhere in production.
+>
+> Cross-reference: `PHASE_CLOSURE_LEDGER.md` Sprint 7.3 → 7.6, `TECH_DEBT.md` → `DEBT-2026-05-09-B (CLOSED)`.
 
-### 12.1 This is a UX composition pattern, NOT a security boundary
+### 12.1 Current pattern — module mount
 
-The iframes do **not** declare a `sandbox` attribute. Child pages are first-party, same-origin pages we control:
+`vocab-landing.js` declares a `TAB_LOADERS` map keyed by tab name; each value is a `() => import('/js/vocab-modules/X.js')` thunk. On first tab activation the parent calls `mount(container, { embedded: true })` against the imported module. Tabs not in `TAB_LOADERS` (currently only `topic-bank`) are pure CSS reveals — no module load needed.
 
-- The auth gate runs in each child page independently — access control is preserved
-- Same-origin means parent (`vocabulary.html`) can read/write child DOM and storage freely
-- A future XSS or DOM bug in any child page would have full reach into the parent
+The module contract (see `_loader.js`):
 
-The pattern is using `<iframe>` as a **composition shortcut** to embed an existing self-contained page into a tab without rewriting it as a module. It is **not** providing isolation.
+- `mount(container, opts) → { unmount }`
+- `opts.embedded` switches auth-redirect target — embedded calls go to `window.top.location.href` (auth loss is a top-level event); standalone calls go to `window.location.href`
+- Idempotent guard via the container's `data-mounted="true"` attribute (cached handle returned on repeat mount calls)
+- `unmount()` clears event listeners, cancels timers, releases media, clears innerHTML, clears guard
 
-### 12.2 When to revisit (un-defer triggers)
+### 12.2 Why we ended up here
 
-Module-extraction was the alternative considered (Sprint 6.0 Approach A). It was deferred because the child pages were too self-contained at the time (each carries its own auth bootstrap, Supabase init, modal lifecycle). The iframe pattern stays acceptable while:
+The original Sprint 6.0 Approach B (iframes) was a pragmatic shortcut — child pages were self-contained surfaces (auth bootstrap + Supabase init + modal lifecycle each) and rewriting them as modules would have touched ~600 LOC for an architectural win without immediate product capability. Approach A (modules) was deferred and tracked as `DEBT-2026-05-09-B`.
 
-- Child pages remain first-party and same-origin
-- No sensitive data flows through the iframe boundary that doesn't already flow through the parent
-- Mobile performance stays acceptable (currently fine — `loading="lazy"` defers off-tab iframes)
-
-Trigger an architectural revisit when any of these flips — see `TECH_DEBT.md` → `DEBT-2026-05-09-B` for the canonical un-defer trigger list.
-
-### 12.3 What NOT to do as a quick fix
-
-Adding `sandbox="allow-same-origin allow-scripts ..."` to the existing iframes does **not** add isolation — `allow-same-origin` keeps the parent and child in the same origin and reintroduces all the same-origin reach the unprefixed iframe already has. A real isolation boundary requires either:
-
-- Cross-origin iframes (different subdomain), which breaks the auth-gate-runs-in-each-child contract, or
-- Genuine module extraction (Approach A), which is the deferred alternative
-
-Until module extraction lands, the iframe approach should be treated as an internal composition tool, not a containment claim.
+Sprint 7.1 audited the un-defer triggers (mobile perf concerns, cross-tab live state, future XSS reach, commercial launch prep) and Andy approved the phased 4-sprint migration. Sprint 7.3 / 7.4 / 7.5 / 7.6 executed the conversion incrementally — each sprint shipped one child module + retired its IIFE, and Sprint 7.6 deleted the now-empty iframe code path + `embedded-mode.css`.
 
 
 ## 13. Canonical anti-flash theme bootstrap
@@ -758,7 +748,10 @@ Apply every gate below to every per-page redesign audit. If a gate doesn't apply
 - [ ] Falls back to `prefers-color-scheme` system preference
 - [ ] Wraps `localStorage.getItem` in `try/catch`
 - [ ] Catch arm sets `data-theme="light"` (last-resort fallback)
-- [ ] For iframe children: Sprint 6.0.1 embedded-mode IIFE runs FIRST, canonical theme IIFE runs AFTER (no collision; `embedded-mode.test.js` still passes)
+<!-- Sprint 7.6 — iframe-children sub-bullet retired. The vocab children
+     no longer ship the Sprint 6.0.1 embedded-mode IIFE (DEBT-2026-05-09-B
+     closed); only the canonical theme IIFE remains in <head>. See Gate 6
+     for the closure note. -->
 
 #### Gate 3: Theme toggle icon rendering (NEW — Sprint 6.10.1 blind-spot closure)
 
@@ -814,14 +807,11 @@ The first should return 0 (or only documented `@media print` exceptions). The se
 git log --oneline -- frontend/css/ds.css | head -5
 ```
 
-#### Gate 6: Iframe embedded-mode preservation (if applicable)
+#### Gate 6: Iframe embedded-mode preservation (CLOSED Sprint 7.6 — DEBT-2026-05-09-B)
 
-Only applies to iframe-child pages (currently `my-vocabulary.html`, `flashcards.html`, `exercises.html`).
+This gate guarded the Sprint 6.0.1 iframe contract on the three vocab child pages (`my-vocabulary.html`, `flashcards.html`, `exercises.html`). It was closed in Sprint 7.6 when DEBT-2026-05-09-B retired the iframe pattern entirely. Vocab tabs are now ES module mounts (`/js/vocab-modules/*`); the IIFE, `embedded-mode.css`, and `embedded-mode.test.js` have been deleted.
 
-- [ ] Sprint 6.0.1 IIFE (`?embedded=1` → adds `html.embedded-mode`) is the FIRST `<script>` in `<head>`
-- [ ] `embedded-mode.css` is linked
-- [ ] Canonical theme IIFE runs AFTER the embedded-mode IIFE, both before stylesheets
-- [ ] `embedded-mode.test.js` still passes (7/7 pins)
+No active checklist — kept here as a historical pointer so future audits don't re-introduce the pattern. For the canonical mount contract see § 12.1.
 
 #### Gate 7: Pre-work documentation (§ 15 lesson)
 
@@ -848,9 +838,9 @@ The following suites pin canonical patterns. An audit should confirm all of them
 | `frontend/tests/anti-flash-iife-canonical.test.mjs` | Canonical IIFE compliance + DESIGN_SYSTEM § 13/14 narrative integrity | 6.6.1 |
 | `frontend/tests/theme-toggle-icon-canonical.test.mjs` | Icon class drift (NEW Sprint 6.10.1 gate) + per-page CSS no-duplicate-of-canonical-swap | 6.10.1 |
 | `frontend/tests/typography-tier1.test.js` | `TIER_1_PAGES` emptiness sentinel (Phase 3 closure) — catches any page reverting to Manrope+Fraunces | 6.12b |
-| `frontend/tests/embedded-mode.test.js` | Sprint 6.0.1 iframe contract — byte-identical IIFE on the 3 iframe-child pages | 6.0.1 |
+| `frontend/tests/vocab-module-loader.test.mjs` | DEBT-2026-05-09-B closure — `_loader.js` contract + per-module mount/unmount + standalone-shell pins | 7.3 → 7.6 |
 
-Plus the per-page `*-redesign.test.mjs` for the page under audit (`profile-redesign`, `onboarding-redesign`, `flashcards-redesign`, etc.).
+Plus the per-page `*-redesign.test.mjs` for the page under audit (`profile-redesign`, `onboarding-redesign`, etc.). The legacy `embedded-mode.test.js` was retired Sprint 7.6 alongside the iframe pattern it pinned.
 
 ### 17.4 Anti-pattern: audit blind spots
 

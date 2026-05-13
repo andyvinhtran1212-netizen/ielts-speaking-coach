@@ -217,45 +217,18 @@ describe('Sprint 6.17 Phase C1 — canonical chrome on migrated pages', () => {
 // ── Phase C2 scope tracking ───────────────────────────────────────
 
 
-describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () => {
-  // Cat 2B pages mount under vocabulary.html as iframe tabs when the URL
-  // carries ?embedded=1. The IIFE in <head> adds .embedded-mode to <html>
-  // and embedded-mode.css hides direct-child chrome via the canonical
-  // selector. Sprint 6.17.1 extended that selector to include the
-  // canonical .topnav-wrap wrapper.
+describe('Sprint 7.6 — embedded-mode pattern fully retired (DEBT-2026-05-09-B CLOSED)', () => {
+  // The Sprint 6.0.1 embedded-mode contract was the iframe-composition
+  // affordance that hid child-page chrome when mounted inside the
+  // vocabulary landing iframe. The whole pattern was retired across
+  // Sprint 7.3 → 7.6 as DEBT-2026-05-09-B closed: all 3 vocab children
+  // are now ES-module mounts under /js/vocab-modules/* and the parent
+  // owns its own chrome. embedded-mode.css was deleted in Sprint 7.6.
   //
-  // Sprint 7.3 — my-vocabulary.html migrated to ES-module mount; its
-  // embedded-mode IIFE retired (per-module incremental closure, Phase B
-  // Q3). Sprint 7.4 — flashcards.html joined the module path; its IIFE
-  // retired. Sprint 7.5 — exercises.html joined the module path; its
-  // IIFE retired. **MILESTONE:** zero pages still ship the IIFE; the
-  // EMBEDDED_PAGES roster is now empty. The .topnav-wrap CSS selector
-  // stays in embedded-mode.css until Sprint 7.6 final retirement.
-  const EMBEDDED_PAGES = [];
+  // The 3 symmetric guards below survive as regression sentinels — they
+  // prevent a future contributor from re-adding the IIFE via copy-paste
+  // from an older revision.
 
-  test('embedded-mode.css hides .topnav-wrap when html.embedded-mode is set', () => {
-    const css = readFileSync(path.join(REPO_ROOT, 'frontend/css/embedded-mode.css'), 'utf8');
-    assert.match(
-      css,
-      /html\.embedded-mode\s*>\s*body\s*>\s*\.topnav-wrap/,
-      'embedded-mode.css must include html.embedded-mode > body > .topnav-wrap selector',
-    );
-  });
-
-  EMBEDDED_PAGES.forEach((rel) => {
-    test(`${rel} preserves embedded-mode IIFE (sets html.embedded-mode synchronously)`, () => {
-      const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-      assert.match(
-        html,
-        /classList\.add\(\s*['"]embedded-mode['"]\s*\)/,
-        `${rel} must still set the embedded-mode class on <html> when ?embedded=1`,
-      );
-    });
-  });
-
-  // Sprint 7.3 — my-vocabulary.html must NOT carry the embedded-mode IIFE
-  // anymore. The standalone shell is no longer dual-use; embedded path
-  // goes through /js/vocab-modules/my-vocab.js mounted into the parent.
   test('my-vocabulary.html no longer ships embedded-mode IIFE (Sprint 7.3 module migration)', () => {
     const html = readFileSync(
       path.join(REPO_ROOT, 'frontend/pages/my-vocabulary.html'),
@@ -267,8 +240,6 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
     );
   });
 
-  // Sprint 7.4 — same symmetric guard for flashcards.html. Standalone-only
-  // post-Phase 2; embedded path goes through /js/vocab-modules/flashcards.js.
   test('flashcards.html no longer ships embedded-mode IIFE (Sprint 7.4 module migration)', () => {
     const html = readFileSync(
       path.join(REPO_ROOT, 'frontend/pages/flashcards.html'),
@@ -280,10 +251,6 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
     );
   });
 
-  // Sprint 7.5 — same symmetric guard for exercises.html. Standalone-only
-  // post-Phase 3; embedded path goes through /js/vocab-modules/exercises.js.
-  // **MILESTONE:** all 3 vocab children migrated; Sprint 7.6 retires
-  // embedded-mode.css and the iframe branch in vocab-landing.js.
   test('exercises.html no longer ships embedded-mode IIFE (Sprint 7.5 module migration)', () => {
     const html = readFileSync(
       path.join(REPO_ROOT, 'frontend/pages/exercises.html'),
@@ -293,6 +260,22 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
       !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
       'exercises.html must NOT set the embedded-mode class after Sprint 7.5 module migration',
     );
+  });
+
+  test('no embedded-mode.css link remains on the 3 vocab shells (Sprint 7.6 retirement)', () => {
+    // After Sprint 7.6 the file is deleted; any surviving <link rel="stylesheet">
+    // would 404 on production. Pin all 3 shells against the link reference.
+    const pages = ['my-vocabulary.html', 'flashcards.html', 'exercises.html'];
+    for (const name of pages) {
+      const html = readFileSync(
+        path.join(REPO_ROOT, 'frontend/pages', name),
+        'utf8',
+      );
+      assert.ok(
+        !/css\/embedded-mode\.css/.test(html),
+        `${name} must NOT link the deleted embedded-mode.css (Sprint 7.6)`,
+      );
+    }
   });
 });
 

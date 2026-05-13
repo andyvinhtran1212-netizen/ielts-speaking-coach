@@ -8,13 +8,13 @@
 
 A page redesign is **one PR per page**. Don't bundle two pages into one PR — review surface explodes and JS coupling breaks become impossible to localize.
 
-Exception: pages that are sibling iframe panels (e.g., `my-vocabulary.html` + `flashcards.html` + `exercises.html` mounted into `vocabulary.html`) may share one PR if the redesign keeps them visually identical and the iframe contract is unchanged.
+Exception: pages that are sibling module panels (e.g., `my-vocabulary.html` + `flashcards.html` + `exercises.html` mounted into `vocabulary.html` via the `/js/vocab-modules/*` mount contract) may share one PR if the redesign keeps them visually identical and the module mount contract is unchanged. *(Historical: this exception originally read "iframe panels" — the iframe pattern was retired Sprint 7.3 → 7.6 as DEBT-2026-05-09-B closed.)*
 
 ---
 
 ## 2. Priority order
 
-The redesign program runs in phases. Phases 1–4 are complete: **29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 STRUCTURALLY COMPLETE + Phase 4 Grammar Wiki: 5 with DM Sans + Lora sub-system preserved per § 14.2). Phase 5+ deferrals are limited to: Sprint 6.14d-β Tailwind utility-class refactor (DESIGN_SYSTEM.md § 14.5.2 triggers), Sprint 6.14d-γ per-tab primitive adoption polish (§ 14.5.3 triggers), DEBT-2026-05-09-B vocabulary iframe → module extraction, and commercial launch readiness sprints (Stripe / email infra / SEO).
+The redesign program runs in phases. Phases 1–4 are complete: **29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 STRUCTURALLY COMPLETE + Phase 4 Grammar Wiki: 5 with DM Sans + Lora sub-system preserved per § 14.2). Phase 5+ deferrals are limited to: Sprint 6.14d-β Tailwind utility-class refactor (DESIGN_SYSTEM.md § 14.5.2 triggers), Sprint 6.14d-γ per-tab primitive adoption polish (§ 14.5.3 triggers), and commercial launch readiness sprints (Stripe / email infra / SEO). **DEBT-2026-05-09-B vocabulary iframe → module extraction was CLOSED Sprint 7.6** (4-sprint phased migration 7.3 → 7.6).
 
 | Phase | Pages | Status |
 |---|---|---|
@@ -22,7 +22,7 @@ The redesign program runs in phases. Phases 1–4 are complete: **29 pages redes
 | **Phase 2** — Writing flow + Speaking aggregate | `writing-dashboard.html` (6.7 / 6.7.1, PRs #132/#133/#134), `writing-result.html` (6.8, PR #135), `full-test-result.html` (6.9, PR #136); audit hotfix Sprint 6.9.1 PR #137 | **COMPLETE** |
 | **Phase 3** — Vocabulary + Profile + Onboarding | `vocabulary.html` landing (6.10, PR #138); theme-toggle icon normalization (6.10.1, PR #139, 6-page drift fix); `my-vocabulary.html` (6.11a, PR #140); `flashcards.html` + `exercises.html` + `_renderPreviewModal` atomic (6.11b, PR #141); `profile.html` (6.12a, PR #142); `onboarding.html` (6.12b, PR #143) | **COMPLETE** |
 | **Phase 4** — Marketing + Admin + Grammar Wiki | **Marketing:** `index.html` surgical + multi-skill repositioning (6.13a + 6.13a-ext, PRs #145/#146); `pricing.html` (6.13b, PR #147); Era B `landing.html` duplicate eliminated. **Admin (STRUCTURALLY COMPLETE):** small writing cluster (6.14a, PR #149); table pages (6.14b, PR #150); instructor queue + grading (6.14c, PR #151); `admin.html` monolith chrome-only (6.14d-α, PR #153 — 8/9 fully migrated + 1/9 STRUCTURALLY COMPLETE). Sprint 6.14d-β + 6.14d-γ deferred with triggers (§ 14.5.2 / § 14.5.3). Pre-work PR #148 + cap-monitoring hotfix PR #152. **Grammar Wiki:** atomic 5-page cluster — `grammar.html` landing + roadmap/article/search/compare (6.15, PR #154). DM Sans + Lora typography sub-system PRESERVED intentionally per § 14.2 (sub-system decision resolved). | **✅ COMPLETE** |
-| **Phase 5+** — Deferred | Writing IA self-directed option; DEBT-2026-05-09-B vocabulary iframe → module extraction (no un-defer triggers fired); Stripe (Sprint 2.7e); email infra (Sprint 2.8). | **DEFERRED** |
+| **Phase 5+** — Deferred | Writing IA self-directed option; Stripe (Sprint 2.7e); email infra (Sprint 2.8). *(DEBT-2026-05-09-B vocabulary iframe → module extraction — CLOSED Sprint 7.6 via the 4-sprint phased migration 7.3 → 7.6.)* | **DEFERRED** |
 
 **29 pages redesigned cumulative** (Phase 1: 4 + Phase 2: 3 + Phase 3: 6 + Phase 4 marketing: 2 + Phase 4 admin: 9 + Phase 4 Grammar Wiki: 5). **Phases 1–4 COMPLETE — zero pages on legacy `--ds-*` tokens.** `ds.css` retained as the Sprint 6.5.1 compatibility bridge for renderer-emitted `.ds-*` classes on `practice.html` + `result.html` (DESIGN_SYSTEM.md § 14.2).
 
@@ -108,7 +108,7 @@ These class names are JS-coupled. Renaming them breaks click handlers, state mac
 - `.skill-card`, `.skill-card-locked`, `.skill-cta-primary`, `.skill-cta-secondary`
 - `.session-row`, `.essay-card`, `.part-card`, `.stat-card`
 - `.preview-mode-banner`, `.page-moved-banner`, `.vocab-moved-banner`
-- `.embedded-mode` and any `html.embedded-mode` selector (Sprint 6.0.1 iframe pattern)
+<!-- Sprint 7.6 — `.embedded-mode` / `html.embedded-mode` retired (DEBT-2026-05-09-B closed; pattern no longer in production). -->
 - `.locked` (nav-link permission flag), `.lock-tag`, `.locked-skill`
 - `.show`, `.hidden`, `.is-active`, `.is-recording` state classes (broadly used)
 
@@ -124,15 +124,15 @@ Example for a "Start practice" button currently classed `.btn-primary`:
 
 The legacy click handler still finds `.btn-primary`. The visual style comes from `.av-button-primary`. Both work.
 
-### 3.5 Iframe contract (only for vocabulary tabs)
+### 3.5 Vocab module contract (CLOSED Sprint 7.6 — historical)
 
-If the page being redesigned is `my-vocabulary.html`, `flashcards.html`, or `exercises.html`, preserve:
-
-- The Sprint 6.0.1 inline embedded-mode IIFE at the top of `<head>` (detects `?embedded=1` and adds `html.embedded-mode`)
-- The `embedded-mode.css` link
-- The `<header>` and `#vocab-moved-banner` elements (CSS hides them when in embedded mode; markup must remain)
-
-Test embed-mode rendering in BOTH themes after the redesign.
+> **Sprint 7.6 closure note:** This section originally documented the Sprint 6.0.1 iframe contract for the three vocab child pages (`my-vocabulary.html`, `flashcards.html`, `exercises.html`). DEBT-2026-05-09-B closed Sprint 7.6 — the iframe pattern + embedded-mode IIFE + `embedded-mode.css` have all been retired. The current contract is:
+>
+> - The three pages export `mount(container, opts) → { unmount }` from `/js/vocab-modules/{my-vocab,flashcards,exercises}.js`
+> - Each shell page (`/pages/{my-vocabulary,flashcards,exercises}.html`) is a thin canonical-chrome wrapper that mounts the module into `<main id="mount">`
+> - The parent `/pages/vocabulary.html` dynamic-imports the same modules into its tab panels (`<div class="tab-mount">`)
+>
+> See DESIGN_SYSTEM.md § 12 for the canonical module contract.
 
 ### 3.6 Permission gating contract
 
@@ -250,7 +250,7 @@ If a page redesign requires:
 
 - Renaming a JS-coupled class — push back, co-style instead
 - Adding a new `--av-*` token because nothing fits — fine, add it to `tokens.css` and document why
-- Changing the iframe contract for vocabulary tabs — push back, that's a separate sprint
+- Changing the vocab module mount contract (`/js/vocab-modules/_loader.js` + per-module `mount(container, opts)`) — push back, that's a separate sprint. *(Historical: this bullet read "iframe contract" until DEBT-2026-05-09-B closed Sprint 7.6.)*
 - Migrating a page from light theme to dark or vice versa — push back, both themes are user-controlled
 - Touching backend code — push back, redesign is frontend-only
 - Updating tests for unrelated pages — push back, scope creep
