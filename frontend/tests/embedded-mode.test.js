@@ -38,13 +38,13 @@ const vm     = require('node:vm');
 
 
 function _extractDetectionScript() {
-  // Sprint 7.3 — extraction source moved from my-vocabulary.html
-  // (now a thin shell) to flashcards.html, which still carries the
-  // Sprint 6.0.1 IIFE byte-identical. Sprint 7.4 will retire it from
-  // flashcards; this extraction source then moves to exercises.html.
-  // Sprint 7.6 retires the IIFE entirely and this file can be deleted.
+  // Sprint 7.4 — extraction source moved from flashcards.html (now a
+  // thin shell) to exercises.html, the last page still carrying the
+  // Sprint 6.0.1 IIFE byte-identical. Sprint 7.5 retires it from
+  // exercises; Sprint 7.6 retires the IIFE entirely and this file
+  // can be deleted.
   const html = fs.readFileSync(
-    path.join(__dirname, '..', 'pages', 'flashcards.html'),
+    path.join(__dirname, '..', 'pages', 'exercises.html'),
     'utf8',
   );
   const m = html.match(
@@ -52,7 +52,7 @@ function _extractDetectionScript() {
   );
   assert.ok(
     m,
-    'embedded-mode IIFE not found in flashcards.html — did the ' +
+    'embedded-mode IIFE not found in exercises.html — did the ' +
     'Sprint 6.0.1 marker comment move? Update the regex above.',
   );
   return m[1].trim();
@@ -107,28 +107,25 @@ test('embedded=1 still triggers when other params are present', () => {
   assert.equal(_runDetectionWith('?from=home&embedded=1&v=2'), true);
 });
 
-test('remaining iframe-mounted pages carry the same detection snippet', () => {
-  // Pin: the iframe-mounted pages must all run identical detection.
-  // Sprint 7.3 retired the IIFE from my-vocabulary.html (that page is
-  // now an ES-module mount). Until Sprint 7.4 + 7.5 retire it from
-  // flashcards + exercises, both must still share the byte-identical
-  // Sprint 6.0.1 snippet — a divergence would be a regression.
-  const pages = ['flashcards.html', 'exercises.html'];
-  const snippets = pages.map(name => {
-    const html = fs.readFileSync(
-      path.join(__dirname, '..', 'pages', name),
-      'utf8',
-    );
-    const m = html.match(
-      /<!-- Sprint 6\.0\.1[\s\S]*?<script>([\s\S]*?)<\/script>/,
-    );
-    assert.ok(m, `Sprint 6.0.1 snippet missing from ${name}`);
-    return m[1].replace(/\s+/g, ' ').trim();
-  });
-  assert.equal(
-    snippets[0],
-    snippets[1],
-    'flashcards and exercises must share the embedded-mode IIFE',
+test('remaining iframe-mounted page carries the canonical detection snippet', () => {
+  // Pin: the surviving iframe-mounted page (exercises) must still
+  // run the byte-identical Sprint 6.0.1 detection. Sprint 7.3 retired
+  // the IIFE from my-vocabulary.html and Sprint 7.4 retired it from
+  // flashcards.html — both pages migrated to ES-module mounts. Until
+  // Sprint 7.5 retires it from exercises, the canonical snippet must
+  // still be findable here so the runtime tests above can extract it.
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'pages', 'exercises.html'),
+    'utf8',
+  );
+  const m = html.match(
+    /<!-- Sprint 6\.0\.1[\s\S]*?<script>([\s\S]*?)<\/script>/,
+  );
+  assert.ok(m, 'Sprint 6.0.1 snippet missing from exercises.html');
+  assert.match(
+    m[1],
+    /classList\.add\(\s*['"]embedded-mode['"]\s*\)/,
+    'exercises.html Sprint 6.0.1 IIFE must add the embedded-mode class',
   );
 });
 
@@ -142,6 +139,19 @@ test('my-vocabulary.html no longer carries the embedded-mode IIFE (Sprint 7.3)',
     !/<!-- Sprint 6\.0\.1[\s\S]*?classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
     'my-vocabulary.html must NOT carry the Sprint 6.0.1 embedded-mode IIFE ' +
     'after Sprint 7.3 (page migrated to /js/vocab-modules/my-vocab.js mount).',
+  );
+});
+
+test('flashcards.html no longer carries the embedded-mode IIFE (Sprint 7.4)', () => {
+  // Symmetric guard for the Sprint 7.4 retirement.
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'pages', 'flashcards.html'),
+    'utf8',
+  );
+  assert.ok(
+    !/<!-- Sprint 6\.0\.1[\s\S]*?classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+    'flashcards.html must NOT carry the Sprint 6.0.1 embedded-mode IIFE ' +
+    'after Sprint 7.4 (page migrated to /js/vocab-modules/flashcards.js mount).',
   );
 });
 

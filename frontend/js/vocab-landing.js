@@ -28,17 +28,17 @@
   // Iframe path (Sprint 6.0 legacy) — preserved for tabs not yet
   // migrated to ES-module mount under DEBT-2026-05-09-B.
   const TAB_SOURCES = {
-    'flashcards': '/pages/flashcards.html?embedded=1',
     'exercises':  '/pages/exercises.html?embedded=1',
     // 'topic-bank' has no src — it's a static placeholder panel.
   };
 
   // Sprint 7.3 — module path. Tabs in this map dynamic-import their
   // module and mount into `[data-panel="<tab>"] .tab-mount`, bypassing
-  // the iframe path entirely. Phase-2..4 sprints (7.4 / 7.5) extend
-  // this map as flashcards + exercises migrate.
+  // the iframe path entirely. Sprint 7.4 added flashcards; Sprint 7.5
+  // will add exercises; Sprint 7.6 retires the iframe path entirely.
   const TAB_LOADERS = {
-    'my-vocab': () => import('/js/vocab-modules/my-vocab.js'),
+    'my-vocab':   () => import('/js/vocab-modules/my-vocab.js'),
+    'flashcards': () => import('/js/vocab-modules/flashcards.js'),
   };
 
   const DEFAULT_TAB = 'my-vocab';
