@@ -154,11 +154,13 @@ describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
 
   // Sprint 7.3 — my-vocab tab migrated from <iframe> to ES-module mount
   // (DEBT-2026-05-09-B Phase 1). Sprint 7.4 — flashcards joined the
-  // module path. Exercises is the only remaining iframe-mounted tab
-  // until Sprint 7.5; Sprint 7.6 retires the iframe path entirely.
-  test('one iframe preserved (exercises only) post Sprint 7.4', () => {
+  // module path. Sprint 7.5 — exercises joined the module path. **All
+  // 3 vocab children are now on the module path; zero iframes remain
+  // in vocabulary.html.** Sprint 7.6 retires the legacy iframe branch
+  // in vocab-landing.js + embedded-mode.css.
+  test('zero iframes remain post Sprint 7.5 (all 3 vocab children migrated)', () => {
     const frameCount = (html.match(/<iframe\s+class=["']tab-frame["']/g) || []).length;
-    assert.equal(frameCount, 1, `Expected 1 .tab-frame iframe after Sprint 7.4, got ${frameCount}`);
+    assert.equal(frameCount, 0, `Expected 0 .tab-frame iframes after Sprint 7.5, got ${frameCount}`);
   });
 
   test('my-vocab tab uses module-mount container (Sprint 7.3)', () => {
@@ -193,6 +195,22 @@ describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
     );
   });
 
+  test('exercises tab uses module-mount container (Sprint 7.5)', () => {
+    const exercisesSection = html.match(
+      /<section[^>]*data-panel=["']exercises["'][^>]*>[\s\S]+?<\/section>/,
+    );
+    assert.ok(exercisesSection, 'exercises tab-panel section missing');
+    assert.match(
+      exercisesSection[0],
+      /<div[^>]*class=["'][^"']*\btab-mount\b/,
+      'exercises panel must ship <div class="tab-mount"> for module mount',
+    );
+    assert.ok(
+      !/<iframe\b/.test(exercisesSection[0]),
+      'exercises panel must NOT contain <iframe> after Sprint 7.5 module migration',
+    );
+  });
+
   test('topic-bank panel has the static "coming soon" placeholder (no iframe)', () => {
     assert.match(
       html,
@@ -201,11 +219,11 @@ describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
     );
   });
 
-  test('remaining iframe carries loading="lazy" + referrerpolicy="same-origin"', () => {
+  test('no loading="lazy" / referrerpolicy attrs remain (Sprint 7.5 — iframes gone)', () => {
     const lazyCount = (html.match(/loading=["']lazy["']/g) || []).length;
     const refCount  = (html.match(/referrerpolicy=["']same-origin["']/g) || []).length;
-    assert.equal(lazyCount, 1);
-    assert.equal(refCount, 1);
+    assert.equal(lazyCount, 0);
+    assert.equal(refCount, 0);
   });
 
   test('three stat IDs preserved (vocab-landing.js reads by id)', () => {

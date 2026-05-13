@@ -1,28 +1,24 @@
 /**
- * frontend/tests/embedded-mode.test.js — Sprint 6.0.1 hotfix.
+ * frontend/tests/embedded-mode.test.js — Sprint 6.0.1 hotfix sentinel.
  *
  * Run with: node --test frontend/tests/embedded-mode.test.js
  *
- * The detection script is a tiny IIFE inlined in <head> of each
- * iframe-mounted page. Originally my-vocabulary / flashcards /
- * exercises (all three byte-identical). Sprint 7.3 (DEBT-2026-05-09-B
- * Phase 1) retired the IIFE from my-vocabulary.html when that page
- * migrated to an ES-module mount. Until Sprint 7.4 + 7.5 migrate the
- * remaining two, the IIFE still ships on flashcards.html +
- * exercises.html. We extract the canonical form from one of the
- * two surviving pages and run it inside a vm sandbox where we can
- * fake `window.location.search`.
+ * **Sprint 7.5 milestone reshape:** All 3 vocab children (my-vocabulary,
+ * flashcards, exercises) are now ES-module mounts under
+ * /js/vocab-modules/*. None of them ships the Sprint 6.0.1 embedded-mode
+ * IIFE anymore — the iframe path is dead.
  *
- * What's pinned:
- *   - `?embedded=1` → adds `embedded-mode` class to <html>
- *   - empty search → no class added
- *   - `?embedded=0` → no class (only literal "1" triggers)
- *   - `?embedded=true` → no class (defensive — keep matcher strict)
- *   - `?other=foo&embedded=1` → still triggers (real-world URL params)
+ * Prior to Sprint 7.5 this file extracted the IIFE from whichever page
+ * still carried it and ran the snippet inside a vm sandbox to verify
+ * runtime behavior. With zero surviving extraction sources, the runtime
+ * tests are no longer applicable. The file now stands as a **pure
+ * symmetric-guard sentinel** — pinning that each of the 3 children has
+ * fully retired its IIFE, plus pinning that the embedded-mode.css link
+ * still references the file (full deletion deferred to Sprint 7.6).
  *
- * Why a strict-equals match instead of "truthy"? A future page might
- * carry `?embedded=preview` for some other meaning; loose matching
- * would silently fold preview into the iframe-suppression branch.
+ * Sprint 7.6 retires embedded-mode.css and may delete this file. Until
+ * then the symmetric guards prevent regression (someone re-adding the
+ * IIFE during a copy-paste from an older page).
  */
 
 'use strict';
@@ -31,106 +27,12 @@ const test   = require('node:test');
 const assert = require('node:assert/strict');
 const fs     = require('node:fs');
 const path   = require('node:path');
-const vm     = require('node:vm');
 
 
-// ── Extract the IIFE from one of the pages ─────────────────────────
+// ── Symmetric guards: all 3 children have retired the IIFE ──────────
 
-
-function _extractDetectionScript() {
-  // Sprint 7.4 — extraction source moved from flashcards.html (now a
-  // thin shell) to exercises.html, the last page still carrying the
-  // Sprint 6.0.1 IIFE byte-identical. Sprint 7.5 retires it from
-  // exercises; Sprint 7.6 retires the IIFE entirely and this file
-  // can be deleted.
-  const html = fs.readFileSync(
-    path.join(__dirname, '..', 'pages', 'exercises.html'),
-    'utf8',
-  );
-  const m = html.match(
-    /<!-- Sprint 6\.0\.1[\s\S]*?<script>([\s\S]*?)<\/script>/,
-  );
-  assert.ok(
-    m,
-    'embedded-mode IIFE not found in exercises.html — did the ' +
-    'Sprint 6.0.1 marker comment move? Update the regex above.',
-  );
-  return m[1].trim();
-}
-
-
-function _runDetectionWith(search) {
-  const script = _extractDetectionScript();
-  const html = {
-    classList: {
-      _set: new Set(),
-      add(...cs) { cs.forEach(c => this._set.add(c)); },
-      contains(c) { return this._set.has(c); },
-    },
-  };
-  const sandbox = {
-    document: { documentElement: html },
-    window: { location: { search } },
-    URLSearchParams,  // Node provides this globally; expose it inside vm.
-    console,
-  };
-  // The IIFE references `window.location.search` directly, but since
-  // our sandbox doesn't auto-bind window globals, we evaluate inside a
-  // wrapper that aliases location into scope.
-  const wrapped = `var location = window.location; ${script}`;
-  vm.createContext(sandbox);
-  vm.runInContext(wrapped, sandbox);
-  return html.classList.contains('embedded-mode');
-}
-
-
-// ── Tests ───────────────────────────────────────────────────────────
-
-
-test('embedded=1 adds the embedded-mode class', () => {
-  assert.equal(_runDetectionWith('?embedded=1'), true);
-});
-
-test('empty search does not add the class', () => {
-  assert.equal(_runDetectionWith(''), false);
-});
-
-test('embedded=0 does not add the class (strict equals "1")', () => {
-  assert.equal(_runDetectionWith('?embedded=0'), false);
-});
-
-test('embedded=true does not add the class (literal "1" only)', () => {
-  assert.equal(_runDetectionWith('?embedded=true'), false);
-});
-
-test('embedded=1 still triggers when other params are present', () => {
-  assert.equal(_runDetectionWith('?from=home&embedded=1&v=2'), true);
-});
-
-test('remaining iframe-mounted page carries the canonical detection snippet', () => {
-  // Pin: the surviving iframe-mounted page (exercises) must still
-  // run the byte-identical Sprint 6.0.1 detection. Sprint 7.3 retired
-  // the IIFE from my-vocabulary.html and Sprint 7.4 retired it from
-  // flashcards.html — both pages migrated to ES-module mounts. Until
-  // Sprint 7.5 retires it from exercises, the canonical snippet must
-  // still be findable here so the runtime tests above can extract it.
-  const html = fs.readFileSync(
-    path.join(__dirname, '..', 'pages', 'exercises.html'),
-    'utf8',
-  );
-  const m = html.match(
-    /<!-- Sprint 6\.0\.1[\s\S]*?<script>([\s\S]*?)<\/script>/,
-  );
-  assert.ok(m, 'Sprint 6.0.1 snippet missing from exercises.html');
-  assert.match(
-    m[1],
-    /classList\.add\(\s*['"]embedded-mode['"]\s*\)/,
-    'exercises.html Sprint 6.0.1 IIFE must add the embedded-mode class',
-  );
-});
 
 test('my-vocabulary.html no longer carries the embedded-mode IIFE (Sprint 7.3)', () => {
-  // Symmetric guard for the retired-from-this-page contract.
   const html = fs.readFileSync(
     path.join(__dirname, '..', 'pages', 'my-vocabulary.html'),
     'utf8',
@@ -142,8 +44,8 @@ test('my-vocabulary.html no longer carries the embedded-mode IIFE (Sprint 7.3)',
   );
 });
 
+
 test('flashcards.html no longer carries the embedded-mode IIFE (Sprint 7.4)', () => {
-  // Symmetric guard for the Sprint 7.4 retirement.
   const html = fs.readFileSync(
     path.join(__dirname, '..', 'pages', 'flashcards.html'),
     'utf8',
@@ -155,19 +57,77 @@ test('flashcards.html no longer carries the embedded-mode IIFE (Sprint 7.4)', ()
   );
 });
 
-test('embedded-mode CSS hides the chrome selectors', () => {
-  // The CSS is the source of truth for which DOM elements get
-  // suppressed. If a future page has chrome that's NOT covered by
-  // these selectors, the iframe will leak it — pin the contract.
+
+test('exercises.html no longer carries the embedded-mode IIFE (Sprint 7.5)', () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, '..', 'pages', 'exercises.html'),
+    'utf8',
+  );
+  assert.ok(
+    !/<!-- Sprint 6\.0\.1[\s\S]*?classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+    'exercises.html must NOT carry the Sprint 6.0.1 embedded-mode IIFE ' +
+    'after Sprint 7.5 (page migrated to /js/vocab-modules/exercises.js mount).',
+  );
+});
+
+
+// ── Defensive — no class-set call survives anywhere on the 3 children
+
+
+test('no embedded-mode classList.add call survives on any of the 3 children', () => {
+  // Belt-and-braces: independent of the Sprint 6.0.1 marker comment, the
+  // class-set itself must not appear. A future copy-paste that drops the
+  // comment but keeps the classList.add must still fail this pin.
+  const pages = ['my-vocabulary.html', 'flashcards.html', 'exercises.html'];
+  for (const name of pages) {
+    const html = fs.readFileSync(
+      path.join(__dirname, '..', 'pages', name),
+      'utf8',
+    );
+    assert.ok(
+      !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+      `${name} must NOT add the embedded-mode class anywhere (Sprint 7.3 → 7.5 milestone).`,
+    );
+  }
+});
+
+
+// ── embedded-mode.css link still present pending Sprint 7.6 cleanup ─
+
+
+test('embedded-mode.css link still present on the 3 standalone shells (Sprint 7.6 retires)', () => {
+  // The CSS file is unused at runtime now (no page sets the html
+  // .embedded-mode class anymore), but the <link> tag stays for the
+  // duration of Sprint 7.5 → 7.6 transition window. Sprint 7.6
+  // simultaneously deletes the file + drops all 3 link tags.
+  const pages = ['my-vocabulary.html', 'flashcards.html', 'exercises.html'];
+  for (const name of pages) {
+    const html = fs.readFileSync(
+      path.join(__dirname, '..', 'pages', name),
+      'utf8',
+    );
+    assert.match(
+      html,
+      /css\/embedded-mode\.css/,
+      `${name} should still link embedded-mode.css until Sprint 7.6 retirement`,
+    );
+  }
+});
+
+
+// ── CSS surface preserved until Sprint 7.6 retirement ───────────────
+
+
+test('embedded-mode CSS hides the chrome selectors (preserved until Sprint 7.6)', () => {
+  // The selectors stay until Sprint 7.6. Even though no runtime page
+  // adds the html.embedded-mode class anymore, the CSS file exists and
+  // its contract is pinned here so accidental deletion before Sprint 7.6
+  // is caught.
   const css = fs.readFileSync(
     path.join(__dirname, '..', 'css', 'embedded-mode.css'),
     'utf8',
   );
-  // Top header is the universal chrome surface across all 3 pages.
   assert.match(css, /html\.embedded-mode\s*>\s*body\s*>\s*header/);
-  // Banner is the Sprint 6.0 affordance — must stay hidden inside
-  // iframes (the parent landing already provides the navigation
-  // context the banner advertises).
   assert.match(css, /html\.embedded-mode\s+#vocab-moved-banner/);
   assert.match(css, /display:\s*none\s*!important/);
 });

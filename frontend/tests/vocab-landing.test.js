@@ -164,42 +164,47 @@ test('activateTab marks the target tab active and reveals its panel', () => {
   assert.equal(myVocabPanel.hidden, true, 'previously-active panel is hidden');
 });
 
-test('activateTab lazy-mounts iframe src on first visit only', () => {
-  // Sprint 7.3 migrated my-vocab to TAB_LOADERS; Sprint 7.4 migrated
-  // flashcards too. Exercises is the only remaining iframe-backed tab
-  // exercising the TAB_SOURCES lazy-load path until Sprint 7.5.
+// Sprint 7.5 — the lazy-mount iframe test was deleted here. Before
+// Sprint 7.3 / 7.4 / 7.5 all three vocab children went through the
+// TAB_SOURCES iframe path; the test exercised `frame.src` assignment
+// + re-visit no-op. With all 3 children now on TAB_LOADERS, no iframe
+// gets its src set anymore, and the test-side iframe stubs are inert.
+// Sprint 7.6 deletes the iframe branch in activateTab() + TAB_SOURCES.
+
+test('all 3 vocab children are registered in TAB_LOADERS (Sprint 7.5 milestone)', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
-  const exercisesPanel = doc._panels.find(p => p.dataset.panel === 'exercises');
-  const exercisesFrame = exercisesPanel.children.find(c => c.tagName === 'iframe');
-  assert.equal(exercisesFrame.src, '',
-    'iframe src is empty until the tab is activated');
-
-  win.__vocabLanding.activateTab('exercises');
-  const firstSrc = exercisesFrame.src;
-  assert.ok(firstSrc.includes('exercises.html'),
-    `iframe src should now include exercises.html, got ${firstSrc}`);
-  assert.ok(firstSrc.includes('embedded=1'),
-    'iframe URL must carry embedded=1 so banner suppression works');
-
-  // Mutate src to a sentinel so we can detect a re-write.
-  exercisesFrame.src = '__sentinel__';
-  win.__vocabLanding.activateTab('my-vocab');
-  win.__vocabLanding.activateTab('exercises');
-  assert.equal(exercisesFrame.src, '__sentinel__',
-    'iframe src must NOT be re-written on tab re-visit (state preservation)');
+  const loaders = win.__vocabLanding.TAB_LOADERS;
+  assert.deepEqual(
+    [...loaders].sort(),
+    ['exercises', 'flashcards', 'my-vocab'],
+    'TAB_LOADERS must list all 3 vocab children after Sprint 7.5 migration',
+  );
 });
 
-test('topic-bank tab activates without throwing (no iframe src)', () => {
+test('TAB_SOURCES is empty post Sprint 7.5 (iframe path retired in 7.6)', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
-  // Coverage for the placeholder branch — no iframe means
-  // TAB_SOURCES['topic-bank'] is undefined and the loader skips it.
+  // Test seam exposes TAB_SOURCES keys; expect empty array now that
+  // exercises has joined the module path.
+  assert.deepEqual(
+    [...win.__vocabLanding.TAB_SOURCES].sort(),
+    [],
+    'TAB_SOURCES must be empty after Sprint 7.5 (all vocab children migrated)',
+  );
+});
+
+test('topic-bank tab activates without throwing (static placeholder)', () => {
+  const doc = buildPage();
+  const win = loadVocabLanding(doc);
+
+  // Coverage for the placeholder branch — topic-bank is neither in
+  // TAB_LOADERS nor TAB_SOURCES, so activateTab must no-op gracefully.
   assert.doesNotThrow(() => {
     win.__vocabLanding.activateTab('topic-bank');
-  }, 'topic-bank tab activation must not throw despite missing iframe src');
+  }, 'topic-bank tab activation must not throw');
 
   const topicBankTab = doc._tabs.find(t => t.dataset.tab === 'topic-bank');
   assert.ok(topicBankTab.classList.contains('active'));
