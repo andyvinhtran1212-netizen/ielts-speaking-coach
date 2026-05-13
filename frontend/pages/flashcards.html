@@ -6,23 +6,15 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Flashcards — Aver Learning</title>
 
-  <!-- Sprint 6.0.1 — embedded-mode toggle. See /css/embedded-mode.css. -->
-  <script>
-    (function () {
-      try {
-        var p = new URLSearchParams(window.location.search);
-        if (p.get('embedded') === '1') {
-          document.documentElement.classList.add('embedded-mode');
-        }
-      } catch (e) { /* noop */ }
-    })();
-  </script>
+  <!-- Sprint 7.4 — embedded-mode IIFE retired. flashcards.html is now a
+       standalone shell only; the embedded path goes through
+       /js/vocab-modules/flashcards.js mounted into vocabulary.html. The
+       embedded-mode.css link is kept for the duration of Sprint 7.4 → 7.5
+       because exercises.html still depends on it; Sprint 7.6 retires the
+       file. -->
   <link rel="stylesheet" href="/css/embedded-mode.css" />
 
-  <!-- Sprint 6.11b: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13).
-       Runs AFTER the Sprint 6.0.1 IIFE because embedded-mode.test.js pins
-       that block as the first script in <head> across all iframe-mounted
-       children. -->
+  <!-- Sprint 6.11b: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
   <script>
     (function () {
       try {
@@ -73,8 +65,7 @@
 </head>
 <body class="av-page font-sans min-h-screen">
 
-  <!-- Canonical chrome (Sprint 6.17.1 — Vocabulary active; embedded-mode.css
-       hides .topnav-wrap when ?embedded=1 is set via the head IIFE). -->
+  <!-- Canonical chrome (Sprint 6.17.1 / 6.20 — Vocabulary active). -->
   <div class="topnav-wrap">
     <nav class="topnav" aria-label="Primary">
       <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
@@ -113,99 +104,12 @@
     </nav>
   </div>
 
-  <!-- Page context bar (preserves page title). -->
-  <header class="fc-header fc-context-bar px-6 py-4">
-    <div class="max-w-3xl mx-auto flex items-center gap-4">
-      <p class="eyebrow" style="margin:0;">Vocabulary</p>
-      <span class="fc-header__sep">|</span>
-      <h1 class="fc-header__title text-base font-semibold">📚 Flashcards</h1>
-    </div>
-  </header>
+  <!-- Sprint 7.4 — module mount container. The page body (context bar,
+       banner, stack list, create-stack modal, toast) lives inside the
+       /js/vocab-modules/flashcards.js template and is injected here. -->
+  <main id="mount" class="vocab-module-mount"></main>
 
-  <main class="max-w-3xl mx-auto px-4 pt-20 pb-8">
-    <!-- Sprint 6.0 — banner pointing at unified Vocabulary landing.
-         Hidden when embedded as a tab iframe (URL ?embedded=1). -->
-    <div id="vocab-moved-banner" class="fc-banner rounded-lg p-3 mb-5 text-sm flex items-center gap-3 hidden">
-      <span class="fc-banner__icon" aria-hidden="true">📍</span>
-      <div class="fc-banner__body">
-        Flashcards giờ là một tab trong trang
-        <a href="/pages/vocabulary.html#flashcards" class="fc-banner__link">Từ vựng</a>
-        — quản lý vocab + ôn flashcards trong một nơi.
-      </div>
-    </div>
-    <script>
-      (function () {
-        try {
-          var params = new URLSearchParams(window.location.search);
-          if (params.get('embedded') !== '1') {
-            document.getElementById('vocab-moved-banner').classList.remove('hidden');
-          }
-        } catch (e) { /* best-effort */ }
-      })();
-    </script>
-
-    <!-- flashcards.js renders into #fc-container -->
-    <div id="fc-container">
-      <div class="state-msg"><div class="spinner"></div></div>
-    </div>
-  </main>
-
-  <!-- Create Stack Modal -->
-  <div id="fc-modal" class="modal-backdrop">
-    <div class="modal">
-      <h2>Tạo stack mới</h2>
-
-      <div class="modal-section">
-        <label class="modal-label" for="m-name">Tên stack</label>
-        <input id="m-name" class="modal-input" type="text" maxlength="50"
-               placeholder="VD: Business words from January" />
-      </div>
-
-      <div class="modal-section">
-        <label class="modal-label">Chủ đề</label>
-        <div id="m-topics" class="chip-group">
-          <!-- populated by flashcards.js -->
-          <span class="fc-modal-loading">Đang tải…</span>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <label class="modal-label">Phân loại</label>
-        <div class="chip-group">
-          <span class="chip" data-cat="used_well">Dùng tốt</span>
-          <span class="chip" data-cat="needs_review">Cần ôn lại</span>
-          <span class="chip" data-cat="upgrade_suggested">Có thể nâng cấp</span>
-          <span class="chip" data-cat="manual">Thêm thủ công</span>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <label class="modal-label" for="m-search">Tìm kiếm trong từ / định nghĩa (tuỳ chọn)</label>
-        <input id="m-search" class="modal-input" type="text" placeholder="VD: implement" />
-      </div>
-
-      <div class="modal-section">
-        <label class="modal-label" for="m-after">Thêm sau ngày (tuỳ chọn)</label>
-        <input id="m-after" class="modal-input" type="date" />
-      </div>
-
-      <div class="modal-section">
-        <label class="modal-label">Xem trước</label>
-        <div id="m-preview" class="preview-box">
-          <span class="fc-modal-loading">Chọn bộ lọc để xem số thẻ phù hợp.</span>
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button id="m-cancel" class="btn-ghost">Hủy</button>
-        <button id="m-save" class="btn-primary" disabled>Lưu</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="fc-toast" class="toast"></div>
-
-  <!-- order matters: supabase CDN → api.js → initSupabase → flashcards.js -->
+  <!-- Order matters: supabase CDN → api.js → bootstrap → vocab module. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
   <script>
@@ -214,7 +118,6 @@
       'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4'
     );
   </script>
-  <script src="../js/flashcards.js"></script>
 
   <!-- Lucide hydration + canonical theme/user-pill wiring (Sprint 6.17.1). -->
   <script>
@@ -235,5 +138,12 @@
     bindToggleButton(document.getElementById('theme-toggle'));
   </script>
   <script type="module" src="/js/user-pill.js"></script>
+
+  <!-- Sprint 7.4 — mount the flashcards module into <main id="mount">.
+       embedded:false because this is the standalone shell. -->
+  <script type="module">
+    import { mount } from '/js/vocab-modules/flashcards.js';
+    mount(document.getElementById('mount'), { embedded: false });
+  </script>
 </body>
 </html>

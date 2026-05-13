@@ -165,26 +165,29 @@ test('activateTab marks the target tab active and reveals its panel', () => {
 });
 
 test('activateTab lazy-mounts iframe src on first visit only', () => {
+  // Sprint 7.3 migrated my-vocab to TAB_LOADERS; Sprint 7.4 migrated
+  // flashcards too. Exercises is the only remaining iframe-backed tab
+  // exercising the TAB_SOURCES lazy-load path until Sprint 7.5.
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
-  const flashcardsPanel = doc._panels.find(p => p.dataset.panel === 'flashcards');
-  const flashcardsFrame = flashcardsPanel.children.find(c => c.tagName === 'iframe');
-  assert.equal(flashcardsFrame.src, '',
+  const exercisesPanel = doc._panels.find(p => p.dataset.panel === 'exercises');
+  const exercisesFrame = exercisesPanel.children.find(c => c.tagName === 'iframe');
+  assert.equal(exercisesFrame.src, '',
     'iframe src is empty until the tab is activated');
 
-  win.__vocabLanding.activateTab('flashcards');
-  const firstSrc = flashcardsFrame.src;
-  assert.ok(firstSrc.includes('flashcards.html'),
-    `iframe src should now include flashcards.html, got ${firstSrc}`);
+  win.__vocabLanding.activateTab('exercises');
+  const firstSrc = exercisesFrame.src;
+  assert.ok(firstSrc.includes('exercises.html'),
+    `iframe src should now include exercises.html, got ${firstSrc}`);
   assert.ok(firstSrc.includes('embedded=1'),
     'iframe URL must carry embedded=1 so banner suppression works');
 
   // Mutate src to a sentinel so we can detect a re-write.
-  flashcardsFrame.src = '__sentinel__';
+  exercisesFrame.src = '__sentinel__';
   win.__vocabLanding.activateTab('my-vocab');
-  win.__vocabLanding.activateTab('flashcards');
-  assert.equal(flashcardsFrame.src, '__sentinel__',
+  win.__vocabLanding.activateTab('exercises');
+  assert.equal(exercisesFrame.src, '__sentinel__',
     'iframe src must NOT be re-written on tab re-visit (state preservation)');
 });
 

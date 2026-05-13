@@ -226,11 +226,11 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
   //
   // Sprint 7.3 — my-vocabulary.html migrated to ES-module mount; its
   // embedded-mode IIFE retired (per-module incremental closure, Phase B
-  // Q3). flashcards.html + exercises.html still use the iframe path
-  // until Sprint 7.4 / 7.5. The .topnav-wrap CSS selector stays in
-  // embedded-mode.css until Sprint 7.6 final retirement.
+  // Q3). Sprint 7.4 — flashcards.html joined the module path; its IIFE
+  // retired. exercises.html still uses the iframe path until Sprint 7.5.
+  // The .topnav-wrap CSS selector stays in embedded-mode.css until
+  // Sprint 7.6 final retirement.
   const EMBEDDED_PAGES = [
-    'frontend/pages/flashcards.html',
     'frontend/pages/exercises.html',
   ];
 
@@ -265,6 +265,19 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
     assert.ok(
       !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
       'my-vocabulary.html must NOT set the embedded-mode class after Sprint 7.3 module migration',
+    );
+  });
+
+  // Sprint 7.4 — same symmetric guard for flashcards.html. Standalone-only
+  // post-Phase 2; embedded path goes through /js/vocab-modules/flashcards.js.
+  test('flashcards.html no longer ships embedded-mode IIFE (Sprint 7.4 module migration)', () => {
+    const html = readFileSync(
+      path.join(REPO_ROOT, 'frontend/pages/flashcards.html'),
+      'utf8',
+    );
+    assert.ok(
+      !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+      'flashcards.html must NOT set the embedded-mode class after Sprint 7.4 module migration',
     );
   });
 });

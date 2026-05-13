@@ -20,8 +20,14 @@
  *      script that imports the module + calls mount() on
  *      <main id="mount">.
  *
- * Tests for flashcards + exercises module migrations land in
- * subsequent sprints (7.4 / 7.5). Sprint 7.6 retires embedded-mode.css.
+ * Sprint 7.4 — DEBT-2026-05-09-B Phase 2 extends this sentinel for the
+ * flashcards module migration. Same contract as my-vocab; only the
+ * surface area of the legacy /js/flashcards.js translates into module
+ * data-actions and unmount cleanup. Section 6 covers the flashcards
+ * module file, parent-loader update, and standalone-shell rewrite.
+ *
+ * Tests for the exercises module migration land in Sprint 7.5.
+ * Sprint 7.6 retires embedded-mode.css.
  */
 
 import { test, describe, before } from 'node:test';
@@ -195,23 +201,28 @@ describe('Sprint 7.3 — /js/vocab-landing.js gains TAB_LOADERS module path', ()
     );
   });
 
-  test('declares TAB_LOADERS with my-vocab entry', () => {
-    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,200}['"]my-vocab['"]\s*:/);
+  test('declares TAB_LOADERS with my-vocab + flashcards entries', () => {
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,400}['"]my-vocab['"]\s*:/);
     assert.match(src, /import\(['"]\/js\/vocab-modules\/my-vocab\.js['"]\)/);
+    assert.match(src, /TAB_LOADERS\s*=\s*\{[\s\S]{0,400}['"]flashcards['"]\s*:/);
+    assert.match(src, /import\(['"]\/js\/vocab-modules\/flashcards\.js['"]\)/);
   });
 
-  test('TAB_SOURCES still includes flashcards + exercises (iframe path preserved)', () => {
-    assert.match(src, /['"]flashcards['"]\s*:[\s\S]{0,200}flashcards\.html\?embedded=1/);
+  test('TAB_SOURCES still includes exercises (iframe path preserved until Sprint 7.5)', () => {
     assert.match(src, /['"]exercises['"]\s*:[\s\S]{0,200}exercises\.html\?embedded=1/);
   });
 
-  test('TAB_SOURCES no longer carries my-vocab entry (module path takes over)', () => {
+  test('TAB_SOURCES no longer carries my-vocab or flashcards entries (module path takes over)', () => {
     // Match the TAB_SOURCES object literal only — avoid catching TAB_LOADERS.
     const sourcesBlock = src.match(/const TAB_SOURCES\s*=\s*\{[\s\S]+?\};/);
     assert.ok(sourcesBlock, 'TAB_SOURCES block not extractable');
     assert.ok(
       !/['"]my-vocab['"]\s*:/.test(sourcesBlock[0]),
       'TAB_SOURCES must not carry a my-vocab entry after Sprint 7.3 (module path owns it)',
+    );
+    assert.ok(
+      !/['"]flashcards['"]\s*:/.test(sourcesBlock[0]),
+      'TAB_SOURCES must not carry a flashcards entry after Sprint 7.4 (module path owns it)',
     );
   });
 
@@ -252,15 +263,22 @@ describe('Sprint 7.3 — /pages/vocabulary.html my-vocab tab uses mount containe
     );
   });
 
-  test('flashcards + exercises tab panels still use iframe (legacy path preserved)', () => {
+  test('flashcards tab panel ships <div class="tab-mount"> (Sprint 7.4)', () => {
     const flashSection = html.match(
       /<section[^>]*data-panel="flashcards"[^>]*>[\s\S]+?<\/section>/,
     );
+    assert.ok(flashSection, 'flashcards tab-panel section not found');
+    assert.match(flashSection[0], /<div[^>]*class=["'][^"']*\btab-mount\b/);
+    assert.ok(
+      !/<iframe\b/.test(flashSection[0]),
+      'flashcards tab-panel must NOT contain an <iframe> after Sprint 7.4',
+    );
+  });
+
+  test('exercises tab panel still uses iframe (legacy path preserved until Sprint 7.5)', () => {
     const exSection = html.match(
       /<section[^>]*data-panel="exercises"[^>]*>[\s\S]+?<\/section>/,
     );
-    assert.ok(flashSection && /<iframe\b/.test(flashSection[0]),
-      'flashcards tab must still use <iframe> until Sprint 7.4');
     assert.ok(exSection && /<iframe\b/.test(exSection[0]),
       'exercises tab must still use <iframe> until Sprint 7.5');
   });
@@ -349,6 +367,198 @@ describe('Sprint 7.3 — /pages/my-vocabulary.html is a thin shell that mounts t
     assert.ok(
       !/<div[^>]*\bid="report-modal"/.test(body[0]),
       'report modal must not appear in shell',
+    );
+  });
+});
+
+
+// ── 6. flashcards module + shell (Sprint 7.4) ─────────────────────
+
+describe('Sprint 7.4 — /js/vocab-modules/flashcards.js module', () => {
+  let src;
+  before(() => {
+    src = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/vocab-modules/flashcards.js'),
+      'utf8',
+    );
+  });
+
+  test('imports guardMount + redirectToLogin from _loader', () => {
+    assert.match(
+      src,
+      /import\s*\{\s*guardMount\s*,\s*redirectToLogin\s*\}\s+from\s+['"]\.\/_loader\.js['"]/,
+    );
+  });
+
+  test('exports async mount(container, opts) → { unmount }', () => {
+    assert.match(src, /export\s+async\s+function\s+mount\s*\(\s*container\s*,/);
+    assert.match(src, /function\s+unmount\s*\(\s*\)/);
+  });
+
+  test('mount() consumes opts.embedded for auth-redirect routing', () => {
+    assert.match(src, /opts\s*=\s*\{\s*\}/);
+    assert.match(src, /redirectToLogin\s*\(\s*\{\s*embedded\s*\}/);
+  });
+
+  test('mount() respects idempotent guard (guardMount + alreadyMounted)', () => {
+    assert.match(src, /guardMount\s*\(\s*container\s*\)/);
+    assert.match(src, /alreadyMounted/);
+  });
+
+  test('HTML template ships the canonical fc-header + Vocabulary eyebrow', () => {
+    assert.match(src, /<header class="fc-header fc-context-bar/);
+    assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
+    assert.match(src, /📚 Flashcards/);
+  });
+
+  test('HTML template ships the moved banner + container + create-stack modal + toast', () => {
+    assert.match(src, /data-banner="moved"/);
+    assert.match(src, /data-fc-container/);
+    assert.match(src, /data-fc-modal/);
+    assert.match(src, /data-fc-topics/);
+    assert.match(src, /data-fc-preview/);
+    assert.match(src, /data-fc-toast/);
+    assert.match(src, /data-fc-save/);
+  });
+
+  test('HTML template ships all 4 category chips with data-action="toggle-category"', () => {
+    const cats = ['used_well', 'needs_review', 'upgrade_suggested', 'manual'];
+    cats.forEach((c) => {
+      const re = new RegExp(`data-action="toggle-category"[^>]*data-cat="${c}"`);
+      assert.match(src, re, `missing category chip for ${c}`);
+    });
+  });
+
+  test('event delegation: NO inline onclick attributes inside template literal', () => {
+    const m = src.match(/const HTML = \/\* html \*\/ `([\s\S]+?)`;/);
+    assert.ok(m, 'HTML template literal not extractable');
+    assert.ok(
+      !/onclick=/.test(m[1]),
+      'HTML template must not contain inline onclick attributes (Phase B Q1 — event delegation)',
+    );
+  });
+
+  test('all required data-action values present in module', () => {
+    const ACTIONS = [
+      'open-stack-modal', 'close-stack-modal', 'save-stack',
+      'open-stack', 'toggle-topic', 'toggle-category', 'delete-stack',
+    ];
+    ACTIONS.forEach((a) => {
+      assert.ok(
+        src.includes(`'${a}'`) || src.includes(`"${a}"`),
+        `module must reference data-action="${a}" (switch case + delegation)`,
+      );
+    });
+  });
+
+  test('no leakage of window.* handler globals (Phase B Q1)', () => {
+    const LEGACY_GLOBALS = [
+      'window.openStackModal', 'window.closeStackModal', 'window.saveStack',
+      'window.openStack', 'window.deleteStack', 'window.toggleTopicChip',
+      'window.toggleCategoryChip', 'window._fc', 'window.fcSelected',
+    ];
+    LEGACY_GLOBALS.forEach((g) => {
+      assert.ok(
+        !src.includes(g),
+        `module must NOT leak ${g} — Phase B Q1 requires event delegation, not window globals`,
+      );
+    });
+  });
+
+  test('embedded-aware navigateToStudy() uses window.top when embedded', () => {
+    assert.match(src, /window\.top\.location\.href/);
+  });
+
+  test('banner visibility driven by opts.embedded (no URL sniffing)', () => {
+    assert.match(src, /\[data-banner="moved"\]/);
+    assert.match(src, /banner\.classList\.toggle\(\s*['"]hidden['"]\s*,\s*!!embedded\s*\)/);
+  });
+
+  test('delete-stack handler intercepts BEFORE stack-card parent (e.stopPropagation)', () => {
+    // delete-btn lives inside stack-card; both carry data-action. The
+    // module must call e.stopPropagation() on delete to avoid double-fire.
+    assert.match(
+      src,
+      /\[data-action="delete-stack"\][\s\S]{0,200}stopPropagation/,
+    );
+  });
+
+  test('unmount() lifecycle: removes 3 listeners + clears 2 timers + clears container + guard', () => {
+    assert.match(src, /container\.removeEventListener\(\s*['"]click['"]\s*,\s*handleClick\s*\)/);
+    assert.match(src, /container\.removeEventListener\(\s*['"]input['"]\s*,\s*handleInput\s*\)/);
+    assert.match(src, /container\.removeEventListener\(\s*['"]change['"]\s*,\s*handleChange\s*\)/);
+    assert.match(src, /clearTimeout\(\s*_state\.previewTimer\s*\)/);
+    assert.match(src, /clearTimeout\(\s*_toastTimer\s*\)/);
+    assert.match(src, /container\.innerHTML\s*=\s*['"]['"]|container\.innerHTML\s*=\s*``/);
+    assert.match(src, /guard\.clearHandle\s*\(\s*\)/);
+  });
+});
+
+
+describe('Sprint 7.4 — /pages/flashcards.html is a thin shell that mounts the module', () => {
+  let html;
+  before(() => {
+    html = readFileSync(
+      path.join(REPO_ROOT, 'frontend/pages/flashcards.html'),
+      'utf8',
+    );
+  });
+
+  test('canonical chrome preserved (Sprint 6.17.1 / 6.20)', () => {
+    assert.match(html, /<div\s+class="topnav-wrap"/);
+    assert.match(html, /<nav\s+class="topnav"/);
+    assert.match(html, /class="av-theme-toggle"/);
+    assert.match(html, /id="user-pill"/);
+  });
+
+  test('embedded-mode IIFE retired (Sprint 7.4 Phase B Q3 incremental closure)', () => {
+    assert.ok(
+      !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+      'flashcards.html must NOT set embedded-mode class anymore',
+    );
+  });
+
+  test('embedded-mode.css link preserved (exercises still depends on it until Sprint 7.5)', () => {
+    assert.match(html, /css\/embedded-mode\.css/);
+  });
+
+  test('<main id="mount"> mount container present', () => {
+    assert.match(html, /<main\s+id="mount"/);
+  });
+
+  test('inline module script imports + calls mount() with embedded:false', () => {
+    assert.match(
+      html,
+      /import\s*\{\s*mount\s*\}\s+from\s+['"]\/js\/vocab-modules\/flashcards\.js['"]/,
+    );
+    assert.match(html, /mount\s*\(\s*document\.getElementById\(\s*['"]mount['"]\s*\)\s*,\s*\{\s*embedded:\s*false/);
+  });
+
+  test('legacy <script src="../js/flashcards.js"> removed', () => {
+    assert.ok(
+      !/<script[^>]*src=["'][^"']*\/flashcards\.js["']/.test(html),
+      'legacy /js/flashcards.js script tag must be removed after Sprint 7.4',
+    );
+  });
+
+  test('no inline body markup — context bar, modal, toast live in the module', () => {
+    const body = html.match(/<body[\s\S]+?<\/body>/);
+    assert.ok(body, '<body> block not extractable');
+    assert.ok(
+      !/<header[^>]*\bfc-header\b/.test(body[0]),
+      'fc-header must not appear in shell — module template owns it',
+    );
+    assert.ok(
+      !/<div[^>]*\bid="fc-modal"/.test(body[0]),
+      'fc-modal must not appear in shell',
+    );
+    assert.ok(
+      !/<div[^>]*\bid="fc-toast"/.test(body[0]),
+      'fc-toast must not appear in shell',
+    );
+    assert.ok(
+      !/<div[^>]*\bid="fc-container"/.test(body[0]),
+      'fc-container must not appear in shell',
     );
   });
 });

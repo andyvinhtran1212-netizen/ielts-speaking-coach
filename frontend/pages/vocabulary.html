@@ -176,8 +176,12 @@
 
     <section class="tab-panel" data-panel="flashcards" id="panel-flashcards"
              role="tabpanel" aria-labelledby="tab-flashcards" hidden>
-      <iframe class="tab-frame" title="Flashcards"
-              loading="lazy" referrerpolicy="same-origin"></iframe>
+      <!-- Sprint 7.4 — flashcards tab migrated to ES-module mount,
+           matching the Sprint 7.3 my-vocab pattern. vocab-landing.js
+           dynamic-imports /js/vocab-modules/flashcards.js and calls
+           mount(container, { embedded: true }). Exercises tab below
+           still uses the iframe path until Sprint 7.5. -->
+      <div class="tab-mount" id="mount-flashcards"></div>
     </section>
 
     <section class="tab-panel" data-panel="exercises" id="panel-exercises"
