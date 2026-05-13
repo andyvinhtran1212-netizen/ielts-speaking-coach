@@ -165,8 +165,13 @@
 
     <section class="tab-panel" data-panel="my-vocab" id="panel-my-vocab"
              role="tabpanel" aria-labelledby="tab-my-vocab">
-      <iframe class="tab-frame" title="Từ vựng của tôi"
-              loading="lazy" referrerpolicy="same-origin"></iframe>
+      <!-- Sprint 7.3 — my-vocab tab uses ES-module mount instead of
+           iframe. vocab-landing.js dynamic-imports /js/vocab-modules/my-vocab.js
+           and calls mount(container, { embedded: true }) on first
+           activation. Container's data-mounted attribute is the
+           idempotency guard. Flashcards + exercises tabs below still
+           use the iframe path until Sprint 7.4 / 7.5. -->
+      <div class="tab-mount" id="mount-my-vocab"></div>
     </section>
 
     <section class="tab-panel" data-panel="flashcards" id="panel-flashcards"

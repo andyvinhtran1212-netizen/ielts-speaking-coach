@@ -223,8 +223,13 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
   // and embedded-mode.css hides direct-child chrome via the canonical
   // selector. Sprint 6.17.1 extended that selector to include the
   // canonical .topnav-wrap wrapper.
+  //
+  // Sprint 7.3 — my-vocabulary.html migrated to ES-module mount; its
+  // embedded-mode IIFE retired (per-module incremental closure, Phase B
+  // Q3). flashcards.html + exercises.html still use the iframe path
+  // until Sprint 7.4 / 7.5. The .topnav-wrap CSS selector stays in
+  // embedded-mode.css until Sprint 7.6 final retirement.
   const EMBEDDED_PAGES = [
-    'frontend/pages/my-vocabulary.html',
     'frontend/pages/flashcards.html',
     'frontend/pages/exercises.html',
   ];
@@ -247,6 +252,20 @@ describe('Sprint 6.17.1 — embedded-mode contract preserved on vocab trio', () 
         `${rel} must still set the embedded-mode class on <html> when ?embedded=1`,
       );
     });
+  });
+
+  // Sprint 7.3 — my-vocabulary.html must NOT carry the embedded-mode IIFE
+  // anymore. The standalone shell is no longer dual-use; embedded path
+  // goes through /js/vocab-modules/my-vocab.js mounted into the parent.
+  test('my-vocabulary.html no longer ships embedded-mode IIFE (Sprint 7.3 module migration)', () => {
+    const html = readFileSync(
+      path.join(REPO_ROOT, 'frontend/pages/my-vocabulary.html'),
+      'utf8',
+    );
+    assert.ok(
+      !/classList\.add\(\s*['"]embedded-mode['"]\s*\)/.test(html),
+      'my-vocabulary.html must NOT set the embedded-mode class after Sprint 7.3 module migration',
+    );
   });
 });
 

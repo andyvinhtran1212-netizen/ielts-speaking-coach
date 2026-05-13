@@ -111,10 +111,14 @@ describe('Sprint 6.18 foundation — components.css canonical .shell + .topnav u
 // ── Cat A — Tailwind wrapper top compensation (5 pages) ──────────
 
 describe('Sprint 6.18 Cat A — wrapper top compensation present', () => {
+  // Sprint 7.3 — my-vocabulary.html dropped from this roster. Its shell
+  // <main id="mount"> is now the module mount container; the
+  // pt-20 pb-6 wrapper lives inside the my-vocab.js template literal.
+  // Sentinel for the in-module wrapper lives below in the Sprint 7.3
+  // section of this file.
   const CAT_A = [
     { rel: 'frontend/pages/profile.html',           pattern: /<main[^>]*\bpt-16\b[^>]*\bpb-10\b/ },
     { rel: 'frontend/pages/writing-dashboard.html', pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-6\b/ },
-    { rel: 'frontend/pages/my-vocabulary.html',     pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-6\b/ },
     { rel: 'frontend/pages/flashcards.html',        pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-8\b/ },
     { rel: 'frontend/pages/exercises.html',         pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-8\b/ },
   ];
@@ -257,5 +261,27 @@ describe('Sprint 6.18 — 18 canonical-chrome-page roster intact', () => {
         `${rel} must ship canonical <nav class="topnav"> — Sprint 6.18 spacing contract presumes canonical chrome`,
       );
     });
+  });
+});
+
+
+// ── Sprint 7.3 — my-vocab module owns its own page-body spacing ───
+
+describe('Sprint 7.3 — my-vocab module template preserves Sprint 6.18 Cat A wrapper padding', () => {
+  // The my-vocab.js module template ships the same pt-20 pb-6 wrapper
+  // that lived in the standalone HTML pre-7.3. The Cat A sentinel
+  // above dropped my-vocabulary.html from its roster because the
+  // shell only carries <main id="mount">; this pin protects the
+  // in-module wrapper instead.
+  test('my-vocab.js template ships <main class="...pt-20 pb-6"> wrapper', () => {
+    const src = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/vocab-modules/my-vocab.js'),
+      'utf8',
+    );
+    assert.match(
+      src,
+      /<main[^>]*\bpt-20\b[^>]*\bpb-6\b/,
+      'my-vocab module template must preserve the Sprint 6.18 pt-20 pb-6 wrapper',
+    );
   });
 });
