@@ -85,14 +85,12 @@ describe('PHASE_CLOSURE_LEDGER.md / ledger structure', () => {
     );
   });
 
-  test('15 cumulative audit hotfixes documented (post Sprint 7.7-hotfix)', () => {
-    // Sprint 6.20 added Gate 10 formalization (13 → 14). Sprint 7.7-hotfix
-    // added the vocab-modules-unstyled-when-embedded RED regression
-    // closure (14 → 15). The test pin was stale at "13" through Sprint
-    // 6.20 → 7.6 because the cumulative-metrics line in the ledger was
-    // not bumped atomically; Sprint 7.7-hotfix re-aligned both.
-    assert.match(ledger, /15 audit hotfixes/i,
-      'Ledger should mention 15 cumulative audit hotfixes after Sprint 7.7-hotfix');
+  test('16 cumulative audit hotfixes documented (post Sprint 7.8-hotfix)', () => {
+    // Sprint 6.20 → 14 (Gate 10 formalization). Sprint 7.7-hotfix → 15
+    // (vocab modules unstyled-when-embedded). Sprint 7.8-hotfix → 16
+    // (chrome consistency RED: logo size + user pill populate + initials).
+    assert.match(ledger, /16 audit hotfixes/i,
+      'Ledger should mention 16 cumulative audit hotfixes after Sprint 7.8-hotfix');
   });
 });
 

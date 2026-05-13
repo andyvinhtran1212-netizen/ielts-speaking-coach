@@ -57,6 +57,16 @@ body.av-page .text-white { color: var(--av-text-primary); }
 body.av-page .font-sans { font-family: 'DM Sans', ui-sans-serif, system-ui; }
 body.av-page .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; }
 
+/* Sprint 7.8-hotfix — chrome stays on canonical Plus Jakarta Sans even
+   on editorial pages where the body switches to DM Sans (§ 14.2
+   sub-system). Without this, `.brand` inherited DM Sans from `body.av-page`
+   and rendered visually smaller than the canonical chrome on other pages. */
+body.av-page .topnav-wrap,
+body.av-page .topnav,
+body.av-page .brand,
+body.av-page .nav-links,
+body.av-page .topnav-right { font-family: var(--av-font-sans); }
+
 
 /* ── Sprint 6.15.4-hotfix — Tailwind white-utility opacity-variant coverage ─
  *
