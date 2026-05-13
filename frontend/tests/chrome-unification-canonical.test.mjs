@@ -429,3 +429,218 @@ describe('Sprint 6.20 Gate 10 — .topnav-wrap is a direct <body> child on every
     });
   });
 });
+
+
+// ── Sprint 7.11 — <aver-chrome> component source pins ────────────
+
+
+describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
+  let component;
+  before(() => {
+    component = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/components/aver-chrome.js'),
+      'utf8',
+    );
+  });
+
+  test('component file exists and is non-empty', () => {
+    assert.ok(component.length > 1000, 'aver-chrome.js should be a substantive module');
+  });
+
+  test('exports AverChrome class extending HTMLElement', () => {
+    assert.match(component, /export\s+class\s+AverChrome\s+extends\s+HTMLElement/);
+  });
+
+  test('observedAttributes returns ["active"] (Phase B Q2)', () => {
+    assert.match(component, /static\s+get\s+observedAttributes\s*\(\s*\)\s*\{\s*return\s*\[\s*['"]active['"]\s*\]\s*;?\s*\}/);
+  });
+
+  test('registers custom element via customElements.define("aver-chrome", AverChrome)', () => {
+    assert.match(component, /customElements\.define\(\s*['"]aver-chrome['"]\s*,\s*AverChrome\s*\)/);
+  });
+
+  test('imports bindToggleButton from /js/theme-toggle.js (Phase B reuse)', () => {
+    assert.match(component, /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"]\/js\/theme-toggle\.js['"]/);
+  });
+
+  test('imports canonicalInitials from /js/user-pill.js (Phase B reuse + single source of truth)', () => {
+    assert.match(component, /import\s*\{\s*canonicalInitials\s*\}\s*from\s*['"]\/js\/user-pill\.js['"]/);
+  });
+
+  test('attaches Shadow DOM with mode:"open" (Phase B Q1)', () => {
+    assert.match(component, /attachShadow\(\s*\{\s*mode:\s*['"]open['"]\s*\}\s*\)/);
+  });
+
+  test('setUser method defined on prototype (Phase B Q4)', () => {
+    assert.match(component, /\bsetUser\s*\(\s*\{[^}]*name[^}]*\}\s*=\s*\{\}\s*\)\s*\{/);
+  });
+
+  test('setUser marks _userOverride = true so auto-fetch skips', () => {
+    assert.match(component, /this\._userOverride\s*=\s*true/);
+  });
+
+  test('connectedCallback wires shadow → render → active → toggle → dropdown → logout → populate', () => {
+    assert.match(component, /connectedCallback\s*\(\s*\)\s*\{[\s\S]*attachShadow[\s\S]*_applyActive[\s\S]*_bindToggle[\s\S]*_bindDropdown[\s\S]*_bindLogout[\s\S]*_schedulePopulate/);
+  });
+
+  test('attributeChangedCallback observes only "active"', () => {
+    assert.match(component, /attributeChangedCallback\s*\(\s*name\s*,\s*prev\s*,\s*next\s*\)\s*\{[\s\S]*?if\s*\(\s*name\s*!==\s*['"]active['"]\s*\)\s*return/);
+  });
+
+  test('disconnectedCallback tears down toggle + abort controller + doc listeners + poll timer', () => {
+    const m = component.match(/disconnectedCallback\s*\(\s*\)\s*\{[\s\S]*?\n  \}/);
+    assert.ok(m, 'disconnectedCallback must exist');
+    const body = m[0];
+    assert.match(body, /_toggleTeardown/);
+    assert.match(body, /_abortController/);
+    assert.match(body, /_docClickHandler/);
+    assert.match(body, /_docKeydownHandler/);
+    assert.match(body, /_pollTimer/);
+  });
+
+  test('logout dispatches av-chrome-signed-out CustomEvent (composed) before redirect', () => {
+    assert.match(component, /new CustomEvent\(\s*['"]av-chrome-signed-out['"]\s*,\s*\{[\s\S]*?composed:\s*true/);
+  });
+
+  test('logout calls window.getSupabase().auth.signOut() in try/catch', () => {
+    assert.match(component, /window\.getSupabase\s*===\s*['"]function['"][\s\S]*?signOut/);
+  });
+
+  test('Supabase polling pattern (Phase B Q5) — recursive setTimeout up to POLL_MAX_TRIES', () => {
+    assert.match(component, /POLL_INTERVAL_MS\s*=\s*\d+/);
+    assert.match(component, /POLL_MAX_TRIES\s*=\s*\d+/);
+    assert.match(component, /setTimeout\(\s*tick\s*,\s*POLL_INTERVAL_MS\s*\)/);
+  });
+
+  test('AbortController used for dropdown listener cleanup', () => {
+    assert.match(component, /new AbortController\(\s*\)/);
+  });
+
+  test('VALID_ACTIVE enum lists exactly the 5 skills (Phase B Q2)', () => {
+    const m = component.match(/VALID_ACTIVE\s*=\s*\[([^\]]+)\]/);
+    assert.ok(m);
+    const skills = m[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean);
+    assert.deepEqual(skills.sort(), ['grammar', 'home', 'speaking', 'vocabulary', 'writing']);
+  });
+
+  test('shadow tree contains canonical brand wordmark with span.dot', () => {
+    assert.match(component, /Aver<span class="dot">\.<\/span>Learning/);
+  });
+
+  test('shadow tree contains all 5 skill links with data-tab attrs', () => {
+    for (const tab of ['home', 'writing', 'speaking', 'grammar', 'vocabulary']) {
+      const re = new RegExp(`data-tab="${tab}"`);
+      assert.match(component, re, `nav-links must include data-tab="${tab}"`);
+    }
+  });
+
+  test('shadow tree contains 2 locked spans (Reading + Listening)', () => {
+    const matches = component.match(/<span class="locked"/g) || [];
+    assert.equal(matches.length, 2);
+    assert.match(component, /<span class="locked" aria-disabled="true">Reading<\/span>/);
+    assert.match(component, /<span class="locked" aria-disabled="true">Listening<\/span>/);
+  });
+
+  test('shadow tree contains theme toggle button with both SVG icons', () => {
+    assert.match(component, /<button class="av-theme-toggle" id="theme-toggle"/);
+    assert.match(component, /class="icon-sun"/);
+    assert.match(component, /class="icon-moon"/);
+  });
+
+  test('shadow tree contains user pill + dropdown + 2 menu items', () => {
+    assert.match(component, /<button class="user-pill" id="user-pill"/);
+    assert.match(component, /<span class="avatar" id="user-avatar">/);
+    assert.match(component, /<span id="user-pill-name">/);
+    assert.match(component, /class="user-menu-dropdown" role="menu" hidden/);
+    assert.match(component, /href="\/pages\/profile\.html"[^>]*role="menuitem">Hồ sơ/);
+    assert.match(component, /id="user-menu-logout"[^>]*role="menuitem">Đăng xuất/);
+  });
+
+  test('ARIA preserved: aria-label="Primary" on nav, aria-haspopup on pill, role="menu" on dropdown', () => {
+    assert.match(component, /<nav class="topnav" aria-label="Primary">/);
+    assert.match(component, /aria-haspopup="true"/);
+    assert.match(component, /role="menu"/);
+  });
+
+  test('inline style block uses --av-* tokens (CSS custom properties cross shadow boundary)', () => {
+    assert.match(component, /var\(--av-fs-lg\)/);
+    assert.match(component, /var\(--av-primary\)/);
+    assert.match(component, /var\(--av-text-primary\)/);
+    assert.match(component, /var\(--av-border-subtle\)/);
+    assert.match(component, /var\(--av-surface-card\)/);
+  });
+
+  test('theme-aware icon swap uses :host-context([data-theme="dark"])', () => {
+    assert.match(component, /:host-context\(\[data-theme="dark"\]\)\s+\.av-theme-toggle\s+\.icon-sun/);
+    assert.match(component, /:host-context\(\[data-theme="dark"\]\)\s+\.av-theme-toggle\s+\.icon-moon/);
+  });
+
+  test(':host { display: block } so the component is a block-level container', () => {
+    assert.match(component, /:host\s*\{[^}]*display:\s*block/);
+  });
+
+  test('no window.* global handler leaks (event-delegation hygiene per Sprint 7.3 pattern)', () => {
+    // Allow window.getSupabase / window.location / window.matchMedia / window.location.href reads;
+    // but no `window.foo = ...` assignments that leak handlers globally.
+    const leakRe = /window\.[A-Za-z_]\w*\s*=\s*function|window\.[A-Za-z_]\w*\s*=\s*\(/g;
+    const matches = component.match(leakRe) || [];
+    assert.equal(matches.length, 0, `no window.* handler assignment leaks: found ${matches.join(', ')}`);
+  });
+
+  test('idempotent mount — connectedCallback short-circuits on second mount', () => {
+    assert.match(component, /if\s*\(\s*this\._mounted\s*\)\s*return/);
+    assert.match(component, /this\._mounted\s*=\s*true/);
+  });
+
+  test('href targets match canonical chrome contract (5 skill landings + profile)', () => {
+    assert.match(component, /href="\/pages\/home\.html"\s+data-tab="home"/);
+    assert.match(component, /href="\/pages\/writing-dashboard\.html"\s+data-tab="writing"/);
+    assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
+    assert.match(component, /href="\/grammar\.html"\s+data-tab="grammar"/);
+    assert.match(component, /href="\/pages\/vocabulary\.html"\s+data-tab="vocabulary"/);
+  });
+});
+
+
+// ── Sprint 7.11 — no page migrations yet (Sprint 7.12+ scope) ────
+
+
+describe('Sprint 7.11 — additive build only, NO page migrations', () => {
+  test('no canonical chrome page references <aver-chrome> yet (Sprint 7.12+ migrates)', () => {
+    for (const rel of CANONICAL_CHROME_PAGES) {
+      const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      assert.equal(
+        html.includes('<aver-chrome'),
+        false,
+        `${rel}: Sprint 7.11 is additive only; page migration starts Sprint 7.12. Found <aver-chrome> reference.`,
+      );
+    }
+  });
+
+  test('components.css canonical chrome rules still present (Sprint 7.14 will retire)', () => {
+    const components = readFileSync(
+      path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'),
+      'utf8',
+    );
+    assert.match(components, /\.topnav-wrap\s*\{/);
+    assert.match(components, /\.topnav\s*\{/);
+    assert.match(components, /\.brand\s*\{/);
+    assert.match(components, /\.user-pill\s*\{/);
+  });
+
+  test('user-pill.js + theme-toggle.js unchanged for Sprint 7.11 (refactor in 7.12+)', () => {
+    const userPill = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/user-pill.js'),
+      'utf8',
+    );
+    const themeToggle = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/theme-toggle.js'),
+      'utf8',
+    );
+    // Both modules keep their DOMContentLoaded auto-bind branch through Sprint 7.11.
+    // Sprint 7.12 will refactor them to remove top-level auto-bind so the component
+    // owns init. This pin guards the deferral.
+    assert.match(userPill, /DOMContentLoaded/);
+    assert.match(themeToggle, /DOMContentLoaded/);
+  });
+});

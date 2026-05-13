@@ -1,0 +1,125 @@
+<!doctype html>
+<!--
+  Sprint 7.11 — <aver-chrome> smoke fixture.
+
+  Mount this page in a browser to verify the Web Component renders the
+  canonical chrome without any of the 18 production pages being touched.
+
+  Open from a local static server rooted at frontend/:
+
+      cd frontend && python3 -m http.server 8080
+      # → http://localhost:8080/tests/fixtures/aver-chrome-smoke.html
+
+  Verify:
+    - Brand wordmark renders with primary-colored dot
+    - 5 skill links + 2 locked badges visible
+    - active="speaking" tab is highlighted
+    - Theme toggle flips light ↔ dark
+    - User pill dropdown opens / closes / Escape closes
+    - setUser({ name: "Tester" }) overrides the pill name + initials
+
+  Smoke does NOT verify Supabase populate (no Supabase init here);
+  the pill stays on placeholder unless setUser() runs.
+-->
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <title>aver-chrome smoke fixture</title>
+
+  <!-- Anti-flash IIFE: set [data-theme] BEFORE any stylesheet loads. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme = (stored === 'light' || stored === 'dark')
+          ? stored
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/base.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <style>
+    body { padding: 0; margin: 0; font-family: var(--av-font-sans); background: var(--av-surface-page); color: var(--av-text-primary); }
+    .smoke-panel { max-width: 1180px; margin: 40px auto; padding: 0 var(--av-space-8); }
+    .smoke-panel h1 { font-size: var(--av-fs-2xl); margin-bottom: var(--av-space-4); }
+    .smoke-panel button { font-family: inherit; }
+    .row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-4); }
+    .row button {
+      padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      cursor: pointer;
+    }
+    .row button:hover { background: var(--av-primary-soft); border-color: var(--av-primary-border); }
+    pre { background: var(--av-surface-sunken); padding: var(--av-space-3); border-radius: var(--av-radius-sm); overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <aver-chrome active="speaking" id="chrome"></aver-chrome>
+
+  <main class="smoke-panel">
+    <h1>Sprint 7.11 smoke fixture</h1>
+    <p>Switch the <code>active</code> attribute to verify reactive highlighting:</p>
+    <div class="row">
+      <button data-active="home">home</button>
+      <button data-active="writing">writing</button>
+      <button data-active="speaking">speaking</button>
+      <button data-active="grammar">grammar</button>
+      <button data-active="vocabulary">vocabulary</button>
+      <button data-active="">(none)</button>
+    </div>
+
+    <p>Override pill via <code>setUser()</code>:</p>
+    <div class="row">
+      <button data-user="Vinh Tran">setUser("Vinh Tran")</button>
+      <button data-user="Tester">setUser("Tester")</button>
+      <button data-user="A very long display name overflows">setUser(long name)</button>
+    </div>
+
+    <p>Component event log:</p>
+    <pre id="log">(nothing yet)</pre>
+  </main>
+
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <script>
+    var chrome = document.getElementById('chrome');
+    var log = document.getElementById('log');
+
+    function append(line) {
+      if (log.textContent === '(nothing yet)') log.textContent = '';
+      log.textContent += line + '\n';
+    }
+
+    document.querySelectorAll('[data-active]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var val = btn.dataset.active;
+        if (val) chrome.setAttribute('active', val);
+        else chrome.removeAttribute('active');
+        append('active = ' + (val || '(unset)'));
+      });
+    });
+
+    document.querySelectorAll('[data-user]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        chrome.setUser({ name: btn.dataset.user });
+        append('setUser({ name: "' + btn.dataset.user + '" })');
+      });
+    });
+
+    document.addEventListener('av-chrome-signed-out', function () {
+      append('event: av-chrome-signed-out (redirect suppressed in smoke)');
+    });
+  </script>
+</body>
+</html>
