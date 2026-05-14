@@ -126,24 +126,21 @@ describe('Sprint 6.16 — no "Dashboard" label in back-buttons / nav links acros
 
 
 describe('Canonical "Trang chủ" label present on home-bound pages', () => {
-  // Sample 4 representative Category A pages where "Trang chủ" /
-  // "Quay lại trang chủ" should appear after the Sprint 6.16 edits.
+  // Sprint 7.12 + 7.13: 18 chrome pages migrated to <aver-chrome>; the
+  // "Trang chủ" nav link is pinned once inside the component source
+  // (chrome-unification-canonical.test.mjs). admin-writing.html keeps
+  // inline chrome (Cat 5 out-of-scope), so the page-level label
+  // sentinel remains for the admin family.
   const HOME_BOUND_SAMPLES = [
-    'frontend/pages/grammar-article.html',
-    'frontend/pages/profile.html',
     'frontend/pages/admin-writing.html',
-    'frontend/grammar.html',
   ];
 
   HOME_BOUND_SAMPLES.forEach((rel) => {
     test(`${rel} contains canonical "Trang chủ" label`, () => {
-      // Case-insensitive — Andy's canonical is "Trang chủ" (standalone)
-      // and "Quay lại trang chủ" (mid-phrase, lowercase t per Vietnamese
-      // convention). Both forms accepted.
       assert.match(
         fileBodies[rel],
         /trang chủ/i,
-        `${rel} should carry canonical "Trang chủ" / "trang chủ" label after Sprint 6.16`,
+        `${rel} should carry canonical "Trang chủ" / "trang chủ" label`,
       );
     });
   });
@@ -173,30 +170,17 @@ describe('Canonical "Quay lại" label preserved on Speaking-flow + Writing-flow
 
 
 describe('Destination URLs preserved byte-identical', () => {
-  // Sprint 6.16 was label-only — no href changes. These pins guard
-  // against accidental destination shifts during the edit pass.
+  // Sprint 7.12 + 7.13: 18 chrome pages migrated to <aver-chrome>; the
+  // canonical chrome's /pages/home.html link lives in the component
+  // shadow root. Pages below carry page-content back-links OUTSIDE the
+  // chrome (context bars, secondary navs), which we still pin per-page.
   const HREF_PINS = [
-    // Sprint 6.17.2 grammar canonical migration: all grammar pages now
-    // use absolute /pages/home.html via canonical full-nav skill tabs.
-    { page: 'frontend/pages/grammar-article.html',          href: '/pages/home.html' },
-    { page: 'frontend/pages/grammar-compare.html',          href: '/pages/home.html' },
-    // Sprint 6.17 chrome unification: profile.html now uses canonical
-    // full-nav (no standalone back-link); home href moved to /pages/home.html.
-    { page: 'frontend/pages/profile.html',                  href: '/pages/home.html' },
-    // Sprint 6.17.1 chrome unification: exercises/flashcards back-links
-    // removed (canonical full nav provides skill navigation). practice,
-    // result, full-test-result still ship a Quay-lại link in their page
-    // context bar but using the absolute /pages/speaking.html form.
-    { page: 'frontend/pages/admin-writing.html',            href: '/pages/home.html' },
     { page: 'frontend/pages/practice.html',                 href: '/pages/speaking.html' },
     { page: 'frontend/pages/result.html',                   href: '/pages/speaking.html' },
     { page: 'frontend/pages/full-test-result.html',         href: '/pages/speaking.html' },
     { page: 'frontend/pages/writing-result.html',           href: '/writing/dashboard' },
+    { page: 'frontend/pages/admin-writing.html',            href: '/pages/home.html' },
     { page: 'frontend/admin.html',                          href: 'pages/home.html' },
-    // Sprint 7.12: grammar.html migrated to <aver-chrome> — the nav-link
-    // hrefs now live inside the component's shadow root, not the page HTML.
-    // The brand-link + 5 skill hrefs are pinned once in the component
-    // contract (chrome-unification-canonical.test.mjs) instead of per-page.
   ];
 
   HREF_PINS.forEach(({ page, href }) => {

@@ -183,8 +183,13 @@ describe('full-test-result.html / body class + chrome', () => {
     assert.match(html, /data-lucide=["']chevron-left["']/);
   });
 
-  test('header has theme toggle button', () => {
-    assert.match(html, /class=["'][^"']*\bav-theme-toggle\b[^"']*["']/);
+  test('Sprint 7.13 — chrome migrated to <aver-chrome active="speaking">', () => {
+    assert.match(html, /<aver-chrome\s+active="speaking"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
+    assert.equal(/class=["'][^"']*\bav-theme-toggle\b/.test(html), false);
   });
 });
 

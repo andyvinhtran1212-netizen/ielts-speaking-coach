@@ -206,16 +206,16 @@ describe('Theme toggle button — must sit at meaningful depth (not page root)',
 
 
 describe('Theme toggle button — coverage roster', () => {
-  test('discovers at least 24 redesigned pages with inline theme toggle (Sprint 7.12: 5 migrated to <aver-chrome>)', () => {
-    // Pre-Sprint-7.12: 29 redesigned pages carried inline .av-theme-toggle.
-    // Post-Sprint-7.12: 5 skill landings (home / writing-dashboard /
-    // speaking / grammar / vocabulary) moved chrome into <aver-chrome>
-    // shadow root, so 24 pages remain on inline chrome. Sprint 7.13
-    // batch 2 migrates 13 more sub-pages; lower this bound then.
+  test('discovers at least 11 inline-chrome pages (Sprint 7.13 milestone — 18 migrated to <aver-chrome>)', () => {
+    // Sprint 7.13 milestone: 5 (Sprint 7.12) + 13 (Sprint 7.13) = 18
+    // chrome pages migrated; their theme toggles live in shadow root.
+    // 11 pages remain on inline chrome — 2 marketing (index/pricing) +
+    // 9 admin (Cat 5 out-of-scope for chrome unification). The structural
+    // layout-context sentinel still audits those 11.
     assert.ok(
-      REDESIGNED_PAGES.length >= 24,
-      `Expected ≥ 24 redesigned pages carrying inline theme toggle, found ${REDESIGNED_PAGES.length}. ` +
-      `If more pages migrated to <aver-chrome>, lower this bound.`,
+      REDESIGNED_PAGES.length >= 11,
+      `Expected ≥ 11 inline-chrome pages remaining, found ${REDESIGNED_PAGES.length}. ` +
+      `If marketing/admin pages migrate to <aver-chrome>, lower this bound.`,
     );
   });
 });
@@ -233,52 +233,21 @@ describe('Grammar Wiki cluster — Sprint 6.15.7-hotfix nav wrapper', () => {
   ];
 
   GRAMMAR_PAGES.forEach((rel) => {
-    test(`${rel} — toggle uses absolute /js/theme-toggle.js import (or <aver-chrome>)`, () => {
+    test(`${rel} — chrome migrated to <aver-chrome active="grammar"> (Sprint 7.13)`, () => {
       const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-      // Sprint 7.12: grammar.html (landing) migrated to <aver-chrome> —
-      // the component owns bindToggleButton internally. The 4 sub-pages
-      // still import it directly until Sprint 7.13.
-      if (rel === 'frontend/grammar.html') {
-        assert.match(
-          html,
-          /<aver-chrome\s+active="grammar"\s*>/,
-          `${rel}: Sprint 7.12 migration — theme toggle binding moved into the component`,
-        );
-        return;
-      }
+      // Sprint 7.12 + 7.13: all 5 grammar pages migrated to <aver-chrome>.
+      // The component owns bindToggleButton internally; the layout-context
+      // structural requirement (Sprint 6.15.7-hotfix Item 1: toggle inside
+      // a flex container) is enforced inside the component's shadow tree.
       assert.match(
         html,
-        /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,
-        `${rel}: must import bindToggleButton from absolute path /js/theme-toggle.js (Sprint 6.15.7-hotfix Item 3)`,
+        /<aver-chrome\s+active="grammar"\s*>/,
+        `${rel}: must consume <aver-chrome active="grammar"> (Sprint 7.12/7.13 migration)`,
       );
-      assert.ok(
-        !/import[^;]*from\s+['"]\.\.\/js\/theme-toggle\.js/.test(html),
-        `${rel}: stale relative ../js/theme-toggle.js import must be removed`,
-      );
-    });
-  });
-
-  // Sprint 6.17.2: the 4 grammar sub-pages now ship the canonical full
-  // nav (Cat 3 exclusion overridden). The Sprint 6.15.7-hotfix wrapper
-  // requirement was specific to the breadcrumb-style chrome; under the
-  // canonical chrome the toggle lives inside .topnav-right which is
-  // itself a flex container — already pinned by the structural sentinel
-  // earlier in this file (`toggle's immediate parent has flex layout`).
-  const SUB_PAGES = [
-    'frontend/pages/grammar-article.html',
-    'frontend/pages/grammar-roadmap.html',
-    'frontend/pages/grammar-search.html',
-    'frontend/pages/grammar-compare.html',
-  ];
-
-  SUB_PAGES.forEach((rel) => {
-    test(`${rel} — theme toggle sits inside canonical .topnav-right flex container`, () => {
-      const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-      // Match: <div class="topnav-right"> ... <button class="av-theme-toggle"> ... </div>
-      const wrapperPattern = /<div[^>]*class="[^"]*\btopnav-right\b[^"]*"[^>]*>[\s\S]{0,500}<button[^>]*\bav-theme-toggle\b[\s\S]{0,1500}<\/button>/;
-      assert.match(
-        html, wrapperPattern,
-        `${rel}: theme-toggle button must sit inside <div class="topnav-right"> (canonical chrome)`,
+      assert.equal(
+        /import\s+\{\s*bindToggleButton\s*\}\s+from/.test(html),
+        false,
+        `${rel}: per-page bindToggleButton import retired — component owns it now`,
       );
     });
   });

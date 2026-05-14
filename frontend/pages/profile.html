@@ -63,48 +63,14 @@
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
   </script>
+
+  <!-- Canonical chrome Web Component (Sprint 7.13). -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
 </head>
 <body class="av-page font-sans min-h-screen">
 
-  <!-- ─── Canonical chrome (Sprint 6.17 chrome unification) ──────── -->
-  <div class="topnav-wrap">
-    <nav class="topnav" aria-label="Primary">
-      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
-      <div class="nav-links">
-        <a href="/pages/home.html" class="active">Trang chủ</a>
-        <a href="/pages/writing-dashboard.html">Writing</a>
-        <a href="/pages/speaking.html">Speaking</a>
-        <a href="/grammar.html">Grammar</a>
-        <a href="/pages/vocabulary.html">Vocabulary</a>
-        <span class="locked" aria-disabled="true">Reading</span>
-        <span class="locked" aria-disabled="true">Listening</span>
-      </div>
-      <div class="topnav-right">
-        <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
-          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-        <div class="user-menu">
-          <button class="user-pill" id="user-pill" type="button"
-                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
-            <span class="avatar" id="user-avatar"><span id="header-initials">·</span></span>
-            <span id="user-pill-name">…</span>
-          </button>
-          <div class="user-menu-dropdown" role="menu" hidden>
-            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
-            <button type="button" class="user-menu-item user-menu-item--danger"
-                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-  </div>
-
+  <!-- Canonical chrome (Sprint 7.13 — <aver-chrome>; home active). -->
+  <aver-chrome active="home"></aver-chrome>
   <!-- ─── MAIN ─────────────────────────────────────────────────── -->
   <main class="max-w-2xl mx-auto px-4 pt-16 pb-10 space-y-6">
 
@@ -249,12 +215,6 @@
       window.addEventListener('load', hydrateIcons);
     })();
   </script>
-  <script type="module">
-    import { bindToggleButton } from '/js/theme-toggle.js';
-    bindToggleButton(document.getElementById('theme-toggle'));
-  </script>
-  <script type="module" src="/js/user-pill.js"></script>
-
   <script>
   (function () {
     // ── Helpers ──────────────────────────────────────────────────
@@ -318,8 +278,12 @@
       var displayName = p.display_name || p.email.split('@')[0];
       var initials = displayName.split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
 
-      // Header avatar
-      document.getElementById('header-initials').textContent = initials;
+      // Sprint 7.13: chrome pill (header-initials) moved into <aver-chrome>
+      // shadow root. Delegate via the typed setUser() API.
+      var chrome = document.querySelector('aver-chrome');
+      if (chrome && typeof chrome.setUser === 'function') {
+        chrome.setUser({ name: displayName, initials: initials });
+      }
 
       // Identity card
       document.getElementById('profile-initials').textContent = initials;
@@ -384,7 +348,11 @@
           document.getElementById('profile-display-name').textContent = dn;
           var initials = dn.split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
           document.getElementById('profile-initials').textContent = initials;
-          document.getElementById('header-initials').textContent = initials;
+          // Sprint 7.13: chrome avatar in shadow root — delegate via setUser().
+          var chrome = document.querySelector('aver-chrome');
+          if (chrome && typeof chrome.setUser === 'function') {
+            chrome.setUser({ name: dn, initials: initials });
+          }
         }
         if (payload.weekly_goal) {
           document.getElementById('stat-weekly').textContent = payload.weekly_goal + '/tuần';

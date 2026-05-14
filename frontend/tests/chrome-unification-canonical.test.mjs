@@ -30,36 +30,36 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 // ── Phase C1 roster ───────────────────────────────────────────────
 
 
-// Sprint 7.12 split: pages migrated to <aver-chrome> Web Component ship
-// the canonical chrome from a Shadow DOM and DO NOT carry inline
-// .topnav-wrap markup. Pages still on inline chrome (Sprint 7.13 scope)
-// keep all original pins.
+// Sprint 7.13 milestone: ALL 18 canonical chrome pages migrated to
+// <aver-chrome>. CANONICAL_CHROME_PAGES (inline-chrome roster) is now
+// empty — Sprint 7.14 retires `components.css` chrome rules + per-page
+// CSS duplicates next.
 
 const MIGRATED_PAGES = [
-  // Sprint 7.12 batch 1 — skill landings
+  // Sprint 7.12 batch 1 — skill landings (5)
   { path: 'frontend/pages/home.html',              active: 'home' },
   { path: 'frontend/pages/writing-dashboard.html', active: 'writing' },
   { path: 'frontend/pages/speaking.html',          active: 'speaking' },
   { path: 'frontend/grammar.html',                 active: 'grammar' },
   { path: 'frontend/pages/vocabulary.html',        active: 'vocabulary' },
+  // Sprint 7.13 batch 2 — sub-pages (13)
+  { path: 'frontend/pages/practice.html',          active: 'speaking' },
+  { path: 'frontend/pages/result.html',            active: 'speaking' },
+  { path: 'frontend/pages/full-test-result.html',  active: 'speaking' },
+  { path: 'frontend/pages/writing-result.html',    active: 'writing' },
+  { path: 'frontend/pages/my-vocabulary.html',     active: 'vocabulary' },
+  { path: 'frontend/pages/flashcards.html',        active: 'vocabulary' },
+  { path: 'frontend/pages/exercises.html',         active: 'vocabulary' },
+  { path: 'frontend/pages/profile.html',           active: 'home' },
+  { path: 'frontend/onboarding.html',              active: 'home' },
+  { path: 'frontend/pages/grammar-roadmap.html',   active: 'grammar' },
+  { path: 'frontend/pages/grammar-article.html',   active: 'grammar' },
+  { path: 'frontend/pages/grammar-search.html',    active: 'grammar' },
+  { path: 'frontend/pages/grammar-compare.html',   active: 'grammar' },
 ];
 
-// 13 pages still on inline chrome markup (Sprint 7.13 batch 2 migrates).
-const CANONICAL_CHROME_PAGES = [
-  'frontend/pages/profile.html',
-  'frontend/pages/practice.html',
-  'frontend/pages/result.html',
-  'frontend/pages/full-test-result.html',
-  'frontend/pages/writing-result.html',
-  'frontend/onboarding.html',
-  'frontend/pages/my-vocabulary.html',
-  'frontend/pages/flashcards.html',
-  'frontend/pages/exercises.html',
-  'frontend/pages/grammar-roadmap.html',
-  'frontend/pages/grammar-search.html',
-  'frontend/pages/grammar-compare.html',
-  'frontend/pages/grammar-article.html',
-];
+// Sprint 7.13: empty roster — all 18 pages migrated.
+const CANONICAL_CHROME_PAGES = [];
 
 
 // ── Canonical foundation: components.css + user-pill.js ───────────

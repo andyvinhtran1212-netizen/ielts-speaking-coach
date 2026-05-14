@@ -356,11 +356,15 @@ describe('Sprint 7.3 — /pages/my-vocabulary.html is a thin shell that mounts t
     );
   });
 
-  test('canonical chrome preserved (Sprint 6.17.1 / 6.20)', () => {
-    assert.match(html, /<div\s+class="topnav-wrap"/);
-    assert.match(html, /<nav\s+class="topnav"/);
-    assert.match(html, /class="av-theme-toggle"/);
-    assert.match(html, /id="user-pill"/);
+  test('chrome migrated to <aver-chrome> (Sprint 7.13)', () => {
+    // Sprint 6.17.1 + 6.20 canonical chrome → Sprint 7.13 moved into
+    // <aver-chrome> Web Component. The shell carries the custom element
+    // + component module script; chrome markup lives in shadow root.
+    assert.match(html, /<aver-chrome\s+active="vocabulary"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
   });
 
   test('canonical eyebrow tier label removed from shell HTML (now lives in module template)', () => {
@@ -566,11 +570,15 @@ describe('Sprint 7.4 — /pages/flashcards.html is a thin shell that mounts the 
     );
   });
 
-  test('canonical chrome preserved (Sprint 6.17.1 / 6.20)', () => {
-    assert.match(html, /<div\s+class="topnav-wrap"/);
-    assert.match(html, /<nav\s+class="topnav"/);
-    assert.match(html, /class="av-theme-toggle"/);
-    assert.match(html, /id="user-pill"/);
+  test('chrome migrated to <aver-chrome> (Sprint 7.13)', () => {
+    // Sprint 6.17.1 + 6.20 canonical chrome → Sprint 7.13 moved into
+    // <aver-chrome> Web Component. The shell carries the custom element
+    // + component module script; chrome markup lives in shadow root.
+    assert.match(html, /<aver-chrome\s+active="vocabulary"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
   });
 
   test('embedded-mode IIFE retired (Sprint 7.4 Phase B Q3 incremental closure)', () => {
@@ -742,11 +750,15 @@ describe('Sprint 7.5 — /pages/exercises.html is a thin shell that mounts the m
     );
   });
 
-  test('canonical chrome preserved (Sprint 6.17.1 / 6.20)', () => {
-    assert.match(html, /<div\s+class="topnav-wrap"/);
-    assert.match(html, /<nav\s+class="topnav"/);
-    assert.match(html, /class="av-theme-toggle"/);
-    assert.match(html, /id="user-pill"/);
+  test('chrome migrated to <aver-chrome> (Sprint 7.13)', () => {
+    // Sprint 6.17.1 + 6.20 canonical chrome → Sprint 7.13 moved into
+    // <aver-chrome> Web Component. The shell carries the custom element
+    // + component module script; chrome markup lives in shadow root.
+    assert.match(html, /<aver-chrome\s+active="vocabulary"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
   });
 
   test('embedded-mode IIFE retired (Sprint 7.5 Phase B Q3 final closure)', () => {

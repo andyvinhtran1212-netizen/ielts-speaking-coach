@@ -112,16 +112,20 @@ describe('practice.html / theme support', () => {
     );
   });
 
-  test('header includes the theme toggle button (.av-theme-toggle)', () => {
-    assert.match(html, /class="av-theme-toggle"/);
-  });
-
-  test('binds the toggle via /js/theme-toggle.js bindToggleButton import', () => {
+  test('Sprint 7.13 — chrome migrated to <aver-chrome active="speaking">', () => {
+    assert.match(html, /<aver-chrome\s+active="speaking"\s*>/);
     assert.match(
       html,
-      /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"][^'"]*theme-toggle\.js['"]/,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
     );
-    assert.match(html, /bindToggleButton\s*\(/);
+  });
+
+  test('Sprint 7.13 — inline chrome markup + bindToggleButton import retired', () => {
+    assert.equal(/class="av-theme-toggle"/.test(html), false);
+    assert.equal(
+      /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"][^'"]*theme-toggle\.js['"]/.test(html),
+      false,
+    );
   });
 });
 

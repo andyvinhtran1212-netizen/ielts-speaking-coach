@@ -127,18 +127,19 @@ describe('writing-result.html / theme support', () => {
     );
   });
 
-  test('header includes the theme toggle button (.av-theme-toggle)', () => {
-    assert.match(html, /class="av-theme-toggle"/);
+  test('Sprint 7.13 — chrome migrated to <aver-chrome active="writing">', () => {
+    assert.match(html, /<aver-chrome\s+active="writing"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
   });
 
-  test('binds the toggle via canonical /js/theme-toggle.js module (Sprint 6.17.1)', () => {
-    assert.match(
-      html,
-      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,
-    );
-    assert.match(
-      html,
-      /bindToggleButton\s*\(\s*document\.getElementById\(\s*['"]theme-toggle['"]\s*\)\s*\)/,
+  test('Sprint 7.13 — inline chrome markup + bindToggleButton import retired', () => {
+    assert.equal(/class="av-theme-toggle"/.test(html), false);
+    assert.equal(
+      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/.test(html),
+      false,
     );
   });
 });
