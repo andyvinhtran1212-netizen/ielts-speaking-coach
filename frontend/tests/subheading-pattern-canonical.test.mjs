@@ -81,6 +81,9 @@ describe('Sprint 6.19 per-page — canonical .eyebrow value present', () => {
   // moved into the /js/vocab-modules/my-vocab.js template literal when
   // the page became a thin shell. The Sprint 7.3 sentinel below pins
   // the eyebrow in the module file instead.
+  // Sprint 7.4/7.5 — flashcards.html and exercises.html dropped for the
+  // same reason. Their eyebrows now live in flashcards.js / exercises.js
+  // module templates, pinned by the Sprint 7.4/7.5 sentinel below.
   const EYEBROW_PINS = [
     { rel: 'frontend/pages/home.html',              text: 'Trang chủ' },
     { rel: 'frontend/pages/speaking.html',          text: 'Speaking' },
@@ -90,8 +93,6 @@ describe('Sprint 6.19 per-page — canonical .eyebrow value present', () => {
     { rel: 'frontend/pages/writing-dashboard.html', text: 'Writing' },
     { rel: 'frontend/pages/writing-result.html',    text: 'Writing' },
     { rel: 'frontend/pages/vocabulary.html',        text: 'Vocabulary' },
-    { rel: 'frontend/pages/flashcards.html',        text: 'Vocabulary' },
-    { rel: 'frontend/pages/exercises.html',         text: 'Vocabulary' },
     { rel: 'frontend/pages/grammar-roadmap.html',   text: 'Grammar Wiki' },
     { rel: 'frontend/pages/grammar-search.html',    text: 'Grammar Wiki' },
     { rel: 'frontend/pages/grammar-compare.html',   text: 'Grammar Wiki' },
@@ -274,5 +275,30 @@ describe('Sprint 7.3 — my-vocab module template ships canonical "Vocabulary" e
       /<p[^>]*\bclass="eyebrow"[^>]*>\s*Vocabulary\s*<\/p>/,
       'my-vocab module template must ship "Vocabulary" eyebrow (migrated from shell in Sprint 7.3)',
     );
+  });
+});
+
+
+// ── Sprint 7.4/7.5 — flashcards + exercises modules carry the eyebrow ─
+
+describe('Sprint 7.4/7.5 — flashcards + exercises module templates ship canonical "Vocabulary" eyebrow', () => {
+  // Sprint 7.4 migrated flashcards.html and Sprint 7.5 migrated
+  // exercises.html to the vocab-module pattern (mirrors Sprint 7.3
+  // my-vocab). Both pages dropped from the per-page eyebrow roster
+  // above; these pins guard the module-template eyebrows instead.
+  const MODULE_PINS = [
+    { rel: 'frontend/js/vocab-modules/flashcards.js', label: 'flashcards' },
+    { rel: 'frontend/js/vocab-modules/exercises.js',  label: 'exercises'  },
+  ];
+
+  MODULE_PINS.forEach(({ rel, label }) => {
+    test(`${rel} template carries <p class="eyebrow">Vocabulary</p>`, () => {
+      const src = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      assert.match(
+        src,
+        /<p[^>]*\bclass="eyebrow"[^>]*>\s*Vocabulary\s*<\/p>/,
+        `${label} module template must ship "Vocabulary" eyebrow (migrated from shell in Sprint 7.4/7.5)`,
+      );
+    });
   });
 });

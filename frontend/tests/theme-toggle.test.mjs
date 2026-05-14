@@ -430,12 +430,12 @@ describe('design-system files', () => {
     );
   });
 
-  test('components.css defines .av-theme-toggle', () => {
-    const css = _read('css/aver-design/components.css');
+  test('aver-chrome.js shadow style defines .av-theme-toggle (Sprint 7.14: chrome lives in shadow root)', () => {
+    const css = _read('js/components/aver-chrome.js');
     assert.match(
       css,
       /\.av-theme-toggle\s*\{/,
-      '.av-theme-toggle is the canonical toggle button class',
+      '.av-theme-toggle is the canonical toggle button class — now defined inside aver-chrome.js shadow style block',
     );
   });
 

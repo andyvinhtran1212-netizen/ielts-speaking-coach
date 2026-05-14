@@ -1210,7 +1210,7 @@ Page-level "looks readable" smoke missed all five because they only surface when
 
 ### 17.12 Audit gate evolution through blind-spot recognition
 
-The § 17 audit gates evolve through cumulative experience. Each new gate closes a single class of blind spot that prior gates didn't cover. The pattern is honest: six sprints, six distinct mechanisms, one systemic methodology gap that progressively narrowed as each was filed.
+The § 17 audit gates evolve through cumulative experience. Each new gate closes a single class of blind spot that prior gates didn't cover. The pattern is honest: seven sprints, seven distinct mechanisms, one systemic methodology gap that progressively narrowed as each was filed.
 
 | Sprint | Blind spot | Resolution gate |
 |---|---|---|
@@ -1220,6 +1220,7 @@ The § 17 audit gates evolve through cumulative experience. Each new gate closes
 | 6.15.6-hotfix | 5 component-level mechanisms across multi-component pages | Gate 9.7 — Per-component theme verification |
 | 6.15.7-hotfix | Toggle markup outside intended flex wrapper (sentinel verified existence, not structure) | Gate 9.6 — Structural layout context verification |
 | 6.20 | Markup contract tests passed Codex 9/9 GREEN while rendered nav position drifted cross-page (chrome nested inside `.shell` on 2 of 18 pages) | Gate 10 — Visual position verification (screenshot-level + cross-page) |
+| 7.13.1-hotfix | `<aver-chrome>` polled `window.getSupabase` but 5 grammar pages never called `initSupabase()`; markup contract green while user pill stuck on the `…` placeholder. Bug pre-existed since Sprint 6.15, masked by legacy `user-pill.js` defensive no-op. | Gate 11 — Embedded-host resource parity + chrome behavioral contract |
 
 #### Pattern principle
 
@@ -1231,6 +1232,7 @@ Sentinel tests progressively get smarter as gates are filed:
 - **Gate 9.6** — verify structural parent-child context (the element sits inside the expected layout container)
 - **Gate 9.7** — verify per-component computed styles across the full element inventory
 - **Gate 10** — verify rendered pixel position is stationary across cross-page navigation (markup-correct ≠ position-correct)
+- **Gate 11** — verify embedded-host resources required by a Web Component (Supabase client init, theme bootstrap, etc.) are present on every host page (chrome-component-correct ≠ chrome-runtime-correct)
 
 #### Pre-empt the next blind spot
 
@@ -1247,9 +1249,9 @@ Each unanswered question is a candidate for the next gate.
 
 ---
 
-### 17.13 Audit gate consolidation (post Sprint 6.20)
+### 17.13 Audit gate consolidation (post Sprint 7.14)
 
-§ 17 audit checklist gates — cumulative 13 gates:
+§ 17 audit checklist gates — cumulative 14 gates:
 
 | Gate | Purpose | Formalized |
 |---|---|---|
@@ -1266,6 +1268,7 @@ Each unanswered question is a candidate for the next gate.
 | **Gate 9.6** | **Structural layout context verification** | **Sprint 6.16.1 (filed Sprint 6.15.7-hotfix)** |
 | **Gate 9.7** | **Per-component theme verification** | **Sprint 6.16.1 (filed Sprint 6.15.6-hotfix)** |
 | **Gate 10** | **Visual position verification (screenshot-level + cross-page)** | **Sprint 6.20** |
+| **Gate 11** | **Embedded-host resource parity + chrome behavioral contract** | **Sprint 7.14 (filed Sprint 7.7-hotfix / 7.8-hotfix / 7.13.1-hotfix)** |
 
 Plus methodology sections:
 
@@ -1279,6 +1282,7 @@ Plus methodology sections:
 - § 17.11 — Per-component theme verification (Sprint 6.16.1)
 - § 17.12 — Audit gate evolution through blind-spot recognition (Sprint 6.16.1)
 - § 17.14 — Visual position verification — Gate 10 (Sprint 6.20)
+- § 17.15 — Embedded-host resource parity — Gate 11 (Sprint 7.14)
 
 ---
 
@@ -1334,3 +1338,49 @@ The blind-spot pattern: contract tests verify markup presence and structure. The
 - All 18 canonical chrome pages (cross-page anchor consistency contract)
 - Any future page introducing sticky / fixed elements that interact with viewport edges
 - Any future page mixing canonical chrome with bespoke per-page layout containers
+
+---
+
+### 17.15 Embedded-host resource parity — Gate 11 (formalized Sprint 7.14)
+
+**Origin.** Three sprints filed the same class of blind spot before it was formalized:
+
+- **Sprint 7.7-hotfix** — vocabulary.html added Tailwind CDN + module CSS imports and the `.brand` rule re-cascaded under a font drift no other chrome page exhibited. Page-level resource drift, chrome behaved differently on this host.
+- **Sprint 7.8-hotfix** — 3 pages (writing-dashboard / writing-result / onboarding) stuck the user pill at the `…` placeholder. Page bootstraps that did not call `populateUserPill()` left the canonical helper unaware that init was required. Behavioral drift between hosts.
+- **Sprint 7.13.1-hotfix** — 5 grammar pages (grammar.html + 4 grammar sub-pages) shipped `<aver-chrome>` after Sprint 7.13 migration, but never called `initSupabase()`. `<aver-chrome>` polled `window.getSupabase` for ~3s then gave up, leaving the user pill stuck at `…`. The markup-level chrome contract was green (`<aver-chrome active="grammar">` present on every page), yet the chrome was non-functional at runtime on these 5 pages. The bug pre-existed since Sprint 6.15 — the legacy `user-pill.js` defensive no-op had masked it; once Sprint 7.13 moved chrome to the polling component, the mask fell away.
+
+The blind-spot pattern: every prior gate verifies a property of the chrome **itself** (markup present, theme correct, position stationary, component imported). Gate 11 verifies a property of the **host page** — that every resource the chrome needs at runtime is bootstrapped before the chrome activates. A Web Component that polls for a global (`window.getSupabase`, `window.AppConfig`, etc.) makes its hosts implicit collaborators; the chrome contract is now a contract between component + host, not just markup. This is the 7th cumulative blind-spot instance documented in § 17.12.
+
+**When this gate applies.**
+
+- Any Web Component or shared chrome that polls / awaits a host-provided global at runtime
+- Any chrome that reads page-bootstrap state (Supabase session, AppConfig, feature flags) it did not itself initialize
+- Any shared helper that has a defensive no-op fallback (the fallback masks misuse until a non-defensive consumer replaces it)
+- Cross-page contracts where the component's installed state ≠ the component's functional state
+
+**Verification protocol.**
+
+1. **Per-page resource sentinel** — for every host page that consumes the component, pin in tests that the page bootstraps every resource the component needs:
+   - `initSupabase(SUPABASE_URL, SUPABASE_ANON)` called in a page-level script tag
+   - Any other globals the component polls (canonical names enumerated in the component's source)
+   - The canonical resource values match (e.g., one canonical `SUPABASE_URL` constant pinned across all hosts)
+2. **Component-side runtime contract documentation** — the component's source must declare its host-resource requirements as a comment block at the top of the file. Reviewers can read the contract without tracing through polling code.
+3. **Component-side polling guardrail** — when the polled global is absent after the ceiling (~3s), the component must emit a console error naming both the missing global *and* the canonical bootstrap call (`initSupabase()` etc.) so a regression surfaces at devtools-level instead of silently degrading.
+4. **Defensive-no-op audit** — before adopting a non-defensive consumer of a shared helper, grep for callers that previously relied on the helper's no-op behavior. Document them as Gate 11 candidates.
+
+**Anti-patterns.**
+
+- ❌ Don't trust markup contract tests for runtime behavior. A pin that asserts `<aver-chrome active="grammar">` is present is satisfied even if `initSupabase()` is missing, the chrome polls forever, and the user pill stays on the placeholder.
+- ❌ Don't add a defensive no-op to a shared helper as a fix for a missing call. The no-op masks misuse on every host that follows, until a non-defensive consumer (e.g., a polling component) replaces it and the bug resurfaces on every page at once.
+- ❌ Don't conflate "component installed on every page" (markup green) with "component functional on every page" (runtime green). Chrome installed ≠ chrome bootstrapped.
+- ✅ Pin every host-bootstrapped resource the component consumes — not just the component itself.
+- ✅ Document host-resource requirements in the component's source so the contract is reviewable without code archaeology.
+- ✅ Treat the chrome contract as a **component + host** contract.
+
+**Sentinel pattern (host-resource pin).** For every page in `MIGRATED_PAGES`, assert (a) an `initSupabase(SUPABASE_URL, SUPABASE_ANON)` call is present in a page-level script tag and (b) the `SUPABASE_URL` constant matches the canonical project URL. Both pins live in `chrome-unification-canonical.test.mjs`.
+
+#### Pages requiring Gate 11
+
+- All 18 canonical chrome pages (every host of `<aver-chrome>`)
+- Any future page that adopts a polling Web Component or chrome helper
+- Any page that depends on a host-bootstrapped global the chrome consumes

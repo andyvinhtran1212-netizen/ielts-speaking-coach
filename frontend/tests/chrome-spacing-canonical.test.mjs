@@ -81,28 +81,35 @@ describe('Sprint 6.18 foundation — tokens.css declares canonical chrome spacin
 });
 
 
-// ── Foundation: components.css canonical reference still intact ───
+// ── Foundation: canonical chrome-spacing source of truth ──────────
+//
+// Sprint 7.14 — `.topnav` rule moved out of components.css into
+// <aver-chrome>'s shadow-root <style> block (frontend/js/components/
+// aver-chrome.js). Components.css still owns the page-level `.shell`
+// primitive. The 64px chrome-to-content rhythm is now pinned in
+// aver-chrome.js where the live `.topnav` rule lives.
 
-describe('Sprint 6.18 foundation — components.css canonical .shell + .topnav untouched', () => {
-  let components;
-  before(() => {
-    components = readFileSync(
+describe('Sprint 6.18 foundation — canonical .shell + .topnav margin-bottom untouched', () => {
+  test('.shell carries canonical padding (24px 32px 96px) in components.css', () => {
+    const components = readFileSync(
       path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'),
       'utf8',
     );
-  });
-
-  test('.shell carries canonical padding (24px 32px 96px)', () => {
     assert.match(
       components,
       /\.shell\s*\{[\s\S]{0,400}padding:\s*var\(--av-space-6\)\s+var\(--av-space-8\)\s+var\(--av-space-24\)/,
     );
   });
 
-  test('.topnav carries canonical margin-bottom (64px)', () => {
+  test('.topnav carries canonical margin-bottom (64px) inside aver-chrome.js shadow style', () => {
+    const chromeJs = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/components/aver-chrome.js'),
+      'utf8',
+    );
     assert.match(
-      components,
+      chromeJs,
       /\.topnav\s*\{[\s\S]{0,400}margin-bottom:\s*var\(--av-space-16\)/,
+      '<aver-chrome> shadow-root .topnav must carry margin-bottom: var(--av-space-16) (64px chrome-to-content rhythm)',
     );
   });
 });
@@ -114,13 +121,14 @@ describe('Sprint 6.18 Cat A — wrapper top compensation present', () => {
   // Sprint 7.3 — my-vocabulary.html dropped from this roster. Its shell
   // <main id="mount"> is now the module mount container; the
   // pt-20 pb-6 wrapper lives inside the my-vocab.js template literal.
-  // Sentinel for the in-module wrapper lives below in the Sprint 7.3
+  // Sprint 7.4/7.5 — flashcards.html and exercises.html dropped from this
+  // roster for the same reason. Their wrappers now live inside the
+  // /js/vocab-modules/flashcards.js + exercises.js template literals.
+  // Sentinels for the in-module wrappers live below in the Sprint 7.3/7.4
   // section of this file.
   const CAT_A = [
     { rel: 'frontend/pages/profile.html',           pattern: /<main[^>]*\bpt-16\b[^>]*\bpb-10\b/ },
     { rel: 'frontend/pages/writing-dashboard.html', pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-6\b/ },
-    { rel: 'frontend/pages/flashcards.html',        pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-8\b/ },
-    { rel: 'frontend/pages/exercises.html',         pattern: /<main[^>]*\bpt-20\b[^>]*\bpb-8\b/ },
   ];
 
   CAT_A.forEach(({ rel, pattern }) => {
@@ -286,5 +294,32 @@ describe('Sprint 7.3 — my-vocab module template preserves Sprint 6.18 Cat A wr
       /<main[^>]*\bpt-20\b[^>]*\bpb-6\b/,
       'my-vocab module template must preserve the Sprint 6.18 pt-20 pb-6 wrapper',
     );
+  });
+});
+
+
+// ── Sprint 7.4/7.5 — flashcards + exercises modules own their wrappers ─
+
+describe('Sprint 7.4/7.5 — flashcards + exercises module templates preserve Cat A wrapper padding', () => {
+  // Sprint 7.4 migrated flashcards.html and Sprint 7.5 migrated
+  // exercises.html to the vocab-module pattern. Both standalone shells
+  // now carry only <main id="mount"> + a module bootstrap script; the
+  // pt-20 pb-8 wrapper lives inside the module template literal. These
+  // pins guard the in-module wrappers (mirrors the Sprint 7.3 sentinel
+  // for my-vocab.js).
+  const MODULES = [
+    { rel: 'frontend/js/vocab-modules/flashcards.js', label: 'flashcards' },
+    { rel: 'frontend/js/vocab-modules/exercises.js',  label: 'exercises'  },
+  ];
+
+  MODULES.forEach(({ rel, label }) => {
+    test(`${rel} template ships <main class="...pt-20 pb-8"> wrapper`, () => {
+      const src = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      assert.match(
+        src,
+        /<main[^>]*\bpt-20\b[^>]*\bpb-8\b/,
+        `${label} module template must preserve the Sprint 6.18 pt-20 pb-8 wrapper`,
+      );
+    });
   });
 });
