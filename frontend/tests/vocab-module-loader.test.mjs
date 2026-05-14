@@ -835,3 +835,42 @@ describe('Sprint 7.5 — /pages/exercises.html is a thin shell that mounts the m
     );
   });
 });
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Sprint 9.1.1-hotfix — JS template literal hygiene sentinel.
+//
+// Sprint 9.1's retirement comments wrapped CSS class names in backticks
+// inside HTML comments (e.g. `<!-- .subpage-header primitive ... -->`).
+// Backticks inside a template literal terminate the literal early, so
+// `.subpage-header` parsed as a property access, and a subsequent
+// `header` token surfaced as an unqualified identifier — causing a
+// runtime `ReferenceError: header is not defined` when the module
+// loader evaluated the file. Andy's Vercel preview smoke caught all 3
+// modules crashing on mount. Lesson: HTML comments inside JS template
+// literals must contain NO backticks, even decorative ones around
+// identifiers.
+// ─────────────────────────────────────────────────────────────────────
+
+describe('Sprint 9.1.1-hotfix — vocab module template literals must not contain backticks inside HTML body', () => {
+  const VOCAB_MODULES = [
+    'frontend/js/vocab-modules/my-vocab.js',
+    'frontend/js/vocab-modules/flashcards.js',
+    'frontend/js/vocab-modules/exercises.js',
+  ];
+
+  for (const modulePath of VOCAB_MODULES) {
+    test(`${modulePath} — HTML template literal body must not contain backticks`, () => {
+      const src = readFileSync(path.join(REPO_ROOT, modulePath), 'utf8');
+
+      const match = src.match(/const HTML\s*=\s*\/\*\s*html\s*\*\/\s*`([\s\S]*?)\n`;/);
+      assert.ok(match, `${modulePath} must have HTML template literal opened with \`const HTML = /* html */ \`\``);
+
+      const htmlBody = match[1];
+      assert.ok(
+        !htmlBody.includes('`'),
+        `${modulePath} HTML template literal body must not contain backticks — they terminate the template early and cause "ReferenceError: header is not defined" at runtime (Sprint 9.1.1-hotfix).`,
+      );
+    });
+  }
+});
