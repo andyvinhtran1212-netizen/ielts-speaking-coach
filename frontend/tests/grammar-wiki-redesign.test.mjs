@@ -265,18 +265,35 @@ for (const [name, info] of Object.entries(PAGES)) {
 
 
 describe('grammar.html landing / JS-coupled IDs preserved', () => {
+  // Sprint 8.3 — `#total-articles` removed from this roster. The badge
+  // row that hosted it (`<nav class="gw-subnav">`) was retired on the
+  // landing page; grammar.js:526 already guards the lookup with
+  // `if (totalEl)` so the population path no-ops gracefully on the
+  // landing page while still firing on the 4 sub-pages (which keep
+  // their `.gw-subnav` breadcrumb + #total-articles pill).
   const REQUIRED_IDS = [
     'search-btn', 'search-input', 'search-results', 'search-results-title',
     'search-results-list', 'category-view', 'category-view-title',
     'category-view-list', 'categories', 'category-cards', 'featured-list',
     'groups-section', 'groups-list', 'groups-complete-count',
-    'groups-planned-count', 'home-content', 'total-articles',
+    'groups-planned-count', 'home-content',
   ];
   for (const id of REQUIRED_IDS) {
     test(`#${id} preserved`, () => {
       assert.match(pageContents.landing, new RegExp(`id=["']${id}["']`));
     });
   }
+
+  test('Sprint 8.3 — gw-subnav badge row + #total-articles retired on landing', () => {
+    assert.ok(
+      !/<nav[^>]*class="[^"]*\bgw-subnav\b/.test(pageContents.landing),
+      'grammar.html must NOT carry the .gw-subnav badge row (Sprint 8.3 retired it on the landing page only — 4 sub-pages keep it)',
+    );
+    assert.ok(
+      !/id=["']total-articles["']/.test(pageContents.landing),
+      '#total-articles must NOT exist on the landing page — it was inside the retired badge row',
+    );
+  });
 
   test('grammarWiki.setupSearch + loadGrammarHome handlers preserved', () => {
     assert.match(pageContents.landing, /grammarWiki\.setupSearch/);

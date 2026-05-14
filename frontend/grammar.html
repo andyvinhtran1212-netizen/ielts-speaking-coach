@@ -75,20 +75,14 @@
        nav below (Sprint 6.17.2). -->
   <aver-chrome active="grammar"></aver-chrome>
 
-  <!-- Grammar Wiki secondary nav (editorial tier — breadcrumb + stats).
-       Preserves the Sprint 6.15 visual context that distinguishes the
-       Grammar Wiki as an editorial sub-tier of the IA. -->
-  <nav class="gw-subnav sticky top-0 z-20 border-b border-white/5" aria-label="Grammar Wiki"
-       style="background: var(--av-surface-sunken); backdrop-filter: blur(12px);">
-    <div class="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between">
-      <span class="text-sm font-semibold text-white">Grammar Wiki</span>
-      <div class="flex items-center gap-3 text-sm">
-        <span class="ds-badge"><span id="total-articles">...</span> bài</span>
-        <span class="text-white/15">·</span>
-        <span class="ds-badge">8 nhóm chủ đề</span>
-      </div>
-    </div>
-  </nav>
+  <!-- Sprint 8.3 — `.gw-subnav` badge row retired on the landing page.
+       The "Grammar Wiki" label + total-articles pill + "8 nhóm chủ đề"
+       pill were duplicated by the chrome's active="grammar" highlight +
+       the hero block immediately below; removing them tightens the
+       above-the-fold focus to the hero. The 4 sub-pages
+       (grammar-article / grammar-compare / grammar-roadmap /
+       grammar-search) keep their `.gw-subnav` breadcrumb — it carries
+       distinct article-context value there. -->
 
   <main class="max-w-6xl mx-auto px-4 pb-20">
 
