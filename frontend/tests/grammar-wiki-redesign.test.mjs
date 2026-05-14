@@ -162,16 +162,17 @@ for (const [name, info] of Object.entries(PAGES)) {
       assert.match(html, /catch\s*\([^)]*\)\s*\{\s*document\.documentElement\.setAttribute\(\s*['"]data-theme['"]\s*,\s*['"]light['"]\s*\)/);
     });
 
-    test('canonical .icon-sun + .icon-moon theme toggle present', () => {
-      // Sprint 7.12: grammar.html (landing) migrated to <aver-chrome> —
-      // sun/moon SVGs now live inside the shadow root, not the page HTML.
-      // The 4 sub-pages (roadmap / article / search / compare) keep inline
-      // chrome until Sprint 7.13. Skip the inline-icon check on the
-      // migrated landing; the chrome-unification-canonical suite verifies
-      // <aver-chrome active="grammar"> in its place.
-      if (name === 'landing') return;
-      assert.match(pageContents[name], /class=["']icon-sun["']/);
-      assert.match(pageContents[name], /class=["']icon-moon["']/);
+    test('chrome migrated to <aver-chrome active="grammar"> (Sprint 7.12 + 7.13)', () => {
+      // Sprint 7.12 (landing) + Sprint 7.13 (4 sub-pages): all 5 grammar
+      // pages now consume the <aver-chrome> Web Component. The
+      // .icon-sun / .icon-moon SVGs live inside the component's shadow
+      // root. chrome-unification-canonical pins the inline-style icon-swap
+      // rules inside the component source.
+      assert.match(pageContents[name], /<aver-chrome\s+active="grammar"\s*>/);
+      assert.match(
+        pageContents[name],
+        /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+      );
     });
 
     test('no BEM drift theme-toggle class variants', () => {
@@ -198,17 +199,14 @@ for (const [name, info] of Object.entries(PAGES)) {
       assert.match(pageContents[name], /<body[^>]*class=["'][^"']*\bmin-h-screen\b/);
     });
 
-    test('theme-toggle.js bindToggleButton wired', () => {
-      // Sprint 7.12: grammar.html landing migrated to <aver-chrome> — the
-      // component owns bindToggleButton internally, so the page no longer
-      // imports theme-toggle.js. The 4 sub-pages still need it until
-      // Sprint 7.13. The chrome-unification-canonical suite asserts the
-      // <aver-chrome> contract on the migrated landing in this slot.
-      if (name === 'landing') return;
-      assert.match(pageContents[name], /bindToggleButton/);
-      assert.ok(
-        pageContents[name].includes('/js/theme-toggle.js'),
-        `${name}: theme-toggle.js import path should include "/js/theme-toggle.js" (absolute) per Sprint 6.15.7-hotfix`,
+    test('theme-toggle.js bindToggleButton — moved into <aver-chrome>', () => {
+      // Sprint 7.12 + 7.13: all 5 grammar pages migrated. The component
+      // imports bindToggleButton itself; per-page imports retired.
+      // chrome-unification-canonical verifies the component's import.
+      assert.equal(
+        /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/.test(pageContents[name]),
+        false,
+        `${name}: per-page bindToggleButton import retired post Sprint 7.12/7.13`,
       );
     });
 

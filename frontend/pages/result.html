@@ -64,48 +64,14 @@
 
   <!-- Lucide icons (line glyphs replacing the legacy hand-rolled SVGs). -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
+
+  <!-- Canonical chrome Web Component (Sprint 7.13). -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
 </head>
 <body class="av-page font-sans min-h-screen">
 
-  <!-- Canonical chrome (Sprint 6.17.1 — Speaking active). -->
-  <div class="topnav-wrap">
-    <nav class="topnav" aria-label="Primary">
-      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
-      <div class="nav-links">
-        <a href="/pages/home.html">Trang chủ</a>
-        <a href="/pages/writing-dashboard.html">Writing</a>
-        <a href="/pages/speaking.html" class="active">Speaking</a>
-        <a href="/grammar.html">Grammar</a>
-        <a href="/pages/vocabulary.html">Vocabulary</a>
-        <span class="locked" aria-disabled="true">Reading</span>
-        <span class="locked" aria-disabled="true">Listening</span>
-      </div>
-      <div class="topnav-right">
-        <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
-          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-        <div class="user-menu">
-          <button class="user-pill" id="user-pill" type="button"
-                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
-            <span class="avatar" id="user-avatar">·</span>
-            <span id="user-pill-name">…</span>
-          </button>
-          <div class="user-menu-dropdown" role="menu" hidden>
-            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
-            <button type="button" class="user-menu-item user-menu-item--danger"
-                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-  </div>
-
+  <!-- Canonical chrome (Sprint 7.13 — <aver-chrome>; speaking active). -->
+  <aver-chrome active="speaking"></aver-chrome>
   <!-- Page context bar (preserves result page title + back affordance). -->
   <header class="result-header px-6 py-4">
     <div class="max-w-3xl mx-auto flex items-center gap-4">
@@ -1121,10 +1087,5 @@
       window.addEventListener('load', hydrateIcons);
     })();
   </script>
-  <script type="module">
-    import { bindToggleButton } from '/js/theme-toggle.js';
-    bindToggleButton(document.getElementById('theme-toggle'));
-  </script>
-  <script type="module" src="/js/user-pill.js"></script>
 </body>
 </html>

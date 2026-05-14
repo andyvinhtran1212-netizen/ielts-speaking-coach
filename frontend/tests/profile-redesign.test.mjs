@@ -136,12 +136,11 @@ describe('profile.html / anti-flash IIFE runs before stylesheets', () => {
 
 
 describe('profile.html / JS-coupled selectors preserved byte-identical', () => {
-  // Sprint 6.17 chrome unification: 'header-avatar' wrapper removed
-  // (canonical .user-pill > .avatar wrapper replaces it). 'header-initials'
-  // span is preserved nested inside the new canonical user-avatar so
-  // profile.html's inline JS continues to set initials text content.
+  // Sprint 6.17 chrome unification: 'header-avatar' wrapper removed.
+  // Sprint 7.13: 'header-initials' span retired — chrome moved into
+  // <aver-chrome> shadow root; profile.html now delegates avatar
+  // population via document.querySelector('aver-chrome').setUser({ initials }).
   const requiredIds = [
-    'header-initials',
     'profile-avatar', 'profile-initials', 'profile-avatar-img',
     'profile-display-name', 'profile-email', 'profile-joined',
     'stat-sessions', 'stat-avg-band', 'stat-weekly',
@@ -197,34 +196,28 @@ describe('profile.html / body class + chrome', () => {
     assert.ok(!/<body[^>]*class=["'][^"']*\btext-slate-100\b/.test(html));
   });
 
-  test('header has theme toggle with canonical .icon-sun / .icon-moon', () => {
-    assert.match(html, /class=["'][^"']*\bav-theme-toggle\b/);
-    assert.match(html, /class=["']icon-sun["']/);
-    assert.match(html, /class=["']icon-moon["']/);
+  test('Sprint 7.13 — chrome migrated to <aver-chrome active="home">', () => {
+    // profile.html ships <aver-chrome active="home"> — profile is not in
+    // the 5-skill enum, so it highlights the home tab as the IA parent.
+    assert.match(html, /<aver-chrome\s+active="home"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
   });
 
-  test('no BEM drift on the toggle (Sprint 6.10.1)', () => {
-    for (const v of ['av-theme-toggle__icon--sun', 'av-theme-toggle__icon--moon', 'theme-toggle__icon']) {
-      assert.ok(!html.includes(v));
-    }
+  test('Sprint 7.13 — inline chrome retired (.av-theme-toggle / bindToggleButton / .topnav not in page DOM)', () => {
+    assert.equal(/class=["'][^"']*\bav-theme-toggle\b/.test(html), false);
+    assert.equal(
+      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/.test(html),
+      false,
+    );
+    assert.equal(/class=["']topnav["']/.test(html), false);
+    assert.equal(/\bid=["']user-menu-logout["']/.test(html), false);
   });
 
-  test('toggle binding wired (theme-toggle.js module + lucide hydration)', () => {
-    // Sprint 6.17: inline bindToggleButton() function replaced with the
-    // canonical /js/theme-toggle.js ES module import. Lucide hydration
-    // retained for icon glyphs used elsewhere on the page.
-    assert.match(html, /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/);
+  test('lucide hydration still runs for body-content icons', () => {
     assert.match(html, /lucide\.createIcons/);
-  });
-
-  test('Sprint 6.17 canonical chrome — full nav + user-pill dropdown', () => {
-    // Replaces the prior back-link + functional-brand pins. The canonical
-    // chrome ships skill nav (no standalone back-link) + Aver.Learning
-    // dotted brand (compound selector form vs the prior functional
-    // Aver<span>Learning</span> microcopy variant).
-    assert.match(html, /class=["']brand["']>Aver<span class=["']dot["']>\.<\/span>Learning/);
-    assert.match(html, /class=["']topnav["']/);
-    assert.match(html, /id=["']user-menu-logout["']/);
   });
 });
 

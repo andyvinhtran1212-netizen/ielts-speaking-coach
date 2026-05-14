@@ -236,23 +236,25 @@ describe('onboarding.html / body class + chrome', () => {
     assert.ok(!/<body[^>]*class=["'][^"']*\btext-white\b/.test(html));
   });
 
-  test('header has theme toggle with canonical .icon-sun / .icon-moon', () => {
-    assert.match(html, /class=["'][^"']*\bav-theme-toggle\b/);
-    assert.match(html, /class=["']icon-sun["']/);
-    assert.match(html, /class=["']icon-moon["']/);
-  });
-
-  test('no BEM drift on the toggle (Sprint 6.10.1)', () => {
-    for (const v of ['av-theme-toggle__icon--sun', 'av-theme-toggle__icon--moon', 'theme-toggle__icon']) {
-      assert.ok(!html.includes(v));
-    }
-  });
-
-  test('toggle binding wired (canonical /js/theme-toggle.js module — Sprint 6.17.1)', () => {
+  test('Sprint 7.13 — chrome migrated to <aver-chrome active="home">', () => {
+    // onboarding.html: chrome theme-toggle + user-pill moved into shadow
+    // root. `active="home"` because onboarding precedes any skill choice.
+    assert.match(html, /<aver-chrome\s+active="home"\s*>/);
     assert.match(
       html,
-      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
     );
+  });
+
+  test('Sprint 7.13 — inline chrome retired', () => {
+    assert.equal(/class=["'][^"']*\bav-theme-toggle\b/.test(html), false);
+    assert.equal(
+      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/.test(html),
+      false,
+    );
+  });
+
+  test('lucide hydration still runs for body-content icons', () => {
     assert.match(html, /lucide\.createIcons/);
   });
 

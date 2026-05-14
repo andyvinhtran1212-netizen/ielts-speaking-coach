@@ -37,27 +37,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 
-// Sprint 7.12: 5 skill-landing pages migrated to <aver-chrome> Web
-// Component — their theme toggle SVGs (with canonical .icon-sun /
-// .icon-moon classes) now live inside the component's shadow root,
-// not the page HTML. The chrome-unification-canonical.test.mjs suite
-// pins the .icon-sun / .icon-moon classes inside aver-chrome.js for
-// the migrated pages. This file covers the 24 still-inline pages.
+// Sprint 7.13 milestone: ALL 18 chrome pages migrated to <aver-chrome>
+// (5 in Sprint 7.12 + 13 in Sprint 7.13). The theme toggle SVGs (with
+// canonical .icon-sun / .icon-moon classes) now live inside the
+// component's shadow root. chrome-unification-canonical.test.mjs pins
+// the .icon-sun / .icon-moon classes inside aver-chrome.js source for
+// the migrated pages. This file covers the 11 pages still on inline
+// chrome — marketing (2) + admin (9) — explicitly out-of-scope for
+// chrome unification per Phase B Q7.
 const REDESIGNED_PAGES = [
-  // Skill sub-pages (Sprint 7.13 will migrate these to <aver-chrome>)
-  'frontend/pages/practice.html',
-  'frontend/pages/result.html',
-  'frontend/pages/writing-result.html',
-  'frontend/pages/full-test-result.html',
-  'frontend/pages/my-vocabulary.html',
-  'frontend/pages/flashcards.html',
-  'frontend/pages/exercises.html',
-  'frontend/pages/profile.html',
-  'frontend/onboarding.html',
   // Marketing (out of scope for chrome unification)
   'frontend/index.html',
   'frontend/pricing.html',
-  // Admin (out of scope for chrome unification)
+  // Admin (out of scope for chrome unification — Cat 5)
   'frontend/pages/admin-writing.html',
   'frontend/pages/admin-writing-new.html',
   'frontend/pages/admin-writing-status.html',
@@ -67,11 +59,6 @@ const REDESIGNED_PAGES = [
   'frontend/pages/admin-instructor-queue.html',
   'frontend/pages/admin-writing-grade.html',
   'frontend/admin.html',
-  // Grammar sub-pages (Sprint 7.13 will migrate these)
-  'frontend/pages/grammar-roadmap.html',
-  'frontend/pages/grammar-article.html',
-  'frontend/pages/grammar-search.html',
-  'frontend/pages/grammar-compare.html',
 ];
 
 // Variants of the BEM drift that surfaced across Phase 1+2 pages. Any
