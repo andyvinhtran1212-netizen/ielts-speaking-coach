@@ -892,3 +892,96 @@ describe('Sprint 8.1 — retired CSS surfaces', () => {
     );
   });
 });
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Sprint 9.2 — speaking mode panels adopt .subpage-header + back-link.
+//
+// Pre-Sprint-9.2, the 3 speaking mode panels (#tab-practice /
+// #tab-partbpart / #tab-fulltest) used an ad-hoc inline header:
+//   <p class="eyebrow">Speaking</p>
+//   <h1 class="text-2xl ...">Title</h1>
+//   <p class="text-sm ...">Description</p>
+//
+// Sprint 9.2 promotes the eyebrow + title rows to the canonical
+// .subpage-header primitive (lifted to components.css in Sprint 9.1)
+// with an interactive back-link button replacing the static eyebrow.
+// The description paragraph stays underneath the header as a separate
+// <p>. The back-link click is delegated to switchMainTab('dashboard')
+// in the inline JS so the user returns to the speaking dashboard
+// without a page reload.
+// ─────────────────────────────────────────────────────────────────────
+
+describe('Sprint 9.2 — speaking mode panels ship .subpage-header with Speaking back-link', () => {
+  const PANELS = [
+    { id: 'tab-practice',  title: 'Luyện tập' },
+    { id: 'tab-partbpart', title: 'Luyện từng Part' },
+    { id: 'tab-fulltest',  title: 'Full Test' },
+  ];
+
+  PANELS.forEach(({ id, title }) => {
+    test(`#${id} panel ships a .subpage-header with .subpage-header__back to Speaking`, () => {
+      // Capture the panel's first ~30 lines and assert structure.
+      const re = new RegExp(
+        `<div\\s+id="${id}"[^>]*>[\\s\\S]{0,2500}`,
+      );
+      const block = html.match(re);
+      assert.ok(block, `${id} panel must be extractable`);
+      assert.match(
+        block[0],
+        /<header[^>]*\bclass="[^"]*\bsubpage-header\b[^"]*"/,
+        `${id} must open with a .subpage-header element`,
+      );
+      assert.match(
+        block[0],
+        /<button[^>]*\bclass="subpage-header__back"[^>]*\bdata-action="back-to-dashboard"[^>]*\baria-label="Quay về dashboard Speaking"/,
+        `${id} must ship the Sprint 9.2 back-link button with the Speaking aria-label`,
+      );
+      assert.match(
+        block[0],
+        /<i\s+data-lucide="arrow-left"[^>]*><\/i>\s*<span>Speaking<\/span>/,
+        `${id} back-link must contain a lucide arrow-left icon followed by "Speaking" label`,
+      );
+      const titleRe = new RegExp(
+        `<h1[^>]*\\bclass="[^"]*\\bsubpage-header__title\\b[^"]*"[^>]*>\\s*${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*</h1>`,
+      );
+      assert.match(
+        block[0],
+        titleRe,
+        `${id} must carry the canonical title "${title}" inside .subpage-header__title`,
+      );
+    });
+
+    test(`#${id} no longer ships the pre-Sprint-9.2 <p class="eyebrow">Speaking</p>`, () => {
+      const re = new RegExp(
+        `<div\\s+id="${id}"[^>]*>[\\s\\S]{0,2500}`,
+      );
+      const block = html.match(re);
+      assert.ok(block, `${id} panel must be extractable`);
+      assert.ok(
+        !/<p[^>]*\bclass="eyebrow"[^>]*>\s*Speaking\s*<\/p>/.test(block[0]),
+        `${id} must NOT redeclare the legacy static <p class="eyebrow">Speaking</p> — Sprint 9.2 promoted it to a back-link`,
+      );
+    });
+  });
+
+  test('inline JS wires back-to-dashboard click to switchMainTab(\'dashboard\')', () => {
+    // The delegation lives inside the DOMContentLoaded handler that
+    // also binds the mode-card clicks (Sprint 8.1). Pin both signatures.
+    assert.match(
+      html,
+      /\[data-action="back-to-dashboard"\]/,
+      'inline JS must reference the back-link selector',
+    );
+    assert.match(
+      html,
+      /switchMainTab\(\s*['"]dashboard['"]\s*\)/,
+      'inline JS must call switchMainTab(\'dashboard\') in the back-link branch',
+    );
+    assert.match(
+      html,
+      /#tab-practice,\s*#tab-partbpart,\s*#tab-fulltest/,
+      'back-link delegation must scope to the 3 mode-panel selectors',
+    );
+  });
+});

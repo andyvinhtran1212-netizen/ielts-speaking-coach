@@ -742,15 +742,26 @@
    (no separate background/border bar) so chrome-to-content stays
    tight (~110px, matching sibling pages).
 
-   Markup contract:
+   Markup contract (Sprint 9.2 — eyebrow promoted to back-button):
      <header class="subpage-header">
        <div class="subpage-header__lhs">
-         <p class="eyebrow">Vocabulary</p>
+         <button type="button" class="subpage-header__back"
+                 data-action="back-to-dashboard"
+                 aria-label="Quay về dashboard {Skill}">
+           <i data-lucide="arrow-left"></i>
+           <span>{Skill}</span>
+         </button>
          <span class="subpage-header__sep">|</span>
          <h1 class="subpage-header__title">{title}</h1>
        </div>
        {optional action button}
      </header>
+
+   Pre-Sprint-9.2, the LHS used <p class="eyebrow">{Skill}</p> as a
+   passive breadcrumb. Sprint 9.2 promotes it to an interactive button
+   that returns the user to the parent dashboard view without a full
+   page reload (vocab uses hash-routing + history.pushState; speaking
+   uses internal switchMainTab('dashboard')).
 */
 .subpage-header {
   display: flex;
@@ -774,6 +785,43 @@
   letter-spacing: var(--av-tracking-tight);
   color: var(--av-text-primary);
   margin: 0;
+}
+
+/* Sprint 9.2 — interactive back-link button. Visual treatment matches
+   the pre-9.2 .eyebrow it replaces (uppercase, semibold, primary
+   color, --av-fs-xs) plus an inline arrow-left icon and a 2px
+   horizontal translate-back on hover for affordance. */
+.subpage-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide);
+  color: var(--av-primary);
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+.subpage-header__back:hover {
+  color: var(--av-primary-hover);
+  transform: translateX(-2px);
+}
+.subpage-header__back:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+  border-radius: var(--av-radius-sm);
+}
+.subpage-header__back svg {
+  width: 14px;
+  height: 14px;
 }
 
 

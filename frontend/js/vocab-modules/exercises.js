@@ -36,7 +36,10 @@ const HTML = /* html */ `
          3x duplicated {prefix}-header rule sets. -->
     <header class="subpage-header mb-6">
       <div class="subpage-header__lhs">
-        <p class="eyebrow" style="margin:0;">Vocabulary</p>
+        <button type="button" class="subpage-header__back" data-action="back-to-dashboard" aria-label="Quay về dashboard Vocabulary">
+          <i data-lucide="arrow-left"></i>
+          <span>Vocabulary</span>
+        </button>
         <span class="subpage-header__sep">|</span>
         <h1 class="subpage-header__title">Exercises</h1>
       </div>
@@ -167,6 +170,28 @@ export async function mount(container, opts = {}) {
       showState('error');
     }
   }
+
+  // Sprint 9.2 — back-link click delegation. Returns the user to the
+  // parent Vocabulary dashboard. Embedded: clear hash, vocab-landing.js
+  // hashchange listener restores the dashboard view. Standalone:
+  // hard-navigate to /pages/vocabulary.html.
+  function backToDashboard() {
+    if (embedded) {
+      if (window.location.hash) {
+        history.pushState(null, '', window.location.pathname);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+    } else {
+      window.location.href = '/pages/vocabulary.html';
+    }
+  }
+  container.addEventListener('click', (e) => {
+    const back = e.target.closest('[data-action="back-to-dashboard"]');
+    if (back && container.contains(back)) {
+      e.preventDefault();
+      backToDashboard();
+    }
+  });
 
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();

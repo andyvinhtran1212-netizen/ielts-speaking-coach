@@ -59,7 +59,10 @@ const HTML = /* html */ `
          content ~28px). -->
     <header class="subpage-header mb-6">
       <div class="subpage-header__lhs">
-        <p class="eyebrow" style="margin:0;">Vocabulary</p>
+        <button type="button" class="subpage-header__back" data-action="back-to-dashboard" aria-label="Quay về dashboard Vocabulary">
+          <i data-lucide="arrow-left"></i>
+          <span>Vocabulary</span>
+        </button>
         <span class="subpage-header__sep">|</span>
         <h1 class="subpage-header__title">My Vocab Bank</h1>
       </div>
@@ -798,6 +801,23 @@ export async function mount(container, opts = {}) {
     }
   }
 
+  // Sprint 9.2 — back-link returns the user to the parent Vocabulary
+  // dashboard. Embedded mode (inside /pages/vocabulary.html): clear
+  // the hash so vocab-landing.js's hashchange listener falls back to
+  // the dashboard view (no full page reload). Standalone shell mode:
+  // hard-navigate to the parent page since there's no dashboard above
+  // the current shell.
+  function backToDashboard() {
+    if (embedded) {
+      if (window.location.hash) {
+        history.pushState(null, '', window.location.pathname);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+    } else {
+      window.location.href = '/pages/vocabulary.html';
+    }
+  }
+
   // ── Event delegation (replaces 11 window.* handlers + inline onclick) ──
   function handleClick(e) {
     const btn = e.target.closest('[data-action]');
@@ -806,6 +826,7 @@ export async function mount(container, opts = {}) {
     const vocabId = btn.dataset.vocabId;
 
     switch (action) {
+      case 'back-to-dashboard':  return backToDashboard();
       case 'toggle-add-form':    return toggleAddForm();
       case 'submit-add-word':    return submitAddWord();
       case 'set-filter':         return setFilter(btn.dataset.filter, btn);

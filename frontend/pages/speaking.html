@@ -404,11 +404,17 @@
   <div id="tab-practice" class="main-tab-panel">
   <div class="px-6 py-8 max-w-6xl mx-auto w-full">
 
-    <div class="mb-8">
-      <p class="eyebrow">Speaking</p>
-      <h1 class="text-2xl font-bold mb-1">Luyện tập</h1>
-      <p class="text-sm" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
-    </div>
+    <header class="subpage-header mb-2">
+      <div class="subpage-header__lhs">
+        <button type="button" class="subpage-header__back" data-action="back-to-dashboard" aria-label="Quay về dashboard Speaking">
+          <i data-lucide="arrow-left"></i>
+          <span>Speaking</span>
+        </button>
+        <span class="subpage-header__sep">|</span>
+        <h1 class="subpage-header__title">Luyện tập</h1>
+      </div>
+    </header>
+    <p class="text-sm mb-8" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
 
     <div class="grid md:grid-cols-2 gap-6">
 
@@ -495,11 +501,17 @@
   <div id="tab-partbpart" class="main-tab-panel">
   <div class="px-6 py-8 max-w-6xl mx-auto w-full">
 
-    <div class="mb-8">
-      <p class="eyebrow">Speaking</p>
-      <h1 class="text-2xl font-bold mb-1">Luyện từng Part</h1>
-      <p class="text-sm" style="color:var(--av-text-muted);">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
-    </div>
+    <header class="subpage-header mb-2">
+      <div class="subpage-header__lhs">
+        <button type="button" class="subpage-header__back" data-action="back-to-dashboard" aria-label="Quay về dashboard Speaking">
+          <i data-lucide="arrow-left"></i>
+          <span>Speaking</span>
+        </button>
+        <span class="subpage-header__sep">|</span>
+        <h1 class="subpage-header__title">Luyện từng Part</h1>
+      </div>
+    </header>
+    <p class="text-sm mb-8" style="color:var(--av-text-muted);">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
 
     <!-- Part cards -->
     <div class="grid sm:grid-cols-3 gap-4 mb-6">
@@ -587,11 +599,17 @@
   <div id="tab-fulltest" class="main-tab-panel">
   <div class="px-6 py-8 max-w-6xl mx-auto w-full">
 
-    <div class="mb-8">
-      <p class="eyebrow">Speaking</p>
-      <h1 class="text-2xl font-bold mb-1">Full Test</h1>
-      <p class="text-sm" style="color:var(--av-text-muted);">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
-    </div>
+    <header class="subpage-header mb-2">
+      <div class="subpage-header__lhs">
+        <button type="button" class="subpage-header__back" data-action="back-to-dashboard" aria-label="Quay về dashboard Speaking">
+          <i data-lucide="arrow-left"></i>
+          <span>Speaking</span>
+        </button>
+        <span class="subpage-header__sep">|</span>
+        <h1 class="subpage-header__title">Full Test</h1>
+      </div>
+    </header>
+    <p class="text-sm mb-8" style="color:var(--av-text-muted);">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
 
     <!-- Info banner -->
     <div class="mb-6 rounded-2xl px-5 py-4 flex items-start gap-3"
@@ -1618,12 +1636,21 @@
     }
 
     // Sprint 8.1 — mode-card click delegation
+    // Sprint 9.2 — back-link click delegation (3 mode panels' .subpage-header__back).
     document.addEventListener('DOMContentLoaded', function () {
       document.querySelectorAll('.mode-card[data-mode]').forEach(function (card) {
         card.addEventListener('click', function (e) {
           e.preventDefault();
           switchMainTab(card.dataset.mode);
         });
+      });
+
+      document.addEventListener('click', function (e) {
+        var back = e.target.closest && e.target.closest('[data-action="back-to-dashboard"]');
+        if (back && back.closest('#tab-practice, #tab-partbpart, #tab-fulltest')) {
+          e.preventDefault();
+          switchMainTab('dashboard');
+        }
       });
     });
 

@@ -265,45 +265,38 @@ describe('Sprint 6.19 alignment — centered exceptions documented + protected',
 });
 
 
-// ── Sprint 7.3 — module template carries the eyebrow ──────────────
+// ── Sprint 9.2 — vocab module templates promote eyebrow → back-link ─
 
-describe('Sprint 7.3 — my-vocab module template ships canonical "Vocabulary" eyebrow', () => {
-  // my-vocabulary.html dropped from the per-page roster above because
-  // its body migrated into /js/vocab-modules/my-vocab.js. The eyebrow
-  // is now part of the module template; this pin guards it there.
-  test('/js/vocab-modules/my-vocab.js template carries <p class="eyebrow">Vocabulary</p>', () => {
-    const src = readFileSync(
-      path.join(REPO_ROOT, 'frontend/js/vocab-modules/my-vocab.js'),
-      'utf8',
-    );
-    assert.match(
-      src,
-      /<p[^>]*\bclass="eyebrow"[^>]*>\s*Vocabulary\s*<\/p>/,
-      'my-vocab module template must ship "Vocabulary" eyebrow (migrated from shell in Sprint 7.3)',
-    );
-  });
-});
-
-
-// ── Sprint 7.4/7.5 — flashcards + exercises modules carry the eyebrow ─
-
-describe('Sprint 7.4/7.5 — flashcards + exercises module templates ship canonical "Vocabulary" eyebrow', () => {
-  // Sprint 7.4 migrated flashcards.html and Sprint 7.5 migrated
-  // exercises.html to the vocab-module pattern (mirrors Sprint 7.3
-  // my-vocab). Both pages dropped from the per-page eyebrow roster
-  // above; these pins guard the module-template eyebrows instead.
+describe('Sprint 9.2 — vocab module templates ship the Vocabulary back-link (eyebrow promoted)', () => {
+  // Sprint 7.3/7.4/7.5 migrated my-vocabulary / flashcards / exercises
+  // into module templates. Sprint 9.1 lifted the .subpage-header
+  // primitive into components.css. Sprint 9.2 promotes the static
+  // <p class="eyebrow">Vocabulary</p> tier label inside each module
+  // template to an interactive <button class="subpage-header__back"
+  // data-action="back-to-dashboard"> so users can return to the parent
+  // dashboard without reloading the page. The "Vocabulary" tier
+  // semantic is preserved inside the button's <span> label.
   const MODULE_PINS = [
+    { rel: 'frontend/js/vocab-modules/my-vocab.js',   label: 'my-vocab'   },
     { rel: 'frontend/js/vocab-modules/flashcards.js', label: 'flashcards' },
     { rel: 'frontend/js/vocab-modules/exercises.js',  label: 'exercises'  },
   ];
 
   MODULE_PINS.forEach(({ rel, label }) => {
-    test(`${rel} template carries <p class="eyebrow">Vocabulary</p>`, () => {
+    test(`${rel} template carries the Sprint 9.2 back-link button with "Vocabulary" label`, () => {
       const src = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
       assert.match(
         src,
-        /<p[^>]*\bclass="eyebrow"[^>]*>\s*Vocabulary\s*<\/p>/,
-        `${label} module template must ship "Vocabulary" eyebrow (migrated from shell in Sprint 7.4/7.5)`,
+        /<button[^>]*\bclass="subpage-header__back"[^>]*\bdata-action="back-to-dashboard"[\s\S]*?<span>Vocabulary<\/span>[\s\S]*?<\/button>/,
+        `${label} module template must ship the Sprint 9.2 .subpage-header__back button with "Vocabulary" label`,
+      );
+    });
+
+    test(`${rel} template no longer ships the pre-Sprint-9.2 <p class="eyebrow">Vocabulary</p>`, () => {
+      const src = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      assert.ok(
+        !/<p[^>]*\bclass="eyebrow"[^>]*>\s*Vocabulary\s*<\/p>/.test(src),
+        `${label} module template must NOT redeclare the legacy static eyebrow — Sprint 9.2 promoted it to an interactive back-link`,
       );
     });
   });
