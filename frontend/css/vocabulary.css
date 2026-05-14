@@ -131,72 +131,115 @@ a { color: inherit; text-decoration: none; }
 .stat.heat .value { color: var(--av-warning); }
 
 
-/* ── Tabs ───────────────────────────────────────────────────────── */
+/* ── Mode-card grid (Sprint 8.2) ────────────────────────────────
+   Adopts the home.css `.skill-card` / speaking.css `.mode-card`
+   visual language. Inner skeleton: .head > .icon + .arrow, h3,
+   .lede. The `Soon` lock-tag (preserved from the retired tab-row)
+   marks the Topic Bank card until Vocab Bank feature ships in a
+   later Phase 5+ sprint. */
 
-.vocab-tabs {
-  display: flex;
-  gap: var(--av-space-1);
-  margin-bottom: var(--av-space-6);
-  border-bottom: 1px solid var(--av-border-subtle);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+.vocab-modes {
+  margin-bottom: var(--av-space-12);
 }
-.vocab-tabs::-webkit-scrollbar { display: none; }
+.vocab-modes h2 {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+  margin: 0 0 var(--av-space-6);
+}
 
-.tab {
+.modes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--av-space-4);
+}
+
+.mode-card {
   position: relative;
-  appearance: none;
-  background: transparent;
-  border: 0;
-  color: var(--av-text-muted);
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: var(--av-fw-medium);
-  padding: var(--av-space-3) var(--av-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-3);
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-6);
   cursor: pointer;
-  white-space: nowrap;
-  transition: color var(--av-duration-fast) var(--av-easing-default);
-  display: inline-flex;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform var(--av-duration-base) var(--av-easing-default),
+    border-color var(--av-duration-base) var(--av-easing-default),
+    box-shadow var(--av-duration-base) var(--av-easing-default);
+}
+.mode-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-md);
+}
+.mode-card:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+
+.mode-card .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-3);
+}
+.mode-card .icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--av-radius-md);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border: 1px solid var(--av-primary-border);
+}
+.mode-card .icon svg {
+  width: 20px;
+  height: 20px;
+}
+.mode-card .arrow {
+  font-size: 1.1rem;
+  color: var(--av-text-muted);
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+.mode-card:hover .arrow {
+  color: var(--av-primary);
+  transform: translateX(4px);
+}
+.mode-card h3 {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-tight);
+  color: var(--av-text-primary);
+  margin: 0;
+  display: flex;
   align-items: center;
   gap: var(--av-space-2);
 }
-.tab .ico {
-  font-size: 1.1rem;
-  line-height: 1;
+.mode-card .lede {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-muted);
+  margin: 0;
+  line-height: var(--av-lh-relaxed);
 }
-.tab:hover { color: var(--av-text-primary); }
-.tab.active { color: var(--av-primary); }
-.tab.active::after {
-  content: "";
-  position: absolute;
-  left: var(--av-space-3);
-  right: var(--av-space-3);
-  bottom: -1px;
-  height: 2px;
-  background: var(--av-primary);
-  border-radius: 2px;
-}
-.tab:focus-visible {
-  outline: 2px solid var(--av-primary);
-  outline-offset: 2px;
-  border-radius: var(--av-radius-sm);
-}
-.tab[disabled] {
-  color: var(--av-text-faint);
-  cursor: not-allowed;
-}
-.tab[disabled]::after { display: none; }
-.tab .lock-tag {
+.mode-card .lock-tag {
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-left: var(--av-space-2);
   padding: 2px var(--av-space-2);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-sm);
   opacity: 0.7;
   color: var(--av-text-muted);
+  font-weight: var(--av-fw-medium);
 }
 
 

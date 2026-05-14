@@ -116,30 +116,52 @@
       </div>
     </div>
 
-    <!-- ── Tab nav ───────────────────────────────────────────────── -->
-    <nav class="vocab-tabs" role="tablist" aria-label="Vocabulary sections">
-      <button class="tab active" data-tab="my-vocab" role="tab"
-              aria-selected="true" aria-controls="panel-my-vocab" id="tab-my-vocab">
-        <span class="ico" aria-hidden="true">📚</span>
-        Từ vựng của tôi
-      </button>
-      <button class="tab" data-tab="flashcards" role="tab"
-              aria-selected="false" aria-controls="panel-flashcards" id="tab-flashcards" tabindex="-1">
-        <span class="ico" aria-hidden="true">🔄</span>
-        Flashcards
-      </button>
-      <button class="tab" data-tab="exercises" role="tab"
-              aria-selected="false" aria-controls="panel-exercises" id="tab-exercises" tabindex="-1">
-        <span class="ico" aria-hidden="true">✏︎</span>
-        Bài tập
-      </button>
-      <button class="tab" data-tab="topic-bank" role="tab"
-              aria-selected="false" aria-controls="panel-topic-bank" id="tab-topic-bank" tabindex="-1">
-        <span class="ico" aria-hidden="true">✸</span>
-        Kho theo chủ đề
-        <span class="lock-tag">Soon</span>
-      </button>
-    </nav>
+    <!-- ── Mode-card grid (Sprint 8.2) ──────────────────────────── -->
+    <!-- Sprint 8.2 — the ARIA tablist row was retired in favor of a
+         mode-card grid (same pattern as Sprint 8.1 speaking.html). The
+         dashboard view is now the page's default landing state; the 4
+         `.tab-panel` sections below stay hidden until a mode-card click
+         or a #hash deep-link activates one of them. activateTab() in
+         /js/vocab-landing.js still owns the panel toggle + module
+         mount; hash deep-linking (#my-vocab / #flashcards / #exercises
+         / #topic-bank) is preserved per Phase B Q5. -->
+    <section class="vocab-modes" aria-labelledby="modes-heading">
+      <h2 id="modes-heading">Bắt đầu học từ vựng</h2>
+      <div class="modes-grid">
+        <a href="#" class="mode-card" data-mode="my-vocab" aria-label="Mở My Vocabulary">
+          <div class="head">
+            <div class="icon"><i data-lucide="book-open"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>My Vocabulary</h3>
+          <p class="lede">Sổ tay từ vựng cá nhân của bạn.</p>
+        </a>
+        <a href="#" class="mode-card" data-mode="flashcards" aria-label="Mở Flashcards">
+          <div class="head">
+            <div class="icon"><i data-lucide="layers"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Flashcards</h3>
+          <p class="lede">Học từ với hệ thống lặp khoảng cách.</p>
+        </a>
+        <a href="#" class="mode-card" data-mode="exercises" aria-label="Mở Exercises">
+          <div class="head">
+            <div class="icon"><i data-lucide="dumbbell"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Exercises</h3>
+          <p class="lede">Luyện tập đa dạng dạng bài.</p>
+        </a>
+        <a href="#" class="mode-card" data-mode="topic-bank" aria-label="Mở Topic Bank">
+          <div class="head">
+            <div class="icon"><i data-lucide="landmark"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Topic Bank <span class="lock-tag">Soon</span></h3>
+          <p class="lede">Khám phá từ vựng theo chủ đề.</p>
+        </a>
+      </div>
+    </section>
 
     <!-- ── Tab panels ────────────────────────────────────────────── -->
     <!--
@@ -151,19 +173,22 @@
       render in legacy dark navy regardless of the parent's active theme.
     -->
 
+    <!-- Sprint 8.2 — all 4 panels start hidden; dashboard view above is
+         the default landing state. aria-labelledby points at the mode-card
+         heading so screen readers still anchor each panel to its trigger. -->
+
     <section class="tab-panel" data-panel="my-vocab" id="panel-my-vocab"
-             role="tabpanel" aria-labelledby="tab-my-vocab">
+             role="tabpanel" aria-labelledby="modes-heading" hidden>
       <!-- Sprint 7.3 — my-vocab tab uses ES-module mount instead of
            iframe. vocab-landing.js dynamic-imports /js/vocab-modules/my-vocab.js
            and calls mount(container, { embedded: true }) on first
            activation. Container's data-mounted attribute is the
-           idempotency guard. Flashcards + exercises tabs below still
-           use the iframe path until Sprint 7.4 / 7.5. -->
+           idempotency guard. -->
       <div class="tab-mount" id="mount-my-vocab"></div>
     </section>
 
     <section class="tab-panel" data-panel="flashcards" id="panel-flashcards"
-             role="tabpanel" aria-labelledby="tab-flashcards" hidden>
+             role="tabpanel" aria-labelledby="modes-heading" hidden>
       <!-- Sprint 7.4 — flashcards tab migrated to ES-module mount,
            matching the Sprint 7.3 my-vocab pattern. vocab-landing.js
            dynamic-imports /js/vocab-modules/flashcards.js and calls
@@ -173,7 +198,7 @@
     </section>
 
     <section class="tab-panel" data-panel="exercises" id="panel-exercises"
-             role="tabpanel" aria-labelledby="tab-exercises" hidden>
+             role="tabpanel" aria-labelledby="modes-heading" hidden>
       <!-- Sprint 7.5 — exercises tab migrated to ES-module mount, matching
            Sprint 7.3 / 7.4 patterns. vocab-landing.js dynamic-imports
            /js/vocab-modules/exercises.js and calls mount(container,
@@ -185,7 +210,7 @@
     </section>
 
     <section class="tab-panel" data-panel="topic-bank" id="panel-topic-bank"
-             role="tabpanel" aria-labelledby="tab-topic-bank" hidden>
+             role="tabpanel" aria-labelledby="modes-heading" hidden>
       <div class="coming-soon">
         <div class="icon" aria-hidden="true">✸</div>
         <h2>Kho từ vựng theo chủ đề</h2>
