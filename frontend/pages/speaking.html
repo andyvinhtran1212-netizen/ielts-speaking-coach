@@ -93,42 +93,13 @@
        across the shadow boundary. -->
   <aver-chrome active="speaking"></aver-chrome>
 
-  <!-- ─── MAIN TAB NAV ─────────────────────────────────────── -->
-  <!-- Sprint 6.4: emoji icons (📊🎯📋🏆📖📚) swapped for Lucide line
-       glyphs to match the design system direction. The button id /
-       class / onclick attributes are unchanged so switchMainTab(...)
-       and the active-state CSS still resolve. .main-tab-sub is kept
-       in markup but hidden by speaking.css for a calmer single-line
-       nav row. -->
-  <nav class="main-tab-nav">
-    <button id="mtab-dashboard" class="main-tab-btn active" onclick="switchMainTab('dashboard')">
-      <i data-lucide="layout-dashboard"></i>
-      <span class="main-tab-label">Dashboard</span>
-    </button>
-    <button id="mtab-practice"  class="main-tab-btn"        onclick="switchMainTab('practice')">
-      <i data-lucide="target"></i>
-      <span class="main-tab-label">Luyện tập</span>
-      <span class="main-tab-sub">Luyện từng câu, nhận phản hồi tức thì</span>
-    </button>
-    <button id="mtab-partbpart" class="main-tab-btn"        onclick="switchMainTab('partbpart')">
-      <i data-lucide="list-checks"></i>
-      <span class="main-tab-label">Luyện từng Part</span>
-      <span class="main-tab-sub">Luyện đúng cấu trúc từng Part IELTS</span>
-    </button>
-    <button id="mtab-fulltest"  class="main-tab-btn"        onclick="switchMainTab('fulltest')">
-      <i data-lucide="trophy"></i>
-      <span class="main-tab-label">Full Test</span>
-      <span class="main-tab-sub">Thi thật — Part 1, 2, 3 liên tiếp</span>
-    </button>
-    <!-- Sprint 6.16 — Grammar Wiki + Từ vựng cross-skill nav links
-         removed. Cross-skill discovery lives on /pages/home.html
-         (multi-skill grid established Sprint 5.1 + Sprint 6.13a-ext).
-         Speaking page focuses on Speaking modes only.
-         Personalized Grammar Dashboard + Vocab updates analytics
-         inside the tab-dashboard panel are intentionally preserved —
-         they're driven by user's Speaking session data and are not
-         duplicates of the home.html discovery grid. -->
-  </nav>
+  <!-- Sprint 8.1 — main-tab-nav retired. Dashboard view is the page's
+       default landing state; mode entry is now via the `.mode-card`
+       grid in the dashboard's "Bắt đầu luyện tập" section. Re-clicking
+       the chrome Speaking nav link reloads /pages/speaking.html and
+       restores the dashboard view (Phase B Q5). The mode panels
+       (#tab-practice / #tab-partbpart / #tab-fulltest) are still
+       toggled by switchMainTab() from the mode-cards' click handler. -->
 
   <!-- ─── MAIN ────────────────────────────────────────────── -->
   <main class="main-bg flex-1">
@@ -176,14 +147,12 @@
 
     </section>
 
-    <!-- ── "Luyện tiếp ngay" CTA ──────────────────────────────── -->
-    <div id="continue-cta" class="hidden mb-8 flex items-center justify-between rounded-2xl px-6 py-4" style="background:linear-gradient(135deg,rgba(15,118,110,0.25),rgba(14,116,144,0.2));border:1px solid rgba(20,184,166,0.2);">
-      <div>
-        <p class="text-sm font-semibold text-white">Tiếp tục luyện tập</p>
-        <p id="cta-topic-label" class="text-xs mt-0.5" style="color:var(--av-text-muted);">Chủ đề gần nhất</p>
-      </div>
-      <a id="continue-cta-link" href="practice.html" class="btn-primary text-sm">Luyện tiếp ngay →</a>
-    </div>
+    <!-- Sprint 8.1 — "Tiếp tục luyện tập" banner (#continue-cta) retired.
+         Re-entering practice now happens through the unified "Bắt đầu
+         luyện tập" mode-card grid below. The session-resume affordance
+         (cta-topic-label) was rarely populated and competed with the
+         mode cards for attention; consolidating into one entry surface
+         per Sprint 8.1 IA refactor. -->
 
     <!-- ── Empty state (no sessions yet) ─────────────────────── -->
     <div id="dashboard-empty" class="hidden mb-10 rounded-2xl ds-empty" style="border:1px dashed var(--av-border-default);">
@@ -225,68 +194,34 @@
       </div>
     </section>
 
-    <!-- ── PART 2: Quick Access ───────────────────────────── -->
-    <section class="mb-10">
-      <h2 class="text-lg font-bold mb-5">Bắt đầu luyện tập</h2>
-      <div class="grid sm:grid-cols-3 gap-4 mb-4">
-
-        <!-- Quick: Practice -->
-        <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('practice')">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center"
-                 style="background:rgba(15,118,110,0.2);color:#14b8a6;">
-              <i data-lucide="target" style="width:22px;height:22px;"></i>
-            </div>
-            <div>
-              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Luyện tập</span>
-              <h3 class="font-bold text-sm leading-tight">Practice</h3>
-            </div>
+    <!-- ── PART 2: Mode entry cards (Sprint 8.1) ──────────── -->
+    <section class="speaking-modes mb-10" aria-labelledby="modes-heading">
+      <h2 id="modes-heading" class="text-lg font-bold mb-5">Bắt đầu luyện tập</h2>
+      <div class="modes-grid">
+        <a href="#" class="mode-card" data-mode="practice" aria-label="Mở chế độ Luyện tập">
+          <div class="head">
+            <div class="icon"><i data-lucide="target"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
           </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:var(--av-text-muted);">
-            Tự chọn chủ đề hoặc nhập câu hỏi riêng. Luyện từng câu và nhận nhận xét ngay sau mỗi lần trả lời.
-          </p>
-          <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
-                  onclick="event.stopPropagation();switchMainTab('practice')">Đến Luyện tập →</button>
-        </div>
-
-        <!-- Quick: Part-by-Part -->
-        <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('partbpart')">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center"
-                 style="background:rgba(15,118,110,0.2);color:#14b8a6;">
-              <i data-lucide="list-checks" style="width:22px;height:22px;"></i>
-            </div>
-            <div>
-              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Luyện từng Part</span>
-              <h3 class="font-bold text-sm leading-tight">Part-by-Part</h3>
-            </div>
+          <h3>Luyện tập</h3>
+          <p class="lede">Tự chọn chủ đề hoặc nhập câu hỏi riêng. Phản hồi tức thì sau mỗi câu.</p>
+        </a>
+        <a href="#" class="mode-card" data-mode="partbpart" aria-label="Mở chế độ Luyện từng Part">
+          <div class="head">
+            <div class="icon"><i data-lucide="list-checks"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
           </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:var(--av-text-muted);">
-            Luyện theo từng Part của IELTS Speaking với đúng cấu trúc câu hỏi. Kết thúc mỗi buổi, bạn sẽ nhận đánh giá theo 4 tiêu chí.
-          </p>
-          <button class="btn-start text-white text-xs font-semibold py-2.5 rounded-xl w-full"
-                  onclick="event.stopPropagation();switchMainTab('partbpart')">Đến Luyện từng Part →</button>
-        </div>
-
-        <!-- Quick: Full Test -->
-        <div class="part-card rounded-2xl p-6 flex flex-col cursor-pointer" onclick="switchMainTab('fulltest')">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-11 h-11 rounded-xl flex items-center justify-center"
-                 style="background:rgba(15,118,110,0.2);color:#14b8a6;">
-              <i data-lucide="trophy" style="width:22px;height:22px;"></i>
-            </div>
-            <div>
-              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#14b8a6;">Full Test</span>
-              <h3 class="font-bold text-sm leading-tight">IELTS Simulation</h3>
-            </div>
+          <h3>Luyện từng Part</h3>
+          <p class="lede">Đúng cấu trúc Part 1 / 2 / 3. Đánh giá 4 tiêu chí cuối buổi.</p>
+        </a>
+        <a href="#" class="mode-card" data-mode="fulltest" aria-label="Mở chế độ Full Test">
+          <div class="head">
+            <div class="icon"><i data-lucide="trophy"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
           </div>
-          <p class="text-xs leading-relaxed mb-4 flex-1" style="color:var(--av-text-muted);">
-            Mô phỏng trọn vẹn bài thi IELTS Speaking từ Part 1 đến Part 3. Phù hợp để luyện tâm lý phòng thi và theo dõi band score tổng thể.
-          </p>
-          <button class="btn-fulltest text-white text-xs font-semibold py-2.5 rounded-xl w-full"
-                  onclick="event.stopPropagation();switchMainTab('fulltest')">Đến Full Test →</button>
-        </div>
-
+          <h3>Full Test</h3>
+          <p class="lede">Mô phỏng trọn vẹn IELTS Speaking Part 1 → 3 với band tổng thể.</p>
+        </a>
       </div>
     </section>
 
@@ -884,14 +819,24 @@
         }
       });
 
-      // Also disable quick-start cards on the dashboard tab
+      // Also disable mode-cards + legacy quick-start cards on the dashboard
+      // (Sprint 8.1: tab-row button disable path retired; selector extended
+      // to .mode-card[data-mode=...] so the new mode-card grid visually
+      // reflects the permission state. The panel-locked banner injected
+      // above is the defense-in-depth fallback if a user navigates past
+      // the visual gate.)
       if (!_hasPermission('practice_single')) {
-        document.querySelectorAll('[onclick*="practice"]').forEach(function (el) {
+        document.querySelectorAll('[onclick*="practice"], .mode-card[data-mode="practice"]').forEach(function (el) {
+          el.style.pointerEvents = 'none'; el.style.opacity = '0.4';
+        });
+      }
+      if (!_hasPermission('practice_part')) {
+        document.querySelectorAll('.mode-card[data-mode="partbpart"]').forEach(function (el) {
           el.style.pointerEvents = 'none'; el.style.opacity = '0.4';
         });
       }
       if (!_hasPermission('practice_full')) {
-        document.querySelectorAll('[onclick*="fulltest"], .btn-fulltest').forEach(function (el) {
+        document.querySelectorAll('[onclick*="fulltest"], .btn-fulltest, .mode-card[data-mode="fulltest"]').forEach(function (el) {
           el.style.pointerEvents = 'none'; el.style.opacity = '0.4';
         });
       }
@@ -1039,36 +984,8 @@
         document.getElementById('charts-section').classList.remove('hidden');
       }
 
-      // "Luyện tiếp ngay" CTA
-      if (summary.last_topic) {
-        const cta = document.getElementById('continue-cta');
-        cta.classList.remove('hidden');
-        document.getElementById('cta-topic-label').textContent = summary.last_topic;
-        const ctaLink = document.getElementById('continue-cta-link');
-        ctaLink.removeAttribute('href');
-        ctaLink.style.cursor = 'pointer';
-        ctaLink.onclick = async function(e) {
-          e.preventDefault();
-          ctaLink.textContent = 'Đang tạo phiên…';
-          ctaLink.style.pointerEvents = 'none';
-          try {
-            const session = await requireAuth();
-            if (!session) return;
-            const token = session.access_token;
-            const data = await window.api.post('/sessions', {
-              mode:  summary.last_mode || 'practice',
-              part:  summary.last_part || 1,
-              topic: summary.last_topic,
-            }, token);
-            if (!data || !data.session_id) throw new Error('Không nhận được session_id');
-            window.location.href = 'practice.html?session_id=' + data.session_id;
-          } catch (err) {
-            alert('Không thể tạo phiên: ' + err.message);
-            ctaLink.textContent = 'Luyện tiếp ngay';
-            ctaLink.style.pointerEvents = '';
-          }
-        };
-      }
+      // Sprint 8.1 — "Luyện tiếp ngay" CTA logic removed alongside the
+      // #continue-cta markup. Mode entry is now via the .mode-card grid.
     }
 
     // ── Render session history ────────────────────────────────
@@ -1681,21 +1598,34 @@
     // (/js/user-pill.js handles #user-menu-logout → signOut() →
     // /index.html redirect). No page-local logout binding required.
 
-    // ── Main Tab Navigation ───────────────────────────────────
+    // ── Main panel navigation (Sprint 8.1) ────────────────────
+    // The dashboard's `.mode-card` grid + the #dashboard-empty empty-state
+    // button + #grammar-dashboard-section CTAs are the only callers now.
+    // The previous tab-row buttons were retired in Sprint 8.1 so the
+    // #mtab-{tab} lookup branch was removed; switchMainTab only toggles
+    // the four #tab-{name} panels.
     var _activeMainTab = 'dashboard';
 
     function switchMainTab(tab) {
       _activeMainTab = tab;
       ['dashboard', 'practice', 'partbpart', 'fulltest'].forEach(function (t) {
-        var btn   = document.getElementById('mtab-' + t);
         var panel = document.getElementById('tab-' + t);
-        if (btn)   btn.classList.toggle('active', t === tab);
         if (panel) panel.classList.toggle('active', t === tab);
       });
-      // Lazy-load topics when tab first opened
+      // Lazy-load topics when panel first opened
       if (tab === 'practice')  loadPracTopics(_pracTopicPart);
       if (tab === 'partbpart') { selectPbpPart(_pbpPart); }
     }
+
+    // Sprint 8.1 — mode-card click delegation
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.mode-card[data-mode]').forEach(function (card) {
+        card.addEventListener('click', function (e) {
+          e.preventDefault();
+          switchMainTab(card.dataset.mode);
+        });
+      });
+    });
 
     // ── Tab 2: Practice ───────────────────────────────────────
     var _pracPart      = 1;   // custom-question part context
