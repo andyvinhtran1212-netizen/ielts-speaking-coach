@@ -1,19 +1,25 @@
-// js/vocab-landing.js — vocabulary landing tab switcher.
+// js/vocab-landing.js — vocabulary landing mode-card switcher.
 //
-// Tab-switching + URL-hash deep-linking for /pages/vocabulary.html.
-// Distinct from /js/vocabulary.js (which powers the Vocabulary Wiki at
-// /vocabulary.html and predates this sprint by a wide margin).
+// Mode-card click delegation + URL-hash deep-linking for
+// /pages/vocabulary.html. Distinct from /js/vocabulary.js (which
+// powers the Vocabulary Wiki at /vocabulary.html and predates this
+// sprint by a wide margin).
 //
-// Architecture (post DEBT-2026-05-09-B closure, Sprint 7.6):
-//   Each vocab tab dynamic-imports its module from /js/vocab-modules/*
-//   and mounts it into `[data-panel="<tab>"] .tab-mount`. The legacy
-//   Sprint 6.0 iframe pattern was retired across Sprint 7.3 → 7.6;
-//   embedded-mode.css and the per-page IIFE are gone.
+// Architecture (post Sprint 8.2 IA refactor):
+//   The ARIA tablist row was retired; the dashboard view (`.vocab-modes`
+//   + 4 `.mode-card` anchors) is the page's default landing state.
+//   Clicking a mode-card or visiting `#flashcards` (etc.) hides the
+//   dashboard and activates the target `.tab-panel`. Each panel
+//   dynamic-imports its module from /js/vocab-modules/* and mounts it
+//   into `[data-panel="<mode>"] .tab-mount`. The legacy Sprint 6.0
+//   iframe pattern was retired across Sprint 7.3 → 7.6.
 //
 // Sprint history (for context only — see PHASE_CLOSURE_LEDGER.md):
 //   - Sprint 6.0  shipped iframe-mounted vocab tabs (deferred refactor)
 //   - Sprint 7.3 / 7.4 / 7.5 migrated each child to an ES module
 //   - Sprint 7.6 retired the iframe code path here + embedded-mode.css
+//   - Sprint 8.2 retired the ARIA tablist row → mode-card grid;
+//                bootstrap now defaults to the dashboard view (no hash)
 
 (function () {
   'use strict';
@@ -28,6 +34,11 @@
     'exercises':  () => import('/js/vocab-modules/exercises.js'),
   };
 
+  // DEFAULT_TAB is the fall-back when activateTab() receives an unknown
+  // mode name (e.g., a malformed deep-link hash). Sprint 8.2 — the
+  // page-load default is the dashboard view itself, not any individual
+  // panel; bootstrap() no longer auto-activates DEFAULT_TAB on cold
+  // load. DEFAULT_TAB is kept solely for the unknown-mode fallback path.
   const DEFAULT_TAB = 'my-vocab';
   const VALID_TABS = new Set([
     'my-vocab', 'flashcards', 'exercises', 'topic-bank',
@@ -39,12 +50,9 @@
   function activateTab(tabName, { updateHash = true } = {}) {
     if (!VALID_TABS.has(tabName)) tabName = DEFAULT_TAB;
 
-    $$('.vocab-tabs .tab').forEach(t => {
-      const isActive = t.dataset.tab === tabName;
-      t.classList.toggle('active', isActive);
-      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      t.tabIndex = isActive ? 0 : -1;
-    });
+    // Hide the dashboard view + reveal the target panel.
+    const dashboard = $('.vocab-modes');
+    if (dashboard) dashboard.hidden = true;
     $$('.tab-panel').forEach(panel => {
       const isTarget = panel.dataset.panel === tabName;
       panel.hidden = !isTarget;
@@ -86,25 +94,16 @@
     }
   }
 
-  function setupTabs() {
-    $$('.vocab-tabs .tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        if (tab.disabled) return;
+  function setupModeCards() {
+    // Sprint 8.2 — click-delegation on .mode-card[data-mode] replaces
+    // the tab-button click + ArrowLeft/ArrowRight cycle handler. The
+    // mode-cards are <a href="#"> anchors; preventDefault keeps the
+    // bare-fragment href from advancing the URL hash to "#" before
+    // activateTab() writes the canonical hash via replaceState.
+    $$('.mode-card[data-mode]').forEach(card => {
+      card.addEventListener('click', (e) => {
         e.preventDefault();
-        activateTab(tab.dataset.tab);
-      });
-      tab.addEventListener('keydown', (e) => {
-        if (tab.disabled) return;
-        // Left/Right arrow keys cycle through enabled tabs (a11y).
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const enabled = $$('.vocab-tabs .tab').filter(t => !t.disabled);
-        const idx = enabled.indexOf(tab);
-        if (idx < 0) return;
-        const next = e.key === 'ArrowRight'
-          ? enabled[(idx + 1) % enabled.length]
-          : enabled[(idx - 1 + enabled.length) % enabled.length];
-        next.focus();
-        activateTab(next.dataset.tab);
+        activateTab(card.dataset.mode);
       });
     });
 
@@ -146,10 +145,16 @@
     if (typeof window.api === 'undefined') {
       return setTimeout(bootstrap, 30);
     }
-    setupTabs();
+    setupModeCards();
+    // Sprint 8.2 — default landing state is the dashboard view (the
+    // .vocab-modes section). Only activate a panel when the URL hash
+    // explicitly requests one (e.g., vocabulary.html#flashcards from a
+    // deep link or browser back/forward). Phase B Q5 — hash routing
+    // preserved.
     const fromHash = (window.location.hash || '').slice(1);
-    activateTab(VALID_TABS.has(fromHash) ? fromHash : DEFAULT_TAB,
-      { updateHash: false });
+    if (VALID_TABS.has(fromHash)) {
+      activateTab(fromHash, { updateHash: false });
+    }
     loadStats();
   }
 

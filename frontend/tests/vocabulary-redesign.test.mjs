@@ -129,16 +129,24 @@ describe('vocabulary.html / canonical anti-flash IIFE', () => {
 // ── JS-coupled iframe contract preserved (DEBT-2026-05-09-B defer) ──
 
 
-describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
-  // The 4-tab iframe approach is deferred per DEBT-2026-05-09-B. Sprint
-  // 6.10 pre-work confirmed no triggers fired; the contract stays.
-  const requiredTabIds   = ['tab-my-vocab', 'tab-flashcards', 'tab-exercises', 'tab-topic-bank'];
+describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', () => {
+  // Sprint 8.2 — the ARIA tablist row (4 `#tab-{name}` buttons + their
+  // `data-tab` attributes + `role="tab"` markup) was retired. Mode
+  // entry now happens via `.mode-card[data-mode]` anchors on the
+  // dashboard view. The 4 `#panel-{name}` panels + their
+  // `role="tabpanel"` + the `data-panel` attributes are preserved —
+  // activateTab() in /js/vocab-landing.js still owns the panel toggle
+  // and module mount.
   const requiredPanelIds = ['panel-my-vocab', 'panel-flashcards', 'panel-exercises', 'panel-topic-bank'];
-  const requiredDataTabs   = ['my-vocab', 'flashcards', 'exercises', 'topic-bank'];
+  const requiredDataPanels = ['my-vocab', 'flashcards', 'exercises', 'topic-bank'];
+  const retiredTabIds = ['tab-my-vocab', 'tab-flashcards', 'tab-exercises', 'tab-topic-bank'];
 
-  for (const id of requiredTabIds) {
-    test(`tab id="${id}" present`, () => {
-      assert.match(html, new RegExp(`id=["']${id}["']`));
+  for (const id of retiredTabIds) {
+    test(`tab id="${id}" must NOT exist (Sprint 8.2 retired the tab row)`, () => {
+      assert.ok(
+        !new RegExp(`id=["']${id}["']`).test(html),
+        `#${id} should be absent — Sprint 8.2 replaced the tab buttons with .mode-card[data-mode] anchors`,
+      );
     });
   }
   for (const id of requiredPanelIds) {
@@ -146,11 +154,48 @@ describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
       assert.match(html, new RegExp(`id=["']${id}["']`));
     });
   }
-  for (const dataTab of requiredDataTabs) {
-    test(`data-tab="${dataTab}" present`, () => {
-      assert.match(html, new RegExp(`data-tab=["']${dataTab}["']`));
+  for (const dataPanel of requiredDataPanels) {
+    test(`data-panel="${dataPanel}" present`, () => {
+      assert.match(html, new RegExp(`data-panel=["']${dataPanel}["']`));
     });
   }
+
+  // Sprint 8.2 — mode-card markup contract.
+  for (const mode of requiredDataPanels) {
+    test(`mode-card[data-mode="${mode}"] present (Sprint 8.2 entry surface)`, () => {
+      assert.match(
+        html,
+        new RegExp(`<a[^>]*class="[^"]*\\bmode-card\\b[^"]*"[^>]*data-mode="${mode}"`),
+        `.mode-card[data-mode="${mode}"] anchor must exist on the dashboard view`,
+      );
+    });
+  }
+
+  test('.vocab-modes section + "Bắt đầu học từ vựng" heading present (Phase B Q3)', () => {
+    assert.match(
+      html,
+      /<section[^>]*class="[^"]*\bvocab-modes\b[^"]*"[^>]*aria-labelledby="modes-heading"/,
+      '.vocab-modes section must carry aria-labelledby="modes-heading"',
+    );
+    assert.match(
+      html,
+      /<h2[^>]*id="modes-heading"[^>]*>\s*Bắt đầu học từ vựng\s*<\/h2>/,
+      'section heading must read "Bắt đầu học từ vựng" (Phase B Andy decision)',
+    );
+    assert.match(
+      html,
+      /<div[^>]*class="[^"]*\bmodes-grid\b/,
+      '.modes-grid wrapper must exist',
+    );
+  });
+
+  test('Topic Bank card carries the "Soon" lock-tag badge (Phase B Q2)', () => {
+    assert.match(
+      html,
+      /data-mode="topic-bank"[\s\S]{0,500}<span[^>]*class="[^"]*\block-tag\b[^"]*"[^>]*>Soon<\/span>/,
+      'Topic Bank mode-card must carry <span class="lock-tag">Soon</span>',
+    );
+  });
 
   // Sprint 7.3 — my-vocab tab migrated from <iframe> to ES-module mount
   // (DEBT-2026-05-09-B Phase 1). Sprint 7.4 — flashcards joined the
@@ -232,11 +277,25 @@ describe('vocabulary.html / Sprint 6.0 iframe contract preserved', () => {
     assert.match(html, /id=["']stat-stacks-count["']/);
   });
 
-  test('aria-controls + role="tab" + role="tabpanel" preserved', () => {
+  test('role="tabpanel" preserved on 4 panels; role="tab" + aria-selected retired (Sprint 8.2)', () => {
     const tabsWithRole    = (html.match(/role=["']tab["']/g) || []).length;
     const panelsWithRole  = (html.match(/role=["']tabpanel["']/g) || []).length;
-    assert.equal(tabsWithRole, 4, 'expected 4 role="tab"');
-    assert.equal(panelsWithRole, 4, 'expected 4 role="tabpanel"');
+    const ariaSelected    = (html.match(/aria-selected=/g) || []).length;
+    assert.equal(tabsWithRole,   0, 'role="tab" must be absent (Sprint 8.2 retired the tablist row)');
+    assert.equal(panelsWithRole, 4, 'role="tabpanel" stays on all 4 panels');
+    assert.equal(ariaSelected,   0, 'aria-selected must be absent (no tab buttons left)');
+  });
+
+  test('all 4 panels start hidden — dashboard view is the default landing state (Sprint 8.2)', () => {
+    // Every <section.tab-panel> ships the `hidden` attribute on page
+    // load; activateTab() reveals the target via panel.hidden = false.
+    for (const dataPanel of requiredDataPanels) {
+      assert.match(
+        html,
+        new RegExp(`<section[^>]*data-panel=["']${dataPanel}["'][^>]*hidden`),
+        `<section[data-panel="${dataPanel}"]> must start hidden — dashboard is default`,
+      );
+    }
   });
 });
 
@@ -276,21 +335,45 @@ describe('vocabulary.html / body class + chrome', () => {
 // ── Functional microcopy emoji preserved ─────────────────────────
 
 
-describe('vocabulary.html / functional microcopy preserved', () => {
-  // Sprint 6.7+ precedent: tab icons are functional microcopy and stay.
-  // Only chrome glyphs swap to Lucide.
-  test('tab icons preserve emoji (📚 🔄 ✏︎ ✸)', () => {
-    assert.match(html, /📚/);
-    assert.match(html, /🔄/);
-    assert.match(html, /✏︎/);
-    assert.match(html, /✸/);
+describe('vocabulary.html / mode-card microcopy (Sprint 8.2)', () => {
+  // Sprint 8.2 — the tab-row's emoji icons (📚 🔄 ✏︎ ✸) + Vietnamese
+  // labels were retired alongside the row itself. Mode-cards use
+  // Lucide icons (book-open / layers / dumbbell / landmark) and
+  // English-cased titles (My Vocabulary / Flashcards / Exercises /
+  // Topic Bank). The leaner Vietnamese subtitles live in `.lede`.
+
+  test('mode-cards use Lucide icons (book-open / layers / dumbbell / landmark)', () => {
+    const section = html.match(/<section[^>]*class="[^"]*\bvocab-modes\b[\s\S]+?<\/section>/);
+    assert.ok(section, '.vocab-modes section must exist');
+    for (const icon of ['book-open', 'layers', 'dumbbell', 'landmark']) {
+      assert.match(
+        section[0],
+        new RegExp(`<i[^>]*data-lucide=["']${icon}["']`),
+        `mode-card must carry <i data-lucide="${icon}">`,
+      );
+    }
+    // Legacy tab-icon emoji must NOT appear inside the modes section.
+    for (const glyph of ['📚', '🔄', '✏︎', '✸']) {
+      assert.ok(
+        !section[0].includes(glyph),
+        `mode-card section still contains "${glyph}" — Sprint 8.2 swapped to Lucide`,
+      );
+    }
   });
 
-  test('Vietnamese tab labels preserved', () => {
-    assert.match(html, /Từ vựng của tôi/);
-    assert.match(html, /Flashcards/);
-    assert.match(html, /Bài tập/);
-    assert.match(html, /Kho theo chủ đề/);
+  test('mode-card titles preserved (English-cased per Phase B Q1)', () => {
+    assert.match(html, /<h3[^>]*>\s*My Vocabulary\s*<\/h3>/);
+    assert.match(html, /<h3[^>]*>\s*Flashcards\s*<\/h3>/);
+    assert.match(html, /<h3[^>]*>\s*Exercises\s*<\/h3>/);
+    // Topic Bank h3 wraps the lock-tag badge — use a non-greedy match.
+    assert.match(html, /<h3[^>]*>\s*Topic Bank\s*<span[^>]*class="[^"]*\block-tag\b/);
+  });
+
+  test('mode-card lede subtitles present (Phase B Q1 leaner copy)', () => {
+    assert.match(html, /Sổ tay từ vựng cá nhân của bạn\./);
+    assert.match(html, /Học từ với hệ thống lặp khoảng cách\./);
+    assert.match(html, /Luyện tập đa dạng dạng bài\./);
+    assert.match(html, /Khám phá từ vựng theo chủ đề\./);
   });
 });
 
