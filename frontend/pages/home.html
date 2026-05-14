@@ -39,63 +39,17 @@
 
   <!-- ── Lucide icons (line icons, no emoji) ────────────────────────── -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
+
+  <!-- ── Canonical chrome Web Component (Sprint 7.12) ───────────────── -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
 </head>
 <body class="av-page">
 
-  <!-- ── Top nav (brand, nav links, theme toggle, user pill) ─────────
-       Sprint 6.20 — lifted out of <div class="shell"> into canonical
-       .topnav-wrap direct body child. Matches the pattern shipping on
-       the other 16 canonical chrome pages so logo/tabs/pill positions
-       stay stationary across page navigation. -->
-  <div class="topnav-wrap">
-    <nav class="topnav" aria-label="Primary">
-      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
-
-      <div class="nav-links">
-        <a href="/pages/home.html" class="active">Trang chủ</a>
-        <a href="/pages/writing-dashboard.html">Writing</a>
-        <a href="/pages/speaking.html">Speaking</a>
-        <a href="/grammar.html">Grammar</a>
-        <a href="/pages/vocabulary.html">Vocabulary</a>
-        <span class="locked" aria-disabled="true">Reading</span>
-        <span class="locked" aria-disabled="true">Listening</span>
-      </div>
-
-      <div class="topnav-right">
-        <!-- Theme toggle: sun shows in dark, moon shows in light -->
-        <button class="av-theme-toggle" id="theme-toggle" type="button">
-          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-        </button>
-
-        <!-- Canonical user-menu dropdown (Sprint 6.17): profile + logout. -->
-        <div class="user-menu">
-          <button class="user-pill" id="user-pill" type="button"
-                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
-            <span class="avatar" id="user-avatar">·</span>
-            <span id="user-pill-name">…</span>
-          </button>
-          <div class="user-menu-dropdown" role="menu" hidden>
-            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
-            <button type="button" class="user-menu-item user-menu-item--danger"
-                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-  </div>
+  <!-- ── Canonical chrome (Sprint 7.12: <aver-chrome> Web Component) ──
+       Migrated from inline .topnav-wrap markup to single-source-of-truth
+       custom element. The component renders the same canonical chrome
+       into its Shadow DOM. See frontend/js/components/aver-chrome.js. -->
+  <aver-chrome active="home"></aver-chrome>
 
   <div class="shell">
 
@@ -198,14 +152,9 @@
   </script>
   <script src="../js/home.js"></script>
 
-  <!-- ── Theme toggle wiring (ES module, after legacy scripts) ────── -->
-  <script type="module">
-    import { bindToggleButton } from '/js/theme-toggle.js';
-    bindToggleButton(document.getElementById('theme-toggle'));
-  </script>
-
-  <!-- ── Canonical user pill dropdown (Sprint 6.17) ──────────────── -->
-  <script type="module" src="/js/user-pill.js"></script>
+  <!-- Sprint 7.12: theme toggle + user pill wiring moved into
+       <aver-chrome>. Component owns bindToggleButton + pill populate.
+       /js/user-pill.js + theme-toggle.js per-page imports retired. -->
 
   <!-- ── Lucide icon hydration ────────────────────────────────────── -->
   <script>

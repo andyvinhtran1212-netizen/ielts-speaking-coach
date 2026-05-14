@@ -71,56 +71,14 @@
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
        as Sprint 6.7+ functional microcopy). -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
+
+  <!-- Canonical chrome Web Component (Sprint 7.12). -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
 </head>
 <body class="av-page">
 
-  <!-- ── Top nav (mirrors home.html Sprint 6.20 canonical pattern) ───
-       Sprint 6.20 — lifted out of <div class="shell"> into canonical
-       .topnav-wrap direct body child to anchor chrome at viewport edges
-       identically across all 18 canonical chrome pages. -->
-  <div class="topnav-wrap">
-    <nav class="topnav" aria-label="Primary">
-      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
-
-      <div class="nav-links">
-        <a href="/pages/home.html">Trang chủ</a>
-        <a href="/pages/writing-dashboard.html">Writing</a>
-        <a href="/pages/speaking.html">Speaking</a>
-        <a href="/grammar.html">Grammar</a>
-        <a href="/pages/vocabulary.html" class="active">Vocabulary</a>
-        <span class="locked" aria-disabled="true">Reading</span>
-        <span class="locked" aria-disabled="true">Listening</span>
-      </div>
-
-      <div class="topnav-right">
-        <!-- Theme toggle: components.css owns the .icon-sun / .icon-moon
-             swap (show moon in light, sun in dark). -->
-        <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
-          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-
-        <!-- Canonical user-menu dropdown (Sprint 6.17): profile + logout. -->
-        <div class="user-menu">
-          <button class="user-pill" id="user-pill" type="button"
-                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
-            <span class="avatar" id="user-avatar">·</span>
-            <span id="user-pill-name">…</span>
-          </button>
-          <div class="user-menu-dropdown" role="menu" hidden>
-            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
-            <button type="button" class="user-menu-item user-menu-item--danger"
-                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-  </div>
+  <!-- Canonical chrome (Sprint 7.12 — <aver-chrome>; Vocabulary active). -->
+  <aver-chrome active="vocabulary"></aver-chrome>
 
   <div class="shell">
 
@@ -263,9 +221,8 @@
     })();
   </script>
 
-  <!-- ── Lucide hydration + theme toggle binding (Sprint 6.10) ──────
-       Mirrors result.html / writing-dashboard.html pattern. The IIFE in
-       <head> already applied data-theme synchronously to prevent flash. -->
+  <!-- ── Lucide hydration (body content). Sprint 7.12: theme toggle +
+       user-pill wiring moved into <aver-chrome>. -->
   <script>
     (function () {
       function hydrateIcons() {
@@ -273,28 +230,13 @@
           window.lucide.createIcons();
         }
       }
-      function bindToggleButton() {
-        var btn = document.querySelector('.av-theme-toggle');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
-          var current = document.documentElement.getAttribute('data-theme') || 'light';
-          var next = current === 'dark' ? 'light' : 'dark';
-          document.documentElement.setAttribute('data-theme', next);
-          try { localStorage.setItem('av-theme', next); } catch (e) {}
-        });
-      }
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-          hydrateIcons(); bindToggleButton();
-        });
+        document.addEventListener('DOMContentLoaded', hydrateIcons);
       } else {
-        hydrateIcons(); bindToggleButton();
+        hydrateIcons();
       }
       window.addEventListener('load', hydrateIcons);
     })();
   </script>
-
-  <!-- ── Canonical user pill dropdown (Sprint 6.17) ──────────────── -->
-  <script type="module" src="/js/user-pill.js"></script>
 </body>
 </html>

@@ -122,22 +122,24 @@ describe('home.html / anti-flash theme bootstrap', () => {
 // ── Theme toggle ───────────────────────────────────────────────────
 
 
-describe('home.html / theme toggle', () => {
-  test('renders the .av-theme-toggle button', () => {
-    assert.match(html, /class="av-theme-toggle"/);
+describe('home.html / chrome (Sprint 7.12 — <aver-chrome> Web Component)', () => {
+  test('renders <aver-chrome active="home"> (theme toggle inside shadow root)', () => {
+    assert.match(html, /<aver-chrome\s+active="home"\s*>/);
   });
 
-  test('toggle button contains both sun + moon icons', () => {
-    assert.match(html, /class="icon-sun"/);
-    assert.match(html, /class="icon-moon"/);
-  });
-
-  test('binds the toggle via theme-toggle.js module import', () => {
+  test('loads /js/components/aver-chrome.js as ES module (registers element)', () => {
     assert.match(
       html,
-      /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"][.\/]*js\/theme-toggle\.js['"]/,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
     );
-    assert.match(html, /bindToggleButton\(/);
+  });
+
+  test('no inline .av-theme-toggle / theme-toggle.js binding (chrome moved into shadow root)', () => {
+    assert.equal(/class="av-theme-toggle"/.test(html), false);
+    assert.equal(
+      /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"][.\/]*js\/theme-toggle\.js['"]/.test(html),
+      false,
+    );
   });
 });
 
@@ -177,10 +179,10 @@ describe('home.html / JS-coupled selectors (home.js contract)', () => {
     );
   });
 
-  test('user-pill IDs are present (inline boot script target)', () => {
-    assert.match(html, /id="user-pill"/);
-    assert.match(html, /id="user-avatar"/);
-    assert.match(html, /id="user-pill-name"/);
+  test('user-pill IDs no longer in page DOM (Sprint 7.12 — moved into <aver-chrome> shadow root)', () => {
+    assert.equal(/\bid="user-pill"/.test(html), false);
+    assert.equal(/\bid="user-avatar"/.test(html), false);
+    assert.equal(/\bid="user-pill-name"/.test(html), false);
   });
 
   test('error banner is present and starts hidden', () => {

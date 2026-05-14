@@ -253,25 +253,22 @@ describe('vocabulary.html / body class + chrome', () => {
     );
   });
 
-  test('header has theme toggle button', () => {
-    assert.match(html, /class=["'][^"']*\bav-theme-toggle\b/);
-  });
-
-  test('theme toggle uses canonical .icon-sun / .icon-moon classes', () => {
-    // components.css swaps these via [data-theme="dark"] selectors.
-    assert.match(html, /class=["']icon-sun["']/);
-    assert.match(html, /class=["']icon-moon["']/);
-  });
-
-  test('top nav marks Vocabulary as active', () => {
-    assert.match(html, /href=["']\/pages\/vocabulary\.html["'][^>]*\bactive\b/);
-  });
-
-  test('top nav has Trang chủ / Writing / Speaking / Grammar / Vocab links', () => {
-    assert.match(html, /href=["']\/pages\/home\.html["']/);
-    assert.match(html, /href=["']\/pages\/writing-dashboard\.html["']/);
-    assert.match(html, /href=["']\/pages\/speaking\.html["']/);
-    assert.match(html, /href=["']\/grammar\.html["']/);
+  test('Sprint 7.12 — chrome migrated to <aver-chrome active="vocabulary">', () => {
+    // Sprint 6.10 / 6.17 contracts (theme toggle present, .icon-sun /
+    // .icon-moon, Vocabulary tab marked active, 4 sibling skill links)
+    // are now guaranteed by the <aver-chrome> Web Component contract +
+    // active="vocabulary" attribute. Chrome markup lives inside the
+    // component's shadow root. The chrome-unification-canonical suite
+    // asserts the byte-equivalent template + active highlighting +
+    // all 5 data-tab hrefs once for the component; this test verifies
+    // the page consumes it.
+    assert.match(html, /<aver-chrome\s+active="vocabulary"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
+    // Inline chrome must be gone — markup ownership moved to shadow root.
+    assert.equal(/class=["'][^"']*\bav-theme-toggle\b/.test(html), false);
   });
 });
 

@@ -163,6 +163,13 @@ for (const [name, info] of Object.entries(PAGES)) {
     });
 
     test('canonical .icon-sun + .icon-moon theme toggle present', () => {
+      // Sprint 7.12: grammar.html (landing) migrated to <aver-chrome> —
+      // sun/moon SVGs now live inside the shadow root, not the page HTML.
+      // The 4 sub-pages (roadmap / article / search / compare) keep inline
+      // chrome until Sprint 7.13. Skip the inline-icon check on the
+      // migrated landing; the chrome-unification-canonical suite verifies
+      // <aver-chrome active="grammar"> in its place.
+      if (name === 'landing') return;
       assert.match(pageContents[name], /class=["']icon-sun["']/);
       assert.match(pageContents[name], /class=["']icon-moon["']/);
     });
@@ -192,12 +199,13 @@ for (const [name, info] of Object.entries(PAGES)) {
     });
 
     test('theme-toggle.js bindToggleButton wired', () => {
+      // Sprint 7.12: grammar.html landing migrated to <aver-chrome> — the
+      // component owns bindToggleButton internally, so the page no longer
+      // imports theme-toggle.js. The 4 sub-pages still need it until
+      // Sprint 7.13. The chrome-unification-canonical suite asserts the
+      // <aver-chrome> contract on the migrated landing in this slot.
+      if (name === 'landing') return;
       assert.match(pageContents[name], /bindToggleButton/);
-      // Sprint 6.15.7-hotfix: all 5 grammar pages switched to absolute
-      // path `/js/theme-toggle.js` so Vercel rewrites (e.g.
-      // /grammar/:category/:slug) don't break relative resolution.
-      // Relative paths still acceptable for legacy callers, but the
-      // canonical for the grammar cluster is the absolute form.
       assert.ok(
         pageContents[name].includes('/js/theme-toggle.js'),
         `${name}: theme-toggle.js import path should include "/js/theme-toggle.js" (absolute) per Sprint 6.15.7-hotfix`,
