@@ -732,3 +732,171 @@
     animation: none !important;
   }
 }
+
+
+/* ── Subpage header (Sprint 9.1) ───────────────────────────────────
+   The "Vocabulary | {title}" anchor row at the top of a module-mount
+   sub-page (my-vocabulary / flashcards / exercises). Sprint 9.0
+   discovery surfaced 3 byte-identical .{prefix}-header rule sets;
+   Sprint 9.1 lifts the primitive here. Integrates with main flow
+   (no separate background/border bar) so chrome-to-content stays
+   tight (~110px, matching sibling pages).
+
+   Markup contract:
+     <header class="subpage-header">
+       <div class="subpage-header__lhs">
+         <p class="eyebrow">Vocabulary</p>
+         <span class="subpage-header__sep">|</span>
+         <h1 class="subpage-header__title">{title}</h1>
+       </div>
+       {optional action button}
+     </header>
+*/
+.subpage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-4);
+  margin-bottom: var(--av-space-4);
+}
+.subpage-header__lhs {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-3);
+}
+.subpage-header__sep {
+  color: var(--av-text-faint);
+}
+.subpage-header__title {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-tight);
+  color: var(--av-text-primary);
+  margin: 0;
+}
+
+
+/* ── Mode-card primitive (Sprint 9.1) ──────────────────────────────
+   Lifted from speaking.css (Sprint 8.1) + vocabulary.css (Sprint 8.2)
+   after a 3rd adopter (vocab sub-pages — Sprint 9.1) fired the rule-
+   of-three lift trigger flagged in the Sprint 8.2 ledger. Single
+   primitive consumed by:
+     - speaking.html dashboard (3 cards)
+     - vocabulary.html dashboard (4 cards)
+     - flashcards.html stack list (N stack-cards)
+     - exercises.html drill hub (2 cards post-Sprint-9.1 D3 removal)
+
+   Inner skeleton: .head > .icon + .arrow, h3, .lede. Optional badges
+   may slot inside h3 via .lock-tag.
+
+   `--av-text-muted` (not --av-text-faint) per speaking.css's § 17.6
+   cap discipline; home.css uses faint for the same arrow since it
+   has no equivalent cap.
+*/
+.modes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--av-space-4);
+}
+
+.mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-3);
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-6);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform var(--av-duration-base) var(--av-easing-default),
+    border-color var(--av-duration-base) var(--av-easing-default),
+    box-shadow var(--av-duration-base) var(--av-easing-default);
+}
+.mode-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--av-primary-border);
+  box-shadow: var(--av-shadow-md);
+}
+.mode-card:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+.mode-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.mode-card.disabled:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--av-border-subtle);
+}
+
+.mode-card .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-3);
+}
+.mode-card .icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--av-radius-md);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border: 1px solid var(--av-primary-border);
+}
+.mode-card .icon svg {
+  width: 20px;
+  height: 20px;
+}
+.mode-card .arrow {
+  font-size: 1.1rem;
+  color: var(--av-text-muted);
+  transition:
+    color var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
+}
+.mode-card:hover .arrow {
+  color: var(--av-primary);
+  transform: translateX(4px);
+}
+.mode-card h3 {
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-tight);
+  color: var(--av-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-2);
+}
+.mode-card .lede {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-muted);
+  margin: 0;
+  line-height: var(--av-lh-relaxed);
+}
+.mode-card .lock-tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px var(--av-space-2);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  opacity: 0.7;
+  color: var(--av-text-muted);
+  font-weight: var(--av-fw-medium);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-card { transition: none !important; }
+  .mode-card .arrow { transition: none !important; }
+}

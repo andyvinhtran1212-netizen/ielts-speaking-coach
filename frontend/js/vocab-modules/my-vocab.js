@@ -48,22 +48,27 @@ import { guardMount, redirectToLogin } from './_loader.js';
  *  will mount this into its `<main id="mount">`; the parent vocabulary
  *  landing will mount it into `[data-panel="my-vocab"] .tab-mount`. */
 const HTML = /* html */ `
-  <!-- Page context bar (preserves Add-word affordance + page title). -->
-  <header class="mv-header mv-context-bar px-6 py-4">
-    <div class="max-w-3xl mx-auto flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
+  <main class="max-w-3xl mx-auto px-4 pt-4 pb-8">
+
+    <!-- Sprint 9.1 — `.subpage-header` primitive (components.css). The
+         pre-9.1 `.mv-header` "context bar" with surface-elevated bg +
+         border-bottom + py-4 was retired alongside the 3x duplicated
+         {prefix}-header rule sets in mv/fc/ex CSS. Top spacing tightened
+         from chrome→content ~200px (was: chrome 64px + bar 56px + main
+         pt-20 80px) to ~108px (chrome 64px + main pt-4 16px + header
+         content ~28px). -->
+    <header class="subpage-header mb-6">
+      <div class="subpage-header__lhs">
         <p class="eyebrow" style="margin:0;">Vocabulary</p>
-        <span class="mv-header__sep">|</span>
-        <h1 class="mv-header__title text-base font-semibold">My Vocab Bank</h1>
+        <span class="subpage-header__sep">|</span>
+        <h1 class="subpage-header__title">My Vocab Bank</h1>
       </div>
       <button data-action="toggle-add-form" class="mv-add-btn text-sm font-medium px-4 py-1.5 rounded-lg">
         <i data-lucide="plus"></i>
         Add word
       </button>
-    </div>
-  </header>
+    </header>
 
-  <main class="max-w-3xl mx-auto px-4 pt-20 pb-6">
 
     <!-- Sprint 6.0 banner — Sprint 7.3 visibility controlled by mount() opts.embedded. -->
     <div data-banner="moved" class="mv-banner rounded-lg p-3 mb-5 text-sm flex items-center gap-3 hidden">
