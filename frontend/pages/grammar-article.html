@@ -191,6 +191,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="/js/api.js"></script>
+  <!-- Sprint 7.13.1-hotfix: initSupabase() call added so <aver-chrome>'s
+       window.getSupabase poll resolves and the user pill populates. -->
+  <script>
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+  </script>
   <script src="/js/grammar.js"></script>
   <script>
     grammarWiki.loadGrammarArticle();

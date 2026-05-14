@@ -85,12 +85,13 @@ describe('PHASE_CLOSURE_LEDGER.md / ledger structure', () => {
     );
   });
 
-  test('16 cumulative audit hotfixes documented (post Sprint 7.8-hotfix)', () => {
+  test('17 cumulative audit hotfixes documented (post Sprint 7.13.1-hotfix)', () => {
     // Sprint 6.20 → 14 (Gate 10 formalization). Sprint 7.7-hotfix → 15
     // (vocab modules unstyled-when-embedded). Sprint 7.8-hotfix → 16
-    // (chrome consistency RED: logo size + user pill populate + initials).
-    assert.match(ledger, /16 audit hotfixes/i,
-      'Ledger should mention 16 cumulative audit hotfixes after Sprint 7.8-hotfix');
+    // (chrome consistency RED). Sprint 7.13.1-hotfix → 17 (grammar
+    // cluster missing initSupabase — user pill stuck on placeholder).
+    assert.match(ledger, /17 audit hotfixes/i,
+      'Ledger should mention 17 cumulative audit hotfixes after Sprint 7.13.1-hotfix');
   });
 });
 
