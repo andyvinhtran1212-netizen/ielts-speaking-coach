@@ -1,14 +1,17 @@
 /**
  * frontend/tests/speaking-ia-cleanup.test.mjs
  *
- * Sprint 6.16 (Issue 2) — pins Speaking page IA cleanup. The 2
- * external cross-skill nav links (Grammar Wiki + Từ vựng) were
- * removed from `frontend/pages/speaking.html` main-tab-nav because
- * cross-skill discovery lives on the multi-skill home (Sprint 5.1 +
- * Sprint 6.13a-extension).
+ * Sprint 6.16 (Issue 2) — pinned removal of 2 external cross-skill nav
+ * links (Grammar Wiki + Từ vựng) from the speaking main-tab-nav row,
+ * because cross-skill discovery lives on the multi-skill home (Sprint
+ * 5.1 + Sprint 6.13a-ext).
  *
- * Sentinel: future contributors must not re-add `<a>` tab-buttons
- * pointing to grammar.html / vocabulary.html inside the main-tab-nav.
+ * Sprint 8.1 — IA refactor retired the main-tab-nav row entirely. Mode
+ * entry now happens via 3 `.mode-card[data-mode]` anchors on the
+ * dashboard view. The Sprint 6.16 spirit ("no cross-skill anchors in
+ * the Speaking page primary entry surface") is preserved here at the
+ * new mode-card scope: the 3 mode-cards must target Speaking modes
+ * only, not other skills.
  *
  * KEEP: the personalized Grammar Dashboard + Vocab updates analytics
  * sections inside the tab-dashboard panel — those are Speaking-
@@ -25,77 +28,86 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
-let mainTabNavBlock;
+let modesSection;
 
 before(() => {
   html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/speaking.html'), 'utf8');
-  const m = html.match(/<nav class="main-tab-nav">[\s\S]*?<\/nav>/);
-  // Strip HTML comments so the Sprint 6.16 rationale comment
-  // (which intentionally names the removed labels) doesn't trip the
-  // "label-removed" pins. Comment content lives only in source view.
-  mainTabNavBlock = m ? m[0].replace(/<!--[\s\S]*?-->/g, '') : '';
+  // Sprint 8.1 — the primary entry surface is the .speaking-modes
+  // section, not the retired main-tab-nav row. Extract it for the
+  // cross-skill-link sentinels below.
+  const m = html.match(/<section[^>]*class="[^"]*\bspeaking-modes\b[\s\S]*?<\/section>/);
+  modesSection = m ? m[0] : '';
 });
 
 
-describe('main-tab-nav block exists', () => {
-  test('the <nav class="main-tab-nav"> block is present', () => {
+describe('Sprint 8.1 — main-tab-nav row retired, mode-cards take over', () => {
+  test('the <nav class="main-tab-nav"> row is absent', () => {
     assert.ok(
-      mainTabNavBlock.length > 0,
-      'Speaking page must keep the .main-tab-nav block (4 internal tabs)',
-    );
-  });
-});
-
-
-describe('Issue 2 — external cross-skill nav links removed', () => {
-  test('no <a href="../grammar.html"> tab-button inside main-tab-nav', () => {
-    assert.ok(
-      !/<a[^>]*href=["']\.\.\/grammar\.html["'][^>]*class="[^"]*main-tab-btn/.test(mainTabNavBlock),
-      'Speaking main-tab-nav must not link to ../grammar.html as a tab — cross-skill discovery lives on home.html',
+      !/<nav[^>]*class="[^"]*\bmain-tab-nav\b/.test(html),
+      'Sprint 8.1 retired the .main-tab-nav row — speaking.html must no longer carry it',
     );
   });
 
-  test('no <a href="/pages/vocabulary.html"> tab-button inside main-tab-nav', () => {
+  test('.speaking-modes section is present (the new primary entry surface)', () => {
     assert.ok(
-      !/<a[^>]*href=["']\/pages\/vocabulary\.html["'][^>]*class="[^"]*main-tab-btn/.test(mainTabNavBlock),
-      'Speaking main-tab-nav must not link to /pages/vocabulary.html as a tab — cross-skill discovery lives on home.html',
-    );
-  });
-
-  test('no "Grammar Wiki" label inside main-tab-nav block', () => {
-    assert.ok(
-      !/Grammar Wiki/.test(mainTabNavBlock),
-      'Speaking main-tab-nav must not carry a "Grammar Wiki" label',
-    );
-  });
-
-  test('no "Từ vựng" label inside main-tab-nav block', () => {
-    assert.ok(
-      !/Từ vựng/.test(mainTabNavBlock),
-      'Speaking main-tab-nav must not carry a "Từ vựng" label',
+      modesSection.length > 0,
+      'speaking.html must ship the .speaking-modes section (Sprint 8.1 IA refactor)',
     );
   });
 });
 
 
-describe('4 internal Speaking tabs preserved', () => {
-  const INTERNAL_TABS = [
-    { id: 'mtab-dashboard',  label: 'Dashboard' },
-    { id: 'mtab-practice',   label: 'Luyện tập' },
-    { id: 'mtab-partbpart',  label: 'Luyện từng Part' },
-    { id: 'mtab-fulltest',   label: 'Full Test' },
+describe('Sprint 6.16 + Sprint 8.1 — cross-skill anchors must NOT appear on the Speaking entry surface', () => {
+  // The Sprint 6.16 sentinel applied to the retired main-tab-nav row.
+  // Sprint 8.1 retargets the same intent at the .speaking-modes
+  // section: the 3 mode-cards must target Speaking modes only.
+  test('no <a href="../grammar.html"> mode-card', () => {
+    assert.ok(
+      !/<a[^>]*href=["']\.\.\/grammar\.html["'][^>]*class="[^"]*mode-card/.test(modesSection),
+      '.speaking-modes section must not link to ../grammar.html — cross-skill discovery lives on home.html',
+    );
+  });
+
+  test('no <a href="/pages/vocabulary.html"> mode-card', () => {
+    assert.ok(
+      !/<a[^>]*href=["']\/pages\/vocabulary\.html["'][^>]*class="[^"]*mode-card/.test(modesSection),
+      '.speaking-modes section must not link to /pages/vocabulary.html — cross-skill discovery lives on home.html',
+    );
+  });
+
+  test('no "Grammar Wiki" label inside the .speaking-modes section', () => {
+    assert.ok(
+      !/Grammar Wiki/.test(modesSection),
+      '.speaking-modes section must not carry a "Grammar Wiki" label',
+    );
+  });
+
+  test('no "Từ vựng" label inside the .speaking-modes section', () => {
+    assert.ok(
+      !/Từ vựng/.test(modesSection),
+      '.speaking-modes section must not carry a "Từ vựng" label',
+    );
+  });
+});
+
+
+describe('Sprint 8.1 — 3 Speaking mode-cards preserved', () => {
+  const MODE_CARDS = [
+    { mode: 'practice',  label: 'Luyện tập'        },
+    { mode: 'partbpart', label: 'Luyện từng Part'  },
+    { mode: 'fulltest',  label: 'Full Test'        },
   ];
 
-  INTERNAL_TABS.forEach(({ id, label }) => {
-    test(`${id} button preserved with label "${label}"`, () => {
+  MODE_CARDS.forEach(({ mode, label }) => {
+    test(`mode-card[data-mode="${mode}"] preserved with label "${label}"`, () => {
       assert.match(
-        mainTabNavBlock,
-        new RegExp(`id=["']${id}["']`),
-        `Speaking main-tab-nav must keep #${id}`,
+        modesSection,
+        new RegExp(`data-mode="${mode}"`),
+        `.speaking-modes section must keep .mode-card[data-mode="${mode}"]`,
       );
       assert.ok(
-        mainTabNavBlock.includes(label),
-        `Speaking main-tab-nav must keep "${label}" label`,
+        modesSection.includes(label),
+        `.speaking-modes section must keep "${label}" label`,
       );
     });
   });
@@ -107,7 +119,7 @@ describe('Personalized analytics sections preserved (intentional KEEP)', () => {
     assert.match(
       html,
       /id=["']grammar-dashboard-section["']/,
-      'Personalized Grammar Dashboard section (lines ~362-413) must stay — it surfaces Speaking-session-driven analytics, not redundant with home.html discovery grid',
+      'Personalized Grammar Dashboard section must stay — it surfaces Speaking-session-driven analytics, not redundant with home.html discovery grid',
     );
   });
 
@@ -115,18 +127,18 @@ describe('Personalized analytics sections preserved (intentional KEEP)', () => {
     assert.match(
       html,
       /id=["']vocab-updates-section["']/,
-      'Personalized Vocab updates section (lines ~421-440) must stay — Speaking-session-driven analytics',
+      'Personalized Vocab updates section must stay — Speaking-session-driven analytics',
     );
   });
 });
 
 
-describe('Sprint 6.16 cleanup marker comment present', () => {
-  test('rationale comment guards future re-addition', () => {
+describe('Sprint 8.1 cleanup marker comment present', () => {
+  test('rationale comment guards future re-addition of the tab-row', () => {
     assert.match(
       html,
-      /Sprint 6\.16/,
-      'speaking.html should carry the Sprint 6.16 cleanup rationale comment so future contributors understand why the cross-skill tab-links are absent',
+      /Sprint 8\.1/,
+      'speaking.html should carry the Sprint 8.1 cleanup rationale comment so future contributors understand why the .main-tab-nav row is absent',
     );
   });
 });
@@ -137,7 +149,7 @@ describe('JS contract preserved', () => {
     assert.match(
       html,
       /function switchMainTab\s*\(/,
-      'switchMainTab() must stay intact — handles 4 internal tabs',
+      'switchMainTab() must stay intact — handles the 4 panel toggles invoked by mode-cards + empty-state button',
     );
   });
 

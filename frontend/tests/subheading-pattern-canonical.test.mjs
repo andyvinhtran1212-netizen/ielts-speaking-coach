@@ -186,18 +186,24 @@ describe('Sprint 6.19 grammar.html — editorial badge preserved (Phase B Q3)', 
 // ── Practice modes KEEP DIFFERENT (Phase B Q4) ───────────────────
 
 describe('Sprint 6.19 Phase B Q4 — practice modes preserved as distinct patterns', () => {
-  test('speaking.html ships .main-tab-nav 4-tab primary sub-nav', () => {
+  test('speaking.html ships 3 .mode-card[data-mode] entries (Sprint 8.1 IA refactor)', () => {
+    // Sprint 8.1 — the tab-row primary sub-nav was retired. Mode entry
+    // is now via 3 `.mode-card[data-mode]` anchors on the dashboard
+    // view. Phase B Q4 intent (Speaking modes preserved as a distinct
+    // pattern from grammar.html's editorial .btn-cta hero) is now
+    // satisfied at the mode-card level. The grammar.html assertion
+    // below remains unchanged.
     const html = readFileSync(
       path.join(REPO_ROOT, 'frontend/pages/speaking.html'),
       'utf8',
     );
-    assert.match(html, /<nav[^>]*\bclass=["'][^"']*\bmain-tab-nav\b[^"']*["']/);
-    // 4 main-tab-btn elements (Dashboard / Luyện tập / Luyện từng Part / Full Test)
-    const tabs = html.match(/\bmain-tab-btn\b/g) || [];
-    assert.ok(
-      tabs.length >= 4,
-      `speaking.html should ship ≥ 4 .main-tab-btn elements, found ${tabs.length}`,
-    );
+    for (const mode of ['practice', 'partbpart', 'fulltest']) {
+      assert.match(
+        html,
+        new RegExp(`<a[^>]*class="[^"]*\\bmode-card\\b[^"]*"[^>]*data-mode="${mode}"`),
+        `speaking.html should ship .mode-card[data-mode="${mode}"] entry`,
+      );
+    }
   });
 
   test('grammar.html ships .btn-cta hero CTA buttons (distinct from speaking tabs)', () => {

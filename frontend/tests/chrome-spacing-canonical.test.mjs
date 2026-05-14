@@ -198,20 +198,16 @@ describe('Sprint 6.18 Cat E — secondary nav rules use --av-chrome-bottom-margi
 });
 
 
-// ── Cat F — speaking .main-tab-nav + onboarding <main> ──────────
+// ── Cat F — onboarding <main> + (retired Sprint 8.1) speaking .main-tab-nav ──
 
 describe('Sprint 6.18 Cat F — flex-layout pages canonical', () => {
-  test('speaking.css .main-tab-nav ships margin-bottom: var(--av-chrome-bottom-margin)', () => {
-    const css = readFileSync(
-      path.join(REPO_ROOT, 'frontend/css/speaking.css'),
-      'utf8',
-    );
-    assert.match(
-      css,
-      /\.main-tab-nav\s*\{[\s\S]{0,600}margin-bottom:\s*var\(--av-chrome-bottom-margin\)/,
-      'speaking.css .main-tab-nav must carry margin-bottom: var(--av-chrome-bottom-margin) per Sprint 6.18 Cat F',
-    );
-  });
+  // Sprint 8.1 — the `.main-tab-nav` margin-bottom pin in speaking.css
+  // was retired alongside the tab row itself. speaking.html no longer
+  // has a secondary nav between chrome and content; the canonical 64px
+  // chrome-to-content rhythm is enforced entirely by the chrome
+  // component's own bottom margin (.topnav { margin-bottom:
+  // var(--av-space-16) } inside aver-chrome.js shadow style, pinned
+  // by chrome-spacing-canonical's "foundation" describe block).
 
   test('onboarding.html primary <main> ships pt-20', () => {
     const html = readFileSync(

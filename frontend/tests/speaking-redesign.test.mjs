@@ -162,21 +162,21 @@ describe('speaking.html / theme support (Sprint 6.4.1)', () => {
 
 
 describe('speaking.html / JS-coupled selectors', () => {
-  test('all four main-tab buttons preserved with id + class + onclick', () => {
-    // switchMainTab(...) is reached via the onclick attribute on each
-    // button. A future redesign that converts these to <a href> would
-    // silently break the tab state machine.
-    const mtabIds = ['mtab-dashboard', 'mtab-practice', 'mtab-partbpart', 'mtab-fulltest'];
-    for (const id of mtabIds) {
-      const re = new RegExp(
-        `<button[^>]*id="${id}"[^>]*class="[^"]*\\bmain-tab-btn\\b[^"]*"[^>]*onclick="switchMainTab\\('`,
-      );
-      assert.match(
-        html,
-        re,
-        `the ${id} button must keep its id, .main-tab-btn class, and switchMainTab(...) onclick`,
+  test('Sprint 8.1 — main-tab-nav tab row retired (no #mtab-* buttons + no .main-tab-nav element)', () => {
+    // Sprint 8.1 deleted the tab row. Mode entry is via the
+    // `.mode-card[data-mode]` grid on the dashboard view. The four
+    // #tab-{name} panels are still toggled by switchMainTab() — see
+    // the panel-id pin below.
+    for (const id of ['mtab-dashboard', 'mtab-practice', 'mtab-partbpart', 'mtab-fulltest']) {
+      assert.ok(
+        !new RegExp(`id="${id}"`).test(html),
+        `${id} must NOT exist — Sprint 8.1 retired the tab-row buttons`,
       );
     }
+    assert.ok(
+      !/<nav[^>]*class="[^"]*\bmain-tab-nav\b/.test(html),
+      'speaking.html must NOT carry <nav class="main-tab-nav"> — Sprint 8.1 retired the tab row',
+    );
   });
 
   test('main-tab panels keep id="tab-{name}" + .main-tab-panel class', () => {
@@ -209,9 +209,20 @@ describe('speaking.html / JS-coupled selectors', () => {
     }
   });
 
-  test('continue-CTA + greeting + empty-state IDs preserved', () => {
-    for (const id of ['continue-cta', 'cta-topic-label', 'continue-cta-link', 'greeting-name', 'dashboard-empty']) {
+  test('greeting + dashboard-empty IDs preserved (Sprint 8.1: continue-cta retired)', () => {
+    // Sprint 8.1 deleted #continue-cta + #cta-topic-label +
+    // #continue-cta-link. Re-entering practice now happens through the
+    // unified `.mode-card` grid. #greeting-name + #dashboard-empty
+    // remain — renderUser() and the empty-state branch still target
+    // them.
+    for (const id of ['greeting-name', 'dashboard-empty']) {
       assert.match(html, new RegExp(`id="${id}"`), `#${id} must remain`);
+    }
+    for (const id of ['continue-cta', 'cta-topic-label', 'continue-cta-link']) {
+      assert.ok(
+        !new RegExp(`id="${id}"`).test(html),
+        `#${id} must NOT exist — Sprint 8.1 retired the "Tiếp tục luyện tập" banner`,
+      );
     }
   });
 
@@ -294,47 +305,27 @@ describe('speaking.html / JS-coupled selectors', () => {
 
 
 describe('speaking.html / Lucide icon swap', () => {
-  test('main-tab-nav buttons no longer ship emoji prefixes', () => {
-    const nav = html.match(/<nav class="main-tab-nav">[\s\S]*?<\/nav>/);
-    assert.ok(nav, 'main-tab-nav block must exist');
-    const navHtml = nav[0];
-    // Pin the specific emojis that lived in the Sprint 5.1 nav.
-    const oldGlyphs = ['📊', '🎯', '📋', '🏆', '📖', '📚'];
-    for (const glyph of oldGlyphs) {
-      assert.ok(
-        !navHtml.includes(glyph),
-        `main-tab-nav still contains "${glyph}" — Sprint 6.4 swapped to Lucide icons`,
-      );
-    }
-  });
+  // Sprint 8.1 — main-tab-nav emoji + Lucide-in-nav pins retired
+  // alongside the tab row itself. The mode-cards' own Lucide audit
+  // lives in the Sprint 8.1 sentinel block further below.
 
-  test('main-tab-nav buttons each carry a Lucide <i data-lucide=...>', () => {
-    const nav = html.match(/<nav class="main-tab-nav">[\s\S]*?<\/nav>/);
-    const navHtml = nav[0];
-    const lucideCount = (navHtml.match(/<i\s+data-lucide=/g) || []).length;
-    // Sprint 6.16: dropped 2 anchor links (Grammar Wiki + Từ vựng) for IA
-    // cleanup — cross-skill discovery lives on home.html. Pin relaxed to
-    // ≥ 4 (the 4 internal tabs that switchMainTab() handles).
-    assert.ok(
-      lucideCount >= 4,
-      `expected ≥ 4 Lucide icons in main-tab-nav (4 internal tabs after Sprint 6.16), found ${lucideCount}`,
-    );
-  });
-
-  test('the 3 dashboard quick-access cards use Lucide icons (no 🎯/📋/🏆)', () => {
-    const section = html.match(/<!-- ── PART 2: Quick Access[\s\S]*?<\/section>/);
-    assert.ok(section, 'PART 2 quick-access section must exist');
+  test('the 3 dashboard mode-cards use Lucide icons (no emoji)', () => {
+    // Sprint 8.1 renamed "PART 2: Quick Access" → "PART 2: Mode entry
+    // cards" and replaced the 3 .part-card divs with .mode-card
+    // anchors. Lucide discipline preserved.
+    const section = html.match(/<!-- ── PART 2: Mode entry cards[\s\S]*?<\/section>/);
+    assert.ok(section, 'PART 2 mode-entry section must exist (Sprint 8.1)');
     const sectionHtml = section[0];
     for (const glyph of ['🎯', '📋', '🏆']) {
       assert.ok(
         !sectionHtml.includes(glyph),
-        `quick-access card still contains "${glyph}" — Sprint 6.4 swapped to Lucide`,
+        `mode-card still contains "${glyph}" — canonical pattern uses Lucide`,
       );
     }
     const lucideCount = (sectionHtml.match(/<i\s+data-lucide=/g) || []).length;
     assert.ok(
       lucideCount >= 3,
-      `expected ≥ 3 Lucide icons across the 3 quick-access cards, found ${lucideCount}`,
+      `expected ≥ 3 Lucide icons across the 3 mode-cards, found ${lucideCount}`,
     );
   });
 
@@ -390,15 +381,21 @@ describe('speaking.css / token discipline', () => {
     // The old inline <style> block was extracted to speaking.css. A
     // future cleanup that drops a class without checking the markup
     // would leave the page unstyled. Pin the canonical list.
+    // Sprint 8.1 — `.part-card` + `.main-tab-nav` + `.main-tab-btn` +
+    // `.main-tab-label` + `.main-tab-sub` retired alongside the tab
+    // row and the 3 dashboard quick-start cards. `.main-tab-panel`
+    // stays — the 4 panels still toggle via switchMainTab().
+    // `.mode-card` + `.modes-grid` are the new mode-entry primitives.
     const requiredClasses = [
       '.sidebar-bg', '.main-bg',
-      '.stat-card', '.part-card',
+      '.stat-card',
       '.btn-start', '.btn-fulltest', '.btn-test',
       '.skeleton', '.session-row',
       '.badge-done', '.badge-pending',
       '.modal-backdrop', '.modal-box',
       '.topic-tab', '.topic-input', '.btn-confirm', '.modal-error',
-      '.main-tab-nav', '.main-tab-btn', '.main-tab-label', '.main-tab-sub', '.main-tab-panel',
+      '.main-tab-panel',
+      '.mode-card', '.modes-grid',
       '.option-card', '.part-select-btn', '.tab-input', '.tab-error',
       '.pbp-part-card', '.ft-part-row',
       '.grammar-section', '.grammar-sub-title', '.grammar-pill',
@@ -674,23 +671,9 @@ describe('speaking.css / Sprint 6.4.1 fixes', () => {
     );
   });
 
-  test('.main-tab-btn has both horizontal padding AND nowrap (Sprint 6.4.1 fix)', () => {
-    // Andy's smoke-test report: tab nav was crowded because the original
-    // padding referenced --av-space-5 (silently invalid). The fix uses
-    // --av-space-4 horizontal + white-space: nowrap so labels never wrap.
-    const m = css.match(/\.main-tab-btn\s*\{([^}]+)\}/);
-    assert.ok(m, '.main-tab-btn rule must exist');
-    assert.match(
-      m[1],
-      /padding\s*:\s*var\(--av-space-3\)\s+var\(--av-space-[46]/,
-      '.main-tab-btn padding must use a non-skipped scale step (--av-space-4 or --av-space-6)',
-    );
-    assert.match(
-      m[1],
-      /white-space\s*:\s*nowrap/,
-      '.main-tab-btn must declare white-space: nowrap so labels never wrap',
-    );
-  });
+  // Sprint 8.1 — `.main-tab-btn` padding/nowrap pin retired alongside
+  // the tab-row markup. The Sprint 6.4.1 padding-scale lesson is now
+  // enforced at the global-token level (--av-space-4/--av-space-6).
 
   test('.ft-part-row + .pbp-part-card have generous padding (--av-space-6)', () => {
     // Andy's report: "Chủ đề 1/2/3" in Full Test had inputs sát viền.
@@ -719,6 +702,168 @@ describe('speaking.css / Sprint 6.4.1 fixes', () => {
       css,
       /body\.av-page\s+\.text-white\b/,
       'speaking.css must scope its .text-white override to body.av-page so it never leaks to other pages',
+    );
+  });
+});
+
+
+// ── Sprint 8.1 — mode-card grid + IA refactor ─────────────────────
+
+
+describe('Sprint 8.1 — speaking.html dashboard mode-card grid', () => {
+  test('3 .mode-card anchors with canonical data-mode attributes', () => {
+    // The page-load contract: switchMainTab() reads card.dataset.mode
+    // for delegation. data-mode values must match the four panel IDs
+    // minus 'dashboard' (which is the default landing state).
+    for (const mode of ['practice', 'partbpart', 'fulltest']) {
+      assert.match(
+        html,
+        new RegExp(`<a[^>]*class="[^"]*\\bmode-card\\b[^"]*"[^>]*data-mode="${mode}"`),
+        `mode-card[data-mode="${mode}"] must exist as an <a> element`,
+      );
+    }
+  });
+
+  test('mode-card grid uses the canonical headings + section wrapper', () => {
+    assert.match(
+      html,
+      /<section[^>]*class="[^"]*\bspeaking-modes\b[^"]*"[^>]*aria-labelledby="modes-heading"/,
+      '.speaking-modes section must carry aria-labelledby="modes-heading"',
+    );
+    assert.match(
+      html,
+      /<h2[^>]*id="modes-heading"[^>]*>\s*Bắt đầu luyện tập\s*<\/h2>/,
+      'the section heading must read "Bắt đầu luyện tập" (Phase B Andy decision)',
+    );
+    assert.match(
+      html,
+      /<div[^>]*class="[^"]*\bmodes-grid\b/,
+      '.modes-grid wrapper must exist',
+    );
+  });
+
+  test('mode-card click delegation wired via DOMContentLoaded + data-mode', () => {
+    // The delegation block lives in the inline <script> at the foot of
+    // speaking.html. It selects `.mode-card[data-mode]` and routes the
+    // click through switchMainTab(card.dataset.mode) — the same panel
+    // toggle used by the empty-state button. preventDefault keeps the
+    // `href="#"` from advancing the URL hash.
+    assert.match(
+      html,
+      /querySelectorAll\(\s*['"]\.mode-card\[data-mode\]['"]\s*\)/,
+      'inline JS must querySelectorAll(".mode-card[data-mode]") for delegation',
+    );
+    assert.match(
+      html,
+      /switchMainTab\s*\(\s*card\.dataset\.mode\s*\)/,
+      'mode-card click handler must call switchMainTab(card.dataset.mode)',
+    );
+  });
+
+  test('switchMainTab no longer toggles tab-row buttons (Sprint 8.1 trim)', () => {
+    // Sprint 8.1 deleted the #mtab-{tab} button-toggle branch from
+    // switchMainTab. The function still toggles the four #tab-{name}
+    // panels and still lazy-loads topics for practice/partbpart.
+    const fn = html.match(/function\s+switchMainTab\s*\([^)]*\)\s*\{([\s\S]*?)\n    \}/);
+    assert.ok(fn, 'switchMainTab function block must be extractable');
+    assert.ok(
+      !/document\.getElementById\(\s*['"]mtab-/.test(fn[1]),
+      'switchMainTab must NOT reference #mtab-* button IDs — Sprint 8.1 retired the tab row',
+    );
+    assert.match(
+      fn[1],
+      /document\.getElementById\(\s*['"]tab-['"]\s*\+\s*t/,
+      'switchMainTab must still resolve #tab-{name} panels',
+    );
+  });
+
+  test('default landing state — #tab-dashboard ships .active by default', () => {
+    // Page-load contract: dashboard is the default view. Sprint 8.1
+    // moved the "active" marker from `.main-tab-btn.active` (button)
+    // to `.main-tab-panel.active` (panel) since the button row is
+    // gone.
+    assert.match(
+      html,
+      /<div\s+id="tab-dashboard"[^>]*class="[^"]*\bmain-tab-panel\b[^"]*\bactive\b/,
+      '#tab-dashboard must carry .active by default (page default landing state)',
+    );
+  });
+
+  test('permission gating extends to .mode-card[data-mode] selectors', () => {
+    // Sprint 8.1: applyPermissions() was extended to disable mode-cards
+    // by data-mode attribute (in addition to the legacy [onclick*=...]
+    // and .btn-fulltest selectors). Regression guard.
+    assert.match(
+      html,
+      /\.mode-card\[data-mode="practice"\]/,
+      'applyPermissions must include .mode-card[data-mode="practice"] in the practice_single gate',
+    );
+    assert.match(
+      html,
+      /\.mode-card\[data-mode="partbpart"\]/,
+      'applyPermissions must include .mode-card[data-mode="partbpart"] in the practice_part gate',
+    );
+    assert.match(
+      html,
+      /\.mode-card\[data-mode="fulltest"\]/,
+      'applyPermissions must include .mode-card[data-mode="fulltest"] in the practice_full gate',
+    );
+  });
+});
+
+
+describe('Sprint 8.1 — speaking.css mode-card primitive', () => {
+  test('.mode-card adopts home.css .skill-card visual language', () => {
+    // Adopted inner-class skeleton: .head + .icon + .arrow + h3 +
+    // .lede. Each rule must declare against canonical --av-* tokens.
+    for (const sel of ['.mode-card', '.modes-grid', '.mode-card .head', '.mode-card .icon', '.mode-card .arrow', '.mode-card h3', '.mode-card .lede']) {
+      const escaped = sel.replace(/\./g, '\\.');
+      assert.match(
+        css,
+        new RegExp(`${escaped}\\s*\\{`),
+        `speaking.css must declare ${sel} (Sprint 8.1 mode-card primitive)`,
+      );
+    }
+  });
+
+  test('.modes-grid uses auto-fit minmax(260px) (mirrors home.css .skill-grid)', () => {
+    const m = css.match(/\.modes-grid\s*\{([^}]+)\}/);
+    assert.ok(m, '.modes-grid rule must exist');
+    assert.match(
+      m[1],
+      /grid-template-columns\s*:\s*repeat\(\s*auto-fit\s*,\s*minmax\(\s*260px/,
+      '.modes-grid grid-template-columns must use auto-fit minmax(260px, 1fr) for responsive layout',
+    );
+  });
+
+  test('.mode-card surface uses canonical --av-* tokens (no hardcoded colors)', () => {
+    const m = css.match(/\.mode-card\s*\{([^}]+)\}/);
+    assert.ok(m, '.mode-card rule must exist');
+    assert.match(m[1], /background\s*:\s*var\(--av-surface-card\)/);
+    assert.match(m[1], /border\s*:\s*1px solid var\(--av-border-subtle\)/);
+    assert.match(m[1], /border-radius\s*:\s*var\(--av-radius-lg\)/);
+  });
+});
+
+
+describe('Sprint 8.1 — retired CSS surfaces', () => {
+  test('speaking.css no longer declares .main-tab-nav / .main-tab-btn / .main-tab-label / .main-tab-sub', () => {
+    // Sprint 8.1 retired the four tab-row rules. .main-tab-panel
+    // stays — see the required-classes roster above.
+    for (const sel of ['.main-tab-nav', '.main-tab-btn', '.main-tab-label', '.main-tab-sub']) {
+      const escaped = sel.replace(/\./g, '\\.');
+      const re = new RegExp(`^${escaped}\\s*[\\s,{:]`, 'm');
+      assert.ok(
+        !re.test(css),
+        `speaking.css must NOT redeclare ${sel} — Sprint 8.1 retired the tab-row rules`,
+      );
+    }
+  });
+
+  test('speaking.css no longer declares .part-card', () => {
+    assert.ok(
+      !/^\.part-card\s*\{/m.test(css),
+      'speaking.css must NOT redeclare .part-card — Sprint 8.1 replaced the 3 part-cards with .mode-card',
     );
   });
 });
