@@ -720,3 +720,39 @@ describe('Sprint 7.12 — legacy chrome pages (13 sub-pages) still inline', () =
     assert.match(themeToggle, /DOMContentLoaded/);
   });
 });
+
+
+// ── Sprint 7.13.1-hotfix — every chrome page calls initSupabase() ───
+
+
+describe('Sprint 7.13.1-hotfix — every <aver-chrome> page must call initSupabase()', () => {
+  // The <aver-chrome> component polls window.getSupabase for ~3s after
+  // mount. window.getSupabase is only exposed once initSupabase() runs
+  // (api.js contract, Sprint 6.x). 5 grammar pages shipped supabase-js +
+  // api.js but never called initSupabase — pill stuck at placeholder.
+  // This sentinel guards against the same omission recurring on any
+  // future migrated page.
+  MIGRATED_PAGES.forEach(({ path: rel }) => {
+    test(`${rel} calls initSupabase()`, () => {
+      const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      assert.match(
+        html,
+        /\binitSupabase\s*\(/,
+        `${rel}: must call initSupabase(SUPABASE_URL, SUPABASE_ANON) so <aver-chrome> can resolve window.getSupabase and populate the user pill`,
+      );
+    });
+  });
+
+  test('canonical Supabase URL pinned across migrated pages', () => {
+    // All migrated pages reference the same project URL. If a page is
+    // pointed at a different project, that's a configuration drift.
+    const SUPABASE_URL = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    MIGRATED_PAGES.forEach(({ path: rel }) => {
+      const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      assert.ok(
+        html.includes(SUPABASE_URL),
+        `${rel}: must reference canonical SUPABASE_URL "${SUPABASE_URL}"`,
+      );
+    });
+  });
+});
