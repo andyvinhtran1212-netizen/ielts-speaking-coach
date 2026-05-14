@@ -193,7 +193,10 @@ describe('Destination URLs preserved byte-identical', () => {
     { page: 'frontend/pages/full-test-result.html',         href: '/pages/speaking.html' },
     { page: 'frontend/pages/writing-result.html',           href: '/writing/dashboard' },
     { page: 'frontend/admin.html',                          href: 'pages/home.html' },
-    { page: 'frontend/grammar.html',                        href: '/pages/home.html' },
+    // Sprint 7.12: grammar.html migrated to <aver-chrome> — the nav-link
+    // hrefs now live inside the component's shadow root, not the page HTML.
+    // The brand-link + 5 skill hrefs are pinned once in the component
+    // contract (chrome-unification-canonical.test.mjs) instead of per-page.
   ];
 
   HREF_PINS.forEach(({ page, href }) => {

@@ -63,6 +63,9 @@
   <!-- Lucide icons (line glyphs replacing the Sprint 5.1 emoji nav). -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
 
+  <!-- Canonical chrome Web Component (Sprint 7.12). -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+
   <style>
     /* Sprint 5.1 / 6.4 — page-local overrides retained:
        inline <style> below intentionally empty after Sprint 6.4
@@ -83,46 +86,12 @@
 </head>
 <body class="av-page font-sans antialiased min-h-screen flex flex-col">
 
-  <!-- Canonical chrome (Sprint 6.17.1 — Speaking active; custom #avatar-menu
-       dropdown replaced by /js/user-pill.js canonical pill. Inline avatar
-       population in JS rewritten to target #user-avatar / #user-pill-name. -->
-  <div class="topnav-wrap">
-    <nav class="topnav" aria-label="Primary">
-      <a href="/pages/home.html" class="brand">Aver<span class="dot">.</span>Learning</a>
-      <div class="nav-links">
-        <a href="/pages/home.html">Trang chủ</a>
-        <a href="/pages/writing-dashboard.html">Writing</a>
-        <a href="/pages/speaking.html" class="active">Speaking</a>
-        <a href="/grammar.html">Grammar</a>
-        <a href="/pages/vocabulary.html">Vocabulary</a>
-        <span class="locked" aria-disabled="true">Reading</span>
-        <span class="locked" aria-disabled="true">Listening</span>
-      </div>
-      <div class="topnav-right">
-        <button class="av-theme-toggle" id="theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
-          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-        <div class="user-menu">
-          <button class="user-pill" id="user-pill" type="button"
-                  aria-haspopup="true" aria-expanded="false" aria-label="Menu hồ sơ">
-            <span class="avatar" id="user-avatar">·</span>
-            <span id="user-pill-name">…</span>
-          </button>
-          <div class="user-menu-dropdown" role="menu" hidden>
-            <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
-            <button type="button" class="user-menu-item user-menu-item--danger"
-                    id="user-menu-logout" role="menuitem">Đăng xuất</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-  </div>
+  <!-- Canonical chrome (Sprint 7.12 — <aver-chrome> Web Component;
+       Speaking active). Page-authoritative pill population via
+       renderUser() → setUser() preserves the Sprint 7.8-hotfix permissions
+       context contract through the typed API instead of DOM-poking
+       across the shadow boundary. -->
+  <aver-chrome active="speaking"></aver-chrome>
 
   <!-- ─── MAIN TAB NAV ─────────────────────────────────────── -->
   <!-- Sprint 6.4: emoji icons (📊🎯📋🏆📖📚) swapped for Lucide line
@@ -1015,20 +984,19 @@
     }
 
     // ── Render user info ──────────────────────────────────────
+    // Sprint 7.12: pill name + avatar delegated to <aver-chrome>.setUser()
+    // which lives in the component's Shadow DOM and uses canonicalInitials.
+    // The component's auto-fetch is intentionally pre-empted by this
+    // page-authoritative call so /auth/me's permissions context wins.
     function renderUser(user) {
-      // Sprint 6.17.1: canonical user-pill populated via #user-pill-name +
-      // #user-avatar instead of legacy #user-name / #avatar-initials.
       const displayName = user.display_name || user.full_name || user.email?.split('@')[0] || 'Bạn';
-      const pillName = document.getElementById('user-pill-name');
-      if (pillName) pillName.textContent = displayName;
+
+      const chrome = document.querySelector('aver-chrome');
+      if (chrome && typeof chrome.setUser === 'function') {
+        chrome.setUser({ name: displayName });
+      }
 
       document.getElementById('greeting-name').textContent = displayName.split(' ').at(-1);
-
-      const avatarEl = document.getElementById('user-avatar');
-      if (avatarEl) {
-        const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-        avatarEl.textContent = initials;
-      }
 
       // Apply permissions from /auth/me response
       if (Array.isArray(user.permissions)) {
@@ -2263,35 +2231,27 @@
     })();
   </script>
 
-  <!-- ── Theme toggle binding (Sprint 6.4.1) ─────────────────
-       The IIFE in <head> already applied data-theme synchronously to
-       prevent a flash. theme-toggle.js auto-runs initTheme() on import
-       (re-applies + manages the .theme-loading guard) and then we wire
-       the click handler to the .av-theme-toggle button in the header.
-
-       Charts on the dashboard read tokens via getComputedStyle, so we
-       also listen for theme flips and rebuild them so colors track. -->
-  <script type="module">
-    import { bindToggleButton } from '/js/theme-toggle.js';
-    bindToggleButton(document.getElementById('theme-toggle'));
-
-    // Charts (#chart-line, #chart-radar) read --av-* tokens via
-    // getComputedStyle in renderCharts(). Re-render on theme flip so the
-    // axes/grid/tooltip colors swap. The dashboard module exposes a
-    // refresh hook on window._dashboard for exactly this.
-    const html = document.documentElement;
-    let lastTheme = html.getAttribute('data-theme');
-    new MutationObserver(() => {
-      const t = html.getAttribute('data-theme');
-      if (t !== lastTheme) {
-        lastTheme = t;
-        if (window._dashboard && typeof window._dashboard.refreshCharts === 'function') {
-          window._dashboard.refreshCharts();
+  <!-- ── Chart re-render on theme flip (Sprint 6.4.1 / kept Sprint 7.12) ──
+       Theme toggle binding moved into <aver-chrome>. Charts
+       (#chart-line, #chart-radar) read --av-* tokens via getComputedStyle
+       in renderCharts(); when the page-level [data-theme] flips, refresh
+       so axes/grid/tooltip colors swap. The dashboard module exposes a
+       refresh hook on window._dashboard for exactly this. -->
+  <script>
+    (function () {
+      var html = document.documentElement;
+      var lastTheme = html.getAttribute('data-theme');
+      new MutationObserver(function () {
+        var t = html.getAttribute('data-theme');
+        if (t !== lastTheme) {
+          lastTheme = t;
+          if (window._dashboard && typeof window._dashboard.refreshCharts === 'function') {
+            window._dashboard.refreshCharts();
+          }
         }
-      }
-    }).observe(html, { attributes: true, attributeFilter: ['data-theme'] });
+      }).observe(html, { attributes: true, attributeFilter: ['data-theme'] });
+    })();
   </script>
-  <script type="module" src="/js/user-pill.js"></script>
 
 </body>
 </html>

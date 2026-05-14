@@ -122,18 +122,19 @@ describe('writing-dashboard.html / theme support', () => {
     );
   });
 
-  test('header includes the theme toggle button (.av-theme-toggle)', () => {
-    assert.match(html, /class="av-theme-toggle"/);
+  test('Sprint 7.12 — chrome migrated to <aver-chrome active="writing">', () => {
+    assert.match(html, /<aver-chrome\s+active="writing"\s*>/);
+    assert.match(
+      html,
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+    );
   });
 
-  test('binds the toggle via canonical /js/theme-toggle.js module (Sprint 6.17.1)', () => {
-    assert.match(
-      html,
-      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,
-    );
-    assert.match(
-      html,
-      /bindToggleButton\s*\(\s*document\.getElementById\(\s*['"]theme-toggle['"]\s*\)\s*\)/,
+  test('Sprint 7.12 — inline .av-theme-toggle + bindToggleButton import removed (moved into shadow root)', () => {
+    assert.equal(/class="av-theme-toggle"/.test(html), false);
+    assert.equal(
+      /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/.test(html),
+      false,
     );
   });
 });
@@ -159,13 +160,15 @@ describe('writing-dashboard.html / state container IDs', () => {
     assert.match(html, /id="writing-preview-banner"/);
   });
 
-  test('Sprint 6.17.1 — logout integrated into canonical user-pill dropdown', () => {
-    // Legacy #logout-btn replaced by canonical #user-menu-logout inside
-    // the user-pill dropdown. /js/user-pill.js handles signOut() + redirect.
-    assert.match(html, /id="user-menu-logout"/);
+  test('Sprint 7.12 — logout moved into <aver-chrome> shadow root', () => {
+    // Sprint 6.17.1 retired legacy #logout-btn in favor of #user-menu-logout
+    // (inline in canonical chrome). Sprint 7.12 moves that markup into the
+    // component's shadow root, so #user-menu-logout is no longer in page DOM.
+    // Logout still works — the component owns the signOut() + redirect flow.
+    assert.equal(/\bid="user-menu-logout"/.test(html), false);
     assert.ok(
-      !/id="logout-btn"/.test(html),
-      'legacy #logout-btn must be removed (Sprint 6.17.1 migration)',
+      !/\bid="logout-btn"/.test(html),
+      'legacy #logout-btn must remain removed (Sprint 6.17.1 contract)',
     );
   });
 });
@@ -383,7 +386,8 @@ describe('writing-dashboard.html / color migration', () => {
 
   test('Vietnamese microcopy lifted from existing page (no drift)', () => {
     for (const phrase of [
-      'Đăng xuất',
+      // "Đăng xuất" microcopy now lives inside <aver-chrome> shadow root
+      // (Sprint 7.12); page-level body microcopy pinned below.
       'Đang tải',
       'Quay về trang chủ',
       'Chế độ xem trước',

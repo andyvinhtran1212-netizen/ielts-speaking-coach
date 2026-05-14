@@ -55,6 +55,11 @@ function findHtmlFiles(dir, acc = []) {
 }
 
 const ALL_HTML = findHtmlFiles(FRONTEND);
+// Sprint 7.12: pages migrated to <aver-chrome> no longer carry inline
+// `av-theme-toggle` markup (it lives in the Shadow DOM). The structural
+// layout-context sentinel is moot for those pages — there is no toggle
+// element in the page DOM to discover a parent for. We continue auditing
+// pages that still ship inline chrome.
 const REDESIGNED_PAGES = ALL_HTML
   .map((p) => ({ abs: p, rel: path.relative(REPO_ROOT, p) }))
   .filter(({ abs }) => readFileSync(abs, 'utf8').includes('av-theme-toggle'));
@@ -201,11 +206,16 @@ describe('Theme toggle button — must sit at meaningful depth (not page root)',
 
 
 describe('Theme toggle button — coverage roster', () => {
-  test('discovers at least 25 redesigned pages with theme toggle', () => {
+  test('discovers at least 24 redesigned pages with inline theme toggle (Sprint 7.12: 5 migrated to <aver-chrome>)', () => {
+    // Pre-Sprint-7.12: 29 redesigned pages carried inline .av-theme-toggle.
+    // Post-Sprint-7.12: 5 skill landings (home / writing-dashboard /
+    // speaking / grammar / vocabulary) moved chrome into <aver-chrome>
+    // shadow root, so 24 pages remain on inline chrome. Sprint 7.13
+    // batch 2 migrates 13 more sub-pages; lower this bound then.
     assert.ok(
-      REDESIGNED_PAGES.length >= 25,
-      `Expected ≥ 25 redesigned pages carrying the theme toggle, found ${REDESIGNED_PAGES.length}. ` +
-      `If pages were intentionally removed, lower this bound; otherwise the discovery walk regressed.`,
+      REDESIGNED_PAGES.length >= 24,
+      `Expected ≥ 24 redesigned pages carrying inline theme toggle, found ${REDESIGNED_PAGES.length}. ` +
+      `If more pages migrated to <aver-chrome>, lower this bound.`,
     );
   });
 });
@@ -223,10 +233,19 @@ describe('Grammar Wiki cluster — Sprint 6.15.7-hotfix nav wrapper', () => {
   ];
 
   GRAMMAR_PAGES.forEach((rel) => {
-    test(`${rel} — toggle uses absolute /js/theme-toggle.js import`, () => {
+    test(`${rel} — toggle uses absolute /js/theme-toggle.js import (or <aver-chrome>)`, () => {
       const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-      // Absolute path eliminates the Vercel-rewrite relative-resolution
-      // ambiguity (/grammar/:category/:slug → /pages/grammar-article.html).
+      // Sprint 7.12: grammar.html (landing) migrated to <aver-chrome> —
+      // the component owns bindToggleButton internally. The 4 sub-pages
+      // still import it directly until Sprint 7.13.
+      if (rel === 'frontend/grammar.html') {
+        assert.match(
+          html,
+          /<aver-chrome\s+active="grammar"\s*>/,
+          `${rel}: Sprint 7.12 migration — theme toggle binding moved into the component`,
+        );
+        return;
+      }
       assert.match(
         html,
         /import\s+\{\s*bindToggleButton\s*\}\s+from\s+['"]\/js\/theme-toggle\.js['"]/,

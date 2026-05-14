@@ -50,9 +50,16 @@ function findHtmlFiles(dir, acc = []) {
 }
 
 const ALL_HTML = findHtmlFiles(FRONTEND);
+// Sprint 7.12: pages migrated to <aver-chrome> no longer carry inline
+// `av-theme-toggle` markup (it lives in the component's shadow root).
+// Include them via the `<aver-chrome` substring so the absolute-path
+// sentinel still audits their stylesheets.
 const REDESIGNED_PAGES = ALL_HTML
   .map((p) => ({ abs: p, rel: path.relative(REPO_ROOT, p) }))
-  .filter(({ abs }) => readFileSync(abs, 'utf8').includes('av-theme-toggle'));
+  .filter(({ abs }) => {
+    const html = readFileSync(abs, 'utf8');
+    return html.includes('av-theme-toggle') || html.includes('<aver-chrome');
+  });
 
 
 // ── href extractor ────────────────────────────────────────────────

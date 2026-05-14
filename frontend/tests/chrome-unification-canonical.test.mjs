@@ -30,24 +30,31 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 // ── Phase C1 roster ───────────────────────────────────────────────
 
 
+// Sprint 7.12 split: pages migrated to <aver-chrome> Web Component ship
+// the canonical chrome from a Shadow DOM and DO NOT carry inline
+// .topnav-wrap markup. Pages still on inline chrome (Sprint 7.13 scope)
+// keep all original pins.
+
+const MIGRATED_PAGES = [
+  // Sprint 7.12 batch 1 — skill landings
+  { path: 'frontend/pages/home.html',              active: 'home' },
+  { path: 'frontend/pages/writing-dashboard.html', active: 'writing' },
+  { path: 'frontend/pages/speaking.html',          active: 'speaking' },
+  { path: 'frontend/grammar.html',                 active: 'grammar' },
+  { path: 'frontend/pages/vocabulary.html',        active: 'vocabulary' },
+];
+
+// 13 pages still on inline chrome markup (Sprint 7.13 batch 2 migrates).
 const CANONICAL_CHROME_PAGES = [
-  // Phase C1 (Sprint 6.17, PR #164)
-  'frontend/pages/home.html',
-  'frontend/pages/vocabulary.html',
   'frontend/pages/profile.html',
-  // Phase C2 (Sprint 6.17.1)
-  'frontend/pages/speaking.html',
   'frontend/pages/practice.html',
   'frontend/pages/result.html',
   'frontend/pages/full-test-result.html',
-  'frontend/pages/writing-dashboard.html',
   'frontend/pages/writing-result.html',
   'frontend/onboarding.html',
   'frontend/pages/my-vocabulary.html',
   'frontend/pages/flashcards.html',
   'frontend/pages/exercises.html',
-  // Sprint 6.17.2 — Grammar cluster migration (Cat 3 exclusion overridden)
-  'frontend/grammar.html',
   'frontend/pages/grammar-roadmap.html',
   'frontend/pages/grammar-search.html',
   'frontend/pages/grammar-compare.html',
@@ -602,19 +609,88 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
 });
 
 
-// ── Sprint 7.11 — no page migrations yet (Sprint 7.12+ scope) ────
+// ── Sprint 7.12 — batch 1 migration contract (5 skill landings) ────
 
 
-describe('Sprint 7.11 — additive build only, NO page migrations', () => {
-  test('no canonical chrome page references <aver-chrome> yet (Sprint 7.12+ migrates)', () => {
-    for (const rel of CANONICAL_CHROME_PAGES) {
+describe('Sprint 7.12 — migrated pages consume <aver-chrome>', () => {
+  MIGRATED_PAGES.forEach(({ path: rel, active }) => {
+    describe(rel, () => {
+      let html;
+      before(() => {
+        html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      });
+
+      test(`carries <aver-chrome active="${active}"> element`, () => {
+        const re = new RegExp(`<aver-chrome\\s+active="${active}"\\s*>`);
+        assert.match(html, re,
+          `${rel}: must declare <aver-chrome active="${active}"> (Sprint 7.12 migration).`);
+      });
+
+      test('loads /js/components/aver-chrome.js as ES module', () => {
+        assert.match(
+          html,
+          /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
+          `${rel}: must include the component module so customElements.define runs.`,
+        );
+      });
+
+      test('no inline .topnav-wrap markup (shadow root owns chrome)', () => {
+        assert.equal(
+          /<div\s+class="topnav-wrap"/.test(html),
+          false,
+          `${rel}: chrome markup must live inside the component shadow root, not inline.`,
+        );
+      });
+
+      test('no inline canonical chrome IDs (#theme-toggle / #user-pill / #user-avatar)', () => {
+        for (const id of ['theme-toggle', 'user-pill', 'user-avatar', 'user-pill-name', 'user-menu-logout']) {
+          assert.equal(
+            new RegExp(`\\bid="${id}"`).test(html),
+            false,
+            `${rel}: must not retain inline id="${id}" (now in shadow root).`,
+          );
+        }
+      });
+
+      test('no per-page bindToggleButton import or /js/user-pill.js src tag', () => {
+        assert.equal(
+          /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"]\/js\/theme-toggle\.js['"]/.test(html),
+          false,
+          `${rel}: theme-toggle.js binding moved into <aver-chrome>.`,
+        );
+        assert.equal(
+          /<script[^>]+src="\/js\/user-pill\.js"/.test(html),
+          false,
+          `${rel}: user-pill.js auto-bind moved into <aver-chrome>.`,
+        );
+      });
+
+      test('preserves anti-flash IIFE in <head> (pre-CSS-load requirement)', () => {
+        // The IIFE must still set [data-theme] BEFORE any stylesheet.
+        // It lives per-page because it must run pre-paint — the component
+        // attaches shadow on connectedCallback, well after first paint.
+        const headIdx = html.indexOf('</head>');
+        const head = html.slice(0, headIdx);
+        assert.match(head, /document\.documentElement\.setAttribute\(\s*['"]data-theme['"]/);
+      });
+    });
+  });
+});
+
+
+// ── Sprint 7.12 — legacy pages still on inline chrome (Sprint 7.13 scope) ──
+
+
+describe('Sprint 7.12 — legacy chrome pages (13 sub-pages) still inline', () => {
+  CANONICAL_CHROME_PAGES.forEach((rel) => {
+    test(`${rel} — no <aver-chrome> reference yet (Sprint 7.13 migrates)`, () => {
       const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
       assert.equal(
         html.includes('<aver-chrome'),
         false,
-        `${rel}: Sprint 7.11 is additive only; page migration starts Sprint 7.12. Found <aver-chrome> reference.`,
+        `${rel}: Sprint 7.12 migrates skill landings only. Sub-page migration is Sprint 7.13.`,
       );
-    }
+    });
   });
 
   test('components.css canonical chrome rules still present (Sprint 7.14 will retire)', () => {
@@ -628,7 +704,7 @@ describe('Sprint 7.11 — additive build only, NO page migrations', () => {
     assert.match(components, /\.user-pill\s*\{/);
   });
 
-  test('user-pill.js + theme-toggle.js unchanged for Sprint 7.11 (refactor in 7.12+)', () => {
+  test('user-pill.js + theme-toggle.js unchanged through Sprint 7.12 (refactor in 7.13+ when all pages migrated)', () => {
     const userPill = readFileSync(
       path.join(REPO_ROOT, 'frontend/js/user-pill.js'),
       'utf8',
@@ -637,9 +713,9 @@ describe('Sprint 7.11 — additive build only, NO page migrations', () => {
       path.join(REPO_ROOT, 'frontend/js/theme-toggle.js'),
       'utf8',
     );
-    // Both modules keep their DOMContentLoaded auto-bind branch through Sprint 7.11.
-    // Sprint 7.12 will refactor them to remove top-level auto-bind so the component
-    // owns init. This pin guards the deferral.
+    // Both modules keep their DOMContentLoaded auto-bind branch through Sprint 7.12.
+    // Sprint 7.13 (after all 18 pages migrate) refactors them to remove top-level
+    // auto-bind so the component is the only init path.
     assert.match(userPill, /DOMContentLoaded/);
     assert.match(themeToggle, /DOMContentLoaded/);
   });

@@ -252,14 +252,34 @@ describe('Sprint 6.18 — 18 canonical-chrome-page roster intact', () => {
       'Sprint 6.18 roster should mirror Sprint 6.17.2 cumulative 18-page chrome unification');
   });
 
+  // Sprint 7.12: 5 skill landings migrated to <aver-chrome> Web Component —
+  // their <nav class="topnav"> markup lives inside the component's Shadow
+  // DOM, not the page HTML. Accept either the inline canonical nav (Sprint
+  // 6.18 contract) OR the <aver-chrome> custom element (Sprint 7.12+).
+  const MIGRATED_TO_AVER_CHROME = new Set([
+    'frontend/pages/home.html',
+    'frontend/pages/writing-dashboard.html',
+    'frontend/pages/speaking.html',
+    'frontend/grammar.html',
+    'frontend/pages/vocabulary.html',
+  ]);
+
   ROSTER.forEach((rel) => {
-    test(`${rel} carries canonical .topnav (Sprint 6.18 pre-req)`, () => {
+    test(`${rel} carries canonical .topnav or <aver-chrome> (Sprint 6.18 pre-req)`, () => {
       const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-      assert.match(
-        html,
-        /<nav[^>]*class=["'][^"']*\btopnav\b/,
-        `${rel} must ship canonical <nav class="topnav"> — Sprint 6.18 spacing contract presumes canonical chrome`,
-      );
+      if (MIGRATED_TO_AVER_CHROME.has(rel)) {
+        assert.match(
+          html,
+          /<aver-chrome\s+active=/,
+          `${rel} migrated to <aver-chrome> (Sprint 7.12) — chrome lives in shadow root`,
+        );
+      } else {
+        assert.match(
+          html,
+          /<nav[^>]*class=["'][^"']*\btopnav\b/,
+          `${rel} must ship canonical <nav class="topnav"> — Sprint 6.18 spacing contract presumes canonical chrome`,
+        );
+      }
     });
   });
 });

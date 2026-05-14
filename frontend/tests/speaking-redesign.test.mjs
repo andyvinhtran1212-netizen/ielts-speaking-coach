@@ -127,24 +127,19 @@ describe('speaking.html / theme support (Sprint 6.4.1)', () => {
     );
   });
 
-  test('header includes the theme toggle button (.av-theme-toggle)', () => {
+  test('Sprint 7.12 — chrome migrated to <aver-chrome active="speaking">', () => {
+    assert.match(html, /<aver-chrome\s+active="speaking"\s*>/);
     assert.match(
       html,
-      /class="av-theme-toggle"/,
-      'speaking.html must show the theme toggle (Sprint 6.4.1 — DEBT-2026-05-10-A closed)',
+      /<script\s+type="module"\s+src="\/js\/components\/aver-chrome\.js">\s*<\/script>/,
     );
   });
 
-  test('binds the toggle via /js/theme-toggle.js bindToggleButton import', () => {
-    assert.match(
-      html,
-      /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"][^'"]*theme-toggle\.js['"]/,
-      'speaking.html must import bindToggleButton',
-    );
-    assert.match(
-      html,
-      /bindToggleButton\s*\(/,
-      'speaking.html must call bindToggleButton on the toggle element',
+  test('Sprint 7.12 — inline .av-theme-toggle + bindToggleButton import removed (moved into shadow root)', () => {
+    assert.equal(/class="av-theme-toggle"/.test(html), false);
+    assert.equal(
+      /import\s*\{\s*bindToggleButton\s*\}\s*from\s*['"][^'"]*theme-toggle\.js['"]/.test(html),
+      false,
     );
   });
 
@@ -259,20 +254,38 @@ describe('speaking.html / JS-coupled selectors', () => {
     assert.match(html, /onclick="handleModalBackdropClick\(event\)"/);
   });
 
-  test('Sprint 6.17.1 — avatar dropdown migrated to canonical user-pill', () => {
-    // Legacy custom dropdown IDs (#avatar-menu, #avatar-img, #avatar-initials,
-    // #btn-logout, #user-name, #user-name-skeleton, #avatar-dropdown-wrap,
-    // #avatar-wrap) replaced by canonical user-pill (#user-pill,
-    // #user-avatar, #user-pill-name, #user-menu-logout). /js/user-pill.js
-    // owns toggle + outside-click + signOut() + redirect.
+  test('Sprint 7.12 — user-pill IDs moved into <aver-chrome> shadow root', () => {
+    // Sprint 6.17.1 migrated the legacy custom dropdown to the canonical
+    // user-pill (#user-pill, #user-avatar, #user-pill-name, #user-menu-logout)
+    // shipped inline in the chrome markup. Sprint 7.12 moves the chrome into
+    // a Shadow DOM Web Component, so those IDs are no longer in the page DOM —
+    // they live inside <aver-chrome>'s shadow root. The renderUser() refactor
+    // (this sprint) calls aver-chrome.setUser({ name }) instead of poking
+    // #user-pill-name / #user-avatar directly across the shadow boundary.
     for (const id of ['user-pill', 'user-avatar', 'user-pill-name', 'user-menu-logout']) {
-      assert.match(html, new RegExp(`id="${id}"`), `#${id} must exist (canonical pill)`);
+      assert.equal(
+        new RegExp(`\\bid="${id}"`).test(html),
+        false,
+        `#${id} must NOT be in page DOM (moved into <aver-chrome> shadow root Sprint 7.12)`,
+      );
     }
-    // Legacy IDs must be gone (no zombie markup).
+    // Legacy IDs from Sprint 6.17.1 retirement still must not return.
     for (const id of ['avatar-menu', 'avatar-img', 'btn-logout', 'avatar-wrap', 'avatar-dropdown-wrap']) {
-      assert.ok(!new RegExp(`id="${id}"`).test(html),
-        `legacy #${id} must be removed (Sprint 6.17.1 migration)`);
+      assert.ok(!new RegExp(`\\bid="${id}"`).test(html),
+        `legacy #${id} must remain removed (Sprint 6.17.1 + Sprint 7.12 contracts)`);
     }
+  });
+
+  test('Sprint 7.12 — renderUser() delegates pill population to aver-chrome.setUser()', () => {
+    // Page-authoritative override pattern: renderUser() carries permissions
+    // context from /auth/me and must keep populating the chrome via the
+    // typed setUser() API (Phase B Q4 contract) rather than DOM-poking
+    // across the shadow boundary.
+    assert.match(
+      html,
+      /document\.querySelector\(\s*['"]aver-chrome['"]\s*\)[\s\S]*?\.setUser\(/,
+      'renderUser must call document.querySelector("aver-chrome").setUser(...)',
+    );
   });
 });
 
