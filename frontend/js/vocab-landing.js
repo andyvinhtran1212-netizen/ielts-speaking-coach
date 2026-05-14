@@ -85,13 +85,27 @@
     }
 
     if (updateHash) {
-      // history.replaceState avoids piling up nav history on every click.
+      // Sprint 9.2 — promote replaceState → pushState so each mode-card
+      // click becomes a history entry. Browser back/forward then cycles
+      // through visited modes (and back to the dashboard view when the
+      // hash is empty — see showDashboard + hashchange below).
       try {
-        history.replaceState(null, '', '#' + tabName);
+        history.pushState(null, '', '#' + tabName);
       } catch (e) {
-        // `replaceState` can throw in sandboxed iframes — best-effort.
+        // pushState can throw in sandboxed iframes — best-effort.
       }
     }
+  }
+
+  // Sprint 9.2 — back-link target. Reverses activateTab(): re-reveal
+  // the .vocab-modes dashboard + hide every panel. Called from the
+  // hashchange listener when the URL has no recognised mode hash and
+  // from each module's [data-action="back-to-dashboard"] click via
+  // its programmatic history.pushState + hashchange dispatch.
+  function showDashboard() {
+    const dashboard = $('.vocab-modes');
+    if (dashboard) dashboard.hidden = false;
+    $$('.tab-panel').forEach(panel => { panel.hidden = true; });
   }
 
   function setupModeCards() {
@@ -99,7 +113,7 @@
     // the tab-button click + ArrowLeft/ArrowRight cycle handler. The
     // mode-cards are <a href="#"> anchors; preventDefault keeps the
     // bare-fragment href from advancing the URL hash to "#" before
-    // activateTab() writes the canonical hash via replaceState.
+    // activateTab() writes the canonical hash via pushState.
     $$('.mode-card[data-mode]').forEach(card => {
       card.addEventListener('click', (e) => {
         e.preventDefault();
@@ -107,11 +121,17 @@
       });
     });
 
-    // hashchange wins if the user uses browser back/forward.
+    // Sprint 9.2 — hashchange handles both directions:
+    //   - hash matches a VALID_TAB → activate that panel
+    //   - hash is empty / unknown → show the dashboard (the back-link
+    //     and the browser Back button both land here once the user has
+    //     navigated past a mode panel)
     window.addEventListener('hashchange', () => {
       const fromHash = (window.location.hash || '').slice(1);
       if (VALID_TABS.has(fromHash)) {
         activateTab(fromHash, { updateHash: false });
+      } else {
+        showDashboard();
       }
     });
   }
@@ -167,6 +187,7 @@
   // Test seam.
   window.__vocabLanding = {
     activateTab,
+    showDashboard,
     DEFAULT_TAB,
     VALID_TABS: Array.from(VALID_TABS),
     TAB_LOADERS: Object.keys(TAB_LOADERS),

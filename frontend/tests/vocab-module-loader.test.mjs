@@ -120,12 +120,15 @@ describe('Sprint 7.3 — /js/vocab-modules/my-vocab.js module', () => {
     assert.match(src, /alreadyMounted/);
   });
 
-  test('HTML template ships the canonical subpage-header + Vocabulary eyebrow', () => {
-    // Sprint 9.1 — `.mv-header mv-context-bar` retired in favor of the
-    // shared `.subpage-header` primitive (components.css). Eyebrow +
-    // page title still rendered inside the header.
+  test('HTML template ships the canonical subpage-header + Vocabulary back-link', () => {
+    // Sprint 9.1 — .mv-header retired in favor of the shared
+    // .subpage-header primitive (components.css).
+    // Sprint 9.2 — the eyebrow <p> was promoted to an interactive
+    // back-link button (data-action="back-to-dashboard") so users can
+    // return to the parent Vocabulary dashboard without a page reload.
     assert.match(src, /<header class="subpage-header/);
-    assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
+    assert.match(src, /class="subpage-header__back"[^>]*data-action="back-to-dashboard"/);
+    assert.match(src, /<span>Vocabulary<\/span>/);
     assert.match(src, /My Vocab Bank/);
   });
 
@@ -474,12 +477,13 @@ describe('Sprint 7.4 — /js/vocab-modules/flashcards.js module', () => {
     assert.match(src, /alreadyMounted/);
   });
 
-  test('HTML template ships the canonical subpage-header + Vocabulary eyebrow', () => {
-    // Sprint 9.1 — `.fc-header fc-context-bar` retired (shared
-    // `.subpage-header` primitive in components.css). 📚 emoji prefix
-    // dropped per Phase D Q5.
+  test('HTML template ships the canonical subpage-header + Vocabulary back-link', () => {
+    // Sprint 9.1 — .fc-header retired (shared .subpage-header primitive
+    // in components.css). 📚 emoji prefix dropped per Phase D Q5.
+    // Sprint 9.2 — eyebrow → interactive back-link button.
     assert.match(src, /<header class="subpage-header/);
-    assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
+    assert.match(src, /class="subpage-header__back"[^>]*data-action="back-to-dashboard"/);
+    assert.match(src, /<span>Vocabulary<\/span>/);
     assert.match(src, /<h1[^>]*class="[^"]*\bsubpage-header__title\b[^"]*"[^>]*>\s*Flashcards\s*<\/h1>/);
     assert.ok(
       !src.includes('📚 Flashcards'),
@@ -680,11 +684,13 @@ describe('Sprint 7.5 — /js/vocab-modules/exercises.js module', () => {
     assert.match(src, /alreadyMounted/);
   });
 
-  test('HTML template ships the canonical subpage-header + Vocabulary eyebrow', () => {
-    // Sprint 9.1 — `.ex-header ex-context-bar` retired (shared
-    // `.subpage-header` primitive in components.css).
+  test('HTML template ships the canonical subpage-header + Vocabulary back-link', () => {
+    // Sprint 9.1 — .ex-header retired (shared .subpage-header primitive
+    // in components.css).
+    // Sprint 9.2 — eyebrow → interactive back-link button.
     assert.match(src, /<header class="subpage-header/);
-    assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
+    assert.match(src, /class="subpage-header__back"[^>]*data-action="back-to-dashboard"/);
+    assert.match(src, /<span>Vocabulary<\/span>/);
     assert.match(src, /<h1[^>]*class="[^"]*\bsubpage-header__title\b[^"]*"[^>]*>\s*Exercises\s*<\/h1>/);
   });
 
@@ -718,17 +724,22 @@ describe('Sprint 7.5 — /js/vocab-modules/exercises.js module', () => {
     );
   });
 
-  test('no inline onclick / no event delegation needed (cards are plain links)', () => {
+  test('no inline onclick (Sprint 9.2 — only data-action="back-to-dashboard" is allowed)', () => {
     const m = src.match(/const HTML = \/\* html \*\/ `([\s\S]+?)`;/);
     assert.ok(m, 'HTML template literal not extractable');
     assert.ok(
       !/onclick=/.test(m[1]),
       'HTML template must not contain inline onclick attributes',
     );
-    // Sanity: no data-action either (Phase A audit: zero interactive handlers).
-    assert.ok(
-      !/data-action=/.test(m[1]),
-      'exercises template has no interactive handlers — no data-action expected',
+    // Sprint 9.2 — the only data-action introduced into this drill-hub
+    // template is "back-to-dashboard" on the .subpage-header__back
+    // button. The drill cards themselves are still plain <a href>
+    // links per Sprint 7.5's Phase B contract — no interactive handlers.
+    const actions = [...m[1].matchAll(/data-action="([^"]+)"/g)].map(a => a[1]);
+    assert.deepEqual(
+      actions,
+      ['back-to-dashboard'],
+      'exercises template must only carry the Sprint 9.2 back-link data-action; drill cards remain plain links',
     );
   });
 
@@ -873,4 +884,108 @@ describe('Sprint 9.1.1-hotfix — vocab module template literals must not contai
       );
     });
   }
+});
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Sprint 9.2 — back-link contract (vocab side).
+//
+// Sprint 9.2 promoted the static <p class="eyebrow">Vocabulary</p>
+// tier label inside each vocab module template to an interactive
+// <button class="subpage-header__back" data-action="back-to-dashboard">
+// so users can return to the parent Vocabulary dashboard view without
+// reloading the page. Sentinel pins the three contract surfaces:
+//   1. button markup with the new BEM class + data-action
+//   2. arrow-left Lucide icon + "Vocabulary" label inside the button
+//   3. aria-label for screen-reader users
+//   4. module JS handles the 'back-to-dashboard' action (delegation)
+// ─────────────────────────────────────────────────────────────────────
+
+describe('Sprint 9.2 — vocab modules ship the .subpage-header__back contract', () => {
+  const VOCAB_MODULES = [
+    'frontend/js/vocab-modules/my-vocab.js',
+    'frontend/js/vocab-modules/flashcards.js',
+    'frontend/js/vocab-modules/exercises.js',
+  ];
+
+  for (const modulePath of VOCAB_MODULES) {
+    test(`${modulePath} — back-link markup is present (button + arrow-left + label + aria)`, () => {
+      const src = readFileSync(path.join(REPO_ROOT, modulePath), 'utf8');
+      assert.match(
+        src,
+        /<button[^>]*\bclass="subpage-header__back"[^>]*\bdata-action="back-to-dashboard"[^>]*\baria-label="Quay về dashboard Vocabulary"/,
+        `${modulePath} must ship the Sprint 9.2 back-link button with class + data-action + aria-label`,
+      );
+      assert.match(
+        src,
+        /<i\s+data-lucide="arrow-left"[^>]*><\/i>\s*<span>Vocabulary<\/span>/,
+        `${modulePath} must ship an arrow-left Lucide icon followed by a "Vocabulary" label inside the back-link`,
+      );
+    });
+
+    test(`${modulePath} — module JS wires the 'back-to-dashboard' action`, () => {
+      const src = readFileSync(path.join(REPO_ROOT, modulePath), 'utf8');
+      assert.match(
+        src,
+        /back-to-dashboard/,
+        `${modulePath} must reference 'back-to-dashboard' in its handler logic`,
+      );
+      // Embedded path clears the hash (vocab-landing.js handles
+      // hashchange → showDashboard); standalone path navigates to
+      // /pages/vocabulary.html.
+      assert.match(
+        src,
+        /\/pages\/vocabulary\.html/,
+        `${modulePath} must navigate to /pages/vocabulary.html in standalone mode`,
+      );
+    });
+  }
+});
+
+
+describe('Sprint 9.2 — vocab-landing.js owns showDashboard() + pushState navigation', () => {
+  let src;
+  before(() => {
+    src = readFileSync(path.join(REPO_ROOT, 'frontend/js/vocab-landing.js'), 'utf8');
+  });
+
+  test('exposes showDashboard() and reveals .vocab-modes + hides every panel', () => {
+    assert.match(src, /function\s+showDashboard\s*\(\s*\)/);
+    const fn = src.match(/function\s+showDashboard\s*\(\s*\)\s*\{([\s\S]+?)\n\s*\}/);
+    assert.ok(fn, 'showDashboard() body must be extractable');
+    assert.match(fn[1], /\.vocab-modes/);
+    assert.match(fn[1], /\.tab-panel/);
+    assert.match(fn[1], /\.hidden\s*=\s*false/);
+    assert.match(fn[1], /\.hidden\s*=\s*true/);
+  });
+
+  test('mode-card activation uses pushState (not replaceState) for browser back support', () => {
+    assert.match(
+      src,
+      /history\.pushState\([^)]*['"`]#['"`]\s*\+\s*tabName/,
+      'activateTab() must use history.pushState so visited modes become history entries',
+    );
+    // The pre-Sprint-9.2 replaceState call inside activateTab() must
+    // be gone (allow the comment that documents the change to keep
+    // the word for context, but no live call).
+    assert.ok(
+      !/history\.replaceState\(/.test(src),
+      'vocab-landing.js must NOT call history.replaceState — Sprint 9.2 promoted it to pushState',
+    );
+  });
+
+  test('hashchange listener falls back to showDashboard on empty/unknown hash', () => {
+    // Capture the full listener — the outer `}\)\;` sits at the lowest
+    // indent column of the addEventListener call (3 spaces here), so
+    // match up to a `\n  }\);` to skip nested `});` that belong to
+    // inner expressions (e.g. activateTab(fromHash, { ... });).
+    const m = src.match(/window\.addEventListener\(\s*['"]hashchange['"][\s\S]*?\n\s{4}\}\);/);
+    assert.ok(m, 'hashchange listener must be present');
+    assert.match(m[0], /showDashboard\(\)/);
+    assert.match(m[0], /VALID_TABS\.has\(/);
+  });
+
+  test('window.__vocabLanding test seam exposes showDashboard', () => {
+    assert.match(src, /__vocabLanding\s*=\s*\{[\s\S]*?showDashboard/);
+  });
 });

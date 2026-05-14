@@ -46,7 +46,10 @@ const HTML = /* html */ `
          + eyebrow already anchor the IA position). -->
     <header class="subpage-header mb-6">
       <div class="subpage-header__lhs">
-        <p class="eyebrow" style="margin:0;">Vocabulary</p>
+        <button type="button" class="subpage-header__back" data-action="back-to-dashboard" aria-label="Quay về dashboard Vocabulary">
+          <i data-lucide="arrow-left"></i>
+          <span>Vocabulary</span>
+        </button>
         <span class="subpage-header__sep">|</span>
         <h1 class="subpage-header__title">Flashcards</h1>
       </div>
@@ -523,6 +526,7 @@ export async function mount(container, opts = {}) {
     if (!btn || !container.contains(btn)) return;
     const action = btn.dataset.action;
     switch (action) {
+      case 'back-to-dashboard': return backToDashboard();
       case 'open-stack-modal':  return openModal();
       case 'close-stack-modal': return closeModal();
       case 'save-stack':        return saveStack();
@@ -530,6 +534,20 @@ export async function mount(container, opts = {}) {
       case 'toggle-topic':      return toggleTopicChip(btn);
       case 'toggle-category':   return toggleCategoryChip(btn);
       default: return;
+    }
+  }
+
+  // Sprint 9.2 — back-link returns the user to the parent Vocabulary
+  // dashboard. Embedded: clear hash, let vocab-landing.js handle the
+  // hashchange. Standalone: hard-navigate to /pages/vocabulary.html.
+  function backToDashboard() {
+    if (embedded) {
+      if (window.location.hash) {
+        history.pushState(null, '', window.location.pathname);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+    } else {
+      window.location.href = '/pages/vocabulary.html';
     }
   }
 
