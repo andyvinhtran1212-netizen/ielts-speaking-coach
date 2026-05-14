@@ -40,8 +40,8 @@ function esc(s) {
 const HTML = /* html */ `
   <main class="max-w-3xl mx-auto px-4 pt-4 pb-8">
 
-    <!-- Sprint 9.1 — `.subpage-header` primitive (components.css). The
-         pre-9.1 `.fc-header` "context bar" was retired; 📚 emoji prefix
+    <!-- Sprint 9.1 — .subpage-header primitive (components.css). The
+         pre-9.1 .fc-header "context bar" was retired; 📚 emoji prefix
          dropped per Phase D Q5 (chrome's active="vocabulary" highlight
          + eyebrow already anchor the IA position). -->
     <header class="subpage-header mb-6">

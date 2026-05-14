@@ -31,8 +31,8 @@ import { guardMount, redirectToLogin } from './_loader.js';
 const HTML = /* html */ `
   <main class="max-w-3xl mx-auto px-4 pt-4 pb-8">
 
-    <!-- Sprint 9.1 — `.subpage-header` primitive (components.css). The
-         pre-9.1 `.ex-header` "context bar" was retired alongside the
+    <!-- Sprint 9.1 — .subpage-header primitive (components.css). The
+         pre-9.1 .ex-header "context bar" was retired alongside the
          3x duplicated {prefix}-header rule sets. -->
     <header class="subpage-header mb-6">
       <div class="subpage-header__lhs">
@@ -59,7 +59,7 @@ const HTML = /* html */ `
       <h2 class="ex-hub-title text-lg font-semibold mb-1">Pick a drill</h2>
       <p class="ex-hub-sub text-sm mb-6">Short, targeted vocab practice tied to your bank.</p>
 
-      <!-- Sprint 9.1 — drill cards adopted `.mode-card` shared primitive
+      <!-- Sprint 9.1 — drill cards adopted .mode-card shared primitive
            (components.css). Inner-class skeleton matches Sprint 8.1 +
            8.2 pattern: .head > .icon + pill, h3, .lede. D3 "Speak with
            target" card retired per Phase D Q8 — it was a Coming-soon

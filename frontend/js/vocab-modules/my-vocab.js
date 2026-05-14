@@ -50,11 +50,11 @@ import { guardMount, redirectToLogin } from './_loader.js';
 const HTML = /* html */ `
   <main class="max-w-3xl mx-auto px-4 pt-4 pb-8">
 
-    <!-- Sprint 9.1 — `.subpage-header` primitive (components.css). The
-         pre-9.1 `.mv-header` "context bar" with surface-elevated bg +
+    <!-- Sprint 9.1 — .subpage-header primitive (components.css). The
+         pre-9.1 .mv-header "context bar" with surface-elevated bg +
          border-bottom + py-4 was retired alongside the 3x duplicated
          {prefix}-header rule sets in mv/fc/ex CSS. Top spacing tightened
-         from chrome→content ~200px (was: chrome 64px + bar 56px + main
+         from chrome to content ~200px (was: chrome 64px + bar 56px + main
          pt-20 80px) to ~108px (chrome 64px + main pt-4 16px + header
          content ~28px). -->
     <header class="subpage-header mb-6">
