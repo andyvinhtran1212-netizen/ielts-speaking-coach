@@ -20,27 +20,10 @@
  */
 
 
-/* ── Page chrome ──────────────────────────────────────────────────── */
-
-.fc-header {
-  background: var(--av-surface-elevated);
-  border-bottom: 1px solid var(--av-border-subtle);
-}
-
-.fc-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--av-space-1);
-  color: var(--av-primary);
-  text-decoration: none;
-  transition: opacity var(--av-duration-fast) var(--av-easing-default);
-}
-.fc-back-link:hover { opacity: 0.8; }
-.fc-back-link i,
-.fc-back-link svg { width: 14px; height: 14px; }
-
-.fc-header__sep   { color: var(--av-text-faint); }
-.fc-header__title { color: var(--av-text-primary); }
+/* Sprint 9.1 — `.fc-header` / `.fc-header__sep` / `.fc-header__title`
+   + `.fc-back-link` rule sets retired. The header is now the shared
+   `.subpage-header` primitive (components.css); the back-link was
+   dead code in the post-Sprint-7.3 module template. */
 
 
 /* ── Sprint 6.0 banner ───────────────────────────────────────────── */
@@ -61,28 +44,11 @@
 
 /* ── Stack cards ─────────────────────────────────────────────────── */
 
-.stack-card {
-  background: var(--av-surface-card);
-  border: 1px solid var(--av-border-subtle);
-  border-radius: var(--av-radius-xl);
-  padding: var(--av-space-6);
-  transition:
-    transform 0.18s ease,
-    border-color var(--av-duration-fast) var(--av-easing-default),
-    box-shadow var(--av-duration-fast) var(--av-easing-default);
-  cursor: pointer;
-  position: relative;
-}
-.stack-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--av-primary-border);
-  box-shadow: var(--av-shadow-md);
-}
-.stack-card.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.stack-card.disabled:hover { transform: none; }
+/* Sprint 9.1 — `.stack-card` outer frame (and its :hover + .disabled
+   variants) retired. The shared `.mode-card` primitive in
+   components.css now owns the outer frame; stack-specific inner
+   classes (.stack-icon / .stack-name / .stack-meta / .pill-auto /
+   .pill-manual / .delete-btn) stay below. */
 
 .stack-icon { font-size: 28px; }
 .stack-name {
@@ -139,7 +105,7 @@
     opacity var(--av-duration-fast) var(--av-easing-default),
     filter var(--av-duration-fast) var(--av-easing-default);
 }
-.stack-card:hover .delete-btn { opacity: 1; }
+.mode-card:hover .delete-btn { opacity: 1; }
 .delete-btn:hover { filter: brightness(1.1); }
 
 

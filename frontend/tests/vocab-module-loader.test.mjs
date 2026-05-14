@@ -120,8 +120,11 @@ describe('Sprint 7.3 — /js/vocab-modules/my-vocab.js module', () => {
     assert.match(src, /alreadyMounted/);
   });
 
-  test('HTML template ships the canonical mv-header + Vocabulary eyebrow', () => {
-    assert.match(src, /<header class="mv-header mv-context-bar/);
+  test('HTML template ships the canonical subpage-header + Vocabulary eyebrow', () => {
+    // Sprint 9.1 — `.mv-header mv-context-bar` retired in favor of the
+    // shared `.subpage-header` primitive (components.css). Eyebrow +
+    // page title still rendered inside the header.
+    assert.match(src, /<header class="subpage-header/);
     assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
     assert.match(src, /My Vocab Bank/);
   });
@@ -417,14 +420,14 @@ describe('Sprint 7.3 — /pages/my-vocabulary.html is a thin shell that mounts t
   });
 
   test('no inline body markup — the page-context-bar, modals, etc. live in the module', () => {
-    // The mv-header, filter buttons, modals must NOT be in the shell HTML —
-    // they live in the my-vocab.js module template. If they reappeared in
-    // the shell, the module would render them twice.
+    // The subpage-header, filter buttons, modals must NOT be in the
+    // shell HTML — they live in the my-vocab.js module template. If
+    // they reappeared in the shell, the module would render them twice.
     const body = html.match(/<body[\s\S]+?<\/body>/);
     assert.ok(body, '<body> block not extractable');
     assert.ok(
-      !/<header[^>]*\bmv-header\b/.test(body[0]),
-      'mv-header must not appear in shell — module template owns it',
+      !/<header[^>]*\bsubpage-header\b/.test(body[0]),
+      'subpage-header must not appear in shell — module template owns it (Sprint 9.1)',
     );
     assert.ok(
       !/<div[^>]*\bid="fc-picker-modal"/.test(body[0]),
@@ -471,10 +474,17 @@ describe('Sprint 7.4 — /js/vocab-modules/flashcards.js module', () => {
     assert.match(src, /alreadyMounted/);
   });
 
-  test('HTML template ships the canonical fc-header + Vocabulary eyebrow', () => {
-    assert.match(src, /<header class="fc-header fc-context-bar/);
+  test('HTML template ships the canonical subpage-header + Vocabulary eyebrow', () => {
+    // Sprint 9.1 — `.fc-header fc-context-bar` retired (shared
+    // `.subpage-header` primitive in components.css). 📚 emoji prefix
+    // dropped per Phase D Q5.
+    assert.match(src, /<header class="subpage-header/);
     assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
-    assert.match(src, /📚 Flashcards/);
+    assert.match(src, /<h1[^>]*class="[^"]*\bsubpage-header__title\b[^"]*"[^>]*>\s*Flashcards\s*<\/h1>/);
+    assert.ok(
+      !src.includes('📚 Flashcards'),
+      'Sprint 9.1 dropped the 📚 emoji prefix from the Flashcards title (Phase D Q5)',
+    );
   });
 
   test('HTML template ships the moved banner + container + create-stack modal + toast', () => {
@@ -618,8 +628,8 @@ describe('Sprint 7.4 — /pages/flashcards.html is a thin shell that mounts the 
     const body = html.match(/<body[\s\S]+?<\/body>/);
     assert.ok(body, '<body> block not extractable');
     assert.ok(
-      !/<header[^>]*\bfc-header\b/.test(body[0]),
-      'fc-header must not appear in shell — module template owns it',
+      !/<header[^>]*\bsubpage-header\b/.test(body[0]),
+      'subpage-header must not appear in shell — module template owns it (Sprint 9.1)',
     );
     assert.ok(
       !/<div[^>]*\bid="fc-modal"/.test(body[0]),
@@ -670,23 +680,31 @@ describe('Sprint 7.5 — /js/vocab-modules/exercises.js module', () => {
     assert.match(src, /alreadyMounted/);
   });
 
-  test('HTML template ships the canonical ex-header + Vocabulary eyebrow', () => {
-    assert.match(src, /<header class="ex-header ex-context-bar/);
+  test('HTML template ships the canonical subpage-header + Vocabulary eyebrow', () => {
+    // Sprint 9.1 — `.ex-header ex-context-bar` retired (shared
+    // `.subpage-header` primitive in components.css).
+    assert.match(src, /<header class="subpage-header/);
     assert.match(src, /class="eyebrow"[^>]*>Vocabulary/);
-    assert.match(src, />Exercises<\/h1>/);
+    assert.match(src, /<h1[^>]*class="[^"]*\bsubpage-header__title\b[^"]*"[^>]*>\s*Exercises\s*<\/h1>/);
   });
 
-  test('HTML template ships the 4 render states + 3 drill cards', () => {
+  test('HTML template ships the 4 render states + 2 drill cards (Sprint 9.1: D3 retired)', () => {
     // Render states use data-state attrs (scoped to container, not IDs).
     for (const state of ['loading', 'disabled', 'error', 'hub']) {
       const re = new RegExp(`data-state="${state}"`);
       assert.match(src, re, `missing data-state="${state}"`);
     }
     // Cards use data-card attrs (scoped to container, not IDs).
-    for (const card of ['d1', 'flashcards', 'd3']) {
+    // Sprint 9.1 — D3 "Speak with target" card retired per Phase D Q8.
+    // Only D1 + flashcards remain.
+    for (const card of ['d1', 'flashcards']) {
       const re = new RegExp(`data-card="${card}"`);
       assert.match(src, re, `missing data-card="${card}"`);
     }
+    assert.ok(
+      !/data-card="d3"/.test(src),
+      'data-card="d3" must NOT exist — Sprint 9.1 retired the D3 "Speak with target" card',
+    );
   });
 
   test('card hrefs are absolute paths (Sprint 6.15.8-hotfix lesson)', () => {
@@ -791,8 +809,8 @@ describe('Sprint 7.5 — /pages/exercises.html is a thin shell that mounts the m
     const body = html.match(/<body[\s\S]+?<\/body>/);
     assert.ok(body, '<body> block not extractable');
     assert.ok(
-      !/<header[^>]*\bex-header\b/.test(body[0]),
-      'ex-header must not appear in shell — module template owns it',
+      !/<header[^>]*\bsubpage-header\b/.test(body[0]),
+      'subpage-header must not appear in shell — module template owns it (Sprint 9.1)',
     );
     assert.ok(
       !/<div[^>]*\bid="state-loading"/.test(body[0]),

@@ -42,27 +42,17 @@
  */
 
 
-/* ── Page chrome ──────────────────────────────────────────────────── */
+/* Sprint 9.1 — `.mv-header` / `.mv-header__sep` / `.mv-header__title`
+   rule set retired alongside the 3x duplicated {prefix}-header
+   primitive (see Sprint 9.0 discovery doc). Replaced by the shared
+   `.subpage-header` primitive in components.css.
 
-.mv-header {
-  background: var(--av-surface-elevated);
-  border-bottom: 1px solid var(--av-border-subtle);
-}
+   `.mv-back-link` rule set retired — was dead code (no anchor element
+   in the current my-vocab.js template renders this class). Pre-
+   Sprint-7.3 IA artifact.
 
-.mv-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--av-space-1);
-  color: var(--av-primary);
-  text-decoration: none;
-  transition: opacity var(--av-duration-fast) var(--av-easing-default);
-}
-.mv-back-link:hover { opacity: 0.8; }
-.mv-back-link i,
-.mv-back-link svg { width: 14px; height: 14px; }
-
-.mv-header__sep   { color: var(--av-text-faint); }
-.mv-header__title { color: var(--av-text-primary); }
+   `.mv-add-btn` (Add word action button) preserved below — still
+   consumed by the action-button slot in `.subpage-header`. */
 
 .mv-add-btn {
   display: inline-flex;

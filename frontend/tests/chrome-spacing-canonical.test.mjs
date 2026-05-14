@@ -275,20 +275,26 @@ describe('Sprint 6.18 — 18 canonical-chrome-page roster intact', () => {
 // ── Sprint 7.3 — my-vocab module owns its own page-body spacing ───
 
 describe('Sprint 7.3 — my-vocab module template preserves Sprint 6.18 Cat A wrapper padding', () => {
-  // The my-vocab.js module template ships the same pt-20 pb-6 wrapper
+  // Sprint 9.1 — `pt-20 pb-6` tightened to `pt-4 pb-8` for the vocab
+  // sub-pages. The pre-9.1 pt-20 compensated for the absence of
+  // `.shell` top padding, but it stacked on top of the (now retired)
+  // .{prefix}-header context bar to produce ~200px chrome→content.
+  // Post-9.1 the shared .subpage-header primitive flows inside main;
+  // chrome-to-content is ~108px, in line with sibling pages.
+  // The my-vocab.js module template ships the canonical pt-4 pb-8 wrapper
   // that lived in the standalone HTML pre-7.3. The Cat A sentinel
   // above dropped my-vocabulary.html from its roster because the
   // shell only carries <main id="mount">; this pin protects the
   // in-module wrapper instead.
-  test('my-vocab.js template ships <main class="...pt-20 pb-6"> wrapper', () => {
+  test('my-vocab.js template ships <main class="...pt-4 pb-8"> wrapper (Sprint 9.1 tightened)', () => {
     const src = readFileSync(
       path.join(REPO_ROOT, 'frontend/js/vocab-modules/my-vocab.js'),
       'utf8',
     );
     assert.match(
       src,
-      /<main[^>]*\bpt-20\b[^>]*\bpb-6\b/,
-      'my-vocab module template must preserve the Sprint 6.18 pt-20 pb-6 wrapper',
+      /<main[^>]*\bpt-4\b[^>]*\bpb-8\b/,
+      'my-vocab module template must ship the Sprint 9.1 pt-4 pb-8 wrapper (chrome→content ~108px)',
     );
   });
 });
@@ -300,21 +306,20 @@ describe('Sprint 7.4/7.5 — flashcards + exercises module templates preserve Ca
   // Sprint 7.4 migrated flashcards.html and Sprint 7.5 migrated
   // exercises.html to the vocab-module pattern. Both standalone shells
   // now carry only <main id="mount"> + a module bootstrap script; the
-  // pt-20 pb-8 wrapper lives inside the module template literal. These
-  // pins guard the in-module wrappers (mirrors the Sprint 7.3 sentinel
-  // for my-vocab.js).
+  // Sprint 9.1 — pt-20 pb-8 tightened to pt-4 pb-8 alongside the
+  // shared .subpage-header primitive lift (~108px chrome→content).
   const MODULES = [
     { rel: 'frontend/js/vocab-modules/flashcards.js', label: 'flashcards' },
     { rel: 'frontend/js/vocab-modules/exercises.js',  label: 'exercises'  },
   ];
 
   MODULES.forEach(({ rel, label }) => {
-    test(`${rel} template ships <main class="...pt-20 pb-8"> wrapper`, () => {
+    test(`${rel} template ships <main class="...pt-4 pb-8"> wrapper (Sprint 9.1 tightened)`, () => {
       const src = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
       assert.match(
         src,
-        /<main[^>]*\bpt-20\b[^>]*\bpb-8\b/,
-        `${label} module template must preserve the Sprint 6.18 pt-20 pb-8 wrapper`,
+        /<main[^>]*\bpt-4\b[^>]*\bpb-8\b/,
+        `${label} module template must ship the Sprint 9.1 pt-4 pb-8 wrapper`,
       );
     });
   });

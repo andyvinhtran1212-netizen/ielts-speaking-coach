@@ -383,9 +383,13 @@ describe('speaking.css / token discipline', () => {
     // would leave the page unstyled. Pin the canonical list.
     // Sprint 8.1 — `.part-card` + `.main-tab-nav` + `.main-tab-btn` +
     // `.main-tab-label` + `.main-tab-sub` retired alongside the tab
-    // row and the 3 dashboard quick-start cards. `.main-tab-panel`
-    // stays — the 4 panels still toggle via switchMainTab().
-    // `.mode-card` + `.modes-grid` are the new mode-entry primitives.
+    // row. `.main-tab-panel` stays — the 4 panels still toggle via
+    // switchMainTab().
+    // Sprint 9.1 — `.mode-card` + `.modes-grid` were lifted from
+    // speaking.css to components.css as a shared primitive (consumed
+    // by speaking + vocabulary + flashcards + exercises). They are
+    // NOT pinned in this speaking-page roster any more — see Sprint
+    // 9.1 sentinel block below for the components.css pins.
     const requiredClasses = [
       '.sidebar-bg', '.main-bg',
       '.stat-card',
@@ -395,7 +399,6 @@ describe('speaking.css / token discipline', () => {
       '.modal-backdrop', '.modal-box',
       '.topic-tab', '.topic-input', '.btn-confirm', '.modal-error',
       '.main-tab-panel',
-      '.mode-card', '.modes-grid',
       '.option-card', '.part-select-btn', '.tab-input', '.tab-error',
       '.pbp-part-card', '.ft-part-row',
       '.grammar-section', '.grammar-sub-title', '.grammar-pill',
@@ -812,36 +815,58 @@ describe('Sprint 8.1 — speaking.html dashboard mode-card grid', () => {
 });
 
 
-describe('Sprint 8.1 — speaking.css mode-card primitive', () => {
-  test('.mode-card adopts home.css .skill-card visual language', () => {
-    // Adopted inner-class skeleton: .head + .icon + .arrow + h3 +
-    // .lede. Each rule must declare against canonical --av-* tokens.
+describe('Sprint 9.1 — .mode-card primitive lifted to components.css', () => {
+  // Sprint 9.1 — the .mode-card + .modes-grid rules were promoted
+  // from speaking.css (Sprint 8.1) + vocabulary.css (Sprint 8.2) to
+  // components.css when the 3rd adopter (vocab sub-pages) fired the
+  // rule-of-three trigger. These pins assert the primitive lives in
+  // its new canonical home.
+  let componentsCSS;
+  before(() => {
+    componentsCSS = readFileSync(
+      path.join(__dirname, '..', 'css', 'aver-design', 'components.css'),
+      'utf8',
+    );
+  });
+
+  test('components.css declares the .mode-card inner-class skeleton', () => {
     for (const sel of ['.mode-card', '.modes-grid', '.mode-card .head', '.mode-card .icon', '.mode-card .arrow', '.mode-card h3', '.mode-card .lede']) {
       const escaped = sel.replace(/\./g, '\\.');
       assert.match(
-        css,
+        componentsCSS,
         new RegExp(`${escaped}\\s*\\{`),
-        `speaking.css must declare ${sel} (Sprint 8.1 mode-card primitive)`,
+        `components.css must declare ${sel} (Sprint 9.1 mode-card primitive)`,
       );
     }
   });
 
-  test('.modes-grid uses auto-fit minmax(260px) (mirrors home.css .skill-grid)', () => {
-    const m = css.match(/\.modes-grid\s*\{([^}]+)\}/);
-    assert.ok(m, '.modes-grid rule must exist');
+  test('.modes-grid uses auto-fit minmax(260px) in components.css', () => {
+    const m = componentsCSS.match(/\.modes-grid\s*\{([^}]+)\}/);
+    assert.ok(m, '.modes-grid rule must exist in components.css');
     assert.match(
       m[1],
       /grid-template-columns\s*:\s*repeat\(\s*auto-fit\s*,\s*minmax\(\s*260px/,
-      '.modes-grid grid-template-columns must use auto-fit minmax(260px, 1fr) for responsive layout',
+      '.modes-grid grid-template-columns must use auto-fit minmax(260px, 1fr)',
     );
   });
 
-  test('.mode-card surface uses canonical --av-* tokens (no hardcoded colors)', () => {
-    const m = css.match(/\.mode-card\s*\{([^}]+)\}/);
-    assert.ok(m, '.mode-card rule must exist');
+  test('.mode-card surface uses canonical --av-* tokens in components.css', () => {
+    const m = componentsCSS.match(/\.mode-card\s*\{([^}]+)\}/);
+    assert.ok(m, '.mode-card rule must exist in components.css');
     assert.match(m[1], /background\s*:\s*var\(--av-surface-card\)/);
     assert.match(m[1], /border\s*:\s*1px solid var\(--av-border-subtle\)/);
     assert.match(m[1], /border-radius\s*:\s*var\(--av-radius-lg\)/);
+  });
+
+  test('speaking.css no longer redeclares .mode-card / .modes-grid (Sprint 9.1 lift)', () => {
+    for (const sel of ['.mode-card', '.modes-grid']) {
+      const escaped = sel.replace(/\./g, '\\.');
+      const re = new RegExp(`^${escaped}\\s*\\{`, 'm');
+      assert.ok(
+        !re.test(css),
+        `speaking.css must NOT redeclare ${sel} — Sprint 9.1 lifted it to components.css`,
+      );
+    }
   });
 });
 

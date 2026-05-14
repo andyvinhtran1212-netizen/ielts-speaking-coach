@@ -19,27 +19,22 @@
  */
 
 
-/* ── Page chrome ──────────────────────────────────────────────────── */
+/* Sprint 9.1 — `.ex-header` + `.ex-back-link` + `.ex-header__sep` +
+   `.ex-header__title` rule sets retired. Header is now the shared
+   `.subpage-header` primitive (components.css); back-link was dead
+   code in the post-Sprint-7.5 module template.
 
-.ex-header {
-  background: var(--av-surface-elevated);
-  border-bottom: 1px solid var(--av-border-subtle);
-}
+   `.ex-card` outer-frame rules retired alongside `.stack-card` —
+   both consumed by the shared `.mode-card` primitive. D3-specific
+   orphans (`.ex-card.disabled`, `.ex-card.disabled:hover`,
+   `.ex-card__cta--soon`, `.pill-soon`) retired per Phase D Q8
+   companion-cleanup decision. `.mode-card.disabled` lives in
+   components.css for the empty-stack case (consumed by flashcards).
 
-.ex-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--av-space-1);
-  color: var(--av-primary);
-  text-decoration: none;
-  transition: opacity var(--av-duration-fast) var(--av-easing-default);
-}
-.ex-back-link:hover { opacity: 0.8; }
-.ex-back-link i,
-.ex-back-link svg { width: 14px; height: 14px; }
-
-.ex-header__sep   { color: var(--av-text-faint); }
-.ex-header__title { color: var(--av-text-primary); }
+   `.ex-card__title` / `.ex-card__body` / `.ex-card__cta` rules also
+   retired — pre-9.1 drill cards used these inner classes; Sprint 9.1
+   drill cards use the canonical `.mode-card h3` + `.mode-card .lede`
+   inner-class skeleton. */
 
 
 /* ── Hub section ─────────────────────────────────────────────────── */
@@ -54,40 +49,7 @@
 .empty-state .text-lg { color: var(--av-text-primary); }
 
 
-/* ── Exercise cards ──────────────────────────────────────────────── */
-
-.ex-card {
-  background: var(--av-surface-card);
-  border: 1px solid var(--av-border-subtle);
-  border-radius: var(--av-radius-xl);
-  padding: var(--av-space-6);
-  transition:
-    transform 0.18s ease,
-    border-color var(--av-duration-fast) var(--av-easing-default),
-    box-shadow var(--av-duration-fast) var(--av-easing-default);
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
-.ex-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--av-primary-border);
-  box-shadow: var(--av-shadow-md);
-}
-.ex-card.disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.ex-card.disabled:hover { transform: none; box-shadow: none; }
-
-.ex-card__title { color: var(--av-text-primary); }
-.ex-card__body  { color: var(--av-text-secondary); }
-.ex-card__cta   { color: var(--av-primary); font-weight: var(--av-fw-medium); }
-.ex-card__cta--soon { color: var(--av-text-muted); font-weight: var(--av-fw-regular); }
-
-
-/* ── Pills (Live / Coming soon) ──────────────────────────────────── */
+/* ── Pill (Live badge for drill cards) ───────────────────────────── */
 
 .ex-pill {
   display: inline-block;
@@ -102,9 +64,4 @@
   background: var(--av-primary-soft);
   color: var(--av-primary);
   border: 1px solid var(--av-primary);
-}
-.pill-soon {
-  background: var(--av-surface-elevated);
-  color: var(--av-text-muted);
-  border: 1px solid var(--av-border-default);
 }

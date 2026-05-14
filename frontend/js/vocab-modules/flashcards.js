@@ -38,16 +38,20 @@ function esc(s) {
 
 
 const HTML = /* html */ `
-  <!-- Page context bar (preserves page title). -->
-  <header class="fc-header fc-context-bar px-6 py-4">
-    <div class="max-w-3xl mx-auto flex items-center gap-4">
-      <p class="eyebrow" style="margin:0;">Vocabulary</p>
-      <span class="fc-header__sep">|</span>
-      <h1 class="fc-header__title text-base font-semibold">📚 Flashcards</h1>
-    </div>
-  </header>
+  <main class="max-w-3xl mx-auto px-4 pt-4 pb-8">
 
-  <main class="max-w-3xl mx-auto px-4 pt-20 pb-8">
+    <!-- Sprint 9.1 — `.subpage-header` primitive (components.css). The
+         pre-9.1 `.fc-header` "context bar" was retired; 📚 emoji prefix
+         dropped per Phase D Q5 (chrome's active="vocabulary" highlight
+         + eyebrow already anchor the IA position). -->
+    <header class="subpage-header mb-6">
+      <div class="subpage-header__lhs">
+        <p class="eyebrow" style="margin:0;">Vocabulary</p>
+        <span class="subpage-header__sep">|</span>
+        <h1 class="subpage-header__title">Flashcards</h1>
+      </div>
+    </header>
+
     <!-- Sprint 6.0 banner — Sprint 7.4 visibility controlled by mount() opts.embedded. -->
     <div data-banner="moved" class="fc-banner rounded-lg p-3 mb-5 text-sm flex items-center gap-3 hidden">
       <span class="fc-banner__icon" aria-hidden="true">📍</span>
@@ -271,7 +275,7 @@ export async function mount(container, opts = {}) {
                  s.id === 'auto:recent'    ? '🆕' : '🎯';
     const disabled = s.card_count === 0 ? 'disabled' : '';
     return `
-      <div class="stack-card ${disabled}"
+      <div class="mode-card ${disabled}"
            data-action="open-stack"
            data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">
         <div class="flex items-start justify-between">
@@ -287,7 +291,7 @@ export async function mount(container, opts = {}) {
   function manualCard(s) {
     const disabled = s.card_count === 0 ? 'disabled' : '';
     return `
-      <div class="stack-card ${disabled}"
+      <div class="mode-card ${disabled}"
            data-action="open-stack"
            data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">
         <button class="delete-btn"

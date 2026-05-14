@@ -65,96 +65,12 @@
    visual language for cross-page parity. */
 
 
-/* ── Mode-card grid (Sprint 8.1) ──────────────────────────────────
-   Visual language inherited from home.css `.skill-card` so the
-   speaking dashboard's "Bắt đầu luyện tập" entry surface matches
-   home.html's "Kỹ năng IELTS" grid. Each card declares its target
-   panel via `data-mode="practice|partbpart|fulltest"`; the inline
-   click delegation at the foot of speaking.html invokes
-   switchMainTab(card.dataset.mode) on activation. */
-
-.modes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--av-space-4);
-}
-
-.mode-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--av-space-3);
-  background: var(--av-surface-card);
-  border: 1px solid var(--av-border-subtle);
-  border-radius: var(--av-radius-lg);
-  padding: var(--av-space-6);
-  cursor: pointer;
-  text-decoration: none;
-  color: inherit;
-  transition:
-    transform var(--av-duration-base) var(--av-easing-default),
-    border-color var(--av-duration-base) var(--av-easing-default),
-    box-shadow var(--av-duration-base) var(--av-easing-default);
-}
-.mode-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--av-primary-border);
-  box-shadow: var(--av-shadow-md);
-}
-.mode-card:focus-visible {
-  outline: none;
-  box-shadow: var(--av-shadow-focus);
-}
-
-.mode-card .head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--av-space-3);
-}
-.mode-card .icon {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--av-radius-md);
-  background: var(--av-primary-soft);
-  color: var(--av-primary);
-  border: 1px solid var(--av-primary-border);
-}
-.mode-card .icon svg {
-  width: 20px;
-  height: 20px;
-}
-.mode-card .arrow {
-  font-size: 1.1rem;
-  /* Sprint 8.1: --av-text-muted (not --av-text-faint) per speaking.css
-     § 17.6 cap discipline (--av-text-faint reserved for placeholder
-     rules on this page). home.css uses faint for the same arrow
-     since it has no equivalent cap. */
-  color: var(--av-text-muted);
-  transition:
-    color var(--av-duration-fast) var(--av-easing-default),
-    transform var(--av-duration-fast) var(--av-easing-default);
-}
-.mode-card:hover .arrow {
-  color: var(--av-primary);
-  transform: translateX(4px);
-}
-.mode-card h3 {
-  font-family: var(--av-font-sans);
-  font-size: var(--av-fs-xl);
-  font-weight: var(--av-fw-semibold);
-  letter-spacing: var(--av-tracking-tight);
-  color: var(--av-text-primary);
-  margin: 0;
-}
-.mode-card .lede {
-  font-size: var(--av-fs-sm);
-  color: var(--av-text-muted);
-  margin: 0;
-  line-height: var(--av-lh-relaxed);
-}
+/* Sprint 9.1 — `.mode-card` + `.modes-grid` lifted to components.css
+   as a shared primitive consumed by speaking + vocabulary + the 3
+   vocab sub-pages. The rule-of-three lift was flagged in Sprint 8.2
+   ledger ("Lifting `.mode-card` to shared location warranted if a
+   3rd page adopts the pattern") — Sprint 9.1's flashcards.html +
+   exercises.html stack/drill cards became the 3rd+ adopters. */
 
 
 /* ── Buttons (legacy class names preserved for JS coupling) ────── */
