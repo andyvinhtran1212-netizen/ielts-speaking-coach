@@ -233,15 +233,12 @@ describe('PHASE_CLOSURE_LEDGER.md — Sprint 6.16.1 row', () => {
       'Sprint 6.16.1 row should mark itself as methodology / docs-only');
   });
 
-  test('12 audit gates cumulative metric documented', () => {
-    assert.match(ledger, /12\s*§\s*17 audit gates|12 audit gates/i,
-      'Ledger metrics should reflect 12 cumulative § 17 audit gates');
-  });
-
-  test('Audit hotfix count remains 13 (unchanged by Sprint 6.16.1)', () => {
-    assert.match(ledger, /13 audit hotfixes/i,
-      'Sprint 6.16.1 is methodology — hotfix count should remain at 13');
-  });
+  // Sprint 7.14 — the snapshot-in-time assertions for "12 audit gates"
+  // and "13 audit hotfixes" (frozen at Sprint 6.16.1 closure) were
+  // retired here. The live cumulative counts are pinned in
+  // phase-closure-ledger.test.mjs, which floats forward with every
+  // gate formalization or audit hotfix. The Sprint 6.16.1 row itself
+  // is still validated above (documented + methodology framing).
 
   test('Ledger has a Last-updated marker (Sprint 6.16.1 or newer)', () => {
     // Sprint 6.17 / 6.17.1 may bump this marker forward — pin only that

@@ -65,48 +65,58 @@ const CANONICAL_CHROME_PAGES = [];
 // ── Canonical foundation: components.css + user-pill.js ───────────
 
 
-describe('Sprint 6.17 foundation — canonical chrome rules in components.css', () => {
+describe('Sprint 6.17 foundation — canonical chrome rules (Sprint 7.14: now in <aver-chrome> shadow style)', () => {
+  // Sprint 7.14 — the canonical chrome rules (.topnav-wrap, .topnav,
+  // .brand, .nav-links, .topnav-right, .user-pill, .user-menu*) moved
+  // from components.css into the shadow-root <style> block in
+  // frontend/js/components/aver-chrome.js. components.css now only
+  // owns the page-level `.shell` primitive. These pins point at the
+  // new source of truth.
   let components;
+  let chromeJs;
   before(() => {
     components = readFileSync(
       path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'),
       'utf8',
     );
+    chromeJs = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/components/aver-chrome.js'),
+      'utf8',
+    );
   });
 
-  test('.shell rule defined', () => {
+  test('.shell rule defined in components.css', () => {
     assert.match(components, /\.shell\s*\{[^}]*max-width:\s*1180px/);
   });
 
-  test('.topnav-wrap (lightweight body-less wrapper) defined', () => {
-    assert.match(components, /\.topnav-wrap\s*\{[^}]*max-width:\s*1180px/);
+  test('.topnav-wrap (lightweight body-less wrapper) defined in aver-chrome shadow style', () => {
+    assert.match(chromeJs, /\.topnav-wrap\s*\{[^}]*max-width:\s*1180px/);
   });
 
-  test('.topnav + .brand + .nav-links + .topnav-right defined', () => {
+  test('.topnav + .brand + .nav-links + .topnav-right defined in aver-chrome shadow style', () => {
     for (const sel of ['.topnav', '.brand', '.nav-links', '.topnav-right']) {
       const escaped = sel.replace(/\./g, '\\.');
-      assert.match(components, new RegExp(`${escaped}\\s*\\{`),
-        `components.css should define ${sel}`);
+      assert.match(chromeJs, new RegExp(`${escaped}\\s*\\{`),
+        `aver-chrome.js shadow style should define ${sel}`);
     }
   });
 
-  test('.user-pill + .user-menu + .user-menu-dropdown + .user-menu-item defined', () => {
+  test('.user-pill + .user-menu + .user-menu-dropdown + .user-menu-item defined in aver-chrome shadow style', () => {
     for (const sel of ['.user-pill', '.user-menu', '.user-menu-dropdown', '.user-menu-item']) {
       const escaped = sel.replace(/\./g, '\\.');
-      assert.match(components, new RegExp(`${escaped}\\s*\\{`),
-        `components.css should define ${sel}`);
+      assert.match(chromeJs, new RegExp(`${escaped}\\s*\\{`),
+        `aver-chrome.js shadow style should define ${sel}`);
     }
   });
 
-  test('.nav-links .locked::after carries "Soon" label', () => {
-    assert.match(components, /\.nav-links\s+\.locked::after\s*\{[^}]*content:\s*"Soon"/);
+  test('.nav-links .locked::after carries "Soon" label in aver-chrome shadow style', () => {
+    assert.match(chromeJs, /\.nav-links\s+\.locked::after\s*\{[^}]*content:\s*"Soon"/);
   });
 
-  test('mobile breakpoint @media (max-width: 720px) handles topnav layout', () => {
-    // Just verify both tokens appear in the same chrome section.
-    const mediaIdx   = components.indexOf('@media (max-width: 720px)');
-    const wrapIdx    = components.indexOf('.topnav-wrap', mediaIdx);
-    assert.ok(mediaIdx > -1, 'components.css should declare @media (max-width: 720px)');
+  test('mobile breakpoint @media (max-width: 720px) handles topnav layout in aver-chrome shadow style', () => {
+    const mediaIdx = chromeJs.indexOf('@media (max-width: 720px)');
+    const wrapIdx  = chromeJs.indexOf('.topnav-wrap', mediaIdx);
+    assert.ok(mediaIdx > -1, 'aver-chrome.js should declare @media (max-width: 720px)');
     assert.ok(wrapIdx > mediaIdx && wrapIdx - mediaIdx < 400,
       '.topnav-wrap should be scoped inside the same mobile @media block');
   });
@@ -213,35 +223,36 @@ describe('Sprint 7.8-hotfix — .brand chrome consistency across pages', () => {
     );
   });
 
-  test('grammar-wiki.css preserves canonical font on chrome (.brand stays Plus Jakarta Sans)', () => {
+  test('grammar-wiki.css no longer needs the Sprint 7.8-hotfix font-family scoping override', () => {
+    // Sprint 7.14 — chrome moved into <aver-chrome>'s shadow root, so
+    // the editorial DM Sans body font on grammar-wiki pages can no
+    // longer cascade into .brand / .topnav etc. The defensive scoping
+    // rule was retired in Sprint 7.14. Guard against accidental
+    // re-introduction.
     const css = readFileSync(
       path.join(REPO_ROOT, 'frontend/css/grammar-wiki.css'),
       'utf8',
     );
-    // body.av-page font-family switches to DM Sans (sub-system § 14.2),
-    // which previously cascaded into .brand. The fix scopes the chrome
-    // selectors back to var(--av-font-sans) explicitly.
-    assert.match(
-      css,
-      /\.brand[\s\S]{0,200}font-family:\s*var\(--av-font-sans\)/,
-      'grammar-wiki.css must explicitly keep .brand on var(--av-font-sans)',
+    assert.ok(
+      !/body\.av-page\s+\.topnav-wrap\s*,/m.test(css),
+      'grammar-wiki.css must NOT redeclare the body.av-page chrome font-family override (Sprint 7.14 retired it)',
     );
   });
 
-  test('components.css canonical .brand rule uses var(--av-fs-lg)', () => {
-    const components = readFileSync(
-      path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'),
+  test('canonical .brand rule (Sprint 7.14: lives in aver-chrome shadow style) uses var(--av-fs-lg) + var(--av-font-sans)', () => {
+    const chromeJs = readFileSync(
+      path.join(REPO_ROOT, 'frontend/js/components/aver-chrome.js'),
       'utf8',
     );
     assert.match(
-      components,
+      chromeJs,
       /\.brand\s*\{[^}]*font-size:\s*var\(--av-fs-lg\)/,
-      'components.css must keep canonical .brand font-size token',
+      'aver-chrome.js shadow style must keep canonical .brand font-size token',
     );
     assert.match(
-      components,
+      chromeJs,
       /\.brand\s*\{[^}]*font-family:\s*var\(--av-font-sans\)/,
-      'components.css must keep canonical .brand font-family token',
+      'aver-chrome.js shadow style must keep canonical .brand font-family token',
     );
   });
 });
@@ -678,33 +689,37 @@ describe('Sprint 7.12 — migrated pages consume <aver-chrome>', () => {
 });
 
 
-// ── Sprint 7.12 — legacy pages still on inline chrome (Sprint 7.13 scope) ──
+// ── Sprint 7.14 — chrome-unification cleanup closure ──────────────
 
 
-describe('Sprint 7.12 — legacy chrome pages (13 sub-pages) still inline', () => {
-  CANONICAL_CHROME_PAGES.forEach((rel) => {
-    test(`${rel} — no <aver-chrome> reference yet (Sprint 7.13 migrates)`, () => {
-      const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-      assert.equal(
-        html.includes('<aver-chrome'),
-        false,
-        `${rel}: Sprint 7.12 migrates skill landings only. Sub-page migration is Sprint 7.13.`,
-      );
-    });
-  });
-
-  test('components.css canonical chrome rules still present (Sprint 7.14 will retire)', () => {
+describe('Sprint 7.14 — components.css chrome rules retired (chrome lives in <aver-chrome>)', () => {
+  // Sprint 7.14 closure: the duplicate chrome rules in components.css
+  // are fully retired. Source of truth is aver-chrome.js (shadow root
+  // <style>). This block guards against accidental re-introduction of
+  // the legacy rules in components.css.
+  test('components.css no longer ships .topnav-wrap / .topnav / .brand / .user-pill rules', () => {
     const components = readFileSync(
       path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'),
       'utf8',
     );
-    assert.match(components, /\.topnav-wrap\s*\{/);
-    assert.match(components, /\.topnav\s*\{/);
-    assert.match(components, /\.brand\s*\{/);
-    assert.match(components, /\.user-pill\s*\{/);
+    // Match the start-of-line selectors only — avoids matching the
+    // retirement comment block that still mentions these names.
+    for (const sel of ['.topnav-wrap', '.topnav', '.brand', '.user-pill', '.user-menu', '.nav-links', '.topnav-right']) {
+      const escaped = sel.replace(/\./g, '\\.');
+      const re = new RegExp(`^${escaped}\\s*\\{`, 'm');
+      assert.ok(
+        !re.test(components),
+        `components.css must NOT redeclare ${sel} — chrome lives in aver-chrome.js shadow style (Sprint 7.14)`,
+      );
+    }
   });
 
-  test('user-pill.js + theme-toggle.js unchanged through Sprint 7.12 (refactor in 7.13+ when all pages migrated)', () => {
+  test('user-pill.js + theme-toggle.js remain as shared helpers consumed by <aver-chrome>', () => {
+    // Sprint 7.11/7.13 — aver-chrome.js imports bindToggleButton from
+    // /js/theme-toggle.js and canonicalInitials from /js/user-pill.js.
+    // Both modules still exist as the canonical source for the chrome
+    // behavior (now consumed via ES module import, no longer via
+    // DOMContentLoaded auto-bind on every page).
     const userPill = readFileSync(
       path.join(REPO_ROOT, 'frontend/js/user-pill.js'),
       'utf8',
@@ -713,11 +728,8 @@ describe('Sprint 7.12 — legacy chrome pages (13 sub-pages) still inline', () =
       path.join(REPO_ROOT, 'frontend/js/theme-toggle.js'),
       'utf8',
     );
-    // Both modules keep their DOMContentLoaded auto-bind branch through Sprint 7.12.
-    // Sprint 7.13 (after all 18 pages migrate) refactors them to remove top-level
-    // auto-bind so the component is the only init path.
-    assert.match(userPill, /DOMContentLoaded/);
-    assert.match(themeToggle, /DOMContentLoaded/);
+    assert.match(userPill, /export\s+function\s+canonicalInitials/);
+    assert.match(themeToggle, /export\s+function\s+bindToggleButton/);
   });
 });
 

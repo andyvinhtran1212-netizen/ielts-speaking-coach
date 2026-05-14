@@ -127,44 +127,49 @@ for (const rel of REDESIGNED_PAGES) {
 // ── components.css owns the canonical visibility swap ────────────
 
 
-describe('components.css / canonical theme-toggle icon visibility', () => {
+describe('aver-chrome.js shadow style / canonical theme-toggle icon visibility', () => {
+  // Sprint 7.14 — the canonical `.av-theme-toggle` visibility-swap
+  // rules moved from components.css into the shadow-root <style>
+  // block in frontend/js/components/aver-chrome.js. The dark-theme
+  // selectors use `:host-context([data-theme="dark"])` to cross the
+  // shadow boundary (Sprint 7.11 design decision).
   let css;
   before(() => {
     css = readFileSync(
-      path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'),
+      path.join(REPO_ROOT, 'frontend/js/components/aver-chrome.js'),
       'utf8',
     );
   });
 
-  test('hides .icon-sun in light theme (default rule)', () => {
+  test('hides .icon-sun in light theme (default rule) in aver-chrome shadow style', () => {
     assert.match(
       css,
       /\.av-theme-toggle\s+\.icon-sun\s*\{\s*display:\s*none/,
-      'components.css missing default `.av-theme-toggle .icon-sun { display: none }`',
+      'aver-chrome.js missing default `.av-theme-toggle .icon-sun { display: none }`',
     );
   });
 
-  test('shows .icon-moon in light theme (default rule)', () => {
+  test('shows .icon-moon in light theme (default rule) in aver-chrome shadow style', () => {
     assert.match(
       css,
       /\.av-theme-toggle\s+\.icon-moon\s*\{\s*display:\s*block/,
-      'components.css missing default `.av-theme-toggle .icon-moon { display: block }`',
+      'aver-chrome.js missing default `.av-theme-toggle .icon-moon { display: block }`',
     );
   });
 
-  test('shows .icon-sun in dark theme via [data-theme="dark"]', () => {
+  test('shows .icon-sun in dark theme via :host-context([data-theme="dark"])', () => {
     assert.match(
       css,
-      /\[data-theme=["']dark["']\]\s+\.av-theme-toggle\s+\.icon-sun\s*\{\s*display:\s*block/,
-      'components.css missing `[data-theme="dark"] .av-theme-toggle .icon-sun { display: block }`',
+      /:host-context\(\[data-theme=["']dark["']\]\)\s+\.av-theme-toggle\s+\.icon-sun\s*\{\s*display:\s*block/,
+      'aver-chrome.js missing `:host-context([data-theme="dark"]) .av-theme-toggle .icon-sun { display: block }`',
     );
   });
 
-  test('hides .icon-moon in dark theme via [data-theme="dark"]', () => {
+  test('hides .icon-moon in dark theme via :host-context([data-theme="dark"])', () => {
     assert.match(
       css,
-      /\[data-theme=["']dark["']\]\s+\.av-theme-toggle\s+\.icon-moon\s*\{\s*display:\s*none/,
-      'components.css missing `[data-theme="dark"] .av-theme-toggle .icon-moon { display: none }`',
+      /:host-context\(\[data-theme=["']dark["']\]\)\s+\.av-theme-toggle\s+\.icon-moon\s*\{\s*display:\s*none/,
+      'aver-chrome.js missing `:host-context([data-theme="dark"]) .av-theme-toggle .icon-moon { display: none }`',
     );
   });
 
@@ -172,7 +177,7 @@ describe('components.css / canonical theme-toggle icon visibility', () => {
     for (const variant of BEM_DRIFT_VARIANTS) {
       assert.ok(
         !css.includes(variant),
-        `components.css must not reference the BEM drift class "${variant}" — ` +
+        `aver-chrome.js must not reference the BEM drift class "${variant}" — ` +
         `canonical pattern uses .icon-sun / .icon-moon only`,
       );
     }

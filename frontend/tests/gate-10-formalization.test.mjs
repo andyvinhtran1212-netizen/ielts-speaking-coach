@@ -112,13 +112,13 @@ describe('Sprint 6.20 — pattern recognition table updated (6 instances)', () =
     });
   });
 
-  test('§ 17.12 intro paragraph reflects "six sprints"', () => {
+  test('§ 17.12 intro paragraph reflects "seven sprints" (Sprint 7.14 added Gate 11 row)', () => {
     const block = designSystem.match(/###\s+17\.12[\s\S]+?(?=\n---\n)/);
     assert.ok(block);
     assert.match(
       block[0],
-      /six sprints,\s*six distinct mechanisms/i,
-      '§ 17.12 intro must reflect the updated count of six sprints / six mechanisms',
+      /seven sprints,\s*seven distinct mechanisms/i,
+      '§ 17.12 intro must reflect the updated count of seven sprints / seven mechanisms (Sprint 7.14 Gate 11)',
     );
   });
 
@@ -140,11 +140,11 @@ describe('Sprint 6.20 — § 17.13 consolidation reflects 13 gates', () => {
     designSystem = readFileSync(DESIGN_SYSTEM_PATH, 'utf8');
   });
 
-  test('§ 17.13 header mentions cumulative 13 gates', () => {
+  test('§ 17.13 header mentions cumulative 14 gates (Sprint 7.14 added Gate 11)', () => {
     assert.match(
       designSystem,
-      /17\.13[\s\S]{0,400}cumulative 13 gates/i,
-      '§ 17.13 must update the cumulative count from 12 to 13',
+      /17\.13[\s\S]{0,400}cumulative 14 gates/i,
+      '§ 17.13 must update the cumulative count to 14 (Sprint 7.14 formalized Gate 11)',
     );
   });
 
@@ -192,6 +192,98 @@ describe('Sprint 6.20 — methodology sections index updated', () => {
       designSystem,
       /§ 17\.14[\s\S]{0,200}Visual position verification[\s\S]{0,200}Sprint 6\.20/i,
       'methodology sections index at end of § 17.13 must include the § 17.14 Gate 10 entry',
+    );
+  });
+
+  // Sprint 7.14 — Gate 11 formalization sentinels.
+  test('methodology sections list includes § 17.15 entry for Gate 11 (Sprint 7.14)', () => {
+    assert.match(
+      designSystem,
+      /§ 17\.15[\s\S]{0,200}Embedded-host resource parity[\s\S]{0,200}Sprint 7\.14/i,
+      'methodology sections index must include the § 17.15 Gate 11 entry',
+    );
+  });
+});
+
+
+describe('Sprint 7.14 — § 17.15 Gate 11 formalization', () => {
+  let designSystem;
+  before(() => {
+    designSystem = readFileSync(DESIGN_SYSTEM_PATH, 'utf8');
+  });
+
+  test('§ 17.15 section exists and references Gate 11', () => {
+    assert.match(
+      designSystem,
+      /###\s+17\.15[\s\S]{0,200}Gate 11/i,
+      '§ 17.15 must exist and name Gate 11 in its header',
+    );
+  });
+
+  test('§ 17.15 names origin sprints (7.7-hotfix, 7.8-hotfix, 7.13.1-hotfix)', () => {
+    const block = designSystem.match(/###\s+17\.15[\s\S]+?(?=\n---|\n$|$)/);
+    assert.ok(block, '§ 17.15 block not extractable');
+    for (const sprint of ['7.7-hotfix', '7.8-hotfix', '7.13.1-hotfix']) {
+      assert.ok(
+        block[0].includes(sprint),
+        `§ 17.15 origin must cite Sprint ${sprint}`,
+      );
+    }
+  });
+
+  test('§ 17.15 documents the verification protocol (resource sentinel + polling guardrail)', () => {
+    const block = designSystem.match(/###\s+17\.15[\s\S]+?(?=\n---|\n$|$)/);
+    assert.ok(block);
+    assert.match(block[0], /Verification protocol/i,
+      '§ 17.15 must include a Verification protocol section');
+    assert.match(block[0], /Per-page resource sentinel/i,
+      '§ 17.15 verification must call out the per-page resource sentinel');
+    assert.match(block[0], /polling guardrail|console error/i,
+      '§ 17.15 verification must call out the polling guardrail / console-error contract');
+  });
+
+  test('§ 17.15 includes anti-patterns + sentinel pattern callouts', () => {
+    const block = designSystem.match(/###\s+17\.15[\s\S]+?(?=\n---|\n$|$)/);
+    assert.ok(block);
+    assert.match(block[0], /Anti-patterns/i,
+      '§ 17.15 must document the anti-patterns');
+    assert.match(block[0], /Sentinel pattern/i,
+      '§ 17.15 must document the sentinel pattern (host-resource pin)');
+    assert.match(block[0], /initSupabase|SUPABASE_URL/,
+      '§ 17.15 sentinel must reference the initSupabase / SUPABASE_URL contract');
+  });
+
+  test('§ 17.13 table contains Gate 11 row formalized Sprint 7.14', () => {
+    const block = designSystem.match(/###\s+17\.13[\s\S]+?Plus methodology/);
+    assert.ok(block, '§ 17.13 block not extractable');
+    assert.match(
+      block[0],
+      /\|\s*\*\*Gate 11\*\*\s*\|[\s\S]{0,400}Sprint 7\.14/i,
+      '§ 17.13 table must contain a Gate 11 row formalized in Sprint 7.14',
+    );
+  });
+
+  test('§ 17.12 evolution table cites Sprint 7.13.1-hotfix as Gate 11 origin', () => {
+    const block = designSystem.match(/###\s+17\.12[\s\S]+?(?=\n---\n)/);
+    assert.ok(block);
+    assert.ok(
+      block[0].includes('7.13.1-hotfix'),
+      '§ 17.12 must cite Sprint 7.13.1-hotfix as the 7th blind-spot row',
+    );
+    assert.match(
+      block[0],
+      /Gate 11[\s\S]{0,300}Embedded-host resource parity/i,
+      '§ 17.12 7th row must name Gate 11 with its canonical purpose',
+    );
+  });
+
+  test('§ 17.12 pattern principle list includes Gate 11', () => {
+    const block = designSystem.match(/###\s+17\.12[\s\S]+?(?=\n---\n)/);
+    assert.ok(block);
+    assert.match(
+      block[0],
+      /Gate 11[\s\S]{0,200}(embedded-host|chrome-runtime|host)/i,
+      '§ 17.12 pattern principle must include a Gate 11 entry describing the embedded-host contract',
     );
   });
 });
