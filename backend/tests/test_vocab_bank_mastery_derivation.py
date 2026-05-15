@@ -261,7 +261,14 @@ def test_patch_mastered_true_upserts_srs_at_threshold(monkeypatch):
     assert resp == {"ok": True, "mastery_status": "mastered"}
     assert len(client.upserts) == 1
     table, row, on_conflict = client.upserts[0]
-    assert table == "flashcard_reviews", "PATCH must NOT write user_vocabulary"
+    # Sprint 10.2.1-hotfix — SRS is the PRIMARY write (it's the new
+    # source of truth). The column UPDATE is the secondary sync,
+    # verified in a dedicated test below; this test pins only the
+    # primary write so the SRS-upsert payload stays the focus.
+    assert table == "flashcard_reviews", (
+        "Primary write must be flashcard_reviews — the column UPDATE "
+        "is a secondary sync verified by test_patch_syncs_*."
+    )
     assert on_conflict == "user_id,vocabulary_id"
     assert row["user_id"] == "user-A"
     assert row["vocabulary_id"] == "v1"
@@ -352,6 +359,120 @@ def test_patch_404_when_vocab_id_does_not_exist(monkeypatch):
         ))
     assert exc.value.status_code == 404
     assert client.upserts == [], "404 path must not touch flashcard_reviews."
+    # Sprint 10.2.1-hotfix — same gate for the column sync. The
+    # ownership 404 fires BEFORE the SRS upsert, so the column UPDATE
+    # also must not happen.
+    assert client.updates == [], "404 path must not touch user_vocabulary."
+
+
+# ── Sprint 10.2.1-hotfix — PATCH syncs the deprecated column ─────────
+
+
+def test_patch_mastered_true_syncs_user_vocabulary_column(monkeypatch):
+    """Sprint 10.2.1-hotfix — after the SRS upsert, the handler
+    issues a secondary UPDATE on user_vocabulary.mastery_status with
+    the derived value. The column is still deprecated for reads
+    (bank GET derives from flashcard_reviews) but kept in sync so
+    admin Table Editor and direct SQL clients don't see stale data
+    between API calls and the next backfill run."""
+    canned = {
+        "user_vocabulary": [{
+            "id": "v1", "user_id": "user-A", "headword": "articulate",
+            "mastery_status": "learning",  # stale
+            "source_type": "manual", "is_archived": False, "is_skipped": False,
+        }],
+        "flashcard_reviews": [],
+    }
+    client, authz = _patch(monkeypatch, canned)
+    _run(vb.update_vocab_status(
+        vocab_id="v1",
+        body=vb.VocabUpdateStatusRequest(mastered=True),
+        authorization=authz,
+    ))
+
+    # The secondary column UPDATE follows the SRS upsert. The mock
+    # records `(table, row)` tuples; we expect exactly one user_vocabulary
+    # update with mastery_status='mastered'.
+    col_updates = [u for u in client.updates if u[0] == "user_vocabulary"]
+    assert len(col_updates) == 1, (
+        f"Expected exactly one user_vocabulary UPDATE; got: {client.updates}"
+    )
+    _, row = col_updates[0]
+    assert row == {"mastery_status": "mastered"}
+
+
+def test_patch_mastered_false_syncs_user_vocabulary_column(monkeypatch):
+    """Inverse of the above — `{mastered: false}` resets SRS and the
+    column must reflect 'learning'. Pin so a future tweak that only
+    syncs on the mastered branch fails here."""
+    canned = {
+        "user_vocabulary": [{
+            "id": "v1", "user_id": "user-A", "headword": "articulate",
+            "mastery_status": "mastered",  # stale, should flip to learning
+            "source_type": "manual", "is_archived": False, "is_skipped": False,
+        }],
+        "flashcard_reviews": [{
+            "vocabulary_id": "v1",
+            "interval_days": 21, "lapse_count": 0, "review_count": 3,
+            "ease_factor": 2.5,
+            "next_review_at": "2026-06-05T00:00:00+00:00",
+            "last_reviewed_at": "2026-05-15T00:00:00+00:00",
+        }],
+    }
+    client, authz = _patch(monkeypatch, canned)
+    _run(vb.update_vocab_status(
+        vocab_id="v1",
+        body=vb.VocabUpdateStatusRequest(mastered=False),
+        authorization=authz,
+    ))
+    col_updates = [u for u in client.updates if u[0] == "user_vocabulary"]
+    assert len(col_updates) == 1
+    _, row = col_updates[0]
+    assert row == {"mastery_status": "learning"}
+
+
+def test_patch_column_sync_failure_does_not_break_response(monkeypatch):
+    """Sprint 10.2.1-hotfix — the column UPDATE is best-effort. If
+    Supabase rejects the secondary write (e.g. transient timeout),
+    the SRS upsert already succeeded and the API contract is satisfied
+    — handler must still return 200 with the derived status. The
+    backfill script will reconcile on the next run.
+
+    We rig the mock so update() on user_vocabulary raises; the SRS
+    upsert path is unaffected."""
+    canned = {
+        "user_vocabulary": [{
+            "id": "v1", "user_id": "user-A", "headword": "articulate",
+            "mastery_status": "learning",
+            "source_type": "manual", "is_archived": False, "is_skipped": False,
+        }],
+        "flashcard_reviews": [],
+    }
+    client, authz = _patch(monkeypatch, canned)
+
+    # Monkey-patch the builder.update so user_vocabulary updates raise.
+    # SRS upsert path stays via the upsert() method, untouched.
+    real_table = client.table
+
+    def _flaky_table(name=None, *_a, **_k):
+        builder = real_table(name, *_a, **_k)
+        if name == "user_vocabulary":
+            def _raise(_row):
+                raise RuntimeError("simulated column sync timeout")
+            builder.update = _raise
+        return builder
+
+    client.table = _flaky_table  # type: ignore[assignment]
+
+    resp = _run(vb.update_vocab_status(
+        vocab_id="v1",
+        body=vb.VocabUpdateStatusRequest(mastered=True),
+        authorization=authz,
+    ))
+    # Handler must still succeed — column sync is fail-soft.
+    assert resp == {"ok": True, "mastery_status": "mastered"}
+    # SRS write happened.
+    assert len(client.upserts) == 1
 
 
 # ── /stats counters reflect derived mastery ──────────────────────────

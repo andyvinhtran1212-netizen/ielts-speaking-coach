@@ -506,27 +506,82 @@ export async function mount(container, opts = {}) {
     }
   }
 
-  // Sprint 10.2 — `mastered` is a boolean toggle. The PATCH handler
-  // writes to flashcard_reviews; the server response carries the
-  // derived mastery_status, which we trust over local guessing so the
-  // UI never lies about SRS state (e.g. if a future server-side rule
-  // change makes 'mastered' require a longer interval, the response
-  // value will reflect that even if the local optimistic value is
-  // stale).
+  // Sprint 10.2.1-hotfix — optimistic update. Pre-10.2.1 the handler
+  // awaited the PATCH round-trip AND a GET /stats refetch before
+  // re-rendering, giving the user ~800ms of perceived lag per click.
+  // New flow:
+  //
+  //   1. Flip local state immediately + re-render + update stats
+  //      counter in place (no /stats GET).
+  //   2. Fire PATCH in the background.
+  //   3. On success: if the server-derived status differs from the
+  //      optimistic value (rare — would require a server-side rule
+  //      change), reconcile.
+  //   4. On failure: roll back item.mastery_status + stats counter +
+  //      show error toast. Re-render so the button reverts.
+  //
+  // The server response stays authoritative as a tie-breaker, but the
+  // happy path no longer blocks on the network. The button feels
+  // instant.
   async function toggleMastery(vocabId, mastered) {
+    const item = _allItems.find(i => i.id === vocabId);
+    if (!item) return;
+
+    const prevStatus = item.mastery_status;
+    const optimisticStatus = mastered ? 'mastered' : 'learning';
+    if (prevStatus === optimisticStatus) return;  // no-op click
+
+    // 1. Optimistic flip.
+    item.mastery_status = optimisticStatus;
+    _shiftStatCounter(prevStatus, optimisticStatus);
+    renderList();
+
     try {
       const resp = await apiFetch(`/${vocabId}`, {
         method: 'PATCH',
         body: JSON.stringify({ mastered }),
       });
-      const item = _allItems.find(i => i.id === vocabId);
-      if (item && resp && resp.mastery_status) {
+
+      // 3. Reconcile if the server disagrees with our optimistic guess.
+      // derive_mastery_status() should agree with us under normal
+      // conditions; a mismatch here means a server-side rule shift
+      // (e.g. a future threshold change) — trust the server.
+      if (resp && resp.mastery_status && resp.mastery_status !== optimisticStatus) {
+        _shiftStatCounter(optimisticStatus, resp.mastery_status);
         item.mastery_status = resp.mastery_status;
+        renderList();
       }
-      await loadStats();
-      renderList();
     } catch (err) {
+      // 4. Rollback.
+      _shiftStatCounter(optimisticStatus, prevStatus);
+      item.mastery_status = prevStatus;
+      renderList();
+      flashToast('Không cập nhật được, thử lại nhé.', 'error');
       console.error('[my-vocab] mastery toggle failed:', err);
+    }
+  }
+
+  // Sprint 10.2.1-hotfix — update the dashboard counters in place
+  // when a card's derived status flips. Avoids a GET /stats round-trip
+  // per click. The values shown match what loadStats() would return
+  // because both come from the same derive_mastery_status() rule (the
+  // backend stats endpoint also derives, post Sprint 10.2). If the
+  // counter elements aren't in the DOM (initial render before
+  // stats-bar shows), do nothing — loadStats() will populate them on
+  // first paint.
+  function _shiftStatCounter(fromStatus, toStatus) {
+    if (fromStatus === toStatus) return;
+    const masteredEl = $('[data-stat="mastered"]');
+    const learningEl = $('[data-stat="learning"]');
+    if (!masteredEl || !learningEl) return;
+    const mastered = parseInt(masteredEl.textContent || '0', 10) || 0;
+    const learning = parseInt(learningEl.textContent || '0', 10) || 0;
+    if (fromStatus === 'mastered' && toStatus === 'learning') {
+      masteredEl.textContent = Math.max(0, mastered - 1);
+      learningEl.textContent = learning + 1;
+    } else if (fromStatus === 'learning' && toStatus === 'mastered') {
+      learningEl.textContent = Math.max(0, learning - 1);
+      masteredEl.textContent = mastered + 1;
     }
   }
 
