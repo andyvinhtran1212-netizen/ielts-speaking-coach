@@ -9,7 +9,7 @@ Prefix: /api/vocabulary/bank
 import csv
 import io
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -20,6 +20,11 @@ from config import settings
 from routers.auth import get_supabase_user
 from services.analytics import fire_event
 from services.feature_flags import is_vocab_bank_enabled
+from services.mastery import (
+    MASTERED_MIN_INTERVAL_DAYS,
+    MASTERED_MIN_REVIEW_COUNT,
+    derive_mastery_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +72,15 @@ class VocabManualAddRequest(BaseModel):
 
 
 class VocabUpdateStatusRequest(BaseModel):
+    """Sprint 10.2 — PATCH /{vocab_id} body changed from a status enum
+    to a boolean toggle. The handler writes to flashcard_reviews (SRS
+    state), not to the deprecated user_vocabulary.mastery_status
+    column. Naming the field `mastered` (verb-state, not noun-status)
+    nudges callers toward thinking of it as an SRS write."""
+
     model_config = ConfigDict(extra="ignore")
 
-    mastery_status: str
+    mastered: bool
 
 
 class VocabFPReportRequest(BaseModel):
@@ -82,6 +93,40 @@ class VocabFPReportRequest(BaseModel):
 
 def _fire_event(event_name: str, event_data: dict, user_id: str) -> None:
     fire_event(event_name, event_data, user_id)
+
+
+# ── Sprint 10.2 — Mastery-SRS derivation helpers ──────────────────────────────
+
+
+def _fetch_srs_lookup(sb, user_id: str) -> dict:
+    """Return a {vocabulary_id: srs_row} dict for all flashcard_reviews
+    rows owned by `user_id`. One round-trip; avoids N+1 against the
+    bank list.
+
+    Caller passes the user-scoped Supabase client so RLS gates the
+    query — a malicious caller can't trick us into leaking another
+    user's review state.
+    """
+    result = (
+        sb.table("flashcard_reviews")
+        .select(
+            "vocabulary_id, interval_days, lapse_count, review_count, "
+            "ease_factor, next_review_at, last_reviewed_at",
+        )
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return {row["vocabulary_id"]: row for row in (result.data or [])}
+
+
+def _apply_derived_mastery(rows: list[dict], srs_lookup: dict) -> list[dict]:
+    """Mutate each row's `mastery_status` to the derived value. The
+    column on disk may be stale during the Sprint 10.2 deprecation
+    window — the response shape always reflects current SRS state."""
+    for row in rows:
+        srs = srs_lookup.get(row.get("id"))
+        row["mastery_status"] = derive_mastery_status(srs)
+    return rows
 
 
 # ── GET / — List ──────────────────────────────────────────────────────────────
@@ -99,8 +144,9 @@ async def list_vocab(
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
     token = _token_from_header(authorization)
+    sb = _user_sb(token)
     query = (
-        _user_sb(token).table("user_vocabulary")
+        sb.table("user_vocabulary")
         .select("*")
         .eq("user_id", user_id)
         .eq("is_archived", False)
@@ -108,8 +154,10 @@ async def list_vocab(
         .order("created_at", desc=True)
     )
 
-    if status:
-        query = query.eq("mastery_status", status)
+    # Sprint 10.2 — `status` filter is honoured AFTER deriving mastery
+    # from SRS (the column on disk may be stale during the deprecation
+    # window). Filtering at the DB level on a deprecated column would
+    # silently drop rows whose SRS state disagrees with the column.
     if source_type:
         query = query.eq("source_type", source_type)
     else:
@@ -121,9 +169,18 @@ async def list_vocab(
         query = query.neq("source_type", "needs_review")
 
     result = query.execute()
+    rows = result.data or []
+
+    # Sprint 10.2 — derive mastery from flashcard_reviews. Single
+    # round-trip lookup keyed by vocabulary_id.
+    srs_lookup = _fetch_srs_lookup(sb, user_id)
+    rows = _apply_derived_mastery(rows, srs_lookup)
+
+    if status:
+        rows = [r for r in rows if r.get("mastery_status") == status]
 
     _fire_event("vocab_bank_viewed", {"source": "api"}, user_id)
-    return result.data or []
+    return rows
 
 
 # ── GET /needs-review — Sprint 10.1.5 dedicated Needs Review surface ──────────
@@ -146,8 +203,9 @@ async def list_needs_review(authorization: str | None = Header(default=None)):
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
     token = _token_from_header(authorization)
+    sb = _user_sb(token)
     result = (
-        _user_sb(token).table("user_vocabulary")
+        sb.table("user_vocabulary")
         .select("*")
         .eq("user_id", user_id)
         .eq("source_type", "needs_review")
@@ -156,9 +214,18 @@ async def list_needs_review(authorization: str | None = Header(default=None)):
         .order("created_at", desc=True)
         .execute()
     )
+    rows = result.data or []
+
+    # Sprint 10.2 — derive mastery_status for parity with the main bank.
+    # Needs-review items rarely have flashcard_reviews rows in practice
+    # (they're triage candidates, not yet reviewed), but the API shape
+    # must stay consistent so the frontend can render without surface
+    # branching.
+    srs_lookup = _fetch_srs_lookup(sb, user_id)
+    rows = _apply_derived_mastery(rows, srs_lookup)
 
     _fire_event("vocab_needs_review_viewed", {"source": "api"}, user_id)
-    return result.data or []
+    return rows
 
 
 # ── POST /{vocab_id}/restore — Sprint 10.1.5 un-archive a soft-deleted row ────
@@ -215,18 +282,28 @@ async def get_vocab_stats(authorization: str | None = Header(default=None)):
     if not _vocab_bank_enabled(user_id):
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
+    # Sprint 10.2 — counters must reflect SRS-derived mastery, not the
+    # deprecated column. Same pattern as the list endpoint: one query
+    # for vocab rows, one for SRS rows, derive in Python. Keeps the
+    # stats card on home.html consistent with what the bank list shows.
     token = _token_from_header(authorization)
+    sb = _user_sb(token)
     rows = (
-        _user_sb(token).table("user_vocabulary")
-        .select("mastery_status")
+        sb.table("user_vocabulary")
+        .select("id")
         .eq("user_id", user_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)  # PR-A: skipped rows don't count anywhere
         .execute()
     )
+    vocab_rows = rows.data or []
+    srs_lookup = _fetch_srs_lookup(sb, user_id)
 
-    total = len(rows.data or [])
-    mastered = sum(1 for r in (rows.data or []) if r.get("mastery_status") == "mastered")
+    total = len(vocab_rows)
+    mastered = sum(
+        1 for r in vocab_rows
+        if derive_mastery_status(srs_lookup.get(r["id"])) == "mastered"
+    )
     return {"total": total, "learning": total - mastered, "mastered": mastered}
 
 
@@ -248,8 +325,9 @@ async def get_recent_vocab(
         raise HTTPException(422, "session_id query parameter is required")
 
     token = _token_from_header(authorization)
+    sb = _user_sb(token)
     result = (
-        _user_sb(token).table("user_vocabulary")
+        sb.table("user_vocabulary")
         .select("id, headword, source_type, mastery_status")
         .eq("user_id", user_id)
         .eq("session_id", session_id)
@@ -259,7 +337,13 @@ async def get_recent_vocab(
         .execute()
     )
 
-    return result.data or []
+    # Sprint 10.2 — toast notification shows mastery, derive for parity.
+    # Recent-from-session items rarely have SRS rows yet (capture
+    # happens before any review), so most rows derive to 'learning';
+    # still cheaper + simpler than branching the response shape.
+    rows = result.data or []
+    srs_lookup = _fetch_srs_lookup(sb, user_id)
+    return _apply_derived_mastery(rows, srs_lookup)
 
 
 # ── GET /recent-updates — Aggregate of recent vocab events ───────────────────
@@ -444,8 +528,9 @@ async def get_vocab_detail(
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
     token = _token_from_header(authorization)
+    sb = _user_sb(token)
     row = (
-        _user_sb(token).table("user_vocabulary")
+        sb.table("user_vocabulary")
         .select("*")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
@@ -457,8 +542,14 @@ async def get_vocab_detail(
     if not row.data:
         raise HTTPException(404, "Vocab entry not found")
 
-    _fire_event("vocab_bank_entry_clicked", {"vocab_id": vocab_id, "status": row.data[0].get("mastery_status")}, user_id)
-    return row.data[0]
+    # Sprint 10.2 — derive mastery from SRS for detail-page parity with
+    # the list endpoint. One extra round-trip on the detail path is
+    # acceptable (single-row latency budget is loose).
+    srs_lookup = _fetch_srs_lookup(sb, user_id)
+    detail = _apply_derived_mastery([row.data[0]], srs_lookup)[0]
+
+    _fire_event("vocab_bank_entry_clicked", {"vocab_id": vocab_id, "status": detail.get("mastery_status")}, user_id)
+    return detail
 
 
 # ── POST / — Manual Add ───────────────────────────────────────────────────────
@@ -520,8 +611,35 @@ async def add_vocab_manual(
     return result.data[0] if result.data else row
 
 
-# ── PATCH /{id} — Update Status ──────────────────────────────────────────────
+# ── PATCH /{id} — Sprint 10.2: write SRS, not user_vocabulary column ─────────
 
+# Pre-10.2: this handler wrote `mastery_status` directly to
+# user_vocabulary. Sprint 10.2 makes flashcard_reviews the single
+# source of truth, so the handler now upserts an SRS row that — when
+# fed back through derive_mastery_status() — yields the requested
+# state. The frontend's "Đánh dấu đã thuộc" button hits this path; the
+# SM-2 review loop (Sprint 10.3+) will hit POST /api/flashcards/...
+# directly. Both ultimately mutate flashcard_reviews; no other code
+# path should write to user_vocabulary.mastery_status after 10.2.
+#
+# Mastered upsert recipe (Andy Q1 lock):
+#   interval_days = 21 (exactly meets the threshold)
+#   lapse_count   = 0  (any prior lapse cleared — Mark as known is
+#                       a user-attested override)
+#   review_count  = max(existing, 3)  (preserve real history if
+#                       higher; otherwise bump to threshold)
+#   ease_factor   = max(existing, 2.5)  (default SM-2)
+#   next_review_at = now + 21 days
+#   last_reviewed_at = now
+#
+# Unmark recipe:
+#   interval_days = 1
+#   lapse_count   = 0  (we DON'T fabricate a lapse — un-marking is a
+#                       triage gesture, not a forgetting event)
+#   review_count  = max(existing, 0)  (preserve)
+#   ease_factor   = unchanged
+#   next_review_at = now
+#   last_reviewed_at = unchanged (we don't fake a review)
 @router.patch("/{vocab_id}")
 async def update_vocab_status(
     vocab_id: str,
@@ -534,37 +652,87 @@ async def update_vocab_status(
     if not _vocab_bank_enabled(user_id):
         raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
 
-    if body.mastery_status not in ("learning", "mastered"):
-        raise HTTPException(422, "mastery_status must be 'learning' or 'mastered'")
-
     token = _token_from_header(authorization)
     sb = _user_sb(token)
 
-    existing = (
+    # Ownership gate: confirm the vocab row exists and belongs to the
+    # caller (RLS would also block, but a 404 is clearer than an
+    # empty-update silent-success).
+    existing_vocab = (
         sb.table("user_vocabulary")
-        .select("id, mastery_status")
+        .select("id")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
         .limit(1)
         .execute()
     )
-
-    if not existing.data:
+    if not existing_vocab.data:
         raise HTTPException(404, "Vocab entry not found")
 
-    mastery_before = existing.data[0].get("mastery_status")
+    existing_srs_lookup = _fetch_srs_lookup(sb, user_id)
+    existing_srs = existing_srs_lookup.get(vocab_id)
+    mastery_before = derive_mastery_status(existing_srs)
 
-    sb.table("user_vocabulary").update(
-        {"mastery_status": body.mastery_status}
-    ).eq("id", vocab_id).execute()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+
+    if body.mastered:
+        # Bump to mastered threshold.
+        days_ahead = MASTERED_MIN_INTERVAL_DAYS
+        next_review = (now + timedelta(days=days_ahead)).isoformat()
+        existing_reviews = (existing_srs or {}).get("review_count") or 0
+        existing_ease = (existing_srs or {}).get("ease_factor") or 2.5
+        upsert_row = {
+            "user_id":          user_id,
+            "vocabulary_id":    vocab_id,
+            "interval_days":    days_ahead,
+            "lapse_count":      0,
+            "review_count":     max(existing_reviews, MASTERED_MIN_REVIEW_COUNT),
+            "ease_factor":      max(existing_ease, 2.5),
+            "next_review_at":   next_review,
+            "last_reviewed_at": now_iso,
+            "updated_at":       now_iso,
+        }
+    else:
+        # Demote to learning. Preserve last_reviewed_at + ease_factor
+        # (we are NOT fabricating a forgetting event).
+        existing_reviews = (existing_srs or {}).get("review_count") or 0
+        existing_ease = (existing_srs or {}).get("ease_factor") or 2.5
+        existing_last_review = (existing_srs or {}).get("last_reviewed_at")
+        upsert_row = {
+            "user_id":          user_id,
+            "vocabulary_id":    vocab_id,
+            "interval_days":    1,
+            "lapse_count":      0,
+            "review_count":     max(existing_reviews, 0),
+            "ease_factor":      existing_ease,
+            "next_review_at":   now_iso,
+            "last_reviewed_at": existing_last_review,
+            "updated_at":       now_iso,
+        }
+
+    try:
+        sb.table("flashcard_reviews").upsert(
+            upsert_row,
+            on_conflict="user_id,vocabulary_id",
+        ).execute()
+    except Exception as e:
+        logger.error("[vocab_bank PATCH] flashcard_reviews upsert failed for %s: %s", vocab_id, e)
+        raise HTTPException(500, f"Failed to update review state: {e}")
+
+    # Derive the response shape from the row we just wrote — this is
+    # cheaper than a re-fetch and guaranteed-consistent with what's
+    # now in the table.
+    mastery_after = derive_mastery_status(upsert_row)
 
     _fire_event("vocab_bank_entry_reviewed", {
-        "vocab_id": vocab_id,
+        "vocab_id":       vocab_id,
+        "mastered":       body.mastered,
         "mastery_before": mastery_before,
-        "mastery_after": body.mastery_status,
+        "mastery_after":  mastery_after,
     }, user_id)
 
-    return {"ok": True, "mastery_status": body.mastery_status}
+    return {"ok": True, "mastery_status": mastery_after}
 
 
 # ── DELETE /{id} — Archive ────────────────────────────────────────────────────

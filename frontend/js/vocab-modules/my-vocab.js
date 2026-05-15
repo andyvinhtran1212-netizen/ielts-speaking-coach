@@ -340,9 +340,16 @@ export async function mount(container, opts = {}) {
       manual:             'Thủ công',
     }[item.source_type] || item.source_type;
 
-    const masteryClass = item.mastery_status === 'mastered' ? 'mastery-mastered' : 'mastery-learning';
-    const masteryLabel = item.mastery_status === 'mastered' ? 'Mastered' : 'Learning';
-    const nextStatus = item.mastery_status === 'mastered' ? 'learning' : 'mastered';
+    // Sprint 10.2 — button writes to SRS (flashcard_reviews), not to
+    // the deprecated mastery_status column. Label flipped to Vietnamese
+    // and reframed as an action ("Đánh dấu đã thuộc") rather than a
+    // status ("Mastered"); the title attr nudges the user toward
+    // understanding that SRS reviews update mastery automatically.
+    const isMastered = item.mastery_status === 'mastered';
+    const masteryClass = isMastered ? 'mastery-mastered' : 'mastery-learning';
+    const masteryLabel = isMastered ? 'Đã thuộc ✓' : 'Đánh dấu đã thuộc';
+    const nextMastered = isMastered ? 'false' : 'true';
+    const masteryTitle = 'Tự động cập nhật khi bạn ôn tập đều';
 
     const defBlock = (item.definition_en || item.definition_vi)
       ? `<div class="mt-2 text-xs mv-def-block">
@@ -409,7 +416,9 @@ export async function mount(container, opts = {}) {
           </div>
           <button class="mastery-btn ${masteryClass}"
                   data-action="toggle-mastery"
-                  data-vocab-id="${esc(item.id)}" data-mastery="${nextStatus}">
+                  data-vocab-id="${esc(item.id)}"
+                  data-mastered="${nextMastered}"
+                  title="${masteryTitle}">
             ${masteryLabel}
           </button>
         </div>
@@ -497,14 +506,23 @@ export async function mount(container, opts = {}) {
     }
   }
 
-  async function toggleMastery(vocabId, newStatus) {
+  // Sprint 10.2 — `mastered` is a boolean toggle. The PATCH handler
+  // writes to flashcard_reviews; the server response carries the
+  // derived mastery_status, which we trust over local guessing so the
+  // UI never lies about SRS state (e.g. if a future server-side rule
+  // change makes 'mastered' require a longer interval, the response
+  // value will reflect that even if the local optimistic value is
+  // stale).
+  async function toggleMastery(vocabId, mastered) {
     try {
-      await apiFetch(`/${vocabId}`, {
+      const resp = await apiFetch(`/${vocabId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ mastery_status: newStatus }),
+        body: JSON.stringify({ mastered }),
       });
       const item = _allItems.find(i => i.id === vocabId);
-      if (item) item.mastery_status = newStatus;
+      if (item && resp && resp.mastery_status) {
+        item.mastery_status = resp.mastery_status;
+      }
       await loadStats();
       renderList();
     } catch (err) {
@@ -841,7 +859,7 @@ export async function mount(container, opts = {}) {
       case 'download-csv':       return downloadExport('csv');
       case 'download-json':      return downloadExport('json');
       case 'open-report':        return openReport(vocabId);
-      case 'toggle-mastery':     return toggleMastery(vocabId, btn.dataset.mastery);
+      case 'toggle-mastery':     return toggleMastery(vocabId, btn.dataset.mastered === 'true');
       case 'open-fc-picker':     return openFlashcardPicker(vocabId, btn.dataset.headword);
       case 'preview-flashcard':  return previewFlashcard(vocabId);
       case 'accept-suggestion':  return acceptSuggestion(vocabId);

@@ -180,10 +180,19 @@ class _FilterRecordingBuilder:
 
 
 class _FilterRecordingClient:
-    def __init__(self, data=None):
+    # Sprint 10.2 — vocabulary_bank endpoints now also hit the
+    # `flashcard_reviews` table via _fetch_srs_lookup() for SRS-derived
+    # mastery. Routing `.table()` calls by name lets the user_vocabulary
+    # fixture stay shaped for the bank rows while flashcard_reviews
+    # gets an empty default (these skip-filter tests don't need SRS
+    # state — they only assert column-predicate plumbing).
+    def __init__(self, data=None, srs_data=None):
         self._data = data or []
+        self._srs_data = srs_data or []
         self.eq_calls = []
-    def table(self, *_a, **_k):
+    def table(self, name=None, *_a, **_k):
+        if name == "flashcard_reviews":
+            return _FilterRecordingBuilder(self, self._srs_data)
         return _FilterRecordingBuilder(self, self._data)
 
 
