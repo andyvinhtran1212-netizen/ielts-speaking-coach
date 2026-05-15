@@ -1,2 +1,13 @@
 [phases.setup]
 aptPkgs = ["fonts-dejavu-core"]
+
+# Sprint 10.1 — download the spaCy English model after pip install so
+# the lemmatizer service (services/lemmatizer.py) can load it lazily on
+# first vocab-capture request. Adds ~12MB to the deployed image; the
+# model is downloaded once during build, not on every cold start.
+[phases.install]
+cmds = [
+    "python -m venv --copies /opt/venv",
+    ". /opt/venv/bin/activate && pip install -r requirements.txt",
+    ". /opt/venv/bin/activate && python -m spacy download en_core_web_sm",
+]

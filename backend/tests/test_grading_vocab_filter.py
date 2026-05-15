@@ -136,15 +136,40 @@ def _run_persist_loop(extraction_result):
             ("needs_review", extraction_result.needs_review),
             ("upgrade_suggested", extraction_result.upgrade_suggested),
         ]
+        # Sprint 10.1 — replay must mirror the dual-write shape used
+        # by the real persist loop. We compute lemma here so the row
+        # shape includes surface_form / lemma / pos / lemma_version
+        # alongside the legacy `headword` column. Failure to lemmatize
+        # falls through to None values (matches grading.py fail-soft).
+        try:
+            from services.lemmatizer import lemmatize, lemma_version
+            _current_lemma_version = lemma_version()
+        except Exception:
+            lemmatize = None  # type: ignore[assignment]
+            _current_lemma_version = None
         for source_type, items in category_map:
             if source_type not in persisted:
                 continue
             for item in items:
+                if lemmatize is not None:
+                    try:
+                        _lemma, _pos = lemmatize(item.headword)
+                    except Exception:
+                        _lemma, _pos = None, None
+                else:
+                    _lemma, _pos = None, None
                 row = {
                     "user_id":           user_id,
                     "session_id":        session_id,
                     "response_id":       response_id,
                     "headword":          item.headword,
+                    # Sprint 10.1 dual-write: surface_form mirrors
+                    # headword verbatim; lemma / pos / lemma_version
+                    # come from services.lemmatizer.
+                    "surface_form":      item.headword,
+                    "lemma":             _lemma,
+                    "pos":               _pos,
+                    "lemma_version":     _current_lemma_version,
                     "context_sentence":  item.context_sentence,
                     "evidence_substring": item.evidence_substring or None,
                     "category":          item.category,
@@ -242,3 +267,54 @@ def test_mixed_extraction_all_three_categories_persisted():
 def test_empty_extraction_inserts_nothing():
     rows = _run_persist_loop(_FakeExtractionResult())
     assert rows == []
+
+
+# ── Sprint 10.1 — lemma dual-write shape ─────────────────────────────
+
+
+def test_persisted_rows_include_dual_write_lemma_columns():
+    """Sprint 10.1 — every inserted row must carry the 4 new lemma
+    columns alongside the legacy `headword` field. The dual-write
+    window: `headword` stays for the UNIQUE-constraint era; the new
+    columns power lemma-aware dedup and future SRS grouping."""
+    extraction = _FakeExtractionResult(
+        used_well=[_FakeVocabItem("running")],
+    )
+    rows = _run_persist_loop(extraction)
+    assert len(rows) == 1
+    row = rows[0]
+    # All 4 columns must be present as keys (value may be None when
+    # spaCy isn't installed in the local dev env — see fail-soft path
+    # in _run_persist_loop). Key presence is what matters: the column
+    # exists in the migration and the persist loop writes it.
+    for col in ("surface_form", "lemma", "pos", "lemma_version"):
+        assert col in row, f"Sprint 10.1 column '{col}' missing from row"
+    # surface_form is the verbatim headword — no normalisation at this
+    # layer. Lemmatizer handles strip+lowercase internally.
+    assert row["surface_form"] == "running"
+    # Legacy field still populated — dual-write contract.
+    assert row["headword"] == "running"
+
+
+def test_persisted_rows_lemma_matches_lemmatizer_when_available():
+    """When spaCy + en_core_web_sm are installed, the persisted row
+    must carry the canonical lemma — pin the contract end-to-end so a
+    future regression in the lemmatizer call site is caught here.
+
+    Gated on whether the lemmatizer can actually produce a non-None
+    value; in a stripped CI image without the model, the fail-soft
+    path writes None and this assert short-circuits."""
+    extraction = _FakeExtractionResult(
+        used_well=[_FakeVocabItem("ran")],
+    )
+    rows = _run_persist_loop(extraction)
+    assert len(rows) == 1
+    row = rows[0]
+    if row["lemma"] is None:
+        pytest.skip("spaCy / en_core_web_sm not available — fail-soft path")
+    assert row["lemma"] == "run", (
+        f"ran → expected lemma 'run', got '{row['lemma']}'. The capture "
+        f"pipeline must lemmatize before insert."
+    )
+    assert row["pos"] == "VERB"
+    assert isinstance(row["lemma_version"], int) and row["lemma_version"] >= 1
