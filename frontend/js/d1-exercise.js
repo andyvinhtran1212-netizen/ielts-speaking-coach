@@ -237,12 +237,47 @@
     // We don't await — the local feedback already rendered. Review sessions
     // (post-summary) skip this so a re-do doesn't pollute analytics or burn
     // the daily quota a second time.
+    //
+    // Sprint 10.3 — the response now carries {srs_updated, srs_rating}
+    // when this attempt fed the SRS schedule (first-attempt-only,
+    // backend-gated). renderSrsIndicator() appends a small inline
+    // acknowledgement below the feedback box so the user knows the
+    // signal landed without showing raw SRS internals.
     if (!_session.is_review && _session.id) {
       _session.pending_attempts += 1;
-      postAttemptWithRetry(ex.id, choice, _session.id).finally(() => {
-        _session.pending_attempts -= 1;
-      });
+      postAttemptWithRetry(ex.id, choice, _session.id)
+        .then(data => { if (data) renderSrsIndicator(data); })
+        .finally(() => {
+          _session.pending_attempts -= 1;
+        });
     }
+  }
+
+  // Sprint 10.3 — render the "✓ Đã ghi nhận / 📝 Lưu ý" indicator
+  // based on the backend response. Three states:
+  //
+  //   srs_updated=true,  srs_rating='good' → "✓ Đã ghi nhận vào ôn tập"
+  //   srs_updated=true,  srs_rating='hard' → "📝 Lưu ý cho lần ôn tới"
+  //   srs_updated=false  (or any other shape)  → no indicator
+  //
+  // We append into the existing feedback box (id="feedback") so layout
+  // stays stable. The indicator is replaced if onAnswerClick fires
+  // multiple times (defensive — shouldn't happen because options are
+  // disabled after the first click).
+  function renderSrsIndicator(data) {
+    if (!data || !data.srs_updated) return;
+    const fb = document.getElementById('feedback');
+    if (!fb) return;
+    // Clear any prior indicator so a fast click+next doesn't stack.
+    const prior = fb.querySelector('.d1-srs-indicator');
+    if (prior) prior.remove();
+    const label = data.srs_rating === 'good'
+      ? '✓ Đã ghi nhận vào ôn tập'
+      : '📝 Lưu ý cho lần ôn tới';
+    const node = document.createElement('div');
+    node.className = 'd1-srs-indicator';
+    node.textContent = label;
+    fb.appendChild(node);
   }
 
   // One retry with a 500ms backoff covers the common transient-flake case
@@ -268,9 +303,18 @@
         if (res.status === 429) {
           _session.failed_attempts += 1;
           console.warn('[d1] attempt rate-limited (counted as sync failure)');
-          return false;
+          return null;
         }
-        if (res.ok) return true;
+        if (res.ok) {
+          // Sprint 10.3 — return parsed body so the caller can read
+          // {srs_updated, srs_rating} and render the indicator. Parse
+          // failure is non-fatal: the local grade already rendered.
+          try {
+            return await res.json();
+          } catch (_) {
+            return {};
+          }
+        }
         // Other non-2xx — fall through to retry.
       } catch (err) {
         // Network error — fall through to retry.
@@ -282,7 +326,7 @@
     }
     _session.failed_attempts += 1;
     console.warn('[d1] attempt POST failed after retry (summary will use local count)');
-    return false;
+    return null;
   }
 
   function nextExercise() {

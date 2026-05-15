@@ -12,6 +12,7 @@ import logging
 import random
 import uuid
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
@@ -25,7 +26,9 @@ from routers.auth import get_supabase_user
 from services.analytics import fire_event
 from services.d1_content_gen import GeminiBatchError, generate_d1_exercises
 from services.feature_flags import is_d1_enabled
+from services.mastery import sync_mastery_column
 from services.rate_limit import rate_limit_exercise
+from services.srs import update_srs
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +75,99 @@ def _safe_event(event_name: str, payload: dict, user_id: str) -> None:
 
 def _grade_d1(user_answer: str, correct_answer: str) -> bool:
     return (user_answer or "").strip().lower() == (correct_answer or "").strip().lower()
+
+
+# Sprint 10.3 — D1 → SRS wire-up floor. Wrong answers on a mastered
+# card should NOT push interval below the 1-week buffer. Andy Q3 lock,
+# 2026-05-15. Lifted to module-level constant so tests can pin the
+# value without re-implementing the rule.
+_D1_SRS_FLOOR_DAYS = 7
+
+
+def _apply_d1_srs_update(
+    sb,
+    user_id: str,
+    vocab_id: str,
+    rating: str,
+) -> bool:
+    """Sprint 10.3 — upsert flashcard_reviews from a D1 first-attempt
+    outcome, then sync the mastery column. Returns True on success
+    (SRS state written) so the response can carry srs_updated=true.
+
+    Fail-soft: any Supabase exception logs a WARNING and returns
+    False — the attempt log already succeeded and the user-facing
+    grading is unchanged. The next D1 attempt on a different exercise
+    targeting the same vocab will retry.
+
+    Defaults mirror flashcard_reviews column defaults (migration 027)
+    when no prior row exists: ease_factor=2.5, interval_days=1,
+    review_count=0, lapse_count=0. update_srs increments review_count
+    by 1 on every call, so the first wire-up lands the row at
+    review_count=1.
+    """
+    try:
+        existing = (
+            sb.table("flashcard_reviews")
+            .select("ease_factor, interval_days, review_count, lapse_count")
+            .eq("user_id", user_id)
+            .eq("vocabulary_id", vocab_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(
+            "[exercises] flashcard_reviews fetch failed for vocab_id=%s "
+            "(skipping SRS wire-up): %s",
+            vocab_id, e,
+        )
+        return False
+
+    if existing.data:
+        prev = SimpleNamespace(**existing.data[0])
+    else:
+        prev = SimpleNamespace(
+            ease_factor=2.5,
+            interval_days=1,
+            review_count=0,
+            lapse_count=0,
+        )
+
+    try:
+        new_state = update_srs(prev, rating, floor=_D1_SRS_FLOOR_DAYS)
+    except Exception as e:
+        logger.warning(
+            "[exercises] update_srs failed for vocab_id=%s rating=%s: %s",
+            vocab_id, rating, e,
+        )
+        return False
+
+    upsert_row = {
+        "user_id":          user_id,
+        "vocabulary_id":    vocab_id,
+        "interval_days":    new_state["interval_days"],
+        "ease_factor":      new_state["ease_factor"],
+        "review_count":     new_state["review_count"],
+        "lapse_count":      new_state["lapse_count"],
+        "last_reviewed_at": new_state["last_reviewed_at"],
+        "next_review_at":   new_state["next_review_at"],
+        "updated_at":       new_state["last_reviewed_at"],
+    }
+    try:
+        sb.table("flashcard_reviews").upsert(
+            upsert_row, on_conflict="user_id,vocabulary_id",
+        ).execute()
+    except Exception as e:
+        logger.warning(
+            "[exercises] flashcard_reviews upsert failed for vocab_id=%s: %s",
+            vocab_id, e,
+        )
+        return False
+
+    # Column sync uses the shared helper from services.mastery (also
+    # used by routers/vocabulary_bank.py PATCH). Failure is non-fatal
+    # — backfill_mastery reconciles.
+    sync_mastery_column(sb, vocab_id, upsert_row)
+    return True
 
 
 def _public_view(row: dict) -> dict:
@@ -266,9 +362,11 @@ async def submit_d1_attempt(
         # RLS already prevents non-admins from reading drafts; we still filter
         # by status so the explicit "Exercise not found" branch is unambiguous
         # for admins inadvertently submitting against an unpublished id.
+        # Sprint 10.3 — also select target_vocab_id so the attempt can wire
+        # the outcome back to flashcard_reviews (SRS state).
         res = (
             sb.table("vocabulary_exercises")
-            .select("id, exercise_type, content_payload, status")
+            .select("id, exercise_type, content_payload, status, target_vocab_id")
             .eq("id", exercise_id)
             .eq("exercise_type", "D1")
             .limit(1)
@@ -284,9 +382,36 @@ async def submit_d1_attempt(
     row = res.data[0]
     payload = row.get("content_payload") or {}
     correct_answer = payload.get("answer") or ""
+    target_vocab_id = row.get("target_vocab_id")
 
     is_correct = _grade_d1(body.user_answer, correct_answer)
     score = 1.0 if is_correct else 0.0
+
+    # Sprint 10.3 — first-attempt detection. The COUNT must run BEFORE
+    # the attempt insert below; otherwise the just-inserted row gets
+    # counted and the first attempt always looks like a retry. We use
+    # the user-scoped client so RLS gates the query — a caller can
+    # only see their own attempts. If the count query itself fails,
+    # log a warning and treat the attempt as a retry (conservative
+    # default — better to skip the SRS update than to write the wrong
+    # state).
+    is_first_attempt = False
+    try:
+        prior_attempts = (
+            sb.table("vocabulary_exercise_attempts")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("exercise_id", row["id"])
+            .limit(1)
+            .execute()
+        )
+        is_first_attempt = not (prior_attempts.data or [])
+    except Exception as e:
+        logger.warning(
+            "[exercises] first-attempt count failed for exercise_id=%s "
+            "(treating as retry → SRS skip): %s",
+            row["id"], e,
+        )
 
     feedback = {
         "is_correct": is_correct,
@@ -341,9 +466,71 @@ async def submit_d1_attempt(
     except Exception as e:
         logger.warning("[exercises] attempt insert failed (non-fatal): %s", e)
 
+    # ── Sprint 10.3 — D1 → SRS feedback loop ────────────────────────────
+    #
+    # Wire the attempt outcome into flashcard_reviews so productive
+    # recall (writing the word in context) actually feeds the SRS
+    # schedule. Two safeguards (Andy Q2 + Q3):
+    #
+    #   1. First-attempt-only — retries log but don't fire SRS. Prevents
+    #      "spam retry to recover rating" gaming. is_first_attempt was
+    #      computed via the COUNT-before-insert pattern above.
+    #
+    #   2. Gated demotion floor — wrong answers map to rating='hard'
+    #      (Andy Q4: softer than 'again') and the SRS update passes
+    #      floor=7 so a wrong fill-blank can't push interval below the
+    #      1-week buffer. Mastered cards are protected from a single
+    #      mistake; only sustained wrong answers across multiple
+    #      exercises can demote them via the SM-2 path.
+    #
+    # Skip the wire-up entirely when:
+    #   - target_vocab_id is null (exercise not bound to a user vocab row)
+    #   - this is not the first attempt
+    #   - the user_vocabulary row is archived (don't update state for
+    #     items the user has chosen to hide)
+    srs_updated = False
+    srs_rating: str | None = None
+    if is_first_attempt and target_vocab_id:
+        srs_rating = "good" if is_correct else "hard"
+        try:
+            vocab_row = (
+                sb.table("user_vocabulary")
+                .select("id, is_archived")
+                .eq("id", target_vocab_id)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            vocab_alive = bool(vocab_row.data) and not vocab_row.data[0].get("is_archived")
+        except Exception as e:
+            logger.warning(
+                "[exercises] vocab lookup failed for target_vocab_id=%s "
+                "(skipping SRS wire-up): %s",
+                target_vocab_id, e,
+            )
+            vocab_alive = False
+
+        if vocab_alive:
+            srs_updated = _apply_d1_srs_update(
+                sb, user_id, target_vocab_id, srs_rating,
+            )
+        if not srs_updated:
+            # The handler skipped or fail-softed; clear the rating so
+            # the response shape stays honest. Frontend keys off
+            # srs_updated; srs_rating=null avoids implying a write
+            # that didn't happen.
+            srs_rating = None
+
     _safe_event(
         "exercise_completed",
-        {"type": "D1", "exercise_id": row["id"], "is_correct": is_correct, "score": score},
+        {
+            "type": "D1",
+            "exercise_id": row["id"],
+            "is_correct": is_correct,
+            "score": score,
+            "srs_updated": srs_updated,
+            "srs_rating": srs_rating,
+        },
         user_id,
     )
 
@@ -351,6 +538,11 @@ async def submit_d1_attempt(
         "is_correct": is_correct,
         "correct_answer": correct_answer,
         "score": score,
+        # Sprint 10.3 — new fields. Backwards compat: pre-10.3 frontends
+        # ignore unknown keys; post-10.3 d1-exercise.js renders the
+        # "✓ Đã ghi nhận" / "📝 Lưu ý" indicator when srs_updated=true.
+        "srs_updated": srs_updated,
+        "srs_rating":  srs_rating,
     }
 
 

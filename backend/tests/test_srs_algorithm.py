@@ -165,3 +165,59 @@ def test_sequential_review_walk_is_deterministic():
     assert abs(out["ease_factor"] - 2.30) < 1e-6
     assert out["review_count"] == 5
     assert out["lapse_count"] == 1
+
+
+# ── Sprint 10.3 — gated demotion floor ───────────────────────────────────────
+
+
+def test_hard_with_floor_lifts_under_floor_interval():
+    """Floor clamp raises an under-floor interval UP to the floor.
+    Wired to D1 in routers/exercises.py to prevent a wrong fill-blank
+    from leaving the card at interval < 1 week."""
+    update_srs = _import_update_srs()
+    # prev interval=3 — hard SM-2 gives max(1, int(3*1.2)) = 3.
+    # With floor=7, must clamp UP.
+    r = _Review(ease_factor=2.5, interval_days=3)
+    out = update_srs(r, "hard", floor=7)
+    actual = out["interval_days"]
+    assert actual == 7, f"floor=7 must lift interval=3 to 7, got {actual}"
+
+
+def test_hard_with_floor_does_not_lower_already_higher_interval():
+    """Floor only raises — never lowers. prev interval=25 hard gives 30;
+    floor=7 has no effect."""
+    update_srs = _import_update_srs()
+    r = _Review(ease_factor=2.5, interval_days=25)
+    out = update_srs(r, "hard", floor=7)
+    assert out["interval_days"] == 30
+
+
+def test_again_with_floor_lifts_zero_to_floor():
+    """rating='again' sets new_interval=0 normally; floor=7 lifts to 7."""
+    update_srs = _import_update_srs()
+    r = _Review(ease_factor=2.5, interval_days=25)
+    out = update_srs(r, "again", floor=7)
+    assert out["interval_days"] == 7
+    # lapse_count still bumps on 'again' — floor does not change rating semantics.
+    assert out["lapse_count"] == 1
+
+
+def test_good_with_floor_unchanged_when_already_above():
+    """Standard SM-2 'good' path: floor is a no-op when interval is already
+    well above. Pin so a future refactor doesn't accidentally clamp DOWN."""
+    update_srs = _import_update_srs()
+    r = _Review(ease_factor=2.5, interval_days=21)
+    out = update_srs(r, "good", floor=7)
+    # SM-2 good: int(21 * 2.5) = 52
+    assert out["interval_days"] == 52
+
+
+def test_default_floor_zero_preserves_pre_10_3_behaviour():
+    """floor=0 (the default) is byte-equivalent to the pre-10.3 call shape.
+    Flashcard-review session callers must see no behavioural change."""
+    update_srs = _import_update_srs()
+    r = _Review(ease_factor=2.5, interval_days=3)
+    out_default = update_srs(r, "hard")  # no floor kwarg
+    out_explicit_zero = update_srs(r, "hard", floor=0)
+    assert out_default["interval_days"] == out_explicit_zero["interval_days"]
+    assert out_default["lapse_count"] == out_explicit_zero["lapse_count"]

@@ -35,7 +35,7 @@ _EASE_CAP = 3.0
 _INTERVAL_CAP = 36500  # days — matches Anki's default upper bound.
 
 
-def update_srs(review: Any, rating: str) -> dict:
+def update_srs(review: Any, rating: str, floor: int = 0) -> dict:
     """
     Compute the next SRS state given the prior `review` row and the user's
     self-rating.
@@ -47,6 +47,13 @@ def update_srs(review: Any, rating: str) -> dict:
                 typing is intentional — keeps the function decoupled from the
                 ORM/Pydantic shape used by the router.
         rating: one of 'again' | 'hard' | 'good' | 'easy'.
+        floor:  Sprint 10.3 — minimum interval_days after this update. If SM-2
+                would normally compute a smaller interval, clamp to `floor`.
+                Default 0 (no floor) preserves standard SM-2 behaviour for
+                direct flashcard-review session calls. The D1 attempt wire-up
+                (routers/exercises.py) passes floor=7 so a wrong fill-blank
+                doesn't demote a mastered card below the 1-week buffer —
+                productive-recall mistakes are signal, not a reset button.
 
     Returns:
         A dict with the six fields the caller needs to upsert into
@@ -81,6 +88,12 @@ def update_srs(review: Any, rating: str) -> dict:
         new_interval = max(1, int(interval * ease * 1.3))
         new_ease = min(_EASE_CAP, ease + 0.15)
         new_lapse = lapse
+
+    # Sprint 10.3 — gated demotion floor. Applies AFTER the SM-2 step
+    # but BEFORE the absolute cap. Lifts an under-floor interval up to
+    # the floor; never lowers an interval that was already higher.
+    if floor > 0 and new_interval < floor:
+        new_interval = floor
 
     if new_interval > _INTERVAL_CAP:
         new_interval = _INTERVAL_CAP

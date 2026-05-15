@@ -24,6 +24,7 @@ from services.mastery import (
     MASTERED_MIN_INTERVAL_DAYS,
     MASTERED_MIN_REVIEW_COUNT,
     derive_mastery_status,
+    sync_mastery_column,
 )
 
 logger = logging.getLogger(__name__)
@@ -720,36 +721,13 @@ async def update_vocab_status(
         logger.error("[vocab_bank PATCH] flashcard_reviews upsert failed for %s: %s", vocab_id, e)
         raise HTTPException(500, f"Failed to update review state: {e}")
 
-    # Derive the response shape from the row we just wrote — this is
-    # cheaper than a re-fetch and guaranteed-consistent with what's
-    # now in the table.
-    mastery_after = derive_mastery_status(upsert_row)
-
-    # Sprint 10.2.1-hotfix — sync the deprecated user_vocabulary
-    # column on every write. Sprint 10.2 originally treated the
-    # column as write-once-on-capture / read-via-derivation, with
-    # `scripts/backfill_mastery.py` as the catch-up. Smoke testing
-    # surfaced two problems with that: (a) admin tools and direct
-    # Supabase Table Editor reads bypass the API and see stale data
-    # until the operator remembers to run the backfill; (b) the
-    # operator would have to re-run after every batch of user clicks,
-    # which is fragile. Writing the derived value here on every PATCH
-    # is one extra UPDATE per click (negligible) and closes the drift
-    # window to zero. The column stays deprecated *for reads* (the
-    # bank GET endpoints still derive from flashcard_reviews); drop
-    # remains scheduled for Sprint 10.6. Failure is non-fatal — the
-    # SRS write already succeeded, so the API contract is satisfied
-    # even if the column-sync log emits a WARN.
-    try:
-        sb.table("user_vocabulary").update(
-            {"mastery_status": mastery_after}
-        ).eq("id", vocab_id).execute()
-    except Exception as col_err:
-        logger.warning(
-            "[vocab_bank PATCH] column sync failed for %s "
-            "(SRS upsert succeeded; backfill will catch up): %s",
-            vocab_id, col_err,
-        )
+    # Sprint 10.2.1-hotfix → Sprint 10.3 — sync the deprecated column
+    # via the shared helper. Same fail-soft contract as before
+    # (logged WARN on failure; backfill_mastery reconciles); now
+    # shared with routers/exercises.py D1 attempt handler so the
+    # sync rule lives in one place. See services/mastery.py for the
+    # rationale on keeping the column in sync during deprecation.
+    mastery_after = sync_mastery_column(sb, vocab_id, upsert_row)
 
     _fire_event("vocab_bank_entry_reviewed", {
         "vocab_id":       vocab_id,
