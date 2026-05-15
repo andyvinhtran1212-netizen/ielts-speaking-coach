@@ -173,6 +173,11 @@
       <div id="accordion-container" class="space-y-3"></div>
     </div>
 
+    <!-- Sprint 10.4 — Pending vocab confirmation panel. Mounted by
+         frontend/js/pending-vocab.js after the result data loads.
+         If the user has no pending captures the panel stays hidden. -->
+    <div id="pending-vocab-mount" class="hidden"></div>
+
     <!-- Action buttons -->
     <div class="flex flex-wrap gap-3 justify-center pb-8">
       <button id="btn-pdf" class="btn-primary result-icon-btn">
@@ -1057,6 +1062,21 @@
         document.getElementById('btn-retry').addEventListener('click', function () {
           retrySameTopic(session.part, session.topic, token);
         });
+
+        // ── Sprint 10.4 — Pending vocab confirmation panel ────────────────────
+        // Dynamic import so the module only loads on result.html (where the
+        // mount point exists). The mount() returns silently if the user has
+        // no pending captures, so this is safe to call on every result load.
+        import('../js/pending-vocab.js')
+          .then(function (mod) {
+            return mod.mount(
+              document.getElementById('pending-vocab-mount'),
+              { token: token },
+            );
+          })
+          .catch(function (err) {
+            console.warn('[result] pending-vocab mount failed (non-fatal):', err);
+          });
 
         showState('content');
 

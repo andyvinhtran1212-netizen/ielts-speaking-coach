@@ -298,6 +298,7 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
         .eq("user_id", user_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)
+        .eq("is_pending", False)  # Sprint 10.4
         .order("created_at", desc=True)
         .limit(1)
         .execute()

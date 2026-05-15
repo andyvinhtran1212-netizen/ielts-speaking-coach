@@ -99,7 +99,8 @@ class _Client:
 # ── Fixtures: helpers to build review/vocab rows ────────────────────────────
 
 
-def _vocab(id, source_type="manual", is_archived=False, is_skipped=False):
+def _vocab(id, source_type="manual", is_archived=False, is_skipped=False,
+           is_pending=False):
     return {
         "id": id,
         "headword": f"word-{id}",
@@ -110,6 +111,9 @@ def _vocab(id, source_type="manual", is_archived=False, is_skipped=False):
         "created_at": "2026-04-30T00:00:00+00:00",
         "is_archived": is_archived,
         "is_skipped": is_skipped,
+        # Sprint 10.4 — pending rows are hidden everywhere; default
+        # false so existing auto-stack tests keep their fixture rows.
+        "is_pending": is_pending,
     }
 
 

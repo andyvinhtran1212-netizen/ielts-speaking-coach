@@ -204,6 +204,7 @@ def _build_recent_vocab_updates(sb, user_id: str, *, limit: int) -> List[Dict[st
         .eq("user_id", user_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)
+        .eq("is_pending", False)  # Sprint 10.4
         .order("created_at", desc=True)
         .limit(fetch_n)
         .execute()
