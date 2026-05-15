@@ -132,12 +132,22 @@ describe('Sprint 7.3 — /js/vocab-modules/my-vocab.js module', () => {
     assert.match(src, /My Vocab Bank/);
   });
 
-  test('HTML template ships all 7 filter buttons with data-action="set-filter"', () => {
-    const filters = ['all', 'used_well', 'needs_review', 'upgrade_suggested', 'manual', 'learning', 'mastered'];
+  test('HTML template ships the 6 active filter buttons (Sprint 10.1.5 retired needs_review pill)', () => {
+    // Sprint 10.1.5 — `needs_review` items now live on the dedicated
+    // Needs Review tab (vocabulary.html#needs-review); the corresponding
+    // filter pill was retired from My Vocab Bank. The remaining 6 pills
+    // span both filter axes: source_type {all, used_well, upgrade_suggested,
+    // manual} + mastery_status {learning, mastered}.
+    const filters = ['all', 'used_well', 'upgrade_suggested', 'manual', 'learning', 'mastered'];
     filters.forEach((f) => {
       const re = new RegExp(`data-action="set-filter"[^>]*data-filter="${f}"`);
       assert.match(src, re, `missing filter button for ${f}`);
     });
+    // Negative pin: the retired filter must not regress.
+    assert.ok(
+      !/data-action="set-filter"[^>]*data-filter="needs_review"/.test(src),
+      'My Vocab Bank must NOT redeclare the needs_review filter pill — Sprint 10.1.5 retired it in favor of the dedicated Needs Review tab',
+    );
   });
 
   test('HTML template ships both modals (fc-picker + report)', () => {
@@ -1106,5 +1116,164 @@ describe('Sprint 9.3 — .mode-card__badge primitive lives in components.css', (
     // The delete-btn remains a flashcards-specific concern (no other
     // mode-card surface needs a hover-revealed removal control).
     assert.match(flashcardsCSS, /^\.delete-btn\s*\{/m);
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Sprint 10.1.5 — Needs Review tab (capture re-architecture).
+//
+// Sprint 6.0 archived source_type='needs_review' from persistence
+// because surfacing it in the main vocab bank encouraged learners to
+// memorise wrong forms. Sprint 10.1.5 reverses that archival —
+// needs_review items ARE useful as a "learning from mistakes"
+// surface, just not in the same bucket as the items the learner used
+// correctly. The implementation routes them to a dedicated Needs
+// Review tab in vocabulary.html via a 4th vocab-module sibling
+// (alongside my-vocab / flashcards / exercises) and adds a 5th
+// mode-card on the dashboard.
+// ─────────────────────────────────────────────────────────────────────
+
+describe('Sprint 10.1.5 — needs-review.js module contract', () => {
+  let src;
+  before(() => {
+    src = readFileSync(path.join(REPO_ROOT, 'frontend/js/vocab-modules/needs-review.js'), 'utf8');
+  });
+
+  test('exports async mount(container, opts) → { unmount }', () => {
+    assert.match(src, /export\s+async\s+function\s+mount\s*\(\s*container\s*,/);
+    assert.match(src, /function\s+unmount\s*\(\s*\)/);
+  });
+
+  test('mount() respects guardMount + reads opts.embedded', () => {
+    assert.match(src, /guardMount\s*\(\s*container\s*\)/);
+    assert.match(src, /alreadyMounted/);
+    assert.match(src, /\{\s*embedded\s*=\s*false\s*\}\s*=\s*opts/);
+  });
+
+  test('HTML template ships the canonical .subpage-header with Vocabulary back-link (Sprint 9.2 pattern)', () => {
+    assert.match(src, /<header class="subpage-header/);
+    assert.match(src, /class="subpage-header__back"[^>]*data-action="back-to-dashboard"[^>]*aria-label="Quay về dashboard Vocabulary"/);
+    assert.match(src, /<i\s+data-lucide="arrow-left"[^>]*><\/i>\s*<span>Vocabulary<\/span>/);
+    assert.match(src, /<h1[^>]*class="[^"]*\bsubpage-header__title\b[^"]*"[^>]*>\s*Needs Review\s*<\/h1>/);
+  });
+
+  test('Needs Review card layout ships original → suggestion + context + feedback + 2 actions', () => {
+    // Card markup is rendered dynamically via cardHtml(item). Pin the
+    // rendered class skeleton + the action-button data-action values.
+    assert.match(src, /class="nr-card"/);
+    assert.match(src, /class="nr-card__original"/);
+    assert.match(src, /class="nr-card__suggestion"/);
+    assert.match(src, /class="nr-card__context"/);
+    assert.match(src, /class="nr-card__feedback"/);
+    assert.match(src, /data-action="mark-fixed"/);
+    assert.match(src, /data-action="dismiss"/);
+  });
+
+  test('module wires the 3 required data-action values', () => {
+    // back-to-dashboard (Sprint 9.2) + mark-fixed (promote → main bank
+    // as manual) + dismiss (soft-delete via DELETE endpoint).
+    for (const action of ['back-to-dashboard', 'mark-fixed', 'dismiss']) {
+      assert.ok(
+        src.includes(`'${action}'`) || src.includes(`"${action}"`),
+        `module must reference data-action="${action}" in its switch`,
+      );
+    }
+  });
+
+  test('module hits the dedicated /needs-review backend endpoint on load', () => {
+    assert.match(src, /\/api\/vocabulary\/bank\/needs-review/);
+  });
+
+  test('mark-fixed action posts to the /mark-fixed promote endpoint', () => {
+    // The pre-Sprint-10.1.5 endpoint was already wired for the main-
+    // bank triage flow (POST /api/vocabulary/bank/{id}/mark-fixed).
+    // Sprint 10.1.5 reuses it from the needs-review surface — the
+    // server-side semantic (flip source_type='needs_review' → 'manual')
+    // is exactly what we want.
+    assert.match(src, /\/\$\{vocabId\}\/mark-fixed/);
+  });
+
+  test('dismiss action posts to the DELETE soft-delete endpoint', () => {
+    assert.match(src, /method:\s*['"]DELETE['"]/);
+  });
+
+  test('HTML template body must not contain backticks (Sprint 9.1.1-hotfix sentinel)', () => {
+    const match = src.match(/const HTML\s*=\s*\/\*\s*html\s*\*\/\s*`([\s\S]*?)\n`;/);
+    assert.ok(match, 'needs-review.js must have a HTML template literal');
+    assert.ok(
+      !match[1].includes('`'),
+      'needs-review.js HTML template body must not contain backticks (Sprint 9.1.1-hotfix backtick-in-template-literal sentinel)',
+    );
+  });
+});
+
+
+describe('Sprint 10.1.5 — vocabulary.html exposes the Needs Review surface', () => {
+  let html;
+  before(() => {
+    html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/vocabulary.html'), 'utf8');
+  });
+
+  test('5th mode card on the dashboard wires data-mode="needs-review" with the alert-circle icon', () => {
+    assert.match(
+      html,
+      /<a[^>]*\bclass="mode-card"[^>]*\bdata-mode="needs-review"[^>]*\baria-label="Mở Needs Review"/,
+      'vocabulary.html must ship the Sprint 10.1.5 Needs Review mode card',
+    );
+    // Card body — Lucide icon + canonical .head + .arrow + h3 + .lede.
+    const block = html.match(/data-mode="needs-review"[\s\S]{0,400}<\/a>/);
+    assert.ok(block, 'Needs Review mode-card body must be extractable');
+    assert.match(block[0], /<i\s+data-lucide="alert-circle"[^>]*><\/i>/);
+    assert.match(block[0], /<h3>\s*Needs Review\s*<\/h3>/);
+  });
+
+  test('panel-needs-review section + tab-mount container are present', () => {
+    assert.match(
+      html,
+      /<section[^>]*class="tab-panel"[^>]*data-panel="needs-review"[^>]*id="panel-needs-review"[^>]*hidden/,
+      'vocabulary.html must ship the panel-needs-review tab-panel (hidden by default)',
+    );
+    assert.match(
+      html,
+      /<div[^>]*class="tab-mount"[^>]*id="mount-needs-review"/,
+      'vocabulary.html must ship the mount-needs-review tab-mount container',
+    );
+  });
+
+  test('needs-review.css stylesheet is linked', () => {
+    assert.match(
+      html,
+      /<link[^>]*rel="stylesheet"[^>]*href="\/css\/needs-review\.css"/,
+      'vocabulary.html must link /css/needs-review.css',
+    );
+  });
+});
+
+
+describe('Sprint 10.1.5 — vocab-landing.js wires needs-review into VALID_TABS + TAB_LOADERS', () => {
+  let src;
+  before(() => {
+    src = readFileSync(path.join(REPO_ROOT, 'frontend/js/vocab-landing.js'), 'utf8');
+  });
+
+  test('TAB_LOADERS registers needs-review dynamic-import', () => {
+    assert.match(
+      src,
+      /['"]needs-review['"]\s*:\s*\(\s*\)\s*=>\s*import\(\s*['"]\/js\/vocab-modules\/needs-review\.js['"]\s*\)/,
+      'vocab-landing.js must wire needs-review into TAB_LOADERS',
+    );
+  });
+
+  test('VALID_TABS Set lists needs-review', () => {
+    // Match across the new Set([...]) literal — needs-review must
+    // appear alongside the other 4 entries.
+    const m = src.match(/VALID_TABS\s*=\s*new\s+Set\(\s*\[([\s\S]*?)\]\s*\)/);
+    assert.ok(m, 'VALID_TABS Set literal must be extractable');
+    assert.match(m[1], /['"]needs-review['"]/);
+    assert.match(m[1], /['"]my-vocab['"]/);
+    assert.match(m[1], /['"]flashcards['"]/);
+    assert.match(m[1], /['"]exercises['"]/);
+    assert.match(m[1], /['"]topic-bank['"]/);
   });
 });

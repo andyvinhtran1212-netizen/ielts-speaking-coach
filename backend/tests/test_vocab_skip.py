@@ -160,6 +160,17 @@ class _FilterRecordingBuilder:
         self._parent.eq_calls.append((col, val))
         return self
 
+    # Sprint 10.1.5 — vocabulary_bank.list_vocab now default-excludes
+    # `source_type='needs_review'` via a `.neq("source_type",
+    # "needs_review")` call so needs_review rows are routed to the
+    # dedicated Needs Review surface. The recording stub gains a
+    # corresponding .neq() method that records the filter alongside
+    # .eq() so existing skip-filter assertions still see every column
+    # predicate the route applies.
+    def neq(self, col, val):
+        self._parent.eq_calls.append((col, val))
+        return self
+
     def execute(self):
         class _R: pass
         r = _R()

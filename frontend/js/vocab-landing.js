@@ -29,9 +29,10 @@
   // The container's `data-mounted` attribute is the idempotency guard
   // (see vocab-modules/_loader.js guardMount()).
   const TAB_LOADERS = {
-    'my-vocab':   () => import('/js/vocab-modules/my-vocab.js'),
-    'flashcards': () => import('/js/vocab-modules/flashcards.js'),
-    'exercises':  () => import('/js/vocab-modules/exercises.js'),
+    'my-vocab':     () => import('/js/vocab-modules/my-vocab.js'),
+    'flashcards':   () => import('/js/vocab-modules/flashcards.js'),
+    'exercises':    () => import('/js/vocab-modules/exercises.js'),
+    'needs-review': () => import('/js/vocab-modules/needs-review.js'),
   };
 
   // DEFAULT_TAB is the fall-back when activateTab() receives an unknown
@@ -39,9 +40,13 @@
   // page-load default is the dashboard view itself, not any individual
   // panel; bootstrap() no longer auto-activates DEFAULT_TAB on cold
   // load. DEFAULT_TAB is kept solely for the unknown-mode fallback path.
+  //
+  // Sprint 10.1.5 — `needs-review` added (5th mode card). Surfaces
+  // source_type='needs_review' items on a dedicated tab so they don't
+  // pollute the main vocab bank (Sprint 6.0 archival reversed).
   const DEFAULT_TAB = 'my-vocab';
   const VALID_TABS = new Set([
-    'my-vocab', 'flashcards', 'exercises', 'topic-bank',
+    'my-vocab', 'flashcards', 'exercises', 'needs-review', 'topic-bank',
   ]);
 
   function $(sel) { return document.querySelector(sel); }

@@ -137,8 +137,12 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
   // `role="tabpanel"` + the `data-panel` attributes are preserved —
   // activateTab() in /js/vocab-landing.js still owns the panel toggle
   // and module mount.
-  const requiredPanelIds = ['panel-my-vocab', 'panel-flashcards', 'panel-exercises', 'panel-topic-bank'];
-  const requiredDataPanels = ['my-vocab', 'flashcards', 'exercises', 'topic-bank'];
+  // Sprint 10.1.5 — `needs-review` joined as the 5th mode card / 4th
+  // lazy-loaded module (topic-bank stays a static placeholder since
+  // Sprint 8.2). The retired-tab-id roster is unchanged because the
+  // Sprint 8.2 tab-row deletion predates the needs-review surface.
+  const requiredPanelIds = ['panel-my-vocab', 'panel-flashcards', 'panel-exercises', 'panel-needs-review', 'panel-topic-bank'];
+  const requiredDataPanels = ['my-vocab', 'flashcards', 'exercises', 'needs-review', 'topic-bank'];
   const retiredTabIds = ['tab-my-vocab', 'tab-flashcards', 'tab-exercises', 'tab-topic-bank'];
 
   for (const id of retiredTabIds) {
@@ -277,16 +281,18 @@ describe('vocabulary.html / Sprint 8.2 mode-card IA + module-mount contract', ()
     assert.match(html, /id=["']stat-stacks-count["']/);
   });
 
-  test('role="tabpanel" preserved on 4 panels; role="tab" + aria-selected retired (Sprint 8.2)', () => {
+  test('role="tabpanel" preserved on 5 panels; role="tab" + aria-selected retired (Sprint 8.2 + 10.1.5)', () => {
     const tabsWithRole    = (html.match(/role=["']tab["']/g) || []).length;
     const panelsWithRole  = (html.match(/role=["']tabpanel["']/g) || []).length;
     const ariaSelected    = (html.match(/aria-selected=/g) || []).length;
     assert.equal(tabsWithRole,   0, 'role="tab" must be absent (Sprint 8.2 retired the tablist row)');
-    assert.equal(panelsWithRole, 4, 'role="tabpanel" stays on all 4 panels');
+    // Sprint 10.1.5 — 5 panels (my-vocab, flashcards, exercises,
+    // needs-review, topic-bank); was 4 pre-10.1.5.
+    assert.equal(panelsWithRole, 5, 'role="tabpanel" stays on all 5 panels (Sprint 10.1.5: needs-review added)');
     assert.equal(ariaSelected,   0, 'aria-selected must be absent (no tab buttons left)');
   });
 
-  test('all 4 panels start hidden — dashboard view is the default landing state (Sprint 8.2)', () => {
+  test('all 5 panels start hidden — dashboard view is the default landing state (Sprint 8.2 + 10.1.5)', () => {
     // Every <section.tab-panel> ships the `hidden` attribute on page
     // load; activateTab() reveals the target via panel.hidden = false.
     for (const dataPanel of requiredDataPanels) {
