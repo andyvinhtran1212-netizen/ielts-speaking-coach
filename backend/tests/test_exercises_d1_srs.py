@@ -4,9 +4,13 @@ Three contracts under test:
 
   1. **First attempt wires SRS.** A correct first attempt upserts
      flashcard_reviews with rating='good'; a wrong first attempt
-     upserts with rating='hard' AND the gated demotion floor (7) so
-     a one-off mistake on a mastered card can't push interval below
-     the 1-week buffer.
+     upserts with rating='again' AND the gated demotion floor (7).
+     Sprint 10.3.1-hotfix flipped the wrong-path rating from 'hard'
+     to 'again' — SM-2 'hard' is slower-growth (×1.2), not demotion,
+     so layering it on top of floor=7 made the floor a no-op for
+     mastered cards. 'again' resets interval to 0 (then floor clamps
+     up to 7) AND bumps lapse_count, so a single wrong answer flips
+     mastery to 'learning' — the pedagogically intended outcome.
 
   2. **Retry attempts skip SRS.** When a vocabulary_exercise_attempts
      row already exists for (user_id, exercise_id), the handler logs
@@ -197,10 +201,18 @@ def test_first_correct_attempt_upserts_srs_with_good_rating(monkeypatch):
     assert row["interval_days"] >= 7
 
 
-def test_first_wrong_attempt_upserts_srs_with_hard_rating_and_floor(monkeypatch):
-    """Wrong first attempt → rating='hard' + floor=7. Pin that the
-    floor lifts a low-interval card up to 7 (not lowers a high-interval
-    card down — the floor's intent is anti-demotion, not always-clamp)."""
+def test_first_wrong_attempt_upserts_srs_with_again_rating_and_floor(monkeypatch):
+    """Sprint 10.3.1-hotfix — wrong first attempt → rating='again'
+    (SM-2 reset) + floor=7. The 'again' rating sets new_interval=0
+    AND bumps lapse_count; the floor then clamps interval UP to 7.
+    Combined: any wrong-first-attempt lands the card at exactly
+    interval=7 with lapse_count+1, regardless of the prior interval.
+
+    Pre-10.3.1 used 'hard' (slow growth ×1.2) under the misreading
+    that 'hard' was a softer demote than 'again'. SM-2 'hard' is
+    actually growth-attenuation, not demotion — wrong on
+    interval=25 grew to ~30 and the floor was a no-op. This test
+    catches a regression back to that mistake."""
     canned = {
         "vocabulary_exercises": [_exercise_row()],
         "vocabulary_exercise_attempts": [],
@@ -218,23 +230,35 @@ def test_first_wrong_attempt_upserts_srs_with_hard_rating_and_floor(monkeypatch)
 
     assert resp["is_correct"] is False
     assert resp["srs_updated"] is True
-    assert resp["srs_rating"] == "hard"
+    assert resp["srs_rating"] == "again", (
+        f"Sprint 10.3.1-hotfix: wrong-first-attempt must map to "
+        f"rating='again', not 'hard'. Got {resp['srs_rating']!r}."
+    )
 
     fc_upserts = [u for u in client.upserts if u[0] == "flashcard_reviews"]
     assert len(fc_upserts) == 1
     _, row, _ = fc_upserts[0]
-    # SM-2 hard on interval=3: int(3*1.2)=3. Floor=7 lifts to 7.
-    assert row["interval_days"] == 7, (
-        f"floor=7 must lift interval=3 to 7 on wrong first attempt; "
-        f"got {row['interval_days']}"
+    # SM-2 again on any interval → 0. Floor=7 lifts to 7.
+    assert row["interval_days"] == 7
+    # 'again' increments lapse_count (was 0 → 1).
+    assert row["lapse_count"] == 1, (
+        f"'again' must increment lapse_count; got {row['lapse_count']}"
     )
 
 
-def test_wrong_attempt_on_mastered_card_does_not_demote_below_floor(monkeypatch):
-    """A mastered card (interval=25) hitting a wrong first attempt
-    must NOT drop below the 7-day floor. SM-2 'hard' grows the
-    interval to 30, so the floor is a no-op here — pin so a future
-    rating-mapping change can't quietly demote mastered cards."""
+def test_wrong_attempt_on_mastered_card_demotes_to_floor_with_lapse(monkeypatch):
+    """Sprint 10.3.1-hotfix — the canonical pedagogical case.
+
+    Pre-10.3.1 (rating='hard'): wrong on mastered card (interval=25)
+    grew to ~30, lapse_count stayed at 0, mastery stayed 'mastered'.
+    Floor=7 was a no-op for mastered cards — the safeguard was
+    half-dead.
+
+    Post-10.3.1 (rating='again'): wrong on mastered card resets
+    interval to 0 → floor clamps to 7. lapse_count bumps to 1 →
+    derive_mastery_status flips to 'learning' (any lapse
+    disqualifies). The user gets a meaningful "you missed this"
+    signal AND the card returns to active rotation."""
     canned = {
         "vocabulary_exercises": [_exercise_row()],
         "vocabulary_exercise_attempts": [],
@@ -252,9 +276,18 @@ def test_wrong_attempt_on_mastered_card_does_not_demote_below_floor(monkeypatch)
 
     fc_upserts = [u for u in client.upserts if u[0] == "flashcard_reviews"]
     _, row, _ = fc_upserts[0]
-    assert row["interval_days"] >= 7
-    # 'hard' grows interval to int(25*1.2)=30.
-    assert row["interval_days"] == 30
+    # 'again' resets interval to 0; floor=7 clamps up.
+    assert row["interval_days"] == 7
+    # lapse_count++ — this is what flips mastery to 'learning'.
+    assert row["lapse_count"] == 1
+
+    # Column sync writes the derived status — 'learning' because
+    # lapse_count > 0 disqualifies mastered (Sprint 10.2 threshold).
+    col_updates = [u for u in client.updates if u[0] == "user_vocabulary"]
+    assert col_updates == [("user_vocabulary", {"mastery_status": "learning"})], (
+        f"Mastery must flip to 'learning' after wrong-on-mastered; "
+        f"got column updates: {col_updates}"
+    )
 
 
 # ── Retry attempts skip SRS ──────────────────────────────────────────
@@ -420,7 +453,7 @@ def test_response_always_carries_srs_fields_even_when_skipped(monkeypatch):
     ))
     assert "srs_updated" in resp
     assert "srs_rating" in resp
-    # When srs_updated=false, srs_rating must be null (not "good"/"hard")
+    # When srs_updated=false, srs_rating must be null (not "good"/"again")
     # so the frontend doesn't render a misleading indicator.
     assert resp["srs_updated"] is False
     assert resp["srs_rating"] is None
