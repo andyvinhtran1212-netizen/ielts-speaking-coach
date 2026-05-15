@@ -1,4 +1,11 @@
+# Sprint 10.1.1-hotfix — pin Python 3.12 explicitly. Nixpacks' Python
+# auto-detection on Railway defaulted to 3.13, which has no pre-built
+# wheels for blis (the BLAS backend that spaCy → thinc depends on); pip
+# fell through to a from-source compile and `cc` exhausted the build
+# container. Python 3.12 has pre-built blis + thinc + spacy wheels on
+# PyPI, so the install is fast and doesn't need gcc in the image.
 [phases.setup]
+nixPkgs = ["python312"]
 aptPkgs = ["fonts-dejavu-core"]
 
 # Sprint 10.1 — download the spaCy English model after pip install so
