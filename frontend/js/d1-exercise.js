@@ -256,8 +256,13 @@
   // Sprint 10.3 — render the "✓ Đã ghi nhận / 📝 Lưu ý" indicator
   // based on the backend response. Three states:
   //
-  //   srs_updated=true,  srs_rating='good' → "✓ Đã ghi nhận vào ôn tập"
-  //   srs_updated=true,  srs_rating='hard' → "📝 Lưu ý cho lần ôn tới"
+  //   srs_updated=true,  srs_rating='good'  → "✓ Đã ghi nhận vào ôn tập"
+  //   srs_updated=true,  srs_rating='again' → "📝 Lưu ý cho lần ôn tới"
+  //                      (Sprint 10.3.1-hotfix flipped wrong-rating
+  //                      from 'hard' to 'again' so the SRS floor
+  //                      actually demotes mastered cards. The label
+  //                      stays generic — branch is on != 'good', so
+  //                      any non-good rating renders "Lưu ý".)
   //   srs_updated=false  (or any other shape)  → no indicator
   //
   // We append into the existing feedback box (id="feedback") so layout

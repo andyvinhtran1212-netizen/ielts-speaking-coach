@@ -4,9 +4,10 @@
  * Sprint 10.3 — pin the D1 → SRS indicator contract on the frontend.
  *
  * Backend response (post-10.3): `{is_correct, correct_answer, score,
- * srs_updated: bool, srs_rating: 'good' | 'hard' | null}`. The new
+ * srs_updated: bool, srs_rating: 'good' | 'again' | null}`. The new
  * frontend renders "✓ Đã ghi nhận vào ôn tập" (good) or "📝 Lưu ý cho
- * lần ôn tới" (hard) inside the existing feedback box when
+ * lần ôn tới" (again, post-Sprint-10.3.1-hotfix) inside the
+ * existing feedback box when
  * srs_updated is true; otherwise no indicator. Subsequent attempts
  * (which the backend skips per Andy Q2) leave srs_updated=false → no
  * indicator → user is not confused by repeated "Đã ghi nhận" toasts
@@ -83,7 +84,7 @@ describe('Sprint 10.3 — D1 SRS indicator wiring', () => {
       D1_SOURCE.includes("'📝 Lưu ý cho lần ôn tới'"),
       "Wrong-first-attempt label '📝 Lưu ý cho lần ôn tới' must appear.",
     );
-    // Branch is on srs_rating === 'good' (good → correct, else → hard).
+    // Branch is on srs_rating === 'good' (good → correct, else → 'again').
     assert.ok(
       /srs_rating\s*===\s*'good'/.test(D1_SOURCE),
       "Label branch must compare srs_rating to 'good'.",

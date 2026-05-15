@@ -476,12 +476,18 @@ async def submit_d1_attempt(
     #      "spam retry to recover rating" gaming. is_first_attempt was
     #      computed via the COUNT-before-insert pattern above.
     #
-    #   2. Gated demotion floor — wrong answers map to rating='hard'
-    #      (Andy Q4: softer than 'again') and the SRS update passes
-    #      floor=7 so a wrong fill-blank can't push interval below the
-    #      1-week buffer. Mastered cards are protected from a single
-    #      mistake; only sustained wrong answers across multiple
-    #      exercises can demote them via the SM-2 path.
+    #   2. Gated demotion floor — wrong answers map to rating='again'
+    #      and the SRS update passes floor=7 so the SM-2 reset (which
+    #      drops interval to 0) is clamped UP to a 1-week buffer.
+    #      Sprint 10.3.1-hotfix correction: the original Sprint 10.3
+    #      Q4 lock chose 'hard' assuming it was a "softer demote", but
+    #      SM-2 'hard' is actually slower-growth (×1.2), not demotion
+    #      — a wrong on a mastered card (interval=25) grew to ~30 and
+    #      the floor was a no-op. With 'again', the floor is the
+    #      single safeguard at the right layer: any wrong → drop to
+    #      interval=7, lapse_count+1, mastery flips to 'learning'.
+    #      lapse_count++ is the desired side-effect of 'again' — it's
+    #      what gates the mastery threshold (Sprint 10.2 derivation).
     #
     # Skip the wire-up entirely when:
     #   - target_vocab_id is null (exercise not bound to a user vocab row)
@@ -491,7 +497,7 @@ async def submit_d1_attempt(
     srs_updated = False
     srs_rating: str | None = None
     if is_first_attempt and target_vocab_id:
-        srs_rating = "good" if is_correct else "hard"
+        srs_rating = "good" if is_correct else "again"
         try:
             vocab_row = (
                 sb.table("user_vocabulary")
