@@ -116,11 +116,16 @@ const HTML = /* html */ `
       </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters.
+         Sprint 10.1.5 — "Needs review" filter pill retired here. Items
+         with source_type='needs_review' now live on the dedicated Needs
+         Review tab (vocabulary.html#needs-review). The pre-10.1.5
+         _applyFilter() switch still accepted 'needs_review' as a value,
+         but the backend list endpoint default-excludes those rows so
+         the filter would have returned empty anyway. -->
     <div class="flex flex-wrap gap-2 mb-5">
       <button class="filter-btn active" data-action="set-filter" data-filter="all">All</button>
       <button class="filter-btn" data-action="set-filter" data-filter="used_well">Used well</button>
-      <button class="filter-btn" data-action="set-filter" data-filter="needs_review">Needs review</button>
       <button class="filter-btn" data-action="set-filter" data-filter="upgrade_suggested">Upgrade</button>
       <button class="filter-btn" data-action="set-filter" data-filter="manual">Manual</button>
       <button class="filter-btn" data-action="set-filter" data-filter="learning">Learning</button>

@@ -112,11 +112,97 @@ async def list_vocab(
         query = query.eq("mastery_status", status)
     if source_type:
         query = query.eq("source_type", source_type)
+    else:
+        # Sprint 10.1.5 — default-exclude needs_review from the main bank.
+        # The dedicated GET /needs-review endpoint surfaces those items
+        # on a separate "Needs Review" tab. When the caller passes an
+        # explicit source_type the filter is honoured (admins / tests
+        # can still inspect needs_review rows via ?source_type=needs_review).
+        query = query.neq("source_type", "needs_review")
 
     result = query.execute()
 
     _fire_event("vocab_bank_viewed", {"source": "api"}, user_id)
     return result.data or []
+
+
+# ── GET /needs-review — Sprint 10.1.5 dedicated Needs Review surface ──────────
+
+# Sprint 10.1.5 — separates "items the learner used correctly" (main vocab
+# bank) from "items flagged by Claude as misused / non-standard" (this
+# endpoint). The two surfaces serve different pedagogical purposes:
+# main bank rewards correct usage and seeds flashcards; Needs Review is
+# a learning-from-mistakes triage list with the AI's suggestion attached.
+#
+# Sprint 6.0 archived needs_review entirely; Sprint 10.1.5 reverses that
+# archival via re-enabling persistence in routers/grading.py and routing
+# the items here instead of letting them pollute the main bank.
+@router.get("/needs-review")
+async def list_needs_review(authorization: str | None = Header(default=None)):
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    result = (
+        _user_sb(token).table("user_vocabulary")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("source_type", "needs_review")
+        .eq("is_archived", False)
+        .eq("is_skipped", False)
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    _fire_event("vocab_needs_review_viewed", {"source": "api"}, user_id)
+    return result.data or []
+
+
+# ── POST /{vocab_id}/restore — Sprint 10.1.5 un-archive a soft-deleted row ────
+
+# Soft-delete contract: DELETE /{vocab_id} sets is_archived=true; this
+# endpoint flips it back to false. Owner-only; no source_type gate (a
+# user may want to restore something they archived accidentally,
+# regardless of which surface it came from).
+@router.post("/{vocab_id}/restore")
+async def restore_vocab(
+    vocab_id: str,
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    existing = (
+        sb.table("user_vocabulary")
+        .select("id, is_archived")
+        .eq("id", vocab_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not existing.data:
+        raise HTTPException(404, "Vocab entry not found")
+
+    if not existing.data[0].get("is_archived"):
+        # Idempotent: restoring an already-alive row is a no-op success.
+        return {"ok": True, "vocab_id": vocab_id, "already_alive": True}
+
+    sb.table("user_vocabulary").update(
+        {"is_archived": False}
+    ).eq("id", vocab_id).execute()
+
+    _fire_event("vocab_restored", {"vocab_id": vocab_id}, user_id)
+    return {"ok": True, "vocab_id": vocab_id}
 
 
 # ── GET /stats ────────────────────────────────────────────────────────────────

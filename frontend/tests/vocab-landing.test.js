@@ -170,17 +170,19 @@ test('activateTab hides the .vocab-modes dashboard and reveals the target panel'
 
 // Sprint 7.6 — DEBT-2026-05-09-B CLOSED. The legacy iframe path
 // (TAB_SOURCES + _loaded Set + frame.src else-branch) was retired
-// in this sprint. All 3 vocab children go through TAB_LOADERS only.
+// in this sprint. All vocab children go through TAB_LOADERS only.
+// Sprint 10.1.5 — `needs-review` added as the 4th lazy-loaded module
+// (5th mode card overall; topic-bank stays as a static placeholder).
 
-test('all 3 vocab children are registered in TAB_LOADERS', () => {
+test('all 4 vocab children are registered in TAB_LOADERS', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
   const loaders = win.__vocabLanding.TAB_LOADERS;
   assert.deepEqual(
     [...loaders].sort(),
-    ['exercises', 'flashcards', 'my-vocab'],
-    'TAB_LOADERS must list all 3 vocab children',
+    ['exercises', 'flashcards', 'my-vocab', 'needs-review'],
+    'TAB_LOADERS must list all 4 vocab children (Sprint 10.1.5: needs-review added)',
   );
 });
 
@@ -224,15 +226,16 @@ test('activateTab falls back to DEFAULT_TAB when given an unknown mode', () => {
     'unknown mode name should fall back to DEFAULT_TAB (my-vocab) panel');
 });
 
-test('VALID_TABS surface lists exactly the four supported modes', () => {
+test('VALID_TABS surface lists exactly the five supported modes', () => {
   const doc = buildPage();
   const win = loadVocabLanding(doc);
 
   // Cross-vm-context arrays don't share the same Array constructor,
   // so deepStrictEqual fails reference-equality. Compare values instead.
+  // Sprint 10.1.5 — `needs-review` joined as the 5th supported mode.
   assert.equal(
     JSON.stringify([...win.__vocabLanding.VALID_TABS].sort()),
-    JSON.stringify(['exercises', 'flashcards', 'my-vocab', 'topic-bank'].sort()),
+    JSON.stringify(['exercises', 'flashcards', 'my-vocab', 'needs-review', 'topic-bank'].sort()),
   );
   assert.equal(win.__vocabLanding.DEFAULT_TAB, 'my-vocab',
     'DEFAULT_TAB stays my-vocab as the unknown-mode fallback (Sprint 8.2: no longer the page-load default)');

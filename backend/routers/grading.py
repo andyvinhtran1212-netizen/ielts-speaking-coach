@@ -36,14 +36,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["grading"])
 
 
-# Sprint 6.0 — Speaking grading no longer persists `needs_review`
-# (error phrases) as vocabulary. Module-level constant so tests + the
-# persist loop in _run_vocab_extraction_bg share the same source of
-# truth, and a future change to re-add a category surfaces here in
-# diff review. See routers/grading.py persist loop and migration 048.
+# Sprint 6.0 archived `needs_review` (error phrases) from persistence
+# because surfacing them in the main vocab bank encouraged learners to
+# memorise the wrong form. Sprint 10.1.5 reverses that archival — the
+# items ARE useful as a "learning from mistakes" surface, just not
+# in the same bucket as the items the learner used correctly. So:
+#   - Re-enable persistence of needs_review here (this constant).
+#   - The list endpoint in routers/vocabulary_bank.py default-excludes
+#     needs_review so the main bank stays "ổn items only".
+#   - A dedicated GET /api/vocabulary/needs-review endpoint surfaces
+#     the items on a separate "Needs Review" tab in vocabulary.html.
 _PERSISTED_SOURCE_TYPES: frozenset[str] = frozenset({
     "used_well",
     "upgrade_suggested",
+    "needs_review",
 })
 
 _AUDIO_BUCKET  = "audio-responses"
