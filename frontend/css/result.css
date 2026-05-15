@@ -426,9 +426,9 @@ body.av-page .btn-secondary:hover {
 .pending-panel__keep-all {
   padding: 8px 16px; border-radius: 8px;
   font-size: 13px; font-weight: 600;
-  background: rgba(20,184,166,0.18);
-  border: 1px solid rgba(20,184,166,0.4);
-  color: #14b8a6;
+  background: var(--av-primary-soft, rgba(20,184,166,0.18));
+  border: 1px solid var(--av-primary-border, rgba(20,184,166,0.4));
+  color: var(--av-primary);
   cursor: pointer; transition: background 0.15s;
 }
 .pending-panel__keep-all:hover { background: rgba(20,184,166,0.26); }
@@ -465,14 +465,14 @@ body.av-page .btn-secondary:hover {
   border: 1px solid transparent;
 }
 .pending-card__btn--keep {
-  background: rgba(20,184,166,0.18);
-  border-color: rgba(20,184,166,0.4);
-  color: #14b8a6;
+  background: var(--av-primary-soft, rgba(20,184,166,0.18));
+  border-color: var(--av-primary-border, rgba(20,184,166,0.4));
+  color: var(--av-primary);
 }
 .pending-card__btn--keep:hover { background: rgba(20,184,166,0.26); }
 .pending-card__btn--drop {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.12);
+  background: var(--av-surface-elevated, rgba(255,255,255,0.06));
+  border-color: var(--av-border-subtle, rgba(255,255,255,0.12));
   color: var(--av-text-muted, rgba(255,255,255,0.7));
 }
 .pending-card__btn--drop:hover { background: rgba(255,255,255,0.10); }
