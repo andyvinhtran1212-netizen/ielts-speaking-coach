@@ -167,6 +167,128 @@ describe('Sprint 10.4 — result.html integration', () => {
 });
 
 
+describe('Sprint 10.4.1-hotfix — pending vocab light-mode contrast pins', () => {
+
+  // Bug 1 regression pin. The initial Sprint 10.4 CSS put the panel on
+  // `--av-surface-card` (= #FFFFFF light) AND the cards on
+  // `--av-surface-elevated` (also #FFFFFF light) — cards rendered
+  // invisible because parent + child shared the same surface. Sprint
+  // 10.4.1-hotfix lifts the panel to `--av-surface-sunken` (light grey
+  // in light, deeper navy in dark) so cards on `--av-surface-card`
+  // visibly elevate. If a future PR swaps these tokens back the
+  // assertions below trip.
+
+  function _pendingRule(selector) {
+    // Extract the body of the first `selector { ... }` rule from result.css
+    const m = RESULT_CSS.match(
+      new RegExp(`${selector.replace(/\./g, '\\.')}\\s*\\{[^}]*\\}`),
+    );
+    return m ? m[0] : '';
+  }
+
+  it('.pending-panel uses --av-surface-sunken (lifts off page surface)', () => {
+    const rule = _pendingRule('.pending-panel');
+    assert.ok(
+      rule.includes('--av-surface-sunken'),
+      '.pending-panel must use --av-surface-sunken so child .pending-card ' +
+      '(--av-surface-card) elevates visibly in light + dark modes. ' +
+      'Got: ' + rule,
+    );
+    assert.ok(
+      !/background:\s*var\(--av-surface-card\b/.test(rule),
+      '.pending-panel must NOT use --av-surface-card (would equal the card ' +
+      'background in light mode → invisible cards). Got: ' + rule,
+    );
+  });
+
+  it('.pending-card uses --av-surface-card (canonical content card surface)', () => {
+    const rule = _pendingRule('.pending-card');
+    assert.ok(
+      rule.includes('--av-surface-card'),
+      '.pending-card must use --av-surface-card so it lifts off the ' +
+      '--av-surface-sunken parent in both themes. Got: ' + rule,
+    );
+  });
+
+  it('.pending-card border uses --av-border-default (delineation in light mode)', () => {
+    // --av-border-subtle is rgba(15,23,42,0.06) in light — too faint to
+    // delineate cards. Default (0.12) is the readable choice.
+    const rule = _pendingRule('.pending-card');
+    assert.ok(
+      rule.includes('--av-border-default'),
+      '.pending-card border must use --av-border-default for visible card ' +
+      'delineation in light mode. Got: ' + rule,
+    );
+  });
+
+  it('.pending-card__btn--drop uses transparent background + secondary text', () => {
+    // Avoids same-surface-as-card invisibility. Border carries the
+    // outline; hover lifts to --av-surface-sunken.
+    const rule = _pendingRule('.pending-card__btn--drop');
+    assert.ok(
+      /background:\s*transparent/.test(rule),
+      '.pending-card__btn--drop must use background:transparent (parent ' +
+      'card is already --av-surface-card; same-surface fill is invisible). ' +
+      'Got: ' + rule,
+    );
+    assert.ok(
+      rule.includes('--av-text-secondary'),
+      '.pending-card__btn--drop must use --av-text-secondary for readable ' +
+      'label in both themes. Got: ' + rule,
+    );
+  });
+});
+
+
+describe('Sprint 10.4.1-hotfix — needs-review canonical .vocab-card adoption', () => {
+  // Bug 2 regression pin. Module formerly shipped bespoke .nr-card*
+  // primitives that diverged visually from my-vocab's needs_review
+  // rows. Now reuses .vocab-card / .source-badge / .vocab-action
+  // declared in my-vocabulary.css. The needs-review.css bespoke
+  // .nr-card* rules are deleted; .needs-review-intro + .nr-toast stay
+  // (banner + toast unique to this surface).
+
+  const __dirname2 = dirname(fileURLToPath(import.meta.url));
+  const NR_CSS = readFileSync(
+    join(__dirname2, '..', 'css', 'needs-review.css'), 'utf8'
+  );
+  const NR_JS = readFileSync(
+    join(__dirname2, '..', 'js', 'vocab-modules', 'needs-review.js'), 'utf8'
+  );
+
+  it('needs-review.css declares zero .nr-card* card primitive rules', () => {
+    // .nr-toast and .needs-review-intro stay — only the .nr-card family
+    // is gone. Match `.nr-card` as a class selector start (immediate
+    // followup must be `{`, ` `, `,`, `:`, or `__`, not `.nr-toast` etc).
+    assert.ok(
+      !/\.nr-card\b/.test(NR_CSS),
+      'needs-review.css must NOT redeclare .nr-card* primitives — the ' +
+      'module reuses .vocab-card from my-vocabulary.css. Stale rules ' +
+      'would re-introduce visual drift.',
+    );
+  });
+
+  it('needs-review.js emits canonical .vocab-card + .vocab-action classes', () => {
+    assert.ok(NR_JS.includes('class="vocab-card"'),
+      'needs-review card must use the canonical .vocab-card primitive.');
+    assert.ok(NR_JS.includes('class="source-badge badge-needs_review"'),
+      'needs-review card must use the canonical .source-badge.badge-needs_review pill.');
+    assert.ok(NR_JS.includes('class="vocab-action vocab-action--fixed"'),
+      'mark-fixed button must use .vocab-action--fixed (green family).');
+    assert.ok(NR_JS.includes('class="vocab-action vocab-action--skip"'),
+      'dismiss button must use .vocab-action--skip (red family).');
+  });
+
+  it('needs-review.js drops the bespoke .nr-card__* classes', () => {
+    assert.ok(
+      !/\bnr-card__/.test(NR_JS),
+      'needs-review.js must not emit any bespoke .nr-card__* class — ' +
+      'all card sub-elements move to the canonical .vocab-card family.',
+    );
+  });
+});
+
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function _extractFunctionBody(declarationPrefix) {
