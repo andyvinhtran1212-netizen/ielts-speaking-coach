@@ -477,9 +477,29 @@ async def add_vocab_manual(
     if not body.headword.strip():
         raise HTTPException(422, "headword is required")
 
+    headword = body.headword.strip()
+
+    # Sprint 10.1 — compute lemma + POS at write time so the manual-add
+    # path stays consistent with the auto-capture path (both populate
+    # surface_form / lemma / pos / lemma_version on the row). Fail-soft:
+    # spaCy load failure leaves the lemma columns NULL and the backfill
+    # script will retry. The DB UNIQUE constraint on lower(headword) is
+    # the existing dedup safety net; lemma-equality dedup is a separate
+    # Sprint 10.6 follow-up.
+    try:
+        from services.lemmatizer import lemmatize, lemma_version
+        new_lemma, new_pos = lemmatize(headword)
+        new_lemma_version = lemma_version()
+    except Exception:
+        new_lemma, new_pos, new_lemma_version = None, None, None
+
     row = {
         "user_id":         user_id,
-        "headword":        body.headword.strip(),
+        "headword":        headword,
+        "surface_form":    headword,
+        "lemma":           new_lemma,
+        "pos":             new_pos,
+        "lemma_version":   new_lemma_version,
         "context_sentence": body.context_sentence,
         "definition_vi":   body.definition_vi,
         "category":        body.category,

@@ -669,15 +669,26 @@ async def _run_vocab_extraction(
         except Exception as topic_err:
             logger.debug("[vocab_bg] session topic lookup failed (non-fatal): %s", topic_err)
 
-        # Fetch existing headwords for guard 6
+        # Fetch existing headwords + lemmas for guard 6 (Sprint 10.1).
+        # Selecting both columns is one round-trip; the lemma column
+        # backfills to non-NULL after the Sprint 10.1 backfill script
+        # runs, but pre-backfill rows still have lemma IS NULL so we
+        # tolerate that gracefully — Guard 6 falls back to the legacy
+        # heuristic checks when `existing_lemmas` doesn't contain a
+        # matching entry.
         existing_rows = (
             supabase_admin.table("user_vocabulary")
-            .select("headword")
+            .select("headword, lemma")
             .eq("user_id", user_id)
             .eq("is_archived", False)
             .execute()
         )
         existing_headwords = [r["headword"].lower() for r in (existing_rows.data or [])]
+        existing_lemmas = [
+            (r.get("lemma") or "").lower()
+            for r in (existing_rows.data or [])
+            if r.get("lemma")
+        ]
 
         rows_to_insert = []
         max_per_category = settings.VOCAB_MAX_PER_CATEGORY
@@ -712,9 +723,30 @@ async def _run_vocab_extraction(
                 if count >= max_per_category:
                     break
                 item_dict = item.model_dump()
+
+                # Sprint 10.1 — compute lemma + POS BEFORE Guard 6 fires
+                # so lemma-equality dedup catches ran/run, went/go, etc.
+                # Failure mode is fail-soft: if spaCy can't load, log
+                # once and proceed with NULL lemma columns — Guard 6
+                # then falls back to its legacy heuristics. Capture
+                # pipeline must not break on spaCy install issues.
+                try:
+                    from services.lemmatizer import lemmatize, lemma_version
+                    new_lemma, new_pos = lemmatize(item.headword)
+                    new_lemma_version = lemma_version()
+                except Exception as lem_err:
+                    logger.warning(
+                        "[vocab_bg] lemmatize failed for '%s' (%s) — "
+                        "proceeding with NULL lemma; backfill will retry",
+                        item.headword, lem_err,
+                    )
+                    new_lemma, new_pos, new_lemma_version = None, None, None
+
                 passed, failed_guard = run_all_guards(
                     item_dict, transcript, source_type, existing_headwords,
                     used_well_headwords=used_well_headwords,
+                    existing_lemmas=existing_lemmas,
+                    new_lemma=new_lemma,
                 )
                 if not passed:
                     logger.debug("[vocab_bg] guard rejected '%s': %s", item.headword, failed_guard)
@@ -725,6 +757,15 @@ async def _run_vocab_extraction(
                     "session_id":        session_id,
                     "response_id":       response_id,
                     "headword":          item.headword,
+                    # Sprint 10.1 dual-write: surface_form mirrors the
+                    # verbatim headword the learner produced; lemma is
+                    # the dictionary form for dedup; pos is spaCy's
+                    # universal tag; lemma_version is the rule-set
+                    # pointer the backfill compares against.
+                    "surface_form":      item.headword,
+                    "lemma":             new_lemma,
+                    "pos":               new_pos,
+                    "lemma_version":     new_lemma_version,
                     "context_sentence":  item.context_sentence,
                     "evidence_substring": item.evidence_substring or None,
                     "category":          item.category,
@@ -739,6 +780,8 @@ async def _run_vocab_extraction(
                     "is_archived":       False,
                 })
                 existing_headwords.append(item.headword.lower())
+                if new_lemma:
+                    existing_lemmas.append(new_lemma.lower())
                 count += 1
 
         if not rows_to_insert:

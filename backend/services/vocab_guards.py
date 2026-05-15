@@ -149,6 +149,8 @@ def run_all_guards(
     source_type: str,
     existing_headwords: list[str],
     used_well_headwords: set[str] | None = None,
+    existing_lemmas: list[str] | None = None,
+    new_lemma: str | None = None,
 ) -> tuple[bool, str | None]:
     """
     Run all guards on a single vocab item.
@@ -160,6 +162,17 @@ def run_all_guards(
         existing_headwords: lowercased headwords already in the user's bank
         used_well_headwords: lowercased headwords from the used_well category of this
             extraction result — used by guard 4 contradiction check
+        existing_lemmas: lowercased lemmas already in the user's bank (Sprint 10.1).
+            When provided, Guard 6 checks lemma equality BEFORE the existing 3
+            heuristics (prefix root / Levenshtein / semantic cluster), catching
+            irregular-form duplicates like ran/run or went/go that the
+            heuristics miss. Optional for backward-compat — callers that have
+            not yet been upgraded still get the pre-10.1 behaviour.
+        new_lemma: the lemma of the item being inserted (Sprint 10.1). Paired
+            with `existing_lemmas` — Guard 6 needs both to perform equality
+            check. Computed by the caller via services.lemmatizer.lemmatize();
+            we don't lemmatize inside the guard so callers stay in control
+            of the spaCy lazy-load cost.
 
     Returns:
         (True, None) if all guards pass
@@ -235,7 +248,27 @@ def run_all_guards(
             logger.debug("[guard5] SKIP '%s' — upgrade pair (%s→%s) not in whitelist", headword, original_word, headword)
             return False, "guard_5_not_in_whitelist"
 
-    # Guard 6: same-root prefix check, Levenshtein ≤ 2, OR semantic cluster match
+    # Guard 6 (Sprint 10.1): lemma equality is the PRIMARY dedup check —
+    # catches irregular-form duplicates (ran/run, went/go, was/is) that
+    # the pre-10.1 heuristics miss (Levenshtein 3 ≥ threshold 2 for the
+    # most common irregulars). When the caller passes `new_lemma` and
+    # `existing_lemmas` we do the equality check first; on miss we fall
+    # through to the legacy 3-heuristic block so any historical dedup
+    # behaviour stays catched even after the spaCy upgrade lands.
+    if new_lemma and existing_lemmas:
+        new_lemma_lower = new_lemma.lower()
+        for existing_lemma in existing_lemmas:
+            if existing_lemma and existing_lemma.lower() == new_lemma_lower:
+                logger.debug(
+                    "[guard6] SKIP '%s' — lemma '%s' already in bank",
+                    headword, new_lemma_lower,
+                )
+                return False, "guard_6_lemma_duplicate"
+
+    # Guard 6 fallback: same-root prefix check, Levenshtein ≤ 2, OR
+    # semantic cluster match. Preserved verbatim from pre-10.1 — catches
+    # near-duplicates that share a stem or live in a synonym cluster
+    # (e.g. mitigate/alleviate) but resolve to different lemmas.
     for existing in existing_headwords:
         ex_lower = existing.lower()
         if (
