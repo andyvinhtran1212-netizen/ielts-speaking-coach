@@ -189,6 +189,11 @@ def _apply_filter(builder, filter_config: dict):
     accepts in.() and is.null inside one clause.
     """
     builder = builder.eq("is_archived", False)
+    # Sprint 10.4 — pending captures are not flashcard-eligible until
+    # the user confirms via the result.html pending panel. The same
+    # filter applies to preview, create-stack, and the auto:* paths
+    # that call this helper.
+    builder = builder.eq("is_pending", False)
     if "topics" in filter_config:
         real_topics, include_null = _split_topics(filter_config["topics"])
         if real_topics and include_null:
@@ -227,6 +232,8 @@ def _count_user_vocab(sb, *, source_type: str | None = None,
         # must agree with the listing or the user sees a stack labeled "5 thẻ"
         # that opens to fewer than 5 rows.
         builder = builder.eq("is_skipped", False)
+        # Sprint 10.4: pending items aren't yet in the bank.
+        builder = builder.eq("is_pending", False)
         if source_type is not None:
             builder = builder.eq("source_type", source_type)
         res = builder.limit(1).execute()
@@ -272,6 +279,7 @@ def _count_struggling_vocab(sb) -> int:
             .in_("id", vocab_ids)
             .eq("is_archived", False)
             .eq("is_skipped", False)
+            .eq("is_pending", False)  # Sprint 10.4
             .neq("source_type", "needs_review")
             .execute()
         ).data or []
@@ -508,6 +516,7 @@ async def list_vocab_topics(authorization: str | None = Header(default=None)):
             sb.table("user_vocabulary")
             .select("topic")
             .eq("is_archived", False)
+            .eq("is_pending", False)  # Sprint 10.4
             .not_.is_("topic", "null")
             .execute()
         ).data or []
@@ -529,6 +538,7 @@ async def list_vocab_topics(authorization: str | None = Header(default=None)):
             sb.table("user_vocabulary")
             .select("id", count="exact")
             .eq("is_archived", False)
+            .eq("is_pending", False)  # Sprint 10.4
             .is_("topic", "null")
             .limit(1)
             .execute()
@@ -839,6 +849,7 @@ async def list_cards_in_stack(
                         .in_("id", vocab_ids)
                         .eq("is_archived", False)
                         .eq("is_skipped", False)
+                        .eq("is_pending", False)  # Sprint 10.4
                         # source_type='needs_review' is the AI grammar
                         # verdict — those rows can't enter the SRS queue
                         # via the +Stack flow anyway, but we filter
@@ -855,6 +866,7 @@ async def list_cards_in_stack(
                 builder = builder.eq("is_archived", False)
                 # PR-A: triage skips hide everywhere, including auto-stack queues.
                 builder = builder.eq("is_skipped", False)
+                builder = builder.eq("is_pending", False)  # Sprint 10.4
                 if stack_id == "auto:recent":
                     builder = builder.order("created_at", desc=True).limit(_RECENT_LIMIT)
                 else:
@@ -936,6 +948,7 @@ async def add_card_to_stack(
             sb.table("user_vocabulary")
             .select("source_type")
             .eq("id", body.vocabulary_id)
+            .eq("is_pending", False)  # Sprint 10.4: pending vocab isn't stack-eligible
             .limit(1)
             .execute()
         )
@@ -1053,6 +1066,7 @@ async def get_due_cards(
             .in_("id", vocab_ids)
             .eq("is_archived", False)
             .eq("is_skipped", False)  # PR-A: skipped vocab vanishes from due queue
+            .eq("is_pending", False)  # Sprint 10.4
             .execute()
         ).data or []
     except Exception as e:
@@ -1128,6 +1142,7 @@ async def submit_review(
             sb.table("user_vocabulary")
             .select("id")
             .eq("id", vocab_id)
+            .eq("is_pending", False)  # Sprint 10.4: pending vocab isn't reviewable
             .limit(1)
             .execute()
         )

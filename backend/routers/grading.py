@@ -778,6 +778,15 @@ async def _run_vocab_extraction(
                     "topic":             session_topic,
                     "mastery_status":    "learning",
                     "is_archived":       False,
+                    # Sprint 10.4 — capture rows land pending. The user
+                    # confirms via the result.html pending panel
+                    # (GET/POST /api/vocabulary/pending); the bank-read
+                    # paths filter is_pending=false so these stay
+                    # hidden from My Vocab Bank, flashcards, D1 target
+                    # resolution, etc. until confirmed. pending_created_at
+                    # anchors the 24h auto-commit lazy cleanup.
+                    "is_pending":         True,
+                    "pending_created_at": datetime.now(timezone.utc).isoformat(),
                 })
                 existing_headwords.append(item.headword.lower())
                 if new_lemma:

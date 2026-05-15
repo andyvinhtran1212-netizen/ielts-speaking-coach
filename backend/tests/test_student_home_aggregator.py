@@ -196,6 +196,7 @@ def _seed_vocab(fake, user_id, **fields):
         "headword": "ephemeral",
         "is_archived": False,
         "is_skipped": False,
+        "is_pending": False,  # Sprint 10.4 default — pending rows hidden from home count
         "mastery_status": "learning",
         "created_at": _today_iso(),
     }

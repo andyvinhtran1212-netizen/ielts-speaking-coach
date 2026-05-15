@@ -84,6 +84,18 @@ class VocabUpdateStatusRequest(BaseModel):
     mastered: bool
 
 
+class VocabPendingBulkConfirmRequest(BaseModel):
+    """Sprint 10.4 — body for POST /pending/bulk-confirm. Andy Q4
+    locked "Keep all" as the only batch action — no Drop all — so the
+    request shape is just a list of IDs to confirm. The handler
+    scopes by user_id, so a forged list of foreign IDs simply doesn't
+    match and the response carries an empty `confirmed` array."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    ids: list[str]
+
+
 class VocabFPReportRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -152,6 +164,7 @@ async def list_vocab(
         .eq("user_id", user_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)  # PR-A: triage skips hide everywhere
+        .eq("is_pending", False)  # Sprint 10.4: pending items live behind /pending
         .order("created_at", desc=True)
     )
 
@@ -212,6 +225,7 @@ async def list_needs_review(authorization: str | None = Header(default=None)):
         .eq("source_type", "needs_review")
         .eq("is_archived", False)
         .eq("is_skipped", False)
+        .eq("is_pending", False)  # Sprint 10.4
         .order("created_at", desc=True)
         .execute()
     )
@@ -227,6 +241,222 @@ async def list_needs_review(authorization: str | None = Header(default=None)):
 
     _fire_event("vocab_needs_review_viewed", {"source": "api"}, user_id)
     return rows
+
+
+# ── Sprint 10.4 — Pending capture confirmation endpoints ─────────────────────
+#
+# The capture pipeline (routers/grading.py) writes new rows with
+# is_pending=true; they're invisible to the bank GET / stats / flashcards
+# until the user confirms via result.html. These four endpoints power
+# that confirmation surface:
+#
+#   GET    /pending                  — list pending items (lazy 24h cleanup)
+#   POST   /pending/{id}/confirm     — flip is_pending=false
+#   POST   /pending/{id}/drop        — soft-delete (is_archived=true)
+#   POST   /pending/bulk-confirm     — "Keep all" button
+#
+# Andy Q3 lock: items older than 24h auto-commit. No background scheduler
+# exists, so cleanup runs lazily inside GET /pending — the cost is one
+# extra UPDATE per GET when stale items exist (negligible) and the only
+# observable lag is that a user who never visits the pending page leaves
+# items pending forever. Daily-active users are unaffected.
+#
+# Order note: these endpoints register BEFORE /{vocab_id} (the bank
+# detail GET) so FastAPI matches the literal "pending" prefix first.
+# A reordering refactor must preserve this — otherwise GET /pending
+# starts hitting get_vocab_detail with vocab_id="pending".
+
+
+_PENDING_AUTO_COMMIT_HOURS = 24
+
+
+def _auto_commit_stale_pending(sb, user_id: str) -> int:
+    """Sprint 10.4 — lazy cleanup. Flip is_pending=false on any row
+    where pending_created_at is older than the cutoff. Runs at the top
+    of GET /pending so the returned list never includes a stale row.
+
+    Returns the number of rows auto-committed (useful for tests).
+    Fail-soft: any Supabase error is logged WARN and returns 0 —
+    the GET still serves the un-cleaned list (worst case: a stale
+    pending item shows up, user clicks Keep, becomes confirmed
+    explicitly).
+    """
+    cutoff = (
+        datetime.now(timezone.utc)
+        - timedelta(hours=_PENDING_AUTO_COMMIT_HOURS)
+    ).isoformat()
+    try:
+        result = (
+            sb.table("user_vocabulary")
+            .update({"is_pending": False, "pending_created_at": None})
+            .eq("user_id", user_id)
+            .eq("is_pending", True)
+            .lt("pending_created_at", cutoff)
+            .execute()
+        )
+        return len(result.data or [])
+    except Exception as e:
+        logger.warning(
+            "[vocab_bank] auto-commit cleanup failed for user_id=%s: %s",
+            user_id, e,
+        )
+        return 0
+
+
+@router.get("/pending")
+async def list_pending(authorization: str | None = Header(default=None)):
+    """Return the user's pending captures, newest first.
+
+    Runs the 24h auto-commit cleanup BEFORE the SELECT so stale items
+    never appear in the response (and they don't double-render in the
+    pending panel after a user has been away for >24h)."""
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    # Lazy cleanup first — any row > 24h pending flips to confirmed.
+    _auto_commit_stale_pending(sb, user_id)
+
+    result = (
+        sb.table("user_vocabulary")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("is_pending", True)
+        .eq("is_archived", False)
+        .order("pending_created_at", desc=True)
+        .execute()
+    )
+
+    _fire_event("vocab_pending_viewed", {"source": "api"}, user_id)
+    return result.data or []
+
+
+@router.post("/pending/{vocab_id}/confirm")
+async def confirm_pending(
+    vocab_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Flip a single pending item to confirmed (visible in the bank)."""
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    # Ownership + pending gate — 404 if the row isn't owned by the
+    # caller OR isn't currently pending. The pending check prevents a
+    # double-confirm from racing the auto-commit cleanup.
+    existing = (
+        sb.table("user_vocabulary")
+        .select("id")
+        .eq("id", vocab_id)
+        .eq("user_id", user_id)
+        .eq("is_pending", True)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Pending vocab entry not found")
+
+    sb.table("user_vocabulary").update({
+        "is_pending": False,
+        "pending_created_at": None,
+    }).eq("id", vocab_id).execute()
+
+    _fire_event("vocab_pending_confirmed", {"vocab_id": vocab_id}, user_id)
+    return {"ok": True, "vocab_id": vocab_id}
+
+
+@router.post("/pending/{vocab_id}/drop")
+async def drop_pending(
+    vocab_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Soft-delete a pending item (is_archived=true). Sprint 10.4
+    pattern: drop = archive, consistent with the existing needs-review
+    /skip flow. Preserves the row for analytics + an eventual undo path
+    via the existing POST /{id}/restore endpoint."""
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    existing = (
+        sb.table("user_vocabulary")
+        .select("id")
+        .eq("id", vocab_id)
+        .eq("user_id", user_id)
+        .eq("is_pending", True)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Pending vocab entry not found")
+
+    # Archive AND clear pending flags so the row exits both surfaces
+    # in one write. is_pending stays true would leave a phantom row
+    # invisible everywhere; flipping it false plus is_archived=true
+    # is the clean exit.
+    sb.table("user_vocabulary").update({
+        "is_archived": True,
+        "is_pending": False,
+        "pending_created_at": None,
+    }).eq("id", vocab_id).execute()
+
+    _fire_event("vocab_pending_dropped", {"vocab_id": vocab_id}, user_id)
+    return {"ok": True, "vocab_id": vocab_id}
+
+
+@router.post("/pending/bulk-confirm")
+async def bulk_confirm_pending(
+    body: VocabPendingBulkConfirmRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 10.4 — "Giữ tất cả" button. Andy Q4 locked: this is the
+    only batch action (no Drop all). Validates ownership via the
+    user_id filter on the UPDATE; foreign IDs in the payload simply
+    don't match and aren't included in the response."""
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if not _vocab_bank_enabled(user_id):
+        raise HTTPException(403, "Vocab Bank feature is not enabled for this account")
+
+    ids = [i for i in (body.ids or []) if isinstance(i, str) and i]
+    if not ids:
+        return {"ok": True, "confirmed": []}
+
+    token = _token_from_header(authorization)
+    sb = _user_sb(token)
+
+    result = (
+        sb.table("user_vocabulary")
+        .update({"is_pending": False, "pending_created_at": None})
+        .eq("user_id", user_id)
+        .eq("is_pending", True)
+        .in_("id", ids)
+        .execute()
+    )
+    confirmed_ids = [r["id"] for r in (result.data or []) if r.get("id")]
+
+    _fire_event(
+        "vocab_pending_bulk_confirmed",
+        {"count": len(confirmed_ids)},
+        user_id,
+    )
+    return {"ok": True, "confirmed": confirmed_ids}
 
 
 # ── POST /{vocab_id}/restore — Sprint 10.1.5 un-archive a soft-deleted row ────
@@ -295,6 +525,7 @@ async def get_vocab_stats(authorization: str | None = Header(default=None)):
         .eq("user_id", user_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)  # PR-A: skipped rows don't count anywhere
+        .eq("is_pending", False)  # Sprint 10.4: pending items count as "not yet in bank"
         .execute()
     )
     vocab_rows = rows.data or []
@@ -334,6 +565,7 @@ async def get_recent_vocab(
         .eq("session_id", session_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)  # PR-A: skipped vocab hidden from session lookups too
+        .eq("is_pending", False)  # Sprint 10.4: pending items hidden from session lookups
         .order("created_at", desc=False)
         .execute()
     )
@@ -381,6 +613,7 @@ async def get_recent_vocab_updates(
         .eq("user_id", user_id)
         .eq("is_archived", False)
         .eq("is_skipped", False)  # PR-A: skipped rows don't appear in dashboard widget
+        .eq("is_pending", False)  # Sprint 10.4: pending rows don't appear in dashboard widget
         .order("created_at", desc=True)
         .limit(fetch_n)
         .execute()
@@ -482,6 +715,7 @@ async def export_user_vocabulary(
             .table("user_vocabulary")
             .select(",".join(_EXPORT_COLUMNS))
             .eq("is_skipped", False)  # PR-A: skipped rows excluded from export
+            .eq("is_pending", False)  # Sprint 10.4: pending rows excluded from export
             .order("created_at", desc=True)
             .execute()
         )
@@ -536,6 +770,7 @@ async def get_vocab_detail(
         .eq("id", vocab_id)
         .eq("user_id", user_id)
         .eq("is_skipped", False)  # PR-A: skipped rows 404 just like archived
+        .eq("is_pending", False)  # Sprint 10.4: pending rows reachable only via /pending
         .limit(1)
         .execute()
     )
@@ -658,12 +893,15 @@ async def update_vocab_status(
 
     # Ownership gate: confirm the vocab row exists and belongs to the
     # caller (RLS would also block, but a 404 is clearer than an
-    # empty-update silent-success).
+    # empty-update silent-success). Sprint 10.4: pending items are
+    # invisible here — mastery toggles only apply to confirmed bank
+    # items.
     existing_vocab = (
         sb.table("user_vocabulary")
         .select("id")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
+        .eq("is_pending", False)
         .limit(1)
         .execute()
     )
@@ -755,11 +993,16 @@ async def archive_vocab(
     token = _token_from_header(authorization)
     sb = _user_sb(token)
 
+    # Sprint 10.4: pending rows are reachable only via /pending/{id}/drop,
+    # not DELETE — keeps the two surfaces independent so the user can't
+    # accidentally archive a pending item from the bank UI (where it
+    # shouldn't be visible anyway).
     existing = (
         sb.table("user_vocabulary")
         .select("id")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
+        .eq("is_pending", False)
         .limit(1)
         .execute()
     )
@@ -882,11 +1125,13 @@ async def accept_suggestion(
     token = _token_from_header(authorization)
     sb = _user_sb(token)
 
+    # Sprint 10.4: pending items reachable only via /pending endpoints.
     existing = (
         sb.table("user_vocabulary")
         .select("id, source_type")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
+        .eq("is_pending", False)
         .limit(1)
         .execute()
     )
@@ -972,11 +1217,13 @@ async def mark_vocab_fixed(
     token = _token_from_header(authorization)
     sb = _user_sb(token)
 
+    # Sprint 10.4: pending items reachable only via /pending endpoints.
     existing = (
         sb.table("user_vocabulary")
         .select("id, source_type")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
+        .eq("is_pending", False)
         .limit(1)
         .execute()
     )
@@ -1063,11 +1310,13 @@ async def skip_vocab(
     token = _token_from_header(authorization)
     sb = _user_sb(token)
 
+    # Sprint 10.4: pending items reachable only via /pending endpoints.
     existing = (
         sb.table("user_vocabulary")
         .select("id, is_skipped")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
+        .eq("is_pending", False)
         .limit(1)
         .execute()
     )
@@ -1104,11 +1353,13 @@ async def report_false_positive(
     token = _token_from_header(authorization)
     sb = _user_sb(token)
 
+    # Sprint 10.4: pending items reachable only via /pending endpoints.
     existing = (
         sb.table("user_vocabulary")
         .select("id")
         .eq("id", vocab_id)
         .eq("user_id", user_id)
+        .eq("is_pending", False)
         .limit(1)
         .execute()
     )

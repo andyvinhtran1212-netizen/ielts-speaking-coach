@@ -400,3 +400,84 @@ body.av-page .btn-secondary:hover {
   background: var(--av-surface-elevated);
   border-color: var(--av-border-default);
 }
+
+/* ─── Sprint 10.4 — Pending vocab confirmation panel ───────────────────────
+   Capture confirmation surface on result.html. Reuses canonical
+   .mode-card design tokens (Sprint 9.1/9.3) plus the muted secondary
+   styling family. Visible only when GET /pending returns ≥1 row;
+   pending-vocab.js renders nothing otherwise. */
+.pending-panel {
+  margin-top: 24px; padding: 20px;
+  border-radius: 14px;
+  background: var(--av-surface-card, rgba(255,255,255,0.04));
+  border: 1px solid var(--av-border-subtle, rgba(255,255,255,0.08));
+}
+.pending-panel__head { margin-bottom: 14px; }
+.pending-panel__title {
+  font-size: 15px; font-weight: 700;
+  color: var(--av-text-primary, #fff);
+  margin: 0 0 4px;
+}
+.pending-panel__subtitle {
+  font-size: 13px; opacity: 0.78;
+  color: var(--av-text-muted, rgba(255,255,255,0.7));
+  margin: 0 0 12px;
+}
+.pending-panel__keep-all {
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+  background: var(--av-primary-soft, rgba(20,184,166,0.18));
+  border: 1px solid var(--av-primary-border, rgba(20,184,166,0.4));
+  color: var(--av-primary);
+  cursor: pointer; transition: background 0.15s;
+}
+.pending-panel__keep-all:hover { background: rgba(20,184,166,0.26); }
+
+.pending-panel__list { display: flex; flex-direction: column; gap: 10px; }
+
+.pending-card {
+  padding: 14px 16px; border-radius: 10px;
+  background: var(--av-surface-elevated, rgba(255,255,255,0.06));
+  border: 1px solid var(--av-border-subtle, rgba(255,255,255,0.08));
+  transition: opacity 0.2s, transform 0.2s;
+}
+.pending-card--leaving { opacity: 0; transform: translateX(8px); pointer-events: none; }
+.pending-card__head { margin-bottom: 6px; }
+.pending-card__headword {
+  font-size: 15px; font-weight: 600;
+  color: var(--av-text-primary, #fff);
+}
+.pending-card__def { font-size: 12px; opacity: 0.85; margin-bottom: 4px; }
+.pending-card__def-vi { opacity: 0.7; }
+.pending-card__context {
+  font-size: 12px; font-style: italic; margin: 6px 0;
+  color: var(--av-text-muted, rgba(255,255,255,0.7));
+}
+.pending-card__reason {
+  font-size: 12px; margin: 4px 0 10px;
+  color: var(--av-text-muted, rgba(255,255,255,0.7));
+}
+.pending-card__actions { display: flex; gap: 8px; margin-top: 8px; }
+.pending-card__btn {
+  padding: 6px 14px; border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+  border: 1px solid transparent;
+}
+.pending-card__btn--keep {
+  background: var(--av-primary-soft, rgba(20,184,166,0.18));
+  border-color: var(--av-primary-border, rgba(20,184,166,0.4));
+  color: var(--av-primary);
+}
+.pending-card__btn--keep:hover { background: rgba(20,184,166,0.26); }
+.pending-card__btn--drop {
+  background: var(--av-surface-elevated, rgba(255,255,255,0.06));
+  border-color: var(--av-border-subtle, rgba(255,255,255,0.12));
+  color: var(--av-text-muted, rgba(255,255,255,0.7));
+}
+.pending-card__btn--drop:hover { background: rgba(255,255,255,0.10); }
+
+.pending-panel__notice {
+  margin-top: 14px; font-size: 12px; opacity: 0.6;
+  color: var(--av-text-muted, rgba(255,255,255,0.7));
+}

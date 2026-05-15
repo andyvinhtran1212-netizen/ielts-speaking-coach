@@ -501,13 +501,20 @@ async def submit_d1_attempt(
         try:
             vocab_row = (
                 sb.table("user_vocabulary")
-                .select("id, is_archived")
+                .select("id, is_archived, is_pending")
                 .eq("id", target_vocab_id)
                 .eq("user_id", user_id)
                 .limit(1)
                 .execute()
             )
-            vocab_alive = bool(vocab_row.data) and not vocab_row.data[0].get("is_archived")
+            # Sprint 10.4: pending vocab is not yet in the bank — D1
+            # outcomes for pending items must not feed SRS until the
+            # user confirms via the result.html pending panel.
+            vocab_alive = (
+                bool(vocab_row.data)
+                and not vocab_row.data[0].get("is_archived")
+                and not vocab_row.data[0].get("is_pending")
+            )
         except Exception as e:
             logger.warning(
                 "[exercises] vocab lookup failed for target_vocab_id=%s "

@@ -143,7 +143,7 @@ def _session(session_id, *, user_id="u-1", overall_band=7.0,
 
 
 def _vocab(vocab_id, *, user_id="u-1", session_id=None,
-           is_archived=False, is_skipped=False,
+           is_archived=False, is_skipped=False, is_pending=False,
            source_type="used_well", created_at=None):
     return {
         "id": vocab_id,
@@ -153,6 +153,10 @@ def _vocab(vocab_id, *, user_id="u-1", session_id=None,
         "session_id": session_id,
         "is_archived": is_archived,
         "is_skipped": is_skipped,
+        # Sprint 10.4: default false so the dashboard widget's new
+        # is_pending=false predicate keeps these rows. Tests that
+        # want to exercise the pending path pass is_pending=True.
+        "is_pending": is_pending,
         "created_at": created_at or _today_iso(),
     }
 
