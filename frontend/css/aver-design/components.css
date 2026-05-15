@@ -832,11 +832,15 @@
    primitive consumed by:
      - speaking.html dashboard (3 cards)
      - vocabulary.html dashboard (4 cards)
-     - flashcards.html stack list (N stack-cards)
+     - flashcards.html stack list (N stacks — auto + manual; Sprint 9.3
+       retired the .stack-card / .stack-icon / .pill-auto / .pill-manual
+       inner classes in favor of the canonical .head > .icon + .arrow,
+       h3 (+ optional .mode-card__badge), .lede skeleton)
      - exercises.html drill hub (2 cards post-Sprint-9.1 D3 removal)
 
    Inner skeleton: .head > .icon + .arrow, h3, .lede. Optional badges
-   may slot inside h3 via .lock-tag.
+   may slot inside h3 via .lock-tag (muted "Soon" affordance) or
+   .mode-card__badge (active state, e.g. "Tự động" for auto stacks).
 
    `--av-text-muted` (not --av-text-faint) per speaking.css's § 17.6
    cap discipline; home.css uses faint for the same arrow since it
@@ -942,6 +946,29 @@
   opacity: 0.7;
   color: var(--av-text-muted);
   font-weight: var(--av-fw-medium);
+}
+
+/* Sprint 9.3 — inline status badge for the .mode-card title row.
+   Distinct from .lock-tag (muted "Soon" affordance) — .mode-card__badge
+   carries an active semantic state (e.g. "Tự động" for auto-generated
+   flashcard stacks vs the unbadged manual stacks). Reuses --av-info
+   family to visually echo the pre-9.3 .pill-auto styling so the auto-
+   vs-manual signal stays consistent across the redesign. */
+.mode-card h3 { flex-wrap: wrap; }
+.mode-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--av-space-2);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-info-soft);
+  color: var(--av-info);
+  border: 1px solid var(--av-info);
+  font-size: 0.625rem;
+  font-weight: var(--av-fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide);
+  line-height: 1.4;
+  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

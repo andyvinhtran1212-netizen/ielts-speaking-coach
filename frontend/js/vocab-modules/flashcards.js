@@ -163,8 +163,16 @@ export async function mount(container, opts = {}) {
   if (banner) banner.classList.toggle('hidden', !!embedded);
 
   // ── Container helpers (mirror legacy flashcards.js shape) ───────
+  // Sprint 9.3 — re-hydrate Lucide icons after every innerHTML swap so
+  // the dynamically-rendered stack cards (autoCard / manualCard) get
+  // their <i data-lucide="..."> placeholders expanded to inline SVGs.
+  // The pre-9.3 emoji icons rendered as plain text and didn't need
+  // hydration; canonical Lucide outlines do.
   function setFcContainerHtml(html) {
     $('[data-fc-container]').innerHTML = html;
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
   }
   function setFcPreviewHtml(html) {
     $('[data-fc-preview]').innerHTML = html;
@@ -273,24 +281,38 @@ export async function mount(container, opts = {}) {
     `);
   }
 
+  // Sprint 9.3 — auto stacks adopt the canonical .mode-card inner
+  // skeleton (.head > .icon + .arrow, h3, .lede). Emoji icons replaced
+  // with Lucide outlines (library / sparkles / target). The pre-9.3
+  // top-right "Tự động" pill moved inline into the h3 title row via
+  // .mode-card__badge — phân biệt auto vs manual stack semantics is
+  // preserved while the corner slot returns to the canonical arrow.
   function autoCard(s) {
-    const icon = s.id === 'auto:all_vocab' ? '📚' :
-                 s.id === 'auto:recent'    ? '🆕' : '🎯';
+    const iconName = s.id === 'auto:all_vocab' ? 'library'  :
+                     s.id === 'auto:recent'    ? 'sparkles' : 'target';
     const disabled = s.card_count === 0 ? 'disabled' : '';
     return `
       <div class="mode-card ${disabled}"
            data-action="open-stack"
            data-stack-id="${esc(s.id)}" data-card-count="${s.card_count}">
-        <div class="flex items-start justify-between">
-          <span class="stack-icon">${icon}</span>
-          <span class="pill-auto">Tự động</span>
+        <div class="head">
+          <div class="icon"><i data-lucide="${iconName}"></i></div>
+          <span class="arrow" aria-hidden="true">→</span>
         </div>
-        <p class="stack-name">${esc(s.name)}</p>
-        <p class="stack-meta">${s.card_count} thẻ</p>
+        <h3>
+          ${esc(s.name)}
+          <span class="mode-card__badge">Tự động</span>
+        </h3>
+        <p class="lede">${s.card_count} thẻ</p>
       </div>
     `;
   }
 
+  // Sprint 9.3 — manual stacks adopt the same canonical skeleton. No
+  // .mode-card__badge — the absence of the "Tự động" tag is itself the
+  // signal that this stack is user-created (and accordingly carries the
+  // hover-revealed .delete-btn for removal). Lucide `folder` replaces
+  // the pre-9.3 📂 emoji.
   function manualCard(s) {
     const disabled = s.card_count === 0 ? 'disabled' : '';
     return `
@@ -300,12 +322,12 @@ export async function mount(container, opts = {}) {
         <button class="delete-btn"
                 data-action="delete-stack"
                 data-stack-id="${esc(s.id)}" title="Xoá stack">×</button>
-        <div class="flex items-start justify-between">
-          <span class="stack-icon">📂</span>
-          <span class="pill-manual">Thủ công</span>
+        <div class="head">
+          <div class="icon"><i data-lucide="folder"></i></div>
+          <span class="arrow" aria-hidden="true">→</span>
         </div>
-        <p class="stack-name">${esc(s.name)}</p>
-        <p class="stack-meta">${s.card_count} thẻ</p>
+        <h3>${esc(s.name)}</h3>
+        <p class="lede">${s.card_count} thẻ</p>
       </div>
     `;
   }

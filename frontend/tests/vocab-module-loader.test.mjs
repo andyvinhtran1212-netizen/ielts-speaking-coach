@@ -989,3 +989,122 @@ describe('Sprint 9.2 — vocab-landing.js owns showDashboard() + pushState navig
     assert.match(src, /__vocabLanding\s*=\s*\{[\s\S]*?showDashboard/);
   });
 });
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Sprint 9.3 — flashcards stack cards adopt canonical .mode-card.
+//
+// Pre-Sprint-9.3, autoCard() / manualCard() emitted ad-hoc inner
+// classes (.stack-icon / .stack-name / .stack-meta + corner pill
+// .pill-auto / .pill-manual + 3D emoji icons). Sprint 9.3 promotes
+// the markup to the canonical Sprint 9.1 .mode-card inner skeleton
+// (.head > .icon + .arrow, h3, .lede) with Lucide outline icons and
+// an inline .mode-card__badge for the "Tự động" indicator (auto
+// stacks only; manual stacks remain unbadged). Visual consistency
+// with the 6 surfaces already on .mode-card (3 vocab dashboards + 3
+// speaking dashboards / home / exercises drills) is the goal.
+// ─────────────────────────────────────────────────────────────────────
+
+describe('Sprint 9.3 — flashcards stack cards render canonical .mode-card', () => {
+  let src;
+  before(() => {
+    src = readFileSync(path.join(REPO_ROOT, 'frontend/js/vocab-modules/flashcards.js'), 'utf8');
+  });
+
+  test('autoCard() emits the canonical .mode-card head + h3 + lede skeleton', () => {
+    const fn = src.match(/function\s+autoCard\s*\(\s*s\s*\)\s*\{[\s\S]+?\n\s{2}\}/);
+    assert.ok(fn, 'autoCard() must be extractable');
+    assert.match(fn[0], /class="mode-card[^"]*"/);
+    assert.match(fn[0], /<div class="head">/);
+    assert.match(fn[0], /<div class="icon"><i data-lucide="\$\{iconName\}"><\/i><\/div>/);
+    assert.match(fn[0], /<span class="arrow"[^>]*>→<\/span>/);
+    assert.match(fn[0], /<h3>/);
+    assert.match(fn[0], /<span class="mode-card__badge">Tự động<\/span>/);
+    assert.match(fn[0], /<p class="lede">\$\{s\.card_count\} thẻ<\/p>/);
+  });
+
+  test('autoCard() maps stack ids to Lucide icon names (library / sparkles / target)', () => {
+    const fn = src.match(/function\s+autoCard\s*\(\s*s\s*\)\s*\{[\s\S]+?\n\s{2}\}/);
+    assert.ok(fn, 'autoCard() must be extractable');
+    assert.match(fn[0], /['"`]auto:all_vocab['"`]\s*\?\s*['"`]library['"`]/);
+    assert.match(fn[0], /['"`]auto:recent['"`]\s*\?\s*['"`]sparkles['"`]/);
+    assert.match(fn[0], /:\s*['"`]target['"`]/);
+    // Negative: no emoji icons remain in the autoCard template.
+    assert.ok(
+      !/📚|🆕|🎯/.test(fn[0]),
+      'autoCard() must no longer ship 3D emoji icons (Sprint 9.3 replaced with Lucide outlines)',
+    );
+  });
+
+  test('manualCard() emits the canonical .mode-card skeleton with folder Lucide icon', () => {
+    const fn = src.match(/function\s+manualCard\s*\(\s*s\s*\)\s*\{[\s\S]+?\n\s{2}\}/);
+    assert.ok(fn, 'manualCard() must be extractable');
+    assert.match(fn[0], /class="mode-card[^"]*"/);
+    assert.match(fn[0], /<div class="head">/);
+    assert.match(fn[0], /<i data-lucide="folder"><\/i>/);
+    assert.match(fn[0], /<span class="arrow"[^>]*>→<\/span>/);
+    assert.match(fn[0], /<p class="lede">\$\{s\.card_count\} thẻ<\/p>/);
+    // Negative: no 📂 emoji + no .mode-card__badge (manual stacks are
+    // identified by the ABSENCE of the "Tự động" badge).
+    assert.ok(!/📂/.test(fn[0]), 'manualCard() must drop the 📂 emoji (Sprint 9.3 Lucide migration)');
+    assert.ok(
+      !/mode-card__badge/.test(fn[0]),
+      'manualCard() must NOT emit .mode-card__badge — manual stacks are unbadged by design',
+    );
+  });
+
+  test('legacy .stack-icon / .stack-name / .stack-meta / .pill-* classes are gone from the module', () => {
+    for (const cls of ['stack-icon', 'stack-name', 'stack-meta', 'pill-auto', 'pill-manual']) {
+      assert.ok(
+        !new RegExp(`class="[^"]*\\b${cls}\\b`).test(src),
+        `Sprint 9.3 retired class="${cls}" from flashcards.js — canonical .mode-card inner skeleton owns this slot`,
+      );
+    }
+  });
+
+  test('setFcContainerHtml re-hydrates Lucide icons after innerHTML swap', () => {
+    const fn = src.match(/function\s+setFcContainerHtml\s*\([^)]*\)\s*\{[\s\S]+?\n\s{2}\}/);
+    assert.ok(fn, 'setFcContainerHtml() must be extractable');
+    assert.match(fn[0], /window\.lucide\.createIcons\(\)/);
+  });
+});
+
+
+describe('Sprint 9.3 — .mode-card__badge primitive lives in components.css', () => {
+  let componentsCSS;
+  let flashcardsCSS;
+  before(() => {
+    componentsCSS = readFileSync(path.join(REPO_ROOT, 'frontend/css/aver-design/components.css'), 'utf8');
+    flashcardsCSS = readFileSync(path.join(REPO_ROOT, 'frontend/css/flashcards.css'), 'utf8');
+  });
+
+  test('.mode-card__badge rule declared with --av-info family styling', () => {
+    const block = componentsCSS.match(/\.mode-card__badge\s*\{([\s\S]+?)\}/);
+    assert.ok(block, 'components.css must declare .mode-card__badge');
+    assert.match(block[1], /background:\s*var\(--av-info-soft\)/);
+    assert.match(block[1], /color:\s*var\(--av-info\)/);
+    assert.match(block[1], /border-radius:\s*var\(--av-radius-pill\)/);
+  });
+
+  test('.mode-card h3 keeps display:flex (Sprint 9.1) and gains flex-wrap:wrap (Sprint 9.3)', () => {
+    // .mode-card h3 spans two blocks now (Sprint 9.1 base + 9.3 flex-wrap)
+    assert.match(componentsCSS, /\.mode-card\s+h3\s*\{[\s\S]+?display:\s*flex/);
+    assert.match(componentsCSS, /\.mode-card\s+h3\s*\{\s*flex-wrap:\s*wrap/);
+  });
+
+  test('flashcards.css no longer declares the legacy stack inner classes', () => {
+    for (const cls of ['.stack-icon', '.stack-name', '.stack-meta', '.pill-auto', '.pill-manual']) {
+      const re = new RegExp(`^\\${cls}\\s*[\\s,{:]`, 'm');
+      assert.ok(
+        !re.test(flashcardsCSS),
+        `flashcards.css must NOT redeclare ${cls} — Sprint 9.3 retired it in favor of the canonical .mode-card skeleton`,
+      );
+    }
+  });
+
+  test('flashcards.css keeps .delete-btn (manual-stack-specific overlay)', () => {
+    // The delete-btn remains a flashcards-specific concern (no other
+    // mode-card surface needs a hover-revealed removal control).
+    assert.match(flashcardsCSS, /^\.delete-btn\s*\{/m);
+  });
+});

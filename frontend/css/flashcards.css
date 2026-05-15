@@ -44,45 +44,15 @@
 
 /* ── Stack cards ─────────────────────────────────────────────────── */
 
-/* Sprint 9.1 — `.stack-card` outer frame (and its :hover + .disabled
-   variants) retired. The shared `.mode-card` primitive in
-   components.css now owns the outer frame; stack-specific inner
-   classes (.stack-icon / .stack-name / .stack-meta / .pill-auto /
-   .pill-manual / .delete-btn) stay below. */
-
-.stack-icon { font-size: 28px; }
-.stack-name {
-  font-size: 15px;
-  font-weight: var(--av-fw-semibold);
-  color: var(--av-text-primary);
-  margin-top: var(--av-space-2);
-}
-.stack-meta {
-  font-size: 12px;
-  color: var(--av-text-muted);
-  margin-top: var(--av-space-1);
-}
-
-.pill-auto,
-.pill-manual {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: var(--av-fw-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px var(--av-space-2);
-  border-radius: var(--av-radius-pill);
-}
-.pill-auto {
-  background: var(--av-info-soft);
-  color: var(--av-info);
-  border: 1px solid var(--av-info);
-}
-.pill-manual {
-  background: var(--av-primary-soft);
-  color: var(--av-primary);
-  border: 1px solid var(--av-primary);
-}
+/* Sprint 9.1 — `.stack-card` outer frame retired (consumed by the
+   shared `.mode-card` primitive in components.css).
+   Sprint 9.3 — the stack-specific inner classes (.stack-icon /
+   .stack-name / .stack-meta / .pill-auto / .pill-manual) are also
+   retired: stacks now render the canonical .mode-card inner skeleton
+   (.head > .icon + .arrow, h3, .lede) plus the .mode-card__badge
+   inline tag (lifted to components.css) for the "Tự động" indicator.
+   Only the stack-specific `.delete-btn` (overlay button on manual
+   stacks for removal) stays here. */
 
 .delete-btn {
   position: absolute;
