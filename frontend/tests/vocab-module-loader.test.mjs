@@ -1159,13 +1159,17 @@ describe('Sprint 10.1.5 — needs-review.js module contract', () => {
   });
 
   test('Needs Review card layout ships original → suggestion + context + feedback + 2 actions', () => {
-    // Card markup is rendered dynamically via cardHtml(item). Pin the
-    // rendered class skeleton + the action-button data-action values.
-    assert.match(src, /class="nr-card"/);
-    assert.match(src, /class="nr-card__original"/);
-    assert.match(src, /class="nr-card__suggestion"/);
-    assert.match(src, /class="nr-card__context"/);
-    assert.match(src, /class="nr-card__feedback"/);
+    // Sprint 10.4.1-hotfix — module emits the canonical .vocab-card
+    // family (declared in my-vocabulary.css) rather than bespoke
+    // .nr-card* primitives. Pin the new class skeleton + the action-
+    // button data-action values.
+    assert.match(src, /class="vocab-card"/);
+    assert.match(src, /class="source-badge badge-needs_review"/);
+    assert.match(src, /class="vocab-action vocab-action--fixed"/);
+    assert.match(src, /class="vocab-action vocab-action--skip"/);
+    // Original (strikethrough) + suggestion arrow pattern still pinned.
+    assert.match(src, /<s>\$\{esc\(original\)\}<\/s>/);
+    assert.match(src, /data-lucide="arrow-right"/);
     assert.match(src, /data-action="mark-fixed"/);
     assert.match(src, /data-action="dismiss"/);
   });

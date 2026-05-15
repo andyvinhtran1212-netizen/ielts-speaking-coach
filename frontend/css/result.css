@@ -409,8 +409,8 @@ body.av-page .btn-secondary:hover {
 .pending-panel {
   margin-top: 24px; padding: 20px;
   border-radius: 14px;
-  background: var(--av-surface-card, rgba(255,255,255,0.04));
-  border: 1px solid var(--av-border-subtle, rgba(255,255,255,0.08));
+  background: var(--av-surface-sunken, rgba(255,255,255,0.04));
+  border: 1px solid var(--av-border-default, rgba(255,255,255,0.12));
 }
 .pending-panel__head { margin-bottom: 14px; }
 .pending-panel__title {
@@ -437,8 +437,8 @@ body.av-page .btn-secondary:hover {
 
 .pending-card {
   padding: 14px 16px; border-radius: 10px;
-  background: var(--av-surface-elevated, rgba(255,255,255,0.06));
-  border: 1px solid var(--av-border-subtle, rgba(255,255,255,0.08));
+  background: var(--av-surface-card, rgba(255,255,255,0.06));
+  border: 1px solid var(--av-border-default, rgba(255,255,255,0.12));
   transition: opacity 0.2s, transform 0.2s;
 }
 .pending-card--leaving { opacity: 0; transform: translateX(8px); pointer-events: none; }
@@ -471,11 +471,11 @@ body.av-page .btn-secondary:hover {
 }
 .pending-card__btn--keep:hover { background: rgba(20,184,166,0.26); }
 .pending-card__btn--drop {
-  background: var(--av-surface-elevated, rgba(255,255,255,0.06));
-  border-color: var(--av-border-subtle, rgba(255,255,255,0.12));
-  color: var(--av-text-muted, rgba(255,255,255,0.7));
+  background: transparent;
+  border-color: var(--av-border-default, rgba(255,255,255,0.12));
+  color: var(--av-text-secondary, rgba(255,255,255,0.7));
 }
-.pending-card__btn--drop:hover { background: rgba(255,255,255,0.10); }
+.pending-card__btn--drop:hover { background: var(--av-surface-sunken, rgba(255,255,255,0.06)); }
 
 .pending-panel__notice {
   margin-top: 14px; font-size: 12px; opacity: 0.6;

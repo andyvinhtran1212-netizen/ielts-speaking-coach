@@ -150,6 +150,12 @@ export async function mount(container, opts = {}) {
   }
 
   // ── Render ──────────────────────────────────────────────────────
+  // Sprint 10.4.1-hotfix — adopt canonical .vocab-card family declared
+  // in my-vocabulary.css (Sprint 9.1/9.3) so this surface is visually
+  // identical to the my-vocab tab's needs_review rows. No bespoke
+  // .nr-card* CSS — primitives reused: .vocab-card, .source-badge +
+  // .badge-needs_review, .vocab-action--fixed / --skip / --source,
+  // .mv-context, .mv-reason.
   function cardHtml(item) {
     // For a needs_review item, `headword` is the corrected/suggested
     // form Claude returned. `original_word` (if present) was the
@@ -162,46 +168,47 @@ export async function mount(container, opts = {}) {
     const showArrow = original && suggested && original !== suggested;
 
     const headerHtml = showArrow
-      ? `
-        <span class="nr-card__original">${esc(original)}</span>
-        <i data-lucide="arrow-right" aria-hidden="true"></i>
-        <span class="nr-card__suggestion">${esc(suggested)}</span>
-      `
-      : `<span class="nr-card__suggestion">${esc(suggested)}</span>`;
+      ? `<span class="mv-context"><s>${esc(original)}</s></span>
+         <i data-lucide="arrow-right" aria-hidden="true"></i>
+         <span class="font-semibold text-base">${esc(suggested)}</span>`
+      : `<span class="font-semibold text-base">${esc(suggested)}</span>`;
 
     const contextHtml = item.context_sentence
-      ? `<p class="nr-card__context">"${esc(item.context_sentence)}"</p>`
+      ? `<p class="text-xs italic mt-2 mb-1 mv-context">"${esc(item.context_sentence)}"</p>`
       : '';
 
     const reasonHtml = item.reason
-      ? `<p class="nr-card__feedback">${esc(item.reason)}</p>`
+      ? `<p class="text-xs mt-1 mv-reason">${esc(item.reason)}</p>`
       : '';
 
-    const sourceHtml = item.session_id
+    const sourceLink = item.session_id
       ? `<a href="/pages/result.html?id=${esc(item.session_id)}"
-            class="nr-card__source"
+            class="vocab-action vocab-action--source"
             title="Xem buổi luyện tập">↗ nguồn</a>`
       : '';
 
     return `
-      <article class="nr-card" data-vocab-id="${esc(item.id)}">
-        <div class="nr-card__header">
-          ${headerHtml}
-          ${sourceHtml}
+      <div class="vocab-card" data-vocab-id="${esc(item.id)}">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            ${headerHtml}
+            <span class="source-badge badge-needs_review">Cần xem lại ⚠</span>
+          </div>
         </div>
         ${contextHtml}
         ${reasonHtml}
-        <div class="nr-card__actions">
-          <button class="nr-card__btn nr-card__btn--fix"
+        <div class="flex items-center flex-wrap gap-x-3 gap-y-2 mt-3">
+          ${sourceLink}
+          <button class="vocab-action vocab-action--fixed"
                   data-action="mark-fixed" data-vocab-id="${esc(item.id)}">
-            ✓ Đã sửa, đưa lên flashcard
+            ✏️ Đã sửa, đưa lên flashcard
           </button>
-          <button class="nr-card__btn nr-card__btn--dismiss"
+          <button class="vocab-action vocab-action--skip"
                   data-action="dismiss" data-vocab-id="${esc(item.id)}">
-            🗑 Bỏ qua
+            🗑️ Bỏ qua
           </button>
         </div>
-      </article>
+      </div>
     `;
   }
 
