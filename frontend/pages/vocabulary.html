@@ -67,6 +67,7 @@
   <link rel="stylesheet" href="/css/my-vocabulary.css" />
   <link rel="stylesheet" href="/css/flashcards.css" />
   <link rel="stylesheet" href="/css/exercises.css" />
+  <link rel="stylesheet" href="/css/needs-review.css" />
 
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
        as Sprint 6.7+ functional microcopy). -->
@@ -152,6 +153,14 @@
           <h3>Exercises</h3>
           <p class="lede">Luyện tập đa dạng dạng bài.</p>
         </a>
+        <a href="#" class="mode-card" data-mode="needs-review" aria-label="Mở Needs Review">
+          <div class="head">
+            <div class="icon"><i data-lucide="alert-circle"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Needs Review</h3>
+          <p class="lede">Từ vựng và cách diễn đạt cần xem lại.</p>
+        </a>
         <a href="#" class="mode-card" data-mode="topic-bank" aria-label="Mở Topic Bank">
           <div class="head">
             <div class="icon"><i data-lucide="landmark"></i></div>
@@ -207,6 +216,18 @@
            Sprint 7.6 retires embedded-mode.css + the legacy iframe
            branch in activateTab(). -->
       <div class="tab-mount" id="mount-exercises"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="needs-review" id="panel-needs-review"
+             role="tabpanel" aria-labelledby="modes-heading" hidden>
+      <!-- Sprint 10.1.5 — Needs Review tab. vocab-landing.js dynamic-imports
+           /js/vocab-modules/needs-review.js and mounts it here. Same module
+           contract as my-vocab / flashcards / exercises (Phase B Q2 — same
+           lazy-loader + idempotency guard). Surface shows items where Claude
+           flagged a misuse or non-standard collocation, with the AI's
+           suggestion attached, so the learner can fix-then-promote or
+           dismiss. Re-enabled in Sprint 10.1.5 after Sprint 6.0 archival. -->
+      <div class="tab-mount" id="mount-needs-review"></div>
     </section>
 
     <section class="tab-panel" data-panel="topic-bank" id="panel-topic-bank"
