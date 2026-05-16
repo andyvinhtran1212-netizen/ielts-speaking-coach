@@ -37,6 +37,7 @@
  */
 
 import { guardMount, redirectToLogin } from './_loader.js';
+import { renderSourceLink } from './_source-link.js';
 
 
 // Sprint 9.2 — back-link returns to parent Vocabulary dashboard.
@@ -181,11 +182,8 @@ export async function mount(container, opts = {}) {
       ? `<p class="text-xs mt-1 mv-reason">${esc(item.reason)}</p>`
       : '';
 
-    const sourceLink = item.session_id
-      ? `<a href="/pages/result.html?id=${esc(item.session_id)}"
-            class="vocab-action vocab-action--source"
-            title="Xem buổi luyện tập">↗ nguồn</a>`
-      : '';
+    // Sprint 10.8 — shared renderSourceLink helper.
+    const sourceLink = renderSourceLink(item);
 
     return `
       <div class="vocab-card" data-vocab-id="${esc(item.id)}">

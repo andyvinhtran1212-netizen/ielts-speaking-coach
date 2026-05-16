@@ -32,6 +32,8 @@
  * twice on the same container short-circuits the second call.
  */
 
+import { renderSourceLink } from './vocab-modules/_source-link.js';
+
 const _BASE = (typeof window !== 'undefined' && window.api && window.api.base)
   ? window.api.base
   : '';
@@ -63,6 +65,13 @@ function cardHtml(item) {
   const reason = item.reason
     ? `<p class="pending-card__reason">${esc(item.reason)}</p>`
     : '';
+  // Sprint 10.8 — source link points back to the speaking session
+  // that captured this item. For pending rows shown on result.html
+  // the link is typically self-referential (the row was captured in
+  // the session the user is currently viewing); rendering it anyway
+  // keeps surfaces consistent and covers the rarer case of a user
+  // landing on a stale result page via history.
+  const sourceLink = renderSourceLink(item);
   return `
     <div class="pending-card" data-pending-id="${esc(item.id)}">
       <div class="pending-card__head">
@@ -72,6 +81,7 @@ function cardHtml(item) {
       ${context}
       ${reason}
       <div class="pending-card__actions">
+        ${sourceLink}
         <button class="pending-card__btn pending-card__btn--keep"
                 data-action="keep" data-id="${esc(item.id)}">Giữ</button>
         <button class="pending-card__btn pending-card__btn--drop"
