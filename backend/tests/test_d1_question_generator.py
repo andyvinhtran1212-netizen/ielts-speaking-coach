@@ -94,7 +94,7 @@ def test_haiku_happy_path(monkeypatch):
         "id": "v1",
         "headword": "serendipity",
         "definition_en": "the occurrence of pleasant events by chance",
-        "part_of_speech": "noun",
+        "pos": "noun",
         "evidence_substring": "There was real serendipity in how we met.",
     }
     out = dqg.generate_d1_question(vocab_row)

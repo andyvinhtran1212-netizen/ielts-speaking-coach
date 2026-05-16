@@ -359,7 +359,7 @@ def _run_d1_generation_for_vocab(vocab_id: str) -> None:
             supabase_admin.table("user_vocabulary")
             .select(
                 "id, user_id, headword, lemma, surface_form, "
-                "definition_en, definition_vi, part_of_speech, "
+                "definition_en, definition_vi, pos, "
                 "context_sentence, evidence_substring, is_archived, is_pending"
             )
             .eq("id", vocab_id)

@@ -82,7 +82,7 @@ def _alive_row(id_: str, headword: str = "wonder") -> dict:
         "surface_form": headword,
         "definition_en": f"definition of {headword}",
         "definition_vi": "",
-        "part_of_speech": "noun",
+        "pos": "noun",
         "context_sentence": f"I feel {headword} every day.",
         "evidence_substring": f"I feel {headword} every day.",
         "is_archived": False, "is_pending": False,
@@ -164,6 +164,44 @@ def test_backfill_idempotent_on_second_run(caplog):
     # No new inserts either.
     new_inserts = [row for table, row in client.inserts if table == "user_d1_questions"]
     assert new_inserts == []
+
+
+def test_backfill_select_uses_canonical_pos_column_name():
+    """Sprint 10.5 Phase 1-hotfix regression pin. Sprint 10.1 migration
+    049 added column `pos` (short, spaCy convention) to user_vocabulary;
+    Sprint 10.5 Phase 1 code initially referenced the non-existent
+    `part_of_speech` column → backfill errored on first run with
+    Postgres 42703. Pin the canonical name in both the backfill SELECT
+    and the helper SELECT in routers/vocabulary_bank so a future PR
+    that re-introduces `part_of_speech` trips here.
+
+    Mirrors test alignment with migration 049 (single source of truth
+    for column names lives in the migration file)."""
+    from pathlib import Path
+
+    backend_root = Path(__file__).resolve().parents[1]
+    backfill_src = (backend_root / "scripts" / "backfill_d1_questions.py").read_text()
+    confirm_hook_src = (backend_root / "routers" / "vocabulary_bank.py").read_text()
+    generator_src = (backend_root / "services" / "d1_question_generator.py").read_text()
+
+    # The user_vocabulary table has no `part_of_speech` column (migration
+    # 049 added `pos` instead). All three Sprint 10.5 sites that touch
+    # user_vocabulary must reference `pos`.
+    for label, src in [
+        ("scripts/backfill_d1_questions.py",      backfill_src),
+        ("routers/vocabulary_bank.py",            confirm_hook_src),
+        ("services/d1_question_generator.py",     generator_src),
+    ]:
+        assert "part_of_speech" not in src, (
+            f"{label} references non-existent column `part_of_speech` "
+            f"on user_vocabulary — use `pos` (migration 049)."
+        )
+
+    # Positive pin: the canonical name appears at least once in each
+    # SELECT-using site so a future column rename doesn't silently drop
+    # POS from the AI prompt.
+    assert "pos" in backfill_src.lower(), "backfill must SELECT pos"
+    assert "pos" in confirm_hook_src.lower(), "confirm hook must SELECT pos"
 
 
 def test_backfill_continues_after_generator_returns_none(caplog):

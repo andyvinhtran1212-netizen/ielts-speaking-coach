@@ -81,7 +81,7 @@ def generate_d1_question(vocab_row: dict) -> dict | None:
     Args:
         vocab_row: a dict with at least `id`, `headword`. Optional:
             `lemma`, `surface_form`, `definition_en`, `definition_vi`,
-            `part_of_speech`, `context_sentence`, `evidence_substring`.
+            `pos`, `context_sentence`, `evidence_substring`.
 
     Returns:
         Validated dict ready for INSERT, or None if every generation
@@ -133,7 +133,7 @@ def _build_user_prompt(vocab_row: dict) -> str:
     headword = (vocab_row.get("headword") or "").strip()
     definition = (vocab_row.get("definition_en")
                   or vocab_row.get("definition_vi") or "").strip()
-    pos = (vocab_row.get("part_of_speech") or "").strip()
+    pos = (vocab_row.get("pos") or "").strip()
     evidence = (vocab_row.get("evidence_substring")
                 or vocab_row.get("context_sentence") or "").strip()
 
