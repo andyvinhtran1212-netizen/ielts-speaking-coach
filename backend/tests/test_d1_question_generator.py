@@ -82,10 +82,14 @@ def _block_gemini(monkeypatch):
 
 def test_haiku_happy_path(monkeypatch):
     """Haiku returns a clean JSON → validated payload with blank
-    positions computed from the first 'serendipity' in the sentence."""
+    positions computed from the first 'serendipity' in the sentence.
+
+    Sprint 10.5 Phase 2 — payload now also includes distractors and
+    the validated output carries a 4-element pre-shuffled options[]."""
     _patch_anthropic(monkeypatch, texts=[json.dumps({
         "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
         "target_answer":    "serendipity",
+        "distractors": ["misfortune", "obligation", "routine"],
         "acceptable_variants": ["serendipities"],
         "hint": "happy coincidence",
     })])
@@ -109,6 +113,16 @@ def test_haiku_happy_path(monkeypatch):
     assert out["acceptable_variants"] == ["serendipities"]
     assert out["hint"] == "happy coincidence"
     assert out["source_evidence_substring"] == "There was real serendipity in how we met."
+    # Phase 2 — options is a 4-element list containing target + all 3 distractors.
+    assert isinstance(out["options"], list) and len(out["options"]) == 4
+    assert set(out["options"]) == {"serendipity", "misfortune", "obligation", "routine"}
+    # Pre-shuffled deterministically — same headword seed must produce
+    # the same order on every call to _shuffled_options. Re-derives via
+    # the helper to keep the test independent of the fake AI client.
+    expected_shuffle = dqg._shuffled_options(
+        "serendipity", ["misfortune", "obligation", "routine"], seed="serendipity",
+    )
+    assert out["options"] == expected_shuffle
 
 
 def test_validation_rejects_target_missing_from_sentence(monkeypatch):
@@ -156,6 +170,7 @@ def test_acceptable_variants_normalized(monkeypatch):
     _patch_anthropic(monkeypatch, texts=[json.dumps({
         "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
         "target_answer":    "serendipity",
+        "distractors": ["misfortune", "obligation", "routine"],
         "acceptable_variants": ["Serendipities", "SERENDIPITIES", "serendipity", "happy chance"],
         "hint": "x",
     })])
@@ -227,6 +242,108 @@ def test_haiku_invalid_json_falls_through(monkeypatch):
     assert out["generated_by"] == "fallback_evidence"
 
 
+# ── Sprint 10.5 Phase 2 — MCQ contracts ──────────────────────────────
+
+
+def test_phase2_distractors_missing_falls_through(monkeypatch):
+    """Sprint 10.5 Phase 2 — Haiku payload without `distractors` key
+    fails validation; with Gemini also blocked, falls through to the
+    evidence fallback which produces options=[]."""
+    _patch_anthropic(monkeypatch, texts=[json.dumps({
+        "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
+        "target_answer":    "serendipity",
+        "acceptable_variants": [],
+        "hint": "x",
+        # NO distractors field — Phase 2 validation should reject this.
+    })])
+    _block_gemini(monkeypatch)
+
+    out = dqg.generate_d1_question({
+        "id": "v1", "headword": "serendipity",
+        "evidence_substring": "There was real serendipity in our meeting.",
+    })
+    assert out is not None
+    assert out["generated_by"] == "fallback_evidence"
+    # Evidence fallback intentionally leaves options=[] for the
+    # Phase 2 backfill (backfill_d1_questions_mcq.py) to fill later.
+    assert out["options"] == []
+
+
+def test_phase2_distractors_wrong_count_rejected(monkeypatch):
+    """Distractors with !=3 entries → reject. AI is supposed to return
+    exactly 3 distractors per the system prompt; anything else means
+    the model went off-spec."""
+    _patch_anthropic(monkeypatch, texts=[json.dumps({
+        "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
+        "target_answer":    "serendipity",
+        "distractors": ["misfortune", "obligation"],   # only 2
+        "acceptable_variants": [],
+        "hint": "x",
+    })])
+    _block_gemini(monkeypatch)
+
+    out = dqg.generate_d1_question({"id": "v1", "headword": "serendipity"})
+    # No evidence → all paths fail.
+    assert out is None
+
+
+def test_phase2_distractor_equal_to_target_rejected(monkeypatch):
+    """A distractor that equals the target word (case-insensitive) is
+    a model error — reject the whole payload."""
+    _patch_anthropic(monkeypatch, texts=[json.dumps({
+        "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
+        "target_answer":    "serendipity",
+        "distractors": ["misfortune", "Serendipity", "obligation"],  # 2nd == target
+        "acceptable_variants": [],
+        "hint": "x",
+    })])
+    _block_gemini(monkeypatch)
+    out = dqg.generate_d1_question({"id": "v1", "headword": "serendipity"})
+    assert out is None
+
+
+def test_phase2_duplicate_distractors_rejected(monkeypatch):
+    """Two distractors equal to each other (case-insensitive) — reject."""
+    _patch_anthropic(monkeypatch, texts=[json.dumps({
+        "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
+        "target_answer":    "serendipity",
+        "distractors": ["misfortune", "MISFORTUNE", "obligation"],   # dup
+        "acceptable_variants": [],
+        "hint": "x",
+    })])
+    _block_gemini(monkeypatch)
+    out = dqg.generate_d1_question({"id": "v1", "headword": "serendipity"})
+    assert out is None
+
+
+def test_phase2_evidence_fallback_options_empty(monkeypatch):
+    """Evidence fallback path always returns options=[] — the Phase 2
+    backfill script handles the distractor generation in a separate
+    pass."""
+    _patch_anthropic(monkeypatch, errors=[RuntimeError("haiku down")])
+    _block_gemini(monkeypatch)
+
+    out = dqg.generate_d1_question({
+        "id": "v1",
+        "headword": "ubiquitous",
+        "evidence_substring": "Smartphones are ubiquitous in modern life.",
+    })
+    assert out is not None
+    assert out["generated_by"] == "fallback_evidence"
+    assert out["options"] == []
+
+
+def test_shuffled_options_deterministic_by_seed():
+    """Sprint 10.5 Phase 2 — same seed = same order. Different seeds
+    may produce different orders (the actual order is a property of
+    Random's PRNG; we don't pin specific values, just stability)."""
+    a = dqg._shuffled_options("alpha", ["beta", "gamma", "delta"], seed="alpha")
+    b = dqg._shuffled_options("alpha", ["beta", "gamma", "delta"], seed="alpha")
+    assert a == b
+    # Sanity: target is in the result.
+    assert "alpha" in a and len(a) == 4 and len(set(a)) == 4
+
+
 def test_haiku_strips_markdown_fences(monkeypatch):
     """Models sometimes wrap JSON in ```json … ``` fences despite the
     system prompt asking for strict JSON. The strip helper must
@@ -234,6 +351,7 @@ def test_haiku_strips_markdown_fences(monkeypatch):
     raw = "```json\n" + json.dumps({
         "context_sentence": "She gained a unique perspective from her travels abroad recently.",
         "target_answer":    "perspective",
+        "distractors": ["resolution", "barrier", "outcome"],
         "acceptable_variants": [],
         "hint": "viewpoint",
     }) + "\n```"

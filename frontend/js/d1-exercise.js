@@ -163,10 +163,20 @@
     const pctFill = ((current - 1) / total) * 100;
     const isLast  = current === total;
 
+    // Sprint 10.5 Phase 2 — source label distinguishes a personalized
+    // question (from the user's vocab bank) from an admin-pool fallback.
+    // Missing source on legacy payloads falls through to no label.
+    const sourceLabel = ex.source === 'personalized'
+      ? '<span class="d1-source-label d1-source-label--personalized">Từ vốn từ của bạn</span>'
+      : ex.source === 'admin_fallback'
+        ? '<span class="d1-source-label d1-source-label--admin">Bài luyện tập chung</span>'
+        : '';
+
     _setHtml(`
       <div class="exercise-active">
         <div class="progress-header">
           <div class="progress-text">Câu ${current} / ${total}${_session.is_review ? ' (ôn tập)' : ''}</div>
+          ${sourceLabel}
           <div class="progress-bar"><div class="progress-fill" style="width:${pctFill}%"></div></div>
         </div>
 

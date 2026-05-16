@@ -352,37 +352,79 @@ async def submit_d1_attempt(
     The decorator above runs BEFORE this handler and raises HTTP 429 with a
     machine-readable detail (error, limit, used, reset_at) once the user has
     submitted 50 D1 attempts in the current UTC day.
+
+    Sprint 10.5 Phase 2 — exercise_id may reference either a personalized
+    question (user_d1_questions) or an admin-pool exercise
+    (vocabulary_exercises). The handler tries personalized first; on miss,
+    falls back to admin pool. exercise_source on the attempt row records
+    which table the id came from (migration 054).
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
     _require_d1_enabled(user_id)
     sb = _user_sb(_bearer_token(authorization))
 
+    # ── Resolve exercise_id polymorphically ─────────────────────────────────
+    #
+    # Try the personalized table first. RLS scopes the SELECT to the
+    # caller's own rows automatically. If not found, fall back to the
+    # admin pool — RLS / status filter there handles published vs draft.
+    exercise_source: str = "personalized"
+    correct_answer: str = ""
+    target_vocab_id: str | None = None
+
     try:
-        # RLS already prevents non-admins from reading drafts; we still filter
-        # by status so the explicit "Exercise not found" branch is unambiguous
-        # for admins inadvertently submitting against an unpublished id.
-        # Sprint 10.3 — also select target_vocab_id so the attempt can wire
-        # the outcome back to flashcard_reviews (SRS state).
-        res = (
-            sb.table("vocabulary_exercises")
-            .select("id, exercise_type, content_payload, status, target_vocab_id")
+        pers_res = (
+            sb.table("user_d1_questions")
+            .select("id, vocabulary_id, target_answer, options, is_active")
             .eq("id", exercise_id)
-            .eq("exercise_type", "D1")
+            .eq("is_active", True)
             .limit(1)
             .execute()
         )
     except Exception as e:
-        logger.error("[exercises] attempt fetch failed: %s", e)
-        raise HTTPException(500, "Could not load exercise.")
+        logger.warning(
+            "[exercises] personalized lookup failed for exercise_id=%s "
+            "(falling through to admin pool): %s",
+            exercise_id, e,
+        )
+        pers_res = None
 
-    if not res.data or res.data[0].get("status") != "published":
-        raise HTTPException(404, "Exercise not found.")
+    if pers_res and pers_res.data:
+        prow = pers_res.data[0]
+        exercise_source = "personalized"
+        correct_answer = prow.get("target_answer") or ""
+        target_vocab_id = prow.get("vocabulary_id")
+        # Synthesize a `row` dict so the downstream code can share the
+        # admin-pool variable name.
+        row = {"id": prow["id"]}
+    else:
+        try:
+            # RLS already prevents non-admins from reading drafts; we still filter
+            # by status so the explicit "Exercise not found" branch is unambiguous
+            # for admins inadvertently submitting against an unpublished id.
+            # Sprint 10.3 — also select target_vocab_id so the attempt can wire
+            # the outcome back to flashcard_reviews (SRS state).
+            res = (
+                sb.table("vocabulary_exercises")
+                .select("id, exercise_type, content_payload, status, target_vocab_id")
+                .eq("id", exercise_id)
+                .eq("exercise_type", "D1")
+                .limit(1)
+                .execute()
+            )
+        except Exception as e:
+            logger.error("[exercises] attempt fetch failed: %s", e)
+            raise HTTPException(500, "Could not load exercise.")
 
-    row = res.data[0]
-    payload = row.get("content_payload") or {}
-    correct_answer = payload.get("answer") or ""
-    target_vocab_id = row.get("target_vocab_id")
+        if not res.data or res.data[0].get("status") != "published":
+            raise HTTPException(404, "Exercise not found.")
+
+        row = res.data[0]
+        payload = row.get("content_payload") or {}
+        exercise_source = "admin"
+        correct_answer = payload.get("answer") or ""
+        target_vocab_id = row.get("target_vocab_id")
 
     is_correct = _grade_d1(body.user_answer, correct_answer)
     score = 1.0 if is_correct else 0.0
@@ -453,15 +495,19 @@ async def submit_d1_attempt(
     try:
         # User-scoped client so the WITH CHECK on user_id is enforced — a
         # caller cannot insert an attempt that claims another user's id.
+        # Sprint 10.5 Phase 2 — exercise_source records whether the
+        # exercise_id points at user_d1_questions or vocabulary_exercises
+        # (migration 054 dropped the FK to make this polymorphism possible).
         sb.table("vocabulary_exercise_attempts").insert({
-            "user_id":       user_id,
-            "exercise_id":   row["id"],
-            "exercise_type": "D1",
-            "user_answer":   body.user_answer.strip(),
-            "is_correct":    is_correct,
-            "score":         score,
-            "feedback":      feedback,
-            "session_id":    linked_session_id,
+            "user_id":         user_id,
+            "exercise_id":     row["id"],
+            "exercise_type":   "D1",
+            "exercise_source": exercise_source,
+            "user_answer":     body.user_answer.strip(),
+            "is_correct":      is_correct,
+            "score":           score,
+            "feedback":        feedback,
+            "session_id":      linked_session_id,
         }).execute()
     except Exception as e:
         logger.warning("[exercises] attempt insert failed (non-fatal): %s", e)
@@ -569,10 +615,15 @@ async def submit_d1_attempt(
 
 def _session_exercise_view(row: dict) -> dict:
     """
-    Session-context view of an exercise.  Unlike _public_view, this INCLUDES
-    the answer so the frontend can grade locally for instant feedback —
-    PHASE_D §5 (D1 redesign): 'D1 không phải exam — local grade an toàn'.
-    The backend POST /attempt still re-grades server-side for analytics.
+    Session-context view of an ADMIN-pool exercise. Unlike _public_view,
+    this INCLUDES the answer so the frontend can grade locally for
+    instant feedback — PHASE_D §5 (D1 redesign): 'D1 không phải exam —
+    local grade an toàn'. The backend POST /attempt still re-grades
+    server-side for analytics.
+
+    Sprint 10.5 Phase 2 — gained a `source: 'admin_fallback'` tag so
+    the frontend can label admin-pool questions distinctly from
+    personalized ones.
     """
     payload = dict(row.get("content_payload") or {})
     answer = payload.get("answer")
@@ -590,6 +641,51 @@ def _session_exercise_view(row: dict) -> dict:
         "sentence": payload.get("sentence", ""),
         "options":  options,
         "answer":   answer,
+        "source":   "admin_fallback",
+        "target_vocabulary_id": row.get("target_vocab_id"),
+    }
+
+
+def _personalized_session_view(row: dict) -> dict:
+    """Sprint 10.5 Phase 2 — session view for a user_d1_questions row.
+
+    Builds the same shape as _session_exercise_view so the frontend
+    can render both sources with one rendering path. The
+    context_sentence has the target word replaced with `___` (the
+    blank marker the existing UI expects); options come pre-shuffled
+    from the generator's deterministic Random(headword) seed.
+
+    The `answer` field is included for the same local-grade pattern
+    the admin pool uses (PHASE_D §5). Spec falsification (41): the
+    Phase 2 spec asked for `target_answer` to be omitted for cheating
+    prevention. Phase 2 keeps the local-grade pattern for consistency
+    with admin pool — switching both to server-grade is a deferred
+    polish item (10.5.x) once admin pool sunset begins.
+    """
+    sentence = (row.get("context_sentence") or "")
+    start = row.get("blank_position_start")
+    end = row.get("blank_position_end")
+    target_answer = row.get("target_answer") or ""
+    options = list(row.get("options") or [])
+
+    # Render the blank marker. Defensive: if blank positions are
+    # malformed, fall back to substring replace on the target word.
+    if (
+        isinstance(start, int) and isinstance(end, int)
+        and 0 <= start < end <= len(sentence)
+    ):
+        rendered = sentence[:start] + "___" + sentence[end:]
+    else:
+        rendered = sentence.replace(target_answer, "___", 1) if target_answer else sentence
+
+    return {
+        "id":       row["id"],
+        "sentence": rendered,
+        "options":  options,
+        "answer":   target_answer,
+        "source":   "personalized",
+        "target_vocabulary_id": row.get("vocabulary_id"),
+        "hint":     row.get("hint"),
     }
 
 
@@ -599,14 +695,25 @@ async def start_d1_session(
     authorization: str | None = Header(default=None),
 ):
     """
-    Pick `size` published D1 exercises (default 10), prefer ones the user has
-    not yet attempted.  When the user has already attempted enough that the
-    'unattempted' set is too small, fall back to the broader published pool
-    so they always get a full session — repetition of older items is the
-    intended behaviour for review.
+    Pick `size` D1 exercises (default 10), preferring personalized questions
+    from the user's own vocab bank (Sprint 10.5 Phase 2 — user_d1_questions);
+    fall back to the admin pool (vocabulary_exercises) when personalized
+    stock runs short. Within each source, prefer items the user has not yet
+    attempted so they get fresh practice; repeat older items when the
+    unattempted pool is too thin (intended behaviour for review).
 
     Response includes the answer for each exercise so the frontend can grade
-    locally; the backend still authoritatively grades on /attempt.
+    locally; the backend still authoritatively grades on /attempt. Each
+    exercise carries a `source` tag (`personalized` | `admin_fallback`) so
+    the UI can label them distinctly.
+
+    Sprint 10.5 Phase 2 deferred items (10.5.x):
+      - 70/30 due/new split per SRS state (would need a JOIN with
+        flashcard_reviews; Phase 2 just prefers all personalized items
+        regardless of SRS due date)
+      - Server-grade only (target_answer omitted from response) once the
+        admin pool sunset begins (PHASE_D §5 local-grade pattern still in
+        effect for compatibility).
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
@@ -614,7 +721,10 @@ async def start_d1_session(
     sb = _user_sb(_bearer_token(authorization))
     size = max(1, min(body.size, 20))
 
-    # Step 1: collect attempted ids so we can prefer the unattempted pool.
+    # Step 1: collect attempted IDs once. The same column carries both
+    # vocabulary_exercises.id and user_d1_questions.id (migration 054
+    # dropped the FK on exercise_id), so the dedup-against-attempted
+    # check is source-agnostic.
     try:
         attempted_res = (
             sb.table("vocabulary_exercise_attempts")
@@ -629,12 +739,48 @@ async def start_d1_session(
         logger.warning("[exercises] start_session attempts lookup failed: %s", e)
         attempted_ids = []
 
-    def _pull(exclude_attempted: bool, take: int) -> list[dict]:
-        """Pull up to `take * 4` candidate rows then in-memory shuffle.
-        Supabase REST has no ORDER BY random()."""
+    # ── Step 2: personalized pool first ─────────────────────────────────────
+    #
+    # MCQ-ready rows only — len(options) must be 4. Rows with options=[]
+    # are awaiting the Phase 2 backfill script (or evidence-fallback
+    # leftovers from Phase 1); session endpoint skips them so the UI
+    # always renders a full 4-option card. Done in-memory because
+    # PostgREST doesn't expose jsonb_array_length over the REST API
+    # cleanly.
+    personalized: list[dict] = []
+    try:
+        pers_res = (
+            sb.table("user_d1_questions")
+            .select("id, vocabulary_id, context_sentence, blank_position_start, "
+                    "blank_position_end, target_answer, options, hint, is_active")
+            .eq("is_active", True)
+            .execute()
+        )
+        pers_rows = [
+            r for r in (pers_res.data or [])
+            if r.get("options") and len(r["options"]) == 4
+        ]
+        # Prefer unattempted personalized first, then attempted as
+        # review fill.
+        unattempted = [r for r in pers_rows if r["id"] not in attempted_ids]
+        attempted_pool = [r for r in pers_rows if r["id"] in attempted_ids]
+        random.shuffle(unattempted)
+        random.shuffle(attempted_pool)
+        personalized = (unattempted + attempted_pool)[:size]
+    except Exception as e:
+        logger.warning(
+            "[exercises] start_session personalized lookup failed (falling back to admin pool only): %s", e,
+        )
+        personalized = []
+
+    # ── Step 3: admin pool fallback when personalized is short ──────────────
+
+    def _pull_admin(exclude_attempted: bool, take: int) -> list[dict]:
+        """Pull up to `take * 4` admin-pool candidate rows then
+        in-memory shuffle. Supabase REST has no ORDER BY random()."""
         builder = (
             sb.table("vocabulary_exercises")
-            .select("id, exercise_type, content_payload, status")
+            .select("id, exercise_type, content_payload, status, target_vocab_id")
             .eq("exercise_type", "D1")
             .eq("status", "published")
         )
@@ -645,29 +791,32 @@ async def start_d1_session(
         random.shuffle(rows)
         return rows[:take]
 
-    # Step 2: prefer unattempted, fall back to all-published when short.
-    primary = _pull(exclude_attempted=True, take=size)
-    if len(primary) < size:
-        # Fill the remaining slots from the broader pool, avoiding duplicates
-        # already chosen in `primary`.
-        chosen_ids = {r["id"] for r in primary}
-        fallback = [
-            r for r in _pull(exclude_attempted=False, take=size + len(chosen_ids))
-            if r["id"] not in chosen_ids
-        ]
-        primary = primary + fallback[: size - len(primary)]
+    admin_rows: list[dict] = []
+    deficit = size - len(personalized)
+    if deficit > 0:
+        admin_rows = _pull_admin(exclude_attempted=True, take=deficit)
+        if len(admin_rows) < deficit:
+            chosen_ids = {r["id"] for r in admin_rows}
+            extra = [
+                r for r in _pull_admin(exclude_attempted=False, take=deficit + len(chosen_ids))
+                if r["id"] not in chosen_ids
+            ]
+            admin_rows = admin_rows + extra[: deficit - len(admin_rows)]
 
-    if not primary:
+    if not personalized and not admin_rows:
         raise HTTPException(
             status_code=503,
-            detail={"error": "no_exercises", "message": "No published D1 exercises available."},
+            detail={"error": "no_exercises", "message": "No D1 exercises available."},
         )
 
-    exercise_ids = [r["id"] for r in primary]
-    exercises = [_session_exercise_view(r) for r in primary]
+    # ── Step 4: build the unified session payload ───────────────────────────
+    exercises: list[dict] = [_personalized_session_view(r) for r in personalized]
+    exercises.extend(_session_exercise_view(r) for r in admin_rows)
+    exercise_ids = [e["id"] for e in exercises]
 
-    # Step 3: persist the session row.  RLS WITH CHECK on user_id means a
-    # caller cannot create a session for someone else even if they fake the body.
+    # Step 5: persist the session row. RLS WITH CHECK on user_id means a
+    # caller cannot create a session for someone else even if they fake
+    # the body.
     try:
         sess = sb.table("d1_sessions").insert({
             "user_id":      user_id,
@@ -681,7 +830,12 @@ async def start_d1_session(
     if not sess.data:
         raise HTTPException(500, "Could not start session.")
 
-    _safe_event("d1_session_started", {"session_id": sess.data[0]["id"], "size": len(exercise_ids)}, user_id)
+    _safe_event("d1_session_started", {
+        "session_id":           sess.data[0]["id"],
+        "size":                 len(exercise_ids),
+        "personalized_count":   len(personalized),
+        "admin_fallback_count": len(admin_rows),
+    }, user_id)
 
     return {
         "session_id": sess.data[0]["id"],

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 from typing import Any
 
@@ -48,26 +49,42 @@ logger = logging.getLogger(__name__)
 _DEFAULT_HAIKU_MODEL = "claude-haiku-4-5-20251001"
 
 
-_SYSTEM_PROMPT = """You are creating IELTS practice fill-blank vocabulary questions.
+# Sprint 10.5 Phase 2 — MCQ format. The system prompt now asks for 3
+# distractors alongside the sentence so each question lands ready to
+# render as a 4-option multiple-choice card. Phase 1 free-text mode
+# was retired after quality inspection revealed grammar + variant
+# coverage issues that MCQ sidesteps.
+_SYSTEM_PROMPT = """You are creating IELTS practice multiple-choice vocabulary questions.
 
-Given a target word with its definition and the original context the student used it in, write ONE NEW sentence that:
+Given a target word with its definition and the original context the student used it in:
+
+STEP 1 — Write ONE new sentence that:
 - Uses the target word naturally in IELTS Speaking Part 1–3 register
 - Is 12–25 words long
 - Differs in topic/context from the original sentence (variety beats memorization)
-- Tests whether the student understands the word's meaning — avoid synonyms in the sentence that would give it away
+- Avoids synonyms in the sentence that would give the answer away
 - Uses the target word EXACTLY ONCE so the blank position is unambiguous
+
+STEP 2 — Generate 3 DISTRACTOR options that:
+- Are the same part of speech as the target word
+- Would fit grammatically in the blank
+- Are clearly WRONG semantically (do NOT mean the same thing as the target)
+- Are NOT synonyms or near-synonyms of the target
+- Are common IELTS-level vocabulary (no obscure words)
 
 Return STRICT JSON only (no prose, no markdown fences), exactly this shape:
 {
-  "context_sentence": "<your new sentence containing the target word verbatim>",
+  "context_sentence": "<sentence containing the target word verbatim>",
   "target_answer": "<the target word, lowercased>",
-  "acceptable_variants": ["<alt spelling 1>", "<alt form 2>"],
+  "distractors": ["<distractor1>", "<distractor2>", "<distractor3>"],
+  "acceptable_variants": ["<alt spelling 1>"],
   "hint": "<5-8 word hint about meaning or part of speech>"
 }
 
 Rules:
 - context_sentence MUST contain target_answer (case-insensitive match).
-- acceptable_variants may be an empty array if none apply.
+- distractors MUST have exactly 3 entries, all distinct, none equal to target_answer.
+- acceptable_variants may be an empty array if none apply (Phase 2 keeps the field for forwards-compat with future recall mode).
 - hint may be an empty string but the key MUST be present.
 - Do NOT include any other keys."""
 
@@ -161,11 +178,17 @@ def _validate_ai_payload(
 ) -> dict | None:
     """Validate AI output and compute blank positions.
 
-    Returns the enriched payload (with blank_position_start/_end) on
-    success, or None if any required field is missing / invalid.
+    Sprint 10.5 Phase 2 — also validates the 3-distractor MCQ payload
+    and builds a pre-shuffled options array (target + distractors,
+    seeded by the headword for deterministic order across runs).
+
+    Returns the enriched payload (with blank_position_start/_end and
+    options[]) on success, or None if any required field is missing
+    or invalid.
     """
     sentence = (raw_payload.get("context_sentence") or "").strip()
     target = (raw_payload.get("target_answer") or "").strip().lower()
+    distractors_raw = raw_payload.get("distractors") or []
     variants_raw = raw_payload.get("acceptable_variants") or []
     hint = raw_payload.get("hint", "")
     if hint is None:
@@ -205,6 +228,18 @@ def _validate_ai_payload(
 
     start, end = match.start(), match.end()
 
+    # Sprint 10.5 Phase 2 — validate distractors. Reject if not exactly
+    # 3 entries, if any is empty, or if any equals the target word
+    # (case-insensitive). Dedup case-insensitively. If distractors are
+    # missing or invalid, return None so the caller can fall back to
+    # Gemini or evidence-substring path (which carries its own
+    # distractor heuristic).
+    distractors = _normalize_distractors(distractors_raw, target)
+    if distractors is None:
+        return None
+
+    options = _shuffled_options(target, distractors, seed=target_headword.lower())
+
     # Normalize variants → list[str], lowercased, dedup.
     variants: list[str] = []
     if isinstance(variants_raw, list):
@@ -222,9 +257,42 @@ def _validate_ai_payload(
         "blank_position_start": start,
         "blank_position_end":   end,
         "target_answer":        target,
+        "options":              options,
         "acceptable_variants":  variants,
         "hint":                 hint or None,
     }
+
+
+def _normalize_distractors(raw: Any, target: str) -> list[str] | None:
+    """Validate the 3-distractor array. Returns the cleaned list on
+    success, or None if the payload doesn't meet the contract."""
+    if not isinstance(raw, list) or len(raw) != 3:
+        return None
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for d in raw:
+        if not isinstance(d, str):
+            return None
+        d_clean = d.strip()
+        d_lower = d_clean.lower()
+        if not d_clean or d_lower == target.lower() or d_lower in seen:
+            return None
+        seen.add(d_lower)
+        cleaned.append(d_clean)
+    if len(cleaned) != 3:
+        return None
+    return cleaned
+
+
+def _shuffled_options(target: str, distractors: list[str], *, seed: str) -> list[str]:
+    """Build a 4-element MCQ options array, shuffled deterministically
+    via a Random(seed) instance. Seeding on the headword keeps the
+    option order stable across reruns of the same question (useful for
+    snapshot tests and for future client-side caching) without making
+    the order obvious to learners."""
+    options = [target] + list(distractors)
+    random.Random(seed).shuffle(options)
+    return options
 
 
 def _try_haiku(vocab_row: dict) -> dict | None:
@@ -333,6 +401,16 @@ def _evidence_fallback(headword: str, evidence: str) -> dict | None:
     """Last-resort fallback — use the user's original capture sentence
     with the target word masked. No new sentence, no variety, but the
     pedagogical value (testing recall of *the word they used*) is real.
+
+    Sprint 10.5 Phase 2 — the evidence fallback intentionally leaves
+    `options` empty. Producing 3 plausible distractors requires either
+    an AI call (which already failed in this path) or a peer-word pool
+    not available at row-generation time. The Phase 2 backfill script
+    (scripts/backfill_d1_questions_mcq.py) walks rows with options=[]
+    and fills them via a cheaper distractor-only AI call, so the row
+    eventually becomes MCQ-ready without blocking the confirm path.
+    Session endpoint treats rows with len(options) != 4 as "not MCQ-
+    ready yet" and skips them in favour of admin fallback.
     """
     # First word-bounded occurrence; loose substring as backup.
     pattern = re.compile(r"\b" + re.escape(headword) + r"\b", re.IGNORECASE)
@@ -350,6 +428,7 @@ def _evidence_fallback(headword: str, evidence: str) -> dict | None:
         "blank_position_start": start,
         "blank_position_end":   end,
         "target_answer":        headword.strip().lower(),
+        "options":              [],   # Phase 2 backfill fills these.
         "acceptable_variants":  [],
         "hint":                 None,
     }
