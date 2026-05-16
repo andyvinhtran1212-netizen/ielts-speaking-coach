@@ -124,6 +124,10 @@ def main() -> int:
                     "blank_position_start":      question["blank_position_start"],
                     "blank_position_end":        question["blank_position_end"],
                     "target_answer":             question["target_answer"],
+                    # Sprint 10.5 Phase 2 — MCQ options. Empty array
+                    # for evidence-fallback rows; the Phase 2 backfill
+                    # script (backfill_d1_questions_mcq.py) fills them.
+                    "options":                   question.get("options", []),
                     "acceptable_variants":       question["acceptable_variants"],
                     "hint":                      question["hint"],
                     "source_evidence_substring": question.get("source_evidence_substring"),

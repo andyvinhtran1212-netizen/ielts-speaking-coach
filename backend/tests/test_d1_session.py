@@ -268,6 +268,229 @@ def test_start_session_fallback_to_attempted(monkeypatch):
     assert len(out["exercises"]) == 5  # all from fallback
 
 
+# ── Sprint 10.5 Phase 2 — personalized + MCQ contracts ──────────────────────
+
+
+def _pq(idx: int, options: list[str] | None = None) -> dict:
+    """Build a user_d1_questions row matching the Phase 2 schema."""
+    target = f"target{idx}"
+    return {
+        "id":                   f"pq-{idx}",
+        "vocabulary_id":        f"vocab-{idx}",
+        "context_sentence":     f"The {target} matters in life.",
+        "blank_position_start": 4,
+        "blank_position_end":   4 + len(target),
+        "target_answer":        target,
+        "options":              list(options) if options is not None
+                                else [target, f"alt{idx}a", f"alt{idx}b", f"alt{idx}c"],
+        "hint":                 f"hint {idx}",
+        "is_active":            True,
+    }
+
+
+def test_session_prefers_personalized_questions(monkeypatch):
+    """Sprint 10.5 Phase 2 — when the user has MCQ-ready personalized
+    questions, the session payload draws from user_d1_questions before
+    falling back to the admin pool. Source tag distinguishes them."""
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+
+    store = {
+        "user_d1_questions":          [_pq(i) for i in range(5)],
+        "vocabulary_exercises":       [_exercise(i) for i in range(10)],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=5), authorization="Bearer x",
+    ))
+
+    assert len(out["exercises"]) == 5
+    # All 5 should be personalized — the bank has 5 MCQ-ready rows.
+    sources = {ex["source"] for ex in out["exercises"]}
+    assert sources == {"personalized"}, f"unexpected sources: {sources}"
+    # IDs all from user_d1_questions.
+    ids = {ex["id"] for ex in out["exercises"]}
+    assert ids == {f"pq-{i}" for i in range(5)}
+    # Each personalized exercise carries target_vocabulary_id (Sprint
+    # 10.3 SRS wire requirement).
+    for ex in out["exercises"]:
+        assert ex["target_vocabulary_id"] == f"vocab-{ex['id'].split('-')[1]}"
+        assert isinstance(ex["options"], list) and len(ex["options"]) == 4
+
+
+def test_session_admin_fallback_when_personalized_short(monkeypatch):
+    """Sprint 10.5 Phase 2 — only 2 MCQ-ready personalized rows, size=5
+    → fill remaining 3 from admin pool. Each exercise carries its source."""
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+
+    store = {
+        "user_d1_questions":          [_pq(0), _pq(1)],
+        "vocabulary_exercises":       [_exercise(i) for i in range(10)],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=5), authorization="Bearer x",
+    ))
+
+    assert len(out["exercises"]) == 5
+    sources = [ex["source"] for ex in out["exercises"]]
+    assert sources.count("personalized") == 2
+    assert sources.count("admin_fallback") == 3
+
+
+def test_session_skips_personalized_without_4_options(monkeypatch):
+    """Sprint 10.5 Phase 2 — rows with empty options or wrong count
+    are NOT yet MCQ-ready (awaiting backfill_d1_questions_mcq.py).
+    Session endpoint must skip them to avoid rendering a broken card."""
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+
+    store = {
+        "user_d1_questions": [
+            _pq(0, options=[]),                                    # not ready
+            _pq(1, options=["only", "two", "options"]),            # not ready
+            _pq(2),                                                # ready (4 default)
+        ],
+        "vocabulary_exercises":       [_exercise(i) for i in range(10)],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=3), authorization="Bearer x",
+    ))
+
+    # Only pq-2 is MCQ-ready; the other 2 slots get admin fallback.
+    personalized = [ex for ex in out["exercises"] if ex["source"] == "personalized"]
+    admin_fb = [ex for ex in out["exercises"] if ex["source"] == "admin_fallback"]
+    assert len(personalized) == 1
+    assert personalized[0]["id"] == "pq-2"
+    assert len(admin_fb) == 2
+
+
+def test_personalized_session_view_renders_blank_marker(monkeypatch):
+    """The personalized sentence sent to the client has the target
+    word replaced with `___` (the same blank marker the existing UI
+    expects from the admin pool path)."""
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+
+    store = {
+        "user_d1_questions":          [_pq(0)],
+        "vocabulary_exercises":       [],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=1), authorization="Bearer x",
+    ))
+
+    ex = out["exercises"][0]
+    assert "___" in ex["sentence"]
+    # Target word is replaced exactly once.
+    assert ex["sentence"].count("___") == 1
+    # target word no longer appears in the masked sentence.
+    assert "target0" not in ex["sentence"]
+
+
+def test_attempt_grades_personalized_question(monkeypatch):
+    """Sprint 10.5 Phase 2 — submit_d1_attempt resolves a
+    user_d1_questions.id (no admin pool row with that id exists),
+    grades against target_answer, records exercise_source='personalized'.
+
+    The Sprint 10.3 SRS upsert lives in tests/test_exercises_d1_srs.py
+    where the mock supports .upsert() — here we patch the helper so
+    this test focuses on the polymorphic dispatch contract."""
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    store = {
+        "user_d1_questions": [_pq(0)],
+        "vocabulary_exercises": [],
+        "vocabulary_exercise_attempts": [],
+        "user_vocabulary": [{
+            "id": "vocab-0", "user_id": USER_ID,
+            "is_archived": False, "is_pending": False,
+        }],
+        "flashcard_reviews": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    async def _fake_auth(_authorization): return {"id": USER_ID}
+    monkeypatch.setattr("routers.auth.get_supabase_user", _fake_auth)
+    srs_calls: list = []
+    def _fake_srs(_sb, _user, vocab_id, rating):
+        srs_calls.append((vocab_id, rating))
+        return True
+    monkeypatch.setattr(exr, "_apply_d1_srs_update", _fake_srs)
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="pq-0",
+        body=D1AttemptRequest(user_answer="target0"),  # correct
+        authorization="Bearer x",
+    ))
+
+    assert out["is_correct"] is True
+    assert out["correct_answer"] == "target0"
+    # Attempt row records the polymorphic source.
+    assert len(store["vocabulary_exercise_attempts"]) == 1
+    attempt = store["vocabulary_exercise_attempts"][0]
+    assert attempt["exercise_source"] == "personalized"
+    assert attempt["exercise_id"] == "pq-0"
+    # Sprint 10.3 SRS wire fired with the right vocab_id + rating.
+    assert srs_calls == [("vocab-0", "good")]
+    assert out["srs_updated"] is True
+    assert out["srs_rating"] == "good"
+
+
+def test_attempt_personalized_wrong_answer_fires_srs_again(monkeypatch):
+    """Wrong answer on personalized question → rating='again', Sprint
+    10.3 floor (interval clamps up to 7 days) still applies (covered
+    elsewhere). Here we pin that the helper is called with 'again'."""
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    store = {
+        "user_d1_questions": [_pq(0)],
+        "vocabulary_exercises": [],
+        "vocabulary_exercise_attempts": [],
+        "user_vocabulary": [{
+            "id": "vocab-0", "user_id": USER_ID,
+            "is_archived": False, "is_pending": False,
+        }],
+        "flashcard_reviews": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    async def _fake_auth(_authorization): return {"id": USER_ID}
+    monkeypatch.setattr("routers.auth.get_supabase_user", _fake_auth)
+    srs_calls: list = []
+    def _fake_srs(_sb, _user, vocab_id, rating):
+        srs_calls.append((vocab_id, rating))
+        return True
+    monkeypatch.setattr(exr, "_apply_d1_srs_update", _fake_srs)
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="pq-0",
+        body=D1AttemptRequest(user_answer="wrong"),
+        authorization="Bearer x",
+    ))
+
+    assert out["is_correct"] is False
+    assert srs_calls == [("vocab-0", "again")]
+    assert out["srs_rating"] == "again"
+
+
 # ── Attempt session linkage ──────────────────────────────────────────────────
 
 
