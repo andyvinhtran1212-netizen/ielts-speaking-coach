@@ -110,6 +110,34 @@ def _fire_event(event_name: str, event_data: dict, user_id: str) -> None:
     fire_event(event_name, event_data, user_id)
 
 
+# ── Sprint 10.7 — D1 question cascade on archive/restore ──────────────────────
+#
+# Every site that flips `user_vocabulary.is_archived` MUST also flip the
+# matching `user_d1_questions.is_active` so the session endpoint can
+# never serve a question whose source vocab is archived. The session
+# endpoint also re-filters defensively (routers/exercises.py — belt +
+# suspenders) so a cascade miss surfaces as zero-result, not a broken
+# card.
+#
+# Idempotent — calling with a vocab_id that has no questions or whose
+# questions are already in the target state is a no-op. Errors are
+# logged at WARN and swallowed: cascade is best-effort, the primary
+# archive write must still succeed visibly to the caller.
+
+def _cascade_d1_questions_is_active(sb, vocab_id: str, *, is_active: bool) -> None:
+    """Flip `user_d1_questions.is_active` for every row owned by
+    `vocab_id`. RLS scopes the UPDATE to the caller's rows."""
+    try:
+        sb.table("user_d1_questions").update(
+            {"is_active": is_active}
+        ).eq("vocabulary_id", vocab_id).execute()
+    except Exception as e:  # noqa: BLE001 — cascade is best-effort
+        logger.warning(
+            "[vocabulary_bank] cascade d1_questions is_active=%s failed for vocab_id=%s: %s",
+            is_active, vocab_id, e,
+        )
+
+
 # ── Sprint 10.2 — Mastery-SRS derivation helpers ──────────────────────────────
 
 
@@ -525,6 +553,11 @@ async def drop_pending(
         "pending_created_at": None,
     }).eq("id", vocab_id).execute()
 
+    # Sprint 10.7 — cascade to associated D1 questions. A pending row
+    # shouldn't have D1 questions yet (Phase 1 generation runs on
+    # confirm, not on capture) but the cascade is cheap + idempotent.
+    _cascade_d1_questions_is_active(sb, vocab_id, is_active=False)
+
     _fire_event("vocab_pending_dropped", {"vocab_id": vocab_id}, user_id)
     return {"ok": True, "vocab_id": vocab_id}
 
@@ -618,6 +651,10 @@ async def restore_vocab(
     sb.table("user_vocabulary").update(
         {"is_archived": False}
     ).eq("id", vocab_id).execute()
+
+    # Sprint 10.7 — reverse cascade: reactivate associated D1 questions
+    # so the user can practise the restored vocab again.
+    _cascade_d1_questions_is_active(sb, vocab_id, is_active=True)
 
     _fire_event("vocab_restored", {"vocab_id": vocab_id}, user_id)
     return {"ok": True, "vocab_id": vocab_id}
@@ -1136,6 +1173,10 @@ async def archive_vocab(
         {"is_archived": True}
     ).eq("id", vocab_id).execute()
 
+    # Sprint 10.7 — cascade to associated D1 questions so the session
+    # endpoint never serves a question whose source vocab is archived.
+    _cascade_d1_questions_is_active(sb, vocab_id, is_active=False)
+
     return {"ok": True}
 
 
@@ -1497,5 +1538,8 @@ async def report_false_positive(
     sb.table("user_vocabulary").update(
         {"is_archived": True}
     ).eq("id", vocab_id).execute()
+
+    # Sprint 10.7 — cascade to associated D1 questions.
+    _cascade_d1_questions_is_active(sb, vocab_id, is_active=False)
 
     return {"ok": True}

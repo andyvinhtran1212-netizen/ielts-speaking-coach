@@ -759,6 +759,33 @@ async def start_d1_session(
             r for r in (pers_res.data or [])
             if r.get("options") and len(r["options"]) == 4
         ]
+        # Sprint 10.7 — defense in depth. The archive handler in
+        # vocabulary_bank.py cascades to user_d1_questions.is_active=
+        # false on every archive/restore, so this filter SHOULD always
+        # be a no-op against current data. But if the cascade ever
+        # misses (race, manual SQL, future bug), we still must not
+        # serve a question whose source vocab is archived or pending.
+        # One extra round-trip; cheap compared to a broken session.
+        if pers_rows:
+            vocab_ids = sorted({r["vocabulary_id"] for r in pers_rows if r.get("vocabulary_id")})
+            blocked: set[str] = set()
+            if vocab_ids:
+                try:
+                    vocab_status = (
+                        sb.table("user_vocabulary")
+                        .select("id, is_archived, is_pending")
+                        .in_("id", vocab_ids)
+                        .execute()
+                    )
+                    for v in (vocab_status.data or []):
+                        if v.get("is_archived") or v.get("is_pending"):
+                            blocked.add(v["id"])
+                except Exception as e:
+                    logger.warning(
+                        "[exercises] start_session vocab-status defense check failed (proceeding without it): %s", e,
+                    )
+            if blocked:
+                pers_rows = [r for r in pers_rows if r.get("vocabulary_id") not in blocked]
         # Prefer unattempted personalized first, then attempted as
         # review fill.
         unattempted = [r for r in pers_rows if r["id"] not in attempted_ids]
