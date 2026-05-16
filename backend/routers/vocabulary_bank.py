@@ -11,14 +11,16 @@ import io
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from supabase import create_client
 
 from config import settings
+from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.analytics import fire_event
+from services.d1_question_generator import generate_d1_question
 from services.feature_flags import is_vocab_bank_enabled
 from services.mastery import (
     MASTERED_MIN_INTERVAL_DAYS,
@@ -336,12 +338,109 @@ async def list_pending(authorization: str | None = Header(default=None)):
     return result.data or []
 
 
+# ── Sprint 10.5 — D1 question pre-compute (BackgroundTask) ────────────────────
+#
+# When a user confirms a pending vocab capture (single or bulk), schedule
+# a BackgroundTask that calls d1_question_generator.generate_d1_question
+# and INSERTs the result into user_d1_questions. Trade-off (Andy Q1 lock):
+# ~46KB storage per active user vs. zero per-exercise latency at D1 fetch
+# time. Failure modes (AI down, JSON malformed) are fully fail-soft — the
+# confirm path returns success even if generation fails; the backfill
+# script (scripts/backfill_d1_questions.py) picks up the slack on the
+# next run.
+
+def _run_d1_generation_for_vocab(vocab_id: str) -> None:
+    """Background-task body — fetch the vocab row via the service-role
+    client, call the generator, INSERT the question. Idempotent: the
+    UNIQUE (user_id, vocabulary_id, context_sentence) constraint guards
+    against double-inserts when this fires twice for the same vocab."""
+    try:
+        row_res = (
+            supabase_admin.table("user_vocabulary")
+            .select(
+                "id, user_id, headword, lemma, surface_form, "
+                "definition_en, definition_vi, part_of_speech, "
+                "context_sentence, evidence_substring, is_archived, is_pending"
+            )
+            .eq("id", vocab_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(
+            "[vocab-bank] D1 question generation: vocab lookup failed for vocab_id=%s: %s",
+            vocab_id, e,
+        )
+        return
+
+    rows = row_res.data or []
+    if not rows:
+        logger.info(
+            "[vocab-bank] D1 question generation: vocab_id=%s not found (deleted?)",
+            vocab_id,
+        )
+        return
+
+    vocab_row = rows[0]
+    if vocab_row.get("is_archived") or vocab_row.get("is_pending"):
+        # Defensive: don't generate questions for archived items or
+        # rows that somehow flipped back to pending between schedule
+        # and run. Stale schedule, skip silently.
+        return
+
+    question = generate_d1_question(vocab_row)
+    if not question:
+        logger.warning(
+            "[vocab-bank] D1 question generation produced no payload for vocab_id=%s",
+            vocab_id,
+        )
+        return
+
+    try:
+        supabase_admin.table("user_d1_questions").insert({
+            "user_id":                   vocab_row["user_id"],
+            "vocabulary_id":             vocab_row["id"],
+            "context_sentence":          question["context_sentence"],
+            "blank_position_start":      question["blank_position_start"],
+            "blank_position_end":        question["blank_position_end"],
+            "target_answer":             question["target_answer"],
+            "acceptable_variants":       question["acceptable_variants"],
+            "hint":                      question["hint"],
+            "source_evidence_substring": question.get("source_evidence_substring"),
+            "generated_by":              question["generated_by"],
+        }).execute()
+        logger.info(
+            "[vocab-bank] D1 question generated (%s) for vocab_id=%s",
+            question["generated_by"], vocab_id,
+        )
+    except Exception as e:
+        # UNIQUE-violation expected on re-run; log at debug, not warning.
+        # Other failures (RLS, network) deserve a warning.
+        msg = str(e).lower()
+        if "duplicate" in msg or "unique" in msg:
+            logger.debug(
+                "[vocab-bank] D1 question already exists for vocab_id=%s — dedup hit",
+                vocab_id,
+            )
+        else:
+            logger.warning(
+                "[vocab-bank] D1 question insert failed for vocab_id=%s: %s",
+                vocab_id, e,
+            )
+
+
 @router.post("/pending/{vocab_id}/confirm")
 async def confirm_pending(
     vocab_id: str,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
-    """Flip a single pending item to confirmed (visible in the bank)."""
+    """Flip a single pending item to confirmed (visible in the bank).
+
+    Sprint 10.5 — on success, schedule D1 question generation as a
+    BackgroundTask. Fail-soft: the confirm response carries success
+    regardless of generation outcome (the script backfill_d1_questions
+    picks up any misses on next run)."""
     user = await _require_auth(authorization)
     user_id = user["id"]
 
@@ -370,6 +469,13 @@ async def confirm_pending(
         "is_pending": False,
         "pending_created_at": None,
     }).eq("id", vocab_id).execute()
+
+    # Sprint 10.5 — schedule D1 question generation after the response is
+    # returned. BackgroundTasks runs in the same process post-response so
+    # no extra infra is needed; AI latency (~1–3s) is hidden from the
+    # caller. If the task raises, FastAPI catches it — the user sees no
+    # error.
+    background_tasks.add_task(_run_d1_generation_for_vocab, vocab_id)
 
     _fire_event("vocab_pending_confirmed", {"vocab_id": vocab_id}, user_id)
     return {"ok": True, "vocab_id": vocab_id}
@@ -422,12 +528,18 @@ async def drop_pending(
 @router.post("/pending/bulk-confirm")
 async def bulk_confirm_pending(
     body: VocabPendingBulkConfirmRequest,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Sprint 10.4 — "Giữ tất cả" button. Andy Q4 locked: this is the
     only batch action (no Drop all). Validates ownership via the
     user_id filter on the UPDATE; foreign IDs in the payload simply
-    don't match and aren't included in the response."""
+    don't match and aren't included in the response.
+
+    Sprint 10.5 — schedules one D1 question generation per confirmed
+    vocab as a BackgroundTask. The tasks run sequentially after the
+    response (FastAPI BackgroundTasks default), so N confirmed items
+    means N × ~1–3s post-response work — invisible to the caller."""
     user = await _require_auth(authorization)
     user_id = user["id"]
 
@@ -450,6 +562,10 @@ async def bulk_confirm_pending(
         .execute()
     )
     confirmed_ids = [r["id"] for r in (result.data or []) if r.get("id")]
+
+    # Sprint 10.5 — one generation task per confirmed vocab.
+    for vocab_id in confirmed_ids:
+        background_tasks.add_task(_run_d1_generation_for_vocab, vocab_id)
 
     _fire_event(
         "vocab_pending_bulk_confirmed",
