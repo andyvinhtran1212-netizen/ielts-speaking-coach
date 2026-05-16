@@ -180,7 +180,6 @@ def _run_persist_loop(extraction_result):
                     "original_word":     item.original_word if source_type == "upgrade_suggested" else None,
                     "suggestion":        item.suggestion if source_type == "needs_review" else None,
                     "topic":             None,
-                    "mastery_status":    "learning",
                     "is_archived":       False,
                 }
                 sb_mock.table("user_vocabulary").insert(row).execute()

@@ -52,7 +52,10 @@ USER_VOCABULARY_REFERENCED_COLUMNS: set[str] = {
     "definition_en", "definition_vi",
     "original_word", "suggestion",
     "topic", "ipa", "example_sentence",
-    "mastery_status", "is_archived", "is_skipped",
+    # Sprint 10.6 (migration 055) — mastery_status column dropped;
+    # the response shape's `mastery_status` field is derived on-the-fly
+    # from flashcard_reviews via services.mastery.derive_mastery_status.
+    "is_archived", "is_skipped",
     "created_at",
 }
 

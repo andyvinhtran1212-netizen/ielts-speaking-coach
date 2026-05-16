@@ -26,7 +26,6 @@ from services.mastery import (
     MASTERED_MIN_INTERVAL_DAYS,
     MASTERED_MIN_REVIEW_COUNT,
     derive_mastery_status,
-    sync_mastery_column,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,9 +76,10 @@ class VocabManualAddRequest(BaseModel):
 class VocabUpdateStatusRequest(BaseModel):
     """Sprint 10.2 — PATCH /{vocab_id} body changed from a status enum
     to a boolean toggle. The handler writes to flashcard_reviews (SRS
-    state), not to the deprecated user_vocabulary.mastery_status
-    column. Naming the field `mastered` (verb-state, not noun-status)
-    nudges callers toward thinking of it as an SRS write."""
+    state); Sprint 10.6 (migration 055) dropped the mastery_status
+    column entirely so writes go to flashcard_reviews exclusively.
+    Naming the field `mastered` (verb-state, not noun-status) nudges
+    callers toward thinking of it as an SRS write."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -680,7 +680,7 @@ async def get_recent_vocab(
     sb = _user_sb(token)
     result = (
         sb.table("user_vocabulary")
-        .select("id, headword, source_type, mastery_status")
+        .select("id, headword, source_type")
         .eq("user_id", user_id)
         .eq("session_id", session_id)
         .eq("is_archived", False)
@@ -951,7 +951,9 @@ async def add_vocab_manual(
         "definition_vi":   body.definition_vi,
         "category":        body.category,
         "source_type":     "manual",
-        "mastery_status":  "learning",
+        # Sprint 10.6 (migration 055) — mastery_status column dropped;
+        # derive_mastery_status() returns 'learning' for any row with
+        # no flashcard_reviews entry yet (default state for new vocab).
         "is_archived":     False,
     }
 
@@ -974,9 +976,11 @@ async def add_vocab_manual(
 # source of truth, so the handler now upserts an SRS row that — when
 # fed back through derive_mastery_status() — yields the requested
 # state. The frontend's "Đánh dấu đã thuộc" button hits this path; the
-# SM-2 review loop (Sprint 10.3+) will hit POST /api/flashcards/...
-# directly. Both ultimately mutate flashcard_reviews; no other code
-# path should write to user_vocabulary.mastery_status after 10.2.
+# SM-2 review loop (Sprint 10.3+) hits POST /api/flashcards/...
+# directly. Both ultimately mutate flashcard_reviews. Sprint 10.6
+# (migration 055) dropped the user_vocabulary.mastery_status column
+# entirely — the response shape still carries `mastery_status`, but
+# it's derived from flashcard_reviews on every read.
 #
 # Mastered upsert recipe (Andy Q1 lock):
 #   interval_days = 21 (exactly meets the threshold)
@@ -1079,13 +1083,11 @@ async def update_vocab_status(
         logger.error("[vocab_bank PATCH] flashcard_reviews upsert failed for %s: %s", vocab_id, e)
         raise HTTPException(500, f"Failed to update review state: {e}")
 
-    # Sprint 10.2.1-hotfix → Sprint 10.3 — sync the deprecated column
-    # via the shared helper. Same fail-soft contract as before
-    # (logged WARN on failure; backfill_mastery reconciles); now
-    # shared with routers/exercises.py D1 attempt handler so the
-    # sync rule lives in one place. See services/mastery.py for the
-    # rationale on keeping the column in sync during deprecation.
-    mastery_after = sync_mastery_column(sb, vocab_id, upsert_row)
+    # Sprint 10.6 — column dropped in migration 055. Response shape
+    # preserved: derive the mastery_status on the fly from the freshly
+    # upserted SRS row and return it. Frontend (my-vocab.js) keys off
+    # `mastery_status` in the response, so the contract stays intact.
+    mastery_after = derive_mastery_status(upsert_row)
 
     _fire_event("vocab_bank_entry_reviewed", {
         "vocab_id":       vocab_id,

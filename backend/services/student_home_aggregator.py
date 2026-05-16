@@ -12,7 +12,9 @@ Tables touched (verified 2026-05-09 against migrations/):
                               students.user_id)
     - article_views          (Grammar — last_viewed_at, article_slug)
     - user_vocabulary        (Vocabulary — created_at, is_archived,
-                              is_skipped, mastery_status)
+                              is_skipped). Sprint 10.6 dropped
+                              user_vocabulary.mastery_status — mastery
+                              now derives from flashcard_reviews.
     - flashcard_reviews      (Vocabulary — next_review_at, due count)
 
 Resilience:

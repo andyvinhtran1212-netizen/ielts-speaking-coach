@@ -55,7 +55,6 @@ def test_user_a_cannot_select_user_b_vocab():
         "headword": "rls_test_select",
         "context_sentence": "This is an RLS isolation test.",
         "source_type": "manual",
-        "mastery_status": "learning",
         "is_archived": False,
     }).execute()
     row_id = result.data[0]["id"]
@@ -89,14 +88,18 @@ def test_user_a_cannot_update_user_b_vocab():
         "headword": "rls_test_update",
         "context_sentence": "This is an RLS update isolation test.",
         "source_type": "manual",
-        "mastery_status": "learning",
         "is_archived": False,
     }).execute()
     row_id = result.data[0]["id"]
 
     try:
+        # Sprint 10.6 (migration 055) — mastery_status column dropped;
+        # use is_skipped (still a mutable column on user_vocabulary)
+        # to drive the cross-user UPDATE attempt. The actual column
+        # picked doesn't matter — what we're testing is the RLS UPDATE
+        # USING clause, not the column itself.
         upd = client_a.table("user_vocabulary").update(
-            {"mastery_status": "mastered"}
+            {"is_skipped": True}
         ).eq("id", row_id).execute()
         assert len(upd.data) == 0, f"RLS FAIL: User A updated User B row {row_id}"
     finally:
@@ -122,7 +125,6 @@ def test_user_cannot_reassign_user_id_on_update():
         "headword": "rls_test_reassign",
         "context_sentence": "This is a WITH CHECK reassign test.",
         "source_type": "manual",
-        "mastery_status": "learning",
         "is_archived": False,
     }).execute()
     row_id = result.data[0]["id"]
