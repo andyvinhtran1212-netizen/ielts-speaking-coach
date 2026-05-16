@@ -65,7 +65,7 @@ def main() -> int:
         supabase_admin.table("user_vocabulary")
         .select(
             "id, user_id, headword, lemma, surface_form, "
-            "definition_en, definition_vi, part_of_speech, "
+            "definition_en, definition_vi, pos, "
             "context_sentence, evidence_substring"
         )
         .eq("is_archived", False)
