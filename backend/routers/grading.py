@@ -776,7 +776,10 @@ async def _run_vocab_extraction(
                     "original_word":     item.original_word if source_type == "upgrade_suggested" else None,
                     "suggestion":        item.suggestion if source_type == "needs_review" else None,
                     "topic":             session_topic,
-                    "mastery_status":    "learning",
+                    # Sprint 10.6 (migration 055) — mastery_status column
+                    # dropped. derive_mastery_status() returns 'learning'
+                    # for rows without a flashcard_reviews entry (the
+                    # default state for fresh captures).
                     "is_archived":       False,
                     # Sprint 10.4 — capture rows land pending. The user
                     # confirms via the result.html pending panel

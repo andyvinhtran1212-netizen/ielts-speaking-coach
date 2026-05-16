@@ -26,7 +26,6 @@ from routers.auth import get_supabase_user
 from services.analytics import fire_event
 from services.d1_content_gen import GeminiBatchError, generate_d1_exercises
 from services.feature_flags import is_d1_enabled
-from services.mastery import sync_mastery_column
 from services.rate_limit import rate_limit_exercise
 from services.srs import update_srs
 
@@ -163,10 +162,10 @@ def _apply_d1_srs_update(
         )
         return False
 
-    # Column sync uses the shared helper from services.mastery (also
-    # used by routers/vocabulary_bank.py PATCH). Failure is non-fatal
-    # — backfill_mastery reconciles.
-    sync_mastery_column(sb, vocab_id, upsert_row)
+    # Sprint 10.6 (migration 055) — mastery_status column dropped. The
+    # response shape's derived `mastery_status` is computed on-the-fly
+    # from flashcard_reviews via services.mastery.derive_mastery_status,
+    # so there's nothing to sync back to user_vocabulary anymore.
     return True
 
 

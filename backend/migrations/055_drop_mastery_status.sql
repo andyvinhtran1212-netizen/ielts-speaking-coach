@@ -1,0 +1,34 @@
+-- Migration: 055_drop_mastery_status.sql
+-- Sprint 10.6 — drop the deprecated user_vocabulary.mastery_status column.
+--
+-- Deprecation lineage:
+--   Sprint 10.2 (migration 050) — marked column DEPRECATED via COMMENT.
+--                                 GET endpoints switched to deriving the
+--                                 value on-the-fly from flashcard_reviews
+--                                 SRS state via services.mastery.derive_mastery_status.
+--   Sprint 10.2.1-hotfix       — added sync_mastery_column helper so writes
+--                                 to flashcard_reviews also touched the
+--                                 column, keeping admin/Table-Editor reads
+--                                 coherent during the deprecation window.
+--   Sprint 10.3                — D1→SRS feedback loop reused the same sync
+--                                 helper after every attempt.
+--   Sprint 10.6 (THIS)         — all readers migrated; sync writes were a
+--                                 transitional convenience for direct DB
+--                                 inspection. Drop the column.
+--
+-- API response shape preserved: GET endpoints continue to return
+-- `mastery_status` as a derived field on every row (see
+-- services.mastery.derive_mastery_status + vocabulary_bank._apply_derived_mastery_status_to_rows).
+-- Frontend (`my-vocab.js`) reads `item.mastery_status` from the response
+-- without caring whether it came from the column or the derive — unchanged.
+--
+-- Idempotent: IF EXISTS guard makes re-applies a no-op. The DROP INDEX
+-- of idx_user_vocab_mastery (added by migration 019) cascades implicitly
+-- via Postgres' DROP COLUMN — no explicit drop needed.
+--
+-- Reversibility: forward-only. The derived value is a function of
+-- flashcard_reviews; if a future sprint needs the column back, it
+-- can be re-added with a fresh ALTER TABLE + a one-shot backfill.
+
+ALTER TABLE user_vocabulary
+    DROP COLUMN IF EXISTS mastery_status;

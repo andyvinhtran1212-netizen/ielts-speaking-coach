@@ -198,7 +198,7 @@ class _FilterRecordingClient:
 
 def _filter_patch(monkeypatch):
     client = _FilterRecordingClient(data=[
-        {"id": "v1", "headword": "alpha", "mastery_status": "learning",
+        {"id": "v1", "headword": "alpha",
          "source_type": "manual", "session_id": None, "created_at": "2026-04-30T00:00:00+00:00"},
     ])
 

@@ -278,15 +278,14 @@ def test_wrong_attempt_on_mastered_card_demotes_to_floor_with_lapse(monkeypatch)
     _, row, _ = fc_upserts[0]
     # 'again' resets interval to 0; floor=7 clamps up.
     assert row["interval_days"] == 7
-    # lapse_count++ — this is what flips mastery to 'learning'.
+    # lapse_count++ — this is what flips mastery to 'learning' on
+    # the next derive_mastery_status read (Sprint 10.2 threshold).
+    # Sprint 10.6 (migration 055) dropped the user_vocabulary.mastery_status
+    # column, so there is no column UPDATE to assert anymore — the
+    # SRS row above IS the source of truth.
     assert row["lapse_count"] == 1
-
-    # Column sync writes the derived status — 'learning' because
-    # lapse_count > 0 disqualifies mastered (Sprint 10.2 threshold).
-    col_updates = [u for u in client.updates if u[0] == "user_vocabulary"]
-    assert col_updates == [("user_vocabulary", {"mastery_status": "learning"})], (
-        f"Mastery must flip to 'learning' after wrong-on-mastered; "
-        f"got column updates: {col_updates}"
+    assert [u for u in client.updates if u[0] == "user_vocabulary"] == [], (
+        "Post-Sprint 10.6 the handler must not write user_vocabulary.mastery_status."
     )
 
 
@@ -321,7 +320,7 @@ def test_second_attempt_logs_but_does_not_touch_srs(monkeypatch):
     # No flashcard_reviews touch.
     fc_upserts = [u for u in client.upserts if u[0] == "flashcard_reviews"]
     assert fc_upserts == []
-    # No column sync either.
+    # Sprint 10.6 — column was dropped; no user_vocabulary writes either way.
     col_updates = [u for u in client.updates if u[0] == "user_vocabulary"]
     assert col_updates == []
 
@@ -400,21 +399,20 @@ def test_missing_target_vocab_row_skips_srs(monkeypatch):
     assert resp["srs_updated"] is False
 
 
-# ── Column sync via shared helper ────────────────────────────────────
+# ── Sprint 10.6 — no user_vocabulary column write on SRS path ────────
 
 
-def test_successful_srs_update_syncs_user_vocabulary_column(monkeypatch):
-    """The D1 path reuses services.mastery.sync_mastery_column (the
-    same helper the PATCH endpoint uses). Pin that the secondary
-    UPDATE on user_vocabulary fires after the SRS upsert, with the
-    derived mastery_status value."""
+def test_successful_srs_update_does_not_write_user_vocabulary(monkeypatch):
+    """Sprint 10.6 (migration 055) dropped the user_vocabulary.mastery_status
+    column. Pre-10.6 the handler issued a secondary UPDATE to keep the
+    column in sync with derive_mastery_status. That sync has been removed
+    — the response field is now derived on every read from
+    flashcard_reviews. This test pins the negative contract: the SRS path
+    must NOT touch user_vocabulary.mastery_status (or any column)."""
     canned = {
         "vocabulary_exercises": [_exercise_row()],
         "vocabulary_exercise_attempts": [],
         "user_vocabulary": [_vocab_row()],
-        # Existing row puts the card close to mastered; a correct
-        # answer with floor=7 + SM-2 good should push interval well
-        # past the threshold (and lapse_count is already 0).
         "flashcard_reviews": [{
             "user_id": "user-A", "vocabulary_id": "v-target",
             "ease_factor": 2.5, "interval_days": 10,
@@ -425,12 +423,15 @@ def test_successful_srs_update_syncs_user_vocabulary_column(monkeypatch):
     _run(ex.submit_d1_attempt(
         exercise_id="ex-1", body=_attempt_body("ephemeral"), authorization=authz,
     ))
-    col_updates = [u for u in client.updates if u[0] == "user_vocabulary"]
-    assert len(col_updates) == 1
-    _, row = col_updates[0]
-    # SM-2 good on interval=10, ease=2.5 → int(10*2.5)=25; review_count
-    # bumps to 3; lapse_count stays 0 → mastered.
-    assert row == {"mastery_status": "mastered"}
+    # SRS upsert still happens — that's the canonical write now.
+    assert [u for u in client.upserts if u[0] == "flashcard_reviews"], (
+        "SRS upsert must still fire — Sprint 10.6 only removed the secondary column sync."
+    )
+    # But no user_vocabulary write.
+    assert [u for u in client.updates if u[0] == "user_vocabulary"] == [], (
+        "Sprint 10.6 — the deprecated user_vocabulary.mastery_status column "
+        "has been dropped; the handler must not attempt to write it."
+    )
 
 
 # ── Response contract — pre-10.3 compat ──────────────────────────────
