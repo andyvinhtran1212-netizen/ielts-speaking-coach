@@ -195,6 +195,24 @@ def _patch(monkeypatch, canned: dict, *, user_id: str = "user-A"):
     return client, "Bearer fake-jwt"
 
 
+# ── Sprint 10.5 — FakeBackgroundTasks shim ───────────────────────────
+#
+# The confirm + bulk-confirm endpoints now accept a BackgroundTasks
+# arg so they can schedule D1 question generation post-response.
+# Tests pass this shim instead of importing the real fastapi class —
+# `scheduled` exposes a list of (callable, args, kwargs) tuples so
+# assertions can verify the right task was queued without actually
+# running it.
+
+
+class _FakeBackgroundTasks:
+    def __init__(self):
+        self.scheduled: list[tuple] = []
+
+    def add_task(self, func, *args, **kwargs):
+        self.scheduled.append((func, args, kwargs))
+
+
 def _pending_row(id_: str, *, user_id: str = "user-A", hours_ago: float = 1.0,
                  is_archived: bool = False):
     return {
@@ -296,7 +314,10 @@ def test_confirm_flips_pending_to_false(monkeypatch):
         "flashcard_reviews": [],
     }
     client, authz = _patch(monkeypatch, canned)
-    resp = _run(vb.confirm_pending(vocab_id="v1", authorization=authz))
+    bg = _FakeBackgroundTasks()
+    resp = _run(vb.confirm_pending(
+        vocab_id="v1", background_tasks=bg, authorization=authz,
+    ))
     assert resp == {"ok": True, "vocab_id": "v1"}
 
     # The update call must clear both is_pending AND pending_created_at.
@@ -314,7 +335,11 @@ def test_confirm_404_when_item_not_pending(monkeypatch):
     canned = {"user_vocabulary": [_confirmed_row("v1")]}
     _patch(monkeypatch, canned)
     with pytest.raises(HTTPException) as exc:
-        _run(vb.confirm_pending(vocab_id="v1", authorization="Bearer fake"))
+        _run(vb.confirm_pending(
+            vocab_id="v1",
+            background_tasks=_FakeBackgroundTasks(),
+            authorization="Bearer fake",
+        ))
     assert exc.value.status_code == 404
 
 
@@ -327,7 +352,11 @@ def test_confirm_404_for_foreign_user(monkeypatch):
     }
     _patch(monkeypatch, canned, user_id="user-A")
     with pytest.raises(HTTPException) as exc:
-        _run(vb.confirm_pending(vocab_id="v1", authorization="Bearer fake"))
+        _run(vb.confirm_pending(
+            vocab_id="v1",
+            background_tasks=_FakeBackgroundTasks(),
+            authorization="Bearer fake",
+        ))
     assert exc.value.status_code == 404
 
 
@@ -372,6 +401,7 @@ def test_bulk_confirm_flips_all_owned_ids(monkeypatch):
     client, authz = _patch(monkeypatch, canned)
     resp = _run(vb.bulk_confirm_pending(
         body=vb.VocabPendingBulkConfirmRequest(ids=["v1", "v2", "v3"]),
+        background_tasks=_FakeBackgroundTasks(),
         authorization=authz,
     ))
     assert resp["ok"] is True
@@ -391,6 +421,7 @@ def test_bulk_confirm_ignores_foreign_ids(monkeypatch):
     _patch(monkeypatch, canned, user_id="user-A")
     resp = _run(vb.bulk_confirm_pending(
         body=vb.VocabPendingBulkConfirmRequest(ids=["v1", "v2-foreign"]),
+        background_tasks=_FakeBackgroundTasks(),
         authorization="Bearer fake",
     ))
     assert set(resp["confirmed"]) == {"v1"}
@@ -400,9 +431,56 @@ def test_bulk_confirm_empty_payload_returns_empty(monkeypatch):
     _patch(monkeypatch, {"user_vocabulary": []})
     resp = _run(vb.bulk_confirm_pending(
         body=vb.VocabPendingBulkConfirmRequest(ids=[]),
+        background_tasks=_FakeBackgroundTasks(),
         authorization="Bearer fake",
     ))
     assert resp == {"ok": True, "confirmed": []}
+
+
+# ── Sprint 10.5 — D1 question generation scheduling ──────────────────
+
+
+def test_confirm_schedules_d1_question_generation(monkeypatch):
+    """Sprint 10.5 — a single /confirm queues exactly one
+    _run_d1_generation_for_vocab task with the confirmed vocab_id."""
+    canned = {"user_vocabulary": [_pending_row("v1")]}
+    _, authz = _patch(monkeypatch, canned)
+    bg = _FakeBackgroundTasks()
+    resp = _run(vb.confirm_pending(
+        vocab_id="v1", background_tasks=bg, authorization=authz,
+    ))
+    assert resp == {"ok": True, "vocab_id": "v1"}
+    assert len(bg.scheduled) == 1
+    func, args, _kwargs = bg.scheduled[0]
+    assert func is vb._run_d1_generation_for_vocab
+    assert args == ("v1",)
+
+
+def test_bulk_confirm_schedules_one_generation_per_id(monkeypatch):
+    """Sprint 10.5 — bulk-confirm with N IDs schedules N tasks. Foreign
+    IDs don't flip in the UPDATE so they also don't get a task."""
+    canned = {
+        "user_vocabulary": [
+            _pending_row("v1", user_id="user-A"),
+            _pending_row("v2", user_id="user-A"),
+            _pending_row("v3-foreign", user_id="user-B"),
+        ],
+    }
+    _patch(monkeypatch, canned, user_id="user-A")
+    bg = _FakeBackgroundTasks()
+    resp = _run(vb.bulk_confirm_pending(
+        body=vb.VocabPendingBulkConfirmRequest(ids=["v1", "v2", "v3-foreign"]),
+        background_tasks=bg,
+        authorization="Bearer fake",
+    ))
+    assert set(resp["confirmed"]) == {"v1", "v2"}
+    # 2 tasks, not 3 (v3-foreign rejected by user_id filter).
+    assert len(bg.scheduled) == 2
+    scheduled_ids = {args[0] for _func, args, _kwargs in bg.scheduled}
+    assert scheduled_ids == {"v1", "v2"}
+    # All tasks must target the canonical helper, not something else.
+    for func, _args, _kwargs in bg.scheduled:
+        assert func is vb._run_d1_generation_for_vocab
 
 
 # ── Auto-commit lazy cleanup ─────────────────────────────────────────
