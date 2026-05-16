@@ -403,6 +403,111 @@ def test_personalized_session_view_renders_blank_marker(monkeypatch):
     assert "target0" not in ex["sentence"]
 
 
+# ── Sprint 10.7 — defensive filter against archived/pending vocab ────
+
+
+def test_session_excludes_personalized_for_archived_vocab(monkeypatch):
+    """Sprint 10.7 belt-and-suspenders pin. The vocabulary_bank archive
+    handler cascades user_d1_questions.is_active=false, so under
+    normal operation a question for an archived vocab is already
+    flipped to is_active=false and never makes it past the first
+    filter. But if the cascade ever misses (race, manual SQL, future
+    bug), the session endpoint MUST still hide questions whose source
+    vocab is archived. This test pins the defense layer."""
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+
+    store = {
+        "user_d1_questions": [
+            # Both questions are is_active=true (simulating a missed cascade).
+            _pq(0),  # vocabulary_id=vocab-0
+            _pq(1),  # vocabulary_id=vocab-1
+        ],
+        "vocabulary_exercises": [_exercise(i) for i in range(5)],
+        "vocabulary_exercise_attempts": [],
+        "user_vocabulary": [
+            {"id": "vocab-0", "user_id": USER_ID, "is_archived": True,  "is_pending": False},
+            {"id": "vocab-1", "user_id": USER_ID, "is_archived": False, "is_pending": False},
+        ],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=5), authorization="Bearer x",
+    ))
+
+    ids = {ex["id"] for ex in out["exercises"]}
+    assert "pq-0" not in ids, (
+        "question for archived vocab must be excluded by the defense "
+        f"filter; got ids={ids}"
+    )
+    # pq-1 (vocab not archived) is still eligible.
+    assert "pq-1" in ids
+    # Remaining slots fill from admin pool.
+    sources = [ex["source"] for ex in out["exercises"]]
+    assert sources.count("personalized") == 1
+    assert sources.count("admin_fallback") == 4
+
+
+def test_session_excludes_personalized_for_pending_vocab(monkeypatch):
+    """Same defense applies to pending vocab — a question whose source
+    is_pending=true must not appear in the session (the user hasn't
+    confirmed the capture yet)."""
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+
+    store = {
+        "user_d1_questions": [_pq(0), _pq(1)],
+        "vocabulary_exercises": [_exercise(i) for i in range(5)],
+        "vocabulary_exercise_attempts": [],
+        "user_vocabulary": [
+            {"id": "vocab-0", "user_id": USER_ID, "is_archived": False, "is_pending": True},
+            {"id": "vocab-1", "user_id": USER_ID, "is_archived": False, "is_pending": False},
+        ],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=5), authorization="Bearer x",
+    ))
+
+    ids = {ex["id"] for ex in out["exercises"]}
+    assert "pq-0" not in ids, (
+        "question for pending vocab must be excluded by the defense filter"
+    )
+    assert "pq-1" in ids
+
+
+def test_session_admits_personalized_for_alive_vocab(monkeypatch):
+    """Negative pin — the defense filter must NOT over-block. When all
+    source vocab rows are alive (is_archived=false, is_pending=false),
+    every personalized question still flows through."""
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+
+    store = {
+        "user_d1_questions": [_pq(0), _pq(1), _pq(2)],
+        "vocabulary_exercises": [],
+        "vocabulary_exercise_attempts": [],
+        "user_vocabulary": [
+            {"id": f"vocab-{i}", "user_id": USER_ID,
+             "is_archived": False, "is_pending": False}
+            for i in range(3)
+        ],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=3), authorization="Bearer x",
+    ))
+
+    ids = {ex["id"] for ex in out["exercises"]}
+    assert ids == {"pq-0", "pq-1", "pq-2"}
+
+
 def test_attempt_grades_personalized_question(monkeypatch):
     """Sprint 10.5 Phase 2 — submit_d1_attempt resolves a
     user_d1_questions.id (no admin pool row with that id exists),

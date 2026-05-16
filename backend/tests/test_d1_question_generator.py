@@ -361,3 +361,216 @@ def test_haiku_strips_markdown_fences(monkeypatch):
     assert out is not None
     assert out["generated_by"] == "haiku"
     assert out["target_answer"] == "perspective"
+
+
+# ── Sprint 10.7 — retry + truncation contracts ───────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _no_sleep(monkeypatch):
+    """Sprint 10.7 retries call time.sleep with exponential backoff. In
+    tests we just want to verify the retry happens; not actually wait.
+    The rate-limit test re-patches with a recorder so it can assert
+    the delay schedule."""
+    monkeypatch.setattr(dqg.time, "sleep", lambda _s: None)
+
+
+def _valid_haiku_payload(target: str = "serendipity") -> str:
+    return json.dumps({
+        "context_sentence": f"I love the {target} of meeting old friends in unexpected places.",
+        "target_answer":    target,
+        "distractors":      ["misfortune", "obligation", "routine"],
+        "acceptable_variants": [],
+        "hint":             "happy coincidence",
+    })
+
+
+def test_retry_recovers_after_transient_failure(monkeypatch):
+    """Sprint 10.7 — first Haiku attempt times out, second succeeds.
+    The retry helper must propagate the success without surfacing
+    the transient failure to the caller."""
+    fake = _patch_anthropic(
+        monkeypatch,
+        errors=[TimeoutError("read timeout"), None],
+        texts=[_valid_haiku_payload()],
+    )
+    out = dqg.generate_d1_question({"id": "v1", "headword": "serendipity"})
+    assert out is not None
+    assert out["generated_by"] == "haiku", (
+        f"retry should land on Haiku, not fallback; got {out['generated_by']!r}"
+    )
+    assert len(fake.calls) == 2, f"expected 2 attempts (1 fail + 1 success); got {len(fake.calls)}"
+
+
+def test_retry_recovers_after_two_transient_failures(monkeypatch):
+    """Sprint 10.7 — third attempt within the retry budget succeeds."""
+    fake = _patch_anthropic(
+        monkeypatch,
+        errors=[TimeoutError("read timeout"),
+                ConnectionError("server connection reset"),
+                None],
+        texts=[_valid_haiku_payload()],
+    )
+    out = dqg.generate_d1_question({"id": "v1", "headword": "serendipity"})
+    assert out is not None
+    assert out["generated_by"] == "haiku"
+    assert len(fake.calls) == 3
+
+
+def test_retry_exhausts_after_three_transient_failures(monkeypatch):
+    """Sprint 10.7 — 3 attempts all timeout → Haiku gives up (caller
+    sees it as a Haiku failure). With Gemini blocked + evidence present,
+    the evidence fallback picks up."""
+    fake = _patch_anthropic(
+        monkeypatch,
+        errors=[TimeoutError("t1"), TimeoutError("t2"), TimeoutError("t3")],
+        texts=[],
+    )
+    _block_gemini(monkeypatch)
+    out = dqg.generate_d1_question({
+        "id": "v1",
+        "headword": "serendipity",
+        "evidence_substring": "Pure serendipity led us here.",
+    })
+    assert out is not None
+    assert out["generated_by"] == "fallback_evidence", (
+        f"after retry exhaustion Haiku should give up; got {out['generated_by']!r}"
+    )
+    assert len(fake.calls) == 3, (
+        f"all 3 retry attempts should fire before fall-through; got {len(fake.calls)}"
+    )
+
+
+def test_retry_recovers_from_invalid_json_then_clean(monkeypatch):
+    """Sprint 10.7 — a malformed JSON response on attempt 1 is retried
+    (the model occasionally truncates). Attempt 2 returns clean JSON
+    → success."""
+    fake = _patch_anthropic(
+        monkeypatch,
+        texts=["this is not json", _valid_haiku_payload()],
+    )
+    out = dqg.generate_d1_question({"id": "v1", "headword": "serendipity"})
+    assert out is not None
+    assert out["generated_by"] == "haiku"
+    assert len(fake.calls) == 2
+
+
+def test_no_retry_on_non_retryable_error(monkeypatch):
+    """Sprint 10.7 — a non-retryable error (e.g. an arbitrary RuntimeError
+    that doesn't match the transient classifier) must NOT trigger a
+    retry. Caller sees a single attempt then fall-through."""
+
+    class _NonRetryable(Exception):
+        pass
+
+    fake = _patch_anthropic(
+        monkeypatch,
+        errors=[_NonRetryable("structural failure")],
+        texts=[],
+    )
+    _block_gemini(monkeypatch)
+    out = dqg.generate_d1_question({
+        "id": "v1",
+        "headword": "serendipity",
+        "evidence_substring": "Pure serendipity led us here.",
+    })
+    # Falls to evidence — but only ONE attempt was made.
+    assert out["generated_by"] == "fallback_evidence"
+    assert len(fake.calls) == 1, (
+        f"non-retryable error must not trigger retry; saw {len(fake.calls)} calls"
+    )
+
+
+def test_rate_limit_uses_longer_backoff(monkeypatch):
+    """Sprint 10.7 — RateLimitError-class messages get the long delay
+    schedule (5s, 10s, 30s) rather than the generic 500ms/1s/2s.
+    Pin the schedule via a sleep recorder so a future tweak that
+    accidentally collapses rate-limit handling back to the generic
+    path fails here."""
+    recorded: list[float] = []
+    monkeypatch.setattr(dqg.time, "sleep", lambda s: recorded.append(s))
+
+    _patch_anthropic(
+        monkeypatch,
+        # 3 rate-limit errors → exhausts retries.
+        errors=[Exception("rate limit: 429"),
+                Exception("rate limit: 429"),
+                Exception("rate limit: 429")],
+        texts=[],
+    )
+    _block_gemini(monkeypatch)
+    out = dqg.generate_d1_question({
+        "id": "v1",
+        "headword": "serendipity",
+        "evidence_substring": "Pure serendipity led us here.",
+    })
+    # Falls through to evidence after exhausting retries.
+    assert out["generated_by"] == "fallback_evidence"
+    # 2 sleeps between 3 attempts (no sleep after the final failure).
+    assert recorded[:2] == [5, 10], (
+        f"rate-limit backoff must start at 5s,10s; got {recorded[:2]}"
+    )
+
+
+# ── Sprint 10.7 — truncate_evidence helper ───────────────────────────
+
+
+def test_truncate_evidence_short_unchanged():
+    text = "Just a short sentence."
+    assert dqg.truncate_evidence(text) == text
+
+
+def test_truncate_evidence_none_returns_empty():
+    assert dqg.truncate_evidence(None) == ""
+
+
+def test_truncate_evidence_empty_returns_empty():
+    assert dqg.truncate_evidence("") == ""
+
+
+def test_truncate_evidence_cuts_at_sentence_boundary():
+    """200-char window with a period at position 180 → cut at 181."""
+    sentence_a = "A" * 100 + " is fine."          # 109 chars, period at 108
+    sentence_b = "B" * 80 + " continues here."     # extra
+    full = sentence_a + " " + sentence_b           # well over 200
+    out = dqg.truncate_evidence(full)
+    assert out.endswith("is fine."), (
+        f"should cut at the period in sentence A; got tail {out[-30:]!r}"
+    )
+    assert len(out) <= 200
+
+
+def test_truncate_evidence_hard_cut_when_no_boundary_in_back_half():
+    """No sentence-ending punctuation in the back half of the window
+    → hard-cut at max_chars + append '...'. Pin so a future tweak
+    that prefers an early boundary (which truncates too aggressively)
+    fails here."""
+    # 300 'a's followed by a single period — period is past the
+    # 200-char window, so no boundary candidate in the window at all.
+    text = "a" * 300 + "."
+    out = dqg.truncate_evidence(text)
+    assert out.endswith("..."), f"expected '...' suffix; got {out[-10:]!r}"
+    # Length: 200 chars + "..." = 203 max.
+    assert len(out) <= 203
+
+
+def test_truncate_evidence_respects_custom_max_chars():
+    """The helper accepts a custom cap; callers in different contexts
+    can size the budget for their prompt."""
+    text = "x" * 500
+    assert len(dqg.truncate_evidence(text, max_chars=50)) <= 53  # 50 + '...'
+
+
+def test_build_user_prompt_truncates_long_evidence(monkeypatch):
+    """Sprint 10.7 — the prompt builder applies truncate_evidence so
+    the AI prompt stays bounded regardless of the raw evidence length.
+    Long captures historically tripped Gemini timeouts."""
+    long_evidence = "X" * 300 + ". Tail sentence."
+    prompt = dqg._build_user_prompt({
+        "headword": "ubiquitous",
+        "evidence_substring": long_evidence,
+    })
+    # The full 300+ char evidence is NOT in the prompt verbatim.
+    assert "X" * 300 not in prompt
+    # But truncated form appears.
+    assert "Original context" in prompt
