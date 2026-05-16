@@ -40,6 +40,7 @@
  */
 
 import { guardMount, redirectToLogin } from './_loader.js';
+import { renderSourceLink } from './_source-link.js';
 
 
 /** @type {string} canonical HTML body template — replaces the section
@@ -363,10 +364,8 @@ export async function mount(container, opts = {}) {
     const suggestionHint = item.source_type === 'needs_review' && item.suggestion
       ? `<p class="text-xs mt-1 mv-suggestion-hint">Gợi ý: <em>${esc(item.suggestion)}</em></p>` : '';
 
-    const sourceLink = item.session_id
-      ? `<a href="/pages/result.html?id=${esc(item.session_id)}"
-            class="vocab-action vocab-action--source"
-            title="Xem buổi luyện tập">↗ nguồn</a>` : '';
+    // Sprint 10.8 — shared renderSourceLink helper (3-surface dedup).
+    const sourceLink = renderSourceLink(item);
 
     const practiceLink = _exercisesEnabled
       ? `<a href="/pages/exercises.html"
