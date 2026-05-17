@@ -273,16 +273,22 @@ describe('Sprint 6.17 Phase C1 — canonical chrome on migrated pages', () => {
         assert.match(html, /<a[^>]*class=["']brand["'][^>]*>Aver<span class=["']dot["']>\.<\/span>Learning<\/a>/);
       });
 
-      test('ships all 5 active skill tabs (Trang chủ, Writing, Speaking, Grammar, Vocabulary)', () => {
-        for (const skill of ['Trang chủ', 'Writing', 'Speaking', 'Grammar', 'Vocabulary']) {
+      test('ships all 6 active skill tabs (Trang chủ, Writing, Speaking, Listening, Grammar, Vocabulary)', () => {
+        // Sprint 11.1 — Listening promoted from locked tab to active
+        // tab (DEBT-LISTENING-MODULE foundation 1/5).
+        for (const skill of ['Trang chủ', 'Writing', 'Speaking', 'Listening', 'Grammar', 'Vocabulary']) {
           assert.ok(html.includes(`>${skill}</a>`),
             `${rel} should ship "${skill}" skill tab`);
         }
       });
 
-      test('ships Reading + Listening locked tabs (Soon badge via CSS)', () => {
+      test('ships exactly 1 locked tab (Reading — Listening promoted to active in Sprint 11.1)', () => {
         assert.match(html, /<span class=["']locked["'][^>]*>Reading<\/span>/);
-        assert.match(html, /<span class=["']locked["'][^>]*>Listening<\/span>/);
+        // Sprint 11.1 — Listening is no longer locked.
+        assert.ok(
+          !/<span class=["']locked["'][^>]*>Listening<\/span>/.test(html),
+          `${rel} must NOT carry a locked Listening span — promoted to active link in Sprint 11.1`,
+        );
       });
 
       test('exactly one .topnav nav element', () => {
@@ -538,25 +544,32 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     const m = component.match(/VALID_ACTIVE\s*=\s*\[([^\]]+)\]/);
     assert.ok(m);
     const skills = m[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean);
-    assert.deepEqual(skills.sort(), ['grammar', 'home', 'speaking', 'vocabulary', 'writing']);
+    // Sprint 11.1 — 'listening' added as the 6th skill (DEBT-LISTENING-
+    // MODULE foundation 1/5). VALID_ACTIVE now has 6 entries.
+    assert.deepEqual(skills.sort(), ['grammar', 'home', 'listening', 'speaking', 'vocabulary', 'writing']);
   });
 
   test('shadow tree contains canonical brand wordmark with span.dot', () => {
     assert.match(component, /Aver<span class="dot">\.<\/span>Learning/);
   });
 
-  test('shadow tree contains all 5 skill links with data-tab attrs', () => {
-    for (const tab of ['home', 'writing', 'speaking', 'grammar', 'vocabulary']) {
+  test('shadow tree contains all 6 skill links with data-tab attrs', () => {
+    // Sprint 11.1 — 'listening' joins the canonical 5 (was: home/writing/
+    // speaking/grammar/vocabulary).
+    for (const tab of ['home', 'writing', 'speaking', 'listening', 'grammar', 'vocabulary']) {
       const re = new RegExp(`data-tab="${tab}"`);
       assert.match(component, re, `nav-links must include data-tab="${tab}"`);
     }
   });
 
-  test('shadow tree contains 2 locked spans (Reading + Listening)', () => {
+  test('shadow tree contains exactly 1 locked span (Reading) — Listening promoted in Sprint 11.1', () => {
     const matches = component.match(/<span class="locked"/g) || [];
-    assert.equal(matches.length, 2);
+    assert.equal(matches.length, 1, 'expected 1 locked tab; Listening promoted to active in 11.1');
     assert.match(component, /<span class="locked" aria-disabled="true">Reading<\/span>/);
-    assert.match(component, /<span class="locked" aria-disabled="true">Listening<\/span>/);
+    assert.ok(
+      !/<span class="locked" aria-disabled="true">Listening<\/span>/.test(component),
+      'Listening must NOT carry the locked class anymore (Sprint 11.1).',
+    );
   });
 
   test('shadow tree contains theme toggle button with both SVG icons', () => {
@@ -610,10 +623,12 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /this\._mounted\s*=\s*true/);
   });
 
-  test('href targets match canonical chrome contract (5 skill landings + profile)', () => {
+  test('href targets match canonical chrome contract (6 skill landings + profile)', () => {
+    // Sprint 11.1 — Listening href joins the canonical 5.
     assert.match(component, /href="\/pages\/home\.html"\s+data-tab="home"/);
     assert.match(component, /href="\/pages\/writing-dashboard\.html"\s+data-tab="writing"/);
     assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
+    assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);
     assert.match(component, /href="\/grammar\.html"\s+data-tab="grammar"/);
     assert.match(component, /href="\/pages\/vocabulary\.html"\s+data-tab="vocabulary"/);
   });
