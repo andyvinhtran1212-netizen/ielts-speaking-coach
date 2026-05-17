@@ -52,7 +52,11 @@ import { canonicalInitials } from '/js/user-pill.js';
 // ── Constants ──────────────────────────────────────────────────────
 
 
-const VALID_ACTIVE = ['home', 'writing', 'speaking', 'grammar', 'vocabulary'];
+// Sprint 11.1 — 'listening' added as the 5th skill tab between Speaking
+// and Grammar (DEBT-LISTENING-MODULE foundation 1/5). Page shell lives
+// at /pages/listening.html; user-facing routes (dictation, gist, T/F,
+// MCQ, mini test) land in Sprint 11.2-11.4.
+const VALID_ACTIVE = ['home', 'writing', 'speaking', 'listening', 'grammar', 'vocabulary'];
 
 // Supabase polling — ~3s ceiling matches Sprint 7.8-hotfix bootstrap
 // pattern. 50ms tick × 60 tries.
@@ -311,10 +315,10 @@ const TEMPLATE = /* html */ `
       <a href="/pages/home.html" data-tab="home">Trang chủ</a>
       <a href="/pages/writing-dashboard.html" data-tab="writing">Writing</a>
       <a href="/pages/speaking.html" data-tab="speaking">Speaking</a>
+      <a href="/pages/listening.html" data-tab="listening">Listening</a>
       <a href="/grammar.html" data-tab="grammar">Grammar</a>
       <a href="/pages/vocabulary.html" data-tab="vocabulary">Vocabulary</a>
       <span class="locked" aria-disabled="true">Reading</span>
-      <span class="locked" aria-disabled="true">Listening</span>
     </div>
 
     <div class="topnav-right">

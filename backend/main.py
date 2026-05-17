@@ -30,6 +30,10 @@ from routers.exercises import (
     admin_router as exercises_admin_router,
 )
 from routers.flashcards import user_router as flashcards_user_router
+from routers.listening import (
+    user_router as listening_user_router,
+    admin_router as listening_admin_router,
+)
 from routers.health import router as health_router
 from routers.dashboard import router as dashboard_router
 from routers.student_home import router as student_home_router
@@ -113,6 +117,8 @@ app.include_router(vocabulary_bank_router)
 app.include_router(exercises_user_router)
 app.include_router(exercises_admin_router)
 app.include_router(flashcards_user_router)
+app.include_router(listening_user_router)
+app.include_router(listening_admin_router)
 app.include_router(health_router)
 app.include_router(dashboard_router)
 app.include_router(student_home_router)

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Listening — Aver Learning</title>
+
+  <!-- Sprint 6.10 canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- Fonts: Plus Jakarta Sans (body) + JetBrains Mono (numerics). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css. Sprint 11.1 reuses vocabulary.css mode-card +
+       stats-strip primitives (same structural family per Sprint 11.0
+       §1C — no new CSS bucket for the shell). -->
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/vocabulary.css" />
+
+  <!-- Tailwind CDN — used by .hidden / utility classes mirrored from
+       vocabulary.html. Sprint 11.2+ may extract a Listening-specific
+       sheet once user-facing exercise UIs land; for the shell it's
+       overkill. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <!-- Lucide icons for the mode-card glyphs. -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+
+  <!-- Canonical chrome Web Component (Sprint 7.12). Listening tab
+       active per Sprint 11.1 aver-chrome.js update. -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+
+    <!-- ── Header ────────────────────────────────────────────────── -->
+    <header class="vocab-header">
+      <p class="eyebrow">Listening</p>
+      <h1>Luyện nghe <span class="accent">IELTS</span></h1>
+      <p class="subtitle">
+        5 dạng bài: Chép chính tả, Nghe ý chính, Đúng/Sai, Trắc nghiệm, và Mini Test.
+        Đang phát triển — Sprint 11.2 ship phần Chép chính tả đầu tiên.
+      </p>
+    </header>
+
+    <!-- ── Mode-card grid (Sprint 11.1 shell — all 5 disabled) ───── -->
+    <!-- Sprint 11.0 §6 wireframes: 5 modes. Sprint 11.1 ships the
+         layout only — every card is "Coming soon". Sprint 11.2 flips
+         dictation live first (Andy Q6 lock), then gist + T/F (11.3),
+         then MCQ + mini test (11.4). The card structure mirrors
+         vocabulary.html so the design-token + accessibility patterns
+         transfer 1:1. -->
+    <section class="vocab-modes" aria-labelledby="modes-heading">
+      <h2 id="modes-heading">Chọn dạng bài</h2>
+      <div class="modes-grid">
+
+        <!-- Dictation — Sprint 11.2 first to flip live -->
+        <a href="#" class="mode-card disabled" data-mode="dictation"
+           aria-label="Chép chính tả (đang phát triển)"
+           aria-disabled="true">
+          <div class="head">
+            <div class="icon"><i data-lucide="edit-3"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Chép chính tả <span class="lock-tag">Coming soon</span></h3>
+          <p class="lede">Nghe và gõ lại câu chính xác từng từ.</p>
+        </a>
+
+        <!-- Gist — Sprint 11.3 -->
+        <a href="#" class="mode-card disabled" data-mode="gist"
+           aria-label="Nghe ý chính (đang phát triển)"
+           aria-disabled="true">
+          <div class="head">
+            <div class="icon"><i data-lucide="message-circle"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Nghe ý chính <span class="lock-tag">Coming soon</span></h3>
+          <p class="lede">Hiểu nội dung tổng quát của đoạn nghe.</p>
+        </a>
+
+        <!-- True/False — Sprint 11.3 -->
+        <a href="#" class="mode-card disabled" data-mode="true-false"
+           aria-label="Đúng / Sai (đang phát triển)"
+           aria-disabled="true">
+          <div class="head">
+            <div class="icon"><i data-lucide="check-square"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Đúng / Sai <span class="lock-tag">Coming soon</span></h3>
+          <p class="lede">Đánh dấu T/F cho mỗi nhận định.</p>
+        </a>
+
+        <!-- MCQ — Sprint 11.4 -->
+        <a href="#" class="mode-card disabled" data-mode="mcq"
+           aria-label="Trắc nghiệm (đang phát triển)"
+           aria-disabled="true">
+          <div class="head">
+            <div class="icon"><i data-lucide="list-checks"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Trắc nghiệm <span class="lock-tag">Coming soon</span></h3>
+          <p class="lede">Chọn đáp án đúng giữa 4 lựa chọn.</p>
+        </a>
+
+        <!-- Mini Test — Sprint 11.4 -->
+        <a href="#" class="mode-card disabled" data-mode="mini-test"
+           aria-label="Mini Test (đang phát triển)"
+           aria-disabled="true">
+          <div class="head">
+            <div class="icon"><i data-lucide="award"></i></div>
+            <span class="arrow" aria-hidden="true">→</span>
+          </div>
+          <h3>Mini Test <span class="lock-tag">Coming soon</span></h3>
+          <p class="lede">4 sections, 40 câu, ~30 phút — như đề thi thật.</p>
+        </a>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Sprint 11.1 minimal shell: no module mounts yet. Disabled mode-
+       cards intercept clicks so users see no broken state.
+       Sprint 11.2 will add the click handler + tab-mount machinery
+       mirroring vocab-landing.js. -->
+  <script type="module">
+    // Disable clicks on every mode-card while we build out the modes.
+    // Sprint 11.2 replaces this with active hash routing.
+    document.querySelectorAll('.mode-card.disabled').forEach(function (card) {
+      card.addEventListener('click', function (e) { e.preventDefault(); });
+    });
+    // Lucide icon render — same pattern as vocabulary.html.
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    } else {
+      window.addEventListener('load', function () {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>

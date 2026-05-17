@@ -77,6 +77,16 @@ class Settings(BaseSettings):
     GEMINI_PRO_MODEL: str = "gemini-2.5-pro"
     GEMINI_FLASH_MODEL: str = "gemini-2.5-flash"
 
+    # Sprint 11.1 — Listening module (DEBT-LISTENING-MODULE foundation 1/5).
+    # ELEVENLABS_API_KEY: empty by default; render endpoint stays 503 until
+    # Andy provisions the Creator plan. LISTENING_AI_RENDER_ENABLED is the
+    # feature flag — flip to true in .env once the key is set (defense in
+    # depth so a leaked key without intentional enablement still gates
+    # safely).
+    ELEVENLABS_API_KEY: str = ""
+    LISTENING_AI_RENDER_ENABLED: bool = False
+    LISTENING_AUDIO_BUCKET: str = "listening-audio"
+
     class Config:
         env_file = ".env"
 
