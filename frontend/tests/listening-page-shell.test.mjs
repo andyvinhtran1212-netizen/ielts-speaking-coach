@@ -1,20 +1,18 @@
 /**
  * frontend/tests/listening-page-shell.test.mjs
  *
- * Sprint 11.1 — pin the Listening landing shell (DEBT-LISTENING-MODULE
- * foundation 1/5).
+ * Sprint 11.1 + 11.2 — pin the Listening landing shell.
  *
- * Sprint 11.0 §6 wireframes specify 5 modes. Sprint 11.1 ships the
- * layout ONLY — every mode card is rendered with `disabled` (compound
- * class) + a "Coming soon" lock-tag. Sprint 11.2 flips dictation
- * live first (Andy Q6 lock), then gist + T/F (11.3), then MCQ +
- * mini test (11.4).
+ * Sprint 11.0 §6 wireframes specify 5 modes. Sprint 11.2 flips
+ * dictation LIVE (Andy Q6 lock) — its card has no `disabled` class
+ * and routes to /pages/listening-dictation.html. The other 4 modes
+ * stay "Coming soon" until Sprint 11.3 / 11.4.
  *
  * Sentinel-string match against the static page source — same pattern
  * as vocabulary-redesign.test.mjs + pending-vocab.test.mjs. Catches:
  *   - mode-card roster drift (a sprint that adds a 6th mode without
  *     updating the test)
- *   - the "Coming soon" lock-tag being accidentally removed mid-sprint
+ *   - the dictation card regressing back to "Coming soon"
  *   - the click-interception script being lost in a refactor (would
  *     produce broken anchor links to nowhere)
  *   - chrome integration regressing — listening.html MUST mount the
@@ -60,20 +58,35 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     );
   });
 
-  it('every mode-card carries `disabled` class + a "Coming soon" lock-tag', () => {
-    // Sprint 11.1 ships the layout only — every card must be visually
-    // greyed out. Sprint 11.2+ promotes the dictation card first by
-    // removing the `disabled` class and adding the active click handler.
+  it('dictation card is LIVE — links to listening-dictation.html, no disabled class', () => {
+    // Sprint 11.2 promotion: dictation mode goes live first per Andy
+    // Q6 lock. The card MUST link to /pages/listening-dictation.html
+    // and MUST NOT carry the `disabled` class or "Coming soon" tag.
+    assert.match(
+      HTML,
+      /<a[^>]*href="\/pages\/listening-dictation\.html"[^>]*class="mode-card"[^>]*data-mode="dictation"/,
+      'dictation mode-card must be active (href + class="mode-card" without disabled)',
+    );
+    // Negative pin — the dictation card MUST NOT have the disabled flavour.
+    assert.doesNotMatch(
+      HTML,
+      /<a[^>]*class="mode-card disabled"[^>]*data-mode="dictation"/,
+      'dictation card regressed to disabled — Sprint 11.2 flipped it live',
+    );
+  });
+
+  it('the 4 deferred modes still carry `disabled` + "Coming soon"', () => {
+    // gist, true-false, mcq, mini-test stay "Coming soon" until
+    // Sprint 11.3 / 11.4 promote them in turn.
     const cardMatches = HTML.match(/<a[^>]*class="mode-card disabled"[^>]*>/g) || [];
     assert.equal(
-      cardMatches.length, 5,
-      `expected 5 disabled mode-cards; got ${cardMatches.length}`,
+      cardMatches.length, 4,
+      `expected 4 disabled mode-cards (gist, T/F, mcq, mini-test); got ${cardMatches.length}`,
     );
-    // Sprint 11.0 §6 — lock-tag carries the "Coming soon" label.
     const tagMatches = HTML.match(/<span class="lock-tag">Coming soon<\/span>/g) || [];
     assert.equal(
-      tagMatches.length, 5,
-      `expected 5 "Coming soon" lock-tags; got ${tagMatches.length}`,
+      tagMatches.length, 4,
+      `expected 4 "Coming soon" lock-tags; got ${tagMatches.length}`,
     );
   });
 

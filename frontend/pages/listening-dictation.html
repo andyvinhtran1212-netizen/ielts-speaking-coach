@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Chép chính tả — Aver Learning</title>
+
+  <!-- Sprint 6.10 canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/vocabulary.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
+            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <!-- Supabase + api.js — required by aver-chrome.js for the user-pill
+       fetch AND by audio-player.js for the signed-URL refetch path. -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script type="module" src="/js/components/audio-player.js"></script>
+
+  <style>
+    /* Sprint 11.2 — dictation-specific spacing only. The component
+       palette (mode-card, design tokens) covers the visual chrome. */
+    .dictation-shell {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-6);
+    }
+    .dictation-header h1 {
+      font-size: var(--av-fs-3xl);
+      margin-bottom: var(--av-space-2);
+    }
+    .dictation-header .accent { color: var(--av-brand-teal-700); }
+    .dictation-header .subtitle {
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+    }
+    .dictation-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--av-space-2);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+    }
+    .dictation-meta .pill {
+      padding: 2px 10px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+    }
+    .answer-block {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-3);
+    }
+    .answer-label {
+      font-weight: var(--av-fw-semibold);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-primary);
+    }
+    .answer-textarea {
+      width: 100%;
+      min-height: 140px;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-family: var(--av-font-sans);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+      resize: vertical;
+    }
+    .answer-textarea:focus {
+      outline: 2px solid var(--av-brand-teal-700);
+      outline-offset: 2px;
+      border-color: var(--av-brand-teal-700);
+    }
+    .submit-row {
+      display: flex;
+      gap: var(--av-space-3);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      padding: var(--av-space-3) var(--av-space-6);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none;
+      font-weight: var(--av-fw-semibold);
+      cursor: pointer;
+      transition: background var(--av-duration-fast) var(--av-easing-default);
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled {
+      background: var(--av-text-muted);
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer;
+    }
+    .score-pill {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+    }
+    .score-pill.is-perfect { color: var(--av-brand-teal-700); }
+    .diff-block {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      line-height: var(--av-lh-relaxed);
+      font-size: var(--av-fs-base);
+    }
+    .diff-block .label {
+      display: block;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      margin-bottom: var(--av-space-3);
+    }
+    .diff-token { display: inline-block; margin-right: 4px; }
+    .diff-token--match { color: var(--av-text-primary); }
+    .diff-token--miss {
+      color: #B91C1C; text-decoration: underline; text-decoration-style: dotted;
+    }
+    .diff-token--wrong { color: #B91C1C; font-weight: var(--av-fw-semibold); }
+    .diff-token--wrong .strike {
+      text-decoration: line-through;
+      color: var(--av-text-faint);
+      margin-right: 4px;
+      font-weight: var(--av-fw-regular);
+    }
+    .diff-token--extra { color: var(--av-text-faint); text-decoration: line-through; }
+    .empty-state {
+      padding: var(--av-space-8);
+      text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .empty-state a {
+      color: var(--av-brand-teal-700);
+      text-decoration: underline;
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: #FEF2F2;
+      color: #991B1B;
+      border: 1px solid #FECACA;
+      font-size: var(--av-fs-sm);
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="dictation-shell">
+
+      <header class="dictation-header">
+        <p class="eyebrow"><a href="/pages/listening.html" style="color:var(--av-text-secondary);">← Quay lại</a></p>
+        <h1>Chép chính tả <span class="accent">·</span> <span id="content-title">…</span></h1>
+        <p class="subtitle">
+          Nghe và gõ lại câu chính xác từng từ. Có thể nghe lại nhiều lần,
+          nhưng chỉ lần gửi đầu tiên được tính điểm chính thức.
+        </p>
+        <div class="dictation-meta" id="content-meta" hidden></div>
+      </header>
+
+      <!-- Empty / loading / error states. -->
+      <div class="empty-state" id="state-empty" hidden>
+        <p><strong>Chưa chọn bài nghe.</strong></p>
+        <p>Sprint 11.3 sẽ thêm trang duyệt nội dung. Trong thời gian này,
+          gắn <code>?content_id=&lt;UUID&gt;</code> vào URL để bắt đầu.</p>
+      </div>
+      <div class="empty-state" id="state-loading">Đang tải…</div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <!-- Active dictation surface. Hidden until content loads. -->
+      <div id="dictation-surface" hidden>
+        <audio-player id="player"></audio-player>
+
+        <div class="answer-block">
+          <label class="answer-label" for="answer">Câu trả lời của bạn</label>
+          <textarea class="answer-textarea" id="answer"
+                    placeholder="Gõ lại câu bạn nghe được..."
+                    autocomplete="off" spellcheck="false"></textarea>
+        </div>
+
+        <div class="submit-row">
+          <button class="btn-primary" id="btn-submit" type="button">Kiểm tra</button>
+          <button class="btn-secondary" id="btn-reset" type="button" hidden>Thử lại</button>
+          <span class="score-pill" id="score-pill" hidden></span>
+        </div>
+
+        <div class="diff-block" id="diff-block" hidden>
+          <span class="label" id="diff-label">Đối chiếu</span>
+          <div id="diff-render"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/listening-dictation.js"></script>
+
+</body>
+</html>
