@@ -70,6 +70,74 @@ _ACCENT_VALUES = {"us_general", "uk_rp", "au", "ca", "other"}
 _CEFR_VALUES = {"A2", "B1", "B2", "C1", "C2"}
 _ELEVENLABS_MODELS = {"eleven_multilingual_v2", "eleven_flash_v2_5"}
 _STATUS_VALUES = {"draft", "published", "archived"}
+_EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
+
+
+def _validate_dictation_segments(
+    segments: list[dict],
+    *,
+    audio_duration_seconds: float | int,
+) -> list[dict]:
+    """Sprint 11.3 — coerce + validate the segments JSONB.
+
+    Returns a normalised copy (idx int, start/end floats, transcript
+    stripped). Raises HTTPException(422) on the first violation so the
+    admin editor surfaces a specific error message rather than a generic
+    schema fail.
+    """
+    if not isinstance(segments, list) or not segments:
+        raise HTTPException(422, "Dictation exercises require at least one segment.")
+
+    out: list[dict] = []
+    prev_end = -1.0
+    for i, raw in enumerate(segments):
+        if not isinstance(raw, dict):
+            raise HTTPException(422, f"Segment {i} must be a JSON object.")
+        try:
+            idx_v = int(raw.get("idx"))
+            start_v = float(raw.get("start_sec"))
+            end_v = float(raw.get("end_sec"))
+        except (TypeError, ValueError):
+            raise HTTPException(
+                422,
+                f"Segment {i} missing/invalid idx/start_sec/end_sec.",
+            )
+        if idx_v != i:
+            raise HTTPException(
+                422,
+                f"Segment idx must be contiguous from 0 — got idx={idx_v} at position {i}.",
+            )
+        if start_v < 0:
+            raise HTTPException(422, f"Segment {i} start_sec must be ≥ 0.")
+        if end_v <= start_v:
+            raise HTTPException(
+                422,
+                f"Segment {i} end_sec ({end_v}) must be > start_sec ({start_v}).",
+            )
+        if end_v > float(audio_duration_seconds) + 0.5:
+            # 0.5s slack tolerates the renderer's coarse duration estimate.
+            raise HTTPException(
+                422,
+                f"Segment {i} end_sec ({end_v}) exceeds content duration "
+                f"({audio_duration_seconds}s).",
+            )
+        if start_v < prev_end - 0.05:
+            raise HTTPException(
+                422,
+                f"Segment {i} overlaps previous segment "
+                f"(start={start_v} < prev_end={prev_end}).",
+            )
+        transcript = str(raw.get("transcript", "")).strip()
+        if not transcript:
+            raise HTTPException(422, f"Segment {i} transcript is empty.")
+        out.append({
+            "idx":        idx_v,
+            "start_sec":  round(start_v, 3),
+            "end_sec":    round(end_v, 3),
+            "transcript": transcript,
+        })
+        prev_end = end_v
+    return out
 
 
 def _default_voice_for_accent(accent_tag: str) -> str | None:
@@ -118,19 +186,49 @@ class ListeningRenderRequest(BaseModel):
 class ListeningAttemptRequest(BaseModel):
     """User POST /api/listening/attempts body.
 
-    Sprint 11.2 ships dictation only. Future sprints (11.3, 11.4) add
-    gist / true-false / mcq via the same endpoint — the `mode` field
-    selects the grader. Content_id is the canonical key into the
-    listening_content row; exercise_id is reserved for Sprint 11.3+
-    when admin-curated exercises ship.
+    Sprint 11.3 introduces SEGMENTED dictation — `segment_idx` (0-indexed)
+    selects which segment within the parent exercise to grade against.
+    Either pass `exercise_id` directly (when the page already knows it
+    from a prior /exercises GET) OR pass `content_id` and let the router
+    resolve the canonical dictation exercise for that content.
+
+    Backward compat with Sprint 11.2: omit `segment_idx` AND `exercise_id`
+    and the router falls back to the whole-content transcript (Sprint
+    11.2 single-pass behaviour).
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    content_id: str | None = Field(default=None, max_length=64)
+    exercise_id: str | None = Field(default=None, max_length=64)
+    segment_idx: int | None = Field(default=None, ge=0, le=500)
+    mode: str = Field(default="dictation")
+    user_transcript: str = Field(min_length=0, max_length=10_000)
+    listen_count: int = Field(default=1, ge=1, le=200)
+
+
+class ListeningExerciseUpsertRequest(BaseModel):
+    """Admin POST /admin/listening/exercises body.
+
+    Creates or updates an exercise row for a given content. Sprint 11.3
+    ships dictation segments only; gist / true_false / mcq payload
+    shapes land in Sprint 11.4+. Server validates segments per the rules
+    in `_validate_dictation_segments`:
+      - idx contiguous from 0
+      - start_sec < end_sec for every segment
+      - end_sec <= parent content.audio_duration_seconds
+      - non-overlapping in time (segment[i].end_sec <= segment[i+1].start_sec)
+      - transcript non-empty
     """
 
     model_config = ConfigDict(extra="ignore")
 
     content_id: str = Field(min_length=1, max_length=64)
-    mode: str = Field(default="dictation")
-    user_transcript: str = Field(min_length=0, max_length=10_000)
-    listen_count: int = Field(default=1, ge=1, le=200)
+    exercise_type: str = Field(default="dictation")
+    segments: list[dict] = Field(default_factory=list)
+    payload: dict = Field(default_factory=dict)
+    order_num: int = Field(default=1, ge=1, le=200)
+    status: str = Field(default="draft")
 
 
 # ── User route — single content fetch ─────────────────────────────────────────
@@ -448,19 +546,20 @@ async def post_listening_attempt(
 ):
     """Submit one dictation attempt.
 
-    Server fetches the canonical transcript from listening_content,
-    runs word-level diff, INSERTs the attempt row, and returns the
-    grading payload for client-side render.
+    Sprint 11.3 — segmented dictation. Body MAY carry:
+      - segment_idx + exercise_id  → grade against exercise.segments[idx]
+      - segment_idx + content_id   → resolve dictation exercise from content
+      - content_id only            → Sprint 11.2 fallback: whole transcript
+                                     (only used if no published dictation
+                                     exercise exists for the content)
 
     Sprint 10.3 first-attempt rule: ALL attempts are stored, but only
-    the first attempt per (user_id, exercise_id) sets the canonical
-    score. Subsequent attempts get stored with their fresh score but
-    do not overwrite — analytics treat first attempt as ground truth.
-    Client UI surfaces the diff for the just-submitted attempt; if
-    the user resubmits, they see the new diff but the analytics row
-    keeps the first-attempt score.
+    the first attempt per (user_id, exercise_id, segment_idx) sets the
+    canonical score. Subsequent attempts get stored with their fresh
+    score but do not overwrite — analytics treat first attempt as
+    ground truth.
 
-    Modes other than 'dictation' return 422 — Sprint 11.3+ flips
+    Modes other than 'dictation' return 422 — Sprint 11.4+ flips
     gist / true-false / mcq.
     """
     user = await _require_auth(authorization)
@@ -469,21 +568,79 @@ async def post_listening_attempt(
     if body.mode != "dictation":
         raise HTTPException(
             422,
-            f"mode='{body.mode}' not supported in Sprint 11.2 — only 'dictation' is live.",
+            f"mode='{body.mode}' not supported in Sprint 11.3 — only 'dictation' is live.",
         )
+    if not body.content_id and not body.exercise_id:
+        raise HTTPException(422, "Either content_id or exercise_id is required.")
 
-    # ── Fetch reference transcript (published-only gate matches GET route) ────
-    res = (
+    # ── Resolve exercise + reference transcript ───────────────────────────────
+    exercise_row: dict | None = None
+    content_id: str | None = body.content_id
+
+    if body.exercise_id:
+        res = (
+            supabase_admin.table("listening_exercises")
+            .select("*")
+            .eq("id", body.exercise_id)
+            .eq("status", "published")
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            raise HTTPException(404, "Exercise not found or not published.")
+        exercise_row = res.data[0]
+        content_id = exercise_row["content_id"]
+
+    # Always verify the parent content is published — gates draft content
+    # from being graded against even when an admin pre-published an exercise.
+    content_res = (
         supabase_admin.table("listening_content")
         .select("id,transcript,status")
-        .eq("id", body.content_id)
+        .eq("id", content_id)
         .eq("status", "published")
         .limit(1)
         .execute()
     )
-    if not res.data:
+    if not content_res.data:
         raise HTTPException(404, "Listening content not found or not published")
-    reference_transcript = res.data[0]["transcript"]
+    content_row = content_res.data[0]
+
+    # If exercise wasn't resolved by id, look up the dictation exercise for
+    # this content (canonical published dictation row, if any).
+    if exercise_row is None:
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("*")
+            .eq("content_id", content_id)
+            .eq("exercise_type", "dictation")
+            .eq("status", "published")
+            .limit(1)
+            .execute()
+        )
+        if ex_res.data:
+            exercise_row = ex_res.data[0]
+
+    # ── Pick the reference transcript ─────────────────────────────────────────
+    reference_transcript: str
+    segments = (exercise_row or {}).get("segments") or []
+
+    if body.segment_idx is not None:
+        if not exercise_row or not segments:
+            raise HTTPException(
+                422,
+                "segment_idx supplied but no segmented dictation exercise "
+                "exists for this content.",
+            )
+        if body.segment_idx >= len(segments):
+            raise HTTPException(
+                422,
+                f"segment_idx {body.segment_idx} out of range "
+                f"(0..{len(segments) - 1}).",
+            )
+        reference_transcript = segments[body.segment_idx].get("transcript", "")
+    else:
+        # Legacy whole-content fallback (Sprint 11.2 behaviour).
+        reference_transcript = content_row["transcript"]
 
     # ── Grade ─────────────────────────────────────────────────────────────────
     graded = grade_dictation(
@@ -491,18 +648,22 @@ async def post_listening_attempt(
         user_transcript=body.user_transcript,
     )
 
-    # ── Lazy-upsert the dictation exercise row (Sprint 11.2 FK satisfaction) ──
-    exercise_id = _ensure_dictation_exercise(body.content_id)
+    # ── Ensure we have an exercise_id (lazy-upsert for legacy callers) ────────
+    if exercise_row:
+        exercise_id = exercise_row["id"]
+    else:
+        exercise_id = _ensure_dictation_exercise(content_id)
 
-    # ── First-attempt rule (Sprint 10.3 carryover) ────────────────────────────
-    prior = (
+    # ── First-attempt rule (per segment when applicable) ──────────────────────
+    prior_q = (
         supabase_admin.table("listening_attempts")
-        .select("id,score,is_correct")
+        .select("id,score,is_correct,segment_idx")
         .eq("user_id", user_id)
         .eq("exercise_id", exercise_id)
-        .limit(1)
-        .execute()
     )
+    if body.segment_idx is not None:
+        prior_q = prior_q.eq("segment_idx", body.segment_idx)
+    prior = prior_q.limit(1).execute()
     is_first_attempt = not prior.data
 
     attempt_id = str(uuid.uuid4())
@@ -511,6 +672,7 @@ async def post_listening_attempt(
             "id":                   attempt_id,
             "user_id":              user_id,
             "exercise_id":          exercise_id,
+            "segment_idx":          body.segment_idx,
             "user_answer":          {
                 "text": body.user_transcript,
                 "diff": graded["diff"],
@@ -522,12 +684,13 @@ async def post_listening_attempt(
         }).execute()
     except Exception as e:
         logger.error("[listening] attempt INSERT failed user=%s content=%s: %s",
-                     user_id, body.content_id, e)
+                     user_id, content_id, e)
         raise HTTPException(500, f"Attempt save failed: {e}")
 
     return {
         "attempt_id":       attempt_id,
         "exercise_id":      exercise_id,
+        "segment_idx":      body.segment_idx,
         "is_first_attempt": is_first_attempt,
         "score":            graded["score"],
         "correct_words":    graded["correct_words"],
@@ -535,6 +698,54 @@ async def post_listening_attempt(
         "is_correct":       graded["is_correct"],
         "diff":             graded["diff"],
     }
+
+
+# ── User route — list exercises for a content ────────────────────────────────
+
+
+@user_router.get("/exercises")
+async def get_listening_exercises(
+    content_id: str = Query(..., min_length=1, max_length=64),
+    exercise_type: str = Query(default="dictation"),
+    authorization: str | None = Header(default=None),
+):
+    """List published exercises for a content row. Sprint 11.3 dictation
+    page calls this to discover the segments JSONB it should iterate.
+
+    Returns: `{exercises: [...]}` ordered by order_num. Empty list when
+    no exercise has been authored yet — the client renders an empty
+    state pointing the admin at the segment editor.
+    """
+    user = await _require_auth(authorization)
+    _ = user
+
+    if exercise_type not in _EXERCISE_TYPES:
+        raise HTTPException(
+            422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
+        )
+
+    # Content must be published for the user route to surface anything.
+    c = (
+        supabase_admin.table("listening_content")
+        .select("id,status,audio_duration_seconds")
+        .eq("id", content_id)
+        .eq("status", "published")
+        .limit(1)
+        .execute()
+    )
+    if not c.data:
+        raise HTTPException(404, "Listening content not found or not published")
+
+    res = (
+        supabase_admin.table("listening_exercises")
+        .select("*")
+        .eq("content_id", content_id)
+        .eq("exercise_type", exercise_type)
+        .eq("status", "published")
+        .order("order_num", desc=False)
+        .execute()
+    )
+    return {"exercises": res.data or []}
 
 
 # ── Admin routes — content preview + list ─────────────────────────────────────
@@ -621,3 +832,146 @@ async def admin_list_listening_content(
         "limit":  limit,
         "offset": offset,
     }
+
+
+# ── Admin routes — exercise CRUD (Sprint 11.3) ────────────────────────────────
+
+
+@admin_router.post("/exercises")
+async def admin_upsert_listening_exercise(
+    body: ListeningExerciseUpsertRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Create or update a dictation exercise row + segments.
+
+    Sprint 11.3 — segmented dictation authoring. Segments validated
+    against the parent content row's audio_duration_seconds:
+      - idx contiguous from 0
+      - start_sec < end_sec
+      - end_sec ≤ content.audio_duration_seconds (+0.5s slack)
+      - non-overlapping
+      - transcript non-empty
+
+    Upsert semantics: if a row with the same (content_id, exercise_type)
+    pair already exists, the row is UPDATEd in place (preserves the
+    exercise_id so existing attempt rows keep referencing it). Otherwise
+    a new row is INSERTed.
+    """
+    await require_admin(authorization)
+
+    if body.exercise_type not in _EXERCISE_TYPES:
+        raise HTTPException(
+            422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
+        )
+    if body.status not in _STATUS_VALUES:
+        raise HTTPException(
+            422, f"status must be one of {sorted(_STATUS_VALUES)}",
+        )
+
+    # ── Resolve parent content (we need its duration for validation) ─────────
+    c = (
+        supabase_admin.table("listening_content")
+        .select("id,audio_duration_seconds")
+        .eq("id", body.content_id)
+        .limit(1)
+        .execute()
+    )
+    if not c.data:
+        raise HTTPException(404, "Listening content not found")
+    duration = c.data[0]["audio_duration_seconds"]
+
+    # ── Validate segments (dictation only — other types ship payload only) ──
+    validated_segments: list[dict] = []
+    if body.exercise_type == "dictation":
+        validated_segments = _validate_dictation_segments(
+            body.segments,
+            audio_duration_seconds=duration,
+        )
+
+    # ── Upsert: look up existing row by (content_id, exercise_type) ──────────
+    existing = (
+        supabase_admin.table("listening_exercises")
+        .select("id")
+        .eq("content_id", body.content_id)
+        .eq("exercise_type", body.exercise_type)
+        .limit(1)
+        .execute()
+    )
+
+    payload = {
+        "content_id":    body.content_id,
+        "exercise_type": body.exercise_type,
+        "payload":       body.payload or {},
+        "order_num":     body.order_num,
+        "status":        body.status,
+        "segments":      validated_segments,
+    }
+
+    if existing.data:
+        exercise_id = existing.data[0]["id"]
+        supabase_admin.table("listening_exercises").update(payload).eq(
+            "id", exercise_id,
+        ).execute()
+        return {"ok": True, "exercise_id": exercise_id, "created": False}
+
+    exercise_id = str(uuid.uuid4())
+    payload["id"] = exercise_id
+    supabase_admin.table("listening_exercises").insert(payload).execute()
+    return {"ok": True, "exercise_id": exercise_id, "created": True}
+
+
+@admin_router.get("/exercises")
+async def admin_list_listening_exercises(
+    content_id: str = Query(..., min_length=1, max_length=64),
+    exercise_type: str | None = Query(default=None),
+    authorization: str | None = Header(default=None),
+):
+    """List exercises for a content row. Admin variant — sees draft +
+    archived rows in addition to published. Used by the segment editor
+    to load existing segments on re-edit.
+    """
+    await require_admin(authorization)
+
+    if exercise_type is not None and exercise_type not in _EXERCISE_TYPES:
+        raise HTTPException(
+            422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
+        )
+
+    q = (
+        supabase_admin.table("listening_exercises")
+        .select("*")
+        .eq("content_id", content_id)
+        .order("order_num", desc=False)
+    )
+    if exercise_type:
+        q = q.eq("exercise_type", exercise_type)
+    res = q.execute()
+    return {"exercises": res.data or []}
+
+
+@admin_router.delete("/exercises/{exercise_id}")
+async def admin_delete_listening_exercise(
+    exercise_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Soft-delete an exercise via status='archived' (Sprint 10.6 vocab
+    archive pattern). Hard delete reserved for admin-only DB ops because
+    listening_attempts has a FK CASCADE that would lose user history.
+    """
+    await require_admin(authorization)
+
+    res = (
+        supabase_admin.table("listening_exercises")
+        .select("id,status")
+        .eq("id", exercise_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Exercise not found")
+
+    supabase_admin.table("listening_exercises").update({
+        "status": "archived",
+    }).eq("id", exercise_id).execute()
+
+    return {"ok": True, "exercise_id": exercise_id, "status": "archived"}
