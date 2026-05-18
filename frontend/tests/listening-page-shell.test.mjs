@@ -58,35 +58,45 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     );
   });
 
-  it('dictation card is LIVE — links to listening-dictation.html, no disabled class', () => {
-    // Sprint 11.2 promotion: dictation mode goes live first per Andy
-    // Q6 lock. The card MUST link to /pages/listening-dictation.html
-    // and MUST NOT carry the `disabled` class or "Coming soon" tag.
+  it('3 LIVE cards — dictation, gist, true-false (Sprint 11.4)', () => {
+    // Sprint 11.2 promoted dictation. Sprint 11.4 promotes gist + tf.
+    // Each lives on its own dedicated page.
     assert.match(
       HTML,
       /<a[^>]*href="\/pages\/listening-dictation\.html"[^>]*class="mode-card"[^>]*data-mode="dictation"/,
-      'dictation mode-card must be active (href + class="mode-card" without disabled)',
+      'dictation mode-card must be active',
     );
-    // Negative pin — the dictation card MUST NOT have the disabled flavour.
-    assert.doesNotMatch(
+    assert.match(
       HTML,
-      /<a[^>]*class="mode-card disabled"[^>]*data-mode="dictation"/,
-      'dictation card regressed to disabled — Sprint 11.2 flipped it live',
+      /<a[^>]*href="\/pages\/listening-gist\.html"[^>]*class="mode-card"[^>]*data-mode="gist"/,
+      'gist mode-card must be active (Sprint 11.4)',
     );
+    assert.match(
+      HTML,
+      /<a[^>]*href="\/pages\/listening-tf\.html"[^>]*class="mode-card"[^>]*data-mode="true-false"/,
+      'true-false mode-card must be active (Sprint 11.4)',
+    );
+    // Negative pin — none of the 3 LIVE cards may regress to disabled.
+    for (const mode of ['dictation', 'gist', 'true-false']) {
+      assert.doesNotMatch(
+        HTML,
+        new RegExp(`<a[^>]*class="mode-card disabled"[^>]*data-mode="${mode}"`),
+        `${mode} card regressed to disabled`,
+      );
+    }
   });
 
-  it('the 4 deferred modes still carry `disabled` + "Coming soon"', () => {
-    // gist, true-false, mcq, mini-test stay "Coming soon" until
-    // Sprint 11.3 / 11.4 promote them in turn.
+  it('the 2 deferred modes still carry `disabled` + "Coming soon"', () => {
+    // mcq + mini-test stay "Coming soon" until Sprint 11.5.
     const cardMatches = HTML.match(/<a[^>]*class="mode-card disabled"[^>]*>/g) || [];
     assert.equal(
-      cardMatches.length, 4,
-      `expected 4 disabled mode-cards (gist, T/F, mcq, mini-test); got ${cardMatches.length}`,
+      cardMatches.length, 2,
+      `expected 2 disabled mode-cards (mcq, mini-test); got ${cardMatches.length}`,
     );
     const tagMatches = HTML.match(/<span class="lock-tag">Coming soon<\/span>/g) || [];
     assert.equal(
-      tagMatches.length, 4,
-      `expected 4 "Coming soon" lock-tags; got ${tagMatches.length}`,
+      tagMatches.length, 2,
+      `expected 2 "Coming soon" lock-tags; got ${tagMatches.length}`,
     );
   });
 

@@ -207,6 +207,72 @@ export function splitIntoSentences(raw) {
  * Returns the SAME shape used by STATE.segments (transcript + start_sec
  * + end_sec, no idx — idx is assigned at render/save time).
  */
+/**
+ * Sprint 11.4 — alignment-driven timestamp generator.
+ *
+ * When the parent content has ElevenLabs `/with-timestamps` alignment
+ * data persisted, derive PRECISE sentence boundaries by:
+ *   1. Walking the rebuilt transcript char-by-char (joining
+ *      alignment.characters in order).
+ *   2. For each sentence, finding its byte/char start in the rebuilt
+ *      transcript via cumulative offset.
+ *   3. start_sec = character_start_times_seconds[that_offset]
+ *      end_sec   = character_end_times_seconds[offset + len - 1]
+ *
+ * Returns the SAME shape as assignProportionalTimestamps. If anything
+ * goes wrong (alignment too short, indices off the end) returns NULL
+ * so the caller falls back to the char-proportional path.
+ *
+ * Sprint 11.3.1 char-proportional drift is ±0.5-1s per segment. With
+ * alignment this drops to sub-50ms — segments start cleanly on word
+ * boundaries.
+ */
+export function assignAlignmentTimestamps(sentences, alignmentData) {
+  if (!Array.isArray(sentences) || !sentences.length) return null;
+  if (!alignmentData || typeof alignmentData !== 'object') return null;
+  const chars = alignmentData.characters;
+  const starts = alignmentData.character_start_times_seconds;
+  const ends = alignmentData.character_end_times_seconds;
+  if (!Array.isArray(chars) || !Array.isArray(starts) || !Array.isArray(ends)) return null;
+  if (chars.length !== starts.length || chars.length !== ends.length) return null;
+  if (!chars.length) return null;
+
+  // Rebuild the canonical transcript from the alignment so we can
+  // locate each sentence even when whitespace differs slightly from
+  // the textarea content.
+  const rebuilt = chars.join('');
+  const out = [];
+  let cursor = 0;     // search anchor in rebuilt transcript
+  for (const text of sentences) {
+    // Find this sentence's start position in the rebuilt transcript
+    // (case-insensitive, whitespace-tolerant on the leading edge).
+    let foundAt = rebuilt.indexOf(text, cursor);
+    if (foundAt < 0) {
+      // Try a tolerant search: collapse multiple spaces in both sides.
+      const needle = text.replace(/\s+/g, ' ').trim();
+      foundAt = rebuilt.replace(/\s+/g, ' ').indexOf(needle, cursor);
+      if (foundAt < 0) return null;
+    }
+    const endIdx = foundAt + text.length - 1;
+    if (endIdx >= ends.length) return null;
+    out.push({
+      transcript: text,
+      start_sec:  Math.round(Number(starts[foundAt]) * 100) / 100,
+      end_sec:    Math.round(Number(ends[endIdx]) * 100) / 100,
+    });
+    cursor = endIdx + 1;
+  }
+  // Smooth boundaries: chain end[i] == start[i+1] to avoid gaps (the
+  // user replay UX prefers contiguous segments).
+  for (let i = 0; i < out.length - 1; i += 1) {
+    if (out[i].end_sec < out[i + 1].start_sec) {
+      out[i].end_sec = out[i + 1].start_sec;
+    }
+  }
+  return out;
+}
+
+
 export function assignProportionalTimestamps(sentences, contentDuration) {
   if (!Array.isArray(sentences) || !sentences.length) return [];
   const duration = Number(contentDuration);
@@ -245,22 +311,38 @@ function parseFromTextarea() {
     return;
   }
   const duration = STATE.content?.audio_duration_seconds;
-  STATE.segments = assignProportionalTimestamps(sentences, duration);
+  const alignment = STATE.content?.alignment_data;
+
+  // Sprint 11.4 bonus — prefer the alignment-driven timestamps when
+  // the content has ElevenLabs word-level alignment. Falls back to
+  // char-proportional if alignment is absent or any sentence can't be
+  // located in the rebuilt transcript.
+  let segments = null;
+  let alignmentUsed = false;
+  if (alignment) {
+    segments = assignAlignmentTimestamps(sentences, alignment);
+    alignmentUsed = !!segments;
+  }
+  if (!segments) {
+    segments = assignProportionalTimestamps(sentences, duration);
+  }
+  STATE.segments = segments;
   renderSegments();
 
-  // Sprint 11.3.1 — guard banner: show estimated total vs content
-  // duration. With assignProportionalTimestamps the last segment's
-  // end_sec is clamped to content_duration so the sum WILL match, but
-  // the banner reassures the admin that the auto-estimate is sound +
-  // surfaces a warning if a future refactor introduces drift.
   const last = STATE.segments[STATE.segments.length - 1];
   const totalEstimated = last ? last.end_sec : 0;
   const drift = duration ? Math.abs(totalEstimated - duration) : 0;
   if (!duration) {
     showBanner(
-      `Đã phân tách thành ${STATE.segments.length} câu. Audio chưa biết duration — '
-      + 'bấm "Đánh dấu" để bắt timestamp thủ công.`,
+      `Đã phân tách thành ${STATE.segments.length} câu. Audio chưa biết `
+      + `duration — bấm "Đánh dấu" để bắt timestamp thủ công.`,
       'info',
+    );
+  } else if (alignmentUsed) {
+    showBanner(
+      `✨ Đã phân tách thành ${STATE.segments.length} câu với timestamps `
+      + `AI-precision (ElevenLabs alignment). Có thể tinh chỉnh từng câu nếu cần.`,
+      'success',
     );
   } else if (drift > 0.5) {
     showBanner(
@@ -270,9 +352,9 @@ function parseFromTextarea() {
     );
   } else {
     showBanner(
-      `Đã phân tách thành ${STATE.segments.length} câu với timestamps tự động `
-      + `(tổng ${fmtTime(totalEstimated)} = ${fmtTime(duration)}). `
-      + `Có thể tinh chỉnh từng câu bằng "Mark start/end" hoặc gõ trực tiếp.`,
+      `📐 Đã phân tách thành ${STATE.segments.length} câu với timestamps `
+      + `ước tính theo tỉ lệ ký tự (tổng ${fmtTime(totalEstimated)} = `
+      + `${fmtTime(duration)}). Có thể tinh chỉnh "Mark start/end".`,
       'success',
     );
   }

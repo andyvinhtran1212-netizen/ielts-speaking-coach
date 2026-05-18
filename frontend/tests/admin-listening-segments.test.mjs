@@ -32,7 +32,11 @@ const JS = readFileSync(JS_PATH, 'utf8');
 // regex matched against the source). The module bootstraps Supabase
 // on import, which is a no-op when window is undefined.
 const helpersUrl = new URL('../js/admin-listening-segments.js', import.meta.url).href;
-const { splitIntoSentences, assignProportionalTimestamps } = await import(helpersUrl);
+const {
+  splitIntoSentences,
+  assignProportionalTimestamps,
+  assignAlignmentTimestamps,
+} = await import(helpersUrl);
 
 
 describe('Sprint 11.3 — admin segment editor page contract', () => {
@@ -294,5 +298,89 @@ describe('Sprint 11.3.1 — assignProportionalTimestamps', () => {
     for (let i = 0; i < 46; i += 1) {
       assert.equal(out[i].end_sec, out[i + 1].start_sec);
     }
+  });
+});
+
+
+/* ─────────────────────────────────────────────────────────────────
+ * Sprint 11.4 — alignment-driven timestamp helper.
+ * ───────────────────────────────────────────────────────────────── */
+
+describe('Sprint 11.4 — assignAlignmentTimestamps', () => {
+
+  function _alignmentFor(text, secondsPerChar = 0.05) {
+    const chars = text.split('');
+    const starts = chars.map((_, i) => Math.round(i * secondsPerChar * 100) / 100);
+    const ends = chars.map((_, i) => Math.round((i + 1) * secondsPerChar * 100) / 100);
+    return {
+      characters: chars,
+      character_start_times_seconds: starts,
+      character_end_times_seconds: ends,
+    };
+  }
+
+  it('returns null when alignment is missing or malformed', () => {
+    assert.equal(assignAlignmentTimestamps(['Hello.'], null), null);
+    assert.equal(assignAlignmentTimestamps(['Hello.'], {}), null);
+    assert.equal(assignAlignmentTimestamps(['Hello.'],
+      { characters: ['a'], character_start_times_seconds: [0] }), null);
+  });
+
+  it('returns null on empty sentence list', () => {
+    assert.equal(assignAlignmentTimestamps([], _alignmentFor('Hello.')), null);
+  });
+
+  it('locates 2 sentences precisely in the rebuilt transcript', () => {
+    const transcript = 'Hello world. Goodbye now.';
+    const alignment = _alignmentFor(transcript);
+    const out = assignAlignmentTimestamps(
+      ['Hello world.', 'Goodbye now.'], alignment,
+    );
+    assert.equal(out.length, 2);
+    assert.equal(out[0].start_sec, 0);
+    // "Goodbye now." starts at index 13 → start_sec = 13*0.05 = 0.65
+    assert.equal(out[1].start_sec, 0.65);
+    // Smoothing pass chains sentence-0.end_sec forward to meet
+    // sentence-1.start_sec (was originally 0.60 for the 12-char
+    // "Hello world.", stretched to 0.65 to close the space-gap).
+    assert.equal(out[0].end_sec, 0.65);
+  });
+
+  it('falls through (returns null) when a sentence is not in the alignment', () => {
+    const alignment = _alignmentFor('Only this text.');
+    const out = assignAlignmentTimestamps(
+      ['Not present at all.'], alignment,
+    );
+    assert.equal(out, null);
+  });
+
+  it('chains end_sec to next start_sec — no gaps in the output', () => {
+    const alignment = _alignmentFor('A. B. C.');
+    const out = assignAlignmentTimestamps(['A.', 'B.', 'C.'], alignment);
+    assert.equal(out.length, 3);
+    for (let i = 0; i < out.length - 1; i += 1) {
+      assert.ok(out[i].end_sec >= out[i + 1].start_sec - 0.001
+                || out[i].end_sec === out[i + 1].start_sec,
+        `gap between segment ${i} and ${i + 1}`);
+    }
+  });
+});
+
+
+describe('Sprint 11.4 — admin segment editor source pins', () => {
+
+  it('parseFromTextarea prefers alignment when content.alignment_data set', () => {
+    // Sentinel against the source string so a refactor that
+    // accidentally drops the alignment branch trips here.
+    assert.match(JS, /STATE\.content\?\.alignment_data/);
+    assert.match(JS, /assignAlignmentTimestamps/);
+  });
+
+  it('shows AI-precision banner emoji ✨ when alignment used', () => {
+    assert.match(JS, /✨/);
+  });
+
+  it('shows char-proportional fallback emoji 📐 when alignment absent', () => {
+    assert.match(JS, /📐/);
   });
 });
