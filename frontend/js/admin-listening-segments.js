@@ -24,7 +24,9 @@ const SUPABASE_URL = 'https://nqhrtqspznepmveyurzm.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
 (function bootstrapSupabase() {
-  if (window.initSupabase) {
+  // Defensive — the module exports pure helpers (Sprint 11.3.1)
+  // that get unit-tested under node:test where `window` is absent.
+  if (typeof window !== 'undefined' && window.initSupabase) {
     try { window.initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch { /* swallow */ }
   }
 })();
@@ -157,27 +159,123 @@ async function load() {
 // ── Parse + render segments ──────────────────────────────────────────
 
 
+/**
+ * Sprint 11.3.1 — split a raw transcript into sentence-level segments.
+ *
+ * Two boundary signals, take the finer-grained:
+ *   (a) explicit line breaks (DailyDictation paste convention — one
+ *       sentence per line).
+ *   (b) sentence-ending punctuation `.!?` followed by whitespace and
+ *       a capital letter (defends against abbreviations like "Mr."
+ *       "etc." that aren't followed by a capital — false splits rare
+ *       in IELTS prose).
+ *
+ * Splits each line on (b), flattens, trims, drops empties. Returns the
+ * array of trimmed sentence strings.
+ *
+ * Sprint 11.3 shipped (a) only — Andy's 4.5-min IELTS lecture parsed
+ * to 11 paragraph chunks instead of ~47 sentences (falsification #65b).
+ */
+export function splitIntoSentences(raw) {
+  if (!raw || typeof raw !== 'string') return [];
+  const lines = raw.split('\n').map((s) => s.trim()).filter(Boolean);
+  const sentences = [];
+  for (const line of lines) {
+    const parts = line
+      .split(/(?<=[.!?])\s+(?=[A-Z"'\u201C\u2018])/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const p of parts) sentences.push(p);
+  }
+  return sentences;
+}
+
+
+/**
+ * Sprint 11.3.1 — char-proportional timestamp generator.
+ *
+ * Each segment's duration is allocated as
+ *     content_duration * (segment.length / total_chars)
+ *
+ * The last segment's end_sec is clamped to exactly content_duration
+ * to absorb float drift — guarantees end_sec[N-1] == content_duration
+ * exactly. Invariants:
+ *   - segments[0].start_sec === 0
+ *   - segments[i].end_sec === segments[i+1].start_sec (zero gap, zero overlap)
+ *   - segments[N-1].end_sec === content_duration
+ *
+ * Returns the SAME shape used by STATE.segments (transcript + start_sec
+ * + end_sec, no idx — idx is assigned at render/save time).
+ */
+export function assignProportionalTimestamps(sentences, contentDuration) {
+  if (!Array.isArray(sentences) || !sentences.length) return [];
+  const duration = Number(contentDuration);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    // No duration → no timestamps (segments stay null, admin marks manually).
+    return sentences.map((text) => ({
+      transcript: text, start_sec: null, end_sec: null,
+    }));
+  }
+  const totalChars = sentences.reduce((acc, s) => acc + s.length, 0) || 1;
+  const out = [];
+  let cursor = 0;
+  for (let i = 0; i < sentences.length; i += 1) {
+    const text = sentences[i];
+    const share = text.length / totalChars;
+    const segDur = duration * share;
+    const start = cursor;
+    let end = cursor + segDur;
+    if (i === sentences.length - 1) end = duration;  // absorb drift on last
+    out.push({
+      transcript: text,
+      start_sec:  Math.round(start * 100) / 100,
+      end_sec:    Math.round(end * 100) / 100,
+    });
+    cursor = end;
+  }
+  return out;
+}
+
+
 function parseFromTextarea() {
-  const lines = $('transcript-input').value
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (!lines.length) {
+  const raw = $('transcript-input').value;
+  const sentences = splitIntoSentences(raw);
+  if (!sentences.length) {
     showBanner('Bản gỡ băng trống — không có gì để phân tách.', 'error');
     return;
   }
-  // Preserve existing timestamps where line count + position match.
-  const oldSegments = STATE.segments.slice();
-  STATE.segments = lines.map((text, i) => ({
-    transcript: text,
-    start_sec:  oldSegments[i]?.start_sec ?? null,
-    end_sec:    oldSegments[i]?.end_sec ?? null,
-  }));
+  const duration = STATE.content?.audio_duration_seconds;
+  STATE.segments = assignProportionalTimestamps(sentences, duration);
   renderSegments();
-  showBanner(
-    `Đã phân tách thành ${STATE.segments.length} câu. Bấm "Đánh dấu" để bắt timestamp.`,
-    'info',
-  );
+
+  // Sprint 11.3.1 — guard banner: show estimated total vs content
+  // duration. With assignProportionalTimestamps the last segment's
+  // end_sec is clamped to content_duration so the sum WILL match, but
+  // the banner reassures the admin that the auto-estimate is sound +
+  // surfaces a warning if a future refactor introduces drift.
+  const last = STATE.segments[STATE.segments.length - 1];
+  const totalEstimated = last ? last.end_sec : 0;
+  const drift = duration ? Math.abs(totalEstimated - duration) : 0;
+  if (!duration) {
+    showBanner(
+      `Đã phân tách thành ${STATE.segments.length} câu. Audio chưa biết duration — '
+      + 'bấm "Đánh dấu" để bắt timestamp thủ công.`,
+      'info',
+    );
+  } else if (drift > 0.5) {
+    showBanner(
+      `⚠️ Tổng thời lượng ước tính ${fmtTime(totalEstimated)} lệch khỏi `
+      + `duration ${fmtTime(duration)} — kiểm tra timestamps.`,
+      'error',
+    );
+  } else {
+    showBanner(
+      `Đã phân tách thành ${STATE.segments.length} câu với timestamps tự động `
+      + `(tổng ${fmtTime(totalEstimated)} = ${fmtTime(duration)}). `
+      + `Có thể tinh chỉnh từng câu bằng "Mark start/end" hoặc gõ trực tiếp.`,
+      'success',
+    );
+  }
 }
 
 
@@ -389,12 +487,16 @@ function escapeAttr(s) { return escapeHtml(s); }
 // ── Wire ─────────────────────────────────────────────────────────────
 
 
-document.addEventListener('DOMContentLoaded', () => {
-  load();
-  wireRowEvents();
-  wireAudioTimeTracker();
+// Defensive — `document` is undefined when this module is imported by
+// node:test for unit-testing the pure helpers (Sprint 11.3.1).
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    load();
+    wireRowEvents();
+    wireAudioTimeTracker();
 
-  $('btn-parse').addEventListener('click', parseFromTextarea);
-  $('btn-save').addEventListener('click', () => save('draft'));
-  $('btn-publish').addEventListener('click', () => save('published'));
-});
+    $('btn-parse').addEventListener('click', parseFromTextarea);
+    $('btn-save').addEventListener('click', () => save('draft'));
+    $('btn-publish').addEventListener('click', () => save('published'));
+  });
+}
