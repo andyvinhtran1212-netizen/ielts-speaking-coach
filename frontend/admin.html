@@ -48,6 +48,20 @@
 </head>
 <body class="av-page text-white font-sans antialiased min-h-screen flex flex-col">
 
+  <!-- Sprint 12.1 — DEBT-ADMIN-IA-REFACTOR migration banner.
+       admin.html stays as the legacy monolith until Sprint 12.8 carves
+       its remaining sections (Speaking, vocab stats, AI usage) into the
+       new nested IA. The banner directs admins to the new shell. -->
+  <div id="admin-ia-banner" role="status">
+    <span>
+      🆕 <strong>Phiên bản mới của Admin đang phát triển.</strong>
+      Truy cập sidebar + tổng quan tại
+      <a href="/pages/admin/index.html">/pages/admin/</a>.
+      Trang này (legacy) vẫn còn để dùng các phần chưa carve sang IA mới.
+    </span>
+    <a href="/pages/admin/index.html" class="ia-banner-cta">Mở IA mới →</a>
+  </div>
+
   <!-- Header -->
   <header class="admin-header sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
     <div class="flex items-center gap-3">

@@ -7,7 +7,7 @@
  * relative to the underlying HTML file. Example:
  *   /grammar/:category/:slug  →  /pages/grammar-article.html
  *   /writing/dashboard        →  /pages/writing-dashboard.html
- *   /admin/writing/prompts    →  /pages/admin-writing-prompts.html
+ *   /admin/writing/prompts    →  /pages/admin/writing/prompts.html
  *
  * Browser sees the original URL when resolving relative paths, so
  * `<link href="../css/...">` on grammar-article.html resolves to

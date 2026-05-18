@@ -1,7 +1,7 @@
 /**
  * frontend/tests/admin-students-redesign.test.mjs — Sprint 6.14b.
  *
- * Pins the migration of /pages/admin-students.html (admin student
+ * Pins the migration of /pages/admin/students/index.html (admin student
  * management). Uses WC.bootstrap({onReady}) + real HTML <table> +
  * 2 modals (edit/create + Phase 2.5 student summary).
  */
@@ -16,15 +16,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
+
+// Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
+// back-link) bail when the page uses <aver-admin-chrome>. The chrome
+// contract is pinned by frontend/tests/aver-admin-chrome.test.mjs.
+const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/students/index.html'), 'utf8').includes('<aver-admin-chrome');
+
 let css;
 
-before(() => {
-  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin-students.html'), 'utf8');
+before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/students/index.html'), 'utf8');
   css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),     'utf8');
 });
 
 
 describe('admin-students.html / foundation + IIFE + WC.bootstrap', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('foundation order tokens → components → admin-writing.css', () => {
     const t = html.indexOf('aver-design/tokens.css');
     const c = html.indexOf('aver-design/components.css');
@@ -75,6 +81,8 @@ describe('admin-students.html / 36 JS-coupled IDs preserved byte-identical', () 
   ];
   for (const id of REQUIRED_IDS) {
     test(`#${id} present in markup`, () => {
+      // Sprint 12.1 — #header-email moved into <aver-admin-chrome> shadow DOM.
+      if (USES_ADMIN_CHROME && id === 'header-email') return;
       assert.match(html, new RegExp(`id=["']${id}["']`), `Missing id="${id}"`);
     });
   }
@@ -200,21 +208,25 @@ describe('admin-students.html / search debounce + delete confirm preserved', () 
 
 describe('admin-students.html / row action redirect to admin-writing-new.html', () => {
   test('Essay action navigates to admin-writing-new.html?student_id={id}', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /\/pages\/admin-writing-new\.html\?student_id=/);
   });
 
   test('Summary essay rows link to admin-writing-grade.html?essay_id={id}', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /\/pages\/admin-writing-grade\.html\?essay_id=/);
   });
 });
 
 
 describe('admin-students.html / body class + theme toggle', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('body uses av-page', () => {
     assert.match(html, /<body[^>]*class=["'][^"']*\bav-page\b/);
   });
 
   test('canonical theme toggle present', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /class=["']icon-sun["']/);
     assert.match(html, /class=["']icon-moon["']/);
   });
@@ -222,6 +234,7 @@ describe('admin-students.html / body class + theme toggle', () => {
 
 
 describe('admin-students.html / Vietnamese microcopy preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   const phrases = [
     'Students',
     'Quản lý profile + theo dõi lịch sử bài viết',

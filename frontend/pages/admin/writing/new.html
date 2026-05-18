@@ -50,22 +50,9 @@
   <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body class="av-page font-sans antialiased">
+  <aver-admin-chrome active="writing" subsection="new">
 
-  <header class="aw-header sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
-    <a href="/pages/admin-writing.html" class="aw-back-link text-sm font-medium">← Writing Coach</a>
-    <div class="flex items-center gap-3">
-      <span id="header-email" class="aw-header__email hidden text-xs"></span>
-      <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
-        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="4"></circle>
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
-        </svg>
-        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-      </button>
-    </div>
-  </header>
+  
 
   <div id="state-loading" class="flex items-center justify-center py-32">
     <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>
@@ -176,7 +163,7 @@
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
-        <a href="/pages/admin-writing.html" class="aw-btn-cancel px-4 py-2 text-sm">Hủy</a>
+        <a href="/pages/admin/writing/index.html" class="aw-btn-cancel px-4 py-2 text-sm">Hủy</a>
         <button type="submit" id="btn-submit" class="aw-btn-primary">Submit for grading</button>
       </div>
     </form>
@@ -200,7 +187,7 @@
         var rows = await window.api.get('/admin/students?limit=200');
         if (!rows || !rows.length) {
           sel.innerHTML = '<option value="">— Chưa có học viên —</option>';
-          setAlert('warn', 'Bạn cần tạo học viên trước. → /pages/admin-students.html');
+          setAlert('warn', 'Bạn cần tạo học viên trước. → /pages/admin/students/index.html');
           return;
         }
         sel.innerHTML = '<option value="">— Chọn học viên —</option>' + rows.map(function (r) {
@@ -262,7 +249,7 @@
         var res = await window.api.post('/admin/writing/essays', payload);
         // Pre-warm notification permission so the status page can notify on graded.
         WC.requestNotifyPermission();
-        window.location.href = '/pages/admin-writing-status.html?essay_id=' + encodeURIComponent(res.essay_id);
+        window.location.href = '/pages/admin/writing/status.html?essay_id=' + encodeURIComponent(res.essay_id);
       } catch (err) {
         setAlert('error', err.message);
         btn.disabled = false; btn.textContent = 'Submit for grading';
@@ -308,5 +295,7 @@
       window.addEventListener('load', hydrateIcons);
     })();
   </script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>

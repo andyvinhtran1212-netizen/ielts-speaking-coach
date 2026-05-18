@@ -38,26 +38,17 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 
 
 // Sprint 7.13 milestone: ALL 18 chrome pages migrated to <aver-chrome>
-// (5 in Sprint 7.12 + 13 in Sprint 7.13). The theme toggle SVGs (with
-// canonical .icon-sun / .icon-moon classes) now live inside the
-// component's shadow root. chrome-unification-canonical.test.mjs pins
-// the .icon-sun / .icon-moon classes inside aver-chrome.js source for
-// the migrated pages. This file covers the 11 pages still on inline
-// chrome — marketing (2) + admin (9) — explicitly out-of-scope for
-// chrome unification per Phase B Q7.
+// (5 in Sprint 7.12 + 13 in Sprint 7.13). Sprint 12.1 extends the
+// migration to the admin surface — the 8 writing + students pages now
+// embed <aver-admin-chrome>, so their theme toggle markup lives in
+// that component's shadow root (not the page HTML). This file covers
+// the pages still on inline chrome — marketing (2) + the legacy
+// monolith `admin.html` (1, scheduled for carve in Sprint 12.4-12.8).
 const REDESIGNED_PAGES = [
   // Marketing (out of scope for chrome unification)
   'frontend/index.html',
   'frontend/pricing.html',
-  // Admin (out of scope for chrome unification — Cat 5)
-  'frontend/pages/admin-writing.html',
-  'frontend/pages/admin-writing-new.html',
-  'frontend/pages/admin-writing-status.html',
-  'frontend/pages/admin-writing-prompts.html',
-  'frontend/pages/admin-writing-assignments.html',
-  'frontend/pages/admin-students.html',
-  'frontend/pages/admin-instructor-queue.html',
-  'frontend/pages/admin-writing-grade.html',
+  // Legacy admin monolith — still inline chrome until cluster closes
   'frontend/admin.html',
 ];
 

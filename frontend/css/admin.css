@@ -681,3 +681,38 @@ select.inp option {
   transition: border-color 0.15s;
 }
 .cue-field:focus { border-color: var(--av-primary); }
+
+
+/* ── Sprint 12.1 — DEBT-ADMIN-IA-REFACTOR migration banner ──────
+ *
+ * Lives at top of admin.html (legacy monolith) pointing to the new
+ * nested IA at /pages/admin/. Uses canonical --av-warning + amber
+ * tokens (tokens.css). Removed when admin.html is fully carved
+ * (Sprint 12.8). */
+
+#admin-ia-banner {
+  background: var(--av-warning-soft);
+  border-bottom: 1px solid var(--av-brand-amber-400);
+  color: var(--av-warning);
+  padding: 10px 16px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#admin-ia-banner a {
+  color: var(--av-warning);
+  text-decoration: underline;
+  font-weight: 600;
+}
+#admin-ia-banner .ia-banner-cta {
+  background: var(--av-warning);
+  color: var(--av-text-on-primary);
+  padding: 6px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12px;
+}

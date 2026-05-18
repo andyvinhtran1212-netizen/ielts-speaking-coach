@@ -1,7 +1,7 @@
 /**
  * frontend/tests/admin-writing-new-redesign.test.mjs — Sprint 6.14a.
  *
- * Pins the migration of /pages/admin-writing-new.html (paste-essay
+ * Pins the migration of /pages/admin/writing/new.html (paste-essay
  * submission form). JS contract preserved byte-identical: all 14
  * form IDs, WC.bootstrap({onReady}), POST /admin/writing/essays
  * payload shape, redirect to status page on success.
@@ -17,15 +17,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
+
+// Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
+// back-link) bail when the page uses <aver-admin-chrome>. The chrome
+// contract is pinned by frontend/tests/aver-admin-chrome.test.mjs.
+const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/new.html'), 'utf8').includes('<aver-admin-chrome');
+
 let css;
 
-before(() => {
-  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin-writing-new.html'), 'utf8');
+before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/new.html'), 'utf8');
   css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),        'utf8');
 });
 
 
 describe('admin-writing-new.html / foundation + IIFE + WC.bootstrap', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('foundation order tokens → components → admin-writing.css', () => {
     const t = html.indexOf('aver-design/tokens.css');
     const c = html.indexOf('aver-design/components.css');
@@ -63,6 +69,8 @@ describe('admin-writing-new.html / 14 form IDs preserved byte-identical', () => 
   ];
   for (const id of REQUIRED_IDS) {
     test(`#${id} present in markup`, () => {
+      // Sprint 12.1 — #header-email moved into <aver-admin-chrome> shadow DOM.
+      if (USES_ADMIN_CHROME && id === 'header-email') return;
       assert.match(html, new RegExp(`id=["']${id}["']`), `Missing id="${id}"`);
     });
   }
@@ -97,7 +105,8 @@ describe('admin-writing-new.html / submit JS contract preserved', () => {
     assert.match(html, /window\.api\.post\(\s*['"]\/admin\/writing\/essays['"]/);
   });
 
-  test('redirects to /pages/admin-writing-status.html?essay_id=… on success', () => {
+  test('redirects to /pages/admin/writing/status.html?essay_id=… on success', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /\/pages\/admin-writing-status\.html\?essay_id=/);
   });
 
@@ -112,11 +121,13 @@ describe('admin-writing-new.html / submit JS contract preserved', () => {
 
 
 describe('admin-writing-new.html / body class + theme toggle', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('body uses av-page', () => {
     assert.match(html, /<body[^>]*class=["'][^"']*\bav-page\b/);
   });
 
   test('canonical theme toggle present', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /class=["'][^"']*\bav-theme-toggle\b/);
     assert.match(html, /class=["']icon-sun["']/);
     assert.match(html, /class=["']icon-moon["']/);
@@ -125,6 +136,7 @@ describe('admin-writing-new.html / body class + theme toggle', () => {
 
 
 describe('admin-writing-new.html / Vietnamese microcopy preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   const phrases = [
     'Submit New Essay',
     'Chọn học viên, dán đề + bài viết, AI sẽ chấm trong nền.',

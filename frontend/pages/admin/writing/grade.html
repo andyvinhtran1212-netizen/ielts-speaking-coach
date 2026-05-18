@@ -60,6 +60,7 @@
   </style>
 </head>
 <body class="av-page font-sans antialiased">
+  <aver-admin-chrome active="writing" subsection="grade">
 
   <!-- Auth gates (kept identical to pre-2.5.1 — wired by WC.bootstrap) -->
   <div id="state-loading" class="flex items-center justify-center py-32">
@@ -74,7 +75,7 @@
     <!-- Sticky header -->
     <header class="grade-header">
       <div class="header-left">
-        <a href="/pages/admin-writing.html" class="back-link">← Writing Coach</a>
+        <a href="/pages/admin/writing/index.html" class="back-link">← Writing Coach</a>
         <div class="essay-meta min-w-0">
           <h1 id="header-student">—</h1>
           <p class="meta-line">
@@ -1507,7 +1508,7 @@
       // (panel visible but no per-admin actions). Claim happens from
       // the queue page, not here.
       titleEl.innerHTML = '⏳ Trong hàng đợi instructor';
-      metaEl.textContent = 'Vào /pages/admin-instructor-queue.html để claim trước khi review.';
+      metaEl.textContent = 'Vào /pages/admin/writing/instructor-queue.html để claim trước khi review.';
       noteEl.disabled = true;
       actionsEl.style.display = 'none';
       _hidePanelButton('btn-deliver');
@@ -1556,7 +1557,7 @@
         await window.api.post(
           '/admin/instructor/reviews/' + encodeURIComponent(_currentReview.id) + '/release', {},
         );
-        window.location.href = '/pages/admin-instructor-queue.html';
+        window.location.href = '/pages/admin/writing/instructor-queue.html';
       } catch (err) {
         setAlert('error', 'Lỗi release: ' + (err.message || ''));
       }
@@ -1689,5 +1690,7 @@
       window.addEventListener('load', hydrateIcons);
     })();
   </script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>

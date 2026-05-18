@@ -2,7 +2,7 @@
  * frontend/tests/admin-instructor-queue-redesign.test.mjs — Sprint 6.14c
  * (Phase 4 admin sprint 3 of 4 — Phase A warmup).
  *
- * Pins the migration of /pages/admin-instructor-queue.html (instructor
+ * Pins the migration of /pages/admin/writing/instructor-queue.html (instructor
  * review queue). WC.bootstrap({onReady:(me)=>...}) + real HTML <table>
  * with 4 filter buttons + 5 status pills + age color coding + 30s poll
  * with visibility-aware pause + 2 backend POST endpoints (claim, release).
@@ -18,15 +18,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
+
+// Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
+// back-link) bail when the page uses <aver-admin-chrome>. The chrome
+// contract is pinned by frontend/tests/aver-admin-chrome.test.mjs.
+const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/instructor-queue.html'), 'utf8').includes('<aver-admin-chrome');
+
 let css;
 
-before(() => {
-  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin-instructor-queue.html'), 'utf8');
+before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/instructor-queue.html'), 'utf8');
   css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),               'utf8');
 });
 
 
 describe('admin-instructor-queue.html / foundation + IIFE + WC.bootstrap', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('foundation order tokens → components → admin-writing.css', () => {
     const t = html.indexOf('aver-design/tokens.css');
     const c = html.indexOf('aver-design/components.css');
@@ -149,6 +155,7 @@ describe('admin-instructor-queue.html / 4 row action button variants', () => {
   });
 
   test('edit link: aw-btn-act--edit + admin-writing-grade.html', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /aw-btn-act aw-btn-act--edit[\s\S]*?\/pages\/admin-writing-grade\.html\?essay_id=/);
   });
 
@@ -161,6 +168,7 @@ describe('admin-instructor-queue.html / 4 row action button variants', () => {
   });
 
   test('admin-writing.css defines all 4 row action button variants', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     for (const v of ['claim', 'edit', 'release', 'view']) {
       assert.match(css, new RegExp(`\\.aw-btn-act--${v}\\b`), `Missing aw-btn-act--${v}`);
     }
@@ -192,11 +200,13 @@ describe('admin-instructor-queue.html / claim + release endpoints preserved', ()
 
 
 describe('admin-instructor-queue.html / body class + theme toggle', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('body uses av-page', () => {
     assert.match(html, /<body[^>]*class=["'][^"']*\bav-page\b/);
   });
 
   test('canonical theme toggle present', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /class=["']icon-sun["']/);
     assert.match(html, /class=["']icon-moon["']/);
   });
@@ -204,6 +214,7 @@ describe('admin-instructor-queue.html / body class + theme toggle', () => {
 
 
 describe('admin-instructor-queue.html / Vietnamese microcopy preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   const phrases = [
     'Instructor Queue',
     'đã chấm xong AI Pass 1, chờ giảng viên review',

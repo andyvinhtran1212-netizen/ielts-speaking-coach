@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Tổng quan — Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .overview-shell {
+      max-width: 1080px; margin: 0 auto;
+      padding: var(--av-space-2) var(--av-space-2) var(--av-space-8);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .overview-header h1 {
+      font-size: var(--av-fs-2xl);
+      margin-bottom: var(--av-space-2);
+    }
+    .overview-header .accent { color: var(--av-brand-teal-700); }
+    .overview-header .subtitle {
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+    }
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: var(--av-space-4);
+    }
+    .ov-card {
+      display: flex; flex-direction: column;
+      gap: var(--av-space-2);
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      text-decoration: none;
+      color: var(--av-text-primary);
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .ov-card:hover {
+      border-color: var(--av-brand-teal-700);
+      transform: translateY(-1px);
+    }
+    .ov-card.is-placeholder {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .ov-card.is-placeholder:hover {
+      border-color: var(--av-border-default);
+      transform: none;
+    }
+    .ov-card-title-row {
+      display: flex; align-items: center;
+      gap: var(--av-space-2);
+    }
+    .ov-card h3 {
+      font-size: var(--av-fs-lg);
+      font-weight: var(--av-fw-semibold);
+      margin: 0;
+    }
+    .ov-card .lede {
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+      line-height: var(--av-lh-normal);
+    }
+    .ov-card .meta {
+      display: flex; gap: var(--av-space-2);
+      margin-top: auto;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      align-items: center;
+    }
+    .ov-tag {
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      font-family: var(--av-font-mono);
+    }
+    .ov-tag.is-live {
+      background: var(--av-brand-teal-50);
+      color: var(--av-brand-teal-800);
+      border-color: var(--av-brand-teal-200);
+    }
+    .ov-tag.is-soon {
+      background: #FFFBEB;
+      color: #92400E;
+      border-color: #FDE68A;
+    }
+    .ov-section-title {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-semibold);
+      margin-top: var(--av-space-4);
+      margin-bottom: var(--av-space-2);
+    }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="overview">
+
+    <div class="overview-shell">
+      <header class="overview-header">
+        <h1>Tổng quan <span class="accent">Quản trị</span></h1>
+        <p class="subtitle">
+          Cụm DEBT-ADMIN-IA-REFACTOR đang triển khai theo 8 sprint.
+          Sprint 12.1 (sidebar shell) hoàn thành. Sprint 12.2-12.8 sẽ
+          từng bước bổ sung dashboard số liệu + các trang quản lý còn thiếu.
+        </p>
+      </header>
+
+      <h2 class="ov-section-title">Nội dung</h2>
+      <section class="overview-grid">
+        <a href="/pages/admin/speaking/index.html" class="ov-card is-placeholder">
+          <div class="ov-card-title-row"><h3>Speaking</h3></div>
+          <p class="lede">Quản lý topic + question library + sessions + grading rubric.</p>
+          <div class="meta"><span class="ov-tag is-soon">Sprint 12.5</span></div>
+        </a>
+        <a href="/pages/admin/writing/index.html" class="ov-card">
+          <div class="ov-card-title-row"><h3>Writing</h3></div>
+          <p class="lede">Soạn bài viết, chấm, hàng đợi Instructor, thư viện prompt, gán bài tập.</p>
+          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+        </a>
+        <a href="/pages/admin/listening/index.html" class="ov-card">
+          <div class="ov-card-title-row"><h3>Listening</h3></div>
+          <p class="lede">Audio + 5 dạng bài (dictation, gist, T/F, MCQ, mini test).</p>
+          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+        </a>
+        <a href="/pages/admin/vocab/index.html" class="ov-card is-placeholder">
+          <div class="ov-card-title-row"><h3>Vocab</h3></div>
+          <p class="lede">D1 curation + lemma correction + archive management.</p>
+          <div class="meta"><span class="ov-tag is-soon">Sprint 12.6</span></div>
+        </a>
+        <a href="/pages/admin/grammar/index.html" class="ov-card is-placeholder">
+          <div class="ov-card-title-row"><h3>Grammar</h3></div>
+          <p class="lede">Articles browser + recommendation dogfood.</p>
+          <div class="meta"><span class="ov-tag is-soon">Sprint 12.7</span></div>
+        </a>
+      </section>
+
+      <h2 class="ov-section-title">Người dùng</h2>
+      <section class="overview-grid">
+        <a href="/pages/admin/students/index.html" class="ov-card">
+          <div class="ov-card-title-row"><h3>Học viên</h3></div>
+          <p class="lede">CRUD học viên + bulk CSV import + tóm tắt tiến độ.</p>
+          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+        </a>
+        <a href="/pages/admin/users/index.html" class="ov-card is-placeholder">
+          <div class="ov-card-title-row"><h3>Tất cả người dùng</h3></div>
+          <p class="lede">Danh sách auth.users + phân quyền + lọc theo role.</p>
+          <div class="meta"><span class="ov-tag is-soon">Sprint 12.8</span></div>
+        </a>
+        <a href="/pages/admin/cohorts/index.html" class="ov-card is-placeholder">
+          <div class="ov-card-title-row"><h3>Lớp / Cohort</h3></div>
+          <p class="lede">Phân biệt code đại trà và học viên trực tiếp; gán vào lớp.</p>
+          <div class="meta"><span class="ov-tag is-soon">Phase B</span></div>
+        </a>
+      </section>
+
+      <h2 class="ov-section-title">Truy cập + Hệ thống</h2>
+      <section class="overview-grid">
+        <a href="/pages/admin/access-codes/index.html" class="ov-card is-placeholder">
+          <div class="ov-card-title-row"><h3>Mã kích hoạt</h3></div>
+          <p class="lede">Tạo + quản lý access code, phân loại mass/direct, gán cohort.</p>
+          <div class="meta"><span class="ov-tag is-soon">Sprint 12.2</span></div>
+        </a>
+        <a href="/pages/admin/error-logs/index.html" class="ov-card is-placeholder">
+          <div class="ov-card-title-row"><h3>Báo lỗi</h3></div>
+          <p class="lede">Frontend + backend exception log, dismiss workflow.</p>
+          <div class="meta"><span class="ov-tag is-soon">Sprint 12.3</span></div>
+        </a>
+        <a href="/admin.html" class="ov-card">
+          <div class="ov-card-title-row"><h3>Admin (legacy)</h3></div>
+          <p class="lede">Trang quản trị cũ — vẫn còn dùng để truy cập Speaking sessions, AI usage, vocab stats. Sẽ được carve dần qua các sprint 12.2-12.5.</p>
+          <div class="meta"><span class="ov-tag">Legacy</span></div>
+        </a>
+      </section>
+    </div>
+
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>

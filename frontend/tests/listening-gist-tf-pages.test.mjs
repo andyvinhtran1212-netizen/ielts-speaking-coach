@@ -7,9 +7,9 @@
  *   - frontend/js/listening-gist.js                   (user)
  *   - frontend/pages/listening-tf.html                (user)
  *   - frontend/js/listening-tf.js                     (user)
- *   - frontend/pages/admin-listening-gist.html        (admin authoring)
+ *   - frontend/pages/admin/listening/gist.html        (admin authoring)
  *   - frontend/js/admin-listening-gist.js             (admin authoring)
- *   - frontend/pages/admin-listening-tf.html          (admin authoring)
+ *   - frontend/pages/admin/listening/tf.html          (admin authoring)
  *   - frontend/js/admin-listening-tf.js               (admin authoring)
  *
  * Sentinel match against the static source — same pattern as Sprint
@@ -30,9 +30,9 @@ const USER_GIST_HTML  = read('pages', 'listening-gist.html');
 const USER_GIST_JS    = read('js',    'listening-gist.js');
 const USER_TF_HTML    = read('pages', 'listening-tf.html');
 const USER_TF_JS      = read('js',    'listening-tf.js');
-const ADMIN_GIST_HTML = read('pages', 'admin-listening-gist.html');
+const ADMIN_GIST_HTML = read('pages', 'admin/listening/gist.html');
 const ADMIN_GIST_JS   = read('js',    'admin-listening-gist.js');
-const ADMIN_TF_HTML   = read('pages', 'admin-listening-tf.html');
+const ADMIN_TF_HTML   = read('pages', 'admin/listening/tf.html');
 const ADMIN_TF_JS     = read('js',    'admin-listening-tf.js');
 
 

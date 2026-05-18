@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Tác giả Trắc nghiệm Listening — Aver Learning Admin</title>
+  <title>Tác giả Mini Test — Aver Learning Admin</title>
 
   <script>
     (function () {
@@ -27,7 +27,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
-  <script type="module" src="/js/components/audio-player.js"></script>
 
   <style>
     body.av-page { font-family: var(--av-font-sans); }
@@ -43,51 +42,39 @@
       text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
       display: block; margin-bottom: var(--av-space-2);
     }
-    .transcript-ref {
+    .title-input {
+      width: 100%;
       padding: var(--av-space-3) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-sunken);
-      color: var(--av-text-secondary);
-      font-size: var(--av-fs-sm); line-height: var(--av-lh-relaxed);
-      white-space: pre-wrap;
-    }
-    .questions-list { display: flex; flex-direction: column; gap: var(--av-space-4); list-style: none; padding: 0; margin: 0; }
-    .questions-list li {
-      padding: var(--av-space-4);
       border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-base);
       background: var(--av-surface-card);
-      display: flex; flex-direction: column; gap: var(--av-space-3);
     }
-    .questions-list li.has-error { border-color: #B91C1C; background: #FEF2F2; }
-    .mcq-stem-row { display: flex; gap: var(--av-space-3); align-items: center; }
-    .mcq-idx-label { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); color: var(--av-text-muted); min-width: 32px; }
-    .mcq-stem-input {
-      flex: 1;
-      padding: var(--av-space-2) var(--av-space-3);
+    .pool-and-lineup {
+      display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-4);
+    }
+    @media (max-width: 720px) {
+      .pool-and-lineup { grid-template-columns: 1fr; }
+    }
+    .ex-list {
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+      list-style: none; padding: 0; margin: 0;
+      max-height: 480px; overflow-y: auto;
+    }
+    .ex-card {
+      padding: var(--av-space-3);
       border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-sm);
-      font-family: var(--av-font-sans); font-size: var(--av-fs-sm);
+      border-radius: var(--av-radius-md);
       background: var(--av-surface-card);
+      display: flex; justify-content: space-between; align-items: center; gap: var(--av-space-2);
     }
-    .mcq-options-grid {
-      display: grid; grid-template-columns: 28px 24px 1fr 64px;
-      gap: var(--av-space-2); align-items: center;
-      padding-left: 32px;
-    }
-    .mcq-letter { font-family: var(--av-font-mono); color: var(--av-text-muted); }
-    .mcq-correct-radio { accent-color: var(--av-brand-teal-700); }
-    .mcq-option-input {
-      padding: var(--av-space-2) var(--av-space-3);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-sm);
-      font-size: var(--av-fs-sm);
-      background: var(--av-surface-card);
-    }
-    .mcq-correct-tag {
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-      color: var(--av-brand-teal-700);
+    .ex-meta { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .ex-title { font-size: var(--av-fs-sm); }
+    .ex-type-pill {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      padding: 2px 8px; border-radius: var(--av-radius-pill);
+      background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
+      border: 1px solid var(--av-brand-teal-200);
     }
     .btn-primary {
       padding: var(--av-space-3) var(--av-space-6);
@@ -110,11 +97,6 @@
       border: 1px solid var(--av-border-default);
       cursor: pointer; font-size: var(--av-fs-xs);
     }
-    .btn-danger {
-      padding: 4px 10px; border-radius: var(--av-radius-sm);
-      background: transparent; color: #B91C1C;
-      border: 1px solid #FECACA; cursor: pointer; font-size: var(--av-fs-xs);
-    }
     .button-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: center; }
     .status-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md); font-size: var(--av-fs-sm); }
     .status-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
@@ -124,53 +106,52 @@
   </style>
 </head>
 <body class="av-page">
+  <aver-admin-chrome active="listening" subsection="mini-test">
 
   <div class="editor-shell">
     <header class="editor-header">
       <p style="margin-bottom: var(--av-space-2);">
         <a href="/admin.html" style="color: var(--av-text-secondary);">← Admin</a>
       </p>
-      <h1>Tác giả bài Trắc nghiệm</h1>
+      <h1>Tác giả Mini Test</h1>
       <p class="subtitle">
-        Soạn 1-20 câu hỏi, mỗi câu có 4 lựa chọn A/B/C/D. Tích vào ô tròn
-        bên cạnh để chọn đáp án đúng.
+        Soạn danh sách bài tập (gist, true_false, mcq, dictation) cho một
+        bài kiểm tra tổng hợp. Mỗi exercise phải đã được xuất bản.
       </p>
     </header>
 
     <div class="status-banner is-info" id="status-banner" hidden></div>
 
     <section>
-      <span class="field-label">Bài nghe</span>
-      <div id="content-info" style="color: var(--av-text-primary);">Đang tải…</div>
+      <span class="field-label">Tên Mini Test</span>
+      <input class="title-input" id="title-input"
+             placeholder="Ví dụ: Mini Test 1 — Travel + Education" />
     </section>
 
     <section>
-      <span class="field-label">Audio</span>
-      <audio-player id="player"></audio-player>
+      <span class="field-label">Sessions đã có</span>
+      <ul class="ex-list" id="existing-sessions"></ul>
     </section>
 
-    <section>
-      <span class="field-label">Bản gỡ băng (read-only)</span>
-      <div class="transcript-ref" id="transcript-ref">…</div>
-    </section>
-
-    <section>
-      <span class="field-label">Câu hỏi (1-20)</span>
-      <ul class="questions-list" id="questions-list"></ul>
-      <div class="button-row" style="margin-top: var(--av-space-3);">
-        <button class="btn-ghost" id="btn-add" type="button">+ Thêm câu hỏi</button>
-        <span style="color: var(--av-text-muted); font-size: var(--av-fs-xs);"
-              id="questions-count"></span>
+    <section class="pool-and-lineup">
+      <div>
+        <span class="field-label">Kho exercises (published)</span>
+        <ul class="ex-list" id="pool-list"></ul>
+      </div>
+      <div>
+        <span class="field-label">Lineup (<span id="lineup-count">0</span>)</span>
+        <ul class="ex-list" id="lineup-list"></ul>
       </div>
     </section>
 
     <section class="button-row">
-      <button class="btn-primary" id="btn-save" type="button">Lưu (Draft)</button>
-      <button class="btn-primary" id="btn-publish" type="button">Lưu &amp; Xuất bản</button>
+      <button class="btn-primary" id="btn-save" type="button">Tạo Mini Test</button>
       <a class="btn-secondary" href="/admin.html">Hủy</a>
     </section>
   </div>
 
-  <script type="module" src="/js/admin-listening-mcq.js"></script>
+  <script type="module" src="/js/admin-listening-mini-test.js"></script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>

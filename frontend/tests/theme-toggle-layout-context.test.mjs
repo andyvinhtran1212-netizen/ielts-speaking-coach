@@ -58,11 +58,19 @@ const ALL_HTML = findHtmlFiles(FRONTEND);
 // Sprint 7.12: pages migrated to <aver-chrome> no longer carry inline
 // `av-theme-toggle` markup (it lives in the Shadow DOM). The structural
 // layout-context sentinel is moot for those pages — there is no toggle
-// element in the page DOM to discover a parent for. We continue auditing
-// pages that still ship inline chrome.
+// element in the page DOM to discover a parent for. Sprint 12.1 extends
+// the same exclusion to pages now using <aver-admin-chrome>.
+// We continue auditing pages that still ship inline chrome.
 const REDESIGNED_PAGES = ALL_HTML
   .map((p) => ({ abs: p, rel: path.relative(REPO_ROOT, p) }))
-  .filter(({ abs }) => readFileSync(abs, 'utf8').includes('av-theme-toggle'));
+  .filter(({ abs }) => {
+    const html = readFileSync(abs, 'utf8');
+    if (!html.includes('av-theme-toggle')) return false;
+    // Shadow-DOM chrome owners — toggle button NOT in page DOM.
+    if (html.includes('<aver-chrome')) return false;
+    if (html.includes('<aver-admin-chrome')) return false;
+    return true;
+  });
 
 
 // ── Structural analyzer ───────────────────────────────────────────
@@ -206,16 +214,16 @@ describe('Theme toggle button — must sit at meaningful depth (not page root)',
 
 
 describe('Theme toggle button — coverage roster', () => {
-  test('discovers at least 11 inline-chrome pages (Sprint 7.13 milestone — 18 migrated to <aver-chrome>)', () => {
-    // Sprint 7.13 milestone: 5 (Sprint 7.12) + 13 (Sprint 7.13) = 18
-    // chrome pages migrated; their theme toggles live in shadow root.
-    // 11 pages remain on inline chrome — 2 marketing (index/pricing) +
-    // 9 admin (Cat 5 out-of-scope for chrome unification). The structural
-    // layout-context sentinel still audits those 11.
+  test('discovers at least 3 inline-chrome pages (Sprint 12.1 admin migration)', () => {
+    // Sprint 7.13 milestone: 18 user-side chrome pages migrated to
+    // <aver-chrome>. Sprint 12.1 added <aver-admin-chrome> + migrated
+    // the 13 admin pages to it. 3 pages remain on inline chrome —
+    // 2 marketing (index/pricing) + 1 legacy admin.html monolith
+    // (carved progressively across Sprints 12.4-12.8).
     assert.ok(
-      REDESIGNED_PAGES.length >= 11,
-      `Expected ≥ 11 inline-chrome pages remaining, found ${REDESIGNED_PAGES.length}. ` +
-      `If marketing/admin pages migrate to <aver-chrome>, lower this bound.`,
+      REDESIGNED_PAGES.length >= 3,
+      `Expected ≥ 3 inline-chrome pages remaining, found ${REDESIGNED_PAGES.length}. ` +
+      `If more pages migrate to a chrome component, lower this bound.`,
     );
   });
 });

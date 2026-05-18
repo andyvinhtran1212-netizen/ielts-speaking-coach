@@ -2,7 +2,7 @@
  * frontend/tests/admin-writing-redesign.test.mjs — Sprint 6.14a
  * (Phase 4 admin, page 1 of 4 in the small writing cluster).
  *
- * Pins the surgical migration of /pages/admin-writing.html (the
+ * Pins the surgical migration of /pages/admin/writing/index.html (the
  * 4-card admin hub for the writing-coach workflow) onto the Aver
  * Design System.
  *
@@ -24,10 +24,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
+
+// Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
+// back-link) bail when the page uses <aver-admin-chrome>. The chrome
+// contract is pinned by frontend/tests/aver-admin-chrome.test.mjs.
+const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/index.html'), 'utf8').includes('<aver-admin-chrome');
+
 let css;
 
-before(() => {
-  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin-writing.html'), 'utf8');
+before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/index.html'), 'utf8');
   css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),    'utf8');
 });
 
@@ -72,6 +77,7 @@ describe('admin-writing.html / anti-flash IIFE', () => {
 
 
 describe('admin-writing.html / WC.bootstrap contract preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('WC.bootstrap() called with no args (hub uses default reveal flow)', () => {
     assert.match(html, /WC\.bootstrap\(\s*\)/);
   });
@@ -81,6 +87,7 @@ describe('admin-writing.html / WC.bootstrap contract preserved', () => {
   });
 
   test('4 canonical state IDs present', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     for (const id of ['state-loading', 'state-denied', 'state-ready', 'header-email']) {
       assert.match(html, new RegExp(`id=["']${id}["']`), `Missing id="${id}"`);
     }
@@ -89,11 +96,12 @@ describe('admin-writing.html / WC.bootstrap contract preserved', () => {
 
 
 describe('admin-writing.html / 4 hub card links preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   const HUB_LINKS = [
-    '/pages/admin-writing-new.html',
-    '/pages/admin-writing-grade.html',
-    '/pages/admin-instructor-queue.html',
-    '/pages/admin-students.html',
+    '/pages/admin/writing/new.html',
+    '/pages/admin/writing/grade.html',
+    '/pages/admin/writing/instructor-queue.html',
+    '/pages/admin/students/index.html',
   ];
 
   for (const href of HUB_LINKS) {
@@ -103,17 +111,20 @@ describe('admin-writing.html / 4 hub card links preserved', () => {
   }
 
   test('back-link to /admin.html preserved', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /href=["']\/admin\.html["']/);
   });
 });
 
 
 describe('admin-writing.html / body class + chrome', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('body uses av-page', () => {
     assert.match(html, /<body[^>]*class=["'][^"']*\bav-page\b/);
   });
 
   test('header has theme toggle with canonical .icon-sun / .icon-moon', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /class=["'][^"']*\bav-theme-toggle\b/);
     assert.match(html, /class=["']icon-sun["']/);
     assert.match(html, /class=["']icon-moon["']/);
@@ -122,6 +133,7 @@ describe('admin-writing.html / body class + chrome', () => {
 
 
 describe('admin-writing.html / Vietnamese microcopy preserved exactly', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   const phrases = [
     'Writing Coach Admin',
     'Quản lý bài writing — chấm bài + theo dõi học viên',

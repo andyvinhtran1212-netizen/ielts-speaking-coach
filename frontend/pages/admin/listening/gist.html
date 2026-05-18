@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Tác giả T/F Listening — Aver Learning Admin</title>
+  <title>Tác giả Gist Listening — Aver Learning Admin</title>
 
   <script>
     (function () {
@@ -32,7 +32,8 @@
   <style>
     body.av-page { font-family: var(--av-font-sans); }
     .editor-shell {
-      max-width: 920px; margin: 0 auto;
+      max-width: 920px;
+      margin: 0 auto;
       padding: var(--av-space-8) var(--av-space-6);
       display: flex; flex-direction: column; gap: var(--av-space-6);
     }
@@ -43,31 +44,31 @@
       text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
       display: block; margin-bottom: var(--av-space-2);
     }
+    .text-input, .area-input {
+      width: 100%;
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      font-family: var(--av-font-sans); font-size: var(--av-fs-base);
+      background: var(--av-surface-card); color: var(--av-text-primary);
+    }
+    .area-input { min-height: 100px; line-height: var(--av-lh-normal); resize: vertical; }
+    .area-input.tall { min-height: 160px; }
+    .text-input:focus, .area-input:focus {
+      outline: 2px solid var(--av-brand-teal-700);
+      outline-offset: 2px;
+    }
     .transcript-ref {
       padding: var(--av-space-3) var(--av-space-4);
       border-radius: var(--av-radius-md);
       background: var(--av-surface-sunken);
       color: var(--av-text-secondary);
-      font-size: var(--av-fs-sm); line-height: var(--av-lh-relaxed);
+      font-size: var(--av-fs-sm);
+      line-height: var(--av-lh-relaxed);
       white-space: pre-wrap;
     }
-    .statements-list { display: flex; flex-direction: column; gap: var(--av-space-2); list-style: none; padding: 0; margin: 0; }
-    .statements-list li {
-      padding: var(--av-space-3) var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-card);
-      display: grid; grid-template-columns: 36px 1fr 110px 60px;
-      align-items: center; gap: var(--av-space-3);
-    }
-    .statements-list li.has-error { border-color: #B91C1C; background: #FEF2F2; }
-    .stmt-idx { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); color: var(--av-text-muted); }
-    .stmt-text-input, .stmt-answer-select {
-      padding: var(--av-space-2) var(--av-space-3);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-sm);
-      font-family: var(--av-font-sans); font-size: var(--av-fs-sm);
-      background: var(--av-surface-card);
+    .button-row {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: center;
     }
     .btn-primary {
       padding: var(--av-space-3) var(--av-space-6);
@@ -84,19 +85,11 @@
       background: transparent; color: var(--av-text-secondary);
       border: 1px solid var(--av-border-default); cursor: pointer;
     }
-    .btn-ghost {
-      padding: 4px 10px; border-radius: var(--av-radius-sm);
-      background: transparent; color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default);
-      cursor: pointer; font-size: var(--av-fs-xs);
+    .status-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
     }
-    .btn-danger {
-      padding: 4px 10px; border-radius: var(--av-radius-sm);
-      background: transparent; color: #B91C1C;
-      border: 1px solid #FECACA; cursor: pointer; font-size: var(--av-fs-xs);
-    }
-    .button-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: center; }
-    .status-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md); font-size: var(--av-fs-sm); }
     .status-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
     .status-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
     .status-banner.is-info    { background: var(--av-surface-sunken); color: var(--av-text-secondary); border: 1px solid var(--av-border-default); }
@@ -104,16 +97,17 @@
   </style>
 </head>
 <body class="av-page">
+  <aver-admin-chrome active="listening" subsection="gist">
 
   <div class="editor-shell">
     <header class="editor-header">
       <p style="margin-bottom: var(--av-space-2);">
         <a href="/admin.html" style="color: var(--av-text-secondary);">← Admin</a>
       </p>
-      <h1>Tác giả bài Đúng / Sai / Không có thông tin</h1>
+      <h1>Tác giả bài Gist (Nghe ý chính)</h1>
       <p class="subtitle">
-        Soạn 3-12 nhận định, mỗi nhận định gắn đáp án Đúng (T), Sai (F),
-        hoặc Không có thông tin (NG). Quy ước IELTS.
+        Soạn câu hỏi tóm tắt + đáp án mẫu + bộ từ khóa. AI (Haiku 4.5) chấm
+        semantic match cho học viên.
       </p>
     </header>
 
@@ -135,13 +129,21 @@
     </section>
 
     <section>
-      <span class="field-label">Nhận định (3-12)</span>
-      <ul class="statements-list" id="statements-list"></ul>
-      <div class="button-row" style="margin-top: var(--av-space-3);">
-        <button class="btn-ghost" id="btn-add" type="button">+ Thêm nhận định</button>
-        <span style="color: var(--av-text-muted); font-size: var(--av-fs-xs);"
-              id="statements-count"></span>
-      </div>
+      <label class="field-label" for="prompt-text">Câu hỏi cho học viên</label>
+      <input class="text-input" id="prompt-text" type="text"
+             placeholder="Vd: Người nói đang chủ yếu trình bày về điều gì?" />
+    </section>
+
+    <section>
+      <label class="field-label" for="model-answer">Đáp án mẫu (ground truth, 2-4 câu)</label>
+      <textarea class="area-input tall" id="model-answer"
+                placeholder="Vd: Người nói trình bày về tốc độ xói mòn bờ biển..." spellcheck="false"></textarea>
+    </section>
+
+    <section>
+      <label class="field-label" for="rubric-keywords">Từ khóa chấm (cách nhau bằng dấu phẩy, tối đa 10)</label>
+      <input class="text-input" id="rubric-keywords" type="text"
+             placeholder="coastal, erosion, climate change, sea level" />
     </section>
 
     <section class="button-row">
@@ -151,6 +153,8 @@
     </section>
   </div>
 
-  <script type="module" src="/js/admin-listening-tf.js"></script>
+  <script type="module" src="/js/admin-listening-gist.js"></script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>
