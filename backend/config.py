@@ -87,6 +87,14 @@ class Settings(BaseSettings):
     LISTENING_AI_RENDER_ENABLED: bool = False
     LISTENING_AUDIO_BUCKET: str = "listening-audio"
 
+    # Sprint 11.2 — IELTS-friendly default voices locked during the
+    # Sprint 11.1 audition (2026-05-18). Render endpoint uses these as
+    # fallback when voice_id is omitted + accent_tag is set. AU defers
+    # to Phase B voice cloning — stock library only offers Charlie
+    # (male) which doesn't fit the IELTS narration norm.
+    LISTENING_VOICE_US_FEMALE_DEFAULT: str = "EXAVITQu4vr4xnSDxMaL"  # Sarah
+    LISTENING_VOICE_UK_FEMALE_DEFAULT: str = "Xb7hH8MSUJpSbSDYk0k2"  # Alice
+
     class Config:
         env_file = ".env"
 

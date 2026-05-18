@@ -83,26 +83,24 @@
       </p>
     </header>
 
-    <!-- ── Mode-card grid (Sprint 11.1 shell — all 5 disabled) ───── -->
-    <!-- Sprint 11.0 §6 wireframes: 5 modes. Sprint 11.1 ships the
-         layout only — every card is "Coming soon". Sprint 11.2 flips
-         dictation live first (Andy Q6 lock), then gist + T/F (11.3),
-         then MCQ + mini test (11.4). The card structure mirrors
+    <!-- ── Mode-card grid (Sprint 11.2 — dictation live, 4 disabled) ─── -->
+    <!-- Sprint 11.0 §6 wireframes: 5 modes. Sprint 11.2 flips dictation
+         live first (Andy Q6 lock). Sprint 11.3 ships gist + T/F, Sprint
+         11.4 ships MCQ + mini test. The card structure mirrors
          vocabulary.html so the design-token + accessibility patterns
          transfer 1:1. -->
     <section class="vocab-modes" aria-labelledby="modes-heading">
       <h2 id="modes-heading">Chọn dạng bài</h2>
       <div class="modes-grid">
 
-        <!-- Dictation — Sprint 11.2 first to flip live -->
-        <a href="#" class="mode-card disabled" data-mode="dictation"
-           aria-label="Chép chính tả (đang phát triển)"
-           aria-disabled="true">
+        <!-- Dictation — Sprint 11.2 LIVE -->
+        <a href="/pages/listening-dictation.html" class="mode-card" data-mode="dictation"
+           aria-label="Chép chính tả">
           <div class="head">
             <div class="icon"><i data-lucide="edit-3"></i></div>
             <span class="arrow" aria-hidden="true">→</span>
           </div>
-          <h3>Chép chính tả <span class="lock-tag">Coming soon</span></h3>
+          <h3>Chép chính tả</h3>
           <p class="lede">Nghe và gõ lại câu chính xác từng từ.</p>
         </a>
 
