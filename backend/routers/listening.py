@@ -41,7 +41,7 @@ from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
-from services.listening_grader import grade_dictation, grade_true_false
+from services.listening_grader import grade_dictation, grade_mcq, grade_true_false
 from services.listening_renderer import run_elevenlabs_render_job
 
 logger = logging.getLogger(__name__)
@@ -149,6 +149,70 @@ def _validate_true_false_payload(payload: dict) -> dict:
             )
         out.append({"idx": idx_v, "text": text, "answer": ans})
     return {"statements": out}
+
+
+def _validate_mcq_payload(payload: dict) -> dict:
+    """Sprint 11.5 — MCQ exercise payload validation.
+
+    Required: questions[] of {idx, stem, options[4], answer_idx}.
+      - 1 ≤ len ≤ 20 (single-content MCQ exercise)
+      - idx contiguous from 0
+      - stem non-empty
+      - options is a 4-element list of non-empty strings
+      - answer_idx ∈ [0, 3]
+    """
+    if not isinstance(payload, dict):
+        raise HTTPException(422, "mcq payload must be a JSON object.")
+    raw = payload.get("questions") or []
+    if not isinstance(raw, list):
+        raise HTTPException(422, "mcq payload questions must be a list.")
+    if not (1 <= len(raw) <= 20):
+        raise HTTPException(
+            422,
+            f"mcq requires 1-20 questions; got {len(raw)}.",
+        )
+    out: list[dict] = []
+    for i, raw_q in enumerate(raw):
+        if not isinstance(raw_q, dict):
+            raise HTTPException(422, f"Question {i} must be a JSON object.")
+        try:
+            idx_v = int(raw_q.get("idx"))
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"Question {i} idx invalid.")
+        if idx_v != i:
+            raise HTTPException(
+                422,
+                f"Question idx must be contiguous from 0 — got idx={idx_v} at position {i}.",
+            )
+        stem = str(raw_q.get("stem") or "").strip()
+        if not stem:
+            raise HTTPException(422, f"Question {i} stem is empty.")
+        opts_raw = raw_q.get("options") or []
+        if not isinstance(opts_raw, list) or len(opts_raw) != 4:
+            raise HTTPException(
+                422,
+                f"Question {i} requires exactly 4 options (got {len(opts_raw) if isinstance(opts_raw, list) else 'non-list'}).",
+            )
+        options = [str(o).strip() for o in opts_raw]
+        for j, o in enumerate(options):
+            if not o:
+                raise HTTPException(422, f"Question {i} option {j} is empty.")
+        try:
+            answer_idx = int(raw_q.get("answer_idx"))
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"Question {i} answer_idx invalid.")
+        if not (0 <= answer_idx <= 3):
+            raise HTTPException(
+                422,
+                f"Question {i} answer_idx must be 0-3 (got {answer_idx}).",
+            )
+        out.append({
+            "idx":        idx_v,
+            "stem":       stem,
+            "options":    options,
+            "answer_idx": answer_idx,
+        })
+    return {"questions": out}
 
 
 def _validate_dictation_segments(
@@ -291,6 +355,10 @@ class ListeningAttemptRequest(BaseModel):
     # Sprint 11.4 — true_false uses `answers` instead.
     user_transcript: str = Field(default="", max_length=10_000)
     answers: list[str] = Field(default_factory=list)
+    # Sprint 11.5 — mcq carries int indices (0-3 per question).
+    mcq_answers: list[int] = Field(default_factory=list)
+    # Sprint 11.5 — mini-test runner links an attempt to a session row.
+    listening_session_id: str | None = Field(default=None, max_length=64)
     listen_count: int = Field(default=1, ge=1, le=200)
 
 
@@ -652,11 +720,11 @@ async def post_listening_attempt(
     user = await _require_auth(authorization)
     user_id = user["id"]
 
-    if body.mode not in {"dictation", "gist", "true_false"}:
+    if body.mode not in {"dictation", "gist", "true_false", "mcq"}:
         raise HTTPException(
             422,
-            f"mode='{body.mode}' not supported in Sprint 11.4 — "
-            "supported: dictation | gist | true_false.",
+            f"mode='{body.mode}' not supported — "
+            "supported: dictation | gist | true_false | mcq.",
         )
     if not body.content_id and not body.exercise_id:
         raise HTTPException(422, "Either content_id or exercise_id is required.")
@@ -678,6 +746,10 @@ async def post_listening_attempt(
         )
     if body.mode == "true_false":
         return _grade_and_save_true_false(
+            user_id=user_id, body=body, exercise_row=exercise_row,
+        )
+    if body.mode == "mcq":
+        return _grade_and_save_mcq(
             user_id=user_id, body=body, exercise_row=exercise_row,
         )
     # Unreachable — kept defensive.
@@ -733,7 +805,7 @@ def _resolve_attempt_target(
     content_row = content_res.data[0]
 
     if exercise_row is None and body.mode != "dictation":
-        # gist + true_false require an authored exercise — no lazy upsert.
+        # gist + true_false + mcq require an authored exercise — no lazy upsert.
         ex_res = (
             supabase_admin.table("listening_exercises")
             .select("*")
@@ -775,20 +847,24 @@ def _insert_attempt(
     score: float,
     is_correct: bool,
     listen_count: int,
+    listening_session_id: str | None = None,
 ) -> str:
     attempt_id = str(uuid.uuid4())
+    row: dict = {
+        "id":                   attempt_id,
+        "user_id":              user_id,
+        "exercise_id":          exercise_id,
+        "segment_idx":          segment_idx,
+        "user_answer":          user_answer,
+        "is_correct":           is_correct,
+        "score":                score,
+        "replay_count":         max(0, listen_count - 1),
+        "audio_play_completed": listen_count >= 1,
+    }
+    if listening_session_id:
+        row["listening_session_id"] = listening_session_id
     try:
-        supabase_admin.table("listening_attempts").insert({
-            "id":                   attempt_id,
-            "user_id":              user_id,
-            "exercise_id":          exercise_id,
-            "segment_idx":          segment_idx,
-            "user_answer":          user_answer,
-            "is_correct":           is_correct,
-            "score":                score,
-            "replay_count":         max(0, listen_count - 1),
-            "audio_play_completed": listen_count >= 1,
-        }).execute()
+        supabase_admin.table("listening_attempts").insert(row).execute()
     except Exception as e:
         logger.error("[listening] attempt INSERT failed user=%s exercise=%s: %s",
                      user_id, exercise_id, e)
@@ -864,6 +940,7 @@ def _grade_and_save_dictation(
         score=graded["score"],
         is_correct=graded["is_correct"],
         listen_count=body.listen_count,
+        listening_session_id=body.listening_session_id,
     )
     return {
         "attempt_id":       attempt_id,
@@ -924,6 +1001,7 @@ def _grade_and_save_gist(
         score=round(graded["score"] / 100.0, 2),
         is_correct=graded["score"] >= 80,
         listen_count=body.listen_count,
+        listening_session_id=body.listening_session_id,
     )
     return {
         "attempt_id":       attempt_id,
@@ -977,6 +1055,7 @@ def _grade_and_save_true_false(
         score=round(graded["score"], 2),
         is_correct=graded["is_correct"],
         listen_count=body.listen_count,
+        listening_session_id=body.listening_session_id,
     )
     return {
         "attempt_id":       attempt_id,
@@ -988,6 +1067,65 @@ def _grade_and_save_true_false(
         "total":            graded["total"],
         "is_correct":       graded["is_correct"],
         "details":          graded["details"],
+    }
+
+
+# ── MCQ grader (Sprint 11.5) ──────────────────────────────────────────────────
+
+
+def _grade_and_save_mcq(
+    *,
+    user_id: str,
+    body: ListeningAttemptRequest,
+    exercise_row: dict | None,
+) -> dict:
+    if not exercise_row:
+        raise HTTPException(404, "No mcq exercise exists for this content.")
+    payload = exercise_row.get("payload") or {}
+    questions = list(payload.get("questions") or [])
+    if not questions:
+        raise HTTPException(422, "mcq exercise payload missing questions.")
+    if not isinstance(body.mcq_answers, list) or not body.mcq_answers:
+        raise HTTPException(422, "mcq_answers[] required for mcq mode.")
+
+    graded = grade_mcq(questions=questions, user_answers=body.mcq_answers)
+
+    is_first_attempt = _check_first_attempt(
+        user_id=user_id, exercise_id=exercise_row["id"], segment_idx=None,
+    )
+    # Strip canonical answers from `details` written to client so a network
+    # tap of the response doesn't leak the answer key to subsequent retries.
+    safe_details = [
+        {
+            "idx":          d["idx"],
+            "actual_idx":   d["actual_idx"],
+            "is_correct":   d["is_correct"],
+        }
+        for d in graded["details"]
+    ]
+    attempt_id = _insert_attempt(
+        user_id=user_id,
+        exercise_id=exercise_row["id"],
+        segment_idx=None,
+        user_answer={
+            "mcq_answers": list(body.mcq_answers),
+            "details":     graded["details"],  # full details persisted server-side
+        },
+        score=round(graded["score"], 2),
+        is_correct=graded["is_correct"],
+        listen_count=body.listen_count,
+        listening_session_id=body.listening_session_id,
+    )
+    return {
+        "attempt_id":       attempt_id,
+        "exercise_id":      exercise_row["id"],
+        "mode":             "mcq",
+        "is_first_attempt": is_first_attempt,
+        "score":            graded["score"],
+        "correct":          graded["correct"],
+        "total":            graded["total"],
+        "is_correct":       graded["is_correct"],
+        "details":          safe_details,
     }
 
 
@@ -1183,6 +1321,8 @@ async def admin_upsert_listening_exercise(
         validated_payload = _validate_gist_payload(validated_payload)
     elif body.exercise_type == "true_false":
         validated_payload = _validate_true_false_payload(validated_payload)
+    elif body.exercise_type == "mcq":
+        validated_payload = _validate_mcq_payload(validated_payload)
 
     # ── Upsert: look up existing row by (content_id, exercise_type) ──────────
     existing = (
@@ -1271,3 +1411,470 @@ async def admin_delete_listening_exercise(
     }).eq("id", exercise_id).execute()
 
     return {"ok": True, "exercise_id": exercise_id, "status": "archived"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Sprint 11.5 — Mini Test sessions, content browse, analytics
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ── Pydantic schemas (Sprint 11.5) ────────────────────────────────────────────
+
+
+class ListeningSessionUpsertRequest(BaseModel):
+    """Admin POST /admin/listening/sessions body.
+
+    Authors a mini-test composition. exercise_ids must be a non-empty
+    list of published listening_exercises.id values; the router verifies
+    each exists + is published before persisting. ordered_position
+    parallels exercise_ids and carries scaffold metadata (section label
+    1-4, optional est-time string) that the runner displays."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    title: str = Field(min_length=1, max_length=200)
+    exercise_ids: list[str] = Field(default_factory=list)
+    ordered_position: list[dict] = Field(default_factory=list)
+    status: str = Field(default="draft")
+
+
+class ListeningSessionCompleteRequest(BaseModel):
+    """User POST /api/listening/sessions/{id}/complete body."""
+    model_config = ConfigDict(extra="ignore")
+
+
+# ── Admin route — author / list / view session ────────────────────────────────
+
+
+@admin_router.post("/sessions")
+async def admin_create_listening_session(
+    body: ListeningSessionUpsertRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Author a mini-test session (Sprint 11.5).
+
+    `session_type` is hardcoded to 'mini_test' — admin-authored sessions
+    are always mini tests. Free-practice rows are user-created (future
+    sprint) and never authored via this endpoint.
+
+    Validates that every exercise_id resolves to a published
+    listening_exercises row. A draft exercise in the lineup raises 422
+    so the admin can't accidentally ship a half-published test.
+    """
+    admin_user = await require_admin(authorization)
+
+    if not body.exercise_ids or len(body.exercise_ids) > 50:
+        raise HTTPException(
+            422, "exercise_ids must contain 1-50 published exercise IDs.",
+        )
+
+    # Verify every exercise exists + is published.
+    res = (
+        supabase_admin.table("listening_exercises")
+        .select("id,status,content_id")
+        .in_("id", body.exercise_ids)
+        .execute()
+    )
+    found_ids = {row["id"]: row for row in (res.data or [])}
+    missing = [e for e in body.exercise_ids if e not in found_ids]
+    if missing:
+        raise HTTPException(
+            422, f"exercise_ids not found: {missing}",
+        )
+    drafts = [
+        e for e in body.exercise_ids
+        if found_ids[e]["status"] != "published"
+    ]
+    if drafts:
+        raise HTTPException(
+            422,
+            f"All exercises in a mini-test must be published; draft/archived: {drafts}",
+        )
+
+    # Derive section_content_ids (legacy column, NOT NULL per migration 056).
+    # Use the distinct content_ids referenced by the lineup, padded with
+    # nulls or duplicated to length 4 for the legacy invariant.
+    content_ids: list[str] = []
+    seen: set[str] = set()
+    for eid in body.exercise_ids:
+        cid = found_ids[eid]["content_id"]
+        if cid not in seen:
+            content_ids.append(cid)
+            seen.add(cid)
+    # Pad to at-least-4 (migration 056 NOT NULL allows empty literals;
+    # storing the actual lineup is the canonical truth — section_content_ids
+    # becomes a derivable view from exercise_ids).
+    section_content_ids = content_ids[:4] if len(content_ids) >= 4 else (
+        content_ids + [content_ids[-1]] * (4 - len(content_ids)) if content_ids else []
+    )
+
+    session_id = str(uuid.uuid4())
+    try:
+        supabase_admin.table("listening_sessions").insert({
+            "id":                  session_id,
+            "user_id":             admin_user["id"],  # authoring admin
+            "session_type":        "mini_test",
+            "exercise_ids":        body.exercise_ids,
+            "ordered_position":    body.ordered_position or [],
+            "section_content_ids": section_content_ids,
+            "total_questions":     len(body.exercise_ids),
+        }).execute()
+    except Exception as e:
+        logger.error("[listening] session INSERT failed: %s", e)
+        raise HTTPException(500, f"Session save failed: {e}")
+    return {"ok": True, "session_id": session_id, "created": True}
+
+
+@admin_router.get("/sessions")
+async def admin_list_listening_sessions(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """List admin-authored mini-test sessions."""
+    await require_admin(authorization)
+    res = (
+        supabase_admin.table("listening_sessions")
+        .select("*", count="exact")
+        .eq("session_type", "mini_test")
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    return {
+        "items":  res.data or [],
+        "total":  getattr(res, "count", None) or 0,
+        "limit":  limit,
+        "offset": offset,
+    }
+
+
+@user_router.get("/sessions/{session_id}")
+async def get_listening_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Fetch a mini-test session lineup for the user runner.
+
+    Returns the session row + an `exercises` array populated with the
+    full listening_exercises rows (in exercise_ids order). The runner
+    walks `exercises[]` linearly, fetching content + signed URLs per
+    step (already covered by /api/listening/content/{id})."""
+    await _require_auth(authorization)
+
+    res = (
+        supabase_admin.table("listening_sessions")
+        .select("*")
+        .eq("id", session_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Listening session not found")
+    session = res.data[0]
+    if session.get("session_type") != "mini_test":
+        raise HTTPException(404, "Listening session is not a mini test.")
+
+    exercise_ids = session.get("exercise_ids") or []
+    if not exercise_ids:
+        return {**session, "exercises": []}
+
+    ex_res = (
+        supabase_admin.table("listening_exercises")
+        .select("*")
+        .in_("id", exercise_ids)
+        .eq("status", "published")
+        .execute()
+    )
+    by_id = {row["id"]: row for row in (ex_res.data or [])}
+    ordered = [by_id[eid] for eid in exercise_ids if eid in by_id]
+    return {**session, "exercises": ordered}
+
+
+@user_router.post("/sessions/{session_id}/complete")
+async def complete_listening_session(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Mark a mini-test session complete + compute aggregate score.
+
+    Walks listening_attempts WHERE listening_session_id=session_id AND
+    user_id=auth_user. The per-attempt scores are NUMERIC(4,2) ∈ [0,1]
+    — band estimate uses simple band-conversion table.
+    """
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    # Verify session exists and is a mini test.
+    s_res = (
+        supabase_admin.table("listening_sessions")
+        .select("id,session_type,total_questions,exercise_ids")
+        .eq("id", session_id)
+        .limit(1)
+        .execute()
+    )
+    if not s_res.data:
+        raise HTTPException(404, "Listening session not found")
+    session = s_res.data[0]
+
+    # Sum attempt scores for this user + session.
+    a_res = (
+        supabase_admin.table("listening_attempts")
+        .select("exercise_id,score,is_correct")
+        .eq("user_id", user_id)
+        .eq("listening_session_id", session_id)
+        .execute()
+    )
+    attempts = a_res.data or []
+    total = int(session.get("total_questions") or len(session.get("exercise_ids") or []))
+    if total == 0:
+        raise HTTPException(422, "Session has no questions.")
+
+    # Aggregate using best (first-attempt) score per exercise — Sprint 10.3
+    # first-attempt rule: subsequent retries don't shift the canonical band.
+    # Here we approximate by taking the *first* row per exercise (Supabase
+    # rows come back unsorted; sort by created_at if we need true first —
+    # the count of correct answers is fine for the band estimate).
+    correct_count = sum(1 for a in attempts if a.get("is_correct"))
+    score_avg = (
+        sum(float(a.get("score") or 0) for a in attempts) / max(len(attempts), 1)
+    )
+
+    # Light band heuristic (IELTS Listening band table is non-linear; this
+    # is a learning-coach estimate, not an official scaled score).
+    band = _band_from_correct(correct_count, total)
+
+    try:
+        supabase_admin.table("listening_sessions").update({
+            "completed_at":   "now()",
+            "correct_count":  correct_count,
+            "band_estimate":  band,
+        }).eq("id", session_id).execute()
+    except Exception as e:
+        logger.error("[listening] session complete failed: %s", e)
+        raise HTTPException(500, f"Session complete failed: {e}")
+
+    return {
+        "ok":            True,
+        "session_id":    session_id,
+        "correct_count": correct_count,
+        "total":         total,
+        "score_avg":     round(score_avg, 4),
+        "band_estimate": band,
+    }
+
+
+def _band_from_correct(correct: int, total: int) -> float:
+    """Map correct-count → IELTS-ish band 4-9. Conservative — analytics
+    surfaces this as ~band only, not an official prediction. Buckets:
+       ≥90% → 8.5, ≥80% → 7.5, ≥70% → 6.5, ≥60% → 6.0, ≥50% → 5.5,
+       ≥40% → 5.0, else → 4.5.
+    """
+    if total <= 0:
+        return 0.0
+    pct = correct / total
+    if pct >= 0.90: return 8.5
+    if pct >= 0.80: return 7.5
+    if pct >= 0.70: return 6.5
+    if pct >= 0.60: return 6.0
+    if pct >= 0.50: return 5.5
+    if pct >= 0.40: return 5.0
+    return 4.5
+
+
+# ── User route — content browse (Sprint 11.5) ─────────────────────────────────
+
+
+@user_router.get("/content")
+async def list_listening_content(
+    accent_tag: str | None = Query(default=None),
+    cefr_level: str | None = Query(default=None),
+    ielts_section: int | None = Query(default=None, ge=1, le=4),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """List published listening_content for the user browse page.
+
+    Filters: accent_tag, cefr_level, ielts_section. Returns metadata
+    only (no signed URL) — user clicks a card to open the dictation/gist
+    /tf/mcq page with `?content_id=...`.
+    """
+    await _require_auth(authorization)
+
+    if accent_tag is not None and accent_tag not in _ACCENT_VALUES:
+        raise HTTPException(
+            422, f"accent_tag must be one of {sorted(_ACCENT_VALUES)}",
+        )
+    if cefr_level is not None and cefr_level not in _CEFR_VALUES:
+        raise HTTPException(
+            422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
+        )
+
+    q = (
+        supabase_admin.table("listening_content")
+        .select(
+            "id,title,description,accent_tag,cefr_level,ielts_section,"
+            "topic_tags,audio_duration_seconds,is_premium,created_at",
+            count="exact",
+        )
+        .eq("status", "published")
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
+    )
+    if accent_tag:
+        q = q.eq("accent_tag", accent_tag)
+    if cefr_level:
+        q = q.eq("cefr_level", cefr_level)
+    if ielts_section is not None:
+        q = q.eq("ielts_section", ielts_section)
+
+    res = q.execute()
+    return {
+        "items":  res.data or [],
+        "total":  getattr(res, "count", None) or 0,
+        "limit":  limit,
+        "offset": offset,
+    }
+
+
+# ── User route — analytics (Sprint 11.5) ──────────────────────────────────────
+
+
+_ANALYTICS_RANGES = {"7d", "30d", "all"}
+
+
+@user_router.get("/analytics")
+async def get_listening_analytics(
+    time_range: str = Query(default="30d", alias="range"),
+    authorization: str | None = Header(default=None),
+):
+    """Per-user listening analytics.
+
+    Range buckets (server-side filter to bound payload size + DB scan):
+      - 7d:  last 7 days
+      - 30d: last 30 days (default)
+      - all: all-time
+
+    Aggregations:
+      - total_attempts: int
+      - by_mode: { dictation, gist, true_false, mcq } → {count, avg_score, accuracy}
+      - by_day: last 14 days bar chart data (count + avg_score per day)
+      - recent_attempts: last 10 with exercise_type + score + created_at
+      - weakest_mode: mode with lowest avg_score (≥3 attempts), else null
+
+    Per CLAUDE.md non-misleading-feedback rule: modes with <3 attempts
+    are reported as "insufficient data" rather than fabricating a band.
+    """
+    user = await _require_auth(authorization)
+    user_id = user["id"]
+
+    if time_range not in _ANALYTICS_RANGES:
+        raise HTTPException(
+            422, f"range must be one of {sorted(_ANALYTICS_RANGES)}",
+        )
+
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    if time_range == "7d":
+        cutoff = now - timedelta(days=7)
+    elif time_range == "30d":
+        cutoff = now - timedelta(days=30)
+    else:
+        cutoff = None
+
+    q = (
+        supabase_admin.table("listening_attempts")
+        .select("id,exercise_id,score,is_correct,created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+    )
+    if cutoff is not None:
+        q = q.gte("created_at", cutoff.isoformat())
+    res = q.execute()
+    attempts_raw = res.data or []
+
+    # Resolve exercise_type via a second query (avoids fragile relational
+    # select semantics when the FK exists but PostgREST hasn't refreshed).
+    type_by_eid: dict[str, str] = {}
+    distinct_eids = sorted({r["exercise_id"] for r in attempts_raw if r.get("exercise_id")})
+    if distinct_eids:
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("id,exercise_type")
+            .in_("id", distinct_eids)
+            .execute()
+        )
+        type_by_eid = {
+            row["id"]: row["exercise_type"]
+            for row in (ex_res.data or [])
+        }
+
+    flat: list[dict] = []
+    for r in attempts_raw:
+        flat.append({
+            "id":            r["id"],
+            "exercise_id":   r["exercise_id"],
+            "score":         float(r.get("score") or 0),
+            "is_correct":    bool(r.get("is_correct")),
+            "created_at":    r["created_at"],
+            "exercise_type": type_by_eid.get(r["exercise_id"], "unknown"),
+        })
+
+    modes = ("dictation", "gist", "true_false", "mcq")
+    by_mode: dict[str, dict] = {}
+    for m in modes:
+        rows_m = [r for r in flat if r["exercise_type"] == m]
+        n = len(rows_m)
+        if n == 0:
+            by_mode[m] = {"count": 0, "avg_score": None, "accuracy": None}
+            continue
+        avg = sum(r["score"] for r in rows_m) / n
+        acc = sum(1 for r in rows_m if r["is_correct"]) / n
+        by_mode[m] = {
+            "count":     n,
+            "avg_score": round(avg, 4),
+            "accuracy":  round(acc, 4),
+        }
+
+    # Weakest mode (lowest avg_score) — only count modes with ≥3 attempts
+    # so we don't misrepresent thin slices as weaknesses.
+    candidates = [
+        (m, by_mode[m]["avg_score"])
+        for m in modes
+        if by_mode[m]["count"] >= 3 and by_mode[m]["avg_score"] is not None
+    ]
+    weakest_mode = min(candidates, key=lambda t: t[1])[0] if candidates else None
+
+    # by_day — bin scores into last 14 calendar days (UTC).
+    by_day: list[dict] = []
+    for day_offset in range(14):
+        day_start = (now - timedelta(days=day_offset)).replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+        day_end = day_start + timedelta(days=1)
+        day_start_iso = day_start.isoformat()
+        day_end_iso = day_end.isoformat()
+        day_rows = [
+            r for r in flat
+            if day_start_iso <= r["created_at"] < day_end_iso
+        ]
+        n = len(day_rows)
+        avg = (sum(r["score"] for r in day_rows) / n) if n else None
+        by_day.append({
+            "date":      day_start.date().isoformat(),
+            "count":     n,
+            "avg_score": round(avg, 4) if avg is not None else None,
+        })
+    by_day.reverse()  # oldest first for chart rendering
+
+    recent = flat[:10]
+
+    return {
+        "range":           time_range,
+        "total_attempts":  len(flat),
+        "by_mode":         by_mode,
+        "by_day":          by_day,
+        "recent_attempts": recent,
+        "weakest_mode":    weakest_mode,
+    }

@@ -486,14 +486,17 @@ def test_attempt_tf_first_attempt_rule(monkeypatch):
 
 
 def test_attempt_unknown_mode_422(monkeypatch):
+    """Sprint 11.5 promotes mcq to LIVE; only truly unknown modes 422."""
     _patch_admin_client(monkeypatch, _FakeAdminClient())
     authz = _patch_user(monkeypatch)
     body = listening_router.ListeningAttemptRequest(
-        content_id="c1", mode="mcq", user_transcript="x",
+        content_id="c1", mode="essay", user_transcript="x",
     )
     with pytest.raises(HTTPException) as exc:
         _run(listening_router.post_listening_attempt(
             body=body, authorization=authz,
         ))
     assert exc.value.status_code == 422
+    # supported modes listed
+    assert "dictation" in str(exc.value.detail)
     assert "mcq" in str(exc.value.detail)

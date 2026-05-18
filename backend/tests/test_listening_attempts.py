@@ -379,20 +379,22 @@ def test_post_attempt_404_for_draft_content(monkeypatch):
     assert exc.value.status_code == 404
 
 
-def test_post_attempt_422_for_non_dictation_mode(monkeypatch):
-    """Sprint 11.2 ships dictation only; gist/mcq return 422 until 11.3+."""
+def test_post_attempt_422_for_unsupported_mode(monkeypatch):
+    """Sprint 11.5 promotes mcq to LIVE; only an unknown mode returns 422."""
     _patch_admin_client(monkeypatch, _FakeAdminClient(_published_content()))
     authz = _patch_user_auth(monkeypatch)
 
     body = listening_router.ListeningAttemptRequest(
-        content_id="c1", mode="mcq", user_transcript="x",
+        content_id="c1", mode="essay", user_transcript="x",
     )
     with pytest.raises(HTTPException) as exc:
         _run(listening_router.post_listening_attempt(
             body=body, authorization=authz,
         ))
     assert exc.value.status_code == 422
+    # Supported modes are surfaced in the error message.
     assert "dictation" in str(exc.value.detail)
+    assert "mcq" in str(exc.value.detail)
 
 
 # ── Admin GET /admin/listening/content/{id} (draft preview) ──────────
