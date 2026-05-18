@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .section-shell {
+      max-width: 1080px; margin: 0 auto;
+      padding: var(--av-space-2) var(--av-space-2) var(--av-space-8);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .section-header h1 { font-size: var(--av-fs-2xl); margin-bottom: var(--av-space-2); }
+    .section-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-base); line-height: var(--av-lh-normal); }
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: var(--av-space-4);
+    }
+    .sec-card {
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      text-decoration: none;
+      color: var(--av-text-primary);
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .sec-card:hover { border-color: var(--av-brand-teal-700); transform: translateY(-1px); }
+    .sec-card h3 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .sec-card .lede { font-size: var(--av-fs-sm); color: var(--av-text-secondary); line-height: var(--av-lh-normal); }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening">
+
+    <div class="section-shell">
+      <header class="section-header">
+        <h1>Listening · Admin</h1>
+        <p class="subtitle">
+          Module Listening hoàn chỉnh từ Sprint 11.5 (5 dạng bài). Trang này
+          tổng hợp các editor + builder. Cần <code>?content_id=&lt;UUID&gt;</code>
+          khi mở editor cho một bài cụ thể (lấy ID từ <code>admin.html</code>
+          legacy hoặc Supabase dashboard cho tới khi Sprint 12.x ship content listing).
+        </p>
+      </header>
+
+      <section class="section-grid">
+        <a href="/pages/admin/listening/segments.html" class="sec-card">
+          <h3>Audio + Segments</h3>
+          <p class="lede">Upload MP3 hoặc render ElevenLabs; chia transcript thành câu, gán timestamp.</p>
+        </a>
+        <a href="/pages/admin/listening/gist.html" class="sec-card">
+          <h3>Gist (Nghe ý chính)</h3>
+          <p class="lede">Prompt + model answer + rubric keywords cho dạng nghe ý chính.</p>
+        </a>
+        <a href="/pages/admin/listening/tf.html" class="sec-card">
+          <h3>True / False / NG</h3>
+          <p class="lede">3-12 nhận định mỗi bài; localised Vietnamese label.</p>
+        </a>
+        <a href="/pages/admin/listening/mcq.html" class="sec-card">
+          <h3>MCQ (Trắc nghiệm)</h3>
+          <p class="lede">1-20 câu hỏi, 4 lựa chọn A-D mỗi câu.</p>
+        </a>
+        <a href="/pages/admin/listening/mini-test.html" class="sec-card">
+          <h3>Mini Test</h3>
+          <p class="lede">Lắp ráp Mini Test từ pool exercises đã publish.</p>
+        </a>
+      </section>
+    </div>
+
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>

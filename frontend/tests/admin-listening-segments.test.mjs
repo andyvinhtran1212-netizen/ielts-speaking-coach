@@ -22,7 +22,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HTML_PATH = join(__dirname, '..', 'pages', 'admin-listening-segments.html');
+const HTML_PATH = join(__dirname, '..', 'pages', 'admin/listening/segments.html');
 const JS_PATH = join(__dirname, '..', 'js', 'admin-listening-segments.js');
 const HTML = readFileSync(HTML_PATH, 'utf8');
 const JS = readFileSync(JS_PATH, 'utf8');

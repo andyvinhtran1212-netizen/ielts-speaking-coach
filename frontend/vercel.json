@@ -3,12 +3,25 @@
     { "source": "/grammar/:category/:slug", "destination": "/pages/grammar-article.html" },
     { "source": "/writing/dashboard",       "destination": "/pages/writing-dashboard.html" },
     { "source": "/writing/result",          "destination": "/pages/writing-result.html" },
-    { "source": "/admin/writing/prompts",     "destination": "/pages/admin-writing-prompts.html" },
-    { "source": "/admin/writing/assignments", "destination": "/pages/admin-writing-assignments.html" },
+    { "source": "/admin/writing/prompts",     "destination": "/pages/admin/writing/prompts.html" },
+    { "source": "/admin/writing/assignments", "destination": "/pages/admin/writing/assignments.html" },
     { "source": "/home",                     "destination": "/pages/home.html" },
     { "source": "/speaking",                 "destination": "/pages/speaking.html" }
   ],
   "redirects": [
-    { "source": "/pages/dashboard.html", "destination": "/pages/speaking.html", "permanent": true }
+    { "source": "/pages/dashboard.html",                    "destination": "/pages/speaking.html",                   "permanent": true },
+    { "source": "/pages/admin-writing.html",                "destination": "/pages/admin/writing/index.html",            "permanent": true },
+    { "source": "/pages/admin-writing-new.html",            "destination": "/pages/admin/writing/new.html",              "permanent": true },
+    { "source": "/pages/admin-writing-grade.html",          "destination": "/pages/admin/writing/grade.html",            "permanent": true },
+    { "source": "/pages/admin-writing-status.html",         "destination": "/pages/admin/writing/status.html",           "permanent": true },
+    { "source": "/pages/admin-writing-assignments.html",    "destination": "/pages/admin/writing/assignments.html",      "permanent": true },
+    { "source": "/pages/admin-writing-prompts.html",        "destination": "/pages/admin/writing/prompts.html",          "permanent": true },
+    { "source": "/pages/admin-instructor-queue.html",       "destination": "/pages/admin/writing/instructor-queue.html", "permanent": true },
+    { "source": "/pages/admin-students.html",               "destination": "/pages/admin/students/index.html",           "permanent": true },
+    { "source": "/pages/admin-listening-segments.html",     "destination": "/pages/admin/listening/segments.html",       "permanent": true },
+    { "source": "/pages/admin-listening-gist.html",         "destination": "/pages/admin/listening/gist.html",           "permanent": true },
+    { "source": "/pages/admin-listening-tf.html",           "destination": "/pages/admin/listening/tf.html",             "permanent": true },
+    { "source": "/pages/admin-listening-mcq.html",          "destination": "/pages/admin/listening/mcq.html",            "permanent": true },
+    { "source": "/pages/admin-listening-mini-test.html",    "destination": "/pages/admin/listening/mini-test.html",      "permanent": true }
   ]
 }

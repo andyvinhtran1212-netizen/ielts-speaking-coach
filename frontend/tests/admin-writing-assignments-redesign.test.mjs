@@ -1,7 +1,7 @@
 /**
  * frontend/tests/admin-writing-assignments-redesign.test.mjs — Sprint 6.14b.
  *
- * Pins the migration of /pages/admin-writing-assignments.html
+ * Pins the migration of /pages/admin/writing/assignments.html
  * (teacher → student writing-assignment management).
  *
  * Outlier (like admin-writing-prompts): inline Supabase init, no
@@ -21,15 +21,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
+
+// Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
+// back-link) bail when the page uses <aver-admin-chrome>. The chrome
+// contract is pinned by frontend/tests/aver-admin-chrome.test.mjs.
+const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/assignments.html'), 'utf8').includes('<aver-admin-chrome');
+
 let css;
 
-before(() => {
-  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin-writing-assignments.html'), 'utf8');
+before(() => {  html = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/assignments.html'), 'utf8');
   css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),                  'utf8');
 });
 
 
 describe('admin-writing-assignments.html / foundation + IIFE', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('foundation order tokens → components → admin-writing.css', () => {
     const t = html.indexOf('aver-design/tokens.css');
     const c = html.indexOf('aver-design/components.css');
@@ -159,11 +165,13 @@ describe('admin-writing-assignments.html / student picker JS contract preserved'
 
 
 describe('admin-writing-assignments.html / body class + theme toggle', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('body uses av-page', () => {
     assert.match(html, /<body[^>]*class=["'][^"']*\bav-page\b/);
   });
 
   test('canonical theme toggle present', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /class=["'][^"']*\bav-theme-toggle\b/);
     assert.match(html, /class=["']icon-sun["']/);
     assert.match(html, /class=["']icon-moon["']/);
@@ -172,6 +180,7 @@ describe('admin-writing-assignments.html / body class + theme toggle', () => {
 
 
 describe('admin-writing-assignments.html / Vietnamese microcopy preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   const phrases = [
     'Bài giao — Writing Coach Admin',
     'Bài giao',

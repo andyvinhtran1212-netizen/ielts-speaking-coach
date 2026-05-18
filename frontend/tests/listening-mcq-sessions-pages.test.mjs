@@ -6,11 +6,11 @@
  *
  *   - frontend/pages/listening-mcq.html             (user)
  *   - frontend/js/listening-mcq.js                  (user)
- *   - frontend/pages/admin-listening-mcq.html       (admin)
+ *   - frontend/pages/admin/listening/mcq.html       (admin)
  *   - frontend/js/admin-listening-mcq.js            (admin)
  *   - frontend/pages/listening-mini-test.html       (user runner)
  *   - frontend/js/listening-mini-test.js            (user runner)
- *   - frontend/pages/admin-listening-mini-test.html (admin builder)
+ *   - frontend/pages/admin/listening/mini-test.html (admin builder)
  *   - frontend/js/admin-listening-mini-test.js      (admin builder)
  *   - frontend/pages/listening-browse.html          (content browse)
  *   - frontend/js/listening-browse.js
@@ -33,11 +33,11 @@ const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 
 const USER_MCQ_HTML        = read('pages', 'listening-mcq.html');
 const USER_MCQ_JS          = read('js',    'listening-mcq.js');
-const ADMIN_MCQ_HTML       = read('pages', 'admin-listening-mcq.html');
+const ADMIN_MCQ_HTML       = read('pages', 'admin/listening/mcq.html');
 const ADMIN_MCQ_JS         = read('js',    'admin-listening-mcq.js');
 const USER_MT_HTML         = read('pages', 'listening-mini-test.html');
 const USER_MT_JS           = read('js',    'listening-mini-test.js');
-const ADMIN_MT_HTML        = read('pages', 'admin-listening-mini-test.html');
+const ADMIN_MT_HTML        = read('pages', 'admin/listening/mini-test.html');
 const ADMIN_MT_JS          = read('js',    'admin-listening-mini-test.js');
 const BROWSE_HTML          = read('pages', 'listening-browse.html');
 const BROWSE_JS            = read('js',    'listening-browse.js');

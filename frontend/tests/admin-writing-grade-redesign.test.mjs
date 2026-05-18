@@ -28,17 +28,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
 let html;
+
+// Sprint 12.1 — chrome assertions (theme toggle, header email, brand badge,
+// back-link) bail when the page uses <aver-admin-chrome>. The chrome
+// contract is pinned by frontend/tests/aver-admin-chrome.test.mjs.
+const USES_ADMIN_CHROME = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/grade.html'), 'utf8').includes('<aver-admin-chrome');
+
 let css;
 let baseCss;
 
-before(() => {
-  html    = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin-writing-grade.html'), 'utf8');
+before(() => {  html    = readFileSync(path.join(REPO_ROOT, 'frontend/pages/admin/writing/grade.html'), 'utf8');
   css     = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing-grade.css'),    'utf8');
   baseCss = readFileSync(path.join(REPO_ROOT, 'frontend/css/admin-writing.css'),          'utf8');
 });
 
 
 describe('admin-writing-grade.html / foundation + IIFE', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('admin-writing-grade.css exists (Sprint 6.8 finding: own grading CSS)', () => {
     assert.ok(existsSync(path.join(REPO_ROOT, 'frontend/css/admin-writing-grade.css')));
   });
@@ -196,6 +202,7 @@ describe('admin-writing-grade.html / status pill migrated to data-status', () =>
 
 
 describe('admin-writing-grade.html / setAlert migrated to class hooks', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('setAlert uses aw-alert--* classes (no inline style mutation)', () => {
     const block = html.match(/function\s+setAlert\([\s\S]*?\n\s*\}/);
     assert.ok(block);
@@ -224,6 +231,7 @@ describe('admin-writing-grade.html / instructor panel preserved', () => {
 
 
 describe('admin-writing-grade.html / header action buttons preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   for (const id of ['btn-save', 'btn-copy', 'btn-download', 'btn-regrade', 'btn-deliver']) {
     test(`#${id} preserved`, () => {
       assert.match(html, new RegExp(`id=["']${id}["']`), `Missing button id="${id}"`);
@@ -259,11 +267,13 @@ describe('admin-writing-grade.html / routing accepts ?id= and ?essay_id=', () =>
 
 
 describe('admin-writing-grade.html / body class + theme toggle', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   test('body uses av-page', () => {
     assert.match(html, /<body[^>]*class=["'][^"']*\bav-page\b/);
   });
 
   test('canonical theme toggle present with icon-sun / icon-moon', () => {
+    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
     assert.match(html, /class=["']icon-sun["']/);
     assert.match(html, /class=["']icon-moon["']/);
   });
@@ -325,6 +335,7 @@ describe('admin-writing-grade.css / token discipline', () => {
 
 
 describe('admin-writing-grade.html / Vietnamese microcopy preserved', () => {
+  if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
   const phrases = [
     'Review + Edit — Writing Coach Admin',
     'Đang kiểm tra quyền truy cập…',

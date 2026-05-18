@@ -46,14 +46,14 @@ const REDESIGNED_PAGES = [
   'frontend/pages/flashcards.html',
   'frontend/pages/exercises.html',
   'frontend/pages/profile.html',
-  'frontend/pages/admin-writing.html',
-  'frontend/pages/admin-writing-new.html',
-  'frontend/pages/admin-writing-status.html',
-  'frontend/pages/admin-writing-prompts.html',
-  'frontend/pages/admin-writing-assignments.html',
-  'frontend/pages/admin-writing-grade.html',
-  'frontend/pages/admin-students.html',
-  'frontend/pages/admin-instructor-queue.html',
+  'frontend/pages/admin/writing/index.html',
+  'frontend/pages/admin/writing/new.html',
+  'frontend/pages/admin/writing/status.html',
+  'frontend/pages/admin/writing/prompts.html',
+  'frontend/pages/admin/writing/assignments.html',
+  'frontend/pages/admin/writing/grade.html',
+  'frontend/pages/admin/students/index.html',
+  'frontend/pages/admin/writing/instructor-queue.html',
   'frontend/pages/grammar-roadmap.html',
   'frontend/pages/grammar-article.html',
   'frontend/pages/grammar-search.html',
@@ -132,7 +132,7 @@ describe('Canonical "Trang chủ" label present on home-bound pages', () => {
   // inline chrome (Cat 5 out-of-scope), so the page-level label
   // sentinel remains for the admin family.
   const HOME_BOUND_SAMPLES = [
-    'frontend/pages/admin-writing.html',
+    'frontend/pages/admin/writing/index.html',
   ];
 
   HOME_BOUND_SAMPLES.forEach((rel) => {
@@ -179,7 +179,7 @@ describe('Destination URLs preserved byte-identical', () => {
     { page: 'frontend/pages/result.html',                   href: '/pages/speaking.html' },
     { page: 'frontend/pages/full-test-result.html',         href: '/pages/speaking.html' },
     { page: 'frontend/pages/writing-result.html',           href: '/writing/dashboard' },
-    { page: 'frontend/pages/admin-writing.html',            href: '/pages/home.html' },
+    { page: 'frontend/pages/admin/writing/index.html',            href: '/pages/home.html' },
     { page: 'frontend/admin.html',                          href: 'pages/home.html' },
   ];
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Tác giả Gist Listening — Aver Learning Admin</title>
+  <title>Tác giả Trắc nghiệm Listening — Aver Learning Admin</title>
 
   <script>
     (function () {
@@ -32,8 +32,7 @@
   <style>
     body.av-page { font-family: var(--av-font-sans); }
     .editor-shell {
-      max-width: 920px;
-      margin: 0 auto;
+      max-width: 920px; margin: 0 auto;
       padding: var(--av-space-8) var(--av-space-6);
       display: flex; flex-direction: column; gap: var(--av-space-6);
     }
@@ -44,31 +43,51 @@
       text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
       display: block; margin-bottom: var(--av-space-2);
     }
-    .text-input, .area-input {
-      width: 100%;
-      padding: var(--av-space-3) var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      font-family: var(--av-font-sans); font-size: var(--av-fs-base);
-      background: var(--av-surface-card); color: var(--av-text-primary);
-    }
-    .area-input { min-height: 100px; line-height: var(--av-lh-normal); resize: vertical; }
-    .area-input.tall { min-height: 160px; }
-    .text-input:focus, .area-input:focus {
-      outline: 2px solid var(--av-brand-teal-700);
-      outline-offset: 2px;
-    }
     .transcript-ref {
       padding: var(--av-space-3) var(--av-space-4);
       border-radius: var(--av-radius-md);
       background: var(--av-surface-sunken);
       color: var(--av-text-secondary);
-      font-size: var(--av-fs-sm);
-      line-height: var(--av-lh-relaxed);
+      font-size: var(--av-fs-sm); line-height: var(--av-lh-relaxed);
       white-space: pre-wrap;
     }
-    .button-row {
-      display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: center;
+    .questions-list { display: flex; flex-direction: column; gap: var(--av-space-4); list-style: none; padding: 0; margin: 0; }
+    .questions-list li {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+    }
+    .questions-list li.has-error { border-color: #B91C1C; background: #FEF2F2; }
+    .mcq-stem-row { display: flex; gap: var(--av-space-3); align-items: center; }
+    .mcq-idx-label { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); color: var(--av-text-muted); min-width: 32px; }
+    .mcq-stem-input {
+      flex: 1;
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      font-family: var(--av-font-sans); font-size: var(--av-fs-sm);
+      background: var(--av-surface-card);
+    }
+    .mcq-options-grid {
+      display: grid; grid-template-columns: 28px 24px 1fr 64px;
+      gap: var(--av-space-2); align-items: center;
+      padding-left: 32px;
+    }
+    .mcq-letter { font-family: var(--av-font-mono); color: var(--av-text-muted); }
+    .mcq-correct-radio { accent-color: var(--av-brand-teal-700); }
+    .mcq-option-input {
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-sm);
+      background: var(--av-surface-card);
+    }
+    .mcq-correct-tag {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+      color: var(--av-brand-teal-700);
     }
     .btn-primary {
       padding: var(--av-space-3) var(--av-space-6);
@@ -85,11 +104,19 @@
       background: transparent; color: var(--av-text-secondary);
       border: 1px solid var(--av-border-default); cursor: pointer;
     }
-    .status-banner {
-      padding: var(--av-space-3) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      font-size: var(--av-fs-sm);
+    .btn-ghost {
+      padding: 4px 10px; border-radius: var(--av-radius-sm);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer; font-size: var(--av-fs-xs);
     }
+    .btn-danger {
+      padding: 4px 10px; border-radius: var(--av-radius-sm);
+      background: transparent; color: #B91C1C;
+      border: 1px solid #FECACA; cursor: pointer; font-size: var(--av-fs-xs);
+    }
+    .button-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: center; }
+    .status-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md); font-size: var(--av-fs-sm); }
     .status-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
     .status-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
     .status-banner.is-info    { background: var(--av-surface-sunken); color: var(--av-text-secondary); border: 1px solid var(--av-border-default); }
@@ -97,16 +124,17 @@
   </style>
 </head>
 <body class="av-page">
+  <aver-admin-chrome active="listening" subsection="mcq">
 
   <div class="editor-shell">
     <header class="editor-header">
       <p style="margin-bottom: var(--av-space-2);">
         <a href="/admin.html" style="color: var(--av-text-secondary);">← Admin</a>
       </p>
-      <h1>Tác giả bài Gist (Nghe ý chính)</h1>
+      <h1>Tác giả bài Trắc nghiệm</h1>
       <p class="subtitle">
-        Soạn câu hỏi tóm tắt + đáp án mẫu + bộ từ khóa. AI (Haiku 4.5) chấm
-        semantic match cho học viên.
+        Soạn 1-20 câu hỏi, mỗi câu có 4 lựa chọn A/B/C/D. Tích vào ô tròn
+        bên cạnh để chọn đáp án đúng.
       </p>
     </header>
 
@@ -128,21 +156,13 @@
     </section>
 
     <section>
-      <label class="field-label" for="prompt-text">Câu hỏi cho học viên</label>
-      <input class="text-input" id="prompt-text" type="text"
-             placeholder="Vd: Người nói đang chủ yếu trình bày về điều gì?" />
-    </section>
-
-    <section>
-      <label class="field-label" for="model-answer">Đáp án mẫu (ground truth, 2-4 câu)</label>
-      <textarea class="area-input tall" id="model-answer"
-                placeholder="Vd: Người nói trình bày về tốc độ xói mòn bờ biển..." spellcheck="false"></textarea>
-    </section>
-
-    <section>
-      <label class="field-label" for="rubric-keywords">Từ khóa chấm (cách nhau bằng dấu phẩy, tối đa 10)</label>
-      <input class="text-input" id="rubric-keywords" type="text"
-             placeholder="coastal, erosion, climate change, sea level" />
+      <span class="field-label">Câu hỏi (1-20)</span>
+      <ul class="questions-list" id="questions-list"></ul>
+      <div class="button-row" style="margin-top: var(--av-space-3);">
+        <button class="btn-ghost" id="btn-add" type="button">+ Thêm câu hỏi</button>
+        <span style="color: var(--av-text-muted); font-size: var(--av-fs-xs);"
+              id="questions-count"></span>
+      </div>
     </section>
 
     <section class="button-row">
@@ -152,6 +172,8 @@
     </section>
   </div>
 
-  <script type="module" src="/js/admin-listening-gist.js"></script>
+  <script type="module" src="/js/admin-listening-mcq.js"></script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>
 </html>
