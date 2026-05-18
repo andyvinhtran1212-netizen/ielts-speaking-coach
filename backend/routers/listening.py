@@ -40,7 +40,8 @@ from config import settings
 from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
-from services.listening_grader import grade_dictation
+from services.listening_gist_grader import grade_gist_response
+from services.listening_grader import grade_dictation, grade_true_false
 from services.listening_renderer import run_elevenlabs_render_job
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,83 @@ _CEFR_VALUES = {"A2", "B1", "B2", "C1", "C2"}
 _ELEVENLABS_MODELS = {"eleven_multilingual_v2", "eleven_flash_v2_5"}
 _STATUS_VALUES = {"draft", "published", "archived"}
 _EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
+
+
+_TF_VALID = {"T", "F", "NG"}
+
+
+def _validate_gist_payload(payload: dict) -> dict:
+    """Sprint 11.4 — gist exercise payload validation.
+
+    Required: prompt_text (non-empty), model_answer (non-empty).
+    Optional: rubric_keywords (list[str], default []).
+    """
+    if not isinstance(payload, dict):
+        raise HTTPException(422, "Gist payload must be a JSON object.")
+    prompt = str(payload.get("prompt_text") or "").strip()
+    model_answer = str(payload.get("model_answer") or "").strip()
+    if not prompt:
+        raise HTTPException(422, "Gist payload missing prompt_text.")
+    if not model_answer:
+        raise HTTPException(422, "Gist payload missing model_answer.")
+    raw_keywords = payload.get("rubric_keywords") or []
+    if not isinstance(raw_keywords, list):
+        raise HTTPException(422, "rubric_keywords must be a list of strings.")
+    keywords = [str(k).strip() for k in raw_keywords if str(k).strip()][:10]
+    return {
+        "prompt_text":     prompt,
+        "model_answer":    model_answer,
+        "rubric_keywords": keywords,
+    }
+
+
+def _validate_true_false_payload(payload: dict) -> dict:
+    """Sprint 11.4 — true_false exercise payload validation.
+
+    Required: statements[] of {idx, text, answer ∈ T/F/NG}.
+      - 3 ≤ len ≤ 12 (IELTS standard range)
+      - idx contiguous from 0
+      - text non-empty
+      - answer normalised to T / F / NG
+    """
+    if not isinstance(payload, dict):
+        raise HTTPException(422, "true_false payload must be a JSON object.")
+    raw = payload.get("statements") or []
+    if not isinstance(raw, list):
+        raise HTTPException(422, "true_false payload statements must be a list.")
+    if not (3 <= len(raw) <= 12):
+        raise HTTPException(
+            422,
+            f"true_false requires 3-12 statements; got {len(raw)} "
+            "(IELTS standard range).",
+        )
+    out: list[dict] = []
+    for i, raw_stmt in enumerate(raw):
+        if not isinstance(raw_stmt, dict):
+            raise HTTPException(422, f"Statement {i} must be a JSON object.")
+        try:
+            idx_v = int(raw_stmt.get("idx"))
+        except (TypeError, ValueError):
+            raise HTTPException(422, f"Statement {i} idx invalid.")
+        if idx_v != i:
+            raise HTTPException(
+                422,
+                f"Statement idx must be contiguous from 0 — got idx={idx_v} at position {i}.",
+            )
+        text = str(raw_stmt.get("text") or "").strip()
+        if not text:
+            raise HTTPException(422, f"Statement {i} text is empty.")
+        ans = str(raw_stmt.get("answer") or "").upper().strip()
+        if ans in {"TRUE"}: ans = "T"
+        elif ans in {"FALSE"}: ans = "F"
+        elif ans in {"NOT GIVEN", "NOTGIVEN", "N/G"}: ans = "NG"
+        if ans not in _TF_VALID:
+            raise HTTPException(
+                422,
+                f"Statement {i} answer must be T / F / NG (got '{raw_stmt.get('answer')}').",
+            )
+        out.append({"idx": idx_v, "text": text, "answer": ans})
+    return {"statements": out}
 
 
 def _validate_dictation_segments(
@@ -186,15 +264,21 @@ class ListeningRenderRequest(BaseModel):
 class ListeningAttemptRequest(BaseModel):
     """User POST /api/listening/attempts body.
 
-    Sprint 11.3 introduces SEGMENTED dictation — `segment_idx` (0-indexed)
-    selects which segment within the parent exercise to grade against.
-    Either pass `exercise_id` directly (when the page already knows it
-    from a prior /exercises GET) OR pass `content_id` and let the router
-    resolve the canonical dictation exercise for that content.
+    Sprint 11.4 dispatches by `mode`:
+      - dictation:  reads `user_transcript` (+ optional `segment_idx`)
+                    against `exercise.segments[idx].transcript`.
+      - gist:       reads `user_transcript` against
+                    `exercise.payload.model_answer` + rubric_keywords.
+      - true_false: reads `answers[]` against
+                    `exercise.payload.statements[i].answer`.
 
-    Backward compat with Sprint 11.2: omit `segment_idx` AND `exercise_id`
-    and the router falls back to the whole-content transcript (Sprint
-    11.2 single-pass behaviour).
+    Either pass `exercise_id` directly (when the page knows it from a
+    prior /exercises GET) OR pass `content_id` and let the router
+    resolve the canonical published exercise for that content + mode.
+
+    Backward compat with Sprint 11.2: omit `segment_idx` AND
+    `exercise_id` for dictation and the router falls back to the
+    whole-content transcript.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -203,7 +287,10 @@ class ListeningAttemptRequest(BaseModel):
     exercise_id: str | None = Field(default=None, max_length=64)
     segment_idx: int | None = Field(default=None, ge=0, le=500)
     mode: str = Field(default="dictation")
-    user_transcript: str = Field(min_length=0, max_length=10_000)
+    # Sprint 11.2/11.3 — user_transcript is used by dictation + gist.
+    # Sprint 11.4 — true_false uses `answers` instead.
+    user_transcript: str = Field(default="", max_length=10_000)
+    answers: list[str] = Field(default_factory=list)
     listen_count: int = Field(default=1, ge=1, le=200)
 
 
@@ -565,15 +652,48 @@ async def post_listening_attempt(
     user = await _require_auth(authorization)
     user_id = user["id"]
 
-    if body.mode != "dictation":
+    if body.mode not in {"dictation", "gist", "true_false"}:
         raise HTTPException(
             422,
-            f"mode='{body.mode}' not supported in Sprint 11.3 — only 'dictation' is live.",
+            f"mode='{body.mode}' not supported in Sprint 11.4 — "
+            "supported: dictation | gist | true_false.",
         )
     if not body.content_id and not body.exercise_id:
         raise HTTPException(422, "Either content_id or exercise_id is required.")
 
-    # ── Resolve exercise + reference transcript ───────────────────────────────
+    # ── Resolve exercise + parent content ─────────────────────────────────────
+    exercise_row, content_row = _resolve_attempt_target(body)
+
+    # ── Dispatch by mode ──────────────────────────────────────────────────────
+    if body.mode == "dictation":
+        return _grade_and_save_dictation(
+            user_id=user_id,
+            body=body,
+            exercise_row=exercise_row,
+            content_row=content_row,
+        )
+    if body.mode == "gist":
+        return _grade_and_save_gist(
+            user_id=user_id, body=body, exercise_row=exercise_row,
+        )
+    if body.mode == "true_false":
+        return _grade_and_save_true_false(
+            user_id=user_id, body=body, exercise_row=exercise_row,
+        )
+    # Unreachable — kept defensive.
+    raise HTTPException(500, "Unhandled mode dispatch.")
+
+
+# ── Attempt-handler helpers ───────────────────────────────────────────────────
+
+
+def _resolve_attempt_target(
+    body: ListeningAttemptRequest,
+) -> tuple[dict | None, dict]:
+    """Look up exercise_row (by exercise_id OR derived from content_id +
+    body.mode) and the parent content row. Returns (exercise_row,
+    content_row). exercise_row may be None for the Sprint 11.2 dictation
+    fallback path; content_row is never None (404 if missing)."""
     exercise_row: dict | None = None
     content_id: str | None = body.content_id
 
@@ -590,9 +710,16 @@ async def post_listening_attempt(
             raise HTTPException(404, "Exercise not found or not published.")
         exercise_row = res.data[0]
         content_id = exercise_row["content_id"]
+        # If the body mode disagrees with the exercise type, that's a
+        # client bug — surface it as 422 so it can't masquerade as a
+        # silently-mis-graded attempt.
+        if exercise_row["exercise_type"] != body.mode:
+            raise HTTPException(
+                422,
+                f"mode='{body.mode}' but exercise_id resolves to "
+                f"exercise_type='{exercise_row['exercise_type']}'.",
+            )
 
-    # Always verify the parent content is published — gates draft content
-    # from being graded against even when an admin pre-published an exercise.
     content_res = (
         supabase_admin.table("listening_content")
         .select("id,transcript,status")
@@ -605,9 +732,25 @@ async def post_listening_attempt(
         raise HTTPException(404, "Listening content not found or not published")
     content_row = content_res.data[0]
 
-    # If exercise wasn't resolved by id, look up the dictation exercise for
-    # this content (canonical published dictation row, if any).
-    if exercise_row is None:
+    if exercise_row is None and body.mode != "dictation":
+        # gist + true_false require an authored exercise — no lazy upsert.
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("*")
+            .eq("content_id", content_id)
+            .eq("exercise_type", body.mode)
+            .eq("status", "published")
+            .limit(1)
+            .execute()
+        )
+        if not ex_res.data:
+            raise HTTPException(
+                404,
+                f"No published {body.mode} exercise exists for this content.",
+            )
+        exercise_row = ex_res.data[0]
+
+    elif exercise_row is None and body.mode == "dictation":
         ex_res = (
             supabase_admin.table("listening_exercises")
             .select("*")
@@ -620,10 +763,68 @@ async def post_listening_attempt(
         if ex_res.data:
             exercise_row = ex_res.data[0]
 
-    # ── Pick the reference transcript ─────────────────────────────────────────
-    reference_transcript: str
-    segments = (exercise_row or {}).get("segments") or []
+    return exercise_row, content_row
 
+
+def _insert_attempt(
+    *,
+    user_id: str,
+    exercise_id: str,
+    segment_idx: int | None,
+    user_answer: dict,
+    score: float,
+    is_correct: bool,
+    listen_count: int,
+) -> str:
+    attempt_id = str(uuid.uuid4())
+    try:
+        supabase_admin.table("listening_attempts").insert({
+            "id":                   attempt_id,
+            "user_id":              user_id,
+            "exercise_id":          exercise_id,
+            "segment_idx":          segment_idx,
+            "user_answer":          user_answer,
+            "is_correct":           is_correct,
+            "score":                score,
+            "replay_count":         max(0, listen_count - 1),
+            "audio_play_completed": listen_count >= 1,
+        }).execute()
+    except Exception as e:
+        logger.error("[listening] attempt INSERT failed user=%s exercise=%s: %s",
+                     user_id, exercise_id, e)
+        raise HTTPException(500, f"Attempt save failed: {e}")
+    return attempt_id
+
+
+def _check_first_attempt(
+    *,
+    user_id: str,
+    exercise_id: str,
+    segment_idx: int | None,
+) -> bool:
+    q = (
+        supabase_admin.table("listening_attempts")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("exercise_id", exercise_id)
+    )
+    if segment_idx is not None:
+        q = q.eq("segment_idx", segment_idx)
+    prior = q.limit(1).execute()
+    return not prior.data
+
+
+# ── Dictation grader (Sprint 11.2/11.3 path) ──────────────────────────────────
+
+
+def _grade_and_save_dictation(
+    *,
+    user_id: str,
+    body: ListeningAttemptRequest,
+    exercise_row: dict | None,
+    content_row: dict,
+) -> dict:
+    segments = (exercise_row or {}).get("segments") or []
     if body.segment_idx is not None:
         if not exercise_row or not segments:
             raise HTTPException(
@@ -639,64 +840,154 @@ async def post_listening_attempt(
             )
         reference_transcript = segments[body.segment_idx].get("transcript", "")
     else:
-        # Legacy whole-content fallback (Sprint 11.2 behaviour).
         reference_transcript = content_row["transcript"]
 
-    # ── Grade ─────────────────────────────────────────────────────────────────
     graded = grade_dictation(
         reference_transcript=reference_transcript,
         user_transcript=body.user_transcript,
     )
 
-    # ── Ensure we have an exercise_id (lazy-upsert for legacy callers) ────────
     if exercise_row:
         exercise_id = exercise_row["id"]
     else:
-        exercise_id = _ensure_dictation_exercise(content_id)
+        exercise_id = _ensure_dictation_exercise(content_row["id"])
 
-    # ── First-attempt rule (per segment when applicable) ──────────────────────
-    prior_q = (
-        supabase_admin.table("listening_attempts")
-        .select("id,score,is_correct,segment_idx")
-        .eq("user_id", user_id)
-        .eq("exercise_id", exercise_id)
+    is_first_attempt = _check_first_attempt(
+        user_id=user_id, exercise_id=exercise_id, segment_idx=body.segment_idx,
     )
-    if body.segment_idx is not None:
-        prior_q = prior_q.eq("segment_idx", body.segment_idx)
-    prior = prior_q.limit(1).execute()
-    is_first_attempt = not prior.data
 
-    attempt_id = str(uuid.uuid4())
-    try:
-        supabase_admin.table("listening_attempts").insert({
-            "id":                   attempt_id,
-            "user_id":              user_id,
-            "exercise_id":          exercise_id,
-            "segment_idx":          body.segment_idx,
-            "user_answer":          {
-                "text": body.user_transcript,
-                "diff": graded["diff"],
-            },
-            "is_correct":           graded["is_correct"],
-            "score":                graded["score"],
-            "replay_count":         max(0, body.listen_count - 1),
-            "audio_play_completed": body.listen_count >= 1,
-        }).execute()
-    except Exception as e:
-        logger.error("[listening] attempt INSERT failed user=%s content=%s: %s",
-                     user_id, content_id, e)
-        raise HTTPException(500, f"Attempt save failed: {e}")
-
+    attempt_id = _insert_attempt(
+        user_id=user_id,
+        exercise_id=exercise_id,
+        segment_idx=body.segment_idx,
+        user_answer={"text": body.user_transcript, "diff": graded["diff"]},
+        score=graded["score"],
+        is_correct=graded["is_correct"],
+        listen_count=body.listen_count,
+    )
     return {
         "attempt_id":       attempt_id,
         "exercise_id":      exercise_id,
         "segment_idx":      body.segment_idx,
+        "mode":             "dictation",
         "is_first_attempt": is_first_attempt,
         "score":            graded["score"],
         "correct_words":    graded["correct_words"],
         "total_words":      graded["total_words"],
         "is_correct":       graded["is_correct"],
         "diff":             graded["diff"],
+    }
+
+
+# ── Gist grader (Sprint 11.4) ─────────────────────────────────────────────────
+
+
+def _grade_and_save_gist(
+    *,
+    user_id: str,
+    body: ListeningAttemptRequest,
+    exercise_row: dict | None,
+) -> dict:
+    if not exercise_row:
+        raise HTTPException(404, "No gist exercise exists for this content.")
+    payload = exercise_row.get("payload") or {}
+    model_answer = str(payload.get("model_answer") or "").strip()
+    rubric_keywords = list(payload.get("rubric_keywords") or [])
+    if not model_answer:
+        raise HTTPException(
+            422,
+            "Gist exercise payload missing model_answer — admin must "
+            "author the rubric before grading.",
+        )
+
+    graded = grade_gist_response(
+        user_response=body.user_transcript,
+        model_answer=model_answer,
+        rubric_keywords=rubric_keywords,
+    )
+
+    is_first_attempt = _check_first_attempt(
+        user_id=user_id, exercise_id=exercise_row["id"], segment_idx=None,
+    )
+    attempt_id = _insert_attempt(
+        user_id=user_id,
+        exercise_id=exercise_row["id"],
+        segment_idx=None,
+        user_answer={
+            "text":            body.user_transcript,
+            "feedback":        graded["feedback"],
+            "keyword_matches": graded["keyword_matches"],
+            "ai_used":         graded["ai_used"],
+        },
+        # listening_attempts.score is NUMERIC(4,2) — gist Haiku returns
+        # 0-100, store as 0-1 for consistency with dictation.
+        score=round(graded["score"] / 100.0, 2),
+        is_correct=graded["score"] >= 80,
+        listen_count=body.listen_count,
+    )
+    return {
+        "attempt_id":       attempt_id,
+        "exercise_id":      exercise_row["id"],
+        "mode":             "gist",
+        "is_first_attempt": is_first_attempt,
+        "score":            graded["score"],          # 0-100 client-facing
+        "feedback":         graded["feedback"],
+        "keyword_matches":  graded["keyword_matches"],
+        "ai_used":          graded["ai_used"],
+        "is_correct":       graded["score"] >= 80,
+    }
+
+
+# ── True/False grader (Sprint 11.4) ───────────────────────────────────────────
+
+
+def _grade_and_save_true_false(
+    *,
+    user_id: str,
+    body: ListeningAttemptRequest,
+    exercise_row: dict | None,
+) -> dict:
+    if not exercise_row:
+        raise HTTPException(404, "No true_false exercise exists for this content.")
+    payload = exercise_row.get("payload") or {}
+    statements = list(payload.get("statements") or [])
+    if not statements:
+        raise HTTPException(
+            422,
+            "true_false exercise payload missing statements.",
+        )
+    if not isinstance(body.answers, list) or not body.answers:
+        raise HTTPException(
+            422, "answers[] required for true_false mode.",
+        )
+
+    graded = grade_true_false(statements=statements, user_answers=body.answers)
+
+    is_first_attempt = _check_first_attempt(
+        user_id=user_id, exercise_id=exercise_row["id"], segment_idx=None,
+    )
+    attempt_id = _insert_attempt(
+        user_id=user_id,
+        exercise_id=exercise_row["id"],
+        segment_idx=None,
+        user_answer={
+            "answers": [str(a) for a in body.answers],
+            "details": graded["details"],
+        },
+        score=round(graded["score"], 2),
+        is_correct=graded["is_correct"],
+        listen_count=body.listen_count,
+    )
+    return {
+        "attempt_id":       attempt_id,
+        "exercise_id":      exercise_row["id"],
+        "mode":             "true_false",
+        "is_first_attempt": is_first_attempt,
+        "score":            graded["score"],
+        "correct":          graded["correct"],
+        "total":            graded["total"],
+        "is_correct":       graded["is_correct"],
+        "details":          graded["details"],
     }
 
 
@@ -880,13 +1171,18 @@ async def admin_upsert_listening_exercise(
         raise HTTPException(404, "Listening content not found")
     duration = c.data[0]["audio_duration_seconds"]
 
-    # ── Validate segments (dictation only — other types ship payload only) ──
+    # ── Validate per-type payload + segments (Sprint 11.3 + 11.4) ──────────
     validated_segments: list[dict] = []
+    validated_payload: dict = dict(body.payload or {})
     if body.exercise_type == "dictation":
         validated_segments = _validate_dictation_segments(
             body.segments,
             audio_duration_seconds=duration,
         )
+    elif body.exercise_type == "gist":
+        validated_payload = _validate_gist_payload(validated_payload)
+    elif body.exercise_type == "true_false":
+        validated_payload = _validate_true_false_payload(validated_payload)
 
     # ── Upsert: look up existing row by (content_id, exercise_type) ──────────
     existing = (
@@ -901,7 +1197,7 @@ async def admin_upsert_listening_exercise(
     payload = {
         "content_id":    body.content_id,
         "exercise_type": body.exercise_type,
-        "payload":       body.payload or {},
+        "payload":       validated_payload,
         "order_num":     body.order_num,
         "status":        body.status,
         "segments":      validated_segments,

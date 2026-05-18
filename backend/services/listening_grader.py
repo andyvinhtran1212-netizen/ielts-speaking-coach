@@ -185,3 +185,68 @@ def grade_dictation(
         "is_correct": score >= 1.0,
         "diff": [{"op": o.op, "expected": o.expected, "actual": o.actual} for o in ops],
     }
+
+
+# ── True / False / Not-Given grader (Sprint 11.4) ────────────────────
+
+
+_TF_VALUES = {"T", "F", "NG"}
+
+
+def grade_true_false(
+    *,
+    statements: list[dict],
+    user_answers: list[str],
+) -> dict[str, Any]:
+    """Grade one True/False/Not-Given attempt.
+
+    Args:
+      statements:   admin-curated list of {idx, text, answer} where
+                    answer is "T" | "F" | "NG".
+      user_answers: list of "T" | "F" | "NG" strings in the same order
+                    as statements. Length may differ — extra answers
+                    discarded, missing answers count as 0 (wrong).
+
+    Returns:
+      {
+        "score":        0-1 float (correct / total),
+        "correct":      int,
+        "total":        int,
+        "is_correct":   bool (score == 1.0),
+        "details": [
+          {"idx": int, "expected": "T", "actual": "F", "is_correct": false}
+        ]
+      }
+    """
+    total = len(statements)
+    if total == 0:
+        return {"score": 0.0, "correct": 0, "total": 0, "is_correct": False, "details": []}
+
+    details: list[dict[str, Any]] = []
+    correct_n = 0
+    for i, stmt in enumerate(statements):
+        expected = str(stmt.get("answer", "")).upper().strip()
+        actual_raw = user_answers[i] if i < len(user_answers) else ""
+        actual = str(actual_raw or "").upper().strip()
+        # Normalise common synonyms.
+        if actual in {"TRUE"}:        actual = "T"
+        elif actual in {"FALSE"}:     actual = "F"
+        elif actual in {"NOT GIVEN", "NOTGIVEN", "NG", "N/G"}:
+                                       actual = "NG"
+        is_corr = (expected in _TF_VALUES) and (expected == actual)
+        if is_corr:
+            correct_n += 1
+        details.append({
+            "idx":        i,
+            "expected":   expected,
+            "actual":     actual,
+            "is_correct": is_corr,
+        })
+    score = correct_n / total
+    return {
+        "score":      round(score, 4),
+        "correct":    correct_n,
+        "total":      total,
+        "is_correct": score >= 1.0,
+        "details":    details,
+    }

@@ -44,6 +44,12 @@ logger = logging.getLogger(__name__)
 
 
 _ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+# Sprint 11.4 bonus — same endpoint with `/with-timestamps` returns
+# the audio_base64 + per-character alignment data so the segment
+# editor can derive sentence boundaries exactly.
+_ELEVENLABS_TTS_WITH_TIMESTAMPS_URL = (
+    "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps"
+)
 _DEFAULT_VOICE_SETTINGS = {
     "stability": 0.5,
     "similarity_boost": 0.5,
@@ -98,6 +104,66 @@ def render_via_elevenlabs(
     return resp.content
 
 
+def render_via_elevenlabs_with_timestamps(
+    *,
+    script_text: str,
+    voice_id: str,
+    model: str,
+    timeout_seconds: int = 180,
+) -> tuple[bytes, dict | None]:
+    """Sprint 11.4 bonus — POST to /with-timestamps and return
+    (mp3_bytes, alignment_dict). The alignment dict has the shape:
+
+        {
+          "characters":                    ["G", "o", "o", "d", ...],
+          "character_start_times_seconds": [0.0, 0.046, ...],
+          "character_end_times_seconds":   [0.046, 0.092, ...]
+        }
+
+    Returns (bytes, None) if the alignment field is absent on the
+    response (older ElevenLabs API tier without alignment support);
+    the caller falls back gracefully.
+
+    Raises:
+        requests.HTTPError on 4xx/5xx.
+        requests.Timeout on socket timeout.
+        RuntimeError if the API key is missing OR response is missing
+            the audio_base64 field.
+    """
+    import base64
+
+    if not settings.ELEVENLABS_API_KEY:
+        raise RuntimeError("ELEVENLABS_API_KEY not configured")
+
+    url = _ELEVENLABS_TTS_WITH_TIMESTAMPS_URL.format(voice_id=voice_id)
+    headers = {
+        "xi-api-key": settings.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    payload = {
+        "text": script_text,
+        "model_id": model,
+        "voice_settings": dict(_DEFAULT_VOICE_SETTINGS),
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+    resp.raise_for_status()
+
+    data = resp.json()
+    audio_b64 = data.get("audio_base64") or ""
+    if not audio_b64:
+        raise RuntimeError(
+            "ElevenLabs /with-timestamps response missing audio_base64",
+        )
+    mp3_bytes = base64.b64decode(audio_b64)
+
+    alignment = data.get("alignment")
+    if isinstance(alignment, dict) and alignment.get("characters"):
+        return mp3_bytes, alignment
+    # Older API tier — no alignment.
+    return mp3_bytes, None
+
+
 def _estimate_credit_cost(script_text: str, model: str) -> int:
     """Sprint 11.0 §3C — char-count × per-model multiplier. Used when
     ElevenLabs response doesn't carry a precise credit-cost header."""
@@ -136,17 +202,22 @@ def run_elevenlabs_render_job(
         job_id, voice_id, model, len(script_text),
     )
 
-    # ── Step 1: render via ElevenLabs (with retry) ────────────────────────────
-    def _do_render() -> bytes:
-        return render_via_elevenlabs(
+    # ── Step 1: render via ElevenLabs /with-timestamps (Sprint 11.4 bonus) ────
+    # Switched from the audio-only endpoint to /with-timestamps so the
+    # alignment_data lands in the same round-trip. The fallback path
+    # (no alignment returned) is still supported — older API tiers
+    # respond without an alignment field.
+    def _do_render() -> tuple[bytes, dict | None]:
+        return render_via_elevenlabs_with_timestamps(
             script_text=script_text, voice_id=voice_id, model=model,
         )
 
+    alignment: dict | None = None
     try:
-        mp3_bytes = _call_with_retry(
+        mp3_bytes, alignment = _call_with_retry(
             _do_render,
             provider="elevenlabs",
-            vocab_id=job_id,  # repurposed as job_id for log traceability
+            vocab_id=job_id,
         )
     except Exception as e:
         logger.error(
@@ -210,6 +281,11 @@ def run_elevenlabs_render_job(
         "transcript":               transcript or script_text,
         "transcript_segments":      [],   # Sprint 11.2 audio player adds
                                           # segment-level granularity later.
+        # Sprint 11.4 bonus — alignment_data lets the segment editor
+        # derive precise sentence boundaries by indexing each sentence
+        # end's character position into character_end_times_seconds.
+        # NULL when the ElevenLabs API tier didn't return alignment.
+        "alignment_data":           alignment,
         "status":                   "draft",
         "is_premium":               False,
         "title":                    title,

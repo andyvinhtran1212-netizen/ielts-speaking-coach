@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Nghe ý chính — Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/vocabulary.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script type="module" src="/js/components/audio-player.js"></script>
+
+  <style>
+    .gist-shell {
+      max-width: 760px; margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .gist-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }
+    .gist-header .accent { color: var(--av-brand-teal-700); }
+    .gist-header .subtitle {
+      color: var(--av-text-secondary); font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+    }
+    .prompt-box {
+      padding: var(--av-space-4) var(--av-space-6);
+      border-left: 3px solid var(--av-brand-teal-700);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-lg);
+      line-height: var(--av-lh-normal);
+    }
+    .answer-block { display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .answer-label {
+      font-weight: var(--av-fw-semibold);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-primary);
+    }
+    .answer-textarea {
+      width: 100%; min-height: 160px;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-family: var(--av-font-sans);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal); resize: vertical;
+    }
+    .answer-textarea:focus {
+      outline: 2px solid var(--av-brand-teal-700); outline-offset: 2px;
+      border-color: var(--av-brand-teal-700);
+    }
+    .submit-row { display: flex; gap: var(--av-space-3); align-items: center; flex-wrap: wrap; }
+    .btn-primary {
+      padding: var(--av-space-3) var(--av-space-6);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
+    .btn-secondary {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer;
+    }
+    .score-pill {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+    }
+    .score-pill.is-perfect { color: var(--av-brand-teal-700); }
+    .feedback-block {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      line-height: var(--av-lh-relaxed);
+    }
+    .feedback-block .label {
+      display: block;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      margin-bottom: var(--av-space-3);
+    }
+    .feedback-block .feedback-text { color: var(--av-text-primary); margin-bottom: var(--av-space-3); }
+    .feedback-block .keyword-row {
+      display: flex; flex-wrap: wrap; gap: var(--av-space-2);
+      font-size: var(--av-fs-xs);
+    }
+    .keyword-pill {
+      padding: 2px 10px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-brand-teal-50);
+      color: var(--av-brand-teal-800);
+      border: 1px solid var(--av-brand-teal-200);
+    }
+    .empty-state, .error-banner {
+      padding: var(--av-space-8); text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: #FEF2F2; color: #991B1B;
+      border: 1px solid #FECACA; font-size: var(--av-fs-sm);
+      text-align: left;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="gist-shell">
+      <header class="gist-header">
+        <p class="eyebrow"><a href="/pages/listening.html" style="color: var(--av-text-secondary);">← Quay lại</a></p>
+        <h1>Nghe ý chính <span class="accent">·</span> <span id="content-title">…</span></h1>
+        <p class="subtitle">
+          Nghe đoạn audio rồi viết tóm tắt ý chính bằng tiếng Anh.
+          AI sẽ chấm dựa trên nội dung + từ khóa cần có.
+        </p>
+      </header>
+
+      <div class="empty-state" id="state-empty" hidden>
+        <p><strong>Chưa chọn bài nghe.</strong></p>
+        <p>Gắn <code>?content_id=&lt;UUID&gt;</code> vào URL để bắt đầu.</p>
+      </div>
+      <div class="empty-state" id="state-loading">Đang tải…</div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <div id="gist-surface" hidden>
+        <audio-player id="player"></audio-player>
+
+        <section class="prompt-box" id="prompt-box">…</section>
+
+        <div class="answer-block">
+          <label class="answer-label" for="answer">Câu trả lời của bạn</label>
+          <textarea class="answer-textarea" id="answer"
+                    placeholder="Tóm tắt ý chính bằng 2-4 câu tiếng Anh..."
+                    autocomplete="off" spellcheck="false"></textarea>
+        </div>
+
+        <div class="submit-row">
+          <button class="btn-primary" id="btn-submit" type="button">Kiểm tra</button>
+          <button class="btn-secondary" id="btn-reset" type="button" hidden>Thử lại</button>
+          <span class="score-pill" id="score-pill" hidden></span>
+        </div>
+
+        <div class="feedback-block" id="feedback-block" hidden>
+          <span class="label" id="feedback-label">Phản hồi</span>
+          <div class="feedback-text" id="feedback-text"></div>
+          <div class="keyword-row" id="keyword-row"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/js/listening-gist.js"></script>
+</body>
+</html>
