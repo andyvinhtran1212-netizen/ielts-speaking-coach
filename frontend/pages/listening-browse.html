@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Kho bài nghe — Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/vocabulary.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <style>
+    .browse-shell {
+      max-width: 1080px; margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .browse-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }
+    .browse-header .accent { color: var(--av-brand-teal-700); }
+    .browse-header .subtitle {
+      color: var(--av-text-secondary); font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+    }
+    .browse-filters {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      padding: var(--av-space-3) var(--av-space-4);
+      background: var(--av-surface-sunken);
+      border-radius: var(--av-radius-md);
+    }
+    .browse-filters select {
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card);
+      font-size: var(--av-fs-sm);
+    }
+    .content-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--av-space-4);
+    }
+    .content-card {
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      text-decoration: none;
+      color: var(--av-text-primary);
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .content-card:hover {
+      border-color: var(--av-brand-teal-700);
+      transform: translateY(-1px);
+    }
+    .content-card h3 {
+      font-size: var(--av-fs-lg);
+      font-weight: var(--av-fw-semibold);
+      line-height: var(--av-lh-tight);
+    }
+    .content-card .desc {
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+      line-height: var(--av-lh-normal);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .content-card .meta-row {
+      display: flex; gap: var(--av-space-2); flex-wrap: wrap;
+      align-items: center; margin-top: auto;
+    }
+    .meta-pill {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+      padding: 2px 8px; border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .meta-pill.is-brand {
+      background: var(--av-brand-teal-50);
+      color: var(--av-brand-teal-800);
+      border-color: var(--av-brand-teal-200);
+    }
+    .mode-links {
+      display: flex; gap: var(--av-space-2); flex-wrap: wrap;
+      padding-top: var(--av-space-2);
+      border-top: 1px solid var(--av-border-default);
+    }
+    .mode-link {
+      font-size: var(--av-fs-xs);
+      padding: 4px 10px;
+      border-radius: var(--av-radius-sm);
+      background: transparent;
+      color: var(--av-brand-teal-700);
+      border: 1px solid var(--av-brand-teal-200);
+      text-decoration: none;
+    }
+    .mode-link:hover {
+      background: var(--av-brand-teal-50);
+    }
+    .empty-state, .error-banner {
+      padding: var(--av-space-8); text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: #FEF2F2; color: #991B1B;
+      border: 1px solid #FECACA; font-size: var(--av-fs-sm);
+      text-align: left;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="browse-shell">
+      <header class="browse-header">
+        <p class="eyebrow"><a href="/pages/listening.html" style="color: var(--av-text-secondary);">← Quay lại</a></p>
+        <h1>Kho bài nghe <span class="accent">·</span> <span style="color: var(--av-text-muted);">Browse</span></h1>
+        <p class="subtitle">
+          Chọn một bài nghe rồi bắt đầu luyện với dạng bài bạn muốn.
+        </p>
+      </header>
+
+      <div class="browse-filters">
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: var(--av-fs-xs); color: var(--av-text-muted);">
+          Accent
+          <select id="filter-accent">
+            <option value="">Tất cả</option>
+            <option value="us_general">US</option>
+            <option value="uk_rp">UK</option>
+            <option value="au">AU</option>
+            <option value="ca">CA</option>
+            <option value="other">Khác</option>
+          </select>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: var(--av-fs-xs); color: var(--av-text-muted);">
+          CEFR
+          <select id="filter-cefr">
+            <option value="">Tất cả</option>
+            <option value="A2">A2</option>
+            <option value="B1">B1</option>
+            <option value="B2">B2</option>
+            <option value="C1">C1</option>
+            <option value="C2">C2</option>
+          </select>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: var(--av-fs-xs); color: var(--av-text-muted);">
+          Section
+          <select id="filter-section">
+            <option value="">Tất cả</option>
+            <option value="1">Section 1</option>
+            <option value="2">Section 2</option>
+            <option value="3">Section 3</option>
+            <option value="4">Section 4</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="empty-state" id="state-loading">Đang tải…</div>
+      <div class="empty-state" id="state-empty" hidden>
+        Chưa có bài nghe nào khớp bộ lọc.
+      </div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <div class="content-grid" id="content-grid" hidden></div>
+    </main>
+  </div>
+
+  <script type="module" src="/js/listening-browse.js"></script>
+</body>
+</html>

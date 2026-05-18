@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Thống kê Listening — Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/vocabulary.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <style>
+    .analytics-shell {
+      max-width: 980px; margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .analytics-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }
+    .analytics-header .accent { color: var(--av-brand-teal-700); }
+    .analytics-header .subtitle {
+      color: var(--av-text-secondary); font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+    }
+    .range-tabs {
+      display: flex; gap: var(--av-space-2);
+    }
+    .range-tab {
+      padding: var(--av-space-2) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-secondary);
+      cursor: pointer; font-size: var(--av-fs-sm);
+    }
+    .range-tab.is-active {
+      border-color: var(--av-brand-teal-700);
+      color: var(--av-brand-teal-700);
+      font-weight: var(--av-fw-semibold);
+    }
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--av-space-3);
+    }
+    .stat-card {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+    }
+    .stat-label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
+    }
+    .stat-value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-brand-teal-700);
+    }
+    .stat-sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .section-card {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+    }
+    .section-card h2 { font-size: var(--av-fs-lg); }
+    .mode-table {
+      width: 100%; border-collapse: collapse;
+    }
+    .mode-table th, .mode-table td {
+      text-align: left;
+      padding: var(--av-space-2) var(--av-space-3);
+      border-bottom: 1px solid var(--av-border-default);
+      font-size: var(--av-fs-sm);
+    }
+    .mode-table th {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+    }
+    .mode-table .num { font-family: var(--av-font-mono); }
+    .day-chart {
+      display: grid;
+      grid-template-columns: repeat(14, 1fr);
+      gap: 4px; align-items: end;
+      min-height: 120px;
+    }
+    .day-bar {
+      background: var(--av-brand-teal-50);
+      border: 1px solid var(--av-brand-teal-200);
+      border-radius: 2px;
+      min-height: 4px;
+      position: relative;
+    }
+    .day-bar[data-has-data="1"] { background: var(--av-brand-teal-200); }
+    .day-bar[title]:hover { background: var(--av-brand-teal-700); }
+    .day-labels {
+      display: grid;
+      grid-template-columns: repeat(14, 1fr);
+      gap: 4px;
+      font-family: var(--av-font-mono);
+      font-size: 10px;
+      color: var(--av-text-muted);
+      text-align: center;
+    }
+    .weakest-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: #FFFBEB;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .recent-list {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+    }
+    .recent-list li {
+      display: flex; gap: var(--av-space-3); align-items: center;
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-sm);
+    }
+    .recent-mode { font-family: var(--av-font-mono); color: var(--av-text-muted); min-width: 90px; }
+    .recent-score { font-family: var(--av-font-mono); margin-left: auto; }
+    .recent-score.is-perfect { color: var(--av-brand-teal-700); font-weight: var(--av-fw-semibold); }
+    .empty-state, .error-banner {
+      padding: var(--av-space-8); text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: #FEF2F2; color: #991B1B;
+      border: 1px solid #FECACA; font-size: var(--av-fs-sm);
+      text-align: left;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="analytics-shell">
+      <header class="analytics-header">
+        <p class="eyebrow"><a href="/pages/listening.html" style="color: var(--av-text-secondary);">← Quay lại</a></p>
+        <h1>Thống kê <span class="accent">Listening</span></h1>
+        <p class="subtitle">
+          Theo dõi tiến độ luyện nghe của bạn theo dạng bài và theo thời gian.
+        </p>
+      </header>
+
+      <div class="range-tabs" role="tablist" aria-label="Khoảng thời gian">
+        <button class="range-tab" data-range="7d"  type="button">7 ngày</button>
+        <button class="range-tab is-active" data-range="30d" type="button">30 ngày</button>
+        <button class="range-tab" data-range="all" type="button">Tất cả</button>
+      </div>
+
+      <div class="empty-state" id="state-loading">Đang tải…</div>
+      <div class="empty-state" id="state-empty" hidden>
+        <p><strong>Chưa có dữ liệu luyện tập trong khoảng này.</strong></p>
+        <p>Bắt đầu một bài nghe để thấy thống kê.</p>
+      </div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <div id="analytics-surface" hidden style="display: flex; flex-direction: column; gap: var(--av-space-6);">
+        <div class="weakest-banner" id="weakest-banner" hidden></div>
+
+        <section class="summary-grid">
+          <div class="stat-card">
+            <span class="stat-label">Tổng số lượt làm</span>
+            <span class="stat-value" id="stat-total">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Điểm trung bình</span>
+            <span class="stat-value" id="stat-avg">—</span>
+            <span class="stat-sub" id="stat-avg-sub"></span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Tỷ lệ đúng</span>
+            <span class="stat-value" id="stat-acc">—</span>
+          </div>
+        </section>
+
+        <section class="section-card">
+          <h2>Theo dạng bài</h2>
+          <table class="mode-table">
+            <thead>
+              <tr>
+                <th>Dạng</th>
+                <th class="num">Số lượt</th>
+                <th class="num">Điểm TB</th>
+                <th class="num">Đúng %</th>
+              </tr>
+            </thead>
+            <tbody id="mode-table-body"></tbody>
+          </table>
+        </section>
+
+        <section class="section-card">
+          <h2>Theo ngày (14 ngày gần nhất)</h2>
+          <div class="day-chart" id="day-chart"></div>
+          <div class="day-labels" id="day-labels"></div>
+        </section>
+
+        <section class="section-card">
+          <h2>Hoạt động gần đây</h2>
+          <ul class="recent-list" id="recent-list"></ul>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/js/listening-analytics.js"></script>
+</body>
+</html>

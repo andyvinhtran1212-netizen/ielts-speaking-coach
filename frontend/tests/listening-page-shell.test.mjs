@@ -1,20 +1,17 @@
 /**
  * frontend/tests/listening-page-shell.test.mjs
  *
- * Sprint 11.1 + 11.2 — pin the Listening landing shell.
+ * Sprint 11.5 cluster closure — pin the Listening landing shell.
  *
- * Sprint 11.0 §6 wireframes specify 5 modes. Sprint 11.2 flips
- * dictation LIVE (Andy Q6 lock) — its card has no `disabled` class
- * and routes to /pages/listening-dictation.html. The other 4 modes
- * stay "Coming soon" until Sprint 11.3 / 11.4.
+ * Sprint 11.0 §6 wireframes specify 5 modes. Sprint 11.5 closes
+ * DEBT-LISTENING-MODULE by promoting MCQ + Mini Test alongside the
+ * dictation/gist/T-F trio already shipped in 11.2-11.4.
  *
- * Sentinel-string match against the static page source — same pattern
- * as vocabulary-redesign.test.mjs + pending-vocab.test.mjs. Catches:
+ * Sentinel-string match against the static page source. Catches:
  *   - mode-card roster drift (a sprint that adds a 6th mode without
  *     updating the test)
- *   - the dictation card regressing back to "Coming soon"
- *   - the click-interception script being lost in a refactor (would
- *     produce broken anchor links to nowhere)
+ *   - any LIVE card regressing back to "Coming soon"
+ *   - browse / analytics utility links going missing
  *   - chrome integration regressing — listening.html MUST mount the
  *     canonical <aver-chrome active="listening"> Web Component
  */
@@ -58,9 +55,9 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     );
   });
 
-  it('3 LIVE cards — dictation, gist, true-false (Sprint 11.4)', () => {
-    // Sprint 11.2 promoted dictation. Sprint 11.4 promotes gist + tf.
-    // Each lives on its own dedicated page.
+  it('all 5 mode cards are LIVE (Sprint 11.5 cluster closure)', () => {
+    // Sprint 11.5 promotes mcq + mini-test, completing the 5-mode roster.
+    // Every card must link to its own dedicated page.
     assert.match(
       HTML,
       /<a[^>]*href="\/pages\/listening-dictation\.html"[^>]*class="mode-card"[^>]*data-mode="dictation"/,
@@ -69,15 +66,25 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     assert.match(
       HTML,
       /<a[^>]*href="\/pages\/listening-gist\.html"[^>]*class="mode-card"[^>]*data-mode="gist"/,
-      'gist mode-card must be active (Sprint 11.4)',
+      'gist mode-card must be active',
     );
     assert.match(
       HTML,
       /<a[^>]*href="\/pages\/listening-tf\.html"[^>]*class="mode-card"[^>]*data-mode="true-false"/,
-      'true-false mode-card must be active (Sprint 11.4)',
+      'true-false mode-card must be active',
     );
-    // Negative pin — none of the 3 LIVE cards may regress to disabled.
-    for (const mode of ['dictation', 'gist', 'true-false']) {
+    assert.match(
+      HTML,
+      /<a[^>]*href="\/pages\/listening-mcq\.html"[^>]*class="mode-card"[^>]*data-mode="mcq"/,
+      'mcq mode-card must be active (Sprint 11.5)',
+    );
+    assert.match(
+      HTML,
+      /<a[^>]*href="\/pages\/listening-mini-test\.html"[^>]*class="mode-card"[^>]*data-mode="mini-test"/,
+      'mini-test mode-card must be active (Sprint 11.5)',
+    );
+    // Negative pin — no card regresses to disabled.
+    for (const mode of ['dictation', 'gist', 'true-false', 'mcq', 'mini-test']) {
       assert.doesNotMatch(
         HTML,
         new RegExp(`<a[^>]*class="mode-card disabled"[^>]*data-mode="${mode}"`),
@@ -86,33 +93,30 @@ describe('Sprint 11.1 — listening.html landing shell contract', () => {
     }
   });
 
-  it('the 2 deferred modes still carry `disabled` + "Coming soon"', () => {
-    // mcq + mini-test stay "Coming soon" until Sprint 11.5.
+  it('no disabled mode-cards remain in Sprint 11.5 (cluster closure)', () => {
     const cardMatches = HTML.match(/<a[^>]*class="mode-card disabled"[^>]*>/g) || [];
     assert.equal(
-      cardMatches.length, 2,
-      `expected 2 disabled mode-cards (mcq, mini-test); got ${cardMatches.length}`,
+      cardMatches.length, 0,
+      `Sprint 11.5 closes the cluster — expected 0 disabled mode-cards; got ${cardMatches.length}`,
     );
     const tagMatches = HTML.match(/<span class="lock-tag">Coming soon<\/span>/g) || [];
     assert.equal(
-      tagMatches.length, 2,
-      `expected 2 "Coming soon" lock-tags; got ${tagMatches.length}`,
+      tagMatches.length, 0,
+      `Sprint 11.5 — expected 0 "Coming soon" lock-tags; got ${tagMatches.length}`,
     );
   });
 
-  it('mode-card click is intercepted so users see no broken state', () => {
-    // The inline script preventDefaults clicks on .mode-card.disabled.
-    // Sprint 11.2 will replace this with active hash routing.
+  it('utility links — Kho bài nghe (browse) + Thống kê (analytics)', () => {
+    // Sprint 11.5 wires browse + analytics next to the mode card grid.
     assert.match(
       HTML,
-      /document\.querySelectorAll\(['"]\.mode-card\.disabled['"]\)/,
-      'inline script must select disabled mode-cards by .mode-card.disabled',
+      /href="\/pages\/listening-browse\.html"/,
+      'landing must link to /pages/listening-browse.html',
     );
-    // preventDefault sits a few chars after the addEventListener('click', ...)
-    // — match across newlines via [\s\S] greedy with a bounded window.
-    assert.ok(
-      /addEventListener\(['"]click['"][\s\S]{0,200}preventDefault/.test(HTML),
-      'inline script must preventDefault the disabled-card clicks',
+    assert.match(
+      HTML,
+      /href="\/pages\/listening-analytics\.html"/,
+      'landing must link to /pages/listening-analytics.html',
     );
   });
 

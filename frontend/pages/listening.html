@@ -79,8 +79,26 @@
       <h1>Luyện nghe <span class="accent">IELTS</span></h1>
       <p class="subtitle">
         5 dạng bài: Chép chính tả, Nghe ý chính, Đúng/Sai, Trắc nghiệm, và Mini Test.
-        Đang phát triển — Sprint 11.2 ship phần Chép chính tả đầu tiên.
+        Module Listening hoàn chỉnh từ Sprint 11.5.
       </p>
+      <div class="listening-utility-links" style="display: flex; gap: var(--av-space-3); flex-wrap: wrap; margin-top: var(--av-space-3);">
+        <a href="/pages/listening-browse.html"
+           style="padding: 6px 14px; border-radius: var(--av-radius-md);
+                  border: 1px solid var(--av-brand-teal-200);
+                  background: var(--av-brand-teal-50);
+                  color: var(--av-brand-teal-800);
+                  font-size: var(--av-fs-sm); text-decoration: none;">
+          Kho bài nghe
+        </a>
+        <a href="/pages/listening-analytics.html"
+           style="padding: 6px 14px; border-radius: var(--av-radius-md);
+                  border: 1px solid var(--av-border-default);
+                  background: var(--av-surface-card);
+                  color: var(--av-text-secondary);
+                  font-size: var(--av-fs-sm); text-decoration: none;">
+          Thống kê
+        </a>
+      </div>
     </header>
 
     <!-- ── Mode-card grid (Sprint 11.2 — dictation live, 4 disabled) ─── -->
@@ -126,28 +144,26 @@
           <p class="lede">Đánh dấu T/F/NG cho mỗi nhận định.</p>
         </a>
 
-        <!-- MCQ — Sprint 11.4 -->
-        <a href="#" class="mode-card disabled" data-mode="mcq"
-           aria-label="Trắc nghiệm (đang phát triển)"
-           aria-disabled="true">
+        <!-- MCQ — Sprint 11.5 LIVE -->
+        <a href="/pages/listening-mcq.html" class="mode-card" data-mode="mcq"
+           aria-label="Trắc nghiệm">
           <div class="head">
             <div class="icon"><i data-lucide="list-checks"></i></div>
             <span class="arrow" aria-hidden="true">→</span>
           </div>
-          <h3>Trắc nghiệm <span class="lock-tag">Coming soon</span></h3>
+          <h3>Trắc nghiệm</h3>
           <p class="lede">Chọn đáp án đúng giữa 4 lựa chọn.</p>
         </a>
 
-        <!-- Mini Test — Sprint 11.4 -->
-        <a href="#" class="mode-card disabled" data-mode="mini-test"
-           aria-label="Mini Test (đang phát triển)"
-           aria-disabled="true">
+        <!-- Mini Test — Sprint 11.5 LIVE -->
+        <a href="/pages/listening-mini-test.html" class="mode-card" data-mode="mini-test"
+           aria-label="Mini Test">
           <div class="head">
             <div class="icon"><i data-lucide="award"></i></div>
             <span class="arrow" aria-hidden="true">→</span>
           </div>
-          <h3>Mini Test <span class="lock-tag">Coming soon</span></h3>
-          <p class="lede">4 sections, 40 câu, ~30 phút — như đề thi thật.</p>
+          <h3>Mini Test</h3>
+          <p class="lede">Bài tổng hợp nhiều dạng — chấm điểm + ước tính band.</p>
         </a>
 
       </div>

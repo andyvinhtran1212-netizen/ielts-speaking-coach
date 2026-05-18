@@ -250,3 +250,66 @@ def grade_true_false(
         "is_correct": score >= 1.0,
         "details":    details,
     }
+
+
+# ── MCQ grader (Sprint 11.5) ─────────────────────────────────────────
+
+
+def grade_mcq(
+    *,
+    questions: list[dict],
+    user_answers: list[int],
+) -> dict[str, Any]:
+    """Grade one MCQ attempt (4 options per question, single-select).
+
+    Args:
+      questions:    admin-curated list of {idx, stem, options[4], answer_idx}.
+                    answer_idx is the 0-based index of the correct option.
+      user_answers: list of 0-based int indices in question order. Length
+                    may differ — extras discarded, missing count as wrong.
+
+    Returns:
+      {
+        "score":      0-1 float (correct / total),
+        "correct":    int,
+        "total":      int,
+        "is_correct": bool (score == 1.0),
+        "details": [
+          {"idx": int, "expected_idx": int, "actual_idx": int|null,
+           "is_correct": bool}
+        ]
+      }
+    """
+    total = len(questions)
+    if total == 0:
+        return {"score": 0.0, "correct": 0, "total": 0, "is_correct": False, "details": []}
+
+    details: list[dict[str, Any]] = []
+    correct_n = 0
+    for i, q in enumerate(questions):
+        try:
+            expected = int(q.get("answer_idx"))
+        except (TypeError, ValueError):
+            expected = -1
+        actual_raw = user_answers[i] if i < len(user_answers) else None
+        try:
+            actual = int(actual_raw) if actual_raw is not None else None
+        except (TypeError, ValueError):
+            actual = None
+        is_corr = (actual is not None) and (expected == actual)
+        if is_corr:
+            correct_n += 1
+        details.append({
+            "idx":          i,
+            "expected_idx": expected,
+            "actual_idx":   actual,
+            "is_correct":   is_corr,
+        })
+    score = correct_n / total
+    return {
+        "score":      round(score, 4),
+        "correct":    correct_n,
+        "total":      total,
+        "is_correct": score >= 1.0,
+        "details":    details,
+    }
