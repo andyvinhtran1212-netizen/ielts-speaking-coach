@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Phân câu Listening — Aver Learning Admin</title>
+
+  <!-- Anti-flash bootstrap. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Supabase + api.js. -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <script type="module" src="/js/components/audio-player.js"></script>
+
+  <style>
+    /* Sprint 11.3 — admin segment editor. Scoped inline styles only —
+       admin-writing.css is AT CAP per Sprint 17.6 lock. */
+    body.av-page { font-family: var(--av-font-sans); }
+    .editor-shell {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: var(--av-space-8) var(--av-space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-6);
+    }
+    .editor-header h1 {
+      font-size: var(--av-fs-2xl);
+      color: var(--av-text-primary);
+      margin-bottom: var(--av-space-2);
+    }
+    .editor-header .subtitle {
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-sm);
+    }
+    .field-label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      display: block;
+      margin-bottom: var(--av-space-2);
+    }
+    .transcript-area {
+      width: 100%;
+      min-height: 200px;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      font-family: var(--av-font-sans);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      resize: vertical;
+    }
+    .transcript-area:focus {
+      outline: 2px solid var(--av-brand-teal-700);
+      outline-offset: 2px;
+    }
+    .button-row {
+      display: flex;
+      gap: var(--av-space-3);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .btn-primary {
+      padding: var(--av-space-3) var(--av-space-6);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none;
+      font-weight: var(--av-fw-semibold);
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
+    .btn-secondary {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer;
+    }
+    .btn-ghost {
+      padding: 4px 10px;
+      border-radius: var(--av-radius-sm);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer;
+      font-size: var(--av-fs-xs);
+    }
+    .btn-ghost:hover { color: var(--av-brand-teal-700); border-color: var(--av-brand-teal-700); }
+    .btn-danger {
+      padding: 4px 10px;
+      border-radius: var(--av-radius-sm);
+      background: transparent;
+      color: #B91C1C;
+      border: 1px solid #FECACA;
+      cursor: pointer;
+      font-size: var(--av-fs-xs);
+    }
+    .segments-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-2);
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .segments-list li {
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      align-items: center;
+      gap: var(--av-space-3);
+    }
+    .segments-list li.has-error {
+      border-color: #B91C1C;
+      background: #FEF2F2;
+    }
+    .seg-idx {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-muted);
+    }
+    .seg-grid {
+      display: grid;
+      grid-template-columns: 1fr 90px 90px;
+      gap: var(--av-space-2);
+      align-items: center;
+    }
+    .seg-transcript-input,
+    .seg-time-input {
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      font-family: var(--av-font-sans);
+      font-size: var(--av-fs-sm);
+      background: var(--av-surface-card);
+    }
+    .seg-time-input {
+      font-family: var(--av-font-mono);
+      text-align: center;
+    }
+    .seg-time-input:focus,
+    .seg-transcript-input:focus {
+      outline: 2px solid var(--av-brand-teal-700);
+      outline-offset: 1px;
+    }
+    .seg-row-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .status-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .status-banner.is-success {
+      background: #ECFDF5;
+      color: var(--av-brand-teal-800);
+      border: 1px solid var(--av-brand-teal-200);
+    }
+    .status-banner.is-error {
+      background: #FEF2F2;
+      color: #991B1B;
+      border: 1px solid #FECACA;
+    }
+    .status-banner.is-info {
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+
+  <div class="editor-shell">
+
+    <header class="editor-header">
+      <p style="margin-bottom: var(--av-space-2);">
+        <a href="/admin.html" style="color: var(--av-text-secondary);">← Admin</a>
+      </p>
+      <h1>Phân câu cho bài Listening</h1>
+      <p class="subtitle">
+        Chia bản gỡ băng thành các câu (segments) cho chế độ Chép chính tả.
+        Mỗi câu cần có thời gian bắt đầu / kết thúc + bản gỡ băng.
+      </p>
+    </header>
+
+    <div class="status-banner is-info" id="status-banner" hidden></div>
+
+    <section>
+      <span class="field-label">Bài nghe</span>
+      <div id="content-info" style="color: var(--av-text-primary);">Đang tải…</div>
+    </section>
+
+    <section>
+      <span class="field-label">Audio</span>
+      <audio-player id="player"></audio-player>
+    </section>
+
+    <section>
+      <label class="field-label" for="transcript-input">
+        Bản gỡ băng (1 câu / 1 dòng)
+      </label>
+      <textarea id="transcript-input" class="transcript-area"
+                placeholder="Câu 1...&#10;Câu 2...&#10;Câu 3..."
+                autocomplete="off" spellcheck="false"></textarea>
+      <div class="button-row" style="margin-top: var(--av-space-3);">
+        <button class="btn-secondary" id="btn-parse" type="button">Phân tách thành các câu</button>
+        <span style="color: var(--av-text-muted); font-size: var(--av-fs-xs);">
+          (Hoặc nhập timestamps thủ công bên dưới)
+        </span>
+      </div>
+    </section>
+
+    <section>
+      <span class="field-label">Các câu (segments)</span>
+      <ul class="segments-list" id="segments-list"></ul>
+      <p style="color: var(--av-text-muted); font-size: var(--av-fs-xs); margin-top: var(--av-space-2);">
+        Bấm "Đánh dấu" lúc đang phát audio để bắt timestamp tại
+        currentTime, hoặc gõ trực tiếp dạng <code>mm:ss.s</code> (ví dụ
+        <code>0:03.5</code>).
+      </p>
+    </section>
+
+    <section class="button-row">
+      <button class="btn-primary" id="btn-save" type="button">Lưu (Draft)</button>
+      <button class="btn-primary" id="btn-publish" type="button">Lưu &amp; Xuất bản</button>
+      <a class="btn-secondary" href="/admin.html">Hủy</a>
+    </section>
+
+  </div>
+
+  <script type="module" src="/js/admin-listening-segments.js"></script>
+
+</body>
+</html>

@@ -69,7 +69,8 @@ describe('Sprint 11.2 — dictation page contract', () => {
     const allowed = new Set(['#0C2340', '#112d52', '#081829', '#0F766E',
                              '#14b8a6', '#0d5f58',
                              '#FEF2F2', '#991B1B', '#FECACA',  // error banner
-                             '#B91C1C']);                       // diff red
+                             '#B91C1C',                          // diff red
+                             '#DC2626']);                        // segment-dot incorrect
     for (const h of hex) {
       assert.ok(allowed.has(h), `unexpected hex literal ${h} in dictation page`);
     }
@@ -98,7 +99,7 @@ describe('Sprint 11.2 — dictation JS contract', () => {
 
   it('tracks listen_count via av-audio-play events', () => {
     assert.match(JS, /av-audio-play/);
-    assert.match(JS, /_listenCount\s*\+=\s*1/);
+    assert.match(JS, /listenCount\s*\+=\s*1/);
   });
 
   it('renders all 4 diff op kinds (match/miss/wrong/extra)', () => {
@@ -119,5 +120,76 @@ describe('Sprint 11.2 — dictation JS contract', () => {
     // If this ref drifts from vocabulary.html / speaking.html the user
     // gets logged out across pages.
     assert.match(JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
+  });
+
+  it('Sprint 11.3 — fetches /api/listening/exercises for segment list', () => {
+    assert.match(JS, /\/api\/listening\/exercises\?content_id=/);
+    assert.match(JS, /exercise_type=dictation/);
+  });
+
+  it('Sprint 11.3 — POSTs attempts with segment_idx + exercise_id', () => {
+    assert.match(JS, /segment_idx:\s*SESSION\.segmentIdx/);
+    assert.match(JS, /exercise_id:\s*SESSION\.exerciseId/);
+  });
+
+  it('Sprint 11.3 — applies segment-start / segment-end to audio player', () => {
+    assert.match(JS, /setAttribute\(\s*['"]segment-start['"]/);
+    assert.match(JS, /setAttribute\(\s*['"]segment-end['"]/);
+  });
+
+  it('Sprint 11.3 — advances on Next button + final segment shows completion', () => {
+    assert.match(JS, /advanceSegmentOrComplete/);
+    // Final-segment branch — "Xem kết quả" replaces "Câu tiếp theo →".
+    assert.match(JS, /Xem kết quả/);
+    assert.match(JS, /Câu tiếp theo/);
+  });
+
+  it('Sprint 11.3 — completion view computes aggregate score', () => {
+    // Aggregate = mean of per-segment scores (the metric the user sees).
+    assert.match(JS, /reduce/);
+    assert.match(JS, /r\.score/);
+  });
+
+  it('Sprint 11.3 — completion tab toggle (results + transcript)', () => {
+    assert.match(JS, /tab-results/);
+    assert.match(JS, /tab-transcript/);
+    // The Vietnamese label lives in HTML (DOM-driven tab markup);
+    // here we just confirm the JS handlers reference both panels.
+    assert.match(JS, /panel-results/);
+    assert.match(JS, /panel-transcript/);
+  });
+});
+
+
+describe('Sprint 11.3 — dictation page DOM contract', () => {
+
+  it('renders segment progress counter + dot row', () => {
+    assert.match(HTML, /id="progress-counter"/);
+    assert.match(HTML, /id="segment-dots"/);
+  });
+
+  it('ships Next button + completion surface', () => {
+    assert.match(HTML, /id="btn-next"/);
+    assert.match(HTML, /id="completion-surface"/);
+    assert.match(HTML, /id="completion-total"/);
+  });
+
+  it('auto-loop attribute set on the audio player by default', () => {
+    // The 11.3 dictation UX restarts the segment on end after 0.5s
+    // pause — confirms the page sets auto-loop="true".
+    assert.match(HTML, /<audio-player[^>]+auto-loop="true"/);
+  });
+
+  it('completion surface ships both tabs (Kết quả + Bản gỡ băng đầy đủ)', () => {
+    assert.match(HTML, /id="tab-results"/);
+    assert.match(HTML, /id="tab-transcript"/);
+    assert.match(HTML, /Bản gỡ băng đầy đủ/);
+  });
+
+  it('segment-dot classes for correct/partial/incorrect/current states', () => {
+    for (const cls of ['is-correct', 'is-partial', 'is-incorrect', 'is-current']) {
+      assert.match(HTML, new RegExp(`segment-dot\\.${cls}`),
+        `dictation stylesheet missing .segment-dot.${cls}`);
+    }
   });
 });

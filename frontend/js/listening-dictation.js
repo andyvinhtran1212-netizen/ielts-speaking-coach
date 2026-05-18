@@ -1,27 +1,32 @@
 /**
- * frontend/js/listening-dictation.js — Sprint 11.2 (DEBT-LISTENING-MODULE 2/5).
+ * frontend/js/listening-dictation.js — Sprint 11.3 (DEBT-LISTENING-
+ * MODULE 3/5).
  *
- * Glue script for /pages/listening-dictation.html. Three responsibilities:
+ * Segmented dictation iterator. Replaces the Sprint 11.2 single-pass
+ * page after Andy's 2026-05-18 dogfood surfaced falsification #62 —
+ * IELTS dictation practice is sentence-by-sentence (DailyDictation
+ * standard), not whole-clip single submission.
  *
- *   1. Bootstrap Supabase from /config (so api.js can attach the bearer
- *      token) — same lazy pattern as the speaking page.
- *   2. Read ?content_id from the URL, fetch /api/listening/content/{id},
- *      hand the signed URL to the <audio-player>.
- *   3. Wire the "Kiểm tra" button to POST /api/listening/attempts and
- *      render the word-level diff back to the user.
+ * State machine:
  *
- * Sprint 11.0 §6 dictation UX:
- *   - User can replay unlimited (audio player tracks listen_count via
- *     av-audio-play events).
- *   - "Kiểm tra" submits; server runs grader; client renders diff +
- *     score pill. "Thử lại" re-opens the textarea for another attempt
- *     (server stores all attempts but flags is_first_attempt).
+ *   load → [content fetch + exercises fetch]
+ *     ├─ no segments     → empty state ("Bài này chưa được phân câu")
+ *     └─ segments loaded → segment 0:
+ *         idle → recording (n/a — pre-rendered audio) → submitted →
+ *         next → segment 1 → ... → final → completion
  *
- * No external dependencies beyond the standard /js/api.js helper.
+ * Per-segment lifecycle:
+ *   1. Audio player set to segment-start / segment-end / auto-loop
+ *   2. User listens (replays as needed), types into textarea
+ *   3. "Kiểm tra" → POST /api/listening/attempts with segment_idx
+ *   4. Server returns diff; client renders + dot turns green/amber/red
+ *   5. "Câu tiếp theo →" advances segment_idx; final segment → completion
+ *
+ * Sprint 10.3 first-attempt rule preserved: only the first submission
+ * per (user, exercise, segment) is canonical. UI labels subsequent
+ * submissions as "lần làm thêm".
  */
 
-// Canonical Supabase project ref (matches vocabulary.html, speaking.html
-// et al). When this rotates, every page bootstrap rotates together.
 const SUPABASE_URL = 'https://nqhrtqspznepmveyurzm.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
@@ -31,25 +36,42 @@ const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
   }
 })();
 
+
 // ── DOM helpers ─────────────────────────────────────────────────────
+
 
 const $ = (id) => document.getElementById(id);
 
 const STATE = {
-  loading: $('state-loading'),
-  empty:   $('state-empty'),
-  error:   $('state-error'),
-  surface: $('dictation-surface'),
+  loading:    $('state-loading'),
+  empty:      $('state-empty'),
+  error:      $('state-error'),
+  surface:    $('dictation-surface'),
+  completion: $('completion-surface'),
 };
 
-let _listenCount = 0;
-let _currentContentId = null;
+
+// ── Module-level state (single page = single in-flight session) ──────
+
+
+const SESSION = {
+  contentId:     null,
+  contentTitle:  '',
+  exerciseId:    null,
+  segments:      [],          // [{idx, start_sec, end_sec, transcript}]
+  segmentIdx:    0,
+  listenCount:   0,           // resets per segment
+  results:       [],          // per-segment {score, is_correct, diff, user_text}
+  hasSubmitted:  false,       // gates Next button enable
+};
+
 
 function showState(name) {
-  STATE.loading.hidden = name !== 'loading';
-  STATE.empty.hidden   = name !== 'empty';
-  STATE.error.hidden   = name !== 'error';
-  STATE.surface.hidden = name !== 'ready';
+  STATE.loading.hidden    = name !== 'loading';
+  STATE.empty.hidden      = name !== 'empty';
+  STATE.error.hidden      = name !== 'error';
+  STATE.surface.hidden    = name !== 'ready';
+  STATE.completion.hidden = name !== 'complete';
 }
 
 function showError(msg) {
@@ -62,37 +84,53 @@ function getContentIdFromUrl() {
   return (sp.get('content_id') || '').trim() || null;
 }
 
-// ── Content load ────────────────────────────────────────────────────
 
-async function loadContent(contentId) {
+// ── Content + exercise load ─────────────────────────────────────────
+
+
+async function loadContentAndExercise(contentId) {
   showState('loading');
   try {
-    const data = await window.api.get(`/api/listening/content/${contentId}`);
-    if (!data || !data.audio_signed_url) {
+    const content = await window.api.get(`/api/listening/content/${contentId}`);
+    if (!content || !content.audio_signed_url) {
       showError('Bài nghe không khả dụng (thiếu audio URL).');
       return;
     }
-    _currentContentId = contentId;
-    _listenCount = 0;
+    const exRes = await window.api.get(
+      `/api/listening/exercises?content_id=${encodeURIComponent(contentId)}&exercise_type=dictation`,
+    );
+    const exercises = (exRes && exRes.exercises) || [];
+    const dictation = exercises.find((e) => Array.isArray(e.segments) && e.segments.length > 0);
 
-    $('content-title').textContent = data.title || 'Bài nghe';
-    renderMeta(data);
+    if (!dictation) {
+      STATE.empty.innerHTML =
+        '<p><strong>Bài này chưa được phân câu.</strong></p>'
+        + '<p>Quản trị viên cần dùng trang Phân câu để chia bản gỡ băng thành các câu nhỏ.</p>';
+      showState('empty');
+      return;
+    }
+
+    // Sort segments by idx defensively (server should return ordered).
+    const segments = dictation.segments.slice().sort((a, b) => (a.idx || 0) - (b.idx || 0));
+
+    SESSION.contentId    = contentId;
+    SESSION.contentTitle = content.title || 'Bài nghe';
+    SESSION.exerciseId   = dictation.id;
+    SESSION.segments     = segments;
+    SESSION.segmentIdx   = 0;
+    SESSION.results      = new Array(segments.length).fill(null);
+    SESSION.hasSubmitted = false;
+
+    $('content-title').textContent = SESSION.contentTitle;
+    renderMeta(content);
+    renderDots();
 
     const player = $('player');
-    if (data.audio_duration_seconds) {
-      player.setAttribute('duration-hint', String(data.audio_duration_seconds));
-    }
     player.setAttribute('refetch-url', `/api/listening/content/${contentId}`);
-    player.setAttribute('src', data.audio_signed_url);
+    player.setAttribute('src', content.audio_signed_url);
+    applySegmentToPlayer();
 
-    // Reset submission state for the new content.
-    $('answer').value = '';
-    $('answer').disabled = false;
-    $('btn-submit').disabled = false;
-    $('btn-reset').hidden = true;
-    $('score-pill').hidden = true;
-    $('diff-block').hidden = true;
-
+    resetAnswerSurface();
     showState('ready');
   } catch (e) {
     if ((e && e.message || '').includes('404')) {
@@ -102,6 +140,7 @@ async function loadContent(contentId) {
     }
   }
 }
+
 
 function renderMeta(row) {
   const meta = $('content-meta');
@@ -118,34 +157,105 @@ function renderMeta(row) {
   meta.hidden = pills.length === 0;
 }
 
-// ── Submit + render diff ────────────────────────────────────────────
+
+function renderDots() {
+  const wrap = $('segment-dots');
+  wrap.innerHTML = SESSION.segments.map((_, i) => {
+    const result = SESSION.results[i];
+    let cls = 'segment-dot';
+    if (i === SESSION.segmentIdx) cls += ' is-current';
+    if (result) {
+      if (result.score >= 1.0)         cls += ' is-correct';
+      else if (result.score >= 0.5)    cls += ' is-partial';
+      else                             cls += ' is-incorrect';
+    }
+    return `<span class="${cls}" role="listitem" aria-label="Câu ${i + 1}"></span>`;
+  }).join('');
+  $('progress-counter').textContent =
+    `${SESSION.segmentIdx + 1} / ${SESSION.segments.length}`;
+}
+
+
+// ── Segment-to-player wiring ────────────────────────────────────────
+
+
+function applySegmentToPlayer() {
+  const seg = SESSION.segments[SESSION.segmentIdx];
+  if (!seg) return;
+  const player = $('player');
+  player.setAttribute('segment-start', String(seg.start_sec));
+  player.setAttribute('segment-end',   String(seg.end_sec));
+}
+
+
+function resetAnswerSurface() {
+  $('answer').value = '';
+  $('answer').disabled = false;
+  $('btn-submit').hidden = false;
+  $('btn-submit').disabled = false;
+  $('btn-reset').hidden = true;
+  $('btn-next').hidden = true;
+  $('score-pill').hidden = true;
+  $('diff-block').hidden = true;
+  SESSION.hasSubmitted = false;
+  SESSION.listenCount = 0;
+  STATE.error.hidden = true;
+}
+
+
+// ── Submit attempt ──────────────────────────────────────────────────
+
 
 async function submitAttempt() {
-  if (!_currentContentId) return;
+  if (!SESSION.exerciseId) return;
   const userText = $('answer').value;
   if (!userText.trim()) {
     showError('Hãy gõ câu trả lời trước khi kiểm tra.');
     return;
   }
   STATE.error.hidden = true;
-
   $('btn-submit').disabled = true;
   $('answer').disabled = true;
 
   try {
     const result = await window.api.post('/api/listening/attempts', {
-      content_id: _currentContentId,
-      mode: 'dictation',
+      exercise_id:     SESSION.exerciseId,
+      content_id:      SESSION.contentId,
+      mode:            'dictation',
+      segment_idx:     SESSION.segmentIdx,
       user_transcript: userText,
-      listen_count: Math.max(1, _listenCount),
+      listen_count:    Math.max(1, SESSION.listenCount),
     });
+
+    SESSION.results[SESSION.segmentIdx] = {
+      score:           result.score,
+      is_correct:      result.is_correct,
+      correct_words:   result.correct_words,
+      total_words:     result.total_words,
+      diff:            result.diff,
+      user_text:       userText,
+      is_first_attempt: result.is_first_attempt,
+    };
+    SESSION.hasSubmitted = true;
+
     renderResult(result);
+    renderDots();
+
+    // Hide submit, show next (or final-results) + reset.
+    $('btn-submit').hidden = true;
+    $('btn-reset').hidden = false;
+    $('btn-next').hidden = false;
+    $('btn-next').textContent =
+      SESSION.segmentIdx + 1 < SESSION.segments.length
+        ? 'Câu tiếp theo →'
+        : 'Xem kết quả';
   } catch (e) {
     showError('Không gửi được câu trả lời. ' + (e && e.message ? e.message : ''));
     $('btn-submit').disabled = false;
     $('answer').disabled = false;
   }
 }
+
 
 function renderResult(result) {
   const pct = Math.round((result.score || 0) * 100);
@@ -162,9 +272,8 @@ function renderResult(result) {
   const renderEl = $('diff-render');
   renderEl.innerHTML = (result.diff || []).map(renderDiffToken).join('');
   $('diff-block').hidden = false;
-
-  $('btn-reset').hidden = false;
 }
+
 
 function renderDiffToken(op) {
   switch (op.op) {
@@ -184,6 +293,72 @@ function renderDiffToken(op) {
   }
 }
 
+
+// ── Advance ─────────────────────────────────────────────────────────
+
+
+function advanceSegmentOrComplete() {
+  if (SESSION.segmentIdx + 1 < SESSION.segments.length) {
+    SESSION.segmentIdx += 1;
+    applySegmentToPlayer();
+    resetAnswerSurface();
+    renderDots();
+    // Auto-pause the previous segment's player + scroll back into view.
+    const p = $('player');
+    try { p.pause(); p.reset(); } catch { /* swallow */ }
+    $('answer').focus();
+    return;
+  }
+  // Final segment graded → completion view.
+  renderCompletion();
+  showState('complete');
+}
+
+
+function renderCompletion() {
+  const graded = SESSION.results.filter(Boolean);
+  const totalScore = graded.length
+    ? graded.reduce((acc, r) => acc + (r.score || 0), 0) / graded.length
+    : 0;
+  $('completion-total').textContent = `${Math.round(totalScore * 100)}%`;
+
+  // Per-segment summary (Results tab default).
+  $('segment-summary').innerHTML = SESSION.segments.map((seg, i) => {
+    const r = SESSION.results[i];
+    if (!r) {
+      return `<li>
+        <div class="row">
+          <span class="seg-label">Câu ${i + 1}</span>
+          <span class="seg-score is-low">Chưa làm</span>
+        </div>
+        <div class="seg-transcript">${escapeHtml(seg.transcript)}</div>
+      </li>`;
+    }
+    const pct = Math.round((r.score || 0) * 100);
+    let cls = '';
+    if (r.score < 0.5) cls = 'is-low';
+    else if (r.score < 1.0) cls = 'is-partial';
+    return `<li>
+      <div class="row">
+        <span class="seg-label">Câu ${i + 1}</span>
+        <span class="seg-score ${cls}">${pct}%  ·  ${r.correct_words}/${r.total_words}</span>
+      </div>
+      <div class="seg-transcript">${escapeHtml(seg.transcript)}</div>
+    </li>`;
+  }).join('');
+
+  // Full transcript review (side-by-side ref vs user submission).
+  $('transcript-review').innerHTML = SESSION.segments.map((seg, i) => {
+    const r = SESSION.results[i];
+    return `<div class="review-segment">
+      <span class="review-label">Câu ${i + 1}</span>
+      <div class="review-reference">${escapeHtml(seg.transcript)}</div>
+      <div>${(r && r.diff ? r.diff.map(renderDiffToken).join('') : '<em style="color:var(--av-text-muted)">Chưa làm</em>')}</div>
+    </div>`;
+  }).join('');
+}
+
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, '&amp;')
@@ -193,7 +368,9 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+
 // ── Wire ────────────────────────────────────────────────────────────
+
 
 document.addEventListener('DOMContentLoaded', () => {
   const contentId = getContentIdFromUrl();
@@ -201,26 +378,62 @@ document.addEventListener('DOMContentLoaded', () => {
     showState('empty');
     return;
   }
-  loadContent(contentId);
+  loadContentAndExercise(contentId);
 
-  $('player').addEventListener('av-audio-play', () => { _listenCount += 1; });
+  $('player').addEventListener('av-audio-play', () => { SESSION.listenCount += 1; });
 
   $('btn-submit').addEventListener('click', submitAttempt);
 
   $('btn-reset').addEventListener('click', () => {
+    // "Thử lại" — let the user resubmit the current segment without
+    // advancing. Subsequent submission stores as is_first_attempt=false.
     $('answer').disabled = false;
+    $('btn-submit').hidden = false;
     $('btn-submit').disabled = false;
     $('btn-reset').hidden = true;
+    $('btn-next').hidden = true;
     $('score-pill').hidden = true;
     $('diff-block').hidden = true;
+    SESSION.hasSubmitted = false;
     $('answer').focus();
   });
 
-  // Ctrl/Cmd+Enter submits — keyboardy IELTS practice convention.
+  $('btn-next').addEventListener('click', advanceSegmentOrComplete);
+
+  // Completion tab switcher.
+  $('tab-results').addEventListener('click', () => {
+    $('tab-results').classList.add('is-active');
+    $('tab-results').setAttribute('aria-selected', 'true');
+    $('tab-transcript').classList.remove('is-active');
+    $('tab-transcript').setAttribute('aria-selected', 'false');
+    $('panel-results').hidden = false;
+    $('panel-transcript').hidden = true;
+  });
+  $('tab-transcript').addEventListener('click', () => {
+    $('tab-transcript').classList.add('is-active');
+    $('tab-transcript').setAttribute('aria-selected', 'true');
+    $('tab-results').classList.remove('is-active');
+    $('tab-results').setAttribute('aria-selected', 'false');
+    $('panel-results').hidden = true;
+    $('panel-transcript').hidden = false;
+  });
+
+  $('btn-restart').addEventListener('click', () => {
+    SESSION.segmentIdx = 0;
+    SESSION.results = new Array(SESSION.segments.length).fill(null);
+    applySegmentToPlayer();
+    resetAnswerSurface();
+    renderDots();
+    showState('ready');
+  });
+
+  // Ctrl/Cmd+Enter — context-sensitive: submit if not yet submitted,
+  // else advance to next segment.
   $('answer').addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
-      submitAttempt();
+      if (!SESSION.hasSubmitted) submitAttempt();
+      else advanceSegmentOrComplete();
     }
   });
 });

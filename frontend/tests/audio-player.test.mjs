@@ -38,11 +38,12 @@ describe('Sprint 11.2 — <audio-player> contract', () => {
     assert.match(SRC, /customElements\.get\(\s*['"]audio-player['"]/);
   });
 
-  it('observes src, duration-hint, refetch-url attributes for reactive updates', () => {
-    const m = SRC.match(/observedAttributes[^[]*\[([^\]]+)\]/);
+  it('observes src, duration-hint, refetch-url + Sprint 11.3 segment attrs', () => {
+    const m = SRC.match(/observedAttributes[^[]*\[([^\]]+)\]/s);
     assert.ok(m, 'observedAttributes getter missing');
     const list = m[1];
-    for (const attr of ['src', 'duration-hint', 'refetch-url']) {
+    for (const attr of ['src', 'duration-hint', 'refetch-url',
+                        'segment-start', 'segment-end', 'auto-loop']) {
       assert.match(list, new RegExp(`['"]${attr}['"]`), `observedAttributes missing ${attr}`);
     }
   });
@@ -104,5 +105,57 @@ describe('Sprint 11.2 — <audio-player> contract', () => {
     assert.match(SRC, /^\s*play\s*\(\s*\)\s*\{/m);
     assert.match(SRC, /^\s*pause\s*\(\s*\)\s*\{/m);
     assert.match(SRC, /^\s*reset\s*\(\s*\)\s*\{/m);
+  });
+
+  it('Sprint 11.3 Bug 1 — icon swap uses setAttribute("hidden"), not IDL .hidden', () => {
+    // The IDL `.hidden = true` setter on SVG elements is flaky in some
+    // browsers; an explicit setAttribute/removeAttribute always reflects
+    // to the CSS [hidden] rule. A regression that swaps this back to
+    // `.hidden = true` trips here.
+    assert.match(SRC, /_syncIcon\s*\(\s*\)/);
+    assert.match(SRC, /setAttribute\(\s*['"]hidden['"]/);
+    assert.match(SRC, /removeAttribute\(\s*['"]hidden['"]/);
+    // The state attribute on the button is the testable handle for
+    // browser-side assertions (page tests can read [data-state="playing"]).
+    assert.match(SRC, /data-state['"]\s*,\s*['"]playing['"]/);
+    assert.match(SRC, /data-state['"]\s*,\s*['"]paused['"]/);
+  });
+
+  it('Sprint 11.3 segment-mode — auto-pauses at segment-end', () => {
+    // The timeupdate handler must check segment-end and pause when
+    // currentTime crosses it. A refactor that drops the segment-mode
+    // branch here trips this.
+    assert.match(SRC, /_isSegmentMode/);
+    assert.match(SRC, /currentTime\s*>=\s*end/);
+    assert.match(SRC, /\.pause\(\)/);
+  });
+
+  it('Sprint 11.3 segment-mode — replay-segment rewinds to segment-start', () => {
+    // In segment mode, the replay button MUST rewind to segment-start
+    // (not -5s). The dictation UX depends on this for "play this
+    // sentence from the top" behaviour.
+    assert.match(SRC, /_isSegmentMode\(\)\s*\?\s*this\._segmentStart\(\)\s*:/);
+  });
+
+  it('Sprint 11.3 segment-mode — scrub is clamped to segment range', () => {
+    // The scrub input handler must clamp user-supplied seek values
+    // to [segment-start, segment-end] when in segment mode.
+    assert.match(SRC, /if\s*\(\s*t\s*<\s*start\s*\)/);
+    assert.match(SRC, /if\s*\(\s*t\s*>\s*end\s*\)/);
+  });
+
+  it('Sprint 11.3 segment-mode — auto-loop restarts after pause', () => {
+    // Auto-loop = restart segment-start after a short delay when audio
+    // reaches segment-end.
+    assert.match(SRC, /auto-loop/);
+    assert.match(SRC, /setTimeout/);
+    assert.match(SRC, /_loopTimer/);
+  });
+
+  it('Sprint 11.3 segment-mode — time readout is segment-local', () => {
+    // Inside segment mode, the time pill shows m:ss elapsed-from-start /
+    // m:ss segment-span, not absolute audio.currentTime / audio.duration.
+    assert.match(SRC, /_updateTimeReadout/);
+    assert.match(SRC, /audio\.currentTime\s*\|\|\s*0\)\s*-\s*start/);
   });
 });

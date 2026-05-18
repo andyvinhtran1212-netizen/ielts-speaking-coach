@@ -211,12 +211,21 @@ function _fmt(seconds) {
 }
 
 export class AverAudioPlayer extends HTMLElement {
-  static get observedAttributes() { return ['src', 'duration-hint', 'refetch-url']; }
+  // Sprint 11.3 — segment-mode attributes added: segment-start, segment-end,
+  // auto-loop. When segment-start is set, playback is constrained to the
+  // [segment-start, segment-end] window — auto-pauses at the end, replay
+  // button rewinds to segment-start (not -5s), scrub + time readout are
+  // segment-local.
+  static get observedAttributes() {
+    return ['src', 'duration-hint', 'refetch-url',
+            'segment-start', 'segment-end', 'auto-loop'];
+  }
 
   constructor() {
     super();
     this._audio = null;
     this._refetched = false;
+    this._loopTimer = null;
   }
 
   connectedCallback() {
@@ -234,9 +243,11 @@ export class AverAudioPlayer extends HTMLElement {
     this._bindAudio();
     this._applySrc(this.getAttribute('src'));
     this._applyDurationHint(this.getAttribute('duration-hint'));
+    this._syncIcon();
   }
 
   disconnectedCallback() {
+    if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
     if (this._audio) {
       try { this._audio.pause(); } catch { /* swallow */ }
       this._audio.src = '';
@@ -247,11 +258,14 @@ export class AverAudioPlayer extends HTMLElement {
   attributeChangedCallback(name, _old, val) {
     if (!this._mounted) return;
     if (name === 'src') {
-      this._refetched = false;  // new explicit src → re-allow one refetch retry
+      this._refetched = false;
       this._applySrc(val);
     } else if (name === 'duration-hint') {
       this._applyDurationHint(val);
+    } else if (name === 'segment-start' || name === 'segment-end') {
+      this._applySegmentBounds();
     }
+    // auto-loop is read on demand inside the ended handler.
   }
 
   // ── Public methods ────────────────────────────────────────────────
@@ -261,7 +275,52 @@ export class AverAudioPlayer extends HTMLElement {
   reset() {
     if (!this._audio) return;
     this._audio.pause();
-    this._audio.currentTime = 0;
+    this._audio.currentTime = this._segmentStart();
+  }
+
+  // ── Segment helpers ────────────────────────────────────────────────
+
+  _segmentStart() {
+    const v = Number(this.getAttribute('segment-start'));
+    return Number.isFinite(v) && v >= 0 ? v : 0;
+  }
+  _segmentEnd() {
+    const v = Number(this.getAttribute('segment-end'));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  }
+  _isSegmentMode() {
+    return this.hasAttribute('segment-start') && this._segmentEnd() != null;
+  }
+  _isAutoLoop() {
+    const v = (this.getAttribute('auto-loop') || '').toLowerCase();
+    return v === 'true' || v === '1' || v === '';  // bare attribute counts as on
+  }
+
+  _applySegmentBounds() {
+    if (!this._audio || !this._isSegmentMode()) return;
+    const start = this._segmentStart();
+    const end = this._segmentEnd();
+    // Snap currentTime into the new window.
+    if (this._audio.currentTime < start || this._audio.currentTime >= end) {
+      this._audio.currentTime = start;
+    }
+    this._$('scrub').min = start;
+    this._$('scrub').max = end;
+    this._updateTimeReadout();
+  }
+
+  _updateTimeReadout() {
+    if (!this._audio) return;
+    if (this._isSegmentMode()) {
+      const start = this._segmentStart();
+      const end = this._segmentEnd();
+      const cur = Math.max(0, (this._audio.currentTime || 0) - start);
+      const span = Math.max(0, end - start);
+      this._$('time').textContent = `${_fmt(cur)} / ${_fmt(span)}`;
+    } else {
+      this._$('time').textContent =
+        `${_fmt(this._audio.currentTime)} / ${_fmt(this._audio.duration)}`;
+    }
   }
 
   // ── Internals ─────────────────────────────────────────────────────
@@ -276,8 +335,37 @@ export class AverAudioPlayer extends HTMLElement {
   _applyDurationHint(val) {
     const hint = Number(val);
     if (Number.isFinite(hint) && hint > 0 && this._audio && !Number.isFinite(this._audio.duration)) {
-      this._$('scrub').max = hint;
-      this._$('time').textContent = `0:00 / ${_fmt(hint)}`;
+      if (!this._isSegmentMode()) {
+        this._$('scrub').max = hint;
+        this._$('time').textContent = `0:00 / ${_fmt(hint)}`;
+      }
+    }
+  }
+
+  /**
+   * Sprint 11.3 Bug 1 fix — drive icon visibility off audio.paused via
+   * the `hidden` HTML attribute (not the IDL property). The IDL `hidden`
+   * setter on SVG elements is flaky in some browsers; an explicit
+   * setAttribute/removeAttribute always reflects to the CSS `[hidden]`
+   * rule and produces the visible swap. Called from play+pause events
+   * AND any state-changing entry point so the icon is always in sync.
+   */
+  _syncIcon() {
+    if (!this._audio) return;
+    const playEl = this._$('icon-play');
+    const pauseEl = this._$('icon-pause');
+    const btn = this._$('btn-play');
+    if (!playEl || !pauseEl || !btn) return;
+    if (this._audio.paused) {
+      playEl.removeAttribute('hidden');
+      pauseEl.setAttribute('hidden', '');
+      btn.setAttribute('aria-label', 'Phát');
+      btn.setAttribute('data-state', 'paused');
+    } else {
+      playEl.setAttribute('hidden', '');
+      pauseEl.removeAttribute('hidden');
+      btn.setAttribute('aria-label', 'Tạm dừng');
+      btn.setAttribute('data-state', 'playing');
     }
   }
 
@@ -295,14 +383,25 @@ export class AverAudioPlayer extends HTMLElement {
 
     this._$('btn-replay').addEventListener('click', () => {
       if (!this._audio) return;
-      const t = Math.max(0, (this._audio.currentTime || 0) - 5);
-      this._audio.currentTime = t;
+      // Segment mode: rewind to segment start (common dictation pattern).
+      // Free mode: rewind 5s.
+      const target = this._isSegmentMode()
+        ? this._segmentStart()
+        : Math.max(0, (this._audio.currentTime || 0) - 5);
+      this._audio.currentTime = target;
       if (this._audio.paused) this._audio.play().catch(() => {});
     });
 
     this._$('scrub').addEventListener('input', (e) => {
       if (!this._audio) return;
-      this._audio.currentTime = Number(e.target.value);
+      let t = Number(e.target.value);
+      if (this._isSegmentMode()) {
+        const start = this._segmentStart();
+        const end = this._segmentEnd();
+        if (t < start) t = start;
+        if (t > end) t = end;
+      }
+      this._audio.currentTime = t;
     });
 
     this.shadowRoot.querySelectorAll('.av-speed-btn').forEach((btn) => {
@@ -321,35 +420,53 @@ export class AverAudioPlayer extends HTMLElement {
     const a = this._audio;
 
     a.addEventListener('loadedmetadata', () => {
-      this._$('scrub').max = a.duration || 0;
-      this._$('time').textContent = `${_fmt(a.currentTime)} / ${_fmt(a.duration)}`;
+      if (this._isSegmentMode()) {
+        this._applySegmentBounds();
+      } else {
+        this._$('scrub').max = a.duration || 0;
+      }
+      this._updateTimeReadout();
     });
 
     a.addEventListener('timeupdate', () => {
       this._$('scrub').value = a.currentTime || 0;
-      this._$('time').textContent = `${_fmt(a.currentTime)} / ${_fmt(a.duration)}`;
+      this._updateTimeReadout();
+      // Segment auto-pause: stop at segment-end.
+      if (this._isSegmentMode()) {
+        const end = this._segmentEnd();
+        if (a.currentTime >= end - 0.01 && !a.paused) {
+          a.pause();
+          a.currentTime = end;
+          // Auto-loop: restart after a brief pause if configured.
+          if (this._isAutoLoop()) {
+            if (this._loopTimer) clearTimeout(this._loopTimer);
+            this._loopTimer = setTimeout(() => {
+              this._loopTimer = null;
+              if (!this._audio) return;
+              this._audio.currentTime = this._segmentStart();
+              this._audio.play().catch(() => {});
+            }, 500);
+          }
+        }
+      }
     });
 
     a.addEventListener('play', () => {
-      this._$('icon-play').hidden = true;
-      this._$('icon-pause').hidden = false;
-      this._$('btn-play').setAttribute('aria-label', 'Tạm dừng');
+      this._syncIcon();
       this._emit('av-audio-play');
     });
 
     a.addEventListener('pause', () => {
-      this._$('icon-play').hidden = false;
-      this._$('icon-pause').hidden = true;
-      this._$('btn-play').setAttribute('aria-label', 'Phát');
+      this._syncIcon();
       this._emit('av-audio-pause');
     });
 
     a.addEventListener('ended', () => {
+      this._syncIcon();
       this._emit('av-audio-ended');
     });
 
     a.addEventListener('error', () => {
-      // First error → try refetch-url once (signed URL TTL likely expired).
       const refetchUrl = this.getAttribute('refetch-url');
       if (!this._refetched && refetchUrl) {
         this._refetched = true;
