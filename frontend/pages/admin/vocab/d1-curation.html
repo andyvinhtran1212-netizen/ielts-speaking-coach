@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>D1 Curation · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .d1c-shell {
+      max-width: 1280px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .d1c-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .d1c-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+
+    .d1c-filter-bar {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      align-items: flex-end;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .d1c-filter { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+    .d1c-filter label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .d1c-filter input, .d1c-filter select {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+
+    .btn-primary { padding: 8px 14px; border-radius: var(--av-radius-md); background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none; font-weight: var(--av-fw-semibold); cursor: pointer; font-size: var(--av-fs-sm); }
+    .btn-secondary { padding: 8px 14px; border-radius: var(--av-radius-md); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-sm); }
+    .btn-danger  { padding: 6px 10px; border-radius: var(--av-radius-sm); background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; cursor: pointer; font-size: var(--av-fs-xs); }
+    .btn-ghost   { padding: 4px 10px; border-radius: var(--av-radius-sm); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-xs); }
+
+    .d1c-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.d1c-table { width: 100%; border-collapse: collapse; }
+    table.d1c-table th, table.d1c-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+      vertical-align: top;
+    }
+    table.d1c-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    table.d1c-table tr.is-expanded { background: var(--av-surface-sunken); }
+    .d1c-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .d1c-chip.is-haiku    { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
+    .d1c-chip.is-fallback { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
+    .d1c-chip.is-archived { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
+    .d1c-context { font-family: var(--av-font-mono); color: var(--av-text-primary); }
+    .d1c-target  { font-family: var(--av-font-mono); color: var(--av-brand-teal-800); font-weight: var(--av-fw-semibold); }
+
+    .d1c-edit-row { background: var(--av-surface-sunken); }
+    .d1c-edit-row td { padding: var(--av-space-4); }
+    .d1c-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-3); }
+    .d1c-edit-grid .full { grid-column: 1 / -1; }
+    .d1c-edit-grid label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .d1c-edit-grid input, .d1c-edit-grid textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .d1c-edit-grid textarea { min-height: 60px; resize: vertical; }
+    .d1c-edit-actions { display: flex; gap: var(--av-space-2); margin-top: var(--av-space-3); }
+
+    .d1c-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .d1c-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
+    .d1c-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    .d1c-empty, .d1c-loading { padding: var(--av-space-8); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    .d1c-pagination { display: flex; justify-content: center; margin-top: var(--av-space-3); }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="vocab" subsection="d1-curation">
+
+    <main class="d1c-shell">
+      <header class="d1c-header">
+        <h1>D1 Curation</h1>
+        <p class="subtitle">
+          Kiểm duyệt câu hỏi fill-blank cá nhân hoá (user_d1_questions).
+          Filter theo source generator, edit text / answer / hint, hoặc
+          soft-delete (is_active=false).
+        </p>
+      </header>
+
+      <div class="d1c-banner" id="status-banner" hidden></div>
+
+      <section class="d1c-filter-bar" aria-label="Bộ lọc">
+        <div class="d1c-filter">
+          <label for="d1-source">Source</label>
+          <select id="d1-source">
+            <option value="">Tất cả</option>
+            <option value="haiku">Haiku</option>
+            <option value="gemini">Gemini</option>
+            <option value="fallback_evidence">Fallback (cần xem xét)</option>
+          </select>
+        </div>
+        <div class="d1c-filter">
+          <label for="d1-active">Trạng thái</label>
+          <select id="d1-active">
+            <option value="">Tất cả</option>
+            <option value="true" selected>Active</option>
+            <option value="false">Archived</option>
+          </select>
+        </div>
+        <div class="d1c-filter">
+          <label for="d1-user">User ID (tuỳ chọn)</label>
+          <input id="d1-user" type="text" placeholder="uuid…" />
+        </div>
+        <button class="btn-primary" id="btn-search" type="button">Tìm kiếm</button>
+        <button class="btn-secondary" id="btn-reset" type="button">Reset</button>
+      </section>
+
+      <div class="d1c-loading" id="d1-loading">Đang tải…</div>
+      <div class="d1c-empty" id="d1-empty" hidden>Chưa có câu hỏi D1 cần xem xét.</div>
+
+      <div class="d1c-table-wrap" id="d1-table-wrap" hidden>
+        <table class="d1c-table">
+          <thead>
+            <tr>
+              <th>Headword</th>
+              <th>Context</th>
+              <th>Target</th>
+              <th>Source</th>
+              <th>Attempts</th>
+              <th>Trạng thái</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="d1-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="d1c-pagination">
+        <button class="btn-secondary" id="btn-more" type="button" hidden>Tải thêm</button>
+      </div>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-vocab-d1.js"></script>
+</body>
+</html>

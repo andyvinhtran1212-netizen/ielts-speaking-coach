@@ -257,8 +257,12 @@ describe('admin.html / JS contract', () => {
     assert.match(html, /initSupabase\(SUPABASE_URL/);
   });
 
-  test('admin-flashcard-stats.js external helper still linked', () => {
-    assert.match(html, /<script\s+src=["']js\/admin-flashcard-stats\.js["']/);
+  test('admin-flashcard-stats.js — Sprint 12.6 carved out', () => {
+    // Sprint 12.6 carved the Flashcards stats surface to
+    // /pages/admin/vocab/stats.html. The helper script is no longer
+    // loaded into the monolith. Pin the removal so future commits
+    // don't accidentally re-link a dead surface.
+    assert.doesNotMatch(html, /<script\s+src=["']js\/admin-flashcard-stats\.js["']/);
   });
 
   test('Supabase JS CDN still linked', () => {
@@ -307,14 +311,14 @@ describe('admin.html / JS contract', () => {
 
 
 describe('admin.html / ID preservation', () => {
-  test('total ID count >= 140 (post-Sprint-12.5 baseline ~143)', () => {
+  test('total ID count >= 130 (post-Sprint-12.6 baseline ~136)', () => {
     // Sprint 12.2 carved access-codes (~20 IDs); Sprint 12.5 carved
-    // panel-topics + panel-sessions markup (~28 IDs gone: sessions-*,
-    // tlib-tab-*, topic-tbody, modal-*, etc.). Baseline lowered from
-    // 165 → 140 to absorb both carves; further carves in 12.6/12.7/12.8
-    // will drop this further.
+    // panel-topics + panel-sessions (~28 IDs); Sprint 12.6 carved
+    // panel-vocab_monitor + panel-flashcards markup (~7 more IDs gone:
+    // vocab-flag-user-id, fcs-*, etc.). Baseline lowered to 130; Sprint
+    // 12.7/12.8 will drop this further.
     const ids = (html.match(/id=["'][^"']+["']/g) || []).length;
-    assert.ok(ids >= 140, `Found ${ids} IDs, expected ≥ 140 (post-Sprint-12.5 baseline ~143)`);
+    assert.ok(ids >= 130, `Found ${ids} IDs, expected ≥ 130 (post-Sprint-12.6 baseline ~136)`);
     assert.match(html, /id=["']theme-toggle["']/, 'theme-toggle button id must exist');
   });
 

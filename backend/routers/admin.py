@@ -2941,3 +2941,282 @@ async def admin_flashcard_stats(
         "period_days":  days,
         "computed_at":  datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ── Sprint 12.6 — admin curation for user_d1_questions ─────────────────────────
+#
+# Sprint 10.5 introduced `user_d1_questions` (personalized D1 fill-blank
+# pre-generated from each user's vocab bank via Claude Haiku). Until now
+# there was no admin tool to inspect, edit, or soft-delete these — only
+# the user's own RLS-scoped queries reached them. Sprint 12.6 ships read /
+# patch / soft-delete using the service-role admin client.
+#
+# Generated_by enum (from migration 052):
+#   'haiku' | 'gemini' | 'fallback_evidence'
+# `fallback_evidence` rows are the highest-priority for review — they mean
+# the AI call failed and the generator reused the user's original evidence
+# substring with the target word masked.
+
+
+@router.get("/vocab/d1-questions")
+async def admin_list_d1_questions(
+    source: str | None = Query(default=None, description="filter by generated_by (haiku|gemini|fallback_evidence)"),
+    active: str | None = Query(default=None, description="filter by is_active ('true'|'false'); default = all"),
+    user_id: str | None = Query(default=None, description="restrict to one user's bank"),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    authorization: str | None = Header(default=None),
+):
+    """List personalized D1 questions with filters + pagination.
+
+    `total` is the server-side count for the active filter so the
+    frontend can render "Tải thêm" when more pages remain. `items`
+    carries the question payload joined against the source vocab row so
+    admins can see which headword each question targets.
+    """
+    await require_admin(authorization)
+
+    try:
+        q = (
+            supabase_admin.table("user_d1_questions")
+            .select(
+                "id, user_id, vocabulary_id, context_sentence, "
+                "target_answer, acceptable_variants, hint, "
+                "source_evidence_substring, generated_by, generated_at, "
+                "is_active, attempt_count, last_used_at, created_at",
+                count="exact",
+            )
+        )
+        if source:
+            q = q.eq("generated_by", source)
+        if active == "true":
+            q = q.eq("is_active", True)
+        elif active == "false":
+            q = q.eq("is_active", False)
+        if user_id:
+            q = q.eq("user_id", user_id)
+        q = q.order("created_at", desc=True).range(offset, offset + limit - 1)
+        res = q.execute()
+    except Exception as exc:
+        logger.error("[admin] d1 list failed: %s", exc)
+        raise HTTPException(500, "Could not load D1 questions.")
+
+    items = res.data or []
+
+    # Hydrate with the vocab headword in one extra query — cheaper than
+    # a polymorphic JOIN and the result set is bounded by `limit`.
+    vocab_ids = list({i["vocabulary_id"] for i in items if i.get("vocabulary_id")})
+    headword_map: dict[str, str] = {}
+    if vocab_ids:
+        try:
+            vres = (
+                supabase_admin.table("user_vocabulary")
+                .select("id, headword")
+                .in_("id", vocab_ids)
+                .execute()
+            )
+            for row in vres.data or []:
+                headword_map[row["id"]] = row.get("headword") or ""
+        except Exception as exc:
+            logger.warning("[admin] headword hydrate failed: %s", exc)
+
+    for i in items:
+        i["headword"] = headword_map.get(i.get("vocabulary_id"), "")
+
+    return {
+        "items":  items,
+        "total":  res.count or 0,
+        "offset": offset,
+        "limit":  limit,
+    }
+
+
+class D1QuestionPatchPayload(BaseModel):
+    context_sentence: str | None = None
+    target_answer:    str | None = None
+    hint:             str | None = None
+    is_active:        bool | None = None
+
+
+@router.patch("/vocab/d1-questions/{question_id}")
+async def admin_patch_d1_question(
+    question_id: str,
+    payload: D1QuestionPatchPayload,
+    authorization: str | None = Header(default=None),
+):
+    """Edit question text / answer / hint or toggle is_active.
+
+    All fields are optional — only sent keys are written so the admin
+    can flip is_active without re-sending the whole row.
+    """
+    await require_admin(authorization)
+
+    update: dict = {}
+    if payload.context_sentence is not None:
+        update["context_sentence"] = payload.context_sentence
+    if payload.target_answer is not None:
+        update["target_answer"] = payload.target_answer
+    if payload.hint is not None:
+        update["hint"] = payload.hint
+    if payload.is_active is not None:
+        update["is_active"] = payload.is_active
+
+    if not update:
+        raise HTTPException(400, "No fields to update.")
+
+    try:
+        res = (
+            supabase_admin.table("user_d1_questions")
+            .update(update)
+            .eq("id", question_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Update failed: {exc}")
+
+    if not res.data:
+        raise HTTPException(404, "D1 question not found.")
+    return {"ok": True, "id": question_id, "updated_fields": list(update.keys())}
+
+
+@router.delete("/vocab/d1-questions/{question_id}", status_code=204)
+async def admin_delete_d1_question(
+    question_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Soft-delete: flip is_active=False (Sprint 10.6 archive pattern).
+
+    Hard deletes are intentionally not supported — the row tracks
+    attempt_count + last_used_at, which is useful audit data even after
+    an admin retires the question.
+    """
+    await require_admin(authorization)
+    try:
+        res = (
+            supabase_admin.table("user_d1_questions")
+            .update({"is_active": False})
+            .eq("id", question_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Soft delete failed: {exc}")
+    if not res.data:
+        raise HTTPException(404, "D1 question not found.")
+    return None
+
+
+# ── Sprint 12.6 — lemma override CRUD ──────────────────────────────────────────
+#
+# Backed by migration 063 (lemma_overrides table) + the lemmatizer hook
+# in services/lemmatizer.py. After every mutation we call
+# reload_overrides() so the running worker picks up the change without
+# a restart.
+
+
+@router.get("/vocab/lemmas/overrides")
+async def admin_list_lemma_overrides(
+    search: str | None = Query(default=None, description="prefix-match on original_word"),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    authorization: str | None = Header(default=None),
+):
+    """List manual lemma overrides with optional search."""
+    await require_admin(authorization)
+
+    try:
+        q = (
+            supabase_admin.table("lemma_overrides")
+            .select("id, original_word, lemma, pos_tag, notes, created_at",
+                    count="exact")
+        )
+        if search:
+            q = q.ilike("original_word", f"{search.strip().lower()}%")
+        q = q.order("created_at", desc=True).range(offset, offset + limit - 1)
+        res = q.execute()
+    except Exception as exc:
+        logger.error("[admin] lemma overrides list failed: %s", exc)
+        raise HTTPException(500, "Could not load overrides.")
+
+    return {
+        "items":  res.data or [],
+        "total":  res.count or 0,
+        "offset": offset,
+        "limit":  limit,
+    }
+
+
+class LemmaOverridePayload(BaseModel):
+    original_word: str = Field(..., min_length=1, max_length=200)
+    lemma:         str = Field(..., min_length=1, max_length=200)
+    pos_tag:       str | None = None
+    notes:         str | None = None
+
+
+@router.post("/vocab/lemmas/overrides", status_code=201)
+async def admin_create_lemma_override(
+    payload: LemmaOverridePayload,
+    authorization: str | None = Header(default=None),
+):
+    """Create a new lemma override. Lowercases the original_word so
+    the lemmatize() lookup (which also lowercases) always hits."""
+    user = await require_admin(authorization)
+
+    insert = {
+        "original_word": payload.original_word.strip().lower(),
+        "lemma":         payload.lemma.strip(),
+        "pos_tag":       (payload.pos_tag or "").strip() or None,
+        "notes":         (payload.notes or "").strip() or None,
+        "created_by":    user.get("id") if isinstance(user, dict) else None,
+    }
+
+    try:
+        res = (
+            supabase_admin.table("lemma_overrides")
+            .insert(insert)
+            .execute()
+        )
+    except Exception as exc:
+        msg = str(exc)
+        if "duplicate" in msg.lower() or "unique" in msg.lower():
+            raise HTTPException(409, f"Override for '{insert['original_word']}' already exists.")
+        raise HTTPException(500, f"Create failed: {exc}")
+
+    try:
+        from services.lemmatizer import reload_overrides
+        reload_overrides()
+    except Exception as exc:
+        logger.warning("[admin] reload_overrides failed: %s", exc)
+
+    row = (res.data or [None])[0]
+    return {"ok": True, "item": row}
+
+
+@router.delete("/vocab/lemmas/overrides/{override_id}", status_code=204)
+async def admin_delete_lemma_override(
+    override_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Hard-delete an override. The lemmatizer falls back to spaCy on
+    the next capture for that word, which is the desired behaviour
+    when an admin retracts a manual mapping."""
+    await require_admin(authorization)
+
+    try:
+        res = (
+            supabase_admin.table("lemma_overrides")
+            .delete()
+            .eq("id", override_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Delete failed: {exc}")
+
+    if not res.data:
+        raise HTTPException(404, "Override not found.")
+
+    try:
+        from services.lemmatizer import reload_overrides
+        reload_overrides()
+    except Exception as exc:
+        logger.warning("[admin] reload_overrides failed: %s", exc)
+    return None

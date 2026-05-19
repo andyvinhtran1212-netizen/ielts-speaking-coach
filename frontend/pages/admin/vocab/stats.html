@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Vocab Stats · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .vst-shell {
+      max-width: 1180px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .vst-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: var(--av-space-3); }
+    .vst-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .vst-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .vst-period {
+      display: flex; gap: var(--av-space-2); align-items: center;
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    }
+    .vst-period select {
+      padding: 6px 10px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+
+    .vst-section-title {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-semibold);
+      margin: var(--av-space-3) 0 var(--av-space-1);
+    }
+    .vst-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--av-space-3);
+    }
+    .vst-tile {
+      display: flex; flex-direction: column;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .vst-tile .label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .vst-tile .value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+      margin-top: var(--av-space-1);
+    }
+    .vst-tile .hint {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      margin-top: var(--av-space-1);
+    }
+    .vst-tile.is-warn { border-color: #FDE68A; }
+    .vst-tile.is-warn .value { color: #92400E; }
+
+    .vst-error {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: #FEF2F2;
+      color: #991B1B;
+      border: 1px solid #FECACA;
+      font-size: var(--av-fs-sm);
+    }
+    .vst-loading {
+      padding: var(--av-space-6); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm);
+    }
+
+    /* Per-user flag toggle */
+    .vst-flag-row {
+      display: flex; gap: var(--av-space-2); align-items: center;
+      flex-wrap: wrap;
+    }
+    .vst-flag-row input {
+      flex: 1; min-width: 240px;
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+    }
+    .btn-primary {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none; font-weight: var(--av-fw-semibold);
+      cursor: pointer; font-size: var(--av-fs-sm);
+    }
+    .btn-secondary {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer; font-size: var(--av-fs-sm);
+    }
+    .btn-danger {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      background: #FEE2E2;
+      color: #991B1B;
+      border: 1px solid #FECACA;
+      cursor: pointer; font-size: var(--av-fs-sm);
+    }
+    .vst-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .vst-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
+    .vst-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="vocab" subsection="stats">
+
+    <main class="vst-shell">
+      <header class="vst-header">
+        <div>
+          <h1>Vocab + Flashcards Stats</h1>
+          <p class="subtitle">
+            Aggregate metrics cho Vocab bank, false-positive rate, và SRS
+            flashcard activity. Extract từ admin.html (Sprint 12.6).
+          </p>
+        </div>
+        <div class="vst-period">
+          Period:
+          <select id="fcs-period">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <button class="btn-secondary" id="btn-refresh" type="button">↺ Tải lại</button>
+        </div>
+      </header>
+
+      <div class="vst-banner" id="status-banner" hidden></div>
+
+      <!-- ── Vocab bank stats ──────────────────────────────────── -->
+      <h2 class="vst-section-title">Vocab Bank</h2>
+      <div class="vst-grid" id="vocab-tiles">
+        <div class="vst-tile">
+          <span class="label">Bank entries</span>
+          <span class="value" id="vocab-bank-total">—</span>
+          <span class="hint">Total non-archived rows in user_vocabulary</span>
+        </div>
+        <div class="vst-tile">
+          <span class="label">FP reports</span>
+          <span class="value" id="vocab-fp-total">—</span>
+          <span class="hint">analytics_events: vocab_fp_reported</span>
+        </div>
+        <div class="vst-tile" id="vocab-fp-rate-tile">
+          <span class="label">FP rate</span>
+          <span class="value" id="vocab-fp-rate">—</span>
+          <span class="hint">Gate: &lt; 10% (Sprint 6.x)</span>
+        </div>
+        <div class="vst-tile">
+          <span class="label">Users with vocab enabled</span>
+          <span class="value" id="vocab-enabled-count">—</span>
+          <span class="hint">Per-user feature flag opt-in</span>
+        </div>
+      </div>
+
+      <!-- ── Per-user feature flag ─────────────────────────────── -->
+      <h2 class="vst-section-title">Per-user feature flag — vocab_enabled</h2>
+      <p style="font-size: var(--av-fs-xs); color: var(--av-text-muted); margin: 0 0 var(--av-space-2);">
+        Global env: <code>VOCAB_BANK_FEATURE_FLAG_ENABLED</code>, <code>VOCAB_ANALYSIS_ENABLED</code>
+      </p>
+      <div class="vst-flag-row">
+        <input id="flag-user-id" type="text" placeholder="User ID (uuid)…" />
+        <button class="btn-primary" id="btn-flag-enable" type="button">Enable</button>
+        <button class="btn-danger" id="btn-flag-disable" type="button">Disable</button>
+      </div>
+
+      <!-- ── Flashcards stats ──────────────────────────────────── -->
+      <h2 class="vst-section-title">Flashcards (SRS)</h2>
+      <div class="vst-loading" id="fcs-loading" hidden>Đang tải…</div>
+      <div class="vst-error" id="fcs-error" hidden></div>
+      <div class="vst-grid" id="fcs-activity"></div>
+
+      <h2 class="vst-section-title">SRS Health</h2>
+      <div class="vst-grid" id="fcs-srs"></div>
+
+      <h2 class="vst-section-title">Engagement</h2>
+      <div class="vst-grid" id="fcs-engagement"></div>
+
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-vocab-stats.js"></script>
+</body>
+</html>
