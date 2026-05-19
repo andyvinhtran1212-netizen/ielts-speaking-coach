@@ -195,20 +195,21 @@ describe('Sprint 12.7 — grammar JS controllers', () => {
 
 /* ── admin.html regression — Grammar was never in monolith ───── */
 
-describe('Sprint 12.7 regression — admin.html monolith untouched', () => {
-  it('no grammar-related panel or tab IDs leaked into admin.html', () => {
-    // Per Discovery #73 inventory, Grammar had ZERO presence in
-    // admin.html before Sprint 12.7. Pin the carve was clean —
-    // no accidental "tab-btn-grammar" or "panel-grammar" snuck in.
+describe('Sprint 12.7 regression — admin.html closure (post Sprint 12.8)', () => {
+  it('no grammar-related panel or tab IDs ever appear in admin.html', () => {
+    // Grammar had zero presence in admin.html across the cluster.
+    // Pin that the closure didn't introduce one by accident.
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']tab-btn-grammar["']/);
     assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-grammar["']/);
   });
 
-  it('still-monolith panels (vocab_exercises / alerts / ai_usage) intact', () => {
-    // Vocab Exercises admin pool stays (per Sprint 12.6 deferral).
-    // Alerts + AI usage stay until Sprint 12.8 cluster close.
-    assert.match(ADMIN_LEGACY, /id=["']panel-vocab_exercises["']/);
-    assert.match(ADMIN_LEGACY, /id=["']panel-alerts["']/);
-    assert.match(ADMIN_LEGACY, /id=["']panel-ai_usage["']/);
+  it('admin.html is the Sprint 12.8 redirect (no remaining monolith panels)', () => {
+    // The previously-pinned "still-monolith" panels (vocab_exercises,
+    // alerts, ai_usage) all carved out in Sprint 12.8. The redirect now
+    // owns admin.html.
+    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
+    assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-vocab_exercises["']/);
+    assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-alerts["']/);
+    assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-ai_usage["']/);
   });
 });

@@ -62,8 +62,18 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     }
   });
 
-  it('marks the 3 Phase B sections (cohorts, usage, system)', () => {
-    assert.match(CHROME_JS, /PHASE_B_SECTIONS\s*=\s*new Set\(\[[\s\S]*?['"]cohorts['"][\s\S]*?['"]usage['"][\s\S]*?['"]system['"]/);
+  it('marks the 2 remaining Phase B sections (cohorts, usage) post Sprint 12.8', () => {
+    // Sprint 12.8 graduated `system` (AI Usage + Alerts now LIVE).
+    // Cohorts + usage stay Phase B until the cohort cluster ships.
+    assert.match(
+      CHROME_JS,
+      /PHASE_B_SECTIONS\s*=\s*new Set\(\[[^\]]*['"]cohorts['"][^\]]*['"]usage['"][^\]]*\]\)/,
+    );
+    // `system` must NOT be in the PHASE_B set anymore.
+    assert.doesNotMatch(
+      CHROME_JS,
+      /PHASE_B_SECTIONS\s*=\s*new Set\(\[[^\]]*['"]system['"][^\]]*\]\)/,
+    );
   });
 
   it('reads/writes sidebar collapse state via localStorage', () => {
@@ -207,12 +217,11 @@ describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', ()
 describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
   // Sprint 12.2 graduated `access-codes`; Sprint 12.3 graduated
   // `error-logs`; Sprint 12.5 graduated `speaking`; Sprint 12.6
-  // graduated `vocab`; Sprint 12.7 graduated `grammar` (see
-  // admin-grammar-extract.test.mjs). All skill placeholders cleared —
-  // only the Phase B Người dùng / Truy cập / Hệ thống stubs remain.
+  // graduated `vocab`; Sprint 12.7 graduated `grammar`; Sprint 12.8
+  // graduated `system` (AI Usage + Alerts LIVE) and `users` (real
+  // role-management page). Only Phase B cohorts/usage stubs remain.
   const sections = [
-    'users',
-    'cohorts', 'usage', 'system',
+    'cohorts', 'usage',
   ];
   for (const s of sections) {
     it(`/pages/admin/${s}/index.html exists with chrome + "Sắp ra mắt"`, () => {
@@ -283,6 +292,24 @@ describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
     // Hybrid file-based banner must surface the workflow.
     assert.match(html, /backend\/content/);
   });
+
+  it('Sprint 12.8 — system index is a real landing (not a stub)', () => {
+    const html = read('pages', 'admin', 'system', 'index.html');
+    assert.match(html, /<aver-admin-chrome\s+active=["']system["']/);
+    assert.doesNotMatch(html, /Sắp ra mắt/);
+    // Real landing must link to its two LIVE sub-pages.
+    assert.match(html, /\/pages\/admin\/system\/ai-usage\.html/);
+    assert.match(html, /\/pages\/admin\/system\/alerts\.html/);
+  });
+
+  it('Sprint 12.8 — users index is a real landing (not a stub)', () => {
+    const html = read('pages', 'admin', 'users', 'index.html');
+    assert.match(html, /<aver-admin-chrome\s+active=["']users["']/);
+    assert.doesNotMatch(html, /Sắp ra mắt/);
+    // Real landing must carry role filter + role-change UI hooks.
+    assert.match(html, /id=["']usr-role["']/);
+    assert.match(html, /id=["']usr-tbody["']/);
+  });
 });
 
 
@@ -325,21 +352,33 @@ describe('Sprint 12.1 — vercel.json carries 13 admin redirects', () => {
 });
 
 
-/* ── Legacy admin.html banner ──────────────────────────────────── */
+/* ── Sprint 12.8 — admin.html cluster closure ──────────────────── */
 
-describe('Sprint 12.1 — legacy admin.html banner pointing to new IA', () => {
-  it('shows banner with link to /pages/admin/index.html', () => {
-    assert.match(ADMIN_LEGACY, /id="admin-ia-banner"/);
-    assert.match(ADMIN_LEGACY, /href="\/pages\/admin\/index\.html"/);
+describe('Sprint 12.8 — admin.html is a pure redirect to the new IA', () => {
+  // Sprint 12.1 originally added a banner-on-top-of-monolith. Sprint 12.8
+  // (cluster closure) flips admin.html into a pure redirect — the banner
+  // becomes a redirect card. Both meta refresh and JS location.replace()
+  // target the new IA landing.
+  it('links to /pages/admin/index.html', () => {
+    assert.match(ADMIN_LEGACY, /href=["']\/pages\/admin\/index\.html["']/);
   });
 
-  it('banner copy mentions DEBT-ADMIN-IA-REFACTOR migration', () => {
-    assert.match(ADMIN_LEGACY, /Phiên bản mới/);
+  it('uses meta refresh + JS replace() for bookmark + JS-off fallback', () => {
+    assert.match(
+      ADMIN_LEGACY,
+      /<meta\s+http-equiv=["']refresh["'][^>]*url=\/pages\/admin\/index\.html/,
+    );
+    assert.match(
+      ADMIN_LEGACY,
+      /window\.location\.replace\(\s*['"]\/pages\/admin\/index\.html['"]\s*\)/,
+    );
   });
 
-  it('legacy monolith body otherwise intact (header still there)', () => {
-    // The Speaking/codes/vocab tabs still functional — banner is additive only.
-    assert.match(ADMIN_LEGACY, /<header class="admin-header sticky top-0 z-30/);
+  it('legacy monolith header markup is GONE', () => {
+    // Pre-12.8 the sticky `<header class="admin-header sticky top-0 z-30">`
+    // was the visual anchor of the monolith. After closure, no header
+    // markup remains in admin.html.
+    assert.doesNotMatch(ADMIN_LEGACY, /<header class="admin-header sticky top-0 z-30/);
   });
 });
 

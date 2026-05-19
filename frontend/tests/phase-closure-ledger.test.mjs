@@ -253,34 +253,37 @@ describe('Gate 8 formalization in DESIGN_SYSTEM.md § 17.7', () => {
 // ── admin.html renderer-deferred comment markers (AMBER #1) ───────
 
 
-describe('admin.html / Sprint 6.14d-α deferred comment markers (AMBER #1 closure)', () => {
+describe('admin.html / Sprint 6.14d-α deferred markers — retired in Sprint 12.8 closure', () => {
+  // The 4 "SPRINT 6.14d-α DEFERRED: renderer-emitted inline palette"
+  // markers anchored deferred-renderer regions inside the monolith
+  // (Vocab Exercises action buttons + similar rgba-using surfaces).
+  // Sprint 12.8 retired the monolith — admin.html is now a 91-LOC
+  // redirect. The Vocab Exercises markup itself moved to
+  // /pages/admin/vocab/exercises.html, where Sprint 12.8 wrote the
+  // buttons against design tokens (no renderer-emitted rgba).
+  //
+  // This test exists only to keep the closure pin: the markers must NOT
+  // come back into admin.html, and the rgba renderer-emitted anti-pattern
+  // must not be re-introduced in the new IA files either.
   let adminHtml;
 
   before(() => {
     adminHtml = readFileSync(path.join(REPO_ROOT, 'frontend/admin.html'), 'utf8');
   });
 
-  test('exactly 4 deferred-region comment markers present', () => {
-    const markers = (adminHtml.match(/SPRINT 6\.14d-α DEFERRED: renderer-emitted inline palette/g) || []).length;
-    assert.equal(markers, 4,
-      `Expected 4 deferred-region markers in admin.html, got ${markers}`);
+  test('admin.html no longer carries the Sprint 6.14d-α deferred markers (closure)', () => {
+    assert.doesNotMatch(
+      adminHtml,
+      /SPRINT 6\.14d-α DEFERRED/,
+      'closure: deferred-region markers should be gone with the monolith they guarded',
+    );
   });
 
-  test('each marker references DESIGN_SYSTEM.md § 14.5.2/3 triggers', () => {
-    const triggerRefs = (adminHtml.match(/§ 14\.5\.2\/3/g) || []).length;
-    assert.ok(triggerRefs >= 4,
-      `Expected ≥4 § 14.5.2/3 trigger refs across the 4 markers, got ${triggerRefs}`);
-  });
-
-  test('each marker carries the canonical anti-pattern warning', () => {
-    const warnings = (adminHtml.match(/DO NOT add more inline hex\/rgba palette logic/g) || []).length;
-    assert.equal(warnings, 4,
-      `Expected 4 anti-pattern warnings (one per marker), got ${warnings}`);
-  });
-
-  test('each marker uses the "chrome-complete, renderer-deferred" treatment label', () => {
-    const labels = (adminHtml.match(/chrome-complete, renderer-deferred/g) || []).length;
-    assert.equal(labels, 4,
-      `Expected 4 treatment labels, got ${labels}`);
+  test('admin.html does not re-introduce renderer-emitted rgba inline palettes', () => {
+    const rgbaMatches = (adminHtml.match(/style=["'][^"']*rgba\([^)]+\)[^"']*["']/g) || []).length;
+    assert.equal(
+      rgbaMatches, 0,
+      'closure: redirect should ship zero inline rgba palette literals',
+    );
   });
 });

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Alerts · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .alr-shell {
+      max-width: 1280px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .alr-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: var(--av-space-3); }
+    .alr-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .alr-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .btn-secondary { padding: 8px 14px; border-radius: var(--av-radius-md); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-sm); }
+    .btn-ghost { padding: 4px 10px; border-radius: var(--av-radius-sm); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-xs); }
+
+    .alr-banner {
+      padding: var(--av-space-2) var(--av-space-3);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-xs);
+    }
+    .alr-banner.is-info { background: var(--av-surface-card); color: var(--av-text-secondary); border: 1px solid var(--av-border-default); }
+    .alr-banner.is-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    .alr-section-title {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-semibold);
+      margin: var(--av-space-3) 0 var(--av-space-1);
+    }
+
+    .alr-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.alr-table { width: 100%; border-collapse: collapse; }
+    table.alr-table th, table.alr-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+      vertical-align: top;
+    }
+    table.alr-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    .alr-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .alr-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .alr-chip.is-fail { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
+    .alr-truncate { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--av-text-muted); }
+
+    .alr-loading, .alr-empty {
+      padding: var(--av-space-6); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm);
+    }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="system" subsection="alerts">
+
+    <main class="alr-shell">
+      <header class="alr-header">
+        <div>
+          <h1>Alerts</h1>
+          <p class="subtitle">
+            Session errors + grading failures gần đây. Mở chi tiết hoặc
+            regrade trên Speaking sessions page.
+          </p>
+        </div>
+        <button class="btn-secondary" id="btn-refresh" type="button">↺ Làm mới</button>
+      </header>
+
+      <div class="alr-banner is-info" id="alr-status" hidden></div>
+      <div class="alr-loading" id="alr-loading" hidden>Đang tải…</div>
+
+      <!-- ── Session-level errors ─────────────────────────────────── -->
+      <h2 class="alr-section-title">Lỗi cấp Session</h2>
+      <div class="alr-empty" id="alr-sessions-empty" hidden>Không có lỗi session nào.</div>
+      <div class="alr-table-wrap" id="alr-sessions-wrap" hidden>
+        <table class="alr-table">
+          <thead>
+            <tr>
+              <th>Session ID</th>
+              <th>User</th>
+              <th>Loại lỗi</th>
+              <th>Bước</th>
+              <th>Thông báo</th>
+              <th>Thời gian</th>
+            </tr>
+          </thead>
+          <tbody id="alr-sessions-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- ── Response-level grading failures ──────────────────────── -->
+      <h2 class="alr-section-title">Lỗi Grading (cấp Response)</h2>
+      <div class="alr-empty" id="alr-grading-empty" hidden>Không có grading failure nào.</div>
+      <div class="alr-table-wrap" id="alr-grading-wrap" hidden>
+        <table class="alr-table">
+          <thead>
+            <tr>
+              <th>Response ID</th>
+              <th>Session ID</th>
+              <th>User</th>
+              <th>Grading</th>
+              <th>STT</th>
+            </tr>
+          </thead>
+          <tbody id="alr-grading-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-alerts.js"></script>
+</body>
+</html>

@@ -95,8 +95,12 @@ describe('Sprint 12.3 — chrome components autoload error-reporter', () => {
     assert.match(chrome, /\/js\/error-reporter\.js/);
   });
 
-  it('legacy admin.html includes error-reporter.js directly', () => {
+  it('post-closure admin.html still loads error-reporter.js (Sprint 12.8 redirect)', () => {
+    // Sprint 12.8 flipped admin.html into a pure redirect. The new
+    // file is < 100 LOC but keeps the error-reporter so any error fired
+    // during the redirect itself still POSTs back to the backend.
+    // Accept both with-leading-slash and without forms.
     const legacy = read('admin.html');
-    assert.match(legacy, /<script\s+src="js\/error-reporter\.js"/);
+    assert.match(legacy, /<script\s+src=["']\/?js\/error-reporter\.js["']/);
   });
 });

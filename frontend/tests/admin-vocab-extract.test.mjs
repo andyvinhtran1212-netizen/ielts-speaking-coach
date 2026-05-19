@@ -203,55 +203,24 @@ describe('Sprint 12.6 — lemma overrides JS controller', () => {
 
 /* ── admin.html monolith — carve banners + dead-JS guards ────── */
 
-describe('Sprint 12.6 — admin.html carved panels still ship migration banners', () => {
-  it('panel-vocab_monitor carries banner linking to /pages/admin/vocab/stats.html', () => {
-    assert.match(ADMIN_LEGACY, /id=["']panel-vocab_monitor["']/);
-    assert.match(ADMIN_LEGACY, /Vocab Bank stats đã chuyển sang IA mới/);
-    assert.match(
-      ADMIN_LEGACY,
-      /href=["']\/pages\/admin\/vocab\/stats\.html["']/,
-    );
+describe('Sprint 12.6 — vocab carve survives Sprint 12.8 closure', () => {
+  // Sprint 12.8 collapsed admin.html into a pure redirect. The old
+  // "migration banner" pins are obsolete — panel-vocab_monitor /
+  // panel-flashcards / panel-vocab_exercises markup no longer exists
+  // in admin.html. What we pin now is that they didn't sneak back in.
+  it('panel-vocab_monitor / panel-flashcards IDs are gone from admin.html', () => {
+    assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-vocab_monitor["']/);
+    assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-flashcards["']/);
   });
 
-  it('panel-flashcards carries banner linking to /pages/admin/vocab/stats.html', () => {
-    assert.match(ADMIN_LEGACY, /id=["']panel-flashcards["']/);
-    assert.match(ADMIN_LEGACY, /Flashcards stats đã chuyển sang IA mới/);
-  });
-
-  it('admin-flashcard-stats.js script tag is removed', () => {
-    // Helper-style references in comments are fine; what must be gone is
-    // the actual <script src=…> tag that loaded the file into admin.html.
+  it('admin-flashcard-stats.js script tag stays out of admin.html', () => {
     assert.doesNotMatch(
       ADMIN_LEGACY,
       /<script\s+src=["']js\/admin-flashcard-stats\.js["']/,
-      'admin-flashcard-stats.js must not be loaded into the monolith post-carve',
     );
   });
 
-  it('loadVocabMonitor() guards on the (now-missing) #vocab-bank-total node', () => {
-    // The dead loader stays as JS but is null-guarded so clicking the
-    // carved tab doesn't fire phantom 12.3 error reports.
-    assert.match(
-      ADMIN_LEGACY,
-      /if\s*\(\s*!document\.getElementById\(\s*['"]vocab-bank-total['"]\s*\)\s*\)\s*return/,
-      'loadVocabMonitor missing #vocab-bank-total null-guard',
-    );
-  });
-});
-
-describe('Sprint 12.6 regression — still-monolith panels intact', () => {
-  it('panel-vocab_exercises (admin pool D1 review queue) still renders', () => {
-    // Sprint 12.6 only carves the personalized D1 (user_d1_questions)
-    // surface via the new admin/vocab/d1-curation page. The admin-pool
-    // draft/published/rejected workflow for `vocabulary_exercises` stays
-    // in the monolith — pin it so future carves don't accidentally drop
-    // the still-needed admin pool review queue.
-    assert.match(ADMIN_LEGACY, /id=["']panel-vocab_exercises["']/);
-    assert.match(ADMIN_LEGACY, /ve_load\(/);
-  });
-
-  it('panel-alerts + panel-ai_usage still render (Sprint 12.8 target)', () => {
-    assert.match(ADMIN_LEGACY, /id=["']panel-alerts["']/);
-    assert.match(ADMIN_LEGACY, /id=["']panel-ai_usage["']/);
+  it('admin.html redirects to the unified IA', () => {
+    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
   });
 });

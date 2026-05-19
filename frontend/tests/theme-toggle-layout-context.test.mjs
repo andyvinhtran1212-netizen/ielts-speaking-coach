@@ -214,16 +214,16 @@ describe('Theme toggle button — must sit at meaningful depth (not page root)',
 
 
 describe('Theme toggle button — coverage roster', () => {
-  test('discovers at least 3 inline-chrome pages (Sprint 12.1 admin migration)', () => {
+  test('discovers at least 2 inline-chrome pages (Sprint 12.8 closure)', () => {
     // Sprint 7.13 milestone: 18 user-side chrome pages migrated to
-    // <aver-chrome>. Sprint 12.1 added <aver-admin-chrome> + migrated
-    // the 13 admin pages to it. 3 pages remain on inline chrome —
-    // 2 marketing (index/pricing) + 1 legacy admin.html monolith
-    // (carved progressively across Sprints 12.4-12.8).
+    // <aver-chrome>. Sprint 12.1 added <aver-admin-chrome>. Sprint 12.8
+    // (cluster closure) flips the legacy admin.html monolith to a pure
+    // redirect — it no longer carries inline chrome OR a theme toggle.
+    // Only 2 marketing pages (index/pricing) still ship inline chrome.
     assert.ok(
-      REDESIGNED_PAGES.length >= 3,
-      `Expected ≥ 3 inline-chrome pages remaining, found ${REDESIGNED_PAGES.length}. ` +
-      `If more pages migrate to a chrome component, lower this bound.`,
+      REDESIGNED_PAGES.length >= 2,
+      `Expected ≥ 2 inline-chrome pages remaining (marketing surfaces), ` +
+      `found ${REDESIGNED_PAGES.length}.`,
     );
   });
 });
