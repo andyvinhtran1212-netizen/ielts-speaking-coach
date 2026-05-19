@@ -57,13 +57,82 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Tuple
+from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 # Double-checked singleton.
 _nlp = None
 _lock = threading.Lock()
+
+# Sprint 12.6 — manual overrides. Loaded lazily on first lemmatize() call
+# and refreshed via reload_overrides() when admins mutate the table. The
+# default empty dict means "no overrides" so unit tests that don't touch
+# Supabase keep working as-is.
+_overrides: dict[str, Tuple[str, Optional[str]]] = {}
+_overrides_loaded = False
+_overrides_lock = threading.Lock()
+
+
+def _load_overrides() -> None:
+    """Populate `_overrides` from the lemma_overrides table.
+
+    Called lazily on the first lemmatize() invocation, and explicitly
+    via reload_overrides() after an admin mutation. Read failures
+    (table missing in a fresh test env, Supabase outage) degrade
+    silently to "no overrides" — the spaCy fallback still works.
+    """
+    global _overrides, _overrides_loaded
+    try:
+        from supabase_client import supabase_admin
+    except ImportError:
+        _overrides_loaded = True
+        return
+
+    try:
+        res = (
+            supabase_admin.table("lemma_overrides")
+            .select("original_word, lemma, pos_tag")
+            .execute()
+        )
+        rows = res.data or []
+    except Exception as exc:
+        logger.warning("[lemmatizer] could not load overrides: %s", exc)
+        _overrides_loaded = True
+        return
+
+    fresh: dict[str, Tuple[str, Optional[str]]] = {}
+    for row in rows:
+        word = (row.get("original_word") or "").strip().lower()
+        lemma = row.get("lemma")
+        if not word or not lemma:
+            continue
+        fresh[word] = (lemma, row.get("pos_tag"))
+    _overrides = fresh
+    _overrides_loaded = True
+    logger.info("[lemmatizer] loaded %d manual overrides", len(fresh))
+
+
+def reload_overrides() -> None:
+    """Force-refresh the override cache.
+
+    Admin endpoints call this after INSERT/DELETE on lemma_overrides so
+    the running worker honours the change without a restart.
+    """
+    global _overrides_loaded
+    with _overrides_lock:
+        _overrides_loaded = False
+        _load_overrides()
+
+
+def _lookup_override(surface_lower: str) -> Optional[Tuple[str, Optional[str]]]:
+    """Return the override tuple for `surface_lower`, or None."""
+    global _overrides_loaded
+    if not _overrides_loaded:
+        with _overrides_lock:
+            if not _overrides_loaded:
+                _load_overrides()
+    return _overrides.get(surface_lower)
 
 
 def _get_nlp():
@@ -101,6 +170,28 @@ def lemmatize(surface_form: str) -> Tuple[str, str]:
     cleaned = surface_form.strip().lower()
     if not cleaned:
         return "", "NOUN"
+
+    # Sprint 12.6 — manual overrides take precedence over spaCy. POS may
+    # be NULL in the override row, in which case we still run spaCy to
+    # classify (lemma stays overridden, POS comes from the model).
+    override = _lookup_override(cleaned)
+    if override is not None:
+        lemma_override, pos_override = override
+        if pos_override:
+            return lemma_override, pos_override
+        # Fall through to spaCy just for POS classification.
+        try:
+            nlp = _get_nlp()
+            doc = nlp(cleaned)
+            if len(doc) > 0:
+                first = next(
+                    (t for t in doc if not t.is_stop and not t.is_punct),
+                    doc[0],
+                )
+                return lemma_override, first.pos_
+        except Exception:
+            pass
+        return lemma_override, "NOUN"
 
     nlp = _get_nlp()
     doc = nlp(cleaned)
