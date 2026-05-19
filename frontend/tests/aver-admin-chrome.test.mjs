@@ -203,9 +203,12 @@ describe('Sprint 12.1 — Tổng quan landing (pages/admin/index.html)', () => {
 /* ── Placeholder pages exist for empty sections ───────────────── */
 
 describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
+  // Sprint 12.2 graduated `access-codes` from placeholder → real
+  // landing (see admin-access-codes.test.mjs). Sprint 12.3/12.4/12.5
+  // will graduate `error-logs`, `speaking`, etc.
   const sections = [
     'speaking', 'vocab', 'grammar', 'users',
-    'cohorts', 'access-codes', 'usage', 'error-logs', 'system',
+    'cohorts', 'usage', 'error-logs', 'system',
   ];
   for (const s of sections) {
     it(`/pages/admin/${s}/index.html exists with chrome + "Sắp ra mắt"`, () => {
@@ -225,6 +228,15 @@ describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
     }
     // Must NOT be a Sắp-ra-mắt placeholder.
     assert.doesNotMatch(html, /Sắp ra mắt/);
+  });
+
+  it('Sprint 12.2 — access-codes index is a real landing (not a stub)', () => {
+    const html = read('pages', 'admin', 'access-codes', 'index.html');
+    assert.match(html, /<aver-admin-chrome\s+active=["']access-codes["']/);
+    assert.doesNotMatch(html, /Sắp ra mắt/);
+    // Real landing must have the filter bar + create button.
+    assert.match(html, /id="filter-type"/);
+    assert.match(html, /id="btn-create"/);
   });
 });
 
@@ -283,5 +295,78 @@ describe('Sprint 12.1 — legacy admin.html banner pointing to new IA', () => {
   it('legacy monolith body otherwise intact (header still there)', () => {
     // The Speaking/codes/vocab tabs still functional — banner is additive only.
     assert.match(ADMIN_LEGACY, /<header class="admin-header sticky top-0 z-30/);
+  });
+});
+
+
+/* ── Sprint 12.2 audit fold-in F2 — subsection attribute API ──── */
+
+describe('Sprint 12.2 F2 — <aver-admin-chrome> subsection attribute', () => {
+  it('observedAttributes includes subsection', () => {
+    // The Sprint 12.1 component silently swallowed `subsection`; this
+    // sentinel pins that the attribute is now reactive.
+    assert.match(
+      CHROME_JS,
+      /static get observedAttributes\(\)\s*\{\s*return\s*\[[^\]]*['"]subsection['"]/,
+      'observedAttributes must list "subsection" for reactive updates',
+    );
+  });
+
+  it('NAV_GROUPS carries subsections for writing and listening', () => {
+    // Sprint 12.5/12.6/12.7 will add nested pages that consume this —
+    // pin the data so future "thin out the array" cleanups don't drop it.
+    assert.match(CHROME_JS, /section:\s*['"]writing['"][\s\S]*?subsections:\s*\[/);
+    assert.match(CHROME_JS, /section:\s*['"]listening['"][\s\S]*?subsections:\s*\[/);
+  });
+
+  it('renderSubItem emits data-subsection on each child link', () => {
+    assert.match(CHROME_JS, /function\s+renderSubItem\s*\(/);
+    assert.match(CHROME_JS, /data-subsection=/);
+  });
+
+  it('subsection normalizer rejects values not in the parent section', () => {
+    // _normalizeSubsection guards against invalid combos so the wrong
+    // child isn't highlighted by accident.
+    assert.match(CHROME_JS, /_normalizeSubsection\s*\(/);
+  });
+
+  it('writing subsections include grade (canonical Sprint 12.5 target)', () => {
+    assert.match(CHROME_JS, /slug:\s*['"]grade['"][^}]*label:\s*['"]Chấm bài viết['"]/);
+  });
+});
+
+
+/* ── Sprint 12.2 audit fold-in F3 — mobile scroll-lock ──────── */
+
+describe('Sprint 12.2 F3 — mobile sidebar scroll-lock', () => {
+  it('component defines _setBodyScrollLock helper', () => {
+    assert.match(CHROME_JS, /_setBodyScrollLock\s*\(\s*locked\s*\)/);
+  });
+
+  it('hamburger open toggles body overflow to hidden', () => {
+    // Body lock invoked from the hamburger handler so the background
+    // can't scroll behind the overlay.
+    assert.match(
+      CHROME_JS,
+      /setAttribute\(['"]data-mobile-open['"],\s*['"]1['"]\)[\s\S]*?_setBodyScrollLock\(true\)/,
+    );
+  });
+
+  it('hamburger close + backdrop click release the lock', () => {
+    // Both close paths must call _setBodyScrollLock(false).
+    const matches = CHROME_JS.match(/_setBodyScrollLock\(false\)/g) || [];
+    assert.ok(
+      matches.length >= 3,
+      `Expected ≥3 _setBodyScrollLock(false) call sites (hamburger close + backdrop + disconnect), found ${matches.length}`,
+    );
+  });
+
+  it('disconnectedCallback always releases the lock', () => {
+    // Defensive: a mid-state detach (route change, etc.) must not
+    // leave document.body.style.overflow stuck on "hidden".
+    assert.match(
+      CHROME_JS,
+      /disconnectedCallback\(\)\s*\{[\s\S]*?_setBodyScrollLock\(false\)/,
+    );
   });
 });

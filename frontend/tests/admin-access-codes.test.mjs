@@ -1,0 +1,141 @@
+/**
+ * frontend/tests/admin-access-codes.test.mjs — Sprint 12.2.
+ *
+ * Pin the access-codes admin surface carved out of admin.html into the
+ * new IA at /pages/admin/access-codes/index.html. Sentinel-string match
+ * against static source — catches:
+ *
+ *   - Page no longer embeds <aver-admin-chrome active="access-codes">
+ *   - Filter bar missing one of the 3 filters
+ *   - Create modal missing a required field
+ *   - Cohort dropdown row missing or wired incorrectly
+ *   - JS controller missing the canonical client-side guard for
+ *     direct + cohort_id
+ */
+
+import { describe, it } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
+
+const HTML = read('pages', 'admin', 'access-codes', 'index.html');
+const JS   = read('js', 'admin-access-codes.js');
+
+
+describe('Sprint 12.2 — access-codes page chrome embed', () => {
+  it('uses <aver-admin-chrome active="access-codes">', () => {
+    assert.match(HTML, /<aver-admin-chrome\s+active="access-codes"/);
+  });
+  it('loads aver-admin-chrome.js as a module', () => {
+    assert.match(HTML, /<script\s+type="module"\s+src="\/js\/components\/aver-admin-chrome\.js"/);
+  });
+  it('loads admin-access-codes.js as the page controller', () => {
+    assert.match(HTML, /<script\s+type="module"\s+src="\/js\/admin-access-codes\.js"/);
+  });
+});
+
+
+describe('Sprint 12.2 — access-codes filter bar (3 filters)', () => {
+  it('has Loại mã filter with mass/direct/staff', () => {
+    assert.match(HTML, /id="filter-type"/);
+    assert.match(HTML, /<option\s+value="mass">Đại trà<\/option>/);
+    assert.match(HTML, /<option\s+value="direct">Trực tiếp<\/option>/);
+    assert.match(HTML, /<option\s+value="staff">Nhân viên<\/option>/);
+  });
+  it('has Trạng thái filter (active/revoked)', () => {
+    assert.match(HTML, /id="filter-status"/);
+    assert.match(HTML, /<option\s+value="active">/);
+    assert.match(HTML, /<option\s+value="revoked">/);
+  });
+  it('has Lớp filter (cohort dropdown)', () => {
+    assert.match(HTML, /id="filter-cohort"/);
+  });
+});
+
+
+describe('Sprint 12.2 — access-codes table headers (8 columns)', () => {
+  const expected = [
+    'Mã', 'Loại', 'Lớp', 'Trạng thái', 'Giới hạn', 'Hết hạn', 'Ghi chú',
+  ];
+  for (const h of expected) {
+    it(`table header "${h}" present`, () => {
+      assert.ok(HTML.includes(`<th>${h}</th>`), `Missing <th>${h}</th>`);
+    });
+  }
+});
+
+
+describe('Sprint 12.2 — create modal form fields', () => {
+  it('count input', () => {
+    assert.match(HTML, /id="m-count"\s+type="number"/);
+  });
+  it('type radio group with 3 options', () => {
+    assert.match(HTML, /name="m-type"\s+value="mass"/);
+    assert.match(HTML, /name="m-type"\s+value="direct"/);
+    assert.match(HTML, /name="m-type"\s+value="staff"/);
+  });
+  it('cohort row exists (toggled by type)', () => {
+    assert.match(HTML, /id="m-cohort-row"\s+hidden/);
+    assert.match(HTML, /id="m-cohort"/);
+  });
+  it('permissions checklist with at least 6 options', () => {
+    assert.match(HTML, /id="m-perms"/);
+    const matches = HTML.match(/<input type="checkbox" value="[^"]+"/g) || [];
+    assert.ok(matches.length >= 6, `Expected ≥6 permission checkboxes, got ${matches.length}`);
+  });
+  it('session_limit, expires_at, notes fields', () => {
+    assert.match(HTML, /id="m-limit"/);
+    assert.match(HTML, /id="m-expires"\s+type="date"/);
+    assert.match(HTML, /<textarea\s+id="m-notes"/);
+  });
+  it('Tạo + Hủy buttons', () => {
+    assert.match(HTML, /id="btn-submit"/);
+    assert.match(HTML, /id="btn-cancel"/);
+  });
+});
+
+
+describe('Sprint 12.2 — admin-access-codes.js controller', () => {
+  it('loads cohorts via /admin/cohorts?is_active=true', () => {
+    assert.match(JS, /\/admin\/cohorts\?is_active=true/);
+  });
+  it('lists access codes via /admin/access-codes', () => {
+    assert.match(JS, /api\.get\(['"]\/admin\/access-codes['"]\)/);
+  });
+  it('POSTs to /admin/access-codes/generate', () => {
+    assert.match(JS, /\/admin\/access-codes\/generate/);
+  });
+  it('client-side guard: direct without cohort blocks submit', () => {
+    // Mirrors backend 422 — gives user immediate feedback.
+    assert.match(JS, /code_type\s*===\s*['"]direct['"][\s\S]*?!cohort_id/);
+  });
+  it('cohort row visibility toggled by type radio change', () => {
+    assert.match(JS, /m-cohort-row/);
+    assert.match(JS, /selectedType\(\)/);
+  });
+  it('revoke uses DELETE /admin/access-codes/{id}', () => {
+    assert.match(JS, /api\.delete\(['"]\/admin\/access-codes\/['"]/);
+  });
+  it('does not import the legacy admin.html generator inline JS', () => {
+    // Sprint 12.2 carved the codes section out — JS controller must
+    // stand alone (no `loadCodes\(\)` from admin.html style globals).
+    assert.ok(!JS.includes('panel-codes'));
+  });
+});
+
+
+describe('Sprint 12.2 — empty + loading + status banner states', () => {
+  it('loading state present by default', () => {
+    assert.match(HTML, /id="codes-loading"[^>]*>Đang tải/);
+  });
+  it('empty state copy mentions Tạo mã mới', () => {
+    assert.match(HTML, /id="codes-empty"[\s\S]*?Tạo mã mới/);
+  });
+  it('status banner element exists', () => {
+    assert.match(HTML, /id="status-banner"/);
+  });
+});

@@ -299,9 +299,13 @@ describe('admin.html / JS contract', () => {
 
 
 describe('admin.html / ID preservation', () => {
-  test('total ID count >= 180 (pre-work baseline ~185) and includes theme-toggle', () => {
+  test('total ID count >= 165 (post-Sprint-12.2 baseline ~171) and includes theme-toggle', () => {
+    // Sprint 12.2 carved the access-codes section out of admin.html
+    // (~20 IDs gone: gen-count, codes-tbody, perm-*, etc.). Baseline
+    // lowered from 180 → 165 to absorb the carve; further carves in
+    // Sprints 12.4-12.8 will drop this further.
     const ids = (html.match(/id=["'][^"']+["']/g) || []).length;
-    assert.ok(ids >= 180, `Found ${ids} IDs, expected ≥ 180 (pre-work baseline ~185-186)`);
+    assert.ok(ids >= 165, `Found ${ids} IDs, expected ≥ 165 (post-Sprint-12.2 baseline ~171)`);
     assert.match(html, /id=["']theme-toggle["']/, 'theme-toggle button id must exist');
   });
 

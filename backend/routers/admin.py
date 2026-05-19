@@ -326,6 +326,10 @@ class GenerateCodesRequest(BaseModel):
     permissions:   list[str]        = Field(default=["all"], description='Danh sách quyền, ví dụ ["all"] hoặc ["practice","test_part"]')
     session_limit: int | None       = Field(default=None, ge=1, description="Giới hạn số sessions (null = không giới hạn)")
     expires_at:    str | None       = Field(default=None, description="Ngày hết hạn ISO 8601 (null = không hết hạn)")
+    # Sprint 12.2 — code_type discriminator + cohort link + admin notes.
+    code_type:     str              = Field(default="mass", description='"mass" | "direct" | "staff"')
+    cohort_id:     str | None       = Field(default=None, description="UUID của lớp (bắt buộc khi code_type='direct')")
+    notes:         str | None       = None
 
 
 class PatchCodeRequest(BaseModel):
@@ -333,6 +337,28 @@ class PatchCodeRequest(BaseModel):
     session_limit: int | None       = None
     expires_at:    str | None       = None
     is_active:     bool | None      = None
+    # Sprint 12.2 — admins can flip these post-create.
+    code_type:     str | None       = None
+    cohort_id:     str | None       = None
+    notes:         str | None       = None
+
+
+_VALID_CODE_TYPES = ("mass", "direct", "staff")
+
+
+def _validate_code_type_combo(code_type: str, cohort_id: str | None) -> None:
+    """Sprint 12.2 — direct codes MUST have a cohort; mass/staff MUST NOT.
+
+    Raises HTTPException(422) on mismatch. Server-side belt to the
+    frontend's client-side guard; the DB also has a CHECK on code_type
+    domain but doesn't enforce the cross-column rule.
+    """
+    if code_type not in _VALID_CODE_TYPES:
+        raise HTTPException(422, f"code_type phải là một trong {_VALID_CODE_TYPES}, got {code_type!r}")
+    if code_type == "direct" and not cohort_id:
+        raise HTTPException(422, "code_type='direct' bắt buộc phải có cohort_id")
+    if code_type in ("mass", "staff") and cohort_id:
+        raise HTTPException(422, f"code_type={code_type!r} không được gắn cohort_id")
 
 
 class CreateTopicRequest(BaseModel):
@@ -701,12 +727,24 @@ async def generate_access_codes(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    # Sprint 12.2 — validate code_type ↔ cohort_id combo before insert.
+    _validate_code_type_combo(body.code_type, body.cohort_id)
+
     codes = [_gen_code() for _ in range(body.count)]
-    row_base: dict = {"is_used": False, "is_active": True, "permissions": body.permissions}
+    row_base: dict = {
+        "is_used": False,
+        "is_active": True,
+        "permissions": body.permissions,
+        "code_type": body.code_type,
+    }
     if body.session_limit is not None:
         row_base["session_limit"] = body.session_limit
     if body.expires_at is not None:
         row_base["expires_at"] = body.expires_at
+    if body.cohort_id is not None:
+        row_base["cohort_id"] = body.cohort_id
+    if body.notes is not None:
+        row_base["notes"] = body.notes
     rows = [{**row_base, "code": c} for c in codes]
 
     try:
@@ -727,7 +765,11 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
     try:
         codes_res = (
             supabase_admin.table("access_codes")
-            .select("id, code, is_used, is_revoked, is_active, used_by, used_at, created_at, permissions, session_limit, expires_at")
+            .select(
+                "id, code, is_used, is_revoked, is_active, used_by, used_at, "
+                "created_at, permissions, session_limit, expires_at, "
+                "code_type, cohort_id, notes"
+            )
             .order("created_at", desc=True)
             .execute()
         )
@@ -811,6 +853,28 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
             c["assigned_user_count"] = 0
             c["assigned_users"] = []
 
+    # Sprint 12.2 — enrich rows with cohort_name for the UI (direct codes
+    # display the cohort label in the table without a second round trip).
+    cohort_ids = list({c.get("cohort_id") for c in codes if c.get("cohort_id")})
+    cohort_name_by_id: dict[str, str] = {}
+    if cohort_ids:
+        try:
+            cr = (
+                supabase_admin.table("cohorts")
+                .select("id, name")
+                .in_("id", cohort_ids)
+                .execute()
+            )
+            for row in (cr.data or []):
+                cohort_name_by_id[row["id"]] = row.get("name") or ""
+        except Exception as exc:
+            logger.warning("list_access_codes: cohort lookup failed: %s", exc)
+    for c in codes:
+        if c.get("cohort_id"):
+            c["cohort_name"] = cohort_name_by_id.get(c["cohort_id"], "")
+        else:
+            c["cohort_name"] = None
+
     return codes
 
 
@@ -839,6 +903,27 @@ async def patch_access_code(
     if "session_limit" in set_fields: update["session_limit"] = body.session_limit
     if "expires_at"    in set_fields: update["expires_at"]    = body.expires_at
     if "is_active"     in set_fields: update["is_active"]     = body.is_active
+    # Sprint 12.2 — extend PATCH to allow editing code_type + cohort_id + notes.
+    if "code_type" in set_fields: update["code_type"] = body.code_type
+    if "cohort_id" in set_fields: update["cohort_id"] = body.cohort_id
+    if "notes"     in set_fields: update["notes"]     = body.notes
+
+    # If either code_type or cohort_id was touched, re-validate the combo.
+    # We need the effective post-update values, so fall back to current row
+    # values for whichever side wasn't sent.
+    if "code_type" in set_fields or "cohort_id" in set_fields:
+        existing = (
+            supabase_admin.table("access_codes")
+            .select("code_type, cohort_id")
+            .eq("id", code_id)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            raise HTTPException(404, "Access code không tồn tại")
+        eff_type   = update.get("code_type", existing.data[0].get("code_type") or "mass")
+        eff_cohort = update.get("cohort_id", existing.data[0].get("cohort_id"))
+        _validate_code_type_combo(eff_type, eff_cohort)
 
     if not update:
         raise HTTPException(400, "Không có trường nào để cập nhật")
