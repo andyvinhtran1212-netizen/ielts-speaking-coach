@@ -69,21 +69,47 @@
     return (m + '::' + s).slice(0, 500);
   }
 
+  // Sprint 12.3.1 hotfix — every console.error path below is intentional.
+  // Tester01 dogfood on 2026-05-19 surfaced Falsification #82: a bare
+  // `catch {}` in reportError + a Promise chain in _getAuthToken with no
+  // `.catch()` meant ANY failure (auth rejection, fetch CORS, JSON.stringify
+  // on a circular extra) was invisible. Listeners attached, no POST. We
+  // now leave a visible trace via console.error so future dogfood can
+  // see WHY a report didn't ship. Console writes are not user-visible
+  // alerts — they don't violate the "logging cannot escalate" contract.
+
   function _getAuthToken() {
     try {
       if (typeof window.getSupabase !== 'function') return Promise.resolve(null);
       var sb = window.getSupabase();
       if (!sb) return Promise.resolve(null);
+      // Sprint 12.3.1 — `.catch()` so a rejecting session check never
+      // bubbles out and skips the fetch in reportError.
       return sb.auth.getSession().then(function (r) {
         return r && r.data && r.data.session ? r.data.session.access_token : null;
+      }).catch(function (e) {
+        try { console.error('[error-reporter] getSession failed:', e); } catch {}
+        return null;
       });
-    } catch {
+    } catch (e) {
+      try { console.error('[error-reporter] _getAuthToken sync throw:', e); } catch {}
       return Promise.resolve(null);
     }
   }
 
   async function reportError(payload) {
-    if (!payload || !payload.message) return;
+    if (!payload) {
+      try { console.warn('[error-reporter] reportError called with no payload'); } catch {}
+      return;
+    }
+    // Defensive non-empty message guard — never bail silently. Sprint
+    // 12.3.1: tightened from `if (!payload.message) return;` so a
+    // missing/falsy message becomes "Unknown error" instead of a silent
+    // no-op (Tester01 saw zero POSTs on real errors).
+    var msg = payload.message;
+    if (msg == null || String(msg).trim() === '') msg = 'Unknown error';
+    payload.message = String(msg);
+
     var key = buildDedupKey(payload.message, payload.stack);
     if (DEDUP.has(key)) return;
     if (DEDUP.size >= MAX_DEDUP_ENTRIES) {
@@ -93,63 +119,130 @@
     }
     DEDUP.add(key);
 
-    var body = {
-      level:      payload.level || 'error',
-      source:     'frontend',
-      message:    String(payload.message).slice(0, 2000),
-      stack:      payload.stack ? String(payload.stack).slice(0, 10000) : null,
-      url:        window.location ? window.location.pathname : null,
-      user_agent: (window.navigator && window.navigator.userAgent || '').slice(0, 500),
-      request_id: REQUEST_ID,
-      extra:      payload.extra || null,
-    };
+    var body;
+    try {
+      body = {
+        level:      payload.level || 'error',
+        source:     'frontend',
+        message:    String(payload.message).slice(0, 2000),
+        stack:      payload.stack ? String(payload.stack).slice(0, 10000) : null,
+        url:        (window.location && window.location.pathname) || null,
+        user_agent: ((window.navigator && window.navigator.userAgent) || '').slice(0, 500),
+        request_id: REQUEST_ID,
+        extra:      payload.extra || null,
+      };
+    } catch (e) {
+      // Defensive: a circular `extra` or weird browser globals could
+      // throw during body assembly. Don't swallow silently — leave a
+      // trace so future dogfood spots it.
+      try { console.error('[error-reporter] body assembly failed:', e); } catch {}
+      return;
+    }
 
-    if (typeof window.fetch !== 'function') return;
+    if (typeof window.fetch !== 'function') {
+      try { console.warn('[error-reporter] window.fetch unavailable; skipping'); } catch {}
+      return;
+    }
+
+    // Resolve auth token in a separate try so its failure cannot block
+    // the fetch from firing. Anonymous reports are valid — the server
+    // accepts `user_id=NULL`.
+    var token = null;
+    try {
+      token = await _getAuthToken();
+    } catch (e) {
+      try { console.error('[error-reporter] auth resolution failed:', e); } catch {}
+      token = null;
+    }
 
     try {
       var headers = {
         'Content-Type': 'application/json',
         'X-Request-ID': REQUEST_ID,
       };
-      var token = await _getAuthToken();
       if (token) headers['Authorization'] = 'Bearer ' + token;
-      await window.fetch(_apiBase() + '/api/error-logs', {
+      var bodyJson;
+      try {
+        bodyJson = JSON.stringify(body);
+      } catch (e) {
+        try { console.error('[error-reporter] JSON.stringify failed:', e); } catch {}
+        return;
+      }
+      var resp = await window.fetch(_apiBase() + '/api/error-logs', {
         method:  'POST',
         headers: headers,
-        body:    JSON.stringify(body),
+        body:    bodyJson,
       });
-    } catch {
-      // Logging cannot escalate — swallow.
+      if (resp && !resp.ok) {
+        try { console.error('[error-reporter] POST returned', resp.status); } catch {}
+      }
+    } catch (e) {
+      // Network / CORS failure — leave a trace, then swallow. The
+      // "logging cannot escalate" contract means we don't re-throw, but
+      // silent failure was the bug we just shipped a hotfix for.
+      try { console.error('[error-reporter] fetch failed:', e); } catch {}
     }
   }
 
-  // ── window.error listener ─────────────────────────────────────────
-  window.addEventListener('error', function (event) {
-    if (!event) return;
-    var msg = event.message || (event.error && event.error.message) || 'Unknown error';
-    reportError({
+  // Pure helper exported for tests — wraps the extraction logic used by
+  // the window.error listener so we can verify defensive fallbacks at
+  // the unit layer (in addition to the vm-based dispatch integration).
+  function extractErrorPayload(event) {
+    if (!event) return null;
+    var msg =
+      (event && event.message)
+      || (event && event.error && event.error.message)
+      || (event && event.error && String(event.error))
+      || 'Unknown error';
+    if (!msg || !String(msg).trim()) msg = 'Unknown error';
+    return {
       level:   'error',
-      message: msg,
-      stack:   event.error && event.error.stack,
+      message: String(msg),
+      stack:   (event && event.error && event.error.stack) || null,
       extra: {
-        filename: event.filename || null,
-        line:     event.lineno || null,
-        col:      event.colno || null,
+        filename: (event && event.filename) || null,
+        line:     (event && event.lineno) || null,
+        col:      (event && event.colno) || null,
       },
-    });
+    };
+  }
+
+  // ── window.error listener ─────────────────────────────────────────
+  // Sprint 12.3.1 — wrapped in try/catch so a sync throw inside the
+  // handler (e.g., from a malformed event object) cannot detach the
+  // listener silently. ALSO chains `.catch()` on the reportError
+  // Promise to surface any rejection that escaped reportError's own
+  // internal handlers.
+  window.addEventListener('error', function (event) {
+    try {
+      var payload = extractErrorPayload(event);
+      if (!payload) return;
+      reportError(payload).catch(function (e) {
+        try { console.error('[error-reporter] reportError rejected (error):', e); } catch {}
+      });
+    } catch (e) {
+      try { console.error('[error-reporter] error listener crashed:', e); } catch {}
+    }
   });
 
   // ── unhandledrejection listener ───────────────────────────────────
   window.addEventListener('unhandledrejection', function (event) {
-    if (!event) return;
-    var reason = event.reason;
-    var msg = (reason && reason.message) || (typeof reason === 'string' ? reason : String(reason));
-    reportError({
-      level:   'error',
-      message: msg || 'Unhandled promise rejection',
-      stack:   reason && reason.stack,
-      extra:   { type: 'unhandled_promise_rejection' },
-    });
+    try {
+      var reason = event && event.reason;
+      var msg = (reason && reason.message)
+        || (typeof reason === 'string' ? reason : null)
+        || (reason != null ? String(reason) : null);
+      reportError({
+        level:   'error',
+        message: msg || 'Unhandled promise rejection',
+        stack:   reason && reason.stack,
+        extra:   { type: 'unhandled_promise_rejection' },
+      }).catch(function (e) {
+        try { console.error('[error-reporter] reportError rejected (rejection):', e); } catch {}
+      });
+    } catch (e) {
+      try { console.error('[error-reporter] rejection listener crashed:', e); } catch {}
+    }
   });
 
   // ── Public surface ────────────────────────────────────────────────
@@ -161,4 +254,7 @@
   };
   // Exported for tests — keep the dedup-key helper testable in isolation.
   window.aver._buildDedupKey = buildDedupKey;
+  // Sprint 12.3.1 — exported so the vm-based dispatch test can assert
+  // on the extraction logic without round-tripping through the DOM.
+  window.aver._extractErrorPayload = extractErrorPayload;
 })();
