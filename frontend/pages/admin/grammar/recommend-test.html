@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Grammar Recommendation Tester · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .grt-shell {
+      max-width: 880px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .grt-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .grt-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+
+    .grt-form {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+    }
+    .grt-form label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .grt-form textarea {
+      padding: 10px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+      min-height: 120px;
+      resize: vertical;
+    }
+    .grt-form-actions { display: flex; gap: var(--av-space-2); }
+    .btn-primary { padding: 8px 14px; border-radius: var(--av-radius-md); background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none; font-weight: var(--av-fw-semibold); cursor: pointer; font-size: var(--av-fs-sm); }
+    .btn-secondary { padding: 8px 14px; border-radius: var(--av-radius-md); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-sm); }
+
+    .grt-presets { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
+    .grt-preset {
+      padding: 4px 10px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      font-size: var(--av-fs-xs);
+      cursor: pointer;
+    }
+    .grt-preset:hover { border-color: var(--av-brand-teal-700); color: var(--av-text-primary); }
+
+    .grt-result {
+      padding: var(--av-space-4) var(--av-space-5);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .grt-result.is-no-match {
+      background: #FEF2F2;
+      border-color: #FECACA;
+    }
+    .grt-result h2 { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-2); }
+    .grt-meta {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--av-space-3);
+      font-size: var(--av-fs-sm);
+      margin-top: var(--av-space-3);
+    }
+    .grt-meta .label { font-size: var(--av-fs-xs); color: var(--av-text-muted); text-transform: uppercase; letter-spacing: var(--av-tracking-wide); display: block; }
+    .grt-meta .value { font-family: var(--av-font-mono); color: var(--av-text-primary); }
+    .grt-summary { margin-top: var(--av-space-3); color: var(--av-text-secondary); line-height: var(--av-lh-normal); font-size: var(--av-fs-sm); }
+    .grt-link { display: inline-block; margin-top: var(--av-space-3); font-size: var(--av-fs-sm); color: var(--av-brand-teal-700); text-decoration: none; }
+
+    .grt-error {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 640px) {
+      .grt-meta { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="grammar" subsection="recommend-test">
+
+    <main class="grt-shell">
+      <header class="grt-header">
+        <h1>Recommendation tester</h1>
+        <p class="subtitle">
+          Dogfood matcher: paste một issue (VN hoặc EN) → xem article nào
+          được recommend + score. Cùng matcher mà users gặp ở post-grading.
+        </p>
+      </header>
+
+      <div class="grt-form">
+        <label for="grt-issue">Issue text</label>
+        <textarea id="grt-issue" placeholder="VD: nhầm thì quá khứ và hiện tại hoàn thành khi kể câu chuyện…"></textarea>
+        <div class="grt-presets" id="grt-presets" aria-label="Mẫu sẵn">
+          <button class="grt-preset" type="button" data-preset="nhầm thì quá khứ và hiện tại hoàn thành khi kể câu chuyện">Past vs Present Perfect</button>
+          <button class="grt-preset" type="button" data-preset="phát âm âm cuối -ed và -s">Final -ed / -s pronunciation</button>
+          <button class="grt-preset" type="button" data-preset="dùng giới từ chưa chính xác">Preposition usage</button>
+          <button class="grt-preset" type="button" data-preset="câu phức và mệnh đề quan hệ">Complex sentences / relative clauses</button>
+        </div>
+        <div class="grt-form-actions">
+          <button class="btn-primary"   id="btn-match"  type="button">Tìm article</button>
+          <button class="btn-secondary" id="btn-clear"  type="button">Xoá</button>
+        </div>
+      </div>
+
+      <div class="grt-error" id="grt-error" hidden></div>
+
+      <div class="grt-result" id="grt-result" hidden>
+        <h2 id="grt-title">—</h2>
+        <div class="grt-meta">
+          <div>
+            <span class="label">Slug</span>
+            <span class="value" id="grt-slug">—</span>
+          </div>
+          <div>
+            <span class="label">Category</span>
+            <span class="value" id="grt-category">—</span>
+          </div>
+          <div>
+            <span class="label">Score</span>
+            <span class="value" id="grt-score">—</span>
+          </div>
+        </div>
+        <p class="grt-summary" id="grt-summary"></p>
+        <a class="grt-link" id="grt-link" target="_blank" rel="noopener">Mở article trên student view ↗</a>
+      </div>
+
+      <div class="grt-result is-no-match" id="grt-no-match" hidden>
+        <h2>Không tìm thấy match</h2>
+        <p style="margin: 0; font-size: var(--av-fs-sm); color: #991B1B;">
+          Matcher trả về null cho issue này. Có thể issue dưới threshold hoặc
+          không có mapping phù hợp trong <code>feedback-anchor-mapping.yaml</code>.
+        </p>
+      </div>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-grammar-recommend.js"></script>
+</body>
+</html>

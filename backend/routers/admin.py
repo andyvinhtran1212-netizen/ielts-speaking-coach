@@ -3220,3 +3220,286 @@ async def admin_delete_lemma_override(
     except Exception as exc:
         logger.warning("[admin] reload_overrides failed: %s", exc)
     return None
+
+
+# ── Sprint 12.7 — Grammar admin (hybrid file-based pattern) ────────────────────
+#
+# Grammar articles live as Markdown files under
+# `backend/content/<category>/<slug>.md` (Discovery #73 inventory). They are
+# loaded into memory at startup via services.grammar_content.GrammarContentService
+# and served read-only via /api/grammar/*. Andy authors articles in repo + git
+# (NOT via admin form), so this surface is intentionally read-only:
+#
+#   - GET /admin/grammar/articles   — list with file metadata + DB analytics
+#   - GET /admin/grammar/analytics  — aggregate views/saves + zero-view list
+#   - POST /admin/grammar/recommend-test — preview find_best_match() on a
+#     synthetic issue string (dogfood the recommendation router before users
+#     see it).
+#
+# No write endpoints. No `.md` upload. No DB-backed article CRUD. The
+# commit-triggers-Vercel-deploy workflow already gives Andy a "publish"
+# pipeline.
+
+
+@router.get("/grammar/articles")
+async def admin_list_grammar_articles(
+    category: str | None = Query(default=None, description="filter to a single category slug"),
+    search: str | None = Query(default=None, description="case-insensitive substring on title"),
+    authorization: str | None = Header(default=None),
+):
+    """List all grammar articles with view + save counts.
+
+    Source-of-truth: the in-memory `grammar_service.articles_by_slug`
+    (loaded from `backend/content/<category>/<slug>.md`). View/save
+    counts come from `article_views` and `saved_articles` aggregated
+    per slug.
+
+    Filtering happens client-side over the small (<200 row) result set
+    so we don't have to thread a SQL WHERE clause through the
+    grammar_service in-memory layout.
+    """
+    await require_admin(authorization)
+
+    try:
+        from services.grammar_content import grammar_service
+    except Exception as exc:
+        raise HTTPException(500, f"grammar service unavailable: {exc}")
+
+    articles = list((grammar_service.articles_by_slug or {}).values())
+
+    if category:
+        articles = [a for a in articles if a.get("category") == category]
+    if search:
+        needle = search.strip().lower()
+        articles = [a for a in articles
+                    if needle in (a.get("title") or "").lower()
+                    or needle in (a.get("slug") or "").lower()]
+
+    # Collect slugs we need to hydrate with analytics counts.
+    slugs = [a["slug"] for a in articles if a.get("slug")]
+
+    view_count: dict[str, int] = {}
+    save_count: dict[str, int] = {}
+    if slugs:
+        try:
+            v_res = (
+                supabase_admin.table("article_views")
+                .select("article_slug, view_count")
+                .in_("article_slug", slugs)
+                .execute()
+            )
+            for row in (v_res.data or []):
+                s = row.get("article_slug")
+                if not s:
+                    continue
+                view_count[s] = view_count.get(s, 0) + int(row.get("view_count") or 0)
+        except Exception as exc:
+            logger.warning("[admin] grammar view aggregate failed: %s", exc)
+        try:
+            s_res = (
+                supabase_admin.table("saved_articles")
+                .select("article_slug")
+                .in_("article_slug", slugs)
+                .execute()
+            )
+            for row in (s_res.data or []):
+                s = row.get("article_slug")
+                if not s:
+                    continue
+                save_count[s] = save_count.get(s, 0) + 1
+        except Exception as exc:
+            logger.warning("[admin] grammar save aggregate failed: %s", exc)
+
+    items = []
+    for a in articles:
+        slug = a.get("slug") or ""
+        items.append({
+            "slug":          slug,
+            "title":         a.get("title"),
+            "category":      a.get("category"),
+            "summary":       a.get("summary"),
+            "band":          a.get("band"),
+            "order":         a.get("order"),
+            "tags":          a.get("tags") or [],
+            "view_count":    view_count.get(slug, 0),
+            "save_count":    save_count.get(slug, 0),
+            "source_path":   f"backend/content/{a.get('category', '')}/{slug}.md",
+        })
+
+    items.sort(key=lambda r: (r.get("category") or "", r.get("order") or 999, r.get("title") or ""))
+
+    categories = sorted({a.get("category") for a in articles if a.get("category")})
+
+    return {
+        "items":      items,
+        "total":      len(items),
+        "categories": categories,
+    }
+
+
+@router.get("/grammar/articles/{slug}/preview")
+async def admin_preview_grammar_article(
+    slug: str,
+    authorization: str | None = Header(default=None),
+):
+    """Return the full rendered article (HTML body + TOC + frontmatter)
+    so the admin browser can show an inline preview without leaving
+    /pages/admin/grammar/articles.html."""
+    await require_admin(authorization)
+
+    try:
+        from services.grammar_content import grammar_service
+    except Exception as exc:
+        raise HTTPException(500, f"grammar service unavailable: {exc}")
+
+    article = grammar_service.get_article_by_slug(slug)
+    if not article:
+        raise HTTPException(404, f"Article '{slug}' not found")
+    return article
+
+
+@router.get("/grammar/analytics")
+async def admin_grammar_analytics(
+    days: int = Query(default=7, ge=1, le=90),
+    authorization: str | None = Header(default=None),
+):
+    """Aggregate views + saves for the admin grammar analytics page.
+
+    Returns:
+      - views_total              (sum of view_count across article_views)
+      - views_recent             (sum where last_viewed_at >= now-days)
+      - saves_total              (count of saved_articles rows)
+      - top_viewed[]             (top 20 by total views)
+      - top_saved[]              (top 5 by save count)
+      - zero_view_slugs[]        (article slugs with NO view rows — content gap)
+      - articles_total           (total .md files loaded)
+      - days                     (window used for views_recent)
+    """
+    await require_admin(authorization)
+
+    try:
+        from services.grammar_content import grammar_service
+    except Exception as exc:
+        raise HTTPException(500, f"grammar service unavailable: {exc}")
+
+    all_slugs = set((grammar_service.articles_by_slug or {}).keys())
+    title_by_slug = {
+        s: (a.get("title") or s)
+        for s, a in (grammar_service.articles_by_slug or {}).items()
+    }
+    cat_by_slug = {
+        s: (a.get("category") or "")
+        for s, a in (grammar_service.articles_by_slug or {}).items()
+    }
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    views_per_slug: dict[str, int] = {}
+    views_recent_per_slug: dict[str, int] = {}
+    try:
+        # Pull all view rows. Set is small (~thousands at most for current scale)
+        # so a single fetch + Python aggregation is cheaper than a SQL view.
+        v_res = (
+            supabase_admin.table("article_views")
+            .select("article_slug, view_count, last_viewed_at")
+            .execute()
+        )
+        for row in (v_res.data or []):
+            s = row.get("article_slug")
+            if not s:
+                continue
+            n = int(row.get("view_count") or 0)
+            views_per_slug[s] = views_per_slug.get(s, 0) + n
+            last = row.get("last_viewed_at") or ""
+            if last >= cutoff:
+                views_recent_per_slug[s] = views_recent_per_slug.get(s, 0) + n
+    except Exception as exc:
+        logger.warning("[admin] grammar views fetch failed: %s", exc)
+
+    saves_per_slug: dict[str, int] = {}
+    try:
+        s_res = (
+            supabase_admin.table("saved_articles")
+            .select("article_slug")
+            .execute()
+        )
+        for row in (s_res.data or []):
+            s = row.get("article_slug")
+            if not s:
+                continue
+            saves_per_slug[s] = saves_per_slug.get(s, 0) + 1
+    except Exception as exc:
+        logger.warning("[admin] grammar saves fetch failed: %s", exc)
+
+    def _decorate(slug: str, count: int) -> dict:
+        return {
+            "slug":     slug,
+            "title":    title_by_slug.get(slug, slug),
+            "category": cat_by_slug.get(slug, ""),
+            "count":    count,
+        }
+
+    top_viewed = sorted(views_per_slug.items(), key=lambda kv: kv[1], reverse=True)[:20]
+    top_saved  = sorted(saves_per_slug.items(), key=lambda kv: kv[1], reverse=True)[:5]
+
+    seen_slugs = set(views_per_slug.keys())
+    zero_view_slugs = sorted(all_slugs - seen_slugs)[:30]
+
+    return {
+        "views_total":      sum(views_per_slug.values()),
+        "views_recent":     sum(views_recent_per_slug.values()),
+        "saves_total":      sum(saves_per_slug.values()),
+        "articles_total":   len(all_slugs),
+        "top_viewed":       [_decorate(s, c) for s, c in top_viewed],
+        "top_saved":        [_decorate(s, c) for s, c in top_saved],
+        "zero_view_slugs":  [_decorate(s, 0) for s in zero_view_slugs],
+        "zero_view_total":  len(all_slugs - seen_slugs),
+        "days":             days,
+    }
+
+
+class GrammarRecommendPayload(BaseModel):
+    issue: str = Field(..., min_length=1, max_length=2000)
+
+
+@router.post("/grammar/recommend-test")
+async def admin_grammar_recommend_test(
+    payload: GrammarRecommendPayload,
+    authorization: str | None = Header(default=None),
+):
+    """Dogfood tool — run the live grammar recommendation matcher
+    against a synthetic issue string.
+
+    Wraps `services.grammar_content.grammar_service.find_best_match()` —
+    the same function that powers the post-grading recommendation
+    surface. Returns the matched article + the matcher's score so Andy
+    can preview quality before users see it.
+    """
+    await require_admin(authorization)
+
+    try:
+        from services.grammar_content import grammar_service
+    except Exception as exc:
+        raise HTTPException(500, f"grammar service unavailable: {exc}")
+
+    issue = payload.issue.strip()
+    if not issue:
+        raise HTTPException(400, "issue must be non-empty")
+
+    match = grammar_service.find_best_match(issue)
+    if not match:
+        return {"issue": issue, "match": None}
+
+    full = grammar_service.get_article_by_slug(match.get("slug") or "")
+    return {
+        "issue": issue,
+        "match": {
+            "slug":     match.get("slug"),
+            "category": match.get("category"),
+            "title":    match.get("title"),
+            "score":    match.get("score"),
+            "summary":  (full or {}).get("summary"),
+            "url":      f"/pages/grammar-article.html?slug={match.get('slug')}",
+        },
+    }
+
