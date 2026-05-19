@@ -39,17 +39,14 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 
 // Sprint 7.13 milestone: ALL 18 chrome pages migrated to <aver-chrome>
 // (5 in Sprint 7.12 + 13 in Sprint 7.13). Sprint 12.1 extends the
-// migration to the admin surface — the 8 writing + students pages now
-// embed <aver-admin-chrome>, so their theme toggle markup lives in
-// that component's shadow root (not the page HTML). This file covers
-// the pages still on inline chrome — marketing (2) + the legacy
-// monolith `admin.html` (1, scheduled for carve in Sprint 12.4-12.8).
+// migration to the admin surface. Sprint 12.8 cluster closure flips the
+// legacy monolith `admin.html` itself to a pure redirect — its theme
+// toggle is gone with the rest of the chrome. The roster here covers
+// only the pages still rendering inline chrome (marketing).
 const REDESIGNED_PAGES = [
   // Marketing (out of scope for chrome unification)
   'frontend/index.html',
   'frontend/pricing.html',
-  // Legacy admin monolith — still inline chrome until cluster closes
-  'frontend/admin.html',
 ];
 
 // Variants of the BEM drift that surfaced across Phase 1+2 pages. Any

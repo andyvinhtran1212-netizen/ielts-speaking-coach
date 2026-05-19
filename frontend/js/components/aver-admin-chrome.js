@@ -49,7 +49,10 @@ const VALID_ACTIVE = [
   'system',
 ];
 
-const PHASE_B_SECTIONS = new Set(['cohorts', 'usage', 'system']);
+// Sprint 12.8 graduated `system` (AI Usage + Alerts now LIVE).
+// `cohorts` + `usage` remain Phase B placeholders until the cohort
+// management UI cluster lands.
+const PHASE_B_SECTIONS = new Set(['cohorts', 'usage']);
 
 const SIDEBAR_LS_KEY = 'av-admin-sidebar-collapsed';
 
@@ -373,8 +376,21 @@ const NAV_GROUPS = [
           { slug: 'mini-test', label: 'Mini Test',        href: '/pages/admin/listening/mini-test.html' },
         ],
       },
-      { section: 'vocab',     label: 'Vocab',     href: '/pages/admin/vocab/index.html',     icon: 'book' },
-      { section: 'grammar',   label: 'Grammar',   href: '/pages/admin/grammar/index.html',   icon: 'edit' },
+      { section: 'vocab',     label: 'Vocab',     href: '/pages/admin/vocab/index.html',     icon: 'book',
+        subsections: [
+          { slug: 'stats',         label: 'Stats',           href: '/pages/admin/vocab/stats.html' },
+          { slug: 'd1-curation',   label: 'D1 Curation',     href: '/pages/admin/vocab/d1-curation.html' },
+          { slug: 'lemmas',        label: 'Lemma Overrides', href: '/pages/admin/vocab/lemmas.html' },
+          { slug: 'exercises',     label: 'D1 Exercises',    href: '/pages/admin/vocab/exercises.html' },
+        ],
+      },
+      { section: 'grammar',   label: 'Grammar',   href: '/pages/admin/grammar/index.html',   icon: 'edit',
+        subsections: [
+          { slug: 'articles',         label: 'Articles',          href: '/pages/admin/grammar/articles.html' },
+          { slug: 'analytics',        label: 'Analytics',         href: '/pages/admin/grammar/analytics.html' },
+          { slug: 'recommend-test',   label: 'Recommendation tester', href: '/pages/admin/grammar/recommend-test.html' },
+        ],
+      },
     ],
   },
   {
@@ -396,7 +412,12 @@ const NAV_GROUPS = [
     title: null,
     items: [
       { section: 'error-logs', label: 'Báo lỗi',   href: '/pages/admin/error-logs/index.html', icon: 'alert' },
-      { section: 'system',     label: 'Hệ thống',  href: '/pages/admin/system/index.html',      icon: 'settings', phaseB: true },
+      { section: 'system',     label: 'Hệ thống',  href: '/pages/admin/system/index.html',      icon: 'settings',
+        subsections: [
+          { slug: 'ai-usage', label: 'AI Usage', href: '/pages/admin/system/ai-usage.html' },
+          { slug: 'alerts',   label: 'Alerts',   href: '/pages/admin/system/alerts.html' },
+        ],
+      },
     ],
   },
 ];

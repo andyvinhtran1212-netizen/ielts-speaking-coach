@@ -201,56 +201,25 @@ describe('Sprint 12.5 — topics JS controller', () => {
 
 /* ── admin.html monolith — carve banners + dead-JS guards ────── */
 
-describe('Sprint 12.5 — admin.html carved panels still ship migration banners', () => {
-  it('panel-topics carries banner linking to /pages/admin/speaking/topics.html', () => {
-    // The Sprint-12.5 carve replaces the live markup with a banner.
-    // Look for both the banner copy and the destination link.
-    assert.match(ADMIN_LEGACY, /id=["']panel-topics["']/);
-    assert.match(ADMIN_LEGACY, /Topics \+ Questions đã chuyển sang IA mới/);
-    assert.match(
-      ADMIN_LEGACY,
-      /href=["']\/pages\/admin\/speaking\/topics\.html["']/,
-    );
+describe('Sprint 12.5 — speaking carve survives Sprint 12.8 monolith closure', () => {
+  // Sprint 12.8 flipped admin.html to a pure redirect. The old banner
+  // assertions (panel-topics / panel-sessions banner markup, dead-JS
+  // null guards) are obsolete — those panels no longer exist. What we
+  // still want to pin is that the speaking IA pages themselves are
+  // intact (covered by the suites above) AND that the now-redirected
+  // admin.html doesn't re-introduce the carved markup.
+  it('admin.html no longer carries panel-topics / panel-sessions IDs', () => {
+    assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-topics["']/);
+    assert.doesNotMatch(ADMIN_LEGACY, /id=["']panel-sessions["']/);
   });
 
-  it('panel-sessions carries banner linking to /pages/admin/speaking/sessions.html', () => {
-    assert.match(ADMIN_LEGACY, /id=["']panel-sessions["']/);
-    assert.match(ADMIN_LEGACY, /Sessions Speaking đã chuyển sang IA mới/);
-    assert.match(
-      ADMIN_LEGACY,
-      /href=["']\/pages\/admin\/speaking\/sessions\.html["']/,
-    );
-  });
-
-  it('dead-JS DOM null-guards prevent 12.3 reporter noise on carved tabs', () => {
-    // loadTopics() guards on #topics-loading; loadSessions() guards on
-    // #sessions-loading. If either guard is removed, clicking a carved
-    // tab in legacy admin.html would throw and the reporter would log
-    // a phantom error.
-    assert.match(
-      ADMIN_LEGACY,
-      /if\s*\(\s*!document\.getElementById\(\s*['"]topics-loading['"]\s*\)\s*\)\s*return/,
-      'loadTopics() missing #topics-loading null-guard',
-    );
-    assert.match(
-      ADMIN_LEGACY,
-      /loadEl\s*=\s*document\.getElementById\(\s*['"]sessions-loading['"]\s*\)[\s\S]*?if\s*\(\s*!loadEl\s*\)\s*return/,
-      'window.loadSessions missing #sessions-loading null-guard',
-    );
+  it('admin.html redirects to the new IA (where Speaking lives)', () => {
+    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
   });
 });
 
-describe('Sprint 12.5 regression — other monolith panels still intact', () => {
-  it('vocab_monitor / vocab_exercises panels still render (Sprint 12.6 target)', () => {
-    assert.match(ADMIN_LEGACY, /id=["']panel-vocab_monitor["']/);
-    assert.match(ADMIN_LEGACY, /id=["']panel-vocab_exercises["']/);
-  });
-
-  it('flashcards panel still renders (Sprint 12.6 target)', () => {
-    assert.match(ADMIN_LEGACY, /id=["']panel-flashcards["']/);
-  });
-
-  it('alerts panel still renders (AI Usage carve = Sprint 12.8)', () => {
-    assert.match(ADMIN_LEGACY, /id=["']panel-alerts["']/);
-  });
-});
+// Sprint 12.5 regression block on still-monolith panels (vocab_monitor /
+// vocab_exercises / flashcards / alerts) intentionally retired: those
+// surfaces all carved out between Sprints 12.6 and 12.8. Per-section
+// closure pins now live in admin-vocab-extract / admin-grammar-extract
+// / admin-monolith-redesign tests.

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>AI Usage · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .aiu-shell {
+      max-width: 1280px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .aiu-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: var(--av-space-3); }
+    .aiu-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .aiu-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .aiu-period { display: flex; gap: var(--av-space-2); align-items: center; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .aiu-period select {
+      padding: 6px 10px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .btn-secondary { padding: 8px 14px; border-radius: var(--av-radius-md); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-sm); }
+
+    .aiu-section-title {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-semibold);
+      margin: var(--av-space-3) 0 var(--av-space-1);
+    }
+
+    .aiu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--av-space-3);
+    }
+    .aiu-tile {
+      display: flex; flex-direction: column;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .aiu-tile .label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .aiu-tile .value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+      margin-top: var(--av-space-1);
+    }
+    .aiu-tile .hint { font-size: var(--av-fs-xs); color: var(--av-text-muted); margin-top: var(--av-space-1); }
+
+    .aiu-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.aiu-table { width: 100%; border-collapse: collapse; }
+    table.aiu-table th, table.aiu-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+    }
+    table.aiu-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    table.aiu-table tr:last-child td { border-bottom: none; }
+    .aiu-num { font-family: var(--av-font-mono); text-align: right; }
+
+    .aiu-note {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      font-style: italic;
+    }
+    .aiu-error {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;
+      font-size: var(--av-fs-sm);
+    }
+    .aiu-loading, .aiu-empty {
+      padding: var(--av-space-6); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm);
+    }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="system" subsection="ai-usage">
+
+    <main class="aiu-shell">
+      <header class="aiu-header">
+        <div>
+          <h1>AI Usage</h1>
+          <p class="subtitle">
+            Chi phí AI ước tính theo cửa sổ thời gian. Cross-skill: Claude
+            (Speaking + Writing grading), Gemini (vocab + topics), Whisper
+            (STT), ElevenLabs TTS.
+          </p>
+        </div>
+        <div class="aiu-period">
+          Window:
+          <select id="aiu-days">
+            <option value="1">Hôm nay</option>
+            <option value="7" selected>7 ngày qua</option>
+            <option value="30">30 ngày qua</option>
+            <option value="90">90 ngày qua</option>
+            <option value="">Tất cả thời gian</option>
+          </select>
+          <button class="btn-secondary" id="btn-refresh" type="button">↺ Tải lại</button>
+        </div>
+      </header>
+
+      <div class="aiu-error" id="aiu-error" hidden></div>
+      <div class="aiu-loading" id="aiu-loading" hidden>Đang tải…</div>
+
+      <h2 class="aiu-section-title">Tổng chi phí ước tính</h2>
+      <div class="aiu-grid">
+        <div class="aiu-tile">
+          <span class="label">Tổng cộng</span>
+          <span class="value" data-stat="total_cost">—</span>
+          <span class="hint" data-stat="total_calls">—</span>
+        </div>
+        <div class="aiu-tile">
+          <span class="label">Claude</span>
+          <span class="value" data-stat="claude_cost">—</span>
+          <span class="hint" data-stat="claude_calls">—</span>
+        </div>
+        <div class="aiu-tile">
+          <span class="label">Gemini</span>
+          <span class="value" data-stat="gemini_cost">—</span>
+          <span class="hint" data-stat="gemini_calls">—</span>
+        </div>
+        <div class="aiu-tile">
+          <span class="label">Whisper + TTS</span>
+          <span class="value" data-stat="other_cost">—</span>
+          <span class="hint" data-stat="other_calls">—</span>
+        </div>
+      </div>
+
+      <h2 class="aiu-section-title">Chi phí theo người dùng</h2>
+      <div class="aiu-empty" id="users-empty" hidden>Chưa có dữ liệu sử dụng AI.</div>
+      <div class="aiu-table-wrap" id="users-wrap" hidden>
+        <table class="aiu-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th class="aiu-num">Claude</th>
+              <th class="aiu-num">Gemini</th>
+              <th class="aiu-num">Whisper</th>
+              <th class="aiu-num">TTS</th>
+              <th class="aiu-num">Tổng</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+
+      <p class="aiu-note">
+        * Chi phí là ước tính dựa trên giá niêm yết của từng provider.
+        Số liệu thực tế có thể khác theo billing cycle.
+      </p>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-ai-usage.js"></script>
+</body>
+</html>

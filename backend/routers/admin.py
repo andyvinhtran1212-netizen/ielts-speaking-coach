@@ -593,6 +593,53 @@ async def _generate_questions_for_topic(
 
 # ── GET /admin/users ───────────────────────────────────────────────────────────
 
+
+_VALID_ROLES = {"admin", "instructor", "student"}
+
+
+class UserRolePayload(BaseModel):
+    role: str = Field(..., description=f"new role (one of {sorted(_VALID_ROLES)})")
+
+
+@router.patch("/users/{user_id}/role")
+async def admin_set_user_role(
+    user_id: str,
+    payload: UserRolePayload,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 12.8 — change a user's role.
+
+    Admin-only. Self-demotion is blocked so an admin can't accidentally
+    lock themselves out of the panel. Role values are constrained to a
+    small allow-list so a typo doesn't quietly write garbage.
+    """
+    admin_user = await require_admin(authorization)
+    role = (payload.role or "").strip().lower()
+    if role not in _VALID_ROLES:
+        raise HTTPException(
+            400,
+            f"Invalid role '{payload.role}'. Allowed: {sorted(_VALID_ROLES)}",
+        )
+
+    admin_id = admin_user.get("id") if isinstance(admin_user, dict) else None
+    if admin_id and admin_id == user_id and role != "admin":
+        raise HTTPException(400, "Không thể tự hạ quyền admin của chính mình.")
+
+    try:
+        res = (
+            supabase_admin.table("users")
+            .update({"role": role})
+            .eq("id", user_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Role update failed: {exc}")
+
+    if not res.data:
+        raise HTTPException(404, "User not found")
+    return {"ok": True, "id": user_id, "role": role}
+
+
 @router.get("/users")
 async def list_users(authorization: str | None = Header(default=None)):
     """List all users with today's session count appended."""
