@@ -29,68 +29,310 @@
 
   <style>
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
-    .placeholder-shell {
-      max-width: 760px; margin: 0 auto;
-      padding: var(--av-space-2) var(--av-space-2) var(--av-space-8);
-      display: flex; flex-direction: column; gap: var(--av-space-6);
+    .ac-shell {
+      max-width: 1180px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
     }
-    .placeholder-header h1 {
-      font-size: var(--av-fs-2xl); margin-bottom: var(--av-space-2);
+    .ac-header h1 {
+      font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold);
+      margin-bottom: var(--av-space-1);
     }
-    .placeholder-header .subtitle {
+    .ac-header .subtitle {
       color: var(--av-text-secondary);
-      font-size: var(--av-fs-base);
-      line-height: var(--av-lh-normal);
-    }
-    .placeholder-banner {
-      padding: var(--av-space-4) var(--av-space-6);
-      background: var(--av-surface-sunken);
-      border: 1px dashed var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      color: var(--av-text-secondary);
-      line-height: var(--av-lh-relaxed);
-    }
-    .placeholder-banner strong { color: var(--av-text-primary); }
-    .placeholder-banner code {
-      font-family: var(--av-font-mono);
       font-size: var(--av-fs-sm);
-      padding: 1px 5px;
-      background: var(--av-surface-card);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-sm);
     }
-    .placeholder-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--av-space-2);
-      padding: var(--av-space-2) var(--av-space-4);
+    .ac-toolbar {
+      display: flex; gap: var(--av-space-3);
+      align-items: flex-end; flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .ac-filter-bar { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .ac-filter {
+      display: flex; flex-direction: column; gap: 4px;
+      min-width: 160px;
+    }
+    .ac-filter label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    .ac-filter select {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+    }
+    .btn-primary {
+      padding: var(--av-space-3) var(--av-space-5);
       border-radius: var(--av-radius-md);
       background: var(--av-brand-teal-700);
       color: var(--av-text-on-primary);
-      text-decoration: none;
-      font-weight: var(--av-fw-semibold);
+      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
       font-size: var(--av-fs-sm);
     }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
+    .btn-secondary {
+      padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); cursor: pointer;
+      font-size: var(--av-fs-sm);
+    }
+    .btn-danger {
+      padding: 4px 10px; border-radius: var(--av-radius-sm);
+      background: transparent;
+      color: var(--av-color-error, var(--av-text-secondary));
+      border: 1px solid var(--av-border-default);
+      cursor: pointer; font-size: var(--av-fs-xs);
+    }
+
+    .ac-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.ac-table { width: 100%; border-collapse: collapse; }
+    table.ac-table th, table.ac-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+    }
+    table.ac-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    table.ac-table td.code-cell { font-family: var(--av-font-mono); }
+    table.ac-table tr:last-child td { border-bottom: none; }
+
+    .ac-chip {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      font-weight: var(--av-fw-medium);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .ac-chip.is-direct { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
+
+    .ac-empty, .ac-loading {
+      padding: var(--av-space-8);
+      text-align: center;
+      color: var(--av-text-muted);
+      font-size: var(--av-fs-sm);
+    }
+
+    .ac-status-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+
+    /* ── Modal ─────────────────────────────────────────────────── */
+    .ac-modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--av-space-4);
+    }
+    .ac-modal {
+      background: var(--av-surface-card);
+      border-radius: var(--av-radius-lg);
+      border: 1px solid var(--av-border-default);
+      max-width: 560px; width: 100%;
+      max-height: 90vh; overflow-y: auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .ac-modal h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); }
+    .ac-field { display: flex; flex-direction: column; gap: 4px; }
+    .ac-field > label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    .ac-field input, .ac-field select, .ac-field textarea {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .ac-field textarea { min-height: 60px; resize: vertical; }
+    .ac-radio-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .ac-radio-row label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      cursor: pointer;
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+      text-transform: none; letter-spacing: normal;
+    }
+    .ac-radio-row input { margin: 0; }
+    .ac-perms { display: flex; flex-direction: column; gap: 4px; }
+    .ac-perms label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-primary);
+      text-transform: none; letter-spacing: normal;
+    }
+    .ac-modal-actions {
+      display: flex; gap: var(--av-space-2); justify-content: flex-end;
+    }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body class="av-page">
   <aver-admin-chrome active="access-codes">
 
-    <div class="placeholder-shell">
-      <header class="placeholder-header">
+    <main class="ac-shell">
+      <header class="ac-header">
         <h1>Mã kích hoạt</h1>
-        <p class="subtitle">Tạo + quản lý access code, phân loại mass/direct, gán cohort.</p>
+        <p class="subtitle">
+          Quản lý mã đại trà, mã trực tiếp theo lớp, và mã staff. Tạo
+          mới, thu hồi, gán quyền và lớp.
+        </p>
       </header>
 
-      <div class="placeholder-banner">
-        <p><strong>Sắp ra mắt.</strong> Sprint 12.2 sẽ extract access codes ra khỏi <code>admin.html</code> monolith.</p>
-        <p>Trong khi chờ, sử dụng <a href="/admin.html"><code>/admin.html</code></a> hoặc các trang đã ship khác qua sidebar bên trái.</p>
+      <div class="ac-status-banner" id="status-banner" hidden></div>
+
+      <div class="ac-toolbar">
+        <div class="ac-filter-bar">
+          <div class="ac-filter">
+            <label for="filter-type">Loại mã</label>
+            <select id="filter-type">
+              <option value="">Tất cả</option>
+              <option value="mass">Đại trà</option>
+              <option value="direct">Trực tiếp</option>
+              <option value="staff">Nhân viên</option>
+            </select>
+          </div>
+          <div class="ac-filter">
+            <label for="filter-status">Trạng thái</label>
+            <select id="filter-status">
+              <option value="">Tất cả</option>
+              <option value="active">Đang hoạt động</option>
+              <option value="revoked">Đã thu hồi</option>
+            </select>
+          </div>
+          <div class="ac-filter">
+            <label for="filter-cohort">Lớp</label>
+            <select id="filter-cohort">
+              <option value="">Tất cả</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" id="btn-create" type="button">+ Tạo mã mới</button>
       </div>
 
-      <a class="placeholder-cta" href="/pages/admin/index.html">← Quay lại Tổng quan</a>
+      <div class="ac-loading" id="codes-loading">Đang tải…</div>
+      <div class="ac-empty" id="codes-empty" hidden>
+        Chưa có mã. Bấm "Tạo mã mới" ở trên để bắt đầu.
+      </div>
+
+      <div class="ac-table-wrap" id="codes-table-wrap" hidden>
+        <table class="ac-table">
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Loại</th>
+              <th>Lớp</th>
+              <th>Trạng thái</th>
+              <th>Giới hạn</th>
+              <th>Hết hạn</th>
+              <th>Ghi chú</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="codes-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- ── Create modal ─────────────────────────────────────────── -->
+    <div class="ac-modal-backdrop" id="modal-backdrop" hidden>
+      <div class="ac-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title">Tạo mã mới</h2>
+
+        <div class="ac-field">
+          <label for="m-count">Số lượng</label>
+          <input id="m-count" type="number" min="1" max="100" value="1" />
+        </div>
+
+        <div class="ac-field">
+          <label>Loại mã</label>
+          <div class="ac-radio-row">
+            <label><input type="radio" name="m-type" value="mass" checked /> Đại trà</label>
+            <label><input type="radio" name="m-type" value="direct" /> Trực tiếp</label>
+            <label><input type="radio" name="m-type" value="staff" /> Nhân viên</label>
+          </div>
+        </div>
+
+        <div class="ac-field" id="m-cohort-row" hidden>
+          <label for="m-cohort">Lớp (bắt buộc cho mã Trực tiếp)</label>
+          <select id="m-cohort">
+            <option value="">— Chọn lớp —</option>
+          </select>
+        </div>
+
+        <div class="ac-field">
+          <label>Quyền</label>
+          <div class="ac-perms" id="m-perms">
+            <label><input type="checkbox" value="all" checked /> Tất cả</label>
+            <label><input type="checkbox" value="writing" /> Writing</label>
+            <label><input type="checkbox" value="practice_single" /> Luyện tập đơn</label>
+            <label><input type="checkbox" value="practice_part" /> Luyện theo Part</label>
+            <label><input type="checkbox" value="practice_full" /> Full Test</label>
+            <label><input type="checkbox" value="admin" /> Admin</label>
+          </div>
+        </div>
+
+        <div class="ac-field">
+          <label for="m-limit">Giới hạn sessions (để trống = không giới hạn)</label>
+          <input id="m-limit" type="number" min="1" placeholder="VD: 30" />
+        </div>
+
+        <div class="ac-field">
+          <label for="m-expires">Hết hạn (để trống = không hết hạn)</label>
+          <input id="m-expires" type="date" />
+        </div>
+
+        <div class="ac-field">
+          <label for="m-notes">Ghi chú</label>
+          <textarea id="m-notes" placeholder="Ví dụ: Lớp tháng 5 / chương trình staff"></textarea>
+        </div>
+
+        <div class="ac-status-banner" id="modal-error" hidden></div>
+
+        <div class="ac-modal-actions">
+          <button class="btn-secondary" id="btn-cancel" type="button">Hủy</button>
+          <button class="btn-primary" id="btn-submit" type="button">Tạo</button>
+        </div>
+      </div>
     </div>
 
   </aver-admin-chrome>
+
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script type="module" src="/js/admin-access-codes.js"></script>
 </body>
 </html>

@@ -13,6 +13,7 @@ from routers.grading import router as grading_router
 from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
+from routers.cohorts import router as cohorts_router
 from routers.admin_writing import router as admin_writing_router
 from routers.admin_writing_prompts import router as admin_writing_prompts_router
 from routers.admin_writing_assignments import router as admin_writing_assignments_router
@@ -102,6 +103,7 @@ app.include_router(tts_router)
 # system deps are installed. To fully re-enable: see routers/export.py.
 app.include_router(export_router)
 app.include_router(admin_router)
+app.include_router(cohorts_router)
 app.include_router(admin_writing_router)
 app.include_router(admin_writing_prompts_router)
 app.include_router(admin_writing_assignments_router)

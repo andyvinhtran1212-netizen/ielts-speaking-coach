@@ -12,8 +12,10 @@
 
 Inventory carried out by:
 
-1. Direct file glob across `frontend/pages/admin-*.html` (12 pages) +
-   `frontend/admin.html` (1 hub) = **13 admin pages total**.
+1. Direct file glob across `frontend/pages/admin-*.html` (13 pages) +
+   `frontend/admin.html` (1 hub) = **14 admin pages total** (corrected
+   from "13" by Sprint 12.2 audit fold-in F1 — the §1 inventory table
+   below has 14 rows; the prior narrative under-counted by 1).
 2. Direct file glob across `backend/routers/admin*.py` (6 files) + admin
    sub-router inside `backend/routers/listening.py` (1 router) +
    verification grep across the 6 router files for `@router.<method>`
@@ -29,14 +31,14 @@ Inventory carried out by:
 
 ---
 
-## 1. Frontend admin pages inventory (13 pages)
+## 1. Frontend admin pages inventory (14 pages)
 
 ### 1.1 Per-page table
 
 | # | File | Title (vi) | Purpose | Endpoints called | Arrived from |
 |---|---|---|---|---|---|
 | 1 | `frontend/admin.html` | Admin — IELTS Speaking Coach | Monolithic admin hub: Speaking sessions list + filters, access codes management, topics + question library, AI usage, vocab stats, flashcards stats, alerts | `/admin/users`, `/admin/stats`, `/admin/access-codes` (GET/POST/PATCH/DELETE), `/admin/topics` + `/admin/topics/{id}/questions` (full CRUD + bulk + generate), `/admin/ai-usage`, `/admin/sessions` + `/admin/sessions/{id}`, `/admin/alerts`, `/admin/responses/{id}/regrade`, `/admin/vocab/stats`, `/admin/flashcards/stats` | Direct URL or top-right "📝 Writing Coach" from `pages/home.html` |
-| 2 | `frontend/pages/admin-writing.html` | Tác giả viết luận | Writing Coach hub — card grid linking to the 5 writing sub-pages | None directly (nav-only) | `admin.html` top-right link |
+| 2 | `frontend/pages/admin-writing.html` | Tác giả viết luận | Writing Coach hub — card grid linking to the 6 writing sub-pages (new + grade + status + assignments + prompts + instructor-queue) | None directly (nav-only) | `admin.html` top-right link |
 | 3 | `frontend/pages/admin-writing-new.html` | Soạn bài viết | Admin submits an essay on behalf of a student: paste text + metadata + analysis level + form-of-address + select grading model | `POST /admin/writing/essays`, `GET /admin/writing/prompts` (for prompt picker) | `admin-writing.html` |
 | 4 | `frontend/pages/admin-writing-grade.html` | Chấm bài viết | Review AI feedback, edit annotations, save revised feedback, trigger regrade | `GET /admin/writing/essays/{id}`, `PATCH /admin/writing/essays/{id}/feedback`, `POST /admin/writing/essays/{id}/regrade` | `admin-writing.html` + `admin-writing-status.html` row click |
 | 5 | `frontend/pages/admin-writing-status.html` | Trạng thái chấm | Poll the grading pipeline state of all essays (pending → grading → graded → reviewed → delivered) | `GET /admin/writing/essays/status` | `admin-writing.html` |
@@ -70,7 +72,7 @@ This is the single biggest IA gap and the headline driver of the cluster.
 | Module | Admin pages | Admin endpoints | Tables backing | CRUD completeness | Gaps |
 |---|---|---|---|---|---|
 | **Speaking** | 0 dedicated pages (logic bundled inside `admin.html`) | `/admin/sessions`, `/admin/sessions/{id}`, `/admin/responses/{id}/regrade`, `/admin/sessions/{session_id}/regrade`, `/admin/sessions/{session_id}/rebuild-summary`, `/admin/topics` + `/admin/topics/{id}/questions` (full CRUD + bulk generate/rotate) | `sessions`, `responses`, `topics`, `topic_questions` | Topics + questions: full CRUD. Sessions: read + regrade only. **No prompt mgmt distinct from topics, no rubric mgmt, no attempts review UI.** | Speaking lacks a dedicated landing page; bundled inside `admin.html` tabs. No way to dogfood a single Speaking practice attempt from admin. No grading rubric edit. |
-| **Writing** | 5 pages: hub + new + grade + status + assignments + prompts + instructor queue | `/admin/writing/essays` (GET/POST/{id}/feedback PATCH/{id}/regrade POST/status), `/admin/writing/prompts` (GET/POST/PATCH/DELETE/upload-image), `/admin/writing/assignments` (GET/POST/PATCH), `/admin/instructor/queue` + `/admin/instructor/reviews/{id}/(claim\|release\|deliver)` | `writing_essays`, `writing_feedbacks`, `writing_prompts`, `writing_assignments`, `writing_assignment_students`, `writing_drafts`, `writing_grading_tier_*`, `writing_instructor_reviews`, `students` | Essays: full lifecycle (submit → grade → review → deliver). Prompts: full CRUD with image upload. Assignments: create + update + list. Instructor queue: claim / release / deliver. | **Most complete admin surface in the app.** Minor gaps: no analytics on essay throughput, no instructor productivity dashboard. Not in scope for this cluster — defer to Phase B. |
+| **Writing** | 7 pages: hub + new + grade + status + assignments + prompts + instructor queue (corrected from "5" by Sprint 12.2 audit fold-in F1 — enumeration lists 7 items) | `/admin/writing/essays` (GET/POST/{id}/feedback PATCH/{id}/regrade POST/status), `/admin/writing/prompts` (GET/POST/PATCH/DELETE/upload-image), `/admin/writing/assignments` (GET/POST/PATCH), `/admin/instructor/queue` + `/admin/instructor/reviews/{id}/(claim\|release\|deliver)` | `writing_essays`, `writing_feedbacks`, `writing_prompts`, `writing_assignments`, `writing_assignment_students`, `writing_drafts`, `writing_grading_tier_*`, `writing_instructor_reviews`, `students` | Essays: full lifecycle (submit → grade → review → deliver). Prompts: full CRUD with image upload. Assignments: create + update + list. Instructor queue: claim / release / deliver. | **Most complete admin surface in the app.** Minor gaps: no analytics on essay throughput, no instructor productivity dashboard. Not in scope for this cluster — defer to Phase B. |
 | **Listening** | 5 pages (segments + gist + tf + mcq + mini-test) | `/admin/listening/upload`, `/admin/listening/render`, `/admin/listening/content` (GET list + GET {id}), `/admin/listening/exercises` (GET/POST/DELETE), `/admin/listening/sessions` (POST/GET) | `listening_content`, `listening_exercises`, `listening_attempts`, `listening_sessions`, `listening_session_exercises` (no — no junction table; exercise_ids is UUID[]) | Content: upload + render + list + status filter. Exercises: 5 types fully authored. Sessions: mini-test composition. | Just shipped (Sprint 11.5). No analytics dashboard for admin (only per-user). |
 | **Vocab** | 0 admin pages | `/admin/vocab/stats`, `/admin/users/{user_id}/vocab-flag`, `/admin/vocab/backfill-enrichment`, `/admin/flashcards/stats` | `user_vocabulary`, `user_d1_questions`, `flashcard_stacks`, `flashcard_cards`, `flashcard_reviews` | Stats: read-only summary. Backfill: bulk operation. Flag: per-user per-word. | **No D1 question curation UI** (Sprint 10.5 admin fallback mode added but no editor). **No lemma/IPA correction UI.** **No vocab archive UI.** |
 | **Grammar** | 0 admin pages | None | `grammar_recommendations`, `grammar_articles` (markdown files in `backend/content/`), `saved_articles` (per-user) | Articles authored as markdown files in repo; rendered server-side. Recommendations generated per-attempt by `claude_grader._save_grammar_recommendations`. | **No admin UI for articles** (they live as `*.md` files in the repo — possibly intentional). No way to test grammar recommendations against synthetic attempts. |
@@ -196,7 +198,7 @@ This is the single biggest schema dividend — admin can implement a
 
 | Andy request item | Inventory finding | Gap | Cluster sprint |
 |---|---|---|---|
-| **"Refactor lại admin pages"** | 13 pages, fragmented IA, no sidebar | Build sidebar + IA route restructure | 12.1 |
+| **"Refactor lại admin pages"** | 14 pages, fragmented IA, no sidebar | Build sidebar + IA route restructure | 12.1 |
 | **"Có từng phần cho từng kĩ năng"** | Speaking bundled inside `admin.html`; Vocab + Grammar have no surface | Extract Speaking; build Vocab + Grammar | 12.5 + 12.6 + 12.7 |
 | **"Phần riêng cho admin quản lý access/code/usage"** | Access codes lives in `admin.html`; no usage analytics | Extract into "Truy cập" section + add cohort discriminator | 12.2 |
 | **"Quản lý speaking; writing"** | Speaking gap; Writing complete | Speaking admin (Sprint 12.5); Writing place-in-IA (12.1) | 12.1 + 12.5 |
@@ -275,7 +277,7 @@ Sprint 5.1).
 
 | Old URL | New URL | Redirect type |
 |---|---|---|
-| `/admin.html` | `/pages/admin/index.html` | 301 |
+| `/admin.html` | (see note ↓) | **NO redirect — kept live with migration banner** |
 | `/pages/admin-writing.html` | `/pages/admin/writing/index.html` | 301 |
 | `/pages/admin-writing-new.html` | `/pages/admin/writing/new.html` | 301 |
 | `/pages/admin-writing-grade.html` | `/pages/admin/writing/grade.html` | 301 |
@@ -287,6 +289,28 @@ Sprint 5.1).
 | `/pages/admin-listening-*.html` (5 pages) | `/pages/admin/listening/<page>.html` | 301 |
 
 All 301s land in `vercel.json` per the existing Sprint 5.1 convention.
+
+**Sprint 12.2 audit fold-in F1 — `/admin.html` decision corrected:** the
+table above originally promised a 301 from `/admin.html` to the new
+landing. Sprint 12.1 intentionally departed from that — `/admin.html`
+stays LIVE and serves the legacy monolith with an amber migration banner
+pointing to `/pages/admin/`. Rationale:
+
+1. The monolith still hosts Speaking sessions, vocab stats, AI usage,
+   topics, and alerts — none of which have new IA homes yet (those carve
+   out in Sprints 12.4-12.8).
+2. A premature 301 would have broken every admin's daily Speaking-grading
+   workflow until those features were ported.
+3. The banner gives admins a clear "moved-or-moving" signal without
+   stranding them. When the cluster closes in Sprint 12.8 (cluster
+   close), a final review will decide whether to flip to 301 or remove
+   `/admin.html` entirely — that decision is NOT pre-committed.
+
+The kept-live + banner approach is documented for posterity in the
+Sprint 12.1 ledger row (PHASE_CLOSURE_LEDGER.md). Future sprints that
+carve features OUT of the monolith should add their own banner section
+or remove the corresponding monolith markup as they go (Sprint 12.2
+does this for access codes).
 
 ---
 
@@ -528,7 +552,7 @@ Reusable patterns this cluster can lean on without inventing new ones:
 ## 11. Acceptance criteria (Sprint 12.0 closure)
 
 - [x] `docs/sprint-12-0-admin-discovery.md` written
-- [x] All 13 admin pages inventoried with route + purpose + endpoints + nav entry
+- [x] All 14 admin pages inventoried with route + purpose + endpoints + nav entry
 - [x] All 6 admin routers + `listening.py` admin section inventoried
 - [x] Per-module gap matrix complete
 - [x] IA proposal locks sidebar groups, route convention, redirect strategy
@@ -550,7 +574,7 @@ sign-off, draft Sprint 12.1 commission prompt — the prompt includes:
 - Estimate: ~1 session
 - Scope:
   - Build `<aver-admin-chrome>` web component
-  - Restructure `frontend/pages/admin/` folder (move 13 pages to nested
+  - Restructure `frontend/pages/admin/` folder (move 13 of 14 pages to nested
     paths with internal hrefs updated)
   - Add 13 redirects to `vercel.json`
   - Replace `admin.html` body with the new sidebar + Tổng quan placeholder

@@ -264,6 +264,36 @@ const STYLE = /* css */ `
 :host([data-collapsed="1"]) .nav-label,
 :host([data-collapsed="1"]) .phase-b-tag { display: none; }
 :host([data-collapsed="1"]) .nav-item { justify-content: center; padding: var(--av-space-2); }
+:host([data-collapsed="1"]) .nav-subgroup { display: none; }
+
+/* ── Sub-items (Sprint 12.2 F2) ──────────────────────────────── */
+.nav-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 var(--av-space-2) calc(var(--av-space-3) + 16px);
+  padding-left: var(--av-space-2);
+  border-left: 1px solid var(--av-border-default);
+}
+.nav-subitem {
+  display: block;
+  padding: 4px var(--av-space-2);
+  border-radius: var(--av-radius-sm);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.nav-subitem:hover {
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+}
+.nav-subitem.active {
+  background: var(--av-brand-teal-50);
+  color: var(--av-brand-teal-800);
+  border-color: var(--av-brand-teal-200);
+  font-weight: var(--av-fw-semibold);
+}
 
 /* ── Content slot ─────────────────────────────────────────────── */
 .content {
@@ -324,8 +354,25 @@ const NAV_GROUPS = [
     title: 'Nội dung',
     items: [
       { section: 'speaking',  label: 'Speaking',  href: '/pages/admin/speaking/index.html',  icon: 'mic' },
-      { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen' },
-      { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones' },
+      { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen',
+        subsections: [
+          { slug: 'new',              label: 'Soạn bài viết',     href: '/pages/admin/writing/new.html' },
+          { slug: 'grade',            label: 'Chấm bài viết',     href: '/pages/admin/writing/grade.html' },
+          { slug: 'status',           label: 'Trạng thái chấm',   href: '/pages/admin/writing/status.html' },
+          { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
+          { slug: 'prompts',          label: 'Thư viện prompt',   href: '/pages/admin/writing/prompts.html' },
+          { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/pages/admin/writing/instructor-queue.html' },
+        ],
+      },
+      { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones',
+        subsections: [
+          { slug: 'segments',  label: 'Chia cắt audio',   href: '/pages/admin/listening/segments.html' },
+          { slug: 'gist',      label: 'Bài Gist',         href: '/pages/admin/listening/gist.html' },
+          { slug: 'tf',        label: 'Bài True/False',   href: '/pages/admin/listening/tf.html' },
+          { slug: 'mcq',       label: 'Bài MCQ',          href: '/pages/admin/listening/mcq.html' },
+          { slug: 'mini-test', label: 'Mini Test',        href: '/pages/admin/listening/mini-test.html' },
+        ],
+      },
       { section: 'vocab',     label: 'Vocab',     href: '/pages/admin/vocab/index.html',     icon: 'book' },
       { section: 'grammar',   label: 'Grammar',   href: '/pages/admin/grammar/index.html',   icon: 'edit' },
     ],
@@ -393,11 +440,32 @@ function renderNavItem(item, isActive) {
 }
 
 
-function renderSidebar(active) {
+function renderSubItem(parentSection, sub, isActive) {
+  const cls = isActive ? 'nav-subitem active' : 'nav-subitem';
+  return `
+    <a href="${sub.href}" class="${cls}"
+       data-section="${parentSection}"
+       data-subsection="${sub.slug}"
+       aria-label="${sub.label}">
+      <span class="nav-sublabel">${sub.label}</span>
+    </a>
+  `;
+}
+
+
+function renderSidebar(active, subsection) {
   return NAV_GROUPS.map((group) => {
-    const items = group.items.map((item) =>
-      renderNavItem(item, item.section === active)
-    ).join('');
+    const items = group.items.map((item) => {
+      const isActive = item.section === active;
+      const parent = renderNavItem(item, isActive);
+      if (!isActive || !item.subsections || !item.subsections.length) {
+        return parent;
+      }
+      const subs = item.subsections.map((sub) =>
+        renderSubItem(item.section, sub, sub.slug === subsection)
+      ).join('');
+      return `${parent}<div class="nav-subgroup">${subs}</div>`;
+    }).join('');
     const title = group.title
       ? `<div class="nav-group-title">${group.title}</div>`
       : '';
@@ -406,7 +474,7 @@ function renderSidebar(active) {
 }
 
 
-function buildTemplate(active) {
+function buildTemplate(active, subsection) {
   return /* html */ `
 <div class="admin-header">
   <button class="hamburger" id="hamburger" type="button" aria-label="Mở/đóng sidebar">
@@ -449,7 +517,7 @@ function buildTemplate(active) {
         <polyline points="15 18 9 12 15 6"/>
       </svg>
     </button>
-    ${renderSidebar(active)}
+    ${renderSidebar(active, subsection)}
   </aside>
   <main class="content">
     <slot></slot>
@@ -465,7 +533,7 @@ function buildTemplate(active) {
 
 
 export class AverAdminChrome extends HTMLElement {
-  static get observedAttributes() { return ['active']; }
+  static get observedAttributes() { return ['active', 'subsection']; }
 
   constructor() {
     super();
@@ -487,7 +555,8 @@ export class AverAdminChrome extends HTMLElement {
 
     const shadow = this.attachShadow({ mode: 'open' });
     const active = this._normalizeActive(this.getAttribute('active'));
-    shadow.innerHTML = `<style>${STYLE}</style>${buildTemplate(active)}`;
+    const subsection = this._normalizeSubsection(this.getAttribute('subsection'), active);
+    shadow.innerHTML = `<style>${STYLE}</style>${buildTemplate(active, subsection)}`;
 
     this._bindToggle();
     this._bindCollapse();
@@ -496,6 +565,9 @@ export class AverAdminChrome extends HTMLElement {
   }
 
   disconnectedCallback() {
+    // Always release body scroll on tear-down so a mid-state component
+    // detach doesn't leave the page non-scrollable.
+    this._setBodyScrollLock(false);
     if (this._toggleTeardown) {
       try { this._toggleTeardown(); } catch { /* swallow */ }
       this._toggleTeardown = null;
@@ -507,9 +579,20 @@ export class AverAdminChrome extends HTMLElement {
   }
 
   attributeChangedCallback(name, _prev, next) {
-    if (name !== 'active') return;
+    if (name !== 'active' && name !== 'subsection') return;
     if (!this.shadowRoot) return;
-    this._applyActive(this._normalizeActive(next));
+    const active = this._normalizeActive(this.getAttribute('active'));
+    const subsection = this._normalizeSubsection(this.getAttribute('subsection'), active);
+    const sidebar = this.shadowRoot.getElementById('sidebar');
+    if (!sidebar) {
+      this._applyActive(active);
+      return;
+    }
+    const collapseBtn = sidebar.querySelector('.collapse-btn');
+    sidebar.innerHTML = (collapseBtn ? collapseBtn.outerHTML : '') + renderSidebar(active, subsection);
+    this._bindCollapse();
+    // Re-bind hamburger nav-item close handlers for the new DOM.
+    this._rebindNavItemCloseHandlers();
   }
 
 
@@ -518,6 +601,13 @@ export class AverAdminChrome extends HTMLElement {
 
   _normalizeActive(value) {
     return VALID_ACTIVE.includes(value) ? value : null;
+  }
+
+  _normalizeSubsection(value, active) {
+    if (!value || !active) return null;
+    const group = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.section === active);
+    if (!group || !group.subsections) return null;
+    return group.subsections.some((s) => s.slug === value) ? value : null;
   }
 
   _applyActive(active) {
@@ -529,6 +619,30 @@ export class AverAdminChrome extends HTMLElement {
         a.classList.remove('active');
       }
     });
+  }
+
+  _rebindNavItemCloseHandlers() {
+    if (!this._abortController) return;
+    const sig = this._abortController.signal;
+    this.shadowRoot.querySelectorAll('.nav-item, .nav-subitem').forEach((a) => {
+      a.addEventListener('click', () => {
+        this.removeAttribute('data-mobile-open');
+        this._setBodyScrollLock(false);
+      }, { signal: sig });
+    });
+  }
+
+  _setBodyScrollLock(locked) {
+    // Sprint 12.2 F3 — lock page scroll while the mobile sidebar
+    // overlay is open so background content can't scroll behind it.
+    if (typeof document === 'undefined' || !document.body) return;
+    if (locked) {
+      this._priorBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = this._priorBodyOverflow || '';
+      this._priorBodyOverflow = undefined;
+    }
   }
 
   _bindToggle() {
@@ -561,18 +675,20 @@ export class AverAdminChrome extends HTMLElement {
     const sig = this._abortController.signal;
     ham.addEventListener('click', () => {
       const open = this.getAttribute('data-mobile-open') === '1';
-      if (open) this.removeAttribute('data-mobile-open');
-      else this.setAttribute('data-mobile-open', '1');
+      if (open) {
+        this.removeAttribute('data-mobile-open');
+        this._setBodyScrollLock(false);
+      } else {
+        this.setAttribute('data-mobile-open', '1');
+        this._setBodyScrollLock(true);
+      }
     }, { signal: sig });
     backdrop.addEventListener('click', () => {
       this.removeAttribute('data-mobile-open');
+      this._setBodyScrollLock(false);
     }, { signal: sig });
     // Close mobile sidebar when a nav item is clicked.
-    this.shadowRoot.querySelectorAll('.nav-item').forEach((a) => {
-      a.addEventListener('click', () => {
-        this.removeAttribute('data-mobile-open');
-      }, { signal: sig });
-    });
+    this._rebindNavItemCloseHandlers();
   }
 
   _populateEmail() {
