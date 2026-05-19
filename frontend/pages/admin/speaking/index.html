@@ -29,68 +29,106 @@
 
   <style>
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
-    .placeholder-shell {
-      max-width: 760px; margin: 0 auto;
-      padding: var(--av-space-2) var(--av-space-2) var(--av-space-8);
-      display: flex; flex-direction: column; gap: var(--av-space-6);
+    .spk-shell {
+      max-width: 1080px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
     }
-    .placeholder-header h1 {
-      font-size: var(--av-fs-2xl); margin-bottom: var(--av-space-2);
+    .spk-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .spk-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .spk-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--av-space-3);
     }
-    .placeholder-header .subtitle {
-      color: var(--av-text-secondary);
+    .spk-card {
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      text-decoration: none;
+      color: var(--av-text-primary);
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .spk-card:hover {
+      border-color: var(--av-brand-teal-700);
+      transform: translateY(-1px);
+    }
+    .spk-card h3 {
       font-size: var(--av-fs-base);
+      font-weight: var(--av-fw-semibold);
+      margin: 0;
+    }
+    .spk-card .lede {
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
       line-height: var(--av-lh-normal);
     }
-    .placeholder-banner {
-      padding: var(--av-space-4) var(--av-space-6);
-      background: var(--av-surface-sunken);
-      border: 1px dashed var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      color: var(--av-text-secondary);
-      line-height: var(--av-lh-relaxed);
+    .spk-card .meta {
+      margin-top: auto;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
     }
-    .placeholder-banner strong { color: var(--av-text-primary); }
-    .placeholder-banner code {
+    .spk-tag {
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-brand-teal-50);
+      color: var(--av-brand-teal-800);
+      border: 1px solid var(--av-brand-teal-200);
       font-family: var(--av-font-mono);
-      font-size: var(--av-fs-sm);
-      padding: 1px 5px;
-      background: var(--av-surface-card);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-xs);
     }
-    .placeholder-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--av-space-2);
-      padding: var(--av-space-2) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700);
-      color: var(--av-text-on-primary);
-      text-decoration: none;
-      font-weight: var(--av-fw-semibold);
-      font-size: var(--av-fs-sm);
+    .spk-tag.is-soon {
+      background: var(--av-surface-sunken);
+      color: var(--av-text-muted);
+      border-color: var(--av-border-default);
     }
   </style>
 </head>
 <body class="av-page">
   <aver-admin-chrome active="speaking">
 
-    <div class="placeholder-shell">
-      <header class="placeholder-header">
-        <h1>Speaking · Admin</h1>
-        <p class="subtitle">Quản lý topic + question library + sessions + grading rubric.</p>
+    <main class="spk-shell">
+      <header class="spk-header">
+        <h1>Speaking</h1>
+        <p class="subtitle">
+          Quản lý sessions, thư viện topics, và bài chấm. Sprint 12.5 carve
+          từ admin.html monolith vào IA mới.
+        </p>
       </header>
 
-      <div class="placeholder-banner">
-        <p><strong>Sắp ra mắt.</strong> Sprint 12.5 sẽ extract toàn bộ Speaking ra khỏi <code>admin.html</code> monolith.</p>
-        <p>Trong khi chờ, sử dụng <a href="/admin.html"><code>/admin.html</code></a> hoặc các trang đã ship khác qua sidebar bên trái.</p>
-      </div>
-
-      <a class="placeholder-cta" href="/pages/admin/index.html">← Quay lại Tổng quan</a>
-    </div>
+      <section class="spk-grid" aria-label="Speaking admin sections">
+        <a href="/pages/admin/speaking/sessions.html" class="spk-card">
+          <h3>Sessions</h3>
+          <p class="lede">
+            Danh sách buổi luyện Speaking + filter theo user/mode/trạng thái.
+            Xem chi tiết, regrade, rebuild summary.
+          </p>
+          <div class="meta"><span class="spk-tag">LIVE</span></div>
+        </a>
+        <a href="/pages/admin/speaking/topics.html" class="spk-card">
+          <h3>Topics + Questions</h3>
+          <p class="lede">
+            Thư viện topic Part 1/2/3, CRUD câu hỏi từng topic, bulk import,
+            AI sinh câu hỏi.
+          </p>
+          <div class="meta"><span class="spk-tag">LIVE</span></div>
+        </a>
+        <a href="/admin.html" class="spk-card">
+          <h3>AI Usage + Alerts</h3>
+          <p class="lede">
+            Theo dõi chi phí AI (Claude / Gemini / Whisper / TTS) và cảnh báo
+            grading. Vẫn ở admin.html — carve theo Sprint 12.8.
+          </p>
+          <div class="meta"><span class="spk-tag is-soon">Sprint 12.8</span></div>
+        </a>
+      </section>
+    </main>
 
   </aver-admin-chrome>
+
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
 </body>
 </html>

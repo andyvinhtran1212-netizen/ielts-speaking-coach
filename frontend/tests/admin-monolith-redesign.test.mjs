@@ -225,11 +225,19 @@ describe('admin.html / 10-tab architecture', () => {
     });
   }
 
-  test('Topics nested tabs (Part 1/2/3) preserved', () => {
-    for (const part of [1, 2, 3]) {
-      assert.match(html, new RegExp(`id=["']tlib-tab-${part}["']`));
-      assert.match(html, new RegExp(`switchLibTab\\(${part}\\)`));
-    }
+  test('Topics nested tabs (Part 1/2/3) — carved to new IA in Sprint 12.5', () => {
+    // Sprint 12.5 replaced panel-topics markup with a migration banner.
+    // The Part 1/2/3 nested-tab UX now lives in
+    // /pages/admin/speaking/topics.html with data-part="1|2|3". The
+    // monolith JS (switchLibTab) stays as dead code until cluster close
+    // in Sprint 12.8 — pin both: the banner link target + the dead JS.
+    assert.match(
+      html,
+      /href=["']\/pages\/admin\/speaking\/topics\.html["']/,
+      'panel-topics banner must link to the new Topics IA page',
+    );
+    assert.match(html, /window\.switchLibTab\s*=/,
+      'dead switchLibTab JS still present until Sprint 12.8 cleanup');
   });
 
   test('Vocab Exercises status sub-tabs (draft/published/rejected) preserved', () => {
@@ -299,13 +307,14 @@ describe('admin.html / JS contract', () => {
 
 
 describe('admin.html / ID preservation', () => {
-  test('total ID count >= 165 (post-Sprint-12.2 baseline ~171) and includes theme-toggle', () => {
-    // Sprint 12.2 carved the access-codes section out of admin.html
-    // (~20 IDs gone: gen-count, codes-tbody, perm-*, etc.). Baseline
-    // lowered from 180 → 165 to absorb the carve; further carves in
-    // Sprints 12.4-12.8 will drop this further.
+  test('total ID count >= 140 (post-Sprint-12.5 baseline ~143)', () => {
+    // Sprint 12.2 carved access-codes (~20 IDs); Sprint 12.5 carved
+    // panel-topics + panel-sessions markup (~28 IDs gone: sessions-*,
+    // tlib-tab-*, topic-tbody, modal-*, etc.). Baseline lowered from
+    // 165 → 140 to absorb both carves; further carves in 12.6/12.7/12.8
+    // will drop this further.
     const ids = (html.match(/id=["'][^"']+["']/g) || []).length;
-    assert.ok(ids >= 165, `Found ${ids} IDs, expected ≥ 165 (post-Sprint-12.2 baseline ~171)`);
+    assert.ok(ids >= 140, `Found ${ids} IDs, expected ≥ 140 (post-Sprint-12.5 baseline ~143)`);
     assert.match(html, /id=["']theme-toggle["']/, 'theme-toggle button id must exist');
   });
 

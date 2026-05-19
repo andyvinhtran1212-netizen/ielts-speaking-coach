@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Sessions Speaking · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .ses-shell {
+      max-width: 1280px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .ses-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .ses-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+
+    .ses-filter-bar {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      align-items: flex-end;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .ses-filter { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+    .ses-filter label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .ses-filter input, .ses-filter select {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
+      font-size: var(--av-fs-sm);
+    }
+    .btn-secondary {
+      padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); cursor: pointer;
+      font-size: var(--av-fs-sm);
+    }
+    .btn-ghost {
+      padding: 4px 10px; border-radius: var(--av-radius-sm);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); cursor: pointer;
+      font-size: var(--av-fs-xs);
+    }
+
+    .ses-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.ses-table { width: 100%; border-collapse: collapse; }
+    table.ses-table th, table.ses-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+    }
+    table.ses-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    table.ses-table tr:last-child td { border-bottom: none; }
+
+    .ses-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .ses-band {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      padding: 2px 8px; border-radius: var(--av-radius-pill);
+    }
+    .ses-band.is-good { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
+    .ses-band.is-mid  { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+    .ses-band.is-low  { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+
+    .ses-empty, .ses-loading {
+      padding: var(--av-space-8);
+      text-align: center;
+      color: var(--av-text-muted);
+      font-size: var(--av-fs-sm);
+    }
+
+    .ses-pagination {
+      display: flex; justify-content: center;
+      margin-top: var(--av-space-3);
+    }
+
+    /* ── Modal ─────────────────────────────────────────────────── */
+    .ses-modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--av-space-4);
+    }
+    .ses-modal {
+      background: var(--av-surface-card);
+      border-radius: var(--av-radius-lg);
+      border: 1px solid var(--av-border-default);
+      max-width: 760px; width: 100%;
+      max-height: 90vh; overflow-y: auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .ses-modal .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .ses-modal h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .ses-close {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--av-text-muted); font-size: 18px;
+    }
+    .ses-meta {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-3);
+      font-size: var(--av-fs-sm);
+    }
+    .ses-meta .label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      display: block;
+    }
+    .ses-bands-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--av-space-2);
+      text-align: center;
+    }
+    .ses-bands-grid .ses-band-cell {
+      padding: var(--av-space-2);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken);
+    }
+    .ses-bands-grid .label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    }
+    .ses-qa {
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken);
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+    }
+    .ses-qa .q-label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .ses-qa .transcript {
+      padding: var(--av-space-2) var(--av-space-3);
+      background: var(--av-surface-card);
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-sm);
+      line-height: 1.45;
+    }
+    .ses-qa audio { width: 100%; }
+
+    .ses-status-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .ses-status-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
+    .ses-status-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 768px) {
+      .ses-meta, .ses-bands-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="speaking" subsection="sessions">
+
+    <main class="ses-shell">
+      <header class="ses-header">
+        <h1>Sessions Speaking</h1>
+        <p class="subtitle">
+          Lọc theo user/mode/trạng thái/ngày. Xem chi tiết, regrade, rebuild summary.
+        </p>
+      </header>
+
+      <div class="ses-status-banner" id="status-banner" hidden></div>
+
+      <section class="ses-filter-bar" aria-label="Bộ lọc">
+        <div class="ses-filter">
+          <label for="sf-email">Email / User ID</label>
+          <input id="sf-email" type="text" placeholder="Tìm email…" />
+        </div>
+        <div class="ses-filter">
+          <label for="sf-mode">Mode</label>
+          <select id="sf-mode">
+            <option value="">Tất cả</option>
+            <option value="practice">Practice</option>
+            <option value="test_part">Test Part</option>
+            <option value="test_full">Test Full</option>
+          </select>
+        </div>
+        <div class="ses-filter">
+          <label for="sf-status">Trạng thái</label>
+          <select id="sf-status">
+            <option value="">Tất cả</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="grading_failed">Grading Failed</option>
+          </select>
+        </div>
+        <div class="ses-filter">
+          <label for="sf-error">Lỗi</label>
+          <select id="sf-error">
+            <option value="">Tất cả</option>
+            <option value="has_error">Có lỗi</option>
+            <option value="stt_failed">STT Failed</option>
+            <option value="grading_failed">Grading Failed</option>
+            <option value="save_failed">Save Failed</option>
+          </select>
+        </div>
+        <div class="ses-filter">
+          <label for="sf-date-from">Từ ngày</label>
+          <input id="sf-date-from" type="date" />
+        </div>
+        <div class="ses-filter">
+          <label for="sf-date-to">Đến ngày</label>
+          <input id="sf-date-to" type="date" />
+        </div>
+        <button class="btn-primary" id="btn-search" type="button">Tìm kiếm</button>
+        <button class="btn-secondary" id="btn-reset" type="button">Reset</button>
+      </section>
+
+      <div class="ses-loading" id="logs-loading">Đang tải…</div>
+      <div class="ses-empty" id="logs-empty" hidden>Không tìm thấy session nào.</div>
+
+      <div class="ses-table-wrap" id="logs-table-wrap" hidden>
+        <table class="ses-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User</th>
+              <th>Mode</th>
+              <th>Topic</th>
+              <th>Band</th>
+              <th>Status</th>
+              <th>Lỗi</th>
+              <th>Bắt đầu</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="sessions-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="ses-pagination">
+        <button class="btn-secondary" id="btn-more" type="button" hidden>Tải thêm</button>
+      </div>
+    </main>
+
+    <!-- ── Detail modal ─────────────────────────────────────────── -->
+    <div class="ses-modal-backdrop" id="modal-backdrop" hidden>
+      <div class="ses-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+          <h2 id="modal-title">Chi tiết session</h2>
+          <button class="ses-close" id="btn-close" type="button" aria-label="Đóng">✕</button>
+        </div>
+        <div class="ses-loading" id="detail-loading">Đang tải…</div>
+        <div id="detail-content" hidden></div>
+      </div>
+    </div>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-speaking-sessions.js"></script>
+</body>
+</html>
