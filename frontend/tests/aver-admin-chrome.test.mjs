@@ -185,18 +185,15 @@ describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', ()
       `expected 5 skill cards (Speaking/Writing/Listening/Vocab/Grammar); got ${cards.length}`);
   });
 
-  it('links Grammar as the last skill placeholder', () => {
-    // Sprint 12.5 graduated Speaking; Sprint 12.6 graduated Vocab.
-    // Grammar (Sprint 12.7) is the only remaining `is-soon` skill card.
-    assert.match(ADMIN_INDEX, /Sprint 12\.7/);
-  });
-
-  it('marks Speaking + Writing + Listening + Vocab as LIVE skill cards', () => {
-    // Sprint 12.6 flipped Vocab from `is-placeholder` Sprint-12.6 stub
-    // to LIVE. Only Grammar still carries an `is-soon` tag.
+  it('marks all 5 skill cards LIVE (no remaining is-soon skill placeholders)', () => {
+    // Sprint 12.7 graduated Grammar — the last skill placeholder. All
+    // 5 skill cards are now LIVE. Remaining `is-soon` tags belong only
+    // to Phase B sections (cohorts/usage/system) shown in the footer.
     const liveTags = ADMIN_INDEX.match(/is-live[^"]*">[^<]*LIVE[^<]*</g) || [];
-    assert.ok(liveTags.length >= 4,
-      `expected at least 4 LIVE tags (Speaking + Writing + Listening + Vocab); got ${liveTags.length}`);
+    assert.ok(liveTags.length >= 5,
+      `expected at least 5 LIVE tags (Speaking + Writing + Listening + Vocab + Grammar); got ${liveTags.length}`);
+    // Sprint-12.7 ref must be gone from any skill card meta block.
+    assert.doesNotMatch(ADMIN_INDEX, /is-placeholder"\s+data-skill="grammar"/);
   });
 
   it('Phase B sections still surfaced (footer placeholder row)', () => {
@@ -210,10 +207,11 @@ describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', ()
 describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
   // Sprint 12.2 graduated `access-codes`; Sprint 12.3 graduated
   // `error-logs`; Sprint 12.5 graduated `speaking`; Sprint 12.6
-  // graduated `vocab` (see admin-vocab-extract.test.mjs). Sprint 12.7
-  // will graduate `grammar`.
+  // graduated `vocab`; Sprint 12.7 graduated `grammar` (see
+  // admin-grammar-extract.test.mjs). All skill placeholders cleared —
+  // only the Phase B Người dùng / Truy cập / Hệ thống stubs remain.
   const sections = [
-    'grammar', 'users',
+    'users',
     'cohorts', 'usage', 'system',
   ];
   for (const s of sections) {
@@ -272,6 +270,18 @@ describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
     assert.match(html, /\/pages\/admin\/vocab\/stats\.html/);
     assert.match(html, /\/pages\/admin\/vocab\/d1-curation\.html/);
     assert.match(html, /\/pages\/admin\/vocab\/lemmas\.html/);
+  });
+
+  it('Sprint 12.7 — grammar index is a real landing (not a stub)', () => {
+    const html = read('pages', 'admin', 'grammar', 'index.html');
+    assert.match(html, /<aver-admin-chrome\s+active=["']grammar["']/);
+    assert.doesNotMatch(html, /Sắp ra mắt/);
+    // Real landing must link to its three child pages.
+    assert.match(html, /\/pages\/admin\/grammar\/articles\.html/);
+    assert.match(html, /\/pages\/admin\/grammar\/analytics\.html/);
+    assert.match(html, /\/pages\/admin\/grammar\/recommend-test\.html/);
+    // Hybrid file-based banner must surface the workflow.
+    assert.match(html, /backend\/content/);
   });
 });
 

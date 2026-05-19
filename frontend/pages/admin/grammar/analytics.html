@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Grammar Analytics · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .gan-shell {
+      max-width: 1180px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .gan-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: var(--av-space-3); }
+    .gan-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .gan-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .gan-period { display: flex; gap: var(--av-space-2); align-items: center; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .gan-period select {
+      padding: 6px 10px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .btn-secondary { padding: 8px 14px; border-radius: var(--av-radius-md); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-sm); }
+
+    .gan-section-title {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-semibold);
+      margin: var(--av-space-3) 0 var(--av-space-1);
+    }
+
+    .gan-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--av-space-3);
+    }
+    .gan-tile {
+      display: flex; flex-direction: column;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .gan-tile .label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .gan-tile .value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+      margin-top: var(--av-space-1);
+    }
+    .gan-tile .hint { font-size: var(--av-fs-xs); color: var(--av-text-muted); margin-top: var(--av-space-1); }
+    .gan-tile.is-warn { border-color: #FDE68A; }
+    .gan-tile.is-warn .value { color: #92400E; }
+
+    .gan-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.gan-table { width: 100%; border-collapse: collapse; }
+    table.gan-table th, table.gan-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+    }
+    table.gan-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    table.gan-table tr:last-child td { border-bottom: none; }
+    .gan-num { font-family: var(--av-font-mono); text-align: right; }
+    .gan-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .gan-error {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;
+      font-size: var(--av-fs-sm);
+    }
+    .gan-loading, .gan-empty {
+      padding: var(--av-space-6); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm);
+    }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="grammar" subsection="analytics">
+
+    <main class="gan-shell">
+      <header class="gan-header">
+        <div>
+          <h1>Grammar Analytics</h1>
+          <p class="subtitle">
+            Views/saves tổng + theo cửa sổ thời gian. Bài chưa có view =
+            tín hiệu cho content gap hoặc promotion gap.
+          </p>
+        </div>
+        <div class="gan-period">
+          Window:
+          <select id="gan-days">
+            <option value="7"  selected>7 ngày</option>
+            <option value="14">14 ngày</option>
+            <option value="30">30 ngày</option>
+            <option value="90">90 ngày</option>
+          </select>
+          <button class="btn-secondary" id="btn-refresh" type="button">↺ Tải lại</button>
+        </div>
+      </header>
+
+      <div class="gan-error" id="gan-error" hidden></div>
+
+      <div class="gan-grid" aria-label="Số liệu chính">
+        <div class="gan-tile">
+          <span class="label">Tổng lượt xem</span>
+          <span class="value" data-stat="views_total">—</span>
+          <span class="hint">Cộng dồn view_count trong article_views</span>
+        </div>
+        <div class="gan-tile">
+          <span class="label">Xem trong cửa sổ</span>
+          <span class="value" data-stat="views_recent">—</span>
+          <span class="hint" data-stat="window-hint">Last 7 days</span>
+        </div>
+        <div class="gan-tile">
+          <span class="label">Tổng saves</span>
+          <span class="value" data-stat="saves_total">—</span>
+          <span class="hint">Rows trong saved_articles</span>
+        </div>
+        <div class="gan-tile" id="gan-zero-tile">
+          <span class="label">Bài chưa có view</span>
+          <span class="value" data-stat="zero_view_total">—</span>
+          <span class="hint">Trong tổng <span data-stat="articles_total">—</span> articles</span>
+        </div>
+      </div>
+
+      <h2 class="gan-section-title">Top 20 articles theo views</h2>
+      <div class="gan-loading" id="top-loading">Đang tải…</div>
+      <div class="gan-empty"   id="top-empty"   hidden>Chưa có view nào.</div>
+      <div class="gan-table-wrap" id="top-wrap" hidden>
+        <table class="gan-table">
+          <thead>
+            <tr><th>#</th><th>Title</th><th>Category</th><th class="gan-num">Views</th></tr>
+          </thead>
+          <tbody id="top-tbody"></tbody>
+        </table>
+      </div>
+
+      <h2 class="gan-section-title">Top 5 articles được save</h2>
+      <div class="gan-empty" id="saved-empty" hidden>Chưa có save nào.</div>
+      <div class="gan-table-wrap" id="saved-wrap" hidden>
+        <table class="gan-table">
+          <thead>
+            <tr><th>#</th><th>Title</th><th>Category</th><th class="gan-num">Saves</th></tr>
+          </thead>
+          <tbody id="saved-tbody"></tbody>
+        </table>
+      </div>
+
+      <h2 class="gan-section-title">Articles chưa có view (top 30 — content gap signal)</h2>
+      <div class="gan-empty" id="zero-empty" hidden>Mọi article đều đã có view 🎉</div>
+      <div class="gan-table-wrap" id="zero-wrap" hidden>
+        <table class="gan-table">
+          <thead>
+            <tr><th>Slug</th><th>Title</th><th>Category</th></tr>
+          </thead>
+          <tbody id="zero-tbody"></tbody>
+        </table>
+      </div>
+
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-grammar-analytics.js"></script>
+</body>
+</html>
