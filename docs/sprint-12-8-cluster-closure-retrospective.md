@@ -53,10 +53,24 @@ closure, `admin.html` is a 91-LOC pure redirect.
 
 ### Engineering
 
-- **14/14 CI streak across all 9 PRs.** Every closure required backend
-  pytest + frontend node:test + Vercel preview + preview-comments all
-  green before merge. No skipped suites, no `--no-verify`, no
-  amend-on-amend hot patches.
+- **All 9 PRs merged with green required checks.** Every closure
+  required backend pytest + frontend node:test + Vercel preview +
+  preview-comments all green before merge. No skipped suites, no
+  `--no-verify`, no amend-on-amend hot patches. The four required
+  checks across nine merged PRs is the reproducible figure; cite that
+  shape rather than a single composite number when auditing.
+
+  **Count methodology** (per Codex audit 2026-05-19 §31): "CI checks"
+  = the four required workflows GitHub reports on each PR's
+  `statusCheckRollup` (`Backend (pytest + anchor drift)` ·
+  `Frontend (node --test)` · `Vercel` · `Vercel Preview Comments`).
+  "PRs" = the 9 merged into `main`: #217, #218, #220, #221, #222 (12.3.1
+  hotfix), #223, #224, #225, #226, #227. Skip presence verified locally
+  by greppimg the relevant `*.test.mjs` files for `.skip` markers (0
+  matches across all 19 frontend test files in the cluster's add/edit
+  set). Anyone reproducing this should pull the PR list and call
+  `gh pr view <N> --json statusCheckRollup` per PR — that's the source
+  the figure quotes.
 
 - **Carve pattern locked in by Sprint 12.5.** After Speaking, the recipe
   ran: read panel markup, copy JS to a module file with `window.api`
