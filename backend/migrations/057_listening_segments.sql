@@ -22,6 +22,41 @@
 --   ]
 --
 -- Idempotent: re-running is a no-op (IF NOT EXISTS everywhere).
+--
+-- ── Sprint 11.5.1 hotfix — intentional spec divergence notes ────────
+-- Codex audit (2026-05-18 DEBT-LISTENING-MODULE) flagged two surface
+-- deltas vs the Sprint 11.3 spec wording. Both are intentional and
+-- documented here so future contributors don't "fix" them:
+--
+-- 1. NO `segments_required_for_dictation` CHECK constraint.
+--    Spec implied a DB-level "dictation rows must have non-empty
+--    segments[]" check. We rejected that:
+--      (a) the segments shape rule (contiguous idx, monotonic times,
+--          non-overlap, end_sec <= content.duration) is array-cross-row
+--          and CHECK can't express it cleanly — partial CHECKs would be
+--          weaker than the server-side `_validate_dictation_segments`;
+--      (b) Sprint 11.2 legacy whole-transcript dictation rows exist
+--          with empty segments[] and rely on the router fallback to
+--          content.transcript — a NOT NULL/non-empty CHECK would break
+--          them and force an immediate backfill we don't want yet.
+--    Canonical validation lives in `_validate_dictation_segments` in
+--    backend/routers/listening.py (called on every upsert).
+--
+-- 2. NO unique index on (user_id, exercise_id, segment_idx).
+--    Spec mentioned a "first-attempt-per-segment uniqueness" index.
+--    We rejected a UNIQUE INDEX explicitly (see lines 69-72 below):
+--    blocking resubmissions at the DB layer would break the UX (users
+--    must be able to retry a segment after a wrong answer). The
+--    first-attempt rule is enforced at AGGREGATION time, not INSERT —
+--    Sprint 11.5.1 hotfix added `_first_attempt_only()` in listening.py
+--    which dedupes by (exercise_id, segment_idx) keeping earliest
+--    created_at. INSERTs are append-only by design.
+--
+-- 3. Smoke backfill seeds 4 segments (not 3 as one spec draft hinted).
+--    The Sprint 11.1 smoke audio is 15s / ~244 chars / 4 sentences;
+--    4 segments matches the natural sentence count. 3 would have
+--    forced an unnatural split. The seed is for dogfood smoke only;
+--    production segments are author-defined via the admin editor.
 
 
 -- ── listening_exercises.segments ───────────────────────────────────

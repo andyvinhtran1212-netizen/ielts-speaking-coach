@@ -574,26 +574,32 @@ def _iso_days_ago(n):
 
 
 def test_analytics_by_mode_aggregation(monkeypatch):
+    """Sprint 11.5.1 hotfix — 3 distinct exercises per mode, no retries,
+    so by_mode counts = 3 (post-dedup)."""
     U = "user-1"
     canned = {
         "listening_attempts": [
-            {"id": "a1", "user_id": U, "exercise_id": "ex-d", "score": 1.0, "is_correct": True,  "created_at": _iso_days_ago(1)},
-            {"id": "a2", "user_id": U, "exercise_id": "ex-d", "score": 0.5, "is_correct": False, "created_at": _iso_days_ago(2)},
-            {"id": "a3", "user_id": U, "exercise_id": "ex-d", "score": 0.8, "is_correct": False, "created_at": _iso_days_ago(3)},
-            {"id": "a4", "user_id": U, "exercise_id": "ex-m", "score": 1.0, "is_correct": True,  "created_at": _iso_days_ago(1)},
-            {"id": "a5", "user_id": U, "exercise_id": "ex-m", "score": 0.4, "is_correct": False, "created_at": _iso_days_ago(2)},
-            {"id": "a6", "user_id": U, "exercise_id": "ex-m", "score": 0.6, "is_correct": False, "created_at": _iso_days_ago(3)},
+            {"id": "a1", "user_id": U, "exercise_id": "ex-d1", "score": 1.0, "is_correct": True,  "created_at": _iso_days_ago(1)},
+            {"id": "a2", "user_id": U, "exercise_id": "ex-d2", "score": 0.5, "is_correct": False, "created_at": _iso_days_ago(2)},
+            {"id": "a3", "user_id": U, "exercise_id": "ex-d3", "score": 0.8, "is_correct": False, "created_at": _iso_days_ago(3)},
+            {"id": "a4", "user_id": U, "exercise_id": "ex-m1", "score": 1.0, "is_correct": True,  "created_at": _iso_days_ago(1)},
+            {"id": "a5", "user_id": U, "exercise_id": "ex-m2", "score": 0.4, "is_correct": False, "created_at": _iso_days_ago(2)},
+            {"id": "a6", "user_id": U, "exercise_id": "ex-m3", "score": 0.6, "is_correct": False, "created_at": _iso_days_ago(3)},
         ],
         "listening_exercises": [
-            {"id": "ex-d", "exercise_type": "dictation"},
-            {"id": "ex-m", "exercise_type": "mcq"},
+            {"id": "ex-d1", "exercise_type": "dictation"},
+            {"id": "ex-d2", "exercise_type": "dictation"},
+            {"id": "ex-d3", "exercise_type": "dictation"},
+            {"id": "ex-m1", "exercise_type": "mcq"},
+            {"id": "ex-m2", "exercise_type": "mcq"},
+            {"id": "ex-m3", "exercise_type": "mcq"},
         ],
     }
     _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
-    assert out["total_attempts"] == 6
-    assert out["by_mode"]["dictation"]["count"] == 3
+    assert out["total_attempts"] == 6     # raw count of all attempts (engagement)
+    assert out["by_mode"]["dictation"]["count"] == 3   # first-attempt-only
     assert out["by_mode"]["mcq"]["count"] == 3
     # gist/true_false → 0 attempts each, avg_score None.
     assert out["by_mode"]["gist"]["count"] == 0
@@ -601,21 +607,24 @@ def test_analytics_by_mode_aggregation(monkeypatch):
 
 
 def test_analytics_weakest_mode_requires_3_attempts(monkeypatch):
-    # 2 mcq attempts (insufficient) + 5 dictation attempts; mcq score
-    # is lower but should NOT be returned as weakest (insufficient data).
+    """Sprint 11.5.1 hotfix — 2 distinct mcq exercises (insufficient) +
+    5 distinct dictation exercises; mcq score is lower but should NOT
+    be returned as weakest (insufficient data after first-attempt dedup)."""
     U = "user-1"
     canned = {
         "listening_attempts": [
-            {"id": f"a-d-{i}", "user_id": U, "exercise_id": "ex-d", "score": 0.95, "is_correct": True,
+            {"id": f"a-d-{i}", "user_id": U, "exercise_id": f"ex-d-{i}", "score": 0.95, "is_correct": True,
              "created_at": _iso_days_ago(i + 1)}
             for i in range(5)
         ] + [
-            {"id": "a-m-1", "user_id": U, "exercise_id": "ex-m", "score": 0.1, "is_correct": False, "created_at": _iso_days_ago(1)},
-            {"id": "a-m-2", "user_id": U, "exercise_id": "ex-m", "score": 0.2, "is_correct": False, "created_at": _iso_days_ago(2)},
+            {"id": "a-m-1", "user_id": U, "exercise_id": "ex-m-1", "score": 0.1, "is_correct": False, "created_at": _iso_days_ago(1)},
+            {"id": "a-m-2", "user_id": U, "exercise_id": "ex-m-2", "score": 0.2, "is_correct": False, "created_at": _iso_days_ago(2)},
         ],
         "listening_exercises": [
-            {"id": "ex-d", "exercise_type": "dictation"},
-            {"id": "ex-m", "exercise_type": "mcq"},
+            {"id": f"ex-d-{i}", "exercise_type": "dictation"} for i in range(5)
+        ] + [
+            {"id": "ex-m-1", "exercise_type": "mcq"},
+            {"id": "ex-m-2", "exercise_type": "mcq"},
         ],
     }
     _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
@@ -661,3 +670,240 @@ def test_analytics_empty_user(monkeypatch):
     assert out["weakest_mode"] is None
     assert out["by_mode"]["dictation"]["count"] == 0
     assert len(out["by_day"]) == 14
+
+
+# ── Sprint 11.5.1 hotfix — first-attempt aggregation ─────────────────
+
+
+def test_first_attempt_helper_dedupes_by_exercise_segment():
+    """Pure helper unit test — dedupes by (exercise_id, segment_idx)
+    keeping earliest created_at per key."""
+    rows = [
+        {"exercise_id": "e1", "segment_idx": 0, "score": 1.0, "created_at": "2026-05-10T00:00:00Z"},
+        {"exercise_id": "e1", "segment_idx": 0, "score": 0.5, "created_at": "2026-05-11T00:00:00Z"},  # retry, drop
+        {"exercise_id": "e1", "segment_idx": 1, "score": 0.8, "created_at": "2026-05-10T00:01:00Z"},  # different segment, keep
+        {"exercise_id": "e2", "segment_idx": None, "score": 0.6, "created_at": "2026-05-10T00:02:00Z"},
+        {"exercise_id": "e2", "segment_idx": None, "score": 0.4, "created_at": "2026-05-10T00:03:00Z"},  # retry, drop
+    ]
+    out = listening_router._first_attempt_only(rows)
+    assert len(out) == 3
+    scores = sorted(r["score"] for r in out)
+    assert scores == [0.6, 0.8, 1.0]  # the 3 first attempts
+
+
+def test_analytics_avg_score_uses_first_attempt_only(monkeypatch):
+    """Retries should NOT distort by_mode.avg_score. First attempt =
+    1.0, retry = 0.0 → reported avg should be 1.0, not 0.5."""
+    U = "user-1"
+    canned = {
+        "listening_attempts": [
+            {"id": "first",  "user_id": U, "exercise_id": "ex-d1", "score": 1.0, "is_correct": True,
+             "created_at": _iso_days_ago(2)},
+            {"id": "retry", "user_id": U, "exercise_id": "ex-d1", "score": 0.0, "is_correct": False,
+             "created_at": _iso_days_ago(1)},
+        ],
+        "listening_exercises": [{"id": "ex-d1", "exercise_type": "dictation"}],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert out["total_attempts"] == 2   # raw count for activity
+    assert out["by_mode"]["dictation"]["count"] == 1   # post-dedup
+    assert out["by_mode"]["dictation"]["avg_score"] == 1.0
+    assert out["by_mode"]["dictation"]["accuracy"] == 1.0
+
+
+def test_analytics_total_attempts_counts_all(monkeypatch):
+    """total_attempts must reflect raw activity (engagement), not
+    post-dedup count."""
+    U = "user-1"
+    canned = {
+        "listening_attempts": [
+            {"id": f"a{i}", "user_id": U, "exercise_id": "ex-d1", "score": 0.5, "is_correct": False,
+             "created_at": _iso_days_ago(i)}
+            for i in range(5)
+        ],
+        "listening_exercises": [{"id": "ex-d1", "exercise_type": "dictation"}],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert out["total_attempts"] == 5            # all 5 attempts (engagement)
+    assert out["by_mode"]["dictation"]["count"] == 1  # only first attempt
+
+
+def test_analytics_weakest_mode_respects_first_attempt(monkeypatch):
+    """Mode with many retries on a single exercise should NOT cross the
+    3-attempt weakest-mode threshold."""
+    U = "user-1"
+    canned = {
+        "listening_attempts": [
+            # 5 retries of ONE mcq exercise → 1 unique attempt
+            {"id": f"a-m-{i}", "user_id": U, "exercise_id": "ex-m-1", "score": 0.1, "is_correct": False,
+             "created_at": _iso_days_ago(i + 1)}
+            for i in range(5)
+        ] + [
+            # 3 distinct dictation exercises
+            {"id": f"a-d-{i}", "user_id": U, "exercise_id": f"ex-d-{i}", "score": 0.9, "is_correct": True,
+             "created_at": _iso_days_ago(i + 1)}
+            for i in range(3)
+        ],
+        "listening_exercises": [
+            {"id": "ex-m-1", "exercise_type": "mcq"},
+        ] + [{"id": f"ex-d-{i}", "exercise_type": "dictation"} for i in range(3)],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    # mcq only has 1 post-dedup attempt → does NOT qualify for weakest
+    # (despite low score). Dictation has 3 → qualifies and IS reported.
+    assert out["weakest_mode"] == "dictation"
+    assert out["by_mode"]["mcq"]["count"] == 1
+
+
+def test_analytics_recent_attempts_unaffected_by_dedup(monkeypatch):
+    """recent_attempts list reflects raw activity, not post-dedup
+    (so users see their actual recent timeline including retries)."""
+    rows = [
+        {"id": f"a{i}", "user_id": "user-1", "exercise_id": "ex-d1",
+         "score": 0.5, "is_correct": False, "created_at": _iso_days_ago(i)}
+        for i in range(8)
+    ]
+    canned = {
+        "listening_attempts": rows,
+        "listening_exercises": [{"id": "ex-d1", "exercise_type": "dictation"}],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert len(out["recent_attempts"]) == 8
+
+
+def test_session_complete_dedupes_retries(monkeypatch):
+    """Mini Test session complete must dedupe retries — only first
+    attempt per (exercise_id, segment_idx) counts toward correct_count
+    + score_avg."""
+    canned = {
+        "listening_sessions": [{
+            "id": "s1", "session_type": "mini_test",
+            "exercise_ids": ["e1", "e2", "e3", "e4"],
+            "total_questions": 4,
+        }],
+        "listening_attempts": [
+            # e1 first attempt correct (kept)
+            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
+             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(2)},
+            # e1 retry wrong (dropped)
+            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
+             "score": 0.0, "is_correct": False, "created_at": _iso_days_ago(1)},
+            # e2-e4 first attempts (3 correct, 1 wrong)
+            {"exercise_id": "e2", "user_id": "user-1", "listening_session_id": "s1",
+             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(2)},
+            {"exercise_id": "e3", "user_id": "user-1", "listening_session_id": "s1",
+             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(2)},
+            {"exercise_id": "e4", "user_id": "user-1", "listening_session_id": "s1",
+             "score": 0.0, "is_correct": False, "created_at": _iso_days_ago(2)},
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
+    # 4 exercises, 3 first-attempts correct (e1/e2/e3), 1 wrong (e4).
+    # The e1 retry must NOT distort this — without dedup correct_count
+    # would be 3 (because retry was wrong + first was right), or score
+    # would average to 0.6 instead of 0.75.
+    assert out["correct_count"] == 3
+    assert out["total"] == 4
+    assert out["score_avg"] == 0.75
+
+
+def test_session_complete_dedupes_by_segment_idx(monkeypatch):
+    """Within a single exercise, different segment_idx values count
+    as separate first attempts (each dictation segment is its own
+    canonical answer)."""
+    canned = {
+        "listening_sessions": [{
+            "id": "s1", "session_type": "mini_test",
+            "exercise_ids": ["e1"], "total_questions": 3,
+        }],
+        "listening_attempts": [
+            {"exercise_id": "e1", "segment_idx": 0, "user_id": "user-1",
+             "listening_session_id": "s1", "score": 1.0, "is_correct": True,
+             "created_at": _iso_days_ago(2)},
+            {"exercise_id": "e1", "segment_idx": 1, "user_id": "user-1",
+             "listening_session_id": "s1", "score": 1.0, "is_correct": True,
+             "created_at": _iso_days_ago(2)},
+            {"exercise_id": "e1", "segment_idx": 2, "user_id": "user-1",
+             "listening_session_id": "s1", "score": 0.0, "is_correct": False,
+             "created_at": _iso_days_ago(2)},
+            # retry of segment 2 — should be dropped
+            {"exercise_id": "e1", "segment_idx": 2, "user_id": "user-1",
+             "listening_session_id": "s1", "score": 1.0, "is_correct": True,
+             "created_at": _iso_days_ago(1)},
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
+    # 3 first-attempt segments: 2 correct + 1 wrong (retry doesn't count)
+    assert out["correct_count"] == 2
+
+
+def test_session_complete_single_exercise_no_retry(monkeypatch):
+    canned = {
+        "listening_sessions": [{
+            "id": "s1", "session_type": "mini_test",
+            "exercise_ids": ["e1"], "total_questions": 1,
+        }],
+        "listening_attempts": [
+            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
+             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(1)},
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
+    assert out["correct_count"] == 1
+    assert out["score_avg"] == 1.0
+
+
+def test_session_complete_writes_iso_completed_at(monkeypatch):
+    """Sprint 11.5.1 Bug C — completed_at must be a proper ISO
+    timestamp, NOT the literal string 'now()' (Codex falsification
+    #78)."""
+    canned = {
+        "listening_sessions": [{
+            "id": "s1", "session_type": "mini_test",
+            "exercise_ids": ["e1"], "total_questions": 1,
+        }],
+        "listening_attempts": [
+            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
+             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(1)},
+        ],
+    }
+    fake = _FakeAdminClient(canned)
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user(monkeypatch)
+    _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
+    # Find the update on listening_sessions and check completed_at shape.
+    updates = [u for u in fake.updates if u[0] == "listening_sessions"]
+    assert updates, "expected an update to listening_sessions"
+    payload = updates[-1][2]
+    completed_at = payload.get("completed_at")
+    assert completed_at != "now()", "completed_at must NOT be literal 'now()'"
+    # ISO-8601 shape: YYYY-MM-DDTHH:MM:SS+...
+    assert isinstance(completed_at, str)
+    assert "T" in completed_at and completed_at.startswith("20"), \
+        f"completed_at not ISO format: {completed_at!r}"
+
+
+def test_first_attempt_helper_handles_missing_segment_idx():
+    """Backward compat — rows from pre-Sprint-11.3 (no segment_idx)
+    treat the field as None and dedupe per exercise_id."""
+    rows = [
+        {"exercise_id": "e1", "score": 1.0, "created_at": "2026-05-10T00:00:00Z"},
+        {"exercise_id": "e1", "score": 0.0, "created_at": "2026-05-11T00:00:00Z"},  # retry, drop
+    ]
+    out = listening_router._first_attempt_only(rows)
+    assert len(out) == 1
+    assert out[0]["score"] == 1.0

@@ -1620,7 +1620,7 @@ async def complete_listening_session(
     # Sum attempt scores for this user + session.
     a_res = (
         supabase_admin.table("listening_attempts")
-        .select("exercise_id,score,is_correct")
+        .select("exercise_id,segment_idx,score,is_correct,created_at")
         .eq("user_id", user_id)
         .eq("listening_session_id", session_id)
         .execute()
@@ -1630,23 +1630,31 @@ async def complete_listening_session(
     if total == 0:
         raise HTTPException(422, "Session has no questions.")
 
-    # Aggregate using best (first-attempt) score per exercise — Sprint 10.3
-    # first-attempt rule: subsequent retries don't shift the canonical band.
-    # Here we approximate by taking the *first* row per exercise (Supabase
-    # rows come back unsorted; sort by created_at if we need true first —
-    # the count of correct answers is fine for the band estimate).
-    correct_count = sum(1 for a in attempts if a.get("is_correct"))
+    # Sprint 11.5.1 hotfix — first-attempt rule: dedupe by (exercise_id,
+    # segment_idx) and use ONLY the earliest attempt per key. Retries
+    # during the session no longer multiply or distort the canonical
+    # band. Matches Sprint 10.3 vocab-cluster precedent.
+    first_attempts = _first_attempt_only(attempts)
+    correct_count = sum(1 for a in first_attempts if a.get("is_correct"))
     score_avg = (
-        sum(float(a.get("score") or 0) for a in attempts) / max(len(attempts), 1)
+        sum(float(a.get("score") or 0) for a in first_attempts)
+        / max(len(first_attempts), 1)
     )
 
     # Light band heuristic (IELTS Listening band table is non-linear; this
     # is a learning-coach estimate, not an official scaled score).
     band = _band_from_correct(correct_count, total)
 
+    # Sprint 11.5.1 hotfix Bug C — use a proper Python ISO timestamp
+    # instead of the literal string "now()" (which the Supabase REST
+    # API does not interpret as a SQL function call). Postgres'
+    # timestamptz cast accepts ISO strings.
+    from datetime import datetime, timezone
+    completed_at_iso = datetime.now(timezone.utc).isoformat()
+
     try:
         supabase_admin.table("listening_sessions").update({
-            "completed_at":   "now()",
+            "completed_at":   completed_at_iso,
             "correct_count":  correct_count,
             "band_estimate":  band,
         }).eq("id", session_id).execute()
@@ -1662,6 +1670,29 @@ async def complete_listening_session(
         "score_avg":     round(score_avg, 4),
         "band_estimate": band,
     }
+
+
+def _first_attempt_only(rows: list[dict]) -> list[dict]:
+    """Sprint 11.5.1 hotfix — dedupe a list of listening_attempts rows
+    to the canonical first attempt per (exercise_id, segment_idx).
+
+    The first attempt is the row with the earliest `created_at` for each
+    tuple. Sprint 10.3's first-attempt rule was previously enforced only
+    at insert time (response field `is_first_attempt`) — analytics +
+    Mini Test completion previously aggregated ALL attempts, distorting
+    canonical scores when users replay. This helper restores truth.
+
+    Rows must have `exercise_id`, `created_at`. `segment_idx` is
+    optional — its absence is treated as `None` (single key per
+    exercise).
+    """
+    first_by_key: dict[tuple, dict] = {}
+    for r in rows:
+        key = (r.get("exercise_id"), r.get("segment_idx"))
+        prev = first_by_key.get(key)
+        if prev is None or (r.get("created_at") or "") < (prev.get("created_at") or ""):
+            first_by_key[key] = r
+    return list(first_by_key.values())
 
 
 def _band_from_correct(correct: int, total: int) -> float:
@@ -1785,7 +1816,7 @@ async def get_listening_analytics(
 
     q = (
         supabase_admin.table("listening_attempts")
-        .select("id,exercise_id,score,is_correct,created_at")
+        .select("id,exercise_id,segment_idx,score,is_correct,created_at")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
     )
@@ -1815,16 +1846,25 @@ async def get_listening_analytics(
         flat.append({
             "id":            r["id"],
             "exercise_id":   r["exercise_id"],
+            "segment_idx":   r.get("segment_idx"),
             "score":         float(r.get("score") or 0),
             "is_correct":    bool(r.get("is_correct")),
             "created_at":    r["created_at"],
             "exercise_type": type_by_eid.get(r["exercise_id"], "unknown"),
         })
 
+    # Sprint 11.5.1 hotfix — first-attempt rule for accuracy metrics:
+    # `avg_score`, `accuracy`, and `weakest_mode` use first-attempt rows
+    # only (one row per (exercise_id, segment_idx)). `total_attempts`
+    # remains a count of ALL attempts (engagement signal — re-listens
+    # count). `by_day` also uses all rows so the bar chart reflects
+    # daily activity, not unique-exercise completion.
+    flat_first = _first_attempt_only(flat)
+
     modes = ("dictation", "gist", "true_false", "mcq")
     by_mode: dict[str, dict] = {}
     for m in modes:
-        rows_m = [r for r in flat if r["exercise_type"] == m]
+        rows_m = [r for r in flat_first if r["exercise_type"] == m]
         n = len(rows_m)
         if n == 0:
             by_mode[m] = {"count": 0, "avg_score": None, "accuracy": None}
@@ -1838,7 +1878,8 @@ async def get_listening_analytics(
         }
 
     # Weakest mode (lowest avg_score) — only count modes with ≥3 attempts
-    # so we don't misrepresent thin slices as weaknesses.
+    # so we don't misrepresent thin slices as weaknesses. Uses
+    # first-attempt rows only (consistent with the rest of by_mode).
     candidates = [
         (m, by_mode[m]["avg_score"])
         for m in modes
