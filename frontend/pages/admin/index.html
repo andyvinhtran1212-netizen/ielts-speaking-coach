@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Tổng quan — Admin · Aver Learning</title>
+  <title>Tổng quan · Admin</title>
 
   <script>
     (function () {
@@ -30,24 +30,90 @@
   <style>
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
     .overview-shell {
-      max-width: 1080px; margin: 0 auto;
+      max-width: 1180px; margin: 0 auto;
       padding: var(--av-space-2) var(--av-space-2) var(--av-space-8);
-      display: flex; flex-direction: column; gap: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .overview-header {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      flex-wrap: wrap; gap: var(--av-space-3);
     }
     .overview-header h1 {
       font-size: var(--av-fs-2xl);
-      margin-bottom: var(--av-space-2);
+      margin: 0;
     }
     .overview-header .accent { color: var(--av-brand-teal-700); }
-    .overview-header .subtitle {
-      color: var(--av-text-secondary);
-      font-size: var(--av-fs-base);
-      line-height: var(--av-lh-normal);
+    .overview-header .refresh-row {
+      display: flex; align-items: center; gap: var(--av-space-3);
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
     }
-    .overview-grid {
+    .btn-refresh {
+      padding: 6px 12px;
+      border-radius: var(--av-radius-md);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer;
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .btn-refresh:hover { background: var(--av-surface-card); }
+
+    /* ── Stat tiles (Sprint 12.4) ─────────────────────────────── */
+    .stat-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: var(--av-space-4);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--av-space-3);
+    }
+    .stat-tile {
+      display: flex; flex-direction: column;
+      gap: var(--av-space-1);
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      text-decoration: none;
+      color: var(--av-text-primary);
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .stat-tile.is-clickable:hover {
+      border-color: var(--av-brand-teal-700);
+      transform: translateY(-1px);
+    }
+    .stat-tile .label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    .stat-tile .value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+    }
+    .stat-tile .delta {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-secondary);
+    }
+    .stat-tile.is-warning {
+      border-color: var(--av-warning, var(--av-brand-amber-400));
+    }
+    .stat-tile.is-zero .value { color: var(--av-text-muted); }
+
+    /* ── Skill cards ──────────────────────────────────────────── */
+    .ov-section-title {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-semibold);
+      margin: var(--av-space-3) 0 var(--av-space-1);
+    }
+    .skill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--av-space-3);
     }
     .ov-card {
       display: flex; flex-direction: column;
@@ -64,34 +130,39 @@
       border-color: var(--av-brand-teal-700);
       transform: translateY(-1px);
     }
-    .ov-card.is-placeholder {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
+    .ov-card.is-placeholder { opacity: 0.7; }
     .ov-card.is-placeholder:hover {
       border-color: var(--av-border-default);
       transform: none;
     }
-    .ov-card-title-row {
-      display: flex; align-items: center;
-      gap: var(--av-space-2);
-    }
     .ov-card h3 {
-      font-size: var(--av-fs-lg);
+      font-size: var(--av-fs-base);
       font-weight: var(--av-fw-semibold);
       margin: 0;
     }
-    .ov-card .lede {
-      font-size: var(--av-fs-sm);
-      color: var(--av-text-secondary);
-      line-height: var(--av-lh-normal);
+    .ov-card .skill-stats {
+      display: flex; gap: var(--av-space-4);
+      font-family: var(--av-font-mono);
+    }
+    .ov-card .skill-stats > div {
+      display: flex; flex-direction: column;
+    }
+    .ov-card .skill-stats .stat-label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      font-family: var(--av-font-sans);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    .ov-card .skill-stats .stat-num {
+      font-size: var(--av-fs-lg);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
     }
     .ov-card .meta {
-      display: flex; gap: var(--av-space-2);
       margin-top: auto;
       font-size: var(--av-fs-xs);
       color: var(--av-text-muted);
-      align-items: center;
     }
     .ov-tag {
       padding: 2px 8px;
@@ -100,6 +171,7 @@
       color: var(--av-text-secondary);
       border: 1px solid var(--av-border-default);
       font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
     }
     .ov-tag.is-live {
       background: var(--av-brand-teal-50);
@@ -111,14 +183,77 @@
       color: #92400E;
       border-color: #FDE68A;
     }
-    .ov-section-title {
+
+    /* ── Activity feed ────────────────────────────────────────── */
+    .activity-feed {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow: hidden;
+    }
+    .activity-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 100px;
+      gap: var(--av-space-3);
+      padding: var(--av-space-3) var(--av-space-4);
+      border-bottom: 1px solid var(--av-border-default);
+      font-size: var(--av-fs-sm);
+      text-decoration: none;
+      color: var(--av-text-primary);
+    }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-row:hover { background: var(--av-surface-sunken); }
+    .activity-row.is-static:hover { background: transparent; cursor: default; }
+    .activity-row .ts {
+      font-family: var(--av-font-mono);
       font-size: var(--av-fs-xs);
-      text-transform: uppercase;
-      letter-spacing: var(--av-tracking-widest);
       color: var(--av-text-muted);
-      font-weight: var(--av-fw-semibold);
-      margin-top: var(--av-space-4);
-      margin-bottom: var(--av-space-2);
+    }
+    .activity-row .skill-chip {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      margin-right: var(--av-space-2);
+    }
+    .activity-row .skill-chip.is-speaking { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); }
+    .activity-row .skill-chip.is-writing  { background: #EEF2FF; color: #3730A3; }
+    .activity-row .skill-chip.is-listening { background: #FEF3C7; color: #92400E; }
+    .activity-row .score {
+      font-family: var(--av-font-mono);
+      text-align: right;
+      color: var(--av-text-secondary);
+    }
+
+    .activity-empty, .activity-loading {
+      padding: var(--av-space-6);
+      text-align: center;
+      color: var(--av-text-muted);
+      font-size: var(--av-fs-sm);
+    }
+
+    /* ── Footer placeholders (Cohort / Usage / System still Phase B) ── */
+    .placeholder-row {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      padding: var(--av-space-3) 0;
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    }
+    .placeholder-row a {
+      color: var(--av-text-secondary);
+      text-decoration: none;
+      padding: 4px 10px;
+      border-radius: var(--av-radius-pill);
+      border: 1px dashed var(--av-border-default);
+    }
+    .placeholder-row a:hover { color: var(--av-text-primary); }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 768px) {
+      .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .activity-row { grid-template-columns: 100px 1fr 70px; }
     }
   </style>
 </head>
@@ -127,83 +262,114 @@
 
     <div class="overview-shell">
       <header class="overview-header">
-        <h1>Tổng quan <span class="accent">Quản trị</span></h1>
-        <p class="subtitle">
-          Cụm DEBT-ADMIN-IA-REFACTOR đang triển khai theo 8 sprint.
-          Sprint 12.1 (sidebar shell) hoàn thành. Sprint 12.2-12.8 sẽ
-          từng bước bổ sung dashboard số liệu + các trang quản lý còn thiếu.
-        </p>
+        <div>
+          <h1>Tổng quan <span class="accent">Quản trị</span></h1>
+        </div>
+        <div class="refresh-row">
+          <span id="last-refresh" data-testid="last-refresh">—</span>
+          <button class="btn-refresh" id="btn-refresh" type="button">Tải lại</button>
+        </div>
       </header>
 
-      <h2 class="ov-section-title">Nội dung</h2>
-      <section class="overview-grid">
-        <a href="/pages/admin/speaking/index.html" class="ov-card is-placeholder">
-          <div class="ov-card-title-row"><h3>Speaking</h3></div>
-          <p class="lede">Quản lý topic + question library + sessions + grading rubric.</p>
+      <!-- ── Top 4 stat tiles ─────────────────────────────────── -->
+      <section class="stat-grid" aria-label="Số liệu chính">
+        <div class="stat-tile" data-tile="students-total">
+          <span class="label">Tổng học viên</span>
+          <span class="value" data-value="students-total">—</span>
+          <span class="delta" data-delta="students-30d">—</span>
+        </div>
+        <div class="stat-tile" data-tile="students-active">
+          <span class="label">Đang hoạt động (7 ngày)</span>
+          <span class="value" data-value="students-active-7d">—</span>
+          <span class="delta" data-delta="students-active-30d">—</span>
+        </div>
+        <a class="stat-tile is-clickable" data-tile="errors-undismissed"
+           href="/pages/admin/error-logs/index.html">
+          <span class="label">Lỗi chưa xử lý</span>
+          <span class="value" data-value="errors-undismissed">—</span>
+          <span class="delta" data-delta="errors-24h">—</span>
+        </a>
+        <a class="stat-tile is-clickable" data-tile="access-codes"
+           href="/pages/admin/access-codes/index.html">
+          <span class="label">Mã đang dùng</span>
+          <span class="value" data-value="access-codes-active">—</span>
+          <span class="delta" data-delta="access-codes-mix">—</span>
+        </a>
+      </section>
+
+      <!-- ── Skill cards (5) ──────────────────────────────────── -->
+      <h2 class="ov-section-title">Hoạt động theo kỹ năng</h2>
+      <section class="skill-grid" aria-label="Tóm tắt theo kỹ năng">
+        <a href="/pages/admin/speaking/index.html" class="ov-card is-placeholder" data-skill="speaking">
+          <h3>Speaking</h3>
+          <div class="skill-stats">
+            <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="speaking">—</span></div>
+            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="speaking">—</span></div>
+            <div><span class="stat-label">Band TB</span><span class="stat-num" data-skill-extra="speaking">—</span></div>
+          </div>
           <div class="meta"><span class="ov-tag is-soon">Sprint 12.5</span></div>
         </a>
-        <a href="/pages/admin/writing/index.html" class="ov-card">
-          <div class="ov-card-title-row"><h3>Writing</h3></div>
-          <p class="lede">Soạn bài viết, chấm, hàng đợi Instructor, thư viện prompt, gán bài tập.</p>
+        <a href="/pages/admin/writing/index.html" class="ov-card" data-skill="writing">
+          <h3>Writing</h3>
+          <div class="skill-stats">
+            <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="writing">—</span></div>
+            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="writing">—</span></div>
+            <div><span class="stat-label">Chờ chấm</span><span class="stat-num" data-skill-extra="writing">—</span></div>
+          </div>
           <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/listening/index.html" class="ov-card">
-          <div class="ov-card-title-row"><h3>Listening</h3></div>
-          <p class="lede">Audio + 5 dạng bài (dictation, gist, T/F, MCQ, mini test).</p>
+        <a href="/pages/admin/listening/index.html" class="ov-card" data-skill="listening">
+          <h3>Listening</h3>
+          <div class="skill-stats">
+            <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="listening">—</span></div>
+            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="listening">—</span></div>
+            <div><span class="stat-label">Điểm TB</span><span class="stat-num" data-skill-extra="listening">—</span></div>
+          </div>
           <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/vocab/index.html" class="ov-card is-placeholder">
-          <div class="ov-card-title-row"><h3>Vocab</h3></div>
-          <p class="lede">D1 curation + lemma correction + archive management.</p>
+        <a href="/pages/admin/vocab/index.html" class="ov-card is-placeholder" data-skill="vocab">
+          <h3>Vocab</h3>
+          <div class="skill-stats">
+            <div><span class="stat-label">Đang học</span><span class="stat-num" data-skill-7d="vocab">—</span></div>
+            <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="vocab">—</span></div>
+          </div>
           <div class="meta"><span class="ov-tag is-soon">Sprint 12.6</span></div>
         </a>
-        <a href="/pages/admin/grammar/index.html" class="ov-card is-placeholder">
-          <div class="ov-card-title-row"><h3>Grammar</h3></div>
-          <p class="lede">Articles browser + recommendation dogfood.</p>
+        <a href="/pages/admin/grammar/index.html" class="ov-card is-placeholder" data-skill="grammar">
+          <h3>Grammar</h3>
+          <div class="skill-stats">
+            <div><span class="stat-label">Đề xuất 7d</span><span class="stat-num" data-skill-7d="grammar">—</span></div>
+          </div>
           <div class="meta"><span class="ov-tag is-soon">Sprint 12.7</span></div>
         </a>
       </section>
 
-      <h2 class="ov-section-title">Người dùng</h2>
-      <section class="overview-grid">
-        <a href="/pages/admin/students/index.html" class="ov-card">
-          <div class="ov-card-title-row"><h3>Học viên</h3></div>
-          <p class="lede">CRUD học viên + bulk CSV import + tóm tắt tiến độ.</p>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
-        </a>
-        <a href="/pages/admin/users/index.html" class="ov-card is-placeholder">
-          <div class="ov-card-title-row"><h3>Tất cả người dùng</h3></div>
-          <p class="lede">Danh sách auth.users + phân quyền + lọc theo role.</p>
-          <div class="meta"><span class="ov-tag is-soon">Sprint 12.8</span></div>
-        </a>
-        <a href="/pages/admin/cohorts/index.html" class="ov-card is-placeholder">
-          <div class="ov-card-title-row"><h3>Lớp / Cohort</h3></div>
-          <p class="lede">Phân biệt code đại trà và học viên trực tiếp; gán vào lớp.</p>
-          <div class="meta"><span class="ov-tag is-soon">Phase B</span></div>
-        </a>
-      </section>
+      <!-- ── Recent activity feed ─────────────────────────────── -->
+      <h2 class="ov-section-title">Hoạt động gần đây</h2>
+      <div class="activity-feed">
+        <div class="activity-loading" id="activity-loading">Đang tải…</div>
+        <div class="activity-empty" id="activity-empty" hidden>
+          Chưa có hoạt động nào trong 30 ngày qua.
+        </div>
+        <div id="activity-rows" hidden></div>
+      </div>
 
+      <!-- ── Phase B + Legacy footer ──────────────────────────── -->
       <h2 class="ov-section-title">Truy cập + Hệ thống</h2>
-      <section class="overview-grid">
-        <a href="/pages/admin/access-codes/index.html" class="ov-card">
-          <div class="ov-card-title-row"><h3>Mã kích hoạt</h3></div>
-          <p class="lede">Tạo + quản lý access code, phân loại mass/direct, gán cohort.</p>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
-        </a>
-        <a href="/pages/admin/error-logs/index.html" class="ov-card">
-          <div class="ov-card-title-row"><h3>Báo lỗi</h3></div>
-          <p class="lede">Frontend + backend exception log, dismiss workflow.</p>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
-        </a>
-        <a href="/admin.html" class="ov-card">
-          <div class="ov-card-title-row"><h3>Admin (legacy)</h3></div>
-          <p class="lede">Trang quản trị cũ — vẫn còn dùng để truy cập Speaking sessions, AI usage, vocab stats. Sẽ được carve dần qua các sprint 12.2-12.5.</p>
-          <div class="meta"><span class="ov-tag">Legacy</span></div>
-        </a>
-      </section>
+      <div class="placeholder-row">
+        <a href="/pages/admin/students/index.html">Học viên · LIVE</a>
+        <a href="/pages/admin/users/index.html">Tất cả người dùng · Sprint 12.8</a>
+        <a href="/pages/admin/cohorts/index.html">Lớp / Cohort · Phase B</a>
+        <a href="/pages/admin/usage/index.html">Usage logs · Phase B</a>
+        <a href="/pages/admin/system/index.html">Hệ thống · Phase B</a>
+        <a href="/admin.html">Admin (legacy) · vẫn dùng cho Speaking sessions, AI usage</a>
+      </div>
     </div>
 
   </aver-admin-chrome>
+
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-overview.js"></script>
 </body>
 </html>

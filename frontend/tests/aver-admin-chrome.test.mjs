@@ -170,16 +170,19 @@ describe('Sprint 12.1 — every moved page embeds <aver-admin-chrome>', () => {
 
 /* ── Tổng quan landing page ────────────────────────────────────── */
 
-describe('Sprint 12.1 — Tổng quan landing (pages/admin/index.html)', () => {
+describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', () => {
+  // Sprint 12.4 reshaped this landing from 11 link cards into a real
+  // dashboard: 4 stat tiles + 5 skill cards + activity feed. Hard pins
+  // on shape moved into admin-overview.test.mjs; the assertions kept
+  // here pin only the cluster-stable contract.
   it('embeds <aver-admin-chrome active="overview">', () => {
     assert.match(ADMIN_INDEX, /<aver-admin-chrome\s+active=["']overview["']/);
   });
 
-  it('renders 11 cards across 3 groups (Nội dung 5 + Người dùng 3 + Truy cập 3)', () => {
-    // Match exactly "ov-card" or "ov-card is-placeholder" — NOT "ov-card-title-row".
-    const cards = ADMIN_INDEX.match(/class="ov-card(?: is-placeholder)?"/g) || [];
-    assert.equal(cards.length, 11,
-      `expected 11 overview cards; got ${cards.length}`);
+  it('renders 5 skill cards (ov-card class with data-skill attribute)', () => {
+    const cards = ADMIN_INDEX.match(/class="ov-card(?: is-placeholder)?"\s+data-skill="/g) || [];
+    assert.equal(cards.length, 5,
+      `expected 5 skill cards (Speaking/Writing/Listening/Vocab/Grammar); got ${cards.length}`);
   });
 
   it('links Speaking + Vocab + Grammar as placeholders with sprint hints', () => {
@@ -188,13 +191,13 @@ describe('Sprint 12.1 — Tổng quan landing (pages/admin/index.html)', () => {
     assert.match(ADMIN_INDEX, /Sprint 12\.7/);
   });
 
-  it('marks Writing + Listening + Students as LIVE', () => {
+  it('marks Writing + Listening as LIVE skill cards', () => {
     const liveTags = ADMIN_INDEX.match(/is-live[^"]*">[^<]*LIVE[^<]*</g) || [];
-    assert.ok(liveTags.length >= 3,
-      `expected at least 3 LIVE tags (Writing, Listening, Students); got ${liveTags.length}`);
+    assert.ok(liveTags.length >= 2,
+      `expected at least 2 LIVE tags (Writing + Listening); got ${liveTags.length}`);
   });
 
-  it('marks Phase B sections with "Phase B" tag', () => {
+  it('Phase B sections still surfaced (footer placeholder row)', () => {
     assert.match(ADMIN_INDEX, /Phase B/);
   });
 });
