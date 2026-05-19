@@ -203,12 +203,12 @@ describe('Sprint 12.1 — Tổng quan landing (pages/admin/index.html)', () => {
 /* ── Placeholder pages exist for empty sections ───────────────── */
 
 describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
-  // Sprint 12.2 graduated `access-codes` from placeholder → real
-  // landing (see admin-access-codes.test.mjs). Sprint 12.3/12.4/12.5
-  // will graduate `error-logs`, `speaking`, etc.
+  // Sprint 12.2 graduated `access-codes`; Sprint 12.3 graduated
+  // `error-logs` (see admin-error-logs.test.mjs). Sprint 12.4/12.5
+  // will graduate `speaking`, etc.
   const sections = [
     'speaking', 'vocab', 'grammar', 'users',
-    'cohorts', 'usage', 'error-logs', 'system',
+    'cohorts', 'usage', 'system',
   ];
   for (const s of sections) {
     it(`/pages/admin/${s}/index.html exists with chrome + "Sắp ra mắt"`, () => {
@@ -237,6 +237,16 @@ describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
     // Real landing must have the filter bar + create button.
     assert.match(html, /id="filter-type"/);
     assert.match(html, /id="btn-create"/);
+  });
+
+  it('Sprint 12.3 — error-logs index is a real landing (not a stub)', () => {
+    const html = read('pages', 'admin', 'error-logs', 'index.html');
+    assert.match(html, /<aver-admin-chrome\s+active=["']error-logs["']/);
+    assert.doesNotMatch(html, /Sắp ra mắt/);
+    // Real landing must carry the stats grid + filter bar + refresh button.
+    assert.match(html, /data-stat="undismissed"/);
+    assert.match(html, /id="filter-dismissed"/);
+    assert.match(html, /id="btn-refresh"/);
   });
 });
 
