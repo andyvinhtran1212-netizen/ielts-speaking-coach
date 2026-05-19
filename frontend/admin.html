@@ -126,78 +126,27 @@
       </div>
 
       <!-- ── TAB: Topics ──────────────────────────────────────── -->
-      <div id="panel-topics">
-
-        <div class="flex items-center justify-between mb-5">
-          <div class="flex gap-1 p-1 rounded-xl" style="background:var(--av-surface-card);border:1px solid var(--av-border-subtle);">
-            <button id="tlib-tab-1" class="tlib-tab active" onclick="switchLibTab(1)">Part 1 — Interview</button>
-            <button id="tlib-tab-2" class="tlib-tab"        onclick="switchLibTab(2)">Part 2 — Cue Card</button>
-            <button id="tlib-tab-3" class="tlib-tab"        onclick="switchLibTab(3)">Part 3 — Discussion</button>
-          </div>
-          <div class="flex gap-2">
-            <button class="btn-secondary" onclick="openBulkModal()">📋 Bulk add</button>
-            <button class="btn-primary"   onclick="openAddTopicModal()">+ Thêm topic</button>
-          </div>
+      <!-- ── TAB: Topics (Sprint 12.5 — CARVED) ──────────────────── -->
+      <!-- Markup + dead JS handlers (loadTopics, switchLibTab, etc.) -->
+      <!-- remain in this file as dead code; admin-utils-style cleanup  -->
+      <!-- defers to Sprint 12.8 cluster close. The loader is guarded   -->
+      <!-- against missing DOM so 12.3 error reporter doesn't log noise. -->
+      <div id="panel-topics" class="hidden">
+        <div class="card p-6">
+          <h3 class="font-semibold text-base mb-2" style="color:var(--av-text-primary);">
+            Topics + Questions đã chuyển sang IA mới
+          </h3>
+          <p class="text-sm mb-4" style="color:var(--av-text-secondary);">
+            Phiên bản mới hỗ trợ filter Part 1/2/3, CRUD topic + câu hỏi,
+            AI sinh câu hỏi. Bulk operations (bulk add / rotate / delete)
+            sẽ port lại trong Phase B.
+          </p>
+          <a href="/pages/admin/speaking/topics.html"
+             class="btn-primary inline-block"
+             style="text-decoration:none;">
+            Mở trang Topics mới →
+          </a>
         </div>
-
-        <div class="topics-admin-card">
-          <div class="topics-toolbar">
-            <div class="topics-toolbar-meta">
-              <span id="topics-summary-chip" class="topics-summary-chip">0 topics</span>
-              <span id="topics-summary-muted" class="topics-summary-muted">Quản lý topic theo dạng bảng để thao tác hàng loạt an toàn hơn.</span>
-            </div>
-            <div class="topics-toolbar-actions">
-              <input id="topic-search" class="inp topics-search" placeholder="Tìm theo tên topic…" oninput="onTopicSearchInput(this.value)" />
-              <button class="btn-secondary" onclick="selectAllVisibleTopics()">Select all visible</button>
-              <button class="btn-secondary" onclick="clearTopicSelection()">Clear selection</button>
-              <span id="topics-selection-chip" class="topics-selection-chip">0 selected</span>
-            </div>
-          </div>
-
-          <div id="topics-bulk-toolbar" class="topics-bulk-toolbar hidden">
-            <div class="topics-toolbar-meta">
-              <span id="topics-bulk-label" class="topics-summary-chip">0 selected</span>
-              <span class="topics-summary-muted">Bulk actions only apply to the rows currently selected in this view.</span>
-            </div>
-            <div class="topics-bulk-actions">
-              <button id="btn-bulk-generate" class="btn-row teal" onclick="bulkGenerateTopics()">Generate questions</button>
-              <button id="btn-bulk-rotate" class="btn-row warn" onclick="bulkRotateTopics()">Rotate questions</button>
-              <button id="btn-bulk-delete" class="btn-row danger" onclick="bulkDeleteTopics()">Delete selected</button>
-              <button class="btn-row" onclick="clearTopicSelection()">Clear selection</button>
-            </div>
-          </div>
-
-          <div id="topics-feedback" class="topics-feedback hidden"></div>
-
-          <div id="topics-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
-          <div id="topics-load-error" class="hidden text-sm py-3 px-4 rounded-xl" style="background:var(--av-error-soft);color:var(--av-error);border:1px solid color-mix(in srgb, var(--av-error) 22%, transparent);">
-            Không thể tải danh sách topics lúc này.
-          </div>
-
-          <div id="topics-table-wrap" class="topics-table-wrap hidden">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th style="width:42px;">
-                    <input id="topic-select-all" type="checkbox" style="accent-color:var(--av-primary);" onchange="toggleSelectAllVisible(this.checked)" />
-                  </th>
-                  <th>Topic name</th>
-                  <th>Part</th>
-                  <th>Question count</th>
-                  <th>Status</th>
-                  <th>Last updated</th>
-                  <th>Row actions</th>
-                </tr>
-              </thead>
-              <tbody id="topics-table-body"></tbody>
-            </table>
-          </div>
-
-          <div id="topics-empty" class="hidden topics-empty-state">
-            Chưa có topic nào trong bộ lọc hiện tại. Hãy thêm topic mới hoặc đổi bộ lọc tìm kiếm.
-          </div>
-        </div>
-
       </div>
 
       <!-- ── TAB: Access Codes (Sprint 12.2 — CARVED) ─────────── -->
@@ -393,79 +342,24 @@
       </div>
 
       <!-- ── TAB: Sessions ──────────────────────────────────────── -->
+      <!-- ── TAB: Sessions (Sprint 12.5 — CARVED) ─────────────── -->
+      <!-- Markup carved out; dead handlers (loadSessions, regradeSession, -->
+      <!-- rebuildSummary, openSessionDetail, renderSessionDetail) remain  -->
+      <!-- as dead code with DOM guards so 12.3 reporter stays quiet.       -->
       <div id="panel-sessions" class="hidden">
-        <!-- Filters -->
-        <div class="card p-4 mb-4">
-          <div class="flex flex-wrap gap-3 items-end">
-            <div>
-              <label class="block text-xs mb-1" style="color:var(--av-text-muted);">Email / User ID</label>
-              <input id="sf-email" class="inp" style="min-width:180px;" placeholder="Tìm email…" />
-            </div>
-            <div>
-              <label class="block text-xs mb-1" style="color:var(--av-text-muted);">Mode</label>
-              <select id="sf-mode" class="inp">
-                <option value="">— Tất cả —</option>
-                <option value="practice">Practice</option>
-                <option value="test_part">Test Part</option>
-                <option value="test_full">Test Full</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs mb-1" style="color:var(--av-text-muted);">Status</label>
-              <select id="sf-status" class="inp">
-                <option value="">— Tất cả —</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="grading_failed">Grading Failed</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs mb-1" style="color:var(--av-text-muted);">Lỗi</label>
-              <select id="sf-error" class="inp">
-                <option value="">— Tất cả —</option>
-                <option value="has_error">Có lỗi</option>
-                <option value="stt_failed">STT Failed</option>
-                <option value="grading_failed">Grading Failed</option>
-                <option value="save_failed">Save Failed</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs mb-1" style="color:var(--av-text-muted);">Từ ngày</label>
-              <input id="sf-date-from" type="date" class="inp" />
-            </div>
-            <div>
-              <label class="block text-xs mb-1" style="color:var(--av-text-muted);">Đến ngày</label>
-              <input id="sf-date-to" type="date" class="inp" />
-            </div>
-            <button class="btn-primary" onclick="loadSessions(true)">Tìm kiếm</button>
-            <button class="btn-secondary" onclick="resetSessionFilters()">Reset</button>
-          </div>
-        </div>
-
-        <div id="sessions-loading" class="flex justify-center py-12 hidden"><div class="spinner"></div></div>
-        <div id="sessions-empty" class="hidden text-center py-12 text-sm" style="color:var(--av-text-muted);">Không tìm thấy session nào.</div>
-        <div id="sessions-table-wrap" class="hidden card overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Session ID</th>
-                  <th>User</th>
-                  <th>Mode</th>
-                  <th>Topic</th>
-                  <th>Band</th>
-                  <th>Status</th>
-                  <th>Lỗi</th>
-                  <th>Bắt đầu</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="sessions-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="flex justify-center mt-4">
-          <button id="btn-sessions-more" class="btn-secondary hidden" onclick="loadSessionsMore()">Tải thêm</button>
+        <div class="card p-6">
+          <h3 class="font-semibold text-base mb-2" style="color:var(--av-text-primary);">
+            Sessions Speaking đã chuyển sang IA mới
+          </h3>
+          <p class="text-sm mb-4" style="color:var(--av-text-secondary);">
+            Phiên bản mới hỗ trợ filter user/mode/trạng thái/ngày, xem chi
+            tiết, regrade response/session, rebuild summary cho full-test.
+          </p>
+          <a href="/pages/admin/speaking/sessions.html"
+             class="btn-primary inline-block"
+             style="text-decoration:none;">
+            Mở trang Sessions mới →
+          </a>
         </div>
       </div>
 
@@ -1093,6 +987,11 @@
     }
 
     async function loadTopics() {
+      // Sprint 12.5 — Topics surface carved out to /pages/admin/speaking/topics.html.
+      // Panel markup is a migration banner now; the DOM elements this
+      // function manipulates no longer exist. Guard against null lookups
+      // so the 12.3 error reporter doesn't log a noisy "null.classList".
+      if (!document.getElementById('topics-loading')) return;
       _loaded.topics = true;
       _topicsLoadFailed = false;
       document.getElementById('topics-loading').classList.remove('hidden');
@@ -2512,10 +2411,14 @@
     };
 
     window.loadSessions = async function (reset) {
+      // Sprint 12.5 — Sessions surface carved out to /pages/admin/speaking/sessions.html.
+      // Panel markup is a migration banner now; guard against null DOM
+      // so 12.3 error reporter doesn't log noise on legacy-tab clicks.
+      var loadEl = document.getElementById('sessions-loading');
+      if (!loadEl) return;
       _loaded.sessions = true;
       if (reset) { _sessionsOffset = 0; _sessionsData = []; _sessionsLastPage = []; }
 
-      var loadEl    = document.getElementById('sessions-loading');
       var emptyEl   = document.getElementById('sessions-empty');
       var tableWrap = document.getElementById('sessions-table-wrap');
       var moreBtn   = document.getElementById('btn-sessions-more');

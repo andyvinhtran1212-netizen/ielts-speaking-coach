@@ -185,16 +185,20 @@ describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', ()
       `expected 5 skill cards (Speaking/Writing/Listening/Vocab/Grammar); got ${cards.length}`);
   });
 
-  it('links Speaking + Vocab + Grammar as placeholders with sprint hints', () => {
-    assert.match(ADMIN_INDEX, /Sprint 12\.5/);
+  it('links Vocab + Grammar as placeholders with sprint hints', () => {
+    // Sprint 12.5 graduated Speaking out of the placeholder roster — its
+    // card is now LIVE (pinned below). Vocab + Grammar remain as Sprint
+    // 12.6/12.7 placeholders.
     assert.match(ADMIN_INDEX, /Sprint 12\.6/);
     assert.match(ADMIN_INDEX, /Sprint 12\.7/);
   });
 
-  it('marks Writing + Listening as LIVE skill cards', () => {
+  it('marks Speaking + Writing + Listening as LIVE skill cards', () => {
+    // Sprint 12.5 flipped Speaking from `is-placeholder` Sprint-12.5 stub
+    // to LIVE. Vocab + Grammar still carry `is-soon` tags.
     const liveTags = ADMIN_INDEX.match(/is-live[^"]*">[^<]*LIVE[^<]*</g) || [];
-    assert.ok(liveTags.length >= 2,
-      `expected at least 2 LIVE tags (Writing + Listening); got ${liveTags.length}`);
+    assert.ok(liveTags.length >= 3,
+      `expected at least 3 LIVE tags (Speaking + Writing + Listening); got ${liveTags.length}`);
   });
 
   it('Phase B sections still surfaced (footer placeholder row)', () => {
@@ -207,10 +211,11 @@ describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', ()
 
 describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
   // Sprint 12.2 graduated `access-codes`; Sprint 12.3 graduated
-  // `error-logs` (see admin-error-logs.test.mjs). Sprint 12.4/12.5
-  // will graduate `speaking`, etc.
+  // `error-logs`; Sprint 12.5 graduated `speaking` (see
+  // admin-speaking-extract.test.mjs). Sprint 12.6/12.7 will graduate
+  // `vocab` and `grammar`.
   const sections = [
-    'speaking', 'vocab', 'grammar', 'users',
+    'vocab', 'grammar', 'users',
     'cohorts', 'usage', 'system',
   ];
   for (const s of sections) {
@@ -250,6 +255,15 @@ describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
     assert.match(html, /data-stat="undismissed"/);
     assert.match(html, /id="filter-dismissed"/);
     assert.match(html, /id="btn-refresh"/);
+  });
+
+  it('Sprint 12.5 — speaking index is a real landing (not a stub)', () => {
+    const html = read('pages', 'admin', 'speaking', 'index.html');
+    assert.match(html, /<aver-admin-chrome\s+active=["']speaking["']/);
+    assert.doesNotMatch(html, /Sắp ra mắt/);
+    // Real landing must link to its two child pages (sessions + topics).
+    assert.match(html, /\/pages\/admin\/speaking\/sessions\.html/);
+    assert.match(html, /\/pages\/admin\/speaking\/topics\.html/);
   });
 });
 

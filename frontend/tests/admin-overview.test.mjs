@@ -83,16 +83,19 @@ describe('Sprint 12.4 — 5 skill cards', () => {
     });
   }
 
-  it('Writing + Listening cards link to their hubs (no is-placeholder)', () => {
+  it('Speaking + Writing + Listening cards link to their hubs (no is-placeholder)', () => {
+    // Sprint 12.5 flipped Speaking from `is-placeholder` to LIVE, so it
+    // joins Writing + Listening in the LIVE-card roster.
+    assert.match(HTML, /href="\/pages\/admin\/speaking\/index\.html"[^>]*class="ov-card"\s+data-skill="speaking"/);
     assert.match(HTML, /href="\/pages\/admin\/writing\/index\.html"[^>]*class="ov-card"\s+data-skill="writing"/);
     assert.match(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*class="ov-card"\s+data-skill="listening"/);
   });
 
-  it('Speaking + Vocab + Grammar still marked is-placeholder with sprint hints', () => {
-    assert.match(HTML, /is-placeholder"\s+data-skill="speaking"/);
+  it('Vocab + Grammar still marked is-placeholder with sprint hints', () => {
+    // Sprint 12.5 graduated Speaking. Vocab (Sprint 12.6) + Grammar
+    // (Sprint 12.7) remain as placeholders until those carves land.
     assert.match(HTML, /is-placeholder"\s+data-skill="vocab"/);
     assert.match(HTML, /is-placeholder"\s+data-skill="grammar"/);
-    assert.match(HTML, /Sprint 12\.5/);
     assert.match(HTML, /Sprint 12\.6/);
     assert.match(HTML, /Sprint 12\.7/);
   });
