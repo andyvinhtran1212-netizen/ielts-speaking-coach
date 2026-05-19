@@ -545,6 +545,20 @@ export class AverAdminChrome extends HTMLElement {
     if (this._mounted) return;
     this._mounted = true;
 
+    // Sprint 12.3 — autoload the global error reporter so every page
+    // that embeds <aver-admin-chrome> automatically captures uncaught
+    // exceptions + Promise rejections. error-reporter.js is idempotent
+    // (self-guarded against double-load) so re-injection is safe.
+    try {
+      if (typeof document !== 'undefined' && !document.querySelector('script[data-aver-error-reporter]')) {
+        const s = document.createElement('script');
+        s.src = '/js/error-reporter.js';
+        s.setAttribute('data-aver-error-reporter', '1');
+        s.async = true;
+        document.head.appendChild(s);
+      }
+    } catch { /* swallow — never block chrome render on reporter load */ }
+
     // Apply persisted collapse state BEFORE first paint so the layout
     // doesn't flash an expanded sidebar then snap collapsed.
     try {

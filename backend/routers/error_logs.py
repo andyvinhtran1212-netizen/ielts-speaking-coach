@@ -1,0 +1,289 @@
+"""routers/error_logs.py — Sprint 12.3 (DEBT-ADMIN-IA-REFACTOR 3/8).
+
+Custom error-log capture surface. Three jobs:
+
+  1. POST /api/error-logs — receive frontend exception reports
+     (window.onerror, unhandledrejection, manual window.aver.reportError).
+     Anonymous reporting is allowed; logged-in users get user_id populated.
+  2. GET /admin/error-logs — admin list with filters (level, source,
+     dismissed, user_id) + cursor-style limit/offset pagination.
+  3. POST /admin/error-logs/{id}/dismiss + .../undismiss — admin triage.
+
+Backend's OWN unhandled exceptions are captured by the global handler in
+main.py — that path inserts directly via `supabase_admin` (fire-and-
+forget, fail-soft) and does NOT go through this router.
+
+Fail-soft contract — logging must NEVER escalate:
+  - POST /api/error-logs: if validation fails, return 422 (no INSERT)
+    but never return 500; if Supabase INSERT fails, log to stderr and
+    return 503 — the frontend reporter silently swallows non-2xx.
+  - Admin GET: standard 4xx/5xx; admin UI surfaces the failure.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel, Field
+
+from database import supabase_admin
+from routers.admin import require_admin
+from routers.auth import get_supabase_user
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["error-logs"])
+
+
+# ── Models ─────────────────────────────────────────────────────────────
+
+
+class ErrorReportRequest(BaseModel):
+    level: str = Field(default="error")
+    source: str = Field(default="frontend")
+    message: str = Field(min_length=1, max_length=2000)
+    stack: str | None = Field(default=None, max_length=10000)
+    url: str | None = Field(default=None, max_length=1000)
+    user_agent: str | None = Field(default=None, max_length=500)
+    request_id: str | None = Field(default=None, max_length=64)
+    extra: dict | None = None
+
+
+# ── Helpers ────────────────────────────────────────────────────────────
+
+
+_ALLOWED_LEVELS = ("error", "warning", "info")
+
+
+async def _get_user_optional(authorization: str | None) -> dict | None:
+    """Resolve current user if a valid token is sent; return None otherwise.
+
+    Anonymous reports are allowed — a broken token must not block the
+    POST. `get_supabase_user` raises 401 on missing/invalid auth, so we
+    swallow that here.
+    """
+    if not authorization:
+        return None
+    try:
+        return await get_supabase_user(authorization)
+    except HTTPException:
+        return None
+    except Exception as exc:  # network blip etc.
+        logger.warning("[error_logs] optional auth lookup failed: %s", exc)
+        return None
+
+
+# ── POST /api/error-logs (frontend → backend) ────────────────────────
+
+
+@router.post("/api/error-logs")
+async def report_frontend_error(
+    body: ErrorReportRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Validate + persist a frontend-reported error.
+
+    Auth: optional. Anonymous reports get user_id=NULL.
+    """
+    if body.level not in _ALLOWED_LEVELS:
+        raise HTTPException(422, f"level must be one of {_ALLOWED_LEVELS}")
+    if body.source != "frontend":
+        # /api/error-logs is the frontend ingress only — backend errors
+        # land via the global exception handler in main.py.
+        raise HTTPException(422, "source must be 'frontend' for this endpoint")
+
+    user_id: str | None = None
+    user = await _get_user_optional(authorization)
+    if user:
+        user_id = user.get("id")
+
+    payload = {
+        "level":      body.level,
+        "source":     "frontend",
+        "message":    body.message[:1000],
+        "stack":      (body.stack or None) and body.stack[:5000],
+        "user_id":    user_id,
+        "url":        body.url[:500] if body.url else None,
+        "user_agent": body.user_agent[:500] if body.user_agent else None,
+        "request_id": body.request_id,
+        "extra":      body.extra,
+    }
+
+    try:
+        supabase_admin.table("error_logs").insert(payload).execute()
+    except Exception as exc:
+        logger.error("[error_logs] frontend INSERT failed: %s", exc)
+        raise HTTPException(503, "Logging temporarily unavailable")
+
+    return {"received": True}
+
+
+# ── Admin endpoints ────────────────────────────────────────────────────
+
+
+_admin_router = APIRouter(prefix="/admin/error-logs", tags=["admin", "error-logs"])
+
+
+@_admin_router.get("")
+async def list_error_logs(
+    authorization: str | None = Header(default=None),
+    level: str | None = None,
+    source: str | None = None,
+    dismissed: bool | None = None,
+    user_id: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """List error logs with filters. Admin only."""
+    await require_admin(authorization)
+
+    if limit < 1 or limit > 200:
+        raise HTTPException(422, "limit must be between 1 and 200")
+    if offset < 0:
+        raise HTTPException(422, "offset must be ≥ 0")
+    if level is not None and level not in _ALLOWED_LEVELS:
+        raise HTTPException(422, f"level must be one of {_ALLOWED_LEVELS}")
+    if source is not None and source not in ("frontend", "backend"):
+        raise HTTPException(422, "source must be 'frontend' or 'backend'")
+
+    q = supabase_admin.table("error_logs").select("*")
+    if level:
+        q = q.eq("level", level)
+    if source:
+        q = q.eq("source", source)
+    if dismissed is True:
+        q = q.not_.is_("dismissed_at", "null")
+    elif dismissed is False:
+        q = q.is_("dismissed_at", "null")
+    if user_id:
+        q = q.eq("user_id", user_id)
+
+    try:
+        r = q.order("occurred_at", desc=True).range(offset, offset + limit - 1).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải báo lỗi: {exc}")
+
+    return {
+        "items":  r.data or [],
+        "limit":  limit,
+        "offset": offset,
+    }
+
+
+@_admin_router.get("/stats")
+async def error_log_stats(authorization: str | None = Header(default=None)):
+    """Counts for the Tổng quan dashboard cards.
+
+    Returns 4 numbers: total, undismissed, last 24h, last 7d.
+    Single roundtrip per metric (cheap; error_logs is small).
+    """
+    await require_admin(authorization)
+
+    now = datetime.now(timezone.utc)
+    iso_24h = (now - timedelta(hours=24)).isoformat()
+    iso_7d  = (now - timedelta(days=7)).isoformat()
+
+    def _count(q) -> int:
+        try:
+            res = q.execute()
+            return len(res.data or [])
+        except Exception:
+            return 0
+
+    total = _count(supabase_admin.table("error_logs").select("id"))
+    undismissed = _count(
+        supabase_admin.table("error_logs").select("id").is_("dismissed_at", "null")
+    )
+    last_24h = _count(
+        supabase_admin.table("error_logs").select("id").gte("occurred_at", iso_24h)
+    )
+    last_7d = _count(
+        supabase_admin.table("error_logs").select("id").gte("occurred_at", iso_7d)
+    )
+
+    return {
+        "total":        total,
+        "undismissed":  undismissed,
+        "last_24h":     last_24h,
+        "last_7d":      last_7d,
+    }
+
+
+@_admin_router.post("/{log_id}/dismiss")
+async def dismiss_error_log(
+    log_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Mark an error log dismissed. Idempotent (re-dismiss is a no-op)."""
+    admin_user = await require_admin(authorization)
+    update = {
+        "dismissed_at": datetime.now(timezone.utc).isoformat(),
+        "dismissed_by": admin_user["id"],
+    }
+    try:
+        r = supabase_admin.table("error_logs").update(update).eq("id", log_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi xử lý báo lỗi: {exc}")
+    if not r.data:
+        raise HTTPException(404, "Không tìm thấy báo lỗi")
+    return {"dismissed": True}
+
+
+@_admin_router.post("/{log_id}/undismiss")
+async def undismiss_error_log(
+    log_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Reset the dismissed state. Useful when an error returns."""
+    await require_admin(authorization)
+    try:
+        r = (
+            supabase_admin.table("error_logs")
+            .update({"dismissed_at": None, "dismissed_by": None})
+            .eq("id", log_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi reset báo lỗi: {exc}")
+    if not r.data:
+        raise HTTPException(404, "Không tìm thấy báo lỗi")
+    return {"undismissed": True}
+
+
+@_admin_router.post("/test")
+async def generate_test_error(
+    authorization: str | None = Header(default=None),
+    error_type: str = "exception",
+):
+    """Dogfood helper — generate a test error for verifying the pipeline.
+
+    error_type:
+      - 'exception': raises ValueError so the global handler captures it
+        (verifies the backend handler + middleware end-to-end).
+      - 'warning' / 'info': direct INSERT, bypasses the exception path
+        (verifies only the table + admin list, not the handler).
+    """
+    await require_admin(authorization)
+
+    if error_type == "exception":
+        raise ValueError("Test exception from /admin/error-logs/test endpoint")
+
+    if error_type not in ("warning", "info"):
+        raise HTTPException(422, "error_type phải là exception | warning | info")
+
+    payload = {
+        "level":   error_type,
+        "source":  "backend",
+        "message": f"Test {error_type} from /admin/error-logs/test",
+        "url":     "/admin/error-logs/test",
+    }
+    try:
+        supabase_admin.table("error_logs").insert(payload).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Không tạo được log test: {exc}")
+    return {"generated": error_type}
+
+
+router.include_router(_admin_router)

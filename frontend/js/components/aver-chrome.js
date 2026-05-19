@@ -371,6 +371,20 @@ export class AverChrome extends HTMLElement {
     if (this._mounted) return;
     this._mounted = true;
 
+    // Sprint 12.3 — autoload the global error reporter so every page
+    // that embeds <aver-chrome> automatically captures uncaught
+    // exceptions + Promise rejections. error-reporter.js is idempotent
+    // (self-guarded against double-load) so re-injection is safe.
+    try {
+      if (typeof document !== 'undefined' && !document.querySelector('script[data-aver-error-reporter]')) {
+        const s = document.createElement('script');
+        s.src = '/js/error-reporter.js';
+        s.setAttribute('data-aver-error-reporter', '1');
+        s.async = true;
+        document.head.appendChild(s);
+      }
+    } catch { /* swallow — never block chrome render on reporter load */ }
+
     const shadow = this.attachShadow({ mode: 'open' });
     shadow.innerHTML = `<style>${STYLE}</style>${TEMPLATE}`;
 

@@ -14,6 +14,7 @@ from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.cohorts import router as cohorts_router
+from routers.error_logs import router as error_logs_router
 from routers.admin_writing import router as admin_writing_router
 from routers.admin_writing_prompts import router as admin_writing_prompts_router
 from routers.admin_writing_assignments import router as admin_writing_assignments_router
@@ -104,6 +105,7 @@ app.include_router(tts_router)
 app.include_router(export_router)
 app.include_router(admin_router)
 app.include_router(cohorts_router)
+app.include_router(error_logs_router)
 app.include_router(admin_writing_router)
 app.include_router(admin_writing_prompts_router)
 app.include_router(admin_writing_assignments_router)
@@ -126,14 +128,72 @@ app.include_router(dashboard_router)
 app.include_router(student_home_router)
 
 
+# ── Sprint 12.3 — X-Request-ID middleware ─────────────────────────────
+# Generate or propagate a request ID so frontend exception reports can
+# correlate to backend error_logs rows (same UUID on both sides).
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    import uuid as _uuid
+    request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+# ── Sprint 12.3 — fire-and-forget error_logs INSERT ───────────────────
+def _insert_error_log_safely(payload: dict) -> None:
+    """Persist a row to error_logs. Never raises — logging cannot
+    escalate failures into user-visible 500s. Called from a background
+    task so the response path is never blocked by Supabase latency."""
+    try:
+        supabase_admin.table("error_logs").insert(payload).execute()
+    except Exception as e:
+        logger.error("[error_logs] Background INSERT failed: %s", e)
+
+
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers
-# (without this, Starlette's raw 500 page can strip CORS headers)
+# (without this, Starlette's raw 500 page can strip CORS headers). Sprint
+# 12.3 extended this to capture the exception into the error_logs table
+# via asyncio.create_task fire-and-forget — the response is returned
+# immediately; logging happens in the background.
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.error("[error] Unhandled exception on %s: %s", request.url, exc)
+    import asyncio as _asyncio
+    import traceback as _traceback
+    import uuid as _uuid
+
+    request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
+    logger.error("[error] Unhandled exception on %s (req=%s): %s",
+                 request.url, request_id, exc)
+
+    payload = {
+        "level":      "error",
+        "source":     "backend",
+        "message":    (str(exc) or exc.__class__.__name__)[:1000],
+        "stack":      _traceback.format_exc()[:5000],
+        "url":        str(request.url.path)[:500],
+        "request_id": request_id,
+        "extra": {
+            "method": request.method,
+            "query":  dict(request.query_params) if request.query_params else None,
+        },
+    }
+    try:
+        _asyncio.create_task(
+            _asyncio.to_thread(_insert_error_log_safely, payload)
+        )
+    except RuntimeError:
+        # No running loop (e.g. during shutdown) — swallow.
+        pass
+
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal server error: {exc}"},
+        content={
+            "detail":     f"Internal server error: {exc}",
+            "request_id": request_id,
+        },
+        headers={"X-Request-ID": request_id},
     )
 
 
