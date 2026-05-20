@@ -197,8 +197,8 @@
         <p class="subtitle">
           Duyệt + filter listening_content rows. Mở từng bài để xem 4 dạng
           exercise (dictation / gist / true-false / mcq) đã soạn hay chưa,
-          xuất bản hoặc archive. Tạo bài mới qua MP3 upload hoặc render
-          ElevenLabs (sắp ra mắt).
+          xuất bản hoặc archive. Tạo bài mới qua MP3 upload, render
+          ElevenLabs, hoặc convert Cambridge IELTS DOCX.
         </p>
       </header>
 
@@ -214,6 +214,21 @@
           <h3>Render ElevenLabs</h3>
           <p class="lede">Sinh audio TTS từ script + giọng + accent. Tạo draft row tự động (cần feature-flag bật).</p>
           <span class="lst-soon">Sẵn sàng từ Sprint 13.3</span>
+        </a>
+        <a class="lst-create-card is-live" href="/pages/admin/listening/convert.html"
+           data-create="convert">
+          <h3>Convert đề từ DOCX</h3>
+          <p class="lede">Import Cambridge IELTS bundle (Question Paper + Script+AnswerKey) → 1 test + 4 sections + exercises. Audio upload sau.</p>
+          <span class="lst-soon">Sẵn sàng từ Sprint 13.4</span>
+        </a>
+      </section>
+
+      <section class="lst-create-row" aria-label="Cambridge IELTS tests">
+        <a class="lst-create-card is-live" href="/pages/admin/listening/tests.html"
+           data-create="tests">
+          <h3>Test Cambridge IELTS</h3>
+          <p class="lede">Quản lý các bộ đề Cambridge IELTS đã convert. Mỗi test có 4 sections × 10 questions.</p>
+          <span class="lst-soon">Sẵn sàng từ Sprint 13.4</span>
         </a>
       </section>
 

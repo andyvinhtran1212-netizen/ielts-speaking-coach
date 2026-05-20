@@ -370,7 +370,9 @@ const NAV_GROUPS = [
       { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones',
         subsections: [
           { slug: 'content',   label: 'Quản lý nội dung', href: '/pages/admin/listening/index.html' },
-          { slug: 'create',    label: 'Tạo bài (sắp ra mắt)', href: '/pages/admin/listening/index.html' },
+          { slug: 'create',    label: 'Tạo bài',          href: '/pages/admin/listening/index.html' },
+          { slug: 'convert',   label: 'Convert DOCX',     href: '/pages/admin/listening/convert.html' },
+          { slug: 'tests',     label: 'Cambridge tests',  href: '/pages/admin/listening/tests.html' },
           { slug: 'segments',  label: 'Chia cắt audio',   href: '/pages/admin/listening/segments.html' },
           { slug: 'gist',      label: 'Bài Gist',         href: '/pages/admin/listening/gist.html' },
           { slug: 'tf',        label: 'Bài True/False',   href: '/pages/admin/listening/tf.html' },

@@ -48,6 +48,7 @@ from services.listening_validator import (
     infer_duration_seconds,
     validate_upload as validate_upload_payload,
 )
+from services import listening_convert
 
 logger = logging.getLogger(__name__)
 
@@ -2709,4 +2710,527 @@ async def get_listening_analytics(
         "by_day":          by_day,
         "recent_attempts": recent,
         "weakest_mode":    weakest_mode,
+    }
+
+
+# ── Sprint 13.4 — Cambridge IELTS test bundle (listening_tests) ──────────────
+
+
+_TEST_STATUS_VALUES = {"draft", "published", "archived"}
+_CONVERT_MAX_DOCX_BYTES = 5 * 1024 * 1024       # 5 MB per DOCX (commission §Style)
+
+
+class ListeningTestPatchRequest(BaseModel):
+    """PATCH /admin/listening/tests/{id} body — Sprint 13.4.
+
+    Allow-list (all optional, partial-update friendly):
+      test_id, title, version, band_target, accent_profile, themes.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    test_id:        Optional[str]              = None
+    title:          Optional[str]              = None
+    version:        Optional[str]              = None
+    band_target:    Optional[float]            = None
+    accent_profile: Optional[list[str]]        = None
+    themes:         Optional[dict[str, str]]   = None
+
+
+class ListeningTestStatusPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: str
+
+
+class ConvertCommitRequest(BaseModel):
+    """POST /admin/listening/convert/commit body.
+
+    Carries the parsed-result envelope the dry-run returned, so the admin
+    can review + tweak before persisting. The server re-validates shape
+    (it does NOT trust the client to send arbitrary section payloads).
+    """
+    model_config = ConfigDict(extra="allow")
+
+    test_metadata: dict
+    sections:      list[dict]
+
+
+@admin_router.get("/tests")
+async def admin_list_listening_tests(
+    status: str = Query(default="all"),
+    search: str = Query(default=""),
+    limit: int  = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """Paginated list of Cambridge test bundles for the admin browser.
+
+    status defaults to 'all'. ``search`` is a substring match against
+    ``test_id`` (case-insensitive ilike). Each row carries a synthetic
+    ``audio_ready_count`` — how many of the 4 section rows already have
+    audio_storage_path set (powers the "X/4 sections có audio" column).
+    """
+    await require_admin(authorization)
+
+    if status != "all" and status not in _TEST_STATUS_VALUES:
+        raise HTTPException(
+            422,
+            f"status must be one of {sorted(_TEST_STATUS_VALUES | {'all'})}",
+        )
+
+    q = (
+        supabase_admin.table("listening_tests")
+        .select("*", count="exact")
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
+    )
+    if status != "all":
+        q = q.eq("status", status)
+    if search.strip():
+        q = q.ilike("test_id", f"%{search.strip()}%")
+
+    res = q.execute()
+    items = res.data or []
+
+    # Annotate each test with audio-readiness counts. One round-trip per
+    # response (admin lists are page-sized, so this is fine for now).
+    test_ids = [t["id"] for t in items]
+    audio_counts: dict[str, int] = {}
+    section_counts: dict[str, int] = {}
+    if test_ids:
+        sections = (
+            supabase_admin.table("listening_content")
+            .select("test_id,audio_storage_path")
+            .in_("test_id", test_ids)
+            .execute()
+        )
+        for row in sections.data or []:
+            tid = row.get("test_id")
+            if not tid:
+                continue
+            section_counts[tid] = section_counts.get(tid, 0) + 1
+            if row.get("audio_storage_path"):
+                audio_counts[tid] = audio_counts.get(tid, 0) + 1
+
+    for item in items:
+        item["section_count"]      = section_counts.get(item["id"], 0)
+        item["audio_ready_count"]  = audio_counts.get(item["id"], 0)
+
+    return {
+        "items":  items,
+        "total":  getattr(res, "count", None) or 0,
+        "limit":  limit,
+        "offset": offset,
+    }
+
+
+@admin_router.get("/tests/{test_id}")
+async def admin_get_listening_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Single test detail — bundles the 4 section content_ids +
+    per-section exercise counts so the admin tests-detail page (Sprint
+    13.5) can render without N+1 lookups.
+    """
+    await require_admin(authorization)
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("*")
+        .eq("id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Test bundle not found")
+    test = res.data[0]
+
+    sections_res = (
+        supabase_admin.table("listening_content")
+        .select("id,section_num,title,status,audio_storage_path,transcript")
+        .eq("test_id", test_id)
+        .order("section_num")
+        .execute()
+    )
+    sections = sections_res.data or []
+    content_ids = [s["id"] for s in sections]
+
+    exercise_counts: dict[str, int] = {}
+    if content_ids:
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("content_id")
+            .in_("content_id", content_ids)
+            .execute()
+        )
+        for row in ex_res.data or []:
+            cid = row["content_id"]
+            exercise_counts[cid] = exercise_counts.get(cid, 0) + 1
+
+    for s in sections:
+        s["exercise_count"] = exercise_counts.get(s["id"], 0)
+        s["audio_ready"] = bool(s.get("audio_storage_path"))
+
+    test["sections"] = sections
+    test["content_ids"] = content_ids
+    return test
+
+
+@admin_router.patch("/tests/{test_id}")
+async def admin_patch_listening_test(
+    test_id: str,
+    body: ListeningTestPatchRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Update editable metadata fields on a listening_tests row.
+
+    Allow-list: test_id, title, version, band_target, accent_profile,
+    themes. Only keys present in the request body land in the UPDATE.
+    """
+    await require_admin(authorization)
+
+    existing = (
+        supabase_admin.table("listening_tests")
+        .select("*")
+        .eq("id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Test bundle not found")
+    current = existing.data[0]
+
+    update: dict = {}
+
+    if body.test_id is not None:
+        new_id = body.test_id.strip()
+        if not new_id:
+            raise HTTPException(422, "test_id must not be empty")
+        if new_id != current.get("test_id"):
+            # UNIQUE — surface 422 before Supabase rejects with 23505.
+            dup = (
+                supabase_admin.table("listening_tests")
+                .select("id")
+                .eq("test_id", new_id)
+                .limit(1)
+                .execute()
+            )
+            if dup.data:
+                raise HTTPException(422, f"Test ID '{new_id}' đã tồn tại.")
+        update["test_id"] = new_id
+
+    if body.title is not None:
+        title = body.title.strip()
+        if not title:
+            raise HTTPException(422, "title must not be empty")
+        update["title"] = title
+
+    if body.version is not None:
+        update["version"] = body.version.strip() or "1.0"
+
+    if body.band_target is not None:
+        if not (1.0 <= body.band_target <= 9.0):
+            raise HTTPException(422, "band_target must be in [1.0, 9.0]")
+        update["band_target"] = body.band_target
+
+    if body.accent_profile is not None:
+        update["accent_profile"] = [
+            str(a).strip() for a in body.accent_profile if str(a).strip()
+        ]
+
+    if body.themes is not None:
+        update["themes"] = {
+            str(k): str(v) for k, v in body.themes.items()
+        }
+
+    if not update:
+        return current
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .update(update)
+        .eq("id", test_id)
+        .execute()
+    )
+    rows = res.data or []
+    return rows[0] if rows else {**current, **update}
+
+
+@admin_router.patch("/tests/{test_id}/status")
+async def admin_patch_listening_test_status(
+    test_id: str,
+    body: ListeningTestStatusPatchRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Transition a listening_tests row between draft / published /
+    archived. Any-to-any direction allowed (Sprint 13.1 §D5 convention).
+    """
+    await require_admin(authorization)
+
+    new_status = body.status.strip().lower()
+    if new_status not in _TEST_STATUS_VALUES:
+        raise HTTPException(
+            422, f"status must be one of {sorted(_TEST_STATUS_VALUES)}",
+        )
+
+    existing = (
+        supabase_admin.table("listening_tests")
+        .select("id,status")
+        .eq("id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Test bundle not found")
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .update({"status": new_status})
+        .eq("id", test_id)
+        .execute()
+    )
+    rows = res.data or []
+    if rows:
+        return rows[0]
+    return {"id": test_id, "status": new_status}
+
+
+@admin_router.delete("/tests/{test_id}")
+async def admin_delete_listening_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Soft-delete a Cambridge test bundle.
+
+    Sprint 13.4 lock: cascade — flips the test + all its section rows to
+    status='archived'. ON DELETE CASCADE in migration 066 is a safety net
+    for ops-level hard deletes; the endpoint itself never hard-deletes.
+    """
+    await require_admin(authorization)
+
+    existing = (
+        supabase_admin.table("listening_tests")
+        .select("id")
+        .eq("id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Test bundle not found")
+
+    # Archive the parent.
+    (
+        supabase_admin.table("listening_tests")
+        .update({"status": "archived"})
+        .eq("id", test_id)
+        .execute()
+    )
+    # Cascade archive the section rows so they drop out of admin views.
+    (
+        supabase_admin.table("listening_content")
+        .update({"status": "archived"})
+        .eq("test_id", test_id)
+        .execute()
+    )
+    return {"id": test_id, "status": "archived"}
+
+
+# ── Sprint 13.4 — Convert DOCX → test bundle ─────────────────────────────────
+
+
+def _read_docx_upload(upload: UploadFile, label: str) -> bytes:
+    if not upload.filename or not upload.filename.lower().endswith(".docx"):
+        raise HTTPException(
+            422, f"{label} phải là file .docx (nhận: {upload.filename!r})",
+        )
+    data = upload.file.read()
+    if len(data) == 0:
+        raise HTTPException(422, f"{label} rỗng — không đọc được nội dung.")
+    if len(data) > _CONVERT_MAX_DOCX_BYTES:
+        raise HTTPException(
+            422,
+            f"{label} vượt 5 MB ({len(data) // (1024 * 1024)} MB).",
+        )
+    return data
+
+
+@admin_router.post("/convert")
+async def admin_convert_listening_dry_run(
+    question_paper:    UploadFile = File(...),
+    script_answerkey:  UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """Dry-run parse of a 2-file Cambridge IELTS DOCX bundle.
+
+    Returns the structured preview (test metadata + 4 sections +
+    warnings/errors). No DB writes. The admin reviews the preview, then
+    POSTs the same envelope to ``/convert/commit`` to persist.
+    """
+    await require_admin(authorization)
+
+    qp_bytes = _read_docx_upload(question_paper,   "Question Paper")
+    sa_bytes = _read_docx_upload(script_answerkey, "Script+AnswerKey")
+
+    try:
+        result = listening_convert.parse_listening_test(qp_bytes, sa_bytes)
+    except Exception as exc:
+        logger.exception("Convert dry-run failed")
+        raise HTTPException(422, f"Lỗi khi phân tích DOCX: {exc}") from exc
+
+    # Surface duplicate test_id here so the UI can switch to an "update
+    # existing" flow without a second round-trip.
+    test_id_external = (result.get("test_metadata") or {}).get("test_id")
+    if test_id_external:
+        dup = (
+            supabase_admin.table("listening_tests")
+            .select("id")
+            .eq("test_id", test_id_external)
+            .limit(1)
+            .execute()
+        )
+        if dup.data:
+            result.setdefault("warnings", []).append(
+                f"Test ID '{test_id_external}' đã tồn tại trong DB. "
+                f"Commit sẽ thất bại — cập nhật metadata.test_id hoặc xóa "
+                f"test cũ trước khi import lại."
+            )
+            result["duplicate_test_id"] = True
+
+    return result
+
+
+@admin_router.post("/convert/commit")
+async def admin_convert_listening_commit(
+    body: ConvertCommitRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Persist a parsed test bundle: 1 listening_tests row + 4
+    listening_content rows + N listening_exercises rows.
+
+    Partial-failure semantics (Sprint 13.2 pattern):
+      * The listening_tests row is created first; if that fails the
+        whole call returns 422.
+      * Each of the 4 section INSERTs is independent — a failure on
+        section 2 still commits sections 1/3/4 and returns the failure
+        in ``failed_sections``.
+      * Each exercise INSERT is independent — failure recorded in
+        ``failed_exercises`` but the response is still 200.
+    """
+    await require_admin(authorization)
+
+    metadata = body.test_metadata or {}
+    test_id_external = (metadata.get("test_id") or "").strip()
+    if not test_id_external:
+        raise HTTPException(422, "test_metadata.test_id thiếu — không thể commit.")
+    if not body.sections:
+        raise HTTPException(422, "sections rỗng — không có section nào để tạo.")
+
+    # Duplicate guard (also enforced by UNIQUE constraint — surface a
+    # clean VN message instead of letting postgres bubble 23505).
+    dup = (
+        supabase_admin.table("listening_tests")
+        .select("id")
+        .eq("test_id", test_id_external)
+        .limit(1)
+        .execute()
+    )
+    if dup.data:
+        raise HTTPException(
+            422,
+            f"Test ID '{test_id_external}' đã tồn tại — không thể commit. "
+            f"Xóa test cũ hoặc đổi test_id trước khi import lại.",
+        )
+
+    test_uuid = str(uuid.uuid4())
+    accent_profile = metadata.get("accent_profile") or []
+    themes = metadata.get("themes") or {}
+
+    test_payload = {
+        "id":                      test_uuid,
+        "test_id":                 test_id_external,
+        "title":                   metadata.get("title") or test_id_external,
+        "version":                 (metadata.get("version") or "1.0"),
+        "band_target":             metadata.get("band_target"),
+        "accent_profile":          list(accent_profile),
+        "themes":                  dict(themes),
+        "total_transcript_words":  metadata.get("total_words"),
+        "metadata":                {
+            "source_format":     metadata.get("source_format") or "cambridge_ielts_docx",
+            "created_at_source": metadata.get("created_at_source"),
+        },
+        "status":                  "draft",
+    }
+
+    try:
+        (
+            supabase_admin.table("listening_tests")
+            .insert(test_payload)
+            .execute()
+        )
+    except Exception as exc:
+        logger.exception("INSERT listening_tests failed")
+        raise HTTPException(422, f"Lỗi khi tạo test row: {exc}") from exc
+
+    content_ids: list[str] = []
+    failed_sections: list[dict] = []
+    exercises_created = 0
+    failed_exercises: list[dict] = []
+
+    for section in body.sections:
+        section_num = section.get("section_num")
+        try:
+            content_payload = listening_convert.section_to_content_payload(
+                section, test_uuid, metadata,
+            )
+            content_payload["id"] = str(uuid.uuid4())
+            (
+                supabase_admin.table("listening_content")
+                .insert(content_payload)
+                .execute()
+            )
+            content_ids.append(content_payload["id"])
+        except Exception as exc:                     # one section fails — others continue
+            logger.exception("INSERT listening_content failed section=%s", section_num)
+            failed_sections.append({
+                "section_num": section_num,
+                "error":       str(exc),
+            })
+            continue
+
+        # Exercises (best-effort per row).
+        for exercise in section.get("exercises", []):
+            try:
+                ex_payload = {
+                    "id":            str(uuid.uuid4()),
+                    "content_id":    content_payload["id"],
+                    "exercise_type": exercise.get("exercise_type", "dictation"),
+                    "payload":       exercise.get("payload", {}),
+                    "order_num":     exercise.get("order_num", 1),
+                    "cefr_level":    content_payload.get("cefr_level"),
+                    "status":        "draft",
+                }
+                (
+                    supabase_admin.table("listening_exercises")
+                    .insert(ex_payload)
+                    .execute()
+                )
+                exercises_created += 1
+            except Exception as exc:
+                logger.exception(
+                    "INSERT listening_exercises failed section=%s order=%s",
+                    section_num, exercise.get("order_num"),
+                )
+                failed_exercises.append({
+                    "section_num": section_num,
+                    "order_num":   exercise.get("order_num"),
+                    "error":       str(exc),
+                })
+
+    return {
+        "test_id":           test_uuid,
+        "test_id_external":  test_id_external,
+        "content_ids":       content_ids,
+        "exercises_created": exercises_created,
+        "failed_sections":   failed_sections,
+        "failed_exercises":  failed_exercises,
     }
