@@ -190,8 +190,10 @@ function wire() {
     STATE.offset += PAGE_SIZE;
     load();
   });
-  // Defensive: block placeholder card navigation.
-  document.querySelectorAll('[data-create]').forEach((el) => {
+  // Defensive: only block cards that are still placeholders (aria-disabled).
+  // Sprint 13.2 flipped the "upload" card to live; "render" stays blocked
+  // until Sprint 13.3.
+  document.querySelectorAll('[data-create][aria-disabled="true"]').forEach((el) => {
     el.addEventListener('click', (ev) => ev.preventDefault());
   });
 }

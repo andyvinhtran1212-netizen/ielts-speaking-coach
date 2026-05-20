@@ -51,6 +51,18 @@
       display: flex; flex-direction: column; gap: 4px;
       cursor: not-allowed;
       position: relative;
+      text-decoration: none;
+    }
+    .lst-create-card.is-live {
+      border-style: solid;
+      border-color: var(--av-brand-teal-200);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      cursor: pointer;
+    }
+    .lst-create-card.is-live:hover {
+      border-color: var(--av-brand-teal-700);
+      transform: translateY(-1px);
     }
     .lst-create-card h3 { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold); margin: 0; }
     .lst-create-card .lede { font-size: var(--av-fs-sm); }
@@ -58,6 +70,7 @@
       font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
       color: var(--av-text-muted); margin-top: 4px;
     }
+    .lst-create-card.is-live .lst-soon { color: var(--av-brand-teal-700); }
 
     .lst-filter-bar {
       display: flex; gap: var(--av-space-3); flex-wrap: wrap;
@@ -190,11 +203,11 @@
       </header>
 
       <section class="lst-create-row" aria-label="Tạo nội dung mới">
-        <a class="lst-create-card" href="#" data-create="upload"
-           title="Sắp ra mắt (Sprint 13.2)" aria-disabled="true">
+        <a class="lst-create-card is-live" href="/pages/admin/listening/upload.html"
+           data-create="upload">
           <h3>Tải MP3</h3>
-          <p class="lede">Upload file mp3 + transcript + metadata cho bài nghe gốc hoặc curated.</p>
-          <span class="lst-soon">Sắp ra mắt (Sprint 13.2)</span>
+          <p class="lede">Upload file mp3 + transcript + metadata cho bài nghe gốc hoặc curated. Hỗ trợ tải 1 file hoặc bulk tới 20 file.</p>
+          <span class="lst-soon">Sẵn sàng từ Sprint 13.2</span>
         </a>
         <a class="lst-create-card" href="#" data-create="render"
            title="Sắp ra mắt (Sprint 13.3)" aria-disabled="true">
