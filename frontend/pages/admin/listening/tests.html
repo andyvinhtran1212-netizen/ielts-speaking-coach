@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Cambridge IELTS tests · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .tl-shell {
+      max-width: 1280px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .tl-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .tl-back a:hover { color: var(--av-brand-teal-700); }
+
+    .tl-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .tl-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: var(--av-lh-normal); }
+
+    .tl-toolbar {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      align-items: flex-end; justify-content: space-between;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .tl-filter-group { display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: flex-end; }
+    .tl-filter { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+    .tl-filter label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .tl-filter select, .tl-filter input {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .tl-cta {
+      padding: 10px 18px;
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+      text-decoration: none;
+    }
+
+    .tl-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.tl-table { width: 100%; border-collapse: collapse; }
+    table.tl-table th, table.tl-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+      vertical-align: top;
+    }
+    table.tl-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    .tl-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      border: 1px solid var(--av-border-default);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+    }
+    .tl-chip.is-draft     { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
+    .tl-chip.is-published { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
+    .tl-chip.is-archived  { background: #F3F4F6; color: #6B7280; border-color: #E5E7EB; }
+
+    .tl-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    .tl-loading, .tl-empty {
+      padding: var(--av-space-6); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm);
+    }
+    .tl-empty a { color: var(--av-brand-teal-700); }
+    .tl-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .tl-banner.is-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    .tl-actions { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .tl-actions a, .tl-actions button {
+      padding: 4px 10px;
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .tl-actions a:hover, .tl-actions button:hover { border-color: var(--av-brand-teal-700); color: var(--av-brand-teal-700); }
+
+    .tl-pagination {
+      display: flex; gap: var(--av-space-3); align-items: center;
+      justify-content: flex-end;
+      padding: var(--av-space-2) 0;
+      font-size: var(--av-fs-sm); color: var(--av-text-muted);
+    }
+    .tl-pagination button {
+      padding: 6px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card);
+      cursor: pointer;
+    }
+    .tl-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="tests">
+
+    <main class="tl-shell">
+      <div class="tl-back">
+        <a href="/pages/admin/listening/index.html">← Quay lại Listening</a>
+      </div>
+
+      <header class="tl-header">
+        <h1>Quản lý Tests (Cambridge IELTS bundles)</h1>
+        <p class="subtitle">
+          Các bộ đề Cambridge IELTS đã convert. Mỗi test có 4 sections × 10 questions.
+          Audio MP3 link sau qua Tải MP3 hoặc UI link section (Sprint 13.5).
+        </p>
+      </header>
+
+      <section class="tl-toolbar" aria-label="Bộ lọc + actions">
+        <div class="tl-filter-group">
+          <div class="tl-filter">
+            <label for="tl-status">Trạng thái</label>
+            <select id="tl-status">
+              <option value="all">Tất cả</option>
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div class="tl-filter">
+            <label for="tl-search">Tìm Test ID</label>
+            <input id="tl-search" type="text" placeholder="ILR-LIS-…" autocomplete="off" />
+          </div>
+        </div>
+        <a class="tl-cta" href="/pages/admin/listening/convert.html">+ Convert đề mới từ DOCX</a>
+      </section>
+
+      <div class="tl-banner is-error" id="tl-error" hidden></div>
+
+      <div class="tl-loading" id="tl-loading">Đang tải…</div>
+      <div class="tl-empty"   id="tl-empty"   hidden>
+        Chưa có test. <a href="/pages/admin/listening/convert.html">Convert đề đầu tiên từ DOCX</a>.
+      </div>
+
+      <div class="tl-table-wrap" id="tl-table-wrap" hidden>
+        <table class="tl-table">
+          <thead>
+            <tr>
+              <th>Test ID</th>
+              <th>Title</th>
+              <th>Band</th>
+              <th>Accent</th>
+              <th>Sections</th>
+              <th>Audio sẵn sàng</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="tl-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="tl-pagination" id="tl-pagination" hidden>
+        <span id="tl-pagination-info"></span>
+        <button id="tl-prev" type="button">← Trước</button>
+        <button id="tl-next" type="button">Sau →</button>
+      </div>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-listening-tests-list.js"></script>
+</body>
+</html>
