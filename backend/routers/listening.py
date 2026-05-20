@@ -1216,6 +1216,49 @@ async def admin_render_listening(
         )
 
     job_id = str(uuid.uuid4())
+
+    # ── Sprint 13.3.1 hotfix — INSERT placeholder row synchronously ─────────
+    # The renderer used to INSERT the row at the END of the
+    # BackgroundTask (~10-30s later), which raced the frontend's
+    # immediate redirect to content-detail.html?id=<id>. Now we create
+    # a placeholder row up-front (audio_storage_path=NULL, duration=0,
+    # size=0) and the BackgroundTask UPDATEs that row in place. The
+    # frontend treats `audio_storage_path IS NULL` as the "rendering"
+    # sentinel + auto-polls for the populated state.
+    # Migration 064 relaxed the schema constraints to allow this shape.
+    placeholder = {
+        "id":                      job_id,
+        "source_type":             "ai_elevenlabs",
+        "elevenlabs_voice_id":     voice_id,
+        "elevenlabs_model":        body.model,
+        # Placeholder shape — populated by the BackgroundTask.
+        "audio_storage_path":      None,
+        "audio_duration_seconds":  0,
+        "audio_size_bytes":        0,
+        "alignment_data":          None,
+        "generation_cost_credits": _credit_cost_for(body.script_text, body.model),
+        # Metadata carried over from the request — readable in the
+        # rendering banner so admins see what they queued.
+        "accent_tag":              body.accent_tag,
+        "topic_tags":              body.topic_tags or [],
+        "cefr_level":              body.cefr_level,
+        "ielts_section":           body.ielts_section,
+        "transcript":              body.transcript or body.script_text,
+        "transcript_segments":     [],
+        "status":                  "draft",
+        "is_premium":              False,
+        "title":                   body.title,
+        "created_by":              admin_user["id"],
+    }
+    try:
+        supabase_admin.table("listening_content").insert(placeholder).execute()
+    except Exception as e:
+        logger.error(
+            "[listening] render placeholder INSERT failed for job %s: %s",
+            job_id, e,
+        )
+        raise HTTPException(500, f"Render placeholder insert failed: {e}")
+
     background_tasks.add_task(
         run_elevenlabs_render_job,
         job_id=job_id,
@@ -1233,14 +1276,15 @@ async def admin_render_listening(
 
     return {
         "job_id":     job_id,
-        # Sprint 13.3 — the renderer writes the draft row with id=job_id,
-        # so the UI can redirect to content-detail.html?id=<content_id>
-        # immediately without a poll-then-redirect step.
         "content_id": job_id,
-        "status":     "queued",
+        "status":     "rendering",
         "estimated_render_seconds": _estimated_render_seconds(body.script_text),
         "estimated_cost_credits":   _credit_cost_for(body.script_text, body.model),
-        "note":       "Poll /admin/listening/content/{content_id} after ~10-30s to see the draft row.",
+        "note":       (
+            "Placeholder row created. Poll /admin/listening/content/"
+            "{content_id} — audio_storage_path becomes non-null when the "
+            "render finishes (~10-30s)."
+        ),
     }
 
 
