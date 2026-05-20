@@ -81,8 +81,7 @@ describe('Sprint 13.1 — content list page', () => {
 
   test('"Tải MP3" card present (Sprint 13.2 — flipped to live link)', () => {
     // Sprint 13.2 flipped the upload card from aria-disabled placeholder
-    // to a live link into /pages/admin/listening/upload.html. The
-    // Sprint 13.3 render card stays placeholder until that sprint.
+    // to a live link into /pages/admin/listening/upload.html.
     assert.match(html, /data-create=["']upload["']/);
     assert.match(html, /Tải MP3/);
     const uploadCard = html.match(/<a[^>]*data-create=["']upload["'][^>]*>/);
@@ -92,16 +91,21 @@ describe('Sprint 13.1 — content list page', () => {
       /href=["']\/pages\/admin\/listening\/upload\.html["']/,
       'upload card must link to /pages/admin/listening/upload.html (Sprint 13.2)',
     );
-    // Render card stays disabled until Sprint 13.3.
-    const renderCard = html.match(/<a[^>]*data-create=["']render["'][^>]*>/);
-    assert.ok(renderCard, 'render card markup not found');
-    assert.match(renderCard[0], /aria-disabled=["']true["']/);
   });
 
-  test('"Render ElevenLabs" placeholder card present + aria-disabled', () => {
+  test('"Render ElevenLabs" card live link (Sprint 13.3 flip)', () => {
+    // Sprint 13.3 flipped the render card from aria-disabled placeholder
+    // to a live link into /pages/admin/listening/render.html. The 13.1
+    // pin that required "Sắp ra mắt (Sprint 13.3)" text retires here.
     assert.match(html, /data-create=["']render["']/);
-    assert.match(html, /Render ElevenLabs[\s\S]*?Sắp ra mắt \(Sprint 13\.3\)/);
-    assert.match(html, /data-create=["']render["'][\s\S]*?aria-disabled=["']true["']/);
+    const renderCard = html.match(/<a[^>]*data-create=["']render["'][^>]*>/);
+    assert.ok(renderCard, 'render card markup not found');
+    assert.match(
+      renderCard[0],
+      /href=["']\/pages\/admin\/listening\/render\.html["']/,
+      'render card must link to /pages/admin/listening/render.html (Sprint 13.3)',
+    );
+    assert.doesNotMatch(renderCard[0], /aria-disabled=["']true["']/);
   });
 
   test('edit-meta link in Actions points to content-meta.html?id=', () => {

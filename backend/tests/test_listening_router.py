@@ -388,7 +388,13 @@ def test_admin_render_503_when_feature_flag_off(monkeypatch):
     monkeypatch.setattr(listening_router.settings, "ELEVENLABS_API_KEY", "sk_test")
 
     body = listening_router.ListeningRenderRequest(
-        script_text="The exhibition opens on Saturday.",
+        # Sprint 13.3 added a 100-char floor on script_text to block
+        # waste of ElevenLabs credits on accidental test renders.
+        script_text=(
+            "The exhibition opens on Saturday at the new convention "
+            "centre downtown, and admission will be free throughout "
+            "the weekend for residents and visitors alike."
+        ),
         voice_id="EXAVITQu4vr4xnSDxMaL",
         model="eleven_multilingual_v2",
         title="Section 1 booking",
@@ -412,7 +418,13 @@ def test_admin_render_503_when_api_key_missing(monkeypatch):
     monkeypatch.setattr(listening_router.settings, "ELEVENLABS_API_KEY", "")
 
     body = listening_router.ListeningRenderRequest(
-        script_text="The exhibition opens on Saturday.",
+        # Sprint 13.3 added a 100-char floor on script_text to block
+        # waste of ElevenLabs credits on accidental test renders.
+        script_text=(
+            "The exhibition opens on Saturday at the new convention "
+            "centre downtown, and admission will be free throughout "
+            "the weekend for residents and visitors alike."
+        ),
         voice_id="EXAVITQu4vr4xnSDxMaL",
         model="eleven_multilingual_v2",
         title="Section 1 booking",
@@ -436,7 +448,13 @@ def test_admin_render_schedules_background_task_when_enabled(monkeypatch):
     monkeypatch.setattr(listening_router.settings, "ELEVENLABS_API_KEY", "sk_test")
 
     body = listening_router.ListeningRenderRequest(
-        script_text="The exhibition opens on Saturday.",
+        # Sprint 13.3 added a 100-char floor on script_text to block
+        # waste of ElevenLabs credits on accidental test renders.
+        script_text=(
+            "The exhibition opens on Saturday at the new convention "
+            "centre downtown, and admission will be free throughout "
+            "the weekend for residents and visitors alike."
+        ),
         voice_id="EXAVITQu4vr4xnSDxMaL",
         model="eleven_multilingual_v2",
         title="Section 1 booking",
@@ -471,7 +489,13 @@ def test_admin_render_rejects_unknown_model(monkeypatch):
     monkeypatch.setattr(listening_router.settings, "ELEVENLABS_API_KEY", "sk_test")
 
     body = listening_router.ListeningRenderRequest(
-        script_text="The exhibition opens on Saturday.",
+        # Sprint 13.3 added a 100-char floor on script_text to block
+        # waste of ElevenLabs credits on accidental test renders.
+        script_text=(
+            "The exhibition opens on Saturday at the new convention "
+            "centre downtown, and admission will be free throughout "
+            "the weekend for residents and visitors alike."
+        ),
         voice_id="EXAVITQu4vr4xnSDxMaL",
         model="gpt-4o",  # not an ElevenLabs model
         title="x",

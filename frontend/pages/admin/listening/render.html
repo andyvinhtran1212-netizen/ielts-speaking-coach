@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Render ElevenLabs · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .rn-shell {
+      max-width: 1080px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .rn-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .rn-back a:hover { color: var(--av-brand-teal-700); }
+
+    .rn-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .rn-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: var(--av-lh-normal); }
+
+    .rn-section {
+      padding: var(--av-space-5);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+
+    .rn-field { display: flex; flex-direction: column; gap: 4px; }
+    .rn-field label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .rn-field input[type="text"],
+    .rn-field input[type="url"],
+    .rn-field select,
+    .rn-field textarea {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .rn-field textarea#rn-script { min-height: 220px; line-height: var(--av-lh-relaxed); resize: vertical; }
+    .rn-field-pair-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--av-space-3); }
+    @media (max-width: 640px) { .rn-field-pair-3 { grid-template-columns: 1fr; } }
+    .rn-field-pair-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-3); }
+    @media (max-width: 640px) { .rn-field-pair-2 { grid-template-columns: 1fr; } }
+
+    .rn-script-stats {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+    }
+    .rn-script-stats strong { color: var(--av-text-primary); font-weight: var(--av-fw-semibold); }
+
+    /* Voice picker */
+    .rn-voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-3); }
+    @media (max-width: 640px) { .rn-voice-grid { grid-template-columns: 1fr; } }
+    .rn-voice-card {
+      padding: var(--av-space-4);
+      border: 2px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      cursor: pointer;
+      display: flex; flex-direction: column; gap: 4px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .rn-voice-card.is-active {
+      border-color: var(--av-brand-teal-700);
+      background: var(--av-brand-teal-50);
+    }
+    .rn-voice-card h3 { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold); margin: 0; color: var(--av-text-primary); }
+    .rn-voice-card .lede { font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
+    .rn-voice-card .rn-voice-id {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    }
+
+    /* Model picker */
+    .rn-model-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .rn-model-card {
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      cursor: pointer; flex: 1; min-width: 200px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .rn-model-card.is-active {
+      border-color: var(--av-brand-teal-700);
+      background: var(--av-brand-teal-50);
+    }
+    .rn-model-card .rn-model-name { font-weight: var(--av-fw-semibold); font-size: var(--av-fs-sm); }
+    .rn-model-card .rn-model-hint { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    /* Cost preview */
+    .rn-cost-preview {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      align-items: center;
+    }
+    .rn-cost-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-brand-teal-50);
+      color: var(--av-brand-teal-800);
+      border: 1px solid var(--av-brand-teal-200);
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+    }
+
+    .rn-checkbox-row { display: flex; align-items: center; gap: 8px; font-size: var(--av-fs-sm); }
+
+    .rn-actions { display: flex; gap: var(--av-space-3); align-items: center; flex-wrap: wrap; }
+    .btn-primary {
+      padding: 8px 18px;
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
+    .btn-secondary {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); cursor: pointer;
+      font-size: var(--av-fs-sm); text-decoration: none;
+    }
+
+    .rn-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .rn-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
+    .rn-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+    .rn-banner.is-info    { background: var(--av-surface-sunken); color: var(--av-text-secondary); border: 1px solid var(--av-border-default); }
+    .rn-banner.is-503     { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+
+    .rn-issues { display: flex; flex-direction: column; gap: 6px; }
+    .rn-issue {
+      padding: 8px 12px;
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-xs);
+    }
+    .rn-issue.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+    .rn-issue.is-warning { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="create">
+
+    <main class="rn-shell">
+      <p class="rn-back">
+        <a href="/pages/admin/listening/index.html">← Quản lý nội dung</a>
+      </p>
+
+      <header class="rn-header">
+        <h1>Tạo bài Listening — Render ElevenLabs</h1>
+        <p class="subtitle">
+          Paste script → pick voice + model → Kiểm tra cost → Render &amp; lưu
+          draft. Auto-validate kiểm tra script length, voice whitelist, cost.
+        </p>
+      </header>
+
+      <!-- 503 banner shown only when FF off -->
+      <div class="rn-banner is-503" id="rn-503-banner" hidden>
+        <strong>AI render đang tạm tắt.</strong>
+        <span id="rn-503-message"></span>
+      </div>
+
+      <div class="rn-banner is-error" id="status-banner" hidden></div>
+
+      <section class="rn-section" id="rn-form" hidden>
+        <div class="rn-field">
+          <label for="rn-script">Script</label>
+          <textarea id="rn-script" placeholder="Paste script tại đây (tối thiểu 100 ký tự, tối đa 5000)..."></textarea>
+          <div class="rn-script-stats">
+            <span><strong id="rn-script-chars">0</strong> chars</span>
+            <span><strong id="rn-script-words">0</strong> words</span>
+          </div>
+        </div>
+
+        <div class="rn-cost-preview" id="rn-cost-preview" aria-live="polite">
+          <span>Cost preview:</span>
+          <span class="rn-cost-pill" id="rn-cost-credits">— credits</span>
+          <span class="rn-cost-pill" id="rn-cost-usd">~ $—</span>
+          <span class="rn-cost-pill" id="rn-cost-secs">render ~—s</span>
+        </div>
+
+        <div class="rn-field">
+          <label>Voice (locked whitelist)</label>
+          <div class="rn-voice-grid" role="radiogroup" aria-label="Voice">
+            <div class="rn-voice-card is-active" data-voice-id="EXAVITQu4vr4xnSDxMaL"
+                 data-voice-accent="us_general" role="radio" tabindex="0" aria-checked="true">
+              <h3>Sarah</h3>
+              <p class="lede">US General · female · IELTS-friendly</p>
+              <span class="rn-voice-id">EXAVITQu4vr4xnSDxMaL</span>
+            </div>
+            <div class="rn-voice-card" data-voice-id="Xb7hH8MSUJpSbSDYk0k2"
+                 data-voice-accent="uk_rp" role="radio" tabindex="0" aria-checked="false">
+              <h3>Alice</h3>
+              <p class="lede">UK RP · female · IELTS-friendly</p>
+              <span class="rn-voice-id">Xb7hH8MSUJpSbSDYk0k2</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rn-field">
+          <label>Model</label>
+          <div class="rn-model-row" role="radiogroup" aria-label="Model">
+            <div class="rn-model-card is-active" data-model="eleven_multilingual_v2"
+                 role="radio" tabindex="0" aria-checked="true">
+              <span class="rn-model-name">Multilingual v2</span>
+              <span class="rn-model-hint">Chất lượng cao · 2 credits/char</span>
+            </div>
+            <div class="rn-model-card" data-model="eleven_flash_v2_5"
+                 role="radio" tabindex="0" aria-checked="false">
+              <span class="rn-model-name">Flash v2.5</span>
+              <span class="rn-model-hint">Nhanh + rẻ · 1 credit/char</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rn-field">
+          <label for="rn-title">Title</label>
+          <input id="rn-title" type="text" maxlength="200" placeholder="Vd: Section 3 university lecture — climate change" />
+        </div>
+
+        <div class="rn-field-pair-3">
+          <div class="rn-field">
+            <label for="rn-accent">Accent</label>
+            <select id="rn-accent">
+              <option value="us_general">US General</option>
+              <option value="uk_rp">UK RP</option>
+              <option value="au">Australian</option>
+              <option value="ca">Canadian</option>
+              <option value="other">Khác</option>
+            </select>
+            <span style="font-size: var(--av-fs-xs); color: var(--av-text-muted);">
+              Tự sync khi đổi voice; có thể override.
+            </span>
+          </div>
+          <div class="rn-field">
+            <label for="rn-cefr">CEFR</label>
+            <select id="rn-cefr">
+              <option value="A2">A2</option>
+              <option value="B1">B1</option>
+              <option value="B2" selected>B2</option>
+              <option value="C1">C1</option>
+              <option value="C2">C2</option>
+            </select>
+          </div>
+          <div class="rn-field">
+            <label for="rn-section">IELTS section</label>
+            <select id="rn-section">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="rn-field">
+          <label for="rn-tags">Topic tags (phân cách bằng dấu phẩy)</label>
+          <input id="rn-tags" type="text" placeholder="vd: travel, work, environment" />
+        </div>
+
+        <div class="rn-checkbox-row">
+          <input id="rn-premium" type="checkbox" />
+          <label for="rn-premium" style="margin: 0; font-size: var(--av-fs-sm); color: var(--av-text-primary); text-transform: none; letter-spacing: 0;">
+            Premium content (paid tier)
+          </label>
+        </div>
+
+        <div class="rn-issues" id="rn-issues" hidden></div>
+
+        <div class="rn-actions">
+          <button class="btn-secondary" id="rn-validate" type="button">Kiểm tra trước khi render</button>
+          <button class="btn-primary"   id="rn-submit"   type="button" disabled>Render &amp; lưu draft</button>
+          <a class="btn-secondary" href="/pages/admin/listening/index.html">Hủy</a>
+          <span id="rn-countdown" style="font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted);" hidden>
+            Đang render… <strong id="rn-countdown-secs">—</strong>s
+          </span>
+        </div>
+      </section>
+
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-listening-render.js"></script>
+</body>
+</html>

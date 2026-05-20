@@ -492,7 +492,12 @@ def test_render_uses_voice_fallback_when_voice_id_omitted(monkeypatch):
                         "LISTENING_VOICE_US_FEMALE_DEFAULT", "fallback-sarah")
 
     body = listening_router.ListeningRenderRequest(
-        script_text="The exhibition opens on Saturday.",
+        # Sprint 13.3 added a 100-char floor — bumped to clear it.
+        script_text=(
+            "The exhibition opens on Saturday at the new convention "
+            "centre downtown, and admission will be free throughout "
+            "the weekend for residents and visitors alike."
+        ),
         # voice_id omitted on purpose
         model="eleven_multilingual_v2",
         title="Section 1 booking",
@@ -515,7 +520,12 @@ def test_render_rejects_when_no_default_for_accent(monkeypatch):
     monkeypatch.setattr(listening_router.settings, "ELEVENLABS_API_KEY", "sk_test")
 
     body = listening_router.ListeningRenderRequest(
-        script_text="A long script for the AU narration test.",
+        # Sprint 13.3 added a 100-char floor — bumped to clear it.
+        script_text=(
+            "A long script for the AU narration test about the "
+            "history of public transport in Sydney, including the "
+            "ferry network and the recent light-rail extensions."
+        ),
         model="eleven_multilingual_v2",
         title="AU sample",
         accent_tag="au",

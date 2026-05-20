@@ -215,10 +215,19 @@ describe('Sprint 13.2 — listening landing integrates upload entry', () => {
     );
   });
 
-  test('"Render ElevenLabs" card stays placeholder until Sprint 13.3', () => {
+  test('"Render ElevenLabs" card is a live link (Sprint 13.3 flip)', () => {
+    // Sprint 13.3 flipped the render card from aria-disabled placeholder
+    // to a live link into /pages/admin/listening/render.html. The
+    // Sprint 13.2 sentinel previously pinned it as still-placeholder;
+    // that pin retires here.
     const renderCard = html.match(/<a[^>]*data-create=["']render["'][^>]*>/);
     assert.ok(renderCard, 'render card markup not found');
-    assert.match(renderCard[0], /aria-disabled=["']true["']/);
+    assert.doesNotMatch(renderCard[0], /aria-disabled=["']true["']/);
+    assert.match(
+      renderCard[0],
+      /href=["']\/pages\/admin\/listening\/render\.html["']/,
+      'render card must link to /pages/admin/listening/render.html (Sprint 13.3)',
+    );
   });
 
   test('chrome NAV_GROUPS create slug exists (Sprint 13.1 baseline still good)', () => {
