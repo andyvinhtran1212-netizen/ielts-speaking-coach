@@ -507,7 +507,9 @@ def test_render_uses_voice_fallback_when_voice_id_omitted(monkeypatch):
     out = _run(listening_router.admin_render_listening(
         body=body, background_tasks=bg, authorization=authz,
     ))
-    assert out["status"] == "queued"
+    # Sprint 13.3.1 — placeholder row inserted synchronously; status
+    # response renamed 'queued' → 'rendering'.
+    assert out["status"] == "rendering"
     _, kwargs = bg.add_task.call_args
     assert kwargs["voice_id"] == "fallback-sarah"
 

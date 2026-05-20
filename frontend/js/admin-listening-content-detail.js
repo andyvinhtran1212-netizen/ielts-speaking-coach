@@ -162,14 +162,13 @@ async function load() {
     STATE.exercises = exRes.exercises || [];
     renderMeta(content);
     renderExerciseMatrix(STATE.exercises, id);
-    maybeStartJustRenderedPolling();
+    maybeStartRenderingFlow();
   } catch (e) {
-    // Sprint 13.3 — when admin lands here right after POST /render, the
-    // row may not be persisted yet (the renderer runs as a BackgroundTask).
-    // Show the post-render banner + start polling if ?just_rendered=true.
+    // 404 fallback retained for safety even though Sprint 13.3.1
+    // eliminated the placeholder-missing race via synchronous insert.
     if (isJustRenderedFlow() && /404/.test(String(e.message || ''))) {
-      showJustRenderedBanner('Đang chờ ElevenLabs render xong — refresh tự động mỗi 5s…');
-      startJustRenderedPolling();
+      showRenderingBanner('Đang chờ row landed…');
+      startRenderingPolling();
       return;
     }
     showBanner(`Tải bài thất bại: ${e.message || e}`, 'error');
@@ -177,7 +176,33 @@ async function load() {
 }
 
 
-// ── Sprint 13.3 — post-render banner + auto-poll ─────────────────────────────
+// ── Sprint 13.3.1 — placeholder-row detection + backoff polling ──────────────
+
+
+/**
+ * Sprint 13.3.1: the canonical "render in progress" sentinel is
+ * `audio_storage_path === null` on a row with `source_type ===
+ * 'ai_elevenlabs'`. This holds regardless of how the admin arrived
+ * (deep link share / browser back / refresh) — `?just_rendered=true`
+ * is now a nudge, not a precondition.
+ */
+function isPlaceholderRendering(content) {
+  return !!content
+      && content.source_type === 'ai_elevenlabs'
+      && (content.audio_storage_path === null
+          || content.audio_storage_path === undefined);
+}
+
+
+/**
+ * Sprint 13.3.1: the failed-render sentinel is `status === 'archived'`
+ * on the same placeholder shape (no audio_storage_path). The renderer
+ * flips status to 'archived' on any pipeline error so the UI can
+ * surface a failed banner without needing a new column.
+ */
+function isFailedRender(content) {
+  return isPlaceholderRendering(content) && content.status === 'archived';
+}
 
 
 function isJustRenderedFlow() {
@@ -186,65 +211,110 @@ function isJustRenderedFlow() {
 }
 
 
-function showJustRenderedBanner(message) {
+function showRenderingBanner(message) {
   const b = $('just-rendered-banner');
   if (!b) return;
   const msgEl = $('just-rendered-message');
   if (msgEl && message) msgEl.textContent = message;
   b.hidden = false;
+  b.classList.remove('is-error');
+  b.style.background = '#FEF3C7';
+  b.style.color = '#92400E';
+  b.style.borderColor = '#FDE68A';
 }
 
 
-function hideJustRenderedBanner() {
+function showFailedRenderBanner(message) {
+  const b = $('just-rendered-banner');
+  if (!b) return;
+  const msgEl = $('just-rendered-message');
+  if (msgEl && message) msgEl.textContent = message;
+  b.hidden = false;
+  b.classList.add('is-error');
+  b.style.background = '#FEF2F2';
+  b.style.color = '#991B1B';
+  b.style.borderColor = '#FECACA';
+}
+
+
+function hideRenderingBanner() {
   const b = $('just-rendered-banner');
   if (b) b.hidden = true;
 }
 
 
-function maybeStartJustRenderedPolling() {
-  if (!isJustRenderedFlow()) return;
-  // If the content row IS already loaded but audio_storage_path is still
-  // missing (BackgroundTask landed the row but not the storage upload),
-  // show the banner and keep polling.
-  if (STATE.content && !STATE.content.audio_storage_path) {
-    showJustRenderedBanner('Đang chờ ElevenLabs upload audio — refresh tự động mỗi 5s…');
-    startJustRenderedPolling();
-  } else if (STATE.content && STATE.content.audio_storage_path) {
-    // Render landed before we mounted — just dismiss + clean the URL param.
-    hideJustRenderedBanner();
+function maybeStartRenderingFlow() {
+  // Sprint 13.3.1: detect the placeholder row state directly instead
+  // of relying on the ?just_rendered=true URL nudge. Three cases:
+  //   1. content is the failed-render shape → red banner, no polling.
+  //   2. content is the in-progress placeholder → yellow banner +
+  //      backoff polling.
+  //   3. content is normal → dismiss any prior banner + clean URL.
+  if (isFailedRender(STATE.content)) {
+    showFailedRenderBanner('Render thất bại — admin có thể delete row hoặc thử lại.');
     cleanJustRenderedParam();
+    return;
   }
+  if (isPlaceholderRendering(STATE.content)) {
+    showRenderingBanner('Render đang chạy (~30s) — đang chờ ElevenLabs upload audio…');
+    startRenderingPolling();
+    return;
+  }
+  hideRenderingBanner();
+  cleanJustRenderedParam();
 }
 
 
-function startJustRenderedPolling() {
-  if (STATE._pollHandle) return;
-  let elapsed = 0;
-  const POLL_MS  = 5000;
-  const MAX_MS   = 90_000;  // 90s cap — past this, Andy refreshes manually.
-  STATE._pollHandle = setInterval(async () => {
-    elapsed += POLL_MS;
-    try {
-      const c = await window.api.get(
-        `/admin/listening/content/${encodeURIComponent(STATE.contentId)}`,
+// Backoff schedule: 5s, 10s, 15s, 15s, 15s → total 60s. Conservative
+// to avoid hammering the backend on a slow ElevenLabs render.
+const _RENDER_POLL_BACKOFF_S = [5, 10, 15, 15, 15];
+
+
+function startRenderingPolling() {
+  if (STATE._pollHandle) return;  // already polling
+  let attempt = 0;
+
+  const tick = async () => {
+    if (attempt >= _RENDER_POLL_BACKOFF_S.length) {
+      STATE._pollHandle = null;
+      showRenderingBanner(
+        'Vẫn chưa landed sau 60s — refresh thủ công hoặc kiểm tra log Railway.',
       );
-      STATE.content = c;
-      if (c.audio_storage_path) {
-        clearInterval(STATE._pollHandle); STATE._pollHandle = null;
-        hideJustRenderedBanner();
-        cleanJustRenderedParam();
-        // Re-render the metadata block so duration + size show up.
-        renderMeta(c);
-        showBanner('Render xong — draft đã sẵn sàng.', 'success');
+      return;
+    }
+    const delay = _RENDER_POLL_BACKOFF_S[attempt] * 1000;
+    attempt += 1;
+    STATE._pollHandle = setTimeout(async () => {
+      try {
+        const c = await window.api.get(
+          `/admin/listening/content/${encodeURIComponent(STATE.contentId)}`,
+        );
+        STATE.content = c;
+        if (c.audio_storage_path) {
+          STATE._pollHandle = null;
+          hideRenderingBanner();
+          cleanJustRenderedParam();
+          renderMeta(c);
+          showBanner('Render xong — draft đã sẵn sàng.', 'success');
+          return;
+        }
+        if (isFailedRender(c)) {
+          STATE._pollHandle = null;
+          showFailedRenderBanner(
+            'Render thất bại — placeholder row flipped to archived.',
+          );
+          cleanJustRenderedParam();
+          renderMeta(c);
+          return;
+        }
+      } catch {
+        // Swallow — next backoff tick retries.
       }
-    } catch {
-      // Swallow — banner stays visible, next tick re-tries.
-    }
-    if (elapsed >= MAX_MS) {
-      clearInterval(STATE._pollHandle); STATE._pollHandle = null;
-      showJustRenderedBanner('Vẫn chưa landed sau 90s — refresh thủ công hoặc kiểm tra log.');
-    }
-  }, POLL_MS);
+      tick();  // schedule next backoff step
+    }, delay);
+  };
+
+  tick();
 }
 
 

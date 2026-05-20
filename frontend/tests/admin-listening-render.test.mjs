@@ -241,14 +241,79 @@ describe('Sprint 13.3 — content-detail post-render banner', () => {
   });
 
   test('controller starts polling when row missing audio_storage_path', () => {
-    assert.match(js, /startJustRenderedPolling/);
+    // Sprint 13.3.1 renamed startJustRenderedPolling →
+    // startRenderingPolling and centralized detection in
+    // isPlaceholderRendering.
+    assert.match(js, /startRenderingPolling/);
+    assert.match(js, /isPlaceholderRendering/);
     assert.match(js, /audio_storage_path/);
   });
 
   test('polling auto-dismisses banner once audio lands', () => {
+    // Sprint 13.3.1: setTimeout-based backoff (no clearInterval); the
+    // banner dismiss happens in the success branch of the tick callback.
     assert.match(
       js,
-      /audio_storage_path[\s\S]*?clearInterval[\s\S]*?hideJustRenderedBanner/,
+      /audio_storage_path[\s\S]*?hideRenderingBanner/,
+    );
+  });
+});
+
+
+// ── Sprint 13.3.1 — race-condition hotfix sentinels ─────────────────────────
+
+
+describe('Sprint 13.3.1 — placeholder row + backoff polling + failed banner', () => {
+  const js = read('js', 'admin-listening-content-detail.js');
+
+  test('isPlaceholderRendering helper centralizes the rendering sentinel', () => {
+    // The check is `source_type === 'ai_elevenlabs' && audio_storage_path == null`.
+    assert.match(js, /function\s+isPlaceholderRendering\(/);
+    assert.match(js, /ai_elevenlabs/);
+    assert.match(js, /audio_storage_path\s*===\s*null/);
+  });
+
+  test('isFailedRender detects status=archived + placeholder shape', () => {
+    assert.match(js, /function\s+isFailedRender\(/);
+    assert.match(js, /content\.status\s*===\s*['"]archived['"]/);
+  });
+
+  test('failed render renders red banner (not yellow rendering banner)', () => {
+    assert.match(js, /showFailedRenderBanner/);
+    // Red banner uses the FEF2F2 background; yellow uses FEF3C7.
+    assert.match(js, /#FEF2F2/);
+    assert.match(js, /#FEF3C7/);
+  });
+
+  test('backoff schedule is [5, 10, 15, 15, 15] (= 60s total)', () => {
+    assert.match(
+      js,
+      /_RENDER_POLL_BACKOFF_S\s*=\s*\[\s*5\s*,\s*10\s*,\s*15\s*,\s*15\s*,\s*15\s*\]/,
+    );
+  });
+
+  test('polling uses setTimeout with backoff (not constant setInterval)', () => {
+    assert.match(js, /setTimeout/);
+    // The Sprint 13.3 constant setInterval-based poller retired.
+    assert.doesNotMatch(js, /setInterval\(\s*async\s*\(\)\s*=>/);
+  });
+
+  test('render endpoint response carries content_id (matches placeholder id)', () => {
+    // Backend response shape is consumed by render.html JS — verify the
+    // render controller still uses res.content_id to redirect.
+    const renderJs = read('js', 'admin-listening-render.js');
+    assert.match(renderJs, /res\.content_id/);
+  });
+
+  test('placeholder detection independent of ?just_rendered=true URL param', () => {
+    // Sprint 13.3.1 commission: the placeholder sentinel must work
+    // regardless of arrival path. maybeStartRenderingFlow reads the
+    // content row directly, not the URL.
+    assert.match(js, /maybeStartRenderingFlow/);
+    assert.match(
+      js,
+      /maybeStartRenderingFlow\(\)[\s\S]{0,500}?isFailedRender/,
+      'maybeStartRenderingFlow must branch on isFailedRender first',
     );
   });
 });

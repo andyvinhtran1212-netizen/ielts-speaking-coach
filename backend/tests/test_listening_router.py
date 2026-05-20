@@ -467,7 +467,10 @@ def test_admin_render_schedules_background_task_when_enabled(monkeypatch):
     out = _run(listening_router.admin_render_listening(
         body=body, background_tasks=bg, authorization=authz,
     ))
-    assert out["status"] == "queued"
+    # Sprint 13.3.1 — status was 'queued'; now 'rendering' because the
+    # placeholder row is INSERTed synchronously and only the audio
+    # production is asynchronous.
+    assert out["status"] == "rendering"
     assert "job_id" in out and out["job_id"]
     # Exactly one task queued.
     assert bg.add_task.call_count == 1

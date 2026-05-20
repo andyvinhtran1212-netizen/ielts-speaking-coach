@@ -118,10 +118,13 @@ def test_render_via_elevenlabs_no_api_key_raises(monkeypatch):
 # ── run_elevenlabs_render_job (BackgroundTask entry) ─────────────────
 
 
-def test_render_job_uploads_then_inserts_on_success(monkeypatch):
-    """Happy path end-to-end: render → upload → INSERT. Sprint 11.4 —
-    uses the new /with-timestamps endpoint shape (JSON with
-    audio_base64) instead of raw MP3 bytes."""
+def test_render_job_uploads_then_updates_placeholder_on_success(monkeypatch):
+    """Sprint 13.3.1 — the renderer now UPDATEs the placeholder row that
+    the router INSERTed synchronously (was INSERT at completion in
+    Sprint 11.x; race-condition hotfix changed it to UPDATE in place).
+
+    Happy path end-to-end: render → upload → UPDATE.
+    """
     monkeypatch.setattr(listening_renderer.settings, "ELEVENLABS_API_KEY", "sk_test")
     monkeypatch.setattr(listening_renderer.settings, "LISTENING_AUDIO_BUCKET", "listening-audio")
 
@@ -131,7 +134,7 @@ def test_render_job_uploads_then_inserts_on_success(monkeypatch):
     )
 
     uploads: list = []
-    inserts: list = []
+    updates: list = []
 
     class _FakeBucket:
         def upload(self, path, data, headers=None):
@@ -142,16 +145,23 @@ def test_render_job_uploads_then_inserts_on_success(monkeypatch):
         def from_(self, _bucket):
             return _FakeBucket()
 
-    class _FakeTable:
-        def insert(self, payload):
-            inserts.append(payload)
-            class _Exec:
-                def execute(self_): return MagicMock(data=[payload])
-            return _Exec()
+    class _FakeTableQuery:
+        def __init__(self):
+            self._payload = None
+            self._filters: list[tuple] = []
+        def update(self, payload):
+            self._payload = payload
+            return self
+        def eq(self, col, val):
+            self._filters.append((col, val))
+            return self
+        def execute(self):
+            updates.append((self._payload, list(self._filters)))
+            return MagicMock(data=[self._payload])
 
     fake_admin = MagicMock()
     fake_admin.storage = _FakeStorage()
-    fake_admin.table = lambda _name: _FakeTable()
+    fake_admin.table = lambda _name: _FakeTableQuery()
     monkeypatch.setattr(listening_renderer, "supabase_admin", fake_admin)
 
     listening_renderer.run_elevenlabs_render_job(
@@ -173,17 +183,14 @@ def test_render_job_uploads_then_inserts_on_success(monkeypatch):
     assert path == "ai/job-1.mp3"
     assert size == 32_000
     assert headers == {"content-type": "audio/mpeg"}
-    # Row INSERTed with the right discriminator + ai-source provenance.
-    assert len(inserts) == 1
-    payload = inserts[0]
-    assert payload["id"] == "job-1"
-    assert payload["source_type"] == "ai_elevenlabs"
-    assert payload["elevenlabs_voice_id"] == "v1"
-    assert payload["elevenlabs_model"] == "eleven_multilingual_v2"
+    # Exactly one UPDATE — the success path. Filter pins it to the
+    # placeholder row's id.
+    successes = [u for u in updates if "audio_storage_path" in u[0]]
+    assert len(successes) == 1
+    payload, filters = successes[0]
+    assert ("id", "job-1") in filters
     assert payload["audio_storage_path"] == "ai/job-1.mp3"
     assert payload["audio_size_bytes"] == 32_000
-    # Transcript defaults to script_text when omitted.
-    assert payload["transcript"] == "Sample script for the test render."
     # Cost estimate: 34 chars × 2 (multilingual_v2) = 68 credits.
     assert payload["generation_cost_credits"] == 34 * 2
     # Sprint 11.4 — alignment_data persisted.

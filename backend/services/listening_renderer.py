@@ -174,6 +174,29 @@ def _estimate_credit_cost(script_text: str, model: str) -> int:
 # ── BackgroundTask entry point ────────────────────────────────────────────────
 
 
+def _mark_render_failed(content_id: str, reason: str) -> None:
+    """Sprint 13.3.1 — flip the placeholder row to status='archived'
+    when the render pipeline fails. The frontend treats archived +
+    NULL audio_storage_path + source_type='ai_elevenlabs' as the
+    canonical "render failed" signal and surfaces a banner.
+
+    Idempotent (an UPDATE on a missing row is a no-op result).
+    """
+    try:
+        supabase_admin.table("listening_content").update({
+            "status": "archived",
+        }).eq("id", content_id).execute()
+        logger.warning(
+            "[listening_renderer] marked placeholder %s as archived (%s)",
+            content_id, reason,
+        )
+    except Exception as e:
+        logger.error(
+            "[listening_renderer] failed to mark placeholder %s archived: %s",
+            content_id, e,
+        )
+
+
 def run_elevenlabs_render_job(
     *,
     job_id: str,
@@ -188,25 +211,35 @@ def run_elevenlabs_render_job(
     transcript: str | None,
     created_by_user_id: str,
 ) -> None:
-    """BackgroundTask entry. Renders → uploads → INSERTs the draft row.
+    """BackgroundTask entry. Renders → uploads → UPDATEs the placeholder
+    row that the router INSERTed synchronously at POST /render time.
 
-    Fail-soft: any failure logs ERROR and returns. The admin polls the
-    content list to see whether a draft landed.
+    Sprint 13.3.1: this used to INSERT a brand-new row at completion,
+    which raced the frontend's redirect into content-detail.html?id=...
+    The router now creates the row up-front (audio_storage_path=NULL,
+    duration=0, size=0); this task UPDATEs the same row in place.
 
-    Args mirror the ListeningRenderRequest body fields from
-    routers/listening.py plus `created_by_user_id` (the admin who
-    initiated the render).
+    Failure modes:
+      - ElevenLabs call exhausts retries  → UPDATE status='archived'
+      - Storage upload fails              → UPDATE status='archived'
+      - DB UPDATE fails                   → log only (admin sees stuck row)
+
+    Args mirror ListeningRenderRequest plus `created_by_user_id`. The
+    `title`, `accent_tag`, `cefr_level`, `ielts_section`, `topic_tags`,
+    `transcript`, `created_by_user_id` args are now redundant (the
+    router persisted them on the placeholder row), but the signature
+    stays stable for backward compat with any callers that still pass
+    them positionally.
     """
+    _ = (title, accent_tag, cefr_level, ielts_section, topic_tags,
+         transcript, created_by_user_id)  # appease unused-var linters
+
     logger.info(
         "[listening_renderer] render job %s starting (voice=%s, model=%s, chars=%d)",
         job_id, voice_id, model, len(script_text),
     )
 
     # ── Step 1: render via ElevenLabs /with-timestamps (Sprint 11.4 bonus) ────
-    # Switched from the audio-only endpoint to /with-timestamps so the
-    # alignment_data lands in the same round-trip. The fallback path
-    # (no alignment returned) is still supported — older API tiers
-    # respond without an alignment field.
     def _do_render() -> tuple[bytes, dict | None]:
         return render_via_elevenlabs_with_timestamps(
             script_text=script_text, voice_id=voice_id, model=model,
@@ -225,14 +258,10 @@ def run_elevenlabs_render_job(
             "after retries (script=%d chars): %s",
             job_id, len(script_text), e,
         )
+        _mark_render_failed(job_id, f"elevenlabs_render_failed: {e}")
         return
 
     audio_size_bytes = len(mp3_bytes)
-    # ElevenLabs MP3 is 128 kbps mono → ~16 KB/sec. Coarse but adequate
-    # for the schema's `audio_duration_seconds NOT NULL` requirement at
-    # render time; precise duration would require mutagen / ffprobe and
-    # we don't need that precision for the UI (the audio player gets the
-    # real duration from the <audio> element on load).
     audio_duration_seconds = max(1, round(audio_size_bytes / 16_000))
 
     # ── Step 2: upload to bucket ──────────────────────────────────────────────
@@ -244,8 +273,6 @@ def run_elevenlabs_render_job(
             {"content-type": "audio/mpeg"},
         )
     except Exception as e:
-        # Mirror grading.py:240-250 pattern — likely cause is bucket not
-        # provisioned (operator step from migration 056).
         msg = str(e).lower()
         if "not found" in msg or "bucket" in msg:
             logger.error(
@@ -260,44 +287,31 @@ def run_elevenlabs_render_job(
                 "[listening_renderer] render job %s — bucket upload failed: %s",
                 job_id, e,
             )
+        _mark_render_failed(job_id, f"bucket_upload_failed: {e}")
         return
 
-    # ── Step 3: INSERT the draft row ──────────────────────────────────────────
-    insert_payload: dict[str, Any] = {
-        "id":                       job_id,
-        "source_type":              "ai_elevenlabs",
-        "elevenlabs_voice_id":      voice_id,
-        "elevenlabs_model":         model,
-        "generation_cost_credits":  _estimate_credit_cost(script_text, model),
+    # ── Step 3: UPDATE the placeholder row with the rendered payload ─────────
+    update_payload: dict[str, Any] = {
         "audio_storage_path":       storage_path,
         "audio_duration_seconds":   audio_duration_seconds,
         "audio_size_bytes":         audio_size_bytes,
-        "accent_tag":               accent_tag,
-        "topic_tags":               topic_tags or [],
-        "cefr_level":               cefr_level,
-        "ielts_section":            ielts_section,
-        # If the operator hasn't supplied a transcript yet (common — the
-        # rendered audio IS the script_text), default to the script.
-        "transcript":               transcript or script_text,
-        "transcript_segments":      [],   # Sprint 11.2 audio player adds
-                                          # segment-level granularity later.
-        # Sprint 11.4 bonus — alignment_data lets the segment editor
-        # derive precise sentence boundaries by indexing each sentence
-        # end's character position into character_end_times_seconds.
-        # NULL when the ElevenLabs API tier didn't return alignment.
         "alignment_data":           alignment,
+        "generation_cost_credits":  _estimate_credit_cost(script_text, model),
+        # Re-assert status='draft' in case the placeholder got flipped
+        # to 'archived' by a prior failed attempt that's now succeeded
+        # on retry (idempotency hedge).
         "status":                   "draft",
-        "is_premium":               False,
-        "title":                    title,
-        "created_by":               created_by_user_id,
     }
 
     try:
-        supabase_admin.table("listening_content").insert(insert_payload).execute()
+        supabase_admin.table("listening_content").update(update_payload).eq(
+            "id", job_id,
+        ).execute()
     except Exception as e:
         logger.error(
-            "[listening_renderer] render job %s — DB INSERT failed (audio in "
-            "bucket but no row); manual reconciliation needed at path %s: %s",
+            "[listening_renderer] render job %s — DB UPDATE failed (audio in "
+            "bucket but row not updated); manual reconciliation needed at "
+            "path %s: %s",
             job_id, storage_path, e,
         )
         return
@@ -306,5 +320,5 @@ def run_elevenlabs_render_job(
         "[listening_renderer] render job %s complete — content_id=%s, "
         "duration=%ds, size=%d bytes, cost=%d credits",
         job_id, job_id, audio_duration_seconds, audio_size_bytes,
-        insert_payload["generation_cost_credits"],
+        update_payload["generation_cost_credits"],
     )
