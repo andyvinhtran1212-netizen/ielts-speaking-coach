@@ -231,16 +231,28 @@ describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
     });
   }
 
-  it('Listening index is a real landing (not just a "Sắp ra mắt" stub)', () => {
+  it('Listening index is the content management browser (Sprint 13.1)', () => {
+    // Sprint 13.1 promoted listening/index.html from a card-grid
+    // landing into a content list page. The 5 editor deep-links now
+    // live in row Actions rendered by JS (admin-listening-content-list.js),
+    // not as direct anchors in the HTML. The page legitimately carries
+    // "Sắp ra mắt" text for the Sprint 13.2/13.3 create placeholders.
     const html = read('pages', 'admin', 'listening', 'index.html');
     assert.match(html, /<aver-admin-chrome\s+active=["']listening["']/);
-    // Should have all 5 sub-page links.
-    for (const sub of ['segments', 'gist', 'tf', 'mcq', 'mini-test']) {
-      assert.match(html, new RegExp(`/pages/admin/listening/${sub}\\.html`),
-        `Listening landing missing link to ${sub}`);
+    assert.match(html, /subsection=["']content["']/,
+      'Sprint 13.1: listening index must set subsection="content"');
+    // Real content browser markers — table + filter + create row.
+    assert.match(html, /id=["']lst-status["']/, 'missing status filter');
+    assert.match(html, /id=["']lst-tbody["']/,  'missing content table tbody');
+    // Editor deep-links live in the row-renderer module, not inline.
+    const listJs = read('js', 'admin-listening-content-list.js');
+    for (const sub of ['segments', 'gist', 'tf', 'mcq']) {
+      assert.match(
+        listJs,
+        new RegExp(`/pages/admin/listening/${sub}\\.html\\?content_id=`),
+        `content-list module missing deep-link to ${sub} editor`,
+      );
     }
-    // Must NOT be a Sắp-ra-mắt placeholder.
-    assert.doesNotMatch(html, /Sắp ra mắt/);
   });
 
   it('Sprint 12.2 — access-codes index is a real landing (not a stub)', () => {

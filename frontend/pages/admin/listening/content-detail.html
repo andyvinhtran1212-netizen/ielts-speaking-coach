@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Chi tiết nội dung Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .det-shell {
+      max-width: 1080px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .det-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .det-back a:hover { color: var(--av-brand-teal-700); }
+
+    .det-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--av-space-4); flex-wrap: wrap; }
+    .det-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0; }
+    .det-header .lst-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    .det-chip {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-sm);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .det-chip.is-draft     { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
+    .det-chip.is-published { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
+    .det-chip.is-archived  { background: #F3F4F6; color: #6B7280; border-color: #E5E7EB; }
+
+    .det-section {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+    }
+    .det-section h2 { font-size: var(--av-fs-lg); margin: 0; }
+
+    .det-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--av-space-3) var(--av-space-4);
+    }
+    .det-meta-grid dt {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      margin-bottom: 2px;
+    }
+    .det-meta-grid dd { margin: 0; font-size: var(--av-fs-sm); color: var(--av-text-primary); word-break: break-word; }
+    .det-transcript {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-sm);
+      line-height: var(--av-lh-relaxed);
+      white-space: pre-wrap;
+      max-height: 240px; overflow-y: auto;
+    }
+
+    .det-status-actions { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .btn-primary {
+      padding: 8px 18px;
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
+    .btn-secondary {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); cursor: pointer;
+      text-decoration: none; font-size: var(--av-fs-sm);
+    }
+    .btn-danger {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      background: transparent; color: #B91C1C;
+      border: 1px solid #FECACA; cursor: pointer; font-size: var(--av-fs-sm);
+    }
+
+    table.det-ex-table { width: 100%; border-collapse: collapse; }
+    table.det-ex-table th, table.det-ex-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+    }
+    table.det-ex-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+
+    .det-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .det-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
+    .det-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="content">
+
+    <main class="det-shell">
+      <p class="det-back">
+        <a href="/pages/admin/listening/index.html">← Quản lý nội dung</a>
+      </p>
+
+      <div class="det-banner" id="status-banner" hidden></div>
+
+      <header class="det-header">
+        <div>
+          <h1 id="det-title">Đang tải…</h1>
+          <div class="lst-mono" id="det-id"></div>
+        </div>
+        <span class="det-chip" id="det-status-chip">…</span>
+      </header>
+
+      <section class="det-section" aria-labelledby="det-meta-h">
+        <h2 id="det-meta-h">Metadata</h2>
+        <dl class="det-meta-grid" id="det-meta-grid"></dl>
+        <div>
+          <a class="btn-secondary" id="det-edit-meta-link" href="#">Sửa metadata</a>
+        </div>
+        <div>
+          <strong style="font-size: var(--av-fs-sm); color: var(--av-text-secondary);">Transcript</strong>
+          <div class="det-transcript" id="det-transcript">…</div>
+        </div>
+      </section>
+
+      <section class="det-section" aria-labelledby="det-status-h">
+        <h2 id="det-status-h">Trạng thái nội dung</h2>
+        <p style="margin: 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm);">
+          Publish để học viên thấy bài. Archive ẩn bài khỏi danh sách user-facing
+          nhưng giữ history attempt. Any-to-any transitions cho phép.
+        </p>
+        <div class="det-status-actions">
+          <button class="btn-primary" id="btn-publish" type="button"
+                  data-target-status="published">Publish</button>
+          <button class="btn-secondary" id="btn-draft" type="button"
+                  data-target-status="draft">Đặt về Draft</button>
+          <button class="btn-danger" id="btn-archive" type="button"
+                  data-target-status="archived">Archive</button>
+        </div>
+      </section>
+
+      <section class="det-section" aria-labelledby="det-ex-h">
+        <h2 id="det-ex-h">4 dạng exercise</h2>
+        <p style="margin: 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm);">
+          Mỗi bài listening_content có thể có tối đa 1 row cho mỗi loại
+          exercise (dictation / gist / true_false / mcq). Bấm "Tạo bài" hoặc
+          "Mở editor" để soạn — content_id sẽ pre-baked vào URL editor.
+        </p>
+        <table class="det-ex-table" id="det-ex-table">
+          <thead>
+            <tr>
+              <th>Loại</th>
+              <th>Status</th>
+              <th>Tóm tắt</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="det-ex-tbody"></tbody>
+        </table>
+      </section>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-listening-content-detail.js"></script>
+</body>
+</html>
