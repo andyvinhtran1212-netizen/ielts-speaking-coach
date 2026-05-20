@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Sửa metadata · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .mta-shell {
+      max-width: 760px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .mta-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .mta-back a:hover { color: var(--av-brand-teal-700); }
+
+    .mta-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .mta-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+
+    .mta-form {
+      padding: var(--av-space-5);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .mta-field { display: flex; flex-direction: column; gap: 4px; }
+    .mta-field label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .mta-field input[type="text"],
+    .mta-field input[type="url"],
+    .mta-field select,
+    .mta-field textarea {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+    .mta-field textarea { min-height: 160px; line-height: var(--av-lh-relaxed); resize: vertical; }
+    .mta-section-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-3); }
+    @media (max-width: 640px) {
+      .mta-section-pair { grid-template-columns: 1fr; }
+    }
+    .mta-section-pair-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--av-space-3); }
+    @media (max-width: 640px) {
+      .mta-section-pair-3 { grid-template-columns: 1fr; }
+    }
+
+    .mta-checkbox-row { display: flex; align-items: center; gap: 8px; font-size: var(--av-fs-sm); }
+    .mta-help { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    .mta-actions { display: flex; gap: var(--av-space-3); align-items: center; }
+    .btn-primary {
+      padding: 8px 18px;
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
+    .btn-secondary {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); cursor: pointer;
+      text-decoration: none; font-size: var(--av-fs-sm);
+    }
+
+    .mta-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .mta-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
+    .mta-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="content">
+
+    <main class="mta-shell">
+      <p class="mta-back">
+        <a id="mta-back-link" href="/pages/admin/listening/index.html">← Chi tiết nội dung</a>
+      </p>
+
+      <header class="mta-header">
+        <h1>Sửa metadata</h1>
+        <p class="subtitle">
+          9 trường có thể edit. Audio file, duration, storage path,
+          alignment data, và source_type không edit được — derive
+          ở upload/render time.
+        </p>
+      </header>
+
+      <div class="mta-banner" id="status-banner" hidden></div>
+
+      <form class="mta-form" id="mta-form" autocomplete="off">
+        <div class="mta-field">
+          <label for="mta-title">Title</label>
+          <input id="mta-title" name="title" type="text" required maxlength="200" />
+        </div>
+
+        <div class="mta-field">
+          <label for="mta-transcript">Transcript</label>
+          <textarea id="mta-transcript" name="transcript" required></textarea>
+        </div>
+
+        <div class="mta-section-pair-3">
+          <div class="mta-field">
+            <label for="mta-accent">Accent</label>
+            <select id="mta-accent" name="accent_tag">
+              <option value="us_general">US General</option>
+              <option value="uk_rp">UK RP</option>
+              <option value="au">Australian</option>
+              <option value="ca">Canadian</option>
+              <option value="other">Khác</option>
+            </select>
+          </div>
+          <div class="mta-field">
+            <label for="mta-cefr">CEFR</label>
+            <select id="mta-cefr" name="cefr_level">
+              <option value="A2">A2</option>
+              <option value="B1">B1</option>
+              <option value="B2">B2</option>
+              <option value="C1">C1</option>
+              <option value="C2">C2</option>
+            </select>
+          </div>
+          <div class="mta-field">
+            <label for="mta-section">IELTS section</label>
+            <select id="mta-section" name="ielts_section">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mta-field">
+          <label for="mta-tags">Topic tags (phân cách bằng dấu phẩy)</label>
+          <input id="mta-tags" name="topic_tags" type="text" placeholder="vd: travel, work, environment" />
+          <span class="mta-help">Tự cắt khoảng trắng + loại trùng lặp.</span>
+        </div>
+
+        <div class="mta-checkbox-row">
+          <input id="mta-premium" name="is_premium" type="checkbox" />
+          <label for="mta-premium" style="margin: 0; font-size: var(--av-fs-sm); color: var(--av-text-primary); text-transform: none; letter-spacing: 0;">
+            Premium content (paid tier)
+          </label>
+        </div>
+
+        <div class="mta-section-pair">
+          <div class="mta-field">
+            <label for="mta-license">External license</label>
+            <input id="mta-license" name="external_license" type="text" maxlength="120" placeholder="Để trống nếu là original" />
+            <span class="mta-help">Vd: CC BY 4.0, CC BY-NC 4.0…</span>
+          </div>
+          <div class="mta-field">
+            <label for="mta-source-url">External source URL</label>
+            <input id="mta-source-url" name="external_source_url" type="url" maxlength="500" placeholder="https://…" />
+            <span class="mta-help">Bắt buộc khi có license (attribution rule).</span>
+          </div>
+        </div>
+
+        <div class="mta-actions">
+          <button class="btn-primary" id="btn-save" type="submit">Lưu</button>
+          <a class="btn-secondary" id="mta-cancel-link" href="/pages/admin/listening/index.html">Hủy</a>
+        </div>
+      </form>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-listening-content-meta.js"></script>
+</body>
+</html>

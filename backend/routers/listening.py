@@ -362,6 +362,45 @@ class ListeningAttemptRequest(BaseModel):
     listen_count: int = Field(default=1, ge=1, le=200)
 
 
+class ListeningContentMetadataPatchRequest(BaseModel):
+    """Admin PATCH /admin/listening/content/{id} body — Sprint 13.1.
+
+    Editable metadata fields only. Every field is optional; only the
+    keys present in the request body are updated. The storage path,
+    audio bytes, audio_duration_seconds, alignment_data, and source_type
+    are NOT editable here — those are derived at upload/render time and
+    are immutable from the admin UI per Sprint 13.1 commission.
+
+    Validation reuses the POST /upload rules: CEFR enum, accent enum,
+    ielts_section 1-4, premium+NC license combo blocked.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    title: str | None = Field(default=None, max_length=200)
+    transcript: str | None = Field(default=None, max_length=20_000)
+    accent_tag: str | None = Field(default=None)
+    cefr_level: str | None = Field(default=None)
+    ielts_section: int | None = Field(default=None)
+    topic_tags: list[str] | None = Field(default=None)
+    is_premium: bool | None = Field(default=None)
+    external_license: str | None = Field(default=None, max_length=120)
+    external_source_url: str | None = Field(default=None, max_length=500)
+
+
+class ListeningContentStatusPatchRequest(BaseModel):
+    """Admin PATCH /admin/listening/content/{id}/status body — Sprint 13.1.
+
+    Single-field status transition. Any-to-any direction is allowed by
+    the commission (no workflow gate). Server validates that the new
+    status is in `_STATUS_VALUES`.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: str = Field(min_length=1)
+
+
 class ListeningExerciseUpsertRequest(BaseModel):
     """Admin POST /admin/listening/exercises body.
 
@@ -1261,6 +1300,164 @@ async def admin_list_listening_content(
         "limit":  limit,
         "offset": offset,
     }
+
+
+# ── Admin routes — content metadata + status PATCH (Sprint 13.1) ──────────────
+
+
+@admin_router.patch("/content/{content_id}")
+async def admin_patch_listening_content(
+    content_id: str,
+    body: ListeningContentMetadataPatchRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Update editable metadata fields on a listening_content row.
+
+    Allow-list: title, transcript, accent_tag, cefr_level, ielts_section,
+    topic_tags, is_premium, external_license, external_source_url.
+
+    Only keys present in the request body land in the UPDATE — partial
+    updates are first-class. Validation reuses POST /upload rules.
+
+    Premium + NC license combo is rejected at 422 to mirror the upload
+    path (Sprint 11.0 §4E). When external_license is being SET in this
+    PATCH, external_source_url must also be set (license attribution).
+    """
+    await require_admin(authorization)
+
+    existing = (
+        supabase_admin.table("listening_content")
+        .select("*")
+        .eq("id", content_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Listening content not found")
+    current = existing.data[0]
+
+    update: dict = {}
+
+    if body.title is not None:
+        title = body.title.strip()
+        if not title:
+            raise HTTPException(422, "title must not be empty")
+        update["title"] = title
+
+    if body.transcript is not None:
+        transcript = body.transcript
+        if not transcript.strip():
+            raise HTTPException(422, "transcript must not be empty")
+        update["transcript"] = transcript
+
+    if body.accent_tag is not None:
+        if body.accent_tag not in _ACCENT_VALUES:
+            raise HTTPException(
+                422, f"accent_tag must be one of {sorted(_ACCENT_VALUES)}",
+            )
+        update["accent_tag"] = body.accent_tag
+
+    if body.cefr_level is not None:
+        if body.cefr_level not in _CEFR_VALUES:
+            raise HTTPException(
+                422, f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
+            )
+        update["cefr_level"] = body.cefr_level
+
+    if body.ielts_section is not None:
+        if not (1 <= body.ielts_section <= 4):
+            raise HTTPException(422, "ielts_section must be 1-4")
+        update["ielts_section"] = body.ielts_section
+
+    if body.topic_tags is not None:
+        tags = [str(t).strip() for t in body.topic_tags if str(t).strip()]
+        update["topic_tags"] = tags
+
+    if body.is_premium is not None:
+        update["is_premium"] = bool(body.is_premium)
+
+    if body.external_license is not None:
+        update["external_license"] = body.external_license or None
+
+    if body.external_source_url is not None:
+        update["external_source_url"] = body.external_source_url or None
+
+    # Cross-field rules — evaluated against the merged shape (current row
+    # + this PATCH's deltas) so partial updates can't slip past Sprint
+    # 11.0 §4 / §4E by setting one half of a related pair on its own.
+    merged = {**current, **update}
+    if merged.get("external_license") and not merged.get("external_source_url"):
+        raise HTTPException(
+            422,
+            "external_source_url required when external_license is set "
+            "(license attribution rule)",
+        )
+    if (
+        merged.get("is_premium")
+        and merged.get("external_license")
+        and "NC" in str(merged["external_license"])
+    ):
+        raise HTTPException(
+            422,
+            "Cannot mark NC-licensed content as premium — non-commercial "
+            "restriction incompatible with paid tier (Sprint 11.0 §4E).",
+        )
+
+    if not update:
+        # No editable keys present — return current row unchanged. Saves
+        # a write but still confirms the PATCH succeeded so the admin UI
+        # can refresh consistently.
+        return current
+
+    res = (
+        supabase_admin.table("listening_content")
+        .update(update)
+        .eq("id", content_id)
+        .execute()
+    )
+    rows = res.data or []
+    return rows[0] if rows else {**current, **update}
+
+
+@admin_router.patch("/content/{content_id}/status")
+async def admin_patch_listening_content_status(
+    content_id: str,
+    body: ListeningContentStatusPatchRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Transition a listening_content row between draft / published /
+    archived. Any-to-any direction is allowed (Sprint 13.1 commission D5
+    — no workflow gate; explicit Publish/Archive buttons live on the
+    admin content-detail page).
+    """
+    await require_admin(authorization)
+
+    new_status = body.status.strip().lower()
+    if new_status not in _STATUS_VALUES:
+        raise HTTPException(
+            422, f"status must be one of {sorted(_STATUS_VALUES)}",
+        )
+
+    existing = (
+        supabase_admin.table("listening_content")
+        .select("id,status")
+        .eq("id", content_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Listening content not found")
+
+    res = (
+        supabase_admin.table("listening_content")
+        .update({"status": new_status})
+        .eq("id", content_id)
+        .execute()
+    )
+    rows = res.data or []
+    if rows:
+        return rows[0]
+    return {"id": content_id, "status": new_status}
 
 
 # ── Admin routes — exercise CRUD (Sprint 11.3) ────────────────────────────────

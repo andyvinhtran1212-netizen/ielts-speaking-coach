@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Listening · Admin · Aver Learning</title>
+  <title>Listening · Quản lý nội dung · Admin · Aver Learning</title>
 
   <script>
     (function () {
@@ -29,72 +29,230 @@
 
   <style>
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
-    .section-shell {
-      max-width: 1080px; margin: 0 auto;
-      padding: var(--av-space-2) var(--av-space-2) var(--av-space-8);
-      display: flex; flex-direction: column; gap: var(--av-space-6);
+    .lst-shell {
+      max-width: 1280px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
     }
-    .section-header h1 { font-size: var(--av-fs-2xl); margin-bottom: var(--av-space-2); }
-    .section-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-base); line-height: var(--av-lh-normal); }
-    .section-grid {
+    .lst-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .lst-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: var(--av-lh-normal); }
+
+    .lst-create-row {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: var(--av-space-4);
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--av-space-3);
     }
-    .sec-card {
-      display: flex; flex-direction: column; gap: var(--av-space-2);
+    .lst-create-card {
+      padding: var(--av-space-4);
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-muted);
+      display: flex; flex-direction: column; gap: 4px;
+      cursor: not-allowed;
+      position: relative;
+    }
+    .lst-create-card h3 { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold); margin: 0; }
+    .lst-create-card .lede { font-size: var(--av-fs-sm); }
+    .lst-create-card .lst-soon {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      color: var(--av-text-muted); margin-top: 4px;
+    }
+
+    .lst-filter-bar {
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      align-items: flex-end;
       padding: var(--av-space-4);
       border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md);
       background: var(--av-surface-card);
-      text-decoration: none;
-      color: var(--av-text-primary);
-      transition: border-color 0.15s ease, transform 0.15s ease;
     }
-    .sec-card:hover { border-color: var(--av-brand-teal-700); transform: translateY(-1px); }
-    .sec-card h3 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
-    .sec-card .lede { font-size: var(--av-fs-sm); color: var(--av-text-secondary); line-height: var(--av-lh-normal); }
+    .lst-filter { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+    .lst-filter label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .lst-filter select {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-sm);
+      font-family: inherit;
+    }
+
+    .lst-table-wrap {
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      overflow-x: auto;
+    }
+    table.lst-table { width: 100%; border-collapse: collapse; }
+    table.lst-table th, table.lst-table td {
+      padding: var(--av-space-3) var(--av-space-4);
+      text-align: left;
+      font-size: var(--av-fs-sm);
+      border-bottom: 1px solid var(--av-border-default);
+      vertical-align: top;
+    }
+    table.lst-table th {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+      background: var(--av-surface-sunken);
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide);
+    }
+    .lst-row-title a { color: var(--av-text-primary); text-decoration: none; font-weight: var(--av-fw-semibold); }
+    .lst-row-title a:hover { color: var(--av-brand-teal-700); text-decoration: underline; }
+
+    .lst-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs);
+      background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .lst-chip.is-draft     { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
+    .lst-chip.is-published { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
+    .lst-chip.is-archived  { background: #F3F4F6; color: #6B7280; border-color: #E5E7EB; }
+    .lst-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    .lst-ex-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .lst-ex-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-xs);
+      background: var(--av-brand-teal-50);
+      color: var(--av-brand-teal-800);
+      border: 1px solid var(--av-brand-teal-200);
+      font-family: var(--av-font-mono);
+    }
+    .lst-ex-empty { color: var(--av-text-muted); font-size: var(--av-fs-xs); font-style: italic; }
+
+    .lst-actions { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .lst-actions a {
+      padding: 2px 8px;
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card);
+      text-decoration: none;
+    }
+    .lst-actions a:hover { border-color: var(--av-brand-teal-700); color: var(--av-brand-teal-700); }
+
+    .lst-pagination {
+      display: flex; gap: var(--av-space-3); align-items: center;
+      justify-content: flex-end;
+      padding: var(--av-space-2) 0;
+      font-size: var(--av-fs-sm); color: var(--av-text-muted);
+    }
+    .lst-pagination button {
+      padding: 6px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card);
+      cursor: pointer;
+    }
+    .lst-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .lst-loading, .lst-empty {
+      padding: var(--av-space-6); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm);
+    }
+    .lst-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .lst-banner.is-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body class="av-page">
-  <aver-admin-chrome active="listening">
+  <aver-admin-chrome active="listening" subsection="content">
 
-    <div class="section-shell">
-      <header class="section-header">
-        <h1>Listening · Admin</h1>
+    <main class="lst-shell">
+      <header class="lst-header">
+        <h1>Quản lý nội dung Listening</h1>
         <p class="subtitle">
-          Module Listening hoàn chỉnh từ Sprint 11.5 (5 dạng bài). Trang này
-          tổng hợp các editor + builder. Cần <code>?content_id=&lt;UUID&gt;</code>
-          khi mở editor cho một bài cụ thể (lấy ID từ <code>admin.html</code>
-          legacy hoặc Supabase dashboard cho tới khi Sprint 12.x ship content listing).
+          Duyệt + filter listening_content rows. Mở từng bài để xem 4 dạng
+          exercise (dictation / gist / true-false / mcq) đã soạn hay chưa,
+          xuất bản hoặc archive. Tạo bài mới qua MP3 upload hoặc render
+          ElevenLabs (sắp ra mắt).
         </p>
       </header>
 
-      <section class="section-grid">
-        <a href="/pages/admin/listening/segments.html" class="sec-card">
-          <h3>Audio + Segments</h3>
-          <p class="lede">Upload MP3 hoặc render ElevenLabs; chia transcript thành câu, gán timestamp.</p>
+      <section class="lst-create-row" aria-label="Tạo nội dung mới">
+        <a class="lst-create-card" href="#" data-create="upload"
+           title="Sắp ra mắt (Sprint 13.2)" aria-disabled="true">
+          <h3>Tải MP3</h3>
+          <p class="lede">Upload file mp3 + transcript + metadata cho bài nghe gốc hoặc curated.</p>
+          <span class="lst-soon">Sắp ra mắt (Sprint 13.2)</span>
         </a>
-        <a href="/pages/admin/listening/gist.html" class="sec-card">
-          <h3>Gist (Nghe ý chính)</h3>
-          <p class="lede">Prompt + model answer + rubric keywords cho dạng nghe ý chính.</p>
-        </a>
-        <a href="/pages/admin/listening/tf.html" class="sec-card">
-          <h3>True / False / NG</h3>
-          <p class="lede">3-12 nhận định mỗi bài; localised Vietnamese label.</p>
-        </a>
-        <a href="/pages/admin/listening/mcq.html" class="sec-card">
-          <h3>MCQ (Trắc nghiệm)</h3>
-          <p class="lede">1-20 câu hỏi, 4 lựa chọn A-D mỗi câu.</p>
-        </a>
-        <a href="/pages/admin/listening/mini-test.html" class="sec-card">
-          <h3>Mini Test</h3>
-          <p class="lede">Lắp ráp Mini Test từ pool exercises đã publish.</p>
+        <a class="lst-create-card" href="#" data-create="render"
+           title="Sắp ra mắt (Sprint 13.3)" aria-disabled="true">
+          <h3>Render ElevenLabs</h3>
+          <p class="lede">Sinh audio TTS từ script + giọng + accent. Tạo draft row tự động.</p>
+          <span class="lst-soon">Sắp ra mắt (Sprint 13.3)</span>
         </a>
       </section>
-    </div>
+
+      <div class="lst-banner is-error" id="status-banner" hidden></div>
+
+      <section class="lst-filter-bar" aria-label="Bộ lọc">
+        <div class="lst-filter">
+          <label for="lst-status">Trạng thái</label>
+          <select id="lst-status">
+            <option value="all">Tất cả</option>
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      </section>
+
+      <div class="lst-loading" id="lst-loading">Đang tải…</div>
+      <div class="lst-empty"   id="lst-empty"   hidden>
+        Chưa có nội dung. Tạo bài đầu tiên qua Tải MP3 hoặc Render ElevenLabs (Sắp ra mắt).
+      </div>
+
+      <div class="lst-table-wrap" id="lst-table-wrap" hidden>
+        <table class="lst-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Accent</th>
+              <th>CEFR</th>
+              <th>Section</th>
+              <th>Status</th>
+              <th>Audio (s)</th>
+              <th>Exercises</th>
+              <th>Created</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="lst-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="lst-pagination" id="lst-pagination" hidden>
+        <span id="lst-pagination-info"></span>
+        <button id="lst-prev" type="button">← Trước</button>
+        <button id="lst-next" type="button">Sau →</button>
+      </div>
+    </main>
 
   </aver-admin-chrome>
+
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-listening-content-list.js"></script>
 </body>
 </html>
