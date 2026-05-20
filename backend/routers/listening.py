@@ -974,6 +974,189 @@ async def admin_upload_listening_bulk(
     }
 
 
+# ── Admin routes — Sprint 13.3 ElevenLabs render UI helpers ───────────────────
+
+
+# Creator-plan economics: $22/mo ⇒ ~100 000 credits ⇒ $0.00022 / credit.
+# Approximate — true cost lands when ElevenLabs returns a credit header
+# on the actual render response. The UI rounds for display only.
+_USD_PER_CREDIT = 0.00022
+
+# Render-time heuristic: ElevenLabs synthesizes roughly chars-per-second
+# of audio at ~15 chars/sec real-time-factor. For UI countdown we
+# approximate render *wall-clock* as 30% of audio duration → script
+# length / 50 chars/sec gives a usable estimate without an API probe.
+_CHARS_PER_RENDER_SECOND = 250
+
+
+def _credit_cost_for(script_text: str, model: str) -> int:
+    """Mirror services/listening_renderer._estimate_credit_cost so the
+    UI cost preview and the persisted `generation_cost_credits` column
+    agree. Imported indirectly to keep routers free of cycle risk.
+    """
+    from services.listening_renderer import _estimate_credit_cost
+    return _estimate_credit_cost(script_text, model)
+
+
+def _estimated_render_seconds(script_text: str) -> int:
+    if not script_text:
+        return 1
+    return max(3, round(len(script_text) / _CHARS_PER_RENDER_SECOND))
+
+
+@admin_router.get("/render/feature-flag")
+async def admin_render_feature_flag(
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.3 — small read-only endpoint the render UI hits on
+    mount to decide whether to show the form or a 503 banner.
+
+    Returns `{enabled: bool, message: str | null}`. Mirrors the gate
+    inside POST /render (`LISTENING_AI_RENDER_ENABLED` env bool AND
+    `ELEVENLABS_API_KEY` env str). Both must be set; either missing
+    means the render path is dark.
+    """
+    await require_admin(authorization)
+    enabled = bool(settings.LISTENING_AI_RENDER_ENABLED) and bool(settings.ELEVENLABS_API_KEY)
+    if enabled:
+        return {"enabled": True, "message": None}
+    if not settings.LISTENING_AI_RENDER_ENABLED:
+        msg = (
+            "AI render đang tạm tắt. Set LISTENING_AI_RENDER_ENABLED=true "
+            "sau khi provision ELEVENLABS_API_KEY."
+        )
+    else:
+        msg = "ELEVENLABS_API_KEY chưa cấu hình trên server."
+    return {"enabled": False, "message": msg}
+
+
+class ListeningRenderValidateRequest(BaseModel):
+    """Sprint 13.3 — dry-run validation body for the render UI.
+
+    Mirrors the shape of POST /render but is also useful for the live
+    cost preview as the admin types: the UI debounces and POSTs the
+    current script + voice + model and gets back `{ok, errors,
+    warnings, estimated_cost_credits, estimated_cost_usd,
+    estimated_render_seconds}`. No ElevenLabs call, no DB write.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    script_text:         str = Field(min_length=0, max_length=5000)
+    voice_id:            str | None = Field(default=None, min_length=0, max_length=64)
+    model:               str = Field(default="eleven_multilingual_v2")
+    title:               str | None = Field(default=None, max_length=200)
+    accent_tag:          str
+    cefr_level:          str | None = None
+    ielts_section:       int | None = None
+    topic_tags:          list[str] = Field(default_factory=list)
+    is_premium:          bool = Field(default=False)
+    external_license:    str | None = Field(default=None, max_length=120)
+    external_source_url: str | None = Field(default=None, max_length=500)
+
+
+_RENDER_SCRIPT_MIN_CHARS = 100
+_LOCKED_RENDER_VOICES: set[str] = {
+    settings.LISTENING_VOICE_US_FEMALE_DEFAULT,
+    settings.LISTENING_VOICE_UK_FEMALE_DEFAULT,
+}
+
+
+def _validate_render_payload(body: ListeningRenderValidateRequest) -> dict:
+    """Sprint 13.3 — collect errors/warnings for the render UI.
+
+    Distinct from Sprint 13.2 upload validator (that one's about audio
+    bytes + transcript wpm). This one's about script length, voice +
+    model enums, and the same license/premium cross-field rules. Hard
+    rules (premium+NC) raise HTTPException; soft signals come back as
+    warnings.
+    """
+    errors:   list[dict] = []
+    warnings: list[dict] = []
+
+    text = (body.script_text or "").strip()
+    if not text:
+        errors.append({"code": "script_empty", "message": "Script trống.",
+                       "field": "script_text", "severity": "error"})
+    elif len(text) < _RENDER_SCRIPT_MIN_CHARS:
+        errors.append({
+            "code": "script_too_short",
+            "message": (
+                f"Script quá ngắn ({len(text)} ký tự) — tối thiểu "
+                f"{_RENDER_SCRIPT_MIN_CHARS} ký tự để chống lãng phí credit."
+            ),
+            "field": "script_text", "severity": "error",
+        })
+
+    if body.accent_tag not in _ACCENT_VALUES:
+        errors.append({"code": "accent_invalid",
+                       "message": f"accent_tag must be one of {sorted(_ACCENT_VALUES)}",
+                       "field": "accent_tag", "severity": "error"})
+
+    if body.model not in _ELEVENLABS_MODELS:
+        errors.append({"code": "model_invalid",
+                       "message": f"model must be one of {sorted(_ELEVENLABS_MODELS)}",
+                       "field": "model", "severity": "error"})
+
+    if body.cefr_level is not None and body.cefr_level not in _CEFR_VALUES:
+        errors.append({"code": "cefr_invalid",
+                       "message": f"cefr_level must be one of {sorted(_CEFR_VALUES)}",
+                       "field": "cefr_level", "severity": "error"})
+
+    if body.ielts_section is not None and not (1 <= body.ielts_section <= 4):
+        errors.append({"code": "section_invalid",
+                       "message": "ielts_section must be 1-4",
+                       "field": "ielts_section", "severity": "error"})
+
+    voice_id = body.voice_id or _default_voice_for_accent(body.accent_tag) or ""
+    if voice_id and voice_id not in _LOCKED_RENDER_VOICES:
+        # Sprint 13.3 UI ships 2 locked voices (Sarah + Alice). A
+        # non-locked voice_id passed in (e.g. via direct API call from a
+        # future custom voice) is allowed — surface as warning so admin
+        # sees it but the upload proceeds.
+        warnings.append({"code": "voice_not_locked",
+                         "message": "voice_id không nằm trong danh sách locked (Sarah / Alice).",
+                         "field": "voice_id", "severity": "warning"})
+
+    if len(text) > 3000:
+        warnings.append({"code": "long_script",
+                         "message": (
+                             f"Script {len(text)} ký tự — render lâu hơn "
+                             f"({_estimated_render_seconds(text)}s) và tốn nhiều credit hơn."
+                         ),
+                         "field": "script_text", "severity": "warning"})
+
+    # License + premium hard rules → HTTPException 422 (mirror upload).
+    _license_combo_check(
+        external_license=body.external_license,
+        external_source_url=body.external_source_url,
+        is_premium=body.is_premium,
+    )
+
+    credits = _credit_cost_for(text, body.model) if text else 0
+    return {
+        "ok":                       not errors,
+        "errors":                   errors,
+        "warnings":                 warnings,
+        "estimated_cost_credits":   credits,
+        "estimated_cost_usd":       round(credits * _USD_PER_CREDIT, 4),
+        "estimated_render_seconds": _estimated_render_seconds(text),
+    }
+
+
+@admin_router.post("/render/validate")
+async def admin_render_validate(
+    body: ListeningRenderValidateRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.3 — dry-run validation + cost preview. No ElevenLabs
+    call, no DB write. UI calls this on the "Kiểm tra trước khi render"
+    button and (debounced) as the script field changes.
+    """
+    await require_admin(authorization)
+    return _validate_render_payload(body)
+
+
 # ── Admin route — ElevenLabs render (feature-flag gated) ──────────────────────
 
 
@@ -1014,6 +1197,15 @@ async def admin_render_listening(
     if body.ielts_section is not None and not (1 <= body.ielts_section <= 4):
         raise HTTPException(422, "ielts_section must be 1-4")
 
+    # ── Sprint 13.3 — apply the new render-script floor ──────────────────────
+    stripped_script = (body.script_text or "").strip()
+    if len(stripped_script) < _RENDER_SCRIPT_MIN_CHARS:
+        raise HTTPException(
+            422,
+            f"script_text quá ngắn ({len(stripped_script)} ký tự) — tối thiểu "
+            f"{_RENDER_SCRIPT_MIN_CHARS} ký tự (Sprint 13.3 anti-waste gate).",
+        )
+
     # ── Sprint 11.2 — resolve voice_id fallback by accent ─────────────────────
     voice_id = body.voice_id or _default_voice_for_accent(body.accent_tag)
     if not voice_id:
@@ -1040,9 +1232,15 @@ async def admin_render_listening(
     )
 
     return {
-        "job_id": job_id,
-        "status": "queued",
-        "note":   "Poll /api/listening/content/{job_id} after ~10-30s to see the draft row.",
+        "job_id":     job_id,
+        # Sprint 13.3 — the renderer writes the draft row with id=job_id,
+        # so the UI can redirect to content-detail.html?id=<content_id>
+        # immediately without a poll-then-redirect step.
+        "content_id": job_id,
+        "status":     "queued",
+        "estimated_render_seconds": _estimated_render_seconds(body.script_text),
+        "estimated_cost_credits":   _credit_cost_for(body.script_text, body.model),
+        "note":       "Poll /admin/listening/content/{content_id} after ~10-30s to see the draft row.",
     }
 
 

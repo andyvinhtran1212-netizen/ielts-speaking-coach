@@ -162,9 +162,98 @@ async function load() {
     STATE.exercises = exRes.exercises || [];
     renderMeta(content);
     renderExerciseMatrix(STATE.exercises, id);
+    maybeStartJustRenderedPolling();
   } catch (e) {
+    // Sprint 13.3 — when admin lands here right after POST /render, the
+    // row may not be persisted yet (the renderer runs as a BackgroundTask).
+    // Show the post-render banner + start polling if ?just_rendered=true.
+    if (isJustRenderedFlow() && /404/.test(String(e.message || ''))) {
+      showJustRenderedBanner('Đang chờ ElevenLabs render xong — refresh tự động mỗi 5s…');
+      startJustRenderedPolling();
+      return;
+    }
     showBanner(`Tải bài thất bại: ${e.message || e}`, 'error');
   }
+}
+
+
+// ── Sprint 13.3 — post-render banner + auto-poll ─────────────────────────────
+
+
+function isJustRenderedFlow() {
+  const sp = new URLSearchParams(window.location.search);
+  return sp.get('just_rendered') === 'true';
+}
+
+
+function showJustRenderedBanner(message) {
+  const b = $('just-rendered-banner');
+  if (!b) return;
+  const msgEl = $('just-rendered-message');
+  if (msgEl && message) msgEl.textContent = message;
+  b.hidden = false;
+}
+
+
+function hideJustRenderedBanner() {
+  const b = $('just-rendered-banner');
+  if (b) b.hidden = true;
+}
+
+
+function maybeStartJustRenderedPolling() {
+  if (!isJustRenderedFlow()) return;
+  // If the content row IS already loaded but audio_storage_path is still
+  // missing (BackgroundTask landed the row but not the storage upload),
+  // show the banner and keep polling.
+  if (STATE.content && !STATE.content.audio_storage_path) {
+    showJustRenderedBanner('Đang chờ ElevenLabs upload audio — refresh tự động mỗi 5s…');
+    startJustRenderedPolling();
+  } else if (STATE.content && STATE.content.audio_storage_path) {
+    // Render landed before we mounted — just dismiss + clean the URL param.
+    hideJustRenderedBanner();
+    cleanJustRenderedParam();
+  }
+}
+
+
+function startJustRenderedPolling() {
+  if (STATE._pollHandle) return;
+  let elapsed = 0;
+  const POLL_MS  = 5000;
+  const MAX_MS   = 90_000;  // 90s cap — past this, Andy refreshes manually.
+  STATE._pollHandle = setInterval(async () => {
+    elapsed += POLL_MS;
+    try {
+      const c = await window.api.get(
+        `/admin/listening/content/${encodeURIComponent(STATE.contentId)}`,
+      );
+      STATE.content = c;
+      if (c.audio_storage_path) {
+        clearInterval(STATE._pollHandle); STATE._pollHandle = null;
+        hideJustRenderedBanner();
+        cleanJustRenderedParam();
+        // Re-render the metadata block so duration + size show up.
+        renderMeta(c);
+        showBanner('Render xong — draft đã sẵn sàng.', 'success');
+      }
+    } catch {
+      // Swallow — banner stays visible, next tick re-tries.
+    }
+    if (elapsed >= MAX_MS) {
+      clearInterval(STATE._pollHandle); STATE._pollHandle = null;
+      showJustRenderedBanner('Vẫn chưa landed sau 90s — refresh thủ công hoặc kiểm tra log.');
+    }
+  }, POLL_MS);
+}
+
+
+function cleanJustRenderedParam() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('just_rendered');
+    window.history.replaceState({}, '', url.toString());
+  } catch { /* noop */ }
 }
 
 

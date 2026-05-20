@@ -146,6 +146,15 @@
 
       <div class="det-banner" id="status-banner" hidden></div>
 
+      <!-- Sprint 13.3 — post-render banner. Shown when ?just_rendered=true
+           is present in the URL and the audio_storage_path hasn't landed
+           yet. Auto-dismisses after the row finishes rendering. -->
+      <div class="det-banner is-render-pending" id="just-rendered-banner" hidden
+           style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;">
+        <strong>Render đang chạy</strong>
+        <span id="just-rendered-message">— ~30s nữa audio sẽ landed.</span>
+      </div>
+
       <header class="det-header">
         <div>
           <h1 id="det-title">Đang tải…</h1>
