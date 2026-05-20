@@ -215,10 +215,18 @@ def test_get_listening_content_404_for_missing_id(monkeypatch):
 # ── POST /admin/listening/upload ─────────────────────────────────────
 
 
-def _fake_upload_file(content: bytes = b"fake-mp3-bytes") -> UploadFile:
+def _fake_upload_file(content: bytes | None = None) -> UploadFile:
     """Build a minimal UploadFile shim. FastAPI's UploadFile.read() is
     async; passing a BytesIO via SpooledTemporaryFile is the canonical
-    way but a MagicMock with an async read is simpler for unit tests."""
+    way but a MagicMock with an async read is simpler for unit tests.
+
+    Sprint 13.2: default body is a 60 KB pad prefixed with the ID3 magic
+    so the new listening_validator service passes (size ≥ 50 KB +
+    MP3 signature present). Tests that need to exercise validation
+    failure can pass a smaller `content` explicitly.
+    """
+    if content is None:
+        content = b"ID3" + b"\x00" * (60 * 1024)
     f = MagicMock(spec=UploadFile)
 
     async def _read():
@@ -242,7 +250,10 @@ def test_admin_upload_happy_path_upload_mp3(monkeypatch):
     out = _run(listening_router.admin_upload_listening(
         audio_file=_fake_upload_file(),
         title="Section 2 hobby monologue",
-        transcript="I like reading.",
+        transcript=(
+            "I like reading novels and watching documentaries every weekend "
+            "because it helps me relax."
+        ),
         accent_tag="uk_rp",
         cefr_level="B2",
         ielts_section=2,
@@ -285,7 +296,10 @@ def test_admin_upload_with_external_license_classifies_as_curated(monkeypatch):
     out = _run(listening_router.admin_upload_listening(
         audio_file=_fake_upload_file(),
         title="BBC 6 Minute English — Sleep",
-        transcript="...",
+        transcript=(
+            "Sleep researchers say adults should aim for seven to nine "
+            "hours per night to feel rested."
+        ),
         accent_tag="uk_rp",
         cefr_level="B2",
         ielts_section=3,

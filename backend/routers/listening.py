@@ -43,6 +43,11 @@ from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
 from services.listening_grader import grade_dictation, grade_mcq, grade_true_false
 from services.listening_renderer import run_elevenlabs_render_job
+from services.listening_validator import (
+    has_errors as validator_has_errors,
+    infer_duration_seconds,
+    validate_upload as validate_upload_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -558,6 +563,26 @@ async def admin_upload_listening(
     audio_size_bytes = len(audio_bytes)
     audio_duration_seconds = max(1, round(audio_size_bytes / 16_000))
 
+    # ── Sprint 13.2 — auto-validate (fail-soft on validator bugs) ─────────────
+    validation_warnings: list[dict] = []
+    try:
+        v = validate_upload_payload(
+            file_bytes=audio_bytes,
+            transcript=transcript,
+            declared_duration_seconds=audio_duration_seconds,
+        )
+        if validator_has_errors(v):
+            raise HTTPException(422, {
+                "message": "Validation failed",
+                "errors":   v["errors"],
+                "warnings": v["warnings"],
+            })
+        validation_warnings = v["warnings"]
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001 — fail-soft per Sprint 13.2 commission
+        logger.warning("[listening] validator threw, allowing upload: %s", e)
+
     # ── Upload to bucket ──────────────────────────────────────────────────────
     content_id = str(uuid.uuid4())
     storage_subdir = "curated" if source_type == "curated_external" else "uploads"
@@ -619,6 +644,333 @@ async def admin_upload_listening(
         "source_type":  source_type,
         "status":       "draft",
         "storage_path": storage_path,
+        "warnings":     validation_warnings,
+    }
+
+
+# ── Admin routes — Sprint 13.2 upload validation + bulk ───────────────────────
+
+
+def _normalize_topic_tags(tags: object) -> list[str]:
+    """Accept either a comma-separated string (single endpoint) or a
+    list of strings (bulk manifest). Trim, drop empties.
+    """
+    if isinstance(tags, list):
+        return [str(t).strip() for t in tags if str(t).strip()]
+    if isinstance(tags, str):
+        return [t.strip() for t in tags.split(",") if t.strip()]
+    return []
+
+
+def _enum_check(field_name: str, value: object, allowed: set[str]) -> None:
+    if value not in allowed:
+        raise HTTPException(422, f"{field_name} must be one of {sorted(allowed)}")
+
+
+def _license_combo_check(
+    *, external_license: str | None,
+    external_source_url: str | None,
+    is_premium: bool,
+) -> None:
+    if external_license and not external_source_url:
+        raise HTTPException(
+            422,
+            "external_source_url required when external_license is set "
+            "(license attribution rule)",
+        )
+    if is_premium and external_license and "NC" in external_license:
+        raise HTTPException(
+            422,
+            "Cannot mark NC-licensed content as premium — non-commercial "
+            "restriction incompatible with paid tier (Sprint 11.0 §4E).",
+        )
+
+
+@admin_router.post("/upload/validate")
+async def admin_upload_validate(
+    audio_file: UploadFile = File(...),
+    title: str = Form(...),
+    transcript: str = Form(...),
+    accent_tag: str = Form(...),
+    cefr_level: str = Form(...),
+    ielts_section: int = Form(...),
+    external_license: Optional[str] = Form(default=None),
+    external_source_url: Optional[str] = Form(default=None),
+    topic_tags: Optional[str] = Form(default=None),
+    is_premium: bool = Form(default=False),
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.2 — dry-run validation. Mirrors the body shape of
+    POST /upload but does NOT touch storage or the DB. Returns
+    `{ok, errors, warnings, inferred: {duration_seconds, size_bytes}}`
+    so the admin UI can render inline messages before final submit.
+    """
+    await require_admin(authorization)
+
+    # Enum checks first (cheap + most likely to fail).
+    _enum_check("accent_tag", accent_tag, _ACCENT_VALUES)
+    _enum_check("cefr_level", cefr_level, _CEFR_VALUES)
+    if not (1 <= ielts_section <= 4):
+        raise HTTPException(422, "ielts_section must be 1-4")
+
+    # License + premium cross-field rules. Promoted to 422 since they're
+    # hard constraints, not warnings.
+    _license_combo_check(
+        external_license=external_license,
+        external_source_url=external_source_url,
+        is_premium=is_premium,
+    )
+
+    audio_bytes = await audio_file.read()
+    size_bytes = len(audio_bytes)
+    duration = infer_duration_seconds(audio_bytes)
+
+    try:
+        v = validate_upload_payload(
+            file_bytes=audio_bytes,
+            transcript=transcript,
+            declared_duration_seconds=duration,
+        )
+    except Exception as e:  # noqa: BLE001 — fail-soft
+        logger.warning("[listening] validator threw on /upload/validate: %s", e)
+        v = {"errors": [], "warnings": []}
+
+    _ = title  # title presence required by Form(...) — referenced to silence linters.
+
+    return {
+        "ok":       not validator_has_errors(v),
+        "errors":   v["errors"],
+        "warnings": v["warnings"],
+        "inferred": {
+            "duration_seconds": duration,
+            "size_bytes":       size_bytes,
+        },
+    }
+
+
+class ListeningBulkManifestItem(BaseModel):
+    """Sprint 13.2 — one entry in the bulk upload manifest.
+
+    `filename` MUST match the name of one of the files[] uploaded in
+    the same request (case-insensitive). Server uses this to pair
+    metadata to file bytes before validation runs.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    filename:            str = Field(min_length=1, max_length=300)
+    title:               str = Field(min_length=1, max_length=200)
+    transcript:          str = Field(min_length=1, max_length=50_000)
+    accent_tag:          str
+    cefr_level:          str
+    ielts_section:       int = Field(ge=1, le=4)
+    topic_tags:          list[str] = Field(default_factory=list)
+    is_premium:          bool = Field(default=False)
+    external_license:    str | None = Field(default=None, max_length=120)
+    external_source_url: str | None = Field(default=None, max_length=500)
+
+
+class ListeningBulkManifest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    items: list[ListeningBulkManifestItem]
+
+
+_BULK_MAX_FILES = 20
+
+
+@admin_router.post("/upload/bulk")
+async def admin_upload_listening_bulk(
+    files: list[UploadFile] = File(...),
+    manifest: str = Form(...),
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.2 — bulk MP3 upload. Accept 1-20 files plus a JSON
+    manifest array describing per-file metadata. Partial failures do
+    NOT roll back: every successful insert persists, every failed item
+    surfaces in `results[]` with the original filename + error code.
+
+    Manifest paired to files by filename (case-insensitive). Items in
+    the manifest with no matching file (or extra files with no manifest
+    entry) cause a 422 at the count-mismatch check.
+    """
+    admin_user = await require_admin(authorization)
+    admin_id = admin_user["id"]
+
+    if not files:
+        raise HTTPException(422, "At least one file is required.")
+    if len(files) > _BULK_MAX_FILES:
+        raise HTTPException(
+            422,
+            f"Bulk upload capped at {_BULK_MAX_FILES} files per request "
+            f"(got {len(files)}).",
+        )
+
+    try:
+        parsed = ListeningBulkManifest.model_validate_json(manifest)
+    except Exception as e:
+        raise HTTPException(422, f"manifest JSON parse failed: {e}")
+
+    if len(parsed.items) != len(files):
+        raise HTTPException(
+            422,
+            f"manifest items ({len(parsed.items)}) must equal files count ({len(files)}).",
+        )
+
+    by_filename: dict[str, ListeningBulkManifestItem] = {}
+    for item in parsed.items:
+        key = item.filename.strip().lower()
+        if key in by_filename:
+            raise HTTPException(
+                422, f"manifest contains duplicate filename '{item.filename}'",
+            )
+        by_filename[key] = item
+
+    results: list[dict] = []
+    succeeded = 0
+    failed = 0
+
+    for file in files:
+        fname = (file.filename or "").strip()
+        key = fname.lower()
+        item = by_filename.get(key)
+        if item is None:
+            failed += 1
+            results.append({
+                "filename": fname, "ok": False,
+                "errors": [{"code": "manifest_missing",
+                            "message": f"No manifest entry for filename '{fname}'.",
+                            "field":   "filename",
+                            "severity": "error"}],
+                "warnings": [],
+            })
+            continue
+
+        try:
+            _enum_check("accent_tag", item.accent_tag, _ACCENT_VALUES)
+            _enum_check("cefr_level", item.cefr_level, _CEFR_VALUES)
+            _license_combo_check(
+                external_license=item.external_license,
+                external_source_url=item.external_source_url,
+                is_premium=item.is_premium,
+            )
+        except HTTPException as e:
+            failed += 1
+            results.append({
+                "filename": fname, "ok": False,
+                "errors": [{"code": "validation_failed",
+                            "message": getattr(e, "detail", str(e)),
+                            "field":   "manifest",
+                            "severity": "error"}],
+                "warnings": [],
+            })
+            continue
+
+        audio_bytes = await file.read()
+        if not audio_bytes:
+            failed += 1
+            results.append({
+                "filename": fname, "ok": False,
+                "errors": [{"code": "audio_empty",
+                            "message": "File audio rỗng.",
+                            "field":   "audio_file",
+                            "severity": "error"}],
+                "warnings": [],
+            })
+            continue
+
+        duration = infer_duration_seconds(audio_bytes)
+        try:
+            v = validate_upload_payload(
+                file_bytes=audio_bytes,
+                transcript=item.transcript,
+                declared_duration_seconds=duration,
+            )
+        except Exception as e:  # noqa: BLE001 — fail-soft
+            logger.warning("[listening] bulk validator threw, skipping: %s", e)
+            v = {"errors": [], "warnings": []}
+
+        if validator_has_errors(v):
+            failed += 1
+            results.append({
+                "filename": fname, "ok": False,
+                "errors":   v["errors"],
+                "warnings": v["warnings"],
+            })
+            continue
+
+        source_type = "curated_external" if item.external_license else "upload_mp3"
+        content_id = str(uuid.uuid4())
+        storage_subdir = "curated" if source_type == "curated_external" else "uploads"
+        storage_path = f"{storage_subdir}/{content_id}.mp3"
+
+        try:
+            supabase_admin.storage.from_(
+                settings.LISTENING_AUDIO_BUCKET,
+            ).upload(storage_path, audio_bytes, {"content-type": "audio/mpeg"})
+        except Exception as e:
+            logger.error("[listening] bulk storage upload failed: %s", e)
+            failed += 1
+            results.append({
+                "filename": fname, "ok": False,
+                "errors": [{"code": "storage_upload_failed",
+                            "message": f"Audio upload failed: {e}",
+                            "field":   "audio_file",
+                            "severity": "error"}],
+                "warnings": v["warnings"],
+            })
+            continue
+
+        try:
+            supabase_admin.table("listening_content").insert({
+                "id":                       content_id,
+                "source_type":              source_type,
+                "external_license":         item.external_license,
+                "external_source_url":      item.external_source_url,
+                "audio_storage_path":       storage_path,
+                "audio_duration_seconds":   duration,
+                "audio_size_bytes":         len(audio_bytes),
+                "accent_tag":               item.accent_tag,
+                "topic_tags":               _normalize_topic_tags(item.topic_tags),
+                "cefr_level":               item.cefr_level,
+                "ielts_section":            item.ielts_section,
+                "transcript":               item.transcript,
+                "transcript_segments":      [],
+                "status":                   "draft",
+                "is_premium":               item.is_premium,
+                "title":                    item.title,
+                "created_by":               admin_id,
+            }).execute()
+        except Exception as e:
+            logger.error(
+                "[listening] bulk DB INSERT failed for %s (storage row left at %s): %s",
+                fname, storage_path, e,
+            )
+            failed += 1
+            results.append({
+                "filename": fname, "ok": False,
+                "errors": [{"code": "db_insert_failed",
+                            "message": f"Database insert failed: {e}",
+                            "field":   "content_id",
+                            "severity": "error"}],
+                "warnings": v["warnings"],
+            })
+            continue
+
+        succeeded += 1
+        results.append({
+            "filename":     fname,
+            "ok":           True,
+            "content_id":   content_id,
+            "storage_path": storage_path,
+            "source_type":  source_type,
+            "warnings":     v["warnings"],
+        })
+
+    return {
+        "total":     len(files),
+        "succeeded": succeeded,
+        "failed":    failed,
+        "results":   results,
     }
 
 
