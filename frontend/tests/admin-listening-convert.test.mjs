@@ -188,3 +188,91 @@ describe('Sprint 13.4 — chrome NAV includes convert + tests slugs', () => {
     );
   });
 });
+
+
+// ── Sprint 13.4.1 hotfix — auth bootstrap + null safety + redirect ──────────
+
+
+describe('Sprint 13.4.1 — convert controller bootstraps Supabase at load', () => {
+  const js = read('js', 'admin-listening-convert.js');
+
+  test('declares SUPABASE_URL + SUPABASE_ANON module-level constants', () => {
+    assert.match(js, /const\s+SUPABASE_URL\s*=\s*['"]https:\/\/[a-z0-9]+\.supabase\.co['"]/);
+    assert.match(js, /const\s+SUPABASE_ANON\s*=\s*['"]sb_publishable_/);
+  });
+
+  test('runs bootstrapSupabase IIFE before init() (so first POST has auth)', () => {
+    // Pin "bootstrapSupabase" function + its IIFE invocation pattern.
+    assert.match(js, /function\s+bootstrapSupabase\s*\(\)/);
+    assert.match(js, /window\.initSupabase\(SUPABASE_URL,\s*SUPABASE_ANON\)/);
+  });
+
+  test('onParse null-checks the multipart response before nested access', () => {
+    // The fix's distinctive guard — a stray "result.test_metadata"
+    // without the null-check is what crashed Andy's dogfood.
+    assert.match(
+      js,
+      /!result\s*\|\|\s*typeof\s+result\s*!==\s*['"]object['"]\s*\|\|\s*!result\.test_metadata/,
+    );
+  });
+
+  test('onParse catch block tolerates undefined error objects', () => {
+    assert.match(js, /e\s*&&\s*e\.message\s*\?\s*e\.message/);
+  });
+
+  test('onCommit null-checks the commit response before nested access', () => {
+    assert.match(
+      js,
+      /!result\s*\|\|\s*typeof\s+result\s*!==\s*['"]object['"]\s*\|\|\s*!result\.test_id/,
+    );
+  });
+});
+
+
+describe('Sprint 13.4.1 — tests-list controller bootstraps Supabase at load', () => {
+  const js = read('js', 'admin-listening-tests-list.js');
+
+  test('declares SUPABASE_URL + SUPABASE_ANON module-level constants', () => {
+    assert.match(js, /const\s+SUPABASE_URL\s*=\s*['"]https:\/\/[a-z0-9]+\.supabase\.co['"]/);
+    assert.match(js, /const\s+SUPABASE_ANON\s*=\s*['"]sb_publishable_/);
+  });
+
+  test('runs bootstrapSupabase IIFE so GET /tests carries auth', () => {
+    assert.match(js, /function\s+bootstrapSupabase\s*\(\)/);
+    assert.match(js, /window\.initSupabase\(SUPABASE_URL,\s*SUPABASE_ANON\)/);
+  });
+});
+
+
+describe('Sprint 13.4.1 — api.js 401 redirect uses absolute /login.html', () => {
+  const js = read('js', 'api.js');
+
+  test('401 branch sets window.location.href to absolute /login.html', () => {
+    // Old code: `_appRoot + 'login.html'` (broke for 3-level paths).
+    // New: literal '/login.html'. Pin the literal.
+    assert.match(
+      js,
+      /response\.status\s*===\s*401[\s\S]{0,600}?window\.location\.href\s*=\s*['"]\/login\.html['"]/,
+    );
+  });
+
+  test('no relative login.html redirect remains in the 401 branch', () => {
+    // Guard against future regressions adding `_appRoot + 'login.html'` back.
+    assert.doesNotMatch(
+      js,
+      /window\.location\.href\s*=\s*_appRoot\s*\+\s*['"]login\.html['"]/,
+    );
+  });
+
+  test('Authorization header still attached to every request (incl. multipart)', () => {
+    // Sprint 13.4.1 root cause for Bug 1 wasn't the helper itself —
+    // it was that convert/tests pages didn't bootstrap Supabase, so
+    // _getAuthToken() returned null. Pin the helper's header-attach
+    // line as a regression guard so a future "simplify auth" patch
+    // can't strip it.
+    assert.match(
+      js,
+      /if\s*\(token\)\s*headers\[['"]Authorization['"]\]\s*=\s*['"]Bearer\s+['"]\s*\+\s*token/,
+    );
+  });
+});

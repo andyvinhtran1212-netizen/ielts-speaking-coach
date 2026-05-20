@@ -8,6 +8,18 @@
  * actions land here too.
  */
 
+// Sprint 13.4.1 hotfix — bootstrap supabase at module load (see
+// admin-listening-convert.js for the same fix + reasoning).
+const SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+
+(function bootstrapSupabase() {
+  if (typeof window !== 'undefined' && window.initSupabase) {
+    try { window.initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch { /* swallow */ }
+  }
+})();
+
+
 const STATE = {
   page:   1,
   limit:  20,
@@ -21,10 +33,6 @@ const STATE = {
 
 
 function init() {
-  if (window.SUPABASE_URL && window.SUPABASE_ANON) {
-    window.initSupabase(window.SUPABASE_URL, window.SUPABASE_ANON);
-  }
-
   document.getElementById('tl-status').addEventListener('change', (e) => {
     STATE.status = e.target.value;
     STATE.page = 1;
