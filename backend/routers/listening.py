@@ -3053,6 +3053,119 @@ async def admin_delete_listening_test(
     return {"id": test_id, "status": "archived"}
 
 
+@admin_router.delete("/tests/{test_id}/hard")
+async def admin_hard_delete_listening_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.5.4 — permanently delete a Cambridge test bundle.
+
+    Cascades through FK ON DELETE CASCADE chains:
+      * listening_tests (the row itself)
+      * listening_content (FK test_id → tests.id ON DELETE CASCADE)
+      * listening_exercises (FK content_id → content.id ON DELETE CASCADE)
+      * listening_test_attempts (FK test_id → tests.id ON DELETE CASCADE)
+
+    Also performs best-effort cleanup of storage objects so audio files
+    don't orphan in the bucket:
+      * tests.full_audio_storage_path
+      * tests.assembled_audio_storage_path
+      * each section's content.audio_storage_path
+
+    Storage failures are logged but never block the DB delete — orphans
+    are a low-impact issue compared to leaving the row.
+
+    Distinct from the soft-delete (PATCH status='archived') endpoint
+    which preserves attempt history for analytics/compliance. Use the
+    hard delete only when historical retention is no longer needed.
+    """
+    await require_admin(authorization)
+
+    test_row = (
+        supabase_admin.table("listening_tests")
+        .select("id,test_id,full_audio_storage_path,assembled_audio_storage_path")
+        .eq("id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not test_row.data:
+        raise HTTPException(404, "Test bundle not found")
+    test = test_row.data[0]
+
+    content_rows = (
+        supabase_admin.table("listening_content")
+        .select("id,audio_storage_path")
+        .eq("test_id", test_id)
+        .execute()
+    )
+    content_paths = [
+        c.get("audio_storage_path")
+        for c in (content_rows.data or [])
+        if c.get("audio_storage_path")
+    ]
+
+    storage_paths = [
+        p for p in (
+            test.get("full_audio_storage_path"),
+            test.get("assembled_audio_storage_path"),
+            *content_paths,
+        ) if p
+    ]
+    storage_removed = 0
+    storage_failed: list[str] = []
+    for path in storage_paths:
+        try:
+            supabase_admin.storage.from_(
+                settings.LISTENING_AUDIO_BUCKET,
+            ).remove([path])
+            storage_removed += 1
+        except Exception as exc:                                          # pragma: no cover
+            logger.warning(
+                "[listening] hard-delete storage cleanup failed for %s: %s",
+                path, exc,
+            )
+            storage_failed.append(path)
+
+    # Count cascade targets BEFORE the delete so the response is
+    # auditable (after the delete the rows are gone).
+    exercise_count = 0
+    if content_rows.data:
+        ex_count_res = (
+            supabase_admin.table("listening_exercises")
+            .select("id", count="exact")
+            .in_("content_id", [c["id"] for c in content_rows.data])
+            .execute()
+        )
+        exercise_count = ex_count_res.count or len(ex_count_res.data or [])
+    attempt_count_res = (
+        supabase_admin.table("listening_test_attempts")
+        .select("id", count="exact")
+        .eq("test_id", test_id)
+        .execute()
+    )
+    attempt_count = attempt_count_res.count or len(attempt_count_res.data or [])
+
+    (
+        supabase_admin.table("listening_tests")
+        .delete()
+        .eq("id", test_id)
+        .execute()
+    )
+
+    return {
+        "deleted":          True,
+        "id":               test_id,
+        "test_id":          test.get("test_id"),
+        "cascade_count": {
+            "content":      len(content_rows.data or []),
+            "exercises":    exercise_count,
+            "attempts":     attempt_count,
+            "storage_files_removed": storage_removed,
+            "storage_files_failed":  storage_failed,
+        },
+    }
+
+
 # ── Sprint 13.4 — Convert DOCX → test bundle ─────────────────────────────────
 
 
@@ -3100,20 +3213,26 @@ async def admin_convert_listening_dry_run(
 
     # Surface duplicate test_id here so the UI can switch to an "update
     # existing" flow without a second round-trip.
+    # Sprint 13.5.4: only ACTIVE rows (draft / published) block a
+    # re-import. Archived rows are kept for audit + attempt history
+    # and are explicitly allowed to share a test_id with the new draft.
     test_id_external = (result.get("test_metadata") or {}).get("test_id")
     if test_id_external:
         dup = (
             supabase_admin.table("listening_tests")
-            .select("id")
+            .select("id,status")
             .eq("test_id", test_id_external)
+            .neq("status", "archived")
             .limit(1)
             .execute()
         )
         if dup.data:
             result.setdefault("warnings", []).append(
-                f"Test ID '{test_id_external}' đã tồn tại trong DB. "
-                f"Commit sẽ thất bại — cập nhật metadata.test_id hoặc xóa "
-                f"test cũ trước khi import lại."
+                f"Test ID '{test_id_external}' đang ACTIVE trong DB "
+                f"(status={dup.data[0].get('status')}). Lựa chọn: "
+                f"(1) Archive test cũ → re-import sẽ tạo version mới, "
+                f"(2) Hard delete test cũ qua Vùng nguy hiểm, hoặc "
+                f"(3) Đổi test_id trong markdown metadata."
             )
             result["duplicate_test_id"] = True
 
@@ -3146,20 +3265,25 @@ async def admin_convert_listening_commit(
     if not body.sections:
         raise HTTPException(422, "sections rỗng — không có section nào để tạo.")
 
-    # Duplicate guard (also enforced by UNIQUE constraint — surface a
-    # clean VN message instead of letting postgres bubble 23505).
+    # Duplicate guard (also enforced by the partial UNIQUE index — see
+    # migration 069 — surface a clean VN message instead of letting
+    # postgres bubble 23505). Sprint 13.5.4: only ACTIVE rows block; an
+    # archived row with the same test_id is fine and stays put.
     dup = (
         supabase_admin.table("listening_tests")
-        .select("id")
+        .select("id,status")
         .eq("test_id", test_id_external)
+        .neq("status", "archived")
         .limit(1)
         .execute()
     )
     if dup.data:
         raise HTTPException(
             422,
-            f"Test ID '{test_id_external}' đã tồn tại — không thể commit. "
-            f"Xóa test cũ hoặc đổi test_id trước khi import lại.",
+            f"Test ID '{test_id_external}' đang ACTIVE (status="
+            f"{dup.data[0].get('status')}) — không thể commit. "
+            f"Archive test cũ qua Vùng nguy hiểm rồi import lại, "
+            f"hoặc đổi test_id.",
         )
 
     test_uuid = str(uuid.uuid4())

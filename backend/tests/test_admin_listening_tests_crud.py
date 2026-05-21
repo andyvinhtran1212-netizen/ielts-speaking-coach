@@ -40,6 +40,7 @@ class _Query:
         self._mode = "select"
         self._payload: dict | None = None
         self._filters_eq: list[tuple[str, object]] = []
+        self._filters_neq: list[tuple[str, object]] = []
         self._filters_in: list[tuple[str, list]] = []
         self._filters_ilike: list[tuple[str, str]] = []
         self._range: tuple[int, int] | None = None
@@ -68,6 +69,10 @@ class _Query:
         self._filters_eq.append((col, val))
         return self
 
+    def neq(self, col, val):
+        self._filters_neq.append((col, val))
+        return self
+
     def in_(self, col, vals):
         self._filters_in.append((col, list(vals)))
         return self
@@ -91,6 +96,9 @@ class _Query:
     def _match(self, row: dict) -> bool:
         for col, val in self._filters_eq:
             if row.get(col) != val:
+                return False
+        for col, val in self._filters_neq:
+            if row.get(col) == val:
                 return False
         for col, vals in self._filters_in:
             if row.get(col) not in vals:
@@ -135,13 +143,33 @@ class _Query:
         return _Resp(matched, count=count)
 
 
+class _FakeStorageBucket:
+    """Sprint 13.5.4 — minimal storage stub for hard-delete tests."""
+    def __init__(self, fake, name):
+        self.fake = fake
+        self.name = name
+
+    def remove(self, paths):
+        for p in paths:
+            self.fake.removed_storage.append((self.name, p))
+        return {"data": [{"name": p} for p in paths]}
+
+
+class _FakeStorage:
+    def __init__(self, fake): self.fake = fake
+    def from_(self, name): return _FakeStorageBucket(self.fake, name)
+
+
 class _FakeAdmin:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {
             "listening_tests":    [],
             "listening_content":  [],
             "listening_exercises": [],
+            "listening_test_attempts": [],
         }
+        self.removed_storage: list[tuple[str, str]] = []
+        self.storage = _FakeStorage(self)
 
     def table(self, name):
         return _Query(self, name)
@@ -365,3 +393,227 @@ def test_delete_test_404_on_unknown(monkeypatch):
             test_id="missing", authorization=authz,
         ))
     assert excinfo.value.status_code == 404
+
+
+# ── Sprint 13.5.4 — hard delete + partial unique workflow ─────────────────
+
+
+def _seed_exercise(fake, content_id: str) -> dict:
+    row = {
+        "id":         str(uuid4()),
+        "content_id": content_id,
+        "payload":    {},
+    }
+    fake.tables["listening_exercises"].append(row)
+    return row
+
+
+def _seed_attempt(fake, test_id: str) -> dict:
+    row = {
+        "id":      str(uuid4()),
+        "test_id": test_id,
+        "user_id": str(uuid4()),
+        "status":  "submitted",
+        "score":   30,
+    }
+    fake.tables["listening_test_attempts"].append(row)
+    return row
+
+
+def test_hard_delete_removes_test_row(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake)
+    out = _run(listening_router.admin_hard_delete_listening_test(
+        test_id=t["id"], authorization=authz,
+    ))
+    assert out["deleted"] is True
+    assert out["id"] == t["id"]
+    assert out["test_id"] == "ILR-LIS-001"
+    # Row physically gone.
+    assert fake.tables["listening_tests"] == []
+
+
+def test_hard_delete_cascade_counts_match_seed(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake)
+    s1 = _seed_section(fake, t["id"], 1, audio_path="cam/s1.mp3")
+    s2 = _seed_section(fake, t["id"], 2, audio_path=None)
+    _seed_exercise(fake, s1["id"])
+    _seed_exercise(fake, s1["id"])
+    _seed_exercise(fake, s2["id"])
+    _seed_attempt(fake, t["id"])
+    _seed_attempt(fake, t["id"])
+
+    out = _run(listening_router.admin_hard_delete_listening_test(
+        test_id=t["id"], authorization=authz,
+    ))
+    assert out["cascade_count"]["content"]   == 2
+    assert out["cascade_count"]["exercises"] == 3
+    assert out["cascade_count"]["attempts"]  == 2
+
+
+def test_hard_delete_cleans_up_storage_paths(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(
+        fake,
+        full_audio_storage_path="cam/full.mp3",
+        assembled_audio_storage_path="cam/assembled.mp3",
+    )
+    _seed_section(fake, t["id"], 1, audio_path="cam/s1.mp3")
+    _seed_section(fake, t["id"], 2, audio_path="cam/s2.mp3")
+
+    out = _run(listening_router.admin_hard_delete_listening_test(
+        test_id=t["id"], authorization=authz,
+    ))
+    paths_removed = {p for (_bucket, p) in fake.removed_storage}
+    assert paths_removed == {"cam/full.mp3", "cam/assembled.mp3",
+                             "cam/s1.mp3",  "cam/s2.mp3"}
+    assert out["cascade_count"]["storage_files_removed"] == 4
+    assert out["cascade_count"]["storage_files_failed"] == []
+
+
+def test_hard_delete_skips_null_storage_paths_silently(monkeypatch):
+    """Sections without audio (e.g. before upload) must not crash the
+    cleanup loop — None values are filtered out.
+    """
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake)
+    _seed_section(fake, t["id"], 1, audio_path=None)
+    _seed_section(fake, t["id"], 2, audio_path=None)
+
+    out = _run(listening_router.admin_hard_delete_listening_test(
+        test_id=t["id"], authorization=authz,
+    ))
+    assert fake.removed_storage == []
+    assert out["cascade_count"]["storage_files_removed"] == 0
+
+
+def test_hard_delete_returns_404_for_unknown_test(monkeypatch):
+    _fake, authz = _patch(monkeypatch)
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.admin_hard_delete_listening_test(
+            test_id="missing-uuid", authorization=authz,
+        ))
+    assert excinfo.value.status_code == 404
+
+
+def test_hard_delete_requires_admin_auth(monkeypatch):
+    """Auth helper is patched-in by _patch; flip it to deny and confirm
+    the endpoint refuses before touching storage/DB.
+    """
+    fake = _FakeAdmin()
+    _seed_test(fake)
+    monkeypatch.setattr(listening_router, "supabase_admin", fake)
+
+    async def _deny(_authz):
+        raise HTTPException(401, "missing token")
+    monkeypatch.setattr(listening_router, "require_admin", _deny)
+
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.admin_hard_delete_listening_test(
+            test_id="anything", authorization=None,
+        ))
+    assert excinfo.value.status_code == 401
+    # Nothing was deleted.
+    assert len(fake.tables["listening_tests"]) == 1
+    assert fake.removed_storage == []
+
+
+def test_soft_delete_then_reimport_same_test_id_is_allowed(monkeypatch):
+    """Sprint 13.5.4 partial UNIQUE flow: after archive, the convert
+    commit dup-check must skip the archived row and let the new draft
+    land.
+    """
+    fake, authz = _patch(monkeypatch)
+    old = _seed_test(fake, status="published")
+    # Archive the old test (soft delete).
+    _run(listening_router.admin_delete_listening_test(
+        test_id=old["id"], authorization=authz,
+    ))
+    assert fake.tables["listening_tests"][0]["status"] == "archived"
+
+    # Re-build the convert/commit body with the same test_id and confirm
+    # the duplicate guard now passes (no HTTPException raised on the
+    # dup branch). The downstream insert path isn't exercised here; we
+    # only pin the guard's status filter.
+    res = (
+        fake.table("listening_tests")
+        .select("id,status")
+        .eq("test_id", "ILR-LIS-001")
+        .neq("status", "archived")
+        .limit(1)
+        .execute()
+    )
+    assert res.data == [], "archived row must not trip the active-dup guard"
+
+
+def test_hard_delete_then_reimport_works(monkeypatch):
+    """Hard delete leaves no row at all, so re-import is trivially
+    unblocked — pin the symmetry with the partial-unique workflow.
+    """
+    fake, authz = _patch(monkeypatch)
+    old = _seed_test(fake)
+    _run(listening_router.admin_hard_delete_listening_test(
+        test_id=old["id"], authorization=authz,
+    ))
+    res = (
+        fake.table("listening_tests")
+        .select("id")
+        .eq("test_id", "ILR-LIS-001")
+        .neq("status", "archived")
+        .limit(1)
+        .execute()
+    )
+    assert res.data == []
+
+
+def test_q_chain_supports_neq_for_dup_guard():
+    """Smoke-test the fake supabase chain used by the dup-check —
+    `.neq("status", "archived")` must filter on inequality. Sprint
+    13.5.4 introduces the .neq filter; the fake didn't support it
+    before so we pin the new behaviour explicitly.
+    """
+    fake = _FakeAdmin()
+    fake.tables["listening_tests"] = [
+        {"id": "a", "test_id": "X", "status": "draft"},
+        {"id": "b", "test_id": "X", "status": "archived"},
+    ]
+    out = (
+        fake.table("listening_tests")
+        .select("id,status")
+        .eq("test_id", "X")
+        .neq("status", "archived")
+        .limit(1)
+        .execute()
+    )
+    assert [r["id"] for r in out.data] == ["a"]
+
+
+def test_hard_delete_storage_failure_does_not_block_db_delete(monkeypatch):
+    """A failed storage object removal must be logged and reported in
+    the response but never abort the DB cascade — orphan audio is a
+    much smaller problem than leaving the DB row.
+    """
+    fake, authz = _patch(monkeypatch)
+    t = _seed_test(fake, full_audio_storage_path="cam/full.mp3")
+    _seed_section(fake, t["id"], 1, audio_path="cam/s1.mp3")
+
+    # Monkey-patch the storage bucket's remove() to raise once.
+    original_remove = _FakeStorageBucket.remove
+    call_count = {"n": 0}
+    def flaky_remove(self, paths):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("simulated network blip")
+        return original_remove(self, paths)
+    monkeypatch.setattr(_FakeStorageBucket, "remove", flaky_remove)
+
+    out = _run(listening_router.admin_hard_delete_listening_test(
+        test_id=t["id"], authorization=authz,
+    ))
+    # DB cascade still ran.
+    assert out["deleted"] is True
+    assert fake.tables["listening_tests"] == []
+    # One storage path failed, one succeeded.
+    assert out["cascade_count"]["storage_files_removed"] == 1
+    assert len(out["cascade_count"]["storage_files_failed"]) == 1

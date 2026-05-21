@@ -784,7 +784,9 @@ def test_convert_commit_rejects_duplicate_test_id(monkeypatch):
             body=body, authorization=authz,
         ))
     assert excinfo.value.status_code == 422
-    assert "đã tồn tại" in str(excinfo.value.detail)
+    # Sprint 13.5.4: copy switched from "đã tồn tại" → "đang ACTIVE"
+    # since archived rows no longer block re-import.
+    assert "đang ACTIVE" in str(excinfo.value.detail)
 
 
 # ── Sprint 13.5.2 — structural context preservation ───────────────────────
