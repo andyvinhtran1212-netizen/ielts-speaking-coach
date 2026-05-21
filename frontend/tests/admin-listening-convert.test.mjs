@@ -50,8 +50,10 @@ describe('Sprint 13.4 — convert page structure', () => {
     assert.match(html, /id=["']cv-zone-sa["']/);
     assert.match(html, /id=["']cv-file-qp["']/);
     assert.match(html, /id=["']cv-file-sa["']/);
-    // Both accept .docx only
-    assert.match(html, /accept=["']\.docx["'][\s\S]*?accept=["']\.docx["']/);
+    // Sprint 13.4.2 — both accept markdown only.
+    const mdAccept = /accept=["'][^"']*\.md[^"']*["']/g;
+    const matches = html.match(mdAccept) || [];
+    assert.ok(matches.length >= 2, 'expected ≥2 .md accept attrs');
   });
 
   test('parse button starts disabled (both files required)', () => {
@@ -118,8 +120,9 @@ describe('Sprint 13.4 — convert controller logic', () => {
     assert.match(js, /errors[\s\S]*?length[\s\S]*?cv-commit/);
   });
 
-  test('5MB file-size guard before parse', () => {
-    assert.match(js, /5\s*\*\s*1024\s*\*\s*1024/);
+  test('1MB file-size guard before parse', () => {
+    // Sprint 13.4.2 — tighter cap for text files.
+    assert.match(js, /1\s*\*\s*1024\s*\*\s*1024/);
   });
 
   test('section card renders speakers + exercises + transcript preview', () => {
@@ -274,5 +277,65 @@ describe('Sprint 13.4.1 — api.js 401 redirect uses absolute /login.html', () =
       js,
       /if\s*\(token\)\s*headers\[['"]Authorization['"]\]\s*=\s*['"]Bearer\s+['"]\s*\+\s*token/,
     );
+  });
+});
+
+
+// ── Sprint 13.4.2 — markdown parser pivot ───────────────────────────────────
+
+
+describe('Sprint 13.4.2 — convert page accepts markdown bundle', () => {
+  const html = read('pages', 'admin', 'listening', 'convert.html');
+
+  test('header copy mentions markdown (was DOCX)', () => {
+    assert.match(html, /Convert đề từ markdown/);
+  });
+
+  test('subtitle explains 2-file Cambridge template', () => {
+    assert.match(html, /2 file markdown/);
+    assert.match(html, /Cambridge IELTS/);
+  });
+
+  test('both file inputs accept .md / .markdown / text/markdown', () => {
+    assert.match(html, /accept=["']\.md,\.markdown,text\/markdown["']/);
+  });
+
+  test('drop-zone hints reference .md (not .docx)', () => {
+    assert.match(html, /Kéo thả file \.md/);
+    assert.doesNotMatch(html, /Kéo thả file \.docx/);
+  });
+
+  test('size cap shown as 1MB/file (was 5MB)', () => {
+    assert.match(html, /1MB\/file/);
+    assert.doesNotMatch(html, /5MB\/file/);
+  });
+});
+
+
+describe('Sprint 13.4.2 — convert controller validates markdown extensions', () => {
+  const js = read('js', 'admin-listening-convert.js');
+
+  test('ALLOWED_EXTENSIONS lists .md + .markdown', () => {
+    assert.match(js, /ALLOWED_EXTENSIONS\s*=\s*\[\s*['"]\.md['"]\s*,\s*['"]\.markdown['"]/);
+  });
+
+  test('rejects non-markdown files with Vietnamese error', () => {
+    assert.match(js, /Cả hai file phải là \.md hoặc \.markdown/);
+  });
+
+  test('rejects oversize files with 1MB message', () => {
+    assert.match(js, /File vượt 1MB/);
+    assert.doesNotMatch(js, /File vượt 5MB/);
+  });
+
+  test('no .docx extension check left over from Sprint 13.4', () => {
+    assert.doesNotMatch(js, /\.docx/);
+  });
+
+  test('multipart FormData keys unchanged from 13.4 contract', () => {
+    // Bundle keys stay question_paper + script_answerkey — backend
+    // accepts the same fields, just different extensions.
+    assert.match(js, /append\(['"]question_paper['"]/);
+    assert.match(js, /append\(['"]script_answerkey['"]/);
   });
 });

@@ -1,55 +1,50 @@
-"""services/listening_convert.py — Sprint 13.4 (DEBT-ADMIN-LISTENING-AUTHORING 6/N).
+"""services/listening_convert.py — Sprint 13.4.2 markdown parser.
 
-Parse Andy's 2-file Cambridge IELTS DOCX bundle (Question Paper + Script+
-AnswerKey) into structured test data for ingest into ``listening_tests``
-+ ``listening_content`` + ``listening_exercises``.
+Andy's authoring workflow switched from DOCX → Markdown after Sprint
+13.4's DOCX parser surfaced 5 mismatches against real Cambridge IELTS
+content. This module parses Andy's canonical 2-file Markdown bundle:
 
-Public entry point: ``parse_listening_test(qp_bytes, sa_bytes)``.
+  * ``<test_id>_Question_Paper.md``    — student-facing prompts
+  * ``<test_id>_Script_AnswerKey.md``  — transcript + speakers + answer key
 
-All functions are pure (no DB / no network). The router orchestrates I/O.
+The output schema matches Sprint 13.4's contract verbatim so the convert
+router (POST /convert + POST /convert/commit) and ``listening_content``
+ingest layer are untouched. The only router-side change is the file
+extension allow-list (.docx → .md) + per-file size cap (5MB → 1MB).
 
-Sample format (Pilot 01 — ILR-LIS-001):
-  * Question Paper carries the student-facing prompts (Q1-Q40) broken by
-    section. Each section starts with an instruction line ("Complete the
-    form ...") that selects a question-type discriminator.
-  * Script+AnswerKey carries:
-      - a metadata table at the top (Test ID, Version, Band Target, etc.)
-      - four "SECTION N — Transcript" blocks with speaker tags + delivery
-        cues + ``(Q##)`` markers embedded
-      - a per-section answer key table (Question | Answer | Trap mechanism)
+Public API (stable across Sprint 13.4 → 13.4.2):
 
-Marker grammar (stripped from user-facing transcript, preserved in
-``metadata.raw_transcript``):
+  parse_listening_test(qp_bytes, sa_bytes) -> dict
+  parse_from_text(qp_text, sa_text)         -> dict
+  section_to_content_payload(section, test_id_uuid, test_metadata) -> dict
 
-* Speaker tags         ``[F-BrE-30s-professional]``  (gender + accent + age + register)
-* Delivery cues        ``[pace:slow]`` ``[pause:2s]`` ``[emphasis:word]`` ``[stress:word]``
-                       ``[emotion:concerned]`` ``[hesitation:um]`` ``[chuckle:soft]``
-* Self-closing cues    ``[hesitate]`` ``[breath]`` ``[sigh]`` ``[chuckle]``
-* Question pointers    ``(Q1)`` ``(Q11)`` ``(Q21)`` ``(Q31)``
+The parser is regex + line-scan based. Andy's format is shallow enough
+that a full Markdown AST adds no value — the recogniser is structural
+(headings + blockquotes + tables + bullets) rather than semantic.
 
-The router/UI cap file size at 5 MB per DOCX (Sprint 13.4 §Style).
+Canonical format spec lives in this module's docstrings + the matching
+synthetic fixtures in tests/test_listening_convert.py.
+
+Sprint 13.4 DOCX parser is preserved at the bottom as a comment block
+labelled DEPRECATED — kept for emergency rollback only.
 """
 
 from __future__ import annotations
 
-import io
 import re
 from typing import Any
 
-try:                                            # python-docx is in requirements;
-    from docx import Document                   # the import-time fail-soft keeps
-    _DOCX_IMPORT_ERROR: Exception | None = None # unit tests that bypass DOCX
-except Exception as exc:                        # IO unaffected.
-    Document = None                             # type: ignore[assignment]
-    _DOCX_IMPORT_ERROR = exc
 
+# ── Marker stripping ────────────────────────────────────────────────────────
 
-# ── Marker regexes ──────────────────────────────────────────────────────────
+# Speaker tag bold-wrapped in transcript: **[F-BrE-30s-professional]**
+_BOLD_SPEAKER_TAG_RE = re.compile(
+    r"\*\*\[\s*[MFN]\s*-[^\]]+\]\*\*",
+    re.IGNORECASE,
+)
 
-
-# [F-BrE-30s-professional], [M-AusE-40s-casual], [N-BrE].
-# Permissive whitespace; gender optional; age/register optional.
-_SPEAKER_TAG_RE = re.compile(
+# Raw speaker tag (unbolded): [F-BrE-30s-professional]
+_RAW_SPEAKER_TAG_RE = re.compile(
     r"\[\s*([MFN])\s*-\s*([A-Za-z]+)"
     r"(?:\s*-\s*([0-9]+s|teens|adult))?"
     r"(?:\s*-\s*([A-Za-z][A-Za-z\-]*))?"
@@ -57,415 +52,783 @@ _SPEAKER_TAG_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Bracket cues with a colon payload: pace:slow / pause:2s / emphasis:word ...
+# Bracket cue with colon payload: [emotion:polite] [pause:30s] [stress:word]
 _DELIVERY_CUE_RE = re.compile(
     r"\[\s*(?:pace|pause|emphasis|stress|emotion|hesitation|chuckle)"
     r"\s*:\s*[^\]]+\]",
     re.IGNORECASE,
 )
 
-# Self-closing bracket flags with no colon payload.
+# Self-closing bracket flag: [hesitate] [breath] [sigh] [chuckle]
 _FLAG_CUE_RE = re.compile(
     r"\[\s*(?:hesitate|breath|sigh|chuckle)\s*\]",
     re.IGNORECASE,
 )
 
-# (Q1), (Q11), ( Q 33 ) — case + whitespace permissive.
-_QUESTION_MARKER_RE = re.compile(r"\(\s*Q\s*(\d{1,2})\s*\)", re.IGNORECASE)
-
-# "1 ............" / "1. ………" / "1\t........." — leading question number.
-# Unicode ellipsis variants (… vs ... vs ………) are all valid Cambridge.
-_QUESTION_NUMBER_LINE_RE = re.compile(
-    r"^\s*(\d{1,2})\s*[\.\)]?\s+(.+?)\s*$",
-)
-
-# Section split (Script+AnswerKey): "SECTION 1 — Transcript", "Section 1 - Transcript"
-_SECTION_HEADER_RE = re.compile(
-    r"^\s*SECTION\s+([1-4])\s*[—–\-]\s*Transcript\s*$",
-    re.IGNORECASE,
-)
-
-# Section instruction (Question Paper) → question type:
-#   "Complete the form" / "Complete the notes" / "Complete the table"
-#   "Complete the sentences" → dictation_gap_fill
-#   "Answer the questions"  → dictation_short_answer
-#   "Choose the correct letter, A, B or C" → mcq_3option
-#   "Label the plan/diagram/map" → mcq_letter_label (A-H)
-_INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"label the (?:plan|diagram|map)", re.IGNORECASE),
-        "mcq_letter_label"),
-    (re.compile(r"choose the correct letter", re.IGNORECASE),
-        "mcq_3option"),
-    (re.compile(r"answer the questions", re.IGNORECASE),
-        "dictation_short_answer"),
-    (re.compile(r"complete the (?:form|notes?|table|sentences?)", re.IGNORECASE),
-        "dictation_gap_fill"),
-]
-
-
-# ── DOCX extraction ─────────────────────────────────────────────────────────
-
-
-def _extract_docx(file_bytes: bytes) -> tuple[str, list[list[list[str]]]]:
-    """Read a DOCX byte stream and return ``(full_text, tables)``.
-
-    ``full_text`` joins paragraphs with ``\n``. ``tables`` is a list of
-    tables; each table is a 2D list of cell strings.
-    """
-    if Document is None:                        # pragma: no cover — install guard
-        raise RuntimeError(
-            f"python-docx not available: {_DOCX_IMPORT_ERROR}"
-        )
-    doc = Document(io.BytesIO(file_bytes))
-    paragraphs = [p.text for p in doc.paragraphs]
-    tables: list[list[list[str]]] = []
-    for table in doc.tables:
-        rows: list[list[str]] = []
-        for row in table.rows:
-            rows.append([cell.text.strip() for cell in row.cells])
-        tables.append(rows)
-    return "\n".join(paragraphs), tables
-
-
-# ── Marker stripping ────────────────────────────────────────────────────────
+# (Q1), (Q11), ( Q 33 )
+_QUESTION_MARKER_RE = re.compile(r"\(\s*Q\s*\d{1,2}\s*\)", re.IGNORECASE)
 
 
 def strip_markers(raw: str) -> str:
-    """Strip all known markers, returning user-facing transcript text.
+    """Strip all known markers from a transcript, returning user-facing text.
 
-    Order matters: speaker tags first (longest pattern), then delivery
-    cues, then self-closing flags, then question pointers. Collapse
-    repeated whitespace and trim leading/trailing space per line.
+    Order matters: bold-speaker tags first (longest pattern), then raw
+    tags, delivery cues, self-closing flags, question pointers. Collapse
+    horizontal whitespace inside lines, preserve paragraph breaks.
     """
-    out = _SPEAKER_TAG_RE.sub(" ", raw)
+    out = _BOLD_SPEAKER_TAG_RE.sub(" ", raw)
+    out = _RAW_SPEAKER_TAG_RE.sub(" ", out)
     out = _DELIVERY_CUE_RE.sub(" ", out)
     out = _FLAG_CUE_RE.sub(" ", out)
     out = _QUESTION_MARKER_RE.sub(" ", out)
-    # Collapse runs of horizontal whitespace inside lines, preserve \n.
     out = re.sub(r"[ \t]+", " ", out)
     out = re.sub(r" *\n *", "\n", out)
     out = re.sub(r"\n{3,}", "\n\n", out)
     return out.strip()
 
 
-def parse_speakers(raw: str) -> list[dict[str, str | None]]:
-    """Return de-duplicated speaker structs in order of first appearance.
+# ── Test-metadata extraction ────────────────────────────────────────────────
 
-    Each struct: ``{tag, gender, accent, age, register}``.
-    """
-    seen: dict[str, dict[str, str | None]] = {}
-    for match in _SPEAKER_TAG_RE.finditer(raw):
-        gender, accent, age, register = match.groups()
-        tag = match.group(0).strip()
-        if tag in seen:
-            continue
-        seen[tag] = {
-            "tag": tag,
-            "gender": gender.upper() if gender else None,
-            "accent": accent if accent else None,
-            "age": age.lower() if age else None,
-            "register": register.lower() if register else None,
-        }
-    return list(seen.values())
+# H1 form: "# IELTS LISTENING — ILR-LIS-001" or
+#         "# IELTS LISTENING — ILR-LIS-001 — Script & Answer Key"
+# Separator must be whitespace-padded so ASCII hyphens INSIDE the test_id
+# (e.g. ILR-LIS-001) are not mistaken for the field separator.
+_H1_TEST_ID_RE = re.compile(
+    r"^#\s+IELTS\s+LISTENING\s+[—–\-]\s+(\S+?)(?:\s+[—–\-]\s+.*)?$",
+    re.MULTILINE | re.IGNORECASE,
+)
 
+# Bold-prefix metadata line: "**Field:** value"
+_BOLD_PREFIX_LINE_RE = re.compile(
+    r"^\s*\*\*([^:*]+):\*\*\s+(.+?)\s*$",
+    re.MULTILINE,
+)
 
-# ── Metadata table ──────────────────────────────────────────────────────────
-
-
-# Header-text → metadata-field map. Lookup is case-insensitive +
-# whitespace-trimmed. Andy may reorder rows; this map is resilient.
-_METADATA_HEADERS: dict[str, str] = {
-    "test id":          "test_id",
-    "test identifier":  "test_id",
-    "version":          "version",
-    "band target":      "band_target",
+# Bold-prefix → metadata-key map. Lookup is case-insensitive.
+_METADATA_KEYS: dict[str, str] = {
+    "test title":       "title",
     "target band":      "band_target",
-    "themes":           "themes_raw",
-    "theme":            "themes_raw",
-    "accent profile":   "accent_profile_raw",
-    "accents":          "accent_profile_raw",
+    "time allowed":     "time_allowed",
+    "total questions":  "total_questions",
     "total words":      "total_words",
-    "word count":       "total_words",
-    "source":           "source_format",
-    "source format":    "source_format",
-    "created at":       "created_at_source",
+    "accent profile":   "accent_profile_raw",
+    "test id":          "test_id",
+    "version":          "version",
     "date":             "created_at_source",
+    "created at":       "created_at_source",
 }
 
 
-def parse_metadata_table(tables: list[list[list[str]]]) -> dict[str, Any]:
-    """Find the metadata table (any 2-column table whose first column
-    contains at least 3 known headers) and extract its fields.
+def _bold_prefix_lookup(text: str) -> dict[str, str]:
+    """Return all bold-prefix `**Field:** value` lines as a dict."""
+    out: dict[str, str] = {}
+    for m in _BOLD_PREFIX_LINE_RE.finditer(text):
+        key = m.group(1).strip().lower()
+        val = m.group(2).strip()
+        if key in _METADATA_KEYS and val:
+            out[_METADATA_KEYS[key]] = val
+    return out
 
-    Returns a dict with normalized keys. ``themes`` is parsed into
-    ``{s1, s2, s3, s4}``; ``accent_profile`` into ``list[str]``;
-    ``band_target`` to ``float``; ``total_words`` to ``int``.
+
+def parse_test_metadata(qp_text: str, sa_text: str) -> dict[str, Any]:
+    """Cross-reference both files for the test envelope.
+
+    Test ID comes from the QP H1 (more reliable — the Script H1 may carry
+    a "Script & Answer Key" suffix). Other fields prefer the Script file
+    (it carries word count + accent profile that the QP omits) but fall
+    back to the QP if missing.
     """
-    raw: dict[str, str] = {}
-    for table in tables:
-        hits = 0
-        candidate: dict[str, str] = {}
-        for row in table:
-            if len(row) < 2:
-                continue
-            key = row[0].strip().lower()
-            val = row[1].strip()
-            if key in _METADATA_HEADERS and val:
-                candidate[_METADATA_HEADERS[key]] = val
-                hits += 1
-        if hits >= 3:                           # require ≥3 known fields
-            raw = candidate
+    qp_meta = _bold_prefix_lookup(qp_text)
+    sa_meta = _bold_prefix_lookup(sa_text)
+    # Script wins on overlap; fall back to QP for anything missing.
+    merged = {**qp_meta, **sa_meta}
+
+    test_id: str | None = None
+    for source in (qp_text, sa_text):
+        m = _H1_TEST_ID_RE.search(source)
+        if m:
+            test_id = m.group(1).strip()
             break
 
     out: dict[str, Any] = {
-        "test_id":           raw.get("test_id"),
-        "version":           raw.get("version") or "1.0",
-        "band_target":       None,
-        "themes":            {},
-        "accent_profile":    [],
-        "total_words":       None,
-        "source_format":     raw.get("source_format") or "cambridge_ielts_docx",
-        "created_at_source": raw.get("created_at_source"),
+        "test_id":           test_id or merged.get("test_id"),
+        "title":             merged.get("title"),
+        "version":           merged.get("version") or "1.0",
+        "band_target":       _safe_float(merged.get("band_target")),
+        "total_questions":   _safe_int(merged.get("total_questions")),
+        "total_words":       _safe_int(merged.get("total_words")),
+        "accent_profile":    _parse_accent_profile(merged.get("accent_profile_raw") or ""),
+        "themes":            parse_topic_distribution(sa_text),
+        "time_allowed":      merged.get("time_allowed"),
+        "source_format":     "cambridge_ielts_markdown",
+        "created_at_source": merged.get("created_at_source"),
     }
-
-    if "band_target" in raw:
-        m = re.search(r"(\d+(?:\.\d+)?)", raw["band_target"])
-        if m:
-            try:
-                out["band_target"] = float(m.group(1))
-            except ValueError:
-                pass
-
-    if "total_words" in raw:
-        m = re.search(r"(\d[\d,]*)", raw["total_words"])
-        if m:
-            try:
-                out["total_words"] = int(m.group(1).replace(",", ""))
-            except ValueError:
-                pass
-
-    if "themes_raw" in raw:
-        out["themes"] = _parse_themes(raw["themes_raw"])
-
-    if "accent_profile_raw" in raw:
-        out["accent_profile"] = _parse_accent_profile(raw["accent_profile_raw"])
-
     return out
 
 
-def _parse_themes(raw: str) -> dict[str, str]:
-    """Parse 'Section 1: X; Section 2: Y; Section 3: Z; Section 4: W' or
-    newline-separated variants into a ``{s1, s2, s3, s4}`` dict.
-    """
-    out: dict[str, str] = {}
-    parts = re.split(r"[;\n]", raw)
-    for part in parts:
-        m = re.match(r"\s*Section\s*([1-4])\s*[:\-—]\s*(.+?)\s*$", part, re.IGNORECASE)
-        if m:
-            out[f"s{m.group(1)}"] = m.group(2).strip()
-    return out
+def _safe_float(raw: str | None) -> float | None:
+    if not raw:
+        return None
+    m = re.search(r"(\d+(?:\.\d+)?)", raw)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
+
+
+def _safe_int(raw: str | None) -> int | None:
+    if not raw:
+        return None
+    m = re.search(r"(\d[\d,]*)", raw)
+    if not m:
+        return None
+    try:
+        return int(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
 
 
 def _parse_accent_profile(raw: str) -> list[str]:
-    """Parse 'BrE, AusE' / 'BrE; AmE' / 'BrE / AusE' → list[str]."""
     parts = re.split(r"[,;/|]", raw)
     return [p.strip() for p in parts if p.strip()]
 
 
-# ── Section split ───────────────────────────────────────────────────────────
+# ── Topic distribution ─────────────────────────────────────────────────────
 
 
-def split_sections(script_text: str) -> dict[int, str]:
-    """Split a Script+AnswerKey transcript into per-section raw text.
+# "## Topic Distribution" heading followed by a 2-column markdown table.
+_TOPIC_DIST_HEADING_RE = re.compile(
+    r"^##\s+Topic\s+Distribution\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
 
-    Returns ``{section_num: section_raw_text}`` for sections found.
-    Empty/missing sections are simply absent from the dict.
+
+def parse_topic_distribution(sa_text: str) -> dict[str, str]:
+    """Extract the per-section theme map.
+
+    Locates the ``## Topic Distribution`` heading, then reads the next
+    markdown table. Rows shaped ``| S1 | Theme text |`` flow into
+    ``{"s1": "Theme text"}``.
     """
-    lines = script_text.splitlines()
-    headers: list[tuple[int, int]] = []          # (line_idx, section_num)
-    for i, line in enumerate(lines):
-        m = _SECTION_HEADER_RE.match(line)
-        if m:
-            headers.append((i, int(m.group(1))))
+    out: dict[str, str] = {}
+    m = _TOPIC_DIST_HEADING_RE.search(sa_text)
+    if not m:
+        return out
+
+    after = sa_text[m.end():]
+    # Walk the next ~30 lines, capture pipe-delimited table rows. Stop
+    # at the next heading or non-table line.
+    table_seen = False
+    for line in after.splitlines()[:30]:
+        if line.strip().startswith("#") and table_seen:
+            break
+        if "|" not in line:
+            if table_seen:
+                break
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        # Skip header + separator rows.
+        if len(cells) < 2:
+            continue
+        first = cells[0].lower()
+        if first in {"section", ""} or re.fullmatch(r":?-+:?", first):
+            table_seen = True
+            continue
+        sm = re.match(r"^s(\d)$", first)
+        if sm:
+            out[f"s{sm.group(1)}"] = cells[1]
+            table_seen = True
+    return out
+
+
+# ── Section splitters ──────────────────────────────────────────────────────
+
+
+# Question Paper sections: "## SECTION N"
+_QP_SECTION_HEADER_RE = re.compile(
+    r"^##\s+SECTION\s+([1-4])\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# Script PART A sections: "### SECTION N (Sn)"
+_SCRIPT_SECTION_HEADER_RE = re.compile(
+    r"^###\s+SECTION\s+([1-4])\s*\(S\d\)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# Script PART A boundary — H2.
+_SCRIPT_PART_A_RE = re.compile(
+    r"^##\s+PART\s+A\b.*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# Script PART B boundary — H2 (terminates PART A).
+_SCRIPT_PART_B_RE = re.compile(
+    r"^##\s+PART\s+B\b.*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def split_qp_sections(qp_text: str) -> dict[int, str]:
+    """Split the Question Paper into per-section text blocks (H2 ## SECTION N)."""
+    return _split_by_headers(qp_text, _QP_SECTION_HEADER_RE, end_re=None)
+
+
+def split_script_sections(sa_text: str) -> dict[int, str]:
+    """Split the Script PART A into per-section text blocks
+    (H3 ### SECTION N (Sn)). PART B (answer keys) is excluded.
+    """
+    part_a_match = _SCRIPT_PART_A_RE.search(sa_text)
+    part_b_match = _SCRIPT_PART_B_RE.search(sa_text)
+    start = part_a_match.end() if part_a_match else 0
+    end   = part_b_match.start() if part_b_match else len(sa_text)
+    return _split_by_headers(sa_text[start:end], _SCRIPT_SECTION_HEADER_RE, end_re=None)
+
+
+def _split_by_headers(
+    text: str,
+    header_re: re.Pattern[str],
+    *,
+    end_re: re.Pattern[str] | None,
+) -> dict[int, str]:
+    headers: list[tuple[int, int]] = []        # (start_idx, section_num)
+    for m in header_re.finditer(text):
+        headers.append((m.end(), int(m.group(1))))
 
     out: dict[int, str] = {}
-    for idx, (line_idx, section_num) in enumerate(headers):
-        end_idx = headers[idx + 1][0] if idx + 1 < len(headers) else len(lines)
-        body = "\n".join(lines[line_idx + 1:end_idx]).strip()
+    for i, (start_idx, section_num) in enumerate(headers):
+        if i + 1 < len(headers):
+            end_idx = headers[i + 1][0] - len(header_re.pattern)  # approx
+            # Use the actual match position for cleanliness.
+            end_idx = headers[i + 1][0]
+            # We want the body up to (but not including) the next header line.
+            # headers[i+1][0] is the end of the next header line — search
+            # backward for its start.
+            next_match_start = text.rfind("##", 0, end_idx)
+            if next_match_start == -1 or next_match_start < start_idx:
+                next_match_start = end_idx
+            end_idx = next_match_start
+        else:
+            end_idx = len(text)
+        if end_re is not None:
+            term = end_re.search(text, start_idx, end_idx)
+            if term:
+                end_idx = term.start()
+        body = text[start_idx:end_idx].strip()
         if body:
             out[section_num] = body
     return out
 
 
-# ── Question Paper parse ────────────────────────────────────────────────────
+# ── Per-section metadata + speakers + narrator + transcript ────────────────
+
+
+_SPEAKER_LIST_ITEM_RE = re.compile(
+    r"^-\s*`([^`]+)`\s*[—–\-]\s*"           # - `S1_F1` —
+    r"([^(]+?)\s*\(([^)]*)\)\s*;\s*"        # name (role);
+    r"voice:\s*`(\[[^\]]+\])`",              # voice: `[F-BrE-30s-professional]`
+    re.MULTILINE,
+)
+
+
+def parse_section_speakers(section_text: str) -> list[dict[str, Any]]:
+    """Extract speaker definitions from the per-section ``**Speakers:**`` list.
+
+    Each list item is shaped ``- `S1_F1` — Helen (Course coordinator);
+    voice: `[F-BrE-30s-professional]```. Multiple speakers per section.
+    Falls back to raw transcript-tag scan if the list block is absent.
+    """
+    out: list[dict[str, Any]] = []
+    for m in _SPEAKER_LIST_ITEM_RE.finditer(section_text):
+        speaker_id, name, role, voice_tag = m.groups()
+        out.append({
+            "id":        speaker_id.strip(),
+            "name":      name.strip(),
+            "role":      role.strip(),
+            "voice_tag": voice_tag.strip(),
+            **_decompose_voice_tag(voice_tag.strip()),
+        })
+    if out:
+        return out
+    # Fallback: raw transcript-tag scan (Sprint 13.4 behavior).
+    seen: dict[str, dict[str, Any]] = {}
+    for m in _RAW_SPEAKER_TAG_RE.finditer(section_text):
+        tag = m.group(0).strip()
+        if tag in seen:
+            continue
+        gender, accent, age, register = m.groups()
+        seen[tag] = {
+            "id":        None,
+            "name":      None,
+            "role":      None,
+            "voice_tag": tag,
+            "gender":    gender.upper() if gender else None,
+            "accent":    accent or None,
+            "age":       age.lower() if age else None,
+            "register":  register.lower() if register else None,
+        }
+    return list(seen.values())
+
+
+def _decompose_voice_tag(tag: str) -> dict[str, str | None]:
+    """Parse `[F-BrE-30s-professional]` → {gender, accent, age, register}."""
+    m = _RAW_SPEAKER_TAG_RE.match(tag)
+    if not m:
+        return {"gender": None, "accent": None, "age": None, "register": None}
+    gender, accent, age, register = m.groups()
+    return {
+        "gender":   gender.upper() if gender else None,
+        "accent":   accent or None,
+        "age":      age.lower() if age else None,
+        "register": register.lower() if register else None,
+    }
+
+
+_BOLD_PREFIX_NAMED_RE = re.compile(
+    r"^\s*\*\*([A-Za-z ]+):\*\*\s*(.+?)\s*$",
+    re.MULTILINE,
+)
+
+
+def parse_section_metadata(section_text: str) -> dict[str, str | int | None]:
+    """Extract ``**Context:**``, ``**Register:**``, ``**Word count:**``."""
+    out: dict[str, Any] = {
+        "context":     None,
+        "register":    None,
+        "word_count":  None,
+    }
+    for m in _BOLD_PREFIX_NAMED_RE.finditer(section_text):
+        key = m.group(1).strip().lower()
+        val = m.group(2).strip()
+        if key == "context":
+            out["context"] = val
+        elif key == "register":
+            out["register"] = val
+        elif key in ("word count", "words"):
+            out["word_count"] = _safe_int(val)
+    return out
+
+
+_NARRATOR_INTRO_HEADING_RE = re.compile(
+    r"^\*\*Audio\s+intro\s*\(narrator\)\s*:?\*\*\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+_TRANSCRIPT_HEADING_RE = re.compile(
+    r"^\*\*Transcript:?\*\*\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def parse_narrator_intro(section_text: str) -> str:
+    """Read the blockquote that follows ``**Audio intro (narrator):**``.
+
+    Joins consecutive ``> `` lines until the first non-blockquote line.
+    """
+    m = _NARRATOR_INTRO_HEADING_RE.search(section_text)
+    if not m:
+        return ""
+    after = section_text[m.end():]
+    lines: list[str] = []
+    for line in after.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            if lines:                             # blank ends the quote
+                break
+            continue
+        if stripped.startswith(">"):
+            lines.append(stripped.lstrip(">").strip())
+            continue
+        break
+    return " ".join(lines).strip()
+
+
+def extract_transcript(section_text: str) -> str:
+    """Slice the section text from the ``**Transcript:**`` heading to EOF.
+
+    Marker stripping is the caller's job (so we can also surface the raw
+    transcript for ``metadata.raw_transcript``).
+    """
+    m = _TRANSCRIPT_HEADING_RE.search(section_text)
+    if not m:
+        return ""
+    return section_text[m.end():].strip()
+
+
+# ── Question-block parsing ─────────────────────────────────────────────────
+
+
+# H3 question block: "### Questions 1-6" / "### Questions 11-15"
+_QUESTION_BLOCK_RE = re.compile(
+    r"^###\s+Questions?\s+(\d+)\s*[-–]\s*(\d+)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# Instruction blockquote(s) immediately under the question-block heading.
+_BLOCKQUOTE_LINE_RE = re.compile(r"^>\s?(.*)$", re.MULTILINE)
+
+
+_INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"label the (?:plan|diagram|map)", re.IGNORECASE),
+        "mcq_letter_label"),
+    (re.compile(r"choose the correct letter", re.IGNORECASE),
+        "mcq_3option"),
+    (re.compile(r"answer the questions?", re.IGNORECASE),
+        "dictation_short_answer"),
+    (re.compile(r"complete the form", re.IGNORECASE),
+        "dictation_gap_fill"),
+    (re.compile(r"complete the table", re.IGNORECASE),
+        "dictation_gap_fill"),
+    (re.compile(r"complete the notes?", re.IGNORECASE),
+        "dictation_gap_fill"),
+    (re.compile(r"complete the sentences?", re.IGNORECASE),
+        "dictation_gap_fill"),
+    (re.compile(r"complete the summary", re.IGNORECASE),
+        "dictation_gap_fill"),
+]
 
 
 def _classify_instruction(instruction: str) -> str:
-    """Map a Question Paper instruction line to a question-type slug."""
     for pattern, slug in _INSTRUCTION_HINTS:
         if pattern.search(instruction):
             return slug
     return "unknown"
 
 
-def parse_question_paper(qp_text: str) -> dict[int, list[dict[str, Any]]]:
-    """Parse the Question Paper text into a per-section list of questions.
+# Bullet-style gap fill: "- Field: **N** ___________"
+_BULLET_GAP_RE = re.compile(
+    r"^\s*[-*+]\s+(.+?)\s*[:：]\s*£?\s*\**(\d{1,2})\**\s+_+\s*$",
+    re.MULTILINE,
+)
 
-    Returns ``{section_num: [{q_num, prompt, q_type, options?}, ...]}``.
+# Plain "**N** _____" bullet without colon-label (notes / summary)
+_PLAIN_NUM_GAP_RE = re.compile(
+    r"^\s*[-*+]?\s*\**(\d{1,2})\**\s+_+",
+    re.MULTILINE,
+)
 
-    Recognises:
-      * "Section N" headers (case-insensitive)
-      * One or more instruction lines per section ("Complete the form ..."
-        / "Choose the correct letter, A, B or C") — last instruction
-        before a question wins
-      * "Daniel Brennan (Example)" or any line containing "(Example)" is
-        skipped (Cambridge worked-example convention)
-      * Numbered question lines "1 ……" / "1. ……" / "1\t……"
-      * Sub-bullet MCQ options "A …" / "B …" / "C …" / "D …" / ... → up
-        to 8 letter options for plan/map labelling
+# Table cell gap: "N ………" (Unicode horizontal ellipsis variants).
+_TABLE_CELL_GAP_RE = re.compile(
+    r"(\d{1,2})\s+[…\.]+",
+)
+
+# Short-answer / plan-label / sentence / MCQ: "**N.** Some text"
+# Andy's canonical format puts the dot INSIDE the bold wrappers
+# (`**9.** What…`) for leading numbered prompts. Inline gaps use
+# `**N**` without dot — handled separately by _INLINE_NUM_GAP_RE.
+_NUM_DOT_PROMPT_RE = re.compile(
+    r"^\s*\*\*(\d{1,2})\.\*\*\s+(.+?)\s*$",
+    re.MULTILINE,
+)
+
+# MCQ nested option line: "   - **A** option text." / "- **B** ..."
+_MCQ_OPTION_LINE_RE = re.compile(
+    r"^\s+[-*+]\s+\**([A-H])\**\s+(.+?)\s*$",
+    re.MULTILINE,
+)
+
+# Example italic-wrapped row in form: "_Daniel Brennan (Example)_"
+_EXAMPLE_ITALIC_RE = re.compile(r"_[^_]*\(Example\)[^_]*_", re.IGNORECASE)
+
+# Summary-style inline gap: "...word **N** ___________ word..."
+_INLINE_NUM_GAP_RE = re.compile(r"\*\*(\d{1,2})\*\*\s+_+")
+
+
+def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
+    """Parse one Question Paper section into a list of question-block dicts.
+
+    Each block carries: ``{q_range: (lo, hi), instruction, q_type,
+    questions: [{q_num, prompt, q_type, options?}, ...], metadata}``.
     """
-    out: dict[int, list[dict[str, Any]]] = {1: [], 2: [], 3: [], 4: []}
-    section_num = 0
-    instruction: str = ""
-    current_q_type = "unknown"
-    pending_options: list[tuple[str, str]] = []
-    last_question: dict[str, Any] | None = None
+    block_matches = list(_QUESTION_BLOCK_RE.finditer(qp_section_text))
+    out: list[dict[str, Any]] = []
 
-    section_header_re = re.compile(
-        r"^\s*Section\s+([1-4])\s*$", re.IGNORECASE,
-    )
-    option_line_re = re.compile(
-        r"^\s*([A-H])\s*[\.\):]\s+(.+?)\s*$",
-    )
+    for i, m in enumerate(block_matches):
+        lo, hi = int(m.group(1)), int(m.group(2))
+        start = m.end()
+        end = (
+            block_matches[i + 1].start()
+            if i + 1 < len(block_matches)
+            else len(qp_section_text)
+        )
+        body = qp_section_text[start:end]
 
-    def _flush_options() -> None:
-        if last_question is not None and pending_options:
-            last_question.setdefault("options", []).extend(
-                {"letter": L, "text": T} for L, T in pending_options
-            )
-        pending_options.clear()
+        instruction = _first_blockquote(body)
+        q_type = _classify_instruction(instruction)
 
-    for raw_line in qp_text.splitlines():
-        line = raw_line.rstrip()
-        if not line.strip():
+        meta: dict[str, Any] = {}
+        if q_type == "mcq_letter_label":
+            meta["map_description"] = _extract_map_description(body)
+            meta["letter_options"] = list("ABCDEFGH")
+
+        questions = _extract_questions(body, q_type, lo, hi)
+
+        out.append({
+            "q_range":     (lo, hi),
+            "instruction": instruction,
+            "q_type":      q_type,
+            "questions":   questions,
+            "metadata":    meta,
+        })
+    return out
+
+
+def _first_blockquote(body: str) -> str:
+    """Return the first contiguous blockquote (joined ``>`` lines)."""
+    lines = body.splitlines()
+    collected: list[str] = []
+    started = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(">"):
+            collected.append(stripped.lstrip(">").strip())
+            started = True
             continue
-        if "(example)" in line.lower():         # skip Cambridge worked example
-            continue
+        if started:
+            break
+    return " ".join(collected).strip()
 
-        m_sec = section_header_re.match(line)
-        if m_sec:
-            _flush_options()
-            section_num = int(m_sec.group(1))
-            last_question = None
-            instruction = ""
-            current_q_type = "unknown"
-            continue
 
-        # Instruction lines (no leading digit, no leading letter+bullet)
-        m_q = _QUESTION_NUMBER_LINE_RE.match(line)
-        m_opt = option_line_re.match(line)
+def _extract_map_description(body: str) -> str:
+    """Plan/map label blocks carry a second blockquote shaped
+    ``> **Map description:** ...``. Return its text payload (after the
+    bold label) if present, otherwise empty.
+    """
+    for bq in _ALL_BLOCKQUOTES_RE.finditer(body):
+        # Strip the ``> `` prefixes line-by-line so the body text starts
+        # at ``**Map description:**`` rather than at the blockquote marker.
+        lines: list[str] = []
+        for raw_line in bq.group(1).splitlines():
+            lines.append(raw_line.lstrip(">").strip())
+        text = " ".join(l for l in lines if l).strip()
+        m = re.match(
+            r"\*\*Map description:?\*\*\s*(.+)$",
+            text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if m:
+            return m.group(1).strip()
+    return ""
 
-        if m_q and section_num:
-            _flush_options()
-            q_num = int(m_q.group(1))
-            prompt = m_q.group(2).strip()
-            entry: dict[str, Any] = {
-                "q_num": q_num,
-                "prompt": prompt,
-                "q_type": current_q_type,
+
+_ALL_BLOCKQUOTES_RE = re.compile(
+    r"((?:^>.*$\n?)+)",
+    re.MULTILINE,
+)
+
+
+def _extract_questions(
+    body: str, q_type: str, q_lo: int, q_hi: int,
+) -> list[dict[str, Any]]:
+    """Per-question extraction dispatched by question type."""
+    # Strip italic Example rows so they never sneak into any branch.
+    body = _EXAMPLE_ITALIC_RE.sub("", body)
+    in_range = lambda n: q_lo <= n <= q_hi      # noqa: E731
+
+    if q_type == "mcq_3option":
+        return _extract_mcq(body, in_range)
+    if q_type == "mcq_letter_label":
+        return _extract_plan_label(body, in_range)
+    if q_type == "dictation_short_answer":
+        return _extract_short_answer(body, in_range)
+    # All gap_fill variants — try multiple shapes (form bullet, table
+    # cell, plain numeric, inline-summary).
+    return _extract_gap_fill(body, in_range)
+
+
+def _extract_gap_fill(body: str, in_range) -> list[dict[str, Any]]:
+    found: dict[int, dict[str, Any]] = {}
+
+    for m in _BULLET_GAP_RE.finditer(body):
+        label = m.group(1).strip()
+        n = int(m.group(2))
+        if in_range(n) and n not in found:
+            found[n] = {
+                "q_num":  n,
+                "prompt": label,
+                "q_type": "dictation_gap_fill",
+                "variant": "form_bullet",
             }
-            out[section_num].append(entry)
-            last_question = entry
+
+    for m in _TABLE_CELL_GAP_RE.finditer(body):
+        n = int(m.group(1))
+        if in_range(n) and n not in found:
+            found[n] = {
+                "q_num":  n,
+                "prompt": "",                   # row context too costly to capture
+                "q_type": "dictation_gap_fill",
+                "variant": "table_cell",
+            }
+
+    for m in _INLINE_NUM_GAP_RE.finditer(body):
+        n = int(m.group(1))
+        if in_range(n) and n not in found:
+            found[n] = {
+                "q_num":  n,
+                "prompt": "",
+                "q_type": "dictation_gap_fill",
+                "variant": "inline",
+            }
+
+    return [found[k] for k in sorted(found)]
+
+
+def _extract_short_answer(body: str, in_range) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for m in _NUM_DOT_PROMPT_RE.finditer(body):
+        n = int(m.group(1))
+        if not in_range(n):
             continue
-
-        if m_opt and section_num and last_question is not None:
-            pending_options.append((m_opt.group(1), m_opt.group(2).strip()))
-            continue
-
-        # Treat anything else as a potential instruction line.
-        candidate_type = _classify_instruction(line)
-        if candidate_type != "unknown":
-            _flush_options()
-            instruction = line
-            current_q_type = candidate_type
-
-    _flush_options()
+        prompt = m.group(2).strip().rstrip("_").rstrip(".").strip()
+        prompt = re.sub(r"_+$", "", prompt).strip()
+        out.append({
+            "q_num":   n,
+            "prompt":  prompt,
+            "q_type":  "dictation_short_answer",
+            "variant": "short_answer",
+        })
     return out
 
 
-# ── Answer Key parse ────────────────────────────────────────────────────────
-
-
-def parse_answer_key(tables: list[list[list[str]]]) -> dict[int, list[dict[str, Any]]]:
-    """Parse all answer-key tables in the Script+AnswerKey doc.
-
-    Heuristic: a table is an answer key if its header row contains
-    ``question`` and ``answer`` columns. Trap-mechanism column is optional
-    (third column, anything goes). Multiple answer-key tables (one per
-    section) are concatenated then grouped by question number range.
+def _extract_mcq(body: str, in_range) -> list[dict[str, Any]]:
+    """Match each `**N.** Prompt` then collect its nested `- **A**`
+    options up to the next numbered prompt (or section end).
     """
-    rows_collected: list[tuple[int, str, str]] = []  # (q_num, answer, trap)
+    # Find every "**N.** prompt" anchor in line-number order.
+    anchors: list[tuple[int, int, str]] = []     # (offset, q_num, prompt)
+    for m in _NUM_DOT_PROMPT_RE.finditer(body):
+        n = int(m.group(1))
+        if in_range(n):
+            anchors.append((m.start(), n, m.group(2).strip()))
 
-    for table in tables:
-        if not table or len(table) < 2:
-            continue
-        header = [c.strip().lower() for c in table[0]]
-        if not any("question" in h or h == "q" or h == "q#" for h in header):
-            continue
-        if not any("answer" in h for h in header):
-            continue
-        # Locate column indices (defensive — Andy may reorder columns).
-        try:
-            q_col = next(
-                i for i, h in enumerate(header)
-                if "question" in h or h in ("q", "q#")
-            )
-            a_col = next(i for i, h in enumerate(header) if "answer" in h)
-        except StopIteration:                   # pragma: no cover
-            continue
-        trap_col: int | None = None
-        for i, h in enumerate(header):
-            if "trap" in h or "mechanism" in h:
-                trap_col = i
-                break
-
-        for row in table[1:]:
-            if len(row) <= max(q_col, a_col):
-                continue
-            q_cell = row[q_col].strip()
-            a_cell = row[a_col].strip()
-            if not q_cell or not a_cell:
-                continue
-            if "(example)" in a_cell.lower():
-                continue
-            m = re.match(r"^(\d{1,2})", q_cell)
-            if not m:
-                continue
-            q_num = int(m.group(1))
-            trap = (
-                row[trap_col].strip()
-                if trap_col is not None and trap_col < len(row)
-                else ""
-            )
-            rows_collected.append((q_num, a_cell, trap))
-
-    # Group by Cambridge section convention: Q1-10 → s1, Q11-20 → s2,
-    # Q21-30 → s3, Q31-40 → s4.
-    out: dict[int, list[dict[str, Any]]] = {1: [], 2: [], 3: [], 4: []}
-    for q_num, answer, trap in rows_collected:
-        section_num = ((q_num - 1) // 10) + 1
-        if 1 <= section_num <= 4:
-            out[section_num].append({
-                "q_num":           q_num,
-                "answer":          answer,
-                "trap_mechanisms": [t.strip() for t in re.split(r"[;,]", trap) if t.strip()],
+    out: list[dict[str, Any]] = []
+    for i, (offset, n, prompt) in enumerate(anchors):
+        end = anchors[i + 1][0] if i + 1 < len(anchors) else len(body)
+        slice_ = body[offset:end]
+        options: list[dict[str, str]] = []
+        for opt in _MCQ_OPTION_LINE_RE.finditer(slice_):
+            options.append({
+                "letter": opt.group(1),
+                "text":   opt.group(2).strip().rstrip(".").strip(),
             })
-    for section_num in out:
-        out[section_num].sort(key=lambda r: r["q_num"])
+        out.append({
+            "q_num":   n,
+            "prompt":  prompt,
+            "q_type":  "mcq_3option",
+            "options": options,
+            "variant": "mcq",
+        })
     return out
 
 
-# ── Exercise grouping ───────────────────────────────────────────────────────
+def _extract_plan_label(body: str, in_range) -> list[dict[str, Any]]:
+    """Plan/map labels share one set of A-H options for the whole block;
+    each numbered item is just a label. We pin the label name as the
+    prompt and surface the shared option set on each question (consumer
+    can dedup if needed).
+    """
+    out: list[dict[str, Any]] = []
+    for m in _NUM_DOT_PROMPT_RE.finditer(body):
+        n = int(m.group(1))
+        if not in_range(n):
+            continue
+        label = m.group(2).strip().rstrip("_").strip()
+        label = re.sub(r"_+$", "", label).strip()
+        out.append({
+            "q_num":   n,
+            "prompt":  label,
+            "q_type":  "mcq_letter_label",
+            "variant": "plan_label",
+            "options": [{"letter": L, "text": ""} for L in list("ABCDEFGH")],
+        })
+    return out
+
+
+# ── Answer-key parsing ─────────────────────────────────────────────────────
+
+
+_PART_B_RE = re.compile(
+    r"^##\s+PART\s+B\b.*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+_ANSWER_KEY_HEADER_RE = re.compile(
+    r"^###\s+SECTION\s+([1-4])\s*[—–\-]\s*Answer\s+Key\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def parse_answer_keys(sa_text: str) -> dict[int, list[dict[str, Any]]]:
+    """Locate ``## PART B`` then every ``### SECTION N — Answer Key`` table.
+
+    Each row yields ``{q_num, answer, notes, trap_mechanisms: [...]}``.
+    Bold wrappers on answers are stripped. Alternative answers separated
+    by ``/`` are surfaced via the ``alternatives`` field for downstream
+    grading.
+    """
+    out: dict[int, list[dict[str, Any]]] = {1: [], 2: [], 3: [], 4: []}
+    part_b = _PART_B_RE.search(sa_text)
+    if not part_b:
+        return out
+    after = sa_text[part_b.end():]
+
+    headers = list(_ANSWER_KEY_HEADER_RE.finditer(after))
+    for i, h in enumerate(headers):
+        section_num = int(h.group(1))
+        start = h.end()
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(after)
+        body = after[start:end]
+        out[section_num] = _parse_answer_table(body)
+    return out
+
+
+def _parse_answer_table(table_text: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    header_cols: list[str] | None = None
+    for line in table_text.splitlines():
+        if "|" not in line:
+            if header_cols is not None:
+                # End of table at first non-pipe line.
+                break
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if not cells or all(not c for c in cells):
+            continue
+        if all(re.fullmatch(r":?-+:?", c) for c in cells if c):
+            continue                              # separator row
+        if header_cols is None:
+            header_cols = [c.lower() for c in cells]
+            continue
+
+        col_map = {h: cells[i] if i < len(cells) else ""
+                   for i, h in enumerate(header_cols)}
+        q_raw = col_map.get("q#") or col_map.get("q") or col_map.get("question") or ""
+        if not q_raw:
+            continue
+        m = re.match(r"(\d{1,2})", q_raw)
+        if not m:
+            continue
+        q_num = int(m.group(1))
+        ans_raw = col_map.get("answer") or ""
+        ans = re.sub(r"\*\*", "", ans_raw).strip()
+        alternatives = [a.strip() for a in re.split(r"\s*/\s*", ans) if a.strip()]
+        notes = col_map.get("notes") or ""
+        trap_raw = col_map.get("trap mechanisms") or col_map.get("trap mechanism") or ""
+        traps = [t.strip() for t in re.split(r"[,;]", trap_raw) if t.strip()]
+        rows.append({
+            "q_num":           q_num,
+            "answer":          ans,
+            "alternatives":    alternatives,
+            "notes":           notes,
+            "trap_mechanisms": traps,
+        })
+    rows.sort(key=lambda r: r["q_num"])
+    return rows
+
+
+# ── Exercise grouping ──────────────────────────────────────────────────────
 
 
 _Q_TYPE_TO_EXERCISE: dict[str, str] = {
@@ -473,71 +836,61 @@ _Q_TYPE_TO_EXERCISE: dict[str, str] = {
     "dictation_short_answer": "dictation",
     "mcq_3option":            "mcq",
     "mcq_letter_label":       "mcq",
-    "unknown":                "dictation",      # safe default — admin can edit
+    "unknown":                "dictation",
 }
 
 
 def build_exercises(
-    questions: list[dict[str, Any]],
+    question_blocks: list[dict[str, Any]],
     answers: list[dict[str, Any]],
     section_num: int,
 ) -> list[dict[str, Any]]:
-    """Group consecutive same-type questions into exercise payloads.
+    """Convert per-section question blocks + answers into exercise rows.
 
-    One exercise row per contiguous run of identical ``q_type`` values.
-    Each payload carries ``{questions: [...], answers: [{q_num, answer,
-    trap_mechanisms}], variant}`` — admin reviews + edits in Sprint 13.4
-    UI; student delivery comes from Sprint 13.5 student-test renderer.
+    Sprint 13.4.2 lock: one exercise row per Question-Paper block. This
+    matches Andy's authoring shape (each H3 ``### Questions X-Y`` is a
+    single exercise the student attempts as a unit).
     """
     answer_by_q = {a["q_num"]: a for a in answers}
-    exercises: list[dict[str, Any]] = []
-    if not questions:
-        return exercises
-
-    run_type = questions[0]["q_type"]
-    run: list[dict[str, Any]] = []
-
-    def _flush() -> None:
-        if not run:
-            return
-        exercise_type = _Q_TYPE_TO_EXERCISE.get(run_type, "dictation")
-        payload_questions = [
-            {
-                "q_num":   q["q_num"],
-                "prompt":  q["prompt"],
-                **({"options": q["options"]} if q.get("options") else {}),
+    out: list[dict[str, Any]] = []
+    for idx, block in enumerate(question_blocks):
+        exercise_type = _Q_TYPE_TO_EXERCISE.get(block["q_type"], "dictation")
+        payload_questions = []
+        payload_answers = []
+        for q in block.get("questions", []):
+            entry = {
+                "q_num":  q["q_num"],
+                "prompt": q.get("prompt", ""),
             }
-            for q in run
-        ]
-        payload_answers = [
-            answer_by_q[q["q_num"]]
-            for q in run
-            if q["q_num"] in answer_by_q
-        ]
-        exercises.append({
+            if q.get("options"):
+                entry["options"] = q["options"]
+            if q.get("variant"):
+                entry["variant"] = q["variant"]
+            payload_questions.append(entry)
+            if q["q_num"] in answer_by_q:
+                payload_answers.append(answer_by_q[q["q_num"]])
+
+        payload: dict[str, Any] = {
+            "variant":     block["q_type"],
+            "instruction": block.get("instruction", ""),
+            "questions":   payload_questions,
+            "answers":     payload_answers,
+        }
+        if block.get("metadata"):
+            payload["metadata"] = block["metadata"]
+
+        out.append({
             "exercise_type": exercise_type,
-            "variant":       run_type,
+            "variant":       block["q_type"],
             "section_num":   section_num,
-            "order_num":     len(exercises) + 1,
-            "payload": {
-                "variant":   run_type,
-                "questions": payload_questions,
-                "answers":   payload_answers,
-            },
+            "order_num":     idx + 1,
+            "q_range":       block["q_range"],
+            "payload":       payload,
         })
-
-    for q in questions:
-        if q["q_type"] != run_type:
-            _flush()
-            run = [q]
-            run_type = q["q_type"]
-        else:
-            run.append(q)
-    _flush()
-    return exercises
+    return out
 
 
-# ── Accent + CEFR inference ─────────────────────────────────────────────────
+# ── Accent + CEFR inference (unchanged from 13.4) ──────────────────────────
 
 
 _ACCENT_TO_TAG = {
@@ -554,11 +907,7 @@ _ACCENT_TO_TAG = {
 }
 
 
-def infer_accent_tag(speakers: list[dict[str, str | None]]) -> str:
-    """Map the section's speaker mix to one of the legal accent_tag
-    enum values: us_general | uk_rp | au | ca | other. Mixed accents
-    default to 'other'.
-    """
+def infer_accent_tag(speakers: list[dict[str, Any]]) -> str:
     accents = {
         (sp.get("accent") or "").lower()
         for sp in speakers
@@ -566,123 +915,110 @@ def infer_accent_tag(speakers: list[dict[str, str | None]]) -> str:
     }
     if not accents:
         return "other"
-    mapped = {
-        _ACCENT_TO_TAG.get(a, "other")
-        for a in accents
-    }
-    if len(mapped) == 1:
-        return mapped.pop()
-    return "other"
+    mapped = {_ACCENT_TO_TAG.get(a, "other") for a in accents}
+    return mapped.pop() if len(mapped) == 1 else "other"
 
 
-# Cambridge band → CEFR coarse map. Half-bands round down to coarser.
 def infer_cefr_level(band_target: float | None) -> str | None:
-    """Map a Cambridge band score (e.g. 5.5) to CEFR (e.g. B1)."""
     if band_target is None:
         return None
-    if band_target >= 8.5:
-        return "C2"
-    if band_target >= 7.0:
-        return "C1"
-    if band_target >= 5.5:
-        return "B2"
-    if band_target >= 4.0:
-        return "B1"
+    if band_target >= 8.5:  return "C2"
+    if band_target >= 7.0:  return "C1"
+    if band_target >= 5.5:  return "B2"
+    if band_target >= 4.0:  return "B1"
     return "A2"
 
 
-# ── Public entry point ──────────────────────────────────────────────────────
+# ── Public entry points ───────────────────────────────────────────────────
 
 
 def parse_listening_test(
     question_paper_bytes: bytes,
     script_answerkey_bytes: bytes,
 ) -> dict[str, Any]:
-    """Parse Andy's 2-file Cambridge IELTS DOCX bundle into structured
-    data ready for ``listening_tests`` + ``listening_content`` ingest.
+    """Parse Andy's 2-file Markdown bundle.
 
-    Returns:
-        {
-          "test_metadata": {...},
-          "sections": [
-            {
-              "section_num": 1,
-              "title": "Cookery class enrolment",
-              "transcript_raw": "...",
-              "transcript_clean": "...",
-              "speakers": [...],
-              "word_count": int,
-              "accent_tag": "uk_rp",
-              "cefr_level": "B1",
-              "ielts_section": 1,
-              "questions": [...],
-              "answers": [...],
-              "exercises": [...],
-            }, ...
-          ],
-          "warnings": [str, ...],
-          "errors":   [str, ...],
-        }
+    The router decodes bytes here; everything downstream is pure text.
     """
-    qp_text, _qp_tables = _extract_docx(question_paper_bytes)
-    sa_text, sa_tables = _extract_docx(script_answerkey_bytes)
-    return parse_from_text(qp_text, sa_text, sa_tables)
+    qp_text = question_paper_bytes.decode("utf-8")
+    sa_text = script_answerkey_bytes.decode("utf-8")
+    return parse_from_text(qp_text, sa_text)
 
 
-def parse_from_text(
-    qp_text: str,
-    sa_text: str,
-    sa_tables: list[list[list[str]]],
-) -> dict[str, Any]:
-    """Pure-text entry point — used by tests that synthesize input
-    without going through python-docx.
-    """
+def parse_from_text(qp_text: str, sa_text: str) -> dict[str, Any]:
+    """Pure-text entry point. Returns the Sprint 13.4 ConvertResult shape."""
     warnings: list[str] = []
     errors: list[str] = []
 
-    metadata = parse_metadata_table(sa_tables)
+    metadata = parse_test_metadata(qp_text, sa_text)
     if not metadata.get("test_id"):
         errors.append(
-            "Không tìm thấy Test ID trong metadata table. Kiểm tra hàng "
-            "đầu tiên của bảng metadata."
+            "Không tìm thấy Test ID trong heading H1 của Question Paper. "
+            "Kiểm tra dòng đầu file (định dạng: # IELTS LISTENING — <TEST_ID>)."
         )
 
-    section_texts = split_sections(sa_text)
-    if len(section_texts) != 4:
+    qp_sections = split_qp_sections(qp_text)
+    if len(qp_sections) != 4:
         warnings.append(
-            f"Phát hiện {len(section_texts)} sections trong transcript "
-            f"(kỳ vọng 4). Section thiếu sẽ bị bỏ qua."
+            f"Phát hiện {len(qp_sections)} sections trong Question Paper "
+            f"(kỳ vọng 4 dòng `## SECTION N`)."
+        )
+    script_sections = split_script_sections(sa_text)
+    if len(script_sections) != 4:
+        warnings.append(
+            f"Phát hiện {len(script_sections)} sections trong Script "
+            f"(kỳ vọng 4 dòng `### SECTION N (Sn)` dưới `## PART A`)."
         )
 
-    qp_questions = parse_question_paper(qp_text)
-    answer_key = parse_answer_key(sa_tables)
+    answer_keys = parse_answer_keys(sa_text)
 
     sections_out: list[dict[str, Any]] = []
     total_word_count = 0
 
     for section_num in (1, 2, 3, 4):
-        raw = section_texts.get(section_num, "")
-        if not raw:
-            warnings.append(f"Section {section_num} không có transcript trong file Script.")
+        qp_body = qp_sections.get(section_num, "")
+        script_body = script_sections.get(section_num, "")
+
+        if not qp_body and not script_body:
+            warnings.append(f"Section {section_num} không có dữ liệu ở cả hai file.")
             continue
 
-        clean = strip_markers(raw)
-        speakers = parse_speakers(raw)
-        word_count = len(re.findall(r"\b\w+\b", clean))
-        total_word_count += word_count
+        section_meta = parse_section_metadata(script_body)
+        speakers = parse_section_speakers(script_body)
+        narrator_intro = parse_narrator_intro(script_body)
+        transcript_raw = extract_transcript(script_body)
+        transcript_clean = strip_markers(transcript_raw)
 
-        questions = qp_questions.get(section_num, [])
-        answers = answer_key.get(section_num, [])
+        word_count = section_meta.get("word_count") or len(re.findall(r"\b\w+\b", transcript_clean))
+        total_word_count += word_count or 0
 
-        if not questions:
-            warnings.append(f"Section {section_num} không có questions trong file Question Paper.")
-        if len(answers) != len(questions):
+        question_blocks = parse_question_blocks(qp_body)
+        # Flat questions list (back-compat with Sprint 13.4 schema).
+        flat_questions: list[dict[str, Any]] = []
+        for block in question_blocks:
+            for q in block["questions"]:
+                flat_questions.append({
+                    "q_num":  q["q_num"],
+                    "prompt": q["prompt"],
+                    "q_type": q["q_type"],
+                    **({"options": q["options"]} if q.get("options") else {}),
+                    **({"variant": q["variant"]} if q.get("variant") else {}),
+                })
+
+        answers = answer_keys.get(section_num, [])
+
+        if not flat_questions:
             warnings.append(
-                f"Section {section_num} mismatch: {len(questions)} questions "
+                f"Section {section_num} không có question nào — kiểm tra "
+                f"H3 `### Questions X-Y` trong Question Paper."
+            )
+        if answers and flat_questions and len(answers) != len(flat_questions):
+            warnings.append(
+                f"Section {section_num} mismatch: {len(flat_questions)} questions "
                 f"vs {len(answers)} answers."
             )
 
-        exercises = build_exercises(questions, answers, section_num)
+        exercises = build_exercises(question_blocks, answers, section_num)
 
         themes = metadata.get("themes") or {}
         theme_text = themes.get(f"s{section_num}", "")
@@ -694,38 +1030,41 @@ def parse_from_text(
             "section_num":      section_num,
             "title":            theme_text or f"Section {section_num}",
             "theme":            theme_text,
-            "transcript_raw":   raw,
-            "transcript_clean": clean,
+            "transcript_raw":   transcript_raw,
+            "transcript_clean": transcript_clean,
             "speakers":         speakers,
             "word_count":       word_count,
             "accent_tag":       accent_tag,
             "cefr_level":       cefr_level,
             "ielts_section":    section_num,
-            "questions":        questions,
+            "questions":        flat_questions,
             "answers":          answers,
             "exercises":        exercises,
+            "narrator_intro":   narrator_intro,
+            "context":          section_meta.get("context"),
+            "register":         section_meta.get("register"),
         })
 
-    # Word-count sanity: warn if parser total drifts >10% from metadata.
-    if metadata.get("total_words") and total_word_count:
-        declared = float(metadata["total_words"])
-        drift = abs(total_word_count - declared) / declared
+    # Drift warning vs declared total words.
+    declared_total = metadata.get("total_words")
+    if declared_total and total_word_count:
+        drift = abs(total_word_count - declared_total) / declared_total
         if drift > 0.10:
             warnings.append(
                 f"Word count drift {int(drift * 100)}%: parser counted "
-                f"{total_word_count}, metadata declared {int(declared)}."
+                f"{total_word_count}, metadata declared {declared_total}."
             )
 
     return {
-        "test_metadata": metadata,
-        "sections":      sections_out,
-        "warnings":      warnings,
-        "errors":        errors,
+        "test_metadata":     metadata,
+        "sections":          sections_out,
+        "warnings":          warnings,
+        "errors":            errors,
         "_total_word_count": total_word_count,
     }
 
 
-# ── Convenience: section → listening_content row payload ────────────────────
+# ── Section → listening_content row payload (unchanged contract) ──────────
 
 
 def section_to_content_payload(
@@ -735,10 +1074,9 @@ def section_to_content_payload(
 ) -> dict[str, Any]:
     """Build the ``listening_content`` INSERT payload for one section.
 
-    Audio fields use the Sprint 13.3.1 placeholder pattern
-    (audio_storage_path=NULL, duration=0, size=0, status='draft').
-    Andy uploads MP3s later via the existing bulk-upload flow
-    (Sprint 13.5 wires a "link audio to section" UI).
+    Uses the Sprint 13.3.1 placeholder pattern (audio_storage_path=NULL,
+    duration=0, size=0, status='draft'). Andy uploads MP3s later via
+    the existing bulk-upload flow.
     """
     test_external = test_metadata.get("test_id") or "test"
     theme_slug = re.sub(r"[^a-z0-9]+", "-", (section.get("theme") or "").lower()).strip("-")
@@ -763,10 +1101,24 @@ def section_to_content_payload(
         "status":                 "draft",
         "is_premium":             False,
         "metadata": {
-            "source_format":   test_metadata.get("source_format") or "cambridge_ielts_docx",
+            "source_format":   test_metadata.get("source_format") or "cambridge_ielts_markdown",
             "speakers":        section["speakers"],
             "raw_transcript":  section["transcript_raw"],
             "word_count":      section["word_count"],
             "theme":           section.get("theme"),
+            "narrator_intro":  section.get("narrator_intro"),
+            "context":         section.get("context"),
+            "register":        section.get("register"),
         },
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# DEPRECATED — Sprint 13.4 DOCX parser
+# ──────────────────────────────────────────────────────────────────────────
+#
+# The original implementation parsed Cambridge IELTS bundles from DOCX
+# via python-docx. Andy's 2026-05-21 architecture pivot replaces that
+# with the Markdown parser above; the DOCX path is retained here as a
+# git-history reference only. See PR #234 for the full Sprint 13.4
+# implementation if a rollback is ever needed.

@@ -2717,7 +2717,10 @@ async def get_listening_analytics(
 
 
 _TEST_STATUS_VALUES = {"draft", "published", "archived"}
-_CONVERT_MAX_DOCX_BYTES = 5 * 1024 * 1024       # 5 MB per DOCX (commission §Style)
+# Sprint 13.4.2 — markdown parser ships with a tighter 1 MB cap per file
+# (markdown is text-only; Pilot 01 is ~30KB so 1MB is generous).
+_CONVERT_MAX_DOCX_BYTES = 1 * 1024 * 1024
+_CONVERT_ALLOWED_EXTENSIONS = (".md", ".markdown")
 
 
 class ListeningTestPatchRequest(BaseModel):
@@ -3038,10 +3041,13 @@ async def admin_delete_listening_test(
 # ── Sprint 13.4 — Convert DOCX → test bundle ─────────────────────────────────
 
 
-def _read_docx_upload(upload: UploadFile, label: str) -> bytes:
-    if not upload.filename or not upload.filename.lower().endswith(".docx"):
+def _read_markdown_upload(upload: UploadFile, label: str) -> bytes:
+    """Sprint 13.4.2 — accept .md/.markdown text bundles (was .docx in 13.4)."""
+    name = (upload.filename or "").lower()
+    if not name.endswith(_CONVERT_ALLOWED_EXTENSIONS):
         raise HTTPException(
-            422, f"{label} phải là file .docx (nhận: {upload.filename!r})",
+            422,
+            f"{label} phải là file .md hoặc .markdown (nhận: {upload.filename!r})",
         )
     data = upload.file.read()
     if len(data) == 0:
@@ -3049,7 +3055,7 @@ def _read_docx_upload(upload: UploadFile, label: str) -> bytes:
     if len(data) > _CONVERT_MAX_DOCX_BYTES:
         raise HTTPException(
             422,
-            f"{label} vượt 5 MB ({len(data) // (1024 * 1024)} MB).",
+            f"{label} vượt 1 MB ({len(data) // 1024} KB).",
         )
     return data
 
@@ -3068,14 +3074,14 @@ async def admin_convert_listening_dry_run(
     """
     await require_admin(authorization)
 
-    qp_bytes = _read_docx_upload(question_paper,   "Question Paper")
-    sa_bytes = _read_docx_upload(script_answerkey, "Script+AnswerKey")
+    qp_bytes = _read_markdown_upload(question_paper,   "Question Paper")
+    sa_bytes = _read_markdown_upload(script_answerkey, "Script+AnswerKey")
 
     try:
         result = listening_convert.parse_listening_test(qp_bytes, sa_bytes)
     except Exception as exc:
         logger.exception("Convert dry-run failed")
-        raise HTTPException(422, f"Lỗi khi phân tích DOCX: {exc}") from exc
+        raise HTTPException(422, f"Lỗi khi phân tích markdown: {exc}") from exc
 
     # Surface duplicate test_id here so the UI can switch to an "update
     # existing" flow without a second round-trip.

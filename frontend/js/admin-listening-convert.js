@@ -1,8 +1,9 @@
 /**
  * admin-listening-convert.js — Sprint 13.4 (DEBT-ADMIN-LISTENING-AUTHORING 6/N).
+ * Sprint 13.4.2 — markdown parser pivot (was DOCX in 13.4).
  *
  * Drives the 3-step convert flow on /pages/admin/listening/convert.html:
- *   1. Upload Question Paper + Script+AnswerKey (both .docx, ≤5MB each)
+ *   1. Upload Question Paper + Script+AnswerKey (both .md, ≤1MB each)
  *   2. POST /admin/listening/convert → render preview (metadata + 4
  *      sections + warnings/errors)
  *   3. POST /admin/listening/convert/commit → 1 listening_tests row + 4
@@ -33,7 +34,9 @@ const STATE = {
   preview: null,         // parsed envelope from POST /convert
 };
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// Sprint 13.4.2 — markdown parser tightens the cap (text-only files).
+const MAX_BYTES = 1 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = ['.md', '.markdown'];
 
 
 // ── DOM bootstrap ───────────────────────────────────────────────────────────
@@ -95,12 +98,12 @@ async function onParse() {
 
   if (!STATE.qpFile || !STATE.saFile) return;
   if (STATE.qpFile.size > MAX_BYTES || STATE.saFile.size > MAX_BYTES) {
-    showParseError('File vượt 5MB — kiểm tra lại bundle.');
+    showParseError('File vượt 1MB — kiểm tra lại bundle.');
     return;
   }
-  if (!STATE.qpFile.name.toLowerCase().endsWith('.docx') ||
-      !STATE.saFile.name.toLowerCase().endsWith('.docx')) {
-    showParseError('Cả hai file phải là .docx.');
+  const okExt = (name) => ALLOWED_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext));
+  if (!okExt(STATE.qpFile.name) || !okExt(STATE.saFile.name)) {
+    showParseError('Cả hai file phải là .md hoặc .markdown.');
     return;
   }
 
@@ -147,7 +150,7 @@ function renderPreview(result) {
   document.getElementById('cv-meta-words').textContent   =
     meta.total_words ? String(meta.total_words) : '—';
   document.getElementById('cv-meta-source').textContent  =
-    meta.source_format || 'cambridge_ielts_docx';
+    meta.source_format || 'cambridge_ielts_markdown';
 
   // Sections accordion
   const sectionsHost = document.getElementById('cv-sections');
