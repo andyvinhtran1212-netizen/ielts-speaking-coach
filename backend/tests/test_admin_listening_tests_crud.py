@@ -310,7 +310,14 @@ def test_patch_test_metadata_rejects_bad_band(monkeypatch):
 
 def test_patch_test_status_transitions(monkeypatch):
     fake, authz = _patch(monkeypatch)
-    t = _seed_test(fake, status="draft")
+    # Sprint 13.4.3 — publish gate now requires an audio mode + path.
+    # Seed with full_premixed satisfied so the transition is allowed.
+    t = _seed_test(
+        fake,
+        status="draft",
+        audio_assembly_mode="full_premixed",
+        full_audio_storage_path="tests/x/full.mp3",
+    )
     body = listening_router.ListeningTestStatusPatchRequest(status="published")
 
     out = _run(listening_router.admin_patch_listening_test_status(
