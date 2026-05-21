@@ -610,6 +610,13 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
         if q_type == "mcq_letter_label":
             meta["map_description"] = _extract_map_description(body)
             meta["letter_options"] = list("ABCDEFGH")
+            # Sprint 13.5.9 — pick up Andy's curated AI image-generation
+            # prompt from the `<details>` block immediately after the
+            # question block (if present). ``None`` means the image-gen
+            # service will fall back to its template prompt.
+            custom_prompt = _extract_custom_image_prompt(body)
+            if custom_prompt:
+                meta["map_image_custom_prompt"] = custom_prompt
 
         questions = _extract_questions(body, q_type, lo, hi)
         template = _extract_template(body, template_kind, lo, hi)
@@ -829,6 +836,60 @@ def _first_blockquote(body: str) -> str:
         if started:
             break
     return " ".join(collected).strip()
+
+
+# ── Sprint 13.5.9 — custom AI image prompt extraction ──────────────────────
+#
+# Andy curates Cambridge-specific image-generation prompts (north arrow,
+# letter positions, verification checklist) inside a `<details>` block
+# placed directly after a plan-label question block. The block looks
+# roughly like:
+#
+#     <details>
+#     <summary>📐 AI image-generation prompt for this map</summary>
+#
+#     ... full curated prompt (markdown allowed) ...
+#
+#     </details>
+#
+# The parser surfaces the body verbatim on
+# ``metadata.map_image_custom_prompt`` so the image-gen service can
+# bypass its template and send Andy's prompt straight to the model.
+
+_DETAILS_BLOCK_RE = re.compile(
+    r"<details>\s*"
+    r"<summary>(?P<summary>.*?)</summary>"
+    r"(?P<body>.*?)"
+    r"</details>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Matches "AI image-generation prompt" / "AI image generation prompt" /
+# "AI Image-Generation Prompt for this map" — tolerant of dashes and
+# casing, but the keywords must appear (so a `<details>` block with an
+# unrelated summary like "Speaker notes" is ignored).
+_AI_PROMPT_SUMMARY_RE = re.compile(
+    r"AI\s+image[\s\-]*generation\s+prompt",
+    re.IGNORECASE,
+)
+
+
+def _extract_custom_image_prompt(body: str) -> str | None:
+    """Find the first `<details>` block whose summary mentions an
+    AI image-generation prompt and return its body verbatim.
+
+    Returns ``None`` when no matching block exists; the image-gen
+    service then falls back to its template prompt.
+    """
+    for m in _DETAILS_BLOCK_RE.finditer(body):
+        summary = (m.group("summary") or "").strip()
+        if not _AI_PROMPT_SUMMARY_RE.search(summary):
+            continue
+        prompt = (m.group("body") or "").strip()
+        if not prompt:
+            return None
+        return prompt
+    return None
 
 
 def _extract_map_description(body: str) -> str:

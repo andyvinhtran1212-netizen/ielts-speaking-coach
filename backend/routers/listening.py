@@ -2904,6 +2904,16 @@ async def admin_get_listening_test(
                 "letter_options":   metadata.get("letter_options")
                                     or payload.get("letter_options")
                                     or list("ABCDEFGH"),
+                # Sprint 13.5.9 — surface the curated prompt (when the
+                # parser found one) + the source used by the most recent
+                # successful generation so the admin UI can show
+                # "custom" vs "template" without a second round-trip.
+                "map_image_custom_prompt": (
+                    metadata.get("map_image_custom_prompt")
+                    or payload.get("map_image_custom_prompt")
+                    or None
+                ),
+                "map_image_prompt_source": payload.get("map_image_prompt_source"),
                 "has_map_image":    bool(payload.get("map_image_storage_path")),
                 "map_image_model":  payload.get("map_image_model"),
                 "map_image_generated_at": payload.get("map_image_generated_at"),
@@ -3908,6 +3918,14 @@ async def admin_generate_map_image(
     metadata = payload.get("metadata") or {}
     map_description = metadata.get("map_description") or payload.get("map_description") or ""
     letter_options = metadata.get("letter_options") or payload.get("letter_options")
+    # Sprint 13.5.9 — pick up Andy's curated prompt off either the
+    # metadata block (where the parser puts it) or the payload root
+    # (defensive in case a future writer flattens the schema).
+    custom_prompt = (
+        metadata.get("map_image_custom_prompt")
+        or payload.get("map_image_custom_prompt")
+        or None
+    )
 
     api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
     if not api_key:
@@ -3935,6 +3953,7 @@ async def admin_generate_map_image(
             supabase=supabase_admin,
             api_key=api_key,
             model=(body.model if body else None),
+            custom_prompt=custom_prompt,
         )
     except ValueError as exc:
         raise HTTPException(422, str(exc))
@@ -3958,6 +3977,7 @@ async def admin_generate_map_image(
         "map_image_size_bytes":   result["map_image_size_bytes"],
         "map_image_generated_at": result["map_image_generated_at"],
         "map_image_prompt":       result["map_image_prompt"],
+        "map_image_prompt_source": result["map_image_prompt_source"],
         "signed_url":             _sign_map_image_url(result["map_image_storage_path"]),
         "cost_estimate_usd":      listening_map_image.estimate_cost(result["map_image_model"]),
     }
@@ -4231,9 +4251,15 @@ async def get_published_listening_test(
                 payload["map_image_url"] = signed_url
             if is_plan_label:
                 payload.pop("map_description", None)
+                # Sprint 13.5.9 — also strip the curated AI prompt; it
+                # describes the answer layout explicitly (letter
+                # positions, room semantics) and would hand the student
+                # the answer key in prose if leaked.
+                payload.pop("map_image_custom_prompt", None)
                 if isinstance(payload.get("metadata"), dict):
                     payload["metadata"] = dict(payload["metadata"])
                     payload["metadata"].pop("map_description", None)
+                    payload["metadata"].pop("map_image_custom_prompt", None)
             ex["payload"] = payload
     by_content: dict[str, list[dict]] = {}
     for ex in exercises_safe:

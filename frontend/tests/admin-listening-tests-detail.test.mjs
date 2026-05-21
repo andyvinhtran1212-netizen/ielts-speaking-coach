@@ -617,3 +617,97 @@ describe('Sprint 13.5.6 — student plan-label renderer accepts map image', () =
     assert.match(css, /\.ielts-map-rendered[\s\S]+?max-height:\s*480px/);
   });
 });
+
+
+// ── Sprint 13.5.9 — custom AI prompt source indicator on admin map panel ──
+
+describe('Sprint 13.5.9 — admin map panel surfaces custom prompt source', () => {
+  const js = read('js', 'admin-listening-tests-detail.js');
+
+  test('panel reads map_image_custom_prompt off the exercise summary', () => {
+    // Sprint 13.5.9 backend extends plan_label_exercises rows with
+    // ``map_image_custom_prompt`` + ``map_image_prompt_source`` —
+    // the renderer must consume both so the indicator + preview
+    // render off the same source of truth.
+    assert.match(js, /ex\.map_image_custom_prompt/);
+    assert.match(js, /ex\.map_image_prompt_source/);
+  });
+
+  test('renders the custom-prompt indicator pill when a curated prompt exists', () => {
+    // The pill carries data-source="custom" + the Vietnamese label
+    // "Custom prompt từ markdown" so end-to-end tests can target it
+    // by selector and Andy can see the source at a glance.
+    assert.match(js, /td-prompt-source-custom/);
+    assert.match(js, /data-source="custom"/);
+    assert.match(js, /Custom prompt từ markdown/);
+  });
+
+  test('renders the template-prompt indicator pill when no curated prompt exists', () => {
+    assert.match(js, /td-prompt-source-template/);
+    assert.match(js, /data-source="template"/);
+    assert.match(js, /Template prompt/);
+    // The fallback copy must mention the missing <details> block so
+    // Andy knows where to add it.
+    assert.match(js, /details/);
+  });
+
+  test('curated prompt body is rendered inside a collapsible <details><pre>', () => {
+    // The preview must be opt-in (closed by default) so the long
+    // curated prompt doesn't dominate the panel. Targeting
+    // .td-prompt-content lets the sentinel assert the preview slot.
+    assert.match(js, /<details class="td-prompt-preview"/);
+    assert.match(js, /class="td-prompt-content"/);
+    // The preview surfaces the char count so Andy can sanity-check
+    // that the parser caught the full body.
+    assert.match(js, /\$\{customPrompt\.length\}\s*chars/);
+  });
+
+  test('preview block is omitted when there is no custom prompt', () => {
+    // The renderer must only emit the preview when `hasCustom` is
+    // truthy; the empty-string template branch shouldn't render an
+    // empty <details>.
+    assert.match(js, /const promptPreview = hasCustom\s*\?\s*`<details class="td-prompt-preview"/);
+    assert.match(js, /:\s*'';/);
+  });
+
+  test('shows the "current image source" sub-label only when an image exists', () => {
+    // For freshly generated images we want to tell Andy whether the
+    // existing PNG was made from the curated prompt or the template.
+    // The sentinel pins the conditional: `has && lastSource` gates
+    // the sub-label.
+    assert.match(js, /has\s*&&\s*lastSource/);
+    assert.match(js, /Hình hiện tại generate từ/);
+  });
+
+  test('source indicator + preview live in their own .td-prompt-source-row block', () => {
+    // Keep the new chrome scoped so future stylesheet work can target
+    // the row without colliding with the existing actions row.
+    assert.match(js, /class="td-prompt-source-row"/);
+  });
+
+  test('renderer escapes the curated prompt body before rendering (defensive)', () => {
+    // The curated prompt comes from author-controlled markdown so XSS
+    // is low-risk, but the existing panel uses escapeHtml() on every
+    // user-controlled string — the new slot must follow suit.
+    assert.match(js, /escapeHtml\(customPrompt\)/);
+  });
+
+  test('hasCustom mirror tracks the trimmed prompt (empty string → template)', () => {
+    // A `<details>` block with a whitespace-only body must fall back
+    // to the template indicator, mirroring the backend's
+    // ``has_custom = bool(custom_prompt and custom_prompt.strip())``
+    // contract.
+    assert.match(js, /const customPrompt = \(ex\.map_image_custom_prompt \|\| ''\)\.trim\(\);/);
+    assert.match(js, /const hasCustom = Boolean\(customPrompt\)/);
+  });
+
+  test('existing generate / regenerate / delete flow remains wired up (regression)', () => {
+    // Sprint 13.5.9 only adds the source indicator. The existing
+    // CTAs must keep working — pin their handlers so a future refactor
+    // can't quietly delete them.
+    assert.match(js, /\.td-map-gen/);
+    assert.match(js, /\.td-map-regen/);
+    assert.match(js, /\.td-map-delete/);
+    assert.match(js, /\/generate-map-image/);
+  });
+});
