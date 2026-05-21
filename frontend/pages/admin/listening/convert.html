@@ -188,32 +188,32 @@
       </div>
 
       <header class="cv-header">
-        <h1>Convert đề từ DOCX</h1>
+        <h1>Convert đề từ markdown</h1>
         <p class="subtitle">
-          Import Cambridge IELTS bundle (Question Paper + Script+AnswerKey)
-          → tạo <strong>1 test</strong> + <strong>4 sections</strong> ×
-          exercises. Audio upload sau (qua Tải MP3 hoặc UI link audio
-          Sprint 13.5).
+          Import 2 file markdown (Question Paper + Script+AnswerKey) theo
+          template Cambridge IELTS → tạo <strong>1 test</strong> +
+          <strong>4 sections</strong> × exercises. Audio upload sau (qua
+          Tải MP3 hoặc UI link audio Sprint 13.5).
         </p>
       </header>
 
-      <!-- ── Step 1: Upload 2 DOCX files ─────────────────────────────── -->
-      <section class="cv-section" aria-label="Bước 1: Upload DOCX bundle">
-        <h2><span class="cv-step-num">Bước 1</span>Upload bundle .docx</h2>
+      <!-- ── Step 1: Upload 2 markdown files ─────────────────────────── -->
+      <section class="cv-section" aria-label="Bước 1: Upload markdown bundle">
+        <h2><span class="cv-step-num">Bước 1</span>Tải 2 file markdown đề (.md)</h2>
 
         <div class="cv-upload-row">
           <label class="cv-dropzone" id="cv-zone-qp" data-zone="qp">
             <h3>Question Paper</h3>
-            <p class="cv-hint">Kéo thả file .docx vào đây hoặc bấm để chọn</p>
+            <p class="cv-hint">Kéo thả file .md vào đây hoặc bấm để chọn</p>
             <div class="cv-file-meta" id="cv-meta-qp" hidden></div>
-            <input type="file" id="cv-file-qp" accept=".docx" />
+            <input type="file" id="cv-file-qp" accept=".md,.markdown,text/markdown" />
           </label>
 
           <label class="cv-dropzone" id="cv-zone-sa" data-zone="sa">
             <h3>Script + AnswerKey</h3>
-            <p class="cv-hint">Kéo thả file .docx vào đây hoặc bấm để chọn</p>
+            <p class="cv-hint">Kéo thả file .md vào đây hoặc bấm để chọn</p>
             <div class="cv-file-meta" id="cv-meta-sa" hidden></div>
-            <input type="file" id="cv-file-sa" accept=".docx" />
+            <input type="file" id="cv-file-sa" accept=".md,.markdown,text/markdown" />
           </label>
         </div>
 
@@ -225,7 +225,7 @@
           <span class="cv-meta-pill" style="border:none; background:transparent; padding:0;">
             <span class="cv-label">Giới hạn</span>
             <span class="cv-value" style="font-size:var(--av-fs-sm); font-weight:normal; color:var(--av-text-muted);">
-              tối đa 5MB/file
+              tối đa 1MB/file
             </span>
           </span>
         </div>
