@@ -417,3 +417,89 @@ describe('Sprint 13.4.3.2 — section card grid no longer overflows', () => {
     assert.match(html, /\.td-audio-player\s*\{\s*width:\s*100%/);
   });
 });
+
+
+// ── Sprint 13.5.4 — hard delete + partial unique workflow ─────────────────
+
+describe('Sprint 13.5.4 — tests-detail hard-delete button + controller', () => {
+  const html = read('pages', 'admin', 'listening', 'tests-detail.html');
+  const js   = read('js', 'admin-listening-tests-detail.js');
+
+  test('Vùng nguy hiểm renders BOTH archive and hard-delete buttons', () => {
+    assert.match(html, /id=["']td-delete-btn["']/);
+    assert.match(html, /id=["']td-hard-delete-btn["']/);
+  });
+
+  test('archive copy explains soft-delete keeps history (preserves attempts)', () => {
+    assert.match(html, /Archive\s*\(xoá mềm\)/i);
+    assert.match(html, /Giữ data \+ audio \+ history attempt/);
+  });
+
+  test('hard-delete copy warns the action is irreversible', () => {
+    assert.match(html, /Xoá vĩnh viễn/);
+    assert.match(html, /Không\s*thể recover/i);
+  });
+
+  test('controller binds the hard-delete button to onHardDelete()', () => {
+    assert.match(
+      js,
+      /getElementById\(['"]td-hard-delete-btn['"]\)\.addEventListener\(['"]click['"],\s*onHardDelete\)/,
+    );
+  });
+
+  test('onHardDelete requires a window.confirm() AND a window.prompt() match', () => {
+    assert.match(js, /async function onHardDelete\(/);
+    assert.match(js, /window\.confirm\([\s\S]{0,200}?Xác nhận XOÁ VĨNH VIỄN/);
+    assert.match(js, /window\.prompt\(/);
+    // The prompt must compare its return value against the short test_id
+    // (not against STATE.testId — that's the UUID, not the short name).
+    assert.match(js, /userInput\s*!==\s*shortName/);
+  });
+
+  test('onHardDelete calls DELETE /admin/listening/tests/{id}/hard', () => {
+    assert.match(
+      js,
+      /window\.api\.delete\(\s*`\/admin\/listening\/tests\/\$\{encodeURIComponent\(STATE\.testId\)\}\/hard`/,
+    );
+  });
+
+  test('onHardDelete redirects to the tests-list on success', () => {
+    const m = /async function onHardDelete\(\)\s*\{([\s\S]+?)\n\}/m.exec(js);
+    assert.ok(m, 'onHardDelete body not found');
+    assert.match(m[1], /window\.location\.href\s*=\s*['"]\/pages\/admin\/listening\/tests\.html['"]/);
+  });
+
+  test('onHardDelete surfaces errors via showError instead of throwing', () => {
+    const m = /async function onHardDelete\(\)\s*\{([\s\S]+?)\n\}/m.exec(js);
+    assert.ok(m);
+    assert.match(m[1], /showError\(/);
+    assert.match(m[1], /Hard delete thất bại/);
+  });
+
+  test('hard-delete URL is a backtick template literal (no `<` placeholder)', () => {
+    // Regression guard cribbed from Sprint 13.5.1.
+    const hardCalls = js.match(/['"`][^'"`]*\/hard['"`]/g) || [];
+    assert.ok(hardCalls.length > 0, 'expected at least one /hard URL literal');
+    for (const c of hardCalls) {
+      assert.ok(!c.includes('<'),
+        `URL contains a literal placeholder: ${c}`);
+      assert.ok(!c.includes('%3C'),
+        `URL contains URL-encoded placeholder: ${c}`);
+    }
+  });
+
+  test('soft-delete onDelete handler is preserved (regression)', () => {
+    // Sprint 13.5.4 must not regress the existing archive flow.
+    assert.match(js, /async function onDelete\(/);
+    assert.match(
+      js,
+      /window\.api\.delete\(\s*`\/admin\/listening\/tests\/\$\{encodeURIComponent\(STATE\.testId\)\}`\s*,?\s*\)/,
+    );
+  });
+
+  test('hard-delete bails early when test_id is missing', () => {
+    // The handler short-circuits if STATE.test.test_id is absent so the
+    // prompt() comparison can't accidentally match an empty string.
+    assert.match(js, /Không xác định được test_id/);
+  });
+});

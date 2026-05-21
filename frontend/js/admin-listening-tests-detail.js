@@ -85,6 +85,7 @@ function init() {
   document.getElementById('td-draft-btn').addEventListener('click',   () => onStatus('draft'));
   document.getElementById('td-archive-btn').addEventListener('click', () => onStatus('archived'));
   document.getElementById('td-delete-btn').addEventListener('click', onDelete);
+  document.getElementById('td-hard-delete-btn').addEventListener('click', onHardDelete);
   document.getElementById('td-assemble').addEventListener('click', onAssemble);
   document.getElementById('td-file-full').addEventListener('change', onFullAudioPick);
   // Sprint 13.4.3.2 — wire dnd on the full-audio zone (parts zones are
@@ -504,6 +505,41 @@ async function onDelete() {
     window.location.href = '/pages/admin/listening/tests.html';
   } catch (e) {
     showError(e && e.message ? e.message : 'Xoá thất bại.');
+  }
+}
+
+
+// Sprint 13.5.4 — hard delete with double confirmation: a generic
+// confirm() then a test_id match prompt(). Both must pass before
+// the irreversible DELETE fires.
+async function onHardDelete() {
+  const shortName = (STATE.test && STATE.test.test_id) || '';
+  if (!shortName) {
+    showError('Không xác định được test_id — không thể xoá vĩnh viễn.');
+    return;
+  }
+  if (!window.confirm(
+    'Xác nhận XOÁ VĨNH VIỄN test? '
+    + 'Tất cả data + audio + history attempts sẽ mất. '
+    + 'Không thể recover.',
+  )) {
+    return;
+  }
+  const userInput = window.prompt(
+    `Nhập chính xác test ID "${shortName}" để xác nhận:`,
+  );
+  if (userInput !== shortName) {
+    window.alert('Test ID không khớp — huỷ xoá.');
+    return;
+  }
+  hideError();
+  try {
+    await window.api.delete(
+      `/admin/listening/tests/${encodeURIComponent(STATE.testId)}/hard`,
+    );
+    window.location.href = '/pages/admin/listening/tests.html';
+  } catch (e) {
+    showError(e && e.message ? e.message : 'Hard delete thất bại.');
   }
 }
 

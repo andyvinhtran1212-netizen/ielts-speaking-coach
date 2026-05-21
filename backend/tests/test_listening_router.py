@@ -58,6 +58,7 @@ class _FakeTableQuery:
         self._parent = parent
         self._table = table_name
         self._filters: list[tuple[str, object]] = []
+        self._filters_neq: list[tuple[str, object]] = []
         self._insert: dict | None = None
 
     def select(self, *_a, **_k): return self
@@ -65,6 +66,11 @@ class _FakeTableQuery:
 
     def eq(self, col, val):
         self._filters.append((col, val))
+        return self
+
+    def neq(self, col, val):
+        # Sprint 13.5.4 — convert/commit dup-check filters archived rows out.
+        self._filters_neq.append((col, val))
         return self
 
     def insert(self, payload):
@@ -78,6 +84,8 @@ class _FakeTableQuery:
         rows = self._parent.canned.get(self._table, [])
         for col, val in self._filters:
             rows = [r for r in rows if r.get(col) == val]
+        for col, val in self._filters_neq:
+            rows = [r for r in rows if r.get(col) != val]
         return _FakeRes(rows)
 
 

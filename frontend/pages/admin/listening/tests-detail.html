@@ -291,11 +291,29 @@
       <!-- Delete -->
       <section class="td-card" id="td-delete" hidden>
         <h2>Vùng nguy hiểm</h2>
-        <p class="td-section-meta" style="font-size:var(--av-fs-sm);">
-          Xoá test sẽ archive 4 section content rows kèm theo (cascade).
-        </p>
-        <div class="td-actions">
-          <button class="td-btn td-btn-danger" id="td-delete-btn" type="button">Xoá test</button>
+
+        <div class="td-actions" style="display:flex; flex-direction:column; gap:var(--av-space-3);">
+
+          <!-- Soft delete (archive) -->
+          <div>
+            <p class="td-section-meta" style="font-size:var(--av-fs-sm); margin-bottom:var(--av-space-2);">
+              <strong>Archive (xoá mềm):</strong> Test ẩn khỏi danh sách
+              user-facing. Giữ data + audio + history attempt. Có thể
+              re-import cùng test_id (Sprint 13.5.4 partial unique).
+            </p>
+            <button class="td-btn td-btn-danger" id="td-delete-btn" type="button">Archive test</button>
+          </div>
+
+          <!-- Hard delete -->
+          <div>
+            <p class="td-section-meta" style="font-size:var(--av-fs-sm); margin-bottom:var(--av-space-2);">
+              <strong>Xoá vĩnh viễn:</strong> Hard delete test + 4 content
+              + exercises + audio files + history attempts. <strong>Không
+              thể recover.</strong>
+            </p>
+            <button class="td-btn td-btn-danger" id="td-hard-delete-btn" type="button">Xoá vĩnh viễn</button>
+          </div>
+
         </div>
       </section>
 
