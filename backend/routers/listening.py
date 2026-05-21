@@ -3588,11 +3588,14 @@ async def admin_patch_test_audio_mode(
 ):
     """Switch the audio assembly mode on a Cambridge test bundle.
 
-    Validation:
-      * ``full_premixed`` requires ``full_audio_storage_path`` populated.
-      * ``parts_auto_assembled`` requires all 4 section audios on
-        ``listening_content``.
-      * ``parts_only`` has no precondition (Sprint 13.6 cutter source).
+    Sprint 13.4.3.1 — soft validation. The mode toggle is treated as
+    exploratory state during the setup flow; admins may pick a mode
+    *before* uploading audio so the corresponding upload UI appears.
+    Audio readiness is enforced at publish time via
+    ``services.listening_audio.can_publish`` (Sprint 13.4.3).
+
+    Validation here is limited to the enum allow-list. Mode value must
+    be one of {full_premixed, parts_auto_assembled, parts_only}.
     """
     await require_admin(authorization)
     mode = (body.mode or "").strip().lower()
@@ -3601,31 +3604,7 @@ async def admin_patch_test_audio_mode(
             422, f"mode must be one of {sorted(_AUDIO_ASSEMBLY_MODES)}",
         )
 
-    test = _fetch_test_or_404(test_id)
-
-    if mode == "full_premixed":
-        if not test.get("full_audio_storage_path"):
-            raise HTTPException(
-                422,
-                "Mode 'full_premixed' yêu cầu full_audio_storage_path. "
-                "Upload full audio trước khi chuyển mode.",
-            )
-    elif mode == "parts_auto_assembled":
-        sec_res = (
-            supabase_admin.table("listening_content")
-            .select("section_num,audio_storage_path")
-            .eq("test_id", test_id)
-            .execute()
-        )
-        rows = sec_res.data or []
-        ready = {r["section_num"] for r in rows if r.get("audio_storage_path")}
-        if ready != {1, 2, 3, 4}:
-            missing = [n for n in (1, 2, 3, 4) if n not in ready]
-            raise HTTPException(
-                422,
-                f"Mode 'parts_auto_assembled' yêu cầu đủ 4 sections — "
-                f"thiếu section {missing}.",
-            )
+    _fetch_test_or_404(test_id)
 
     (
         supabase_admin.table("listening_tests")

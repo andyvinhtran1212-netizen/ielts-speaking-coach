@@ -658,21 +658,25 @@ def test_router_assemble_requires_elevenlabs_key(monkeypatch):
 # ── Router: mode toggle ─────────────────────────────────────────────────────
 
 
-def test_router_mode_toggle_to_full_premixed_requires_full_audio(monkeypatch):
+def test_router_mode_toggle_to_full_premixed_without_audio_allowed(monkeypatch):
+    # Sprint 13.4.3.1 — soft mode toggle. Admins pick a mode *before*
+    # uploading audio so the upload UI appears. The publish gate
+    # (PATCH /status) is the hard enforcement point.
     fake = _FakeAdmin()
     test = _seed_test(fake, full_audio_storage_path=None)
     _patch_supabase_admin(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
 
     body = listening_router.TestAudioModePatchRequest(mode="full_premixed")
-    with pytest.raises(HTTPException) as excinfo:
-        _run(listening_router.admin_patch_test_audio_mode(
-            test_id=test["id"], body=body, authorization=authz,
-        ))
-    assert excinfo.value.status_code == 422
+    out = _run(listening_router.admin_patch_test_audio_mode(
+        test_id=test["id"], body=body, authorization=authz,
+    ))
+    assert out["audio_assembly_mode"] == "full_premixed"
+    assert fake.tables["listening_tests"][0]["audio_assembly_mode"] == "full_premixed"
 
 
-def test_router_mode_toggle_to_parts_auto_requires_all_4_sections(monkeypatch):
+def test_router_mode_toggle_to_parts_auto_without_all_parts_allowed(monkeypatch):
+    # Sprint 13.4.3.1 — same soft-toggle rationale as above.
     fake = _FakeAdmin()
     test = _seed_test(fake)
     _seed_sections(fake, test["id"], [
@@ -682,11 +686,25 @@ def test_router_mode_toggle_to_parts_auto_requires_all_4_sections(monkeypatch):
     authz = _patch_admin_auth(monkeypatch)
 
     body = listening_router.TestAudioModePatchRequest(mode="parts_auto_assembled")
+    out = _run(listening_router.admin_patch_test_audio_mode(
+        test_id=test["id"], body=body, authorization=authz,
+    ))
+    assert out["audio_assembly_mode"] == "parts_auto_assembled"
+
+
+def test_router_mode_toggle_404_when_test_missing(monkeypatch):
+    # Soft toggle still needs to 404 on unknown test IDs — the enum
+    # check is the *only* validation now, but the row must exist.
+    fake = _FakeAdmin()
+    _patch_supabase_admin(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+
+    body = listening_router.TestAudioModePatchRequest(mode="full_premixed")
     with pytest.raises(HTTPException) as excinfo:
         _run(listening_router.admin_patch_test_audio_mode(
-            test_id=test["id"], body=body, authorization=authz,
+            test_id="nonexistent-uuid", body=body, authorization=authz,
         ))
-    assert excinfo.value.status_code == 422
+    assert excinfo.value.status_code == 404
 
 
 def test_router_mode_toggle_to_parts_only_always_allowed(monkeypatch):

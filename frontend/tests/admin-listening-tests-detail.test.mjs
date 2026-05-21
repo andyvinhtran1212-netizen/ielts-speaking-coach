@@ -213,3 +213,102 @@ describe('Sprint 13.4.3 — convert results CTA lands on tests-detail', () => {
     );
   });
 });
+
+
+// ── Sprint 13.4.3.1 — mode toggle selection-driven render hotfix ───────────
+
+
+describe('Sprint 13.4.3.1 — mode toggle renders upload UI immediately', () => {
+  const js = read('js', 'admin-listening-tests-detail.js');
+
+  test('onModeChange mutates STATE.test.audio_assembly_mode locally first', () => {
+    // The hotfix sets the local state before any await so renderModeUI
+    // fires synchronously with the user's selection — no chicken-and-egg.
+    assert.match(
+      js,
+      /STATE\.test\.audio_assembly_mode\s*=\s*mode[\s\S]{0,200}?renderModeUI\(mode\)/,
+    );
+  });
+
+  test('onModeChange calls renderModeUI before awaiting the PATCH', () => {
+    // Find the function body and pin: renderModeUI must appear before
+    // the `await window.api.patch` line.
+    const fnMatch = js.match(/async function onModeChange[\s\S]+?^}/m);
+    assert.ok(fnMatch, 'onModeChange function not found');
+    const fn = fnMatch[0];
+    const renderIdx = fn.indexOf('renderModeUI(mode)');
+    const patchIdx  = fn.indexOf('window.api.patch');
+    assert.ok(renderIdx >= 0 && patchIdx >= 0, 'expected both calls in onModeChange');
+    assert.ok(
+      renderIdx < patchIdx,
+      'renderModeUI must run before the PATCH so upload UI appears even on backend failure',
+    );
+  });
+
+  test('PATCH failure surfaces non-blocking copy (UI vẫn dùng được)', () => {
+    // Hotfix swapped the "rollback selector + error banner" path for a
+    // softer message that keeps the upload UI usable.
+    assert.match(js, /UI vẫn dùng được|sẽ thử lại khi upload/);
+  });
+
+  test('publish-gate re-renders after every mode selection', () => {
+    const fn = js.match(/async function onModeChange[\s\S]+?^}/m)[0];
+    assert.match(fn, /renderPublishGate\(\)/);
+  });
+
+  test('selector no longer auto-rolls-back on PATCH failure', () => {
+    // The original Sprint 13.4.3 controller reset the selector to the
+    // previous persisted mode whenever the PATCH 422'd — that's the UX
+    // bug the hotfix removes (it swallowed the user's selection).
+    assert.doesNotMatch(
+      js,
+      /document\.getElementById\(['"]td-mode['"]\)\.value\s*=\s*\(STATE\.test/,
+    );
+  });
+});
+
+
+describe('Sprint 13.4.3.1 — backend mode toggle is soft', () => {
+  // Sentinel that the docstring + behaviour pivot is reflected in
+  // services/listening_audio.py + the router. We pin via the router
+  // source because that's the authoritative behaviour change.
+  const py = read('..', 'backend', 'routers', 'listening.py');
+
+  test('admin_patch_test_audio_mode docstring marks the toggle soft', () => {
+    assert.match(py, /Sprint 13\.4\.3\.1 — soft validation/);
+  });
+
+  test('no precondition check for full_audio_storage_path in mode PATCH', () => {
+    // The old strict block raised a 422 with the literal "yêu cầu
+    // full_audio_storage_path" string. Hotfix removes it from this
+    // endpoint (the publish gate keeps the same message at PATCH /status).
+    const fn = py.match(
+      /async def admin_patch_test_audio_mode[\s\S]+?return\s*\{[^}]+\}/,
+    );
+    assert.ok(fn, 'admin_patch_test_audio_mode body not found');
+    assert.doesNotMatch(
+      fn[0],
+      /yêu cầu full_audio_storage_path/,
+    );
+  });
+
+  test('no precondition check for all-4-sections in mode PATCH', () => {
+    const fn = py.match(
+      /async def admin_patch_test_audio_mode[\s\S]+?return\s*\{[^}]+\}/,
+    )[0];
+    assert.doesNotMatch(fn, /yêu cầu đủ 4 sections/);
+  });
+
+  test('mode PATCH still 404s when test row missing', () => {
+    // Soft toggle keeps the existence check (via _fetch_test_or_404).
+    const fn = py.match(
+      /async def admin_patch_test_audio_mode[\s\S]+?return\s*\{[^}]+\}/,
+    )[0];
+    assert.match(fn, /_fetch_test_or_404/);
+  });
+
+  test('publish gate at PATCH /status still hard-blocks parts_only', () => {
+    // Hard enforcement moved entirely to the publish endpoint.
+    assert.match(py, /listening_audio\.can_publish/);
+  });
+});
