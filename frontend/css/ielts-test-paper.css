@@ -218,18 +218,37 @@ select.ielts-gap-input {
      the question number provides enough visual indent on its own. */
   padding-left: var(--av-space-4);
 }
+/* Sprint 13.5.8 — tight inline layout: radio + letter + text sit on
+   the same baseline with a fixed 8px gap so the option reads as one
+   line, not three loosely-spaced columns. The letter and option text
+   live in separate slots (was a single span) so they can be styled
+   independently. */
 .ielts-mcq-option {
   display: flex;
-  align-items: flex-start;
-  gap: var(--av-space-2);
+  align-items: baseline;
+  gap: 8px;
   cursor: pointer;
   padding: 4px var(--av-space-2);
   border-radius: var(--av-radius-sm);
+  line-height: 1.5;
 }
 .ielts-mcq-option:hover { background: var(--ielts-paper-surface-alt); }
 .ielts-mcq-option input[type="radio"] {
-  margin: 4px 0 0 0;
+  flex-shrink: 0;
+  margin: 0;
+  width: 16px;
+  height: 16px;
   accent-color: var(--ielts-paper-accent);
+  align-self: center;
+}
+.ielts-mcq-option strong {
+  color: var(--ielts-paper-accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.ielts-mcq-option-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Plan / map labelling ───────────────────────────────────────── */
@@ -252,6 +271,9 @@ select.ielts-gap-input {
   background: #ffffff;
   border-radius: var(--av-radius-sm);
 }
+/* Sprint 13.5.6 admin reference — still rendered in the admin
+   content-detail panel; intentionally NOT used by the student player
+   anymore (Sprint 13.5.8). */
 .ielts-map-description {
   padding: var(--av-space-3);
   background: var(--ielts-paper-surface-alt);
@@ -259,6 +281,28 @@ select.ielts-gap-input {
   margin-bottom: var(--av-space-4);
   font-style: italic;
 }
+/* Sprint 13.5.8 — fallback notice shown when a plan-label exercise
+   has no admin-generated map image. Real Cambridge plan-label tasks
+   require a visual map; this nudges the admin to generate one rather
+   than leaking the textual description to the student. */
+.ielts-plan-no-image {
+  padding: var(--av-space-4);
+  margin-bottom: var(--av-space-4);
+  background: #fef9e7;
+  border: 1px solid #f5d564;
+  border-radius: var(--av-radius-sm);
+  text-align: center;
+}
+.ielts-plan-no-image .ielts-notice {
+  color: #8a6d3b;
+  font-style: italic;
+  margin: 0;
+}
+[data-theme="dark"] .ielts-plan-no-image {
+  background: #3d3520;
+  border-color: #6b5a2a;
+}
+[data-theme="dark"] .ielts-plan-no-image .ielts-notice { color: #d4b96a; }
 .ielts-plan-labels {
   display: flex;
   flex-direction: column;
@@ -407,10 +451,10 @@ select.ielts-gap-input {
 .ielts-section[hidden] { display: none !important; }
 
 /* Sticky bottom progress tracker. Sprint 13.5.7 — `box-sizing` +
-   `max-width: 100%` keeps the tracker inside the test-paper column;
-   the 40-column grid uses `minmax(20px, 1fr)` so it never widens
-   past its parent. The inner container is centred + clamped so the
-   tracker reads as part of the paper, not a full-bleed footer. */
+   `max-width: 100%` keeps the tracker inside the test-paper column.
+   Sprint 13.5.8 — the 40-square grid moved from a single 40-col row
+   to a 20-col × 2-row layout (Q1–20 row 1, Q21–40 row 2) so it
+   always fits the paper column without horizontal overflow. */
 .ielts-progress-tracker {
   position: sticky;
   bottom: 0;
@@ -423,12 +467,18 @@ select.ielts-gap-input {
   max-width: 100%;
   box-sizing: border-box;
 }
+/* Sprint 13.5.8 — 2 rows × 20 cols on desktop. `grid-auto-rows`
+   keeps both rows the same height; the inner `max-width: 800px`
+   centres the grid so it reads as a single block rather than a
+   stretched bar. */
 .ielts-progress-bar {
   display: grid;
-  grid-template-columns: repeat(40, minmax(20px, 1fr));
-  gap: 3px;
-  margin-bottom: var(--av-space-2);
-  max-width: 100%;
+  grid-template-columns: repeat(20, minmax(24px, 1fr));
+  grid-auto-rows: minmax(28px, auto);
+  gap: 4px;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto var(--av-space-2);
 }
 .progress-square {
   width: 100%;
@@ -514,4 +564,13 @@ select.ielts-gap-input {
     grid-auto-rows: auto;
   }
   .progress-square { min-height: 24px; font-size: 10px; }
+}
+
+/* Sprint 13.5.8 — ultra-narrow (<480px): 5 cols × 8 rows so squares
+   stay tappable even on phones held in cramped portrait orientation. */
+@media (max-width: 480px) {
+  .ielts-progress-bar {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+  }
 }

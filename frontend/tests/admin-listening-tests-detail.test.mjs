@@ -591,14 +591,25 @@ describe('Sprint 13.5.6 — student plan-label renderer accepts map image', () =
     assert.match(playerJs, /alt="Floor plan map"/);
   });
 
-  test('renderPlanLabel falls back to description-only when no map_image_url', () => {
-    // The image block is gated by truthiness on mapImage; ensure the
-    // ternary writes the empty string in the no-image branch.
-    assert.match(playerJs, /const imageBlock = mapImage[\s\S]*?:\s*['"]['"]/);
+  test('renderPlanLabel falls back to .ielts-plan-no-image notice when no map_image_url (Sprint 13.5.8)', () => {
+    // Sprint 13.5.8 — the no-image branch used to render an empty
+    // string + description text. It now emits a yellow notice block
+    // that tells the admin to generate a map.
+    assert.match(playerJs, /const visualBlock = mapImage[\s\S]*?class="ielts-plan-no-image"/);
   });
 
-  test('renderPlanLabel still reads metadata.map_description as fallback', () => {
-    assert.match(playerJs, /meta\.map_description\s*\|\|\s*payload\.map_description/);
+  test('renderPlanLabel suppresses map_description from the student view (Sprint 13.5.8)', () => {
+    // Sprint 13.5.6 wired this in as an admin-only-with-fallback
+    // legend. Sprint 13.5.8 removed it because real Cambridge plan-
+    // label tasks present a visual map only — leaking the textual
+    // description gives the answer key away.
+    const fn = /function\s+renderPlanLabel\([\s\S]+?\n\}\s*\n/.exec(playerJs);
+    assert.ok(fn, 'renderPlanLabel() not found');
+    const code = fn[0].replace(/\/\/[^\n]*/g, '');
+    assert.ok(!/meta\.map_description/.test(code),
+      'student renderer must not access meta.map_description');
+    assert.ok(!/payload\.map_description/.test(code),
+      'student renderer must not access payload.map_description');
   });
 
   test('CSS clamps the rendered map image so it stays inside the test paper column', () => {

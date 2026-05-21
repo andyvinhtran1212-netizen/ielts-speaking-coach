@@ -4207,15 +4207,33 @@ async def get_published_listening_test(
     # the only place that mints this URL; the admin preview path mints
     # via /exercises/{id}/map-image/signed-url. Keeps the payload
     # otherwise unchanged so the renderer sees the same shape.
+    # Sprint 13.5.8 — also strip `map_description` from the student
+    # response (and from `payload.metadata`) for every plan-label
+    # exercise. The description is admin-only metadata (AI image
+    # prompt input); leaking it gives the student the answer key in
+    # prose. Defense-in-depth: the frontend renderer also ignores it.
     for ex in exercises_safe:
         payload = ex.get("payload") or {}
+        variant = payload.get("variant")
+        template_kind = payload.get("template_kind")
+        is_plan_label = (
+            variant == "mcq_letter_label"
+            or template_kind == "plan_label"
+        )
         storage_path = payload.get("map_image_storage_path")
-        if not storage_path:
-            continue
-        signed_url = _sign_map_image_url(storage_path, expires_in=7200)
-        if signed_url:
+        signed_url = (
+            _sign_map_image_url(storage_path, expires_in=7200)
+            if storage_path else None
+        )
+        if is_plan_label or signed_url:
             payload = dict(payload)
-            payload["map_image_url"] = signed_url
+            if signed_url:
+                payload["map_image_url"] = signed_url
+            if is_plan_label:
+                payload.pop("map_description", None)
+                if isinstance(payload.get("metadata"), dict):
+                    payload["metadata"] = dict(payload["metadata"])
+                    payload["metadata"].pop("map_description", None)
             ex["payload"] = payload
     by_content: dict[str, list[dict]] = {}
     for ex in exercises_safe:

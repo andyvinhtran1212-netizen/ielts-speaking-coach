@@ -370,6 +370,68 @@ def test_get_test_detail_strips_answer_keys(monkeypatch):
             assert ex["payload"].get("questions")
 
 
+def test_get_test_detail_strips_map_description_from_plan_label(monkeypatch):
+    """Sprint 13.5.8 — the student endpoint must remove ``map_description``
+    (both at the payload root and under ``payload.metadata``) for every
+    plan-label exercise. The description is admin-only AI-prompt input;
+    leaking it would hand the student the answer key in prose.
+    """
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+
+    # Seed a single plan-label section with map_description present in
+    # both locations so we can verify the strip covers both.
+    fake.tables["listening_content"].append({
+        "id":           "content-plan",
+        "test_id":      test["id"],
+        "section_num":  2,
+        "title":        "Section 2",
+        "transcript":   "stub",
+        "metadata":     {"narrator_intro": "Section 2 intro."},
+    })
+    fake.tables["listening_exercises"].append({
+        "id":            "ex-plan",
+        "content_id":    "content-plan",
+        "exercise_type": "plan_labelling",
+        "order_num":     1,
+        "payload": {
+            "variant":          "mcq_letter_label",
+            "template_kind":    "plan_label",
+            "instruction":      "Label the map.",
+            "map_description":  "A rectangular community hall with...",
+            "metadata":         {"map_description": "duplicate at metadata level"},
+            "questions": [
+                {"q_num": 16 + i, "prompt": f"Q{16 + i}"} for i in range(5)
+            ],
+            "answers": [
+                {"q_num": 16 + i, "answer": "A", "alternatives": [],
+                 "trap_mechanisms": []}
+                for i in range(5)
+            ],
+        },
+    })
+
+    out = _run(listening_router.get_published_listening_test(
+        test_id=test["id"], authorization=authz,
+    ))
+    plan_ex = next(
+        ex for sec in out["sections"] for ex in sec["exercises"]
+        if ex["payload"].get("template_kind") == "plan_label"
+    )
+    # Defense-in-depth: payload.map_description AND
+    # payload.metadata.map_description must be gone.
+    assert "map_description" not in plan_ex["payload"], (
+        "payload.map_description must be stripped from student response"
+    )
+    assert "map_description" not in (plan_ex["payload"].get("metadata") or {}), (
+        "payload.metadata.map_description must be stripped from student response"
+    )
+    # Original row must remain untouched (admin endpoints rely on it).
+    seeded = fake.tables["listening_exercises"][0]
+    assert seeded["payload"]["map_description"] == "A rectangular community hall with..."
+    assert seeded["payload"]["metadata"]["map_description"] == "duplicate at metadata level"
+
+
 def test_get_test_detail_prefers_assembled_over_full(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test = _seed_test(
