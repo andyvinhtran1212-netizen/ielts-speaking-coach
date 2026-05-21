@@ -211,3 +211,67 @@ describe('Sprint 13.5 — player JS contract', () => {
     assert.match(JS, /chưa có audio sẵn sàng/);
   });
 });
+
+
+describe('Sprint 13.5.1 — schema-match + URL regression guards', () => {
+
+  // The renderer must read the parser's canonical shape, set by
+  // services/listening_convert.py build_exercises():
+  //   payload.instruction (singular) + payload.questions[] +
+  //   payload.variant (e.g. "mcq_3option") + option.letter
+
+  it('reads payload.questions[] (not items[])', () => {
+    assert.match(JS, /payload\.questions/);
+  });
+
+  it('reads payload.instruction (singular) — tolerates legacy .instructions', () => {
+    assert.match(JS, /payload\.instruction\b/);
+  });
+
+  it('branches on payload.variant for mcq vs dictation', () => {
+    assert.match(JS, /payload\.variant/);
+    assert.match(JS, /variant\s*===\s*['"]mcq_3option['"]/);
+    assert.match(JS, /variant\s*===\s*['"]mcq_letter_label['"]/);
+  });
+
+  it('reads option.letter (parser canonical) — tolerates legacy .label', () => {
+    assert.match(JS, /o\.letter/);
+  });
+
+  it('does not gate the renderer on coarse exercise_type === "mcq_3option"', () => {
+    // ex.exercise_type is "dictation" / "mcq" (the family). The precise
+    // q_type lives on `payload.variant`. Regression guard.
+    assert.ok(
+      !/exercise_type\s*===\s*['"]mcq_3option['"]/.test(JS),
+      'renderer must branch on variant, not exercise_type',
+    );
+  });
+
+  it('tolerates legacy rows where payload.items is the only items key', () => {
+    assert.match(JS, /payload\.items/);
+  });
+
+  // Andy's dogfood 2026-05-21 showed `%3Ctest_uuid%3E` in DevTools.
+  // No literal `<…>` placeholder may appear inside any /api/ URL string.
+
+  it('no /api/ URL string contains a literal "<" or encoded "%3C" placeholder', () => {
+    const apiUrlRe = /['"`]\/api\/[^'"`]+['"`]/g;
+    const matches = JS.match(apiUrlRe) || [];
+    assert.ok(matches.length > 0, 'expected at least one /api/ URL literal');
+    for (const m of matches) {
+      assert.ok(!m.includes('<'),
+        `URL string contains literal placeholder: ${m}`);
+      assert.ok(!m.includes('%3C'),
+        `URL string contains URL-encoded placeholder: ${m}`);
+    }
+  });
+
+  it('every dynamic /api/ URL uses backtick interpolation (not + concat)', () => {
+    // Catches a future regression where someone writes
+    //   `/api/listening/tests/' + testId
+    // which would also work but bypasses the backtick discipline.
+    const concat = /['"]\/api\/listening\/tests\/['"][\s\S]{0,40}\+/;
+    assert.ok(!concat.test(JS),
+      'use backtick template literal for /api/ URLs, not string concat');
+  });
+});
