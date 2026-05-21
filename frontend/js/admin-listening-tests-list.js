@@ -108,6 +108,7 @@ function renderRows(items) {
     const accent = (t.accent_profile || []).join(', ') || '—';
     const audioReady = t.audio_ready_count !== undefined ? t.audio_ready_count : 0;
     const sectionCount = t.section_count !== undefined ? t.section_count : 0;
+    const detailHref = `/pages/admin/listening/tests-detail.html?id=${encodeURIComponent(t.id)}`;
     return `
       <tr>
         <td class="tl-mono">${escapeHtml(t.test_id)}</td>
@@ -120,8 +121,8 @@ function renderRows(items) {
         <td class="tl-mono">${escapeHtml((t.created_at || '').slice(0, 10))}</td>
         <td>
           <span class="tl-actions">
-            <a href="/pages/admin/listening/index.html?test_id=${encodeURIComponent(t.id)}">Xem 4 sections</a>
-            <a href="/pages/admin/listening/convert.html" title="Sprint 13.5">Mở test (sắp ra mắt)</a>
+            <a href="${detailHref}">Mở test</a>
+            <a href="/pages/admin/listening/index.html?test_id=${encodeURIComponent(t.id)}">4 sections</a>
           </span>
         </td>
       </tr>

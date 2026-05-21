@@ -6,7 +6,12 @@
 # PyPI, so the install is fast and doesn't need gcc in the image.
 [phases.setup]
 nixPkgs = ["python312"]
-aptPkgs = ["fonts-dejavu-core"]
+# Sprint 13.4.3 — ffmpeg required by pydub for MP3 duration probe +
+# narrator/section assembly (services/listening_audio.py). Sprint 11.0
+# added pydub but only used it for trivial validation paths that
+# happened to work without ffmpeg; the assemble endpoint needs the
+# binary on PATH.
+aptPkgs = ["fonts-dejavu-core", "ffmpeg"]
 
 # Sprint 10.1 — download the spaCy English model after pip install so
 # the lemmatizer service (services/lemmatizer.py) can load it lazily on

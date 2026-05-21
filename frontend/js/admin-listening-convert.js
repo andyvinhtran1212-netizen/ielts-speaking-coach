@@ -268,8 +268,11 @@ function renderResults(result) {
   banner.innerHTML =
     `<strong>Đã tạo test thành công.</strong> Test ID <code>${escapeHtml(result.test_id_external)}</code> · ${(result.content_ids || []).length} section · ${result.exercises_created || 0} exercises.`;
 
+  // Sprint 13.4.3 — primary CTA now lands on tests-detail (audio + publish
+  // workflow lives there). Keep secondary links for legacy navigation.
   list.innerHTML = `
-    <div><a href="/pages/admin/listening/tests.html">→ Xem trong tests browser</a></div>
+    <div><a href="/pages/admin/listening/tests-detail.html?id=${encodeURIComponent(result.test_id)}">→ Mở test (audio + publish)</a></div>
+    <div><a href="/pages/admin/listening/tests.html">→ Xem tests browser</a></div>
     <div><a href="/pages/admin/listening/index.html?test_id=${encodeURIComponent(result.test_id)}">→ Xem 4 section content rows</a></div>
   `;
 

@@ -2966,8 +2966,16 @@ async def admin_patch_listening_test_status(
     authorization: str | None = Header(default=None),
 ):
     """Transition a listening_tests row between draft / published /
-    archived. Any-to-any direction allowed (Sprint 13.1 §D5 convention).
+    archived.
+
+    Sprint 13.4.3 — transitions to 'published' enforce the audio gate
+    via ``listening_audio.can_publish``: at least one of
+    ``full_audio_storage_path`` (mode=full_premixed) or
+    ``assembled_audio_storage_path`` (mode=parts_auto_assembled) must
+    be populated. Mode 'parts_only' is always blocked from publish.
     """
+    from services import listening_audio                                  # local import
+
     await require_admin(authorization)
 
     new_status = body.status.strip().lower()
@@ -2978,13 +2986,20 @@ async def admin_patch_listening_test_status(
 
     existing = (
         supabase_admin.table("listening_tests")
-        .select("id,status")
+        .select("*")
         .eq("id", test_id)
         .limit(1)
         .execute()
     )
     if not existing.data:
         raise HTTPException(404, "Test bundle not found")
+    current = existing.data[0]
+
+    # Sprint 13.4.3 publish gate.
+    if new_status == "published":
+        allowed, reason = listening_audio.can_publish(current)
+        if not allowed:
+            raise HTTPException(422, reason or "Không thể publish — kiểm tra audio.")
 
     res = (
         supabase_admin.table("listening_tests")
@@ -3240,3 +3255,382 @@ async def admin_convert_listening_commit(
         "failed_sections":   failed_sections,
         "failed_exercises":  failed_exercises,
     }
+
+
+# ── Sprint 13.4.3 — test bundle audio upload + assembly ─────────────────────
+
+
+_AUDIO_ASSEMBLY_MODES = {"full_premixed", "parts_auto_assembled", "parts_only"}
+
+
+class TestAudioModePatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: str
+
+
+class TestAudioAssembleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    narrator_voice_id: Optional[str] = None
+    narrator_model:    Optional[str] = None
+
+
+def _fetch_test_or_404(test_id: str) -> dict:
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("*")
+        .eq("id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Test bundle not found")
+    return res.data[0]
+
+
+def _upload_audio_to_bucket(storage_path: str, mp3_bytes: bytes) -> None:
+    """Wrapper around the Supabase Storage upload that surfaces a clean
+    503 when the bucket is missing (mirrors Sprint 13.2 + 13.3 helpers).
+    """
+    try:
+        supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).upload(
+            storage_path,
+            mp3_bytes,
+            {"content-type": "audio/mpeg", "x-upsert": "true"},
+        )
+    except Exception as exc:
+        msg = str(exc).lower()
+        if "not found" in msg or "bucket" in msg:
+            logger.error(
+                "[listening] storage bucket '%s' missing on audio upload",
+                settings.LISTENING_AUDIO_BUCKET,
+            )
+            raise HTTPException(503, "Listening audio storage not configured.")
+        # Some clients return 409 / 'duplicate' on re-upload — re-raise.
+        raise HTTPException(500, f"Storage upload failed: {exc}") from exc
+
+
+@admin_router.post("/tests/{test_id}/audio/full")
+async def admin_upload_test_full_audio(
+    test_id: str,
+    audio: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """Upload an Andy-pre-mixed 30-min audio for a Cambridge test bundle.
+
+    Sets ``listening_tests.full_audio_*`` columns + auto-sets
+    ``audio_assembly_mode='full_premixed'`` when previously NULL.
+    """
+    from services import listening_audio
+
+    await require_admin(authorization)
+    test = _fetch_test_or_404(test_id)
+
+    name = (audio.filename or "").lower()
+    if not name.endswith(".mp3"):
+        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+    data = audio.file.read()
+
+    result = listening_audio.validate_full_audio(data)
+    if result["errors"]:
+        raise HTTPException(422, "; ".join(result["errors"]))
+
+    storage_path = f"tests/{test_id}/full.mp3"
+    _upload_audio_to_bucket(storage_path, data)
+
+    update: dict = {
+        "full_audio_storage_path":     storage_path,
+        "full_audio_duration_seconds": result["duration_seconds"],
+        "full_audio_size_bytes":       result["size_bytes"],
+    }
+    if not test.get("audio_assembly_mode"):
+        update["audio_assembly_mode"] = "full_premixed"
+
+    (
+        supabase_admin.table("listening_tests")
+        .update(update)
+        .eq("id", test_id)
+        .execute()
+    )
+
+    signed = None
+    try:
+        s = supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET) \
+            .create_signed_url(storage_path, 3600)
+        signed = (s or {}).get("signedURL") or (s or {}).get("signed_url")
+    except Exception:                                                       # pragma: no cover
+        pass
+
+    return {
+        "full_audio_storage_path":     storage_path,
+        "full_audio_duration_seconds": result["duration_seconds"],
+        "full_audio_size_bytes":       result["size_bytes"],
+        "audio_assembly_mode":         update.get("audio_assembly_mode")
+                                       or test.get("audio_assembly_mode"),
+        "signed_url":                  signed,
+        "warnings":                    result["warnings"],
+    }
+
+
+@admin_router.post("/tests/{test_id}/audio/section/{section_num}")
+async def admin_upload_test_section_audio(
+    test_id: str,
+    section_num: int,
+    audio: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """Upload a per-section MP3 (3-8 min target) to a Cambridge test.
+
+    Updates the matching ``listening_content`` row's audio_* fields.
+    Auto-sets ``listening_tests.audio_assembly_mode='parts_only'`` when
+    previously NULL (Andy can promote to ``parts_auto_assembled`` later
+    via the mode PATCH).
+    """
+    from services import listening_audio
+
+    await require_admin(authorization)
+    if not (1 <= section_num <= 4):
+        raise HTTPException(422, "section_num must be 1-4")
+    test = _fetch_test_or_404(test_id)
+
+    name = (audio.filename or "").lower()
+    if not name.endswith(".mp3"):
+        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+    data = audio.file.read()
+
+    result = listening_audio.validate_section_audio(data)
+    if result["errors"]:
+        raise HTTPException(422, "; ".join(result["errors"]))
+
+    # Locate the section content row.
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("id")
+        .eq("test_id", test_id)
+        .eq("section_num", section_num)
+        .limit(1)
+        .execute()
+    )
+    if not sec_res.data:
+        raise HTTPException(
+            404,
+            f"Section {section_num} row missing — convert flow may not have "
+            f"created it. Re-run convert/commit before uploading.",
+        )
+    content_id = sec_res.data[0]["id"]
+
+    storage_path = f"tests/{test_id}/section-{section_num}.mp3"
+    _upload_audio_to_bucket(storage_path, data)
+
+    (
+        supabase_admin.table("listening_content")
+        .update({
+            "audio_storage_path":     storage_path,
+            "audio_duration_seconds": result["duration_seconds"],
+            "audio_size_bytes":       result["size_bytes"],
+        })
+        .eq("id", content_id)
+        .execute()
+    )
+
+    tests_update: dict = {}
+    if not test.get("audio_assembly_mode"):
+        tests_update["audio_assembly_mode"] = "parts_only"
+    # Any section change invalidates the cached assembled audio. We
+    # don't delete the file (preserve history) but null the path so the
+    # assemble endpoint re-renders on next click.
+    if test.get("assembled_audio_storage_path"):
+        tests_update["assembled_audio_storage_path"] = None
+        tests_update["assembled_audio_generated_at"] = None
+
+    if tests_update:
+        (
+            supabase_admin.table("listening_tests")
+            .update(tests_update)
+            .eq("id", test_id)
+            .execute()
+        )
+
+    return {
+        "content_id":             content_id,
+        "section_num":            section_num,
+        "audio_storage_path":     storage_path,
+        "audio_duration_seconds": result["duration_seconds"],
+        "audio_size_bytes":       result["size_bytes"],
+        "warnings":               result["warnings"],
+    }
+
+
+@admin_router.post("/tests/{test_id}/audio/assemble")
+async def admin_assemble_test_audio(
+    test_id: str,
+    body: TestAudioAssembleRequest = TestAudioAssembleRequest(),
+    authorization: str | None = Header(default=None),
+):
+    """Render narrator intros via ElevenLabs + concatenate the 4 section
+    audios + pauses into a single assembled-test MP3.
+
+    Requires:
+      * audio_assembly_mode in (NULL, 'parts_only', 'parts_auto_assembled')
+      * 4 listening_content rows with audio_storage_path populated
+      * ELEVENLABS_API_KEY configured (otherwise 503)
+      * ffmpeg installed in the runtime env (otherwise 500)
+    """
+    from services import listening_audio
+
+    await require_admin(authorization)
+    if not settings.ELEVENLABS_API_KEY:
+        raise HTTPException(
+            503,
+            "Assembly cần ELEVENLABS_API_KEY để render narrator. "
+            "Liên hệ ops để cấu hình.",
+        )
+
+    test = _fetch_test_or_404(test_id)
+
+    sections_res = (
+        supabase_admin.table("listening_content")
+        .select("id,section_num,audio_storage_path,metadata,updated_at")
+        .eq("test_id", test_id)
+        .order("section_num")
+        .execute()
+    )
+    rows = sections_res.data or []
+    by_section = {r["section_num"]: r for r in rows}
+    missing = [n for n in (1, 2, 3, 4) if not by_section.get(n)
+               or not by_section[n].get("audio_storage_path")]
+    if missing:
+        raise HTTPException(
+            422,
+            f"Section(s) {missing} chưa có audio — upload tất cả 4 parts "
+            f"trước khi assemble.",
+        )
+
+    # Idempotency: if assembled is fresher than every section update, skip.
+    last_generated = test.get("assembled_audio_generated_at")
+    if last_generated and test.get("assembled_audio_storage_path"):
+        try:
+            max_section_updated = max(r.get("updated_at") or "" for r in rows)
+            if max_section_updated and max_section_updated <= last_generated:
+                return {
+                    "assembled_audio_storage_path": test["assembled_audio_storage_path"],
+                    "duration_seconds":             None,
+                    "cue_points":                   test.get("cue_points") or [],
+                    "narrator_credit_estimate":     0,
+                    "cached":                       True,
+                }
+        except Exception:                                                   # pragma: no cover
+            pass
+
+    # Download the 4 section audios from storage.
+    section_audios: list[bytes] = []
+    narrator_intros: list[Any] = []
+    for n in (1, 2, 3, 4):
+        row = by_section[n]
+        try:
+            audio_bytes = supabase_admin.storage \
+                .from_(settings.LISTENING_AUDIO_BUCKET) \
+                .download(row["audio_storage_path"])
+        except Exception as exc:
+            raise HTTPException(
+                500,
+                f"Không tải được section {n} audio: {exc}",
+            ) from exc
+        section_audios.append(audio_bytes)
+        narrator_intros.append((row.get("metadata") or {}).get("narrator_intro"))
+
+    voice_id = (body.narrator_voice_id or listening_audio.DEFAULT_NARRATOR_VOICE).strip()
+    model    = (body.narrator_model or listening_audio.DEFAULT_NARRATOR_MODEL).strip()
+
+    try:
+        assembly = listening_audio.assemble_test_audio(
+            section_audios, narrator_intros,
+            narrator_voice_id=voice_id, narrator_model=model,
+        )
+    except Exception as exc:
+        logger.exception("Assembly failed for test %s", test_id)
+        raise HTTPException(
+            500,
+            f"Assembly thất bại: {exc}. Kiểm tra ffmpeg + ElevenLabs quota.",
+        ) from exc
+
+    storage_path = f"tests/{test_id}/assembled.mp3"
+    _upload_audio_to_bucket(storage_path, assembly.mp3_bytes)
+
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    (
+        supabase_admin.table("listening_tests")
+        .update({
+            "assembled_audio_storage_path": storage_path,
+            "assembled_audio_generated_at": now_iso,
+            "cue_points":                   assembly.cue_points,
+            "audio_assembly_mode":          "parts_auto_assembled",
+        })
+        .eq("id", test_id)
+        .execute()
+    )
+
+    return {
+        "assembled_audio_storage_path": storage_path,
+        "duration_seconds":             assembly.duration_seconds,
+        "cue_points":                   assembly.cue_points,
+        "narrator_credit_estimate":     assembly.narrator_credit_estimate,
+        "cached":                       False,
+    }
+
+
+@admin_router.patch("/tests/{test_id}/audio/mode")
+async def admin_patch_test_audio_mode(
+    test_id: str,
+    body: TestAudioModePatchRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Switch the audio assembly mode on a Cambridge test bundle.
+
+    Validation:
+      * ``full_premixed`` requires ``full_audio_storage_path`` populated.
+      * ``parts_auto_assembled`` requires all 4 section audios on
+        ``listening_content``.
+      * ``parts_only`` has no precondition (Sprint 13.6 cutter source).
+    """
+    await require_admin(authorization)
+    mode = (body.mode or "").strip().lower()
+    if mode not in _AUDIO_ASSEMBLY_MODES:
+        raise HTTPException(
+            422, f"mode must be one of {sorted(_AUDIO_ASSEMBLY_MODES)}",
+        )
+
+    test = _fetch_test_or_404(test_id)
+
+    if mode == "full_premixed":
+        if not test.get("full_audio_storage_path"):
+            raise HTTPException(
+                422,
+                "Mode 'full_premixed' yêu cầu full_audio_storage_path. "
+                "Upload full audio trước khi chuyển mode.",
+            )
+    elif mode == "parts_auto_assembled":
+        sec_res = (
+            supabase_admin.table("listening_content")
+            .select("section_num,audio_storage_path")
+            .eq("test_id", test_id)
+            .execute()
+        )
+        rows = sec_res.data or []
+        ready = {r["section_num"] for r in rows if r.get("audio_storage_path")}
+        if ready != {1, 2, 3, 4}:
+            missing = [n for n in (1, 2, 3, 4) if n not in ready]
+            raise HTTPException(
+                422,
+                f"Mode 'parts_auto_assembled' yêu cầu đủ 4 sections — "
+                f"thiếu section {missing}.",
+            )
+
+    (
+        supabase_admin.table("listening_tests")
+        .update({"audio_assembly_mode": mode})
+        .eq("id", test_id)
+        .execute()
+    )
+    return {"id": test_id, "audio_assembly_mode": mode}
