@@ -392,14 +392,43 @@
           </div>
         </div>
 
+        <!-- Sprint 13.5.5 — tab navigation (one tab per Section). The
+             JS controller hides the inactive panels by setting the
+             [hidden] attribute on every .ielts-section that doesn't
+             match the active tab. -->
+        <nav class="ielts-tabs" id="ft-tabs" role="tablist" aria-label="Test sections">
+          <button class="ielts-tab active" data-tab="1" type="button" role="tab" aria-selected="true">
+            <span class="tab-label">PART 1</span>
+            <span class="tab-progress" data-tab-progress="1">0/10</span>
+          </button>
+          <button class="ielts-tab" data-tab="2" type="button" role="tab" aria-selected="false">
+            <span class="tab-label">PART 2</span>
+            <span class="tab-progress" data-tab-progress="2">0/10</span>
+          </button>
+          <button class="ielts-tab" data-tab="3" type="button" role="tab" aria-selected="false">
+            <span class="tab-label">PART 3</span>
+            <span class="tab-progress" data-tab-progress="3">0/10</span>
+          </button>
+          <button class="ielts-tab" data-tab="4" type="button" role="tab" aria-selected="false">
+            <span class="tab-label">PART 4</span>
+            <span class="tab-progress" data-tab-progress="4">0/10</span>
+          </button>
+        </nav>
+
         <div id="ft-paper" style="display:flex;flex-direction:column;gap:var(--av-space-4);margin-top:var(--av-space-4);"></div>
 
-        <div class="ft-submit-bar" style="margin-top:var(--av-space-4);">
-          <span class="ft-progress-text">
-            Đã trả lời <strong id="ft-answered-foot">0</strong> / 40 câu
-          </span>
-          <button class="ft-control-btn" id="btn-submit" type="button">Nộp bài</button>
-        </div>
+        <!-- Sprint 13.5.5 — sticky bottom progress tracker.
+             40 squares (one per question) wired to onProgressSquareClick;
+             clicking switches tabs + scrolls to the input. -->
+        <footer class="ielts-progress-tracker" id="ft-progress-tracker">
+          <div class="ielts-progress-bar" id="ft-progress-bar" role="navigation" aria-label="Câu hỏi"></div>
+          <div class="ielts-progress-summary">
+            <span class="progress-count">
+              Đã trả lời <strong id="ft-answered-foot">0</strong> / 40 câu
+            </span>
+            <button class="btn-submit-final" id="btn-submit" type="button">Nộp bài</button>
+          </div>
+        </footer>
       </section>
 
       <!-- Result panel -->

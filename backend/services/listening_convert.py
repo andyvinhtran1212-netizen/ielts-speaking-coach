@@ -423,9 +423,15 @@ _TRANSCRIPT_HEADING_RE = re.compile(
 
 
 def parse_narrator_intro(section_text: str) -> str:
-    """Read the blockquote that follows ``**Audio intro (narrator):**``.
+    """Read the blockquote that follows ``**Audio intro (narrator):**``
+    and return it cleaned of audio production markers.
 
-    Joins consecutive ``> `` lines until the first non-blockquote line.
+    Joins consecutive ``> `` lines until the first non-blockquote line,
+    then strips delivery cues like ``[pause:30s]`` / ``[emotion:polite]``
+    so the cleaned text is safe to render to students. Sprint 13.5.5:
+    these markers leaked into the student player as raw bracket spans
+    before this. The raw transcript still preserves them for audio
+    production via ``metadata.raw_transcript``.
     """
     m = _NARRATOR_INTRO_HEADING_RE.search(section_text)
     if not m:
@@ -442,7 +448,8 @@ def parse_narrator_intro(section_text: str) -> str:
             lines.append(stripped.lstrip(">").strip())
             continue
         break
-    return " ".join(lines).strip()
+    joined = " ".join(lines).strip()
+    return strip_markers(joined) if joined else ""
 
 
 def extract_transcript(section_text: str) -> str:
@@ -736,7 +743,12 @@ def _extract_notes_template(body: str, in_range) -> dict[str, Any]:
         s = line.strip()
         if not s or not s.startswith(("-", "*", "+")):
             continue
+        # Sprint 13.5.5 — Andy's source markdown sometimes carries a
+        # leading Unicode bullet inside the markdown bullet
+        # (`- • Travellers …`) which rendered as a doubled bullet. Strip
+        # any leading Unicode bullet glyph after the markdown bullet.
         s_content = s.lstrip("-*+").strip()
+        s_content = re.sub(r"^[•·●○◦∙]\s*", "", s_content)
         gap_m = re.search(r"\*\*(\d{1,2})\*\*\s+_+\.?\s*(.*?)$", s_content)
         if gap_m:
             n = int(gap_m.group(1))
@@ -763,6 +775,12 @@ def _extract_summary_template(body: str, in_range) -> dict[str, Any]:
     # following blank lines, then take the next prose paragraph(s).
     bq_match = re.search(r"^>\s.*(?:\n>\s.*)*\n", body, re.MULTILINE)
     rest = body[bq_match.end():] if bq_match else body
+    # Sprint 13.5.5 — bound the paragraph at the first horizontal-rule
+    # separator so the END OF QUESTION PAPER footer (`**END OF QUESTION
+    # PAPER**` + Test ID + format-version lines) doesn't get slurped
+    # into Q40's context. Andy's canonical markdown uses `---` as the
+    # end-of-paper boundary.
+    rest = re.split(r"\n\s*-{3,}\s*(?:\n|$)", rest, maxsplit=1)[0]
     # Strip leading H4 if present — summary fixtures don't have one
     # but be defensive.
     rest = _BLOCK_H4_RE.sub("", rest, count=1).strip()

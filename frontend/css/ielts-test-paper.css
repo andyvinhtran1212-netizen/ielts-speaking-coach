@@ -330,3 +330,153 @@ select.ielts-gap-input {
   .ielts-table th,
   .ielts-table td { padding: var(--av-space-1) var(--av-space-2); font-size: 14px; }
 }
+
+
+/* ── Sprint 13.5.5 — tab navigation + sticky progress tracker ──── */
+
+.ielts-tabs {
+  display: flex;
+  gap: 0;
+  margin: var(--av-space-4) 0 0;
+  padding: 0;
+  border-bottom: 2px solid var(--ielts-paper-accent);
+  background: var(--ielts-paper-surface-alt);
+  /* Sprint 13.5.5: not position:sticky here — the existing .ft-sticky
+     audio bar already occupies top:0 with z-index:50 and would overlap.
+     The tabs scroll with the question paper; the progress tracker
+     (bottom) handles always-visible navigation. */
+}
+.ielts-tab {
+  flex: 1;
+  padding: var(--av-space-3) var(--av-space-2);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-family: var(--ielts-paper-serif);
+  font-size: 14px;
+  color: var(--ielts-paper-example);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ielts-tab .tab-label {
+  display: block;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.ielts-tab .tab-progress {
+  display: block;
+  font-size: 11px;
+  color: var(--ielts-paper-example);
+  margin-top: 4px;
+  font-family: var(--av-font-mono);
+}
+.ielts-tab:hover {
+  background: var(--ielts-paper-surface);
+  color: var(--ielts-paper-text);
+}
+.ielts-tab.active {
+  color: var(--ielts-paper-accent);
+  border-bottom-color: var(--ielts-paper-accent);
+  background: var(--ielts-paper-bg);
+}
+.ielts-tab.active .tab-progress { color: var(--ielts-paper-accent); }
+.ielts-tab:focus-visible {
+  outline: 2px solid var(--ielts-paper-accent);
+  outline-offset: -2px;
+}
+
+/* Inactive panels — the JS controller toggles [hidden] on every
+   .ielts-section that doesn't match the active tab. */
+.ielts-section[hidden] { display: none !important; }
+
+/* Sticky bottom progress tracker. */
+.ielts-progress-tracker {
+  position: sticky;
+  bottom: 0;
+  background: var(--ielts-paper-bg);
+  border-top: 2px solid var(--ielts-paper-accent);
+  padding: var(--av-space-3) var(--av-space-4);
+  margin-top: var(--av-space-4);
+  z-index: 10;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+}
+.ielts-progress-bar {
+  display: grid;
+  grid-template-columns: repeat(40, 1fr);
+  gap: 4px;
+  margin-bottom: var(--av-space-2);
+}
+.progress-square {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 22px;
+  border: 1px solid var(--ielts-paper-border);
+  background: var(--ielts-paper-surface-alt);
+  color: var(--ielts-paper-example);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--av-font-mono);
+  padding: 0;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.progress-square:hover {
+  transform: scale(1.12);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  z-index: 5;
+}
+.progress-square.answered {
+  background: var(--ielts-paper-accent);
+  color: #ffffff;
+  border-color: var(--ielts-paper-accent);
+}
+.progress-square.current {
+  outline: 2px solid var(--ielts-paper-accent);
+  outline-offset: 2px;
+}
+.ielts-progress-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.progress-count strong {
+  color: var(--ielts-paper-accent);
+  font-size: 16px;
+  font-family: var(--av-font-mono);
+}
+.btn-submit-final {
+  padding: var(--av-space-2) var(--av-space-5);
+  background: var(--ielts-paper-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--av-radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  font-family: var(--ielts-paper-serif);
+  font-size: 14px;
+}
+.btn-submit-final:hover { background: #2a4a6f; }
+.btn-submit-final:disabled {
+  background: var(--ielts-paper-example);
+  cursor: not-allowed;
+}
+
+/* Dark mode override for the new chrome. */
+[data-theme="dark"] .ielts-tabs { background: var(--ielts-paper-surface-alt); }
+[data-theme="dark"] .ielts-tab.active { background: var(--ielts-paper-bg); }
+[data-theme="dark"] .ielts-progress-tracker { background: var(--ielts-paper-bg); }
+[data-theme="dark"] .progress-square { background: var(--ielts-paper-surface-alt); }
+[data-theme="dark"] .btn-submit-final { color: var(--ielts-paper-bg); }
+
+/* Mobile — tabs collapse text, progress squares wrap to 10/row. */
+@media (max-width: 768px) {
+  .ielts-tabs { position: static; }
+  .ielts-tab .tab-label { font-size: 12px; letter-spacing: 0.05em; }
+  .ielts-tab .tab-progress { font-size: 10px; }
+  .ielts-progress-bar {
+    grid-template-columns: repeat(10, 1fr);
+    grid-auto-rows: auto;
+  }
+  .progress-square { min-height: 18px; font-size: 10px; }
+}

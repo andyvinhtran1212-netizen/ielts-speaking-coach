@@ -38,7 +38,18 @@ const STATE = {
   saveTimers:    new Map(),   // q_num → setTimeout handle
   inflight:      new Set(),   // q_nums mid-PATCH
   submitting:    false,
+  // Sprint 13.5.5 — tab navigation state + audio cue auto-advance.
+  activeTab:     1,
+  cuePointsByTab: new Map(), // tabNum → first cue timestamp (seconds)
 };
+
+// Q-number → section number mapping (Cambridge convention: 1-10 → s1,
+// 11-20 → s2, 21-30 → s3, 31-40 → s4). Used by the progress tracker
+// to assign squares to tabs.
+function sectionForQ(qNum) {
+  if (!Number.isFinite(qNum) || qNum < 1 || qNum > 40) return null;
+  return Math.floor((qNum - 1) / 10) + 1;
+}
 
 const VIEWS = {
   loading:   $('state-loading'),
@@ -177,6 +188,111 @@ function renderPaper() {
   root.innerHTML = out.join('');
   if (totalQs) { /* total Q count not displayed; preserve for future stats */ }
   attachQuestionHandlers();
+  // Sprint 13.5.5 — tab navigation: show only the active tab's section.
+  applyActiveTab();
+  // Sprint 13.5.5 — render the 40-square progress tracker.
+  renderProgressTracker();
+  attachTabHandlers();
+  attachProgressHandlers();
+}
+
+function applyActiveTab() {
+  const sections = document.querySelectorAll('#ft-paper .ielts-section');
+  sections.forEach((el) => {
+    const n = Number(el.getAttribute('data-section-num'));
+    el.hidden = (n !== STATE.activeTab);
+  });
+  document.querySelectorAll('#ft-tabs .ielts-tab').forEach((el) => {
+    const n = Number(el.getAttribute('data-tab'));
+    const isActive = (n === STATE.activeTab);
+    el.classList.toggle('active', isActive);
+    el.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+}
+
+function setActiveTab(tabNum) {
+  if (!Number.isInteger(tabNum) || tabNum < 1 || tabNum > 4) return;
+  if (STATE.activeTab === tabNum) return;
+  STATE.activeTab = tabNum;
+  applyActiveTab();
+  // Bring the new panel into view (under the sticky audio bar).
+  const panel = document.querySelector(
+    `#ft-paper .ielts-section[data-section-num="${tabNum}"]`,
+  );
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function attachTabHandlers() {
+  document.querySelectorAll('#ft-tabs .ielts-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const n = Number(btn.getAttribute('data-tab'));
+      setActiveTab(n);
+    });
+  });
+}
+
+// Sprint 13.5.5 — Cambridge-style auto-advance: when the audio enters
+// a new section's cue window, flip the question paper to that PART.
+// The user can still override by clicking another tab; auto-advance
+// only fires when the active tab is behind the audio (so a user who
+// clicks ahead to PART 4 while audio is still in PART 2 isn't yanked
+// backwards).
+function maybeAutoAdvanceTab(currentTime) {
+  if (!Number.isFinite(currentTime)) return;
+  let bestTab = STATE.activeTab;
+  for (const [tabNum, ts] of STATE.cuePointsByTab.entries()) {
+    if (currentTime + 0.5 >= ts && tabNum > bestTab) {
+      bestTab = tabNum;
+    }
+  }
+  if (bestTab !== STATE.activeTab) {
+    setActiveTab(bestTab);
+  }
+}
+
+
+// ── Progress tracker (40 squares + counter + submit) ────────────────
+
+function renderProgressTracker() {
+  const bar = $('ft-progress-bar');
+  if (!bar) return;
+  const html = [];
+  for (let q = 1; q <= 40; q++) {
+    const section = sectionForQ(q);
+    html.push(
+      `<button class="progress-square" type="button" `
+      + `data-q-num="${q}" data-section="${section}" `
+      + `title="Câu ${q} — Section ${section}" aria-label="Câu ${q}">${q}</button>`,
+    );
+  }
+  bar.innerHTML = html.join('');
+}
+
+function attachProgressHandlers() {
+  document.querySelectorAll('#ft-progress-bar .progress-square').forEach((sq) => {
+    sq.addEventListener('click', () => {
+      const q = Number(sq.getAttribute('data-q-num'));
+      const section = Number(sq.getAttribute('data-section'));
+      onProgressSquareClick(q, section);
+    });
+  });
+}
+
+function onProgressSquareClick(qNum, sectionNum) {
+  if (sectionNum && STATE.activeTab !== sectionNum) {
+    setActiveTab(sectionNum);
+  }
+  // After tab swap the input may not exist yet (renderPaper already
+  // wrote the panel, just hidden). Scroll + focus in a microtask so
+  // the hidden→visible toggle has flushed.
+  setTimeout(() => {
+    const input = document.querySelector(
+      `#ft-paper .ft-q-input[data-q-num="${qNum}"]`,
+    );
+    if (!input) return;
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (typeof input.focus === 'function') input.focus();
+  }, 80);
 }
 
 function sectionQuestionRange(sec) {
@@ -506,6 +622,28 @@ function updateAnsweredCount() {
   const b = $('ft-answered-foot');
   if (a) a.textContent = String(n);
   if (b) b.textContent = String(n);
+  // Sprint 13.5.5 — paint progress squares + per-tab counts.
+  updateProgressTrackerSquares();
+  updateTabProgressCounts();
+}
+
+function updateProgressTrackerSquares() {
+  document.querySelectorAll('#ft-progress-bar .progress-square').forEach((sq) => {
+    const q = Number(sq.getAttribute('data-q-num'));
+    sq.classList.toggle('answered', STATE.answers.has(q));
+  });
+}
+
+function updateTabProgressCounts() {
+  const perSection = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (const qNum of STATE.answers.keys()) {
+    const s = sectionForQ(qNum);
+    if (s) perSection[s] = (perSection[s] || 0) + 1;
+  }
+  for (const s of [1, 2, 3, 4]) {
+    const el = document.querySelector(`[data-tab-progress="${s}"]`);
+    if (el) el.textContent = `${perSection[s]}/10`;
+  }
 }
 
 
@@ -550,6 +688,25 @@ function mountAudio() {
   audio.crossOrigin = 'anonymous';
   STATE.audio = audio;
 
+  // Sprint 13.5.5 — index cue points by tab so timeupdate can lazily
+  // check whether to auto-advance the active tab (Cambridge-style:
+  // when the audio enters Section N, the question paper auto-switches
+  // to PART N).
+  STATE.cuePointsByTab = new Map();
+  const cuePoints = Array.isArray(STATE.test && STATE.test.cue_points)
+    ? STATE.test.cue_points : [];
+  for (const cue of cuePoints) {
+    if (cue && cue.type === 'section_start'
+        && Number.isFinite(cue.section_num)
+        && Number.isFinite(cue.timestamp_seconds)) {
+      // Keep the EARLIEST cue per tab in case a section has multiple.
+      const prev = STATE.cuePointsByTab.get(cue.section_num);
+      if (prev == null || cue.timestamp_seconds < prev) {
+        STATE.cuePointsByTab.set(cue.section_num, cue.timestamp_seconds);
+      }
+    }
+  }
+
   audio.addEventListener('loadedmetadata', () => {
     $('ft-total-time').textContent = fmtTime(audio.duration);
   });
@@ -557,6 +714,7 @@ function mountAudio() {
     $('ft-current-time').textContent = fmtTime(audio.currentTime);
     const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
     $('ft-audio-fill').style.width = `${pct}%`;
+    maybeAutoAdvanceTab(audio.currentTime);
   });
   audio.addEventListener('ended', () => {
     $('btn-playpause').textContent = '▶ Play';
