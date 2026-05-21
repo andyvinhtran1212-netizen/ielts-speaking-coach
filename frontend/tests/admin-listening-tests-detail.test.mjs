@@ -312,3 +312,108 @@ describe('Sprint 13.4.3.1 — backend mode toggle is soft', () => {
     assert.match(py, /listening_audio\.can_publish/);
   });
 });
+
+
+// ── Sprint 13.4.3.2 — drag/drop + audio preview + layout overflow fix ──────
+
+
+describe('Sprint 13.4.3.2 — drop-zone handlers wired (drag-and-drop)', () => {
+  const js = read('js', 'admin-listening-tests-detail.js');
+
+  test('attachDropZoneHandlers factory defined', () => {
+    assert.match(js, /function\s+attachDropZoneHandlers\s*\(\s*zoneEl\s*,\s*onFile\s*\)/);
+  });
+
+  test('binds all 4 dnd events with preventDefault', () => {
+    assert.match(js, /\['dragenter',\s*'dragover'\][\s\S]{0,200}?preventDefault/);
+    assert.match(js, /\['dragleave',\s*'drop'\][\s\S]{0,200}?preventDefault/);
+  });
+
+  test('drop branch extracts file from dataTransfer + .mp3 guard', () => {
+    assert.match(js, /e\.dataTransfer\s*&&\s*e\.dataTransfer\.files/);
+    assert.match(js, /Chỉ chấp nhận file \.mp3/);
+  });
+
+  test('init() wires dnd on the full-audio zone', () => {
+    assert.match(
+      js,
+      /attachDropZoneHandlers\(\s*\n?\s*document\.getElementById\(['"]td-zone-full['"]\),/,
+    );
+  });
+
+  test('renderPartsGrid() wires dnd per card (grid rebuilds on render)', () => {
+    const fn = js.match(/function renderPartsGrid[\s\S]+?^}/m);
+    assert.ok(fn, 'renderPartsGrid not found');
+    assert.match(fn[0], /attachDropZoneHandlers\(card,/);
+  });
+});
+
+
+describe('Sprint 13.4.3.2 — audio preview players render', () => {
+  const html = read('pages', 'admin', 'listening', 'tests-detail.html');
+  const js   = read('js', 'admin-listening-tests-detail.js');
+
+  test('html has preview slot for full + assembled audio', () => {
+    assert.match(html, /id=["']td-full-preview["']/);
+    assert.match(html, /id=["']td-assembled-preview["']/);
+  });
+
+  test('fetchTest pulls signed-url bundle from /audio/signed-urls', () => {
+    assert.match(
+      js,
+      /window\.api\.get\(\s*`?\/admin\/listening\/tests\/\$\{[^}]+\}\/audio\/signed-urls/,
+    );
+  });
+
+  test('renderFullAudio emits <audio controls> when signed URL available', () => {
+    assert.match(js, /<audio controls[\s\S]{0,200}?src=["']?\$\{escapeHtml\(signed\.signed_url\)\}/);
+  });
+
+  test('renderPartsGrid embeds per-section <audio controls>', () => {
+    const fn = js.match(/function renderPartsGrid[\s\S]+?^}/m)[0];
+    assert.match(fn, /<audio controls/);
+    assert.match(fn, /signed\.signed_url/);
+  });
+
+  test('renderAssembledPreview function exists + emits <audio>', () => {
+    assert.match(js, /function\s+renderAssembledPreview\s*\(\)/);
+    const fn = js.match(/function renderAssembledPreview[\s\S]+?^}/m)[0];
+    assert.match(fn, /<audio controls/);
+  });
+
+  test('"Tải lại audio" button re-triggers the file picker', () => {
+    assert.match(js, /Tải lại audio/);
+    assert.match(js, /td-file-full['"]\)\.click\(\)/);
+  });
+});
+
+
+describe('Sprint 13.4.3.2 — section card grid no longer overflows', () => {
+  const html = read('pages', 'admin', 'listening', 'tests-detail.html');
+
+  test('parts grid wrapper sets min-width:0', () => {
+    assert.match(html, /\.td-parts-grid[\s\S]{0,300}?min-width:\s*0/);
+  });
+
+  test('grid children also min-width:0 (override default auto)', () => {
+    assert.match(html, /\.td-parts-grid\s*>\s*\*\s*\{\s*min-width:\s*0/);
+  });
+
+  test('long file-meta + section-meta text wraps inside cards', () => {
+    assert.match(
+      html,
+      /word-break:\s*break-word[\s\S]{0,150}?overflow-wrap:\s*anywhere/,
+    );
+  });
+
+  test('mobile media query stacks cards below 768px', () => {
+    assert.match(
+      html,
+      /@media\s*\(\s*max-width:\s*768px\s*\)\s*\{\s*\.td-parts-grid\s*\{\s*grid-template-columns:\s*1fr/,
+    );
+  });
+
+  test('audio player CSS keeps controls at full card width', () => {
+    assert.match(html, /\.td-audio-player\s*\{\s*width:\s*100%/);
+  });
+});

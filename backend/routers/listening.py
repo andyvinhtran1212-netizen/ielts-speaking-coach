@@ -3613,3 +3613,70 @@ async def admin_patch_test_audio_mode(
         .execute()
     )
     return {"id": test_id, "audio_assembly_mode": mode}
+
+
+@admin_router.get("/tests/{test_id}/audio/signed-urls")
+async def admin_get_test_audio_signed_urls(
+    test_id: str,
+    expires_in: int = Query(default=3600, ge=60, le=86400),
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.4.3.2 — bundle signed URLs for admin preview of a test
+    bundle's audio assets.
+
+    Returns ``{full, assembled, sections: [{section_num, signed_url}, ...]}``
+    with ``signed_url=None`` for any asset that doesn't exist yet. One
+    round-trip per page render — the previous design forced N+1 fetches
+    (one per asset) which slowed the tests-detail page on cold load.
+
+    ``expires_in`` is in seconds (default 1h, max 24h).
+    """
+    await require_admin(authorization)
+    test = _fetch_test_or_404(test_id)
+
+    bucket = supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET)
+
+    def _sign(path: str | None) -> str | None:
+        if not path:
+            return None
+        try:
+            res = bucket.create_signed_url(path, expires_in)
+        except Exception as exc:                                            # pragma: no cover
+            logger.warning("[listening] signed URL mint failed for %s: %s", path, exc)
+            return None
+        return (res or {}).get("signedURL") or (res or {}).get("signed_url")
+
+    sections_res = (
+        supabase_admin.table("listening_content")
+        .select("section_num,audio_storage_path")
+        .eq("test_id", test_id)
+        .order("section_num")
+        .execute()
+    )
+    section_signed = []
+    for n in (1, 2, 3, 4):
+        row = next(
+            (r for r in (sections_res.data or []) if r.get("section_num") == n),
+            None,
+        )
+        section_signed.append({
+            "section_num":         n,
+            "audio_storage_path":  (row or {}).get("audio_storage_path"),
+            "signed_url":          _sign((row or {}).get("audio_storage_path")),
+        })
+
+    return {
+        "full": {
+            "audio_storage_path": test.get("full_audio_storage_path"),
+            "signed_url":         _sign(test.get("full_audio_storage_path")),
+            "duration_seconds":   test.get("full_audio_duration_seconds"),
+            "size_bytes":         test.get("full_audio_size_bytes"),
+        },
+        "assembled": {
+            "audio_storage_path": test.get("assembled_audio_storage_path"),
+            "signed_url":         _sign(test.get("assembled_audio_storage_path")),
+            "generated_at":       test.get("assembled_audio_generated_at"),
+        },
+        "sections":   section_signed,
+        "expires_in": expires_in,
+    }
