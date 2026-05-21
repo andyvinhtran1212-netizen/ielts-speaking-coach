@@ -179,7 +179,10 @@ function renderMapImagesPanel() {
   panel.hidden = false;
   host.innerHTML = plExercises.map((ex) => {
     const has = ex.has_map_image;
-    const model = ex.map_image_model || 'imagen-4.0-fast-generate-001';
+    // Sprint 13.5.9.2 — default selector to Nano Banana 2 (Andy 2026-05-21
+    // lock). The previous default (imagen-4.0-fast) couldn't follow
+    // letter-placement instructions reliably for IELTS plan-label maps.
+    const model = ex.map_image_model || 'gemini-3.1-flash-image-preview';
     const desc  = (ex.map_description || '').trim();
     // Sprint 13.5.9 — surface Andy's curated prompt (when the parser
     // pulled one from a `<details>` block) and the source actually used
@@ -255,9 +258,12 @@ function renderMapImagesPanel() {
           <label style="font-size:var(--av-fs-sm);">
             Model:
             <select class="td-map-model" data-exercise-id="${escapeHtml(ex.id)}">
-              <option value="imagen-4.0-fast-generate-001"${model === 'imagen-4.0-fast-generate-001' ? ' selected' : ''}>Imagen 4 Fast — $0.02 (recommend)</option>
-              <option value="imagen-4.0-generate-001"${model === 'imagen-4.0-generate-001' ? ' selected' : ''}>Imagen 4 Standard — $0.04</option>
-              <option value="gemini-2.5-flash-image"${model === 'gemini-2.5-flash-image' ? ' selected' : ''}>Gemini 2.5 Flash Image — $0.039</option>
+              <option value="gemini-3.1-flash-image-preview"${model === 'gemini-3.1-flash-image-preview' ? ' selected' : ''}>Gemini 3.1 Flash Image (Nano Banana 2) — $0.067 ⭐ DEFAULT</option>
+              <option value="gemini-3-pro-image-preview"${model === 'gemini-3-pro-image-preview' ? ' selected' : ''}>Gemini 3 Pro Image (Nano Banana Pro) — $0.134 (premium quality)</option>
+              <option value="imagen-4.0-ultra-generate-001"${model === 'imagen-4.0-ultra-generate-001' ? ' selected' : ''}>Imagen 4 Ultra — $0.06 (publication-grade max fidelity)</option>
+              <option value="imagen-4.0-generate-001"${model === 'imagen-4.0-generate-001' ? ' selected' : ''}>Imagen 4 Standard — $0.04 (general-purpose)</option>
+              <option value="imagen-4.0-fast-generate-001"${model === 'imagen-4.0-fast-generate-001' ? ' selected' : ''}>Imagen 4 Fast — $0.02 (cheapest, basic)</option>
+              <option value="gemini-2.5-flash-image"${model === 'gemini-2.5-flash-image' ? ' selected' : ''}>Gemini 2.5 Flash Image (Nano Banana) — $0.039 ⚠️ deprecated 2026-10-02</option>
             </select>
           </label>
           ${has
@@ -362,6 +368,21 @@ async function refreshMapImage(exerciseId) {
   }
 }
 
+// Sprint 13.5.9.2 — keep the per-model price table in sync with the
+// backend SUPPORTED_MODELS registry so the confirmation dialog quotes
+// the right cost. Refer to ``backend/services/listening_map_image.py``
+// — when prices change there, update this map too.
+const MAP_IMAGE_MODEL_PRICING = {
+  'gemini-3.1-flash-image-preview': 0.067,
+  'gemini-3-pro-image-preview':     0.134,
+  'imagen-4.0-ultra-generate-001':  0.06,
+  'imagen-4.0-generate-001':        0.04,
+  'imagen-4.0-fast-generate-001':   0.02,
+  'gemini-2.5-flash-image':         0.039,
+};
+
+const MAP_IMAGE_DEPRECATED_MODELS = new Set(['gemini-2.5-flash-image']);
+
 async function onGenerateMapImage(exerciseId) {
   const sel = document.querySelector(`select.td-map-model[data-exercise-id="${exerciseId}"]`);
   const model = sel ? sel.value : null;
@@ -370,12 +391,28 @@ async function onGenerateMapImage(exerciseId) {
   // (not persisted back to markdown).
   const customPromptOverride = readCustomPromptOverride(exerciseId);
   const promptChars = customPromptOverride ? customPromptOverride.length : 0;
+  // Sprint 13.5.9.2 — cost preview reads from the per-model table so
+  // Andy sees the exact charge for the selected model (was a fixed
+  // "$0.02-0.04" copy under 13.5.9.1, which under-quoted the new
+  // Gemini 3.x default). The deprecation warning surfaces inline so
+  // a stale option pick isn't a silent footgun.
+  const cost = MAP_IMAGE_MODEL_PRICING[model] != null
+    ? MAP_IMAGE_MODEL_PRICING[model]
+    : 0.05;
+  const deprecatedWarning = MAP_IMAGE_DEPRECATED_MODELS.has(model)
+    ? '\n\n⚠️ Model này deprecated 2026-10-02. Cân nhắc đổi sang Nano Banana 2 / Pro.'
+    : '';
   // Confirmation gate — cost guardrail + accuracy verification. The
   // dialog spells out the prompt source so Andy can't accidentally
   // burn an API call with the wrong prompt.
-  const confirmMsg = customPromptOverride
-    ? `Generate hình map với custom prompt (${promptChars} chars) qua model ${model || 'default'}? Cost ~$0.02-0.04.`
-    : `Generate hình map với template prompt (no <details> block trong markdown) qua model ${model || 'default'}? Cost ~$0.02-0.04.`;
+  const sourceLine = customPromptOverride
+    ? `custom prompt (${promptChars} chars)`
+    : 'template prompt (no <details> block trong markdown)';
+  const confirmMsg =
+    `Generate hình map với ${sourceLine}?\n\n`
+    + `Model: ${model || 'default'}\n`
+    + `Cost ước tính: ~$${cost.toFixed(3)}`
+    + deprecatedWarning;
   if (!window.confirm(confirmMsg)) return;
   setMapStatus(exerciseId, 'Đang generate (10-30s)…', false);
   try {

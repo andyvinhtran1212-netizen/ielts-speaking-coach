@@ -92,11 +92,15 @@ class Settings(BaseSettings):
     # student player renders the signed URL inline so the map is part
     # of the test paper rather than a text-only description.
     #   * LISTENING_MAP_IMAGE_MODEL — primary model id; the service
-    #     falls back to gemini-2.5-flash-image if this fails.
+    #     walks ``services.listening_map_image.FALLBACK_CHAIN`` on
+    #     failure (Pro → legacy 2.5 Flash).
     #   * LISTENING_IMAGES_BUCKET — Supabase Storage bucket holding the
     #     generated PNGs (created in the dashboard, Private, with admin
     #     write + authenticated read policies).
-    LISTENING_MAP_IMAGE_MODEL: str = "imagen-4.0-fast-generate-001"
+    # Sprint 13.5.9.2 — Andy 2026-05-21 lock: Nano Banana 2 as the
+    # cluster default. 95% of Pro quality at half the cost; ranks #1
+    # AI Arena text-to-image. Override per environment via env var.
+    LISTENING_MAP_IMAGE_MODEL: str = "gemini-3.1-flash-image-preview"
     LISTENING_IMAGES_BUCKET: str = "listening-images"
 
     # Sprint 11.2 — IELTS-friendly default voices locked during the
