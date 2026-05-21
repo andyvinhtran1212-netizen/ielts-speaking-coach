@@ -785,3 +785,236 @@ def test_convert_commit_rejects_duplicate_test_id(monkeypatch):
         ))
     assert excinfo.value.status_code == 422
     assert "đã tồn tại" in str(excinfo.value.detail)
+
+
+# ── Sprint 13.5.2 — structural context preservation ───────────────────────
+
+
+def _qp_blocks_for_range(section_text: str, lo: int, hi: int) -> dict:
+    return next(
+        b for b in lc.parse_question_blocks(section_text)
+        if b["q_range"] == (lo, hi)
+    )
+
+
+def test_classify_instruction_returns_tuple_qtype_and_template_kind():
+    """Sprint 13.5.2 — _classify_instruction now returns a (q_type,
+    template_kind) tuple so the renderer can pick a fine-grained
+    layout while grading keeps the coarse q_type semantics.
+    """
+    assert lc._classify_instruction("Complete the form below.") == (
+        "dictation_gap_fill", "form_completion",
+    )
+    assert lc._classify_instruction("Complete the table below.") == (
+        "dictation_gap_fill", "table_completion",
+    )
+    assert lc._classify_instruction("Complete the notes below.") == (
+        "dictation_gap_fill", "notes_completion",
+    )
+    assert lc._classify_instruction("Complete the sentences below.") == (
+        "dictation_gap_fill", "sentence_completion",
+    )
+    assert lc._classify_instruction("Complete the summary below.") == (
+        "dictation_gap_fill", "summary_completion",
+    )
+    assert lc._classify_instruction("Choose the correct letter, A, B or C.") == (
+        "mcq_3option", "mcq_3option",
+    )
+    assert lc._classify_instruction("Label the plan below.") == (
+        "mcq_letter_label", "plan_label",
+    )
+    assert lc._classify_instruction("Answer the questions.") == (
+        "dictation_short_answer", "short_answer",
+    )
+    assert lc._classify_instruction("Anything random.") == ("unknown", "unknown")
+
+
+def test_form_template_preserves_labels_examples_and_numbered_gaps():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[1], 1, 6)
+    assert block["template_kind"] == "form_completion"
+    tmpl = block["template"]
+    assert tmpl["heading"] == "RIVERSIDE COOKERY SCHOOL — ENROLMENT FORM"
+    rows = tmpl["rows"]
+    # Two example rows + six numbered rows = 8 total.
+    labels = [r["label"] for r in rows]
+    assert "Name" in labels
+    assert "City" in labels
+    assert "Cost (with early-bird discount)" in labels
+    examples = [r for r in rows if "example" in r]
+    assert any("Daniel Brennan" in r["example"] for r in examples)
+    gaps = {r["q_num"] for r in rows if "q_num" in r}
+    assert gaps == {1, 2, 3, 4, 5, 6}
+    # The £-prefix row preserves the prefix so the renderer can echo it.
+    cost_row = next(r for r in rows if r["label"].startswith("Cost"))
+    assert cost_row.get("prefix") in ("£", "")
+
+
+def test_table_template_extracts_headers_and_gap_cells():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[1], 7, 8)
+    assert block["template_kind"] == "table_completion"
+    tmpl = block["template"]
+    assert tmpl["heading"] == "8-WEEK BEGINNER COURSE CONTENT"
+    assert tmpl["headers"] == ["Week", "Topic"]
+    rows = tmpl["rows"]
+    # Knife skills row, then two rows with gap cells.
+    assert ["Week 1", "Knife skills"] in rows
+    gap_q_nums = []
+    for r in rows:
+        for c in r:
+            if isinstance(c, dict) and "q_num" in c:
+                gap_q_nums.append(c["q_num"])
+    assert sorted(gap_q_nums) == [7, 8]
+
+
+def test_table_template_separator_row_skipped():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[1], 7, 8)
+    rows = block["template"]["rows"]
+    # The `|---|---|` separator must NOT appear as a data row.
+    assert all("---" not in c for r in rows for c in r if isinstance(c, str))
+
+
+def test_short_answer_template_is_empty_questions_carry_prompts():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[1], 9, 10)
+    assert block["template_kind"] == "short_answer"
+    assert block["template"] == {}
+    prompts = {q["q_num"]: q["prompt"] for q in block["questions"]}
+    assert "free of charge" in prompts[9]
+    assert "maximum" in prompts[10]
+
+
+def test_mcq_template_is_empty_options_live_on_questions():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[2], 11, 15)
+    assert block["template_kind"] == "mcq_3option"
+    assert block["template"] == {}
+    q11 = next(q for q in block["questions"] if q["q_num"] == 11)
+    assert [o["letter"] for o in q11["options"]] == ["A", "B", "C"]
+
+
+def test_plan_label_template_is_empty_metadata_carries_context():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[2], 16, 20)
+    assert block["template_kind"] == "plan_label"
+    assert block["template"] == {}
+    assert block["metadata"]["letter_options"] == list("ABCDEFGH")
+    assert "Floor plan" in block["metadata"]["map_description"]
+
+
+def test_sentence_template_captures_prefix_inline_gap_and_suffix():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[3], 27, 30)
+    assert block["template_kind"] == "sentence_completion"
+    sentences = block["template"]["sentences"]
+    by_q = {s["q_num"]: s for s in sentences}
+    assert set(by_q) == {27, 28, 29, 30}
+    assert "interviews will be conducted in" in by_q[27]["prefix"]
+    # Q28 suffix should mention "minutes".
+    assert "minutes" in by_q[28]["suffix"]
+
+
+def test_notes_template_collects_bullet_items_with_gap_metadata():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[4], 31, 34)
+    assert block["template_kind"] == "notes_completion"
+    tmpl = block["template"]
+    assert tmpl["heading"] == "LECTURE — HISTORY OF PUBLIC LIGHTING"
+    items = tmpl["groups"][0]["items"]
+    by_q = {it["q_num"]: it for it in items if isinstance(it, dict) and "q_num" in it}
+    assert set(by_q) == {31, 32, 33, 34}
+    assert "First gas lights installed" in by_q[31]["prefix"]
+    assert "Whale oil was used" in by_q[32]["prefix"]
+
+
+def test_summary_template_tokenises_inline_gaps_into_qn_placeholders():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[4], 38, 40)
+    assert block["template_kind"] == "summary_completion"
+    paragraph = block["template"]["paragraph"]
+    assert "{{Q38}}" in paragraph
+    assert "{{Q39}}" in paragraph
+    assert "{{Q40}}" in paragraph
+    # The replacement leaves no stray `**38**` or trailing `____` runs.
+    assert "**38**" not in paragraph
+    assert "____" not in paragraph
+    # The surrounding prose survives.
+    assert "smart" in paragraph
+    assert "sensors detect" in paragraph
+
+
+def test_build_exercises_payload_carries_template_kind_and_template():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    blocks = lc.parse_question_blocks(sections[1])
+    keys = lc.parse_answer_keys(SCRIPT_ANSWERKEY_MD)
+    exercises = lc.build_exercises(blocks, keys[1], section_num=1)
+    # Block 1: form, Block 2: table, Block 3: short_answer.
+    kinds = [e["payload"]["template_kind"] for e in exercises]
+    assert kinds == ["form_completion", "table_completion", "short_answer"]
+    form = exercises[0]["payload"]
+    assert form["template"]["heading"].startswith("RIVERSIDE COOKERY SCHOOL")
+    table = exercises[1]["payload"]
+    assert table["template"]["headers"] == ["Week", "Topic"]
+    # Short-answer has an empty template — payload should NOT carry a
+    # `template` key (build_exercises only writes it when non-empty).
+    assert "template" not in exercises[2]["payload"]
+
+
+def test_build_exercises_section_4_template_kinds_match_layouts():
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    blocks = lc.parse_question_blocks(sections[4])
+    keys = lc.parse_answer_keys(SCRIPT_ANSWERKEY_MD)
+    exercises = lc.build_exercises(blocks, keys[4], section_num=4)
+    kinds = [e["payload"]["template_kind"] for e in exercises]
+    assert kinds == [
+        "notes_completion",
+        "sentence_completion",
+        "summary_completion",
+    ]
+
+
+def test_template_kind_unknown_when_instruction_unrecognised():
+    fake_section_text = (
+        "## SECTION 1\n\n"
+        "### Questions 1-2\n\n"
+        "> Random instruction that does not match any hint.\n\n"
+        "**1.** Foo? ___________\n"
+        "**2.** Bar? ___________\n"
+    )
+    blocks = lc.parse_question_blocks(fake_section_text)
+    assert blocks[0]["q_type"] == "unknown"
+    assert blocks[0]["template_kind"] == "unknown"
+    assert blocks[0]["template"] == {}
+
+
+def test_form_template_skips_example_rows_from_gap_set():
+    """Example rows must NEVER appear in the gap set even if their
+    bullets sit between two numbered rows. Sprint 13.5.2 regression
+    guard against the "_Daniel Brennan (Example)_" leaking as Q-number.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[1], 1, 6)
+    rows = block["template"]["rows"]
+    examples = [r for r in rows if "example" in r]
+    assert len(examples) == 2
+    for ex in examples:
+        assert "q_num" not in ex
+
+
+def test_table_template_empty_when_no_table_present():
+    """When a `complete the table` instruction is paired with no
+    markdown table (parser tolerance), the template returns empty
+    headers/rows rather than crashing.
+    """
+    fake_section_text = (
+        "## SECTION 1\n\n"
+        "### Questions 7-8\n\n"
+        "> Complete the table below.\n\n"
+        "(table missing)\n"
+    )
+    blocks = lc.parse_question_blocks(fake_section_text)
+    block = next(b for b in blocks if b["q_range"] == (7, 8))
+    assert block["template_kind"] == "table_completion"
+    assert block["template"] == {"heading": "", "headers": [], "rows": []}

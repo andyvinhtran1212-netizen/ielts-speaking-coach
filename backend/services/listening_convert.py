@@ -470,31 +470,44 @@ _QUESTION_BLOCK_RE = re.compile(
 _BLOCKQUOTE_LINE_RE = re.compile(r"^>\s?(.*)$", re.MULTILINE)
 
 
-_INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str]] = [
+_INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
+    # (regex, q_type, template_kind)
+    # q_type drives grading semantics (per-question match strategy).
+    # template_kind drives the renderer layout — Sprint 13.5.2 adds the
+    # finer split so the gap-fill family stops collapsing 5 distinct
+    # IELTS layouts into one generic form.
     (re.compile(r"label the (?:plan|diagram|map)", re.IGNORECASE),
-        "mcq_letter_label"),
+        "mcq_letter_label",        "plan_label"),
     (re.compile(r"choose the correct letter", re.IGNORECASE),
-        "mcq_3option"),
+        "mcq_3option",             "mcq_3option"),
     (re.compile(r"answer the questions?", re.IGNORECASE),
-        "dictation_short_answer"),
+        "dictation_short_answer",  "short_answer"),
     (re.compile(r"complete the form", re.IGNORECASE),
-        "dictation_gap_fill"),
+        "dictation_gap_fill",      "form_completion"),
     (re.compile(r"complete the table", re.IGNORECASE),
-        "dictation_gap_fill"),
+        "dictation_gap_fill",      "table_completion"),
     (re.compile(r"complete the notes?", re.IGNORECASE),
-        "dictation_gap_fill"),
+        "dictation_gap_fill",      "notes_completion"),
     (re.compile(r"complete the sentences?", re.IGNORECASE),
-        "dictation_gap_fill"),
+        "dictation_gap_fill",      "sentence_completion"),
     (re.compile(r"complete the summary", re.IGNORECASE),
-        "dictation_gap_fill"),
+        "dictation_gap_fill",      "summary_completion"),
 ]
 
 
-def _classify_instruction(instruction: str) -> str:
-    for pattern, slug in _INSTRUCTION_HINTS:
+def _classify_instruction(instruction: str) -> tuple[str, str]:
+    """Classify a block's instruction blockquote.
+
+    Returns ``(q_type, template_kind)``. ``q_type`` keeps grading
+    semantics ("dictation_gap_fill" etc.); ``template_kind`` is the
+    fine-grained layout ("form_completion", "table_completion",
+    "notes_completion", "summary_completion", "sentence_completion",
+    "short_answer", "mcq_3option", "plan_label"). Sprint 13.5.2.
+    """
+    for pattern, q_slug, t_slug in _INSTRUCTION_HINTS:
         if pattern.search(instruction):
-            return slug
-    return "unknown"
+            return q_slug, t_slug
+    return "unknown", "unknown"
 
 
 # Bullet-style gap fill: "- Field: **N** ___________"
@@ -535,6 +548,31 @@ _EXAMPLE_ITALIC_RE = re.compile(r"_[^_]*\(Example\)[^_]*_", re.IGNORECASE)
 # Summary-style inline gap: "...word **N** ___________ word..."
 _INLINE_NUM_GAP_RE = re.compile(r"\*\*(\d{1,2})\*\*\s+_+")
 
+# H4 heading inside a block — used as the form/table/notes title.
+_BLOCK_H4_RE = re.compile(r"^\s*####\s+(.+?)\s*$", re.MULTILINE)
+
+# Markdown table row: "| cell | cell |".
+_TABLE_ROW_RE = re.compile(r"^\s*\|(.+)\|\s*$", re.MULTILINE)
+_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*-+\s*(\|\s*-+\s*)+\|?\s*$")
+
+# Form bullet that ALSO captures whether the value slot is a literal
+# "(Example)" italic block (Daniel Brennan) vs a numbered gap "**N**".
+_FORM_BULLET_LINE_RE = re.compile(
+    r"^\s*[-*+]\s+(.+?)\s*[:：]\s*(.+?)\s*$",
+    re.MULTILINE,
+)
+
+# Sentence-style row anchored on `**N.** prefix **N** ___ suffix.` —
+# captures the surrounding text so the renderer can show the full
+# sentence with an inline gap. Two shapes seen in Andy's canonical
+# fixture:
+#   `**27.** The interviews will be conducted in **27** ___.`
+#   `**35.** A drawback was their **35** ___.`
+_SENTENCE_INLINE_RE = re.compile(
+    r"^[ \t]*\*\*(\d{1,2})\.\*\*[ \t]+(.*?)\*\*\1\*\*[ \t]+_+\.?[ \t]*(.*?)[ \t]*$",
+    re.MULTILINE,
+)
+
 
 def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
     """Parse one Question Paper section into a list of question-block dicts.
@@ -556,7 +594,7 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
         body = qp_section_text[start:end]
 
         instruction = _first_blockquote(body)
-        q_type = _classify_instruction(instruction)
+        q_type, template_kind = _classify_instruction(instruction)
 
         meta: dict[str, Any] = {}
         if q_type == "mcq_letter_label":
@@ -564,15 +602,196 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
             meta["letter_options"] = list("ABCDEFGH")
 
         questions = _extract_questions(body, q_type, lo, hi)
+        template = _extract_template(body, template_kind, lo, hi)
 
         out.append({
-            "q_range":     (lo, hi),
-            "instruction": instruction,
-            "q_type":      q_type,
-            "questions":   questions,
-            "metadata":    meta,
+            "q_range":       (lo, hi),
+            "instruction":   instruction,
+            "q_type":        q_type,
+            "template_kind": template_kind,
+            "template":      template,
+            "questions":     questions,
+            "metadata":      meta,
         })
     return out
+
+
+# ── Structural template extractors (Sprint 13.5.2) ─────────────────────────
+
+
+def _extract_template(
+    body: str, template_kind: str, q_lo: int, q_hi: int,
+) -> dict[str, Any]:
+    """Extract layout-specific structural context for the renderer.
+
+    Returns a dict with keys that depend on ``template_kind``:
+
+      form_completion     → {heading, rows: [{label, q_num | example}]}
+      table_completion    → {heading, headers, rows: [[cell, …]]}
+      notes_completion    → {heading, groups: [{heading?, items: [str]}]}
+      sentence_completion → {sentences: [{q_num, prefix, suffix}]}
+      summary_completion  → {paragraph: "<text with {{Q38}} tokens>"}
+      mcq_3option         → {} (questions[] carry their own context)
+      plan_label          → {} (metadata.map_description carries context)
+      short_answer        → {} (questions[].prompt is enough)
+
+    Each extractor is tolerant of missing structure; if the parser
+    cannot find a clean template it returns an empty/empty-list value
+    and the frontend falls back to the legacy gap-input layout.
+    """
+    in_range = lambda n: q_lo <= n <= q_hi      # noqa: E731
+    body_no_example = _EXAMPLE_ITALIC_RE.sub("", body)
+
+    if template_kind == "form_completion":
+        return _extract_form_template(body, in_range)
+    if template_kind == "table_completion":
+        return _extract_table_template(body_no_example, in_range)
+    if template_kind == "notes_completion":
+        return _extract_notes_template(body_no_example, in_range)
+    if template_kind == "summary_completion":
+        return _extract_summary_template(body_no_example, in_range)
+    if template_kind == "sentence_completion":
+        return _extract_sentence_template(body_no_example, in_range)
+    return {}
+
+
+def _block_h4(body: str) -> str:
+    m = _BLOCK_H4_RE.search(body)
+    return m.group(1).strip() if m else ""
+
+
+def _extract_form_template(body: str, in_range) -> dict[str, Any]:
+    """Form completion — collect labelled rows. Examples are preserved
+    as ``{label, example}`` so the renderer can render them grey, and
+    numbered gaps as ``{label, q_num}``.
+    """
+    rows: list[dict[str, Any]] = []
+    for m in _FORM_BULLET_LINE_RE.finditer(body):
+        label = m.group(1).strip()
+        value = m.group(2).strip()
+        # Skip the H4 inside the body (regex above won't match it but be
+        # defensive).
+        if label.startswith("####"):
+            continue
+        example_m = re.match(r"^_([^_]+)\(Example\)[^_]*_", value, re.IGNORECASE)
+        if example_m:
+            rows.append({"label": label, "example": example_m.group(1).strip()})
+            continue
+        gap_m = re.search(r"\*\*(\d{1,2})\*\*", value)
+        if gap_m:
+            n = int(gap_m.group(1))
+            if in_range(n):
+                # Preserve any prefix text before the bold number (e.g. "£").
+                prefix = value[: gap_m.start()].strip()
+                rows.append({
+                    "label":  label,
+                    "q_num":  n,
+                    "prefix": prefix,
+                })
+                continue
+        # Anything else (rare in canonical fixtures) — preserve as text.
+        rows.append({"label": label, "text": value})
+    return {"heading": _block_h4(body), "rows": rows}
+
+
+def _extract_table_template(body: str, in_range) -> dict[str, Any]:
+    """Table completion — slurp the markdown table into headers + rows.
+    A gap cell containing ``N ………`` is normalised to a ``{q_num}`` dict.
+    """
+    table_rows: list[list[str]] = []
+    for m in _TABLE_ROW_RE.finditer(body):
+        line = m.group(0).strip()
+        if _TABLE_SEPARATOR_RE.match(line):
+            continue
+        cells = [c.strip() for c in m.group(1).split("|")]
+        table_rows.append(cells)
+    if not table_rows:
+        return {"heading": _block_h4(body), "headers": [], "rows": []}
+    headers, body_rows = table_rows[0], table_rows[1:]
+    out_rows: list[list[Any]] = []
+    for row in body_rows:
+        cells_out: list[Any] = []
+        for cell in row:
+            gap = re.match(r"^(\d{1,2})\s+[…\.]+\s*$", cell)
+            if gap:
+                n = int(gap.group(1))
+                if in_range(n):
+                    cells_out.append({"q_num": n})
+                    continue
+            cells_out.append(cell)
+        out_rows.append(cells_out)
+    return {"heading": _block_h4(body), "headers": headers, "rows": out_rows}
+
+
+def _extract_notes_template(body: str, in_range) -> dict[str, Any]:
+    """Notes completion — flat bullet list under an H4. Andy's fixtures
+    so far have a single group, but the schema is forward-compatible
+    with multiple grouped sub-headings (H5 lines).
+    """
+    items: list[Any] = []
+    for line in body.splitlines():
+        s = line.strip()
+        if not s or not s.startswith(("-", "*", "+")):
+            continue
+        s_content = s.lstrip("-*+").strip()
+        gap_m = re.search(r"\*\*(\d{1,2})\*\*\s+_+\.?\s*(.*?)$", s_content)
+        if gap_m:
+            n = int(gap_m.group(1))
+            if in_range(n):
+                items.append({
+                    "q_num":  n,
+                    "prefix": s_content[: gap_m.start()].strip(),
+                    "suffix": gap_m.group(2).strip(),
+                })
+                continue
+        items.append({"text": s_content})
+    return {
+        "heading": _block_h4(body),
+        "groups":  [{"items": items}] if items else [],
+    }
+
+
+def _extract_summary_template(body: str, in_range) -> dict[str, Any]:
+    """Summary completion — find the paragraph following the
+    instruction blockquote and replace each ``**N** _____`` with a
+    ``{{QN}}`` token so the renderer can split + interleave gap inputs.
+    """
+    # Drop everything up to (and including) the first blockquote +
+    # following blank lines, then take the next prose paragraph(s).
+    bq_match = re.search(r"^>\s.*(?:\n>\s.*)*\n", body, re.MULTILINE)
+    rest = body[bq_match.end():] if bq_match else body
+    # Strip leading H4 if present — summary fixtures don't have one
+    # but be defensive.
+    rest = _BLOCK_H4_RE.sub("", rest, count=1).strip()
+    paragraph = " ".join(line.strip() for line in rest.splitlines() if line.strip())
+    paragraph = re.sub(r"\s+", " ", paragraph).strip()
+    if not paragraph:
+        return {"paragraph": ""}
+    def replace_gap(m: re.Match[str]) -> str:
+        n = int(m.group(1))
+        return f"{{{{Q{n}}}}}" if in_range(n) else m.group(0)
+    tokenised = re.sub(r"\*\*(\d{1,2})\*\*\s+_+", replace_gap, paragraph)
+    # Collapse stray double spaces after substitution.
+    tokenised = re.sub(r"\s+", " ", tokenised).strip()
+    return {"paragraph": tokenised}
+
+
+def _extract_sentence_template(body: str, in_range) -> dict[str, Any]:
+    """Sentence completion — capture ``**N.** prefix **N** ___ suffix``
+    so the renderer can show a full sentence with an inline gap rather
+    than just the prompt + bare input.
+    """
+    sentences: list[dict[str, Any]] = []
+    for m in _SENTENCE_INLINE_RE.finditer(body):
+        n = int(m.group(1))
+        if not in_range(n):
+            continue
+        sentences.append({
+            "q_num":  n,
+            "prefix": m.group(2).strip(),
+            "suffix": m.group(3).strip(),
+        })
+    return {"sentences": sentences}
 
 
 def _first_blockquote(body: str) -> str:
@@ -871,11 +1090,18 @@ def build_exercises(
                 payload_answers.append(answer_by_q[q["q_num"]])
 
         payload: dict[str, Any] = {
-            "variant":     block["q_type"],
-            "instruction": block.get("instruction", ""),
-            "questions":   payload_questions,
-            "answers":     payload_answers,
+            "variant":       block["q_type"],
+            "template_kind": block.get("template_kind", "unknown"),
+            "instruction":   block.get("instruction", ""),
+            "questions":     payload_questions,
+            "answers":       payload_answers,
         }
+        # Sprint 13.5.2 — structural template for the IELTS-authentic
+        # renderer. Empty dict when the block kind has no extra context
+        # (mcq_3option, plan_label, short_answer all carry their own).
+        template = block.get("template") or {}
+        if template:
+            payload["template"] = template
         if block.get("metadata"):
             payload["metadata"] = block["metadata"]
 

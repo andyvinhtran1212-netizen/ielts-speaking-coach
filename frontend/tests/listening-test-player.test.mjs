@@ -197,7 +197,8 @@ describe('Sprint 13.5 — player JS contract', () => {
 
   it('escapes user/test text via an esc() helper', () => {
     assert.match(JS, /function esc\(/);
-    assert.match(JS, /esc\(item\.prompt/);
+    // Sprint 13.5.2 — MCQ renderer reads q.prompt rather than item.prompt.
+    assert.match(JS, /esc\(q\.prompt/);
   });
 
   it('declares the MISSING / ERROR fallback states', () => {
@@ -228,10 +229,12 @@ describe('Sprint 13.5.1 — schema-match + URL regression guards', () => {
     assert.match(JS, /payload\.instruction\b/);
   });
 
-  it('branches on payload.variant for mcq vs dictation', () => {
+  it('branches on payload.variant / template_kind for mcq vs dictation', () => {
     assert.match(JS, /payload\.variant/);
-    assert.match(JS, /variant\s*===\s*['"]mcq_3option['"]/);
-    assert.match(JS, /variant\s*===\s*['"]mcq_letter_label['"]/);
+    // Sprint 13.5.2: switch on template_kind. Two variants must each
+    // resolve to a dedicated case in the switch.
+    assert.match(JS, /case\s*['"]mcq_3option['"]\s*:/);
+    assert.match(JS, /case\s*['"]plan_label['"]\s*:|case\s*['"]mcq_letter_label['"]\s*:/);
   });
 
   it('reads option.letter (parser canonical) — tolerates legacy .label', () => {
@@ -273,5 +276,165 @@ describe('Sprint 13.5.1 — schema-match + URL regression guards', () => {
     const concat = /['"]\/api\/listening\/tests\/['"][\s\S]{0,40}\+/;
     assert.ok(!concat.test(JS),
       'use backtick template literal for /api/ URLs, not string concat');
+  });
+});
+
+
+// ── Sprint 13.5.2 — Cambridge IELTS-authentic visual + variant routing ──
+
+describe('Sprint 13.5.2 — IELTS-authentic page CSS hookup', () => {
+
+  it('loads /css/ielts-test-paper.css', () => {
+    assert.match(HTML, /\/css\/ielts-test-paper\.css/);
+  });
+
+  it('CSS sheet declares the Cambridge accent + serif tokens', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /--ielts-paper-accent:\s*#1e3a5f/);
+    assert.match(CSS, /--ielts-paper-serif:\s*Georgia/);
+  });
+
+  it('CSS sheet defines circled question number + dotted gap input', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /\.ielts-question-num[\s\S]+?border-radius:\s*50%/);
+    assert.match(CSS, /\.ielts-gap-input[\s\S]+?border-bottom:\s*1\.5px\s+dotted/);
+  });
+
+  it('CSS sheet overrides the IELTS palette under [data-theme="dark"]', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /\[data-theme="dark"\][\s\S]+?--ielts-paper-bg:\s*#1a1a1a/);
+  });
+
+  it('CSS sheet has a mobile media query at 768px', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /@media\s*\(max-width:\s*768px\)/);
+  });
+});
+
+
+describe('Sprint 13.5.2 — variant routing in the JS controller', () => {
+
+  it('renderExercise switches on payload.template_kind', () => {
+    assert.match(JS, /payload\.template_kind/);
+    assert.match(JS, /switch\s*\(kind\)/);
+  });
+
+  it('dispatches to renderFormCompletion for form_completion', () => {
+    assert.match(JS, /case\s*['"]form_completion['"]\s*:\s*return\s+renderFormCompletion/);
+  });
+
+  it('dispatches to renderTableCompletion for table_completion', () => {
+    assert.match(JS, /case\s*['"]table_completion['"]\s*:\s*return\s+renderTableCompletion/);
+  });
+
+  it('dispatches to renderNotesCompletion for notes_completion', () => {
+    assert.match(JS, /case\s*['"]notes_completion['"]\s*:\s*return\s+renderNotesCompletion/);
+  });
+
+  it('dispatches to renderSummaryCompletion for summary_completion', () => {
+    assert.match(JS, /case\s*['"]summary_completion['"]\s*:\s*return\s+renderSummaryCompletion/);
+  });
+
+  it('dispatches to renderSentenceCompletion for sentence_completion', () => {
+    assert.match(JS, /case\s*['"]sentence_completion['"]\s*:\s*return\s+renderSentenceCompletion/);
+  });
+
+  it('dispatches to renderShortAnswer for short_answer', () => {
+    assert.match(JS, /case\s*['"]short_answer['"]\s*:\s*return\s+renderShortAnswer/);
+  });
+
+  it('dispatches to renderMCQ for mcq_3option', () => {
+    assert.match(JS, /case\s*['"]mcq_3option['"]\s*:\s*return\s+renderMCQ/);
+  });
+
+  it('dispatches to renderPlanLabel for plan_label / mcq_letter_label', () => {
+    assert.match(JS, /case\s*['"]plan_label['"]\s*:|case\s*['"]mcq_letter_label['"]\s*:/);
+    assert.match(JS, /return\s+renderPlanLabel/);
+  });
+
+  it('has a renderFallback for unknown template_kind', () => {
+    assert.match(JS, /function\s+renderFallback/);
+  });
+});
+
+
+describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
+
+  it('wraps each section in <section class="ielts-section"> with PART label + range', () => {
+    assert.match(JS, /class="ielts-section"/);
+    assert.match(JS, /PART\s+\$\{esc\(sec\.section_num\)\}/);
+    assert.match(JS, /class="ielts-section-title">Questions/);
+  });
+
+  it('renders narrator intro inside .ielts-narrator-intro', () => {
+    assert.match(JS, /class="ielts-narrator-intro"/);
+  });
+
+  it('renders Questions X – Y block headers', () => {
+    assert.match(JS, /class="ielts-block-header">Questions/);
+  });
+
+  it('form renderer outputs heading + grid + example + numbered rows', () => {
+    assert.match(JS, /class="ielts-form-heading"/);
+    assert.match(JS, /class="ielts-form-grid"/);
+    assert.match(JS, /class="ielts-form-example"/);
+    assert.match(JS, /class="ielts-question-num"/);
+  });
+
+  it('table renderer outputs <table class="ielts-table"> with thead + tbody', () => {
+    assert.match(JS, /<table class="ielts-table">/);
+    assert.match(JS, /<thead>/);
+    assert.match(JS, /<tbody>/);
+  });
+
+  it('table renderer puts a circled question num inside gap cells', () => {
+    // Inside the table mapper, the gap cell must include the question
+    // number span AND the gap input.
+    assert.match(JS, /<td>[\s\S]*?ielts-question-num[\s\S]*?gapInput\(c\.q_num\)/);
+  });
+
+  it('MCQ renderer puts options inside .ielts-mcq-options with radio inputs', () => {
+    assert.match(JS, /class="ielts-mcq-options"/);
+    assert.match(JS, /type="radio"\s+name="q-\$\{esc\(q\.q_num\)\}"/);
+  });
+
+  it('plan-label renderer renders a <select> with A-H options + map description', () => {
+    assert.match(JS, /class="ielts-plan-container"/);
+    assert.match(JS, /class="ielts-map-description"/);
+    assert.match(JS, /<select[^>]+class="ft-q-input ielts-gap-input"/);
+  });
+
+  it('notes renderer emits hierarchical list with group headings', () => {
+    assert.match(JS, /class="ielts-notes-container"/);
+    assert.match(JS, /class="ielts-notes-list"/);
+  });
+
+  it('summary renderer tokenises {{QN}} into circled num + gap input', () => {
+    assert.match(JS, /\\\{\\\{Q\\d\+\\\}\\\}/);
+    assert.match(JS, /class="ielts-summary-paragraph"/);
+  });
+
+  it('sentence renderer wraps prefix + gap + suffix on one row', () => {
+    assert.match(JS, /class="ielts-sentence-row"/);
+    assert.match(JS, /esc\(s\.prefix/);
+    assert.match(JS, /esc\(s\.suffix/);
+  });
+
+  it('short answer renderer renders prompt + circled num + gap', () => {
+    assert.match(JS, /class="ielts-short-row"/);
+  });
+
+  it('shared gapInput() helper renders ft-q-input + ielts-gap-input', () => {
+    assert.match(JS, /function gapInput\(/);
+    assert.match(JS, /class="ft-q-input ielts-gap-input"/);
+  });
+
+  it('falls back to renderFallback when a renderer cannot build structure', () => {
+    // Each variant renderer guards `if (!rows.length) return renderFallback(...)`.
+    assert.match(JS, /return\s+renderFallback\(/);
   });
 });
