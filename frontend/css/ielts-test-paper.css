@@ -1,0 +1,332 @@
+/**
+ * frontend/css/ielts-test-paper.css — Sprint 13.5.2
+ *
+ * Cambridge IELTS-authentic styling for the student full-test player.
+ * Layered on top of aver-design tokens.css — tokens provide spacing
+ * and surface colours; this file owns the Cambridge visual identity:
+ *
+ *   - Serif body type (Georgia ≈ Times) on a paper-feel background
+ *   - Circled question numbers (white on Cambridge dark-blue)
+ *   - Dotted underline gap inputs that solidify on focus
+ *   - Structured form / table / notes / summary / sentence layouts
+ *   - Dark-mode override that preserves the test-paper structure
+ *   - Mobile (< 768px) collapses long labels
+ *
+ * Loaded by `/pages/listening-test.html` alongside the existing
+ * tokens.css + components.css. Class names are prefixed `ielts-` so
+ * they never collide with the design-system classes.
+ */
+
+:root {
+  --ielts-paper-bg:           #ffffff;
+  --ielts-paper-surface:      #fefefe;
+  --ielts-paper-surface-alt:  #fafaf5;
+  --ielts-paper-text:         #1a1a1a;
+  --ielts-paper-border:       #d0d0d0;
+  --ielts-paper-accent:       #1e3a5f;
+  --ielts-paper-example:      #888888;
+  --ielts-paper-gap-line:     #999999;
+  --ielts-paper-table-head:   #f0f0e8;
+  --ielts-paper-serif:        Georgia, 'Times New Roman', Times, serif;
+}
+
+/* Container — only applied INSIDE the player view. */
+.ielts-test-paper {
+  max-width:   860px;
+  margin:      0 auto;
+  padding:     var(--av-space-6);
+  background:  var(--ielts-paper-bg);
+  color:       var(--ielts-paper-text);
+  font-family: var(--ielts-paper-serif);
+  font-size:   16px;
+  line-height: 1.65;
+  border:      1px solid var(--ielts-paper-border);
+  border-radius: var(--av-radius-md);
+}
+
+/* ── Section header ─────────────────────────────────────────────── */
+.ielts-section {
+  margin-top: var(--av-space-8);
+  padding-bottom: var(--av-space-4);
+  border-bottom: 2px solid var(--ielts-paper-accent);
+}
+.ielts-section:first-child { margin-top: 0; }
+
+.ielts-section-label {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--ielts-paper-accent);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.ielts-section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ielts-paper-accent);
+  margin: var(--av-space-2) 0 var(--av-space-3);
+  font-family: var(--ielts-paper-serif);
+}
+.ielts-narrator-intro {
+  background: var(--ielts-paper-surface-alt);
+  padding: var(--av-space-3) var(--av-space-4);
+  border-left: 4px solid var(--ielts-paper-accent);
+  font-style: italic;
+  margin-top: var(--av-space-3);
+}
+
+/* ── Question block ─────────────────────────────────────────────── */
+.ielts-question-block { margin-top: var(--av-space-6); }
+
+.ielts-block-header {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ielts-paper-accent);
+  margin-bottom: var(--av-space-2);
+  padding-bottom: var(--av-space-1);
+  border-bottom: 1px solid var(--ielts-paper-border);
+}
+.ielts-instruction {
+  margin-bottom: var(--av-space-3);
+  padding: var(--av-space-3);
+  background: var(--ielts-paper-surface-alt);
+  border: 1px solid var(--ielts-paper-border);
+  font-size: 15px;
+}
+.ielts-instruction p { margin: 0; }
+.ielts-instruction p + p {
+  font-style: italic;
+  margin-top: var(--av-space-1);
+}
+
+/* ── Circled question number ────────────────────────────────────── */
+.ielts-question-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--ielts-paper-accent);
+  color: #ffffff;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  margin: 0 6px;
+  font-family: var(--ielts-paper-serif);
+}
+
+/* ── Gap input (dotted underline) ───────────────────────────────── */
+.ielts-gap-input {
+  border: none;
+  border-bottom: 1.5px dotted var(--ielts-paper-gap-line);
+  padding: 2px 8px;
+  font-family: var(--ielts-paper-serif);
+  font-size: 16px;
+  background: transparent;
+  color: var(--ielts-paper-text);
+  min-width: 140px;
+  margin: 0 4px;
+  vertical-align: baseline;
+}
+.ielts-gap-input:focus {
+  border-bottom-color: var(--ielts-paper-accent);
+  border-bottom-style: solid;
+  outline: none;
+}
+select.ielts-gap-input {
+  min-width: 70px;
+  border: 1px solid var(--ielts-paper-border);
+  border-radius: var(--av-radius-sm);
+  padding: 4px 8px;
+}
+
+/* ── Form completion ────────────────────────────────────────────── */
+.ielts-form-container {
+  padding: var(--av-space-4);
+  border: 1px solid var(--ielts-paper-border);
+  background: var(--ielts-paper-surface);
+}
+.ielts-form-heading {
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-bottom: var(--av-space-3);
+  border-bottom: 1.5px solid var(--ielts-paper-accent);
+  margin-bottom: var(--av-space-4);
+}
+.ielts-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-3);
+}
+.ielts-form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  flex-wrap: wrap;
+}
+.ielts-form-label {
+  font-weight: 600;
+  min-width: 200px;
+}
+.ielts-form-example {
+  color: var(--ielts-paper-example);
+  font-style: italic;
+}
+.ielts-form-prefix {
+  font-weight: 500;
+}
+
+/* ── Table completion ───────────────────────────────────────────── */
+.ielts-table-container { margin-top: var(--av-space-3); }
+.ielts-table-heading {
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-bottom: var(--av-space-2);
+  margin-bottom: var(--av-space-2);
+}
+.ielts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--ielts-paper-serif);
+}
+.ielts-table th,
+.ielts-table td {
+  border: 1px solid var(--ielts-paper-border);
+  padding: var(--av-space-2) var(--av-space-3);
+  text-align: left;
+  vertical-align: middle;
+}
+.ielts-table th {
+  background: var(--ielts-paper-table-head);
+  font-weight: 700;
+}
+
+/* ── MCQ ────────────────────────────────────────────────────────── */
+.ielts-mcq-question { margin-bottom: var(--av-space-4); }
+.ielts-mcq-stem { margin-bottom: var(--av-space-2); }
+.ielts-mcq-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: var(--av-space-6);
+}
+.ielts-mcq-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--av-space-2);
+  cursor: pointer;
+  padding: 4px var(--av-space-2);
+  border-radius: var(--av-radius-sm);
+}
+.ielts-mcq-option:hover { background: var(--ielts-paper-surface-alt); }
+.ielts-mcq-option input[type="radio"] {
+  margin: 4px 0 0 0;
+  accent-color: var(--ielts-paper-accent);
+}
+
+/* ── Plan / map labelling ───────────────────────────────────────── */
+.ielts-plan-container {
+  border: 1px solid var(--ielts-paper-border);
+  padding: var(--av-space-4);
+  background: var(--ielts-paper-surface);
+}
+.ielts-map-description {
+  padding: var(--av-space-3);
+  background: var(--ielts-paper-surface-alt);
+  border-left: 4px solid var(--ielts-paper-accent);
+  margin-bottom: var(--av-space-4);
+  font-style: italic;
+}
+.ielts-plan-labels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-2);
+}
+.ielts-plan-row {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  flex-wrap: wrap;
+}
+.ielts-plan-name {
+  min-width: 200px;
+  font-weight: 500;
+}
+
+/* ── Notes completion ───────────────────────────────────────────── */
+.ielts-notes-container {
+  padding: var(--av-space-4);
+  border: 1px solid var(--ielts-paper-border);
+  background: var(--ielts-paper-surface);
+}
+.ielts-notes-heading {
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-bottom: var(--av-space-2);
+  margin-bottom: var(--av-space-3);
+  border-bottom: 1.5px solid var(--ielts-paper-accent);
+}
+.ielts-notes-group { margin-bottom: var(--av-space-3); }
+.ielts-notes-group-heading {
+  font-weight: 600;
+  margin-bottom: var(--av-space-1);
+}
+.ielts-notes-list {
+  list-style: disc;
+  padding-left: var(--av-space-6);
+  margin: 0;
+}
+.ielts-notes-list li { margin-bottom: var(--av-space-1); }
+
+/* ── Summary completion (inline-gap paragraph) ──────────────────── */
+.ielts-summary-paragraph {
+  padding: var(--av-space-4);
+  background: var(--ielts-paper-surface);
+  border: 1px solid var(--ielts-paper-border);
+  line-height: 2;
+}
+
+/* ── Sentence + short answer rows ───────────────────────────────── */
+.ielts-sentence-row,
+.ielts-short-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--av-space-1);
+  flex-wrap: wrap;
+  margin-bottom: var(--av-space-2);
+  line-height: 2;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --ielts-paper-bg:          #1a1a1a;
+  --ielts-paper-surface:     #252525;
+  --ielts-paper-surface-alt: #2a2a2a;
+  --ielts-paper-text:        #e0e0e0;
+  --ielts-paper-border:      #404040;
+  --ielts-paper-accent:      #6ba3e0;
+  --ielts-paper-example:     #888888;
+  --ielts-paper-gap-line:    #707070;
+  --ielts-paper-table-head:  #2a2a2a;
+}
+[data-theme="dark"] .ielts-question-num { color: #1a1a1a; }
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .ielts-test-paper {
+    padding: var(--av-space-4);
+    font-size: 15px;
+  }
+  .ielts-form-label,
+  .ielts-plan-name { min-width: 120px; }
+  .ielts-mcq-options { padding-left: var(--av-space-3); }
+  .ielts-table th,
+  .ielts-table td { padding: var(--av-space-1) var(--av-space-2); font-size: 14px; }
+}

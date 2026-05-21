@@ -138,81 +138,344 @@ async function startAttempt() {
 }
 
 
-// ── Question paper rendering ─────────────────────────────────────────
+// ── Question paper rendering — Sprint 13.5.2 Cambridge-authentic ─────
+//
+// Each exercise's `payload.template_kind` (form_completion /
+// table_completion / notes_completion / sentence_completion /
+// summary_completion / short_answer / mcq_3option / plan_label)
+// dispatches to a variant-specific renderer. The renderer reads
+// `payload.template` for structural context that the Sprint 13.5.2
+// parser preserves alongside the question list.
+//
+// Every gap or MCQ input carries `data-q-num="<N>"` + class
+// `ft-q-input` so the existing change handler picks them up
+// without modification.
 
 function renderPaper() {
   const root = $('ft-paper');
   const sections = (STATE.test && STATE.test.sections) || [];
-  const out = [];
+  const totalQs = sections.reduce(
+    (a, s) => a + (s.exercises || [])
+      .reduce((b, e) => b + ((e.payload && e.payload.questions) || []).length, 0),
+    0,
+  );
+  const out = ['<div class="ielts-test-paper">'];
   for (const sec of sections) {
+    const range = sectionQuestionRange(sec);
     out.push(`
-      <section class="ft-section">
-        <div class="ft-section-meta">Section ${esc(sec.section_num)}</div>
-        <div class="ft-section-title">${esc(sec.title || `Section ${sec.section_num}`)}</div>
-        ${sec.narrator_intro ? `<div class="ft-narrator">${esc(sec.narrator_intro)}</div>` : ''}
-        ${sec.context ? `<div class="ft-narrator">${esc(sec.context)}</div>` : ''}
+      <section class="ielts-section" data-section-num="${esc(sec.section_num)}">
+        <div class="ielts-section-label">PART ${esc(sec.section_num)}</div>
+        <h2 class="ielts-section-title">Questions ${esc(range[0])} – ${esc(range[1])}</h2>
+        ${sec.narrator_intro
+          ? `<div class="ielts-narrator-intro">${esc(sec.narrator_intro)}</div>`
+          : ''}
         ${(sec.exercises || []).map(renderExercise).join('')}
       </section>
     `);
   }
+  out.push('</div>');
   root.innerHTML = out.join('');
+  if (totalQs) { /* total Q count not displayed; preserve for future stats */ }
   attachQuestionHandlers();
 }
 
+function sectionQuestionRange(sec) {
+  let lo = Infinity, hi = -Infinity;
+  for (const ex of (sec.exercises || [])) {
+    for (const q of ((ex.payload && ex.payload.questions) || [])) {
+      if (Number.isFinite(q.q_num)) {
+        if (q.q_num < lo) lo = q.q_num;
+        if (q.q_num > hi) hi = q.q_num;
+      }
+    }
+  }
+  if (lo === Infinity) return ['?', '?'];
+  return [lo, hi];
+}
+
 function renderExercise(ex) {
-  // Sprint 13.5.1 — schema match parser output (services/listening_convert.py
-  // build_exercises): payload uses singular `instruction` + `questions[]`,
-  // and the precise q_type lives on `payload.variant` (the row's
-  // `exercise_type` is the coarse family — "dictation" / "mcq").
   const payload = ex.payload || {};
-  const instruction = payload.instruction || payload.instructions || '';
-  const variant = payload.variant || ex.variant || ex.exercise_type || '';
-  const items = Array.isArray(payload.questions)
+  const kind = payload.template_kind
+    || payload.variant
+    || ex.variant
+    || ex.exercise_type
+    || '';
+  const questions = Array.isArray(payload.questions)
     ? payload.questions
     : (Array.isArray(payload.items) ? payload.items : []);
+  const tmpl = payload.template || {};
+  const meta = payload.metadata || {};
+  const instruction = payload.instruction || payload.instructions || '';
+  const range = questions.length
+    ? [questions[0].q_num, questions[questions.length - 1].q_num]
+    : null;
+
+  const header = `
+    <div class="ielts-question-block" data-template-kind="${esc(kind)}">
+      ${range
+        ? `<div class="ielts-block-header">Questions ${esc(range[0])} – ${esc(range[1])}</div>`
+        : ''}
+      ${instruction
+        ? `<div class="ielts-instruction">${formatInstruction(instruction)}</div>`
+        : ''}
+  `;
+  const body = (() => {
+    switch (kind) {
+      case 'form_completion':     return renderFormCompletion(tmpl, questions);
+      case 'table_completion':    return renderTableCompletion(tmpl, questions);
+      case 'notes_completion':    return renderNotesCompletion(tmpl, questions);
+      case 'summary_completion':  return renderSummaryCompletion(tmpl, questions);
+      case 'sentence_completion': return renderSentenceCompletion(tmpl, questions);
+      case 'short_answer':        return renderShortAnswer(questions);
+      case 'mcq_3option':         return renderMCQ(questions);
+      case 'mcq_letter_label':
+      case 'plan_label':          return renderPlanLabel(meta, questions);
+      default:                    return renderFallback(questions);
+    }
+  })();
+  return header + body + `</div>`;
+}
+
+function formatInstruction(raw) {
+  // Each sentence on its own line preserves the second-line italic
+  // emphasis pattern (`Write NO MORE THAN…`).
+  const parts = String(raw)
+    .split(/(?<=\.)\s+(?=[A-Z])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length <= 1) return `<p>${esc(raw)}</p>`;
+  return parts.map((p) => `<p>${esc(p)}</p>`).join('');
+}
+
+
+// ── Form completion ─────────────────────────────────────────────────
+
+function renderFormCompletion(tmpl, questions) {
+  const heading = tmpl.heading || '';
+  const rows = Array.isArray(tmpl.rows) ? tmpl.rows : [];
+  if (!rows.length) return renderFallback(questions);
   return `
-    <div class="ft-exercise" data-exercise-variant="${esc(variant)}">
-      ${instruction ? `<div class="ft-exercise-instructions">${esc(instruction)}</div>` : ''}
-      ${items.map((it) => renderItem(variant, it)).join('')}
+    <div class="ielts-form-container">
+      ${heading ? `<div class="ielts-form-heading">${esc(heading)}</div>` : ''}
+      <div class="ielts-form-grid">
+        ${rows.map((r) => {
+          const label = `<span class="ielts-form-label">${esc(r.label || '')}:</span>`;
+          if (r.example != null) {
+            return `<div class="ielts-form-row">
+              ${label}
+              <span class="ielts-form-example">${esc(r.example)} (Example)</span>
+            </div>`;
+          }
+          if (r.q_num != null) {
+            const pref = r.prefix
+              ? `<span class="ielts-form-prefix">${esc(r.prefix)}</span>`
+              : '';
+            return `<div class="ielts-form-row">
+              ${label}
+              ${pref}
+              <span class="ielts-question-num">${esc(r.q_num)}</span>
+              ${gapInput(r.q_num)}
+            </div>`;
+          }
+          return `<div class="ielts-form-row">
+            ${label}
+            <span>${esc(r.text || '')}</span>
+          </div>`;
+        }).join('')}
+      </div>
     </div>
   `;
 }
 
-function renderItem(variant, item) {
-  const q = item.q_num;
-  if (variant === 'mcq_3option' || variant === 'mcq_letter_label') {
-    const opts = Array.isArray(item.options) ? item.options : [];
-    return `
-      <div class="ft-q-row" data-q-num="${esc(q)}">
-        <span class="ft-q-num">${esc(q)}.</span>
-        <span class="ft-q-prompt">${esc(item.prompt || '')}</span>
-      </div>
-      <div class="ft-mcq-options" data-q-options="${esc(q)}">
-        ${opts.map((o) => {
-          // Parser canonical: {letter, text}. Tolerate legacy {label, text}.
-          const letter = o.letter || o.label || '';
-          const text   = o.text   || '';
-          return `
-            <label class="ft-mcq-label">
-              <input type="radio" name="q-${esc(q)}" value="${esc(letter)}"
-                     class="ft-q-input" data-q-num="${esc(q)}" />
-              <span><strong>${esc(letter)}.</strong> ${esc(text)}</span>
-            </label>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
-  // dictation_gap_fill / dictation_short_answer
+
+// ── Table completion ────────────────────────────────────────────────
+
+function renderTableCompletion(tmpl, questions) {
+  const heading = tmpl.heading || '';
+  const headers = Array.isArray(tmpl.headers) ? tmpl.headers : [];
+  const rows    = Array.isArray(tmpl.rows)    ? tmpl.rows    : [];
+  if (!headers.length || !rows.length) return renderFallback(questions);
   return `
-    <div class="ft-q-row" data-q-num="${esc(q)}">
-      <span class="ft-q-num">${esc(q)}.</span>
-      <span class="ft-q-prompt">${esc(item.prompt || '')}</span>
-      <input type="text" class="ft-q-input" data-q-num="${esc(q)}"
-             placeholder="Đáp án" autocomplete="off" spellcheck="false" />
+    <div class="ielts-table-container">
+      ${heading ? `<div class="ielts-table-heading">${esc(heading)}</div>` : ''}
+      <table class="ielts-table">
+        <thead>
+          <tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `<tr>${row.map((c) => {
+            if (c && typeof c === 'object' && c.q_num != null) {
+              return `<td>
+                <span class="ielts-question-num">${esc(c.q_num)}</span>
+                ${gapInput(c.q_num)}
+              </td>`;
+            }
+            return `<td>${esc(c == null ? '' : c)}</td>`;
+          }).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
     </div>
   `;
 }
+
+
+// ── Notes completion ────────────────────────────────────────────────
+
+function renderNotesCompletion(tmpl, questions) {
+  const heading = tmpl.heading || '';
+  const groups = Array.isArray(tmpl.groups) ? tmpl.groups : [];
+  if (!groups.length) return renderFallback(questions);
+  return `
+    <div class="ielts-notes-container">
+      ${heading ? `<div class="ielts-notes-heading">${esc(heading)}</div>` : ''}
+      ${groups.map((g) => `
+        <div class="ielts-notes-group">
+          ${g.heading
+            ? `<div class="ielts-notes-group-heading">${esc(g.heading)}</div>`
+            : ''}
+          <ul class="ielts-notes-list">
+            ${(g.items || []).map((it) => {
+              if (it && typeof it === 'object' && it.q_num != null) {
+                return `<li>
+                  ${esc(it.prefix || '')}
+                  <span class="ielts-question-num">${esc(it.q_num)}</span>
+                  ${gapInput(it.q_num)}
+                  ${it.suffix ? ' ' + esc(it.suffix) : ''}
+                </li>`;
+              }
+              return `<li>${esc((it && it.text) || '')}</li>`;
+            }).join('')}
+          </ul>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+
+// ── Summary completion (inline-gap paragraph) ──────────────────────
+
+function renderSummaryCompletion(tmpl, questions) {
+  const paragraph = tmpl.paragraph || '';
+  if (!paragraph) return renderFallback(questions);
+  // Split on `{{QN}}` tokens and interleave gap inputs.
+  const parts = String(paragraph).split(/(\{\{Q\d+\}\})/);
+  const rendered = parts.map((p) => {
+    const m = /^\{\{Q(\d+)\}\}$/.exec(p);
+    if (m) {
+      const n = Number(m[1]);
+      return `<span class="ielts-question-num">${esc(n)}</span>${gapInput(n)}`;
+    }
+    return esc(p);
+  }).join('');
+  return `<div class="ielts-summary-paragraph">${rendered}</div>`;
+}
+
+
+// ── Sentence completion ────────────────────────────────────────────
+
+function renderSentenceCompletion(tmpl, questions) {
+  const sentences = Array.isArray(tmpl.sentences) ? tmpl.sentences : [];
+  if (!sentences.length) return renderFallback(questions);
+  return sentences.map((s) => `
+    <div class="ielts-sentence-row">
+      <span class="ielts-question-num">${esc(s.q_num)}</span>
+      <span>${esc(s.prefix || '')}</span>
+      ${gapInput(s.q_num)}
+      <span>${esc(s.suffix || '')}</span>
+    </div>
+  `).join('');
+}
+
+
+// ── Short answer ───────────────────────────────────────────────────
+
+function renderShortAnswer(questions) {
+  return questions.map((q) => `
+    <div class="ielts-short-row">
+      <span class="ielts-question-num">${esc(q.q_num)}</span>
+      <span>${esc(q.prompt || '')}</span>
+      ${gapInput(q.q_num)}
+    </div>
+  `).join('');
+}
+
+
+// ── MCQ ────────────────────────────────────────────────────────────
+
+function renderMCQ(questions) {
+  return questions.map((q) => `
+    <div class="ielts-mcq-question">
+      <div class="ielts-mcq-stem">
+        <span class="ielts-question-num">${esc(q.q_num)}</span>
+        ${esc(q.prompt || '')}
+      </div>
+      <div class="ielts-mcq-options">
+        ${(q.options || []).map((o) => {
+          const letter = o.letter || o.label || '';
+          const text   = o.text   || '';
+          return `<label class="ielts-mcq-option">
+            <input type="radio" name="q-${esc(q.q_num)}" value="${esc(letter)}"
+                   class="ft-q-input" data-q-num="${esc(q.q_num)}" />
+            <span><strong>${esc(letter)}</strong> ${esc(text)}</span>
+          </label>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+
+// ── Plan / map labelling ───────────────────────────────────────────
+
+function renderPlanLabel(meta, questions) {
+  const mapDesc = (meta && meta.map_description) || '';
+  const letters = Array.isArray(meta && meta.letter_options) && meta.letter_options.length
+    ? meta.letter_options
+    : ['A','B','C','D','E','F','G','H'];
+  return `
+    <div class="ielts-plan-container">
+      ${mapDesc
+        ? `<div class="ielts-map-description"><strong>Map description:</strong> ${esc(mapDesc)}</div>`
+        : ''}
+      <div class="ielts-plan-labels">
+        ${questions.map((q) => `
+          <div class="ielts-plan-row">
+            <span class="ielts-question-num">${esc(q.q_num)}</span>
+            <span class="ielts-plan-name">${esc(q.prompt || '')}</span>
+            <select class="ft-q-input ielts-gap-input" data-q-num="${esc(q.q_num)}">
+              <option value="">—</option>
+              ${letters.map((L) => `<option value="${esc(L)}">${esc(L)}</option>`).join('')}
+            </select>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+
+// ── Fallback (unknown template_kind or missing template) ───────────
+
+function renderFallback(questions) {
+  return questions.map((q) => `
+    <div class="ielts-short-row">
+      <span class="ielts-question-num">${esc(q.q_num)}</span>
+      <span>${esc(q.prompt || '')}</span>
+      ${gapInput(q.q_num)}
+    </div>
+  `).join('');
+}
+
+
+// ── Shared input fragment ──────────────────────────────────────────
+
+function gapInput(qNum) {
+  return `<input type="text" class="ft-q-input ielts-gap-input"
+                 data-q-num="${esc(qNum)}"
+                 autocomplete="off" spellcheck="false" />`;
+}
+
 
 function attachQuestionHandlers() {
   const inputs = document.querySelectorAll('.ft-q-input');
