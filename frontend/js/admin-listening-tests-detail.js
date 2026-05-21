@@ -181,6 +181,34 @@ function renderMapImagesPanel() {
     const has = ex.has_map_image;
     const model = ex.map_image_model || 'imagen-4.0-fast-generate-001';
     const desc  = (ex.map_description || '').trim();
+    // Sprint 13.5.9 — surface Andy's curated prompt (when the parser
+    // pulled one from a `<details>` block) and the source actually used
+    // by the last successful generation. The image-gen service prefers
+    // the custom prompt verbatim and ignores the template.
+    const customPrompt = (ex.map_image_custom_prompt || '').trim();
+    const hasCustom = Boolean(customPrompt);
+    const lastSource = ex.map_image_prompt_source || null;
+    const sourceLabel = hasCustom
+      ? `<span class="td-prompt-source td-prompt-source-custom" data-source="custom"
+            style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:var(--av-fs-xs);background:#dcfce7;color:#166534;font-weight:600;">
+            ✅ Custom prompt từ markdown (sẽ dùng khi generate)
+          </span>`
+      : `<span class="td-prompt-source td-prompt-source-template" data-source="template"
+            style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:var(--av-fs-xs);background:#fef3c7;color:#92400e;font-weight:600;">
+            ⚠️ Template prompt (no &lt;details&gt; block found trong markdown)
+          </span>`;
+    const lastSourceNote = has && lastSource
+      ? `<span class="td-section-meta td-prompt-last-source" style="font-size:var(--av-fs-xs);">
+           Hình hiện tại generate từ: <strong>${escapeHtml(lastSource)}</strong>
+         </span>`
+      : '';
+    const promptPreview = hasCustom
+      ? `<details class="td-prompt-preview" data-exercise-id="${escapeHtml(ex.id)}">
+           <summary>Xem custom prompt (${customPrompt.length} chars)</summary>
+           <pre class="td-prompt-content"
+                style="white-space:pre-wrap;font-size:var(--av-fs-xs);max-height:280px;overflow:auto;background:#f8fafc;padding:var(--av-space-2);border-radius:var(--av-radius-sm);">${escapeHtml(customPrompt)}</pre>
+         </details>`
+      : '';
     const descPreview = desc
       ? `<details><summary>Map description (${desc.length} chars)</summary><pre style="white-space:pre-wrap;font-size:var(--av-fs-xs);max-height:160px;overflow:auto;">${escapeHtml(desc)}</pre></details>`
       : `<p class="td-section-meta" style="color:#991B1B;">Map description trống — parser chưa extract được. Re-convert markdown trước khi generate.</p>`;
@@ -193,6 +221,11 @@ function renderMapImagesPanel() {
             ${has ? `✓ Đã có hình (${escapeHtml(model)})` : 'Chưa có hình'}
           </span>
         </div>
+        <div class="td-prompt-source-row" style="display:flex;gap:var(--av-space-2);flex-wrap:wrap;align-items:center;margin-top:var(--av-space-2);">
+          ${sourceLabel}
+          ${lastSourceNote}
+        </div>
+        ${promptPreview}
         ${descPreview}
         <div class="td-map-actions" style="display:flex;gap:var(--av-space-2);flex-wrap:wrap;margin-top:var(--av-space-3);align-items:center;">
           <label style="font-size:var(--av-fs-sm);">
