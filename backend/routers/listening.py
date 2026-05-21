@@ -27,6 +27,7 @@ independently.
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from typing import Optional
 
@@ -2874,8 +2875,43 @@ async def admin_get_listening_test(
         s["exercise_count"] = exercise_counts.get(s["id"], 0)
         s["audio_ready"] = bool(s.get("audio_storage_path"))
 
+    # Sprint 13.5.6 — surface plan-label exercises so the admin
+    # tests-detail page can show a "Hình map" panel per exercise
+    # without a second round-trip. We deliberately strip the answers
+    # field at this admin surface as well — admins manage answer keys
+    # through the existing convert/commit flow, not this endpoint.
+    plan_label_exercises: list[dict] = []
+    if content_ids:
+        pl_res = (
+            supabase_admin.table("listening_exercises")
+            .select("id,content_id,payload")
+            .in_("content_id", content_ids)
+            .execute()
+        )
+        section_num_by_id = {s["id"]: s.get("section_num") for s in sections}
+        for row in pl_res.data or []:
+            payload = row.get("payload") or {}
+            if payload.get("variant") != "mcq_letter_label":
+                continue
+            metadata = payload.get("metadata") or {}
+            plan_label_exercises.append({
+                "id":               row["id"],
+                "content_id":       row["content_id"],
+                "section_num":      section_num_by_id.get(row["content_id"]),
+                "map_description":  metadata.get("map_description")
+                                    or payload.get("map_description")
+                                    or "",
+                "letter_options":   metadata.get("letter_options")
+                                    or payload.get("letter_options")
+                                    or list("ABCDEFGH"),
+                "has_map_image":    bool(payload.get("map_image_storage_path")),
+                "map_image_model":  payload.get("map_image_model"),
+                "map_image_generated_at": payload.get("map_image_generated_at"),
+            })
+
     test["sections"] = sections
     test["content_ids"] = content_ids
+    test["plan_label_exercises"] = plan_label_exercises
     return test
 
 
@@ -3806,6 +3842,199 @@ async def admin_get_test_audio_signed_urls(
     }
 
 
+# ── Sprint 13.5.6 — map image generation for plan-label exercises ─────────
+
+
+class GenerateMapImageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Optional override — defaults to settings.LISTENING_MAP_IMAGE_MODEL.
+    model: str | None = None
+
+
+def _fetch_exercise_or_404(exercise_id: str) -> dict:
+    res = (
+        supabase_admin.table("listening_exercises")
+        .select("*")
+        .eq("id", exercise_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Exercise not found")
+    return res.data[0]
+
+
+def _sign_map_image_url(storage_path: str | None, expires_in: int = 3600) -> str | None:
+    """Best-effort signed URL for a map image. Returns None on any failure."""
+    if not storage_path:
+        return None
+    try:
+        signed = supabase_admin.storage.from_(
+            settings.LISTENING_IMAGES_BUCKET
+        ).create_signed_url(storage_path, expires_in)
+    except Exception as exc:                                                  # pragma: no cover
+        logger.warning("[map_image] signed URL mint failed: %s", exc)
+        return None
+    return (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+
+
+@admin_router.post("/exercises/{exercise_id}/generate-map-image")
+async def admin_generate_map_image(
+    exercise_id: str,
+    body: GenerateMapImageRequest | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.5.6 — generate a Cambridge-style floor-plan image for
+    a plan-label exercise via Imagen 4 / Gemini 2.5 Flash Image, upload
+    to Supabase Storage, and merge the metadata into the exercise's
+    payload. Returns a 1h signed URL so the admin UI can preview the
+    output without a follow-up round-trip.
+    """
+    from services import listening_map_image
+
+    await require_admin(authorization)
+    exercise = _fetch_exercise_or_404(exercise_id)
+
+    payload = dict(exercise.get("payload") or {})
+    variant = payload.get("variant") or exercise.get("variant")
+    template_kind = payload.get("template_kind")
+    if variant != "mcq_letter_label" and template_kind != "plan_label":
+        raise HTTPException(
+            422,
+            "Map image generation is only available for plan-label "
+            "exercises (variant=mcq_letter_label).",
+        )
+
+    metadata = payload.get("metadata") or {}
+    map_description = metadata.get("map_description") or payload.get("map_description") or ""
+    letter_options = metadata.get("letter_options") or payload.get("letter_options")
+
+    api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        raise HTTPException(500, "GEMINI_API_KEY not configured on the server.")
+
+    # Resolve parent test_id for storage pathing.
+    content_id = exercise.get("content_id")
+    content_res = (
+        supabase_admin.table("listening_content")
+        .select("test_id")
+        .eq("id", content_id)
+        .limit(1)
+        .execute()
+    )
+    test_id = (content_res.data or [{}])[0].get("test_id")
+    if not test_id:
+        raise HTTPException(500, "Exercise has no parent test bundle.")
+
+    try:
+        result = listening_map_image.generate_and_upload(
+            map_description=map_description,
+            letter_options=letter_options,
+            test_id=test_id,
+            exercise_id=exercise_id,
+            supabase=supabase_admin,
+            api_key=api_key,
+            model=(body.model if body else None),
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        logger.error("[map_image] generation failed: %s", exc)
+        raise HTTPException(500, f"Image generation failed: {exc}")
+
+    # Merge image metadata into the exercise payload.
+    payload.update(result)
+    (
+        supabase_admin.table("listening_exercises")
+        .update({"payload": payload})
+        .eq("id", exercise_id)
+        .execute()
+    )
+
+    return {
+        "exercise_id":            exercise_id,
+        "map_image_storage_path": result["map_image_storage_path"],
+        "map_image_model":        result["map_image_model"],
+        "map_image_size_bytes":   result["map_image_size_bytes"],
+        "map_image_generated_at": result["map_image_generated_at"],
+        "map_image_prompt":       result["map_image_prompt"],
+        "signed_url":             _sign_map_image_url(result["map_image_storage_path"]),
+        "cost_estimate_usd":      listening_map_image.estimate_cost(result["map_image_model"]),
+    }
+
+
+@admin_router.delete("/exercises/{exercise_id}/map-image")
+async def admin_delete_map_image(
+    exercise_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.5.6 — remove the generated map image so the admin can
+    regenerate with a different model or a refined description. Both
+    the Storage object and the payload metadata are cleared.
+    """
+    await require_admin(authorization)
+    exercise = _fetch_exercise_or_404(exercise_id)
+    payload = dict(exercise.get("payload") or {})
+    storage_path = payload.get("map_image_storage_path")
+
+    if storage_path:
+        try:
+            supabase_admin.storage.from_(
+                settings.LISTENING_IMAGES_BUCKET
+            ).remove([storage_path])
+        except Exception as exc:                                              # pragma: no cover
+            logger.warning("[map_image] storage delete failed for %s: %s", storage_path, exc)
+
+    cleared = False
+    for key in (
+        "map_image_storage_path",
+        "map_image_size_bytes",
+        "map_image_model",
+        "map_image_prompt",
+        "map_image_generated_at",
+    ):
+        if key in payload:
+            payload.pop(key, None)
+            cleared = True
+
+    if cleared:
+        (
+            supabase_admin.table("listening_exercises")
+            .update({"payload": payload})
+            .eq("id", exercise_id)
+            .execute()
+        )
+
+    return {"deleted": True, "had_image": bool(storage_path)}
+
+
+@admin_router.get("/exercises/{exercise_id}/map-image/signed-url")
+async def admin_get_map_image_signed_url(
+    exercise_id: str,
+    expires_in: int = Query(default=3600, ge=60, le=86400),
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.5.6 — fresh signed URL for an admin preview (the URL
+    expires; the page calls this on refresh).
+    """
+    await require_admin(authorization)
+    exercise = _fetch_exercise_or_404(exercise_id)
+    payload = exercise.get("payload") or {}
+    storage_path = payload.get("map_image_storage_path")
+    if not storage_path:
+        raise HTTPException(404, "No map image generated for this exercise.")
+    url = _sign_map_image_url(storage_path, expires_in)
+    if not url:
+        raise HTTPException(500, "Signed URL could not be minted.")
+    return {
+        "exercise_id":            exercise_id,
+        "signed_url":             url,
+        "expires_in":             expires_in,
+        "map_image_model":        payload.get("map_image_model"),
+        "map_image_generated_at": payload.get("map_image_generated_at"),
+    }
+
+
 # ── Sprint 13.5 — student full-test layer ──────────────────────────────────
 
 
@@ -3973,6 +4202,21 @@ async def get_published_listening_test(
     exercises_raw = (ex_res.data if ex_res else []) or []
     # Sprint 13.5 security guard — strip answer keys.
     exercises_safe = grader.strip_answer_keys(exercises_raw)
+    # Sprint 13.5.6 — inject a fresh 2h signed URL for any plan-label
+    # exercise that has a generated map image. The student endpoint is
+    # the only place that mints this URL; the admin preview path mints
+    # via /exercises/{id}/map-image/signed-url. Keeps the payload
+    # otherwise unchanged so the renderer sees the same shape.
+    for ex in exercises_safe:
+        payload = ex.get("payload") or {}
+        storage_path = payload.get("map_image_storage_path")
+        if not storage_path:
+            continue
+        signed_url = _sign_map_image_url(storage_path, expires_in=7200)
+        if signed_url:
+            payload = dict(payload)
+            payload["map_image_url"] = signed_url
+            ex["payload"] = payload
     by_content: dict[str, list[dict]] = {}
     for ex in exercises_safe:
         by_content.setdefault(ex["content_id"], []).append(ex)

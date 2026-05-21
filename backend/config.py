@@ -87,6 +87,18 @@ class Settings(BaseSettings):
     LISTENING_AI_RENDER_ENABLED: bool = False
     LISTENING_AUDIO_BUCKET: str = "listening-audio"
 
+    # Sprint 13.5.6 — map image generation for plan-label exercises
+    # (S2 Q16-20 IELTS standard format). Admin-initiated only; the
+    # student player renders the signed URL inline so the map is part
+    # of the test paper rather than a text-only description.
+    #   * LISTENING_MAP_IMAGE_MODEL — primary model id; the service
+    #     falls back to gemini-2.5-flash-image if this fails.
+    #   * LISTENING_IMAGES_BUCKET — Supabase Storage bucket holding the
+    #     generated PNGs (created in the dashboard, Private, with admin
+    #     write + authenticated read policies).
+    LISTENING_MAP_IMAGE_MODEL: str = "imagen-4.0-fast-generate-001"
+    LISTENING_IMAGES_BUCKET: str = "listening-images"
+
     # Sprint 11.2 — IELTS-friendly default voices locked during the
     # Sprint 11.1 audition (2026-05-18). Render endpoint uses these as
     # fallback when voice_id is omitted + accent_tag is set. AU defers

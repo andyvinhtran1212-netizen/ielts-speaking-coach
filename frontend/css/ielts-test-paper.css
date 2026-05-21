@@ -235,6 +235,20 @@ select.ielts-gap-input {
   padding: var(--av-space-4);
   background: var(--ielts-paper-surface);
 }
+/* Sprint 13.5.6 — admin-generated floor-plan image, rendered ABOVE
+   the textual description. Centred and clamped so it stays inside
+   the test-paper column on mobile. */
+.ielts-plan-image {
+  margin-bottom: var(--av-space-4);
+  text-align: center;
+}
+.ielts-map-rendered {
+  max-width: 100%;
+  max-height: 480px;
+  border: 1px solid var(--ielts-paper-border);
+  background: #ffffff;
+  border-radius: var(--av-radius-sm);
+}
 .ielts-map-description {
   padding: var(--av-space-3);
   background: var(--ielts-paper-surface-alt);
