@@ -525,9 +525,14 @@ describe('Sprint 13.5.6 — tests-detail map-image panel + controller', () => {
     assert.match(js, /if \(!plExercises\.length\)\s*\{[\s\S]*?panel\.hidden\s*=\s*true/);
   });
 
-  test('renders a model selector with Imagen 4 Fast as the recommended default', () => {
+  test('renders a model selector with Nano Banana 2 as the recommended default (Sprint 13.5.9.2)', () => {
+    // Sprint 13.5.6 default was imagen-4.0-fast. Sprint 13.5.9.2 flips
+    // the recommendation to Gemini 3.1 Flash Image (Nano Banana 2) —
+    // Andy 2026-05-21 lock. The Imagen Fast option stays in the list
+    // (cheapest tier) but loses the "DEFAULT" badge.
+    assert.match(js, /gemini-3\.1-flash-image-preview/);
+    assert.match(js, /\$0\.067[\s\S]*?DEFAULT/);
     assert.match(js, /imagen-4\.0-fast-generate-001/);
-    assert.match(js, /\$0\.02.*\(recommend\)/);
     assert.match(js, /gemini-2\.5-flash-image/);
   });
 
@@ -768,9 +773,15 @@ describe('Sprint 13.5.9.1 — admin reviews and optionally edits the prompt', ()
   });
 
   test('generate flow shows a confirmation dialog before the POST', () => {
+    // Sprint 13.5.9.2 — confirm copy now interpolates a per-model
+    // cost (was a fixed "Cost ~$0.02-0.04"). The new message shows:
+    //   "Generate hình map với <sourceLine>?
+    //    Model: <model>
+    //    Cost ước tính: ~$<cost>"
     assert.match(js, /window\.confirm\(/);
     assert.match(js, /custom prompt \(\$\{promptChars\}\s*chars\)/);
-    assert.match(js, /Cost ~\$0\.02-0\.04/);
+    // Cost line reads from the per-model lookup, formatted to 3 dp.
+    assert.match(js, /Cost ước tính:\s*~\$\$\{cost\.toFixed\(3\)\}/);
   });
 
   test('status line surfaces the prompt source returned by the API', () => {
@@ -789,12 +800,12 @@ describe('Sprint 13.5.9.1 — admin reviews and optionally edits the prompt', ()
   });
 
   test('confirmation dialog differentiates curated vs template messages', () => {
-    assert.match(js, /Generate hình map với custom prompt/);
-    assert.match(js, /Generate hình map với template prompt/);
-    // The confirm copy uses a plain "<details>" (it goes through
-    // window.confirm which does not HTML-render). The indicator pill,
-    // by contrast, uses the escaped form because it lands in innerHTML.
-    assert.match(js, /no <details> block trong markdown/);
+    // Sprint 13.5.9.2 — the curated / template split now lives in a
+    // ``sourceLine`` ternary, not the confirm string itself. Pin the
+    // ternary structure so future refactors can't drop either branch.
+    assert.match(js, /custom prompt \(\$\{promptChars\}\s*chars\)/);
+    assert.match(js, /template prompt \(no <details> block trong markdown\)/);
+    assert.match(js, /Generate hình map với \$\{sourceLine\}/);
   });
 
   test('the indicator span is exercise-id-scoped (no cross-wiring on multi-card pages)', () => {
@@ -805,5 +816,75 @@ describe('Sprint 13.5.9.1 — admin reviews and optionally edits the prompt', ()
   test('preview block is omitted entirely when no curated prompt exists', () => {
     assert.match(js, /const promptReview = hasCustom\s*\?\s*`<div class="td-prompt-review"/);
     assert.match(js, /:\s*'';/);
+  });
+});
+
+
+// ── Sprint 13.5.9.2 — Gemini 3.x migration (Nano Banana 2 default) ───────
+
+describe('Sprint 13.5.9.2 — admin model selector + cost preview', () => {
+  const js = read('js', 'admin-listening-tests-detail.js');
+
+  test('model dropdown lists all six Sprint 13.5.9.2 supported models', () => {
+    // Each option must appear once in the rendered <select>. Pin the
+    // exact model IDs so a future refactor can't quietly drop the new
+    // Gemini 3.x family or add a 7th option without an admin label.
+    const expected = [
+      'gemini-3.1-flash-image-preview',
+      'gemini-3-pro-image-preview',
+      'imagen-4.0-ultra-generate-001',
+      'imagen-4.0-generate-001',
+      'imagen-4.0-fast-generate-001',
+      'gemini-2.5-flash-image',
+    ];
+    for (const id of expected) {
+      const re = new RegExp(`<option value="${id.replace(/\./g, '\\.')}"`);
+      assert.match(js, re, `missing option for ${id}`);
+    }
+  });
+
+  test('default selector falls back to Nano Banana 2 (gemini-3.1-flash-image-preview)', () => {
+    // When the exercise has no map_image_model yet (fresh row), the
+    // selector default is the cluster default. Sprint 13.5.6 used
+    // imagen-4.0-fast-generate-001; Sprint 13.5.9.2 flips this to
+    // Andy's locked Gemini 3.x default.
+    assert.match(js,
+      /const model = ex\.map_image_model \|\| ['"]gemini-3\.1-flash-image-preview['"]/);
+    // The old default is gone — pin the absence so a regression
+    // doesn't quietly resurface.
+    assert.ok(
+      !/const model = ex\.map_image_model \|\| ['"]imagen-4\.0-fast-generate-001['"]/.test(js),
+      'old imagen-4.0-fast default must be removed',
+    );
+  });
+
+  test('legacy 2.5 Flash option carries an explicit deprecation marker', () => {
+    // Andy needs to see "⚠️ deprecated 2026-10-02" inline so the
+    // legacy pick isn't a silent footgun. The shutdown date appears
+    // verbatim so a date-shift on the Google side reflects through
+    // the same edit.
+    assert.match(js, /Gemini 2\.5 Flash Image \(Nano Banana\)[\s\S]+?deprecated 2026-10-02/);
+  });
+
+  test('per-model pricing table mirrors the backend SUPPORTED_MODELS registry', () => {
+    // The frontend keeps its own price table for the confirmation
+    // dialog. Pin every model+price so a backend price change can't
+    // silently desync the UI quote.
+    assert.match(js, /'gemini-3\.1-flash-image-preview':\s*0\.067/);
+    assert.match(js, /'gemini-3-pro-image-preview':\s*0\.134/);
+    assert.match(js, /'imagen-4\.0-ultra-generate-001':\s*0\.06/);
+    assert.match(js, /'imagen-4\.0-generate-001':\s*0\.04/);
+    assert.match(js, /'imagen-4\.0-fast-generate-001':\s*0\.02/);
+    assert.match(js, /'gemini-2\.5-flash-image':\s*0\.039/);
+  });
+
+  test('confirm copy quotes the per-model cost via MAP_IMAGE_MODEL_PRICING', () => {
+    // The lookup must read from the new const map, and the cost must
+    // surface in the confirm message at 3-dp precision. Also pin that
+    // a deprecated pick triggers the inline warning string.
+    assert.match(js, /const cost = MAP_IMAGE_MODEL_PRICING\[model\]/);
+    assert.match(js, /Cost ước tính:\s*~\$\$\{cost\.toFixed\(3\)\}/);
+    assert.match(js, /MAP_IMAGE_DEPRECATED_MODELS\.has\(model\)/);
+    assert.match(js, /deprecated 2026-10-02/);
   });
 });

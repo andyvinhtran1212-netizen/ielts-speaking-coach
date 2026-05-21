@@ -197,6 +197,244 @@ def _seed_plan_label_exercise(fake: _Fake, *, with_image: bool = False) -> dict:
     }
 
 
+# ── Sprint 13.5.9.2 — model registry + Gemini 3.x dispatch ────────────────
+
+
+def test_supported_models_registry_lists_all_andy_locked_models():
+    """The cluster's accepted model set is pinned here so a future
+    refactor can't quietly drop one (or add a new one without an
+    admin-UI label).
+    """
+    expected = {
+        "gemini-3.1-flash-image-preview",     # Nano Banana 2 — default
+        "gemini-3-pro-image-preview",         # Nano Banana Pro — premium
+        "imagen-4.0-ultra-generate-001",      # publication-grade
+        "imagen-4.0-generate-001",            # general-purpose
+        "imagen-4.0-fast-generate-001",       # cheapest
+        "gemini-2.5-flash-image",             # legacy (deprecated 2026-10-02)
+    }
+    assert set(listening_map_image.SUPPORTED_MODELS.keys()) == expected
+    # Each entry must carry the minimum metadata the dispatcher reads.
+    for model_id, cfg in listening_map_image.SUPPORTED_MODELS.items():
+        assert "price" in cfg, f"{model_id} missing price"
+        assert "endpoint" in cfg, f"{model_id} missing endpoint"
+        assert "label" in cfg, f"{model_id} missing label"
+        assert "deprecated" in cfg, f"{model_id} missing deprecated flag"
+
+
+def test_default_model_is_nano_banana_2_per_andy_lock():
+    """Andy 2026-05-21 explicit lock: Nano Banana 2 is the default.
+    Pinned here so a refactor can't silently downgrade.
+    """
+    assert listening_map_image.DEFAULT_MODEL == "gemini-3.1-flash-image-preview"
+
+
+def test_fallback_chain_walks_pro_then_legacy_25_flash():
+    """The fallback chain order matters — Pro is tried before the
+    deprecated 2.5 Flash so quality improves on retry rather than
+    regressing.
+    """
+    chain = listening_map_image.FALLBACK_CHAIN
+    assert chain == (
+        "gemini-3-pro-image-preview",
+        "gemini-2.5-flash-image",
+    )
+    # All chain members must be in the registry.
+    for step in chain:
+        assert step in listening_map_image.SUPPORTED_MODELS
+
+
+def test_gemini_2_5_flash_image_marked_deprecated_with_shutdown_date():
+    """Andy needs the admin UI to surface the deprecation warning so
+    the option isn't a silent footgun.
+    """
+    cfg = listening_map_image.SUPPORTED_MODELS["gemini-2.5-flash-image"]
+    assert cfg["deprecated"] is True
+    assert cfg["shutdown_date"] == "2026-10-02"
+
+
+def test_gemini_v1beta_payload_attaches_response_modalities_image():
+    """v1beta endpoint requires ``generationConfig.responseModalities``
+    to be set, or the model returns text-only output. Pin the field
+    so a future refactor of the payload builder doesn't drop it.
+    """
+    body = listening_map_image._gemini_v1beta_payload(
+        "Test prompt", supports_thinking=False,
+    )
+    assert body["generationConfig"]["responseModalities"] == ["IMAGE"]
+    # Thinking config absent when not requested.
+    assert "thinkingConfig" not in body["generationConfig"]
+    assert body["contents"][0]["parts"][0]["text"] == "Test prompt"
+
+
+def test_gemini_v1beta_payload_adds_thinking_config_when_supported():
+    """For Nano Banana Pro (and any future model with
+    ``supports_thinking``), the dispatcher attaches
+    ``thinkingConfig.thinkingBudget = "medium"`` — that's the knob
+    Andy wants for IELTS spatial-layout accuracy.
+    """
+    body = listening_map_image._gemini_v1beta_payload(
+        "Test prompt", supports_thinking=True,
+    )
+    assert body["generationConfig"]["thinkingConfig"] == {
+        "thinkingBudget": "medium",
+    }
+    assert body["generationConfig"]["responseModalities"] == ["IMAGE"]
+
+
+def test_call_image_model_dispatches_via_endpoint_key_for_nano_banana_2(monkeypatch):
+    """Calling the Gemini 3.x family must hit the v1beta endpoint with
+    the v1beta payload shape — NOT the legacy gemini payload.
+    """
+    captured = {}
+
+    class _Stub:
+        def __init__(self, body):
+            self._body = body
+        def raise_for_status(self): pass
+        def json(self): return self._body
+
+    def _fake_post(url, params=None, json=None, timeout=None):
+        captured["url"] = url
+        captured["json"] = json
+        return _Stub({"candidates": [{
+            "content": {"parts": [{
+                "inlineData": {
+                    "data": base64.b64encode(b"\x89PNGnb2").decode(),
+                },
+            }]},
+        }]})
+    monkeypatch.setattr(listening_map_image.requests, "post", _fake_post)
+
+    out = listening_map_image.call_image_model(
+        "gemini-3.1-flash-image-preview",
+        "Floor plan prompt",
+        api_key="test-key",
+    )
+    assert out == b"\x89PNGnb2"
+    # Endpoint URL targets the Gemini :generateContent path.
+    assert "gemini-3.1-flash-image-preview:generateContent" in captured["url"]
+    # Payload carries the v1beta-only responseModalities field.
+    body = captured["json"]
+    assert body["generationConfig"]["responseModalities"] == ["IMAGE"]
+    assert body["generationConfig"]["thinkingConfig"] == {
+        "thinkingBudget": "medium",
+    }
+
+
+def test_call_image_model_legacy_gemini_25_path_unchanged_regression(monkeypatch):
+    """Regression — selecting the legacy gemini-2.5-flash-image must
+    keep using the simpler legacy payload (no responseModalities, no
+    thinkingConfig) so existing Andy-pinned exercises still work.
+    """
+    captured = {}
+
+    class _Stub:
+        def __init__(self, body):
+            self._body = body
+        def raise_for_status(self): pass
+        def json(self): return self._body
+
+    def _fake_post(url, params=None, json=None, timeout=None):
+        captured["url"] = url
+        captured["json"] = json
+        return _Stub({"candidates": [{
+            "content": {"parts": [{
+                "inlineData": {
+                    "data": base64.b64encode(b"\x89PNGlegacy").decode(),
+                },
+            }]},
+        }]})
+    monkeypatch.setattr(listening_map_image.requests, "post", _fake_post)
+
+    out = listening_map_image.call_image_model(
+        "gemini-2.5-flash-image",
+        "Floor plan prompt",
+        api_key="test-key",
+    )
+    assert out == b"\x89PNGlegacy"
+    assert "gemini-2.5-flash-image:generateContent" in captured["url"]
+    # Legacy payload — neither v1beta field present.
+    body = captured["json"]
+    assert "generationConfig" not in body
+    assert "responseModalities" not in str(body)
+
+
+def test_call_image_model_imagen_path_unchanged_regression(monkeypatch):
+    """Regression — Imagen :predict path still uses the
+    ``instances[{prompt}]`` body shape (not Gemini's contents).
+    """
+    captured = {}
+
+    class _Stub:
+        def __init__(self, body):
+            self._body = body
+        def raise_for_status(self): pass
+        def json(self): return self._body
+
+    def _fake_post(url, params=None, json=None, timeout=None):
+        captured["url"] = url
+        captured["json"] = json
+        return _Stub({"predictions": [{
+            "bytesBase64Encoded": base64.b64encode(b"\x89PNGimg").decode(),
+        }]})
+    monkeypatch.setattr(listening_map_image.requests, "post", _fake_post)
+
+    out = listening_map_image.call_image_model(
+        "imagen-4.0-fast-generate-001",
+        "Floor plan prompt",
+        api_key="test-key",
+    )
+    assert out == b"\x89PNGimg"
+    assert "imagen-4.0-fast-generate-001:predict" in captured["url"]
+    body = captured["json"]
+    assert "instances" in body
+    assert body["instances"][0]["prompt"] == "Floor plan prompt"
+
+
+def test_call_image_model_logs_deprecation_warning_for_legacy_model(monkeypatch, caplog):
+    """Sprint 13.5.9.2 — the dispatcher must emit a logger.warning the
+    moment a deprecated model is used so server logs flag silent
+    long-term-incompatible choices.
+    """
+    import logging
+
+    class _Stub:
+        def raise_for_status(self): pass
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{
+                "inlineData": {
+                    "data": base64.b64encode(b"\x89PNG").decode(),
+                },
+            }]}}]}
+
+    monkeypatch.setattr(
+        listening_map_image.requests, "post",
+        lambda *a, **kw: _Stub(),
+    )
+    with caplog.at_level(logging.WARNING, logger="services.listening_map_image"):
+        listening_map_image.call_image_model(
+            "gemini-2.5-flash-image", "prompt", api_key="test-key",
+        )
+    msgs = [r.getMessage() for r in caplog.records
+            if "deprecated model gemini-2.5-flash-image" in r.getMessage()]
+    assert msgs, "expected a deprecation warning for the legacy model"
+    assert "2026-10-02" in msgs[0]
+
+
+def test_estimate_cost_reads_from_registry_for_all_supported_models():
+    """``estimate_cost`` must return the registry price for every
+    supported model, and the priciest entry for unknowns (UI never
+    under-quotes).
+    """
+    for model_id, cfg in listening_map_image.SUPPORTED_MODELS.items():
+        assert listening_map_image.estimate_cost(model_id) == cfg["price"]
+    assert (
+        listening_map_image.estimate_cost("totally-unknown")
+        >= max(c["price"] for c in listening_map_image.SUPPORTED_MODELS.values())
+    )
+
+
 # ── Service-level tests ────────────────────────────────────────────────────
 
 
@@ -490,8 +728,12 @@ def test_generate_endpoint_happy_path_returns_signed_url_and_updates_payload(mon
     ))
     assert out["exercise_id"] == seed["exercise_id"]
     assert out["signed_url"].startswith("https://stor.test/listening-images/")
-    assert out["map_image_model"] == "imagen-4.0-fast-generate-001"
-    assert out["cost_estimate_usd"] == 0.02
+    # Sprint 13.5.9.2 — cluster default flipped from imagen-4.0-fast
+    # to Nano Banana 2 (gemini-3.1-flash-image-preview). The endpoint
+    # respects ``settings.LISTENING_MAP_IMAGE_MODEL`` which now points
+    # at the new default.
+    assert out["map_image_model"] == "gemini-3.1-flash-image-preview"
+    assert out["cost_estimate_usd"] == 0.067
     # Sprint 13.5.9 — the response must declare prompt source so the
     # admin UI can render the indicator without a follow-up fetch.
     assert out["map_image_prompt_source"] == "template"

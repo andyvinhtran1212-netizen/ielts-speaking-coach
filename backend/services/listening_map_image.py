@@ -1,4 +1,4 @@
-"""services/listening_map_image.py — Sprint 13.5.6.
+"""services/listening_map_image.py — Sprint 13.5.6 + 13.5.9.2.
 
 Generate a Cambridge-IELTS-style floor-plan image for a plan-label
 exercise (S2 Q16-20 standard format) via Google Imagen / Gemini.
@@ -12,10 +12,14 @@ Design choices:
   with the existing `requests` dependency (same shape as
   ``listening_renderer.py``). Tests patch ``call_image_model`` at the
   module boundary so no network or SDK install is required.
-* **Model fallback.** ``LISTENING_MAP_IMAGE_MODEL`` (default
-  ``imagen-4.0-fast-generate-001``) is tried first; on failure the
-  service falls back to ``gemini-2.5-flash-image``. Both responses are
-  normalised to raw PNG bytes.
+* **Model registry + fallback chain.** Sprint 13.5.9.2 — Andy's
+  authoring quality jumped past what Gemini 2.5 Flash Image could
+  reliably deliver (garbled labels, layout drift). The primary model
+  is now ``gemini-3.1-flash-image-preview`` (Nano Banana 2); on any
+  non-auth failure the service walks
+  ``DEFAULT_MODEL → FALLBACK_CHAIN`` until one succeeds. The legacy
+  Gemini 2.5 Flash Image stays in the chain (deprecated 2026-10-02)
+  so the upgrade is non-breaking.
 * **Storage.** Generated PNGs land in the Supabase Storage bucket
   named by ``settings.LISTENING_IMAGES_BUCKET`` under
   ``tests/<test_uuid>/maps/<exercise_uuid>.png``. The bucket is
@@ -26,10 +30,13 @@ Design choices:
 
 Public API:
 
-  build_map_image_prompt(map_description, letter_options) -> str
+  SUPPORTED_MODELS                          # registry dict
+  DEFAULT_MODEL                             # "gemini-3.1-flash-image-preview"
+  FALLBACK_CHAIN                            # tuple[str, ...]
+  build_map_image_prompt(...)               -> str
   call_image_model(model, prompt, *, api_key) -> bytes   # HTTP boundary
-  generate_and_upload(...) -> dict
-  estimate_cost(model) -> float
+  generate_and_upload(...)                  -> dict
+  estimate_cost(model)                      -> float
 """
 
 from __future__ import annotations
@@ -45,22 +52,97 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-# ── Pricing (USD per single image, standard mode) ──────────────────────────
+# ── Model registry (Sprint 13.5.9.2) ───────────────────────────────────────
+#
+# Each entry carries:
+#   * price             — USD per generated image (single, standard mode)
+#   * endpoint          — dispatcher key (see ``call_image_model``):
+#                         ``imagen`` / ``gemini`` / ``gemini_v1beta``
+#   * supports_thinking — Gemini 3.x only; when True we attach a
+#                         ``thinkingConfig`` block so the model spends
+#                         extra reasoning tokens on spatial layout
+#                         (helps IELTS letter-placement accuracy).
+#   * deprecated        — True for sunset models; UI surfaces a warning.
+#   * label             — admin-UI option text (single source of truth).
 
-
-_PRICING_USD: dict[str, float] = {
-    "imagen-4.0-fast-generate-001":     0.02,
-    "imagen-4.0-generate-001":          0.04,
-    "imagen-4.0-ultra-generate-001":    0.06,
-    "gemini-2.5-flash-image":           0.039,
+SUPPORTED_MODELS: dict[str, dict[str, Any]] = {
+    # Default — Nano Banana 2. Andy 2026-05-21 explicit lock: 95% of
+    # Pro quality at half the cost; ranks #1 AI Arena text-to-image.
+    "gemini-3.1-flash-image-preview": {
+        "price":             0.067,
+        "endpoint":          "gemini_v1beta",
+        "supports_thinking": True,
+        "deprecated":        False,
+        "label":             "Gemini 3.1 Flash Image (Nano Banana 2) — $0.067 ⭐ DEFAULT",
+    },
+    # Premium quality — Nano Banana Pro. Used as auto-upgrade when
+    # NB2 fails, or explicit admin pick for hard floor plans.
+    "gemini-3-pro-image-preview": {
+        "price":             0.134,
+        "endpoint":          "gemini_v1beta",
+        "supports_thinking": True,
+        "deprecated":        False,
+        "label":             "Gemini 3 Pro Image (Nano Banana Pro) — $0.134 (premium quality)",
+    },
+    # Imagen 4 family — kept for completeness. Photorealistic but
+    # doesn't follow letter-placement instructions as reliably as
+    # Gemini 3.x for IELTS maps.
+    "imagen-4.0-ultra-generate-001": {
+        "price":             0.06,
+        "endpoint":          "imagen",
+        "supports_thinking": False,
+        "deprecated":        False,
+        "label":             "Imagen 4 Ultra — $0.06 (publication-grade max fidelity)",
+    },
+    "imagen-4.0-generate-001": {
+        "price":             0.04,
+        "endpoint":          "imagen",
+        "supports_thinking": False,
+        "deprecated":        False,
+        "label":             "Imagen 4 Standard — $0.04 (general-purpose)",
+    },
+    "imagen-4.0-fast-generate-001": {
+        "price":             0.02,
+        "endpoint":          "imagen",
+        "supports_thinking": False,
+        "deprecated":        False,
+        "label":             "Imagen 4 Fast — $0.02 (cheapest, basic)",
+    },
+    # Legacy — Nano Banana. Stays in the fallback chain because it's
+    # still live until 2026-10-02. Admin still allowed to pick it.
+    "gemini-2.5-flash-image": {
+        "price":             0.039,
+        "endpoint":          "gemini",
+        "supports_thinking": False,
+        "deprecated":        True,
+        "shutdown_date":     "2026-10-02",
+        "label":             "Gemini 2.5 Flash Image (Nano Banana) — $0.039 ⚠️ deprecated 2026-10-02",
+    },
 }
+
+# Default model — Andy 2026-05-21 lock. Stays in code so deployments
+# pin the cluster decision; ``settings.LISTENING_MAP_IMAGE_MODEL`` can
+# still override per-environment without a code change.
+DEFAULT_MODEL: str = "gemini-3.1-flash-image-preview"
+
+# Walked top-to-bottom when the primary fails. Each step swaps the
+# request shape for a different family (Nano Banana 2 → Pro → 2.5
+# Flash legacy). The legacy Gemini 2.5 stays last so a transient
+# Gemini 3.x outage still produces a usable image.
+FALLBACK_CHAIN: tuple[str, ...] = (
+    "gemini-3-pro-image-preview",
+    "gemini-2.5-flash-image",
+)
 
 
 def estimate_cost(model: str) -> float:
     """Best-effort USD-per-image estimate; defaults to the priciest
     tier if the model is unknown so the UI never under-quotes Andy.
     """
-    return _PRICING_USD.get(model, max(_PRICING_USD.values()))
+    cfg = SUPPORTED_MODELS.get(model)
+    if cfg is not None:
+        return float(cfg["price"])
+    return max(m["price"] for m in SUPPORTED_MODELS.values())
 
 
 # ── Prompt template ────────────────────────────────────────────────────────
@@ -150,6 +232,33 @@ def _gemini_image_payload(prompt: str) -> dict[str, Any]:
     }
 
 
+def _gemini_v1beta_payload(prompt: str, *, supports_thinking: bool) -> dict[str, Any]:
+    """Sprint 13.5.9.2 — Gemini 3.x (Nano Banana 2 / Pro) request shape.
+
+    Differs from the 2.5 Flash Image body in two places:
+      1. ``generationConfig.responseModalities = ["IMAGE"]`` — required
+         on the v1beta endpoint or the model returns text-only output.
+      2. Optional ``generationConfig.thinkingConfig.thinkingBudget`` —
+         when set to "medium" the model spends extra reasoning tokens
+         on spatial layout, which fixes the letter-placement drift
+         Andy reported in Sprint 13.5.9.1's image-3 regression. Only
+         attached when the registry's ``supports_thinking`` is True
+         (currently the entire Gemini 3.x family).
+    """
+    generation_config: dict[str, Any] = {
+        "responseModalities": ["IMAGE"],
+    }
+    if supports_thinking:
+        generation_config["thinkingConfig"] = {"thinkingBudget": "medium"}
+    return {
+        "contents": [{
+            "role": "user",
+            "parts": [{"text": prompt}],
+        }],
+        "generationConfig": generation_config,
+    }
+
+
 def _decode_imagen_response(body: dict[str, Any]) -> bytes:
     preds = body.get("predictions") or []
     if not preds:
@@ -182,6 +291,13 @@ def call_image_model(
     """POST to the chosen model's REST endpoint and return raw image
     bytes. Tests patch this function so no network is touched.
 
+    Sprint 13.5.9.2 — dispatch is driven by the ``SUPPORTED_MODELS``
+    registry (endpoint type ``imagen`` / ``gemini`` / ``gemini_v1beta``).
+    Unknown model IDs fall back to a prefix-based heuristic so a future
+    Imagen / Gemini model can be invoked before its registry entry
+    lands (the admin still gets a usable image even if the dropdown
+    doesn't list it).
+
     Raises:
         RuntimeError when the API key is missing or the response shape
         doesn't carry image bytes.
@@ -190,14 +306,42 @@ def call_image_model(
     if not api_key:
         raise RuntimeError("Google API key not configured")
 
-    if model.startswith("imagen-"):
+    config = SUPPORTED_MODELS.get(model)
+    endpoint_kind = (config or {}).get("endpoint")
+    if endpoint_kind is None:
+        # Heuristic for unregistered model IDs: Imagen → :predict,
+        # Gemini 3.x → v1beta:generateContent, everything else →
+        # legacy :generateContent.
+        if model.startswith("imagen-"):
+            endpoint_kind = "imagen"
+        elif model.startswith(("gemini-3", "gemini-4")):
+            endpoint_kind = "gemini_v1beta"
+        else:
+            endpoint_kind = "gemini"
+
+    if endpoint_kind == "imagen":
         url = _IMAGEN_PREDICT_URL.format(model=model)
         payload = _imagen_payload(prompt)
         decoder = _decode_imagen_response
+    elif endpoint_kind == "gemini_v1beta":
+        url = _GEMINI_GENERATE_URL.format(model=model)
+        supports_thinking = bool((config or {}).get("supports_thinking"))
+        payload = _gemini_v1beta_payload(
+            prompt, supports_thinking=supports_thinking,
+        )
+        decoder = _decode_gemini_image_response
     else:
+        # Legacy Gemini 2.5 Flash Image.
         url = _GEMINI_GENERATE_URL.format(model=model)
         payload = _gemini_image_payload(prompt)
         decoder = _decode_gemini_image_response
+
+    if (config or {}).get("deprecated"):
+        shutdown = (config or {}).get("shutdown_date") or "scheduled"
+        logger.warning(
+            "[map_image] using deprecated model %s (shutdown %s)",
+            model, shutdown,
+        )
 
     resp = requests.post(
         url,
@@ -239,10 +383,11 @@ def generate_and_upload(
     falls back to the Sprint 13.5.6 template (and the description
     length guard re-engages).
 
-    The primary model is tried first; on any non-auth failure the
-    service falls back to ``gemini-2.5-flash-image``. A missing API
-    key short-circuits with a clear RuntimeError — no fallback can
-    recover that.
+    Sprint 13.5.9.2 — primary model is ``DEFAULT_MODEL``
+    (``gemini-3.1-flash-image-preview``). On any non-auth failure the
+    service walks ``FALLBACK_CHAIN`` (Pro → 2.5 Flash legacy) until
+    one succeeds. A missing API key short-circuits with a clear
+    RuntimeError — no fallback can recover that.
     """
     from config import settings
 
@@ -257,28 +402,47 @@ def generate_and_upload(
     if not resolved_key:
         raise RuntimeError("GEMINI_API_KEY not configured")
 
-    primary = model or settings.LISTENING_MAP_IMAGE_MODEL
+    # Resolve the model chain: caller's pick → env override → cluster
+    # default. The chain dedupes so an env that already points at a
+    # fallback step doesn't double-try the same model.
+    primary = model or settings.LISTENING_MAP_IMAGE_MODEL or DEFAULT_MODEL
+    chain: list[str] = [primary]
+    for step in FALLBACK_CHAIN:
+        if step not in chain:
+            chain.append(step)
+
     prompt = build_map_image_prompt(
         map_description, letter_options, custom_prompt=custom_prompt,
     )
 
-    try:
-        image_bytes = call_image_model(primary, prompt, api_key=resolved_key)
-        model_used = primary
-    except Exception as exc:                                              # pragma: no cover
-        if primary == "gemini-2.5-flash-image":
-            # Already the fallback — surface the real failure.
-            logger.error("[map_image] generation failed (no fallback left): %s", exc)
-            raise
-        logger.warning(
-            "[map_image] primary model %s failed (%s); falling back to "
-            "gemini-2.5-flash-image",
-            primary, exc,
+    image_bytes: bytes | None = None
+    model_used: str | None = None
+    last_exc: Exception | None = None
+    for step in chain:
+        try:
+            image_bytes = call_image_model(step, prompt, api_key=resolved_key)
+            model_used = step
+            if step != primary:
+                logger.warning(
+                    "[map_image] primary model %s failed; used fallback %s",
+                    primary, step,
+                )
+            break
+        except Exception as exc:                                          # pragma: no cover
+            last_exc = exc
+            logger.warning(
+                "[map_image] model %s failed: %s — trying next in chain",
+                step, exc,
+            )
+    if image_bytes is None or model_used is None:
+        logger.error(
+            "[map_image] all models in the fallback chain failed (last error: %s)",
+            last_exc,
         )
-        image_bytes = call_image_model(
-            "gemini-2.5-flash-image", prompt, api_key=resolved_key,
+        raise RuntimeError(
+            f"Image generation failed across the full fallback chain "
+            f"({', '.join(chain)}): {last_exc}",
         )
-        model_used = "gemini-2.5-flash-image"
 
     if not image_bytes:
         raise RuntimeError("Image generation returned empty bytes")
