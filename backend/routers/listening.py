@@ -3859,6 +3859,13 @@ class GenerateMapImageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     # Optional override — defaults to settings.LISTENING_MAP_IMAGE_MODEL.
     model: str | None = None
+    # Sprint 13.5.9.1 — admin-reviewed (possibly edited) prompt. When
+    # supplied + non-empty, this overrides the parser-extracted
+    # ``metadata.map_image_custom_prompt`` and the Cambridge template.
+    # The override is session-only: it is NOT persisted back to the
+    # markdown source, so re-converting the markdown resets the
+    # textarea to whatever the parser extracts.
+    custom_prompt_override: str | None = None
 
 
 def _fetch_exercise_or_404(exercise_id: str) -> dict:
@@ -3921,10 +3928,31 @@ async def admin_generate_map_image(
     # Sprint 13.5.9 — pick up Andy's curated prompt off either the
     # metadata block (where the parser puts it) or the payload root
     # (defensive in case a future writer flattens the schema).
-    custom_prompt = (
+    parsed_prompt = (
         metadata.get("map_image_custom_prompt")
         or payload.get("map_image_custom_prompt")
         or None
+    )
+    # Sprint 13.5.9.1 — precedence:
+    #   1. ``body.custom_prompt_override`` — admin reviewed/edited it
+    #      in the UI and clicked Generate. Use this verbatim.
+    #   2. ``parsed_prompt`` — the parser extracted it from a
+    #      `<details>` block in the markdown source.
+    #   3. ``None`` — the image service falls back to the template.
+    override = (body.custom_prompt_override if body else None) or None
+    if override and override.strip():
+        custom_prompt = override
+        prompt_origin = "admin_override"
+    elif parsed_prompt:
+        custom_prompt = parsed_prompt
+        prompt_origin = "custom"
+    else:
+        custom_prompt = None
+        prompt_origin = "template"
+    logger.info(
+        "[map_image] generate exercise=%s origin=%s prompt_chars=%d",
+        exercise_id, prompt_origin,
+        len(custom_prompt) if custom_prompt else 0,
     )
 
     api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
@@ -3960,6 +3988,14 @@ async def admin_generate_map_image(
     except Exception as exc:
         logger.error("[map_image] generation failed: %s", exc)
         raise HTTPException(500, f"Image generation failed: {exc}")
+
+    # Sprint 13.5.9.1 — when the admin reviewed/edited the prompt in
+    # the UI, override the service's "custom"/"template" tag with the
+    # finer-grained "admin_override" so the panel can show what
+    # actually drove the generation. The service has no way to know
+    # whether the prompt it received came from markdown or a textarea.
+    if prompt_origin == "admin_override":
+        result["map_image_prompt_source"] = "admin_override"
 
     # Merge image metadata into the exercise payload.
     payload.update(result)

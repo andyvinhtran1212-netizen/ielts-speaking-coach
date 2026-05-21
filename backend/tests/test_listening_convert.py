@@ -786,6 +786,74 @@ This must be ignored because the block is not plan-label.
     assert "map_image_custom_prompt" not in block["metadata"]
 
 
+# ── Sprint 13.5.9.1 — HTML-tag strip in summary matcher ────────────────────
+
+
+def test_extract_custom_image_prompt_handles_emoji_and_strong_tag_summary():
+    """Sprint 13.5.9.1 — Andy's real summaries carry an emoji + a
+    `<strong>` wrap + a trailing dash hint. The bare regex already
+    finds the substring, but stripping inline HTML before the keyword
+    search keeps the contract robust against future presentation-only
+    markup variation.
+    """
+    body = (
+        "<details>\n"
+        "<summary>📐 <strong>AI image-generation prompt for this map</strong> "
+        "(click to expand) — use this when re-creating the image for web "
+        "publication</summary>\n"
+        "\n"
+        "ANDY CURATED BODY\n"
+        "\n"
+        "</details>"
+    )
+    out = lc._extract_custom_image_prompt(body)
+    assert out is not None
+    assert "ANDY CURATED BODY" in out
+
+
+def test_extract_custom_image_prompt_strips_nested_inline_tags_from_summary():
+    """A summary that wraps the keyword phrase in nested `<em>` / `<a>` /
+    `<span>` elements (so the bare substring is split by tags) must
+    still match. Sprint 13.5.9.1's HTML strip turns
+    "<em>AI</em> <a>image-generation</a> <span>prompt</span>" into
+    "AI  image-generation  prompt" before the keyword regex runs.
+    """
+    body = (
+        "<details>\n"
+        '<summary>📐 <em>AI</em> <a href="#">image-generation</a> '
+        '<span class="x">prompt</span> for this map</summary>\n'
+        "NESTED-TAGS BODY\n"
+        "</details>"
+    )
+    out = lc._extract_custom_image_prompt(body)
+    assert out == "NESTED-TAGS BODY"
+
+
+def test_extract_custom_image_prompt_html_strip_does_not_consume_body():
+    """Regression — the HTML-strip is summary-only. Markdown tables,
+    lists, headings inside the body must round-trip verbatim.
+    """
+    body = (
+        "<details>\n"
+        "<summary>📐 <strong>AI image-generation prompt</strong></summary>\n"
+        "\n"
+        "## Heading\n"
+        "\n"
+        "| Letter | Position |\n"
+        "| A | gym |\n"
+        "| B | studio |\n"
+        "\n"
+        "- bullet one\n"
+        "- bullet two\n"
+        "</details>"
+    )
+    out = lc._extract_custom_image_prompt(body)
+    assert out is not None
+    assert "## Heading" in out
+    assert "| Letter | Position |" in out
+    assert out.rstrip().endswith("- bullet two")
+
+
 def test_summary_completion_section_4_captures_3_gaps():
     sections = lc.split_qp_sections(QUESTION_PAPER_MD)
     blocks = lc.parse_question_blocks(sections[4])

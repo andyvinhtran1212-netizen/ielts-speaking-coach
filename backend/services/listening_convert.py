@@ -873,6 +873,13 @@ _AI_PROMPT_SUMMARY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Sprint 13.5.9.1 — Andy's actual summaries carry presentation HTML
+# (emoji + `<strong>` wrapping the title + a trailing dash hint). The
+# unwrapped substring "AI image-generation prompt" still appears inside
+# them, but stripping the tags before matching makes the contract
+# robust against future formats (e.g. `<em>`, links, nested spans).
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
 
 def _extract_custom_image_prompt(body: str) -> str | None:
     """Find the first `<details>` block whose summary mentions an
@@ -882,8 +889,12 @@ def _extract_custom_image_prompt(body: str) -> str | None:
     service then falls back to its template prompt.
     """
     for m in _DETAILS_BLOCK_RE.finditer(body):
-        summary = (m.group("summary") or "").strip()
-        if not _AI_PROMPT_SUMMARY_RE.search(summary):
+        summary_raw = (m.group("summary") or "").strip()
+        # Defensive: drop any inline HTML before searching for the
+        # phrase so emoji-prefixed / `<strong>`-wrapped summaries match
+        # the same as bare-text summaries.
+        summary_clean = _HTML_TAG_RE.sub(" ", summary_raw).strip()
+        if not _AI_PROMPT_SUMMARY_RE.search(summary_clean):
             continue
         prompt = (m.group("body") or "").strip()
         if not prompt:
