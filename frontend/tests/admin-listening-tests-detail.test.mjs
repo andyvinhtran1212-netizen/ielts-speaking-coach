@@ -503,3 +503,106 @@ describe('Sprint 13.5.4 — tests-detail hard-delete button + controller', () =>
     assert.match(js, /Không xác định được test_id/);
   });
 });
+
+
+// ── Sprint 13.5.6 — map image admin panel ─────────────────────────────────
+
+describe('Sprint 13.5.6 — tests-detail map-image panel + controller', () => {
+  const html = read('pages', 'admin', 'listening', 'tests-detail.html');
+  const js   = read('js', 'admin-listening-tests-detail.js');
+
+  test('declares the "Hình map" panel section + list host', () => {
+    assert.match(html, /id="td-map-images"/);
+    assert.match(html, /id="td-map-list"/);
+    assert.match(html, /Hình map.*Plan-label/i);
+  });
+
+  test('render() invokes renderMapImagesPanel() after the other section renderers', () => {
+    assert.match(js, /renderMapImagesPanel\(\)/);
+  });
+
+  test('panel hides when there are no plan-label exercises', () => {
+    assert.match(js, /if \(!plExercises\.length\)\s*\{[\s\S]*?panel\.hidden\s*=\s*true/);
+  });
+
+  test('renders a model selector with Imagen 4 Fast as the recommended default', () => {
+    assert.match(js, /imagen-4\.0-fast-generate-001/);
+    assert.match(js, /\$0\.02.*\(recommend\)/);
+    assert.match(js, /gemini-2\.5-flash-image/);
+  });
+
+  test('shows a Generate button when no image yet + Regenerate/Delete when present', () => {
+    assert.match(js, /td-map-gen/);
+    assert.match(js, /td-map-regen/);
+    assert.match(js, /td-map-delete/);
+  });
+
+  test('POSTs to /admin/listening/exercises/{id}/generate-map-image with model in body', () => {
+    assert.match(
+      js,
+      /window\.api\.post\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/generate-map-image`/,
+    );
+    assert.match(js, /\{\s*model\s*\}/);
+  });
+
+  test('DELETE clears the existing image before regenerate (cost guardrail confirm)', () => {
+    assert.match(js, /Generate lại sẽ xoá hình hiện tại/);
+    assert.match(
+      js,
+      /window\.api\.delete\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/map-image`/,
+    );
+  });
+
+  test('GET signed-url is called for each card already carrying an image', () => {
+    assert.match(js, /function refreshMapImage\(/);
+    assert.match(
+      js,
+      /window\.api\.get\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/map-image\/signed-url`/,
+    );
+  });
+
+  test('inflight status text updates the per-card .td-map-status element', () => {
+    assert.match(js, /function setMapStatus\(/);
+    assert.match(js, /Đang generate \(10-30s\)/);
+  });
+
+  test('after a successful generate the page re-fetches and re-renders', () => {
+    // Sprint 13.5.6: each success path closes with fetchTest()+render()
+    // so the panel re-picks the new payload metadata.
+    assert.match(js, /await fetchTest\(\)/);
+    assert.match(js, /render\(\)/);
+  });
+});
+
+
+// ── Sprint 13.5.6 — student renderer extension ────────────────────────────
+
+describe('Sprint 13.5.6 — student plan-label renderer accepts map image', () => {
+  const playerJs = read('js', 'listening-test-player.js');
+  const css      = read('css', 'ielts-test-paper.css');
+
+  test('renderPlanLabel reads payload.map_image_url (not metadata.map_image_url)', () => {
+    assert.match(playerJs, /payload\.map_image_url/);
+  });
+
+  test('renderPlanLabel emits an <img class="ielts-map-rendered"> when URL present', () => {
+    assert.match(playerJs, /class="ielts-plan-image"/);
+    assert.match(playerJs, /class="ielts-map-rendered"/);
+    assert.match(playerJs, /alt="Floor plan map"/);
+  });
+
+  test('renderPlanLabel falls back to description-only when no map_image_url', () => {
+    // The image block is gated by truthiness on mapImage; ensure the
+    // ternary writes the empty string in the no-image branch.
+    assert.match(playerJs, /const imageBlock = mapImage[\s\S]*?:\s*['"]['"]/);
+  });
+
+  test('renderPlanLabel still reads metadata.map_description as fallback', () => {
+    assert.match(playerJs, /meta\.map_description\s*\|\|\s*payload\.map_description/);
+  });
+
+  test('CSS clamps the rendered map image so it stays inside the test paper column', () => {
+    assert.match(css, /\.ielts-map-rendered[\s\S]+?max-width:\s*100%/);
+    assert.match(css, /\.ielts-map-rendered[\s\S]+?max-height:\s*480px/);
+  });
+});

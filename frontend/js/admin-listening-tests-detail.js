@@ -159,6 +159,159 @@ function render() {
   renderSectionsList();
   renderCuePoints();
   renderPublishGate();
+  renderMapImagesPanel();
+}
+
+
+// Sprint 13.5.6 — render the per-exercise map-image cards. Each
+// plan-label exercise gets its own block with model selector,
+// preview <img> when generated, and Generate/Regenerate/Delete CTAs.
+function renderMapImagesPanel() {
+  const panel = document.getElementById('td-map-images');
+  const host  = document.getElementById('td-map-list');
+  if (!panel || !host) return;
+  const plExercises = (STATE.test && STATE.test.plan_label_exercises) || [];
+  if (!plExercises.length) {
+    panel.hidden = true;
+    host.innerHTML = '';
+    return;
+  }
+  panel.hidden = false;
+  host.innerHTML = plExercises.map((ex) => {
+    const has = ex.has_map_image;
+    const model = ex.map_image_model || 'imagen-4.0-fast-generate-001';
+    const desc  = (ex.map_description || '').trim();
+    const descPreview = desc
+      ? `<details><summary>Map description (${desc.length} chars)</summary><pre style="white-space:pre-wrap;font-size:var(--av-fs-xs);max-height:160px;overflow:auto;">${escapeHtml(desc)}</pre></details>`
+      : `<p class="td-section-meta" style="color:#991B1B;">Map description trống — parser chưa extract được. Re-convert markdown trước khi generate.</p>`;
+    return `
+      <div class="td-map-card" data-exercise-id="${escapeHtml(ex.id)}"
+           style="padding:var(--av-space-3);border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--av-space-3);">
+          <strong>Section ${escapeHtml(ex.section_num)} — Plan label</strong>
+          <span class="td-section-meta" style="font-size:var(--av-fs-xs);">
+            ${has ? `✓ Đã có hình (${escapeHtml(model)})` : 'Chưa có hình'}
+          </span>
+        </div>
+        ${descPreview}
+        <div class="td-map-actions" style="display:flex;gap:var(--av-space-2);flex-wrap:wrap;margin-top:var(--av-space-3);align-items:center;">
+          <label style="font-size:var(--av-fs-sm);">
+            Model:
+            <select class="td-map-model" data-exercise-id="${escapeHtml(ex.id)}">
+              <option value="imagen-4.0-fast-generate-001"${model === 'imagen-4.0-fast-generate-001' ? ' selected' : ''}>Imagen 4 Fast — $0.02 (recommend)</option>
+              <option value="imagen-4.0-generate-001"${model === 'imagen-4.0-generate-001' ? ' selected' : ''}>Imagen 4 Standard — $0.04</option>
+              <option value="gemini-2.5-flash-image"${model === 'gemini-2.5-flash-image' ? ' selected' : ''}>Gemini 2.5 Flash Image — $0.039</option>
+            </select>
+          </label>
+          ${has
+            ? `<button class="td-btn td-btn-primary td-map-regen" data-exercise-id="${escapeHtml(ex.id)}" type="button">Generate lại</button>
+               <button class="td-btn td-btn-danger  td-map-delete" data-exercise-id="${escapeHtml(ex.id)}" type="button">Xoá hình</button>`
+            : `<button class="td-btn td-btn-primary td-map-gen" data-exercise-id="${escapeHtml(ex.id)}" type="button">Generate hình map</button>`}
+          <span class="td-map-status" data-exercise-id="${escapeHtml(ex.id)}" style="font-size:var(--av-fs-xs);color:var(--av-text-muted);"></span>
+        </div>
+        <div class="td-map-preview" data-exercise-id="${escapeHtml(ex.id)}"
+             style="margin-top:var(--av-space-3);text-align:center;${has ? '' : 'display:none;'}">
+          ${has
+            ? `<img class="td-map-img" data-exercise-id="${escapeHtml(ex.id)}" alt="Generated floor plan"
+                   style="max-width:100%;max-height:480px;border:1px solid var(--av-border-default);background:white;" />`
+            : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  attachMapImageHandlers();
+  // Eagerly fetch fresh signed URLs for any card that already has an image.
+  for (const ex of plExercises) {
+    if (ex.has_map_image) {
+      void refreshMapImage(ex.id);
+    }
+  }
+}
+
+function attachMapImageHandlers() {
+  document.querySelectorAll('.td-map-gen').forEach((b) => {
+    b.addEventListener('click', () => onGenerateMapImage(b.getAttribute('data-exercise-id')));
+  });
+  document.querySelectorAll('.td-map-regen').forEach((b) => {
+    b.addEventListener('click', () => onRegenerateMapImage(b.getAttribute('data-exercise-id')));
+  });
+  document.querySelectorAll('.td-map-delete').forEach((b) => {
+    b.addEventListener('click', () => onDeleteMapImage(b.getAttribute('data-exercise-id')));
+  });
+}
+
+function setMapStatus(exerciseId, text, isError) {
+  const el = document.querySelector(`.td-map-status[data-exercise-id="${exerciseId}"]`);
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = isError ? '#991B1B' : 'var(--av-text-muted)';
+}
+
+async function refreshMapImage(exerciseId) {
+  try {
+    const res = await window.api.get(
+      `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/map-image/signed-url`,
+    );
+    const img = document.querySelector(`img.td-map-img[data-exercise-id="${exerciseId}"]`);
+    if (img && res && res.signed_url) {
+      img.src = res.signed_url;
+    }
+  } catch (_e) {
+    // Silent — the card already shows "Chưa có hình" if no image is stored.
+  }
+}
+
+async function onGenerateMapImage(exerciseId) {
+  const sel = document.querySelector(`select.td-map-model[data-exercise-id="${exerciseId}"]`);
+  const model = sel ? sel.value : null;
+  setMapStatus(exerciseId, 'Đang generate (10-30s)…', false);
+  try {
+    const res = await window.api.post(
+      `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/generate-map-image`,
+      { model },
+    );
+    setMapStatus(
+      exerciseId,
+      `OK — ${res.map_image_model} · ~$${(res.cost_estimate_usd || 0).toFixed(3)}`,
+      false,
+    );
+    // Refresh the test bundle so the panel re-renders with the new image.
+    await fetchTest();
+    render();
+  } catch (e) {
+    setMapStatus(exerciseId, `Lỗi: ${(e && e.message) || e}`, true);
+  }
+}
+
+async function onRegenerateMapImage(exerciseId) {
+  if (!window.confirm(
+    'Generate lại sẽ xoá hình hiện tại + tốn phí thêm cho lần generate mới. Tiếp tục?',
+  )) return;
+  setMapStatus(exerciseId, 'Đang xoá hình cũ…', false);
+  try {
+    await window.api.delete(
+      `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/map-image`,
+    );
+  } catch (e) {
+    setMapStatus(exerciseId, `Xoá thất bại: ${(e && e.message) || e}`, true);
+    return;
+  }
+  await onGenerateMapImage(exerciseId);
+}
+
+async function onDeleteMapImage(exerciseId) {
+  if (!window.confirm('Xoá hình map cho exercise này? Phải generate lại nếu cần.')) return;
+  setMapStatus(exerciseId, 'Đang xoá hình…', false);
+  try {
+    await window.api.delete(
+      `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/map-image`,
+    );
+    await fetchTest();
+    render();
+  } catch (e) {
+    setMapStatus(exerciseId, `Xoá thất bại: ${(e && e.message) || e}`, true);
+  }
 }
 
 

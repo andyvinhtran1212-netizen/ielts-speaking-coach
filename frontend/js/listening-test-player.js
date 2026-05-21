@@ -345,7 +345,7 @@ function renderExercise(ex) {
       case 'short_answer':        return renderShortAnswer(questions);
       case 'mcq_3option':         return renderMCQ(questions);
       case 'mcq_letter_label':
-      case 'plan_label':          return renderPlanLabel(meta, questions);
+      case 'plan_label':          return renderPlanLabel(payload, questions);
       default:                    return renderFallback(questions);
     }
   })();
@@ -544,13 +544,30 @@ function renderMCQ(questions) {
 
 // ── Plan / map labelling ───────────────────────────────────────────
 
-function renderPlanLabel(meta, questions) {
-  const mapDesc = (meta && meta.map_description) || '';
-  const letters = Array.isArray(meta && meta.letter_options) && meta.letter_options.length
+function renderPlanLabel(payload, questions) {
+  // Sprint 13.5.6 — accept the full payload so we can read both
+  // metadata-level fields (map_description, letter_options) and the
+  // top-level map_image_url that the student endpoint injects.
+  const meta = (payload && payload.metadata) || {};
+  const mapDesc  = meta.map_description || payload.map_description || '';
+  const mapImage = (payload && payload.map_image_url) || '';
+  const letters = Array.isArray(meta.letter_options) && meta.letter_options.length
     ? meta.letter_options
-    : ['A','B','C','D','E','F','G','H'];
+    : (Array.isArray(payload.letter_options) && payload.letter_options.length
+      ? payload.letter_options
+      : ['A','B','C','D','E','F','G','H']);
+  // When an admin-generated map image exists, render it inline ABOVE
+  // the description; the description then serves as a fallback/legend.
+  // When no image is available, fall back to the original description-
+  // only layout so the page still works.
+  const imageBlock = mapImage
+    ? `<div class="ielts-plan-image">
+         <img src="${esc(mapImage)}" alt="Floor plan map" class="ielts-map-rendered" />
+       </div>`
+    : '';
   return `
     <div class="ielts-plan-container">
+      ${imageBlock}
       ${mapDesc
         ? `<div class="ielts-map-description"><strong>Map description:</strong> ${esc(mapDesc)}</div>`
         : ''}
