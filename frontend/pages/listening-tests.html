@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Cambridge IELTS Full Tests — Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/vocabulary.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <style>
+    .lt-shell {
+      max-width: 960px; margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .lt-header h1 { font-size: var(--av-fs-3xl); margin-bottom: var(--av-space-2); }
+    .lt-header .accent { color: var(--av-brand-teal-700); }
+    .lt-header .subtitle {
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+    }
+    .lt-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--av-space-4);
+    }
+    .lt-card {
+      padding: var(--av-space-5);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+      min-width: 0;
+    }
+    .lt-card-title {
+      font-size: var(--av-fs-lg);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+      word-break: break-word;
+    }
+    .lt-card-meta {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+    }
+    .lt-card-stats {
+      display: flex; gap: var(--av-space-4);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+    }
+    .lt-card-stats strong {
+      color: var(--av-brand-teal-700);
+      font-weight: var(--av-fw-semibold);
+    }
+    .lt-card-cta {
+      display: inline-block;
+      margin-top: var(--av-space-2);
+      padding: var(--av-space-3) var(--av-space-5);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      text-align: center;
+      font-weight: var(--av-fw-semibold);
+      text-decoration: none;
+    }
+    .lt-card-cta:hover { background: var(--av-brand-teal-800); }
+    .lt-card-cta.secondary {
+      background: transparent;
+      color: var(--av-brand-teal-700);
+      border: 1px solid var(--av-brand-teal-200);
+    }
+    .empty-state, .error-banner {
+      padding: var(--av-space-8); text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: #FEF2F2; color: #991B1B;
+      border: 1px solid #FECACA; font-size: var(--av-fs-sm);
+      text-align: left;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="lt-shell">
+      <header class="lt-header">
+        <p class="eyebrow"><a href="/pages/listening.html" style="color: var(--av-text-secondary);">← Quay lại Listening</a></p>
+        <h1>Cambridge IELTS <span class="accent">Full Tests</span></h1>
+        <p class="subtitle">
+          Bài thi đầy đủ 40 câu trên 4 sections — sát đề thật. Mỗi test kéo dài
+          ~30 phút và không thể tua lại audio. Sau khi nộp bài, bạn sẽ nhận
+          điểm số, band ước tính và phân tích bẫy đã mắc.
+        </p>
+      </header>
+
+      <div class="empty-state" id="state-loading">Đang tải danh sách tests…</div>
+      <div class="empty-state" id="state-empty" hidden>
+        <p><strong>Chưa có test nào sẵn sàng.</strong></p>
+        <p>Hãy quay lại sau khi admin xuất bản test mới.</p>
+      </div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <section id="lt-grid" class="lt-grid" hidden></section>
+    </main>
+  </div>
+
+  <script type="module" src="/js/listening-tests-list.js"></script>
+</body>
+</html>

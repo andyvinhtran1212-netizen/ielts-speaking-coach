@@ -3680,3 +3680,395 @@ async def admin_get_test_audio_signed_urls(
         "sections":   section_signed,
         "expires_in": expires_in,
     }
+
+
+# ── Sprint 13.5 — student full-test layer ──────────────────────────────────
+
+
+class TestAttemptAnswerPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    q_num:       int
+    user_answer: str
+
+
+def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
+    """Pick the right audio for a student player.
+
+    Preference: ``assembled_audio_storage_path`` (mode=parts_auto_assembled)
+    over ``full_audio_storage_path`` (mode=full_premixed). Returns
+    ``(signed_url, storage_path, duration_seconds)``. ``signed_url=None``
+    if the test has no audio yet.
+    """
+    storage_path = (
+        test_row.get("assembled_audio_storage_path")
+        or test_row.get("full_audio_storage_path")
+    )
+    duration = test_row.get("full_audio_duration_seconds")
+    if not storage_path:
+        return None, None, None
+    try:
+        signed = supabase_admin.storage.from_(
+            settings.LISTENING_AUDIO_BUCKET
+        ).create_signed_url(storage_path, 7200)                              # 2h for test session
+    except Exception as exc:                                                 # pragma: no cover
+        logger.warning("[listening] student signed URL mint failed: %s", exc)
+        return None, storage_path, duration
+    url = (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+    return url, storage_path, duration
+
+
+@user_router.get("/tests")
+async def list_published_listening_tests(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """Student-facing list of published Cambridge IELTS test bundles.
+
+    Hard-filters ``status='published'`` AND audio satisfied (full or
+    assembled present). Each row carries the calling user's best score
+    + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
+    CTAs without a follow-up round-trip.
+    """
+    user = await _require_auth(authorization)
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("*", count="exact")
+        .eq("status", "published")
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    raw_rows = res.data or []
+    # Filter to rows with audio satisfied (full OR assembled).
+    rows = [
+        r for r in raw_rows
+        if r.get("full_audio_storage_path") or r.get("assembled_audio_storage_path")
+    ]
+
+    # Per-user stats — single round trip across all visible test IDs.
+    test_ids = [r["id"] for r in rows]
+    user_best:  dict[str, int] = {}
+    user_count: dict[str, int] = {}
+    if test_ids:
+        try:
+            att_res = (
+                supabase_admin.table("listening_test_attempts")
+                .select("test_id,score,status")
+                .eq("user_id", user["id"])
+                .in_("test_id", test_ids)
+                .execute()
+            )
+            for att in att_res.data or []:
+                tid = att.get("test_id")
+                if not tid:
+                    continue
+                user_count[tid] = user_count.get(tid, 0) + 1
+                if att.get("status") == "submitted" and att.get("score") is not None:
+                    prev = user_best.get(tid)
+                    if prev is None or att["score"] > prev:
+                        user_best[tid] = att["score"]
+        except Exception as exc:                                             # pragma: no cover
+            logger.warning("[listening] attempts lookup failed: %s", exc)
+
+    out_items: list[dict] = []
+    for r in rows:
+        out_items.append({
+            "id":                   r["id"],
+            "test_id":              r.get("test_id"),
+            "title":                r.get("title"),
+            "band_target":          r.get("band_target"),
+            "themes":               r.get("themes") or {},
+            "accent_profile":       r.get("accent_profile") or [],
+            "audio_assembly_mode":  r.get("audio_assembly_mode"),
+            "user_best_score":      user_best.get(r["id"]),
+            "user_attempt_count":   user_count.get(r["id"], 0),
+        })
+
+    return {
+        "items":  out_items,
+        "total":  len(out_items),
+        "limit":  limit,
+        "offset": offset,
+    }
+
+
+@user_router.get("/tests/{test_id}")
+async def get_published_listening_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Fetch a published test bundle for the student player.
+
+    Includes a signed audio URL (2h TTL — covers test duration with
+    buffer), 4 section rows with narrator intros, and the test's
+    exercises **with answer keys stripped** (security: students must
+    never see the answer key on this endpoint).
+    """
+    from services import listening_test_grader as grader
+
+    _user = await _require_auth(authorization)
+
+    res = (
+        supabase_admin.table("listening_tests")
+        .select("*")
+        .eq("id", test_id)
+        .eq("status", "published")
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Test bundle not found or not published")
+    test = res.data[0]
+
+    audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
+    if not audio_url:
+        raise HTTPException(
+            422,
+            "Test chưa có audio sẵn sàng — vui lòng quay lại sau.",
+        )
+
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("id,section_num,title,transcript,metadata")
+        .eq("test_id", test_id)
+        .order("section_num")
+        .execute()
+    )
+    section_rows = sec_res.data or []
+    section_ids = [s["id"] for s in section_rows]
+
+    ex_res = (
+        supabase_admin.table("listening_exercises")
+        .select("id,content_id,exercise_type,payload,order_num")
+        .in_("content_id", section_ids)
+        .order("order_num")
+        .execute() if section_ids else None
+    )
+    exercises_raw = (ex_res.data if ex_res else []) or []
+    # Sprint 13.5 security guard — strip answer keys.
+    exercises_safe = grader.strip_answer_keys(exercises_raw)
+    by_content: dict[str, list[dict]] = {}
+    for ex in exercises_safe:
+        by_content.setdefault(ex["content_id"], []).append(ex)
+
+    sections_out: list[dict] = []
+    for s in section_rows:
+        meta = s.get("metadata") or {}
+        sections_out.append({
+            "section_num":    s.get("section_num"),
+            "title":          s.get("title"),
+            "narrator_intro": meta.get("narrator_intro"),
+            "context":        meta.get("context"),
+            "exercises":      by_content.get(s["id"], []),
+        })
+
+    return {
+        "id":                     test["id"],
+        "test_id":                test.get("test_id"),
+        "title":                  test.get("title"),
+        "themes":                 test.get("themes") or {},
+        "audio_url":              audio_url,
+        "audio_storage_path":     audio_path,
+        "audio_duration_seconds": audio_duration,
+        "cue_points":             test.get("cue_points") or [],
+        "sections":               sections_out,
+    }
+
+
+@user_router.post("/tests/{test_id}/attempts")
+async def start_listening_test_attempt(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Open a new student attempt session. Marks any previously open
+    in-progress attempt for the same (user, test) as abandoned so the
+    1-active-attempt invariant holds.
+    """
+    user = await _require_auth(authorization)
+
+    # Verify the test is published + has audio.
+    test_res = (
+        supabase_admin.table("listening_tests")
+        .select("id,status,full_audio_storage_path,assembled_audio_storage_path")
+        .eq("id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not test_res.data or test_res.data[0].get("status") != "published":
+        raise HTTPException(404, "Test bundle not found or not published")
+    test_row = test_res.data[0]
+    if not (test_row.get("full_audio_storage_path")
+            or test_row.get("assembled_audio_storage_path")):
+        raise HTTPException(422, "Test chưa có audio sẵn sàng.")
+
+    # Abandon any open attempts for this (user, test).
+    (
+        supabase_admin.table("listening_test_attempts")
+        .update({"status": "abandoned"})
+        .eq("user_id", user["id"])
+        .eq("test_id", test_id)
+        .eq("status", "in_progress")
+        .execute()
+    )
+
+    attempt_id = str(uuid.uuid4())
+    payload = {
+        "id":      attempt_id,
+        "test_id": test_id,
+        "user_id": user["id"],
+        "status":  "in_progress",
+        "answers": [],
+    }
+    (
+        supabase_admin.table("listening_test_attempts")
+        .insert(payload)
+        .execute()
+    )
+    return {"attempt_id": attempt_id, "status": "in_progress"}
+
+
+def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
+    res = (
+        supabase_admin.table("listening_test_attempts")
+        .select("*")
+        .eq("id", attempt_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Attempt not found")
+    row = res.data[0]
+    if row.get("user_id") != user_id:
+        raise HTTPException(403, "Attempt belongs to another user")
+    return row
+
+
+@user_router.patch("/tests/attempts/{attempt_id}/answers")
+async def patch_listening_test_attempt_answer(
+    attempt_id: str,
+    body: TestAttemptAnswerPatchRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Incrementally save a single answer. The frontend debounces ~2s
+    per gap; the backend treats this as an upsert keyed by ``q_num``.
+    """
+    from datetime import datetime, timezone
+
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+    if not (1 <= body.q_num <= 40):
+        raise HTTPException(422, "q_num must be in 1..40")
+
+    answers = attempt.get("answers") or []
+    answers = [a for a in answers if a.get("q_num") != body.q_num]
+    answers.append({
+        "q_num":       body.q_num,
+        "user_answer": body.user_answer,
+        "answered_at": datetime.now(timezone.utc).isoformat(),
+    })
+    answers.sort(key=lambda a: a.get("q_num") or 0)
+
+    (
+        supabase_admin.table("listening_test_attempts")
+        .update({"answers": answers})
+        .eq("id", attempt_id)
+        .execute()
+    )
+    return {"attempt_id": attempt_id, "answer_count": len(answers)}
+
+
+@user_router.post("/tests/attempts/{attempt_id}/submit")
+async def submit_listening_test_attempt(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Finalize a student attempt: load the test's answer key, grade
+    each user answer, roll up trap analytics, write the grading
+    payload back to the attempt row, and return the result.
+    """
+    from datetime import datetime, timezone
+
+    from services import listening_test_grader as grader
+
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") == "submitted":
+        raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt status không hợp lệ.")
+
+    # Pull the test's exercises + extract the answer key.
+    test_id = attempt["test_id"]
+    sec_res = (
+        supabase_admin.table("listening_content")
+        .select("id")
+        .eq("test_id", test_id)
+        .execute()
+    )
+    section_ids = [r["id"] for r in (sec_res.data or [])]
+    if not section_ids:
+        raise HTTPException(500, "Test bundle thiếu section rows.")
+
+    ex_res = (
+        supabase_admin.table("listening_exercises")
+        .select("payload")
+        .in_("content_id", section_ids)
+        .execute()
+    )
+    answer_key = grader.collect_answer_key(ex_res.data or [])
+
+    result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    (
+        supabase_admin.table("listening_test_attempts")
+        .update({
+            "status":          "submitted",
+            "score":           result["score"],
+            "grading_details": result["per_question"],
+            "trap_analytics":  result["trap_analytics"],
+            "band_estimate":   result["band_estimate"],
+            "submitted_at":    now_iso,
+        })
+        .eq("id", attempt_id)
+        .execute()
+    )
+
+    return {
+        "attempt_id":        attempt_id,
+        "score":             result["score"],
+        "max_score":         result["max_score"],
+        "band_estimate":     result["band_estimate"],
+        "section_breakdown": result["section_breakdown"],
+        "trap_analytics":    result["trap_analytics"],
+        "per_question":      result["per_question"],
+    }
+
+
+@user_router.get("/tests/attempts/{attempt_id}")
+async def get_listening_test_attempt(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Fetch a past attempt's grading. Owner-only (admin bypass not
+    wired here — admins use ``/admin/listening/tests/{id}`` for the
+    bundle view; per-attempt admin surfaces land in a future sprint).
+    """
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    return {
+        "attempt_id":      attempt["id"],
+        "test_id":         attempt["test_id"],
+        "status":          attempt["status"],
+        "score":           attempt.get("score"),
+        "band_estimate":   attempt.get("band_estimate"),
+        "answers":         attempt.get("answers") or [],
+        "grading_details": attempt.get("grading_details") or [],
+        "trap_analytics":  attempt.get("trap_analytics") or {},
+        "started_at":      attempt.get("started_at"),
+        "submitted_at":    attempt.get("submitted_at"),
+    }
