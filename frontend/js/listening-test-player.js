@@ -523,6 +523,9 @@ function renderShortAnswer(questions) {
 // ── MCQ ────────────────────────────────────────────────────────────
 
 function renderMCQ(questions) {
+  // Sprint 13.5.8 — radio / letter / option-text each in their own
+  // slot (was: letter + text bundled in a single <span>) so CSS can
+  // align them on the same baseline with a fixed inline gap.
   return questions.map((q) => `
     <div class="ielts-mcq-question">
       <div class="ielts-mcq-stem">
@@ -536,7 +539,8 @@ function renderMCQ(questions) {
           return `<label class="ielts-mcq-option">
             <input type="radio" name="q-${esc(q.q_num)}" value="${esc(letter)}"
                    class="ft-q-input" data-q-num="${esc(q.q_num)}" />
-            <span><strong>${esc(letter)}</strong> ${esc(text)}</span>
+            <strong>${esc(letter)}</strong>
+            <span class="ielts-mcq-option-text">${esc(text)}</span>
           </label>`;
         }).join('')}
       </div>
@@ -549,31 +553,35 @@ function renderMCQ(questions) {
 
 function renderPlanLabel(payload, questions) {
   // Sprint 13.5.6 — accept the full payload so we can read both
-  // metadata-level fields (map_description, letter_options) and the
-  // top-level map_image_url that the student endpoint injects.
+  // metadata-level fields (letter_options) and the top-level
+  // map_image_url that the student endpoint injects.
+  // Sprint 13.5.8 — map_description is intentionally NOT read here:
+  // real Cambridge plan-label tasks present a visual map only, so
+  // the textual description (an admin-only AI-prompt input) must not
+  // leak to the student. Backend strips it defensively, and the
+  // renderer no longer references it.
   const meta = (payload && payload.metadata) || {};
-  const mapDesc  = meta.map_description || payload.map_description || '';
   const mapImage = (payload && payload.map_image_url) || '';
   const letters = Array.isArray(meta.letter_options) && meta.letter_options.length
     ? meta.letter_options
     : (Array.isArray(payload.letter_options) && payload.letter_options.length
       ? payload.letter_options
       : ['A','B','C','D','E','F','G','H']);
-  // When an admin-generated map image exists, render it inline ABOVE
-  // the description; the description then serves as a fallback/legend.
-  // When no image is available, fall back to the original description-
-  // only layout so the page still works.
-  const imageBlock = mapImage
+  // Sprint 13.5.8 — image-only visual block. When no image exists,
+  // render an admin-action notice instead of the description; the
+  // exercise stays answerable (the dropdowns still work), but the
+  // student is told a map is missing rather than handed the answer
+  // key in prose.
+  const visualBlock = mapImage
     ? `<div class="ielts-plan-image">
          <img src="${esc(mapImage)}" alt="Floor plan map" class="ielts-map-rendered" />
        </div>`
-    : '';
+    : `<div class="ielts-plan-no-image">
+         <p class="ielts-notice">Hình map chưa được tạo cho exercise này.</p>
+       </div>`;
   return `
     <div class="ielts-plan-container">
-      ${imageBlock}
-      ${mapDesc
-        ? `<div class="ielts-map-description"><strong>Map description:</strong> ${esc(mapDesc)}</div>`
-        : ''}
+      ${visualBlock}
       <div class="ielts-plan-labels">
         ${questions.map((q) => `
           <div class="ielts-plan-row">

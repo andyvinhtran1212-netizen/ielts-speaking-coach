@@ -420,10 +420,13 @@ describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
     assert.match(JS, /type="radio"\s+name="q-\$\{esc\(q\.q_num\)\}"/);
   });
 
-  it('plan-label renderer renders a <select> with A-H options + map description', () => {
+  it('plan-label renderer renders a <select> with A-H options (no description text)', () => {
+    // Sprint 13.5.8 — map_description is admin-only metadata (AI image
+    // prompt input). The student renderer must never reach for it.
     assert.match(JS, /class="ielts-plan-container"/);
-    assert.match(JS, /class="ielts-map-description"/);
     assert.match(JS, /<select[^>]+class="ft-q-input ielts-gap-input"/);
+    assert.ok(!/class="ielts-map-description"/.test(JS),
+      'student renderer must not emit the .ielts-map-description block');
   });
 
   it('notes renderer emits hierarchical list with group headings', () => {
@@ -572,13 +575,15 @@ describe('Sprint 13.5.5 — sticky progress tracker (40 squares)', () => {
     assert.match(m[1], /updateTabProgressCounts\(\)/);
   });
 
-  it('CSS defines the progress-square grid (40 cols desktop, 10 cols mobile)', () => {
-    // Sprint 13.5.7 — grid uses `minmax(20px, 1fr)` desktop + `minmax(28px, 1fr)`
-    // mobile so 40 squares never overflow the test-paper column.
+  it('CSS defines the progress-square grid (20 cols desktop ×2 rows, 10 cols tablet, 5 cols mobile)', () => {
+    // Sprint 13.5.8 — grid moved from a single 40-col row to a 20-col
+    // × 2-row layout so 40 squares always fit the test-paper column.
+    // Tablet stacks to 10×4; ultra-narrow (<480px) collapses to 5×8.
     const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
     const CSS = readFileSync(CSS_PATH, 'utf8');
-    assert.match(CSS, /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(40,\s*minmax\(20px,\s*1fr\)\)/);
+    assert.match(CSS, /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(20,\s*minmax\(24px,\s*1fr\)\)/);
     assert.match(CSS, /@media\s*\(\s*max-width:\s*768px\s*\)[\s\S]+?grid-template-columns:\s*repeat\(10,\s*minmax\(28px,\s*1fr\)\)/);
+    assert.match(CSS, /@media\s*\(\s*max-width:\s*480px\s*\)[\s\S]+?grid-template-columns:\s*repeat\(5,\s*1fr\)/);
   });
 
   it('CSS sticky-positions the tracker at the bottom of the viewport', () => {
@@ -791,13 +796,16 @@ describe('Sprint 13.5.7 — progress tracker fits container + submit button', ()
     assert.match(CSS, /\.ielts-progress-tracker\s*\{[\s\S]+?max-width:\s*100%[\s\S]+?box-sizing:\s*border-box/);
   });
 
-  it('progress bar uses minmax(20px, 1fr) so 40 squares never overflow', () => {
+  it('progress bar uses 20-col × 2-row grid so 40 squares never overflow (Sprint 13.5.8)', () => {
     assert.match(CSS,
-      /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(40,\s*minmax\(20px,\s*1fr\)\)/);
+      /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(20,\s*minmax\(24px,\s*1fr\)\)/);
   });
 
-  it('progress bar caps width at the parent container', () => {
-    assert.match(CSS, /\.ielts-progress-bar\s*\{[\s\S]+?max-width:\s*100%/);
+  it('progress bar caps width at 800px and centres itself (Sprint 13.5.8)', () => {
+    const m = /\.ielts-progress-bar\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m, '.ielts-progress-bar rule not found');
+    assert.match(m[1], /max-width:\s*800px/);
+    assert.match(m[1], /margin:\s*0\s+auto/);
   });
 
   it('mobile grid uses minmax(28px, 1fr) for thumb-friendly squares', () => {
@@ -836,11 +844,14 @@ describe('Sprint 13.5.7 — MCQ + responsive padding adjustments', () => {
       'old --av-space-6 padding removed in 13.5.7');
   });
 
-  it('MCQ option rows still use flex with gap (radio + label alignment)', () => {
+  it('MCQ option rows use flex with fixed 8px gap + baseline alignment (Sprint 13.5.8)', () => {
     const m = /\.ielts-mcq-option\s*\{([\s\S]+?)\n\}/m.exec(CSS);
     assert.ok(m);
     assert.match(m[1], /display:\s*flex/);
-    assert.match(m[1], /gap:\s*var\(--av-space-2\)/);
+    assert.match(m[1], /align-items:\s*baseline/);
+    assert.match(m[1], /gap:\s*8px/);
+    assert.ok(!/gap:\s*var\(--av-space-2\)/.test(m[1]),
+      'flex-var gap replaced with fixed 8px in 13.5.8');
   });
 
   it('progress square mobile min-height bumped to 24px for touch (was 18px)', () => {
@@ -891,5 +902,167 @@ describe('Sprint 13.5.7 — MCQ + responsive padding adjustments', () => {
     );
     assert.match(playerJs, /function onProgressSquareClick\(qNum,\s*sectionNum\)/);
     assert.match(playerJs, /input\.scrollIntoView/);
+  });
+});
+
+
+describe('Sprint 13.5.8 — progress tracker 2-row layout', () => {
+  const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+  const CSS = readFileSync(CSS_PATH, 'utf8');
+
+  it('desktop grid is exactly 20 cols (40 squares reflow into 2 rows)', () => {
+    const m = /\.ielts-progress-bar\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m, '.ielts-progress-bar rule not found');
+    assert.match(m[1], /grid-template-columns:\s*repeat\(20,\s*minmax\(24px,\s*1fr\)\)/);
+    assert.ok(!/repeat\(40,/.test(m[1]),
+      'Sprint 13.5.7 single-row 40-col layout must be gone');
+  });
+
+  it('grid-auto-rows pins both rows to ≥28px (matches square min-height)', () => {
+    const m = /\.ielts-progress-bar\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m);
+    assert.match(m[1], /grid-auto-rows:\s*minmax\(28px,\s*auto\)/);
+  });
+
+  it('gap bumped from 3px to 4px so squares breathe in the 2-row layout', () => {
+    const m = /\.ielts-progress-bar\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m);
+    assert.match(m[1], /gap:\s*4px/);
+  });
+
+  it('grid is centred via margin: 0 auto and capped at 800px', () => {
+    const m = /\.ielts-progress-bar\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m);
+    assert.match(m[1], /max-width:\s*800px/);
+    assert.match(m[1], /margin:\s*0\s+auto/);
+  });
+
+  it('ultra-narrow (≤480px) collapses to 5-col grid', () => {
+    assert.match(CSS,
+      /@media\s*\(\s*max-width:\s*480px\s*\)[\s\S]+?\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(5,\s*1fr\)/);
+  });
+
+  it('tab nav still routes via setActiveTab (regression after grid refactor)', () => {
+    const playerJs = readFileSync(
+      join(__dirname, '..', 'js', 'listening-test-player.js'), 'utf8',
+    );
+    assert.match(playerJs, /function setActiveTab\(tabNum\)/);
+  });
+});
+
+
+describe('Sprint 13.5.8 — plan-label suppresses map_description from student view', () => {
+  const JS_PATH = join(__dirname, '..', 'js', 'listening-test-player.js');
+  const JS = readFileSync(JS_PATH, 'utf8');
+
+  it('renderPlanLabel does NOT read payload.map_description', () => {
+    const m = /function\s+renderPlanLabel\([\s\S]+?\n\}\s*\n/.exec(JS);
+    assert.ok(m, 'renderPlanLabel() function not found');
+    // Strip line comments so the doc-comment explaining the omission
+    // (which legitimately mentions "map_description") doesn't trigger
+    // the sentinel. Code-level access patterns must not appear.
+    const code = m[0].replace(/\/\/[^\n]*/g, '');
+    assert.ok(!/payload\.map_description/.test(code),
+      'renderPlanLabel must not reach for payload.map_description');
+    assert.ok(!/meta\.map_description/.test(code),
+      'renderPlanLabel must not reach for meta.map_description either');
+  });
+
+  it('renderPlanLabel does NOT emit the .ielts-map-description block', () => {
+    const m = /function\s+renderPlanLabel\([\s\S]+?\n\}\s*\n/.exec(JS);
+    assert.ok(m);
+    assert.ok(!/ielts-map-description/.test(m[0]),
+      'description block must not surface in the student paper');
+  });
+
+  it('renderPlanLabel renders the image when map_image_url is present', () => {
+    const m = /function\s+renderPlanLabel\([\s\S]+?\n\}\s*\n/.exec(JS);
+    assert.ok(m);
+    assert.match(m[0], /payload\.map_image_url/);
+    assert.match(m[0], /class="ielts-map-rendered"/);
+  });
+
+  it('renderPlanLabel falls back to .ielts-plan-no-image notice when no image', () => {
+    const m = /function\s+renderPlanLabel\([\s\S]+?\n\}\s*\n/.exec(JS);
+    assert.ok(m);
+    assert.match(m[0], /class="ielts-plan-no-image"/);
+    assert.match(m[0], /Hình map chưa được tạo/);
+  });
+
+  it('CSS defines the .ielts-plan-no-image notice block', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    const m = /\.ielts-plan-no-image\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m, '.ielts-plan-no-image rule not found');
+    assert.match(m[1], /background:\s*#fef9e7/);
+    assert.match(m[1], /border:\s*1px\s+solid\s+#f5d564/);
+  });
+
+  it('backend student endpoint strips map_description (defense-in-depth)', () => {
+    const BACKEND_PATH = join(__dirname, '..', '..', 'backend', 'routers', 'listening.py');
+    const PY = readFileSync(BACKEND_PATH, 'utf8');
+    // The student endpoint must call .pop("map_description", None) on
+    // the payload (and on payload.metadata if present) for plan-label
+    // exercises so the description never leaves the server.
+    assert.match(PY, /payload\.pop\(["']map_description["'],\s*None\)/);
+    assert.match(PY, /metadata"?\]\.pop\(["']map_description["'],\s*None\)/);
+  });
+});
+
+
+describe('Sprint 13.5.8 — MCQ tight inline layout', () => {
+  const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+  const CSS = readFileSync(CSS_PATH, 'utf8');
+  const JS_PATH = join(__dirname, '..', 'js', 'listening-test-player.js');
+  const JS = readFileSync(JS_PATH, 'utf8');
+
+  it('MCQ HTML splits letter and option text into separate slots', () => {
+    // The renderer must emit <strong>letter</strong> followed by
+    // <span class="ielts-mcq-option-text">text</span> as siblings of
+    // the radio input — three flex slots, not "<span><strong/>text</span>".
+    assert.match(JS, /<strong>\$\{esc\(letter\)\}<\/strong>\s*\n\s*<span class="ielts-mcq-option-text">/);
+  });
+
+  it('CSS styles the .ielts-mcq-option-text slot with flex:1 + min-width:0', () => {
+    const m = /\.ielts-mcq-option-text\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m, '.ielts-mcq-option-text rule not found');
+    assert.match(m[1], /flex:\s*1/);
+    assert.match(m[1], /min-width:\s*0/);
+  });
+
+  it('CSS styles the inline letter <strong> with the paper accent', () => {
+    const m = /\.ielts-mcq-option\s+strong\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m, '.ielts-mcq-option strong rule not found');
+    assert.match(m[1], /color:\s*var\(--ielts-paper-accent\)/);
+    assert.match(m[1], /flex-shrink:\s*0/);
+  });
+
+  it('radio is shrink-locked + centred, sized 16×16 (compact inline)', () => {
+    const m = /\.ielts-mcq-option\s+input\[type="radio"\]\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m);
+    assert.match(m[1], /flex-shrink:\s*0/);
+    assert.match(m[1], /width:\s*16px/);
+    assert.match(m[1], /height:\s*16px/);
+    assert.match(m[1], /margin:\s*0\b/);
+  });
+
+  it('hover state preserved on .ielts-mcq-option:hover', () => {
+    assert.match(CSS, /\.ielts-mcq-option:hover\s*\{[\s\S]+?background:\s*var\(--ielts-paper-surface-alt\)/);
+  });
+
+  it('option list still stacks vertically with 4px gap (regression)', () => {
+    const m = /\.ielts-mcq-options\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m);
+    assert.match(m[1], /flex-direction:\s*column/);
+    assert.match(m[1], /gap:\s*4px/);
+  });
+
+  it('renderMCQ still wires data-q-num + radio so click flow works', () => {
+    assert.match(JS, /type="radio"\s+name="q-\$\{esc\(q\.q_num\)\}"/);
+    assert.match(JS, /data-q-num="\$\{esc\(q\.q_num\)\}"/);
+  });
+
+  it('dark-mode coverage for plan-no-image notice (theme parity)', () => {
+    assert.match(CSS, /\[data-theme="dark"\]\s+\.ielts-plan-no-image\b/);
   });
 });
