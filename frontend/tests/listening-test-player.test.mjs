@@ -438,3 +438,204 @@ describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
     assert.match(JS, /return\s+renderFallback\(/);
   });
 });
+
+
+// ── Sprint 13.5.5 — tab navigation ─────────────────────────────────────
+
+describe('Sprint 13.5.5 — tab navigation markup + controller', () => {
+
+  it('player markup declares 4 tabs with PART labels + per-tab progress slots', () => {
+    assert.match(HTML, /<nav class="ielts-tabs"[^>]*id="ft-tabs"[^>]*role="tablist"/);
+    for (const n of [1, 2, 3, 4]) {
+      assert.match(HTML, new RegExp(`data-tab="${n}"`));
+      assert.match(HTML, new RegExp(`PART ${n}`));
+      assert.match(HTML, new RegExp(`data-tab-progress="${n}"`));
+    }
+  });
+
+  it('first tab starts active + aria-selected="true"', () => {
+    assert.match(HTML, /class="ielts-tab active"[^>]*data-tab="1"[^>]*aria-selected="true"/);
+  });
+
+  it('STATE carries activeTab + cuePointsByTab fields', () => {
+    assert.match(JS, /activeTab:\s*1/);
+    assert.match(JS, /cuePointsByTab/);
+  });
+
+  it('sectionForQ() maps Q-num to Cambridge section (1-10 → 1, …)', () => {
+    assert.match(JS, /function sectionForQ\(/);
+    assert.match(JS, /Math\.floor\(\(qNum\s*-\s*1\)\s*\/\s*10\)\s*\+\s*1/);
+  });
+
+  it('applyActiveTab toggles [hidden] on .ielts-section per active tab', () => {
+    assert.match(JS, /function applyActiveTab\(/);
+    assert.match(JS, /el\.hidden\s*=\s*\(n\s*!==\s*STATE\.activeTab\)/);
+  });
+
+  it('setActiveTab guards range 1..4 and short-circuits no-ops', () => {
+    assert.match(JS, /function setActiveTab\(tabNum\)/);
+    assert.match(JS, /tabNum\s*<\s*1\s*\|\|\s*tabNum\s*>\s*4/);
+    assert.match(JS, /STATE\.activeTab\s*===\s*tabNum/);
+  });
+
+  it('attachTabHandlers wires each tab button to setActiveTab', () => {
+    assert.match(JS, /function attachTabHandlers\(/);
+    assert.match(JS, /setActiveTab\(n\)/);
+  });
+
+  it('setActiveTab scrolls the new panel into view', () => {
+    assert.match(JS, /scrollIntoView\(\s*\{\s*behavior:\s*['"]smooth['"]/);
+  });
+
+  it('renderPaper invokes applyActiveTab + renderProgressTracker + attach handlers', () => {
+    const m = /function renderPaper\(\)\s*\{([\s\S]+?)\n\}/m.exec(JS);
+    assert.ok(m, 'renderPaper body not found');
+    assert.match(m[1], /applyActiveTab\(\)/);
+    assert.match(m[1], /renderProgressTracker\(\)/);
+    assert.match(m[1], /attachTabHandlers\(\)/);
+    assert.match(m[1], /attachProgressHandlers\(\)/);
+  });
+
+  it('CSS hides .ielts-section[hidden] so inactive tabs disappear', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /\.ielts-section\[hidden\][\s\S]+?display:\s*none\s*!important/);
+  });
+});
+
+
+describe('Sprint 13.5.5 — sticky progress tracker (40 squares)', () => {
+
+  it('page markup declares the tracker + 40-square bar + submit button', () => {
+    assert.match(HTML, /<footer class="ielts-progress-tracker"[^>]*id="ft-progress-tracker"/);
+    assert.match(HTML, /id="ft-progress-bar"/);
+    assert.match(HTML, /id="btn-submit"/);
+    assert.match(HTML, /class="btn-submit-final"/);
+  });
+
+  it('renderProgressTracker generates a button per question 1..40', () => {
+    assert.match(JS, /function renderProgressTracker\(/);
+    assert.match(JS, /for \(let q\s*=\s*1;\s*q\s*<=\s*40;\s*q\+\+\)/);
+    assert.match(JS, /class="progress-square"/);
+    assert.match(JS, /data-q-num="\$\{q\}"/);
+    assert.match(JS, /data-section="\$\{section\}"/);
+  });
+
+  it('attachProgressHandlers wires every square to onProgressSquareClick', () => {
+    assert.match(JS, /function attachProgressHandlers\(/);
+    assert.match(JS, /onProgressSquareClick\(q,\s*section\)/);
+  });
+
+  it('onProgressSquareClick switches tab if the question lives elsewhere', () => {
+    assert.match(JS, /function onProgressSquareClick\(qNum,\s*sectionNum\)/);
+    assert.match(JS, /STATE\.activeTab\s*!==\s*sectionNum/);
+    assert.match(JS, /setActiveTab\(sectionNum\)/);
+  });
+
+  it('onProgressSquareClick scrolls + focuses the input after a brief delay', () => {
+    const m = /function onProgressSquareClick\([\s\S]+?\n\}/m.exec(JS);
+    assert.ok(m);
+    assert.match(m[0], /setTimeout\(/);
+    assert.match(m[0], /scrollIntoView\(\s*\{\s*behavior:\s*['"]smooth['"]/);
+    assert.match(m[0], /input\.focus\(\)/);
+  });
+
+  it('updateAnsweredCount paints square answered class + tab counts', () => {
+    assert.match(JS, /function updateProgressTrackerSquares\(/);
+    assert.match(JS, /classList\.toggle\(['"]answered['"],/);
+    assert.match(JS, /function updateTabProgressCounts\(/);
+    assert.match(JS, /data-tab-progress="\$\{s\}"/);
+  });
+
+  it('updateAnsweredCount delegates to both progress helpers', () => {
+    const m = /function updateAnsweredCount\(\)\s*\{([\s\S]+?)\n\}/m.exec(JS);
+    assert.ok(m);
+    assert.match(m[1], /updateProgressTrackerSquares\(\)/);
+    assert.match(m[1], /updateTabProgressCounts\(\)/);
+  });
+
+  it('CSS defines the progress-square grid (40 cols desktop, 10 cols mobile)', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(40,\s*1fr\)/);
+    assert.match(CSS, /@media\s*\(\s*max-width:\s*768px\s*\)[\s\S]+?grid-template-columns:\s*repeat\(10,\s*1fr\)/);
+  });
+
+  it('CSS sticky-positions the tracker at the bottom of the viewport', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /\.ielts-progress-tracker\s*\{[\s\S]+?position:\s*sticky[\s\S]+?bottom:\s*0/);
+  });
+
+  it('CSS defines the .answered + .current visual states on squares', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /\.progress-square\.answered\b/);
+    assert.match(CSS, /\.progress-square\.current\b/);
+  });
+});
+
+
+describe('Sprint 13.5.5 — audio cue auto-advance + parser cleanup expectations', () => {
+
+  it('mountAudio indexes cue points by section into STATE.cuePointsByTab', () => {
+    assert.match(JS, /STATE\.cuePointsByTab\s*=\s*new Map/);
+    assert.match(JS, /cue\.type\s*===\s*['"]section_start['"]/);
+    assert.match(JS, /STATE\.cuePointsByTab\.set\(/);
+  });
+
+  it('timeupdate listener calls maybeAutoAdvanceTab(currentTime)', () => {
+    assert.match(JS, /maybeAutoAdvanceTab\(audio\.currentTime\)/);
+  });
+
+  it('maybeAutoAdvanceTab never yanks the user backwards', () => {
+    // Only advances when `tabNum > bestTab` so a manual jump forward
+    // by the student is preserved.
+    assert.match(JS, /function maybeAutoAdvanceTab\(/);
+    assert.match(JS, /tabNum\s*>\s*bestTab/);
+  });
+
+  it('maybeAutoAdvanceTab uses a small lookahead so cue-point drift is tolerated', () => {
+    // ±0.5s window per the implementation.
+    assert.match(JS, /currentTime\s*\+\s*0\.5\s*>=\s*ts/);
+  });
+
+  // Parser-cleanup expectations (the renderer must show the cleaned
+  // values — no audio markers in narrator-intro, no Q40 footer).
+
+  it('renderer uses sec.narrator_intro verbatim (no extra strip on the client)', () => {
+    // Parser strips audio markers at convert time; client just esc()s.
+    assert.match(JS, /esc\(sec\.narrator_intro\)/);
+  });
+
+  it('summary renderer reads payload.template.paragraph (bound at parse time)', () => {
+    assert.match(JS, /tmpl\.paragraph/);
+  });
+
+  it('summary renderer tokenises {{QN}} into circled num + gap input', () => {
+    // Regression guard for Sprint 13.5.2 contract — Sprint 13.5.5
+    // parser bounds the paragraph; the tokeniser is unchanged but must
+    // still split + interleave gaps cleanly.
+    assert.match(JS, /\\\{\\\{Q\\d\+\\\}\\\}/);
+  });
+
+  it('notes renderer iterates the cleaned items[] (no Unicode-bullet residue)', () => {
+    // The renderer trusts the parser cleanup; the test below pins that
+    // it doesn't accidentally re-prepend a bullet glyph.
+    assert.match(JS, /class="ielts-notes-list"/);
+    assert.ok(!/['"]•['"]/.test(JS), 'renderer must not hardcode a bullet glyph');
+  });
+
+  it('submit button still wires to confirmSubmit (regression after tracker move)', () => {
+    // Sprint 13.5.5 moved the submit button INTO the progress tracker.
+    // The click binding must follow.
+    assert.match(JS, /\$\(['"]btn-submit['"]\)\.addEventListener\(['"]click['"],\s*confirmSubmit\)/);
+  });
+
+  it('CSS dark-mode override styles the tabs + tracker', () => {
+    const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+    const CSS = readFileSync(CSS_PATH, 'utf8');
+    assert.match(CSS, /\[data-theme="dark"\]\s+\.ielts-tabs\b/);
+    assert.match(CSS, /\[data-theme="dark"\]\s+\.ielts-progress-tracker\b/);
+  });
+});

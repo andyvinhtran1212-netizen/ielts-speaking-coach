@@ -498,7 +498,12 @@ def test_parse_narrator_intro_extracts_blockquote():
     sections = lc.split_script_sections(SCRIPT_ANSWERKEY_MD)
     intro = lc.parse_narrator_intro(sections[1])
     assert intro.startswith("You will hear a phone conversation")
-    assert "[pause:30s]" in intro              # raw preserved at intro layer
+    # Sprint 13.5.5 — audio production markers are stripped at the
+    # parse layer so the student player never sees them. The raw
+    # blockquote is still recoverable via the transcript metadata.
+    assert "[pause:30s]" not in intro
+    # The surrounding prose still survives — just the bracketed marker is gone.
+    assert "Now listen carefully" in intro
 
 
 def test_extract_transcript_preserves_markers():
@@ -1254,3 +1259,245 @@ def test_build_exercises_section_3_carries_mcq_then_sentence_completion():
     counts = [len(e["payload"]["questions"]) for e in exercises]
     assert kinds == ["mcq_3option", "sentence_completion"]
     assert counts == [6, 4]
+
+
+# ── Sprint 13.5.5 — parser cleanup (narrator intro / bullets / summary) ───
+
+
+def test_narrator_intro_strips_pause_delivery_cue():
+    """`[pause:30s]` is an audio-pipeline marker, not student copy."""
+    script = (
+        "### SECTION 1 (S1)\n\n"
+        "**Audio intro (narrator):**\n\n"
+        "> First, you have some time. [pause:30s] Now listen carefully.\n"
+    )
+    intro = lc.parse_narrator_intro(script)
+    assert "[pause:30s]" not in intro
+    # Surrounding prose intact + the marker leaves no double-space scar.
+    assert "First, you have some time." in intro
+    assert "Now listen carefully" in intro
+    assert "  " not in intro
+
+
+def test_narrator_intro_strips_multiple_audio_markers():
+    """Several markers on the same line all get cleaned."""
+    script = (
+        "### SECTION 1 (S1)\n\n"
+        "**Audio intro (narrator):**\n\n"
+        "> [emotion:polite] You will hear a phone call. [pause:60s] "
+        "[stress:carefully] Now listen carefully.\n"
+    )
+    intro = lc.parse_narrator_intro(script)
+    for marker in ("[emotion:polite]", "[pause:60s]", "[stress:carefully]"):
+        assert marker not in intro
+    assert "You will hear a phone call" in intro
+
+
+def test_narrator_intro_strips_self_closing_flag_cues():
+    """`[breath]`, `[chuckle]`, etc. (flag cues, no colon payload) also strip."""
+    script = (
+        "### SECTION 2 (S2)\n\n"
+        "**Audio intro (narrator):**\n\n"
+        "> [breath] Welcome to the centre. [chuckle] We will tour now.\n"
+    )
+    intro = lc.parse_narrator_intro(script)
+    assert "[breath]" not in intro
+    assert "[chuckle]" not in intro
+    assert "Welcome to the centre" in intro
+
+
+def test_narrator_intro_returns_empty_string_when_section_has_none():
+    """No audio-intro heading → empty string (existing contract preserved)."""
+    intro = lc.parse_narrator_intro("### SECTION 4 (S4)\n\nNo intro here.\n")
+    assert intro == ""
+
+
+def test_transcript_still_preserves_raw_audio_markers():
+    """Regression guard — Sprint 13.5.5 cleans intros, NOT transcripts.
+    The raw transcript is the audio pipeline's source of truth and must
+    still carry every cue.
+    """
+    sections = lc.split_script_sections(SCRIPT_ANSWERKEY_MD)
+    raw = lc.extract_transcript(sections[1])
+    assert "**[F-BrE-30s-professional]**" in raw
+
+
+def test_notes_strips_double_bullet_unicode_marker():
+    """Andy's source sometimes has `- • text` (markdown dash + Unicode
+    bullet). The notes template extractor must drop the Unicode bullet.
+    """
+    body = (
+        "### Questions 31-32\n\n"
+        "> Complete the notes below.\n\n"
+        "#### LECTURE NOTES\n\n"
+        "- • Travellers used torches.\n"
+        "- • Main risk was high rate of **31** ___________\n"
+        "- • Whale oil came in early **32** ___________\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    items = blocks[0]["template"]["groups"][0]["items"]
+    # No item's prefix/text should start with the Unicode bullet glyph.
+    for it in items:
+        text = it.get("text") or it.get("prefix") or ""
+        assert not text.startswith("•"), f"bullet not stripped from: {text!r}"
+        assert not text.startswith("·")
+
+
+def test_notes_strips_multiple_unicode_bullet_variants():
+    """The cleanup covers •, ·, ●, ○, ◦, ∙ — whichever variant Andy's
+    Word→Markdown conversion left behind.
+    """
+    body = (
+        "### Questions 31-31\n\n"
+        "> Complete the notes below.\n\n"
+        "- ● Round filled bullet.\n"
+        "- ○ Round hollow bullet.\n"
+        "- ◦ Small hollow bullet.\n"
+        "- · Middle dot.\n"
+        "- ∙ Bullet operator.\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    items = blocks[0]["template"]["groups"][0]["items"]
+    for it in items:
+        text = it.get("text") or it.get("prefix") or ""
+        first_char = text[:1]
+        assert first_char not in {"•", "·", "●", "○", "◦", "∙"}, (
+            f"unstripped Unicode bullet at: {text!r}"
+        )
+
+
+def test_notes_preserves_text_when_no_double_bullet():
+    """Single-bullet notes (the common case) are untouched — the cleanup
+    is precisely a leading-bullet strip, not a content rewrite.
+    """
+    body = (
+        "### Questions 31-31\n\n"
+        "> Complete the notes below.\n\n"
+        "- Pre-lighting era was dark.\n"
+        "- Main risk after dark was high rate of **31** ___________\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    items = blocks[0]["template"]["groups"][0]["items"]
+    assert items[0] == {"text": "Pre-lighting era was dark."}
+    # The gap item has the correct prefix without any bullet residue.
+    gap = next(it for it in items if isinstance(it, dict) and it.get("q_num"))
+    assert gap["prefix"] == "Main risk after dark was high rate of"
+
+
+def test_summary_paragraph_stops_at_horizontal_rule():
+    """Andy's markdown ends with a `---` separator followed by
+    END OF QUESTION PAPER + test_id + format-version footer. Q40 must
+    not include any of that.
+    """
+    body = (
+        "### Questions 38-40\n\n"
+        "> Complete the summary below.\n\n"
+        "Modern LED lighting uses up to **38** ___________ less energy. "
+        "Sensors detect **39** ___________ events. Cities favour systems "
+        "that minimise environmental **40** ___________.\n"
+        "\n"
+        "---\n"
+        "\n"
+        "**END OF QUESTION PAPER**\n"
+        "\n"
+        "_Test ID: ILR-LIS-001_\n"
+        "_Format version: v1.1 (mass-production ready)_\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    paragraph = blocks[0]["template"]["paragraph"]
+    assert "END OF QUESTION PAPER" not in paragraph
+    assert "Test ID:" not in paragraph
+    assert "Format version" not in paragraph
+    # The summary itself is still complete.
+    assert "{{Q38}}" in paragraph and "{{Q39}}" in paragraph and "{{Q40}}" in paragraph
+
+
+def test_summary_paragraph_stops_at_first_horizontal_rule_only():
+    """If multiple `---` appear in the body (unlikely but possible), the
+    first one is the boundary so subsequent ones aren't part of the
+    summary either.
+    """
+    body = (
+        "### Questions 38-40\n\n"
+        "> Complete the summary below.\n\n"
+        "First sentence with **38** ___________ gap.\n"
+        "\n"
+        "---\n"
+        "\n"
+        "This text must NOT appear in Q40 context.\n"
+        "\n"
+        "---\n"
+        "\n"
+        "Footer line.\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    paragraph = blocks[0]["template"]["paragraph"]
+    assert "{{Q38}}" in paragraph
+    assert "must NOT appear" not in paragraph
+    assert "Footer line" not in paragraph
+
+
+def test_summary_paragraph_handles_body_with_no_horizontal_rule():
+    """Bodies without a `---` separator (the original synthetic fixture
+    shape) still work — no regression on the no-footer path.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[4], 38, 40)
+    paragraph = block["template"]["paragraph"]
+    # All three placeholders still present.
+    for token in ("{{Q38}}", "{{Q39}}", "{{Q40}}"):
+        assert token in paragraph
+
+
+def test_summary_paragraph_collapses_internal_whitespace():
+    """Joining lines + stripping markers leaves no double-spaces or
+    stray `**N**` runs.
+    """
+    body = (
+        "### Questions 38-40\n\n"
+        "> Complete the summary below.\n\n"
+        "Line one with **38** ___________ gap.\n"
+        "Line two with **39** ___________ and more.\n"
+        "Line three with **40** ___________.\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    paragraph = blocks[0]["template"]["paragraph"]
+    assert "  " not in paragraph
+    assert "**38**" not in paragraph and "____" not in paragraph
+
+
+def test_full_pilot_fixture_still_yields_40_questions_after_cleanup():
+    """End-to-end regression — Sprint 13.5.5 parser cleanups must not
+    drop any of the 40 questions.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    counts = []
+    for sn in (1, 2, 3, 4):
+        blocks = lc.parse_question_blocks(sections[sn])
+        counts.append(sum(len(b["questions"]) for b in blocks))
+    assert counts == [10, 10, 10, 10]
+
+
+def test_pilot_section_4_notes_have_no_double_bullets_after_cleanup():
+    """The synthetic fixture uses single-bullet notes (`- text`) so
+    items[0..*] never carry the Unicode bullet. Pin that the cleanup
+    is a no-op on clean inputs.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[4], 31, 34)
+    items = block["template"]["groups"][0]["items"]
+    for it in items:
+        text = it.get("text") or it.get("prefix") or ""
+        assert not text.startswith(("•", "·", "●", "○", "◦", "∙"))
+
+
+def test_narrator_intro_only_strips_markers_from_real_pilot_fixture():
+    """Pilot fixture S1 has a single `[pause:30s]` in the intro. The
+    Sprint 13.5.5 strip must remove it from the parsed intro but the
+    raw script body still carries it for audio-production needs.
+    """
+    sections = lc.split_script_sections(SCRIPT_ANSWERKEY_MD)
+    intro = lc.parse_narrator_intro(sections[1])
+    assert "[pause:30s]" not in intro
+    # Raw script body untouched.
+    assert "[pause:30s]" in sections[1]
