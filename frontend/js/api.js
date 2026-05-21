@@ -43,7 +43,12 @@
     });
 
     if (response.status === 401) {
-      window.location.href = _appRoot + 'login.html';
+      // Sprint 13.4.1 hotfix — login.html lives at the site root
+      // (/login.html). The previous _appRoot+'login.html' build
+      // resolved correctly for /pages/X.html but broke for any deeper
+      // path (e.g. /pages/admin/listening/X.html → 404). Use an
+      // absolute path so redirect works from any depth.
+      window.location.href = '/login.html';
       return null;
     }
 

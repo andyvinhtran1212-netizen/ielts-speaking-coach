@@ -12,6 +12,21 @@
  * informational and the commit button stays enabled.
  */
 
+// Sprint 13.4.1 hotfix — bootstrap supabase at module load so the api
+// helper's _getAuthToken() returns a token. The constants mirror
+// admin-listening-upload.js (Sprint 13.2) + admin-listening-render.js
+// (Sprint 13.3); the convert + tests pages introduced in 13.4 forgot
+// to bootstrap and ate 401 on every POST.
+const SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+
+(function bootstrapSupabase() {
+  if (typeof window !== 'undefined' && window.initSupabase) {
+    try { window.initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch { /* swallow */ }
+  }
+})();
+
+
 const STATE = {
   qpFile:  null,
   saFile:  null,
@@ -25,11 +40,6 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 
 function init() {
-  // Auth-bound supabase init (mirrors other admin pages).
-  if (window.SUPABASE_URL && window.SUPABASE_ANON) {
-    window.initSupabase(window.SUPABASE_URL, window.SUPABASE_ANON);
-  }
-
   bindDropzone('qp', (file) => { STATE.qpFile = file; renderFile('qp', file); refreshParseButton(); });
   bindDropzone('sa', (file) => { STATE.saFile = file; renderFile('sa', file); refreshParseButton(); });
 
@@ -101,10 +111,18 @@ async function onParse() {
   setButtonBusy('cv-parse', true, 'Đang phân tích…');
   try {
     const result = await window.api.upload('/admin/listening/convert', fd);
+    // Sprint 13.4.1 hotfix — null-check before nested access. On 401
+    // the api helper redirects (and may return undefined here); on
+    // unexpected server shape we surface a clean error instead of a
+    // "Cannot read properties of null" stack trace.
+    if (!result || typeof result !== 'object' || !result.test_metadata) {
+      showParseError('Phản hồi server không hợp lệ — vui lòng thử lại hoặc kiểm tra Railway logs.');
+      return;
+    }
     STATE.preview = result;
     renderPreview(result);
   } catch (e) {
-    showParseError(e.message || 'Lỗi khi phân tích — kiểm tra file.');
+    showParseError(e && e.message ? e.message : 'Lỗi không mong đợi khi phân tích.');
   } finally {
     setButtonBusy('cv-parse', false, 'Phân tích đề');
   }
@@ -223,9 +241,14 @@ async function onCommit() {
       sections:      STATE.preview.sections,
     };
     const result = await window.api.post('/admin/listening/convert/commit', body);
+    // Sprint 13.4.1 hotfix — same defensive null-check as onParse.
+    if (!result || typeof result !== 'object' || !result.test_id) {
+      showParseError('Commit không trả về test_id — vui lòng kiểm tra Railway logs.');
+      return;
+    }
     renderResults(result);
   } catch (e) {
-    showParseError(e.message || 'Commit thất bại.');
+    showParseError(e && e.message ? e.message : 'Commit thất bại.');
   } finally {
     setButtonBusy('cv-commit', false, 'Tạo test + 4 sections');
   }
