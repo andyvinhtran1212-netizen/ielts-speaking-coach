@@ -2917,6 +2917,11 @@ async def admin_get_listening_test(
                 "has_map_image":    bool(payload.get("map_image_storage_path")),
                 "map_image_model":  payload.get("map_image_model"),
                 "map_image_generated_at": payload.get("map_image_generated_at"),
+                # Sprint 13.5.9.3 — provenance flag so the admin panel
+                # can render a "Manual upload" vs "API: <model>" badge
+                # without inferring from null fields.
+                "map_image_source": payload.get("map_image_source")
+                                    or ("api_generation" if payload.get("map_image_model") else None),
             })
 
     test["sections"] = sections
@@ -4019,6 +4024,178 @@ async def admin_generate_map_image(
     }
 
 
+# ── Sprint 13.5.9.3 — manual upload escape hatch ──────────────────────────
+
+
+# Magic-byte signatures for the formats we accept. Dependency-free
+# alternative to PIL: every byte sequence below is unique to its
+# format header, so a 16-byte prefix check is enough to reject GIFs,
+# BMPs, SVGs, PDFs, and corrupted files.
+_IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n",            "png"),
+    (b"\xff\xd8\xff",                 "jpg"),
+    # WebP carries an 8-byte ``RIFF????`` prefix then ``WEBP``. We
+    # match the prefix + WEBP marker manually below since the length
+    # bytes between them are variable.
+)
+
+_MANUAL_UPLOAD_MAX_BYTES = 5 * 1024 * 1024   # 5 MB hard cap
+_MANUAL_UPLOAD_MIN_BYTES = 100               # sanity floor — anything
+                                             # smaller is empty / corrupt
+
+
+def _detect_image_format(data: bytes) -> str | None:
+    """Return ``"png" / "jpg" / "webp"`` based on the magic-byte
+    prefix, or ``None`` for any other format. Used as the only image
+    validation in the manual-upload path — there's no Pillow / Magic
+    dependency in this codebase, so byte signatures are the cheap +
+    reliable check.
+    """
+    if not data or len(data) < 12:
+        return None
+    for sig, fmt in _IMAGE_SIGNATURES:
+        if data.startswith(sig):
+            return fmt
+    # WebP: ``RIFF\x??\x??\x??\x??WEBP``.
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+@admin_router.post("/exercises/{exercise_id}/upload-map-image")
+async def admin_upload_map_image(
+    exercise_id: str,
+    image_file: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.5.9.3 — manual upload escape hatch.
+
+    Andy's authoring loop sometimes produces a higher-quality map
+    image via an external tool (e.g. the standalone Gemini Banana
+    web app) than any of the six in-app API models. This endpoint
+    persists that pre-generated image into the same Supabase Storage
+    bucket / payload schema as the API path, so the student player
+    treats both sources identically.
+
+    Validation chain (all return 4xx before any storage call):
+      * variant guard       — plan-label exercises only (422)
+      * size                — 100 B floor / 5 MB cap (400 / 413)
+      * format              — PNG / JPG / WebP via magic-byte sniff (415)
+
+    The payload tags ``map_image_source = "manual_upload"`` and
+    nulls out ``map_image_model`` + ``map_image_prompt_source`` so
+    the admin panel can render the right source badge without any
+    follow-up round-trip.
+    """
+    import time
+    from datetime import datetime, timezone
+
+    admin_user = await require_admin(authorization)
+    exercise = _fetch_exercise_or_404(exercise_id)
+
+    payload = dict(exercise.get("payload") or {})
+    variant = payload.get("variant") or exercise.get("variant")
+    template_kind = payload.get("template_kind")
+    if variant != "mcq_letter_label" and template_kind != "plan_label":
+        raise HTTPException(
+            422,
+            "Map image upload is only available for plan-label exercises "
+            "(variant=mcq_letter_label).",
+        )
+
+    contents = await image_file.read()
+    if len(contents) < _MANUAL_UPLOAD_MIN_BYTES:
+        raise HTTPException(
+            400,
+            f"Image file too small ({len(contents)} bytes) — likely "
+            "empty or corrupted.",
+        )
+    if len(contents) > _MANUAL_UPLOAD_MAX_BYTES:
+        raise HTTPException(
+            413,
+            f"Image file too large ({len(contents) / 1024 / 1024:.2f} MB) — "
+            "the manual upload limit is 5 MB.",
+        )
+
+    fmt = _detect_image_format(contents)
+    if fmt is None:
+        raise HTTPException(
+            415,
+            "Unsupported image format. Accepted: PNG, JPG, WebP.",
+        )
+
+    # Resolve parent test_id for storage pathing (mirrors the API
+    # path's resolution so both sources share one bucket prefix).
+    content_id = exercise.get("content_id")
+    content_res = (
+        supabase_admin.table("listening_content")
+        .select("test_id")
+        .eq("id", content_id)
+        .limit(1)
+        .execute()
+    )
+    test_id = (content_res.data or [{}])[0].get("test_id")
+    if not test_id:
+        raise HTTPException(500, "Exercise has no parent test bundle.")
+
+    # Storage path — lives alongside API-generated images under
+    # ``tests/<test_uuid>/maps/`` so the existing delete endpoint
+    # cleans it up the same way.
+    timestamp = int(time.time())
+    storage_path = (
+        f"tests/{test_id}/maps/{exercise_id}-manual-{timestamp}.{fmt}"
+    )
+    resolved_bucket = settings.LISTENING_IMAGES_BUCKET
+
+    content_type = "image/jpeg" if fmt == "jpg" else f"image/{fmt}"
+    try:
+        supabase_admin.storage.from_(resolved_bucket).upload(
+            storage_path,
+            contents,
+            {"content-type": content_type, "upsert": "true"},
+        )
+    except Exception as exc:                                              # pragma: no cover
+        logger.error("[map_image] manual upload to storage failed: %s", exc)
+        raise HTTPException(500, f"Storage upload failed: {exc}")
+
+    # Sprint 13.5.6 left these fields on the payload root; the admin
+    # panel reads them from there. Manual uploads use the same shape
+    # but null out the API-only fields + tag the new source.
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload.update({
+        "map_image_storage_path":  storage_path,
+        "map_image_size_bytes":    len(contents),
+        "map_image_source":        "manual_upload",
+        "map_image_model":         None,
+        "map_image_prompt":        None,
+        "map_image_prompt_source": None,
+        "map_image_generated_at":  now_iso,
+        "map_image_uploaded_at":   now_iso,
+        "map_image_uploaded_by":   admin_user.get("id"),
+    })
+    (
+        supabase_admin.table("listening_exercises")
+        .update({"payload": payload})
+        .eq("id", exercise_id)
+        .execute()
+    )
+
+    logger.info(
+        "[map_image] manual upload exercise=%s size=%d fmt=%s by=%s",
+        exercise_id, len(contents), fmt, admin_user.get("id"),
+    )
+
+    return {
+        "exercise_id":            exercise_id,
+        "map_image_storage_path": storage_path,
+        "map_image_size_bytes":   len(contents),
+        "map_image_format":       fmt,
+        "map_image_source":       "manual_upload",
+        "map_image_uploaded_at":  now_iso,
+        "signed_url":             _sign_map_image_url(storage_path),
+    }
+
+
 @admin_router.delete("/exercises/{exercise_id}/map-image")
 async def admin_delete_map_image(
     exercise_id: str,
@@ -4042,12 +4219,19 @@ async def admin_delete_map_image(
             logger.warning("[map_image] storage delete failed for %s: %s", storage_path, exc)
 
     cleared = False
+    # Sprint 13.5.9.3 — clear the new manual-upload tags too so a
+    # delete followed by a fresh API generate doesn't carry stale
+    # provenance metadata.
     for key in (
         "map_image_storage_path",
         "map_image_size_bytes",
         "map_image_model",
         "map_image_prompt",
+        "map_image_prompt_source",
         "map_image_generated_at",
+        "map_image_source",
+        "map_image_uploaded_at",
+        "map_image_uploaded_by",
     ):
         if key in payload:
             payload.pop(key, None)

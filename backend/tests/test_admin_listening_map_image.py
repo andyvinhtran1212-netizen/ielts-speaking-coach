@@ -1229,3 +1229,331 @@ def test_student_endpoint_injects_signed_url_into_plan_label_payload(monkeypatch
     # The Sprint 13.5 security guard still applies — no answer key
     # leaks even though we are injecting the image URL.
     assert "answers" not in ex["payload"]
+
+
+# ── Sprint 13.5.9.3 — manual upload escape hatch ───────────────────────────
+
+
+# Smallest valid signatures for each format. Each is padded to 256 B
+# so it clears the endpoint's 100-byte sanity floor without being so
+# large that it hides off-by-one bugs in the size guard.
+
+_VALID_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 248
+_VALID_JPG = b"\xff\xd8\xff\xe0" + b"\x00" * 252
+_VALID_WEBP = b"RIFF" + (256).to_bytes(4, "little") + b"WEBP" + b"\x00" * 244
+_GIF87 = b"GIF87a" + b"\x00" * 250          # unsupported
+_TINY = b"PNG"                              # too small
+
+
+class _FakeUpload:
+    """Mimics the FastAPI ``UploadFile`` surface our endpoint uses
+    (``read()`` returns bytes once). Keeping this in this test module
+    avoids dragging in starlette's multipart wiring for unit tests.
+    """
+
+    def __init__(self, contents: bytes, filename: str = "map.png"):
+        self._contents = contents
+        self.filename = filename
+
+    async def read(self) -> bytes:
+        return self._contents
+
+
+def test_detect_image_format_classifies_png_jpg_webp_and_rejects_others():
+    detect = listening_router._detect_image_format
+    assert detect(_VALID_PNG)  == "png"
+    assert detect(_VALID_JPG)  == "jpg"
+    assert detect(_VALID_WEBP) == "webp"
+    # GIF / empty / short / random bytes all return None.
+    assert detect(_GIF87)               is None
+    assert detect(b"")                  is None
+    assert detect(b"PNG")               is None
+    assert detect(b"\x00" * 256)        is None
+
+
+def test_upload_map_image_happy_path_persists_png_and_tags_manual_upload(monkeypatch):
+    """End-to-end PNG upload: bytes hit storage, payload carries the
+    full manual-upload provenance, response is wired for the admin
+    panel preview."""
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+
+    out = _run(listening_router.admin_upload_map_image(
+        exercise_id=seed["exercise_id"],
+        image_file=_FakeUpload(_VALID_PNG),
+        authorization=authz,
+    ))
+
+    assert out["exercise_id"] == seed["exercise_id"]
+    assert out["map_image_source"] == "manual_upload"
+    assert out["map_image_format"] == "png"
+    assert out["map_image_size_bytes"] == len(_VALID_PNG)
+    assert out["signed_url"].startswith("https://stor.test/listening-images/")
+    # Storage path lives under the same tests/<uuid>/maps/ prefix as
+    # API-generated images so the existing delete endpoint sweeps it.
+    assert out["map_image_storage_path"].startswith(
+        f"tests/{seed['test_id_uuid']}/maps/{seed['exercise_id']}-manual-",
+    )
+    assert out["map_image_storage_path"].endswith(".png")
+
+    # Bytes uploaded to the listening-images bucket.
+    assert fake.uploads, "expected the PNG bytes to hit storage"
+    bucket_name, path, size = fake.uploads[0]
+    assert bucket_name == "listening-images"
+    assert size == len(_VALID_PNG)
+    assert path == out["map_image_storage_path"]
+
+    # Persisted payload: source flag set, API-only fields nulled.
+    ex = fake.tables["listening_exercises"][0]
+    p = ex["payload"]
+    assert p["map_image_source"] == "manual_upload"
+    assert p["map_image_model"] is None
+    assert p["map_image_prompt"] is None
+    assert p["map_image_prompt_source"] is None
+    assert p["map_image_uploaded_by"] == "admin-1"
+
+
+def test_upload_map_image_accepts_jpg_via_magic_byte_sniff(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    out = _run(listening_router.admin_upload_map_image(
+        exercise_id=seed["exercise_id"],
+        image_file=_FakeUpload(_VALID_JPG, filename="map.jpeg"),
+        authorization=authz,
+    ))
+    assert out["map_image_format"] == "jpg"
+    assert out["map_image_storage_path"].endswith(".jpg")
+    # JPG content-type spelled out properly (image/jpeg, not image/jpg).
+    # Our fake bucket records only path+size, so verify via the payload
+    # extension; the upload call itself doesn't blow up.
+
+
+def test_upload_map_image_accepts_webp(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    out = _run(listening_router.admin_upload_map_image(
+        exercise_id=seed["exercise_id"],
+        image_file=_FakeUpload(_VALID_WEBP, filename="map.webp"),
+        authorization=authz,
+    ))
+    assert out["map_image_format"] == "webp"
+    assert out["map_image_storage_path"].endswith(".webp")
+
+
+def test_upload_map_image_rejects_too_small_400(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.admin_upload_map_image(
+            exercise_id=seed["exercise_id"],
+            image_file=_FakeUpload(_TINY),
+            authorization=authz,
+        ))
+    assert excinfo.value.status_code == 400
+    assert "too small" in str(excinfo.value.detail).lower()
+
+
+def test_upload_map_image_rejects_too_large_413(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    # 5MB + 1 byte payload, still PNG-signatured so size is the only
+    # thing the endpoint can reject on.
+    too_big = _VALID_PNG + b"\x00" * (5 * 1024 * 1024)
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.admin_upload_map_image(
+            exercise_id=seed["exercise_id"],
+            image_file=_FakeUpload(too_big),
+            authorization=authz,
+        ))
+    assert excinfo.value.status_code == 413
+    assert "5 MB" in str(excinfo.value.detail)
+
+
+def test_upload_map_image_rejects_unsupported_format_415(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    # GIF passes the size guard but fails the format sniff.
+    gif_payload = _GIF87 + b"\x00" * 100
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.admin_upload_map_image(
+            exercise_id=seed["exercise_id"],
+            image_file=_FakeUpload(gif_payload, filename="map.gif"),
+            authorization=authz,
+        ))
+    assert excinfo.value.status_code == 415
+    assert "PNG, JPG, WebP" in str(excinfo.value.detail)
+
+
+def test_upload_map_image_rejects_non_plan_label_exercise_422(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["listening_exercises"].append({
+        "id": "ex-1", "content_id": "c-1",
+        "exercise_type": "mcq",
+        "payload": {"variant": "mcq_3option"},
+    })
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.admin_upload_map_image(
+            exercise_id="ex-1",
+            image_file=_FakeUpload(_VALID_PNG),
+            authorization=authz,
+        ))
+    assert excinfo.value.status_code == 422
+
+
+def test_upload_map_image_404_when_exercise_missing(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.admin_upload_map_image(
+            exercise_id=str(uuid4()),
+            image_file=_FakeUpload(_VALID_PNG),
+            authorization=authz,
+        ))
+    assert excinfo.value.status_code == 404
+
+
+def test_upload_map_image_overwrites_existing_api_generated_image(monkeypatch):
+    """Sprint 13.5.6 → 13.5.9.3 transition: when an API-generated image
+    already exists, a manual upload swaps the storage path + flips the
+    source flag. The API-only fields are nulled so the panel never
+    shows stale model / prompt-source metadata after a manual replace.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake, with_image=True)
+
+    # Sanity — the seeded row has API provenance.
+    seeded = fake.tables["listening_exercises"][0]["payload"]
+    assert seeded["map_image_model"] == "imagen-4.0-fast-generate-001"
+
+    out = _run(listening_router.admin_upload_map_image(
+        exercise_id=seed["exercise_id"],
+        image_file=_FakeUpload(_VALID_PNG),
+        authorization=authz,
+    ))
+
+    ex = fake.tables["listening_exercises"][0]["payload"]
+    assert ex["map_image_source"] == "manual_upload"
+    assert ex["map_image_model"] is None
+    assert ex["map_image_storage_path"] == out["map_image_storage_path"]
+    # New path is different from the seeded API path — admin can clean
+    # up the old object via the delete endpoint in a follow-up.
+    assert ex["map_image_storage_path"] != seeded["map_image_storage_path"]
+
+
+def test_upload_map_image_records_uploader_admin_id(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    _run(listening_router.admin_upload_map_image(
+        exercise_id=seed["exercise_id"],
+        image_file=_FakeUpload(_VALID_PNG),
+        authorization=authz,
+    ))
+    p = fake.tables["listening_exercises"][0]["payload"]
+    assert p["map_image_uploaded_by"] == "admin-1"
+    # Same value also drives the audit log line.
+    assert p.get("map_image_uploaded_at"), "missing manual-upload timestamp"
+
+
+def test_upload_map_image_logs_audit_line(monkeypatch, caplog):
+    """One INFO log line per manual upload so server logs flag every
+    non-API map image. Mirrors the Sprint 13.5.9.1 generate log shape.
+    """
+    import logging
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    with caplog.at_level(logging.INFO, logger="routers.listening"):
+        _run(listening_router.admin_upload_map_image(
+            exercise_id=seed["exercise_id"],
+            image_file=_FakeUpload(_VALID_PNG),
+            authorization=authz,
+        ))
+    msgs = [r.getMessage() for r in caplog.records
+            if "manual upload" in r.getMessage()]
+    assert msgs, "expected a manual-upload INFO log line"
+    line = msgs[0]
+    assert f"exercise={seed['exercise_id']}" in line
+    assert f"size={len(_VALID_PNG)}" in line
+    assert "fmt=png" in line
+
+
+def test_upload_map_image_storage_path_uses_manual_marker(monkeypatch):
+    """The storage path must include ``-manual-<timestamp>`` so a
+    bucket browser can tell at a glance which images came from the
+    escape hatch vs the API path (``<exercise_id>.png``).
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    out = _run(listening_router.admin_upload_map_image(
+        exercise_id=seed["exercise_id"],
+        image_file=_FakeUpload(_VALID_PNG),
+        authorization=authz,
+    ))
+    import re
+    pattern = (
+        rf"^tests/{seed['test_id_uuid']}/maps/{seed['exercise_id']}"
+        r"-manual-\d{9,12}\.png$"
+    )
+    assert re.match(pattern, out["map_image_storage_path"]), (
+        f"path {out['map_image_storage_path']!r} does not match {pattern}"
+    )
+
+
+def test_delete_endpoint_also_clears_manual_upload_provenance_fields(monkeypatch):
+    """Regression — Sprint 13.5.9.3 added new payload fields; the
+    delete endpoint must sweep them so a stale Manual-upload badge
+    doesn't survive the wipe.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake, with_image=True)
+    # Add the new manual-upload tags onto the seeded payload.
+    p = fake.tables["listening_exercises"][0]["payload"]
+    p["map_image_source"]      = "manual_upload"
+    p["map_image_uploaded_at"] = "2026-05-21T00:00:00+00:00"
+    p["map_image_uploaded_by"] = "admin-1"
+
+    out = _run(listening_router.admin_delete_map_image(
+        exercise_id=seed["exercise_id"], authorization=authz,
+    ))
+    assert out["deleted"] is True
+    after = fake.tables["listening_exercises"][0]["payload"]
+    for key in (
+        "map_image_storage_path", "map_image_source",
+        "map_image_uploaded_at", "map_image_uploaded_by",
+        "map_image_prompt_source", "map_image_model",
+    ):
+        assert key not in after, f"{key} survived the wipe"
+
+
+def test_admin_get_test_surfaces_map_image_source_manual_upload(monkeypatch):
+    """The admin detail projection must include
+    ``map_image_source`` so the admin panel can render the correct
+    badge (Manual upload vs API: <model>) without a follow-up fetch.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake, with_image=True)
+    fake.tables["listening_exercises"][0]["payload"]["map_image_source"] = (
+        "manual_upload"
+    )
+    out = _run(listening_router.admin_get_listening_test(
+        test_id=seed["test_id_uuid"], authorization=authz,
+    ))
+    pl = (out.get("plan_label_exercises") or [])[0]
+    assert pl["map_image_source"] == "manual_upload"
+
+
+def test_admin_get_test_infers_api_source_when_model_present_and_no_explicit_source(monkeypatch):
+    """Backwards-compat: legacy exercises generated under Sprint
+    13.5.6 lack the ``map_image_source`` field but have a non-null
+    ``map_image_model``. The projection infers ``"api_generation"``
+    so the panel can still render the right badge.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake, with_image=True)
+    # Sanity — the seeded row has model but not the new explicit flag.
+    p = fake.tables["listening_exercises"][0]["payload"]
+    assert p["map_image_model"]
+    assert "map_image_source" not in p
+    out = _run(listening_router.admin_get_listening_test(
+        test_id=seed["test_id_uuid"], authorization=authz,
+    ))
+    pl = (out.get("plan_label_exercises") or [])[0]
+    assert pl["map_image_source"] == "api_generation"

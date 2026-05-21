@@ -239,15 +239,52 @@ function renderMapImagesPanel() {
     const descPreview = desc
       ? `<details><summary>Map description (${desc.length} chars)</summary><pre style="white-space:pre-wrap;font-size:var(--av-fs-xs);max-height:160px;overflow:auto;">${escapeHtml(desc)}</pre></details>`
       : `<p class="td-section-meta" style="color:#991B1B;">Map description trống — parser chưa extract được. Re-convert markdown trước khi generate.</p>`;
+    // Sprint 13.5.9.3 — header chip differentiates manual-upload vs
+    // API-generated provenance so admin sees the source at a glance.
+    const provenance = ex.map_image_source || (has && model ? 'api_generation' : null);
+    const headerBadge = has
+      ? (provenance === 'manual_upload'
+         ? `<span class="td-section-meta td-map-source-badge" data-source="manual_upload"
+                style="font-size:var(--av-fs-xs);background:#e8f4f8;color:#0066a1;
+                       padding:2px 8px;border-radius:12px;font-weight:600;">
+              📤 Manual upload
+            </span>`
+         : `<span class="td-section-meta td-map-source-badge" data-source="api_generation"
+                style="font-size:var(--av-fs-xs);background:#e8f8e8;color:#2d7a2d;
+                       padding:2px 8px;border-radius:12px;font-weight:600;">
+              🎨 API: ${escapeHtml(model)}
+            </span>`)
+      : '<span class="td-section-meta" style="font-size:var(--av-fs-xs);">Chưa có hình</span>';
     return `
       <div class="td-map-card" data-exercise-id="${escapeHtml(ex.id)}"
            style="padding:var(--av-space-3);border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--av-space-3);">
           <strong>Section ${escapeHtml(ex.section_num)} — Plan label</strong>
-          <span class="td-section-meta" style="font-size:var(--av-fs-xs);">
-            ${has ? `✓ Đã có hình (${escapeHtml(model)})` : 'Chưa có hình'}
-          </span>
+          ${headerBadge}
         </div>
+        <!-- Sprint 13.5.9.3 — tab toggle between API generate (existing
+             flow) and manual upload (escape hatch). The API tab stays
+             the default so existing muscle memory is preserved. -->
+        <nav class="td-map-tabs" data-exercise-id="${escapeHtml(ex.id)}"
+             role="tablist"
+             style="display:flex;gap:var(--av-space-2);border-bottom:1px solid var(--av-border-default);margin:var(--av-space-3) 0 var(--av-space-2);">
+          <button type="button" role="tab" class="td-map-tab is-active"
+                  data-exercise-id="${escapeHtml(ex.id)}"
+                  data-tab="api-generate"
+                  aria-selected="true"
+                  style="background:none;border:none;border-bottom:2px solid var(--ielts-paper-accent, #1e3a5f);padding:var(--av-space-2) var(--av-space-3);cursor:pointer;font-weight:600;">
+            🎨 Generate via API
+          </button>
+          <button type="button" role="tab" class="td-map-tab"
+                  data-exercise-id="${escapeHtml(ex.id)}"
+                  data-tab="manual-upload"
+                  aria-selected="false"
+                  style="background:none;border:none;border-bottom:2px solid transparent;padding:var(--av-space-2) var(--av-space-3);cursor:pointer;color:var(--av-text-muted);">
+            📤 Upload ảnh có sẵn
+          </button>
+        </nav>
+        <div class="td-map-tab-pane" data-tab-pane="api-generate"
+             data-exercise-id="${escapeHtml(ex.id)}">
         <div class="td-prompt-source-row" style="display:flex;gap:var(--av-space-2);flex-wrap:wrap;align-items:center;margin-top:var(--av-space-2);">
           ${sourceLabel}
           ${lastSourceNote}
@@ -272,6 +309,58 @@ function renderMapImagesPanel() {
             : `<button class="td-btn td-btn-primary td-map-gen" data-exercise-id="${escapeHtml(ex.id)}" type="button">Generate hình map</button>`}
           <span class="td-map-status" data-exercise-id="${escapeHtml(ex.id)}" style="font-size:var(--av-fs-xs);color:var(--av-text-muted);"></span>
         </div>
+        </div><!-- /tab-pane api-generate -->
+        <!-- Sprint 13.5.9.3 — manual upload pane. Hidden until the
+             admin clicks the "📤 Upload ảnh có sẵn" tab. Bypasses any
+             API call so cost = $0. The same Supabase Storage bucket
+             persists the uploaded bytes; the student player can't
+             tell the source apart. -->
+        <div class="td-map-tab-pane" data-tab-pane="manual-upload"
+             data-exercise-id="${escapeHtml(ex.id)}" hidden>
+          <p class="td-section-meta" style="font-size:var(--av-fs-xs);margin:var(--av-space-3) 0 var(--av-space-2);">
+            Upload ảnh map đã tạo qua tool ngoài (e.g. Gemini Banana standalone web app).
+            Hỗ trợ PNG / JPG / WebP — tối đa 5 MB. Cost: $0 (no API call).
+          </p>
+          <div class="td-map-dropzone"
+               data-exercise-id="${escapeHtml(ex.id)}"
+               style="border:2px dashed var(--av-border-default);border-radius:var(--av-radius-md);padding:var(--av-space-5) var(--av-space-3);text-align:center;cursor:pointer;transition:border-color 0.15s ease,background 0.15s ease;">
+            <input type="file" class="td-map-file-input"
+                   data-exercise-id="${escapeHtml(ex.id)}"
+                   accept="image/png,image/jpeg,image/webp"
+                   hidden />
+            <div style="font-size:24px;">📁</div>
+            <div style="margin-top:var(--av-space-2);">
+              <strong>Kéo thả ảnh vào đây</strong> hoặc
+              <span style="color:var(--ielts-paper-accent, #1e3a5f);text-decoration:underline;">click để chọn file</span>
+            </div>
+            <div class="td-section-meta" style="font-size:var(--av-fs-xs);margin-top:var(--av-space-1);">
+              PNG / JPG / WebP — tối đa 5 MB
+            </div>
+          </div>
+          <div class="td-map-upload-preview"
+               data-exercise-id="${escapeHtml(ex.id)}"
+               hidden
+               style="margin-top:var(--av-space-3);padding:var(--av-space-3);border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);">
+            <h4 style="margin:0 0 var(--av-space-2);font-size:var(--av-fs-sm);">Preview ảnh sẽ upload:</h4>
+            <img class="td-map-upload-preview-img"
+                 data-exercise-id="${escapeHtml(ex.id)}"
+                 alt="Manual upload preview"
+                 style="max-width:100%;max-height:320px;border:1px solid var(--av-border-default);background:white;" />
+            <div class="td-section-meta" style="font-size:var(--av-fs-xs);margin-top:var(--av-space-2);display:flex;gap:var(--av-space-3);flex-wrap:wrap;">
+              <span class="td-map-upload-filename" data-exercise-id="${escapeHtml(ex.id)}"></span>
+              <span class="td-map-upload-filesize" data-exercise-id="${escapeHtml(ex.id)}"></span>
+            </div>
+            <div class="td-map-upload-actions" style="display:flex;gap:var(--av-space-2);margin-top:var(--av-space-3);flex-wrap:wrap;align-items:center;">
+              <button type="button" class="td-btn td-map-upload-cancel"
+                      data-exercise-id="${escapeHtml(ex.id)}">Hủy</button>
+              <button type="button" class="td-btn td-btn-primary td-map-upload-confirm"
+                      data-exercise-id="${escapeHtml(ex.id)}">Confirm Upload</button>
+              <span class="td-map-upload-status" data-exercise-id="${escapeHtml(ex.id)}"
+                    style="font-size:var(--av-fs-xs);color:var(--av-text-muted);"></span>
+            </div>
+          </div>
+        </div><!-- /tab-pane manual-upload -->
+        <!-- Shared image preview — Sprint 13.5.6 + 13.5.9.3 -->
         <div class="td-map-preview" data-exercise-id="${escapeHtml(ex.id)}"
              style="margin-top:var(--av-space-3);text-align:center;${has ? '' : 'display:none;'}">
           ${has
@@ -319,6 +408,184 @@ function attachMapImageHandlers() {
       updatePromptEditIndicator(ta);
     });
   });
+  // Sprint 13.5.9.3 — manual-upload tab + dropzone wiring.
+  document.querySelectorAll('.td-map-tab').forEach((tab) => {
+    tab.addEventListener('click', () => onMapTabSwitch(tab));
+  });
+  document.querySelectorAll('.td-map-dropzone').forEach((zone) => {
+    const exerciseId = zone.getAttribute('data-exercise-id');
+    const fileInput = document.querySelector(
+      `input.td-map-file-input[data-exercise-id="${exerciseId}"]`,
+    );
+    if (!fileInput) return;
+    zone.addEventListener('click', (e) => {
+      // Don't loop the click-on-input case back through the zone.
+      if (e.target === fileInput) return;
+      fileInput.click();
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) handleManualUploadFile(exerciseId, file);
+    });
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.classList.add('is-dragover');
+      zone.style.background = '#fafaf5';
+    });
+    zone.addEventListener('dragleave', () => {
+      zone.classList.remove('is-dragover');
+      zone.style.background = '';
+    });
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('is-dragover');
+      zone.style.background = '';
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) handleManualUploadFile(exerciseId, file);
+    });
+  });
+  document.querySelectorAll('.td-map-upload-cancel').forEach((btn) => {
+    btn.addEventListener('click', () =>
+      cancelManualUpload(btn.getAttribute('data-exercise-id'))
+    );
+  });
+  document.querySelectorAll('.td-map-upload-confirm').forEach((btn) => {
+    btn.addEventListener('click', () =>
+      onConfirmManualUpload(btn.getAttribute('data-exercise-id'))
+    );
+  });
+}
+
+
+// ── Sprint 13.5.9.3 — manual upload escape hatch (frontend) ────────────────
+
+const MAP_IMAGE_MANUAL_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;   // 5 MB
+const MAP_IMAGE_MANUAL_UPLOAD_TYPES = new Set([
+  'image/png', 'image/jpeg', 'image/webp',
+]);
+
+// Per-exercise selected-file slot. Keyed by exerciseId so multiple
+// cards on the same page don't clobber each other.
+const _manualUploadSelections = new Map();
+
+function onMapTabSwitch(tabEl) {
+  const exerciseId = tabEl.getAttribute('data-exercise-id');
+  const targetTab  = tabEl.getAttribute('data-tab');
+  document.querySelectorAll(
+    `.td-map-tab[data-exercise-id="${exerciseId}"]`,
+  ).forEach((t) => {
+    const isActive = t === tabEl;
+    t.classList.toggle('is-active', isActive);
+    t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    t.style.borderBottomColor = isActive
+      ? 'var(--ielts-paper-accent, #1e3a5f)'
+      : 'transparent';
+    t.style.color = isActive ? '' : 'var(--av-text-muted)';
+    t.style.fontWeight = isActive ? '600' : '';
+  });
+  document.querySelectorAll(
+    `.td-map-tab-pane[data-exercise-id="${exerciseId}"]`,
+  ).forEach((pane) => {
+    pane.hidden = pane.getAttribute('data-tab-pane') !== targetTab;
+  });
+}
+
+function _validateManualUploadFile(file) {
+  if (!MAP_IMAGE_MANUAL_UPLOAD_TYPES.has(file.type)) {
+    return `Format không hỗ trợ: ${file.type || 'unknown'}. Dùng PNG / JPG / WebP.`;
+  }
+  if (file.size > MAP_IMAGE_MANUAL_UPLOAD_MAX_BYTES) {
+    return `File quá lớn (${(file.size / 1024 / 1024).toFixed(2)} MB). Max 5 MB.`;
+  }
+  if (file.size < 100) {
+    return `File quá nhỏ (${file.size} bytes) — có thể bị corrupt.`;
+  }
+  return null;
+}
+
+function handleManualUploadFile(exerciseId, file) {
+  const error = _validateManualUploadFile(file);
+  if (error) {
+    window.alert(error);
+    return;
+  }
+  _manualUploadSelections.set(exerciseId, file);
+  const previewWrap = document.querySelector(
+    `.td-map-upload-preview[data-exercise-id="${exerciseId}"]`,
+  );
+  const img = document.querySelector(
+    `img.td-map-upload-preview-img[data-exercise-id="${exerciseId}"]`,
+  );
+  const nameEl = document.querySelector(
+    `.td-map-upload-filename[data-exercise-id="${exerciseId}"]`,
+  );
+  const sizeEl = document.querySelector(
+    `.td-map-upload-filesize[data-exercise-id="${exerciseId}"]`,
+  );
+  if (!previewWrap || !img || !nameEl || !sizeEl) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    img.src = e.target.result;
+    nameEl.textContent = file.name;
+    sizeEl.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+    previewWrap.hidden = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function cancelManualUpload(exerciseId) {
+  _manualUploadSelections.delete(exerciseId);
+  const previewWrap = document.querySelector(
+    `.td-map-upload-preview[data-exercise-id="${exerciseId}"]`,
+  );
+  const fileInput = document.querySelector(
+    `input.td-map-file-input[data-exercise-id="${exerciseId}"]`,
+  );
+  if (previewWrap) previewWrap.hidden = true;
+  if (fileInput) fileInput.value = '';
+}
+
+function setManualUploadStatus(exerciseId, text, isError) {
+  const el = document.querySelector(
+    `.td-map-upload-status[data-exercise-id="${exerciseId}"]`,
+  );
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = isError ? '#991B1B' : 'var(--av-text-muted)';
+}
+
+async function onConfirmManualUpload(exerciseId) {
+  const file = _manualUploadSelections.get(exerciseId);
+  if (!file) return;
+  const confirmMsg =
+    `Upload ảnh "${file.name}" (${(file.size / 1024).toFixed(1)} KB) `
+    + `làm map cho exercise này?\nCost: $0 (no API call).`;
+  if (!window.confirm(confirmMsg)) return;
+  setManualUploadStatus(exerciseId, 'Đang upload…', false);
+  try {
+    const formData = new FormData();
+    formData.append('image_file', file);
+    const res = await window.api.upload(
+      `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/upload-map-image`,
+      formData,
+    );
+    setManualUploadStatus(
+      exerciseId,
+      `OK — manual upload (${res.map_image_size_bytes} bytes)`,
+      false,
+    );
+    cancelManualUpload(exerciseId);
+    // Refresh the test bundle so the panel re-renders with the new
+    // image + source badge.
+    await fetchTest();
+    render();
+  } catch (e) {
+    setManualUploadStatus(
+      exerciseId,
+      `Lỗi: ${(e && e.message) || e}`,
+      true,
+    );
+  }
 }
 
 function updatePromptEditIndicator(textarea) {

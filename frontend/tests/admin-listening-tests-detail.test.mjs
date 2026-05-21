@@ -888,3 +888,115 @@ describe('Sprint 13.5.9.2 — admin model selector + cost preview', () => {
     assert.match(js, /deprecated 2026-10-02/);
   });
 });
+
+
+// ── Sprint 13.5.9.3 — manual upload escape hatch (admin panel) ───────────
+
+describe('Sprint 13.5.9.3 — manual map-image upload UI', () => {
+  const js = read('js', 'admin-listening-tests-detail.js');
+
+  test('renders a tab nav with API-generate (default) + manual-upload tabs', () => {
+    // Two tabs per card. The API one is the default ``is-active``;
+    // pinning the active class so a refactor can't quietly flip the
+    // default tab and break Andy's muscle memory.
+    assert.match(js, /class="td-map-tab is-active"[\s\S]+?data-tab="api-generate"/);
+    assert.match(js, /class="td-map-tab"[\s\S]+?data-tab="manual-upload"/);
+    assert.match(js, /aria-selected="true"/);
+    // The labels include Andy's emoji shorthand so the tabs are
+    // scannable in Vietnamese without translation.
+    assert.match(js, /🎨 Generate via API/);
+    assert.match(js, /📤 Upload ảnh có sẵn/);
+  });
+
+  test('tab panes carry data-tab-pane="api-generate" + "manual-upload"', () => {
+    // The visibility toggle reads ``data-tab-pane`` on each pane, so
+    // pin both pane markers. Manual-upload pane starts hidden.
+    assert.match(js,
+      /<div class="td-map-tab-pane" data-tab-pane="api-generate"/);
+    assert.match(js,
+      /<div class="td-map-tab-pane" data-tab-pane="manual-upload"[\s\S]+?hidden/);
+  });
+
+  test('dropzone accepts only PNG / JPG / WebP via the file input accept attribute', () => {
+    // ``accept="…"`` is a soft hint to the file picker but matches
+    // the server's hard guard so admin doesn't even see GIFs etc.
+    assert.match(js,
+      /<input type="file" class="td-map-file-input"[\s\S]+?accept="image\/png,image\/jpeg,image\/webp"/);
+  });
+
+  test('client-side validator rejects unsupported types + oversized files', () => {
+    // Pin both branches of the validator so a future refactor can't
+    // silently drop one. The 5 MB cap mirrors the backend constant.
+    assert.match(js, /MAP_IMAGE_MANUAL_UPLOAD_MAX_BYTES = 5 \* 1024 \* 1024/);
+    assert.match(js, /new Set\(\[\s*'image\/png',\s*'image\/jpeg',\s*'image\/webp'/);
+    assert.match(js, /function _validateManualUploadFile\(file\)/);
+    assert.match(js, /file\.size > MAP_IMAGE_MANUAL_UPLOAD_MAX_BYTES/);
+    assert.match(js, /file\.size < 100/);
+  });
+
+  test('dropzone wires both click-to-select and drag-and-drop handlers', () => {
+    // Click flow: dropzone click → fileInput.click(). Drop flow:
+    // dragover prevents default + flips dragover class; drop reads
+    // dataTransfer.files. Pin both so the keyboard path doesn't
+    // regress (file input gets focus + Enter).
+    assert.match(js, /fileInput\.click\(\)/);
+    assert.match(js, /zone\.addEventListener\(['"]dragover['"]/);
+    assert.match(js, /zone\.addEventListener\(['"]drop['"]/);
+    assert.match(js, /e\.dataTransfer\.files\s*&&\s*e\.dataTransfer\.files\[0\]/);
+  });
+
+  test('selected file renders a preview img + filename + filesize', () => {
+    // Preview wrap starts hidden and flips visible once a valid file
+    // is picked. FileReader.readAsDataURL feeds the <img> src.
+    assert.match(js, /reader\.readAsDataURL\(file\)/);
+    assert.match(js, /td-map-upload-preview-img/);
+    assert.match(js, /td-map-upload-filename/);
+    assert.match(js, /td-map-upload-filesize/);
+    assert.match(js, /previewWrap\.hidden = false/);
+  });
+
+  test('cancel button clears the selection map + hides the preview', () => {
+    assert.match(js, /function cancelManualUpload\(exerciseId\)/);
+    assert.match(js, /_manualUploadSelections\.delete\(exerciseId\)/);
+    assert.match(js, /previewWrap\.hidden = true/);
+    assert.match(js, /fileInput\.value = ''/);
+  });
+
+  test('confirm shows a $0-cost dialog before sending the upload', () => {
+    // Andy 2026-05-21 lock: the manual flow must spell out the
+    // $0 cost so it's clearly the no-API-call escape hatch.
+    assert.match(js, /window\.confirm\(/);
+    assert.match(js, /Cost: \$0 \(no API call\)/);
+  });
+
+  test('confirm posts the file via window.api.upload to /upload-map-image', () => {
+    // Multipart upload via the api.js helper that sets the right
+    // Content-Type. The endpoint URL pin catches a typo of the new
+    // route. FormData carries the file under "image_file" — that's
+    // the FastAPI param name on the backend.
+    assert.match(js, /formData\.append\(['"]image_file['"],\s*file\)/);
+    assert.match(js,
+      /window\.api\.upload\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/upload-map-image`/);
+  });
+
+  test('after a successful upload the panel re-fetches and re-renders', () => {
+    // Same pattern as Sprint 13.5.6's onGenerateMapImage: fetchTest()
+    // + render() so the source badge flips to "Manual upload" without
+    // a manual refresh.
+    const fn = /async function onConfirmManualUpload\([\s\S]+?\n\}/.exec(js);
+    assert.ok(fn, 'onConfirmManualUpload() not found');
+    assert.match(fn[0], /await fetchTest\(\)/);
+    assert.match(fn[0], /render\(\)/);
+  });
+
+  test('header badge differentiates manual_upload vs api_generation visually', () => {
+    // The card header chip reads ex.map_image_source first (Sprint
+    // 13.5.9.3 backend projection), falling back to api_generation
+    // when only the legacy model field is set. Pin both branches.
+    assert.match(js, /ex\.map_image_source/);
+    assert.match(js, /td-map-source-badge[\s\S]+?data-source="manual_upload"/);
+    assert.match(js, /td-map-source-badge[\s\S]+?data-source="api_generation"/);
+    assert.match(js, /📤 Manual upload/);
+    assert.match(js, /🎨 API:/);
+  });
+});
