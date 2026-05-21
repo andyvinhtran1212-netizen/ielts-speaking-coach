@@ -256,17 +256,28 @@ async function onModeChange(e) {
   if (!mode) return;
   const errEl = document.getElementById('td-mode-error');
   errEl.hidden = true;
+
+  // Sprint 13.4.3.1 — selection-driven render. The previous flow
+  // PATCHed first then re-rendered from the persisted row, which left
+  // the upload UI hidden when the backend rejected the toggle (412
+  // on first selection because no audio was uploaded yet). Now we
+  // render the upload UI immediately and persist the mode in the
+  // background; if the PATCH fails the UI still works (the upload
+  // endpoint auto-sets the mode again on success — Sprint 13.4.3).
+  if (STATE.test) STATE.test.audio_assembly_mode = mode;
+  renderModeUI(mode);
+  renderPublishGate();
+
   try {
     await window.api.patch(
       `/admin/listening/tests/${encodeURIComponent(STATE.testId)}/audio/mode`,
       { mode },
     );
-    await fetchTest();
   } catch (e) {
-    errEl.textContent = e && e.message ? e.message : 'Đổi mode thất bại.';
+    errEl.textContent = e && e.message
+      ? `Lưu mode thất bại (UI vẫn dùng được): ${e.message}`
+      : 'Lưu mode thất bại — sẽ thử lại khi upload audio.';
     errEl.hidden = false;
-    // Roll back select to current row value.
-    document.getElementById('td-mode').value = (STATE.test || {}).audio_assembly_mode || '';
   }
 }
 
