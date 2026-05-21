@@ -160,21 +160,27 @@ function renderPaper() {
 }
 
 function renderExercise(ex) {
+  // Sprint 13.5.1 — schema match parser output (services/listening_convert.py
+  // build_exercises): payload uses singular `instruction` + `questions[]`,
+  // and the precise q_type lives on `payload.variant` (the row's
+  // `exercise_type` is the coarse family — "dictation" / "mcq").
   const payload = ex.payload || {};
-  const instructions = payload.instructions || '';
-  const type = ex.exercise_type || '';
-  const items = Array.isArray(payload.items) ? payload.items : [];
+  const instruction = payload.instruction || payload.instructions || '';
+  const variant = payload.variant || ex.variant || ex.exercise_type || '';
+  const items = Array.isArray(payload.questions)
+    ? payload.questions
+    : (Array.isArray(payload.items) ? payload.items : []);
   return `
-    <div class="ft-exercise" data-exercise-type="${esc(type)}">
-      ${instructions ? `<div class="ft-exercise-instructions">${esc(instructions)}</div>` : ''}
-      ${items.map((it) => renderItem(type, it)).join('')}
+    <div class="ft-exercise" data-exercise-variant="${esc(variant)}">
+      ${instruction ? `<div class="ft-exercise-instructions">${esc(instruction)}</div>` : ''}
+      ${items.map((it) => renderItem(variant, it)).join('')}
     </div>
   `;
 }
 
-function renderItem(type, item) {
+function renderItem(variant, item) {
   const q = item.q_num;
-  if (type === 'mcq_3option' || type === 'mcq_letter_label') {
+  if (variant === 'mcq_3option' || variant === 'mcq_letter_label') {
     const opts = Array.isArray(item.options) ? item.options : [];
     return `
       <div class="ft-q-row" data-q-num="${esc(q)}">
@@ -183,13 +189,14 @@ function renderItem(type, item) {
       </div>
       <div class="ft-mcq-options" data-q-options="${esc(q)}">
         ${opts.map((o) => {
-          const label = o.label || '';
-          const text  = o.text || '';
+          // Parser canonical: {letter, text}. Tolerate legacy {label, text}.
+          const letter = o.letter || o.label || '';
+          const text   = o.text   || '';
           return `
             <label class="ft-mcq-label">
-              <input type="radio" name="q-${esc(q)}" value="${esc(label)}"
+              <input type="radio" name="q-${esc(q)}" value="${esc(letter)}"
                      class="ft-q-input" data-q-num="${esc(q)}" />
-              <span><strong>${esc(label)}.</strong> ${esc(text)}</span>
+              <span><strong>${esc(letter)}.</strong> ${esc(text)}</span>
             </label>
           `;
         }).join('')}
