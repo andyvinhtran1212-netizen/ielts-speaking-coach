@@ -213,6 +213,126 @@ def test_build_prompt_carries_cambridge_style_invariants():
         assert L in prompt
 
 
+# ── Sprint 13.5.9 — custom prompt path ────────────────────────────────────
+
+
+def test_build_prompt_returns_custom_prompt_verbatim_when_provided():
+    """Sprint 13.5.9 — a non-empty ``custom_prompt`` must short-circuit
+    the template and be returned verbatim. Andy's curated prompts
+    encode visual specs the template can't express (letter positions,
+    verification checklist).
+    """
+    curated = "## Curated AI Prompt\n\nGenerate floor plan with X, Y, Z.\n"
+    out = listening_map_image.build_map_image_prompt(
+        "Floor plan with entrance south.",
+        list("ABCDEFGH"),
+        custom_prompt=curated,
+    )
+    # Verbatim (after .strip()). The Cambridge template invariants
+    # ("ENTRANCE", "1024", "top-down") must be ABSENT — we deliberately
+    # bypassed the template.
+    assert out == curated.strip()
+    assert "ENTRANCE" not in out
+    assert "Cambridge IELTS test paper style" not in out
+
+
+def test_build_prompt_falls_back_to_template_when_custom_prompt_empty():
+    """Whitespace-only or None custom prompts fall back to the
+    template so a stray `<details>` block with a blank body never
+    sends an empty string to the image model.
+    """
+    for empty in (None, "", "   \n\n  "):
+        out = listening_map_image.build_map_image_prompt(
+            "Floor plan with entrance south. Reception centre.",
+            list("ABCDEFGH"),
+            custom_prompt=empty,
+        )
+        assert "Cambridge IELTS" in out
+
+
+def test_generate_and_upload_uses_custom_prompt_and_returns_source(monkeypatch):
+    """End-to-end with a curated prompt: the prompt actually sent to
+    the model is Andy's text (not the template) and the result
+    metadata carries ``map_image_prompt_source == "custom"`` so the
+    admin UI can show the source transparently.
+    """
+    fake = _Fake()
+    seed = _seed_plan_label_exercise(fake)
+    captured = {}
+
+    def _fake_call(model, prompt, *, api_key, timeout_seconds=60):
+        captured["prompt"] = prompt
+        return b"\x89PNGfakebytes"
+    monkeypatch.setattr(listening_map_image, "call_image_model", _fake_call)
+
+    curated = "## Curated Cambridge prompt — north arrow at top-left, monochrome only."
+    result = listening_map_image.generate_and_upload(
+        map_description="Floor plan with entrance at south, reception in centre, "
+                        "and labelled rooms around the perimeter.",
+        letter_options=list("ABCDEFGH"),
+        test_id=seed["test_id_uuid"],
+        exercise_id=seed["exercise_id"],
+        supabase=fake,
+        api_key="test-key",
+        model="imagen-4.0-fast-generate-001",
+        custom_prompt=curated,
+    )
+    assert captured["prompt"] == curated
+    assert result["map_image_prompt"] == curated
+    assert result["map_image_prompt_source"] == "custom"
+
+
+def test_generate_and_upload_bypasses_50char_guard_with_custom_prompt(monkeypatch):
+    """The 50-char map_description guard only protects the template
+    path. With a custom prompt the description is unused, so the
+    guard must NOT block generation when Andy supplies a curated
+    prompt + a short / empty description.
+    """
+    fake = _Fake()
+    seed = _seed_plan_label_exercise(fake)
+
+    def _fake_call(model, prompt, *, api_key, timeout_seconds=60):
+        return b"\x89PNGfakebytes"
+    monkeypatch.setattr(listening_map_image, "call_image_model", _fake_call)
+
+    result = listening_map_image.generate_and_upload(
+        map_description="too short",         # would normally fail
+        letter_options=list("ABCDEFGH"),
+        test_id=seed["test_id_uuid"],
+        exercise_id=seed["exercise_id"],
+        supabase=fake,
+        api_key="test-key",
+        custom_prompt="## A custom prompt long enough to drive image gen.",
+    )
+    assert result["map_image_prompt_source"] == "custom"
+
+
+def test_generate_and_upload_marks_template_when_no_custom_prompt(monkeypatch):
+    """Regression — the template path must still tag
+    ``map_image_prompt_source == "template"`` so the admin UI can
+    distinguish between curated and default generations after the
+    fact.
+    """
+    fake = _Fake()
+    seed = _seed_plan_label_exercise(fake)
+
+    def _fake_call(model, prompt, *, api_key, timeout_seconds=60):
+        return b"\x89PNGfakebytes"
+    monkeypatch.setattr(listening_map_image, "call_image_model", _fake_call)
+
+    result = listening_map_image.generate_and_upload(
+        map_description="Floor plan with entrance at south, reception in centre, "
+                        "and labelled rooms around the perimeter.",
+        letter_options=list("ABCDEFGH"),
+        test_id=seed["test_id_uuid"],
+        exercise_id=seed["exercise_id"],
+        supabase=fake,
+        api_key="test-key",
+    )
+    assert result["map_image_prompt_source"] == "template"
+    assert "Cambridge IELTS" in result["map_image_prompt"]
+
+
 def test_estimate_cost_returns_pricing_table_value():
     assert listening_map_image.estimate_cost("imagen-4.0-fast-generate-001") == 0.02
     assert listening_map_image.estimate_cost("gemini-2.5-flash-image")       == 0.039
@@ -372,11 +492,94 @@ def test_generate_endpoint_happy_path_returns_signed_url_and_updates_payload(mon
     assert out["signed_url"].startswith("https://stor.test/listening-images/")
     assert out["map_image_model"] == "imagen-4.0-fast-generate-001"
     assert out["cost_estimate_usd"] == 0.02
+    # Sprint 13.5.9 — the response must declare prompt source so the
+    # admin UI can render the indicator without a follow-up fetch.
+    assert out["map_image_prompt_source"] == "template"
 
     ex = fake.tables["listening_exercises"][0]
     assert ex["payload"]["map_image_storage_path"].endswith(".png")
     assert ex["payload"]["map_image_size_bytes"] > 0
     assert ex["payload"]["map_image_generated_at"]
+    assert ex["payload"]["map_image_prompt_source"] == "template"
+
+
+def test_generate_endpoint_forwards_custom_prompt_from_payload(monkeypatch):
+    """Sprint 13.5.9 — when the parser deposits a curated prompt on
+    ``metadata.map_image_custom_prompt``, the endpoint must lift it
+    onto the ``generate_and_upload`` call and the result must declare
+    ``map_image_prompt_source == "custom"``. The prompt actually sent
+    to the model is the curated text, not the Cambridge template.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+
+    # Inject a curated prompt onto the exercise payload as the parser
+    # would after Sprint 13.5.9.
+    curated = "## Curated AI prompt — north arrow at top-left, monochrome only."
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_image_custom_prompt"
+    ] = curated
+
+    captured = {}
+
+    def _fake_call(model, prompt, *, api_key, timeout_seconds=60):
+        captured["prompt"] = prompt
+        return b"\x89PNGok"
+    monkeypatch.setattr(listening_map_image, "call_image_model", _fake_call)
+
+    out = _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(model=None),
+        authorization=authz,
+    ))
+    # Curated prompt sent verbatim — no template language sneaks in.
+    assert captured["prompt"] == curated
+    assert out["map_image_prompt_source"] == "custom"
+    assert out["map_image_prompt"] == curated
+
+    ex = fake.tables["listening_exercises"][0]
+    assert ex["payload"]["map_image_prompt_source"] == "custom"
+
+
+def test_admin_get_test_surfaces_custom_prompt_and_last_source(monkeypatch):
+    """Sprint 13.5.9 — the admin ``GET /tests/{id}`` endpoint must
+    surface both the curated prompt (for the preview panel) and the
+    source used by the last generation (for the "current image was
+    generated from …" sub-label).
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake, with_image=True)
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_image_custom_prompt"
+    ] = "## Curated AI prompt — sample"
+    fake.tables["listening_exercises"][0]["payload"][
+        "map_image_prompt_source"
+    ] = "custom"
+
+    out = _run(listening_router.admin_get_listening_test(
+        test_id=seed["test_id_uuid"], authorization=authz,
+    ))
+    pl_list = out.get("plan_label_exercises") or []
+    assert len(pl_list) == 1
+    pl = pl_list[0]
+    assert pl["map_image_custom_prompt"].startswith("## Curated AI prompt")
+    assert pl["map_image_prompt_source"] == "custom"
+    assert pl["has_map_image"] is True
+
+
+def test_admin_get_test_omits_custom_prompt_when_none_present(monkeypatch):
+    """Regression — when no parser-deposited prompt exists, the
+    admin endpoint surfaces ``map_image_custom_prompt = None`` so the
+    UI can render the "template" indicator without ambiguity.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    out = _run(listening_router.admin_get_listening_test(
+        test_id=seed["test_id_uuid"], authorization=authz,
+    ))
+    pl_list = out.get("plan_label_exercises") or []
+    assert len(pl_list) == 1
+    assert pl_list[0]["map_image_custom_prompt"] is None
 
 
 def test_delete_endpoint_clears_payload_and_storage(monkeypatch):

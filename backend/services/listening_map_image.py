@@ -85,12 +85,26 @@ Requirements:
 def build_map_image_prompt(
     map_description: str,
     letter_options: list[str] | None = None,
+    custom_prompt: str | None = None,
 ) -> str:
-    """Render the canonical Cambridge-style prompt. Sprint 13.5.6 keeps
-    the template fixed so admin UI doesn't need a custom prompt editor
-    — Andy regenerates with a different model or refines the source
-    map_description if the output is off.
+    """Render the prompt sent to the image model.
+
+    Sprint 13.5.9 — if ``custom_prompt`` is a non-empty string we return
+    it verbatim. Andy curates Cambridge-specific guidance (north arrow,
+    letter positions, verification checklist) inside a `<details>`
+    block in the markdown source; the convert pipeline lifts it onto
+    ``metadata.map_image_custom_prompt`` and we pass it straight through
+    to the model. Empty / whitespace-only values are treated as missing
+    so a stray `<details>` block with a blank body falls back to the
+    template.
+
+    Sprint 13.5.6 — when no custom prompt is supplied we fall back to
+    the canonical Cambridge template; admin still regenerates with a
+    different model or refines the source map_description if the
+    output is off.
     """
+    if custom_prompt and custom_prompt.strip():
+        return custom_prompt.strip()
     letters = ", ".join(letter_options or list("ABCDEFGH"))
     return _PROMPT_TEMPLATE.format(
         letters=letters,
@@ -208,13 +222,22 @@ def generate_and_upload(
     api_key: str | None = None,
     model: str | None = None,
     bucket: str | None = None,
+    custom_prompt: str | None = None,
 ) -> dict[str, Any]:
     """Generate a floor-plan image and upload it to Supabase Storage.
 
     Returns the metadata that should be merged into the exercise's
     ``payload`` (``map_image_storage_path`` + ``map_image_model`` +
-    ``map_image_prompt`` + ``map_image_generated_at`` +
-    ``map_image_size_bytes``).
+    ``map_image_prompt`` + ``map_image_prompt_source`` +
+    ``map_image_generated_at`` + ``map_image_size_bytes``).
+
+    Sprint 13.5.9 — when ``custom_prompt`` (a non-empty string) is
+    supplied, the canonical template + 50-char map_description guard
+    are bypassed and the curated prompt is sent verbatim. The result
+    carries ``map_image_prompt_source = "custom"`` so the admin UI can
+    surface what was actually used. With no custom prompt the call
+    falls back to the Sprint 13.5.6 template (and the description
+    length guard re-engages).
 
     The primary model is tried first; on any non-auth failure the
     service falls back to ``gemini-2.5-flash-image``. A missing API
@@ -223,7 +246,8 @@ def generate_and_upload(
     """
     from config import settings
 
-    if not map_description or len(map_description.strip()) < 50:
+    has_custom = bool(custom_prompt and custom_prompt.strip())
+    if not has_custom and (not map_description or len(map_description.strip()) < 50):
         raise ValueError(
             "Map description too short (need ≥50 chars) — image quality "
             "depends on a rich textual layout.",
@@ -234,7 +258,9 @@ def generate_and_upload(
         raise RuntimeError("GEMINI_API_KEY not configured")
 
     primary = model or settings.LISTENING_MAP_IMAGE_MODEL
-    prompt = build_map_image_prompt(map_description, letter_options)
+    prompt = build_map_image_prompt(
+        map_description, letter_options, custom_prompt=custom_prompt,
+    )
 
     try:
         image_bytes = call_image_model(primary, prompt, api_key=resolved_key)
@@ -270,5 +296,6 @@ def generate_and_upload(
         "map_image_size_bytes":   len(image_bytes),
         "map_image_model":        model_used,
         "map_image_prompt":       prompt,
+        "map_image_prompt_source": "custom" if has_custom else "template",
         "map_image_generated_at": datetime.now(timezone.utc).isoformat(),
     }

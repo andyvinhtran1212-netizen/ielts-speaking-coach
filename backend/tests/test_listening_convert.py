@@ -580,6 +580,212 @@ def test_plan_label_section_2_carries_map_description_and_letter_options():
     assert q_nums == [16, 17, 18, 19, 20]
 
 
+# ── Sprint 13.5.9 — custom AI image-generation prompt extraction ──────────
+
+
+def test_extract_custom_image_prompt_matches_curated_details_block():
+    """Sprint 13.5.9 — when Andy embeds a `<details>` block whose
+    summary mentions an AI image-generation prompt, the parser must
+    surface the body verbatim so the image-gen service can bypass its
+    template.
+    """
+    body = """
+**16.** Café ___________
+
+<details>
+<summary>📐 <strong>AI image-generation prompt for this map</strong></summary>
+
+## AI Image Generation Prompt — Map for ILR-LIS-001 S2 Q16-20
+
+Generate a clean, IELTS Cambridge-style black-and-white indoor floor plan.
+
+### Visual specifications
+- Style: Cambridge IELTS textbook map
+- North arrow at top-left
+- Aspect ratio: 4:3 landscape
+
+### Letter labels
+| Letter | What it labels |
+| A | Gym (left behind partition) |
+| B | Studio (opposite gym) |
+
+</details>
+"""
+    prompt = lc._extract_custom_image_prompt(body)
+    assert prompt is not None
+    assert prompt.startswith("## AI Image Generation Prompt")
+    # Markdown structure must be preserved verbatim — tables, headings,
+    # lists all kept so the image model receives the full guidance.
+    assert "### Visual specifications" in prompt
+    assert "| Letter | What it labels |" in prompt
+    assert prompt.rstrip().endswith("B | Studio (opposite gym) |")
+
+
+def test_extract_custom_image_prompt_returns_none_for_non_matching_summary():
+    """A `<details>` block whose summary doesn't mention an AI image
+    prompt (e.g. "Speaker notes") must be left alone — parser returns
+    None so the image-gen service falls back to its template.
+    """
+    body = """
+<details>
+<summary>Speaker notes for the examiner</summary>
+
+Keep voice steady throughout S2.
+
+</details>
+"""
+    assert lc._extract_custom_image_prompt(body) is None
+
+
+def test_extract_custom_image_prompt_returns_none_when_no_details_block():
+    body = "Just a plain plan-label block with no expandable details."
+    assert lc._extract_custom_image_prompt(body) is None
+
+
+def test_extract_custom_image_prompt_picks_first_matching_when_multiple():
+    """If a section carries multiple `<details>` blocks, only the first
+    one whose summary matches counts — keeps the schema deterministic.
+    """
+    body = """
+<details>
+<summary>Notes for examiner</summary>
+Ignore me.
+</details>
+
+<details>
+<summary>AI image-generation prompt v1</summary>
+FIRST PROMPT — this is the one we want.
+</details>
+
+<details>
+<summary>AI image generation prompt v2 (newer)</summary>
+SECOND PROMPT — must be ignored.
+</details>
+"""
+    prompt = lc._extract_custom_image_prompt(body)
+    assert prompt is not None
+    assert "FIRST PROMPT" in prompt
+    assert "SECOND PROMPT" not in prompt
+
+
+def test_extract_custom_image_prompt_tolerates_case_and_punctuation():
+    """The summary regex is case-insensitive and tolerant of dashes
+    between "image" and "generation" so Andy can vary the phrasing
+    across question papers without breaking extraction.
+    """
+    bodies = [
+        "<details><summary>AI Image-Generation Prompt</summary>BODY</details>",
+        "<details><summary>ai image generation prompt</summary>BODY</details>",
+        "<details><summary>📐 AI Image-Generation Prompt for this map</summary>BODY</details>",
+    ]
+    for body in bodies:
+        assert lc._extract_custom_image_prompt(body) == "BODY"
+
+
+def test_extract_custom_image_prompt_returns_none_for_empty_body():
+    """A matching `<details>` block with a whitespace-only body must
+    fall back to None rather than store an empty string — keeps the
+    downstream `if custom_prompt:` checks tidy.
+    """
+    body = """
+<details>
+<summary>AI image-generation prompt</summary>
+
+</details>
+"""
+    assert lc._extract_custom_image_prompt(body) is None
+
+
+def test_extract_custom_image_prompt_ignores_unclosed_details_block():
+    """A malformed (unclosed) `<details>` block must be skipped rather
+    than greedily eating the rest of the document.
+    """
+    body = """
+<details>
+<summary>AI image-generation prompt</summary>
+This block never closes...
+
+**Next question block continues here.**
+"""
+    assert lc._extract_custom_image_prompt(body) is None
+
+
+def test_plan_label_block_surfaces_custom_prompt_on_metadata():
+    """End-to-end: when a `<details>` block sits inside a plan-label
+    question block, ``parse_question_blocks`` lifts it onto
+    ``metadata.map_image_custom_prompt`` (alongside map_description +
+    letter_options).
+    """
+    section_text = """
+### Questions 16-20
+
+> Label the plan below.
+> Write the correct letter, A-H, next to questions 16-20.
+
+> **Map description:** Floor plan with entrance at south. Reception in centre.
+
+**16.** Café ___________
+**17.** Changing rooms ___________
+**18.** Gym ___________
+**19.** Pool ___________
+**20.** Crèche ___________
+
+<details>
+<summary>AI image-generation prompt for this map</summary>
+
+CURATED PROMPT BODY — Cambridge IELTS style, north arrow at top-left.
+
+</details>
+"""
+    blocks = lc.parse_question_blocks(section_text)
+    plan = blocks[0]
+    assert plan["q_range"] == (16, 20)
+    assert plan["q_type"] == "mcq_letter_label"
+    assert plan["metadata"]["map_image_custom_prompt"].startswith(
+        "CURATED PROMPT BODY",
+    )
+    # Existing metadata fields still populated.
+    assert plan["metadata"]["letter_options"] == list("ABCDEFGH")
+    assert "Floor plan" in plan["metadata"]["map_description"]
+
+
+def test_plan_label_block_omits_custom_prompt_when_no_details_block():
+    """Regression — a plan-label block without a `<details>` block
+    must NOT carry ``map_image_custom_prompt`` (keeps the JSON tidy
+    and avoids confusing the image-gen service's empty-string check).
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    blocks = lc.parse_question_blocks(sections[2])
+    plan = next(b for b in blocks if b["q_range"] == (16, 20))
+    assert "map_image_custom_prompt" not in plan["metadata"]
+
+
+def test_non_plan_label_block_never_carries_custom_prompt():
+    """Even if a `<details>` block sneaks into an MCQ section, only
+    plan-label blocks lift it onto metadata — keeps the schema
+    constrained to where the image-gen service can actually use it.
+    """
+    section_text = """
+### Questions 11-15
+
+> Choose the correct letter, A, B or C.
+
+**11.** Test question prompt.
+   - **A** option one.
+   - **B** option two.
+   - **C** option three.
+
+<details>
+<summary>AI image-generation prompt</summary>
+This must be ignored because the block is not plan-label.
+</details>
+"""
+    blocks = lc.parse_question_blocks(section_text)
+    block = blocks[0]
+    assert block["q_type"] == "mcq_3option"
+    assert "map_image_custom_prompt" not in block["metadata"]
+
+
 def test_summary_completion_section_4_captures_3_gaps():
     sections = lc.split_qp_sections(QUESTION_PAPER_MD)
     blocks = lc.parse_question_blocks(sections[4])

@@ -399,7 +399,13 @@ def test_get_test_detail_strips_map_description_from_plan_label(monkeypatch):
             "template_kind":    "plan_label",
             "instruction":      "Label the map.",
             "map_description":  "A rectangular community hall with...",
-            "metadata":         {"map_description": "duplicate at metadata level"},
+            # Sprint 13.5.9 — curated AI prompt is admin-only metadata
+            # and must be stripped alongside map_description.
+            "map_image_custom_prompt": "## Curated prompt — north arrow at top-left.",
+            "metadata": {
+                "map_description": "duplicate at metadata level",
+                "map_image_custom_prompt": "duplicate prompt at metadata level",
+            },
             "questions": [
                 {"q_num": 16 + i, "prompt": f"Q{16 + i}"} for i in range(5)
             ],
@@ -426,10 +432,17 @@ def test_get_test_detail_strips_map_description_from_plan_label(monkeypatch):
     assert "map_description" not in (plan_ex["payload"].get("metadata") or {}), (
         "payload.metadata.map_description must be stripped from student response"
     )
+    # Sprint 13.5.9 — same treatment for the curated AI prompt.
+    assert "map_image_custom_prompt" not in plan_ex["payload"]
+    assert "map_image_custom_prompt" not in (plan_ex["payload"].get("metadata") or {})
     # Original row must remain untouched (admin endpoints rely on it).
     seeded = fake.tables["listening_exercises"][0]
     assert seeded["payload"]["map_description"] == "A rectangular community hall with..."
     assert seeded["payload"]["metadata"]["map_description"] == "duplicate at metadata level"
+    assert seeded["payload"]["map_image_custom_prompt"].startswith("## Curated prompt")
+    assert seeded["payload"]["metadata"]["map_image_custom_prompt"] == (
+        "duplicate prompt at metadata level"
+    )
 
 
 def test_get_test_detail_prefers_assembled_over_full(monkeypatch):
