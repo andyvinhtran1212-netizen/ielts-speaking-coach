@@ -562,14 +562,17 @@ _FORM_BULLET_LINE_RE = re.compile(
     re.MULTILINE,
 )
 
-# Sentence-style row anchored on `**N.** prefix **N** ___ suffix.` —
-# captures the surrounding text so the renderer can show the full
-# sentence with an inline gap. Two shapes seen in Andy's canonical
-# fixture:
-#   `**27.** The interviews will be conducted in **27** ___.`
-#   `**35.** A drawback was their **35** ___.`
+# Sentence-style row — Andy's canonical Cambridge IELTS format:
+#   `**27.** Before doing any research, the group must submit an ___ application.`
+#   `**35.** The first electric street lighting technology was the ___ lamp.`
+#
+# Sprint 13.5.3: relaxed from the earlier double-anchor `**N.** … **N** ___`
+# shape after Andy's real-world ILR-LIS-001 markdown showed only a single
+# `**N.**` anchor with the gap somewhere inline. Underscore run is `_{3,}`
+# so short (`___`) and long (`___________`) gaps both match. The first
+# gap on the line wins; trailing prose becomes the suffix.
 _SENTENCE_INLINE_RE = re.compile(
-    r"^[ \t]*\*\*(\d{1,2})\.\*\*[ \t]+(.*?)\*\*\1\*\*[ \t]+_+\.?[ \t]*(.*?)[ \t]*$",
+    r"^[ \t]*\*\*(\d{1,2})\.\*\*[ \t]+(.*?)_{3,}\.?[ \t]*(.*?)[ \t]*$",
     re.MULTILINE,
 )
 
@@ -889,6 +892,27 @@ def _extract_gap_fill(body: str, in_range) -> list[dict[str, Any]]:
                 "prompt": "",
                 "q_type": "dictation_gap_fill",
                 "variant": "inline",
+            }
+
+    # Sprint 13.5.3 — sentence-completion shape with a single `**N.**`
+    # anchor and the gap somewhere on the rest of the line (3+
+    # underscores). This was missing pre-13.5.3, so S3 Q27-30 + S4
+    # Q35-37 silently dropped out of the questions list.
+    for m in _SENTENCE_INLINE_RE.finditer(body):
+        n = int(m.group(1))
+        if in_range(n) and n not in found:
+            prefix = m.group(2).strip()
+            suffix = m.group(3).strip()
+            # Keep the full sentence in `prompt` so old consumers
+            # (Sprint 13.5 grader, mini-test summary, etc.) still see
+            # context; the template extractor carries the structural
+            # prefix/suffix split for the IELTS-authentic renderer.
+            full = (prefix + " ___ " + suffix).strip()
+            found[n] = {
+                "q_num":  n,
+                "prompt": full,
+                "q_type": "dictation_gap_fill",
+                "variant": "sentence_inline",
             }
 
     return [found[k] for k in sorted(found)]

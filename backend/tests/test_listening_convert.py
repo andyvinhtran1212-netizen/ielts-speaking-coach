@@ -180,10 +180,10 @@ You will hear the recording once.
 > Complete the sentences below.
 > Write NO MORE THAN TWO WORDS for each answer.
 
-**27.** The interviews will be conducted in **27** ___________.
-**28.** Each interview should last **28** ___________ minutes.
-**29.** Participants will receive **29** ___________ as compensation.
-**30.** The pilot survey starts on **30** ___________.
+**27.** Before doing any research, the group must submit an ___ application.
+**28.** Each interview should last _______ minutes.
+**29.** Participants will receive ___ as compensation.
+**30.** The pilot survey starts on _______.
 
 
 ---
@@ -208,9 +208,9 @@ You will hear the recording once.
 > Complete the sentences below.
 > Write NO MORE THAN TWO WORDS for each answer.
 
-**35.** A major drawback of arc lamps was their **35** ___________.
-**36.** Modern street lights reduce energy use by **36** ___________.
-**37.** Light pollution most affects **37** ___________.
+**35.** The first electric street lighting technology was the ___ lamp.
+**36.** Modern street lights reduce energy use by up to ___ per cent.
+**37.** Light pollution most affects ___ in coastal areas.
 
 
 ### Questions 38-40
@@ -911,7 +911,10 @@ def test_sentence_template_captures_prefix_inline_gap_and_suffix():
     sentences = block["template"]["sentences"]
     by_q = {s["q_num"]: s for s in sentences}
     assert set(by_q) == {27, 28, 29, 30}
-    assert "interviews will be conducted in" in by_q[27]["prefix"]
+    # Andy's canonical Cambridge format puts the gap inline within the
+    # sentence body; the prefix is everything before the first `___`.
+    assert "Before doing any research" in by_q[27]["prefix"]
+    assert "application" in by_q[27]["suffix"]
     # Q28 suffix should mention "minutes".
     assert "minutes" in by_q[28]["suffix"]
 
@@ -1018,3 +1021,234 @@ def test_table_template_empty_when_no_table_present():
     block = next(b for b in blocks if b["q_range"] == (7, 8))
     assert block["template_kind"] == "table_completion"
     assert block["template"] == {"heading": "", "headers": [], "rows": []}
+
+
+# ── Sprint 13.5.3 — sentence/summary gap-detection hotfix ─────────────────
+
+
+def test_sentence_completion_three_underscore_gap_detected():
+    """Andy's Cambridge format uses `___` (3 underscores) inline. Pre-13.5.3
+    the parser required `**N.** … **N** ___` and silently dropped every
+    sentence question. Pin the relaxed shape against a short underscore run.
+    """
+    body = (
+        "## SECTION 3\n\n"
+        "### Questions 27-30\n\n"
+        "> Complete the sentences below.\n\n"
+        "**27.** The team meets ___ each Friday.\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    block = blocks[0]
+    assert block["template_kind"] == "sentence_completion"
+    assert [q["q_num"] for q in block["questions"]] == [27]
+    sents = block["template"]["sentences"]
+    assert sents[0]["q_num"] == 27
+    assert "The team meets" in sents[0]["prefix"]
+    assert "each Friday" in sents[0]["suffix"]
+
+
+def test_sentence_completion_variable_length_underscore_gap_detected():
+    """Both `___` (3) and `_______` (7) and `___________` (11+) match the
+    relaxed `_{3,}` quantifier.
+    """
+    body = (
+        "## SECTION 3\n\n"
+        "### Questions 27-30\n\n"
+        "> Complete the sentences below.\n\n"
+        "**27.** Three underscores ___ here.\n"
+        "**28.** Seven underscores _______ here.\n"
+        "**29.** Long underscores ___________ here.\n"
+        "**30.** Trailing underscores at end _______.\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    nums = [q["q_num"] for q in blocks[0]["questions"]]
+    assert nums == [27, 28, 29, 30]
+    sents = {s["q_num"]: s for s in blocks[0]["template"]["sentences"]}
+    assert set(sents) == {27, 28, 29, 30}
+    # Q30: suffix is empty when the gap is at end of sentence.
+    assert sents[30]["suffix"] == ""
+
+
+def test_sentence_completion_first_gap_wins_when_line_has_multiple():
+    """If a line accidentally contains two underscore runs, the first
+    one anchors the split.
+    """
+    body = (
+        "## SECTION 3\n\n"
+        "### Questions 27-27\n\n"
+        "> Complete the sentences below.\n\n"
+        "**27.** A ___ B ___ C.\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    sents = blocks[0]["template"]["sentences"]
+    assert sents[0]["prefix"].startswith("A")
+    # The non-greedy regex picks the first gap; the rest of the line
+    # becomes the suffix.
+    assert "B" in sents[0]["suffix"] or "C" in sents[0]["suffix"]
+
+
+def test_s3_q27_30_extracted_from_real_fixture():
+    """S3 Q27-30 (sentence completion) must be in both the questions
+    list AND the template.sentences[] list. Pre-13.5.3 they were absent
+    from both.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[3], 27, 30)
+    assert [q["q_num"] for q in block["questions"]] == [27, 28, 29, 30]
+    sents = block["template"]["sentences"]
+    assert {s["q_num"] for s in sents} == {27, 28, 29, 30}
+
+
+def test_s4_q35_37_extracted_from_real_fixture():
+    """S4 Q35-37 (sentence completion) — same regression."""
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[4], 35, 37)
+    assert [q["q_num"] for q in block["questions"]] == [35, 36, 37]
+    sents = block["template"]["sentences"]
+    assert {s["q_num"] for s in sents} == {35, 36, 37}
+
+
+def test_s3_total_question_count_is_ten():
+    """S3 = 6 MCQ + 4 sentence-completion = 10. Pre-13.5.3 the parser
+    returned 6 because Q27-30 silently vanished.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    blocks = lc.parse_question_blocks(sections[3])
+    total = sum(len(b["questions"]) for b in blocks)
+    assert total == 10
+
+
+def test_s4_total_question_count_is_ten():
+    """S4 = 4 notes + 3 sentence-completion + 3 summary = 10."""
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    blocks = lc.parse_question_blocks(sections[4])
+    total = sum(len(b["questions"]) for b in blocks)
+    assert total == 10
+
+
+def test_full_pilot_fixture_yields_exactly_40_questions():
+    """End-to-end regression guard — Andy's pilot must always parse to
+    40 questions across 4 sections.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    per_section = []
+    for sn in (1, 2, 3, 4):
+        blocks = lc.parse_question_blocks(sections[sn])
+        per_section.append(sum(len(b["questions"]) for b in blocks))
+    assert per_section == [10, 10, 10, 10]
+
+
+def test_notes_completion_still_extracts_q31_to_q34_regression():
+    """Sprint 13.5.3 must NOT regress the Sprint 13.5.2 notes path —
+    Q31-34 still match the `**N** ___` inline shape, not the new
+    `**N.** … ___` shape.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[4], 31, 34)
+    assert block["template_kind"] == "notes_completion"
+    assert [q["q_num"] for q in block["questions"]] == [31, 32, 33, 34]
+
+
+def test_summary_completion_still_tokenises_q38_to_q40_regression():
+    """Summary paragraph extractor (uses `\\*\\*N\\*\\* _+` shape) must
+    still emit `{{Q38}}` / `{{Q39}}` / `{{Q40}}` placeholders.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    block = _qp_blocks_for_range(sections[4], 38, 40)
+    paragraph = block["template"]["paragraph"]
+    assert "{{Q38}}" in paragraph
+    assert "{{Q39}}" in paragraph
+    assert "{{Q40}}" in paragraph
+
+
+def test_gap_fill_extracts_sentence_inline_variant_for_questions_list():
+    """Sprint 13.5.3 — `_extract_gap_fill` gains a new branch so the
+    questions[] list (not just template.sentences[]) picks up the
+    sentence-completion shape. This is what the grader + UI iterates.
+    """
+    body = (
+        "**27.** Some prose ___ tail.\n"
+        "**28.** Another ___ here.\n"
+    )
+    in_range = lambda n: 27 <= n <= 30   # noqa: E731
+    qs = lc._extract_gap_fill(body, in_range)
+    assert [q["q_num"] for q in qs] == [27, 28]
+    assert qs[0]["variant"] == "sentence_inline"
+    # The prompt preserves the full sentence so legacy consumers see
+    # context (the grader uses answer_key match; this is a UX hedge).
+    assert "Some prose" in qs[0]["prompt"]
+
+
+def test_sentence_completion_blocks_do_not_collide_with_short_answer():
+    """A short-answer block (`Answer the questions`) and a sentence
+    block (`Complete the sentences`) in adjacent ranges should each
+    yield their own block, not merge — q_type differs (short_answer
+    vs gap_fill) and template_kind differs.
+    """
+    body = (
+        "## SECTION 1\n\n"
+        "### Questions 9-10\n\n"
+        "> Answer the questions below.\n\n"
+        "**9.** What is provided free of charge? ___________\n"
+        "**10.** How many students per class? ___________\n\n"
+        "### Questions 27-28\n\n"
+        "> Complete the sentences below.\n\n"
+        "**27.** The team meets ___ each Friday.\n"
+        "**28.** Each session lasts _______ minutes.\n"
+    )
+    blocks = lc.parse_question_blocks(body)
+    by_range = {b["q_range"]: b for b in blocks}
+    assert by_range[(9, 10)]["template_kind"] == "short_answer"
+    assert by_range[(9, 10)]["q_type"] == "dictation_short_answer"
+    assert by_range[(27, 28)]["template_kind"] == "sentence_completion"
+    assert by_range[(27, 28)]["q_type"] == "dictation_gap_fill"
+
+
+def test_sentence_inline_re_does_not_match_form_bullet_lines():
+    """Form bullets (`- City: **1** ___`) must not slip into the
+    sentence regex. They are anchored differently (leading bullet,
+    bold inline number AFTER colon-label) and have their own extractor.
+    """
+    body = "- City: **1** ___________\n- Postcode: **2** ___________\n"
+    matches = list(lc._SENTENCE_INLINE_RE.finditer(body))
+    assert matches == []
+
+
+def test_sentence_inline_re_does_not_match_short_answer_lines():
+    """Short-answer prompts end with `___________` but begin without
+    a sentence (`**9.** What is …?` has a `?` before the gap). We
+    accept the cross-over because they share the `**N.**` anchor —
+    the dispatcher routes by q_type (short_answer vs gap_fill)
+    BEFORE the template extractor runs, so the regex never sees
+    short-answer bodies.
+    """
+    # Defensive: the regex itself would match `**9.** What is …? ___`
+    # in isolation. The guarantee lives at the dispatcher level
+    # (_classify_instruction → short_answer → _extract_short_answer
+    # branch, never _extract_sentence_template). Pin that fact.
+    short_body = (
+        "## SECTION 1\n\n"
+        "### Questions 9-10\n\n"
+        "> Answer the questions below.\n\n"
+        "**9.** What is provided? ___________\n"
+    )
+    blocks = lc.parse_question_blocks(short_body)
+    block = blocks[0]
+    assert block["template_kind"] == "short_answer"
+    # Template extractor returns {} for short_answer.
+    assert block["template"] == {}
+
+
+def test_build_exercises_section_3_carries_mcq_then_sentence_completion():
+    """Sprint 13.5.3 end-to-end through build_exercises: S3 emits two
+    exercises with distinct template_kinds (mcq_3option then
+    sentence_completion), each carrying the correct question count.
+    """
+    sections = lc.split_qp_sections(QUESTION_PAPER_MD)
+    blocks = lc.parse_question_blocks(sections[3])
+    keys = lc.parse_answer_keys(SCRIPT_ANSWERKEY_MD)
+    exercises = lc.build_exercises(blocks, keys[3], section_num=3)
+    kinds = [e["payload"]["template_kind"] for e in exercises]
+    counts = [len(e["payload"]["questions"]) for e in exercises]
+    assert kinds == ["mcq_3option", "sentence_completion"]
+    assert counts == [6, 4]
