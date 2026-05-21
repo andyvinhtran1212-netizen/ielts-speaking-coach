@@ -213,7 +213,10 @@ select.ielts-gap-input {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding-left: var(--av-space-6);
+  /* Sprint 13.5.7 — reduce from --av-space-6 (32px) to --av-space-4
+     (16px) so the A/B/C options sit closer to the question column;
+     the question number provides enough visual indent on its own. */
+  padding-left: var(--av-space-4);
 }
 .ielts-mcq-option {
   display: flex;
@@ -403,7 +406,11 @@ select.ielts-gap-input {
    .ielts-section that doesn't match the active tab. */
 .ielts-section[hidden] { display: none !important; }
 
-/* Sticky bottom progress tracker. */
+/* Sticky bottom progress tracker. Sprint 13.5.7 — `box-sizing` +
+   `max-width: 100%` keeps the tracker inside the test-paper column;
+   the 40-column grid uses `minmax(20px, 1fr)` so it never widens
+   past its parent. The inner container is centred + clamped so the
+   tracker reads as part of the paper, not a full-bleed footer. */
 .ielts-progress-tracker {
   position: sticky;
   bottom: 0;
@@ -413,12 +420,15 @@ select.ielts-gap-input {
   margin-top: var(--av-space-4);
   z-index: 10;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .ielts-progress-bar {
   display: grid;
-  grid-template-columns: repeat(40, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(40, minmax(20px, 1fr));
+  gap: 3px;
   margin-bottom: var(--av-space-2);
+  max-width: 100%;
 }
 .progress-square {
   width: 100%;
@@ -452,6 +462,8 @@ select.ielts-gap-input {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--av-space-3);
   font-size: 13px;
 }
 .progress-count strong {
@@ -459,6 +471,10 @@ select.ielts-gap-input {
   font-size: 16px;
   font-family: var(--av-font-mono);
 }
+/* Sprint 13.5.7 — submit button: min-width + nowrap so the "Nộp bài"
+   label never truncates inside the cramped progress-summary row;
+   flex-shrink: 0 so flexbox doesn't squeeze it when the counter text
+   gets long. */
 .btn-submit-final {
   padding: var(--av-space-2) var(--av-space-5);
   background: var(--ielts-paper-accent);
@@ -469,6 +485,9 @@ select.ielts-gap-input {
   font-weight: 600;
   font-family: var(--ielts-paper-serif);
   font-size: 14px;
+  min-width: 100px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .btn-submit-final:hover { background: #2a4a6f; }
 .btn-submit-final:disabled {
@@ -488,9 +507,11 @@ select.ielts-gap-input {
   .ielts-tabs { position: static; }
   .ielts-tab .tab-label { font-size: 12px; letter-spacing: 0.05em; }
   .ielts-tab .tab-progress { font-size: 10px; }
+  /* Sprint 13.5.7 — stacked 10×4 grid on mobile + `minmax(28px,1fr)`
+     for thumb-friendly touch targets. */
   .ielts-progress-bar {
-    grid-template-columns: repeat(10, 1fr);
+    grid-template-columns: repeat(10, minmax(28px, 1fr));
     grid-auto-rows: auto;
   }
-  .progress-square { min-height: 18px; font-size: 10px; }
+  .progress-square { min-height: 24px; font-size: 10px; }
 }
