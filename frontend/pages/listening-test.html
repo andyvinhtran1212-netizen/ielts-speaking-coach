@@ -125,23 +125,8 @@
       font-size: var(--av-fs-xs);
       color: var(--av-text-muted);
     }
-    .ft-speed-group {
-      display: flex; gap: 4px;
-    }
-    .ft-speed-btn {
-      padding: 4px 10px;
-      border-radius: var(--av-radius-sm);
-      background: transparent;
-      color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default);
-      cursor: pointer;
-      font-size: var(--av-fs-xs);
-    }
-    .ft-speed-btn.active {
-      background: var(--av-brand-teal-700);
-      color: var(--av-text-on-primary);
-      border-color: var(--av-brand-teal-700);
-    }
+    /* Sprint 13.5.7 — speed-control CSS removed; Cambridge IELTS audio
+       plays at native 1.0× only. */
 
     /* ── Question paper ──────────────────────────────────────────── */
     .ft-section {
@@ -380,13 +365,12 @@
           <div class="ft-audio-bar" aria-label="Audio progress (no seek)">
             <div class="ft-audio-fill" id="ft-audio-fill"></div>
           </div>
+          <!-- Sprint 13.5.7 — Cambridge IELTS audio authenticity:
+               single-shot Play (no pause / no restart), no speed
+               controls (audio plays at native 1.0×). Volume slider
+               stays — Cambridge allows volume adjustment. -->
           <div class="ft-audio-controls">
             <button class="ft-control-btn" id="btn-playpause" type="button">▶ Play</button>
-            <div class="ft-speed-group" role="group" aria-label="Playback speed">
-              <button class="ft-speed-btn" data-speed="0.75" type="button">0.75×</button>
-              <button class="ft-speed-btn active" data-speed="1" type="button">1×</button>
-              <button class="ft-speed-btn" data-speed="1.25" type="button">1.25×</button>
-            </div>
             <input type="range" id="ft-volume" min="0" max="100" value="100"
                    aria-label="Volume" style="flex: 0 1 120px;" />
           </div>

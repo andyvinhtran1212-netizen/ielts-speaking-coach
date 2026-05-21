@@ -51,14 +51,18 @@ describe('Sprint 13.5 — player page shell', () => {
   });
 
   it('exposes audio controls but NO seek input (Cambridge constraint)', () => {
+    // Sprint 13.5.7 — Cambridge audio authenticity strict: only Play
+    // button + volume slider. No seek, no speed control, no pause.
     assert.match(HTML, /id="btn-playpause"/);
     assert.match(HTML, /id="ft-volume"/);
-    assert.match(HTML, /class="ft-speed-btn[^"]*"\s+data-speed="0\.75"/);
-    assert.match(HTML, /class="ft-speed-btn[^"]*"\s+data-speed="1"/);
-    assert.match(HTML, /class="ft-speed-btn[^"]*"\s+data-speed="1\.25"/);
     // The progress bar must NOT be wired as a seekable <input type="range">.
     const seekRange = /<input[^>]*type=["']range["'][^>]*(?:seek|currentTime|progress)/i;
     assert.ok(!seekRange.test(HTML), 'audio seek input must not be present');
+    // Speed-control buttons removed in Sprint 13.5.7.
+    assert.ok(!/data-speed="0\.75"/.test(HTML),
+      'speed buttons must not render — Cambridge audio plays at 1.0× only');
+    assert.ok(!/data-speed="1\.25"/.test(HTML),
+      'speed buttons must not render — Cambridge audio plays at 1.0× only');
   });
 
   it('renders progress text ("Đã trả lời X / 40") + the submit button', () => {
@@ -150,10 +154,20 @@ describe('Sprint 13.5 — player JS contract', () => {
       'player must never assign audio.currentTime (no-seek rule)');
   });
 
-  it('flips Play/Pause label + cycles playbackRate via speed buttons', () => {
-    assert.match(JS, /\.playbackRate\s*=\s*rate/);
-    assert.match(JS, /'⏸ Pause'|"⏸ Pause"/);
+  it('starts playback exactly once and locks the button (Cambridge single-shot)', () => {
+    // Sprint 13.5.7 — togglePlay (Sprint 13.5) replaced with
+    // startPlayback() that locks STATE.playbackStarted on first click.
+    // playbackRate is pinned to 1.0; no pause path; no speed cycling.
+    assert.match(JS, /function startPlayback\(/);
+    assert.match(JS, /STATE\.playbackStarted/);
+    assert.match(JS, /playbackRate\s*=\s*1\.0/);
     assert.match(JS, /'▶ Play'|"▶ Play"/);
+    // Pause-side of the old toggle is gone.
+    assert.ok(!/'⏸ Pause'|"⏸ Pause"/.test(JS),
+      'pause label removed — Cambridge audio plays through');
+    // The setSpeed handler is also gone.
+    assert.ok(!/function setSpeed\b/.test(JS),
+      'setSpeed handler removed in Sprint 13.5.7');
   });
 
   it('submits via POST /api/listening/tests/attempts/{id}/submit', () => {
@@ -370,8 +384,12 @@ describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
     assert.match(JS, /class="ielts-section-title">Questions/);
   });
 
-  it('renders narrator intro inside .ielts-narrator-intro', () => {
-    assert.match(JS, /class="ielts-narrator-intro"/);
+  it('does NOT render narrator intro on the student paper (Cambridge audio-only)', () => {
+    // Sprint 13.5.7 — narrator intro is audio-only; the renderer must
+    // not emit a `<div class="ielts-narrator-intro">` block. The data
+    // stays on the payload for admin preview / debugging.
+    assert.ok(!/class="ielts-narrator-intro"/.test(JS),
+      'narrator intro element must not render in student view');
   });
 
   it('renders Questions X – Y block headers', () => {
@@ -555,10 +573,12 @@ describe('Sprint 13.5.5 — sticky progress tracker (40 squares)', () => {
   });
 
   it('CSS defines the progress-square grid (40 cols desktop, 10 cols mobile)', () => {
+    // Sprint 13.5.7 — grid uses `minmax(20px, 1fr)` desktop + `minmax(28px, 1fr)`
+    // mobile so 40 squares never overflow the test-paper column.
     const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
     const CSS = readFileSync(CSS_PATH, 'utf8');
-    assert.match(CSS, /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(40,\s*1fr\)/);
-    assert.match(CSS, /@media\s*\(\s*max-width:\s*768px\s*\)[\s\S]+?grid-template-columns:\s*repeat\(10,\s*1fr\)/);
+    assert.match(CSS, /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(40,\s*minmax\(20px,\s*1fr\)\)/);
+    assert.match(CSS, /@media\s*\(\s*max-width:\s*768px\s*\)[\s\S]+?grid-template-columns:\s*repeat\(10,\s*minmax\(28px,\s*1fr\)\)/);
   });
 
   it('CSS sticky-positions the tracker at the bottom of the viewport', () => {
@@ -603,9 +623,13 @@ describe('Sprint 13.5.5 — audio cue auto-advance + parser cleanup expectations
   // Parser-cleanup expectations (the renderer must show the cleaned
   // values — no audio markers in narrator-intro, no Q40 footer).
 
-  it('renderer uses sec.narrator_intro verbatim (no extra strip on the client)', () => {
-    // Parser strips audio markers at convert time; client just esc()s.
-    assert.match(JS, /esc\(sec\.narrator_intro\)/);
+  it('renderer no longer wires narrator intro into the DOM (Sprint 13.5.7)', () => {
+    // The narrator intro is audio-only in real Cambridge IELTS exams.
+    // Sprint 13.5.7 removed the `<div class="ielts-narrator-intro">`
+    // emission. The parser still cleans the field for admin preview
+    // (Sprint 13.5.5) — we just don't render it here.
+    assert.ok(!/esc\(sec\.narrator_intro\)/.test(JS),
+      'narrator intro must not be wired into the student paper');
   });
 
   it('summary renderer reads payload.template.paragraph (bound at parse time)', () => {
@@ -637,5 +661,235 @@ describe('Sprint 13.5.5 — audio cue auto-advance + parser cleanup expectations
     const CSS = readFileSync(CSS_PATH, 'utf8');
     assert.match(CSS, /\[data-theme="dark"\]\s+\.ielts-tabs\b/);
     assert.match(CSS, /\[data-theme="dark"\]\s+\.ielts-progress-tracker\b/);
+  });
+});
+
+
+// ── Sprint 13.5.7 — Cambridge UI polish (audio + narrator + layout) ──────
+
+describe('Sprint 13.5.7 — Cambridge audio authenticity', () => {
+
+  it('Play button still mounted (single-shot start)', () => {
+    assert.match(HTML, /id="btn-playpause"/);
+    // Default label is the play glyph; the JS swaps it to "Đang phát"
+    // / "Đã hết" as state changes.
+    assert.match(HTML, /▶ Play/);
+  });
+
+  it('volume slider still present (Cambridge allows volume adjustment)', () => {
+    assert.match(HTML, /id="ft-volume"/);
+    assert.match(HTML, /type="range"[^>]+id="ft-volume"/);
+  });
+
+  it('NO speed-control buttons render in markup', () => {
+    assert.ok(!/ft-speed-btn/.test(HTML),
+      'speed buttons removed in 13.5.7');
+    assert.ok(!/ft-speed-group/.test(HTML),
+      'speed group container removed in 13.5.7');
+    assert.ok(!/data-speed=/.test(HTML),
+      'data-speed attributes removed in 13.5.7');
+  });
+
+  it('NO speed-control CSS rules remain in the inline page styles', () => {
+    assert.ok(!/\.ft-speed-btn\s*\{/.test(HTML),
+      'inline .ft-speed-btn CSS removed in 13.5.7');
+    assert.ok(!/\.ft-speed-group\s*\{/.test(HTML),
+      'inline .ft-speed-group CSS removed in 13.5.7');
+  });
+
+  it('startPlayback() guards against multiple clicks via STATE.playbackStarted', () => {
+    assert.match(JS, /function startPlayback\(/);
+    assert.match(JS, /STATE\.playbackStarted/);
+    assert.match(JS, /if \(STATE\.playbackStarted\) return/);
+  });
+
+  it('startPlayback() locks playbackRate to 1.0 and disables the button', () => {
+    const m = /function startPlayback\(\)\s*\{([\s\S]+?)\n\}/m.exec(JS);
+    assert.ok(m, 'startPlayback body not found');
+    assert.match(m[1], /playbackRate\s*=\s*1\.0/);
+    assert.match(m[1], /btn\.disabled\s*=\s*true/);
+    assert.match(m[1], /'Đang phát'|"Đang phát"/);
+  });
+
+  it('audio.ended switches button to "Đã hết" and keeps it disabled', () => {
+    // No replay: the terminal label is "Đã hết" and the button stays
+    // disabled so there is no UI affordance to restart.
+    assert.match(JS, /'Đã hết'|"Đã hết"/);
+    assert.match(JS, /addEventListener\('ended'/);
+  });
+
+  it('STATE declares playbackStarted: false at module load', () => {
+    assert.match(JS, /playbackStarted:\s*false/);
+  });
+
+  it('NO togglePlay / setSpeed handlers remain (replaced by startPlayback)', () => {
+    assert.ok(!/function togglePlay\b/.test(JS),
+      'togglePlay removed in 13.5.7');
+    assert.ok(!/function setSpeed\b/.test(JS),
+      'setSpeed removed in 13.5.7');
+    assert.ok(!/'⏸ Pause'|"⏸ Pause"/.test(JS),
+      'pause label removed in 13.5.7');
+  });
+
+  it('the click listener binds to startPlayback (not togglePlay)', () => {
+    assert.match(JS, /addEventListener\('click',\s*startPlayback\)/);
+    assert.ok(!/addEventListener\('click',\s*togglePlay\)/.test(JS),
+      'old togglePlay binding removed');
+  });
+});
+
+
+describe('Sprint 13.5.7 — narrator intro suppressed from student paper', () => {
+
+  it('renderPaper does not emit a .ielts-narrator-intro block', () => {
+    // The entire wrapper class is gone from the renderer source.
+    assert.ok(!/class="ielts-narrator-intro"/.test(JS),
+      'narrator intro element removed from student renderer');
+    assert.ok(!/esc\(sec\.narrator_intro\)/.test(JS),
+      'narrator intro field no longer wired to esc() in renderer');
+  });
+
+  it('section header still renders the PART label + question range', () => {
+    assert.match(JS, /class="ielts-section-label">PART \$\{esc\(sec\.section_num\)\}/);
+    assert.match(JS, /class="ielts-section-title">Questions/);
+  });
+
+  it('narrator_intro field is still accepted on the section shape (data preserved)', () => {
+    // Renderer must not strip the field from the API response — the
+    // admin preview pipeline still needs it. The contract here is that
+    // `sec` is still indexable on narrator_intro even though we don't
+    // read it during render.
+    // Easier sentinel: ensure the legacy "narrator_intro" name doesn't
+    // get renamed to something else (regression guard).
+    // (No active read → no positive match needed.)
+    // We pin the negative: the renderer does NOT delete the key.
+    assert.ok(!/delete\s+sec\.narrator_intro/.test(JS));
+  });
+
+  it('"You will hear" narrator preamble cannot leak via hardcoded strings', () => {
+    // The renderer must never hardcode the narrator preamble text. If
+    // it did, our parser cleanup would be moot.
+    assert.ok(!/You will hear/i.test(JS),
+      'hardcoded narrator preamble must not appear in the JS bundle');
+  });
+
+  it('strip-on-parse cleanup is still trusted by the renderer', () => {
+    // Sprint 13.5.5 guard preserved — when the renderer eventually does
+    // read intro text again (admin preview), markers stay stripped
+    // server-side. Just pin that the JS doesn't ALSO try to strip.
+    assert.ok(!/\[pause:30s\]/.test(JS),
+      'no client-side audio-marker handling — parser owns this');
+  });
+});
+
+
+describe('Sprint 13.5.7 — progress tracker fits container + submit button', () => {
+  const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+  const CSS = readFileSync(CSS_PATH, 'utf8');
+
+  it('tracker constrains itself with box-sizing + max-width 100%', () => {
+    assert.match(CSS, /\.ielts-progress-tracker\s*\{[\s\S]+?max-width:\s*100%[\s\S]+?box-sizing:\s*border-box/);
+  });
+
+  it('progress bar uses minmax(20px, 1fr) so 40 squares never overflow', () => {
+    assert.match(CSS,
+      /\.ielts-progress-bar\s*\{[\s\S]+?grid-template-columns:\s*repeat\(40,\s*minmax\(20px,\s*1fr\)\)/);
+  });
+
+  it('progress bar caps width at the parent container', () => {
+    assert.match(CSS, /\.ielts-progress-bar\s*\{[\s\S]+?max-width:\s*100%/);
+  });
+
+  it('mobile grid uses minmax(28px, 1fr) for thumb-friendly squares', () => {
+    assert.match(CSS,
+      /@media\s*\(\s*max-width:\s*768px\s*\)[\s\S]+?grid-template-columns:\s*repeat\(10,\s*minmax\(28px,\s*1fr\)\)/);
+  });
+
+  it('submit button has min-width + nowrap + flex-shrink:0 so text cannot truncate', () => {
+    const m = /\.btn-submit-final\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m, '.btn-submit-final rule not found');
+    assert.match(m[1], /min-width:\s*100px/);
+    assert.match(m[1], /white-space:\s*nowrap/);
+    assert.match(m[1], /flex-shrink:\s*0/);
+  });
+
+  it('progress summary wraps + gaps so cramped layouts stack cleanly', () => {
+    const m = /\.ielts-progress-summary\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m);
+    assert.match(m[1], /flex-wrap:\s*wrap/);
+    assert.match(m[1], /gap:\s*var\(--av-space-3\)/);
+  });
+});
+
+
+describe('Sprint 13.5.7 — MCQ + responsive padding adjustments', () => {
+  const CSS_PATH = join(__dirname, '..', 'css', 'ielts-test-paper.css');
+  const CSS = readFileSync(CSS_PATH, 'utf8');
+
+  it('MCQ options padding-left reduced from --av-space-6 to --av-space-4', () => {
+    // The matched rule must NOT carry --av-space-6 inside the
+    // padding-left declaration any more.
+    const m = /\.ielts-mcq-options\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m, '.ielts-mcq-options rule not found');
+    assert.match(m[1], /padding-left:\s*var\(--av-space-4\)/);
+    assert.ok(!/padding-left:\s*var\(--av-space-6\)/.test(m[1]),
+      'old --av-space-6 padding removed in 13.5.7');
+  });
+
+  it('MCQ option rows still use flex with gap (radio + label alignment)', () => {
+    const m = /\.ielts-mcq-option\s*\{([\s\S]+?)\n\}/m.exec(CSS);
+    assert.ok(m);
+    assert.match(m[1], /display:\s*flex/);
+    assert.match(m[1], /gap:\s*var\(--av-space-2\)/);
+  });
+
+  it('progress square mobile min-height bumped to 24px for touch (was 18px)', () => {
+    // Easier-to-tap squares on small screens.
+    assert.match(CSS,
+      /@media\s*\(\s*max-width:\s*768px\s*\)[\s\S]+?\.progress-square\s*\{\s*min-height:\s*24px/);
+  });
+
+  it('Sprint 13.5.6 map-image clamp survives the layout pass', () => {
+    // Regression — the .ielts-map-rendered max-height must stay so the
+    // image doesn't break the test-paper column post-13.5.7 changes.
+    assert.match(CSS, /\.ielts-map-rendered[\s\S]+?max-height:\s*480px/);
+  });
+
+  it('dark-mode rules cover both tracker and submit button (regression guard)', () => {
+    assert.match(CSS, /\[data-theme="dark"\]\s+\.ielts-progress-tracker\b/);
+    assert.match(CSS, /\[data-theme="dark"\]\s+\.btn-submit-final\b/);
+  });
+
+  it('audio progress bar (visual fill) still updates from timeupdate', () => {
+    // The student should still SEE elapsed time / fill, just not be
+    // able to scrub. The fill width assignment is the read-only visual.
+    const playerJs = readFileSync(
+      join(__dirname, '..', 'js', 'listening-test-player.js'), 'utf8',
+    );
+    assert.match(playerJs, /ft-audio-fill[\s\S]{0,80}style\.width/);
+  });
+
+  it('tab nav still routes via setActiveTab (regression after audio refactor)', () => {
+    const playerJs = readFileSync(
+      join(__dirname, '..', 'js', 'listening-test-player.js'), 'utf8',
+    );
+    assert.match(playerJs, /function setActiveTab\(tabNum\)/);
+    assert.match(playerJs, /applyActiveTab\(\)/);
+  });
+
+  it('map image inline render survives (Sprint 13.5.6 regression)', () => {
+    const playerJs = readFileSync(
+      join(__dirname, '..', 'js', 'listening-test-player.js'), 'utf8',
+    );
+    assert.match(playerJs, /payload\.map_image_url/);
+    assert.match(playerJs, /class="ielts-map-rendered"/);
+  });
+
+  it('progress squares stay clickable + scroll the corresponding input (regression)', () => {
+    const playerJs = readFileSync(
+      join(__dirname, '..', 'js', 'listening-test-player.js'), 'utf8',
+    );
+    assert.match(playerJs, /function onProgressSquareClick\(qNum,\s*sectionNum\)/);
+    assert.match(playerJs, /input\.scrollIntoView/);
   });
 });

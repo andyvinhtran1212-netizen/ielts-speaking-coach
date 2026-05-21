@@ -41,6 +41,9 @@ const STATE = {
   // Sprint 13.5.5 — tab navigation state + audio cue auto-advance.
   activeTab:     1,
   cuePointsByTab: new Map(), // tabNum → first cue timestamp (seconds)
+  // Sprint 13.5.7 — Cambridge single-shot play guard: once true, the
+  // Play button is locked for the rest of the attempt.
+  playbackStarted: false,
 };
 
 // Q-number → section number mapping (Cambridge convention: 1-10 → s1,
@@ -173,13 +176,13 @@ function renderPaper() {
   const out = ['<div class="ielts-test-paper">'];
   for (const sec of sections) {
     const range = sectionQuestionRange(sec);
+    // Sprint 13.5.7 — narrator intro is audio-only in real Cambridge
+     // IELTS exams. The text version exists in the data for admin
+     // preview + debugging but must NOT render in the student paper.
     out.push(`
       <section class="ielts-section" data-section-num="${esc(sec.section_num)}">
         <div class="ielts-section-label">PART ${esc(sec.section_num)}</div>
         <h2 class="ielts-section-title">Questions ${esc(range[0])} – ${esc(range[1])}</h2>
-        ${sec.narrator_intro
-          ? `<div class="ielts-narrator-intro">${esc(sec.narrator_intro)}</div>`
-          : ''}
         ${(sec.exercises || []).map(renderExercise).join('')}
       </section>
     `);
@@ -734,38 +737,52 @@ function mountAudio() {
     maybeAutoAdvanceTab(audio.currentTime);
   });
   audio.addEventListener('ended', () => {
-    $('btn-playpause').textContent = '▶ Play';
+    // Sprint 13.5.7 — audio ended; button stays disabled and reflects
+    // the terminal state. No replay button — matches real Cambridge
+    // exam where the recording plays through exactly once.
+    const btn = $('btn-playpause');
+    if (btn) {
+      btn.textContent = 'Đã hết';
+      btn.disabled = true;
+    }
   });
 
-  $('btn-playpause').addEventListener('click', togglePlay);
-  document.querySelectorAll('.ft-speed-btn').forEach((b) => {
-    b.addEventListener('click', () => setSpeed(b));
-  });
+  $('btn-playpause').addEventListener('click', startPlayback);
   $('ft-volume').addEventListener('input', (e) => {
+    // Volume adjustment stays — Cambridge real exam allows it.
     audio.volume = Number(e.target.value) / 100;
   });
   $('btn-submit').addEventListener('click', confirmSubmit);
 }
 
-function togglePlay() {
+// Sprint 13.5.7 — Cambridge IELTS audio convention: single-shot Play.
+// Once the student starts the audio, the button locks and the audio
+// plays through to the end. No pause, no restart, no speed control.
+// The button stays visible (disabled) so the student has visual
+// feedback that playback is underway.
+function startPlayback() {
   const a = STATE.audio;
   if (!a) return;
-  if (a.paused) {
-    a.play();
-    $('btn-playpause').textContent = '⏸ Pause';
-  } else {
-    a.pause();
-    $('btn-playpause').textContent = '▶ Play';
+  if (STATE.playbackStarted) return;     // No-op on subsequent clicks.
+  STATE.playbackStarted = true;
+  a.playbackRate = 1.0;                  // Lock native playback speed.
+  const playPromise = a.play();
+  const btn = $('btn-playpause');
+  if (btn) {
+    btn.textContent = 'Đang phát';
+    btn.disabled = true;
   }
-}
-
-function setSpeed(btn) {
-  if (!STATE.audio) return;
-  const rate = Number(btn.getAttribute('data-speed')) || 1;
-  STATE.audio.playbackRate = rate;
-  document.querySelectorAll('.ft-speed-btn').forEach((b) => {
-    b.classList.toggle('active', b === btn);
-  });
+  // Older browsers (Safari) may reject if the gesture chain broke;
+  // surface that gracefully and re-enable so the student can retry.
+  if (playPromise && typeof playPromise.catch === 'function') {
+    playPromise.catch(() => {
+      STATE.playbackStarted = false;
+      if (btn) {
+        btn.textContent = '▶ Play';
+        btn.disabled = false;
+      }
+    });
+  }
 }
 
 
