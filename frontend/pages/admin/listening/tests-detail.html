@@ -116,6 +116,28 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: var(--av-space-3);
+      /* Sprint 13.4.3.2 — grid items default min-width:auto, which lets
+         long unwrapped paths blow past the 1fr cap and overflow the
+         shell. Force min-width:0 here + word-break on children. */
+      min-width: 0;
+    }
+    .td-parts-grid > * { min-width: 0; }
+    .td-parts-grid .td-file-meta,
+    .td-parts-grid .td-section-meta { word-break: break-word; overflow-wrap: anywhere; }
+
+    /* Sprint 13.4.3.2 — <audio> preview players for full + sections + assembled. */
+    .td-audio-preview {
+      margin-top: var(--av-space-3);
+      padding: var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+    }
+    .td-audio-player { width: 100%; }
+    .td-replace-btn { width: fit-content; }
+    @media (max-width: 768px) {
+      .td-parts-grid { grid-template-columns: 1fr; }
     }
 
     .td-btn {
@@ -215,6 +237,8 @@
             <div class="td-file-meta" id="td-meta-full" hidden></div>
             <input type="file" id="td-file-full" accept=".mp3,audio/mpeg" />
           </label>
+          <!-- Sprint 13.4.3.2 — <audio> preview slot, filled when full audio present. -->
+          <div id="td-full-preview"></div>
         </div>
 
         <!-- Mode: parts_* -->
@@ -231,6 +255,8 @@
               </span>
             </span>
           </div>
+          <!-- Sprint 13.4.3.2 — <audio> slot for the assembled output. -->
+          <div id="td-assembled-preview" hidden></div>
         </div>
 
         <!-- Cue points table -->

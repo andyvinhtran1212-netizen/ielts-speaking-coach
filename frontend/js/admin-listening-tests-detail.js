@@ -25,10 +25,48 @@ const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
 
 const STATE = {
-  testId:    null,         // UUID from ?id=
-  test:      null,         // listening_tests row
-  sections:  [],           // listening_content rows
+  testId:        null,         // UUID from ?id=
+  test:          null,         // listening_tests row
+  sections:      [],           // listening_content rows
+  signedUrls:    null,         // Sprint 13.4.3.2 — bundle from GET /audio/signed-urls
 };
+
+
+// Sprint 13.4.3.2 — shared MP3 file-extension check + dnd handler factory.
+function _isMp3(file) {
+  return !!file && typeof file.name === 'string'
+         && file.name.toLowerCase().endsWith('.mp3');
+}
+
+
+function attachDropZoneHandlers(zoneEl, onFile) {
+  // Sprint 13.4.3.2 — Sprint 13.2 upload.js wires the same pattern; the
+  // tests-detail page shipped without these handlers so dragging onto a
+  // zone bubbled to the browser (which opened the MP3 in a new tab).
+  ['dragenter', 'dragover'].forEach((ev) => {
+    zoneEl.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zoneEl.classList.add('is-dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach((ev) => {
+    zoneEl.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zoneEl.classList.remove('is-dragover');
+    });
+  });
+  zoneEl.addEventListener('drop', (e) => {
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    if (!_isMp3(file)) {
+      showError('Chỉ chấp nhận file .mp3');
+      return;
+    }
+    onFile(file);
+  });
+}
 
 
 // ── Bootstrap ───────────────────────────────────────────────────────────────
@@ -49,6 +87,12 @@ function init() {
   document.getElementById('td-delete-btn').addEventListener('click', onDelete);
   document.getElementById('td-assemble').addEventListener('click', onAssemble);
   document.getElementById('td-file-full').addEventListener('change', onFullAudioPick);
+  // Sprint 13.4.3.2 — wire dnd on the full-audio zone (parts zones are
+  // wired per-render inside renderPartsGrid since the grid rebuilds).
+  attachDropZoneHandlers(
+    document.getElementById('td-zone-full'),
+    (file) => uploadFullAudio(file),
+  );
 
   fetchTest();
 }
@@ -61,6 +105,16 @@ async function fetchTest() {
     const res = await window.api.get(`/admin/listening/tests/${encodeURIComponent(STATE.testId)}`);
     STATE.test = res;
     STATE.sections = res.sections || [];
+    // Sprint 13.4.3.2 — bundle-fetch signed URLs for the audio preview
+    // players. Best-effort: if the endpoint errors we still render the
+    // page without players (admin gets the metadata text fallback).
+    try {
+      STATE.signedUrls = await window.api.get(
+        `/admin/listening/tests/${encodeURIComponent(STATE.testId)}/audio/signed-urls`,
+      );
+    } catch {
+      STATE.signedUrls = null;
+    }
     render();
   } catch (e) {
     showError(e && e.message ? e.message : 'Không tải được test.');
@@ -131,6 +185,10 @@ function renderFullAudio() {
   const t = STATE.test || {};
   const meta = document.getElementById('td-meta-full');
   const zone = document.getElementById('td-zone-full');
+  const previewHost = document.getElementById('td-full-preview');
+  // Reset preview host between renders so toggling mode doesn't leak players.
+  if (previewHost) previewHost.innerHTML = '';
+
   if (t.full_audio_storage_path) {
     const mins = t.full_audio_duration_seconds
       ? Math.round(t.full_audio_duration_seconds / 60) : '?';
@@ -139,6 +197,29 @@ function renderFullAudio() {
     meta.textContent = `${t.full_audio_storage_path} · ${mins} min · ${mb} MB`;
     meta.hidden = false;
     zone.classList.add('has-file');
+
+    // Sprint 13.4.3.2 — render <audio> preview so admin can verify
+    // the upload before publishing.
+    const signed = (STATE.signedUrls && STATE.signedUrls.full) || {};
+    if (previewHost && signed.signed_url) {
+      previewHost.innerHTML = `
+        <div class="td-audio-preview">
+          <audio controls preload="metadata"
+                 src="${escapeHtml(signed.signed_url)}"
+                 class="td-audio-player">
+            Trình duyệt không hỗ trợ HTML5 audio.
+          </audio>
+          <button type="button" class="td-btn td-btn-ghost td-replace-btn"
+                  id="td-full-replace">Tải lại audio</button>
+        </div>
+      `;
+      const replaceBtn = previewHost.querySelector('#td-full-replace');
+      if (replaceBtn) {
+        replaceBtn.addEventListener('click', () => {
+          document.getElementById('td-file-full').click();
+        });
+      }
+    }
   } else {
     meta.hidden = true;
     zone.classList.remove('has-file');
@@ -149,26 +230,65 @@ function renderFullAudio() {
 function renderPartsGrid() {
   const host = document.getElementById('td-parts-grid');
   host.innerHTML = '';
+  const signedSections = (STATE.signedUrls && STATE.signedUrls.sections) || [];
   for (let n = 1; n <= 4; n++) {
     const section = STATE.sections.find((s) => s.section_num === n) || {};
     const hasAudio = !!section.audio_storage_path;
+    const signed = signedSections.find((s) => s.section_num === n) || {};
     const card = document.createElement('label');
     card.className = 'td-dropzone' + (hasAudio ? ' has-file' : '');
     card.dataset.section = String(n);
+    const audioBlock = (hasAudio && signed.signed_url) ? `
+      <audio controls preload="none"
+             src="${escapeHtml(signed.signed_url)}"
+             class="td-audio-player"
+             onclick="event.stopPropagation()">
+        Trình duyệt không hỗ trợ HTML5 audio.
+      </audio>
+    ` : '';
     card.innerHTML = `
       <h3>Section ${n}</h3>
       <div class="td-section-meta">${escapeHtml(section.title || '—')}</div>
       <div class="td-file-meta" ${hasAudio ? '' : 'hidden'}>${
-        hasAudio
-          ? escapeHtml(section.audio_storage_path)
-          : ''
+        hasAudio ? escapeHtml(section.audio_storage_path) : ''
       }</div>
+      ${audioBlock}
       <input type="file" id="td-file-part-${n}" accept=".mp3,audio/mpeg" />
     `;
     const input = card.querySelector('input[type=file]');
     input.addEventListener('change', (e) => onPartAudioPick(n, e));
+    // Sprint 13.4.3.2 — wire dnd per card (the grid rebuilds on every
+    // render, so we can't attach once at init like the full zone).
+    attachDropZoneHandlers(card, (file) => uploadPartAudio(n, file));
     host.appendChild(card);
   }
+  // Also render the assembled-audio preview if present.
+  renderAssembledPreview();
+}
+
+
+function renderAssembledPreview() {
+  const host = document.getElementById('td-assembled-preview');
+  if (!host) return;
+  const assembled = (STATE.signedUrls && STATE.signedUrls.assembled) || {};
+  if (!assembled.signed_url) {
+    host.innerHTML = '';
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = `
+    <h3 style="font-size:var(--av-fs-base); margin: var(--av-space-3) 0 4px;">
+      Assembled audio preview
+    </h3>
+    <div class="td-audio-preview">
+      <audio controls preload="metadata"
+             src="${escapeHtml(assembled.signed_url)}"
+             class="td-audio-player">
+        Trình duyệt không hỗ trợ HTML5 audio.
+      </audio>
+    </div>
+  `;
 }
 
 
@@ -311,6 +431,11 @@ async function uploadFullAudio(file) {
 async function onPartAudioPick(sectionNum, e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
+  await uploadPartAudio(sectionNum, file);
+}
+
+
+async function uploadPartAudio(sectionNum, file) {
   hideError();
   try {
     const fd = new FormData();
