@@ -202,12 +202,36 @@ function renderMapImagesPanel() {
            Hình hiện tại generate từ: <strong>${escapeHtml(lastSource)}</strong>
          </span>`
       : '';
-    const promptPreview = hasCustom
-      ? `<details class="td-prompt-preview" data-exercise-id="${escapeHtml(ex.id)}">
-           <summary>Xem custom prompt (${customPrompt.length} chars)</summary>
-           <pre class="td-prompt-content"
-                style="white-space:pre-wrap;font-size:var(--av-fs-xs);max-height:280px;overflow:auto;background:#f8fafc;padding:var(--av-space-2);border-radius:var(--av-radius-sm);">${escapeHtml(customPrompt)}</pre>
-         </details>`
+    // Sprint 13.5.9.1 — replace the read-only `<pre>` preview with an
+    // editable textarea. Admin sees the exact prompt that will go to
+    // the API, can edit it (session-only — re-converting markdown
+    // resets), and an "edit indicator" flips on the moment the value
+    // diverges from the parser-extracted source. The reset button
+    // brings the textarea back to the original.
+    const promptReview = hasCustom
+      ? `<div class="td-prompt-review" data-exercise-id="${escapeHtml(ex.id)}"
+              style="margin-top:var(--av-space-3);">
+           <details class="td-prompt-preview" data-exercise-id="${escapeHtml(ex.id)}">
+             <summary>Review prompt sẽ gửi tới API (${customPrompt.length} chars)</summary>
+             <p class="td-section-meta" style="margin-top:var(--av-space-2);font-size:var(--av-fs-xs);">
+               Đây là prompt sẽ gửi tới Gemini API. Edit chỉ áp dụng cho lần generate này; re-convert markdown sẽ reset.
+             </p>
+             <textarea class="td-prompt-editable"
+                       data-exercise-id="${escapeHtml(ex.id)}"
+                       data-original="${escapeHtml(customPrompt)}"
+                       rows="14"
+                       style="width:100%;font-family:var(--av-font-mono);font-size:var(--av-fs-xs);padding:var(--av-space-2);border:1px solid var(--av-border-default);border-radius:var(--av-radius-sm);background:#f8fafc;">${escapeHtml(customPrompt)}</textarea>
+             <div class="td-prompt-edit-actions"
+                  style="display:flex;gap:var(--av-space-2);align-items:center;flex-wrap:wrap;margin-top:var(--av-space-2);">
+               <button class="td-btn td-prompt-reset" type="button"
+                       data-exercise-id="${escapeHtml(ex.id)}">↺ Reset về prompt gốc</button>
+               <span class="td-prompt-edit-indicator"
+                     data-exercise-id="${escapeHtml(ex.id)}"
+                     hidden
+                     style="font-size:var(--av-fs-xs);color:#92400e;font-weight:600;">⚠️ Prompt đã được edit — khác với markdown source</span>
+             </div>
+           </details>
+         </div>`
       : '';
     const descPreview = desc
       ? `<details><summary>Map description (${desc.length} chars)</summary><pre style="white-space:pre-wrap;font-size:var(--av-fs-xs);max-height:160px;overflow:auto;">${escapeHtml(desc)}</pre></details>`
@@ -225,7 +249,7 @@ function renderMapImagesPanel() {
           ${sourceLabel}
           ${lastSourceNote}
         </div>
-        ${promptPreview}
+        ${promptReview}
         ${descPreview}
         <div class="td-map-actions" style="display:flex;gap:var(--av-space-2);flex-wrap:wrap;margin-top:var(--av-space-3);align-items:center;">
           <label style="font-size:var(--av-fs-sm);">
@@ -272,6 +296,49 @@ function attachMapImageHandlers() {
   document.querySelectorAll('.td-map-delete').forEach((b) => {
     b.addEventListener('click', () => onDeleteMapImage(b.getAttribute('data-exercise-id')));
   });
+  // Sprint 13.5.9.1 — wire the editable prompt textareas: keep the
+  // "Prompt đã được edit" indicator in sync with the textarea diff,
+  // and let the reset button restore the original.
+  document.querySelectorAll('.td-prompt-editable').forEach((ta) => {
+    ta.addEventListener('input', () => updatePromptEditIndicator(ta));
+  });
+  document.querySelectorAll('.td-prompt-reset').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const exerciseId = btn.getAttribute('data-exercise-id');
+      const ta = document.querySelector(
+        `textarea.td-prompt-editable[data-exercise-id="${exerciseId}"]`,
+      );
+      if (!ta) return;
+      ta.value = ta.getAttribute('data-original') || '';
+      updatePromptEditIndicator(ta);
+    });
+  });
+}
+
+function updatePromptEditIndicator(textarea) {
+  const exerciseId = textarea.getAttribute('data-exercise-id');
+  const original = textarea.getAttribute('data-original') || '';
+  const indicator = document.querySelector(
+    `.td-prompt-edit-indicator[data-exercise-id="${exerciseId}"]`,
+  );
+  if (!indicator) return;
+  indicator.hidden = (textarea.value === original);
+}
+
+// Sprint 13.5.9.1 — read the (possibly admin-edited) prompt out of the
+// per-card textarea so the generate POST forwards what the admin
+// actually sees. Returns null when the card carries no curated prompt
+// (template path), or when the textarea is missing.
+function readCustomPromptOverride(exerciseId) {
+  const ta = document.querySelector(
+    `textarea.td-prompt-editable[data-exercise-id="${exerciseId}"]`,
+  );
+  if (!ta) return null;
+  const original = ta.getAttribute('data-original') || '';
+  const current = ta.value;
+  // Forward the current value verbatim — even if it matches the
+  // original we send it so the server logs the explicit source.
+  return current && current.trim() ? current : null;
 }
 
 function setMapStatus(exerciseId, text, isError) {
@@ -298,15 +365,33 @@ async function refreshMapImage(exerciseId) {
 async function onGenerateMapImage(exerciseId) {
   const sel = document.querySelector(`select.td-map-model[data-exercise-id="${exerciseId}"]`);
   const model = sel ? sel.value : null;
+  // Sprint 13.5.9.1 — forward the reviewed prompt the admin sees in
+  // the textarea. The backend treats this as a session-only override
+  // (not persisted back to markdown).
+  const customPromptOverride = readCustomPromptOverride(exerciseId);
+  const promptChars = customPromptOverride ? customPromptOverride.length : 0;
+  // Confirmation gate — cost guardrail + accuracy verification. The
+  // dialog spells out the prompt source so Andy can't accidentally
+  // burn an API call with the wrong prompt.
+  const confirmMsg = customPromptOverride
+    ? `Generate hình map với custom prompt (${promptChars} chars) qua model ${model || 'default'}? Cost ~$0.02-0.04.`
+    : `Generate hình map với template prompt (no <details> block trong markdown) qua model ${model || 'default'}? Cost ~$0.02-0.04.`;
+  if (!window.confirm(confirmMsg)) return;
   setMapStatus(exerciseId, 'Đang generate (10-30s)…', false);
   try {
     const res = await window.api.post(
       `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/generate-map-image`,
-      { model },
+      {
+        model,
+        custom_prompt_override: customPromptOverride,
+      },
     );
+    const source = res.map_image_prompt_source
+      ? ` · source=${res.map_image_prompt_source}`
+      : '';
     setMapStatus(
       exerciseId,
-      `OK — ${res.map_image_model} · ~$${(res.cost_estimate_usd || 0).toFixed(3)}`,
+      `OK — ${res.map_image_model} · ~$${(res.cost_estimate_usd || 0).toFixed(3)}${source}`,
       false,
     );
     // Refresh the test bundle so the panel re-renders with the new image.

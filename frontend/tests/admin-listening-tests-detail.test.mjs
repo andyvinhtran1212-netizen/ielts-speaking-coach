@@ -542,7 +542,10 @@ describe('Sprint 13.5.6 — tests-detail map-image panel + controller', () => {
       js,
       /window\.api\.post\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/generate-map-image`/,
     );
-    assert.match(js, /\{\s*model\s*\}/);
+    // Sprint 13.5.9.1 — the body is now a multi-field object literal
+    // ({ model, custom_prompt_override }) instead of the old `{ model }`
+    // shorthand. Pin the `model:` key explicitly.
+    assert.match(js, /model,\s*\n/);
   });
 
   test('DELETE clears the existing image before regenerate (cost guardrail confirm)', () => {
@@ -651,12 +654,12 @@ describe('Sprint 13.5.9 — admin map panel surfaces custom prompt source', () =
     assert.match(js, /details/);
   });
 
-  test('curated prompt body is rendered inside a collapsible <details><pre>', () => {
-    // The preview must be opt-in (closed by default) so the long
-    // curated prompt doesn't dominate the panel. Targeting
-    // .td-prompt-content lets the sentinel assert the preview slot.
+  test('curated prompt body is rendered inside a collapsible <details><textarea> (Sprint 13.5.9.1)', () => {
+    // Sprint 13.5.9 wrapped the body in a read-only <pre>. Sprint
+    // 13.5.9.1 swapped it for an editable <textarea> inside the same
+    // <details> shell so admin can review + edit before generating.
     assert.match(js, /<details class="td-prompt-preview"/);
-    assert.match(js, /class="td-prompt-content"/);
+    assert.match(js, /<textarea class="td-prompt-editable"/);
     // The preview surfaces the char count so Andy can sanity-check
     // that the parser caught the full body.
     assert.match(js, /\$\{customPrompt\.length\}\s*chars/);
@@ -665,8 +668,9 @@ describe('Sprint 13.5.9 — admin map panel surfaces custom prompt source', () =
   test('preview block is omitted when there is no custom prompt', () => {
     // The renderer must only emit the preview when `hasCustom` is
     // truthy; the empty-string template branch shouldn't render an
-    // empty <details>.
-    assert.match(js, /const promptPreview = hasCustom\s*\?\s*`<details class="td-prompt-preview"/);
+    // empty <details>. Sprint 13.5.9.1 renamed `promptPreview` →
+    // `promptReview` (now contains both the textarea + edit indicator).
+    assert.match(js, /const promptReview = hasCustom\s*\?\s*`<div class="td-prompt-review"/);
     assert.match(js, /:\s*'';/);
   });
 
@@ -709,5 +713,97 @@ describe('Sprint 13.5.9 — admin map panel surfaces custom prompt source', () =
     assert.match(js, /\.td-map-regen/);
     assert.match(js, /\.td-map-delete/);
     assert.match(js, /\/generate-map-image/);
+  });
+});
+
+
+// ── Sprint 13.5.9.1 — review / edit / override workflow ──────────────────
+
+describe('Sprint 13.5.9.1 — admin reviews and optionally edits the prompt', () => {
+  const js = read('js', 'admin-listening-tests-detail.js');
+
+  test('replaces the read-only <pre> preview with an editable <textarea>', () => {
+    assert.match(js, /<textarea class="td-prompt-editable"/);
+    assert.ok(!/class="td-prompt-content"/.test(js),
+      'read-only td-prompt-content <pre> must be removed');
+  });
+
+  test('textarea stores the parser-extracted prompt in a data-original attribute', () => {
+    assert.match(js, /data-original="\$\{escapeHtml\(customPrompt\)\}"/);
+  });
+
+  test('renders a "↺ Reset về prompt gốc" button next to the textarea', () => {
+    assert.match(js, /class="td-btn td-prompt-reset"/);
+    assert.match(js, /Reset về prompt gốc/);
+  });
+
+  test('renders the "Prompt đã được edit" indicator span (hidden by default)', () => {
+    assert.match(js, /class="td-prompt-edit-indicator"/);
+    assert.match(js, /Prompt đã được edit/);
+    assert.match(js,
+      /class="td-prompt-edit-indicator"[\s\S]*?data-exercise-id="\$\{escapeHtml\(ex\.id\)\}"\s*\n\s*hidden/);
+  });
+
+  test('input handler toggles the edit indicator based on textarea diff', () => {
+    assert.match(js, /function updatePromptEditIndicator\(textarea\)/);
+    assert.match(js, /textarea\.getAttribute\(['"]data-original['"]\)/);
+    assert.match(js, /indicator\.hidden\s*=\s*\(textarea\.value\s*===\s*original\)/);
+  });
+
+  test('reset button restores the textarea to the data-original value', () => {
+    assert.match(js, /\.td-prompt-reset/);
+    assert.match(js, /ta\.value = ta\.getAttribute\(['"]data-original['"]\)/);
+    assert.match(js, /updatePromptEditIndicator\(ta\)/);
+  });
+
+  test('readCustomPromptOverride reads the textarea value (not data-original)', () => {
+    assert.match(js, /function readCustomPromptOverride\(exerciseId\)/);
+    assert.match(js, /ta\.value/);
+    assert.match(js, /return current && current\.trim\(\) \? current : null/);
+  });
+
+  test('generate POST forwards custom_prompt_override in the body', () => {
+    assert.match(js,
+      /window\.api\.post\([\s\S]+?\/generate-map-image[\s\S]+?custom_prompt_override:\s*customPromptOverride/);
+  });
+
+  test('generate flow shows a confirmation dialog before the POST', () => {
+    assert.match(js, /window\.confirm\(/);
+    assert.match(js, /custom prompt \(\$\{promptChars\}\s*chars\)/);
+    assert.match(js, /Cost ~\$0\.02-0\.04/);
+  });
+
+  test('status line surfaces the prompt source returned by the API', () => {
+    assert.match(js, /res\.map_image_prompt_source/);
+    assert.match(js, /source=\$\{res\.map_image_prompt_source\}/);
+  });
+
+  test('curated prompt char count surfaces inside the <details> summary', () => {
+    assert.match(js,
+      /<summary>Review prompt sẽ gửi tới API \(\$\{customPrompt\.length\}\s*chars\)<\/summary>/);
+  });
+
+  test('handlers attach for both the textarea input and the reset button', () => {
+    assert.match(js, /\.td-prompt-editable[\s\S]+?addEventListener\(['"]input['"]/);
+    assert.match(js, /\.td-prompt-reset[\s\S]+?addEventListener\(['"]click['"]/);
+  });
+
+  test('confirmation dialog differentiates curated vs template messages', () => {
+    assert.match(js, /Generate hình map với custom prompt/);
+    assert.match(js, /Generate hình map với template prompt/);
+    // The confirm copy uses a plain "<details>" (it goes through
+    // window.confirm which does not HTML-render). The indicator pill,
+    // by contrast, uses the escaped form because it lands in innerHTML.
+    assert.match(js, /no <details> block trong markdown/);
+  });
+
+  test('the indicator span is exercise-id-scoped (no cross-wiring on multi-card pages)', () => {
+    assert.match(js, /textarea\.td-prompt-editable\[data-exercise-id="\$\{exerciseId\}"\]/);
+    assert.match(js, /\.td-prompt-edit-indicator\[data-exercise-id="\$\{exerciseId\}"\]/);
+  });
+
+  test('preview block is omitted entirely when no curated prompt exists', () => {
+    assert.match(js, /const promptReview = hasCustom\s*\?\s*`<div class="td-prompt-review"/);
+    assert.match(js, /:\s*'';/);
   });
 });

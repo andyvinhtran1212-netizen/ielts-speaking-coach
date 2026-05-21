@@ -582,6 +582,332 @@ def test_admin_get_test_omits_custom_prompt_when_none_present(monkeypatch):
     assert pl_list[0]["map_image_custom_prompt"] is None
 
 
+# ── Sprint 13.5.9.1 — admin override precedence + observability ───────────
+
+
+def test_generate_endpoint_prefers_admin_override_over_parser_prompt(monkeypatch):
+    """Sprint 13.5.9.1 — when the admin types a reviewed/edited prompt
+    into the textarea and clicks Generate, the override beats the
+    parser-extracted prompt. The result must declare
+    ``map_image_prompt_source == "admin_override"`` so the panel can
+    differentiate edited vs untouched runs.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+
+    # The exercise carries a curated prompt from markdown.
+    parser_prompt = "## Parser-extracted curated prompt"
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_image_custom_prompt"
+    ] = parser_prompt
+
+    override = "## Admin-edited prompt — emphasise north arrow at top-left, larger"
+    captured = {}
+
+    def _fake_call(model, prompt, *, api_key, timeout_seconds=60):
+        captured["prompt"] = prompt
+        return b"\x89PNGok"
+    monkeypatch.setattr(listening_map_image, "call_image_model", _fake_call)
+
+    out = _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(
+            model=None, custom_prompt_override=override,
+        ),
+        authorization=authz,
+    ))
+
+    # The image model received the override, not the parser prompt.
+    assert captured["prompt"] == override
+    assert out["map_image_prompt"] == override
+    assert out["map_image_prompt_source"] == "admin_override"
+
+    # Persisted payload reflects the actual source for the panel.
+    ex = fake.tables["listening_exercises"][0]
+    assert ex["payload"]["map_image_prompt_source"] == "admin_override"
+    # The parser-extracted prompt itself must NOT be overwritten — a
+    # subsequent generation without override should still find it.
+    assert ex["payload"]["metadata"]["map_image_custom_prompt"] == parser_prompt
+
+
+def test_generate_endpoint_falls_back_to_parser_prompt_when_override_empty(monkeypatch):
+    """An override of None / "" / whitespace-only must fall through to
+    the parser-extracted prompt rather than silently bypassing it.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+
+    parser_prompt = "## Parser-extracted curated prompt — keep using me"
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_image_custom_prompt"
+    ] = parser_prompt
+    captured = {}
+
+    def _fake_call(model, prompt, *, api_key, timeout_seconds=60):
+        captured["prompt"] = prompt
+        return b"\x89PNGok"
+    monkeypatch.setattr(listening_map_image, "call_image_model", _fake_call)
+
+    for empty in (None, "", "   \n\n  "):
+        captured.clear()
+        out = _run(listening_router.admin_generate_map_image(
+            exercise_id=seed["exercise_id"],
+            body=listening_router.GenerateMapImageRequest(
+                model=None, custom_prompt_override=empty,
+            ),
+            authorization=authz,
+        ))
+        assert captured["prompt"] == parser_prompt
+        assert out["map_image_prompt_source"] == "custom"
+
+
+def test_generate_endpoint_admin_override_falls_to_template_when_no_parser_prompt(monkeypatch):
+    """Edge case — admin sends an empty override AND no parser prompt
+    exists. The service should fall all the way through to the
+    Cambridge template (source = "template").
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    # Sanity — no curated prompt seeded on this exercise.
+    assert "map_image_custom_prompt" not in (
+        fake.tables["listening_exercises"][0]["payload"].get("metadata") or {}
+    )
+    monkeypatch.setattr(
+        listening_map_image, "call_image_model",
+        lambda model, prompt, *, api_key, timeout_seconds=60: b"\x89PNGok",
+    )
+
+    out = _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(
+            model=None, custom_prompt_override="",
+        ),
+        authorization=authz,
+    ))
+    assert out["map_image_prompt_source"] == "template"
+
+
+def test_generate_endpoint_logs_origin_and_prompt_length(monkeypatch, caplog):
+    """Sprint 13.5.9.1 — the endpoint emits a single structured INFO
+    log per generation that names the prompt origin and length. The
+    next time Andy reports a quality regression we can grep this line
+    to know whether the chain carried the curated text or the
+    template.
+    """
+    import logging
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    monkeypatch.setattr(
+        listening_map_image, "call_image_model",
+        lambda model, prompt, *, api_key, timeout_seconds=60: b"\x89PNGok",
+    )
+
+    with caplog.at_level(logging.INFO, logger="routers.listening"):
+        _run(listening_router.admin_generate_map_image(
+            exercise_id=seed["exercise_id"],
+            body=listening_router.GenerateMapImageRequest(model=None),
+            authorization=authz,
+        ))
+    msgs = [r.getMessage() for r in caplog.records if "[map_image] generate" in r.getMessage()]
+    assert msgs, "expected a structured generate log from the endpoint"
+    line = msgs[0]
+    assert "origin=template" in line
+    assert "prompt_chars=0" in line
+
+
+def test_generate_request_accepts_optional_override_field():
+    """Sprint 13.5.9.1 — ``GenerateMapImageRequest`` must declare
+    ``custom_prompt_override: Optional[str]`` so the body schema can
+    accept the new field without breaking existing callers (model-only).
+    """
+    # Old shape — still accepted.
+    req_old = listening_router.GenerateMapImageRequest(model="imagen-4.0-fast-generate-001")
+    assert req_old.custom_prompt_override is None
+
+    # New shape — override carries a string.
+    req_new = listening_router.GenerateMapImageRequest(
+        model=None, custom_prompt_override="my prompt",
+    )
+    assert req_new.custom_prompt_override == "my prompt"
+
+
+def test_generate_request_serialises_override_correctly_via_round_trip():
+    """Sanity — the body Pydantic model must round-trip the override
+    field through ``model_dump`` so FastAPI's JSON encoding doesn't
+    drop it. Caught a real regression in an earlier hotfix where a
+    body field was declared but never serialised.
+    """
+    req = listening_router.GenerateMapImageRequest(
+        model="imagen-4.0-fast-generate-001",
+        custom_prompt_override="## reviewed prompt",
+    )
+    dumped = req.model_dump()
+    assert dumped["custom_prompt_override"] == "## reviewed prompt"
+    assert dumped["model"] == "imagen-4.0-fast-generate-001"
+
+
+def test_generate_request_rejects_unknown_body_fields():
+    """The body model uses ``extra="forbid"`` so a typo in the JSON
+    (e.g. ``custom_prompt`` instead of ``custom_prompt_override``)
+    surfaces a 422 at the boundary instead of silently dropping.
+    """
+    with pytest.raises(Exception):
+        listening_router.GenerateMapImageRequest(
+            model=None, customPrompt="oops camelCase",
+        )
+
+
+def test_admin_override_repeats_correctly_across_generations(monkeypatch):
+    """First call with an override sets source=admin_override; a
+    follow-up call WITHOUT override on the same exercise must restore
+    source=custom (the parser prompt still lives in metadata) and not
+    silently keep using the previous override.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    parser_prompt = "## Parser prompt — keep me available"
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_image_custom_prompt"
+    ] = parser_prompt
+    monkeypatch.setattr(
+        listening_map_image, "call_image_model",
+        lambda model, prompt, *, api_key, timeout_seconds=60: b"\x89PNGok",
+    )
+
+    # 1) Admin override drives generation.
+    out1 = _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(
+            model=None, custom_prompt_override="## edited once"),
+        authorization=authz,
+    ))
+    assert out1["map_image_prompt_source"] == "admin_override"
+
+    # 2) Same exercise, no override — must fall back to parser prompt.
+    out2 = _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(model=None),
+        authorization=authz,
+    ))
+    assert out2["map_image_prompt_source"] == "custom"
+    assert out2["map_image_prompt"] == parser_prompt
+
+
+def test_admin_override_bypasses_50char_guard(monkeypatch):
+    """The 50-char map_description guard only protects the template
+    path. An admin override must let generation proceed even when the
+    description is short — mirrors the service-layer contract for the
+    parser-prompt path (already pinned in 13.5.9).
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_description"
+    ] = "too short"
+    fake.tables["listening_exercises"][0]["payload"]["map_description"] = "too short"
+    monkeypatch.setattr(
+        listening_map_image, "call_image_model",
+        lambda model, prompt, *, api_key, timeout_seconds=60: b"\x89PNGok",
+    )
+
+    out = _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(
+            model=None,
+            custom_prompt_override="## Override long enough to drive image gen.",
+        ),
+        authorization=authz,
+    ))
+    assert out["map_image_prompt_source"] == "admin_override"
+
+
+def test_admin_override_takes_priority_over_top_level_payload_prompt(monkeypatch):
+    """Defensive: even when both the metadata-nested prompt AND a
+    top-level ``payload.map_image_custom_prompt`` exist, an admin
+    override beats them. Pins the precedence chain explicitly.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_image_custom_prompt"
+    ] = "## from metadata"
+    fake.tables["listening_exercises"][0]["payload"][
+        "map_image_custom_prompt"
+    ] = "## from payload root"
+    captured = {}
+
+    def _fake_call(model, prompt, *, api_key, timeout_seconds=60):
+        captured["prompt"] = prompt
+        return b"\x89PNGok"
+    monkeypatch.setattr(listening_map_image, "call_image_model", _fake_call)
+
+    out = _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(
+            model=None, custom_prompt_override="## override wins",
+        ),
+        authorization=authz,
+    ))
+    assert captured["prompt"] == "## override wins"
+    assert out["map_image_prompt_source"] == "admin_override"
+
+
+def test_admin_override_preserves_parser_prompt_field_in_payload(monkeypatch):
+    """Regression — the override is session-only. The persisted payload
+    must still expose the parser-extracted prompt for the next render
+    of the admin panel (so the textarea re-fills from the canonical
+    source after a page refresh).
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    parser_prompt = "## parser prompt that must survive"
+    fake.tables["listening_exercises"][0]["payload"]["metadata"][
+        "map_image_custom_prompt"
+    ] = parser_prompt
+    monkeypatch.setattr(
+        listening_map_image, "call_image_model",
+        lambda model, prompt, *, api_key, timeout_seconds=60: b"\x89PNGok",
+    )
+
+    _run(listening_router.admin_generate_map_image(
+        exercise_id=seed["exercise_id"],
+        body=listening_router.GenerateMapImageRequest(
+            model=None, custom_prompt_override="## override ephemeral",
+        ),
+        authorization=authz,
+    ))
+    ex = fake.tables["listening_exercises"][0]
+    # Parser prompt still there for the next panel render.
+    assert ex["payload"]["metadata"]["map_image_custom_prompt"] == parser_prompt
+
+
+def test_generate_endpoint_logs_admin_override_origin(monkeypatch, caplog):
+    """Companion sentinel — when the admin override drives generation
+    the log must say so, with the override length.
+    """
+    import logging
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_plan_label_exercise(fake)
+    monkeypatch.setattr(
+        listening_map_image, "call_image_model",
+        lambda model, prompt, *, api_key, timeout_seconds=60: b"\x89PNGok",
+    )
+
+    override = "## Admin-edited prompt with 42 chars exactly!!"  # = 47
+    with caplog.at_level(logging.INFO, logger="routers.listening"):
+        _run(listening_router.admin_generate_map_image(
+            exercise_id=seed["exercise_id"],
+            body=listening_router.GenerateMapImageRequest(
+                model=None, custom_prompt_override=override,
+            ),
+            authorization=authz,
+        ))
+    msgs = [r.getMessage() for r in caplog.records if "[map_image] generate" in r.getMessage()]
+    assert msgs
+    assert "origin=admin_override" in msgs[0]
+    assert f"prompt_chars={len(override)}" in msgs[0]
+
+
 def test_delete_endpoint_clears_payload_and_storage(monkeypatch):
     fake, authz = _patch(monkeypatch)
     seed = _seed_plan_label_exercise(fake, with_image=True)
