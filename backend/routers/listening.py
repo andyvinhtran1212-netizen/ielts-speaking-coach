@@ -4275,6 +4275,277 @@ async def admin_get_map_image_signed_url(
     }
 
 
+# ── Sprint 13.6 — audio cutter (full pre-mixed → N segments) ──────────────
+
+
+class DetectSilenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    silence_threshold_db: float | None = None
+    min_silence_duration: float | None = None
+    target_section_count: int = 4
+
+
+class CutSegmentInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    label: str = Field(min_length=1, max_length=80)
+    start: float = Field(ge=0)
+    end:   float = Field(gt=0)
+
+
+class CutAudioRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    segments: list[CutSegmentInput] = Field(min_length=1, max_length=10)
+
+
+def _download_full_audio_to_tmp(test_id: str, source_path: str) -> str:
+    """Pull the source MP3 from Supabase Storage into a /tmp file
+    so ffmpeg can open it. Returns the temp path; caller is
+    responsible for ``os.unlink`` cleanup.
+
+    Falsifications guarded:
+      * Storage returns None / bytes-like / wrapper → we coerce to
+        bytes() and raise if the result is empty (502).
+    """
+    import tempfile
+
+    try:
+        raw = supabase_admin.storage.from_(
+            settings.LISTENING_AUDIO_BUCKET
+        ).download(source_path)
+    except Exception as exc:                                              # pragma: no cover
+        raise HTTPException(502, f"Storage download failed: {exc}")
+    audio_bytes = bytes(raw) if raw is not None else b""
+    if not audio_bytes:
+        raise HTTPException(502, "Source audio is empty in storage.")
+    tmp = tempfile.NamedTemporaryFile(
+        prefix=f"cutter_src_{test_id}_", suffix=".mp3", delete=False,
+    )
+    try:
+        tmp.write(audio_bytes)
+    finally:
+        tmp.close()
+    return tmp.name
+
+
+@admin_router.post("/tests/{test_id}/detect-silence")
+async def admin_detect_silence_boundaries(
+    test_id: str,
+    body: DetectSilenceRequest | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.6 — propose ``target_section_count`` audio boundaries
+    by running ``ffmpeg silencedetect`` against the test's
+    ``full_audio_storage_path``. Returns ``[{start, end}, ...]``
+    ranges suitable for pre-filling regions in the admin cutter UI.
+
+    Requirements:
+      * test must carry ``audio_assembly_mode == "full_premixed"``
+      * test must have ``full_audio_storage_path`` set
+
+    The threshold + min-duration defaults
+    (``-40 dB`` / ``2.0 s``) suit IELTS Listening section gaps. Both
+    are tunable per request for noisy / quiet source audio.
+    """
+    import os
+    from services import listening_audio_cutter as cutter
+
+    await require_admin(authorization)
+    test = _fetch_test_or_404(test_id)
+
+    if test.get("audio_assembly_mode") != "full_premixed":
+        raise HTTPException(
+            422,
+            "Silence detection is only available when the test's "
+            "audio_assembly_mode = 'full_premixed'.",
+        )
+    source_path = test.get("full_audio_storage_path")
+    if not source_path:
+        raise HTTPException(
+            422,
+            "Test has no full pre-mixed audio uploaded yet.",
+        )
+
+    tmp_path = _download_full_audio_to_tmp(test_id, source_path)
+    try:
+        threshold = (
+            body.silence_threshold_db if body and body.silence_threshold_db is not None
+            else cutter.DEFAULT_SILENCE_THRESHOLD_DB
+        )
+        min_dur = (
+            body.min_silence_duration if body and body.min_silence_duration is not None
+            else cutter.DEFAULT_MIN_SILENCE_DURATION
+        )
+        target = (body.target_section_count if body else 4) or 4
+        try:
+            gaps, duration = cutter.detect_silence(
+                tmp_path,
+                silence_threshold_db=threshold,
+                min_silence_duration=min_dur,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(500, str(exc))
+        if duration is None:
+            # Fall back to the DB-stored duration when ffmpeg's banner
+            # didn't carry the Duration line (some streamed files).
+            duration = float(test.get("full_audio_duration_seconds") or 0)
+        boundaries = cutter.propose_section_boundaries(
+            gaps, audio_duration=duration, target_section_count=target,
+        )
+        return {
+            "test_id":                test["id"],
+            "audio_duration_seconds": duration,
+            "silence_gaps_detected":  len(gaps),
+            "boundaries": [
+                {"start": b.start, "end": b.end} for b in boundaries
+            ],
+        }
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:                                                   # pragma: no cover
+            pass
+
+
+@admin_router.post("/tests/{test_id}/cut-audio")
+async def admin_cut_audio_segments(
+    test_id: str,
+    body: CutAudioRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 13.6 — carve the test's full pre-mixed audio into N
+    segments via ffmpeg stream-copy (no re-encoding). Each segment
+    becomes a new ``listening_content`` row tied to the same test
+    with ``parent_content_id`` left NULL (the source is the test's
+    full audio, not a content row) and ``segment_label`` +
+    ``segment_start_seconds`` / ``segment_end_seconds`` populated.
+
+    The source full audio is preserved — segments are additive. The
+    admin can re-cut at any time; previously cut rows stay around
+    until explicitly archived.
+
+    Returns the inserted segment metadata so the admin panel can
+    re-render without a follow-up fetch.
+    """
+    import os, tempfile
+    from datetime import datetime, timezone
+    from services import listening_audio_cutter as cutter
+
+    admin_user = await require_admin(authorization)
+    test = _fetch_test_or_404(test_id)
+
+    if test.get("audio_assembly_mode") != "full_premixed":
+        raise HTTPException(
+            422,
+            "Audio cutting is only available for full_premixed tests.",
+        )
+    source_path = test.get("full_audio_storage_path")
+    if not source_path:
+        raise HTTPException(
+            422,
+            "Test has no full pre-mixed audio uploaded yet.",
+        )
+
+    # Filter out segments below the minimum-duration floor so we don't
+    # burn storage on stray drags. Skipped count is reported back.
+    requested = [
+        cutter.Segment(label=s.label, start=s.start, end=s.end)
+        for s in body.segments
+    ]
+    keep = cutter.validate_segments(requested)
+    skipped = len(requested) - len(keep)
+    if not keep:
+        raise HTTPException(
+            400,
+            f"All {len(requested)} segments are shorter than "
+            f"{cutter.MIN_SEGMENT_DURATION_SECONDS}s — nothing to cut.",
+        )
+
+    tmp_source = _download_full_audio_to_tmp(test_id, source_path)
+    created: list[dict] = []
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        for index, seg in enumerate(keep, start=1):
+            duration = seg.end - seg.start
+            out_path = tempfile.NamedTemporaryFile(
+                prefix=f"cutter_out_{test_id}_{index}_",
+                suffix=".mp3", delete=False,
+            )
+            out_path.close()
+            try:
+                try:
+                    cutter.cut_segment_to_path(
+                        source_path=tmp_source,
+                        output_path=out_path.name,
+                        start_seconds=seg.start,
+                        duration_seconds=duration,
+                    )
+                except RuntimeError as exc:
+                    raise HTTPException(500, str(exc))
+                with open(out_path.name, "rb") as fh:
+                    cut_bytes = fh.read()
+            finally:
+                try:
+                    os.unlink(out_path.name)
+                except OSError:                                           # pragma: no cover
+                    pass
+
+            storage_path = cutter.build_storage_path(
+                test_id=test["id"],
+                content_id=test["id"],   # cuts live under tests/<test>/
+                index=index,
+                label=seg.label,
+            )
+            _upload_audio_to_bucket(storage_path, cut_bytes)
+
+            content_id = str(uuid.uuid4())
+            new_row = {
+                "id":                       content_id,
+                "test_id":                  test["id"],
+                "title":                    seg.label,
+                "audio_storage_path":       storage_path,
+                "audio_size_bytes":         len(cut_bytes),
+                "audio_duration_seconds":   max(1, int(round(duration))),
+                "segment_label":            seg.label,
+                "segment_start_seconds":    seg.start,
+                "segment_end_seconds":      seg.end,
+                "created_at":               now_iso,
+            }
+            try:
+                supabase_admin.table("listening_content").insert(new_row).execute()
+            except Exception as exc:                                      # pragma: no cover
+                logger.error("[audio_cutter] insert failed for %s: %s", storage_path, exc)
+                raise HTTPException(500, f"DB insert failed: {exc}")
+
+            created.append({
+                "id":                       content_id,
+                "title":                    seg.label,
+                "segment_label":            seg.label,
+                "segment_start_seconds":    seg.start,
+                "segment_end_seconds":      seg.end,
+                "audio_storage_path":       storage_path,
+                "audio_size_bytes":         len(cut_bytes),
+                "audio_duration_seconds":   max(1, int(round(duration))),
+            })
+    finally:
+        try:
+            os.unlink(tmp_source)
+        except OSError:                                                   # pragma: no cover
+            pass
+
+    logger.info(
+        "[audio_cutter] cut test=%s segments=%d skipped=%d admin=%s",
+        test_id, len(created), skipped, admin_user.get("id"),
+    )
+
+    return {
+        "test_id":            test["id"],
+        "segments_created":   len(created),
+        "segments_skipped":   skipped,
+        "min_segment_seconds": cutter.MIN_SEGMENT_DURATION_SECONDS,
+        "segments":           created,
+    }
+
+
 # ── Sprint 13.5 — student full-test layer ──────────────────────────────────
 
 
