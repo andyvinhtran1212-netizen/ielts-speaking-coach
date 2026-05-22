@@ -31,6 +31,8 @@ from services import claude_grader
 from services import ai_usage_logger
 from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
+from services.grading_telemetry import log_fallback_events
+from services.grading_providers.errors import FallbackEvent
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +314,12 @@ async def grade_response_endpoint(
 
         word_count = len(transcript.split()) if transcript else 0
 
+        # Sprint 14.3 — collect orchestrator telemetry for the
+        # `grading_events` audit table. The list is populated by
+        # claude_grader regardless of whether grading ultimately
+        # succeeds or fails (L7).
+        fallback_events: list[FallbackEvent] = []
+
         try:
             grading = await claude_grader.grade_response(
                 question=question_text,
@@ -323,6 +331,7 @@ async def grade_response_endpoint(
                 reliability=reliability,
                 duration_seconds=duration_sec,
                 word_count=word_count,
+                fallback_events=fallback_events,
             )
             logger.info("[grading] Claude OK — overall_band=%.1f (pre-cap)", grading["overall_band"])
             grading = _apply_heuristic_caps(grading, word_count, part)
@@ -405,6 +414,18 @@ async def grade_response_endpoint(
                 logger.info("[grading] DB save OK (core row) — response_id=%s — run migrations 006/007/008 to persist full metadata", response_id)
             except Exception as e2:
                 logger.error("[grading] DB save FAILED even with core row: %s", e2)
+
+        # ── Sprint 14.3 — orchestrator audit trail ───────────────────────────
+        # Best-effort. Captures every provider attempt (success, retry,
+        # fallback) so we can answer "how often does Haiku fail?" without
+        # adding a new metrics backend. Failure here NEVER blocks grading.
+        if fallback_events:
+            log_fallback_events(
+                session_id=session_id,
+                question_id=question_id,
+                response_id=response_id,
+                events=fallback_events,
+            )
 
         # ── STEP 8: Token tracking (only when grading succeeded) ──────────────
         if grading:
