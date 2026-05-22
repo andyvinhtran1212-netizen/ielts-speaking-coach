@@ -29,6 +29,14 @@ import anthropic
 from config import settings
 from services import ai_usage_logger
 from services.grammar_content import grammar_service
+from services.grading_orchestrator import (
+    GradingOrchestrator,
+    build_default as _build_default_orchestrator,
+)
+from services.grading_providers.errors import (
+    AllProvidersFailedError,
+    FallbackEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +332,26 @@ def _get_client() -> anthropic.AsyncAnthropic:
     return _client
 
 
+# Sprint 14.3 — lazy orchestrator singleton. Providers are heavy (each
+# carries an SDK client with an API key); building once per process
+# matches the legacy _client pattern above. Tests can override via
+# `set_orchestrator` below.
+_orchestrator: GradingOrchestrator | None = None
+
+
+def _get_orchestrator() -> GradingOrchestrator:
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = _build_default_orchestrator(settings)
+    return _orchestrator
+
+
+def set_orchestrator(orchestrator: GradingOrchestrator | None) -> None:
+    """Test hook — inject a fake orchestrator. Pass None to reset."""
+    global _orchestrator
+    _orchestrator = orchestrator
+
+
 # ── Public function ────────────────────────────────────────────────────────────
 
 async def grade_response(
@@ -337,6 +365,7 @@ async def grade_response(
     reliability:      dict | None = None,
     duration_seconds: float | None = None,
     word_count:       int | None = None,
+    fallback_events:  list[FallbackEvent] | None = None,
 ) -> dict:
     """
     Chấm 1 câu trả lời IELTS Speaking.
@@ -370,11 +399,18 @@ async def grade_response(
         duration_seconds=duration_seconds,
         word_count=word_count,
     )
+    # Sprint 14.3 — `client` kept for legacy post-processing helpers
+    # (_post_process_test_result still uses it directly). The grading
+    # LLM call itself now goes through the orchestrator.
     client       = _get_client()
+    orchestrator = _get_orchestrator()
 
     # ── Attempt 1 ─────────────────────────────────────────────────────────────
-    raw = await _call_claude(client, user_message, system_prompt=system_prompt,
-                             user_id=user_id, session_id=session_id)
+    raw = await _invoke_orchestrator(
+        orchestrator, system_prompt, user_message,
+        user_id=user_id, session_id=session_id,
+        sink=fallback_events,
+    )
     result, error = validator(raw)
 
     if result is not None:
@@ -399,8 +435,11 @@ async def grade_response(
         + "Output the raw JSON object only."
     )
 
-    raw2 = await _call_claude(client, retry_message, system_prompt=system_prompt,
-                              user_id=user_id, session_id=session_id)
+    raw2 = await _invoke_orchestrator(
+        orchestrator, system_prompt, retry_message,
+        user_id=user_id, session_id=session_id,
+        sink=fallback_events,
+    )
     result2, error2 = validator(raw2)
 
     if result2 is not None:
@@ -626,6 +665,39 @@ def _parse_json_response(raw: str) -> tuple[dict | None, str | None]:
     )
 
 
+async def _invoke_orchestrator(
+    orchestrator: GradingOrchestrator,
+    system_prompt: str,
+    user_message: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+    sink: list[FallbackEvent] | None,
+) -> str:
+    """Sprint 14.3 — replaces direct `_call_claude` calls.
+
+    Drives the full Haiku → Gemini → Sonnet fallback chain and appends
+    every attempt (success or failure) to ``sink`` so the caller can
+    persist telemetry. Raises :class:`AllProvidersFailedError` when the
+    entire chain is exhausted — the grading-endpoint catches that and
+    falls back to the existing "AI tạm thời không khả dụng" stub UX (L8).
+    """
+    try:
+        raw, events = await orchestrator.invoke(
+            system_prompt,
+            user_message,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    except AllProvidersFailedError as exc:
+        if sink is not None:
+            sink.extend(exc.events)
+        raise
+    if sink is not None:
+        sink.extend(events)
+    return raw
+
+
 async def _call_claude(
     client: anthropic.AsyncAnthropic,
     user_message: str,
@@ -637,6 +709,11 @@ async def _call_claude(
     """
     Gọi Claude với system prompt được cache.
     Trả raw text (chưa parse).
+
+    Sprint 14.3 — RETAINED for backward compatibility (admin regrade
+    plus a handful of post-processing helpers still call it directly).
+    The main `grade_response` path now goes through the orchestrator
+    via `_invoke_orchestrator`.
     """
     response = await client.beta.prompt_caching.messages.create(
         model=_MODEL,
