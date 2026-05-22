@@ -16,6 +16,7 @@ Pipeline (sequential, ~15–30 s):
   9. Return grading result
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -33,6 +34,11 @@ from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
 from services.grading_telemetry import log_fallback_events
 from services.grading_providers.errors import FallbackEvent
+from services.length_warning import (
+    LENGTH_SOFT_WARNING_THRESHOLDS_SECONDS,
+    get_length_warning_context,
+)
+from services.off_topic_judge import OffTopicVerdict, get_judge
 
 logger = logging.getLogger(__name__)
 
@@ -305,12 +311,22 @@ async def grade_response_endpoint(
                 "Không nhận dạng được giọng nói. Hãy kiểm tra microphone và thử lại."
             )
 
-        # ── STEP 6: Claude grading (non-fatal — degrades gracefully) ─────────
+        # ── Sprint 14.7 — length soft-warning context (L7, L8) ───────────────
+        # Computed before grading so the context can be injected into
+        # the grader prompt. The hard reject (Sprint 14.2) already ran
+        # above; this only fires for durations above the floor but
+        # below the soft cap (2× hard reject per L7).
+        length_warning_fires, length_context = get_length_warning_context(
+            part, duration_sec,
+        )
+
+        # ── STEP 6: Claude grading + off-topic judge (parallel — L2) ─────────
         step = "claude_grade"
         logger.info("[grading] gọi Claude grader (part=%d)...", part)
 
         grading: dict | None = None
         grading_error: str | None = None
+        off_topic_verdict: OffTopicVerdict | None = None
 
         word_count = len(transcript.split()) if transcript else 0
 
@@ -320,8 +336,15 @@ async def grade_response_endpoint(
         # succeeds or fails (L7).
         fallback_events: list[FallbackEvent] = []
 
-        try:
-            grading = await claude_grader.grade_response(
+        # Sprint 14.7 L2 — fire grader + judge concurrently so total
+        # latency is max(grader, judge), not sum. The judge is
+        # *non-blocking*: any failure (timeout, all-providers-fail,
+        # parse error) returns None and grading proceeds normally
+        # (L11). The judge's own telemetry is persisted via its own
+        # log_fallback_events call inside OffTopicJudge.judge, so we
+        # don't need to plumb its events through fallback_events.
+        grading_task = asyncio.create_task(
+            claude_grader.grade_response(
                 question=question_text,
                 transcript=transcript,
                 part=part,
@@ -332,13 +355,41 @@ async def grade_response_endpoint(
                 duration_seconds=duration_sec,
                 word_count=word_count,
                 fallback_events=fallback_events,
+                length_context=length_context,
             )
+        )
+        judge_task = asyncio.create_task(
+            get_judge().judge(
+                question=question_text,
+                transcript=transcript,
+                part_num=part,
+                user_id=user_id,
+                session_id=session_id,
+                question_id=question_id,
+            )
+        )
+
+        try:
+            grading = await grading_task
             logger.info("[grading] Claude OK — overall_band=%.1f (pre-cap)", grading["overall_band"])
             grading = _apply_heuristic_caps(grading, word_count, part)
             logger.info("[grading] post-cap overall_band=%.1f", grading["overall_band"])
         except Exception as e:
             grading_error = str(e)
             logger.error("[grading] Claude grader thất bại (non-fatal): %s", e)
+
+        # Judge runs to completion regardless of grader outcome — its
+        # signal is independent. Wrap in try because asyncio.create_task
+        # propagation semantics surface awaited exceptions even though
+        # OffTopicJudge.judge is designed never to raise.
+        try:
+            off_topic_verdict = await judge_task
+        except Exception as judge_exc:
+            logger.warning(
+                "[grading] off-topic judge unexpected error (silent skip): %s",
+                judge_exc,
+            )
+            off_topic_verdict = None
 
         # ── Score confidence (multi-signal) ───────────────────────────────────
         score_confidence = _compute_score_confidence(reliability, duration_sec)
@@ -461,6 +512,23 @@ async def grade_response_endpoint(
 
         assessment_confidence = reliability["reliability_label"]
 
+        # Sprint 14.7 — shared signal block surfaced in every branch
+        # (stub, practice, test) so the frontend banner code can render
+        # warnings regardless of whether grading itself succeeded.
+        signals: dict = {
+            "off_topic_verdict": (
+                {
+                    "is_on_topic": off_topic_verdict.is_on_topic,
+                    "reasoning":   off_topic_verdict.reasoning,
+                }
+                if off_topic_verdict is not None
+                else None
+            ),
+            "length_warning":         length_warning_fires,
+            "audio_duration_seconds": round(duration_sec, 2),
+            "length_soft_threshold":  LENGTH_SOFT_WARNING_THRESHOLDS_SECONDS.get(part),
+        }
+
         if not grading:
             # Audio + transcript saved; AI grading unavailable — tell the frontend
             return {
@@ -472,6 +540,7 @@ async def grade_response_endpoint(
                 "stt_confidence":      round(confidence, 4),
                 "assessment_confidence": assessment_confidence,
                 "score_confidence":    score_confidence,
+                **signals,
             }
 
         if is_practice:
@@ -490,6 +559,7 @@ async def grade_response_endpoint(
                 "strengths":               grading["strengths"],
                 "sample_answer":            grading["sample_answer"],
                 "grammar_recommendations":  grading.get("grammar_recommendations") or [],
+                **signals,
             }
 
         return {
@@ -511,6 +581,7 @@ async def grade_response_endpoint(
             "strengths":             grading["strengths"],
             "improvements":          grading["improvements"],
             "improved_response":     grading["improved_response"],
+            **signals,
         }
 
     except HTTPException:

@@ -448,6 +448,7 @@ async def grade_response(
     duration_seconds: float | None = None,
     word_count:       int | None = None,
     fallback_events:  list[FallbackEvent] | None = None,
+    length_context:   str | None = None,
 ) -> dict:
     """
     Chấm 1 câu trả lời IELTS Speaking.
@@ -480,6 +481,7 @@ async def grade_response(
         question, transcript, part, band_target, reliability,
         duration_seconds=duration_seconds,
         word_count=word_count,
+        length_context=length_context,
     )
     # Sprint 14.3 — `client` kept for legacy post-processing helpers
     # (_post_process_test_result still uses it directly). The grading
@@ -552,6 +554,7 @@ def _build_user_message(
     reliability: dict | None = None,
     duration_seconds: float | None = None,
     word_count: int | None = None,
+    length_context: str | None = None,
 ) -> str:
     part_context = {
         1: "Part 1 (Introduction & Interview — short personal answers, ~1–2 min total)",
@@ -605,6 +608,14 @@ def _build_user_message(
                 "where relevant, but do not dramatically downgrade scores."
             )
         # High reliability: no note needed — don't pollute the prompt
+
+    # ── Sprint 14.7 — Length context (L8) ────────────────────────────────────
+    # Soft-warning context is informational: the grader notes the
+    # limitation in feedback if relevant, but must NOT cap bands solely
+    # on duration (Sprint 14.5 anti-inflation discipline still applies
+    # to the *transcript*; duration is one signal among many).
+    if length_context:
+        msg += f"\n\nAUDIO LENGTH CONTEXT:\n{length_context}"
 
     return msg
 

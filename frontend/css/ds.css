@@ -38,6 +38,19 @@
   --ds-accent-warm:        #f59e0b;                  /* amber heat */
   --ds-shadow-card:        0 12px 40px rgba(7, 12, 24, 0.4);
   --ds-shadow-lift:        0 20px 60px rgba(15, 118, 110, 0.18);
+
+  /* ── Sprint 14.7 warning banner tokens ───────────────────────────────────
+   * Dark-theme defaults. Light theme overrides below. WCAG AA contrast
+   * verified manually: dark theme uses --ds-warning-text = #fbbf24
+   * (amber-400) on rgba(251,191,36,0.10) which composites against the
+   * #0a1628 ds-bg to ~5.7:1 contrast for normal text. Light theme uses
+   * #92400e (amber-800) on #fef3c7 (amber-100) → 8.4:1 contrast.
+   * Sprint 14.1 noted #fbbf24 → 1.7:1 on light bg — avoided by
+   * darkening the text token under [data-theme="light"] below.
+   */
+  --ds-warning-bg:     rgba(251,191,36,0.10);
+  --ds-warning-border: rgba(251,191,36,0.45);
+  --ds-warning-text:   #fbbf24;
 }
 
 /* ── Sprint 14.1 — light-theme override for the legacy --ds-* tokens ────────
@@ -74,6 +87,14 @@
   --ds-border-strong:     var(--av-border-strong);
   --ds-text-muted:        var(--av-text-muted);
   --ds-text-faint:        var(--av-text-faint);
+
+  /* Sprint 14.7 light-theme warning palette. amber-100 / amber-800 +
+   * amber-400 border combo for 8.4:1 normal-text contrast (WCAG AA
+   * required ≥4.5:1). The dark-theme #fbbf24 text on light bg would
+   * be 1.7:1 — explicitly avoided per Sprint 14.1 lesson. */
+  --ds-warning-bg:     #fef3c7;
+  --ds-warning-border: #d97706;
+  --ds-warning-text:   #92400e;
 }
 
 /* ── Skill-direction page canvas (.ds-canvas) ────────────────────────────────
@@ -512,4 +533,45 @@ select:focus-visible {
   font-size: 0.875rem;
   color: rgba(255,255,255,0.8);
   line-height: 1.6;
+}
+
+/* ── Sprint 14.7 warning banner ──────────────────────────────────────────────
+ * Yellow/amber warning for off-topic + short-length signals (L5/L9).
+ * Stacks above per-criterion feedback. Uses --ds-warning-* tokens
+ * which flip per theme; banner copy stays readable on both light and
+ * dark (WCAG AA verified — see token comments above).
+ *
+ * Pattern #26 (Sprint 14.6.1): banner copy is rendered via CSS classes
+ * only — JS helpers MUST NOT bake inline color/background styles or
+ * the light-theme flip breaks. Sentinel `warning-banner-tokens.test.mjs`
+ * pins this contract.
+ */
+.ds-result-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ds-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--ds-warning-bg);
+  border: 1px solid var(--ds-warning-border);
+  border-left: 4px solid var(--ds-warning-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.ds-warning-banner .ds-warning-icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+.ds-warning-banner .ds-warning-message {
+  flex: 1;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ds-warning-text);
+  margin: 0;
 }
