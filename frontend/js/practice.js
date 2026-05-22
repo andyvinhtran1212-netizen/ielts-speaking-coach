@@ -688,15 +688,21 @@
     if (commentsEl) {
       if (data && data._stub) {
         var isAiDown = data._error && data._error.includes('temporarily unavailable');
+        // Sprint 14.6.1 — Andy 2026-05-22 — migrate hardcoded
+        // rgba(255,255,255,X) text colors to --ds-* tokens so they
+        // flip per theme (Sprint 14.1 wired the tokens; this branch
+        // was outside that PR's source-set). Banner background colors
+        // (amber-tinted #fbbf24-based rgba) stay literal — they're
+        // semantic surfaces, not text.
         commentsEl.innerHTML = isAiDown
           ? '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);'
             + 'border-radius:10px;padding:12px 14px;">'
             + '<p style="font-size:13px;font-weight:600;color:#fbbf24;margin:0 0 4px;">AI chấm điểm tạm thời không khả dụng</p>'
-            + '<p style="font-size:13px;color:rgba(255,255,255,0.55);margin:0;">'
+            + '<p style="font-size:13px;color:var(--ds-muted);margin:0;">'
             + 'Bản ghi âm và văn bản của bạn đã được lưu thành công. '
             + 'Chấm điểm sẽ khả dụng khi dịch vụ AI được khôi phục.</p>'
             + '</div>'
-          : '<p style="font-size:13px;font-style:italic;color:rgba(255,255,255,0.4);">'
+          : '<p style="font-size:13px;font-style:italic;color:var(--ds-faint);">'
             + 'Câu trả lời đã được ghi lại nhưng chưa thể chấm điểm ngay lúc này.'
             + (data._error ? ' (' + _esc(data._error) + ')' : '')
             + '</p>';
@@ -722,7 +728,7 @@
           (data.improved_response ? _improvedBlock(data.improved_response) : '');
       } else {
         commentsEl.innerHTML =
-          '<p style="font-size:13px;font-style:italic;color:rgba(255,255,255,0.4);">Không có nhận xét.</p>';
+          '<p style="font-size:13px;font-style:italic;color:var(--ds-faint);">Không có nhận xét.</p>';
       }
     }
 
@@ -1078,10 +1084,14 @@
       : 'Một số phần nhận xét có thể cần xem như gợi ý tham khảo — chất lượng âm thanh hoặc tốc độ nói '
         + 'có thể ảnh hưởng nhẹ đến độ chính xác của đánh giá.';
 
+    // Sprint 14.6.1 — migrate body-text rgba(255,255,255,X) → --ds-* tokens
+    // so the reliability note reads on both themes. Background + border
+    // colours come in via the bg/bd/borderColor args (semantic by reliability
+    // level) and stay literal — they're tinted surface, not text.
     return '<div style="background:' + bgColor + ';border:1px solid ' + bdColor + ';'
       + 'border-left:3px solid ' + borderColor + ';border-radius:10px;'
       + 'padding:11px 14px;margin-bottom:14px;'
-      + 'font-size:12.5px;line-height:1.6;color:rgba(255,255,255,0.6);">'
+      + 'font-size:12.5px;line-height:1.6;color:var(--ds-muted);">'
       + msg
       + '</div>';
   }
@@ -1091,14 +1101,18 @@
     return '<div style="margin-bottom:14px;">' +
       '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;' +
       'letter-spacing:.06em;margin:0 0 5px;">' + title + '</p>' +
-      '<p style="font-size:13px;line-height:1.65;color:rgba(255,255,255,0.75);margin:0;">' +
+      '<p style="font-size:13px;line-height:1.65;color:var(--ds-text);margin:0;">' +
       _esc(text) + '</p></div>';
   }
 
   function _listBlock(title, items, color) {
     if (!items || !items.length) return '';
     var lis = items.map(function (item) {
-      return '<li style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:5px;">' +
+      // Sprint 14.6.1 — bullet text uses --ds-text so it flips per theme.
+      // The leading `›` glyph keeps its semantic colour (the `color` arg —
+      // mint for strengths, orange for vocab issues) which already reads
+      // on both themes.
+      return '<li style="font-size:13px;color:var(--ds-text);margin-bottom:5px;">' +
         '<span style="color:' + color + ';margin-right:6px;">›</span>' + _esc(item) + '</li>';
     }).join('');
     return '<div style="margin-bottom:14px;">' +
@@ -1126,7 +1140,10 @@
           + ' style="font-size:11px;color:#14b8a6;text-decoration:none;white-space:nowrap;">'
           + '→ Học bài: ' + _esc(rec.title) + '</a>';
       }
-      return '<li style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:5px;">' +
+      // Sprint 14.6.1 — bullet text uses --ds-text (theme-flipping); the
+      // `›` glyph keeps its semantic red (#f87171) which is readable on
+      // both surfaces.
+      return '<li style="font-size:13px;color:var(--ds-text);margin-bottom:5px;">' +
         '<span style="color:#f87171;margin-right:6px;">›</span>' + _esc(issue) + link + '</li>';
     }).join('');
     return '<div style="margin-bottom:14px;">' +
@@ -1140,19 +1157,24 @@
       'border-left:3px solid #14b8a6;border-radius:0 6px 6px 0;padding:12px 14px;">' +
       '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;' +
       'letter-spacing:.06em;margin:0 0 7px;">Câu trả lời mẫu Band 7+</p>' +
-      '<p style="font-size:13px;line-height:1.7;color:rgba(255,255,255,0.8);margin:0;">' +
+      '<p style="font-size:13px;line-height:1.7;color:var(--ds-text);margin:0;">' +
       _esc(text) + '</p></div>';
   }
 
   function _correctionsBlock(corrections) {
     if (!corrections || corrections.length === 0) return '';
+    // Sprint 14.6.1 — row background + italic explanation use --ds-*
+    // tokens (Sprint 14.1 wired the light-theme overrides). The
+    // red ❌ + green ✓ lines stay literal — they're semantic colours
+    // that read on both themes (and matched Andy's 2026-05-22 screenshot
+    // observation that corrections was the only readable section).
     var rows = corrections.map(function (c) {
-      return '<div style="margin-bottom:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:8px;">'
+      return '<div style="margin-bottom:10px;padding:10px 12px;background:var(--ds-surface);border-radius:8px;">'
         + '<div style="font-size:12px;color:#f87171;margin-bottom:3px;">'
         + '<span style="opacity:0.6;">❌ </span>' + _esc(c.original) + '</div>'
         + '<div style="font-size:12px;color:#4ade80;margin-bottom:4px;">'
         + '<span style="opacity:0.6;">✓ </span>' + _esc(c.corrected) + '</div>'
-        + '<div style="font-size:12px;color:rgba(255,255,255,0.55);font-style:italic;">'
+        + '<div style="font-size:12px;color:var(--ds-muted);font-style:italic;">'
         + _esc(c.explanation) + '</div>'
         + '</div>';
     }).join('');
@@ -1167,7 +1189,7 @@
       + 'border-left:3px solid #14b8a6;border-radius:0 6px 6px 0;padding:12px 14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
       + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
-      + '<p style="font-size:13px;line-height:1.7;color:rgba(255,255,255,0.8);margin:0;">'
+      + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text);margin:0;">'
       + _esc(text) + '</p></div>';
   }
 
