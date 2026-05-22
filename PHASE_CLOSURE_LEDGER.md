@@ -320,3 +320,15 @@ Per `docs/sprint-12-b-phase-b-triggers.md`:
 - Sprint hotfix prompts include a ledger-update step
 
 This ledger is canonical for closure truth. Other docs (`DESIGN_SYSTEM.md` § 14, `UNIFIED_DESIGN_BRIEF.md` § 2, `CLAUDE.md` file-structure table) reference this file. If you find a closure claim somewhere else that contradicts this ledger, the ledger wins and the other doc should be corrected.
+
+---
+
+## Cross-reference: backend clusters tracked separately
+
+This ledger's scope is **frontend page redesigns + design-system audit gates**. Backend feature clusters keep their own closure docs under `docs/` and do not roll up into the 17-audit-hotfix count above. Cross-reference below so closure truth across the repo is discoverable from this file.
+
+| Cluster | Closure doc | Closed | Notes |
+|---|---|---|---|
+| DEBT-ADMIN-LISTENING-AUTHORING (cluster 13.x) | `docs/sprint-13-6-cluster-closure-retrospective.md` | Sprint 13.6.3 (2026-05-22, post Codex audit hotfix) | 15 sprints + 17 hotfixes = 32 PRs. Migrations 064–072. End-to-end IELTS Listening admin (markdown → audio cut → AI image → publish → student grading). Initial Sprint 13.6 closure was reopened by Codex audit (2 P0 + 3 P2 findings); true closure line is Sprint 13.6.3. |
+
+Codex audit finding F6 (PHASE_CLOSURE_LEDGER.md missing cluster 13.x entry) is addressed by this cross-reference rather than by extending the design-system ledger's scope to backend clusters — the audit-hotfix counter, page-count metrics, and admin-writing.css cap discipline above all remain frontend-scoped. Future backend clusters should add a row here and keep their detailed retrospective under `docs/`.
