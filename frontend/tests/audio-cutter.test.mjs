@@ -337,3 +337,148 @@ describe('Sprint 13.6 — audio cutter JS controller', () => {
     assert.match(JS, /classList\.toggle\(['"]ac-error['"]/);
   });
 });
+
+
+// ── Sprint 13.6.1 — navigation, query param, response-shape hotfix ─────────
+
+
+describe('Sprint 13.6.1 — audio cutter discoverability + URL fetch hotfix', () => {
+
+  const INDEX = read('pages', 'admin', 'listening', 'index.html');
+  const DETAIL_JS = read('js', 'admin-listening-tests-detail.js');
+
+  test('admin listening hub exposes Audio Cutter as a live nav card', () => {
+    // Sprint 13.6 shipped the page itself but with zero entry points,
+    // so it was undiscoverable. Pin the hub link so a refactor of
+    // the hub layout can't silently orphan the page again.
+    assert.match(INDEX,
+      /<a class="lst-create-card is-live" href="\/pages\/admin\/listening\/audio-cutter\.html"/);
+    assert.match(INDEX, /Cắt audio full đề/);
+  });
+
+  test('tests-detail renders contextual deep-link when full audio is present', () => {
+    // The audio cutter operates per-test, so the natural authoring
+    // hand-off is from tests-detail's full-audio preview block. Pin
+    // both the anchor id and the test_id query-param wiring.
+    assert.match(DETAIL_JS, /\/pages\/admin\/listening\/audio-cutter\.html\?test_id=/);
+    assert.match(DETAIL_JS, /id="td-cut-audio-link"/);
+    assert.match(DETAIL_JS, /Cắt audio thành 4 sections/);
+    // The link is gated by ``signed.signed_url`` — only shown when
+    // audio actually exists. Pin the guard so a refactor can't
+    // surface the link on tests with no audio uploaded.
+    assert.match(DETAIL_JS, /if \(previewHost && signed\.signed_url\)/);
+  });
+
+  test('controller reads nested {full: {signed_url}} shape, not flat keys', () => {
+    // Root cause of Andy 2026-05-22 dogfood bug: backend returns
+    //   { full: { signed_url: ... }, sections: [...] }
+    // but the Sprint 13.6 controller read ``res.full_audio_signed_url``,
+    // a flat key that never existed. Pin the correct nested access
+    // so the regression can't sneak back via flattening "refactors".
+    assert.match(JS, /res && res\.full && res\.full\.signed_url/);
+    // Strip line comments before checking the negative — the
+    // explanatory comment names the old bad key on purpose so future
+    // readers understand why this contract is locked.
+    const codeOnly = JS.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.doesNotMatch(codeOnly, /full_audio_signed_url/);
+  });
+
+  test('missing-audio error surfaces an action link to tests list', () => {
+    // Actionable error UX (Sprint 13.6.1 pattern): when the test
+    // has no full audio, point the admin at the page that can fix
+    // the prerequisite instead of dead-ending on a red message.
+    assert.match(JS, /chưa upload full pre-mixed audio/);
+    assert.match(JS, /href:\s*['"]\/pages\/admin\/listening\/tests\.html['"]/);
+    assert.match(JS, /text:\s*['"]Mở danh sách tests/);
+  });
+
+  test('setSourceStatus accepts an optional action {href, text} for action links', () => {
+    // Pin the 3-arg signature so a refactor cannot silently drop
+    // the action parameter and revert error UX.
+    assert.match(JS, /function setSourceStatus\(text, isError, action\)/);
+    assert.match(JS, /el\.appendChild\(link\)/);
+  });
+
+  test('controller parses ?test_id= query param and validates UUID-ish shape', () => {
+    // Deep-link entry from tests-detail. Defensive regex prevents
+    // a malformed query string from crashing the dropdown auto-
+    // select.
+    assert.match(JS, /function parseInitialTestId\(\)/);
+    assert.match(JS, /params\.get\(['"]test_id['"]\)/);
+    assert.match(JS, /\^\[0-9a-fA-F-\]\{8,\}\$/);
+  });
+
+  test('init() routes through maybeAutoLoadFromQueryParam after dropdown populates', () => {
+    // Order matters: tests dropdown must be populated before the
+    // auto-select can find the matching entry. Pin the call order.
+    const initRe = /async function init\(\) \{[\s\S]+?STATE\.initialTestId = parseInitialTestId\(\);[\s\S]+?await loadTests\(\);[\s\S]+?bindHandlers\(\);[\s\S]+?maybeAutoLoadFromQueryParam\(\);[\s\S]+?\}/;
+    assert.match(JS, initRe);
+  });
+
+  test('auto-load surfaces a clear message when the deep-link test is not cuttable', () => {
+    // A test_id in the URL that does not satisfy the full_premixed
+    // filter applied in loadTests() would otherwise silently no-op.
+    // Pin the explanatory message + error flag.
+    assert.match(JS, /Test trong URL không có full pre-mixed audio/);
+  });
+
+  test('auto-load triggers select-change dispatch + deferred onLoadAudio', () => {
+    // Dispatching ``change`` reuses the existing handler that wires
+    // STATE.selectedTest. ``setTimeout(0)`` defers the load until
+    // after the synchronous handler runs.
+    assert.match(JS, /select\.dispatchEvent\(new Event\(['"]change['"]\)\)/);
+    assert.match(JS, /setTimeout\(\(\) => \{ void onLoadAudio\(\); \}, 0\)/);
+  });
+
+  test('hub nav card uses the live state (is-live), not the dashed placeholder', () => {
+    // Hub uses ``.is-live`` to upgrade dashed placeholder cards to
+    // real clickable links. Without it, the card renders disabled.
+    // Pin the live class on the audio-cutter card specifically.
+    const audioCutterCardRe =
+      /<a class="lst-create-card is-live" href="\/pages\/admin\/listening\/audio-cutter\.html"[\s\S]+?data-create="audio-cutter"/;
+    assert.match(INDEX, audioCutterCardRe);
+  });
+
+  test('hub card lede explains ffmpeg stream-copy lossless cut', () => {
+    // The lede sells *why* this tool is safe to run on production
+    // audio — no re-encode, no quality loss, $0 cost. Pin so a
+    // copy-rewrite can't drop the technical claim that justifies
+    // running the action without an undo path.
+    assert.match(INDEX, /ffmpeg stream-copy/);
+    assert.match(INDEX, /\$0 cost/);
+  });
+
+  test('contextual link uses encodeURIComponent on testId', () => {
+    // testId originates from a query string ultimately controlled
+    // by users (admin URLs can be shared). Encoding makes the deep
+    // link robust to ids that ever grow URL-unsafe characters.
+    assert.match(DETAIL_JS,
+      /audio-cutter\.html\?test_id=\$\{encodeURIComponent\(STATE\.testId\)\}/);
+  });
+
+  test('contextual link sits inside td-audio-actions row with replace button', () => {
+    // Both actions are flex-row siblings so the layout stays one
+    // visual unit. If a refactor splits them apart, the replace
+    // button and cut link end up on different visual rows and the
+    // affordance grouping breaks.
+    assert.match(DETAIL_JS, /td-audio-actions/);
+    assert.match(DETAIL_JS, /id="td-full-replace"[\s\S]+?id="td-cut-audio-link"/);
+  });
+
+  test('controller deep-link guard short-circuits on missing or malformed test_id', () => {
+    // ``parseInitialTestId`` returns null in two cases: no param,
+    // or malformed shape. Both branches must be pinned so a
+    // refactor that "simplifies" the validator can't silently
+    // accept arbitrary strings and feed them to the dropdown.
+    assert.match(JS, /if \(!raw\) return null;/);
+    assert.match(JS, /if \(!\/\^\[0-9a-fA-F-\]\{8,\}\$\/\.test\(raw\)\) return null;/);
+  });
+
+  test('auto-load preserves dropdown-driven happy path (no double trigger)', () => {
+    // ``maybeAutoLoadFromQueryParam`` only runs when initialTestId
+    // is set. Pin the guard so admins who navigate without a
+    // query param still go through the manual select → load flow.
+    assert.match(JS, /if \(!wanted\) return;/);
+  });
+
+});
