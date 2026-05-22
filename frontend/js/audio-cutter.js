@@ -506,9 +506,17 @@ async function onExportAll() {
       `/admin/listening/tests/${encodeURIComponent(STATE.selectedTestId)}/cut-audio`,
       { segments: segments },
     );
+    // Sprint 13.6.3 — split the success banner into new vs reused.
+    // ``segments_new`` + ``segments_reused`` are the Sprint 13.6.3 fields
+    // (Codex F2 fix); fall back to ``segments_created`` if a legacy
+    // backend version is in front (defensive read during deploys).
     const created = (res && res.segments_created) || 0;
+    const newCount = (res && typeof res.segments_new === 'number')
+      ? res.segments_new : created;
+    const reused = (res && typeof res.segments_reused === 'number')
+      ? res.segments_reused : 0;
     const skipped = (res && res.segments_skipped) || 0;
-    let msg = `OK — ${created} segment(s) tạo mới.`;
+    let msg = `OK — ${created} segment(s) (${newCount} mới, ${reused} reused).`;
     if (skipped) msg += ` ${skipped} bị skip (< ${res.min_segment_seconds}s).`;
     setExportStatus(msg, false);
   } catch (e) {

@@ -4460,12 +4460,77 @@ async def admin_cut_audio_segments(
             f"{cutter.MIN_SEGMENT_DURATION_SECONDS}s — nothing to cut.",
         )
 
-    tmp_source = _download_full_audio_to_tmp(test_id, source_path)
+    # Sprint 13.6.3 (Codex audit F2) — pre-fetch the existing active cut
+    # fingerprints for this test so the cut loop can short-circuit to
+    # "reuse" semantics without burning a fresh ffmpeg pass + storage
+    # upload + DB insert on every re-click of Export. Active here means
+    # ``status != 'archived'`` (matches the partial unique index added in
+    # migration 072).
+    existing_rows = (
+        supabase_admin.table("listening_content")
+        .select(
+            "id,test_id,segment_label,segment_start_seconds,"
+            "segment_end_seconds,audio_storage_path,audio_size_bytes,"
+            "audio_duration_seconds,status"
+        )
+        .eq("test_id", test["id"])
+        .execute()
+    )
+
+    def _fingerprint(label, start, end):
+        # Round to 3 decimals so float jitter doesn't defeat the lookup.
+        return (str(label), round(float(start), 3), round(float(end), 3))
+
+    existing_by_fp: dict[tuple, dict] = {}
+    for row in (existing_rows.data or []):
+        if (row.get("segment_label") is None
+                or row.get("segment_start_seconds") is None
+                or row.get("segment_end_seconds") is None):
+            continue
+        if (row.get("status") or "draft") == "archived":
+            continue
+        fp = _fingerprint(
+            row["segment_label"],
+            row["segment_start_seconds"],
+            row["segment_end_seconds"],
+        )
+        existing_by_fp[fp] = row
+
+    tmp_source = None
     created: list[dict] = []
     now_iso = datetime.now(timezone.utc).isoformat()
+    reused_count = 0
+    new_count = 0
     try:
         for index, seg in enumerate(keep, start=1):
             duration = seg.end - seg.start
+            fp = _fingerprint(seg.label, seg.start, seg.end)
+
+            # F2 fast path — fingerprint already exists on an active row.
+            # Skip ffmpeg + storage + insert entirely. The frontend uses
+            # ``reused`` to split the success-banner count.
+            if fp in existing_by_fp:
+                row = existing_by_fp[fp]
+                reused_count += 1
+                created.append({
+                    "id":                       row["id"],
+                    "title":                    seg.label,
+                    "segment_label":            seg.label,
+                    "segment_start_seconds":    seg.start,
+                    "segment_end_seconds":      seg.end,
+                    "audio_storage_path":       row.get("audio_storage_path"),
+                    "audio_size_bytes":         row.get("audio_size_bytes"),
+                    "audio_duration_seconds":   row.get("audio_duration_seconds"),
+                    "reused":                   True,
+                })
+                continue
+
+            # New cut — download the source on demand the first time we
+            # actually need it. Saves bandwidth + tmp-disk on the all-reused
+            # path (Andy re-clicks Export with no changes).
+            if tmp_source is None:
+                tmp_source = _download_full_audio_to_tmp(test_id, source_path)
+
             out_path = tempfile.NamedTemporaryFile(
                 prefix=f"cutter_out_{test_id}_{index}_",
                 suffix=".mp3", delete=False,
@@ -4508,6 +4573,11 @@ async def admin_cut_audio_segments(
                 "segment_label":            seg.label,
                 "segment_start_seconds":    seg.start,
                 "segment_end_seconds":      seg.end,
+                # Sprint 13.6.3 (Codex audit F1) — truthful provenance.
+                # ``parent_content_id`` deliberately omitted: full_premixed
+                # audio lives on listening_tests, not listening_content.
+                "source_test_id":           test["id"],
+                "source_audio_kind":        "test_full_premixed",
                 "created_at":               now_iso,
             }
             try:
@@ -4516,6 +4586,7 @@ async def admin_cut_audio_segments(
                 logger.error("[audio_cutter] insert failed for %s: %s", storage_path, exc)
                 raise HTTPException(500, f"DB insert failed: {exc}")
 
+            new_count += 1
             created.append({
                 "id":                       content_id,
                 "title":                    seg.label,
@@ -4525,24 +4596,31 @@ async def admin_cut_audio_segments(
                 "audio_storage_path":       storage_path,
                 "audio_size_bytes":         len(cut_bytes),
                 "audio_duration_seconds":   max(1, int(round(duration))),
+                "source_test_id":           test["id"],
+                "source_audio_kind":        "test_full_premixed",
+                "reused":                   False,
             })
     finally:
-        try:
-            os.unlink(tmp_source)
-        except OSError:                                                   # pragma: no cover
-            pass
+        if tmp_source is not None:
+            try:
+                os.unlink(tmp_source)
+            except OSError:                                               # pragma: no cover
+                pass
 
     logger.info(
-        "[audio_cutter] cut test=%s segments=%d skipped=%d admin=%s",
-        test_id, len(created), skipped, admin_user.get("id"),
+        "[audio_cutter] cut test=%s segments=%d new=%d reused=%d skipped=%d admin=%s",
+        test_id, len(created), new_count, reused_count, skipped,
+        admin_user.get("id"),
     )
 
     return {
-        "test_id":            test["id"],
-        "segments_created":   len(created),
-        "segments_skipped":   skipped,
+        "test_id":             test["id"],
+        "segments_created":    len(created),
+        "segments_new":        new_count,
+        "segments_reused":     reused_count,
+        "segments_skipped":    skipped,
         "min_segment_seconds": cutter.MIN_SEGMENT_DURATION_SECONDS,
-        "segments":           created,
+        "segments":            created,
     }
 
 

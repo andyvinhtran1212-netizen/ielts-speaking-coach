@@ -759,6 +759,557 @@ def test_cut_audio_endpoint_logs_audit_line(monkeypatch, caplog):
     assert "segments=1" in line
 
 
+# ── Sprint 13.6.3 (Codex audit F1 + F2) — provenance + idempotency ─────────
+#
+# Two P0 falsifications closed in this sprint. The tests below pin both
+# the inserted-row contract and the reuse semantics so a future refactor
+# can't quietly re-open the audit findings.
+
+
+def _cut_with_fake_ffmpeg(monkeypatch):
+    """Test helper: install a fake ffmpeg that writes a tiny .mp3-ish
+    buffer so the cut path can exercise the storage upload + DB insert
+    branches without a real binary.
+    """
+    def _fake_run(args, **kw):
+        out_path = args[-1]
+        with open(out_path, "wb") as fh:
+            fh.write(b"\xff\xfb" + b"\x00" * 256)
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+    monkeypatch.setattr(cutter, "run_ffmpeg", _fake_run)
+
+
+def test_cut_audio_populates_source_test_id_and_source_audio_kind(monkeypatch):
+    """F1 fix: new cut rows must populate ``source_test_id`` (FK to the
+    originating test) + ``source_audio_kind = 'test_full_premixed'``.
+    These supersede the misleading ``parent_content_id`` from Sprint 13.6.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="Section 1", start=0.0,    end=375.0),
+            listening_router.CutSegmentInput(label="Section 2", start=378.0,  end=750.0),
+        ]),
+        authorization=authz,
+    ))
+    rows = fake.tables["listening_content"]
+    assert len(rows) == 2
+    for row in rows:
+        assert row["source_test_id"] == seed["test_id"], (
+            "F1: every cut row must point at the originating test"
+        )
+        assert row["source_audio_kind"] == "test_full_premixed", (
+            "F1: enum-checked source kind must be set on every cut row"
+        )
+
+
+def test_cut_audio_does_not_write_parent_content_id(monkeypatch):
+    """F1 fix: ``parent_content_id`` was a misleading half-truth — full
+    premixed audio lives on listening_tests, not on a listening_content
+    parent row. The cut route must stop writing to it; the column stays
+    in the schema only for backward-compat (Sprint 13.6 sentinel).
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="x", start=0.0, end=10.0),
+        ]),
+        authorization=authz,
+    ))
+    row = fake.tables["listening_content"][0]
+    assert "parent_content_id" not in row, (
+        "F1: cut route must not write parent_content_id (misleading FK; "
+        "use source_test_id instead)"
+    )
+
+
+def test_cut_audio_response_segments_include_source_fields(monkeypatch):
+    """F1 fix: the API response — what the frontend reads — must echo
+    the new source fields so the admin panel can render provenance
+    without a follow-up fetch.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="x", start=0.0, end=10.0),
+        ]),
+        authorization=authz,
+    ))
+    seg = out["segments"][0]
+    assert seg["source_test_id"] == seed["test_id"]
+    assert seg["source_audio_kind"] == "test_full_premixed"
+    assert seg["reused"] is False
+
+
+def test_cut_audio_response_includes_new_and_reused_counts(monkeypatch):
+    """F2 fix: the response must split the per-segment outcome into
+    ``segments_new`` + ``segments_reused`` so the frontend can show
+    "N mới, M reused" instead of a single ambiguous count.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0,   end=300.0),
+            listening_router.CutSegmentInput(label="b", start=300.0, end=600.0),
+        ]),
+        authorization=authz,
+    ))
+    assert out["segments_new"] == 2
+    assert out["segments_reused"] == 0
+    assert out["segments_created"] == 2     # = new + reused for backward compat
+
+
+def test_cut_audio_reuses_existing_row_on_duplicate_fingerprint(monkeypatch):
+    """F2 fix: re-clicking Export with the same regions must not insert
+    duplicate rows — the cut route looks up active rows by
+    ``(test_id, label, start, end)`` and short-circuits to a reuse
+    response.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    body = listening_router.CutAudioRequest(segments=[
+        listening_router.CutSegmentInput(label="Section 1", start=0.0,    end=375.0),
+        listening_router.CutSegmentInput(label="Section 2", start=378.0,  end=750.0),
+    ])
+    first = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    second = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    # Second invocation should reuse — no new rows inserted.
+    assert len(fake.tables["listening_content"]) == 2
+    assert second["segments_new"]    == 0
+    assert second["segments_reused"] == 2
+    # IDs must match the first batch (proves it was a reuse, not a
+    # re-insert with a fresh UUID).
+    first_ids  = sorted(s["id"] for s in first["segments"])
+    second_ids = sorted(s["id"] for s in second["segments"])
+    assert first_ids == second_ids
+
+
+def test_cut_audio_reuse_skips_ffmpeg_and_storage(monkeypatch):
+    """F2 fix: the reuse fast path must skip ffmpeg + storage upload.
+    Pin via call counters so a refactor can't accidentally re-cut on
+    every Export click.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+
+    ffmpeg_calls = {"n": 0}
+    def _counting_ffmpeg(args, **kw):
+        ffmpeg_calls["n"] += 1
+        out_path = args[-1]
+        with open(out_path, "wb") as fh:
+            fh.write(b"\xff\xfb" + b"\x00" * 256)
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+    monkeypatch.setattr(cutter, "run_ffmpeg", _counting_ffmpeg)
+
+    body = listening_router.CutAudioRequest(segments=[
+        listening_router.CutSegmentInput(label="a", start=0.0, end=300.0),
+    ])
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    assert ffmpeg_calls["n"] == 1
+    upload_count_after_first = len(fake.uploads)
+
+    # Same fingerprint — must not invoke ffmpeg again, must not upload again.
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    assert ffmpeg_calls["n"] == 1, (
+        "F2: reuse path must not re-invoke ffmpeg"
+    )
+    assert len(fake.uploads) == upload_count_after_first, (
+        "F2: reuse path must not re-upload storage"
+    )
+
+
+def test_cut_audio_mixed_batch_splits_new_and_reused(monkeypatch):
+    """F2 fix: a follow-up Export with some unchanged regions + some
+    new regions must reuse the existing rows and only cut the new ones.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    # First batch — 2 cuts.
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0,   end=300.0),
+            listening_router.CutSegmentInput(label="b", start=300.0, end=600.0),
+        ]),
+        authorization=authz,
+    ))
+    # Second batch — 1 same + 1 brand new.
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0,   end=300.0),   # reuse
+            listening_router.CutSegmentInput(label="c", start=600.0, end=900.0),   # new
+        ]),
+        authorization=authz,
+    ))
+    assert out["segments_new"]    == 1
+    assert out["segments_reused"] == 1
+    # 3 total rows in DB now (a, b, c).
+    assert len(fake.tables["listening_content"]) == 3
+
+
+def test_cut_audio_float_jitter_does_not_defeat_reuse_lookup(monkeypatch):
+    """F2 fix: storing seconds as floats means re-cut requests may
+    arrive with sub-millisecond drift. The fingerprint lookup rounds
+    to 3 decimals so an admin re-clicking the same waveform region
+    doesn't accidentally pay for a re-cut.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="x", start=0.000, end=300.000),
+        ]),
+        authorization=authz,
+    ))
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            # Sub-millisecond jitter — still the same logical region.
+            listening_router.CutSegmentInput(label="x", start=0.0001, end=300.0002),
+        ]),
+        authorization=authz,
+    ))
+    assert out["segments_reused"] == 1
+    assert out["segments_new"]    == 0
+
+
+def test_cut_audio_archived_row_allows_new_insert_at_same_fingerprint(monkeypatch):
+    """F2 fix: the partial unique index excludes archived rows. After
+    archiving a previous cut, the admin must be able to re-cut at the
+    same boundaries and get a fresh insert (not a reuse of the archive).
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0, end=300.0),
+        ]),
+        authorization=authz,
+    ))
+    # Archive the first row in place.
+    fake.tables["listening_content"][0]["status"] = "archived"
+
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0, end=300.0),
+        ]),
+        authorization=authz,
+    ))
+    assert out["segments_new"]    == 1
+    assert out["segments_reused"] == 0
+    # Both rows present — 1 archived original + 1 fresh insert.
+    assert len(fake.tables["listening_content"]) == 2
+
+
+def test_cut_audio_log_line_records_new_and_reused_counts(monkeypatch, caplog):
+    """Pin the audit log shape — admin forensics depends on being able
+    to reconstruct who ran which cut and how many were fresh vs reused.
+    """
+    import logging
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    body = listening_router.CutAudioRequest(segments=[
+        listening_router.CutSegmentInput(label="a", start=0.0, end=300.0),
+    ])
+    with caplog.at_level(logging.INFO, logger="routers.listening"):
+        _run(listening_router.admin_cut_audio_segments(
+            test_id=seed["test_id"], body=body, authorization=authz,
+        ))
+        _run(listening_router.admin_cut_audio_segments(
+            test_id=seed["test_id"], body=body, authorization=authz,
+        ))
+    msgs = [r.getMessage() for r in caplog.records
+            if "[audio_cutter] cut" in r.getMessage()]
+    assert len(msgs) == 2
+    assert "new=1"    in msgs[0]
+    assert "reused=0" in msgs[0]
+    assert "new=0"    in msgs[1]
+    assert "reused=1" in msgs[1]
+
+
+def test_migration_072_creates_provenance_and_unique_columns():
+    """Source-level pin: migration 072 ships the F1 + F2 schema changes.
+    A future "schema cleanup" PR that drops the migration file would
+    quietly break the production contract; this sentinel catches it.
+    """
+    import pathlib
+    sql = pathlib.Path(
+        "migrations/072_listening_content_cut_provenance_and_idempotency.sql"
+    ).read_text(encoding="utf-8")
+    # F1: provenance columns.
+    assert "source_test_id" in sql
+    assert "source_audio_kind" in sql
+    assert "test_full_premixed" in sql
+    assert "manual_upload" in sql
+    assert "api_generation" in sql
+    # F2: partial unique index on the cut fingerprint.
+    assert "uq_listening_content_cut_active_fingerprint" in sql
+    assert "segment_label" in sql
+    # Idempotent re-run discipline.
+    assert "IF NOT EXISTS" in sql
+    # Doesn't accidentally drop parent_content_id (sentinel for the
+    # backward-compat decision).
+    assert "DROP COLUMN" not in sql
+
+
+def test_migration_072_backfills_existing_cut_rows():
+    """The backfill UPDATE must run inside the migration so historical
+    Sprint 13.6 cuts also satisfy the new contract — otherwise the F1
+    fix would only apply going forward and old data would still
+    misrepresent provenance.
+    """
+    import pathlib
+    sql = pathlib.Path(
+        "migrations/072_listening_content_cut_provenance_and_idempotency.sql"
+    ).read_text(encoding="utf-8")
+    assert "UPDATE listening_content" in sql
+    assert "segment_label IS NOT NULL" in sql
+    assert "source_test_id    = test_id" in sql or "source_test_id = test_id" in sql
+
+
+def test_migration_072_excludes_archived_from_unique_index():
+    """The partial unique index must exclude archived rows so admins
+    can re-cut after archiving — pin the WHERE clause explicitly.
+    """
+    import pathlib
+    sql = pathlib.Path(
+        "migrations/072_listening_content_cut_provenance_and_idempotency.sql"
+    ).read_text(encoding="utf-8")
+    # The unique index WHERE clause excludes archived status.
+    assert "!= 'archived'" in sql
+
+
+def test_cut_audio_all_reused_does_not_download_source_audio(monkeypatch):
+    """F2 fast path optimisation: if every requested segment maps to
+    an existing active row, the cut route must NOT download the source
+    MP3 to a temp file. Pin via a counter on the helper so a refactor
+    that re-orders work can't accidentally re-introduce the wasted
+    bandwidth + tmp-disk IO.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    download_calls = {"n": 0}
+    original_download = listening_router._download_full_audio_to_tmp
+
+    def _counting_download(test_id, storage_path):
+        download_calls["n"] += 1
+        return original_download(test_id, storage_path)
+    monkeypatch.setattr(
+        listening_router, "_download_full_audio_to_tmp", _counting_download,
+    )
+
+    body = listening_router.CutAudioRequest(segments=[
+        listening_router.CutSegmentInput(label="a", start=0.0, end=300.0),
+        listening_router.CutSegmentInput(label="b", start=300.0, end=600.0),
+    ])
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    assert download_calls["n"] == 1, (
+        "first run must download the source for fresh cuts"
+    )
+
+    # Second identical run — all reused, no download.
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    assert download_calls["n"] == 1, (
+        "F2 fast path: all-reused batch must not re-download source audio"
+    )
+
+
+def test_cut_audio_response_segments_preserve_input_order(monkeypatch):
+    """The response's ``segments`` list must echo the input order so
+    the admin UI can map result entries 1:1 to the rows it drew on
+    the waveform — even when some are reused and some are new.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    # Seed 1 cut so the next batch is mixed (1 reuse + 1 new).
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="b", start=300.0, end=600.0),
+        ]),
+        authorization=authz,
+    ))
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0,   end=300.0),   # new
+            listening_router.CutSegmentInput(label="b", start=300.0, end=600.0),   # reuse
+            listening_router.CutSegmentInput(label="c", start=600.0, end=900.0),   # new
+        ]),
+        authorization=authz,
+    ))
+    labels = [s["segment_label"] for s in out["segments"]]
+    assert labels == ["a", "b", "c"]
+    reused_flags = [s["reused"] for s in out["segments"]]
+    assert reused_flags == [False, True, False]
+
+
+def test_cut_audio_segments_created_equals_new_plus_reused(monkeypatch):
+    """The legacy ``segments_created`` field is now the sum of
+    ``segments_new`` + ``segments_reused``. Frontend code still using
+    the old field reads "total processed" — pin the invariant so an
+    accidental redefinition can't break either consumer.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    body = listening_router.CutAudioRequest(segments=[
+        listening_router.CutSegmentInput(label="a", start=0.0,   end=300.0),
+        listening_router.CutSegmentInput(label="b", start=300.0, end=600.0),
+    ])
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    assert out["segments_created"] == out["segments_new"] + out["segments_reused"]
+
+
+def test_migration_072_source_test_id_uses_on_delete_set_null():
+    """The new FK must mirror Sprint 13.6's parent_content_id pattern
+    (ON DELETE SET NULL) so deleting a source test doesn't cascade-
+    destroy already-cut content rows that might be linked into a
+    published test. CASCADE would be catastrophic.
+    """
+    import pathlib
+    sql = pathlib.Path(
+        "migrations/072_listening_content_cut_provenance_and_idempotency.sql"
+    ).read_text(encoding="utf-8")
+    assert "source_test_id    UUID REFERENCES listening_tests(id) ON DELETE SET NULL" in sql \
+        or "source_test_id UUID REFERENCES listening_tests(id) ON DELETE SET NULL" in sql, (
+        "F1: source_test_id FK must be ON DELETE SET NULL (mirrors parent_content_id pattern)"
+    )
+    # And CASCADE must be absent.
+    assert "ON DELETE CASCADE" not in sql
+
+
+def test_migration_072_partial_index_only_on_non_null_fingerprint_fields():
+    """The fingerprint partial unique excludes rows where any of the
+    fingerprint fields is NULL — native (non-cut) listening_content
+    rows have NULL segment metadata and would otherwise all collide
+    on the (NULL, NULL, NULL) fingerprint.
+    """
+    import pathlib
+    sql = pathlib.Path(
+        "migrations/072_listening_content_cut_provenance_and_idempotency.sql"
+    ).read_text(encoding="utf-8")
+    # WHERE clause must guard all three fingerprint fields.
+    assert "segment_label             IS NOT NULL" in sql \
+        or "segment_label IS NOT NULL" in sql
+    assert "segment_start_seconds     IS NOT NULL" in sql \
+        or "segment_start_seconds IS NOT NULL" in sql
+    assert "segment_end_seconds       IS NOT NULL" in sql \
+        or "segment_end_seconds IS NOT NULL" in sql
+
+
+def test_cut_audio_reuse_via_repeated_request_is_pure_function(monkeypatch):
+    """Idempotency invariant: calling the endpoint with the same body N
+    times must produce the same DB state + the same response
+    fingerprint (modulo the per-request ID returned by the reuse).
+    Without this, retries would silently amplify storage cost.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    body = listening_router.CutAudioRequest(segments=[
+        listening_router.CutSegmentInput(label="x", start=0.0, end=300.0),
+    ])
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"], body=body, authorization=authz,
+    ))
+    rows_after_first = list(fake.tables["listening_content"])
+    uploads_after_first = list(fake.uploads)
+
+    # Three more identical invocations — DB + storage state must not change.
+    for _ in range(3):
+        _run(listening_router.admin_cut_audio_segments(
+            test_id=seed["test_id"], body=body, authorization=authz,
+        ))
+    assert fake.tables["listening_content"] == rows_after_first, (
+        "F2 idempotency: repeated cuts must not insert duplicate rows"
+    )
+    assert fake.uploads == uploads_after_first, (
+        "F2 idempotency: repeated cuts must not re-upload storage"
+    )
+
+
+def test_cut_audio_reuse_response_audio_path_matches_existing_row(monkeypatch):
+    """F2 fix: the reuse response must echo the existing row's storage
+    path so the frontend renders the audio preview without re-fetching
+    the test detail. Pin the audio_storage_path round-trip.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    first = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0, end=300.0),
+        ]),
+        authorization=authz,
+    ))
+    second = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0, end=300.0),
+        ]),
+        authorization=authz,
+    ))
+    assert second["segments"][0]["reused"] is True
+    assert second["segments"][0]["audio_storage_path"] == \
+           first["segments"][0]["audio_storage_path"]
+
+
 def test_cut_request_pydantic_rejects_empty_segments_list():
     """The request schema must reject an empty ``segments`` list at
     the boundary — saves a round-trip through the storage download.

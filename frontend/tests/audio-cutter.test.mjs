@@ -577,3 +577,207 @@ describe('Sprint 13.6.2 — auto-detect regions plugin binding', () => {
   });
 
 });
+
+
+// ── Sprint 13.6.3 — Codex audit P0 + P2 hotfix sentinels ───────────────────
+
+
+describe('Sprint 13.6.3 — Codex audit hotfix (provenance + idempotency)', () => {
+
+  const RETRO = read('..', 'docs', 'sprint-13-6-cluster-closure-retrospective.md');
+  const LEDGER = read('..', 'PHASE_CLOSURE_LEDGER.md');
+  const MIG_072 = read('..', 'backend', 'migrations',
+                       '072_listening_content_cut_provenance_and_idempotency.sql');
+
+  // ── F1 (truthful provenance) ──
+
+  test('migration 072 introduces source_test_id + source_audio_kind', () => {
+    // F1 fix: replace the misleading parent_content_id with an
+    // explicit two-field contract that names the actual source.
+    assert.match(MIG_072, /source_test_id\s+UUID\s+REFERENCES\s+listening_tests/);
+    assert.match(MIG_072, /source_audio_kind\s+TEXT/);
+    // Enum-style CHECK with the 3 known kinds.
+    assert.match(MIG_072, /test_full_premixed/);
+    assert.match(MIG_072, /manual_upload/);
+    assert.match(MIG_072, /api_generation/);
+  });
+
+  test('migration 072 backfills existing Sprint 13.6 cut rows', () => {
+    // Without the backfill, the F1 fix would apply only going forward
+    // and historical cuts would still misrepresent provenance.
+    assert.match(MIG_072,
+      /UPDATE listening_content[\s\S]+?segment_label IS NOT NULL/);
+    assert.match(MIG_072, /source_audio_kind\s*=\s*['"]test_full_premixed['"]/);
+  });
+
+  test('migration 072 preserves parent_content_id for backward compat', () => {
+    // The Sprint 13.6 column + index stay in the schema (no DROP);
+    // the cut route stops writing to it. Pin the no-DROP discipline
+    // so a follow-up migration doesn't quietly remove the column
+    // without an explicit Phase B decision.
+    assert.doesNotMatch(MIG_072, /DROP\s+COLUMN\s+parent_content_id/i);
+  });
+
+  test('migration 072 is idempotent (safe to re-run)', () => {
+    // IF NOT EXISTS on every CREATE / ALTER ADD COLUMN; the CHECK
+    // constraint is drop-then-create-guarded for the same reason.
+    assert.match(MIG_072, /ADD COLUMN IF NOT EXISTS source_test_id/);
+    assert.match(MIG_072, /ADD COLUMN IF NOT EXISTS source_audio_kind/);
+    assert.match(MIG_072, /CREATE UNIQUE INDEX IF NOT EXISTS/);
+    assert.match(MIG_072, /CREATE INDEX IF NOT EXISTS/);
+    assert.match(MIG_072,
+      /DROP CONSTRAINT IF EXISTS chk_listening_content_source_audio_kind/);
+  });
+
+  // ── F2 (cut idempotency) ──
+
+  test('migration 072 adds partial UNIQUE index on cut fingerprint', () => {
+    // (test_id, segment_label, segment_start_seconds, segment_end_seconds)
+    // — the natural fingerprint of a cut. Partial: only active rows.
+    assert.match(MIG_072,
+      /CREATE UNIQUE INDEX IF NOT EXISTS uq_listening_content_cut_active_fingerprint/);
+    assert.match(MIG_072, /segment_label/);
+    assert.match(MIG_072, /segment_start_seconds/);
+    assert.match(MIG_072, /segment_end_seconds/);
+    // Archived rows excluded so re-cut after archive still works.
+    assert.match(MIG_072, /COALESCE\(status,[\s\S]*?['"]draft['"]\)\s*!=\s*['"]archived['"]/);
+  });
+
+  test('frontend success banner splits new vs reused counts', () => {
+    // The F2 fix changes the API response shape from a single
+    // ``segments_created`` to ``segments_new`` + ``segments_reused``.
+    // The status text must reflect both so the admin knows when an
+    // Export click was a no-op cost-wise (all reused).
+    assert.match(JS, /segments_new/);
+    assert.match(JS, /segments_reused/);
+    assert.match(JS, /\$\{newCount\} mới, \$\{reused\} reused/);
+  });
+
+  test('frontend reads reused counts defensively (deploy-safe)', () => {
+    // During a rolling deploy the frontend may briefly run against
+    // an older backend that ships only ``segments_created``. Pin the
+    // fallback so the banner doesn't render literal "undefined mới".
+    assert.match(JS,
+      /typeof res\.segments_new === ['"]number['"][\s\S]+?:\s*created/);
+    assert.match(JS,
+      /typeof res\.segments_reused === ['"]number['"][\s\S]+?:\s*0/);
+  });
+
+  // ── P2.1 retrospective doc truth ──
+
+  test('retrospective documents Sprint 13.6.1, 13.6.2, 13.6.3 in the roll-up', () => {
+    // F5 fix: the cluster closure doc was frozen at Sprint 13.6 and
+    // never mentioned the 3 follow-up hotfix sprints. Pin all three.
+    assert.match(RETRO, /\|\s*13\.6\.1\s*\|\s*#255/);
+    assert.match(RETRO, /\|\s*13\.6\.2\s*\|\s*#256/);
+    assert.match(RETRO, /\|\s*13\.6\.3\s*\|\s*#257/);
+  });
+
+  test('retrospective downgrades the "zero-downtime" claim honestly', () => {
+    // F3 finding: the original "8 zero-downtime migrations" claim was
+    // unverifiable at production scale. Restated to "small-table,
+    // no DROP COLUMN, not strictly zero-downtime".
+    assert.match(RETRO, /not strictly zero-downtime/i);
+    assert.match(RETRO, /CONCURRENTLY/);
+  });
+
+  test('retrospective restates the "first-try CI green" claim accurately', () => {
+    // F7 fix: the "25/25 first-try CI green (100%)" claim was
+    // unverifiable. Restated to "required-checks pass on observed run".
+    assert.match(RETRO, /required-checks/i);
+    assert.match(RETRO, /observed run/i);
+    // Keep an honest pointer to the original-claim correction.
+    assert.match(RETRO, /unverifiable/i);
+  });
+
+  test('retrospective marks parent_content_id as superseded, not active', () => {
+    // F1 fix: the architectural-decisions table should no longer
+    // present parent_content_id as the truthful contract. Pin the
+    // supersession language so a doc refactor can't quietly revive
+    // the misleading claim.
+    // The doc wraps the field names in backticks, so allow them.
+    assert.match(RETRO, /source_test_id[\s`]+\+[\s`]+source_audio_kind/);
+    assert.match(RETRO, /supersedes the Sprint 13\.6 `parent_content_id`/);
+  });
+
+  test('PHASE_CLOSURE_LEDGER carries cluster 13.x cross-reference row', () => {
+    // F6 fix: ledger's primary scope is frontend page redesigns, but
+    // the audit asked for closure-truth discoverability across the
+    // repo. The fix is a cross-reference table pointing at the
+    // backend cluster doc — not extending the ledger's frontend scope.
+    assert.match(LEDGER, /DEBT-ADMIN-LISTENING-AUTHORING/);
+    assert.match(LEDGER, /sprint-13-6-cluster-closure-retrospective\.md/);
+    assert.match(LEDGER, /backend clusters tracked separately/i);
+  });
+
+  test('ledger cross-reference notes the audit-hotfix counter stays frontend-scoped', () => {
+    // Without this note, a future contributor might try to roll
+    // cluster 13.x hotfixes into the "17 audit hotfixes" counter at
+    // the top of the ledger and break the existing sentinel suite.
+    assert.match(LEDGER, /audit-hotfix counter/);
+    assert.match(LEDGER, /frontend-scoped/);
+  });
+
+  test('retrospective amendment block names the audit + cites the 3 hotfix PRs', () => {
+    // The cluster-closure header block must call out that Sprint 13.6
+    // was reopened by Codex audit — otherwise a reader sees only the
+    // "CLOSED" header and assumes the original Sprint 13.6 line is
+    // the truth. Pin the audit attribution + PR references.
+    assert.match(RETRO, /Codex audit 2026-05-22/i);
+    assert.match(RETRO, /PR #255[\s\S]+?PR #256[\s\S]+?PR #257/);
+    assert.match(RETRO, /true closure[\s\S]+?13\.6\.3/i);
+  });
+
+  test('retrospective pattern library carries Sprint 13.6.3 entries 17 + 18', () => {
+    // F1 + F2 fixes are also new repeatable patterns. Pin both rows
+    // so a future closure can reference them without re-deriving.
+    assert.match(RETRO, /\|\s*17\s*\|\s*Truthful provenance contracts\s*\|\s*13\.6\.3/);
+    assert.match(RETRO, /\|\s*18\s*\|\s*Idempotency via fingerprint UNIQUE\s*\|\s*13\.6\.3/);
+  });
+
+  test('retrospective closure table reflects post-13.6.3 totals (32 PRs, 18 patterns)', () => {
+    // Pin the final-tally numbers so a doc refactor can't drift
+    // them. These are the cluster's headline metrics.
+    assert.match(RETRO, /Total PRs[\s\S]{0,80}32/);
+    assert.match(RETRO, /Pattern library entries[\s\S]{0,80}18/);
+    assert.match(RETRO, /Hotfixes[\s\S]{0,80}17/);
+  });
+
+  test('retrospective records audit finding closure metric', () => {
+    // The whole reason Sprint 13.6.3 exists is the audit findings.
+    // Pin that the closure table calls them out explicitly — readers
+    // shouldn't need to dig through commit messages to learn that
+    // 2 P0 + 3 P2 falsifications were resolved.
+    assert.match(RETRO, /Audit findings closed[\s\S]{0,100}P0\s*[×x]\s*2[\s\S]{0,80}P2\s*[×x]\s*3/);
+  });
+
+  test('migration 072 declares its Codex-audit motivation in comments', () => {
+    // Long-running docs vs short-lived commit messages: the SQL file
+    // must self-document why the columns + index exist. A future
+    // engineer reading the schema should find the F1 + F2 context
+    // without grep-spelunking PR history.
+    assert.match(MIG_072, /Codex audit 2026-05-22/i);
+    assert.match(MIG_072, /F1/);
+    assert.match(MIG_072, /F2/);
+  });
+
+  test('migration 072 file number sequence matches the chain (071 → 072)', () => {
+    // The migration list at the bottom of the retrospective + the
+    // file naming convention require monotonically-increasing
+    // numbers. Pin the next-after-071 slot.
+    const filename = '072_listening_content_cut_provenance_and_idempotency.sql';
+    assert.ok(MIG_072.length > 0, `expected ${filename} to be non-empty`);
+    // Migration sequence pinned in the retrospective's headline table too.
+    assert.match(RETRO, /064[\s\S]{0,20}072/);
+  });
+
+  test('migration 072 source_audio_kind CHECK accepts only the three known kinds', () => {
+    // The CHECK constraint enumerates exactly { test_full_premixed,
+    // manual_upload, api_generation } + NULL. Pin the whole constraint
+    // body so an "easy" addition (e.g. 'tts_render') can't sneak in
+    // without an explicit design decision + downstream code updates.
+    const checkBodyRe = /CHECK \(source_audio_kind IS NULL OR source_audio_kind IN \(\s*'test_full_premixed',\s*'manual_upload',\s*'api_generation'\s*\)\)/;
+    assert.match(MIG_072, checkBodyRe);
+  });
+
+});
