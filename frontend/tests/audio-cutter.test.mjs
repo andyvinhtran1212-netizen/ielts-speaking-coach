@@ -735,12 +735,14 @@ describe('Sprint 13.6.3 — Codex audit hotfix (provenance + idempotency)', () =
     assert.match(RETRO, /\|\s*18\s*\|\s*Idempotency via fingerprint UNIQUE\s*\|\s*13\.6\.3/);
   });
 
-  test('retrospective closure table reflects post-13.6.3 totals (32 PRs, 18 patterns)', () => {
+  test('retrospective closure table reflects post-13.6.4 totals (33 PRs, 20 patterns)', () => {
     // Pin the final-tally numbers so a doc refactor can't drift
-    // them. These are the cluster's headline metrics.
-    assert.match(RETRO, /Total PRs[\s\S]{0,80}32/);
-    assert.match(RETRO, /Pattern library entries[\s\S]{0,80}18/);
-    assert.match(RETRO, /Hotfixes[\s\S]{0,80}17/);
+    // them. Sprint 13.6.4 amended the totals upward as the
+    // production-dogfood hotfix added Sprint 13.6.4 + Patterns
+    // #19 + #20 to the closure metrics.
+    assert.match(RETRO, /Total PRs[\s\S]{0,80}33/);
+    assert.match(RETRO, /Pattern library entries[\s\S]{0,80}20/);
+    assert.match(RETRO, /Hotfixes[\s\S]{0,80}18/);
   });
 
   test('retrospective records audit finding closure metric', () => {

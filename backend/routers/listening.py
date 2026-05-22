@@ -4565,14 +4565,35 @@ async def admin_cut_audio_segments(
             content_id = str(uuid.uuid4())
             new_row = {
                 "id":                       content_id,
+                # Sprint 13.6.4 (production F9 fix) — listening_content
+                # has been NOT NULL on ``source_type`` since migration
+                # 056 (Sprint 11.0). Migration 066 added the canonical
+                # ``exercise_snippet`` value for the audio-cutter
+                # specifically ("Sprint 13.6 audio cutter" per the
+                # migration comment). Sprint 13.6's cut route shipped
+                # without it — every Export hit 23502 in production.
+                "source_type":              "exercise_snippet",
+                # Sprint 13.6.4 — other NOT NULL fields the cut route
+                # also missed. ``accent_tag`` defaults to ``other``
+                # because listening_tests doesn't store accent; the
+                # caller can re-tag from the admin panel. ``transcript``
+                # is empty because a cut's transcript is implicit in the
+                # parent test's transcript (sliced by the segment offset
+                # — a Phase B refinement).
+                "accent_tag":               "other",
+                "transcript":               "",
                 "test_id":                  test["id"],
                 "title":                    seg.label,
                 "audio_storage_path":       storage_path,
                 "audio_size_bytes":         len(cut_bytes),
                 "audio_duration_seconds":   max(1, int(round(duration))),
                 "segment_label":            seg.label,
-                "segment_start_seconds":    seg.start,
-                "segment_end_seconds":      seg.end,
+                # Round to 3 decimals so the partial-unique fingerprint
+                # index matches the read-side fingerprinting helper
+                # exactly (no float-equality jitter on round-tripped
+                # values).
+                "segment_start_seconds":    round(float(seg.start), 3),
+                "segment_end_seconds":      round(float(seg.end), 3),
                 # Sprint 13.6.3 (Codex audit F1) — truthful provenance.
                 # ``parent_content_id`` deliberately omitted: full_premixed
                 # audio lives on listening_tests, not listening_content.
@@ -4590,9 +4611,14 @@ async def admin_cut_audio_segments(
             created.append({
                 "id":                       content_id,
                 "title":                    seg.label,
+                # Sprint 13.6.4 — surface source_type to the frontend so
+                # the admin UI can filter the audio-cutter list by
+                # ``source_type === 'exercise_snippet'`` (the canonical
+                # filter) without an extra round-trip.
+                "source_type":              "exercise_snippet",
                 "segment_label":            seg.label,
-                "segment_start_seconds":    seg.start,
-                "segment_end_seconds":      seg.end,
+                "segment_start_seconds":    round(float(seg.start), 3),
+                "segment_end_seconds":      round(float(seg.end), 3),
                 "audio_storage_path":       storage_path,
                 "audio_size_bytes":         len(cut_bytes),
                 "audio_duration_seconds":   max(1, int(round(duration))),
