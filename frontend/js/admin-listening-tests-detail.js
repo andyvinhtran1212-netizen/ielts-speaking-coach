@@ -778,6 +778,10 @@ function renderFullAudio() {
     // the upload before publishing.
     const signed = (STATE.signedUrls && STATE.signedUrls.full) || {};
     if (previewHost && signed.signed_url) {
+      // Sprint 13.6.1 — once full audio is present, surface a deep link
+      // to the audio cutter pre-filled with this test id. Discovery from
+      // the natural authoring context (test detail) — not just the hub.
+      const cutterHref = `/pages/admin/listening/audio-cutter.html?test_id=${encodeURIComponent(STATE.testId)}`;
       previewHost.innerHTML = `
         <div class="td-audio-preview">
           <audio controls preload="metadata"
@@ -785,8 +789,13 @@ function renderFullAudio() {
                  class="td-audio-player">
             Trình duyệt không hỗ trợ HTML5 audio.
           </audio>
-          <button type="button" class="td-btn td-btn-ghost td-replace-btn"
-                  id="td-full-replace">Tải lại audio</button>
+          <div class="td-audio-actions" style="display:flex; gap:var(--av-space-2); flex-wrap:wrap;">
+            <button type="button" class="td-btn td-btn-ghost td-replace-btn"
+                    id="td-full-replace">Tải lại audio</button>
+            <a class="td-btn td-btn-ghost td-cut-link"
+               id="td-cut-audio-link"
+               href="${cutterHref}">✂️ Cắt audio thành 4 sections</a>
+          </div>
         </div>
       `;
       const replaceBtn = previewHost.querySelector('#td-full-replace');

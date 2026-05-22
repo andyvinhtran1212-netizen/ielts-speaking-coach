@@ -35,6 +35,10 @@ const STATE = {
   selectedTest:   null,
   wavesurfer:  null,
   regions:     [],          // mirror of the Wavesurfer Regions plugin's list
+  // Sprint 13.6.1 — deep-link target. When the page is opened with
+  // ``?test_id=<uuid>`` from tests-detail.html, we auto-select that
+  // test and trigger Load Audio once the dropdown is populated.
+  initialTestId: null,
 };
 
 
@@ -75,11 +79,22 @@ function sectionColor(index) {
 // ── Status helpers ─────────────────────────────────────────────────────────
 
 
-function setSourceStatus(text, isError) {
+function setSourceStatus(text, isError, action) {
   const el = $('ac-source-status');
   if (!el) return;
   el.textContent = text || '';
   el.classList.toggle('ac-error', !!isError);
+  // Sprint 13.6.1 — actionable error UX. ``action`` shape: { href, text }.
+  // Renders a sibling anchor so the admin can jump to the page that
+  // fixes the missing prerequisite (e.g. upload full audio).
+  if (action && action.href && action.text) {
+    const link = document.createElement('a');
+    link.href = action.href;
+    link.textContent = action.text;
+    link.className = 'ac-action-link';
+    link.style.marginLeft = '8px';
+    el.appendChild(link);
+  }
 }
 
 function setExportStatus(text, isError) {
@@ -93,9 +108,52 @@ function setExportStatus(text, isError) {
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
 
+function parseInitialTestId() {
+  // Sprint 13.6.1 — accept ``?test_id=<uuid>`` so contextual links from
+  // tests-detail open the cutter pre-filled with the right test.
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const raw = params.get('test_id');
+    if (!raw) return null;
+    // Defensive — only accept UUID-shaped strings so a malformed
+    // query string can't crash the dropdown auto-select.
+    if (!/^[0-9a-fA-F-]{8,}$/.test(raw)) return null;
+    return raw;
+  } catch (_e) {
+    return null;
+  }
+}
+
+
 async function init() {
+  STATE.initialTestId = parseInitialTestId();
   await loadTests();
   bindHandlers();
+  maybeAutoLoadFromQueryParam();
+}
+
+
+function maybeAutoLoadFromQueryParam() {
+  const wanted = STATE.initialTestId;
+  if (!wanted) return;
+  const match = STATE.tests.find((t) => t.id === wanted);
+  if (!match) {
+    // Test id was passed but does not satisfy the full_premixed filter
+    // applied in loadTests(). Surface a clear message instead of silent
+    // no-op so the admin knows why nothing loaded.
+    setSourceStatus(
+      'Test trong URL không có full pre-mixed audio. Mở test trong tests-detail để upload audio đầy đủ trước.',
+      true,
+    );
+    return;
+  }
+  const select = $('ac-test-select');
+  if (select) {
+    select.value = wanted;
+    select.dispatchEvent(new Event('change'));
+  }
+  // Defer one tick so the change-handler has wired ``selectedTest``.
+  setTimeout(() => { void onLoadAudio(); }, 0);
 }
 
 
@@ -139,9 +197,24 @@ async function onLoadAudio() {
     const res = await window.api.get(
       `/admin/listening/tests/${encodeURIComponent(testId)}/audio/signed-urls`,
     );
-    const url = (res && (res.full_audio_signed_url || res.signed_url)) || null;
+    // Sprint 13.6.1 — backend returns nested shape:
+    //   { full: { signed_url, audio_storage_path, ... }, sections: [...], ... }
+    // The original Sprint 13.6 implementation read ``res.full_audio_signed_url``
+    // (a flat key that does not exist) and so always fell through to the
+    // generic "Test không có full audio URL" branch even on the happy path.
+    // Pin the nested key here — contract is covered by
+    // test_signed_urls_returns_full_sections_assembled_bundle in the
+    // backend suite.
+    const url = (res && res.full && res.full.signed_url) || null;
     if (!url) {
-      setSourceStatus('Test không có full audio URL.', true);
+      // Actionable error — link back to the test detail page so admin
+      // can fix the missing prerequisite without copy-pasting the test
+      // id manually.
+      setSourceStatus(
+        'Test chưa upload full pre-mixed audio. Mở test trong tests-detail để upload trước khi cắt.',
+        true,
+        { href: '/pages/admin/listening/tests.html', text: 'Mở danh sách tests →' },
+      );
       return;
     }
     initWavesurfer(url);
