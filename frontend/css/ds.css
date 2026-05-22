@@ -40,6 +40,42 @@
   --ds-shadow-lift:        0 20px 60px rgba(15, 118, 110, 0.18);
 }
 
+/* ── Sprint 14.1 — light-theme override for the legacy --ds-* tokens ────────
+ *
+ * The :root block above ships dark-theme-only values:
+ *   --ds-text     = rgba(255,255,255,0.85)   (invisible on light)
+ *   --ds-surface  = rgba(255,255,255,0.04)   (invisible on light)
+ *   --ds-border   = rgba(255,255,255,0.08)   (invisible on light)
+ *
+ * aver-design tokens.css (frontend/css/aver-design/tokens.css) already
+ * defines the correct light + dark palettes via [data-theme] on <html>,
+ * so the cheapest fix is to alias --ds-* to the matching --av-* tokens
+ * under [data-theme="light"]. Dark theme keeps the legacy literals
+ * verbatim — zero regression.
+ *
+ * Andy 2026-05-22: speaking results page light-theme contrast bug. Sprint
+ * 14.0 Discovery confirmed result.css is already on --av-* tokens; the
+ * remaining offender is ds.css' :root block + a dozen hardcoded
+ * rgba(255,255,255,X) literals in result-page rules (.ds-question-card,
+ * .ds-crit, .ds-band-pill, .ds-strength-item, .ds-improve-item,
+ * .ds-empty-title, .ds-progress-track). Those literals are migrated to
+ * var(--ds-surface) / var(--ds-text) below so they inherit the flip too.
+ */
+:root[data-theme="light"] {
+  --ds-bg:                var(--av-surface-page);
+  --ds-surface:           var(--av-surface-sunken);
+  --ds-border:            var(--av-border-default);
+  --ds-text:              var(--av-text-primary);
+  --ds-muted:             var(--av-text-muted);
+  --ds-faint:             var(--av-text-faint);
+  --ds-bg-elevated:       var(--av-surface-card);
+  --ds-bg-elevated-hover: var(--av-surface-sunken);
+  --ds-border-hover:      var(--av-border-strong);
+  --ds-border-strong:     var(--av-border-strong);
+  --ds-text-muted:        var(--av-text-muted);
+  --ds-text-faint:        var(--av-text-faint);
+}
+
 /* ── Skill-direction page canvas (.ds-canvas) ────────────────────────────────
  * Opt-in body class that supplies the canonical Sprint 5.1 navy ground +
  * atmosphere overlay (faint film grain + corner radial gradient mesh).
@@ -112,8 +148,8 @@ body.ds-canvas::after {
 
 /* ── Question card — highlighted left-border accent ───────────────────────── */
 .ds-question-card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
   border-left: 4px solid var(--ds-teal-lt);
   border-radius: 16px;
   padding: 20px 24px;
@@ -130,7 +166,7 @@ body.ds-canvas::after {
   font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.6;
-  color: #fff;
+  color: var(--ds-text);
 }
 
 /* ── Cue card ──────────────────────────────────────────────────────────────── */
@@ -145,7 +181,7 @@ body.ds-canvas::after {
   align-items: flex-start;
   gap: 8px;
   font-size: 0.875rem;
-  color: rgba(255,255,255,0.8);
+  color: var(--ds-text);
   padding: 4px 0;
 }
 .ds-cue-bullet::before {
@@ -186,14 +222,14 @@ body.ds-canvas::after {
 
 /* ── Criterion cards ───────────────────────────────────────────────────────── */
 .ds-crit {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
   border-radius: 12px;
   padding: 16px;
   text-align: center;
   transition: border-color 0.2s, background 0.2s;
 }
-.ds-crit:hover { background: rgba(255,255,255,0.07); }
+.ds-crit:hover { background: var(--ds-bg-elevated-hover); }
 
 .ds-crit-fc  { border-top: 3px solid var(--ds-fc);  }
 .ds-crit-lr  { border-top: 3px solid var(--ds-lr);  }
@@ -255,7 +291,7 @@ body.ds-canvas::after {
 .ds-empty-title {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.7);
+  color: var(--ds-text);
   margin-bottom: 6px;
 }
 .ds-empty-sub {
@@ -270,7 +306,7 @@ body.ds-canvas::after {
   align-items: flex-start;
   gap: 8px;
   font-size: 0.875rem;
-  color: rgba(255,255,255,0.8);
+  color: var(--ds-text);
   padding: 4px 0;
 }
 .ds-strength-item::before {
@@ -285,7 +321,7 @@ body.ds-canvas::after {
   align-items: flex-start;
   gap: 8px;
   font-size: 0.875rem;
-  color: rgba(255,255,255,0.8);
+  color: var(--ds-text);
   padding: 4px 0;
 }
 .ds-improve-item::before {
@@ -300,7 +336,7 @@ body.ds-canvas::after {
 .ds-progress-track {
   height: 4px;
   border-radius: 9999px;
-  background: rgba(255,255,255,0.08);
+  background: var(--ds-border);
   overflow: hidden;
 }
 .ds-progress-fill {
@@ -329,7 +365,7 @@ body.ds-canvas::after {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 9999px;
-  background: rgba(255,255,255,0.06);
+  background: var(--ds-surface);
 }
 .ds-band-pill-fc  { color: var(--ds-fc);  border: 1px solid rgba(56,189,248,0.25); }
 .ds-band-pill-lr  { color: var(--ds-lr);  border: 1px solid rgba(167,139,250,0.25); }
@@ -399,14 +435,14 @@ select:focus-visible {
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .btn-secondary {
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.8);
+  background: var(--ds-surface);
+  color: var(--ds-text);
   padding: 10px 20px;
   border-radius: 10px;
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--ds-border);
   transition: background 0.15s, border-color 0.15s;
   text-decoration: none;
   display: inline-flex;
@@ -414,7 +450,7 @@ select:focus-visible {
   gap: 8px;
   white-space: nowrap;
 }
-.btn-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); }
+.btn-secondary:hover { background: var(--ds-bg-elevated-hover); border-color: var(--ds-border-strong); }
 .btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* ── Form inputs ────────────────────────────────────────────────────────────── */
