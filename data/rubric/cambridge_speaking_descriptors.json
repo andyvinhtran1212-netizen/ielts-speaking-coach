@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "schema_version": "0.1.0-scaffold",
-    "schema_purpose": "Sprint 14.0 Discovery scaffold for Sprint 14.4 prompt rewrite. NOT canonical Cambridge text — see _source_note. The shape here is the contract the Sprint 14.4 rewrite + Sprint 14.5/14.6 enrichment will read; the content can be replaced cell-by-cell with licensed canonical text without code changes.",
-    "_source_note": "The IELTS Speaking Band Descriptors are © British Council / IDP / Cambridge University Press & Assessment. The public PDF at https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf is copyright-restricted and was not reproduced verbatim during Sprint 14.0 Discovery. The descriptor strings below are paraphrased from `backend/services/claude_grader.py` SYSTEM_PROMPT (lines 55-102), which is the team's already-in-production rendering of the public Cambridge framework. Sprint 14.4 should either (a) keep paraphrased text long-term, (b) acquire a Cambridge Assessment English text license, or (c) commission an examiner-written Aver-original descriptor set. Decision lands in the Sprint 14.4 commission.",
+    "schema_version": "0.2.0-bands-filled",
+    "schema_purpose": "Sprint 14.5 fill of bands 0-3 in the rubric scaffold from Sprint 14.0. The shape was set by Discovery; the content here is paraphrased from the public Cambridge framework (see _source_note) for the bottom-band cells that Sprint 14.0 left as TBD markers.",
+    "_source_note": "The IELTS Speaking Band Descriptors are © British Council / IDP / Cambridge University Press & Assessment. The public PDF at https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf is copyright-restricted and was not reproduced verbatim. Cells in this file are PARAPHRASED — they convey the same calibration signal as the canonical descriptors but use Aver's own wording, drawn from the team's production prompt (`backend/services/claude_grader.py` SYSTEM_PROMPT) plus the publicly summarised Cambridge framework. Andy lock L2 (Sprint 14.5): paraphrased text + one-time legal review at cluster closure (Sprint 14.8); no examiner-original re-write or Cambridge licence acquisition is in scope before then.",
     "_canonical_source": {
       "url": "https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf",
       "publisher": "British Council / IDP / Cambridge University Press & Assessment",
@@ -24,9 +24,9 @@
       "overall_step": "half_integer"
     },
     "gaps_identified_in_sprint_14_0_preflight": [
-      "Bands 0-3 are not represented in the production prompt; current scaffold leaves them empty with TBD markers. Sprint 14.4 fills these in.",
-      "Pronunciation cell at Bands 1-4 has no descriptor text in the production prompt (Sprint 14.4 to source).",
-      "No 'task fulfilment / addresses the question' axis — this is Aver-specific (Sprint 14.5 off-topic judge), NOT a Cambridge gap."
+      "Bands 0-3 were not represented in the production prompt; Sprint 14.5 filled them in (paraphrased from public Cambridge framework). The 'TBD — Sprint 14.4' markers in Sprint 14.0's scaffold are replaced.",
+      "Pronunciation cell at Bands 1-4 had no descriptor text in the production prompt; Sprint 14.5 paraphrased these.",
+      "No 'task fulfilment / addresses the question' axis — this is Aver-specific (Sprint 14.6 off-topic judge per current roadmap), NOT a Cambridge gap."
     ]
   },
 
@@ -38,10 +38,10 @@
       "6":  "Is willing to speak at length, though may lose coherence at times due to occasional repetition, self-correction or hesitation; uses a range of connectives and discourse markers but not always appropriately.",
       "5":  "Usually maintains flow of speech but uses repetition, self-correction and/or slow speech to keep going; may over-use certain connectives and discourse markers; produces simple speech fluently, but more complex communication causes fluency problems.",
       "4":  "Cannot respond without noticeable pauses and may speak slowly, with frequent repetition and self-correction; links basic sentences but with repetitious use of simple connectives and some breakdowns in coherence.",
-      "3":  "TBD — Sprint 14.4: speaks with long pauses; has limited ability to link simple sentences; gives only simple responses and is frequently unable to convey basic message.",
-      "2":  "TBD — Sprint 14.4: pauses lengthily before most words; little communication possible.",
-      "1":  "TBD — Sprint 14.4: no communication possible; no rateable language.",
-      "0":  "TBD — Sprint 14.4: does not attend."
+      "3":  "Speaks with long pauses; has limited ability to link simple sentences; gives only simple responses and is frequently unable to convey basic message. (paraphrased, Sprint 14.5)",
+      "2":  "Pauses lengthily before most words; little communication possible. (paraphrased, Sprint 14.5)",
+      "1":  "No communication possible; no rateable language. (paraphrased, Sprint 14.5)",
+      "0":  "Does not attend. (paraphrased, Sprint 14.5)"
     },
 
     "lr": {
@@ -51,10 +51,10 @@
       "6":  "Has a wide enough vocabulary to discuss topics at length and make meaning clear in spite of inappropriacies; generally paraphrases successfully.",
       "5":  "Manages to talk about familiar and unfamiliar topics but uses vocabulary with limited flexibility; attempts to use paraphrase but with mixed success.",
       "4":  "Is able to talk about familiar topics but can only convey basic meaning on unfamiliar topics and makes frequent errors in word choice; rarely attempts paraphrase.",
-      "3":  "TBD — Sprint 14.4: uses simple vocabulary to convey personal information; has insufficient vocabulary for less familiar topics.",
-      "2":  "TBD — Sprint 14.4: only produces isolated words or memorised utterances.",
-      "1":  "TBD — Sprint 14.4: no communication possible; no rateable language.",
-      "0":  "TBD — Sprint 14.4: does not attend."
+      "3":  "Uses simple vocabulary to convey personal information; has insufficient vocabulary for less familiar topics. (paraphrased, Sprint 14.5)",
+      "2":  "Only produces isolated words or memorised utterances. (paraphrased, Sprint 14.5)",
+      "1":  "No communication possible; no rateable language. (paraphrased, Sprint 14.5)",
+      "0":  "Does not attend. (paraphrased, Sprint 14.5)"
     },
 
     "gra": {
@@ -64,10 +64,10 @@
       "6":  "Uses a mix of simple and complex structures, but with limited flexibility; may make frequent mistakes with complex structures, though these rarely cause comprehension problems.",
       "5":  "Produces basic sentence forms with reasonable accuracy; uses a limited range of more complex structures, but these usually contain errors and may cause some comprehension problems.",
       "4":  "Produces basic sentence forms and some correct simple sentences but subordinate structures are rare; errors are frequent and may lead to misunderstanding.",
-      "3":  "TBD — Sprint 14.4: attempts basic sentence forms but with limited success, or relies on apparently memorised utterances; makes numerous errors except in memorised expressions.",
-      "2":  "TBD — Sprint 14.4: cannot produce basic sentence forms.",
-      "1":  "TBD — Sprint 14.4: no communication possible; no rateable language.",
-      "0":  "TBD — Sprint 14.4: does not attend."
+      "3":  "Attempts basic sentence forms but with limited success, or relies on apparently memorised utterances; makes numerous errors except in memorised expressions. (paraphrased, Sprint 14.5)",
+      "2":  "Cannot produce basic sentence forms. (paraphrased, Sprint 14.5)",
+      "1":  "No communication possible; no rateable language. (paraphrased, Sprint 14.5)",
+      "0":  "Does not attend. (paraphrased, Sprint 14.5)"
     },
 
     "p": {
@@ -77,10 +77,10 @@
       "6":  "Uses a range of pronunciation features with mixed control; shows some effective use of features but this is not sustained; can generally be understood throughout, though mispronunciation of individual words or sounds reduces clarity at times.",
       "5":  "Shows all the positive features of Band 4 and some, but not all, of the positive features of Band 6.",
       "4":  "Uses a limited range of pronunciation features; attempts to control features but lapses are frequent; mispronunciations are frequent and cause some difficulty for the listener.",
-      "3":  "TBD — Sprint 14.4: shows some of the features of Band 2 and some of the features of Band 4.",
-      "2":  "TBD — Sprint 14.4: speech is often unintelligible.",
-      "1":  "TBD — Sprint 14.4: no communication possible; no rateable language.",
-      "0":  "TBD — Sprint 14.4: does not attend."
+      "3":  "Shows some of the features of Band 2 and some of the features of Band 4. (paraphrased, Sprint 14.5)",
+      "2":  "Speech is often unintelligible. (paraphrased, Sprint 14.5)",
+      "1":  "No communication possible; no rateable language. (paraphrased, Sprint 14.5)",
+      "0":  "Does not attend. (paraphrased, Sprint 14.5)"
     }
   },
 
