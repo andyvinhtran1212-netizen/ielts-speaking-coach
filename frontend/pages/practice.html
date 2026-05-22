@@ -287,6 +287,10 @@
         </div>
 
         <!-- Sub-state C: recorded -->
+        <!-- Sprint 14.2 — Andy 2026-05-22 — added <audio controls> playback +
+             per-part length hint. Backend enforces a hard floor (HTTP 422
+             AudioTooShortError); the hint here is a client-side preview so
+             users see the issue without waiting for the network round-trip. -->
         <div id="rec-recorded" style="display:none;">
           <div class="text-center py-4">
             <div class="practice-rec-success">
@@ -295,6 +299,17 @@
             <p class="practice-rec-success-label text-sm font-semibold mb-1">Đã ghi âm xong!</p>
             <p id="rec-duration-display" class="practice-rec-duration text-xs"></p>
           </div>
+
+          <audio id="rec-playback"
+                 controls
+                 preload="metadata"
+                 class="practice-rec-playback"
+                 style="display:none;width:100%;margin:0 0 12px;"></audio>
+
+          <p id="rec-length-hint"
+             class="practice-rec-length-hint text-xs"
+             style="display:none;text-align:center;margin-bottom:12px;"></p>
+
           <div class="flex gap-3">
             <button class="btn-ghost practice-icon-btn py-3 text-sm font-semibold"
                     style="flex:1;"
@@ -302,7 +317,8 @@
               <i data-lucide="rotate-ccw"></i>
               Ghi lại
             </button>
-            <button class="btn-primary practice-icon-btn py-3 text-sm font-bold"
+            <button id="rec-submit-btn"
+                    class="btn-primary practice-icon-btn py-3 text-sm font-bold"
                     style="flex:2;"
                     onclick="PracticeApp.submitRecording()">
               <i data-lucide="upload"></i>

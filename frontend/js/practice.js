@@ -9,6 +9,14 @@
   // Hard-stop recording after this many seconds per part (silent — not shown to user)
   var MAX_RECORD_SEC = { 1: 45, 2: 120, 3: 75 };
 
+  // Sprint 14.2 — per-part minimum recording length (seconds). Backend
+  // is authoritative (services/audio_validation.py raises 422 below the
+  // floor); the client mirrors the cap-table so the "Nộp" gate can
+  // pre-warn the user instead of letting them eat a network round-trip.
+  // The numbers MUST stay in sync with MIN_DURATION_BY_PART in
+  // backend/services/audio_validation.py — sentinel pins both sides.
+  var MIN_RECORD_SEC = { 1: 15, 2: 80, 3: 25 };
+
   var P2_PREP_SEC  = 60;   // Part 2 prep countdown (seconds)
   var P2_SPEAK_SEC = 120;  // Part 2 speaking countdown (seconds)
 
@@ -356,6 +364,12 @@
         var s = _elapsedSecs % 60;
         durEl.textContent = 'Thời lượng ghi âm: ' + m + ':' + (s < 10 ? '0' + s : s);
       }
+      // Sprint 14.2 — wire the playback widget + length hint before
+      // showing the sub-state. _renderRecorded reads _elapsedSecs and
+      // _sessionData.part to set the threshold the user is being
+      // measured against.
+      _renderRecordedPlayback();
+      _renderRecordedLengthHint();
       _showRecSub('recorded');
     };
 
@@ -425,6 +439,70 @@
       var ctx2d = canvas.getContext('2d');
       ctx2d.clearRect(0, 0, canvas.width, canvas.height);
     }
+    // Sprint 14.2 — tear down playback URL + length hint so the next
+    // recording starts clean. Skipping the revoke leaks blob URLs and
+    // (worse) leaves the previous take playable on the next "Đã ghi
+    // âm xong!" screen — a misleading UX.
+    _teardownRecordedPlayback();
+  }
+
+  // Sprint 14.2 — playback widget + length-hint helpers ────────────────────────
+
+  // Blob URL held by the <audio id="rec-playback"> element. Tracked
+  // separately from _feedbackAudioUrl because the feedback screen's
+  // URL is created later (in _showFeedback) and revoked on next render;
+  // mixing them double-revokes.
+  var _recordedPlaybackUrl = null;
+
+  function _renderRecordedPlayback() {
+    var audioEl = $('rec-playback');
+    if (!audioEl || !_recordedBlob) return;
+    if (_recordedPlaybackUrl) {
+      URL.revokeObjectURL(_recordedPlaybackUrl);
+      _recordedPlaybackUrl = null;
+    }
+    _recordedPlaybackUrl = URL.createObjectURL(_recordedBlob);
+    audioEl.src = _recordedPlaybackUrl;
+    audioEl.style.display = '';
+  }
+
+  function _renderRecordedLengthHint() {
+    var part   = _sessionData ? _sessionData.part : null;
+    var minSec = part ? (MIN_RECORD_SEC[part] || 0) : 0;
+    var hintEl = $('rec-length-hint');
+    var submit = $('rec-submit-btn');
+    if (!hintEl) return;
+
+    if (!minSec || _elapsedSecs >= minSec) {
+      hintEl.style.display = 'none';
+      hintEl.textContent = '';
+      if (submit) { submit.disabled = false; submit.removeAttribute('aria-disabled'); }
+      return;
+    }
+
+    var needMore = minSec - _elapsedSecs;
+    hintEl.textContent =
+      'Quá ngắn cho Part ' + part + ' — cần ít nhất ' + minSec +
+      ' giây (còn thiếu ~' + needMore + 's). Hãy ghi lại trước khi nộp.';
+    hintEl.style.display = '';
+    if (submit) { submit.disabled = true; submit.setAttribute('aria-disabled', 'true'); }
+  }
+
+  function _teardownRecordedPlayback() {
+    var audioEl = $('rec-playback');
+    if (audioEl) {
+      try { audioEl.pause(); } catch (_) {}
+      audioEl.removeAttribute('src');
+      audioEl.style.display = 'none';
+    }
+    if (_recordedPlaybackUrl) {
+      URL.revokeObjectURL(_recordedPlaybackUrl);
+      _recordedPlaybackUrl = null;
+    }
+    var hintEl = $('rec-length-hint');
+    if (hintEl) { hintEl.style.display = 'none'; hintEl.textContent = ''; }
+    var submit = $('rec-submit-btn');
+    if (submit) { submit.disabled = false; submit.removeAttribute('aria-disabled'); }
   }
 
   // ── Recording: submit for grading ─────────────────────────────────────────────
@@ -503,6 +581,16 @@
         fd
       );
     } catch (err) {
+      // Sprint 14.2 — audio-too-short is a *recoverable* user error, not
+      // a server failure: route back to the recorded sub-state with the
+      // backend's structured 422 detail rendered as the rec-error banner.
+      // Other errors keep the legacy "AI temporarily unavailable" stub.
+      var detail = err && err.detail;
+      if (detail && detail.code === 'audio_too_short') {
+        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+        _handleAudioTooShort(detail);
+        return;
+      }
       var errMsg = err.message || 'Lỗi không xác định';
       if (errMsg === 'Failed to fetch' || errMsg.includes('NetworkError')) {
         errMsg = 'Không thể kết nối backend. Hãy kiểm tra server đang chạy.';
@@ -513,6 +601,41 @@
       if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
     }
     _showFeedback(data || { _stub: true, _error: 'Không có phản hồi từ server' });
+  }
+
+  // Sprint 14.2 — handle backend's HTTP 422 audio_too_short by returning
+  // to the recorded sub-state with a clear, actionable error banner.
+  // The backend is authoritative on duration (Whisper-decoded); this
+  // path fires when the user beats the client-side hint (e.g. timer
+  // skew, Chrome < 115 MediaRecorder clock issues).
+  function _handleAudioTooShort(detail) {
+    var msg =
+      'Bản ghi quá ngắn cho Part ' + detail.part + ' (' +
+      Number(detail.duration_seconds).toFixed(1) + 's < ' +
+      detail.min_seconds + 's tối thiểu). Hãy ghi lại với câu trả lời dài hơn.';
+    // Part 2 has a different state machine (p2a → p2b → p2c) with no
+    // "recorded" intermediate sub-state, so the only safe re-entry
+    // point is the cue-card screen. The blob is discarded; the user
+    // restarts the full P2 cycle.
+    var part = _sessionData ? _sessionData.part : null;
+    if (part === 2) {
+      _resetRecorder();   // discard blob + clear playback URL
+      showState('p2a');
+      // p2a has no inline error region — surface via alert as a stopgap.
+      // (A proper inline banner is a Phase B follow-up; the hard floor
+      // is rare enough on a full 2-min P2 attempt that this is fine.)
+      try { window.alert(msg); } catch (_) {}
+      return;
+    }
+    // Practice mode P1/P3: snap back to recording state with the
+    // recorded sub-state still showing the original blob + playback.
+    // Submit stays disabled because _renderRecordedLengthHint will
+    // re-check _elapsedSecs (which is < min_seconds, by definition).
+    showState('recording');
+    _showRecSub('recorded');
+    _renderRecordedPlayback();
+    _renderRecordedLengthHint();
+    _showRecError(msg);
   }
 
   // ── STATE: Feedback ───────────────────────────────────────────────────────────

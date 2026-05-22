@@ -30,6 +30,7 @@ from services.whisper import transcribe_from_bytes
 from services import claude_grader
 from services import ai_usage_logger
 from services.transcript_reliability import classify_reliability
+from services.audio_validation import AudioTooShortError, validate_audio_duration
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,11 @@ async def grade_response_endpoint(
         )
 
         # ── STEP 5: Duration guard (post-STT so we have the real value) ───────
+        # Sprint 14.2 — Andy 2026-05-22 — added too-SHORT gate alongside the
+        # existing too-long gate. Whisper duration is authoritative; the
+        # frontend's MediaRecorder clock is unreliable on Chrome < 115.
+        # AudioTooShortError carries a structured detail body so the UI can
+        # render an actionable re-record prompt with the exact threshold.
         step = "duration_check"
         max_dur = settings.MAX_AUDIO_DURATION_SECONDS
         if duration_sec > max_dur:
@@ -281,6 +287,15 @@ async def grade_response_endpoint(
                 422,
                 f"Audio quá dài ({duration_sec:.0f}s). Giới hạn là {max_dur}s."
             )
+
+        try:
+            validate_audio_duration(duration_sec, part)
+        except AudioTooShortError as too_short:
+            logger.info(
+                "[grading] audio rejected — too short: part=%d duration=%.2fs min=%ds",
+                too_short.part, too_short.duration_seconds, too_short.min_seconds,
+            )
+            raise HTTPException(status_code=422, detail=too_short.to_detail())
 
         if not transcript:
             raise HTTPException(
