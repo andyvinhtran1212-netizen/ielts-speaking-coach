@@ -686,6 +686,12 @@
     // ── Comments / feedback blocks ───────────────────────────────────────────
     var commentsEl = $('feedback-comments');
     if (commentsEl) {
+      // Sprint 14.7 — warning banners stack above EVERY feedback
+      // branch so off-topic/short-length signals surface even when AI
+      // grading itself was stubbed. _warningBannerBlock returns '' when
+      // no warnings fire so this is a zero-cost prefix in the common
+      // case.
+      var warningsHtml = _warningBannerBlock(data);
       if (data && data._stub) {
         var isAiDown = data._error && data._error.includes('temporarily unavailable');
         // Sprint 14.6.1 — Andy 2026-05-22 — migrate hardcoded
@@ -694,7 +700,7 @@
         // was outside that PR's source-set). Banner background colors
         // (amber-tinted #fbbf24-based rgba) stay literal — they're
         // semantic surfaces, not text.
-        commentsEl.innerHTML = isAiDown
+        commentsEl.innerHTML = warningsHtml + (isAiDown
           ? '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);'
             + 'border-radius:10px;padding:12px 14px;">'
             + '<p style="font-size:13px;font-weight:600;color:#fbbf24;margin:0 0 4px;">AI chấm điểm tạm thời không khả dụng</p>'
@@ -705,10 +711,10 @@
           : '<p style="font-size:13px;font-style:italic;color:var(--ds-faint);">'
             + 'Câu trả lời đã được ghi lại nhưng chưa thể chấm điểm ngay lúc này.'
             + (data._error ? ' (' + _esc(data._error) + ')' : '')
-            + '</p>';
+            + '</p>');
       } else if (data && data.grammar_issues) {
         // ── Practice mode coaching feedback ──────────────────────────────────
-        commentsEl.innerHTML =
+        commentsEl.innerHTML = warningsHtml +
           '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
           _listBlock('Strengths', data.strengths, '#4ade80') +
           _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
@@ -717,7 +723,7 @@
           (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : '');
       } else if (data && data.fc_feedback) {
         // ── Test mode formal IELTS feedback ──────────────────────────────────
-        commentsEl.innerHTML =
+        commentsEl.innerHTML = warningsHtml +
           '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
           _criterionBlock('Fluency &amp; Coherence', data.fc_feedback)  +
           _criterionBlock('Lexical Resource',        data.lr_feedback)  +
@@ -1103,6 +1109,66 @@
       'letter-spacing:.06em;margin:0 0 5px;">' + title + '</p>' +
       '<p style="font-size:13px;line-height:1.65;color:var(--ds-text);margin:0;">' +
       _esc(text) + '</p></div>';
+  }
+
+  /**
+   * Sprint 14.7 — warning banner block.
+   *
+   * Renders off-topic + length warnings as stacked yellow banners
+   * above the per-criterion feedback (L5/L9). Pattern #26 (Sprint
+   * 14.6.1 lesson): use CSS classes only, NO inline color/background
+   * styles — else light-theme flip breaks.
+   *
+   * Banner colours + contrast live in ds.css under .ds-warning-banner
+   * (--ds-warning-bg/border/text tokens). The light-theme flip is
+   * driven by [data-theme="light"] aliasing those tokens to amber-100/
+   * 800/700 (WCAG AA verified).
+   *
+   * @param {object} data — the grading endpoint response payload.
+   * @returns {string} HTML for the banner block, or '' when no warnings fire.
+   */
+  function _warningBannerBlock(data) {
+    if (!data) return '';
+    var warnings = [];
+
+    // L3 — off_topic_verdict is {is_on_topic, reasoning} or null
+    // (judge silent-skipped per L11/L13). Only render when the judge
+    // produced a verdict AND it flagged off-topic.
+    if (data.off_topic_verdict &&
+        data.off_topic_verdict.is_on_topic === false) {
+      var reasoning = data.off_topic_verdict.reasoning || '';
+      warnings.push({
+        icon: '⚠️',
+        message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề.' +
+                 (reasoning ? ' Lý do: ' + reasoning : ''),
+      });
+    }
+
+    // L7 — length_warning fires when duration is above the Sprint 14.2
+    // hard reject but below the 2× soft threshold. Frontend shows the
+    // numbers so the user knows exactly how short the response was.
+    if (data.length_warning === true) {
+      var dur = (typeof data.audio_duration_seconds === 'number')
+        ? data.audio_duration_seconds.toFixed(1) : '?';
+      var thr = (typeof data.length_soft_threshold === 'number')
+        ? Math.round(data.length_soft_threshold) : '?';
+      warnings.push({
+        icon: '⏱️',
+        message: 'Cảnh báo: Câu trả lời chỉ ' + dur + 's, ngắn hơn ngưỡng ' +
+                 'tham khảo ' + thr + 's. Có thể giới hạn band tối đa.',
+      });
+    }
+
+    if (warnings.length === 0) return '';
+
+    var html = warnings.map(function (w) {
+      return '<div class="ds-warning-banner" role="alert" ' +
+             'aria-label="Cảnh báo kết quả">' +
+        '<span class="ds-warning-icon" aria-hidden="true">' + w.icon + '</span>' +
+        '<p class="ds-warning-message">' + _esc(w.message) + '</p>' +
+        '</div>';
+    }).join('');
+    return '<div class="ds-result-warnings">' + html + '</div>';
   }
 
   function _listBlock(title, items, color) {

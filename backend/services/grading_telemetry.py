@@ -36,6 +36,7 @@ def log_fallback_events(
     question_id: str | None,
     response_id: str | None,
     events: Iterable[FallbackEvent],
+    event_kind: str = "grading",
 ) -> None:
     """Insert one row per :class:`FallbackEvent`. Never raises.
 
@@ -43,8 +44,13 @@ def log_fallback_events(
     response row was persisted); the audit trail still records what
     happened. Likewise the row schema treats `response_id` /
     `question_id` / `session_id` as optional fkeys.
+
+    Sprint 14.7 — ``event_kind`` discriminates the workflow that
+    produced the events. Defaults to ``'grading'`` so existing callers
+    don't need to update. The off-topic judge passes
+    ``'off_topic_judge'``; future kinds extend the table CHECK.
     """
-    rows = [_event_to_row(e, session_id, question_id, response_id)
+    rows = [_event_to_row(e, session_id, question_id, response_id, event_kind)
             for e in events]
     if not rows:
         return
@@ -52,8 +58,8 @@ def log_fallback_events(
     try:
         supabase_admin.table(_TABLE).insert(rows).execute()
         logger.debug(
-            "[telemetry] inserted %d grading_events rows (session=%s response=%s)",
-            len(rows), session_id, response_id,
+            "[telemetry] inserted %d grading_events rows (kind=%s session=%s response=%s)",
+            len(rows), event_kind, session_id, response_id,
         )
     except Exception as exc:
         # Best-effort: never block grading on a telemetry write.
@@ -68,6 +74,7 @@ def _event_to_row(
     session_id: str | None,
     question_id: str | None,
     response_id: str | None,
+    event_kind: str,
 ) -> dict:
     return {
         "session_id":   session_id,
@@ -80,4 +87,5 @@ def _event_to_row(
         "error_status": event.error_status,
         "error_type":   event.error_type,
         "latency_ms":   event.latency_ms,
+        "event_kind":   event_kind,
     }
