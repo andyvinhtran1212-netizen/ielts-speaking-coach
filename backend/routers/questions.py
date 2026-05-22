@@ -7,9 +7,10 @@ It stores the per-question subtopic label for Full Test Part 1
 """
 
 import logging
+from typing import Literal, Union
 
 from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from database import supabase_admin
 
@@ -350,8 +351,27 @@ async def generate_questions(
 
 # ── POST /sessions/{session_id}/questions/custom ──────────────────────────────
 
+
+# Sprint 14.4 — accept both legacy `list[str]` payloads (pre-14.4
+# clients) and the new structured `list[str | CueCardQuestion]` shape
+# (Sprint 14.4+ clients sending a detected cue card). The cue-card
+# branch lights up the existing `cue_card_bullets` jsonb column so
+# practice.js Part 2 state machine renders the cue card UI properly.
+class CueCardQuestion(BaseModel):
+    type:    Literal["cue_card"]
+    prompt:  str = Field(..., min_length=1)
+    topic:   str = ""
+    bullets: list[str] = Field(default_factory=list)
+
+
+# Per-item union: plain string (legacy) or structured cue card dict.
+# A future single-question struct (e.g. with explicit part_num) plugs
+# in here without breaking either older or 14.4 callers.
+CustomQuestionItem = Union[str, CueCardQuestion]
+
+
 class _CustomQBody(BaseModel):
-    questions: list[str]
+    questions: list[CustomQuestionItem]
 
 
 @router.post("/sessions/{session_id}/questions/custom")
@@ -362,7 +382,14 @@ async def save_custom_questions(
 ):
     """
     Lưu câu hỏi do người dùng tự nhập vào DB (bỏ qua Gemini).
-    Body: {"questions": ["Q1?", "Q2?", ...]}
+
+    Body shapes accepted (Sprint 14.4 L8 backward compat):
+      - Legacy:  {"questions": ["Q1?", "Q2?", ...]}
+      - 14.4:    {"questions": [{"type": "cue_card",
+                                  "prompt": "Describe …",
+                                  "topic":  "Describe …",
+                                  "bullets": ["who", "how", …]}]}
+      - Mixed list[str | dict] is also accepted.
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
@@ -384,19 +411,50 @@ async def save_custom_questions(
 
     part = s_result.data[0]["part"]
 
-    rows = [
-        {
-            "session_id":        session_id,
-            "part":              part,
-            "order_num":         i + 1,
-            "question_text":     q.strip(),
-            "question_type":     "custom",
-            "cue_card_bullets":  None,
-            "cue_card_reflection": None,
-        }
-        for i, q in enumerate(body.questions)
-        if q.strip()
-    ]
+    rows = []
+    order = 0
+    for q in body.questions:
+        if isinstance(q, CueCardQuestion):
+            text = (q.prompt or "").strip()
+            if not text:
+                continue
+            order += 1
+            # Sprint 14.4 — cue cards belong to Part 2. If the session
+            # was created for a different part the frontend should have
+            # forced part=2 on /sessions POST; surface the mismatch
+            # here as a 422 so a stale client can't strand the user in
+            # a wrong-part session.
+            if part != 2:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "Cue card chỉ dùng cho Part 2. "
+                        f"Session hiện đang là Part {part}."
+                    ),
+                )
+            rows.append({
+                "session_id":          session_id,
+                "part":                2,
+                "order_num":           order,
+                "question_text":       text,
+                "question_type":       "cue_card",
+                "cue_card_bullets":    list(q.bullets) or None,
+                "cue_card_reflection": None,
+            })
+        else:
+            text = (q or "").strip()
+            if not text:
+                continue
+            order += 1
+            rows.append({
+                "session_id":          session_id,
+                "part":                part,
+                "order_num":           order,
+                "question_text":       text,
+                "question_type":       "custom",
+                "cue_card_bullets":    None,
+                "cue_card_reflection": None,
+            })
 
     if not rows:
         raise HTTPException(status_code=422, detail="Cần ít nhất 1 câu hỏi hợp lệ")

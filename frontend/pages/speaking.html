@@ -433,9 +433,32 @@
           <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
             Câu hỏi <span style="color:var(--av-text-secondary);">(mỗi dòng một câu, tối đa 10)</span>
           </label>
+
+          <!-- Sprint 14.4 — cue card detection toggle + preview.
+               Auto-detect by default; user can force single vs cue card.
+               Re-parses on blur / toggle change / submit (L6). -->
+          <div class="cue-card-mode-row" role="radiogroup" aria-label="Định dạng câu hỏi"
+               style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <label class="cue-card-mode-opt">
+              <input type="radio" name="prac-q-mode" value="auto" checked>
+              <span>Tự nhận diện</span>
+            </label>
+            <label class="cue-card-mode-opt">
+              <input type="radio" name="prac-q-mode" value="single">
+              <span>Câu hỏi riêng lẻ</span>
+            </label>
+            <label class="cue-card-mode-opt">
+              <input type="radio" name="prac-q-mode" value="cue_card">
+              <span>Cue card (Part 2)</span>
+            </label>
+          </div>
+
           <textarea id="prac-custom-q" rows="5" class="tab-input" style="resize:vertical;min-height:110px;"
                     placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable experience."
                     maxlength="2000"></textarea>
+
+          <p id="prac-custom-q-preview" class="cue-card-preview"
+             style="display:none;font-size:11px;margin-top:6px;color:var(--av-text-muted);"></p>
         </div>
 
         <div class="mb-3">
@@ -753,9 +776,29 @@
       <!-- Panel: Câu hỏi riêng -->
       <div id="panel-myq" class="hidden">
         <label class="block text-xs font-medium mb-2" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn (mỗi dòng một câu)</label>
+
+        <!-- Sprint 14.4 — cue card detection toggle + preview. -->
+        <div class="cue-card-mode-row" role="radiogroup" aria-label="Định dạng câu hỏi"
+             style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <label class="cue-card-mode-opt">
+            <input type="radio" name="myq-q-mode" value="auto" checked>
+            <span>Tự nhận diện</span>
+          </label>
+          <label class="cue-card-mode-opt">
+            <input type="radio" name="myq-q-mode" value="single">
+            <span>Câu hỏi riêng lẻ</span>
+          </label>
+          <label class="cue-card-mode-opt">
+            <input type="radio" name="myq-q-mode" value="cue_card">
+            <span>Cue card (Part 2)</span>
+          </label>
+        </div>
+
         <textarea id="myq-input" rows="5" class="topic-input" style="resize:vertical;min-height:100px;"
                   placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable trip you have taken."
                   maxlength="2000"></textarea>
+        <p id="myq-input-preview" class="cue-card-preview"
+           style="display:none;font-size:11px;margin-top:6px;color:var(--av-text-muted);"></p>
         <p class="text-xs mt-1.5" style="color:var(--av-text-secondary);">
           Tối đa 10 câu hỏi. App sẽ bỏ qua bước tạo câu hỏi AI và đi thẳng vào luyện tập.
         </p>
@@ -777,6 +820,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="../js/api.js"></script>
   <script src="../js/format.js"></script>
+  <!-- Sprint 14.4 — Andy 2026-05-22 — cue card heuristic + parser.
+       Pure functions (no DOM); exposed via window.CueCardDetector. -->
+  <script src="../js/cue-card-detector.js"></script>
   <script>
     // ── Config ────────────────────────────────────────────────
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
@@ -1497,19 +1543,25 @@
 
       // ── Custom questions mode ─────────────────────────────────────────────────
       if (_activeTopicTab === 'myq') {
-        var raw = document.getElementById('myq-input').value.trim();
-        if (!raw) {
+        var raw = document.getElementById('myq-input').value;
+        if (!raw || !raw.trim()) {
           errorEl.textContent = 'Vui lòng nhập ít nhất một câu hỏi.';
           return;
         }
-        var questions = raw.split('\n')
-          .map(function (l) { return l.trim(); })
-          .filter(function (l) { return l.length > 0; })
-          .slice(0, 10);
-        if (questions.length === 0) {
+        // Sprint 14.4 — parse via the cue card detector. Re-runs on
+        // submit per L6 even if the user never blurred the textarea.
+        var modeRadio = document.querySelector('input[name="myq-q-mode"]:checked');
+        var mode      = modeRadio ? modeRadio.value : 'auto';
+        var questions = window.CueCardDetector.parseCustomQuestions(raw, mode);
+        if (!questions.length) {
           errorEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.';
           return;
         }
+        // L9 — cue card always belongs to Part 2. Override the modal's
+        // current part selection so the session lands in the right part
+        // and the Sprint 14.2 length gate (Part 2 → 80s) applies.
+        var isCueCard = (typeof questions[0] === 'object' && questions[0].type === 'cue_card');
+        var sessionPart = isCueCard ? 2 : _modalPart;
 
         btn.disabled = true;
         btn.textContent = 'Đang tạo session...';
@@ -1517,7 +1569,7 @@
         try {
           var session = await window.api.post('/sessions', {
             mode: _modalMode,
-            part: _modalPart,
+            part: sessionPart,
             topic: 'Custom questions',
           });
           var sessionId = session && (session.id || session.session_id);
@@ -1700,16 +1752,22 @@
     }
 
     async function startPracticeCustomQ(evt) {
-      var raw   = document.getElementById('prac-custom-q').value.trim();
+      var raw   = document.getElementById('prac-custom-q').value;
       var errEl = document.getElementById('prac-custom-q-error');
       errEl.textContent = '';
-      if (!raw) { errEl.textContent = 'Vui lòng nhập ít nhất một câu hỏi.'; return; }
-      var questions = raw.split('\n').map(function (l) { return l.trim(); })
-                         .filter(function (l) { return l.length > 0; }).slice(0, 10);
+      if (!raw || !raw.trim()) { errEl.textContent = 'Vui lòng nhập ít nhất một câu hỏi.'; return; }
+      // Sprint 14.4 — parse via the cue card detector. L6: also re-runs
+      // on submit even if the user never blurred the textarea.
+      var modeRadio = document.querySelector('input[name="prac-q-mode"]:checked');
+      var mode      = modeRadio ? modeRadio.value : 'auto';
+      var questions = window.CueCardDetector.parseCustomQuestions(raw, mode);
       if (!questions.length) { errEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.'; return; }
+      // L9 — cue card → Part 2 (Sprint 14.2 length gate kicks in there).
+      var isCueCard = (typeof questions[0] === 'object' && questions[0].type === 'cue_card');
+      var sessionPart = isCueCard ? 2 : _pracPart;
       var btn = evt.target; btn.disabled = true; btn.textContent = 'Đang tạo...';
       try {
-        var sess = await window.api.post('/sessions', { mode: 'practice', part: _pracPart, topic: 'Custom questions' });
+        var sess = await window.api.post('/sessions', { mode: 'practice', part: sessionPart, topic: 'Custom questions' });
         var sid  = sess && (sess.id || sess.session_id);
         if (!sid) throw new Error('Server không trả về session hợp lệ.');
         await window.api.post('/sessions/' + sid + '/questions/custom', { questions: questions });
@@ -1719,6 +1777,56 @@
         btn.disabled = false; btn.textContent = '✍️ Bắt đầu luyện tập';
       }
     }
+
+    // Sprint 14.4 — live preview of detected mode. Renders on blur of
+    // the textarea + on toggle change (L6). The string keys match the
+    // textarea/preview id pairs wired up in the two custom-Q forms.
+    function _renderCueCardPreview(textareaId, previewId, modeName) {
+      var textarea = document.getElementById(textareaId);
+      var preview  = document.getElementById(previewId);
+      if (!textarea || !preview) return;
+      var raw = textarea.value;
+      if (!raw || !raw.trim()) {
+        preview.style.display = 'none';
+        preview.textContent = '';
+        return;
+      }
+      var modeRadio = document.querySelector('input[name="' + modeName + '"]:checked');
+      var mode      = modeRadio ? modeRadio.value : 'auto';
+      var parsed    = window.CueCardDetector.parseCustomQuestions(raw, mode);
+      if (!parsed.length) {
+        preview.style.display = 'none';
+        return;
+      }
+      var isCueCard = (typeof parsed[0] === 'object' && parsed[0].type === 'cue_card');
+      if (isCueCard) {
+        preview.textContent =
+          '✓ Đã nhận diện cue card — sẽ xử lý như Part 2 monologue ' +
+          '(' + (parsed[0].bullets ? parsed[0].bullets.length : 0) + ' bullet).';
+      } else {
+        preview.textContent =
+          '✓ Đã nhận diện ' + parsed.length + ' câu hỏi riêng lẻ.';
+      }
+      preview.style.display = '';
+    }
+
+    function _wireCueCardPreview(textareaId, previewId, modeName) {
+      var ta = document.getElementById(textareaId);
+      if (!ta) return;
+      ta.addEventListener('blur',  function () {
+        _renderCueCardPreview(textareaId, previewId, modeName);
+      });
+      document.querySelectorAll('input[name="' + modeName + '"]').forEach(function (el) {
+        el.addEventListener('change', function () {
+          _renderCueCardPreview(textareaId, previewId, modeName);
+        });
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      _wireCueCardPreview('prac-custom-q', 'prac-custom-q-preview', 'prac-q-mode');
+      _wireCueCardPreview('myq-input',     'myq-input-preview',     'myq-q-mode');
+    });
 
     async function startPracticeTopic(evt) {
       var errEl     = document.getElementById('prac-topic-error');
