@@ -467,6 +467,93 @@ async def save_custom_questions(
     return sorted(result.data, key=lambda q: q["order_num"])
 
 
+# ── POST /sessions/cuecard/generate ──────────────────────────────────────────
+
+
+class _GenerateCueCardBody(BaseModel):
+    """Sprint 14.6.2 — input shape for AI cue-card generation.
+
+    The frontend captures whatever the user typed into the textarea
+    (single line, often "Describe a ..."); the backend hands it to
+    services.gemini.generate_part2_cuecard which already caches by
+    topic + returns the canonical question_text + bullets + closing.
+    """
+    trigger: str = Field(..., min_length=1, max_length=400)
+
+
+@router.post("/sessions/cuecard/generate")
+async def generate_cuecard_endpoint(
+    body: _GenerateCueCardBody,
+    authorization: str | None = Header(default=None),
+):
+    """Generate an IELTS Part 2 cue card from a single-line trigger.
+
+    Returns the structured shape the Sprint 14.4 frontend already
+    submits via /sessions/{id}/questions/custom — so the client can
+    POST what we return back to the questions endpoint verbatim, with
+    no schema translation. Cache is reused from
+    services.gemini._cache_get / _cache_set (Supabase question_cache
+    table) which already exists in production.
+
+    On Gemini failure or quota exhaustion this returns HTTP 503 —
+    the frontend then falls back to "paste cue card manually" UX,
+    never blocking the user from proceeding.
+    """
+    auth_user = await get_supabase_user(authorization)
+    user_id = auth_user["id"]
+
+    trigger = body.trigger.strip()
+    if not trigger:
+        raise HTTPException(status_code=422, detail="Trigger trống")
+
+    # Sprint 14.6.2 — reuse production cue-card generator. It already:
+    #   - caches by `(part=2, topic)` via Supabase question_cache
+    #   - logs token usage via ai_usage_logger.log_gemini
+    #   - retries once on JSON-parse failure (see services.gemini)
+    # No new infra; the only new code is the shape translator below.
+    from services.gemini import generate_part2_cuecard
+
+    try:
+        gen = await generate_part2_cuecard(trigger, user_id=user_id)
+    except Exception as exc:
+        # services.gemini raises ValueError after exhausting its own
+        # one retry, or bubbles up Gemini API errors. Surface as 503
+        # so the frontend can route the user to the manual-paste
+        # workaround instead of stranding them on an error screen.
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code":    "cue_card_generation_unavailable",
+                "message": "Dịch vụ tạo cue card tạm thời không khả dụng. "
+                           "Vui lòng paste cue card trọn vẹn hoặc thử lại sau.",
+                "trigger": trigger,
+            },
+        ) from exc
+
+    question_text = (gen.get("question_text") or trigger).strip()
+    bullets       = [str(b).strip() for b in (gen.get("cue_card_bullets") or []) if str(b).strip()]
+    closing       = (gen.get("cue_card_reflection") or "").strip()
+
+    # Assemble the canonical cue-card prompt the frontend will display
+    # + ship to /sessions/{id}/questions/custom. Format matches the
+    # Cambridge convention so the existing practice.js Part 2 state
+    # machine (which already reads cue_card_bullets) sees no surprises.
+    bullet_lines = "\n".join("- " + b for b in bullets)
+    prompt_parts = [question_text, "You should say:", bullet_lines]
+    if closing:
+        prompt_parts.append(closing)
+    full_prompt = "\n".join(part for part in prompt_parts if part)
+
+    return {
+        "type":    "cue_card",
+        "topic":   question_text,
+        "bullets": bullets,
+        "prompt":  full_prompt,
+        "trigger": trigger,           # audit trail — what the user typed
+        "source":  "ai_generated",    # provenance — distinguishes from user_pasted
+    }
+
+
 # ── GET /sessions/{session_id}/questions ──────────────────────────────────────
 
 @router.get("/sessions/{session_id}/questions")

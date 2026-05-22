@@ -151,9 +151,100 @@
     return out;
   }
 
+  /**
+   * Sprint 14.6.2 — part-driven router. Replaces the Sprint 14.4
+   * three-option toggle ("auto" / "single" / "cue_card") which Andy's
+   * 2026-05-22 17:03 screenshot showed as redundant with the existing
+   * Part 1/2/3 selector.
+   *
+   * Routing (Andy locks L2 + L3):
+   *   - Part 1 + Part 3 → always naive single-question split.
+   *   - Part 2 + paste matches detectCueCard heuristic → use the
+   *     paste as the full cue card (source: "user_pasted").
+   *   - Part 2 + paste fails the heuristic (incl. 1-line trigger like
+   *     "Describe your favourite hobby.") → call backend AI gen
+   *     endpoint with the first non-empty line as the trigger; treat
+   *     additional lines as ignorable context per L4.
+   *
+   * @param {string} text — raw textarea contents
+   * @param {number} partNum — 1, 2, or 3 (from the Part selector)
+   * @param {{fetch?: typeof fetch}} [opts] — testing seam
+   * @returns {Promise<Array<string|object>>}
+   */
+  async function parseCustomQuestionsByPart(text, partNum, opts) {
+    var raw = (text == null ? '' : String(text)).trim();
+    var fetchImpl = (opts && opts.fetch) || (typeof fetch !== 'undefined' ? fetch : null);
+
+    if (partNum === 1 || partNum === 3) {
+      return _naiveSplitToSingle(raw);
+    }
+
+    if (partNum !== 2) {
+      throw new Error('parseCustomQuestionsByPart: unsupported partNum ' + partNum);
+    }
+
+    // Part 2 — case A: full cue card pasted (Sprint 14.4 heuristic).
+    var det = detectCueCard(raw);
+    if (det.isCueCard) {
+      return [{
+        type:    'cue_card',
+        prompt:  raw,
+        topic:   det.topic,
+        bullets: det.bullets,
+        source:  'user_pasted',
+      }];
+    }
+
+    // Part 2 — case B: 1-line trigger (or multi-line non-cue-card; per
+    // L4 we use the first non-empty line as the trigger and ignore
+    // the rest — the alternative is a confusing reject UX).
+    var lines = raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    if (lines.length === 0) {
+      throw new Error('Vui lòng nhập ít nhất 1 dòng cho Part 2');
+    }
+    var trigger = lines[0];
+
+    if (!fetchImpl) {
+      throw new Error('parseCustomQuestionsByPart: fetch unavailable for AI cue-card gen');
+    }
+
+    var resp = await fetchImpl('/sessions/cuecard/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ trigger: trigger }),
+    });
+
+    if (!resp.ok) {
+      var detail = {};
+      try { detail = await resp.json(); } catch (_) {}
+      var msg = (detail && detail.detail && detail.detail.message)
+        || 'Không thể tạo cue card. Hãy thử paste cue card đầy đủ.';
+      var err = new Error(msg);
+      err.status = resp.status;
+      err.detail = detail.detail || detail;
+      throw err;
+    }
+
+    var payload = await resp.json();
+    // Sprint 14.4 backend `_CustomQBody` accepts {type, prompt, topic,
+    // bullets}; the AI-gen endpoint already returns exactly that
+    // shape so we forward it verbatim. The extra `trigger` + `source`
+    // keys are ignored by Pydantic (CueCardQuestion is permissive on
+    // unknown fields — they would just drop).
+    return [{
+      type:    'cue_card',
+      prompt:  payload.prompt,
+      topic:   payload.topic,
+      bullets: payload.bullets || [],
+      source:  payload.source || 'ai_generated',
+      trigger: payload.trigger || trigger,
+    }];
+  }
+
   var api = {
     detectCueCard:        detectCueCard,
-    parseCustomQuestions: parseCustomQuestions,
+    parseCustomQuestions: parseCustomQuestions,       // Sprint 14.4 (deprecated — kept for L10 backward compat)
+    parseCustomQuestionsByPart: parseCustomQuestionsByPart,  // Sprint 14.6.2
     // Exported for test harness only; not part of the public API.
     _OPENING_RE:    OPENING_RE,
     _YOU_SHOULD_RE: YOU_SHOULD_RE,
