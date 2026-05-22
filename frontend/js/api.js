@@ -55,7 +55,21 @@
     if (!response.ok) {
       var err = {};
       try { err = await response.json(); } catch (_) {}
-      throw new Error(err.detail || 'HTTP ' + response.status);
+      // Sprint 14.2 — surface structured 422 detail bodies (e.g.
+      // {code:'audio_too_short', part, duration_seconds, min_seconds})
+      // to callers without forcing them to re-parse the message string.
+      // Existing callers that read `error.message` keep working: if
+      // detail is an object we coerce a readable summary; otherwise
+      // we use the string verbatim.
+      var detail   = err.detail;
+      var isObj    = detail && typeof detail === 'object';
+      var message  = isObj
+        ? (detail.message || 'HTTP ' + response.status)
+        : (detail || 'HTTP ' + response.status);
+      var thrown   = new Error(message);
+      thrown.status = response.status;
+      thrown.detail = detail || null;
+      throw thrown;
     }
 
     return response.json();
