@@ -714,10 +714,15 @@
             + '</p>');
       } else if (data && data.grammar_issues) {
         // ── Practice mode coaching feedback ──────────────────────────────────
+        // Sprint 14.8 — _grammarCheckBlock(data.grammar_check) renders
+        // the structured LanguageTool + VI-learner regex output next
+        // to Claude's qualitative `_grammarIssuesBlock` text. Both
+        // surfaces coexist; the LT block returns '' when no errors.
         commentsEl.innerHTML = warningsHtml +
           '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
           _listBlock('Strengths', data.strengths, '#4ade80') +
           _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
+          _grammarCheckBlock(data.grammar_check) +
           _listBlock('Vocabulary Issues', data.vocabulary_issues, '#fb923c') +
           _correctionsBlock(data.corrections) +
           (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : '');
@@ -739,11 +744,24 @@
     }
 
     // ── Transcript ───────────────────────────────────────────────────────────
+    // Sprint 14.8 — when grammar_check.errors is present we render the
+    // transcript with wavy-underline highlights so the learner can
+    // SEE the offending spans. Falls back to plain textContent (the
+    // pre-14.8 path) when no errors fire or grammar_check is null —
+    // preserves the L16 backward-compat contract for old payloads.
     var transcriptWrap = $('feedback-transcript');
     var transcriptText = $('feedback-transcript-text');
     if (transcriptWrap && transcriptText) {
       if (data && data.transcript) {
-        transcriptText.textContent = data.transcript;
+        var gc = data.grammar_check;
+        var hasGrammarErrors = gc && Array.isArray(gc.errors) && gc.errors.length > 0;
+        if (hasGrammarErrors) {
+          transcriptText.innerHTML = _renderTranscriptWithHighlights(data.transcript, gc);
+        } else {
+          // textContent path stays the canonical "no highlight" branch
+          // — safer than innerHTML for arbitrary transcript content.
+          transcriptText.textContent = data.transcript;
+        }
         transcriptWrap.style.display = '';
       } else {
         transcriptWrap.style.display = 'none';
@@ -1109,6 +1127,157 @@
       'letter-spacing:.06em;margin:0 0 5px;">' + title + '</p>' +
       '<p style="font-size:13px;line-height:1.65;color:var(--ds-text);margin:0;">' +
       _esc(text) + '</p></div>';
+  }
+
+  /**
+   * Sprint 14.8 — grammar check block (structured errors from
+   * services.grammar_check; LanguageTool + VI-learner regex asset).
+   *
+   * Distinct from Sprint 14.5's `_grammarIssuesBlock(issues, recs)`
+   * which renders Claude's qualitative coaching text — both surfaces
+   * coexist in the practice-mode panel.
+   *
+   * Renders errors grouped by category (L5) with the original-text →
+   * suggestion pair + the VN explanation. Bidirectional linking
+   * (Pattern #32): each <li> carries data-error-id matching the
+   * transcript highlight's data-error-id so clicking the highlight
+   * scrolls here and flashes the entry.
+   *
+   * Pattern #26 (L14) — pure CSS-class styling; no inline colour or
+   * background literals so the light-theme flip works on first load.
+   */
+  function _grammarCheckBlock(gc) {
+    if (!gc || !Array.isArray(gc.errors) || gc.errors.length === 0) {
+      return '';
+    }
+    // Group by category — insertion order is preserved across the
+    // priority sort the backend already applied, so the high-severity
+    // groups land on top of the panel naturally.
+    var groups = {};
+    var order  = [];
+    for (var i = 0; i < gc.errors.length; i++) {
+      var e = gc.errors[i];
+      var cat = e.category || 'other';
+      if (!groups[cat]) { groups[cat] = []; order.push(cat); }
+      groups[cat].push(e);
+    }
+
+    var labels = {
+      tense:                  'Thì động từ',
+      article:                'Mạo từ',
+      preposition:            'Giới từ',
+      missing_subject:        'Thiếu chủ ngữ',
+      subject_verb_agreement: 'Sự hòa hợp chủ - động',
+      verb_form:              'Dạng động từ',
+      copula:                 'Động từ to be',
+      vocabulary:             'Từ vựng',
+      punctuation:            'Dấu câu',
+      spelling:               'Chính tả',
+      style:                  'Văn phong',
+      grammar:                'Ngữ pháp',
+      other:                  'Khác',
+    };
+
+    var groupsHtml = order.map(function (cat) {
+      var items = groups[cat].map(function (e) {
+        var id  = e.transcript_offset_start + '-' + e.transcript_offset_end;
+        var pair = '<div class="ds-grammar-error-pair">' +
+          '<span class="ds-grammar-error-original">' + _esc(e.original_text || '') + '</span>' +
+          '<span class="ds-grammar-error-arrow" aria-hidden="true">→</span>' +
+          '<span class="ds-grammar-error-suggestion">' + _esc(e.suggestion || '(?)') + '</span>' +
+        '</div>';
+        var exp = e.explanation_vn
+          ? '<p class="ds-grammar-error-explanation">' + _esc(e.explanation_vn) + '</p>'
+          : '';
+        return '<li class="ds-grammar-error-item" data-error-id="' + _esc(id) + '">' +
+          pair + exp + '</li>';
+      }).join('');
+      return '<div class="ds-grammar-category">' +
+        '<p class="ds-grammar-category-title">' + _esc(labels[cat] || cat) + '</p>' +
+        '<ul class="ds-grammar-error-list">' + items + '</ul>' +
+        '</div>';
+    }).join('');
+
+    var more = '';
+    if (typeof gc.total_count === 'number' &&
+        typeof gc.displayed_count === 'number' &&
+        gc.total_count > gc.displayed_count) {
+      more = '<p class="ds-grammar-more-info">+' +
+        (gc.total_count - gc.displayed_count) +
+        ' lỗi khác đã được phát hiện.</p>';
+    }
+
+    return '<div class="ds-grammar-section">' +
+      '<p class="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>' +
+      groupsHtml + more +
+      '</div>';
+  }
+
+  /**
+   * Sprint 14.8 — transcript with positional grammar highlights.
+   *
+   * Each error span is wrapped in a <mark class="ds-grammar-highlight">
+   * carrying data-error-id (matching the inline list entry's id) and
+   * data-tooltip (suggestion + VN explanation). The tooltip + the
+   * flash animation live in ds.css; the click handler down below
+   * wires the bidirectional jump (Pattern #32).
+   *
+   * Returns plain-escaped HTML when no errors fire so old / cached
+   * results render identically to pre-14.8 (L16 backward compat).
+   *
+   * @param {string} transcript
+   * @param {object|null} grammarCheck
+   * @returns {string} innerHTML for the transcript surface
+   */
+  function _renderTranscriptWithHighlights(transcript, grammarCheck) {
+    var raw = String(transcript == null ? '' : transcript);
+    if (!grammarCheck || !Array.isArray(grammarCheck.errors) || grammarCheck.errors.length === 0) {
+      return _esc(raw);
+    }
+    // Sort by offset asc; drop malformed/overlapping spans defensively.
+    var spans = grammarCheck.errors
+      .filter(function (e) {
+        return typeof e.transcript_offset_start === 'number' &&
+               typeof e.transcript_offset_end   === 'number' &&
+               e.transcript_offset_end > e.transcript_offset_start &&
+               e.transcript_offset_start >= 0 &&
+               e.transcript_offset_end   <= raw.length;
+      })
+      .slice()
+      .sort(function (a, b) {
+        return a.transcript_offset_start - b.transcript_offset_start;
+      });
+
+    var out    = '';
+    var cursor = 0;
+    for (var i = 0; i < spans.length; i++) {
+      var e = spans[i];
+      if (e.transcript_offset_start < cursor) {
+        // Overlapping span — skip to keep offsets sane.
+        continue;
+      }
+      if (e.transcript_offset_start > cursor) {
+        out += _esc(raw.substring(cursor, e.transcript_offset_start));
+      }
+      var errText = raw.substring(e.transcript_offset_start, e.transcript_offset_end);
+      var id      = e.transcript_offset_start + '-' + e.transcript_offset_end;
+      var tip     = (e.suggestion || '(?)') +
+        (e.explanation_vn ? ' • ' + e.explanation_vn : '');
+      out += '<mark class="ds-grammar-highlight"' +
+        ' data-error-id="' + _esc(id) + '"' +
+        ' data-tooltip="'  + _esc(tip) + '"' +
+        ' tabindex="0"' +
+        ' role="button"' +
+        ' aria-label="Lỗi ngữ pháp: ' + _esc(errText) +
+        ' — gợi ý: ' + _esc(e.suggestion || '') + '">' +
+        _esc(errText) +
+        '</mark>';
+      cursor = e.transcript_offset_end;
+    }
+    if (cursor < raw.length) {
+      out += _esc(raw.substring(cursor));
+    }
+    return out;
   }
 
   /**
@@ -2842,6 +3011,58 @@
     downloadPDFs:         _downloadPDFs,
     // exposed for state-break skip button (optional future use)
     showState:            showState,
+    // Sprint 14.8 — exposed for the cue-card / part-router tests +
+    // future re-use. Pure functions, no DOM access.
+    _grammarCheckBlock:                _grammarCheckBlock,
+    _renderTranscriptWithHighlights:   _renderTranscriptWithHighlights,
   };
+
+  // Sprint 14.8 — bidirectional linking (Pattern #32) between the
+  // transcript highlights and the inline grammar list. A single
+  // delegated click listener handles both directions: clicking a
+  // <mark class="ds-grammar-highlight"> scrolls + flashes the matching
+  // <li class="ds-grammar-error-item">; clicking the <li> itself does
+  // the same (so the link is reciprocal for users who notice the list
+  // first). Keyboard accessibility: Enter / Space on a focused span
+  // performs the same scroll.
+  function _scrollToGrammarEntry(errorId) {
+    if (!errorId) return;
+    var entry = document.querySelector(
+      '.ds-grammar-error-item[data-error-id="' + errorId + '"]'
+    );
+    if (!entry) return;
+    entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    entry.classList.add('is-flash');
+    setTimeout(function () { entry.classList.remove('is-flash'); }, 1500);
+  }
+
+  document.addEventListener('click', function (e) {
+    var hl = e.target.closest && e.target.closest('.ds-grammar-highlight');
+    if (hl) {
+      _scrollToGrammarEntry(hl.getAttribute('data-error-id'));
+      return;
+    }
+    // Reverse direction — click on the list entry scrolls to the
+    // first matching highlight on the transcript. Skipped when the
+    // transcript surface isn't in view (e.g. test mode hides it).
+    var li = e.target.closest && e.target.closest('.ds-grammar-error-item');
+    if (li) {
+      var id = li.getAttribute('data-error-id');
+      var mark = id && document.querySelector(
+        '.ds-grammar-highlight[data-error-id="' + id + '"]'
+      );
+      if (mark) {
+        mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var hl = e.target && e.target.closest && e.target.closest('.ds-grammar-highlight');
+    if (!hl) return;
+    e.preventDefault();
+    _scrollToGrammarEntry(hl.getAttribute('data-error-id'));
+  });
 
 })();
