@@ -1,9 +1,9 @@
 # DEBT-ADMIN-LISTENING-AUTHORING — Cluster Closure Retrospective
 
-**Status:** CLOSED on Sprint 13.6.3 merge (post Codex audit hotfix)
-**Cluster span:** Sprint 13.0 → 13.6.3 (15 sprints + 17 hotfixes = 32 PRs)
+**Status:** CLOSED on Sprint 13.6.4 merge (after Andy production dogfood verifies clean)
+**Cluster span:** Sprint 13.0 → 13.6.4 (15 sprints + 18 hotfixes = 33 PRs)
 **Branch model:** branch-per-sprint, PR each with full CI green before merge
-**Wall-clock:** 2026-05-18 → 2026-05-22 (4 working days)
+**Wall-clock:** 2026-05-18 → 2026-05-22 (4 working days, with 13.6.4 dogfood pending)
 
 > **Sprint 13.6.3 amendment (Codex audit 2026-05-22):** Sprint 13.6 was
 > initially declared closure but a Codex audit found 2 P0 + 3 P2
@@ -12,7 +12,27 @@
 > Wavesurfer v6 plugin binding, Sprint 13.6.3 (PR #257) replaced the
 > misleading `parent_content_id` provenance with `source_test_id` +
 > `source_audio_kind` and made cut Export idempotent via a partial
-> unique index. The "true closure" line is Sprint 13.6.3, not 13.6.
+> unique index.
+
+> **Sprint 13.6.4 amendment (production dogfood 2026-05-22):** Sprint 13.6.3
+> claimed closure but Andy's first production dogfood at 14:20 ICT crashed
+> with Postgres 23502 on the cut Export — the cut INSERT had never
+> populated ``source_type`` (NOT NULL since migration 056) for the four
+> PRs spanning the audio-cutter ship. CI passed throughout because the
+> fake Supabase in `test_listening_audio_cutter.py` appended rows without
+> constraint checking. Sprint 13.6.4 (PR #259) ships:
+> (a) cut INSERT populates ``source_type = 'exercise_snippet'`` (canonical
+> value provisioned by migration 066's CHECK enum for "Sprint 13.6 audio
+> cutter") + ``accent_tag = 'other'`` + ``transcript = ''`` (other NOT
+> NULL gaps);
+> (b) migration 072 amended to self-heal missing segment columns
+> (`segment_label`, `segment_start_seconds`, `segment_end_seconds`) when
+> migration 071 was not applied in production;
+> (c) schema-aware fake Supabase that mirrors the production NOT NULL +
+> CHECK constraints, so the F9 / F10 / F11 class of bug cannot ship
+> green again.
+> The "true closure" line is **Sprint 13.6.4 after Andy production
+> dogfood verifies clean** — Sprint 13.6.3's closure was premature.
 
 ---
 
@@ -55,7 +75,8 @@ listening test solo from a single markdown bundle.
 | 13.6    | #254 | `sprint-13-6-audio-cutter-and-closure`             | Audio cutter (ffmpeg silencedetect + stream-copy) + initial cluster closure |
 | 13.6.1  | #255 | `sprint-13-6-1-audio-cutter-navigation-design-fix` | Hotfix: nav card in admin hub + tests-detail contextual link + nested `res.full.signed_url` fix + actionable error UX |
 | 13.6.2  | #256 | `sprint-13-6-2-detect-silence-regions-fix`         | Hotfix: Wavesurfer v6 plugin-instance binding (sidestep static-prop `addRegion.call()` crash) |
-| 13.6.3  | #257 | `sprint-13-6-3-codex-audit-hotfix`                 | Hotfix: Codex audit P0 — `source_test_id` + `source_audio_kind` provenance, partial UNIQUE on cut fingerprint, reuse semantics |
+| 13.6.3  | #257 | `sprint-13-6-3-codex-audit-hotfix`                 | Hotfix: Codex audit P0 — `source_test_id` + `source_audio_kind` provenance, partial UNIQUE on cut fingerprint, reuse semantics (premature closure — never ran in production) |
+| 13.6.4  | #259 | `sprint-13-6-4-cut-route-production-fix`           | Hotfix: production dogfood — cut INSERT populates `source_type='exercise_snippet'` + `accent_tag` + `transcript`; migration 072 self-heals segment columns; schema-aware fake Supabase prevents F11 recurrence |
 
 ### What lives where now
 
@@ -116,6 +137,8 @@ listening test solo from a single markdown bundle.
 | 16 | Closure ledger pattern | 13.6 | Retrospective + pattern library + migration list + roll-up at cluster end |
 | 17 | Truthful provenance contracts | 13.6.3 | Don't model a relationship the data doesn't have. `parent_content_id` looked correct in the schema but never matched reality — `source_test_id` + `source_audio_kind` name the actual source kind explicitly |
 | 18 | Idempotency via fingerprint UNIQUE | 13.6.3 | Partial UNIQUE on the natural fingerprint + service-layer pre-check turns a "re-click duplicates the row" failure into a no-cost reuse |
+| 19 | Dogfood-as-falsifier | 13.6.4 | Mocked sentinels are necessary but insufficient. Production dogfood is the final empirical test; schedule it within 24 h of any new feature merge. Closure claims should follow the dogfood, not the merge |
+| 20 | Schema-aware fake | 13.6.4 | Fake DB clients must mirror production NOT NULL + CHECK constraints. Naked `.insert()` that silently appends to a list lets schema-violating writes pass CI. Add a `_validate_*_insert` mirror per table |
 
 ---
 
@@ -233,23 +256,40 @@ Alternative paths (Andy lock pending):
 
 ---
 
-## Cluster 13.x CLOSED (post Sprint 13.6.3 audit hotfix)
+## Cluster 13.x CLOSED (pending Sprint 13.6.4 production dogfood)
 
 | Item | Value |
 |---|---|
 | Sprints | 15 |
-| Hotfixes | 17 (14 in-cluster + 3 Sprint 13.6.x audit follow-ups) |
-| Total PRs | 32 |
-| Wall-clock | 4 working days (2026-05-18 → 2026-05-22) |
-| LOC delta | ~10 000 |
-| Backend tests | 1485 → 1647+ (+162) |
+| Hotfixes | 18 (14 in-cluster + 4 Sprint 13.6.x follow-ups including the production-dogfood fix) |
+| Total PRs | 33 |
+| Wall-clock | 4 working days (2026-05-18 → 2026-05-22) — dogfood verify pending |
+| LOC delta | ~10 500 |
+| Backend tests | 1485 → 1651+ (+166) |
 | Frontend sentinels | 2950 → 3195+ (+245) |
-| Migrations | 064–072 (9 small-table, no DROP COLUMN; not strictly zero-downtime — see Track records) |
+| Migrations | 064–072 (9 small-table, no DROP COLUMN; 072 amended in Sprint 13.6.4 to self-heal — see F10) |
 | Standing audit gates | 14 (all green) |
-| CI-required-checks pass on observed run | 32 / 32 (post Sprint 13.6.3) |
-| Pattern library entries | 18 |
-| Cumulative falsifications | ~120 |
-| Audit findings closed | Codex 2026-05-22 P0 ×2 + P2 ×3 |
+| CI-required-checks pass on observed run | 32 / 32 pre-Sprint 13.6.4 (CI passed but production crashed — see F11 honesty note in Track records below) |
+| Pattern library entries | 20 |
+| Cumulative falsifications | ~123 (Codex F1–F8 + production-dogfood F9 / F10 / F11) |
+| Audit findings closed | Codex 2026-05-22 P0 ×2 + P2 ×3 + production dogfood F9 / F10 / F11 |
+
+### Honest accounting note on the "32 / 32 CI green" pre-13.6.4 claim
+
+Sprint 13.6.3's retrospective recorded "32 / 32 required-checks pass on
+observed run". Sprint 13.6.4 surfaced the truth: the audio-cutter cut
+route had crashed in production on every single attempt since PR #254
+shipped, but CI was green throughout. The CI claim was technically
+correct — the green lights were real — but the green lights were
+unreliable because the fake Supabase in `test_listening_audio_cutter.py`
+appended rows without enforcing the production schema's NOT NULL and
+CHECK constraints. F11 ("sentinel tests fake-pass") is the meta-finding.
+
+The schema-aware fake added in Sprint 13.6.4 (LISTENING_CONTENT_REQUIRED_FIELDS
++ `_validate_listening_content_insert` in test_listening_audio_cutter.py)
+now mirrors the migration-056 NOT NULL set and the migration-066
+source_type CHECK enum. Future inserts on listening_content get the
+safety net for free.
 
 **Andy's deliverable:** Production-ready IELTS Listening authoring
 platform with end-to-end solo workflow (markdown source → audio cut → AI

@@ -1,5 +1,13 @@
 -- Migration: 072_listening_content_cut_provenance_and_idempotency.sql
 -- Mô tả: Sprint 13.6.3 Codex audit hotfix — truthful provenance + cut idempotency.
+-- Sprint 13.6.4 amendment 2026-05-22: self-heal missing segment columns +
+-- skip backfill UPDATE when those columns are absent. Original 13.6.3 file
+-- assumed migration 071 had been applied; in production it had not, so the
+-- partial UNIQUE index referenced non-existent columns and the migration
+-- errored with 42703. The amended block below idempotently adds the
+-- segment columns (re-creating 071's work if missing, no-op if present)
+-- BEFORE any reference to them. All statements remain IF NOT EXISTS / DROP
+-- IF EXISTS guarded so re-running on any partial-state environment is safe.
 --
 -- Codex audit 2026-05-22 raised two P0 falsifications against Sprint 13.6:
 --
@@ -26,6 +34,24 @@
 -- stops writing to it; readers should prefer ``source_test_id`` going
 -- forward. Drop planned for a future Phase B migration after a grace
 -- period.
+
+
+-- ── Sprint 13.6.4 self-heal: segment columns from migration 071 ────────────
+--
+-- Production schema audit 2026-05-22 surfaced that migration 071's segment
+-- columns (segment_label, segment_start_seconds, segment_end_seconds) had
+-- never been applied. The Sprint 13.6 cut route writes to them anyway and
+-- the original 072 below references them in a partial-unique index — both
+-- broke at runtime. Re-asserting the columns here makes 072 self-contained
+-- and idempotent under any partial-state combination:
+--   * 071 fully applied + 072 not applied → no-op here, body below runs
+--   * 071 not applied + 072 errored mid-way → adds segment cols, retries below
+--   * Both fully applied → no-op everywhere (IF NOT EXISTS / DROP IF EXISTS)
+
+ALTER TABLE listening_content
+    ADD COLUMN IF NOT EXISTS segment_label         TEXT,
+    ADD COLUMN IF NOT EXISTS segment_start_seconds NUMERIC,
+    ADD COLUMN IF NOT EXISTS segment_end_seconds   NUMERIC;
 
 
 -- ── Provenance (F1) ────────────────────────────────────────────────────────

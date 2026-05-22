@@ -231,6 +231,72 @@ class _Resp:
         self.count = count
 
 
+# Sprint 13.6.4 — schema-aware insert validation.
+#
+# The Sprint 13.6 cut route shipped without populating ``source_type`` (a
+# NOT NULL CHECK column from migration 056) + ``accent_tag`` + ``transcript``.
+# Sprint 13.6 tests passed because the previous ``_Fake`` here just appended
+# rows without constraint checking. The dict below mirrors the production
+# schema's NOT-NULL set so the fake catches the bug a real Postgres would
+# raise, without requiring a real DB fixture. New tests in this file pin
+# the cut INSERT against this constraint map; future inserts on
+# listening_content also get the safety net for free.
+LISTENING_CONTENT_REQUIRED_FIELDS = {
+    # All four come from migration 056. ``id``, ``status``, ``transcript_segments``,
+    # ``metadata``, ``topic_tags`` have DB-side defaults and are deliberately
+    # NOT listed here — the Supabase Python client handles default backfill.
+    "source_type",
+    "audio_storage_path",
+    "audio_duration_seconds",
+    "audio_size_bytes",
+    "accent_tag",
+    "transcript",
+    "title",
+}
+
+LISTENING_CONTENT_SOURCE_TYPE_ALLOWED = {
+    # From migrations 056 + 066 — the CHECK constraint enum.
+    "ai_elevenlabs",
+    "upload_mp3",
+    "curated_external",
+    "test_section",
+    "exercise_snippet",  # Sprint 13.6 audio cutter (migration 066 comment)
+}
+
+
+class _SchemaViolation(Exception):
+    """Raised by the fake to surface NOT NULL / CHECK violations the way
+    Postgres would (status 23502 / 23514). Tests catch this to confirm
+    a regression would be caught before production."""
+
+
+def _validate_listening_content_insert(payload: dict) -> None:
+    """Mirror the production NOT NULL + source_type CHECK constraints."""
+    missing = [
+        f for f in LISTENING_CONTENT_REQUIRED_FIELDS
+        if payload.get(f) in (None, "")
+        and f not in ("transcript",)  # transcript=='' allowed; '' is non-null
+    ]
+    if missing:
+        raise _SchemaViolation(
+            f"null value in columns {sorted(missing)} of relation "
+            f"'listening_content' violates not-null constraint"
+        )
+    if "transcript" in LISTENING_CONTENT_REQUIRED_FIELDS \
+            and payload.get("transcript") is None:
+        raise _SchemaViolation(
+            "null value in column 'transcript' of relation 'listening_content' "
+            "violates not-null constraint"
+        )
+    src = payload.get("source_type")
+    if src not in LISTENING_CONTENT_SOURCE_TYPE_ALLOWED:
+        raise _SchemaViolation(
+            f"new row violates check constraint "
+            f"'listening_content_source_type_check' "
+            f"(source_type={src!r} not in {sorted(LISTENING_CONTENT_SOURCE_TYPE_ALLOWED)})"
+        )
+
+
 class _Q:
     def __init__(self, fake, name):
         self.fake = fake
@@ -257,6 +323,14 @@ class _Q:
         rows = self.fake.tables.setdefault(self.name, [])
         if self._mode == "insert":
             payloads = self._payload if isinstance(self._payload, list) else [self._payload]
+            # Sprint 13.6.4 — schema-aware fake. Validate listening_content
+            # inserts against the production NOT NULL + CHECK constraints.
+            # ``_relaxed_listening_content_inserts`` opt-out exists for
+            # legacy tests that don't need the safety net.
+            if self.name == "listening_content" \
+                    and not getattr(self.fake, "_relaxed_listening_content_inserts", False):
+                for p in payloads:
+                    _validate_listening_content_insert(p)
             for p in payloads:
                 rows.append(dict(p))
             return _Resp(payloads)
@@ -1308,6 +1382,233 @@ def test_cut_audio_reuse_response_audio_path_matches_existing_row(monkeypatch):
     assert second["segments"][0]["reused"] is True
     assert second["segments"][0]["audio_storage_path"] == \
            first["segments"][0]["audio_storage_path"]
+
+
+# ── Sprint 13.6.4 — production-bug regression pins (F9 + F10 + F11) ────────
+#
+# Andy dogfooded the audio cutter on production 2026-05-22 14:20 ICT for the
+# first time. Every Export attempt failed with Postgres 23502 because the
+# cut INSERT was missing ``source_type`` (NOT NULL CHECK from migration 056).
+# The Sprint 13.6 ship through Sprint 13.6.3 (PR #257) all passed CI because
+# the fake Supabase below appended rows without constraint checking — that
+# was F11 ("sentinel tests fake-pass").
+#
+# The tests below pin the production-NOT-NULL contract end-to-end. The
+# fake is now schema-aware (LISTENING_CONTENT_REQUIRED_FIELDS) so the
+# same regression cannot ship green again.
+
+
+def test_cut_audio_insert_populates_source_type_as_exercise_snippet(monkeypatch):
+    """F9 fix — the production crash was ``source_type`` NULL. The
+    canonical value is ``'exercise_snippet'`` because migration 066
+    explicitly added it to the source_type CHECK enum with the comment
+    'Sprint 13.6 audio cutter'. The cut route stayed mute on it for
+    four PRs (#254 → #257) — this test pins the canonical value so a
+    refactor cannot quietly drop it again.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="Section 1", start=0.0, end=375.0),
+        ]),
+        authorization=authz,
+    ))
+    row = fake.tables["listening_content"][0]
+    assert row["source_type"] == "exercise_snippet"
+
+
+def test_cut_audio_insert_populates_all_listening_content_not_null_fields(monkeypatch):
+    """F9 fix (broader) — production schema requires NOT NULL on
+    ``source_type``, ``audio_storage_path``, ``audio_duration_seconds``,
+    ``audio_size_bytes``, ``accent_tag``, ``transcript``, ``title``.
+    Andy hit ``source_type`` first because it fires first; the others
+    would have surfaced on subsequent inserts. Pin all of them at
+    once so the same class of bug can't recur on any one of them.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="Section 2", start=378.0, end=750.0),
+        ]),
+        authorization=authz,
+    ))
+    row = fake.tables["listening_content"][0]
+    for required in LISTENING_CONTENT_REQUIRED_FIELDS:
+        assert required in row, f"production NOT-NULL field {required!r} missing from cut INSERT"
+        # ``transcript`` is allowed to be empty string but not None.
+        if required == "transcript":
+            assert row[required] is not None
+        else:
+            assert row[required] not in (None, ""), (
+                f"production NOT-NULL field {required!r} was None/empty in cut INSERT"
+            )
+
+
+def test_cut_audio_default_accent_tag_is_in_allowed_check_enum(monkeypatch):
+    """F9 fix — the cut route picks ``accent_tag = 'other'`` because
+    listening_tests doesn't store accent. Pin that the default is one
+    of the migration-056 CHECK enum values so the constraint doesn't
+    raise 23514 on the cut INSERT path.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="x", start=0.0, end=10.0),
+        ]),
+        authorization=authz,
+    ))
+    row = fake.tables["listening_content"][0]
+    # Migration 056: 'us_general', 'uk_rp', 'au', 'ca', 'other'.
+    assert row["accent_tag"] in {"us_general", "uk_rp", "au", "ca", "other"}
+
+
+def test_cut_audio_response_segments_surface_source_type(monkeypatch):
+    """F9 fix — the admin frontend filters the audio-cutter list by
+    ``source_type === 'exercise_snippet'``. The API response must echo
+    the field so the UI can render the post-cut list without an extra
+    round-trip.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    out = _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="a", start=0.0, end=10.0),
+        ]),
+        authorization=authz,
+    ))
+    assert out["segments"][0]["source_type"] == "exercise_snippet"
+
+
+def test_fake_supabase_catches_missing_source_type_on_listening_content(monkeypatch):
+    """F11 fix — this is the regression sentinel for the *test
+    infrastructure itself*. The Sprint 13.6 ship through Sprint 13.6.3
+    all passed CI because the previous ``_Fake`` here just appended
+    rows; the production NOT-NULL violation never surfaced. Pin the
+    new schema-aware behaviour by feeding the fake an obviously-bad
+    payload and asserting it raises.
+    """
+    fake = _Fake()
+    # Deliberately omit source_type — exactly the Sprint 13.6 bug.
+    bad_payload = {
+        "id": "x",
+        "test_id": "y",
+        "title": "Section 1",
+        "audio_storage_path": "tests/x/x.mp3",
+        "audio_size_bytes": 1000,
+        "audio_duration_seconds": 10,
+        "accent_tag": "other",
+        "transcript": "",
+        # source_type intentionally missing
+    }
+    with pytest.raises(_SchemaViolation) as excinfo:
+        fake.table("listening_content").insert(bad_payload).execute()
+    assert "source_type" in str(excinfo.value)
+
+
+def test_fake_supabase_catches_invalid_source_type_check_value(monkeypatch):
+    """F11 secondary pin — the production CHECK constraint also rejects
+    unknown source_type values (Andy's commission speculated 'cut' as a
+    new enum value — but the canonical value is 'exercise_snippet',
+    already in the CHECK from migration 066). Pin that the fake catches
+    the unknown-enum-value case so a future PR can't silently introduce
+    a CHECK violation either.
+    """
+    fake = _Fake()
+    bad_payload = {
+        "id": "x",
+        "source_type": "cut",   # NOT in migration 066 CHECK
+        "test_id": "y",
+        "title": "Section 1",
+        "audio_storage_path": "tests/x/x.mp3",
+        "audio_size_bytes": 1000,
+        "audio_duration_seconds": 10,
+        "accent_tag": "other",
+        "transcript": "",
+    }
+    with pytest.raises(_SchemaViolation) as excinfo:
+        fake.table("listening_content").insert(bad_payload).execute()
+    assert "check constraint" in str(excinfo.value).lower()
+    assert "cut" in str(excinfo.value)
+
+
+def test_cut_audio_segment_offsets_round_to_three_decimals_on_insert(monkeypatch):
+    """F2 (Sprint 13.6.3) reinforcement — the reuse fingerprint
+    matches at 3-decimal precision. The INSERT side must also round
+    to 3 decimals so the round-tripped value matches the next read.
+    Without this, ``segment_start_seconds: 0.000005`` would store
+    differently and defeat its own idempotency lookup.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    _cut_with_fake_ffmpeg(monkeypatch)
+
+    _run(listening_router.admin_cut_audio_segments(
+        test_id=seed["test_id"],
+        body=listening_router.CutAudioRequest(segments=[
+            listening_router.CutSegmentInput(label="x",
+                                             start=12.3456789,
+                                             end=42.9876543),
+        ]),
+        authorization=authz,
+    ))
+    row = fake.tables["listening_content"][0]
+    assert row["segment_start_seconds"] == 12.346
+    assert row["segment_end_seconds"]   == 42.988
+
+
+def test_migration_072_self_heals_missing_segment_columns():
+    """F10 fix — production schema audit 2026-05-22 surfaced that
+    migration 071's segment columns had never been applied. The
+    amended migration 072 must include an IF-NOT-EXISTS block for the
+    three segment columns BEFORE any reference to them (UPDATE
+    backfill + partial UNIQUE index). Otherwise re-running 072 on a
+    071-missing environment still 42703s.
+    """
+    import pathlib
+    sql = pathlib.Path(
+        "migrations/072_listening_content_cut_provenance_and_idempotency.sql"
+    ).read_text(encoding="utf-8")
+    # The self-heal block must come BEFORE the partial unique index
+    # that references the segment columns.
+    self_heal_idx = sql.find("ADD COLUMN IF NOT EXISTS segment_label")
+    unique_idx    = sql.find("uq_listening_content_cut_active_fingerprint")
+    assert self_heal_idx >= 0, "Sprint 13.6.4: missing segment_label self-heal block"
+    assert unique_idx >= 0
+    assert self_heal_idx < unique_idx, (
+        "Sprint 13.6.4: segment column self-heal must come BEFORE the "
+        "partial unique index that references them"
+    )
+    assert "ADD COLUMN IF NOT EXISTS segment_start_seconds" in sql
+    assert "ADD COLUMN IF NOT EXISTS segment_end_seconds" in sql
+
+
+def test_migration_072_amendment_documents_sprint_13_6_4_context():
+    """Pin the amendment narrative in the migration header so a future
+    schema-cleanup PR can't strip the explanation without a deliberate
+    rewrite. The cluster 13.x retrospective ledger cross-references
+    this file.
+    """
+    import pathlib
+    sql = pathlib.Path(
+        "migrations/072_listening_content_cut_provenance_and_idempotency.sql"
+    ).read_text(encoding="utf-8")
+    assert "Sprint 13.6.4" in sql
+    assert "42703" in sql or "self-heal" in sql.lower()
 
 
 def test_cut_request_pydantic_rejects_empty_segments_list():
