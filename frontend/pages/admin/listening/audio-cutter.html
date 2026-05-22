@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Audio cutter · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <!-- Sprint 13.6 — Wavesurfer.js v6 (UMD, vanilla-JS friendly).
+       v7 is ES-module-only, which would require a build step or an
+       import map. v6 still receives the regions + timeline plugins
+       Andy needs for visual segment editing. -->
+  <script src="https://unpkg.com/wavesurfer.js@6.6.4/dist/wavesurfer.min.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js@6.6.4/dist/plugin/wavesurfer.regions.min.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js@6.6.4/dist/plugin/wavesurfer.timeline.min.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .ac-shell {
+      max-width: 1080px; margin: 0 auto;
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5);
+    }
+    .ac-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .ac-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0; }
+    .ac-card {
+      padding: var(--av-space-5);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+    }
+    .ac-card h2 { font-size: var(--av-fs-lg); margin: 0; }
+    .ac-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: end; }
+    .ac-row label { font-size: var(--av-fs-sm); color: var(--av-text-secondary); display: flex; flex-direction: column; gap: 4px; }
+    .ac-row select, .ac-row input {
+      padding: 8px 12px;
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-page, var(--av-surface-card));
+      font-size: var(--av-fs-sm);
+      min-width: 280px;
+    }
+    .ac-btn {
+      padding: 8px 14px;
+      border-radius: var(--av-radius-md);
+      border: 1px solid var(--av-border-default);
+      background: var(--av-surface-page, white);
+      color: var(--av-text-primary);
+      cursor: pointer;
+      font-size: var(--av-fs-sm);
+      font-weight: 600;
+    }
+    .ac-btn:hover { background: var(--av-surface-sunken); }
+    .ac-btn-primary {
+      background: var(--av-brand-teal-700, #0f766e);
+      color: white;
+      border-color: transparent;
+    }
+    .ac-btn-primary:hover { background: var(--av-brand-teal-800, #115e59); }
+    .ac-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #ac-waveform {
+      background: var(--av-surface-sunken);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      min-height: 128px;
+    }
+    #ac-timeline {
+      background: var(--av-surface-sunken);
+      border-left: 1px solid var(--av-border-default);
+      border-right: 1px solid var(--av-border-default);
+      border-bottom: 1px solid var(--av-border-default);
+      border-bottom-left-radius: var(--av-radius-md);
+      border-bottom-right-radius: var(--av-radius-md);
+      min-height: 24px;
+    }
+    .ac-transport { display: flex; gap: var(--av-space-2); align-items: center; flex-wrap: wrap; }
+    .ac-transport .ac-time {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+    }
+
+    .ac-regions-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--av-fs-sm);
+    }
+    .ac-regions-table th,
+    .ac-regions-table td {
+      padding: var(--av-space-2);
+      border-bottom: 1px solid var(--av-border-default);
+      text-align: left;
+    }
+    .ac-regions-table .ac-label-input {
+      width: 100%;
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    .ac-regions-table .ac-label-input:focus {
+      border-color: var(--av-border-default);
+      background: var(--av-surface-page, white);
+      outline: none;
+    }
+    .ac-hint { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .ac-error { color: #991B1B; }
+
+    .ac-section-colors {
+      display: flex; gap: var(--av-space-2); align-items: center;
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    }
+    .ac-color-swatch {
+      width: 12px; height: 12px; border-radius: 2px; display: inline-block;
+    }
+  </style>
+</head>
+<body class="av-page">
+  <main class="ac-shell">
+    <div class="ac-back">
+      <a href="/pages/admin/listening/tests.html">← Quay lại tests</a>
+    </div>
+
+    <header class="ac-header">
+      <h1>Audio cutter</h1>
+      <p class="ac-hint">
+        Cắt full pre-mixed audio (25 phút) → 4 segment (Section 1 / 2 / 3 / 4)
+        hoặc custom segments. ffmpeg stream-copy — không re-encode, không mất chất lượng.
+      </p>
+    </header>
+
+    <!-- Source selector -->
+    <section class="ac-card" id="ac-source-card">
+      <h2>Chọn test</h2>
+      <div class="ac-row">
+        <label>
+          Test (audio mode = full_premixed)
+          <select id="ac-test-select" aria-label="Test selector">
+            <option value="">— Chọn test —</option>
+          </select>
+        </label>
+        <button id="ac-btn-load" class="ac-btn ac-btn-primary" type="button" disabled>
+          Load audio
+        </button>
+        <span id="ac-source-status" class="ac-hint"></span>
+      </div>
+    </section>
+
+    <!-- Workspace -->
+    <section class="ac-card" id="ac-workspace" hidden>
+      <h2>Waveform + segments</h2>
+      <div id="ac-waveform"></div>
+      <div id="ac-timeline"></div>
+
+      <div class="ac-transport">
+        <button id="ac-btn-play-pause" class="ac-btn" type="button">▶ Play</button>
+        <button id="ac-btn-stop" class="ac-btn" type="button">⏹ Stop</button>
+        <span class="ac-time">
+          <span id="ac-current-time">0:00</span>
+          /
+          <span id="ac-total-time">0:00</span>
+        </span>
+      </div>
+
+      <div class="ac-row">
+        <button id="ac-btn-auto-detect" class="ac-btn" type="button">
+          🔍 Auto-detect 4 sections (silence-based)
+        </button>
+        <span class="ac-hint">Detect gaps &gt; 2s as section boundaries (default -40dB threshold)</span>
+      </div>
+
+      <div class="ac-section-colors">
+        <span class="ac-color-swatch" style="background: rgba(231, 76, 60, 0.45);"></span> S1
+        <span class="ac-color-swatch" style="background: rgba(241, 196, 15, 0.45);"></span> S2
+        <span class="ac-color-swatch" style="background: rgba(46, 204, 113, 0.45);"></span> S3
+        <span class="ac-color-swatch" style="background: rgba(52, 152, 219, 0.45);"></span> S4
+      </div>
+
+      <h3 style="margin: var(--av-space-3) 0 0;">
+        Segments (<span id="ac-region-count">0</span>)
+      </h3>
+      <table class="ac-regions-table">
+        <thead>
+          <tr>
+            <th style="width: 32px;">#</th>
+            <th>Label</th>
+            <th style="width: 96px;">Start</th>
+            <th style="width: 96px;">End</th>
+            <th style="width: 96px;">Duration</th>
+            <th style="width: 120px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ac-regions-tbody"></tbody>
+      </table>
+
+      <div class="ac-row" style="margin-top: var(--av-space-3);">
+        <button id="ac-btn-add-region" class="ac-btn" type="button">+ Thêm segment</button>
+        <button id="ac-btn-export" class="ac-btn ac-btn-primary" type="button">
+          💾 Export segments → tạo audio rows mới (cost $0)
+        </button>
+        <span id="ac-export-status" class="ac-hint"></span>
+      </div>
+      <p class="ac-hint">
+        Mỗi segment sẽ tạo listening_content row mới với label tương ứng.
+        Original full audio preserved (additive).
+      </p>
+    </section>
+  </main>
+
+  <script src="/js/audio-cutter.js"></script>
+</body>
+</html>
