@@ -431,34 +431,24 @@
 
         <div class="mb-3">
           <label class="block text-xs font-medium mb-1.5" style="color:var(--av-text-muted);">
-            Câu hỏi <span style="color:var(--av-text-secondary);">(mỗi dòng một câu, tối đa 10)</span>
+            Câu hỏi
           </label>
 
-          <!-- Sprint 14.4 — cue card detection toggle + preview.
-               Auto-detect by default; user can force single vs cue card.
-               Re-parses on blur / toggle change / submit (L6). -->
-          <div class="cue-card-mode-row" role="radiogroup" aria-label="Định dạng câu hỏi"
-               style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <label class="cue-card-mode-opt">
-              <input type="radio" name="prac-q-mode" value="auto" checked>
-              <span>Tự nhận diện</span>
-            </label>
-            <label class="cue-card-mode-opt">
-              <input type="radio" name="prac-q-mode" value="single">
-              <span>Câu hỏi riêng lẻ</span>
-            </label>
-            <label class="cue-card-mode-opt">
-              <input type="radio" name="prac-q-mode" value="cue_card">
-              <span>Cue card (Part 2)</span>
-            </label>
-          </div>
-
+          <!-- Sprint 14.6.2 — Andy 2026-05-22 — retired the Sprint 14.4
+               three-option toggle. Part 1/2/3 button below already drives
+               the mode; the toggle was redundant cognitive load per
+               Andy's screenshot. Format hint replaces it. -->
           <textarea id="prac-custom-q" rows="5" class="tab-input" style="resize:vertical;min-height:110px;"
                     placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable experience."
                     maxlength="2000"></textarea>
 
+          <p class="cue-card-form-hint text-xs"
+             style="margin-top:6px;color:var(--av-text-muted);">
+            Part 1 / 3: mỗi dòng một câu (tối đa 10). Part 2: paste cue card đầy đủ, hoặc nhập 1 dòng để AI tạo cue card.
+          </p>
+
           <p id="prac-custom-q-preview" class="cue-card-preview"
-             style="display:none;font-size:11px;margin-top:6px;color:var(--av-text-muted);"></p>
+             style="display:none;font-size:11px;margin-top:6px;color:var(--ds-muted);"></p>
         </div>
 
         <div class="mb-3">
@@ -775,33 +765,19 @@
 
       <!-- Panel: Câu hỏi riêng -->
       <div id="panel-myq" class="hidden">
-        <label class="block text-xs font-medium mb-2" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn (mỗi dòng một câu)</label>
+        <label class="block text-xs font-medium mb-2" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn</label>
 
-        <!-- Sprint 14.4 — cue card detection toggle + preview. -->
-        <div class="cue-card-mode-row" role="radiogroup" aria-label="Định dạng câu hỏi"
-             style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-          <label class="cue-card-mode-opt">
-            <input type="radio" name="myq-q-mode" value="auto" checked>
-            <span>Tự nhận diện</span>
-          </label>
-          <label class="cue-card-mode-opt">
-            <input type="radio" name="myq-q-mode" value="single">
-            <span>Câu hỏi riêng lẻ</span>
-          </label>
-          <label class="cue-card-mode-opt">
-            <input type="radio" name="myq-q-mode" value="cue_card">
-            <span>Cue card (Part 2)</span>
-          </label>
-        </div>
-
+        <!-- Sprint 14.6.2 — Sprint 14.4 toggle retired. Part 1/2/3
+             button drives the mode; format hint below replaces the
+             three-option radio group. -->
         <textarea id="myq-input" rows="5" class="topic-input" style="resize:vertical;min-height:100px;"
                   placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable trip you have taken."
                   maxlength="2000"></textarea>
-        <p id="myq-input-preview" class="cue-card-preview"
-           style="display:none;font-size:11px;margin-top:6px;color:var(--av-text-muted);"></p>
-        <p class="text-xs mt-1.5" style="color:var(--av-text-secondary);">
-          Tối đa 10 câu hỏi. App sẽ bỏ qua bước tạo câu hỏi AI và đi thẳng vào luyện tập.
+        <p class="cue-card-form-hint text-xs mt-1.5" style="color:var(--av-text-muted);">
+          Part 1 / 3: mỗi dòng một câu (tối đa 10). Part 2: paste cue card đầy đủ, hoặc nhập 1 dòng để AI tạo cue card.
         </p>
+        <p id="myq-input-preview" class="cue-card-preview"
+           style="display:none;font-size:11px;margin-top:6px;color:var(--ds-muted);"></p>
       </div>
 
       <!-- Error -->
@@ -1548,23 +1524,39 @@
           errorEl.textContent = 'Vui lòng nhập ít nhất một câu hỏi.';
           return;
         }
-        // Sprint 14.4 — parse via the cue card detector. Re-runs on
-        // submit per L6 even if the user never blurred the textarea.
-        var modeRadio = document.querySelector('input[name="myq-q-mode"]:checked');
-        var mode      = modeRadio ? modeRadio.value : 'auto';
-        var questions = window.CueCardDetector.parseCustomQuestions(raw, mode);
-        if (!questions.length) {
-          errorEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.';
+        // Sprint 14.6.2 — Part button drives the parser. For Part 2 +
+        // a non-cue-card paste this calls the backend AI gen endpoint;
+        // showing the "Đang tạo cue card..." spinner is the user's
+        // signal that the round trip is happening.
+        var aiGenLikely = false;
+        if (_modalPart === 2) {
+          var det = window.CueCardDetector.detectCueCard(raw);
+          if (!det.isCueCard) aiGenLikely = true;
+        }
+        btn.disabled = true;
+        btn.textContent = aiGenLikely ? 'Đang tạo cue card...' : 'Đang tạo session...';
+
+        var questions;
+        try {
+          questions = await window.CueCardDetector.parseCustomQuestionsByPart(raw, _modalPart);
+        } catch (err) {
+          errorEl.textContent = 'Lỗi: ' + (err.message || 'Không thể chuẩn bị câu hỏi.');
+          btn.disabled = false;
+          btn.textContent = '✍️ Bắt đầu luyện tập';
           return;
         }
-        // L9 — cue card always belongs to Part 2. Override the modal's
-        // current part selection so the session lands in the right part
-        // and the Sprint 14.2 length gate (Part 2 → 80s) applies.
+        if (!questions || !questions.length) {
+          errorEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.';
+          btn.disabled = false;
+          btn.textContent = '✍️ Bắt đầu luyện tập';
+          return;
+        }
+        // L9 — cue card always belongs to Part 2. Modal Part button
+        // already constrains the input shape, but defend against the
+        // edge case where the heuristic detects a cue card despite a
+        // Part 1/3 selection.
         var isCueCard = (typeof questions[0] === 'object' && questions[0].type === 'cue_card');
         var sessionPart = isCueCard ? 2 : _modalPart;
-
-        btn.disabled = true;
-        btn.textContent = 'Đang tạo session...';
 
         try {
           var session = await window.api.post('/sessions', {
@@ -1756,16 +1748,35 @@
       var errEl = document.getElementById('prac-custom-q-error');
       errEl.textContent = '';
       if (!raw || !raw.trim()) { errEl.textContent = 'Vui lòng nhập ít nhất một câu hỏi.'; return; }
-      // Sprint 14.4 — parse via the cue card detector. L6: also re-runs
-      // on submit even if the user never blurred the textarea.
-      var modeRadio = document.querySelector('input[name="prac-q-mode"]:checked');
-      var mode      = modeRadio ? modeRadio.value : 'auto';
-      var questions = window.CueCardDetector.parseCustomQuestions(raw, mode);
-      if (!questions.length) { errEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.'; return; }
+      var btn = evt.target;
+      // Sprint 14.6.2 — Part button drives the parser. For Part 2 +
+      // a non-cue-card paste this calls the backend AI gen endpoint;
+      // showing the "Đang tạo cue card..." spinner is the user's
+      // signal that the round trip is happening.
+      var aiGenLikely = false;
+      if (_pracPart === 2) {
+        var det = window.CueCardDetector.detectCueCard(raw);
+        if (!det.isCueCard) aiGenLikely = true;
+      }
+      btn.disabled = true;
+      btn.textContent = aiGenLikely ? 'Đang tạo cue card...' : 'Đang tạo...';
+
+      var questions;
+      try {
+        questions = await window.CueCardDetector.parseCustomQuestionsByPart(raw, _pracPart);
+      } catch (err) {
+        errEl.textContent = 'Lỗi: ' + (err.message || 'Không thể chuẩn bị câu hỏi.');
+        btn.disabled = false; btn.textContent = '✍️ Bắt đầu luyện tập';
+        return;
+      }
+      if (!questions || !questions.length) {
+        errEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.';
+        btn.disabled = false; btn.textContent = '✍️ Bắt đầu luyện tập';
+        return;
+      }
       // L9 — cue card → Part 2 (Sprint 14.2 length gate kicks in there).
       var isCueCard = (typeof questions[0] === 'object' && questions[0].type === 'cue_card');
       var sessionPart = isCueCard ? 2 : _pracPart;
-      var btn = evt.target; btn.disabled = true; btn.textContent = 'Đang tạo...';
       try {
         var sess = await window.api.post('/sessions', { mode: 'practice', part: sessionPart, topic: 'Custom questions' });
         var sid  = sess && (sess.id || sess.session_id);
@@ -1778,55 +1789,12 @@
       }
     }
 
-    // Sprint 14.4 — live preview of detected mode. Renders on blur of
-    // the textarea + on toggle change (L6). The string keys match the
-    // textarea/preview id pairs wired up in the two custom-Q forms.
-    function _renderCueCardPreview(textareaId, previewId, modeName) {
-      var textarea = document.getElementById(textareaId);
-      var preview  = document.getElementById(previewId);
-      if (!textarea || !preview) return;
-      var raw = textarea.value;
-      if (!raw || !raw.trim()) {
-        preview.style.display = 'none';
-        preview.textContent = '';
-        return;
-      }
-      var modeRadio = document.querySelector('input[name="' + modeName + '"]:checked');
-      var mode      = modeRadio ? modeRadio.value : 'auto';
-      var parsed    = window.CueCardDetector.parseCustomQuestions(raw, mode);
-      if (!parsed.length) {
-        preview.style.display = 'none';
-        return;
-      }
-      var isCueCard = (typeof parsed[0] === 'object' && parsed[0].type === 'cue_card');
-      if (isCueCard) {
-        preview.textContent =
-          '✓ Đã nhận diện cue card — sẽ xử lý như Part 2 monologue ' +
-          '(' + (parsed[0].bullets ? parsed[0].bullets.length : 0) + ' bullet).';
-      } else {
-        preview.textContent =
-          '✓ Đã nhận diện ' + parsed.length + ' câu hỏi riêng lẻ.';
-      }
-      preview.style.display = '';
-    }
-
-    function _wireCueCardPreview(textareaId, previewId, modeName) {
-      var ta = document.getElementById(textareaId);
-      if (!ta) return;
-      ta.addEventListener('blur',  function () {
-        _renderCueCardPreview(textareaId, previewId, modeName);
-      });
-      document.querySelectorAll('input[name="' + modeName + '"]').forEach(function (el) {
-        el.addEventListener('change', function () {
-          _renderCueCardPreview(textareaId, previewId, modeName);
-        });
-      });
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-      _wireCueCardPreview('prac-custom-q', 'prac-custom-q-preview', 'prac-q-mode');
-      _wireCueCardPreview('myq-input',     'myq-input-preview',     'myq-q-mode');
-    });
+    // Sprint 14.6.2 — Sprint 14.4's preview wiring (toggle change +
+    // textarea blur) is retired. Without the 3-option toggle there's
+    // nothing meaningful to preview pre-submit: Part 1/3 always means
+    // "naive split" and Part 2's two cases (full cue card vs AI gen)
+    // resolve only at submit time anyway. The `cue-card-form-hint`
+    // copy under each textarea explains the routing inline.
 
     async function startPracticeTopic(evt) {
       var errEl     = document.getElementById('prac-topic-error');
