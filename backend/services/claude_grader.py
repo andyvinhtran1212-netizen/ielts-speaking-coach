@@ -66,6 +66,9 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 6: willing to speak at length; occasional repetition / self-correction; mostly coherent
    - Band 5: usually maintains flow; some hesitation; limited range of discourse markers
    - Band 4: cannot speak at length; repetitive; basic connectives only (and, but, because)
+   - Band 3: speaks with long pauses; limited ability to link simple sentences; frequently unable to convey basic message
+   - Band 2: pauses lengthily before most words; little communication possible
+   - Band 1: no communication possible; no rateable language
 
    SPEECH RATE SIGNAL: You will be given duration_seconds and word_count.
    Use these to estimate speaking rate (words per second):
@@ -84,6 +87,9 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 6: adequate vocabulary for familiar topics; attempts less common items
    - Band 5: manages basic communication; limited range; errors cause some strain
    - Band 4: limited resource; basic vocabulary; frequent inappropriate choices
+   - Band 3: simple personal vocabulary only; insufficient for less familiar topics
+   - Band 2: only isolated words or memorised utterances
+   - Band 1: no rateable language
 
 3. GRAMMATICAL RANGE & ACCURACY (GRA)
    Measures: variety of structures, tense accuracy, error frequency, error impact.
@@ -93,6 +99,9 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 6: mix of simple and complex; makes errors but meaning is clear
    - Band 5: uses basic sentence forms accurately; limited complex structures
    - Band 4: basic sentence forms only; errors are frequent and cause strain
+   - Band 3: attempts basic sentences with limited success or memorised phrases; numerous errors
+   - Band 2: cannot produce basic sentence forms
+   - Band 1: no rateable language
 
 4. PRONUNCIATION (P)
    Assess pronunciation holistically as a speaking examiner would. Focus on
@@ -108,6 +117,38 @@ IELTS SPEAKING — 4 ASSESSMENT CRITERIA
    - Band 6: generally intelligible; L1 accent requires some effort from listener
    - Band 5: pronunciation generally intelligible; frequent L1 features
    - Band 4: limited control; difficult to understand at times
+   - Band 3: shows some features of Bands 2 and 4; often hard to follow
+   - Band 2: speech is often unintelligible
+   - Band 1: no rateable language
+
+═══════════════════════════════════════════════════
+VIETNAMESE-LEARNER PRONUNCIATION + GRAMMAR PATTERNS
+═══════════════════════════════════════════════════
+When transcript evidence allows, surface these high-frequency L1-Vietnamese
+issues in the relevant criterion's feedback (don't invent — only flag when
+visible in the transcript or strongly implied by spelling/word choice):
+
+PRONUNCIATION (text-only inference — these often surface as transcription
+artifacts such as Whisper mis-spellings of final consonants):
+- Dropped final consonants ("wha" for "what", "lai" for "like", "lis" for "list")
+- /θ/ → /t/ or /s/ ("tink" for "think", "sree" for "three")
+- /ð/ → /d/ or /z/ ("dis" for "this")
+- /ʃ/, /ʒ/, /tʃ/, /dʒ/ confusion ("sip" for "ship", "wash" for "watch")
+- Tone neutralisation (less visible from transcript; flag only when stress
+  pattern is implied by punctuation/repetition)
+
+GRAMMAR (visible directly in the transcript):
+- Missing third-person -s ("she go", "he have")
+- Missing articles ("I went to school" where "the school" required)
+- Tense drift (mixing past and present in narratives)
+- Plural marker omission ("two book")
+- "to be" omission ("I happy", "she beautiful")
+- Adjective-after-noun word order ("a movie interesting")
+
+Cite the specific transcript phrase in feedback where possible (e.g.
+"trong câu 'he go to work' thiếu -s ở 'goes'"). Do NOT mention these
+patterns when no transcript evidence supports them — false positives
+damage learner trust.
 
 ═══════════════════════════════════════════════════
 BAND SCALE
@@ -139,6 +180,29 @@ GRAMMAR ERROR WEIGHTING:
 FLUENCY CALIBRATION:
 - Simple, short sentences with no complexity do not earn above Band 5 for FC, regardless of correctness.
 - Filler-heavy speech (many "uh", "like", "um", "you know" without substance) should not exceed Band 5 for FC.
+
+LOW-BAND CALIBRATION (Sprint 14.5 — anti-inflation):
+LLM defaults tend to be generous; do NOT round up out of politeness. Apply
+these floors-of-the-ceiling honestly:
+- Transcript ≤ 5 meaningful words OR completely failing to address the
+  question: ALL criteria ≤ Band 2. Use Band 1 if there is no rateable
+  language at all (silence, single syllables, "I don't know" only).
+- Transcript is one or two memorised utterances with no original
+  language ("I think it is good. Thank you."): GRA + LR ≤ Band 3.
+- Speaker pauses dominate, basic message frequently unconveyed,
+  and sentences cannot be linked: FC ≤ Band 3.
+- Speaker uses ONLY simple personal vocabulary ("good", "nice", "I like",
+  "my family") for the entire response: LR ≤ Band 4 (Band 3 if vocabulary
+  is exhausted within the first sentence).
+A Band 3 or 4 score is a CORRECT score for low-effort answers — it is
+better feedback than a sympathetic Band 5.
+
+FEEDBACK SPECIFICITY (Sprint 14.5):
+- Every weakness MUST cite a specific phrase or pattern from the transcript
+  (e.g. "trong cụm 'he go to school' thiếu -s ở 'goes'"). Generic
+  observations ("vocabulary could be wider") are not allowed.
+- fc_feedback, lr_feedback, gra_feedback, p_feedback each ≤ 80 words
+  Vietnamese — say one specific thing well, not three things vaguely.
 
 ═══════════════════════════════════════════════════
 GRADING APPROACH
@@ -185,7 +249,8 @@ IMPORTANT LANGUAGE RULES:
   "p_feedback":   "Nhìn chung bạn nói khá rõ ràng và dễ nghe. Hãy chú ý luyện thêm trọng âm từ và nối âm tự nhiên giữa các từ để câu nói nghe mượt mà hơn.",
   "strengths":    ["Sử dụng tốt các từ liên kết", "Phát triển chủ đề tự nhiên"],
   "improvements": ["Sử dụng từ vựng phức tạp hơn", "Đa dạng hóa cấu trúc câu"],
-  "improved_response": "Here is an example of a Band 7+ response.\\nSecond sentence here."
+  "improved_response": "Here is an example of a Band 7+ response.\\nSecond sentence here.",
+  "rubric_version": "v2"
 }
 """
 
@@ -260,6 +325,22 @@ OVERALL BAND — Honest estimate of current band level (nearest 0.5, range 1–9
   Base this on fluency, vocabulary, grammar, and intelligibility holistically.
 
 ═══════════════════════════════════════════════════
+LOW-BAND CALIBRATION (Sprint 14.5 — anti-inflation)
+═══════════════════════════════════════════════════
+Coach mode is encouraging but not dishonest. When the transcript is genuinely
+weak, the overall_band MUST reflect that — a misleading Band 5 robs the
+learner of accurate self-assessment. Apply these honestly:
+- ≤ 5 meaningful words OR no real attempt at the question → overall_band 1-2.
+- Memorised one-liners only ("I think it is good. Thank you.") → 2-3.
+- Long pauses dominate AND basic message often fails → 3.
+- Only simple personal vocabulary, no original sentence construction → 3-4.
+
+Pair the honest band with celebratory framing — the band itself stays
+calibrated, but `strengths` always finds something genuine to acknowledge
+(took a risk, attempted topic, etc.). Calibration and encouragement are
+independent — do not soften the number to be kind.
+
+═══════════════════════════════════════════════════
 OUTPUT FORMAT — STRICT JSON ONLY
 ═══════════════════════════════════════════════════
 Respond ONLY with this exact JSON object. No markdown, no explanation, no code fences.
@@ -281,7 +362,8 @@ STRICT OUTPUT RULES — violations cause grading failure:
   ],
   "strengths":   ["Điểm mạnh 1", "Điểm mạnh 2"],
   "sample_answer": "A complete Band 7 spoken answer here.\\nSecond sentence here.",
-  "overall_band": 5.5
+  "overall_band": 5.5,
+  "rubric_version": "v2"
 }
 """
 
@@ -815,6 +897,13 @@ def _parse_and_validate(raw: str) -> tuple[dict | None, str | None]:
     data["strengths"]    = [str(s) for s in data["strengths"]]
     data["improvements"] = [str(s) for s in data["improvements"]]
 
+    # Sprint 14.5 — rubric_version. Optional + additive. Default "v1"
+    # so old graded rows (pre-14.5) and any provider that silently drops
+    # the field keep validating. The prompt asks for "v2"; we normalise
+    # whatever the model returned without rejecting.
+    rv = data.get("rubric_version")
+    data["rubric_version"] = str(rv) if isinstance(rv, str) and rv else "v1"
+
     return data, None
 
 
@@ -858,6 +947,10 @@ def _parse_and_validate_practice(raw: str) -> tuple[dict | None, str | None]:
                 "explanation": str(c["explanation"]),
             })
     data["corrections"] = valid_corrections
+
+    # Sprint 14.5 — rubric_version (additive, optional, default "v1").
+    rv = data.get("rubric_version")
+    data["rubric_version"] = str(rv) if isinstance(rv, str) and rv else "v1"
 
     return data, None
 
