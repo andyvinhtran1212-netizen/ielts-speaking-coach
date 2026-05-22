@@ -11,7 +11,14 @@ nixPkgs = ["python312"]
 # added pydub but only used it for trivial validation paths that
 # happened to work without ffmpeg; the assemble endpoint needs the
 # binary on PATH.
-aptPkgs = ["fonts-dejavu-core", "ffmpeg"]
+#
+# Sprint 14.8 — default-jre-headless adds the JRE that LanguageTool
+# needs for offline (in-container) grammar checking. ~150MB image
+# bump, no GUI deps. The grammar service degrades to local VI-learner
+# regex rules when the JRE isn't available, so this aptPkg keeps
+# production on the high-quality path; CI continues to run the
+# mocked / local-rules-only test path.
+aptPkgs = ["fonts-dejavu-core", "ffmpeg", "default-jre-headless"]
 
 # Sprint 10.1 — download the spaCy English model after pip install so
 # the lemmatizer service (services/lemmatizer.py) can load it lazily on

@@ -29,6 +29,13 @@ cloudinary>=1.42.0
 # bootstrap: `python -m spacy download en_core_web_sm` after pip install.
 spacy==3.8.0
 
+# Sprint 14.8 — LanguageTool Python wrapper for grammar checking on
+# speaking responses (services/grammar_check.py). Requires the JRE
+# in the deployed image (nixpacks.toml adds default-jre-headless).
+# Service degrades to local VI-learner regex rules when the JRE
+# isn't available (CI, dev workstations without Java).
+language-tool-python==2.8.1
+
 pytest==8.3.3
 pytest-asyncio==0.24.0
 pytest-cov>=4.1.0

@@ -39,6 +39,11 @@ from services.length_warning import (
     get_length_warning_context,
 )
 from services.off_topic_judge import OffTopicVerdict, get_judge
+from services.grammar_check import (
+    GrammarCheckResult,
+    get_grammar_check_service,
+)
+from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
 
@@ -368,6 +373,16 @@ async def grade_response_endpoint(
                 question_id=question_id,
             )
         )
+        # Sprint 14.8 L2 — third parallel task: grammar checker. The
+        # service has its own 15s timeout + silent-skip contract, so
+        # any failure mode here returns None and grading carries on.
+        grammar_task = asyncio.create_task(
+            get_grammar_check_service().check(
+                transcript,
+                question_id=question_id,
+                session_id=session_id,
+            )
+        )
 
         try:
             grading = await grading_task
@@ -390,6 +405,20 @@ async def grade_response_endpoint(
                 judge_exc,
             )
             off_topic_verdict = None
+
+        # Sprint 14.8 — third await, completing the parallel triple.
+        # The grammar service is designed never to raise (silent skip
+        # on every failure path), but wrap in try just like the judge
+        # to keep grading robust to an asyncio cancellation edge case.
+        grammar_result: GrammarCheckResult | None = None
+        try:
+            grammar_result = await grammar_task
+        except Exception as grammar_exc:
+            logger.warning(
+                "[grading] grammar check unexpected error (silent skip): %s",
+                grammar_exc,
+            )
+            grammar_result = None
 
         # ── Score confidence (multi-signal) ───────────────────────────────────
         score_confidence = _compute_score_confidence(reliability, duration_sec)
@@ -515,6 +544,8 @@ async def grade_response_endpoint(
         # Sprint 14.7 — shared signal block surfaced in every branch
         # (stub, practice, test) so the frontend banner code can render
         # warnings regardless of whether grading itself succeeded.
+        # Sprint 14.8 — extended with grammar_issues (None on silent
+        # skip; the frontend treats null/missing identically).
         signals: dict = {
             "off_topic_verdict": (
                 {
@@ -527,6 +558,21 @@ async def grade_response_endpoint(
             "length_warning":         length_warning_fires,
             "audio_duration_seconds": round(duration_sec, 2),
             "length_soft_threshold":  LENGTH_SOFT_WARNING_THRESHOLDS_SECONDS.get(part),
+            # Sprint 14.8 — structured grammar errors from
+            # services.grammar_check (LanguageTool + VI-learner regex
+            # asset). Named `grammar_check` to avoid collision with
+            # Sprint 14.5's qualitative `grammar_issues` (Claude
+            # coaching text) — both fields coexist in the response.
+            "grammar_check": (
+                {
+                    "errors":          [asdict(e) for e in grammar_result.errors],
+                    "total_count":     grammar_result.total_count,
+                    "displayed_count": grammar_result.displayed_count,
+                    "cached":          grammar_result.cached,
+                }
+                if grammar_result is not None
+                else None
+            ),
         }
 
         if not grading:
