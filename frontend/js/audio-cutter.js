@@ -371,9 +371,34 @@ function findRegion(regionId) {
 // ── Auto-detect (calls backend silencedetect) ──────────────────────────────
 
 
+// Sprint 13.6.2 — return the Wavesurfer v6 regions plugin instance,
+// which exposes ``add(params)``, ``clear()``, ``list``, etc. The
+// instance is attached to the wavesurfer at ``ws.regions`` (lowercase)
+// by the v6 plugin loader. The plugin also wires static props
+// ``addRegion`` + ``clearRegions`` onto the wavesurfer instance — but
+// those expect ``this`` to be the wavesurfer instance (they read
+// ``this.initialisedPluginList.regions`` internally). Sprint 13.6
+// called them via ``.call(STATE.wavesurfer.regions, opts)`` which
+// bound ``this`` to the plugin instance and crashed at
+// ``this.initialisedPluginList.regions`` (the exact error Andy hit
+// during 2026-05-22 dogfood). Using the plugin instance's own
+// methods sidesteps the binding hazard entirely.
+function getRegionsPlugin() {
+  return (STATE.wavesurfer && STATE.wavesurfer.regions) || null;
+}
+
+
 async function onAutoDetect() {
   const testId = STATE.selectedTestId;
   if (!testId) return;
+  const regionsPlugin = getRegionsPlugin();
+  if (!regionsPlugin) {
+    setExportStatus(
+      'Regions plugin chưa load — hard refresh page rồi thử lại.',
+      true,
+    );
+    return;
+  }
   setExportStatus('Đang detect silence (10-30s)…', false);
   try {
     const res = await window.api.post(
@@ -381,33 +406,36 @@ async function onAutoDetect() {
       {},
     );
     const boundaries = (res && res.boundaries) || [];
-    // Clear existing regions before laying down the auto-detected
-    // 4-up. ``clearRegions`` is the Wavesurfer Regions plugin's
-    // bulk-remove call.
-    if (STATE.wavesurfer && STATE.wavesurfer.regions && STATE.wavesurfer.regions.clear) {
-      STATE.wavesurfer.regions.clear();
-    } else if (STATE.wavesurfer && STATE.wavesurfer.clearRegions) {
-      STATE.wavesurfer.clearRegions();
+    if (boundaries.length === 0) {
+      // Backend ran cleanly but found no gaps long enough to split on.
+      // This happens on very tight mixes or when silence threshold is
+      // too strict for the source material. Surface an actionable hint
+      // instead of silently doing nothing — admin can still drop manual
+      // segments with the "Thêm segment" button.
+      setExportStatus(
+        'Không tìm thấy gap đủ lớn để chia section. Dùng "+ Thêm segment" để tạo thủ công.',
+        true,
+      );
+      return;
     }
+    // Clear existing regions before laying down the auto-detected 4-up.
+    regionsPlugin.clear();
     STATE.regions = [];
     boundaries.forEach((b, i) => {
-      if (!STATE.wavesurfer) return;
-      const opts = {
+      regionsPlugin.add({
         start:  b.start,
         end:    b.end,
         color:  sectionColor(i),
         drag:   true,
         resize: true,
         data:   { label: `Section ${i + 1}` },
-      };
-      const add = STATE.wavesurfer.addRegion
-        || (STATE.wavesurfer.regions && STATE.wavesurfer.regions.add);
-      if (add) add.call(
-        STATE.wavesurfer.regions || STATE.wavesurfer, opts,
-      );
+      });
     });
+    const gapCount = (res && res.silence_gaps_detected != null)
+      ? res.silence_gaps_detected
+      : '?';
     setExportStatus(
-      `Detected ${res && res.silence_gaps_detected} gaps → ${boundaries.length} sections.`,
+      `Detected ${gapCount} gaps → ${boundaries.length} sections.`,
       false,
     );
   } catch (e) {
@@ -428,19 +456,22 @@ function onAddRegion() {
     setExportStatus('Vị trí hiện tại quá gần cuối audio.', true);
     return;
   }
-  const opts = {
+  const regionsPlugin = getRegionsPlugin();
+  if (!regionsPlugin) {
+    setExportStatus(
+      'Regions plugin chưa load — hard refresh page rồi thử lại.',
+      true,
+    );
+    return;
+  }
+  regionsPlugin.add({
     start:  current,
     end:    end,
     color:  sectionColor(STATE.regions.length),
     drag:   true,
     resize: true,
     data:   { label: `Segment ${STATE.regions.length + 1}` },
-  };
-  const add = STATE.wavesurfer.addRegion
-    || (STATE.wavesurfer.regions && STATE.wavesurfer.regions.add);
-  if (add) add.call(
-    STATE.wavesurfer.regions || STATE.wavesurfer, opts,
-  );
+  });
 }
 
 

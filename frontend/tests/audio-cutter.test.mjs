@@ -165,18 +165,19 @@ describe('Sprint 13.6 — audio cutter JS controller', () => {
     assert.match(JS,
       /window\.api\.post\(\s*`\/admin\/listening\/tests\/\$\{encodeURIComponent\(testId\)\}\/detect-silence`/);
     // Boundaries come back as ``[{ start, end }, …]`` — pin the
-    // forEach + addRegion path so a refactor can't quietly stop
-    // laying down regions.
+    // forEach + plugin-instance ``add(opts)`` path. Sprint 13.6
+    // used ``STATE.wavesurfer.addRegion`` via .call() with a bad
+    // ``this`` binding — Sprint 13.6.2 routes through the plugin
+    // instance directly so the static-prop dance can't return.
     assert.match(JS, /boundaries\.forEach\(\(b,\s*i\)\s*=>/);
-    assert.match(JS, /STATE\.wavesurfer\.addRegion/);
+    assert.match(JS, /regionsPlugin\.add\(\{/);
   });
 
   test('auto-detect clears existing regions before adding new ones', () => {
     // Otherwise re-running auto-detect would stack 8 regions on top
-    // of the previous 4 — pin both API shapes (Regions v6 plugin's
-    // ``clear`` and the older ``clearRegions`` method on the instance).
-    assert.match(JS, /STATE\.wavesurfer\.regions\.clear\b/);
-    assert.match(JS, /STATE\.wavesurfer\.clearRegions/);
+    // of the previous 4. Sprint 13.6.2 uses the plugin instance's
+    // own ``clear()`` method (not the static ``clearRegions`` prop).
+    assert.match(JS, /regionsPlugin\.clear\(\)/);
   });
 
   test('first 4 manually-drawn regions auto-label as Section 1..4', () => {
@@ -479,6 +480,100 @@ describe('Sprint 13.6.1 — audio cutter discoverability + URL fetch hotfix', ()
     // is set. Pin the guard so admins who navigate without a
     // query param still go through the manual select → load flow.
     assert.match(JS, /if \(!wanted\) return;/);
+  });
+
+});
+
+
+// ── Sprint 13.6.2 — Wavesurfer v6 regions plugin binding hotfix ────────────
+
+
+describe('Sprint 13.6.2 — auto-detect regions plugin binding', () => {
+
+  test('getRegionsPlugin returns the v6 plugin instance, null-safe', () => {
+    // Andy 2026-05-22 dogfood: "Cannot read properties of undefined
+    // (reading 'regions')" thrown by the v6 ``addRegion`` static prop
+    // because it ran with ``this = STATE.wavesurfer.regions`` (the
+    // plugin instance) and tried to read ``this.initialisedPluginList.regions``.
+    // Sprint 13.6.2 sidesteps the static prop entirely and uses the
+    // plugin instance's own ``add``/``clear`` methods.
+    assert.match(JS, /function getRegionsPlugin\(\)/);
+    assert.match(JS, /\(STATE\.wavesurfer && STATE\.wavesurfer\.regions\) \|\| null/);
+  });
+
+  test('onAutoDetect short-circuits with a clear message when plugin missing', () => {
+    // If the CDN script tag for the regions plugin failed to load,
+    // ``getRegionsPlugin()`` returns null. Surface a hard refresh
+    // hint rather than crashing on the first ``.add`` call.
+    assert.match(JS, /Regions plugin chưa load/);
+    assert.match(JS, /hard refresh page/);
+  });
+
+  test('static-prop binding bug from Sprint 13.6 is gone (no .call dance)', () => {
+    // Pin the regression negatively. The Sprint 13.6 code did:
+    //   add.call(STATE.wavesurfer.regions || STATE.wavesurfer, opts)
+    // which is the exact source of the dogfood crash. Strip comments
+    // so the bug description above doesn't masquerade as live code.
+    const codeOnly = JS.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.doesNotMatch(codeOnly, /add\.call\(/);
+    assert.doesNotMatch(codeOnly, /STATE\.wavesurfer\.addRegion/);
+    assert.doesNotMatch(codeOnly, /STATE\.wavesurfer\.clearRegions/);
+  });
+
+  test('empty boundaries surfaces an actionable hint, not a silent no-op', () => {
+    // If silencedetect finds zero gaps long enough to split on, the
+    // admin needs to know that manual segmentation is the next step.
+    // Pin both the message and the "Thêm segment" reference.
+    assert.match(JS, /Không tìm thấy gap đủ lớn/);
+    assert.match(JS, /\+ Thêm segment/);
+  });
+
+  test('empty boundaries early-returns before touching the plugin', () => {
+    // Pin the order: empty check happens BEFORE ``regionsPlugin.clear()``
+    // so a stale 4-up isn't wiped out when detect finds nothing.
+    const re = /if \(boundaries\.length === 0\)[\s\S]+?return;[\s\S]+?regionsPlugin\.clear\(\)/;
+    assert.match(JS, re);
+  });
+
+  test('region opts pin start/end/color/drag/resize/data fields', () => {
+    // Sprint 13.6 used the same shape but via the buggy .call() —
+    // Sprint 13.6.2 preserves the shape. Pin every documented field
+    // so a future plugin upgrade can't quietly drop drag/resize.
+    const optsRe =
+      /regionsPlugin\.add\(\{\s+start:[\s\S]+?end:[\s\S]+?color:[\s\S]+?drag:[\s\S]+?resize:[\s\S]+?data:[\s\S]+?\}\)/;
+    assert.match(JS, optsRe);
+  });
+
+  test('onAddRegion (manual + segment) uses the same plugin-instance API', () => {
+    // Manual add went through the same static-prop dance as auto-
+    // detect, so it was a latent bug ready to fire the moment the
+    // wavesurfer instance happened to expose ``addRegion`` differently.
+    // Pin that both paths now use the same helper.
+    const manualBlockRe = /function onAddRegion\(\)[\s\S]+?regionsPlugin\.add\(\{/;
+    assert.match(JS, manualBlockRe);
+  });
+
+  test('auto-detect happy path surfaces gap count + section count in status', () => {
+    // The status text helps the admin sanity-check that
+    // silencedetect found N gaps and we proposed N+1 sections (or
+    // capped at target_section_count). Pin the message template.
+    assert.match(JS, /Detected \$\{gapCount\} gaps → \$\{boundaries\.length\} sections/);
+  });
+
+  test('gap count read is defensive against missing silence_gaps_detected key', () => {
+    // Backend could in theory ship an updated response that drops
+    // the metric. Pin the fallback so the status string doesn't
+    // render literal "undefined gaps".
+    assert.match(JS,
+      /res\.silence_gaps_detected != null[\s\S]+?res\.silence_gaps_detected[\s\S]+?:\s*['"]\?['"]/);
+  });
+
+  test('STATE.regions is reset before laying down new regions', () => {
+    // Otherwise the table would briefly show stale entries between
+    // the plugin clear and the region-created events firing. Pin
+    // the explicit reset.
+    const re = /regionsPlugin\.clear\(\)[\s\S]+?STATE\.regions = \[\]/;
+    assert.match(JS, re);
   });
 
 });

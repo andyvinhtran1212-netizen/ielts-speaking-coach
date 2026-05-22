@@ -438,6 +438,169 @@ def test_detect_silence_endpoint_falls_back_to_db_duration_when_ffmpeg_missing(m
     assert out["audio_duration_seconds"] == 1500.0
 
 
+# ── Sprint 13.6.2 — detect-silence response shape contract pins ────────────
+#
+# Andy 2026-05-22 dogfood crashed the audio cutter on the auto-detect
+# button. Root cause was the Wavesurfer v6 plugin-binding bug
+# (fixed in frontend); these tests pin the *backend* response shape
+# so a future "simplification" of the JSON can't quietly break the
+# frontend reader that consumes ``boundaries[]`` + ``silence_gaps_detected``.
+
+
+def test_detect_silence_response_has_canonical_boundaries_key(monkeypatch):
+    """The frontend reads ``res.boundaries`` — not ``res.regions`` or
+    ``res.silence_gaps`` or any other variant. Pin the canonical key.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    monkeypatch.setattr(
+        cutter, "run_ffmpeg",
+        lambda args, **kw: SimpleNamespace(
+            returncode=0,
+            stderr=(
+                "Duration: 00:25:00.00, start: 0.000\n"
+                "silence_start: 300.0\nsilence_end: 303.0\n"
+                "silence_start: 600.0\nsilence_end: 603.0\n"
+                "silence_start: 900.0\nsilence_end: 903.0\n"
+            ),
+            stdout="",
+        ),
+    )
+    out = _run(listening_router.admin_detect_silence_boundaries(
+        test_id=seed["test_id"],
+        body=listening_router.DetectSilenceRequest(),
+        authorization=authz,
+    ))
+    assert "boundaries" in out
+    assert "regions" not in out
+    assert "silence_gaps" not in out
+
+
+def test_detect_silence_boundary_entries_have_start_and_end_only(monkeypatch):
+    """Each boundary is ``{start: float, end: float}``. Pin the field
+    set so a "richer" boundary shape (e.g. ``{label, confidence}``)
+    can't surface without a deliberate frontend update.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    monkeypatch.setattr(
+        cutter, "run_ffmpeg",
+        lambda args, **kw: SimpleNamespace(
+            returncode=0,
+            stderr=(
+                "Duration: 00:25:00.00, start: 0.000\n"
+                "silence_start: 300.0\nsilence_end: 303.0\n"
+                "silence_start: 600.0\nsilence_end: 603.0\n"
+                "silence_start: 900.0\nsilence_end: 903.0\n"
+            ),
+            stdout="",
+        ),
+    )
+    out = _run(listening_router.admin_detect_silence_boundaries(
+        test_id=seed["test_id"],
+        body=listening_router.DetectSilenceRequest(),
+        authorization=authz,
+    ))
+    assert len(out["boundaries"]) > 0
+    for entry in out["boundaries"]:
+        assert set(entry.keys()) == {"start", "end"}
+        assert isinstance(entry["start"], (int, float))
+        assert isinstance(entry["end"], (int, float))
+
+
+def test_detect_silence_boundaries_are_sorted_by_start(monkeypatch):
+    """The frontend lays down sections in array order, indexed by
+    ``i`` for colour rotation. Pin that ``boundaries`` come out
+    sorted by ``start`` so Section 1 is always leftmost on the
+    waveform.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    # Seed silencedetect output deliberately *out of order* in the
+    # stderr stream to confirm the service sorts them.
+    monkeypatch.setattr(
+        cutter, "run_ffmpeg",
+        lambda args, **kw: SimpleNamespace(
+            returncode=0,
+            stderr=(
+                "Duration: 00:25:00.00, start: 0.000\n"
+                "silence_start: 900.0\nsilence_end: 903.0\n"
+                "silence_start: 300.0\nsilence_end: 303.0\n"
+                "silence_start: 600.0\nsilence_end: 603.0\n"
+            ),
+            stdout="",
+        ),
+    )
+    out = _run(listening_router.admin_detect_silence_boundaries(
+        test_id=seed["test_id"],
+        body=listening_router.DetectSilenceRequest(),
+        authorization=authz,
+    ))
+    starts = [b["start"] for b in out["boundaries"]]
+    assert starts == sorted(starts), (
+        f"boundaries must be sorted by start, got {starts}"
+    )
+
+
+def test_detect_silence_zero_gaps_returns_single_full_audio_boundary(monkeypatch):
+    """Audio with no silence gaps long enough to qualify — the
+    endpoint falls back to a single boundary spanning [0, duration].
+    Pin this fallback so a refactor can't quietly switch to an
+    equal-N-split (which would mid-cut the source) or return an
+    empty list (which would deprive the admin of any starting
+    segment).
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    monkeypatch.setattr(
+        cutter, "run_ffmpeg",
+        lambda args, **kw: SimpleNamespace(
+            returncode=0,
+            stderr="Duration: 00:25:00.00, start: 0.000\n",
+            stdout="",
+        ),
+    )
+    out = _run(listening_router.admin_detect_silence_boundaries(
+        test_id=seed["test_id"],
+        body=listening_router.DetectSilenceRequest(),
+        authorization=authz,
+    ))
+    assert out["silence_gaps_detected"] == 0
+    assert out["boundaries"] == [{"start": 0.0, "end": 1500.0}]
+
+
+def test_detect_silence_response_top_level_keys_locked(monkeypatch):
+    """Pin the entire top-level key set so a refactor can't add or
+    rename fields without a deliberate frontend update. Currently:
+    ``audio_duration_seconds``, ``silence_gaps_detected``,
+    ``boundaries``, ``silence_threshold_db``, ``min_silence_duration``.
+    """
+    fake, authz = _patch(monkeypatch)
+    seed = _seed_full_premixed_test(fake)
+    monkeypatch.setattr(
+        cutter, "run_ffmpeg",
+        lambda args, **kw: SimpleNamespace(
+            returncode=0,
+            stderr=(
+                "Duration: 00:25:00.00, start: 0.000\n"
+                "silence_start: 300.0\nsilence_end: 303.0\n"
+            ),
+            stdout="",
+        ),
+    )
+    out = _run(listening_router.admin_detect_silence_boundaries(
+        test_id=seed["test_id"],
+        body=listening_router.DetectSilenceRequest(),
+        authorization=authz,
+    ))
+    # Frontend reads `boundaries` + `silence_gaps_detected` directly.
+    # The other fields are diagnostic but should remain present.
+    required = {"boundaries", "silence_gaps_detected", "audio_duration_seconds"}
+    assert required.issubset(set(out.keys())), (
+        f"missing required keys: {required - set(out.keys())}"
+    )
+
+
 def test_cut_audio_endpoint_creates_listening_content_rows(monkeypatch):
     """End-to-end happy path: 4 segments → 4 listening_content rows
     + 4 storage uploads + segment metadata persisted.
