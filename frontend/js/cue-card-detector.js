@@ -152,6 +152,75 @@
   }
 
   /**
+   * Sprint 14.6.4 — extract the first sentence/line from a Part 2
+   * paste so the AI gen endpoint receives a clean topic statement.
+   *
+   * Andy 2026-05-23 empirical bug: users paste a full cue card on a
+   * single line (no `\n`, no `-` bullets), Sprint 14.4 detection
+   * fails, Sprint 14.6.2 fallback used `lines[0]` = the entire
+   * pre-formed cue card as the trigger. The AI model received a
+   * cue card and "generated" a different one → user-visible
+   * inconsistency.
+   *
+   * Updated L7 contract (refined from the empirical Andy 2026-05-23
+   * paste, which was 162 chars — UNDER the original 200-char threshold
+   * — but still pre-formed cue card needing first-sentence extraction):
+   *
+   *   1. Trim. Empty / whitespace-only input → "".
+   *   2. If the input has any `\n`, return the first non-empty
+   *      trimmed line. (Multi-line paste short-circuits.)
+   *   3. Single line: search for the first ". " (period + space)
+   *      within the first 200 characters.
+   *      - Found → return the substring up to and including the
+   *        period. This handles Andy's empirical case at any
+   *        length: a single line with "Describe X. You should say..."
+   *        becomes "Describe X." regardless of total length.
+   *   4. No "." found AND length ≤200 → return the trimmed text
+   *      as-is. (Normal short trigger like "Describe a person.")
+   *   5. No "." found AND length >200 → hard cap at 200 chars.
+   *
+   * Pure function — no DOM, no module-system magic.
+   *
+   * @param {string} text — raw paste contents
+   * @returns {string} the trigger to send to /sessions/cuecard/generate
+   */
+  function extractFirstLineAsTrigger(text) {
+    if (text == null) return '';
+    var trimmed = String(text).trim();
+    if (!trimmed) return '';
+
+    // 2 — multi-line paste: take the first non-empty trimmed line.
+    if (trimmed.indexOf('\n') !== -1) {
+      var lines = trimmed.split(/\r?\n/);
+      for (var i = 0; i < lines.length; i++) {
+        var t = lines[i].trim();
+        if (t) return t;
+      }
+      return '';
+    }
+
+    // 3 — single line: prefer truncation at the first ". " inside the
+    // 200-char window. This is the fix for Andy's empirical bug —
+    // pastes UNDER 200 chars still had pre-formed cue cards as the
+    // trigger; we now strip everything after the first sentence
+    // boundary regardless of total length.
+    var window200 = trimmed.length > 200 ? trimmed.substring(0, 200) : trimmed;
+    var periodIdx = window200.indexOf('. ');
+    if (periodIdx > 0) {
+      return trimmed.substring(0, periodIdx + 1);   // include trailing period
+    }
+
+    // 4 — short single line, no sentence boundary: pass through.
+    if (trimmed.length <= 200) {
+      return trimmed;
+    }
+
+    // 5 — long single line, no sentence boundary in the 200-char
+    // window: hard cap so the AI gen prompt stays bounded.
+    return window200;
+  }
+
+  /**
    * Sprint 14.6.2 — part-driven router. Replaces the Sprint 14.4
    * three-option toggle ("auto" / "single" / "cue_card") which Andy's
    * 2026-05-22 17:03 screenshot showed as redundant with the existing
@@ -186,7 +255,25 @@
       throw new Error('parseCustomQuestionsByPart: unsupported partNum ' + partNum);
     }
 
-    // Part 2 — case A: full cue card pasted (Sprint 14.4 heuristic).
+    // Sprint 14.6.4 Part 2 routing simplification (Pattern #35):
+    //
+    //   Case A — multi-line *structured* cue card (Sprint 14.4
+    //   heuristic matches: opening keyword + "you should say" +
+    //   ≥2 bullet lines). This is the power-user path: the paste
+    //   already has the shape the Part 2 state machine needs, so
+    //   we bypass AI gen and use it verbatim. `source` was renamed
+    //   to `user_pasted_multiline` (Sprint 14.6.4 L8) to signal
+    //   that this is now the *secondary* path; the primary route
+    //   is the AI-gen branch below.
+    //
+    //   Case B — everything else: extract the first sentence as the
+    //   AI gen trigger. Sprint 14.6.2 originally took `lines[0]`,
+    //   which broke on Andy's 2026-05-23 paste (long single line
+    //   with internal periods → the whole pre-formed cue card was
+    //   sent as the trigger, and the model regenerated something
+    //   different). `extractFirstLineAsTrigger` truncates at the
+    //   first sentence boundary so the model receives a clean topic
+    //   statement (L7).
     var det = detectCueCard(raw);
     if (det.isCueCard) {
       return [{
@@ -194,18 +281,14 @@
         prompt:  raw,
         topic:   det.topic,
         bullets: det.bullets,
-        source:  'user_pasted',
+        source:  'user_pasted_multiline',
       }];
     }
 
-    // Part 2 — case B: 1-line trigger (or multi-line non-cue-card; per
-    // L4 we use the first non-empty line as the trigger and ignore
-    // the rest — the alternative is a confusing reject UX).
-    var lines = raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
-    if (lines.length === 0) {
+    var trigger = extractFirstLineAsTrigger(raw);
+    if (!trigger) {
       throw new Error('Vui lòng nhập ít nhất 1 dòng cho Part 2');
     }
-    var trigger = lines[0];
 
     // Sprint 14.6.3 — Route through `window.api.post` instead of a
     // raw `fetch('/sessions/...')`. The raw-fetch path resolved
@@ -270,6 +353,7 @@
     detectCueCard:        detectCueCard,
     parseCustomQuestions: parseCustomQuestions,       // Sprint 14.4 (deprecated — kept for L10 backward compat)
     parseCustomQuestionsByPart: parseCustomQuestionsByPart,  // Sprint 14.6.2
+    extractFirstLineAsTrigger:  extractFirstLineAsTrigger,   // Sprint 14.6.4
     // Exported for test harness only; not part of the public API.
     _OPENING_RE:    OPENING_RE,
     _YOU_SHOULD_RE: YOU_SHOULD_RE,

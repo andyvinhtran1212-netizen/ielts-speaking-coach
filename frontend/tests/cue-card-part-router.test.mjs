@@ -138,7 +138,7 @@ describe('Sprint 14.6.2 — Part 2 + full cue card paste short-circuits AI gen',
       'Full cue card paste must not call the AI gen endpoint');
     assert.strictEqual(out.length, 1);
     assert.strictEqual(out[0].type,   'cue_card');
-    assert.strictEqual(out[0].source, 'user_pasted');
+    assert.strictEqual(out[0].source, 'user_pasted_multiline');
     assert.strictEqual(out[0].topic,  'Describe a memorable trip you took.');
     assert.deepStrictEqual(out[0].bullets, [
       'where you went', 'who you went with', 'what you did there',
@@ -327,7 +327,7 @@ describe('Sprint 14.6.2 — Part 2 error paths surface actionable messages', () 
       'Describe X.\nYou should say:\n- a\n- b\nand explain.', 2,
       { api: { post: () => { throw new Error('api.post must not be called for user_pasted path'); } } },
     );
-    assert.strictEqual(out[0].source, 'user_pasted');
+    assert.strictEqual(out[0].source, 'user_pasted_multiline');
   });
 
 });
