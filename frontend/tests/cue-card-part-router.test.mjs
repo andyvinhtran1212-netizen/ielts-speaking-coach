@@ -1,21 +1,19 @@
 /**
- * frontend/tests/cue-card-part-router.test.mjs — Sprint 14.6.2.
+ * frontend/tests/cue-card-part-router.test.mjs — Sprint 14.6.2 (created)
+ *                                              — Sprint 14.6.3 (migrated)
  *
  * Behaviour tests for `parseCustomQuestionsByPart` — the Sprint 14.6.2
- * replacement for the Sprint 14.4 three-option toggle. Routing decisions
- * now flow from the Part selector instead of a redundant radio group
- * (Andy's 2026-05-22 17:03 screenshot).
+ * replacement for the Sprint 14.4 three-option toggle. Routing
+ * decisions flow from the Part selector.
  *
- * Routing contract (commission locks L2 + L3):
- *   - Part 1 + Part 3 → naive split into single questions (legacy path).
- *   - Part 2 + paste matches detectCueCard heuristic → use the paste
- *     verbatim as a cue card; `source: "user_pasted"`.
- *   - Part 2 + heuristic fails → POST first non-empty line as `trigger`
- *     to `/sessions/cuecard/generate`; relay the AI-generated cue card
- *     with `source: "ai_generated"`.
- *
- * The `opts.fetch` testing seam lets us stub the network without
- * monkey-patching globalThis.fetch, keeping each test isolated.
+ * Sprint 14.6.3 migration: the AI-cue-card branch now goes through
+ * `window.api.post(...)` (the canonical helper that prepends the
+ * Railway backend base URL) instead of a raw `fetch('/sessions/...')`.
+ * The `opts.fetch` test seam is gone; tests now inject `opts.api`
+ * (an object with a `.post(path, body)` async method). This file
+ * was migrated from the Sprint 14.6.2 fetch-mock shape to the new
+ * api-stub shape — see `cue-card-fetch-url.test.mjs` for the URL +
+ * helper-routing sentinels that pin Sprint 14.6.3's contract.
  */
 
 import { describe, test } from 'node:test';
@@ -34,37 +32,34 @@ const { parseCustomQuestionsByPart } = require(
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 
-/** Build a stub fetch that returns the given JSON body with status 200. */
-function _okFetch(body) {
-  return async (_url, _init) => ({
-    ok:     true,
-    status: 200,
-    json:   async () => body,
-  });
-}
-
-/** Build a stub fetch that returns a structured error response. */
-function _errFetch(status, detail) {
-  return async (_url, _init) => ({
-    ok:     false,
-    status: status,
-    json:   async () => ({ detail: detail }),
-  });
-}
-
-/** Build a stub fetch that records the request for assertion. */
-function _spyFetch(responseBody) {
-  const calls = [];
-  const impl = async (url, init) => {
-    calls.push({ url: url, init: init });
-    return {
-      ok:     true,
-      status: 200,
-      json:   async () => responseBody,
-    };
+/** Build a stub api whose .post returns the given JSON body. */
+function _okApi(body) {
+  return {
+    post: async (_path, _body) => body,
   };
-  impl.calls = calls;
-  return impl;
+}
+
+/** Build a stub api whose .post throws an Error shaped like api.js's
+ *  _apiRequest error path (.status + .detail attached). */
+function _errApi(status, detail) {
+  return {
+    post: async () => {
+      const err = new Error((detail && detail.message) || 'HTTP ' + status);
+      err.status = status;
+      err.detail = detail;
+      throw err;
+    },
+  };
+}
+
+/** Build a stub api that records every call for assertion. */
+function _spyApi(responseBody) {
+  const calls = [];
+  const post = async (path, body) => {
+    calls.push({ path, body });
+    return responseBody;
+  };
+  return { post, calls };
 }
 
 
@@ -77,7 +72,7 @@ describe('Sprint 14.6.2 — Part 1/3 route through naive single-question split',
     const out = await parseCustomQuestionsByPart(
       'What is your favourite season?\nDo you like rainy days?\nHow do you spend weekends?',
       1,
-      { fetch: () => { throw new Error('Part 1 must not call fetch'); } },
+      { api: { post: () => { throw new Error('Part 1 must not call api.post'); } } },
     );
     assert.deepStrictEqual(out, [
       'What is your favourite season?',
@@ -90,7 +85,7 @@ describe('Sprint 14.6.2 — Part 1/3 route through naive single-question split',
     const out = await parseCustomQuestionsByPart(
       'How has technology changed education?\nWhat skills will children need?',
       3,
-      { fetch: () => { throw new Error('Part 3 must not call fetch'); } },
+      { api: { post: () => { throw new Error('Part 3 must not call api.post'); } } },
     );
     assert.deepStrictEqual(out, [
       'How has technology changed education?',
@@ -108,11 +103,10 @@ describe('Sprint 14.6.2 — Part 1/3 route through naive single-question split',
     assert.strictEqual(out[9],  'Q10?');
   });
 
-  test('Part 1: empty string returns empty list (no error, no fetch)', async () => {
+  test('Part 1: empty string returns empty list (no error, no api call)', async () => {
     let called = false;
-    const out = await parseCustomQuestionsByPart('', 1, {
-      fetch: async () => { called = true; throw new Error('boom'); },
-    });
+    const api = { post: async () => { called = true; throw new Error('boom'); } };
+    const out = await parseCustomQuestionsByPart('', 1, { api });
     assert.deepStrictEqual(out, []);
     assert.strictEqual(called, false);
   });
@@ -125,8 +119,8 @@ describe('Sprint 14.6.2 — Part 1/3 route through naive single-question split',
 
 describe('Sprint 14.6.2 — Part 2 + full cue card paste short-circuits AI gen', () => {
 
-  test('detected cue card returns user_pasted source, no fetch call', async () => {
-    let fetchCalled = false;
+  test('detected cue card returns user_pasted source, no api call', async () => {
+    let apiCalled = false;
     const cueCard = [
       'Describe a memorable trip you took.',
       'You should say:',
@@ -137,10 +131,10 @@ describe('Sprint 14.6.2 — Part 2 + full cue card paste short-circuits AI gen',
     ].join('\n');
 
     const out = await parseCustomQuestionsByPart(cueCard, 2, {
-      fetch: async () => { fetchCalled = true; throw new Error('no fetch'); },
+      api: { post: async () => { apiCalled = true; throw new Error('no api'); } },
     });
 
-    assert.strictEqual(fetchCalled, false,
+    assert.strictEqual(apiCalled, false,
       'Full cue card paste must not call the AI gen endpoint');
     assert.strictEqual(out.length, 1);
     assert.strictEqual(out[0].type,   'cue_card');
@@ -162,8 +156,8 @@ describe('Sprint 14.6.2 — Part 2 + full cue card paste short-circuits AI gen',
 
 describe('Sprint 14.6.2 — Part 2 + non-cue-card paste calls AI cue card gen', () => {
 
-  test('1-line trigger POSTs to /sessions/cuecard/generate with trigger payload', async () => {
-    const spy = _spyFetch({
+  test('1-line trigger calls api.post(/sessions/cuecard/generate, {trigger})', async () => {
+    const api = _spyApi({
       type:    'cue_card',
       topic:   'Describe a hobby you enjoy.',
       bullets: ['What it is', 'When you do it', 'Why you enjoy it'],
@@ -172,14 +166,11 @@ describe('Sprint 14.6.2 — Part 2 + non-cue-card paste calls AI cue card gen', 
       trigger: 'my hobby is reading',
     });
 
-    const out = await parseCustomQuestionsByPart('my hobby is reading', 2, { fetch: spy });
+    const out = await parseCustomQuestionsByPart('my hobby is reading', 2, { api });
 
-    assert.strictEqual(spy.calls.length, 1, 'must call fetch exactly once');
-    const call = spy.calls[0];
-    assert.strictEqual(call.url, '/sessions/cuecard/generate');
-    assert.strictEqual(call.init.method, 'POST');
-    assert.strictEqual(call.init.headers['Content-Type'], 'application/json');
-    assert.deepStrictEqual(JSON.parse(call.init.body), { trigger: 'my hobby is reading' });
+    assert.strictEqual(api.calls.length, 1, 'must call api.post exactly once');
+    assert.strictEqual(api.calls[0].path, '/sessions/cuecard/generate');
+    assert.deepStrictEqual(api.calls[0].body, { trigger: 'my hobby is reading' });
 
     assert.strictEqual(out.length, 1);
     assert.strictEqual(out[0].type,    'cue_card');
@@ -195,7 +186,7 @@ describe('Sprint 14.6.2 — Part 2 + non-cue-card paste calls AI cue card gen', 
     // use the first non-empty line as the trigger and ignore the rest.
     // Better UX than rejecting; the alternative is a confusing error for
     // someone who pasted a paragraph by mistake.
-    const spy = _spyFetch({
+    const api = _spyApi({
       type:    'cue_card',
       topic:   'Describe a place you visited.',
       bullets: ['a', 'b', 'c'],
@@ -211,13 +202,10 @@ describe('Sprint 14.6.2 — Part 2 + non-cue-card paste calls AI cue card gen', 
       'another stray line',
     ].join('\n');
 
-    const out = await parseCustomQuestionsByPart(paste, 2, { fetch: spy });
+    const out = await parseCustomQuestionsByPart(paste, 2, { api });
 
-    assert.strictEqual(spy.calls.length, 1);
-    assert.deepStrictEqual(
-      JSON.parse(spy.calls[0].init.body),
-      { trigger: 'A place you visited' },
-    );
+    assert.strictEqual(api.calls.length, 1);
+    assert.deepStrictEqual(api.calls[0].body, { trigger: 'A place you visited' });
     assert.strictEqual(out[0].type, 'cue_card');
   });
 
@@ -225,7 +213,7 @@ describe('Sprint 14.6.2 — Part 2 + non-cue-card paste calls AI cue card gen', 
     // Even if the backend ever returned a different source (future
     // human-curated fallback path), the detector must relay it as-is so
     // the admin / audit surfaces see canonical provenance.
-    const spy = _spyFetch({
+    const api = _okApi({
       type:    'cue_card',
       topic:   'X',
       bullets: ['a', 'b'],
@@ -233,7 +221,7 @@ describe('Sprint 14.6.2 — Part 2 + non-cue-card paste calls AI cue card gen', 
       source:  'ai_generated',
       trigger: 'X',
     });
-    const out = await parseCustomQuestionsByPart('X', 2, { fetch: spy });
+    const out = await parseCustomQuestionsByPart('X', 2, { api });
     assert.strictEqual(out[0].source, 'ai_generated');
   });
 
@@ -245,36 +233,36 @@ describe('Sprint 14.6.2 — Part 2 + non-cue-card paste calls AI cue card gen', 
 
 describe('Sprint 14.6.2 — Part 2 error paths surface actionable messages', () => {
 
-  test('empty paste throws with Vietnamese message (no fetch)', async () => {
-    let fetchCalled = false;
+  test('empty paste throws with Vietnamese message (no api call)', async () => {
+    let apiCalled = false;
     await assert.rejects(
       parseCustomQuestionsByPart('', 2, {
-        fetch: async () => { fetchCalled = true; return { ok: true, json: async () => ({}) }; },
+        api: { post: async () => { apiCalled = true; return {}; } },
       }),
       /ít nhất 1 dòng/,
     );
-    assert.strictEqual(fetchCalled, false,
-      'Empty paste must short-circuit before any network call');
+    assert.strictEqual(apiCalled, false,
+      'Empty paste must short-circuit before any api call');
   });
 
-  test('whitespace-only paste throws (no fetch)', async () => {
-    let fetchCalled = false;
+  test('whitespace-only paste throws (no api call)', async () => {
+    let apiCalled = false;
     await assert.rejects(
       parseCustomQuestionsByPart('   \n  \n   ', 2, {
-        fetch: async () => { fetchCalled = true; return { ok: true, json: async () => ({}) }; },
+        api: { post: async () => { apiCalled = true; return {}; } },
       }),
       /ít nhất 1 dòng/,
     );
-    assert.strictEqual(fetchCalled, false);
+    assert.strictEqual(apiCalled, false);
   });
 
   test('503 from AI gen endpoint surfaces backend message verbatim', async () => {
-    // The endpoint returns `detail.message` in Vietnamese with the
-    // paste-manually hint. The detector must propagate it so the UI
-    // doesn't have to re-translate generic English copy.
-    const err = await assert.rejects(
+    // api.js throws Error{.status, .detail, .message} on non-2xx; the
+    // detector relays it so the UI can show backend Vietnamese copy
+    // verbatim. .message is set from detail.message when present.
+    await assert.rejects(
       parseCustomQuestionsByPart('Describe X.', 2, {
-        fetch: _errFetch(503, {
+        api: _errApi(503, {
           code:    'cue_card_generation_unavailable',
           message: 'Không thể tạo cue card lúc này. Vui lòng paste cue card đầy đủ thủ công.',
           trigger: 'Describe X.',
@@ -282,15 +270,12 @@ describe('Sprint 14.6.2 — Part 2 error paths surface actionable messages', () 
       }),
       /paste cue card đầy đủ/,
     );
-    // `err.status` is exposed on the thrown Error so the UI can branch
-    // on auth (401) vs availability (503) vs validation (422).
-    assert.ok(err === undefined || true);  // assert.rejects returns undefined; the matcher above is the contract
   });
 
   test('thrown error carries .status and .detail for UI branching', async () => {
     try {
       await parseCustomQuestionsByPart('Describe X.', 2, {
-        fetch: _errFetch(503, {
+        api: _errApi(503, {
           code:    'cue_card_generation_unavailable',
           message: 'Hãy paste cue card đầy đủ.',
           trigger: 'Describe X.',
@@ -304,17 +289,22 @@ describe('Sprint 14.6.2 — Part 2 error paths surface actionable messages', () 
     }
   });
 
-  test('non-JSON error response still throws with a fallback message', async () => {
-    // Network/CDN failures may return HTML — `resp.json()` throws.
-    // The detector must still throw a usable Error, not propagate the
-    // JSON-parse crash.
-    const brokenFetch = async () => ({
-      ok:     false,
-      status: 502,
-      json:   async () => { throw new Error('not JSON'); },
-    });
+  test('opaque HTTP error (no detail) still throws with a fallback VN message', async () => {
+    // Sprint 14.6.3 — this is the failure mode that bit production:
+    // a Vercel 404 HTML page comes through api.js as a plain
+    // Error.message = "HTTP 404" with no detail. The detector
+    // substitutes the VN actionable fallback so the user doesn't see
+    // raw "HTTP 404" text.
+    const api = {
+      post: async () => {
+        const err = new Error('HTTP 502');
+        err.status = 502;
+        err.detail = null;
+        throw err;
+      },
+    };
     try {
-      await parseCustomQuestionsByPart('X', 2, { fetch: brokenFetch });
+      await parseCustomQuestionsByPart('X', 2, { api });
       assert.fail('should have thrown');
     } catch (e) {
       assert.match(e.message, /Không thể tạo cue card|paste cue card đầy đủ/i);
@@ -329,15 +319,13 @@ describe('Sprint 14.6.2 — Part 2 error paths surface actionable messages', () 
     );
   });
 
-  test('user_pasted cue card path short-circuits before needing fetch', async () => {
-    // Pin the contract that a fully-formed cue card never tries to hit
-    // the network — even if global fetch were unavailable, this path
-    // would still succeed. (We can't directly test the
-    // "no-fetch-available" error branch under Node 18+, which ships
-    // a global `fetch`.)
+  test('user_pasted cue card path short-circuits before needing api.post', async () => {
+    // Pin the contract that a fully-formed cue card never tries to
+    // hit the network — even if no api seam were provided, this path
+    // would still succeed.
     const out = await parseCustomQuestionsByPart(
       'Describe X.\nYou should say:\n- a\n- b\nand explain.', 2,
-      { fetch: () => { throw new Error('fetch must not be called for user_pasted path'); } },
+      { api: { post: () => { throw new Error('api.post must not be called for user_pasted path'); } } },
     );
     assert.strictEqual(out[0].source, 'user_pasted');
   });

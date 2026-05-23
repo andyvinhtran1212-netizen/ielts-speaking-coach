@@ -168,12 +168,15 @@
    *
    * @param {string} text — raw textarea contents
    * @param {number} partNum — 1, 2, or 3 (from the Part selector)
-   * @param {{fetch?: typeof fetch}} [opts] — testing seam
+   * @param {{api?: {post: Function}}} [opts] — testing seam.
+   *     Sprint 14.6.3 — opts.api replaces the Sprint 14.6.2 opts.fetch
+   *     seam because the production code path now goes through
+   *     `window.api.post(path, body)` (which prepends the Railway
+   *     backend base URL). Tests inject a stub via `opts.api`.
    * @returns {Promise<Array<string|object>>}
    */
   async function parseCustomQuestionsByPart(text, partNum, opts) {
     var raw = (text == null ? '' : String(text)).trim();
-    var fetchImpl = (opts && opts.fetch) || (typeof fetch !== 'undefined' ? fetch : null);
 
     if (partNum === 1 || partNum === 3) {
       return _naiveSplitToSingle(raw);
@@ -204,28 +207,50 @@
     }
     var trigger = lines[0];
 
-    if (!fetchImpl) {
-      throw new Error('parseCustomQuestionsByPart: fetch unavailable for AI cue-card gen');
+    // Sprint 14.6.3 — Route through `window.api.post` instead of a
+    // raw `fetch('/sessions/...')`. The raw-fetch path resolved
+    // against the Vercel frontend domain in production
+    // (www.averlearning.com), producing a 404 HTML page; api.post
+    // prepends the Railway backend base URL (`_API_BASE` in api.js)
+    // so the call lands on the actual FastAPI server. The opts.api
+    // seam preserves testability — tests inject a stub api object
+    // with a .post(path, body) async method.
+    var apiPost = (opts && opts.api && typeof opts.api.post === 'function')
+      ? opts.api.post
+      : (typeof window !== 'undefined' && window.api && typeof window.api.post === 'function')
+        ? window.api.post.bind(window.api)
+        : null;
+
+    if (!apiPost) {
+      throw new Error('window.api.post not available — ensure api.js is loaded before cue-card-detector.js');
     }
 
-    var resp = await fetchImpl('/sessions/cuecard/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ trigger: trigger }),
-    });
-
-    if (!resp.ok) {
-      var detail = {};
-      try { detail = await resp.json(); } catch (_) {}
-      var msg = (detail && detail.detail && detail.detail.message)
-        || 'Không thể tạo cue card. Hãy thử paste cue card đầy đủ.';
-      var err = new Error(msg);
-      err.status = resp.status;
-      err.detail = detail.detail || detail;
-      throw err;
+    // api.post returns the parsed JSON on 2xx, or throws an Error
+    // with .status + .detail attached (api.js _apiRequest semantics).
+    // The Sprint 14.6.2 caller in speaking.html already wraps this
+    // in try/catch and surfaces `err.message` — keep the throw shape
+    // backward-compatible so we don't break the existing UX.
+    var payload;
+    try {
+      payload = await apiPost('/sessions/cuecard/generate', { trigger: trigger });
+    } catch (e) {
+      // Pass through if the error already carries .status (api.js
+      // already populated it). Otherwise wrap with the VN fallback
+      // so the user sees an actionable message even on network noise.
+      if (e && typeof e.status === 'number') {
+        // api.js sets message from detail.message when present, else
+        // "HTTP <status>"; for the latter we substitute the VN copy
+        // so the panel reads naturally.
+        if (!e.message || /^HTTP\s+\d+$/.test(e.message)) {
+          e.message = 'Không thể tạo cue card. Hãy thử paste cue card đầy đủ.';
+        }
+        throw e;
+      }
+      var wrapped = new Error('Không thể tạo cue card. Hãy thử paste cue card đầy đủ.');
+      wrapped.cause = e;
+      throw wrapped;
     }
 
-    var payload = await resp.json();
     // Sprint 14.4 backend `_CustomQBody` accepts {type, prompt, topic,
     // bullets}; the AI-gen endpoint already returns exactly that
     // shape so we forward it verbatim. The extra `trigger` + `source`
