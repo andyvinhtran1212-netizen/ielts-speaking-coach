@@ -442,10 +442,19 @@
                     placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable experience."
                     maxlength="2000"></textarea>
 
-          <p class="cue-card-form-hint text-xs"
+          <p id="prac-custom-q-hint" class="cue-card-form-hint text-xs"
              style="margin-top:6px;color:var(--av-text-muted);">
             Part 1 / 3: mỗi dòng một câu (tối đa 10). Part 2: paste cue card đầy đủ, hoặc nhập 1 dòng để AI tạo cue card.
           </p>
+
+          <!-- Sprint 14.6.4 — Part-2-only length warning. Visible
+               state is driven by `data-state` so the rule lives in
+               ds.css (Pattern #26: no inline color/bg literals). -->
+          <div id="prac-custom-q-length-warning"
+               class="ds-cuecard-length-warning"
+               data-state="hidden"
+               role="status"
+               aria-live="polite"></div>
 
           <p id="prac-custom-q-preview" class="cue-card-preview"
              style="display:none;font-size:11px;margin-top:6px;color:var(--ds-muted);"></p>
@@ -773,9 +782,16 @@
         <textarea id="myq-input" rows="5" class="topic-input" style="resize:vertical;min-height:100px;"
                   placeholder="Ví dụ:&#10;Do you enjoy spending time outdoors?&#10;How has technology changed your daily life?&#10;Describe a memorable trip you have taken."
                   maxlength="2000"></textarea>
-        <p class="cue-card-form-hint text-xs mt-1.5" style="color:var(--av-text-muted);">
+        <p id="myq-input-hint" class="cue-card-form-hint text-xs mt-1.5" style="color:var(--av-text-muted);">
           Part 1 / 3: mỗi dòng một câu (tối đa 10). Part 2: paste cue card đầy đủ, hoặc nhập 1 dòng để AI tạo cue card.
         </p>
+        <!-- Sprint 14.6.4 — Part-2-only length warning (same shape as the
+             practice form). -->
+        <div id="myq-input-length-warning"
+             class="ds-cuecard-length-warning"
+             data-state="hidden"
+             role="status"
+             aria-live="polite"></div>
         <p id="myq-input-preview" class="cue-card-preview"
            style="display:none;font-size:11px;margin-top:6px;color:var(--ds-muted);"></p>
       </div>
@@ -1452,6 +1468,10 @@
         'Bạn muốn luyện tập Part ' + part + ' với chủ đề nào?';
       document.getElementById('modal-error').textContent = '';
       document.getElementById('topic-custom-input').value = '';
+      // Sprint 14.6.4 — modal-side equivalent of setPracPart: the
+      // textarea + hint reflect the part we're about to open.
+      _applyCueCardFormCopyForPart('myq-input', part);
+      _evaluateCueCardLengthWarning('myq-input', 'myq-input-length-warning', part);
       switchTopicTab('list');
 
       // Load topics from API
@@ -1696,7 +1716,122 @@
           switchMainTab('dashboard');
         }
       });
+
+      // Sprint 14.6.4 — debounced (300ms) input listeners on both
+      // cue-card textareas so the length warning reacts as the user
+      // types/pastes. The Part is read live from _pracPart /
+      // _modalPart so a Part button click + a textarea change both
+      // converge on the right warning state.
+      function _bindCueCardLengthWatcher(textareaId, warningId, getPart) {
+        var ta = document.getElementById(textareaId);
+        if (!ta) return;
+        var timer = null;
+        ta.addEventListener('input', function () {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(function () {
+            _evaluateCueCardLengthWarning(textareaId, warningId, getPart());
+          }, 300);
+        });
+      }
+      _bindCueCardLengthWatcher(
+        'prac-custom-q', 'prac-custom-q-length-warning',
+        function () { return _pracPart; },
+      );
+      _bindCueCardLengthWatcher(
+        'myq-input', 'myq-input-length-warning',
+        function () { return _modalPart; },
+      );
     });
+
+    // ── Sprint 14.6.4: Part-2 input UX helpers ───────────────
+    //
+    // Pattern #35 (UX constraint over heuristic expansion): rather
+    // than chase every possible cue-card paste shape with a smarter
+    // detector, we narrow the user's expected input via dynamic
+    // placeholder + hint + length warning. The detector now always
+    // routes Part 2 to AI gen with a first-sentence trigger
+    // (extractFirstLineAsTrigger) unless the paste is an explicitly
+    // structured multi-line cue card.
+    //
+    // The thresholds match the commission L3 lock: warning fires
+    // when the textarea exceeds 200 characters OR 30 whitespace-
+    // separated words AND Part 2 is currently selected.
+    var _CUE_CARD_LENGTH_WARN_CHARS = 200;
+    var _CUE_CARD_LENGTH_WARN_WORDS = 30;
+
+    var _CUE_CARD_PLACEHOLDER_DEFAULT =
+      'Ví dụ:\nDo you enjoy spending time outdoors?\n' +
+      'How has technology changed your daily life?\n' +
+      'Describe a memorable experience.';
+    var _CUE_CARD_PLACEHOLDER_PART2 =
+      'Ví dụ:\nDescribe a traditional festival you attended.\n\n' +
+      'Chỉ cần 1 dòng đầu — web sẽ tự tạo phần "You should say..." và bullets.';
+
+    var _CUE_CARD_HINT_DEFAULT_HTML =
+      'Part 1 / 3: mỗi dòng một câu (tối đa 10). ' +
+      'Part 2: paste cue card đầy đủ, hoặc nhập 1 dòng để AI tạo cue card.';
+    var _CUE_CARD_HINT_PART2_HTML =
+      '<strong>Part 2 (Cue card):</strong> chỉ nhập <em>1 dòng đầu</em> như ' +
+      '"Describe a person you admire." — web tự tạo phần ' +
+      '"You should say..." và bullets.';
+
+    /**
+     * Sprint 14.6.4 — sync the placeholder + hint to the selected
+     * Part. The hint element lives next to the textarea and carries
+     * the id `<textareaId>-hint` per the markup change above.
+     */
+    function _applyCueCardFormCopyForPart(textareaId, partNum) {
+      var ta = document.getElementById(textareaId);
+      if (ta) {
+        ta.placeholder = (partNum === 2)
+          ? _CUE_CARD_PLACEHOLDER_PART2
+          : _CUE_CARD_PLACEHOLDER_DEFAULT;
+      }
+      var hint = document.getElementById(textareaId + '-hint');
+      if (hint) {
+        hint.innerHTML = (partNum === 2)
+          ? _CUE_CARD_HINT_PART2_HTML
+          : _CUE_CARD_HINT_DEFAULT_HTML;
+      }
+    }
+
+    /**
+     * Sprint 14.6.4 — show / hide the length warning based on Part
+     * and current textarea contents. Part 1/3 never warn (the input
+     * shape is intentionally multi-line for those parts).
+     *
+     * Pattern #26 (Sprint 14.6.1): visual styling lives in ds.css's
+     * `.ds-cuecard-length-warning` rule keyed on `data-state`. No
+     * inline color / background literals.
+     */
+    function _evaluateCueCardLengthWarning(textareaId, warningId, partNum) {
+      var warn = document.getElementById(warningId);
+      if (!warn) return;
+      var ta = document.getElementById(textareaId);
+      if (!ta || partNum !== 2) {
+        warn.dataset.state = 'hidden';
+        warn.innerHTML = '';
+        return;
+      }
+      var text = (ta.value || '').trim();
+      var charCount = text.length;
+      var wordCount = text ? text.split(/\s+/).filter(Boolean).length : 0;
+
+      if (charCount > _CUE_CARD_LENGTH_WARN_CHARS ||
+          wordCount > _CUE_CARD_LENGTH_WARN_WORDS) {
+        warn.innerHTML =
+          '<span class="ds-cuecard-length-warning-icon" aria-hidden="true">⚠️</span>' +
+          '<p class="ds-cuecard-length-warning-message">' +
+          'Part 2 chỉ cần 1 dòng đầu (ví dụ: "Describe..."). ' +
+          'Web sẽ tự tạo phần còn lại. Nội dung dài hơn (' +
+          charCount + ' ký tự / ' + wordCount + ' từ) sẽ bị bỏ qua.' +
+          '</p>';
+        warn.dataset.state = 'visible';
+      } else {
+        warn.dataset.state = 'hidden';
+        warn.innerHTML = '';
+      }
+    }
 
     // ── Tab 2: Practice ───────────────────────────────────────
     var _pracPart      = 1;   // custom-question part context
@@ -1707,6 +1842,13 @@
       [1, 2, 3].forEach(function (p) {
         document.getElementById('prac-part-' + p).classList.toggle('selected', p === part);
       });
+      // Sprint 14.6.4 — keep the textarea guidance in sync with the
+      // selected Part. Part 2 nudges toward a 1-line trigger; Part 1/3
+      // keeps the multi-question copy. Length-warning state must
+      // re-evaluate when Part changes (e.g. user switches from Part 1
+      // with a long paste → Part 2 → warning should now appear).
+      _applyCueCardFormCopyForPart('prac-custom-q', part);
+      _evaluateCueCardLengthWarning('prac-custom-q', 'prac-custom-q-length-warning', part);
     }
 
     function setPracTopicPart(part) {

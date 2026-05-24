@@ -597,6 +597,43 @@ select:focus-visible {
   margin: 0;
 }
 
+/* ── Sprint 14.6.4 cue-card textarea length warning ─────────────────────────
+ * Part-2-only soft warning that surfaces under the cue-card textarea
+ * when the user pastes content longer than the AI-gen trigger needs.
+ * Driven by `data-state` (`hidden` | `visible`) so the JS helper
+ * never injects inline colour / background literals — Pattern #26
+ * source-scan sentinel stays clean.
+ *
+ * Reuses the Sprint 14.7 amber palette tokens (--ds-warning-*) so the
+ * banner flips per theme without redefining colours here.
+ */
+.ds-cuecard-length-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--ds-warning-bg);
+  border: 1px solid var(--ds-warning-border);
+  border-left: 3px solid var(--ds-warning-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 6px;
+}
+.ds-cuecard-length-warning[data-state="hidden"] {
+  display: none;
+}
+.ds-cuecard-length-warning-icon {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.ds-cuecard-length-warning-message {
+  flex: 1;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--ds-warning-text);
+}
+
 /* ── Sprint 14.8 grammar-check UI ────────────────────────────────────────────
  * Two surfaces share the data:
  *   1. .ds-grammar-highlight — wavy underline on the transcript that
