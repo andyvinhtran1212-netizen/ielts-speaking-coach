@@ -504,21 +504,23 @@ async def grade_response_endpoint(
                          "feedback", "overall_band", "stt_status", "grading_status"}
 
         def _upsert_response(row: dict) -> str | None:
-            existing = (
+            # Sprint 14.8.2 (Codex F3) — atomic upsert. A single round-trip
+            # INSERT ... ON CONFLICT (session_id, question_id) DO UPDATE, which is
+            # race-safe across concurrent submits / double-clicks. Replaces the
+            # prior select-then-update/insert, whose read and write could interleave
+            # under concurrency and create duplicate rows.
+            #   - Requires the partial UNIQUE index uq_responses_session_question
+            #     (migration 077, applied to prod 2026-05-24 before this swap).
+            #   - created_at / regrade_metadata are NOT in `row`, so on insert the DB
+            #     default applies and on update they are left untouched (preserved).
+            #   - Returns the upserted row's id (insert or update) for the downstream
+            #     grammar_recommendations / pronunciation steps.
+            res = (
                 supabase_admin.table("responses")
-                .select("id")
-                .eq("session_id",  session_id)
-                .eq("question_id", question_id)
-                .limit(1)
+                .upsert(row, on_conflict="session_id,question_id")
                 .execute()
             )
-            if existing.data:
-                rid = existing.data[0]["id"]
-                supabase_admin.table("responses").update(row).eq("id", rid).execute()
-                return rid
-            else:
-                res = supabase_admin.table("responses").insert(row).execute()
-                return res.data[0]["id"] if res.data else None
+            return res.data[0]["id"] if res.data else None
 
         try:
             response_id = _upsert_response(db_row)
