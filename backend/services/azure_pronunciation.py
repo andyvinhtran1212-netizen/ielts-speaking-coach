@@ -99,7 +99,7 @@ def _assessment_header(reference_text: str = "") -> str:
     config = {
         "ReferenceText":          reference_text,
         "GradingSystem":          "HundredMark",
-        "Granularity":            "Word",          # Word-level accuracy per token
+        "Granularity":            "Phoneme",       # Sprint 15.1 — phoneme scores (superset of Word) for the drill-down
         "Dimension":              "Comprehensive", # Returns all 4 sub-scores (PronScore, Fluency, Accuracy, Completeness)
         "EnableMiscue":           False,           # True only for strict reading assessment
         "EnableProsodyAssessment": True,           # Required for FluencyScore via REST API
@@ -107,6 +107,44 @@ def _assessment_header(reference_text: str = "") -> str:
     encoded = base64.b64encode(json.dumps(config, separators=(",", ":")).encode()).decode()
     print(f"[PRON] assessment_header config={json.dumps(config)}  encoded_len={len(encoded)}", flush=True)
     return encoded
+
+
+# ── Weak-phoneme extraction (Sprint 15.1) ───────────────────────────────────────
+
+def extract_weak_phonemes(
+    azure_response: dict,
+    threshold: float = 70.0,
+    top_n: int = 5,
+) -> list[dict]:
+    """Flatten Azure's per-word ``Phonemes`` (Granularity=Phoneme) into the
+    session's weakest phonemes for the drill-down.
+
+    Symbols are SAPI phones (e.g. ``ih``, ``ay`` — verified from a live capture,
+    NOT IPA); scores are HundredMark 0–100. Returns up to ``top_n`` phonemes
+    scoring below ``threshold``, ascending by score, each with its word context.
+    Returns ``[]`` when there is no phoneme data (e.g. legacy Word-granularity
+    payloads) — Pattern #29 graceful degradation.
+    """
+    nbest = (azure_response or {}).get("NBest") or []
+    if not nbest:
+        return []
+    weak: list[dict] = []
+    for w_idx, w in enumerate(nbest[0].get("Words") or []):
+        word_str = w.get("Word", "")
+        for p in (w.get("Phonemes") or []):
+            sym = p.get("Phoneme")
+            score = p.get("AccuracyScore")
+            if sym is None or score is None:
+                continue
+            if float(score) < threshold:
+                weak.append({
+                    "symbol":     sym,
+                    "score":      round(float(score), 1),
+                    "word":       word_str,
+                    "word_index": w_idx,
+                })
+    weak.sort(key=lambda x: x["score"])
+    return weak[:top_n]
 
 
 # ── Normalizer ─────────────────────────────────────────────────────────────────
@@ -134,6 +172,7 @@ def _normalize(azure_response: dict) -> dict:
             "accuracy_score":       None,
             "completeness_score":   None,
             "words":                [],
+            "weak_phonemes":        [],
             "short_summary":        [
                 "Lần này chưa thu được đủ dữ liệu để nhận xét phát âm — bạn thử nói to và rõ hơn một chút nhé."
             ],
@@ -166,11 +205,20 @@ def _normalize(azure_response: dict) -> dict:
         feedback = w.get("Feedback")          # present when EnableProsodyAssessment=True
         word_str = w.get("Word", "")
 
+        # Sprint 15.1 — per-word phoneme scores (Granularity=Phoneme). Empty for
+        # legacy Word-granularity payloads, so old sessions degrade gracefully.
+        phonemes = [
+            {"symbol": p.get("Phoneme"), "score": round(float(p["AccuracyScore"]), 1)}
+            for p in (w.get("Phonemes") or [])
+            if p.get("Phoneme") is not None and p.get("AccuracyScore") is not None
+        ]
+
         words.append({
             "word":           word_str,
             "accuracy_score": acc,
             "error_type":     err,
             "feedback":       feedback,
+            "phonemes":       phonemes,
         })
 
         if (err and err != "None") or (acc is not None and acc < 60):
@@ -188,6 +236,7 @@ def _normalize(azure_response: dict) -> dict:
         "completeness_score":   _r(completeness),
         "prosody_score":        _r(prosody),
         "words":                words,
+        "weak_phonemes":        extract_weak_phonemes(azure_response),
         "short_summary":        summary,
         "raw_payload":          azure_response,
     }

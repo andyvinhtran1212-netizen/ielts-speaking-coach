@@ -2426,13 +2426,25 @@
     var words = (pronData.words || [])
       .filter(function (w) { return w.error_type && w.error_type !== 'None'; })
       .slice(0, 6);
+    // Sprint 15.1 — expose this render's weak words + their phonemes so the
+    // drill-down modal (pronunciation-drilldown.js) can open from a badge.
+    window.__pronSessionId = _sessionId;
+    window.__pronWeakWords = words.map(function (w) {
+      return { word: w.word, phonemes: w.phonemes || [] };
+    });
     var wordHtml = words.length
       ? '<p style="font-size:11px;color:var(--ds-muted);margin:10px 0 4px;">Từ cần chú ý:</p>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-        + words.map(function (w) {
-            return '<span style="background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.3);'
-              + 'border-radius:6px;padding:2px 8px;font-size:11px;color:#fb923c;">'
-              + _esc(w.word) + '</span>';
+        + words.map(function (w, i) {
+            var badge = 'background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.3);'
+              + 'border-radius:6px;padding:2px 8px;font-size:11px;color:#fb923c;';
+            // Phoneme data present → clickable drill-down; else plain badge (old sessions, graceful).
+            if (w.phonemes && w.phonemes.length) {
+              return '<button type="button" class="ds-pron-weak-word" data-pron-idx="' + i + '"'
+                + ' title="Xem âm cần luyện" style="' + badge + 'cursor:pointer;">'
+                + _esc(w.word) + ' ⓘ</button>';
+            }
+            return '<span style="' + badge + '">' + _esc(w.word) + '</span>';
           }).join('')
         + '</div>'
       : '';
