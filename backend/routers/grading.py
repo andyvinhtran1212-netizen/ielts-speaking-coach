@@ -424,6 +424,40 @@ async def grade_response_endpoint(
         score_confidence = _compute_score_confidence(reliability, duration_sec)
         logger.info("[grading] score_confidence: %s", score_confidence)
 
+        # ── Signal block (Sprint 14.7 / 14.8) ─────────────────────────────────
+        # off-topic + length + grammar signals. Built HERE (before the DB save)
+        # as of Sprint 14.8.1 (Codex F1) so they can be persisted into
+        # responses.feedback — previously this dict was built after the save and
+        # the signals were returned to the caller only, so they vanished when
+        # result.html re-read responses.feedback on reload. Surfaced in every
+        # return branch (stub, practice, test) via `**signals`.
+        signals: dict = {
+            "off_topic_verdict": (
+                {
+                    "is_on_topic": off_topic_verdict.is_on_topic,
+                    "reasoning":   off_topic_verdict.reasoning,
+                }
+                if off_topic_verdict is not None
+                else None
+            ),
+            "length_warning":         length_warning_fires,
+            "audio_duration_seconds": round(duration_sec, 2),
+            "length_soft_threshold":  LENGTH_SOFT_WARNING_THRESHOLDS_SECONDS.get(part),
+            # Structured grammar errors from services.grammar_check (Sprint 14.8;
+            # named `grammar_check` to avoid collision with Sprint 14.5's
+            # qualitative `grammar_issues` coaching text — both coexist).
+            "grammar_check": (
+                {
+                    "errors":          [asdict(e) for e in grammar_result.errors],
+                    "total_count":     grammar_result.total_count,
+                    "displayed_count": grammar_result.displayed_count,
+                    "cached":          grammar_result.cached,
+                }
+                if grammar_result is not None
+                else None
+            ),
+        }
+
         # ── STEP 7: Upsert response row ───────────────────────────────────────
         # Only write columns that exist in the current responses schema:
         #   id, session_id, question_id, user_id, audio_url, transcript,
@@ -455,7 +489,12 @@ async def grade_response_endpoint(
 
         if grading:
             db_row["overall_band"] = grading["overall_band"]
-            db_row["feedback"]     = json.dumps(grading, ensure_ascii=False)
+            # Sprint 14.8.1 (Codex F1) — persist the signals alongside the grade
+            # so off-topic / length / grammar survive a page reload (result.html
+            # re-reads responses.feedback). Additive: all grading keys preserved;
+            # signals add off_topic_verdict / length_warning / audio_duration_seconds
+            # / length_soft_threshold / grammar_check (no key collisions).
+            db_row["feedback"]     = json.dumps({**grading, **signals}, ensure_ascii=False)
 
         # Columns guaranteed to exist in the base schema (no migrations needed).
         # duration_seconds is intentionally excluded: the column may be INTEGER on
@@ -541,39 +580,9 @@ async def grade_response_endpoint(
 
         assessment_confidence = reliability["reliability_label"]
 
-        # Sprint 14.7 — shared signal block surfaced in every branch
-        # (stub, practice, test) so the frontend banner code can render
-        # warnings regardless of whether grading itself succeeded.
-        # Sprint 14.8 — extended with grammar_issues (None on silent
-        # skip; the frontend treats null/missing identically).
-        signals: dict = {
-            "off_topic_verdict": (
-                {
-                    "is_on_topic": off_topic_verdict.is_on_topic,
-                    "reasoning":   off_topic_verdict.reasoning,
-                }
-                if off_topic_verdict is not None
-                else None
-            ),
-            "length_warning":         length_warning_fires,
-            "audio_duration_seconds": round(duration_sec, 2),
-            "length_soft_threshold":  LENGTH_SOFT_WARNING_THRESHOLDS_SECONDS.get(part),
-            # Sprint 14.8 — structured grammar errors from
-            # services.grammar_check (LanguageTool + VI-learner regex
-            # asset). Named `grammar_check` to avoid collision with
-            # Sprint 14.5's qualitative `grammar_issues` (Claude
-            # coaching text) — both fields coexist in the response.
-            "grammar_check": (
-                {
-                    "errors":          [asdict(e) for e in grammar_result.errors],
-                    "total_count":     grammar_result.total_count,
-                    "displayed_count": grammar_result.displayed_count,
-                    "cached":          grammar_result.cached,
-                }
-                if grammar_result is not None
-                else None
-            ),
-        }
+        # Sprint 14.8.1 (Codex F1) — `signals` is built earlier now (before the
+        # DB save) so off-topic / length / grammar persist into
+        # responses.feedback rather than being returned-only. See the block above.
 
         if not grading:
             # Audio + transcript saved; AI grading unavailable — tell the frontend

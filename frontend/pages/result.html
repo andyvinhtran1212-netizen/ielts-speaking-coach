@@ -358,6 +358,114 @@
         .replace(/"/g, '&quot;');
     }
 
+    // ── Persisted signal helpers (Sprint 14.8.1, Codex F1) ─────────────────────
+    // Off-topic / length / grammar signals are now persisted into
+    // responses.feedback (grading.py), so the result page renders them on reload
+    // — parity with the immediate practice.js view. Markup mirrors practice.js
+    // and reuses the same theme-aware ds-* CSS classes (Pattern #26). Each
+    // returns '' when its data is absent, so older sessions render unchanged (L10).
+    function _persistedWarningsBlock(fb) {
+      if (!fb) return '';
+      var warnings = [];
+      if (fb.off_topic_verdict && fb.off_topic_verdict.is_on_topic === false) {
+        var reasoning = fb.off_topic_verdict.reasoning || '';
+        warnings.push({
+          icon: '⚠️',
+          message: 'Cảnh báo: Câu trả lời có thể chưa bám sát đề.' +
+                   (reasoning ? ' Lý do: ' + reasoning : ''),
+        });
+      }
+      if (fb.length_warning === true) {
+        var dur = (typeof fb.audio_duration_seconds === 'number')
+          ? fb.audio_duration_seconds.toFixed(1) : '?';
+        var thr = (typeof fb.length_soft_threshold === 'number')
+          ? Math.round(fb.length_soft_threshold) : '?';
+        warnings.push({
+          icon: '⏱️',
+          message: 'Cảnh báo: Câu trả lời chỉ ' + dur + 's, ngắn hơn ngưỡng ' +
+                   'tham khảo ' + thr + 's. Có thể giới hạn band tối đa.',
+        });
+      }
+      if (warnings.length === 0) return '';
+      var html = warnings.map(function (w) {
+        return '<div class="ds-warning-banner" role="alert" aria-label="Cảnh báo kết quả">' +
+          '<span class="ds-warning-icon" aria-hidden="true">' + w.icon + '</span>' +
+          '<p class="ds-warning-message">' + escHtml(w.message) + '</p>' +
+          '</div>';
+      }).join('');
+      return '<div class="ds-result-warnings">' + html + '</div>';
+    }
+
+    var _GRAMMAR_CAT_LABELS = {
+      tense: 'Thì động từ', article: 'Mạo từ', preposition: 'Giới từ',
+      missing_subject: 'Thiếu chủ ngữ', subject_verb_agreement: 'Sự hòa hợp chủ - động',
+      verb_form: 'Dạng động từ', copula: 'Động từ to be', vocabulary: 'Từ vựng',
+      punctuation: 'Dấu câu', spelling: 'Chính tả', style: 'Văn phong',
+      grammar: 'Ngữ pháp', other: 'Khác',
+    };
+
+    function _persistedGrammarBlock(gc) {
+      if (!gc || !Array.isArray(gc.errors) || gc.errors.length === 0) return '';
+      var groups = {}, order = [];
+      gc.errors.forEach(function (e) {
+        var cat = e.category || 'other';
+        if (!groups[cat]) { groups[cat] = []; order.push(cat); }
+        groups[cat].push(e);
+      });
+      var groupsHtml = order.map(function (cat) {
+        var items = groups[cat].map(function (e) {
+          var id = e.transcript_offset_start + '-' + e.transcript_offset_end;
+          var pair = '<div class="ds-grammar-error-pair">' +
+            '<span class="ds-grammar-error-original">' + escHtml(e.original_text || '') + '</span>' +
+            '<span class="ds-grammar-error-arrow" aria-hidden="true">→</span>' +
+            '<span class="ds-grammar-error-suggestion">' + escHtml(e.suggestion || '(?)') + '</span>' +
+            '</div>';
+          var exp = e.explanation_vn
+            ? '<p class="ds-grammar-error-explanation">' + escHtml(e.explanation_vn) + '</p>' : '';
+          return '<li class="ds-grammar-error-item" data-error-id="' + escHtml(id) + '">' + pair + exp + '</li>';
+        }).join('');
+        return '<div class="ds-grammar-category">' +
+          '<p class="ds-grammar-category-title">' + escHtml(_GRAMMAR_CAT_LABELS[cat] || cat) + '</p>' +
+          '<ul class="ds-grammar-error-list">' + items + '</ul></div>';
+      }).join('');
+      var more = '';
+      if (typeof gc.total_count === 'number' && typeof gc.displayed_count === 'number' &&
+          gc.total_count > gc.displayed_count) {
+        more = '<p class="ds-grammar-more-info">+' + (gc.total_count - gc.displayed_count) +
+          ' lỗi khác đã được phát hiện.</p>';
+      }
+      return '<div class="ds-grammar-section">' +
+        '<p class="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>' +
+        groupsHtml + more + '</div>';
+    }
+
+    function _persistedTranscriptHighlights(transcript, gc) {
+      var raw = String(transcript == null ? '' : transcript);
+      if (!gc || !Array.isArray(gc.errors) || gc.errors.length === 0) return escHtml(raw);
+      var spans = gc.errors.filter(function (e) {
+        return typeof e.transcript_offset_start === 'number' &&
+               typeof e.transcript_offset_end === 'number' &&
+               e.transcript_offset_end > e.transcript_offset_start &&
+               e.transcript_offset_start >= 0 && e.transcript_offset_end <= raw.length;
+      }).slice().sort(function (a, b) { return a.transcript_offset_start - b.transcript_offset_start; });
+      var out = '', cursor = 0;
+      for (var i = 0; i < spans.length; i++) {
+        var e = spans[i];
+        if (e.transcript_offset_start < cursor) continue;
+        if (e.transcript_offset_start > cursor) out += escHtml(raw.substring(cursor, e.transcript_offset_start));
+        var errText = raw.substring(e.transcript_offset_start, e.transcript_offset_end);
+        var id = e.transcript_offset_start + '-' + e.transcript_offset_end;
+        var tip = (e.suggestion || '(?)') + (e.explanation_vn ? ' • ' + e.explanation_vn : '');
+        out += '<mark class="ds-grammar-highlight" data-error-id="' + escHtml(id) + '"' +
+          ' data-tooltip="' + escHtml(tip) + '" tabindex="0" role="button"' +
+          ' aria-label="Lỗi ngữ pháp: ' + escHtml(errText) + ' — gợi ý: ' + escHtml(e.suggestion || '') + '">' +
+          escHtml(errText) + '</mark>';
+        cursor = e.transcript_offset_end;
+      }
+      if (cursor < raw.length) out += escHtml(raw.substring(cursor));
+      return out;
+    }
+
     // ── Accordion body helpers ─────────────────────────────────────────────────
     function _fbSection(title, items, color) {
       if (!items || items.length === 0) return '';
@@ -464,7 +572,10 @@
             + '<span class="text-xs" style="color:var(--av-text-muted);">Practice mode</span>';
         }
 
-        var transcript = (r && r.transcript) ? escHtml(r.transcript) : null;
+        // Sprint 14.8.1 (Codex F1) — render positional grammar highlights from the
+        // persisted grammar_check; falls back to plain escaped text when absent.
+        var transcript = (r && r.transcript)
+          ? _persistedTranscriptHighlights(r.transcript, fb && fb.grammar_check) : null;
         // Prefer signed URL from backend; fall back to public audio_url (old sessions)
         var audioUrl   = audioUrlMap[q.id] || (r && r.audio_url ? r.audio_url : null);
 
@@ -488,12 +599,19 @@
         // ── Body content (practice vs test) ──────────────────────────────────
         var bodyHtml = '';
 
+        // Sprint 14.8.1 (Codex F1) — persisted off-topic + length warnings, above all.
+        bodyHtml += _persistedWarningsBlock(fb);
+
         if (transcript) {
           bodyHtml += '<div>'
             + '<div class="text-xs font-semibold av-text-muted uppercase tracking-wider mb-1.5">Bản ghi lời nói</div>'
             + '<div class="transcript-block text-sm">' + transcript + '</div>'
             + '</div>';
         }
+
+        // Sprint 14.8.1 (Codex F1) — persisted structured grammar errors
+        // (LanguageTool); mode-independent, sits below the transcript.
+        bodyHtml += _persistedGrammarBlock(fb && fb.grammar_check);
 
         if (gradingFailed) {
           var statusMsg = r.grading_status === 'failed'
