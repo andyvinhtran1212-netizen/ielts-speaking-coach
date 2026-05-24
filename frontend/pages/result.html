@@ -121,8 +121,9 @@
         <div id="overall-band" class="ds-band-value band-none">—</div>
         <div class="ds-band-label">Overall Band Score</div>
       </div>
-      <!-- Criterion grid -->
-      <div class="grid grid-cols-2 gap-3">
+      <!-- Criterion grid (hidden for practice sessions — Sprint 14.5.1; practice
+           mode is coaching-format and produces no per-criterion bands). -->
+      <div id="criterion-grid" class="grid grid-cols-2 gap-3">
         <div class="ds-crit ds-crit-fc">
           <div id="band-fc" class="ds-crit-score band-none">—</div>
           <div class="ds-crit-label">Fluency &amp; Coherence</div>
@@ -152,6 +153,12 @@
         <h3 class="result-card-eyebrow result-card-eyebrow--improve text-xs font-bold uppercase tracking-wider mb-3">Cần cải thiện</h3>
         <ul id="improvements-list" class="result-feedback-list space-y-2 text-sm"></ul>
       </div>
+    </div>
+
+    <!-- Practice-mode key takeaway (Sprint 14.5.1). Hidden until populated. -->
+    <div id="practice-takeaway" class="card p-5" style="display:none;">
+      <h3 class="result-card-eyebrow result-card-eyebrow--brand text-xs font-bold uppercase tracking-wider mb-2">Trọng tâm luyện tập</h3>
+      <p id="practice-takeaway-text" class="text-sm" style="color:var(--av-text-secondary);"></p>
     </div>
 
     <!-- Grammar Resources -->
@@ -278,6 +285,46 @@
       });
 
       return { strengths: strengths.slice(0, 5), improvements: improvements.slice(0, 5) };
+    }
+
+    // ── Practice-mode weaknesses (Sprint 14.5.1) ───────────────────────────────
+    // Practice feedback has no test-mode `improvements` field, but it does carry
+    // coaching issues. Aggregate grammar + vocabulary issues across responses
+    // into a deduped weaknesses list so the "Cần cải thiện" card isn't empty.
+    function aggregateWeaknesses(responses) {
+      var out = [];
+      responses.forEach(function (r) {
+        var fb = parseFeedback(r.feedback);
+        if (!fb) return;
+        ['grammar_issues', 'vocabulary_issues'].forEach(function (key) {
+          if (Array.isArray(fb[key])) {
+            fb[key].forEach(function (s) {
+              if (s && out.indexOf(String(s)) === -1) out.push(String(s));
+            });
+          }
+        });
+      });
+      return out.slice(0, 5);
+    }
+
+    // Derive a single actionable takeaway from the dominant issue category.
+    // Deterministic — no AI call (Option B keeps the backend untouched).
+    function buildPracticeTakeaway(responses) {
+      var grammar = 0, vocab = 0, hasSample = false;
+      responses.forEach(function (r) {
+        var fb = parseFeedback(r.feedback);
+        if (!fb) return;
+        if (Array.isArray(fb.grammar_issues))    grammar += fb.grammar_issues.length;
+        if (Array.isArray(fb.vocabulary_issues)) vocab   += fb.vocabulary_issues.length;
+        if (fb.sample_answer) hasSample = true;
+      });
+      if (grammar === 0 && vocab === 0) return '';
+      var focus = grammar >= vocab
+        ? 'Ưu tiên sửa các lỗi ngữ pháp được đánh dấu trong từng câu trả lời'
+        : 'Ưu tiên mở rộng vốn từ và dùng từ vựng chính xác hơn';
+      return focus + (hasSample
+        ? ', rồi luyện nói lại theo câu trả lời mẫu để củng cố.'
+        : ', rồi luyện nói lại để củng cố.');
     }
 
     // ── Parse feedback field (JSON string or object) ───────────────────────────
@@ -1021,8 +1068,21 @@
           return fb && fb.grammar_issues;
         });
         if (isPracticeSession) {
-          var improvCard = document.getElementById('improvements-list').closest('.card');
-          if (improvCard) improvCard.style.display = 'none';
+          // Sprint 14.5.1 — practice mode is coaching-format (no per-criterion
+          // bands), so hide the empty criterion grid and repurpose the
+          // "Cần cải thiện" card with the weaknesses practice already produces
+          // (grammar + vocabulary issues). A derived takeaway points at the
+          // dominant issue category. No backend/prompt change (Option B).
+          var critGrid = document.getElementById('criterion-grid');
+          if (critGrid) critGrid.style.display = 'none';
+
+          renderList('improvements-list', aggregateWeaknesses(responses), 'var(--av-warning)');
+
+          var takeaway = buildPracticeTakeaway(responses);
+          if (takeaway) {
+            document.getElementById('practice-takeaway-text').textContent = takeaway;
+            document.getElementById('practice-takeaway').style.display = '';
+          }
         } else {
           renderList('improvements-list', lists.improvements, 'var(--av-warning)');
         }
