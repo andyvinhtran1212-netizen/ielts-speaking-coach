@@ -163,3 +163,24 @@ async def health_runtime() -> dict:
             "sentinel_presence":  sentinel_present,
         },
     }
+
+
+@router.get("/health/grammar-check")
+async def health_grammar_check() -> dict:
+    """
+    Sprint 14.9 (Codex F5) — grammar-checker runtime probe.
+
+    Exercises the real LanguageTool/JRE backend (which the unit tests do NOT —
+    they cover only the regex rules), so a broken Java runtime on the deployed
+    image surfaces here instead of silently degrading to regex-only. Always
+    returns HTTP 200; the ``status`` field (healthy | degraded | error) carries
+    the verdict, matching /health/ready's convention (no 5xx juggling).
+    """
+    from services.grammar_check import grammar_check_health
+
+    result = await grammar_check_health()
+    return {
+        "status": result["status"],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "grammar_check": result,
+    }

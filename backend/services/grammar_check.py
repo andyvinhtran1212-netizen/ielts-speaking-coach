@@ -465,6 +465,52 @@ def get_grammar_check_service() -> GrammarCheckService:
     return _service
 
 
+async def grammar_check_health() -> dict:
+    """Sprint 14.9 (Codex F5) — deploy-time runtime probe for the grammar
+    checker.
+
+    The unit tests cover the VI-learner regex rules but NOT the real
+    LanguageTool/JRE backend production depends on (Codex F5). This forces the
+    lazy LTBackend to initialise and runs a check on a known-bad transcript, so
+    a broken Java/LanguageTool runtime surfaces as ``degraded`` rather than
+    silently falling back to regex-only.
+
+    Always returns a dict — never raises (Pattern #29 silent-skip). The caller
+    maps it onto an always-200 health response per the repo's probe convention.
+    """
+    svc = get_grammar_check_service()
+    out: dict = {
+        "status": "unknown",
+        "languagetool_available": False,
+        "backend_mode": None,
+        "sample_error_count": 0,
+        "messages": [],
+    }
+    # Subject-verb-agreement errors a working checker must catch.
+    sample = "I goes to school yesterday and I doesn't have time."
+    try:
+        # Force the lazy (~5s) LTBackend init off the event loop.
+        backend = await asyncio.to_thread(svc._ensure_backend)
+        out["languagetool_available"] = backend is not None and not svc._backend_init_failed
+        out["backend_mode"] = getattr(backend, "mode", None) if backend is not None else None
+
+        result = await svc.check(sample)
+        out["sample_error_count"] = result.total_count if result else 0
+
+        if svc._backend_init_failed:
+            out["status"] = "degraded"
+            out["messages"].append("LanguageTool/JRE backend init failed — local VI-learner rules only")
+        elif out["sample_error_count"] <= 0:
+            out["status"] = "degraded"
+            out["messages"].append("0 errors detected for a known-bad transcript")
+        else:
+            out["status"] = "healthy"
+    except Exception as e:  # a health probe must never raise
+        out["status"] = "error"
+        out["messages"].append(str(e)[:200])
+    return out
+
+
 def set_grammar_check_service(service: GrammarCheckService | None) -> None:
     """Test seam — inject a stub or reset to None."""
     global _service
