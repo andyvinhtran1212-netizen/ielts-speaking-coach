@@ -504,22 +504,34 @@ async def grade_response_endpoint(
                          "feedback", "overall_band", "stt_status", "grading_status"}
 
         def _upsert_response(row: dict) -> str | None:
-            # Sprint 14.8.2 (Codex F3) — atomic upsert. A single round-trip
-            # INSERT ... ON CONFLICT (session_id, question_id) DO UPDATE, which is
-            # race-safe across concurrent submits / double-clicks. Replaces the
-            # prior select-then-update/insert, whose read and write could interleave
-            # under concurrency and create duplicate rows.
-            #   - Requires the partial UNIQUE index uq_responses_session_question
-            #     (migration 077, applied to prod 2026-05-24 before this swap).
-            #   - created_at / regrade_metadata are NOT in `row`, so on insert the DB
-            #     default applies and on update they are left untouched (preserved).
-            #   - Returns the upserted row's id (insert or update) for the downstream
-            #     grammar_recommendations / pronunciation steps.
-            res = (
+            # Sprint 15.1.1 (P0 hotfix) — REVERTED the Sprint 14.8.2 atomic
+            # `.upsert(..., on_conflict="session_id,question_id")` back to
+            # read-then-write. PostgREST's ON CONFLICT cannot target migration
+            # 077's *partial* unique index (`WHERE session_id IS NOT NULL AND
+            # question_id IS NOT NULL`) — Postgres needs the index predicate in
+            # the ON CONFLICT clause, which PostgREST cannot emit. In production
+            # every upsert raised "no unique or exclusion constraint matching the
+            # ON CONFLICT specification"; the save is best-effort (try/except +
+            # core-row fallback that ALSO upsert-failed) so /responses returned
+            # 200 but persisted NO row → /complete found 0 responses → 422.
+            # Read-then-write works against any index state. Duplicate prevention
+            # (Codex F3's actual goal) is still enforced by the 077 index itself
+            # — a racing insert errors rather than duplicating. The single-round-
+            # trip atomicity is the only thing lost; re-introducing it cleanly
+            # needs a NON-partial unique index (deferred, separate migration).
+            existing = (
                 supabase_admin.table("responses")
-                .upsert(row, on_conflict="session_id,question_id")
+                .select("id")
+                .eq("session_id",  session_id)
+                .eq("question_id", question_id)
+                .limit(1)
                 .execute()
             )
+            if existing.data:
+                rid = existing.data[0]["id"]
+                supabase_admin.table("responses").update(row).eq("id", rid).execute()
+                return rid
+            res = supabase_admin.table("responses").insert(row).execute()
             return res.data[0]["id"] if res.data else None
 
         try:
