@@ -526,6 +526,60 @@ select:focus-visible {
   justify-content: center;
 }
 
+/* ── Sprint 15.1 — pronunciation phoneme drill-down modal ─────────────────────
+ * Pattern #26: colour reaches via --ds-*/--av-* tokens only (the JS renderer
+ * bakes NO inline styles; no hex/rgb literals here) so the light/dark flip
+ * holds. Score tiers reuse the aver-design semantic tokens. Sentinel:
+ * pronunciation-drilldown.test.mjs (Pattern #25/#26 extension). */
+.ds-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--av-surface-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 60;
+}
+.ds-modal {
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text);
+  border: 1px solid var(--ds-border);
+  border-radius: 16px;
+  box-shadow: var(--ds-shadow-card);
+  width: 100%;
+  max-width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+.ds-modal__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.ds-modal__title { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--ds-text); }
+.ds-modal__sub { margin: 2px 0 0; font-size: 0.75rem; color: var(--ds-muted); }
+.ds-modal__close { background: transparent; border: none; color: var(--ds-muted); font-size: 20px; line-height: 1; padding: 4px 6px; cursor: pointer; }
+.ds-modal__close:hover { color: var(--ds-text); }
+
+.ds-phoneme { border-top: 1px solid var(--ds-border); padding: 12px 0; }
+.ds-phoneme:first-of-type { border-top: none; padding-top: 0; }
+.ds-phoneme__row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ds-phoneme__sym { font-size: 1.25rem; font-weight: 800; color: var(--ds-text); }
+.ds-phoneme__ipa { font-size: 0.8rem; color: var(--ds-muted); margin-left: 6px; }
+.ds-phoneme__score { font-size: 0.8rem; font-weight: 700; }
+.ds-phoneme__bar { height: 6px; border-radius: 999px; background: var(--ds-border); margin: 6px 0 8px; overflow: hidden; }
+.ds-phoneme__bar-fill { height: 100%; border-radius: 999px; }
+.ds-phoneme__bar-fill--low  { background: var(--av-error); }
+.ds-phoneme__bar-fill--mid  { background: var(--av-warning); }
+.ds-phoneme__bar-fill--high { background: var(--av-success); }
+.ds-phoneme__score--low  { color: var(--av-error); }
+.ds-phoneme__score--mid  { color: var(--av-warning); }
+.ds-phoneme__score--high { color: var(--av-success); }
+.ds-phoneme__examples { font-size: 0.8rem; color: var(--ds-muted); margin: 2px 0; }
+.ds-phoneme__examples b { color: var(--ds-text); font-weight: 600; }
+.ds-phoneme__tip { font-size: 0.8rem; color: var(--av-text-secondary); line-height: 1.5; margin: 4px 0 0; }
+
+.ds-pron-weak-word { cursor: pointer; }
+.ds-pron-weak-word:focus-visible { outline: 2px solid var(--ds-border-hover); outline-offset: 2px; }
+
 /* ── Badge / chip ───────────────────────────────────────────────────────────── */
 .ds-badge {
   display: inline-flex;

@@ -110,4 +110,5 @@ jobs:
             frontend/tests/vocabulary-redesign.test.mjs \
             frontend/tests/sprint-14-6-5-light-theme-panels.test.mjs \
             frontend/tests/sprint-14-5-1-result-completeness.test.mjs \
-            frontend/tests/sprint-14-8-1-signal-persistence.test.mjs
+            frontend/tests/sprint-14-8-1-signal-persistence.test.mjs \
+            frontend/tests/sprint-15-1-phoneme-drilldown.test.mjs

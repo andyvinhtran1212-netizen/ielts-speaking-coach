@@ -441,6 +441,7 @@ async def assess_response_pronunciation(
         "prosody_score":         result.get("prosody_score"),
         "short_summary":         result.get("short_summary", []),
         "words":                 result.get("words", []),
+        "weak_phonemes":         result.get("weak_phonemes", []),
         "provider":              "azure",
         "locale":                "en-US",
         "score_confidence":      updated_confidence,

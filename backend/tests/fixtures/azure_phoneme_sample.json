@@ -1,0 +1,1130 @@
+{
+  "pronunciation_score": 67.2,
+  "fluency_score": 54.0,
+  "accuracy_score": 84.0,
+  "completeness_score": 91.0,
+  "prosody_score": 53.4,
+  "words": [
+    {
+      "word": "I",
+      "accuracy_score": 94.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "really",
+      "accuracy_score": 68.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "enjoy",
+      "accuracy_score": 73.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "reading",
+      "accuracy_score": 88.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 12.606061
+            },
+            "MissingBreak": {
+              "Confidence": 0.0
+            },
+            "BreakLength": 33800000
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "books",
+      "accuracy_score": 88.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "and",
+      "accuracy_score": 100.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "watching",
+      "accuracy_score": 97.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "films",
+      "accuracy_score": 85.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "in",
+      "accuracy_score": 97.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "the",
+      "accuracy_score": 91.0,
+      "error_type": "None",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    },
+    {
+      "word": "evening",
+      "accuracy_score": 40.0,
+      "error_type": "Mispronunciation",
+      "feedback": {
+        "Prosody": {
+          "Break": {
+            "ErrorTypes": [
+              "None"
+            ],
+            "UnexpectedBreak": {
+              "Confidence": 3.7296036e-08
+            },
+            "MissingBreak": {
+              "Confidence": 1.0
+            },
+            "BreakLength": 0
+          },
+          "Intonation": {
+            "ErrorTypes": [
+              "Monotone"
+            ],
+            "Monotone": {
+              "Confidence": 0.0,
+              "WordPitchSlopeConfidence": 0.0,
+              "SyllablePitchDeltaConfidence": 0.39039567
+            }
+          }
+        }
+      }
+    }
+  ],
+  "short_summary": [
+    "Bạn đã truyền đạt khá rõ ý, tuy nhiên sẽ tốt hơn nếu chú ý thêm đến độ rõ của từng từ.",
+    "Bạn có thể luyện thêm cách nói liên tục, tránh dừng lại giữa chừng để câu nói nghe tự nhiên hơn.",
+    "Bạn nên dành thêm thời gian luyện phát âm các từ: \"evening\"."
+  ],
+  "raw_payload": {
+    "RecognitionStatus": "Success",
+    "Offset": 3700000,
+    "Duration": 76600000,
+    "DisplayText": "I really enjoy reading books and watching films in the evening.",
+    "SNR": 2.762845,
+    "NBest": [
+      {
+        "Confidence": 0.8732412,
+        "Lexical": "I really enjoy reading books and watching films in the evening",
+        "ITN": "I really enjoy reading books and watching films in the evening",
+        "MaskedITN": "i really enjoy reading books and watching films in the evening",
+        "Display": "I really enjoy reading books and watching films in the evening.",
+        "AccuracyScore": 84.0,
+        "FluencyScore": 54.0,
+        "ProsodyScore": 53.4,
+        "CompletenessScore": 91.0,
+        "PronScore": 67.2,
+        "Words": [
+          {
+            "Word": "I",
+            "Offset": 3700000,
+            "Duration": 4100000,
+            "Confidence": 0.0,
+            "AccuracyScore": 94.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "ay",
+                "Grapheme": "i",
+                "Offset": 3700000,
+                "Duration": 4100000,
+                "AccuracyScore": 94.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "ay",
+                "Offset": 3700000,
+                "Duration": 4100000,
+                "AccuracyScore": 94.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "really",
+            "Offset": 7900000,
+            "Duration": 1100000,
+            "Confidence": 0.0,
+            "AccuracyScore": 68.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "riyliy",
+                "Grapheme": "really",
+                "Offset": 7900000,
+                "Duration": 1100000,
+                "AccuracyScore": 16.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "r",
+                "Offset": 7900000,
+                "Duration": 200000,
+                "AccuracyScore": 16.0
+              },
+              {
+                "Phoneme": "iy",
+                "Offset": 8200000,
+                "Duration": 200000,
+                "AccuracyScore": 0.0
+              },
+              {
+                "Phoneme": "l",
+                "Offset": 8500000,
+                "Duration": 200000,
+                "AccuracyScore": 4.0
+              },
+              {
+                "Phoneme": "iy",
+                "Offset": 8800000,
+                "Duration": 200000,
+                "AccuracyScore": 42.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "enjoy",
+            "Offset": 9100000,
+            "Duration": 10300000,
+            "Confidence": 0.0,
+            "AccuracyScore": 73.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "ihn",
+                "Grapheme": "en",
+                "Offset": 9100000,
+                "Duration": 2900000,
+                "AccuracyScore": 57.0
+              },
+              {
+                "Syllable": "jhoy",
+                "Grapheme": "joy",
+                "Offset": 12100000,
+                "Duration": 7300000,
+                "AccuracyScore": 76.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "ih",
+                "Offset": 9100000,
+                "Duration": 900000,
+                "AccuracyScore": 52.0
+              },
+              {
+                "Phoneme": "n",
+                "Offset": 10100000,
+                "Duration": 1900000,
+                "AccuracyScore": 59.0
+              },
+              {
+                "Phoneme": "jh",
+                "Offset": 12100000,
+                "Duration": 1300000,
+                "AccuracyScore": 100.0
+              },
+              {
+                "Phoneme": "oy",
+                "Offset": 13500000,
+                "Duration": 5900000,
+                "AccuracyScore": 71.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "reading",
+            "Offset": 53300000,
+            "Duration": 4700000,
+            "Confidence": 0.0,
+            "AccuracyScore": 88.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "riyd",
+                "Grapheme": "read",
+                "Offset": 53300000,
+                "Duration": 2900000,
+                "AccuracyScore": 68.0
+              },
+              {
+                "Syllable": "ihng",
+                "Grapheme": "ing",
+                "Offset": 56300000,
+                "Duration": 1700000,
+                "AccuracyScore": 84.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "r",
+                "Offset": 53300000,
+                "Duration": 1900000,
+                "AccuracyScore": 61.0
+              },
+              {
+                "Phoneme": "iy",
+                "Offset": 55300000,
+                "Duration": 300000,
+                "AccuracyScore": 80.0
+              },
+              {
+                "Phoneme": "d",
+                "Offset": 55700000,
+                "Duration": 500000,
+                "AccuracyScore": 81.0
+              },
+              {
+                "Phoneme": "ih",
+                "Offset": 56300000,
+                "Duration": 500000,
+                "AccuracyScore": 95.0
+              },
+              {
+                "Phoneme": "ng",
+                "Offset": 56900000,
+                "Duration": 1100000,
+                "AccuracyScore": 79.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 12.606061
+                  },
+                  "MissingBreak": {
+                    "Confidence": 0.0
+                  },
+                  "BreakLength": 33800000
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "books",
+            "Offset": 58100000,
+            "Duration": 3700000,
+            "Confidence": 0.0,
+            "AccuracyScore": 88.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "buhks",
+                "Grapheme": "books",
+                "Offset": 58100000,
+                "Duration": 3700000,
+                "AccuracyScore": 78.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "b",
+                "Offset": 58100000,
+                "Duration": 700000,
+                "AccuracyScore": 98.0
+              },
+              {
+                "Phoneme": "uh",
+                "Offset": 58900000,
+                "Duration": 700000,
+                "AccuracyScore": 76.0
+              },
+              {
+                "Phoneme": "k",
+                "Offset": 59700000,
+                "Duration": 1400000,
+                "AccuracyScore": 72.0
+              },
+              {
+                "Phoneme": "s",
+                "Offset": 61200000,
+                "Duration": 600000,
+                "AccuracyScore": 68.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "and",
+            "Offset": 61900000,
+            "Duration": 1700000,
+            "Confidence": 0.0,
+            "AccuracyScore": 100.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "axn",
+                "Grapheme": "and",
+                "Offset": 61900000,
+                "Duration": 1700000,
+                "AccuracyScore": 100.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "ax",
+                "Offset": 61900000,
+                "Duration": 700000,
+                "AccuracyScore": 100.0
+              },
+              {
+                "Phoneme": "n",
+                "Offset": 62700000,
+                "Duration": 900000,
+                "AccuracyScore": 100.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "watching",
+            "Offset": 63700000,
+            "Duration": 4700000,
+            "Confidence": 0.0,
+            "AccuracyScore": 97.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "waach",
+                "Grapheme": "watch",
+                "Offset": 63700000,
+                "Duration": 2500000,
+                "AccuracyScore": 97.0
+              },
+              {
+                "Syllable": "ihng",
+                "Grapheme": "ing",
+                "Offset": 66300000,
+                "Duration": 2100000,
+                "AccuracyScore": 77.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "w",
+                "Offset": 63700000,
+                "Duration": 900000,
+                "AccuracyScore": 93.0
+              },
+              {
+                "Phoneme": "aa",
+                "Offset": 64700000,
+                "Duration": 700000,
+                "AccuracyScore": 100.0
+              },
+              {
+                "Phoneme": "ch",
+                "Offset": 65500000,
+                "Duration": 700000,
+                "AccuracyScore": 100.0
+              },
+              {
+                "Phoneme": "ih",
+                "Offset": 66300000,
+                "Duration": 800000,
+                "AccuracyScore": 100.0
+              },
+              {
+                "Phoneme": "ng",
+                "Offset": 67200000,
+                "Duration": 1200000,
+                "AccuracyScore": 61.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "films",
+            "Offset": 68500000,
+            "Duration": 4900000,
+            "Confidence": 0.0,
+            "AccuracyScore": 85.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "fihlmz",
+                "Grapheme": "films",
+                "Offset": 68500000,
+                "Duration": 4900000,
+                "AccuracyScore": 53.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "f",
+                "Offset": 68500000,
+                "Duration": 1300000,
+                "AccuracyScore": 28.0
+              },
+              {
+                "Phoneme": "ih",
+                "Offset": 69900000,
+                "Duration": 1100000,
+                "AccuracyScore": 56.0
+              },
+              {
+                "Phoneme": "l",
+                "Offset": 71100000,
+                "Duration": 500000,
+                "AccuracyScore": 35.0
+              },
+              {
+                "Phoneme": "m",
+                "Offset": 71700000,
+                "Duration": 900000,
+                "AccuracyScore": 66.0
+              },
+              {
+                "Phoneme": "z",
+                "Offset": 72700000,
+                "Duration": 700000,
+                "AccuracyScore": 92.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "in",
+            "Offset": 73500000,
+            "Duration": 900000,
+            "Confidence": 0.0,
+            "AccuracyScore": 97.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "ihn",
+                "Grapheme": "in",
+                "Offset": 73500000,
+                "Duration": 900000,
+                "AccuracyScore": 88.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "ih",
+                "Offset": 73500000,
+                "Duration": 500000,
+                "AccuracyScore": 94.0
+              },
+              {
+                "Phoneme": "n",
+                "Offset": 74100000,
+                "Duration": 300000,
+                "AccuracyScore": 80.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "the",
+            "Offset": 74500000,
+            "Duration": 1000000,
+            "Confidence": 0.0,
+            "AccuracyScore": 91.0,
+            "ErrorType": "None",
+            "Syllables": [
+              {
+                "Syllable": "dhiy",
+                "Grapheme": "the",
+                "Offset": 74500000,
+                "Duration": 1000000,
+                "AccuracyScore": 77.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "dh",
+                "Offset": 74500000,
+                "Duration": 700000,
+                "AccuracyScore": 80.0
+              },
+              {
+                "Phoneme": "iy",
+                "Offset": 75300000,
+                "Duration": 200000,
+                "AccuracyScore": 70.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          },
+          {
+            "Word": "evening",
+            "Offset": 75600000,
+            "Duration": 4700000,
+            "Confidence": 0.0,
+            "AccuracyScore": 40.0,
+            "ErrorType": "Mispronunciation",
+            "Syllables": [
+              {
+                "Syllable": "iy",
+                "Grapheme": "e",
+                "Offset": 75600000,
+                "Duration": 600000,
+                "AccuracyScore": 32.0
+              },
+              {
+                "Syllable": "v",
+                "Grapheme": "ve",
+                "Offset": 76300000,
+                "Duration": 800000,
+                "AccuracyScore": 52.0
+              },
+              {
+                "Syllable": "nihng",
+                "Grapheme": "ning",
+                "Offset": 77200000,
+                "Duration": 3100000,
+                "AccuracyScore": 36.0
+              }
+            ],
+            "Phonemes": [
+              {
+                "Phoneme": "iy",
+                "Offset": 75600000,
+                "Duration": 600000,
+                "AccuracyScore": 32.0
+              },
+              {
+                "Phoneme": "v",
+                "Offset": 76300000,
+                "Duration": 800000,
+                "AccuracyScore": 52.0
+              },
+              {
+                "Phoneme": "n",
+                "Offset": 77200000,
+                "Duration": 600000,
+                "AccuracyScore": 46.0
+              },
+              {
+                "Phoneme": "ih",
+                "Offset": 77900000,
+                "Duration": 900000,
+                "AccuracyScore": 43.0
+              },
+              {
+                "Phoneme": "ng",
+                "Offset": 78900000,
+                "Duration": 1400000,
+                "AccuracyScore": 27.0
+              }
+            ],
+            "Feedback": {
+              "Prosody": {
+                "Break": {
+                  "ErrorTypes": [
+                    "None"
+                  ],
+                  "UnexpectedBreak": {
+                    "Confidence": 3.7296036e-08
+                  },
+                  "MissingBreak": {
+                    "Confidence": 1.0
+                  },
+                  "BreakLength": 0
+                },
+                "Intonation": {
+                  "ErrorTypes": [
+                    "Monotone"
+                  ],
+                  "Monotone": {
+                    "Confidence": 0.0,
+                    "WordPitchSlopeConfidence": 0.0,
+                    "SyllablePitchDeltaConfidence": 0.39039567
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
