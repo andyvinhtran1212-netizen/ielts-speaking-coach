@@ -373,3 +373,35 @@ Carried forward from commission + sharpened by pre-flight:
 ---
 
 **End Sprint 14.0 Discovery.**
+
+---
+
+## Cluster Closure Reconciliation (Sprint 14.9, 2026-05-24)
+
+Appended at cluster closure to resolve Codex audit finding F6 (the discovery
+roadmap contradicts what actually shipped). The §5 roadmap (14.0 → 14.7, "7
+implementation sprints + 1 closure ≈ 8 PRs") was an *estimate*; the cluster
+actually shipped **16 merged PRs across 17 sprints** (incl. this closure).
+
+**Planned vs actual — what moved:**
+
+- §4 mapped items to *planned* sprint numbers that differ from the *shipped*
+  numbers: off-topic was planned 14.5 but shipped **14.7** (#267); cue-card was
+  planned 14.3 but shipped **14.4** (#263) + the 14.6.x hotfix series;
+  grammar-checker was planned 14.6 but shipped **14.8** (#268).
+- The original roadmap had no 14.6.1–14.6.5 hotfix series (5 follow-ups: light-
+  theme JS render, part-driven routing, cue-card endpoint, Part 2 input UX,
+  light-theme Phase B panels + band consistency).
+- 14.7 and 14.8 were feature sprints, **not** the closure (14.7 was mis-framed as
+  closure in the early roadmap).
+- 14.5.1 (deferred result-page completeness) shipped after a Sprint 14.5
+  strategic deferral.
+- A mid-cluster Codex audit added 14.8.1 + 14.8.2 (P0/P1) and this 14.9 closure
+  (P2/P3 + artifacts).
+
+**Lesson:** define the closure sprint up front in discovery, don't bolt it on
+post-feature-ship. Full sprint-by-sprint accounting, the verified PR table, the
+Codex F1–F7 resolution, and Pattern #42 live in `retrospective.md`; deferred
+items in `phase_b_backlog.md`; the canonical closure row in
+`PHASE_CLOSURE_LEDGER.md` (backend-cluster cross-reference table).
+
