@@ -1003,9 +1003,9 @@
         + ' onmouseover="this.style.background=\'rgba(20,184,166,0.12)\'"'
         + ' onmouseout="this.style.background=\'rgba(20,184,166,0.07)\'">'
         + '<div style="flex:1;min-width:0;">'
-        + '<p style="font-size:13px;font-weight:600;color:#e2e8f0;margin:0 0 3px;'
+        + '<p style="font-size:13px;font-weight:600;color:var(--ds-text);margin:0 0 3px;'
         + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
-        + '<p style="font-size:12px;color:rgba(255,255,255,0.45);margin:0 0 6px;line-height:1.4;">'
+        + '<p style="font-size:12px;color:var(--ds-muted);margin:0 0 6px;line-height:1.4;">'
         + _esc(meta.summary) + '</p>'
         + '<p style="font-size:11px;color:rgba(20,184,166,0.7);margin:0;">' + _esc(reason) + '</p>'
         + '</div>'
@@ -1021,11 +1021,11 @@
       + ' onmouseover="this.style.borderColor=\'rgba(20,184,166,0.25)\';this.style.background=\'rgba(20,184,166,0.05)\'"'
       + ' onmouseout="this.style.borderColor=\'rgba(255,255,255,0.07)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
       + '<div style="flex:1;min-width:0;">'
-      + '<p style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);margin:0 0 2px;'
+      + '<p style="font-size:12px;font-weight:600;color:var(--ds-text);margin:0 0 2px;'
       + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
-      + '<p style="font-size:11px;color:rgba(255,255,255,0.3);margin:0;">' + _esc(reason) + '</p>'
+      + '<p style="font-size:11px;color:var(--ds-faint);margin:0;">' + _esc(reason) + '</p>'
       + '</div>'
-      + '<span style="flex-shrink:0;font-size:11px;color:rgba(255,255,255,0.25);">→</span>'
+      + '<span style="flex-shrink:0;font-size:11px;color:var(--ds-faint);">→</span>'
       + '</a>';
   }
 
@@ -2403,12 +2403,12 @@
     var color   = (value != null && value >= 75) ? '#4ade80'
                 : (value != null && value >= 55) ? '#14b8a6'
                 : (value != null)               ? '#fb923c'
-                :                                 'rgba(255,255,255,0.3)';
+                :                                 'var(--ds-faint)';
     return '<div style="display:inline-flex;flex-direction:column;align-items:center;'
       + 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);'
       + 'border-radius:10px;padding:6px 10px;min-width:64px;">'
       + '<span style="font-size:18px;font-weight:800;color:' + color + ';line-height:1;">' + display + '</span>'
-      + '<span style="font-size:9px;color:rgba(255,255,255,0.35);text-transform:uppercase;'
+      + '<span style="font-size:9px;color:var(--ds-muted);text-transform:uppercase;'
       + 'letter-spacing:.06em;margin-top:3px;">' + _esc(label) + '</span>'
       + '</div>';
   }
@@ -2427,7 +2427,7 @@
       .filter(function (w) { return w.error_type && w.error_type !== 'None'; })
       .slice(0, 6);
     var wordHtml = words.length
-      ? '<p style="font-size:11px;color:rgba(255,255,255,0.4);margin:10px 0 4px;">Từ cần chú ý:</p>'
+      ? '<p style="font-size:11px;color:var(--ds-muted);margin:10px 0 4px;">Từ cần chú ý:</p>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
         + words.map(function (w) {
             return '<span style="background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.3);'
@@ -2447,7 +2447,7 @@
       + _pronChip('Đầy đủ',     pronData.completeness_score)
       + _pronChip('Ngữ điệu',   pronData.prosody_score)
       + '</div>'
-      + (summary ? '<ul style="font-size:12px;color:rgba(255,255,255,0.62);'
+      + (summary ? '<ul style="font-size:12px;color:var(--ds-text);'
           + 'padding-left:16px;margin:0 0 4px;line-height:1.7;">' + summary + '</ul>' : '')
       + wordHtml
       + '</div>';
@@ -2464,7 +2464,7 @@
     var overallColor = (overallScore != null && overallScore >= 75) ? '#4ade80'
                      : (overallScore != null && overallScore >= 55) ? '#14b8a6'
                      : (overallScore != null)                       ? '#fb923c'
-                     :                                                'rgba(255,255,255,0.4)';
+                     :                                                'var(--ds-muted)';
 
     var partDefs = [
       { key: 'part1', label: 'Phần 1', note: '1 câu trả lời' },
@@ -2477,9 +2477,9 @@
       if (!s) {
         return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);'
           + 'border-radius:10px;padding:12px 14px;margin-bottom:10px;">'
-          + '<p style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);margin:0 0 4px;">'
+          + '<p style="font-size:11px;font-weight:700;color:var(--ds-muted);margin:0 0 4px;">'
           + _esc(def.label) + '</p>'
-          + '<p style="font-size:11px;color:rgba(255,255,255,0.25);margin:0;font-style:italic;">Không có dữ liệu</p>'
+          + '<p style="font-size:11px;color:var(--ds-faint);margin:0;font-style:italic;">Không có dữ liệu</p>'
           + '</div>';
       }
 
@@ -2487,7 +2487,7 @@
       var segHtml = '';
       if (def.key === 'part2') {
         if (s.audio_start_s != null && s.audio_end_s != null) {
-          segHtml = '<p style="font-size:10px;color:rgba(255,255,255,0.3);margin:2px 0 0;">'
+          segHtml = '<p style="font-size:10px;color:var(--ds-faint);margin:2px 0 0;">'
             + '⏱ Đoạn phân tích: ' + Math.round(s.audio_start_s) + 's – ' + Math.round(s.audio_end_s) + 's'
             + '</p>';
         }
@@ -2517,14 +2517,14 @@
         + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'
           + '<div style="flex:1;min-width:0;">'
             + '<p style="font-size:11px;font-weight:700;color:#14b8a6;margin:0 0 2px;">' + _esc(def.label) + '</p>'
-            + '<p style="font-size:10px;color:rgba(255,255,255,0.35);margin:0;line-height:1.4;">'
+            + '<p style="font-size:10px;color:var(--ds-muted);margin:0;line-height:1.4;">'
             + _esc(s.selection_reason) + '</p>'
             + segHtml
           + '</div>'
           + '<div style="text-align:center;flex-shrink:0;">'
             + '<div style="font-size:24px;font-weight:800;color:' + overallColor + ';line-height:1;">'
             + (s.pronunciation_score != null ? Math.round(s.pronunciation_score) : '—') + '</div>'
-            + '<div style="font-size:8px;color:rgba(255,255,255,0.3);text-transform:uppercase;">/ 100</div>'
+            + '<div style="font-size:8px;color:var(--ds-faint);text-transform:uppercase;">/ 100</div>'
           + '</div>'
         + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">'
@@ -2550,12 +2550,12 @@
         + '<div>'
           + '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
             + 'letter-spacing:.08em;margin:0 0 2px;">Phân tích phát âm chuyên sâu</p>'
-          + '<p style="font-size:10px;color:rgba(255,255,255,0.35);margin:0;">' + _esc(subtitle) + '</p>'
+          + '<p style="font-size:10px;color:var(--ds-muted);margin:0;">' + _esc(subtitle) + '</p>'
         + '</div>'
         + '<div style="text-align:center;">'
           + '<div style="font-size:32px;font-weight:900;color:' + overallColor + ';line-height:1;">'
           + (overallScore != null ? Math.round(overallScore) : '—') + '</div>'
-          + '<div style="font-size:9px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.05em;">/100</div>'
+          + '<div style="font-size:9px;color:var(--ds-faint);text-transform:uppercase;letter-spacing:.05em;">/100</div>'
         + '</div>'
       + '</div>'
       + '<div style="padding:14px 16px;">' + partsHtml + '</div>'
@@ -2585,7 +2585,7 @@
       '<div style="border:1px solid rgba(20,184,166,0.15);border-radius:14px;padding:20px 16px;'
       + 'text-align:center;">'
       + '<div class="spinner" style="width:22px;height:22px;border-width:2px;margin:0 auto 10px;"></div>'
-      + '<p style="font-size:12px;color:rgba(255,255,255,0.38);margin:0;">Đang tổng hợp phân tích phát âm cho toàn bài...</p>'
+      + '<p style="font-size:12px;color:var(--ds-muted);margin:0;">Đang tổng hợp phân tích phát âm cho toàn bài...</p>'
       + '</div>';
 
     var base = (window.api && window.api.base) ? window.api.base : '';
@@ -2631,7 +2631,7 @@
         console.warn('[practice] full pron fetch failed:', err);
         el.innerHTML =
           '<div style="border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:14px 16px;">'
-          + '<p style="font-size:12px;color:rgba(255,255,255,0.28);margin:0;line-height:1.6;font-style:italic;">'
+          + '<p style="font-size:12px;color:var(--ds-faint);margin:0;line-height:1.6;font-style:italic;">'
           + 'Chưa tổng hợp được phân tích phát âm cho bài này — nếu muốn xem kết quả, bạn thử lại sau nhé.</p>'
           + '</div>';
         el.style.display = '';

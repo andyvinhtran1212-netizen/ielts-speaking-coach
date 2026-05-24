@@ -404,9 +404,16 @@
             }
           });
         } else if (fb && isPractice && fb.overall_band != null) {
-          var cls = bandClass(parseFloat(fb.overall_band));
+          // Sprint 14.6.5 — prefer the pronunciation-adjusted band (final_overall_band)
+          // so this per-question card matches "BAND TỔNG QUAN". The session overall
+          // (session.overall_band) is already pronunciation-adjusted; reading the raw
+          // fb.overall_band here made the card (5.5) contradict the overall (6.0).
+          // Falls back to the raw holistic band for old sessions / no-pronunciation.
+          var cardBand = (r && r.final_overall_band != null)
+            ? parseFloat(r.final_overall_band) : parseFloat(fb.overall_band);
+          var cls = bandClass(cardBand);
           bandHtml = '<span class="text-xs font-semibold ' + cls + ' mr-2">Band: '
-            + roundHalf(parseFloat(fb.overall_band)).toFixed(1) + '</span>'
+            + roundHalf(cardBand).toFixed(1) + '</span>'
             + '<span class="text-xs" style="color:var(--av-text-muted);">Practice mode</span>';
         }
 
