@@ -266,7 +266,7 @@ describe('Sprint 14.6.3 — empty Part 2 input never calls api.post (no spurious
     const out = await parseCustomQuestionsByPart(cueCard, 2, { api });
     assert.strictEqual(called, 0,
       'A fully-formed cue card uses the heuristic — no api.post call.');
-    assert.strictEqual(out[0].source, 'user_pasted');
+    assert.strictEqual(out[0].source, 'user_pasted_multiline');
   });
 
 });
