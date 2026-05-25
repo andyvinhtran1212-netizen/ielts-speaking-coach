@@ -12,10 +12,25 @@ from pydantic import BaseModel, field_validator
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.retention import compute_expiry, hide_cutoff, should_touch
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
+
+
+def _touch_last_accessed(session_id: str, last_accessed) -> None:
+    """Throttled, fire-and-forget refresh of sessions.last_accessed_at (the second
+    retention timer). Runs as a BackgroundTask so it never blocks the read, and
+    swallows errors so a touch failure can't break GET /sessions/{id} (Pattern #29)."""
+    try:
+        if not should_touch(last_accessed):
+            return
+        supabase_admin.table("sessions").update(
+            {"last_accessed_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", session_id).execute()
+    except Exception as exc:  # noqa: BLE001 — touch is best-effort
+        logger.warning("[retention] last_accessed_at touch failed for %s: %s", session_id, exc)
 
 _VALID_MODES   = {"practice", "test_part", "test_full"}
 _AUDIO_BUCKET  = "audio-responses"
@@ -356,6 +371,7 @@ async def list_sessions(
     date_to: Optional[str] = Query(default=None,   description="ISO date/datetime; sessions.started_at <= date_to"),
     page: Optional[int] = Query(default=None, ge=1, description="1-based page index (omit to disable pagination)"),
     page_size: int = Query(default=20, ge=5, le=100),
+    include_hidden: bool = Query(default=False, description="Sprint 16.2 — include soft-hidden (>7d inactive) sessions. Default false declutters the history list; true powers a future 'Show hidden' view."),
 ):
     """List the caller's sessions, with optional search / sort / pagination.
 
@@ -398,6 +414,16 @@ async def list_sessions(
         if date_to:
             q = q.lte("started_at", date_to)
 
+        # Sprint 16.2 — soft-hide: exclude sessions inactive >7d (by the more
+        # recent of started_at / last_accessed_at) from the history list. No row
+        # is deleted; ?include_hidden=true returns everything. hidden_at IS NULL
+        # until the Sprint 16.4 sweep starts writing it.
+        if not include_hidden:
+            cutoff = hide_cutoff()
+            q = q.is_("hidden_at", "null").or_(
+                f"started_at.gte.{cutoff},last_accessed_at.gte.{cutoff}"
+            )
+
         sort_col, sort_desc = _SORT_FIELD[sort]
         # nullsfirst=False keeps NULL bands (in-progress sessions) at the
         # bottom regardless of sort direction — otherwise score_desc would
@@ -416,6 +442,11 @@ async def list_sessions(
         raise HTTPException(status_code=500, detail=f"Không thể tải sessions: {e}")
 
     rows = result.data or []
+    # Sprint 16.2 — augment each row with read-time retention info (days_until_*,
+    # is_hidden/is_purged) so the Sprint 16.3 warning UI can render countdowns
+    # without recomputing policy client-side.
+    for row in rows:
+        row["retention"] = compute_expiry(row)
     if not paginated:
         return rows
 
@@ -536,6 +567,7 @@ async def get_session_stats(
 @router.get("/{session_id}")
 async def get_session(
     session_id: str,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Trả chi tiết session kèm danh sách questions và responses."""
@@ -559,6 +591,10 @@ async def get_session(
         raise HTTPException(status_code=404, detail="Session không tồn tại")
 
     session = s_result.data[0]
+
+    # Sprint 16.2 — refresh the retention "last accessed" timer (throttled,
+    # non-blocking). Opening a session keeps it in the 7-day visible window.
+    background_tasks.add_task(_touch_last_accessed, session_id, session.get("last_accessed_at"))
 
     # Questions for this session
     try:
@@ -590,6 +626,7 @@ async def get_session(
     return {
         **session,
         "session_id": session["id"],   # alias so frontend can use either field
+        "retention":  compute_expiry(session),
         "questions":  questions,
         "responses":  responses,
     }
