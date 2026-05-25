@@ -1,0 +1,4 @@
+# Sprint 15.2 (F4) — Playwright e2e tooling. Bounded to frontend/tests/e2e/.
+node_modules/
+playwright-report/
+test-results/
