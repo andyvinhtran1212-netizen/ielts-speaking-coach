@@ -531,28 +531,36 @@ select:focus-visible {
  * bakes NO inline styles; no hex/rgb literals here) so the light/dark flip
  * holds. Score tiers reuse the aver-design semantic tokens. Sentinel:
  * pronunciation-drilldown.test.mjs (Pattern #25/#26 extension). */
-/* Sprint 15.1.2 — .ds-modal is a native <dialog> opened with showModal(): the
-   UA centers it in the top layer (no position needed here), and ::backdrop
-   provides the dim. This is immune to the ancestor-transform / stacking issues
-   that broke the old hand-rolled position:fixed overlay. */
-.ds-modal {
-  background: var(--ds-bg-elevated);
-  color: var(--ds-text);
+/* Sprint 15.3 — phoneme drill-down ACCORDION (replaces the 15.1.2 modal). Native
+   <details>/<summary> (free toggle + keyboard + ARIA), rendered inline in the
+   pronunciation section so surrounding context stays visible. Token-driven
+   (Pattern #25/#26) — no hex/rgb literals; flips with the theme. */
+.ds-accordion { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--ds-border); }
+.ds-accordion__hint { font-size: 11px; color: var(--ds-muted); margin: 0 0 8px; }
+.ds-accordion__item {
   border: 1px solid var(--ds-border);
-  border-radius: 16px;
-  box-shadow: var(--ds-shadow-card);
-  width: 100%;
-  max-width: 440px;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 20px;
+  border-radius: 10px;
+  background: var(--ds-bg-elevated);
+  margin-bottom: 8px;
 }
-.ds-modal::backdrop { background: var(--av-surface-overlay); }
-.ds-modal__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.ds-modal__title { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--ds-text); }
-.ds-modal__sub { margin: 2px 0 0; font-size: 0.75rem; color: var(--ds-muted); }
-.ds-modal__close { background: transparent; border: none; color: var(--ds-muted); font-size: 20px; line-height: 1; padding: 4px 6px; cursor: pointer; }
-.ds-modal__close:hover { color: var(--ds-text); }
+.ds-accordion__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--ds-text);
+}
+.ds-accordion__head::-webkit-details-marker { display: none; }
+.ds-accordion__head::after { content: '⌄'; color: var(--ds-muted); transition: transform 0.15s ease; }
+.ds-accordion__item[open] .ds-accordion__head::after { transform: rotate(180deg); }
+.ds-accordion__word { font-weight: 700; }
+.ds-accordion__count { font-size: 11px; color: var(--ds-muted); }
+.ds-accordion__body { padding: 0 14px 12px; }
+.ds-accordion__item--highlight { outline: 2px solid var(--ds-border-hover); outline-offset: 1px; }
 
 .ds-phoneme { border-top: 1px solid var(--ds-border); padding: 12px 0; }
 .ds-phoneme:first-of-type { border-top: none; padding-top: 0; }
