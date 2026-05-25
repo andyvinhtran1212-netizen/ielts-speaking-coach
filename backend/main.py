@@ -101,8 +101,8 @@ app.include_router(questions_router)
 #   → full pipeline: Whisper STT + Claude grading, returns band scores + feedback
 app.include_router(grading_router)
 app.include_router(tts_router)
-# PDF export router is registered but the endpoint returns 503 until WeasyPrint
-# system deps are installed. To fully re-enable: see routers/export.py.
+# PDF export (GET /sessions/{id}/export/pdf) — ReportLab, pure Python, zero
+# system deps (fonts-dejavu-core via nixpacks.toml). Works on Railway.
 app.include_router(export_router)
 app.include_router(admin_router)
 app.include_router(cohorts_router)

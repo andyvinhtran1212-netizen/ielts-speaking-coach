@@ -188,7 +188,7 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
 ## Known limitations / tech debt
 
 - Full Test: `full-test-result.html` exists — verify integration completeness before relying on it
-- PDF export: `GET /sessions/{session_id}/export/pdf` — WeasyPrint system deps (cairocffi, pango) not installed on Railway; fails in the current production environment
+- PDF export: `GET /sessions/{session_id}/export/pdf` — works. Uses ReportLab (`backend/services/pdf_generator.py`), pure Python, zero system deps (`fonts-dejavu-core` installed via `backend/nixpacks.toml` for Vietnamese glyphs). Migrated off WeasyPrint in commit `a1208a2b`; Sprint 16.1 brought PDF content to parity with `result.html` (pronunciation pills, phoneme drill-down, structured grammar)
 - Grammar recommendations: server-side (`grammar_recommendations` table, persisted per practice response); frontend keyword matching in `grammar.js` is fallback only
 - Progress tracking: none — no band trend charts, no weakness tracking across sessions
 - `sessions.tokens_used` column must exist in Supabase for token tracking to work
