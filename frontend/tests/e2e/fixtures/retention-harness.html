@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>F4 retention soft-hide warning harness (Sprint 16.3)</title>
-  <!-- Mirrors speaking.html renderHistory's Sprint 16.3 wiring: chips + banner
-       driven purely by the Sprint 16.2 `retention` block. No backend/Supabase. -->
+  <title>F4 retention warning v2 harness (Sprint 16.3.1)</title>
+  <!-- Mirrors speaking.html renderHistory's wiring: chips + banner driven purely
+       by the Sprint 16.2.1 v2 `retention` block. No backend/Supabase. -->
   <link rel="stylesheet" href="/css/ds.css" />
 </head>
 <body class="av-page" style="min-height:100vh;padding:24px;">
@@ -15,11 +15,19 @@
   <script src="/js/retention-warning.js"></script>
   <script>
     var RW = window.RetentionWarning;
-    // retention blocks exactly as GET /sessions attaches them (Sprint 16.2).
+    function b(o) {
+      return Object.assign({
+        days_until_audio_purge: 15, days_until_content_purge: 60,
+        is_audio_purged: false, is_content_purged: false, is_hidden: false,
+      }, o);
+    }
+    // v2 retention blocks exactly as GET /sessions attaches them.
     var sessions = [
-      { id: 's-soon',  topic: 'Hometown', retention: { days_until_hide: 2,  days_until_purge: 25, is_hidden: false, is_purged: false } },
-      { id: 's-fresh', topic: 'Hobbies',  retention: { days_until_hide: 10, days_until_purge: 33, is_hidden: false, is_purged: false } },
-      { id: 's-legacy', topic: 'Old', /* no retention block — legacy API row */ },
+      { id: 's-audio-soon',   topic: 'A', retention: b({ days_until_audio_purge: 2 }) },
+      { id: 's-content-soon', topic: 'C', retention: b({ is_audio_purged: true, days_until_audio_purge: 0, days_until_content_purge: 4 }) },
+      { id: 's-audio-gone',   topic: 'G', retention: b({ is_audio_purged: true, days_until_audio_purge: 0, days_until_content_purge: 40 }) },
+      { id: 's-fresh',        topic: 'F', retention: b({}) },
+      { id: 's-legacy',       topic: 'L' /* no retention block */ },
     ];
     document.getElementById('history-retention-banner').innerHTML =
       RW.bannerHtml(RW.countSoonHidden(sessions));
