@@ -878,13 +878,42 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
         except Exception as exc:
             logger.warning("list_access_codes: user lookup failed: %s", exc)
 
+    # Sprint 17.1 — per-user quota remaining. ONE batched sessions query over all
+    # assigned users (no N+1); `used` is the user's lifetime session count compared
+    # to the assigned code's session_limit (NULL = unlimited). `sessions` has no
+    # code_id, so the count is per-user (Andy q-user default). Graceful: a failed
+    # count omits quota rather than failing the whole list.
+    session_counts: dict[str, int] = {}
+    if all_uids:
+        try:
+            scr = (
+                supabase_admin.table("sessions")
+                .select("user_id")
+                .in_("user_id", all_uids)
+                .execute()
+            )
+            for row in (scr.data or []):
+                uid = row.get("user_id")
+                if uid:
+                    session_counts[uid] = session_counts.get(uid, 0) + 1
+        except Exception as exc:
+            logger.warning("list_access_codes: session count lookup failed: %s", exc)
+
+    def _quota_for(uid: str, code: dict) -> dict:
+        used = session_counts.get(uid, 0)
+        limit = code.get("session_limit")
+        if limit is None:
+            return {"used": used, "limit": None, "remaining": None, "limit_type": "unlimited"}
+        return {"used": used, "limit": limit, "remaining": max(0, limit - used),
+                "limit_type": "per_user_via_code"}
+
     for c in codes:
         uids = code_user_ids.get(c["id"], [])
         if uids:
             c["assigned_user_count"] = len(uids)
             c["assigned_users"] = [
                 dict(user_info.get(uid, {"user_id": uid, "name": "", "email": ""}),
-                     is_fallback_used_by=False, removable=True)
+                     is_fallback_used_by=False, removable=True, quota=_quota_for(uid, c))
                 for uid in uids
             ]
         elif c["id"] in fallback_uid:
@@ -894,7 +923,7 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
             c["assigned_user_count"] = 1
             c["assigned_users"] = [
                 dict(user_info.get(uid, {"user_id": uid, "name": "", "email": ""}),
-                     is_fallback_used_by=True, removable=False)
+                     is_fallback_used_by=True, removable=False, quota=_quota_for(uid, c))
             ]
         else:
             c["assigned_user_count"] = 0

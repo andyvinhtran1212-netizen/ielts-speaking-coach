@@ -59,7 +59,7 @@
       text-transform: uppercase;
       letter-spacing: var(--av-tracking-wide);
     }
-    .ac-filter select {
+    .ac-filter select, .ac-filter input[type="search"] {
       padding: 8px 12px;
       border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md);
@@ -67,6 +67,14 @@
       color: var(--av-text-primary);
       font-size: var(--av-fs-sm);
     }
+
+    /* Sprint 17.1 — assigned-users cell + sortable headers */
+    th.ac-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.ac-sortable:hover { color: var(--av-text-primary); }
+    .ac-user { font-size: var(--av-fs-sm); color: var(--av-text-primary); line-height: 1.5; }
+    .ac-quota { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .ac-muted { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .ac-warn  { color: var(--av-color-warning, var(--av-text-secondary)); font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); }
     .btn-primary {
       padding: var(--av-space-3) var(--av-space-5);
       border-radius: var(--av-radius-md);
@@ -240,6 +248,10 @@
               <option value="">Tất cả</option>
             </select>
           </div>
+          <div class="ac-filter">
+            <label for="search-input">Tìm kiếm</label>
+            <input id="search-input" type="search" placeholder="Mã hoặc email…" />
+          </div>
         </div>
         <button class="btn-primary" id="btn-create" type="button">+ Tạo mã mới</button>
       </div>
@@ -256,9 +268,11 @@
               <th>Mã</th>
               <th>Loại</th>
               <th>Lớp</th>
-              <th>Trạng thái</th>
+              <th>Người dùng</th>
+              <th class="ac-sortable" data-sort="status">Trạng thái ↕</th>
               <th>Giới hạn</th>
-              <th>Hết hạn</th>
+              <th class="ac-sortable" data-sort="expires_at">Hết hạn ↕</th>
+              <th class="ac-sortable" data-sort="created_at">Ngày tạo ↕</th>
               <th>Ghi chú</th>
               <th></th>
             </tr>
