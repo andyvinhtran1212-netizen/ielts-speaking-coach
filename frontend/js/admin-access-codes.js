@@ -115,6 +115,8 @@ function renderTable() {
     const revokeBtn = (c.is_revoked || c.is_active === false)
       ? ''
       : `<button class="btn-danger" data-action="revoke" data-id="${c.id}">Thu hồi</button>`;
+    // Sprint 17.2 — drill into this code's usage rollup.
+    const usageLink = `<a class="btn-secondary" href="/pages/admin/usage/index.html?code_id=${c.id}">Hoạt động</a>`;
     return `
       <tr>
         <td class="code-cell">${c.code}</td>
@@ -126,7 +128,7 @@ function renderTable() {
         <td>${expires}</td>
         <td>${created}</td>
         <td>${fmt(c.notes)}</td>
-        <td>${revokeBtn}</td>
+        <td>${usageLink} ${revokeBtn}</td>
       </tr>
     `;
   }).join('');
