@@ -1,0 +1,54 @@
+name: E2E modal smoke (advisory)
+
+# Sprint 15.2 (F4) — browser smoke tests that catch runtime regressions the
+# source-scan + node --test gates miss (e.g. Sprint 15.1.2 modal positioning).
+# ADVISORY: this job is intentionally NOT in branch protection, so a failure
+# annotates the PR but does not block merge. Promote to required once stable.
+# Runs in parallel with the Backend + Frontend (node --test) jobs.
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/e2e.yml'
+
+jobs:
+  e2e:
+    name: E2E modal smoke (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+
+      - name: Install chromium (cached after first run)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run modal smoke tests
+        run: npx playwright test
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
