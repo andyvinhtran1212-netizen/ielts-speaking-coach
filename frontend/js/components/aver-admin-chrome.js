@@ -44,7 +44,7 @@ const VALID_ACTIVE = [
   'overview',
   'speaking', 'writing', 'listening', 'vocab', 'grammar',
   'students', 'users', 'cohorts',
-  'access-codes', 'usage',
+  'access-codes', 'usage', 'foot-traffic',
   'error-logs',
   'system',
 ];
@@ -410,6 +410,7 @@ const NAV_GROUPS = [
     items: [
       { section: 'access-codes', label: 'Mã kích hoạt', href: '/pages/admin/access-codes/index.html', icon: 'key' },
       { section: 'usage',        label: 'Usage logs',   href: '/pages/admin/usage/index.html',        icon: 'activity' },
+      { section: 'foot-traffic', label: 'Lưu lượng',    href: '/pages/admin/foot-traffic/index.html', icon: 'activity' },
     ],
   },
   {

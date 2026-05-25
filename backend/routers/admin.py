@@ -1098,6 +1098,71 @@ async def code_usage(code_id: str, authorization: str | None = Header(default=No
     }
 
 
+# ── Sprint 17.4 — foot-traffic dashboard aggregation ─────────────────────────────
+
+@router.get("/analytics/foot-traffic")
+async def foot_traffic(
+    authorization: str | None = Header(default=None),
+    date_from: str | None = None,
+    date_to: str | None = None,
+):
+    """Aggregated page-view foot traffic for the admin dashboard. Default window:
+    last 30 days. ONE query over page_view events + a Python rollup (no N+1).
+    Pattern #29: a query failure returns zeroed metrics, never a 500."""
+    await require_admin(authorization)
+    if not date_from:
+        date_from = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    rows = []
+    try:
+        q = (
+            supabase_admin.table("analytics_events")
+            .select("user_id, event_data, created_at")
+            .eq("event_name", "page_view")
+            .gte("created_at", date_from)
+        )
+        if date_to:
+            q = q.lte("created_at", date_to)
+        rows = q.execute().data or []
+    except Exception as exc:
+        logger.warning("foot_traffic: query failed: %s", exc)
+
+    unique_users: set = set()
+    anonymous_hits = 0
+    page_counts: dict[str, int] = {}
+    daily: dict[str, int] = {}
+    for r in rows:
+        uid = r.get("user_id")
+        if uid:
+            unique_users.add(uid)
+        else:
+            anonymous_hits += 1
+        ed = r.get("event_data") or {}
+        path = ed.get("path") if isinstance(ed, dict) else None
+        if path:
+            page_counts[path] = page_counts.get(path, 0) + 1
+        ts = r.get("created_at")
+        if ts:
+            day = str(ts)[:10]
+            daily[day] = daily.get(day, 0) + 1
+
+    top_pages = sorted(
+        [{"path": p, "views": c} for p, c in page_counts.items()],
+        key=lambda x: x["views"], reverse=True,
+    )[:10]
+    daily_series = [{"date": d, "views": daily[d]} for d in sorted(daily)]
+
+    return {
+        "date_from": date_from,
+        "date_to": date_to,
+        "total_views": len(rows),
+        "unique_visitors": len(unique_users),
+        "anonymous_hits": anonymous_hits,
+        "top_pages": top_pages,
+        "daily": daily_series,
+    }
+
+
 # ── PATCH /admin/access-codes/{code_id} ───────────────────────────────────────
 
 @router.patch("/access-codes/{code_id}")
