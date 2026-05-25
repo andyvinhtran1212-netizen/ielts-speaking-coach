@@ -50,9 +50,9 @@ const VALID_ACTIVE = [
 ];
 
 // Sprint 12.8 graduated `system` (AI Usage + Alerts now LIVE).
-// `cohorts` + `usage` remain Phase B placeholders until the cohort
-// management UI cluster lands.
-const PHASE_B_SECTIONS = new Set(['cohorts', 'usage']);
+// Sprint 17.2 graduated `usage` (per-user + per-code activity logs now LIVE).
+// `cohorts` remains a Phase B placeholder until the cohort management UI lands.
+const PHASE_B_SECTIONS = new Set(['cohorts']);
 
 const SIDEBAR_LS_KEY = 'av-admin-sidebar-collapsed';
 
@@ -409,7 +409,7 @@ const NAV_GROUPS = [
     title: 'Truy cập',
     items: [
       { section: 'access-codes', label: 'Mã kích hoạt', href: '/pages/admin/access-codes/index.html', icon: 'key' },
-      { section: 'usage',        label: 'Usage logs',   href: '/pages/admin/usage/index.html',        icon: 'activity', phaseB: true },
+      { section: 'usage',        label: 'Usage logs',   href: '/pages/admin/usage/index.html',        icon: 'activity' },
     ],
   },
   {

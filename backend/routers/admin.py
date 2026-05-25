@@ -954,6 +954,150 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
     return codes
 
 
+# ── Sprint 17.2 — usage log (per-user + per-code activity rollups) ────────────────
+
+def _aggregate_usage_for_users(
+    user_ids: list[str], date_from: str | None = None, date_to: str | None = None
+) -> dict[str, dict]:
+    """Per-user {sessions, last_active, ai_cost_usd} for the given users.
+
+    Batched: ONE sessions query + ONE ai_usage_logs query regardless of user count
+    (no N+1). Pattern #29: a failed sub-query degrades THAT metric to None rather
+    than failing the whole rollup. ISO-UTC timestamps compare lexicographically.
+    """
+    out = {uid: {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0} for uid in user_ids}
+    if not user_ids:
+        return out
+
+    try:
+        sq = supabase_admin.table("sessions").select("user_id, started_at").in_("user_id", user_ids)
+        if date_from:
+            sq = sq.gte("started_at", date_from)
+        if date_to:
+            sq = sq.lte("started_at", date_to)
+        for row in (sq.execute().data or []):
+            uid, ts = row.get("user_id"), row.get("started_at")
+            if uid not in out:
+                continue
+            out[uid]["sessions"] += 1
+            if ts and (out[uid]["last_active"] is None or ts > out[uid]["last_active"]):
+                out[uid]["last_active"] = ts
+    except Exception as exc:
+        logger.warning("usage: sessions aggregate failed: %s", exc)
+        for uid in out:
+            out[uid]["sessions"] = None
+            out[uid]["last_active"] = None
+
+    try:
+        cq = supabase_admin.table("ai_usage_logs").select("user_id, cost_usd_est").in_("user_id", user_ids)
+        if date_from:
+            cq = cq.gte("created_at", date_from)
+        if date_to:
+            cq = cq.lte("created_at", date_to)
+        for row in (cq.execute().data or []):
+            uid = row.get("user_id")
+            if uid in out and out[uid]["ai_cost_usd"] is not None:
+                out[uid]["ai_cost_usd"] += float(row.get("cost_usd_est") or 0)
+    except Exception as exc:
+        logger.warning("usage: ai cost aggregate failed: %s", exc)
+        for uid in out:
+            out[uid]["ai_cost_usd"] = None
+
+    for uid in out:
+        if isinstance(out[uid]["ai_cost_usd"], float):
+            out[uid]["ai_cost_usd"] = round(out[uid]["ai_cost_usd"], 4)
+    return out
+
+
+@router.get("/usage/users")
+async def usage_by_user(
+    authorization: str | None = Header(default=None),
+    date_from: str | None = None,
+    date_to: str | None = None,
+):
+    """Per-user activity rollup (the usage-log landing): every user with their
+    session count, last activity, and AI cost. Batched (no N+1)."""
+    await require_admin(authorization)
+    try:
+        users = (
+            supabase_admin.table("users")
+            .select("id, email, display_name, role")
+            .execute()
+            .data
+        ) or []
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải users: {exc}")
+
+    agg = _aggregate_usage_for_users([u["id"] for u in users], date_from, date_to)
+    return [
+        {
+            "user_id": u["id"],
+            "email": u.get("email") or "",
+            "name": u.get("display_name") or "",
+            "role": u.get("role"),
+            **agg.get(u["id"], {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}),
+        }
+        for u in users
+    ]
+
+
+@router.get("/access-codes/{code_id}/usage")
+async def code_usage(code_id: str, authorization: str | None = Header(default=None)):
+    """Per-code usage rollup: the code's ACTIVE assigned users with per-user stats
+    + aggregate totals. Drilled from the Sprint 17.1 codes UI."""
+    await require_admin(authorization)
+    code_rows = (
+        supabase_admin.table("access_codes")
+        .select("id, code, session_limit, code_type, cohort_id")
+        .eq("id", code_id)
+        .limit(1)
+        .execute()
+        .data
+    ) or []
+    if not code_rows:
+        raise HTTPException(404, "Mã không tồn tại")
+    code = code_rows[0]
+
+    asgn = (
+        supabase_admin.table("user_code_assignments")
+        .select("user_id, assigned_at")
+        .eq("code_id", code_id)
+        .eq("is_active", True)   # only active assignments count toward the rollup
+        .execute()
+        .data
+    ) or []
+    uids = [a["user_id"] for a in asgn]
+
+    users: dict[str, dict] = {}
+    if uids:
+        for u in (
+            supabase_admin.table("users").select("id, email, display_name").in_("id", uids).execute().data or []
+        ):
+            users[u["id"]] = u
+
+    agg = _aggregate_usage_for_users(uids)
+    per_user = [
+        {
+            "user_id": uid,
+            "email": (users.get(uid) or {}).get("email") or "",
+            "name": (users.get(uid) or {}).get("display_name") or "",
+            **agg.get(uid, {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}),
+        }
+        for uid in uids
+    ]
+    total_sessions = sum((p["sessions"] or 0) for p in per_user)
+    total_cost = round(sum((p["ai_cost_usd"] or 0) for p in per_user), 4)
+    return {
+        "code": code,
+        "assigned_users": per_user,
+        "aggregate": {
+            "assigned_user_count": len(uids),
+            "total_sessions": total_sessions,
+            "total_ai_cost_usd": total_cost,
+        },
+    }
+
+
 # ── PATCH /admin/access-codes/{code_id} ───────────────────────────────────────
 
 @router.patch("/access-codes/{code_id}")
