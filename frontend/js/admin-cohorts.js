@@ -25,6 +25,7 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 let _cohorts = [];
+let _cohortId = null;
 
 function statusChip(c) {
   return c.is_active === false
@@ -137,18 +138,16 @@ async function loadDetail(cohortId) {
     $('members-loading').textContent = 'Không tải được thành viên: ' + (err.message || err);
     return;
   }
+  _cohortId = cohortId;
   const c = data.cohort || {};
   $('cohort-detail-title').textContent = c.name || 'Lớp';
   $('cohort-detail-meta').innerHTML =
     `${statusChip(c)} <span class="co-meta">${esc(c.description || '')}</span>`
     + `<span class="co-meta">· ${countLabel(data.member_count)} thành viên</span>`;
   $('members-loading').hidden = true;
+  $('members-empty').hidden = (data.members || []).length > 0;
   const members = data.members || [];
-  if (!members.length) {
-    $('members-empty').hidden = false;
-    return;
-  }
-  $('members-table-wrap').hidden = false;
+  $('members-table-wrap').hidden = members.length === 0;
   $('members-tbody').innerHTML = members.map((m) => {
     const who = m.email ? esc(m.email) : '(không rõ)';
     const name = m.name ? `<div class="u-name">${esc(m.name)}</div>` : '';
@@ -158,8 +157,65 @@ async function loadDetail(cohortId) {
       <td>${esc(lastActiveLabel(m.last_active))}</td>
       <td class="u-num">${esc(usdLabel(m.ai_cost_usd))}</td>
       <td class="code-cell">${esc(m.code) || '—'}</td>
+      <td><button class="btn-secondary" data-action="remove-member" data-user="${esc(m.user_id)}">Xóa khỏi lớp</button></td>
     </tr>`;
   }).join('');
+}
+
+// ── Member add / remove (Sprint 17.5) ───────────────────────────────────────────
+
+function openAddMember() {
+  $('am-error').hidden = true;
+  $('am-user').value = '';
+  $('am-reason').value = '';
+  $('addmember-backdrop').hidden = false;
+}
+function closeAddMember() { $('addmember-backdrop').hidden = true; }
+
+async function submitAddMember() {
+  const user_id = $('am-user').value.trim();
+  if (!user_id) {
+    $('am-error').textContent = 'Cần nhập user_id của học viên.';
+    $('am-error').hidden = false;
+    return;
+  }
+  $('btn-am-submit').disabled = true;
+  try {
+    const r = await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/members',
+      { user_id, reason: $('am-reason').value.trim() || null });
+    closeAddMember();
+    showBanner('Đã thêm học viên (cấp mã ' + (r.new_code || '') + ').', 'success');
+    loadDetail(_cohortId);
+  } catch (err) {
+    $('am-error').textContent = 'Không thêm được học viên: ' + (err.message || err);
+    $('am-error').hidden = false;
+  } finally {
+    $('btn-am-submit').disabled = false;
+  }
+}
+
+async function removeMember(userId) {
+  if (!confirm('Xóa học viên này khỏi lớp? Các mã của lớp gắn với họ sẽ bị vô hiệu.')) return;
+  try {
+    await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/members/' + encodeURIComponent(userId));
+    showBanner('Đã xóa học viên khỏi lớp.', 'success');
+    loadDetail(_cohortId);
+  } catch (err) {
+    showBanner('Không xóa được: ' + (err.message || err), 'error');
+  }
+}
+
+function bindDetail() {
+  $('btn-add-member').addEventListener('click', openAddMember);
+  $('btn-am-cancel').addEventListener('click', closeAddMember);
+  $('btn-am-submit').addEventListener('click', submitAddMember);
+  $('addmember-backdrop').addEventListener('click', (e) => {
+    if (e.target === $('addmember-backdrop')) closeAddMember();
+  });
+  $('members-tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action="remove-member"]');
+    if (btn) removeMember(btn.dataset.user);
+  });
 }
 
 function bindList() {
@@ -183,6 +239,7 @@ function main() {
   if (cohortId) {
     $('view-list').hidden = true;
     $('view-detail').hidden = false;
+    bindDetail();
     loadDetail(cohortId);
   } else {
     $('view-detail').hidden = true;

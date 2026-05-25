@@ -1408,6 +1408,128 @@ async def remove_user_from_code(
     # Redemption history must remain immutable so the code cannot be reused.
 
 
+# ── Sprint 17.5 — reassignment / refill (Direction E) ────────────────────────────
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _assign_user_to_code(code_id: str, user_id: str, admin_id: str | None, reason: str | None) -> None:
+    """Upsert an ACTIVE user_code_assignment with audit. Mirrors the activation
+    upsert (on_conflict user_id,code_id) so re-activating a prior inactive row works."""
+    supabase_admin.table("user_code_assignments").upsert({
+        "user_id":     user_id,
+        "code_id":     code_id,
+        "is_active":   True,
+        "assigned_at": _now_iso(),
+        "assigned_by": admin_id,
+        "reason":      reason,
+        "revoked_at":  None,
+    }, on_conflict="user_id,code_id").execute()
+
+
+def _issue_code_and_assign(*, user_id: str, admin_id: str | None, reason: str | None,
+                           code_type: str = "direct", cohort_id: str | None = None,
+                           permissions: list | None = None, session_limit=None,
+                           expires_at=None) -> dict:
+    """Create a fresh access code (claimed by user_id) + an active assignment with
+    audit. Returns the new code row. Sets is_used/used_by/used_at AT ISSUANCE (the
+    code's initial state) — this is the first write, not a mutation of a used code."""
+    row = {
+        "code":        _gen_code(),
+        "is_used":     True,
+        "used_by":     user_id,
+        "used_at":     _now_iso(),
+        "is_active":   True,
+        "permissions": permissions or ["all"],
+        "code_type":   code_type,
+        "cohort_id":   cohort_id,
+    }
+    if session_limit is not None:
+        row["session_limit"] = session_limit
+    if expires_at is not None:
+        row["expires_at"] = expires_at
+    res = supabase_admin.table("access_codes").insert(row).execute()
+    new_code = (res.data or [row])[0]
+    _assign_user_to_code(new_code["id"], user_id, admin_id, reason)
+    return new_code
+
+
+class ReassignRequest(BaseModel):
+    from_user_id: str
+    to_user_id: str
+    reason: str | None = None
+
+
+class RefillRequest(BaseModel):
+    to_user_id: str | None = None   # default: the code's current redeemer (used_by)
+    reason: str | None = None
+
+
+@router.post("/access-codes/{code_id}/reassign")
+async def reassign_code(code_id: str, body: ReassignRequest,
+                        authorization: str | None = Header(default=None)):
+    """Transfer a code from one user to another. Activates the target FIRST, then
+    deactivates the source (the SDK has no multi-statement transaction, so this
+    ordering means the target never loses access on a partial failure). NEVER
+    touches is_used/used_by/used_at (immutability)."""
+    admin = await require_admin(authorization)
+    admin_id = admin.get("id") if isinstance(admin, dict) else None
+    if body.from_user_id == body.to_user_id:
+        raise HTTPException(400, "Người nhận trùng với người hiện tại.")
+
+    code = (
+        supabase_admin.table("access_codes").select("id, is_revoked").eq("id", code_id).limit(1).execute().data
+    ) or []
+    if not code:
+        raise HTTPException(404, "Mã không tồn tại")
+    if code[0].get("is_revoked"):
+        raise HTTPException(400, "Mã đã bị thu hồi")
+
+    existing = (
+        supabase_admin.table("user_code_assignments").select("id")
+        .eq("code_id", code_id).eq("user_id", body.from_user_id).eq("is_active", True).execute().data
+    ) or []
+    if not existing:
+        raise HTTPException(404, "Người dùng nguồn không có assignment đang hoạt động cho mã này")
+
+    _assign_user_to_code(code_id, body.to_user_id, admin_id, body.reason)   # activate target first
+    supabase_admin.table("user_code_assignments").update({
+        "is_active": False, "revoked_at": _now_iso(), "assigned_by": admin_id, "reason": body.reason,
+    }).eq("code_id", code_id).eq("user_id", body.from_user_id).eq("is_active", True).execute()
+
+    return {"ok": True, "code_id": code_id,
+            "from_user_id": body.from_user_id, "to_user_id": body.to_user_id}
+
+
+@router.post("/access-codes/{code_id}/refill")
+async def refill_code(code_id: str, body: RefillRequest,
+                      authorization: str | None = Header(default=None)):
+    """Refill (e-new): issue a NEW code mirroring the source (type/perms/cohort/
+    limit) and assign it to the user — the source's redeemer by default. The old
+    code is left untouched (history preserved). Refill-as-quota-bump is the
+    existing PATCH /admin/access-codes/{id} instead (no new code)."""
+    admin = await require_admin(authorization)
+    admin_id = admin.get("id") if isinstance(admin, dict) else None
+
+    src = (supabase_admin.table("access_codes").select("*").eq("id", code_id).limit(1).execute().data) or []
+    if not src:
+        raise HTTPException(404, "Mã không tồn tại")
+    src = src[0]
+    target = body.to_user_id or src.get("used_by")
+    if not target:
+        raise HTTPException(400, "Không xác định được người dùng để cấp mã mới.")
+
+    new_code = _issue_code_and_assign(
+        user_id=target, admin_id=admin_id, reason=body.reason,
+        code_type=src.get("code_type") or "direct", cohort_id=src.get("cohort_id"),
+        permissions=src.get("permissions"), session_limit=src.get("session_limit"),
+        expires_at=src.get("expires_at"),
+    )
+    return {"ok": True, "user_id": target,
+            "new_code": new_code.get("code"), "new_code_id": new_code.get("id")}
+
+
 # ── DELETE /admin/access-codes/{code_id}/remove (hard delete) ─────────────────
 
 @router.delete("/access-codes/{code_id}/remove", status_code=204)
