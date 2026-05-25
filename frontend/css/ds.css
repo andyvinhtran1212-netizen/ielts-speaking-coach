@@ -689,11 +689,7 @@ select:focus-visible {
   border-color: var(--ds-danger-border);
   color: var(--ds-danger-text);
 }
-.ds-retention-chip--audio-gone {      /* gray outline — informational */
-  background: transparent;
-  border-color: var(--ds-muted);
-  color: var(--ds-muted);
-}
+/* Sprint 16.4.1: the gray audio-gone variant was removed (Andy D2 — clutter). */
 
 /* ── Sprint 14.6.4 cue-card textarea length warning ─────────────────────────
  * Part-2-only soft warning that surfaces under the cue-card textarea

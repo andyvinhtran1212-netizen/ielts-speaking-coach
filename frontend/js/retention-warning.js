@@ -35,6 +35,10 @@
   function _num(v) { return typeof v === 'number' ? v : null; }
 
   // Pure: v2 retention block → { variant, days } or null when no chip.
+  // Two actionable states only. Sprint 16.4.1 (Andy D2): the old "audio-gone"
+  // informational chip is removed — it showed on every 15-60d session (clutter),
+  // and content-soon (checked first) already covers the only window where it would
+  // matter. Users learn audio is gone on the result page, not via a list chip.
   function chipFor(retention) {
     if (!retention || typeof retention !== 'object') return null;   // Pattern #29
     if (retention.is_content_purged) return null;                    // already gone from list
@@ -49,22 +53,16 @@
     if (!retention.is_audio_purged && da !== null && da <= AUDIO_WARN_DAYS) {
       return { variant: 'audio-soon', days: da };
     }
-    // 3. Audio already gone (informational; report + scores still kept).
-    if (retention.is_audio_purged) {
-      return { variant: 'audio-gone', days: dc };
-    }
     return null;
   }
 
   var _LABEL = {
     'content-soon': function (d) { return d <= 0 ? 'Báo cáo sắp xóa' : ('Báo cáo sắp xóa trong ' + d + ' ngày'); },
     'audio-soon':   function (d) { return d <= 0 ? 'Audio sắp xóa'   : ('Audio sắp xóa trong ' + d + ' ngày'); },
-    'audio-gone':   function () { return 'Audio đã xóa'; },
   };
   var _TITLE = {
     'content-soon': 'Báo cáo bị xóa khi phiên quá 60 ngày không mở. Vào phiên để tải báo cáo PDF, hoặc mở lại (Xem lại) để gia hạn.',
-    'audio-soon':   'Audio chỉ lưu 15 ngày. Vào phiên để tải audio, hoặc mở lại (Xem lại) để gia hạn.',
-    'audio-gone':   'Audio đã bị xóa (chỉ lưu 15 ngày). Báo cáo và điểm thành phần vẫn được giữ (tối đa 60 ngày).',
+    'audio-soon':   'Audio chỉ lưu 15 ngày kể từ khi ghi. Vào phiên để tải audio.',
   };
 
   // Pure: v2 retention block → chip HTML (class-based, themed) or ''.
@@ -76,16 +74,11 @@
       + _esc(_LABEL[c.variant](c.days)) + '</span>';
   }
 
-  // Actionable = something the user can still save (audio or report about to go).
-  // audio-gone is informational only and is NOT aggregated into the banner.
-  function _isActionable(c) {
-    return !!c && (c.variant === 'audio-soon' || c.variant === 'content-soon');
-  }
-
-  // Pure: count of sessions with an actionable (soon-to-delete) warning.
+  // Pure: count of sessions with a warning. Every remaining chip variant is
+  // actionable (audio-soon / content-soon), so any non-null chip counts.
   function countSoonHidden(sessions) {
     return (sessions || []).filter(function (s) {
-      return _isActionable(chipFor(s && s.retention));
+      return !!chipFor(s && s.retention);
     }).length;
   }
 

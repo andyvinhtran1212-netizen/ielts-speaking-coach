@@ -66,10 +66,20 @@ def test_compute_expiry_v2_content_purged():
     assert e["days_until_content_purge"] == 0
 
 
-def test_compute_expiry_v2_anchor_uses_max_recent_access():
-    # Practised 70d ago but opened 1d ago → recent activity keeps it fully alive.
+def test_compute_expiry_v2_decoupled_anchors():
+    # Sprint 16.4.1: practised 70d ago, opened 1d ago. Audio is strict recording-age
+    # → purged (access doesn't save audio). Content is activity-extended → alive.
     e = compute_expiry({"started_at": _ago(days=70), "last_accessed_at": _ago(days=1)}, now=NOW)
-    assert e["is_audio_purged"] is False and e["is_content_purged"] is False
+    assert e["is_audio_purged"] is True       # strict started_at (70d ≥ 15)
+    assert e["is_content_purged"] is False     # max anchor = 1d ago
+    assert e["is_hidden"] is False
+
+
+def test_compute_expiry_v2_audio_strict_recent_started():
+    # Started 14d ago, opened 1d ago → audio not yet purged (14 < 15), content far.
+    e = compute_expiry({"started_at": _ago(days=14), "last_accessed_at": _ago(days=1)}, now=NOW)
+    assert e["is_audio_purged"] is False and e["days_until_audio_purge"] == 1
+    assert e["days_until_content_purge"] == 59   # content uses max anchor (1d ago)
 
 
 def test_compute_expiry_v2_legacy_grace_uses_started():

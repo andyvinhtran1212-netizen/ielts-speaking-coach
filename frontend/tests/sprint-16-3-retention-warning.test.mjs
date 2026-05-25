@@ -46,22 +46,16 @@ describe('Sprint 16.3.1 — chipFor v2 variants', () => {
     assert.ok(c && c.variant === 'audio-soon' && c.days === 2);
   });
 
-  test('audio already gone, content alive → audio-gone', () => {
-    const c = RW.chipFor(block({ days_until_audio_purge: 0, is_audio_purged: true, days_until_content_purge: 40 }));
-    assert.ok(c && c.variant === 'audio-gone');
+  test('D2: audio gone but content far → NO chip (audio-gone variant removed)', () => {
+    assert.strictEqual(
+      RW.chipFor(block({ days_until_audio_purge: 0, is_audio_purged: true, days_until_content_purge: 40 })),
+      null,
+    );
   });
 
-  test('content purge imminent (≤7d) → content-soon', () => {
+  test('content purge imminent (≤7d, audio already gone) → content-soon', () => {
     const c = RW.chipFor(block({ days_until_content_purge: 5, days_until_audio_purge: 0, is_audio_purged: true }));
     assert.ok(c && c.variant === 'content-soon' && c.days === 5);
-  });
-
-  test('PRIORITY: content-soon beats audio-gone (urgent report loss wins)', () => {
-    // Audio gone + content also within 7d → must surface the RED content warning,
-    // not the gray audio-gone. (Guards the 16.3.1 ordering fix: audio is always
-    // purged before content nears purge, so audio-gone-first would mask this.)
-    const c = RW.chipFor(block({ is_audio_purged: true, days_until_audio_purge: 0, days_until_content_purge: 3 }));
-    assert.strictEqual(c.variant, 'content-soon');
   });
 
   test('content already purged → no chip (gone from list)', () => {
@@ -86,17 +80,17 @@ describe('Sprint 16.3.1 — render helpers', () => {
       /class="ds-retention-chip ds-retention-chip--content-soon".*Báo cáo sắp xóa trong 4 ngày/);
     assert.match(RW.chipHtml(block({ days_until_audio_purge: 1 })),
       /ds-retention-chip--audio-soon.*Audio sắp xóa trong 1 ngày/);
-    assert.match(RW.chipHtml(block({ is_audio_purged: true, days_until_audio_purge: 0 })),
-      /ds-retention-chip--audio-gone.*Audio đã xóa/);
+    // audio-gone variant removed (D2): audio purged + content far → no chip.
+    assert.strictEqual(RW.chipHtml(block({ is_audio_purged: true, days_until_audio_purge: 0, days_until_content_purge: 40 })), '');
     assert.strictEqual(RW.chipHtml(block({})), '');
     assert.strictEqual(RW.chipHtml(null), '');
   });
 
-  test('countSoonHidden counts only actionable (audio-soon + content-soon), not audio-gone', () => {
+  test('countSoonHidden counts warnings; audio-gone-only sessions no longer count', () => {
     const sessions = [
       { retention: block({ days_until_audio_purge: 2 }) },                                 // audio-soon ✓
       { retention: block({ days_until_content_purge: 6, is_audio_purged: true }) },        // content-soon ✓
-      { retention: block({ is_audio_purged: true, days_until_audio_purge: 0, days_until_content_purge: 40 }) }, // audio-gone ✗
+      { retention: block({ is_audio_purged: true, days_until_audio_purge: 0, days_until_content_purge: 40 }) }, // no chip ✗
       { retention: block({}) },                                                            // fresh ✗
       {},                                                                                  // legacy ✗
     ];
@@ -129,10 +123,10 @@ describe('Sprint 16.3.1 — retention-warning.js carries no inline color/bg/hex 
 });
 
 describe('Sprint 16.3.1 — ds.css variants bind tokens (both themes, Pattern #25)', () => {
-  test('content-soon chip uses var(--ds-danger-*); audio-gone uses var(--ds-muted)', () => {
+  test('content-soon chip uses var(--ds-danger-*); audio-gone variant removed (D2)', () => {
     assert.match(DS_CSS, /\.ds-retention-chip--content-soon\s*\{[\s\S]*?var\(--ds-danger-bg\)/);
     assert.match(DS_CSS, /\.ds-retention-chip--content-soon\s*\{[\s\S]*?var\(--ds-danger-text\)/);
-    assert.match(DS_CSS, /\.ds-retention-chip--audio-gone\s*\{[\s\S]*?var\(--ds-muted\)/);
+    assert.doesNotMatch(DS_CSS, /\.ds-retention-chip--audio-gone\s*\{/);
   });
   test('--ds-danger-* defined in :root (dark) AND light override (WCAG AA)', () => {
     assert.match(DS_CSS, /:root\s*\{[\s\S]*?--ds-danger-bg\s*:/);

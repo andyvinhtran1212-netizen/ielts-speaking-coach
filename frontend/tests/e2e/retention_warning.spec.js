@@ -1,10 +1,9 @@
-// Sprint 16.3.1 (F4) — retention warning chips v2 (audio/content/audio-gone) +
-// aggregate banner on the session history list. Semantic selectors so the check
-// survives row-template tweaks. Pure consumer of the Sprint 16.2.1 v2 `retention`
-// block — no backend/Supabase (static harness).
+// Sprint 16.4.1 (F4) — retention warning chips: two actionable variants
+// (audio-soon / content-soon). Semantic selectors so the check survives row tweaks.
+// Pure consumer of the v2 `retention` block — no backend/Supabase (static harness).
 const { test, expect } = require('@playwright/test');
 
-test('M2: v2 chips render per variant; banner counts only actionable', async ({ page }) => {
+test('M2: actionable chips render; audio-gone removed; banner counts them', async ({ page }) => {
   await page.goto('/tests/e2e/fixtures/retention-harness.html');
 
   // Audio purge imminent → amber audio-soon chip.
@@ -17,10 +16,8 @@ test('M2: v2 chips render per variant; banner counts only actionable', async ({ 
   await expect(contentSoon.locator('.ds-retention-chip--content-soon')).toBeVisible();
   await expect(contentSoon).toContainText('Báo cáo sắp xóa');
 
-  // Audio gone, content far → gray audio-gone chip.
-  const audioGone = page.locator('tr[data-session-id="s-audio-gone"]');
-  await expect(audioGone.locator('.ds-retention-chip--audio-gone')).toBeVisible();
-  await expect(audioGone).toContainText('Audio đã xóa');
+  // D2: audio gone but content far → NO chip (variant removed, decluttered).
+  await expect(page.locator('tr[data-session-id="s-audio-gone"] .ds-retention-chip')).toHaveCount(0);
 
   // Fresh + legacy (no retention block) → no chip, no crash (Pattern #29).
   await expect(page.locator('tr[data-session-id="s-fresh"] .ds-retention-chip')).toHaveCount(0);

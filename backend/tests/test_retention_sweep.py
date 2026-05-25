@@ -108,16 +108,33 @@ def _install(monkeypatch, *, dry_run, sessions, responses=None, remove_raises_fo
 
 # ── Eligibility (anchor + pre-filter) ──────────────────────────────────────────
 
-def test_audio_eligibility_uses_max_anchor(monkeypatch):
+def test_audio_eligibility_uses_strict_started_anchor(monkeypatch):
+    # Sprint 16.4.1 (D1): audio is strict recording-age. A reopened-but-old session
+    # IS audio-eligible (access does not save audio). A genuinely recent session is not.
     sessions = [
         {"id": "old", "user_id": "u", "started_at": _ago(20), "last_accessed_at": None,
+         "audio_purged_at": None, "content_purged_at": None},                 # eligible
+        {"id": "reopened", "user_id": "u", "started_at": _ago(70), "last_accessed_at": _ago(1),
+         "audio_purged_at": None, "content_purged_at": None},                 # eligible — audio is recording-age
+        {"id": "recent", "user_id": "u", "started_at": _ago(5), "last_accessed_at": _ago(1),
+         "audio_purged_at": None, "content_purged_at": None},                 # NOT — started 5d ago
+    ]
+    _install(monkeypatch, dry_run=True, sessions=sessions)
+    eligible = sweep._eligible("audio_purged_at", sweep.RETENTION_AUDIO_DAYS, "is_audio_purged")
+    assert sorted(s["id"] for s in eligible) == ["old", "reopened"]
+
+
+def test_content_eligibility_uses_max_anchor(monkeypatch):
+    # Content stays activity-extended: a 70d session reopened 1d ago is NOT content-eligible.
+    sessions = [
+        {"id": "stale", "user_id": "u", "started_at": _ago(70), "last_accessed_at": None,
          "audio_purged_at": None, "content_purged_at": None},                 # eligible
         {"id": "reopened", "user_id": "u", "started_at": _ago(70), "last_accessed_at": _ago(1),
          "audio_purged_at": None, "content_purged_at": None},                 # NOT — opened 1d ago
     ]
     _install(monkeypatch, dry_run=True, sessions=sessions)
-    eligible = sweep._eligible("audio_purged_at", sweep.RETENTION_AUDIO_DAYS, "is_audio_purged")
-    assert [s["id"] for s in eligible] == ["old"]
+    eligible = sweep._eligible("content_purged_at", sweep.RETENTION_CONTENT_DAYS, "is_content_purged")
+    assert [s["id"] for s in eligible] == ["stale"]
 
 
 def test_audio_query_applies_prefilter(monkeypatch):
