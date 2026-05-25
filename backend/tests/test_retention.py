@@ -1,14 +1,15 @@
 """
-tests/test_retention.py — Sprint 16.2 retention schema + soft-hide.
+tests/test_retention.py — Sprint 16.2.1 retention model v2 (decoupled audio/content).
 
 Covers:
-  - compute_expiry / is_hidden / hide_cutoff / should_touch (pure, Pattern #29).
-  - GET /sessions soft-hide filter (default on; include_hidden=true bypass) and
-    the per-row retention augmentation (Pattern #34 integration sentinel).
-  - GET /sessions/{id} enqueues a throttled last_accessed_at touch + augments
-    the response with retention info.
+  - compute_expiry / is_hidden / content_purge_cutoff / should_touch (pure, #29).
+    v2: audio retained 15d, content retained 60d, anchor = max(started_at,
+    last_accessed_at), is_hidden == is_content_purged.
+  - GET /sessions content-purge filter (default on; include_hidden=true bypass) +
+    per-row retention augmentation (Pattern #34 integration sentinel).
+  - GET /sessions/{id} enqueues a throttled last_accessed_at touch + augments.
   - _touch_last_accessed throttle + non-fatal behaviour.
-  - migration 078 structure (ADD COLUMN IF NOT EXISTS, grace backfill, index).
+  - migration 079 structure (add v2 cols, drop v1 cols, v2 index).
 """
 
 import asyncio
@@ -20,10 +21,9 @@ import pytest
 from fastapi import BackgroundTasks
 
 from routers import sessions as sessions_module
-from services import retention
 from services.retention import (
     compute_expiry,
-    hide_cutoff,
+    content_purge_cutoff,
     is_hidden,
     should_touch,
 )
@@ -43,59 +43,69 @@ def _run(coro):
         loop.close()
 
 
-# ── compute_expiry (anchor = most-recent of started_at / last_accessed_at) ─────
+# ── compute_expiry v2 (audio 15d / content 60d; anchor = most-recent activity) ──
 
-def test_compute_expiry_fresh_session():
+def test_compute_expiry_v2_fresh():
     e = compute_expiry({"started_at": _ago(days=0)}, now=NOW)
-    assert e["is_hidden"] is False and e["is_purged"] is False
-    assert e["days_until_hide"] == 7 and e["days_until_purge"] == 30
-
-
-def test_compute_expiry_8_days_old():
-    e = compute_expiry({"started_at": _ago(days=8)}, now=NOW)
-    assert e["is_hidden"] is True and e["is_purged"] is False
-    assert e["days_until_hide"] == 0
-
-
-def test_compute_expiry_31_days_old():
-    e = compute_expiry({"started_at": _ago(days=31)}, now=NOW)
-    assert e["is_hidden"] is True and e["is_purged"] is True
-    assert e["days_until_purge"] == 0
-
-
-def test_compute_expiry_uses_last_accessed_if_recent():
-    # Started 10d ago but opened 1d ago → recent activity keeps it visible.
-    e = compute_expiry({"started_at": _ago(days=10), "last_accessed_at": _ago(days=1)}, now=NOW)
+    assert e["is_audio_purged"] is False and e["is_content_purged"] is False
     assert e["is_hidden"] is False
+    assert e["days_until_audio_purge"] == 15 and e["days_until_content_purge"] == 60
 
 
-def test_compute_expiry_uses_started_if_no_access():
-    e = compute_expiry({"started_at": _ago(days=10), "last_accessed_at": None}, now=NOW)
+def test_compute_expiry_v2_audio_purged_content_alive():
+    e = compute_expiry({"started_at": _ago(days=16)}, now=NOW)
+    assert e["is_audio_purged"] is True
+    assert e["is_content_purged"] is False and e["is_hidden"] is False
+    assert e["days_until_audio_purge"] == 0
+
+
+def test_compute_expiry_v2_content_purged():
+    e = compute_expiry({"started_at": _ago(days=61)}, now=NOW)
+    assert e["is_audio_purged"] is True and e["is_content_purged"] is True
     assert e["is_hidden"] is True
+    assert e["days_until_content_purge"] == 0
 
 
-def test_compute_expiry_persisted_hidden_at_is_authoritative():
-    # Fresh by anchor, but a 16.4 sweep already stamped hidden_at → hidden.
-    e = compute_expiry({"started_at": _ago(days=0), "hidden_at": _ago(days=1)}, now=NOW)
-    assert e["is_hidden"] is True
+def test_compute_expiry_v2_anchor_uses_max_recent_access():
+    # Practised 70d ago but opened 1d ago → recent activity keeps it fully alive.
+    e = compute_expiry({"started_at": _ago(days=70), "last_accessed_at": _ago(days=1)}, now=NOW)
+    assert e["is_audio_purged"] is False and e["is_content_purged"] is False
 
 
-def test_compute_expiry_no_timestamp_safe_default():
+def test_compute_expiry_v2_legacy_grace_uses_started():
+    e = compute_expiry({"started_at": _ago(days=70), "last_accessed_at": None}, now=NOW)
+    assert e["is_content_purged"] is True and e["is_hidden"] is True
+
+
+def test_compute_expiry_v2_persisted_content_purge_authoritative():
+    # Fresh by anchor, but a 16.4 sweep already stamped content_purged_at.
+    e = compute_expiry({"started_at": _ago(days=0), "content_purged_at": _ago(days=1)}, now=NOW)
+    assert e["is_content_purged"] is True and e["is_hidden"] is True
+
+
+def test_compute_expiry_v2_persisted_audio_purge_authoritative():
+    e = compute_expiry({"started_at": _ago(days=0), "audio_purged_at": _ago(days=1)}, now=NOW)
+    assert e["is_audio_purged"] is True
+    assert e["is_content_purged"] is False  # audio purge alone doesn't hide
+
+
+def test_compute_expiry_v2_no_timestamp_safe_default():
     e = compute_expiry({}, now=NOW)
-    assert e["is_hidden"] is False and e["is_purged"] is False
-    assert e["days_until_hide"] is None
+    assert e["is_audio_purged"] is False and e["is_content_purged"] is False
+    assert e["is_hidden"] is False
+    assert e["days_until_audio_purge"] is None and e["days_until_content_purge"] is None
 
 
-def test_is_hidden_wrapper():
-    assert is_hidden({"started_at": _ago(days=9)}, now=NOW) is True
-    assert is_hidden({"started_at": _ago(days=2)}, now=NOW) is False
+def test_is_hidden_wrapper_v2():
+    assert is_hidden({"started_at": _ago(days=61)}, now=NOW) is True
+    assert is_hidden({"started_at": _ago(days=20)}, now=NOW) is False  # audio gone, content alive
 
 
-def test_hide_cutoff_is_z_iso_7_days_back():
-    cut = hide_cutoff(now=NOW)
+def test_content_purge_cutoff_is_z_iso_60_days_back():
+    cut = content_purge_cutoff(now=NOW)
     assert cut.endswith("Z") and "+" not in cut
     parsed = datetime.fromisoformat(cut.replace("Z", "+00:00"))
-    assert (NOW - parsed) == timedelta(days=7)
+    assert (NOW - parsed) == timedelta(days=60)
 
 
 @pytest.mark.parametrize("value,expected", [
@@ -166,22 +176,21 @@ _LIST_DEFAULTS = dict(
 )
 
 
-# ── GET /sessions soft-hide filter ─────────────────────────────────────────────
+# ── GET /sessions content-purge filter (v2) ────────────────────────────────────
 
-def test_get_sessions_excludes_hidden_default(monkeypatch):
+def test_get_sessions_excludes_content_purged_default(monkeypatch):
     rec = _patch(monkeypatch, {"sessions": [{"id": "s1", "started_at": _ago(days=1)}]})
     out = _run(sessions_module.list_sessions(**_LIST_DEFAULTS, include_hidden=False))
-    assert ("hidden_at", "null") in rec["is_"]
+    assert ("content_purged_at", "null") in rec["is_"]
     assert any("started_at.gte." in q and "last_accessed_at.gte." in q for q in rec["or_"])
-    # rows augmented with retention info
     assert "retention" in out[0] and out[0]["retention"]["is_hidden"] is False
 
 
 def test_get_sessions_include_hidden_skips_filter(monkeypatch):
-    rec = _patch(monkeypatch, {"sessions": [{"id": "s1", "started_at": _ago(days=40)}]})
+    rec = _patch(monkeypatch, {"sessions": [{"id": "s1", "started_at": _ago(days=70)}]})
     out = _run(sessions_module.list_sessions(**_LIST_DEFAULTS, include_hidden=True))
     assert "is_" not in rec and "or_" not in rec
-    # still augmented; this old row reports hidden+purged
+    # 70d-old row (no recent access) → content purged → hidden.
     assert out[0]["retention"]["is_hidden"] is True
 
 
@@ -194,6 +203,7 @@ def test_get_session_enqueues_touch_and_augments(monkeypatch):
     bt = BackgroundTasks()
     out = _run(sessions_module.get_session("sess-1", bt, authorization="Bearer x"))
     assert "retention" in out and out["session_id"] == "sess-1"
+    assert "days_until_content_purge" in out["retention"]  # v2 shape
     funcs = [t.func for t in bt.tasks]
     assert sessions_module._touch_last_accessed in funcs
 
@@ -213,18 +223,17 @@ def test_touch_is_non_fatal(monkeypatch):
         def table(self, *_):
             raise RuntimeError("db down")
     monkeypatch.setattr(sessions_module, "supabase_admin", _Boom())
-    # Must not raise (Pattern #29).
-    sessions_module._touch_last_accessed("sess-1", None)
+    sessions_module._touch_last_accessed("sess-1", None)            # must not raise (#29)
 
 
-# ── Migration 078 structure (Pattern #20 schema-aware) ─────────────────────────
+# ── Migration 079 structure (Pattern #20 schema-aware) ─────────────────────────
 
-def test_migration_078_structure():
+def test_migration_079_structure():
     sql = (Path(__file__).resolve().parents[1] / "migrations"
-           / "078_sessions_retention_columns.sql").read_text()
+           / "079_retention_model_v2.sql").read_text()
     low = sql.lower()
-    for col in ("last_accessed_at", "hidden_at", "purged_at"):
+    for col in ("audio_purged_at", "content_purged_at"):
         assert f"add column if not exists {col}" in low
-    # Grace backfill must only touch unstamped rows (idempotent).
-    assert "update sessions set last_accessed_at = now() where last_accessed_at is null" in low
-    assert "create index if not exists idx_sessions_retention" in low
+    for col in ("hidden_at", "purged_at"):
+        assert f"drop column if exists {col}" in low
+    assert "create index if not exists idx_sessions_retention_v2" in low

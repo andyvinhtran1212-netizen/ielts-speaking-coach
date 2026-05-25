@@ -1,19 +1,23 @@
 """
-services/retention.py — Sprint 16.2 read-time soft-hide policy.
+services/retention.py — Sprint 16.2.1 read-time retention policy (model v2).
 
 Lazy, pure expiry computation for the storage-lifecycle feature. This sprint does
 NO deletion and runs NO scheduled job — Sprint 16.4 owns the persistent sweep that
-WRITES hidden_at/purged_at and scrubs audio. Until then this module is the sole
-authority (Pattern #29 graceful degradation: the view stays correct even if a
-future sweep lags or fails).
+WRITES audio_purged_at/content_purged_at and scrubs audio + content. Until then
+this module is the sole authority (Pattern #29 graceful degradation: the view
+stays correct even if a future sweep lags or fails).
 
-Retention model (Andy 2026-05-25 defaults):
-  - soft-hide at 7 days → hard-delete at 30 days (23-day recovery buffer)
+Retention model v2 (Andy 2026-05-25 pivot — decoupled audio vs content):
+  - AUDIO retained 15 days   → recording deleted after 15d (storage cost driver)
+  - CONTENT retained 60 days → feedback/transcript/scores-detail kept 60d, then
+    scrubbed; the session also drops out of the history list at content purge.
+  (v1 was a single 7d soft-hide → 30d purge — superseded by this decouple.)
+
   - clock anchor = the session's MOST RECENT activity:
         max(started_at, last_accessed_at)
-    A session opened within the window stays visible even if first practiced
-    earlier — matches "keep the last 7 days of activity" and the commission's own
-    sentinel ("created 10d ago, accessed 1d ago → NOT hidden").
+    Opening a session keeps it within the window (the approved both-timer model
+    from Sprint 16.0). Note: this also re-extends the audio clock on access; if a
+    stricter recording-age audio policy is wanted, anchor audio on started_at only.
 
 Note: the sessions table has no `created_at` column — `started_at` is the
 session-age timestamp used throughout the codebase.
@@ -21,8 +25,8 @@ session-age timestamp used throughout the codebase.
 
 from datetime import datetime, timedelta, timezone
 
-RETENTION_HIDE_DAYS = 7
-RETENTION_PURGE_DAYS = 30
+RETENTION_AUDIO_DAYS = 15
+RETENTION_CONTENT_DAYS = 60
 _TOUCH_THROTTLE_MINUTES = 60
 
 
@@ -49,39 +53,49 @@ def _anchor(session: dict):
     return max(candidates) if candidates else None
 
 
-def hide_cutoff(now=None) -> str:
-    """ISO-Z timestamp; sessions whose anchor is < cutoff are soft-hidden.
+def content_purge_cutoff(now=None) -> str:
+    """ISO-Z timestamp; sessions whose anchor is < cutoff are content-purged
+    (and therefore hidden from the history list).
 
     Returned with a trailing 'Z' (no '+00:00') so it embeds cleanly in PostgREST
     `or=` filter strings without '+' URL-encoding ambiguity.
     """
     now = now or datetime.now(timezone.utc)
-    return (now - timedelta(days=RETENTION_HIDE_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (now - timedelta(days=RETENTION_CONTENT_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def compute_expiry(session: dict, now=None) -> dict:
-    """Pure read-time expiry fields for a session row.
+    """Pure read-time expiry fields for a session row (model v2).
 
-    A persisted hidden_at/purged_at (written by the Sprint 16.4 sweep) is
-    authoritative when present; otherwise the value is computed from the activity
-    anchor. A session with no usable timestamp is treated as NOT hidden — we never
-    hide data we cannot date (safe default).
+    A persisted audio_purged_at/content_purged_at (written by the Sprint 16.4
+    sweep) is authoritative when present; otherwise the value is computed from the
+    activity anchor. A session with no usable timestamp is treated as NOT purged —
+    we never purge data we cannot date (safe default).
+
+    `is_hidden` == `is_content_purged`: the session leaves the history list only
+    once its content is gone (audio purge alone keeps the session visible).
     """
     now = now or datetime.now(timezone.utc)
-    persisted_hidden = bool(session.get("hidden_at"))
-    persisted_purged = bool(session.get("purged_at"))
+    persisted_audio = bool(session.get("audio_purged_at"))
+    persisted_content = bool(session.get("content_purged_at"))
     anchor = _anchor(session)
     if anchor is None:
         return {
-            "days_until_hide": None, "days_until_purge": None,
-            "is_hidden": persisted_hidden, "is_purged": persisted_purged,
+            "days_until_audio_purge": None,
+            "days_until_content_purge": None,
+            "is_audio_purged": persisted_audio,
+            "is_content_purged": persisted_content,
+            "is_hidden": persisted_content,
         }
     age_days = (now - anchor).days
+    is_audio = persisted_audio or age_days >= RETENTION_AUDIO_DAYS
+    is_content = persisted_content or age_days >= RETENTION_CONTENT_DAYS
     return {
-        "days_until_hide":  max(0, RETENTION_HIDE_DAYS - age_days),
-        "days_until_purge": max(0, RETENTION_PURGE_DAYS - age_days),
-        "is_hidden":  persisted_hidden or age_days >= RETENTION_HIDE_DAYS,
-        "is_purged":  persisted_purged or age_days >= RETENTION_PURGE_DAYS,
+        "days_until_audio_purge":   max(0, RETENTION_AUDIO_DAYS - age_days),
+        "days_until_content_purge": max(0, RETENTION_CONTENT_DAYS - age_days),
+        "is_audio_purged":   is_audio,
+        "is_content_purged": is_content,
+        "is_hidden":         is_content,
     }
 
 

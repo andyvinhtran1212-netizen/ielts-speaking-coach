@@ -12,7 +12,7 @@ from pydantic import BaseModel, field_validator
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services.retention import compute_expiry, hide_cutoff, should_touch
+from services.retention import compute_expiry, content_purge_cutoff, should_touch
 
 logger = logging.getLogger(__name__)
 
@@ -371,7 +371,7 @@ async def list_sessions(
     date_to: Optional[str] = Query(default=None,   description="ISO date/datetime; sessions.started_at <= date_to"),
     page: Optional[int] = Query(default=None, ge=1, description="1-based page index (omit to disable pagination)"),
     page_size: int = Query(default=20, ge=5, le=100),
-    include_hidden: bool = Query(default=False, description="Sprint 16.2 — include soft-hidden (>7d inactive) sessions. Default false declutters the history list; true powers a future 'Show hidden' view."),
+    include_hidden: bool = Query(default=False, description="Sprint 16.2.1 — include content-purged (>60d inactive) sessions. Default false hides them from the history list; true powers a future 'Show hidden' view."),
 ):
     """List the caller's sessions, with optional search / sort / pagination.
 
@@ -414,13 +414,14 @@ async def list_sessions(
         if date_to:
             q = q.lte("started_at", date_to)
 
-        # Sprint 16.2 — soft-hide: exclude sessions inactive >7d (by the more
-        # recent of started_at / last_accessed_at) from the history list. No row
-        # is deleted; ?include_hidden=true returns everything. hidden_at IS NULL
-        # until the Sprint 16.4 sweep starts writing it.
+        # Sprint 16.2.1 (model v2) — exclude content-purged sessions (inactive
+        # >60d by the more recent of started_at / last_accessed_at) from the
+        # history list. Audio purge (15d) does NOT hide a session. No row is
+        # deleted; ?include_hidden=true returns everything. content_purged_at IS
+        # NULL until the Sprint 16.4 sweep starts writing it.
         if not include_hidden:
-            cutoff = hide_cutoff()
-            q = q.is_("hidden_at", "null").or_(
+            cutoff = content_purge_cutoff()
+            q = q.is_("content_purged_at", "null").or_(
                 f"started_at.gte.{cutoff},last_accessed_at.gte.{cutoff}"
             )
 
@@ -442,9 +443,10 @@ async def list_sessions(
         raise HTTPException(status_code=500, detail=f"Không thể tải sessions: {e}")
 
     rows = result.data or []
-    # Sprint 16.2 — augment each row with read-time retention info (days_until_*,
-    # is_hidden/is_purged) so the Sprint 16.3 warning UI can render countdowns
-    # without recomputing policy client-side.
+    # Sprint 16.2.1 (model v2) — augment each row with read-time retention info
+    # (days_until_audio_purge/content_purge, is_audio_purged/is_content_purged,
+    # is_hidden) so the warning UI can render countdowns without recomputing
+    # policy client-side.
     for row in rows:
         row["retention"] = compute_expiry(row)
     if not paginated:
