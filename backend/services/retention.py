@@ -43,16 +43,6 @@ def _parse_ts(value):
         return None
 
 
-def _anchor(session: dict):
-    """Most-recent activity timestamp: max(started_at, last_accessed_at)."""
-    candidates = [
-        t for t in (_parse_ts(session.get("started_at")),
-                    _parse_ts(session.get("last_accessed_at")))
-        if t is not None
-    ]
-    return max(candidates) if candidates else None
-
-
 def content_purge_cutoff(now=None) -> str:
     """ISO-Z timestamp; sessions whose anchor is < cutoff are content-purged
     (and therefore hidden from the history list).
@@ -65,12 +55,17 @@ def content_purge_cutoff(now=None) -> str:
 
 
 def compute_expiry(session: dict, now=None) -> dict:
-    """Pure read-time expiry fields for a session row (model v2).
+    """Pure read-time expiry fields for a session row (model v2, decoupled anchors).
+
+    Sprint 16.4.1 (Andy D1): the AUDIO clock is strict recording-age — anchored on
+    `started_at` ONLY. Opening a session does not create new audio, so it must not
+    extend the 15-day audio window (tightens the storage-cost goal). The CONTENT
+    clock stays activity-extended — `max(started_at, last_accessed_at)` — so
+    engagement keeps feedback/scores around the full 60 days.
 
     A persisted audio_purged_at/content_purged_at (written by the Sprint 16.4
-    sweep) is authoritative when present; otherwise the value is computed from the
-    activity anchor. A session with no usable timestamp is treated as NOT purged —
-    we never purge data we cannot date (safe default).
+    sweep) is authoritative when present. A session with no usable timestamp is
+    treated as NOT purged — we never purge data we cannot date (safe default).
 
     `is_hidden` == `is_content_purged`: the session leaves the history list only
     once its content is gone (audio purge alone keeps the session visible).
@@ -78,24 +73,24 @@ def compute_expiry(session: dict, now=None) -> dict:
     now = now or datetime.now(timezone.utc)
     persisted_audio = bool(session.get("audio_purged_at"))
     persisted_content = bool(session.get("content_purged_at"))
-    anchor = _anchor(session)
-    if anchor is None:
-        return {
-            "days_until_audio_purge": None,
-            "days_until_content_purge": None,
-            "is_audio_purged": persisted_audio,
-            "is_content_purged": persisted_content,
-            "is_hidden": persisted_content,
-        }
-    age_days = (now - anchor).days
-    is_audio = persisted_audio or age_days >= RETENTION_AUDIO_DAYS
-    is_content = persisted_content or age_days >= RETENTION_CONTENT_DAYS
+
+    started = _parse_ts(session.get("started_at"))
+    last = _parse_ts(session.get("last_accessed_at"))
+
+    # Audio: strict started_at. Content: most-recent activity.
+    audio_anchor = started
+    content_candidates = [t for t in (started, last) if t is not None]
+    content_anchor = max(content_candidates) if content_candidates else None
+
+    audio_age = (now - audio_anchor).days if audio_anchor else None
+    content_age = (now - content_anchor).days if content_anchor else None
+
     return {
-        "days_until_audio_purge":   max(0, RETENTION_AUDIO_DAYS - age_days),
-        "days_until_content_purge": max(0, RETENTION_CONTENT_DAYS - age_days),
-        "is_audio_purged":   is_audio,
-        "is_content_purged": is_content,
-        "is_hidden":         is_content,
+        "days_until_audio_purge":   None if audio_age is None else max(0, RETENTION_AUDIO_DAYS - audio_age),
+        "days_until_content_purge": None if content_age is None else max(0, RETENTION_CONTENT_DAYS - content_age),
+        "is_audio_purged":   persisted_audio or (audio_age is not None and audio_age >= RETENTION_AUDIO_DAYS),
+        "is_content_purged": persisted_content or (content_age is not None and content_age >= RETENTION_CONTENT_DAYS),
+        "is_hidden":         persisted_content or (content_age is not None and content_age >= RETENTION_CONTENT_DAYS),
     }
 
 
