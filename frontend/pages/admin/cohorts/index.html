@@ -132,23 +132,41 @@
     <!-- ── Cohort detail: member roster (?cohort_id=…) ──────────── -->
     <main class="co-shell" id="view-detail" hidden>
       <a class="co-back btn-secondary" href="/pages/admin/cohorts/index.html">← Tất cả lớp</a>
-      <header class="co-header">
-        <h1 id="cohort-detail-title">Lớp</h1>
-        <div id="cohort-detail-meta"></div>
+      <header class="co-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--av-space-3);">
+        <div>
+          <h1 id="cohort-detail-title">Lớp</h1>
+          <div id="cohort-detail-meta"></div>
+        </div>
+        <button class="btn-primary" id="btn-add-member" type="button">+ Thêm học viên</button>
       </header>
 
       <div class="co-loading" id="members-loading">Đang tải…</div>
-      <div class="co-empty" id="members-empty" hidden>Lớp này chưa có thành viên (chưa ai kích hoạt mã của lớp).</div>
+      <div class="co-empty" id="members-empty" hidden>Lớp này chưa có thành viên (chưa ai được cấp mã của lớp).</div>
 
       <div class="co-table-wrap" id="members-table-wrap" hidden>
         <table class="co-table">
           <thead>
-            <tr><th>Thành viên</th><th>Tổng phiên</th><th>Hoạt động gần nhất</th><th>Chi phí AI</th><th>Mã</th></tr>
+            <tr><th>Thành viên</th><th>Tổng phiên</th><th>Hoạt động gần nhất</th><th>Chi phí AI</th><th>Mã</th><th></th></tr>
           </thead>
           <tbody id="members-tbody"></tbody>
         </table>
       </div>
     </main>
+
+    <!-- ── Add-member modal (Sprint 17.5) ───────────────────────── -->
+    <div class="co-modal-backdrop" id="addmember-backdrop" hidden>
+      <div class="co-modal" role="dialog" aria-modal="true">
+        <h2>Thêm học viên vào lớp</h2>
+        <p class="co-meta" style="margin:0;">Cấp một mã trực tiếp mới cho học viên và gán vào lớp này.</p>
+        <div class="co-field"><label for="am-user">User ID học viên</label><input id="am-user" type="text" placeholder="UUID người dùng" /></div>
+        <div class="co-field"><label for="am-reason">Lý do (tùy chọn)</label><input id="am-reason" type="text" /></div>
+        <div class="co-banner" id="am-error" hidden></div>
+        <div class="co-modal-actions">
+          <button class="btn-secondary" id="btn-am-cancel" type="button">Hủy</button>
+          <button class="btn-primary" id="btn-am-submit" type="button">Thêm</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Create modal ─────────────────────────────────────────── -->
     <div class="co-modal-backdrop" id="cohort-modal-backdrop" hidden>

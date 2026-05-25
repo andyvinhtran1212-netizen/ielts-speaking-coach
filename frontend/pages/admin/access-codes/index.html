@@ -75,6 +75,8 @@
     .ac-quota { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     .ac-muted { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     .ac-warn  { color: var(--av-color-warning, var(--av-text-secondary)); font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); }
+    .ac-link  { background: none; border: none; padding: 0; cursor: pointer; font-size: var(--av-fs-xs);
+                color: var(--av-brand-teal-700); text-decoration: underline; font-family: inherit; }
     .btn-primary {
       padding: var(--av-space-3) var(--av-space-5);
       border-radius: var(--av-radius-md);
@@ -340,6 +342,21 @@
         <div class="ac-modal-actions">
           <button class="btn-secondary" id="btn-cancel" type="button">Hủy</button>
           <button class="btn-primary" id="btn-submit" type="button">Tạo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Reassign modal (Sprint 17.5) ─────────────────────────── -->
+    <div class="ac-modal-backdrop" id="reassign-backdrop" hidden>
+      <div class="ac-modal" role="dialog" aria-modal="true">
+        <h2>Đổi mã sang người dùng khác</h2>
+        <p style="color:var(--av-text-secondary);font-size:var(--av-fs-sm);margin:0;">Người dùng hiện tại sẽ mất quyền; người nhận được gán mã này. Lịch sử kích hoạt không đổi.</p>
+        <div class="ac-field"><label for="ra-to">User ID người nhận</label><input id="ra-to" type="text" placeholder="UUID người dùng" /></div>
+        <div class="ac-field"><label for="ra-reason">Lý do (tùy chọn)</label><input id="ra-reason" type="text" /></div>
+        <div class="ac-status-banner" id="ra-error" hidden></div>
+        <div class="ac-modal-actions">
+          <button class="btn-secondary" id="btn-ra-cancel" type="button">Hủy</button>
+          <button class="btn-primary" id="btn-ra-submit" type="button">Đổi</button>
         </div>
       </div>
     </div>

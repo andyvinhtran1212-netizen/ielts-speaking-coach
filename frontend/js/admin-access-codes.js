@@ -53,7 +53,11 @@ function assignedCell(c) {
     const email = u.email ? esc(u.email) : '(không rõ)';
     const q = quotaLabel(u.quota);
     const qHtml = q ? ` <span class="ac-quota">${esc(q)}</span>` : '';
-    return `<div class="ac-user">${email}${qHtml}</div>`;
+    // Sprint 17.5 — reassign only for a real active assignment (removable).
+    const reassign = u.removable
+      ? ` <button class="ac-link" data-action="reassign" data-code="${c.id}" data-user="${esc(u.user_id)}">Đổi</button>`
+      : '';
+    return `<div class="ac-user">${email}${qHtml}${reassign}</div>`;
   }).join('');
 }
 
@@ -117,6 +121,10 @@ function renderTable() {
       : `<button class="btn-danger" data-action="revoke" data-id="${c.id}">Thu hồi</button>`;
     // Sprint 17.2 — drill into this code's usage rollup.
     const usageLink = `<a class="btn-secondary" href="/pages/admin/usage/index.html?code_id=${c.id}">Hoạt động</a>`;
+    // Sprint 17.5 — refill: issue a fresh mirrored code for the code's user.
+    const refillBtn = (c.is_revoked || c.is_active === false)
+      ? ''
+      : `<button class="btn-secondary" data-action="refill" data-id="${c.id}">Cấp mã mới</button>`;
     return `
       <tr>
         <td class="code-cell">${c.code}</td>
@@ -128,7 +136,7 @@ function renderTable() {
         <td>${expires}</td>
         <td>${created}</td>
         <td>${fmt(c.notes)}</td>
-        <td>${usageLink} ${revokeBtn}</td>
+        <td>${usageLink} ${refillBtn} ${revokeBtn}</td>
       </tr>
     `;
   }).join('');
@@ -266,6 +274,55 @@ async function revokeCode(codeId) {
   }
 }
 
+// ── Sprint 17.5 — reassign + refill ─────────────────────────────────────────
+
+let _reassignCtx = null;  // { codeId, fromUserId }
+
+function openReassign(codeId, fromUserId) {
+  _reassignCtx = { codeId, fromUserId };
+  $('ra-error').hidden = true;
+  $('ra-to').value = '';
+  $('ra-reason').value = '';
+  $('reassign-backdrop').hidden = false;
+}
+function closeReassign() { $('reassign-backdrop').hidden = true; }
+
+async function submitReassign() {
+  const to_user_id = $('ra-to').value.trim();
+  if (!to_user_id) {
+    $('ra-error').textContent = 'Cần nhập user_id người nhận.';
+    $('ra-error').hidden = false;
+    return;
+  }
+  $('btn-ra-submit').disabled = true;
+  try {
+    await api.post('/admin/access-codes/' + _reassignCtx.codeId + '/reassign', {
+      from_user_id: _reassignCtx.fromUserId,
+      to_user_id,
+      reason: $('ra-reason').value.trim() || null,
+    });
+    closeReassign();
+    showBanner('Đã đổi mã sang người dùng khác.', 'success');
+    await loadCodes();
+  } catch (err) {
+    $('ra-error').textContent = 'Không đổi được: ' + (err.message || err);
+    $('ra-error').hidden = false;
+  } finally {
+    $('btn-ra-submit').disabled = false;
+  }
+}
+
+async function refillCode(codeId) {
+  if (!confirm('Cấp một mã mới (sao chép quyền/lớp/giới hạn) cho người dùng hiện tại của mã này?')) return;
+  try {
+    const r = await api.post('/admin/access-codes/' + codeId + '/refill', {});
+    showBanner('Đã cấp mã mới: ' + (r.new_code || ''), 'success');
+    await loadCodes();
+  } catch (err) {
+    showBanner('Không cấp được mã mới: ' + (err.message || err), 'error');
+  }
+}
+
 // ── Wire it up ──────────────────────────────────────────────────────
 
 function bind() {
@@ -301,6 +358,14 @@ function bind() {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'revoke') revokeCode(btn.dataset.id);
+    if (btn.dataset.action === 'refill') refillCode(btn.dataset.id);
+    if (btn.dataset.action === 'reassign') openReassign(btn.dataset.code, btn.dataset.user);
+  });
+  // Sprint 17.5 — reassign modal.
+  $('btn-ra-cancel').addEventListener('click', closeReassign);
+  $('btn-ra-submit').addEventListener('click', submitReassign);
+  $('reassign-backdrop').addEventListener('click', (e) => {
+    if (e.target === $('reassign-backdrop')) closeReassign();
   });
 }
 

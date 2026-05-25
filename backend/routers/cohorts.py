@@ -17,7 +17,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
-from routers.admin import require_admin, _aggregate_usage_for_users
+from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "cohorts"])
 
@@ -187,3 +187,64 @@ async def cohort_members(cohort_id: str, authorization: str | None = Header(defa
         for uid in uids
     ]
     return {"cohort": cohort, "member_count": len(members), "members": members}
+
+
+class AddMemberRequest(BaseModel):
+    user_id: str
+    reason: str | None = None
+
+
+@router.post("/{cohort_id}/members")
+async def add_cohort_member(
+    cohort_id: str,
+    body: AddMemberRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 17.5 — add a member to a cohort. Under the code-derived membership
+    model, this issues a NEW direct code bound to the cohort and assigns it to the
+    user (who then appears in the code-derived roster). Returns the new code."""
+    admin = await require_admin(authorization)
+    admin_id = admin.get("id") if isinstance(admin, dict) else None
+
+    cohort = (
+        supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
+    ) or []
+    if not cohort:
+        raise HTTPException(404, "Không tìm thấy lớp")
+
+    new_code = _issue_code_and_assign(
+        user_id=body.user_id, admin_id=admin_id, reason=body.reason or "cohort add",
+        code_type="direct", cohort_id=cohort_id, permissions=["all"],
+    )
+    return {"ok": True, "user_id": body.user_id,
+            "new_code": new_code.get("code"), "new_code_id": new_code.get("id")}
+
+
+@router.delete("/{cohort_id}/members/{user_id}", status_code=204)
+async def remove_cohort_member(
+    cohort_id: str,
+    user_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 17.5 — remove a member from a cohort: deactivate the user's ACTIVE
+    assignments to the cohort's codes (they drop out of the code-derived roster).
+    Immutable redemption fields are never touched."""
+    admin = await require_admin(authorization)
+    admin_id = admin.get("id") if isinstance(admin, dict) else None
+
+    code_rows = (
+        supabase_admin.table("access_codes").select("id").eq("cohort_id", cohort_id).execute().data
+    ) or []
+    code_ids = [c["id"] for c in code_rows]
+    if not code_ids:
+        return   # no codes for this cohort → nothing to remove
+
+    try:
+        supabase_admin.table("user_code_assignments").update({
+            "is_active": False,
+            "revoked_at": datetime.now(timezone.utc).isoformat(),
+            "assigned_by": admin_id,
+            "reason": "cohort removal",
+        }).in_("code_id", code_ids).eq("user_id", user_id).eq("is_active", True).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi gỡ thành viên: {exc}")
