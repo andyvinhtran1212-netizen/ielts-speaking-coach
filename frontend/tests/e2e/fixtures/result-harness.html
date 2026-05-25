@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F4 result.html phoneme accordion harness (Sprint 15.3.1)</title>
+  <!-- Mirrors result.html's _buildPhonemeDrilldown: parse a persisted raw Azure
+       pronunciation_payload → render the shared accordion (post-15.1) or a
+       legacy placeholder (pre-15.1 Word-granularity). No backend/Supabase. -->
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/ds.css" />
+</head>
+<body class="av-page" style="min-height:100vh;padding:24px;">
+  <div id="mount-normal"></div>
+  <div id="mount-legacy"></div>
+
+  <script src="/js/pronunciation-drilldown.js"></script>
+  <script>
+    // Raw Azure payload shapes, exactly as persisted in responses.pronunciation_payload.
+    var POST_15_1 = { RecognitionStatus: 'Success', NBest: [{ Words: [
+      { Word: 'fish', ErrorType: 'Mispronunciation', Phonemes: [
+        { Phoneme: 'f', AccuracyScore: 38 }, { Phoneme: 'sh', AccuracyScore: 43 }, { Phoneme: 'ih', AccuracyScore: 100 } ] }
+    ] }] };
+    var PRE_15_1 = { RecognitionStatus: 'Success', NBest: [{ Words: [
+      { Word: 'hello', AccuracyScore: 82, ErrorType: 'None' } ] }] };  // Word granularity → no Phonemes
+
+    function build(payload) {
+      var D = window.PronunciationDrilldown;
+      var ex = D.extractWeakWordsFromPayload(payload);
+      if (ex.weakWords.length) return D.renderPronunciationAccordion(ex.weakWords);
+      if (ex.legacy) return '<p data-drilldown-legacy style="color:var(--av-text-secondary);">Phân tích phát âm chuyên sâu chưa khả dụng cho phiên này.</p>';
+      return '';
+    }
+    document.getElementById('mount-normal').innerHTML = build(POST_15_1);
+    document.getElementById('mount-legacy').innerHTML = build(PRE_15_1);
+  </script>
+</body>
+</html>

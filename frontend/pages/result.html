@@ -207,6 +207,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/api.js"></script>
   <script src="../js/format.js"></script>
+  <!-- Sprint 15.3.1 — phoneme drill-down accordion (shared component): extractor + renderer -->
+  <script src="../js/pronunciation-drilldown.js"></script>
   <script>
   (function () {
     'use strict';
@@ -772,18 +774,42 @@
 
       // Already assessed — show stored scores
       if (r.pronunciation_status === 'completed' && r.pronunciation_score != null) {
-        return _pronResultHtml({
+        var pills = _pronResultHtml({
           pronunciation_score: r.pronunciation_score,
           fluency_score:       r.pronunciation_fluency,
           accuracy_score:      r.pronunciation_accuracy,
           completeness_score:  r.pronunciation_completeness != null ? r.pronunciation_completeness : null,
           short_summary:       Array.isArray(r.pronunciation_summary) ? r.pronunciation_summary : [],
         });
+        return pills + _buildPhonemeDrilldown(r);
       }
 
       // Manual assessment button removed (pre-launch patch).
       // Pronunciation scores are shown only when already stored in DB.
       return '';
+    }
+
+    // Sprint 15.3.1 — per-question phoneme drill-down accordion, parsed from the
+    // persisted raw pronunciation_payload (the on-demand pron call was removed
+    // pre-launch, so phonemes live only here). Reuses the Sprint 15.3 accordion
+    // component (pronunciation-drilldown.js). Legacy pre-15.1 sessions
+    // (Word granularity → no phonemes) render a graceful placeholder.
+    function _buildPhonemeDrilldown(r) {
+      var D = window.PronunciationDrilldown;
+      if (!D || !r || !r.pronunciation_payload) return '';
+      var ex = D.extractWeakWordsFromPayload(r.pronunciation_payload);
+      var inner;
+      if (ex.weakWords && ex.weakWords.length) {
+        inner = D.renderPronunciationAccordion(ex.weakWords);
+      } else if (ex.legacy) {
+        inner = '<p class="text-sm" data-drilldown-legacy style="color:var(--av-text-secondary);">'
+          + 'Phân tích phát âm chuyên sâu chưa khả dụng cho phiên này — các phiên luyện tập gần đây sẽ có nhận xét chi tiết hơn.</p>';
+      } else {
+        return '';
+      }
+      return '<div class="result-pron-drilldown" style="margin-top:10px;">'
+        + '<div class="text-xs font-semibold uppercase tracking-wider mb-1.5" style="color:var(--av-primary);">Phân tích phát âm chuyên sâu</div>'
+        + inner + '</div>';
     }
 
     window.runPronAssessment = async function (sessionId, responseId) {

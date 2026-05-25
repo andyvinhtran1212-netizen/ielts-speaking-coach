@@ -133,6 +133,40 @@
       + body + '</div>';
   }
 
+  // Sprint 15.3.1 — parse a persisted raw Azure pronunciation_payload (the shape
+  // _persist_pronunciation stores: {...NBest...}) into the per-word `weakWords`
+  // shape renderPronunciationAccordion consumes — the SAME shape practice.js
+  // feeds it. Used by result.html (its on-demand pronunciation call was removed
+  // pre-launch, so phonemes live only in this raw payload). Pure — no DOM.
+  //   - legacy:true  → words present but no Phonemes arrays (pre-15.1, Word
+  //                    granularity) → caller shows the placeholder.
+  //   - {weakWords:[], legacy:false} → null/empty payload or no recognition.
+  function extractWeakWordsFromPayload(payload, opts) {
+    opts = opts || {};
+    var threshold = (opts.threshold == null) ? 70.0 : opts.threshold;
+    var raw = payload;
+    if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (e) { raw = null; } }
+    var nbest = (raw && raw.NBest) || [];
+    if (!nbest.length) return { weakWords: [], legacy: false };
+    var words = nbest[0].Words || [];
+    if (!words.length) return { weakWords: [], legacy: false };
+    var anyPhonemes = words.some(function (w) { return Array.isArray(w.Phonemes) && w.Phonemes.length; });
+    if (!anyPhonemes) return { weakWords: [], legacy: true };   // pre-15.1 Word-granularity
+    var weakWords = [];
+    words.forEach(function (w, idx) {
+      var phs = (w.Phonemes || [])
+        .map(function (p) { return { symbol: p.Phoneme, score: p.AccuracyScore }; })
+        .filter(function (p) { return p.symbol != null && p.score != null; });
+      if (!phs.length) return;
+      var hasWeak = phs.some(function (p) { return p.score < threshold; });
+      var errored = w.ErrorType && w.ErrorType !== 'None';
+      if (hasWeak || errored) {
+        weakWords.push({ word: w.Word || '', phonemes: phs, word_index: idx });
+      }
+    });
+    return { weakWords: weakWords, legacy: false };
+  }
+
   function _emitTelemetry(word, phonemes) {
     try {
       if (!(window.api && typeof window.api.post === 'function')) return;
@@ -173,6 +207,7 @@
   window.PronunciationDrilldown = {
     PHONEME_REF: PHONEME_REF,
     renderPronunciationAccordion: renderPronunciationAccordion,
+    extractWeakWordsFromPayload: extractWeakWordsFromPayload,
     smartDefaultOpen: smartDefaultOpen,
   };
 })();
