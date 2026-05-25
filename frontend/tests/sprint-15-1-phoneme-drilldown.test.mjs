@@ -117,7 +117,8 @@ describe('Sprint 15.1 — token discipline', () => {
   });
 
   test('.ds-modal CSS block uses only tokens (no hex/rgb)', () => {
-    const block = DS_CSS.match(/\.ds-modal-backdrop\s*\{[\s\S]*?\.ds-pron-weak-word:focus-visible[^}]*\}/);
+    // Sprint 15.1.2 — modal is now a native <dialog>; block starts at .ds-modal.
+    const block = DS_CSS.match(/\.ds-modal\s*\{[\s\S]*?\.ds-pron-weak-word:focus-visible[^}]*\}/);
     assert.ok(block, '.ds-modal block not found');
     assert.doesNotMatch(block[0], /#[0-9a-fA-F]{3,6}\b/, 'modal CSS must not bake hex');
     assert.doesNotMatch(block[0], /rgba?\(/, 'modal CSS must not bake rgb — use --av/--ds tokens');

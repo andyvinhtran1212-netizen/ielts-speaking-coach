@@ -123,46 +123,41 @@
 
   var _lastTrigger = null;
 
-  function _close(backdrop) {
-    if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
-    document.removeEventListener('keydown', _onKeydown, true);
-    if (_lastTrigger && typeof _lastTrigger.focus === 'function') _lastTrigger.focus();
-  }
-
-  function _onKeydown(e) {
-    var backdrop = document.querySelector('.ds-modal-backdrop');
-    if (!backdrop) return;
-    if (e.key === 'Escape') { e.preventDefault(); _close(backdrop); return; }
-    if (e.key === 'Tab') {
-      // Lightweight focus trap within the modal.
-      var f = backdrop.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
-      if (!f.length) return;
-      var first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  }
-
+  // Sprint 15.1.2 — render via the native <dialog> + showModal(), which lives in
+  // the browser TOP LAYER: viewport-centered regardless of any ancestor
+  // transform / overflow / stacking context, with a native ::backdrop, focus
+  // trap and ESC handling. Replaces the hand-rolled position:fixed overlay,
+  // which was correct in source yet rendered bottom-left with no backdrop in
+  // dogfood (an environment-specific failure that source-scan tests can't catch
+  // — the F4 browser-test gap). The top-layer dialog is robust by construction.
   function openPhonemeDrilldown(word, phonemes) {
     _lastTrigger = document.activeElement;
-    var backdrop = document.createElement('div');
-    backdrop.className = 'ds-modal-backdrop';
-    var modal = document.createElement('div');
-    modal.className = 'ds-modal';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-label', 'Phân tích âm vị cho từ ' + word);
-    modal.innerHTML = renderPhonemeDrilldown(word, phonemes);
-    backdrop.appendChild(modal);
 
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) _close(backdrop); });
-    modal.addEventListener('click', function (e) {
-      if (e.target.closest('[data-pron-close]')) _close(backdrop);
+    var dlg = document.createElement('dialog');
+    dlg.className = 'ds-modal';
+    dlg.setAttribute('aria-label', 'Phân tích âm vị cho từ ' + word);
+    dlg.innerHTML = renderPhonemeDrilldown(word, phonemes);
+
+    dlg.addEventListener('click', function (e) {
+      if (e.target.closest('[data-pron-close]')) { dlg.close(); return; }
+      // Click outside the panel (on the ::backdrop region) closes. The backdrop
+      // isn't a separate hit-testable node, so compare against the dialog's box.
+      var r = dlg.getBoundingClientRect();
+      var inside = e.clientX >= r.left && e.clientX <= r.right &&
+                   e.clientY >= r.top  && e.clientY <= r.bottom;
+      if (!inside) dlg.close();
     });
-    document.addEventListener('keydown', _onKeydown, true);
-    document.body.appendChild(backdrop);
+    // Native ESC fires 'cancel' → 'close'. Clean up + restore focus on close.
+    dlg.addEventListener('close', function () {
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      if (_lastTrigger && typeof _lastTrigger.focus === 'function') _lastTrigger.focus();
+    });
 
-    var closeBtn = modal.querySelector('[data-pron-close]');
+    document.body.appendChild(dlg);
+    if (typeof dlg.showModal === 'function') dlg.showModal();   // top layer
+    else dlg.setAttribute('open', '');                          // graceful fallback
+
+    var closeBtn = dlg.querySelector('[data-pron-close]');
     if (closeBtn) closeBtn.focus();
     _emitTelemetry(word, phonemes);
   }
