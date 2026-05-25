@@ -19,6 +19,8 @@
  * via ?limit + ?offset.
  */
 
+import { quotaLabel, codeMatchesSearch, compareCodesBy } from './admin-codes-util.js';
+
 const SUPABASE_URL = 'https://nqhrtqspznepmveyurzm.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
@@ -32,9 +34,28 @@ const api = window.api;
 
 const $  = (id) => document.getElementById(id);
 const fmt = (v) => v == null || v === '' ? '—' : String(v);
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 let _allCodes = [];
 let _cohorts = [];
+let _search = '';
+let _sort = { field: 'created_at', order: 'desc' };  // Sprint 17.1 sortable columns
+
+// Sprint 17.1 — assigned-users cell: email + per-user quota. Renders the canonical
+// account mapping the API already returns, the lookup-failure warning, and the
+// "no users" placeholder. Class-based only (Pattern #26).
+function assignedCell(c) {
+  if (c.association_lookup_failed) return '<span class="ac-warn">⚠ lookup failed</span>';
+  const users = c.assigned_users || [];
+  if (!users.length) return '<span class="ac-muted">Chưa gán</span>';
+  return users.map((u) => {
+    const email = u.email ? esc(u.email) : '(không rõ)';
+    const q = quotaLabel(u.quota);
+    const qHtml = q ? ` <span class="ac-quota">${esc(q)}</span>` : '';
+    return `<div class="ac-user">${email}${qHtml}</div>`;
+  }).join('');
+}
 
 function showBanner(msg, kind) {
   const el = $('status-banner');
@@ -72,7 +93,10 @@ function renderTable() {
     status: $('filter-status').value,
     cohort: $('filter-cohort').value,
   };
-  const rows = _allCodes.filter((c) => rowMatchesFilters(c, f));
+  const rows = _allCodes
+    .filter((c) => rowMatchesFilters(c, f))
+    .filter((c) => codeMatchesSearch(c, _search))
+    .sort(compareCodesBy(_sort.field, _sort.order));
 
   $('codes-loading').hidden = true;
   if (!rows.length) {
@@ -85,6 +109,7 @@ function renderTable() {
 
   tbody.innerHTML = rows.map((c) => {
     const expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString('vi-VN') : '—';
+    const created = c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—';
     const limit = c.session_limit == null ? '∞' : String(c.session_limit);
     const cohort = c.cohort_name ? `<span class="ac-chip is-direct">${c.cohort_name}</span>` : '—';
     const revokeBtn = (c.is_revoked || c.is_active === false)
@@ -95,9 +120,11 @@ function renderTable() {
         <td class="code-cell">${c.code}</td>
         <td>${chipForType(c.code_type || 'mass')}</td>
         <td>${cohort}</td>
+        <td>${assignedCell(c)}</td>
         <td>${chipForStatus(c)}</td>
         <td>${limit}</td>
         <td>${expires}</td>
+        <td>${created}</td>
         <td>${fmt(c.notes)}</td>
         <td>${revokeBtn}</td>
       </tr>
@@ -256,6 +283,17 @@ function bind() {
   });
   ['filter-type', 'filter-status', 'filter-cohort'].forEach((id) => {
     $(id).addEventListener('change', renderTable);
+  });
+  // Sprint 17.1 — client-side search (code + assigned email).
+  const searchEl = $('search-input');
+  if (searchEl) searchEl.addEventListener('input', () => { _search = searchEl.value; renderTable(); });
+  // Sprint 17.1 — sortable column headers (created_at | expires_at | status).
+  document.querySelectorAll('th[data-sort]').forEach((th) => {
+    th.addEventListener('click', () => {
+      const field = th.dataset.sort;
+      _sort = { field, order: (_sort.field === field && _sort.order === 'desc') ? 'asc' : 'desc' };
+      renderTable();
+    });
   });
   $('codes-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
