@@ -654,6 +654,25 @@ select:focus-visible {
   margin: 0;
 }
 
+/* ── Sprint 16.3 retention soft-hide warning chip (speaking.html history) ────
+ * Compact per-row pill flagging a session approaching the 7-day soft-hide.
+ * Reuses the --ds-warning-* tokens so both themes pass WCAG AA (the light
+ * override is pinned by warning-banner-tokens.test.mjs). No inline literals
+ * (Pattern #26). */
+.ds-retention-chip {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--ds-warning-bg);
+  border: 1px solid var(--ds-warning-border);
+  color: var(--ds-warning-text);
+}
+.ds-retention-chip--soon { /* amber — inherits the --ds-warning-* tokens */ }
+
 /* ── Sprint 14.6.4 cue-card textarea length warning ─────────────────────────
  * Part-2-only soft warning that surfaces under the cue-card textarea
  * when the user pastes content longer than the AI-gen trigger needs.

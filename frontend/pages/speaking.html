@@ -312,6 +312,9 @@
         <span id="history-count" class="ds-badge">0 sessions</span>
       </div>
 
+      <!-- Sprint 16.3 — aggregate soft-hide warning (filled by renderHistory). -->
+      <div id="history-retention-banner" class="mb-3"></div>
+
       <!-- Search / filter / sort controls (Phase 2.5) -->
       <div id="history-filters"
            class="rounded-xl mb-3"
@@ -815,6 +818,9 @@
   <!-- Sprint 14.4 — Andy 2026-05-22 — cue card heuristic + parser.
        Pure functions (no DOM); exposed via window.CueCardDetector. -->
   <script src="../js/cue-card-detector.js"></script>
+  <!-- Sprint 16.3 — retention soft-hide warning chips + banner (pure consumers
+       of the Sprint 16.2 `retention` block on GET /sessions rows). -->
+  <script src="../js/retention-warning.js"></script>
   <script>
     // ── Config ────────────────────────────────────────────────
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
@@ -1050,6 +1056,11 @@
       const visible = sessions.filter(s => s.status !== 'in_progress');
       document.getElementById('history-count').textContent = `${visible.length} sessions`;
 
+      // Sprint 16.3 — aggregate soft-hide banner (graceful if module/retention absent).
+      const RW = window.RetentionWarning;
+      const banner = document.getElementById('history-retention-banner');
+      if (banner) banner.innerHTML = RW ? RW.bannerHtml(RW.countSoonHidden(visible)) : '';
+
       if (visible.length === 0) return;
 
       document.getElementById('history-empty').classList.add('hidden');
@@ -1064,6 +1075,7 @@
         .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))
         .map(s => {
           const date = new Date(s.started_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+          const retentionChip = RW ? RW.chipHtml(s.retention) : '';
           const isPending = s.status === 'submitted' || (s.status === 'completed' && s.overall_band == null && s.mode === 'test_full');
           const isFailed  = s.status === 'analysis_failed';
           const band = s.overall_band != null
@@ -1082,7 +1094,7 @@
           const modeBadge = `<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${modeColor[mode] || modeColor.practice};color:${modeTxt[mode] || modeTxt.practice};font-weight:600;">${modeLabel[mode] || mode}</span>`;
           return `
             <tr class="session-row" style="border-bottom:1px solid var(--av-border-subtle);">
-              <td class="px-5 py-3.5 text-xs" style="color:var(--av-text-secondary);">${date}</td>
+              <td class="px-5 py-3.5 text-xs" style="color:var(--av-text-secondary);">${date}${retentionChip ? '<br>' + retentionChip : ''}</td>
               <td class="px-5 py-3.5 text-xs font-semibold" style="color:#14b8a6;">Part ${s.part || '?'}</td>
               <td class="px-5 py-3.5 text-xs">${modeBadge}</td>
               <td class="px-5 py-3.5 text-xs max-w-[200px] truncate" style="color:var(--av-text-secondary);">${s.topic || '—'}</td>

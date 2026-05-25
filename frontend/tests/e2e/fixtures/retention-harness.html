@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F4 retention soft-hide warning harness (Sprint 16.3)</title>
+  <!-- Mirrors speaking.html renderHistory's Sprint 16.3 wiring: chips + banner
+       driven purely by the Sprint 16.2 `retention` block. No backend/Supabase. -->
+  <link rel="stylesheet" href="/css/ds.css" />
+</head>
+<body class="av-page" style="min-height:100vh;padding:24px;">
+  <div id="history-retention-banner"></div>
+  <table><tbody id="history-tbody"></tbody></table>
+
+  <script src="/js/retention-warning.js"></script>
+  <script>
+    var RW = window.RetentionWarning;
+    // retention blocks exactly as GET /sessions attaches them (Sprint 16.2).
+    var sessions = [
+      { id: 's-soon',  topic: 'Hometown', retention: { days_until_hide: 2,  days_until_purge: 25, is_hidden: false, is_purged: false } },
+      { id: 's-fresh', topic: 'Hobbies',  retention: { days_until_hide: 10, days_until_purge: 33, is_hidden: false, is_purged: false } },
+      { id: 's-legacy', topic: 'Old', /* no retention block — legacy API row */ },
+    ];
+    document.getElementById('history-retention-banner').innerHTML =
+      RW.bannerHtml(RW.countSoonHidden(sessions));
+    document.getElementById('history-tbody').innerHTML = sessions.map(function (s) {
+      return '<tr class="session-row" data-session-id="' + s.id + '">'
+        + '<td>' + s.topic + (RW.chipHtml(s.retention) ? ' ' + RW.chipHtml(s.retention) : '') + '</td>'
+        + '</tr>';
+    }).join('');
+  </script>
+</body>
+</html>
