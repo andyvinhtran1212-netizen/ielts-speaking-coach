@@ -115,4 +115,5 @@ jobs:
             frontend/tests/sprint-15-3-1-result-extractor.test.mjs \
             frontend/tests/sprint-16-3-retention-warning.test.mjs \
             frontend/tests/sprint-17-1-admin-codes.test.mjs \
-            frontend/tests/sprint-17-2-usage.test.mjs
+            frontend/tests/sprint-17-2-usage.test.mjs \
+            frontend/tests/sprint-17-3-cohorts.test.mjs

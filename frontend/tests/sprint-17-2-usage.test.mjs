@@ -83,8 +83,12 @@ describe('Sprint 17.2 — integrations', () => {
   test('codes UI drills into per-code usage via ?code_id', () => {
     assert.match(CODES, /\/pages\/admin\/usage\/index\.html\?code_id=\$\{c\.id\}/);
   });
-  test('nav activated usage (removed from PHASE_B_SECTIONS)', () => {
-    assert.match(CHROME, /PHASE_B_SECTIONS\s*=\s*new Set\(\['cohorts'\]\)/);
+  test('nav activated usage (not in PHASE_B_SECTIONS)', () => {
+    // Robust to other sections also graduating (e.g. cohorts in 17.3): assert
+    // `usage` is absent from the set rather than pinning exact contents.
+    const m = CHROME.match(/PHASE_B_SECTIONS\s*=\s*new Set\(\[([^\]]*)\]\)/);
+    assert.ok(m, 'PHASE_B_SECTIONS not found');
+    assert.doesNotMatch(m[1], /'usage'/);
   });
   test('usage page has both views + sortable headers', () => {
     assert.match(HTML, /id="view-users"/);
