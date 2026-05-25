@@ -3,35 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>F4 phoneme drill-down harness</title>
-  <!-- Sprint 15.2 (F4) — isolated harness for the phoneme drill-down modal.
-       Loads the REAL ds.css + pronunciation-drilldown.js (the files that broke
-       in Sprint 15.1.2), seeds a weak-word registry, and renders the public
-       trigger (a .ds-pron-weak-word badge). The test clicks the badge — no
-       backend, no Supabase, no audio, no internal API. tokens.css is needed for
-       --av-* (the light-theme aliases + --av-surface-overlay backdrop). -->
+  <title>F4 phoneme drill-down accordion harness</title>
+  <!-- Sprint 15.3 (F4) — isolated harness for the phoneme drill-down ACCORDION.
+       Loads the REAL ds.css + pronunciation-drilldown.js (the files exercised on
+       the practice page), seeds a 2-word weak registry (so the smart default is
+       collapsed), renders the accordion as practice.js would, and exposes the
+       public weak-word badges. No backend, no Supabase, no audio. tokens.css is
+       needed for the --av-* / --ds-* light-theme aliases. -->
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/ds.css" />
 </head>
 <body class="av-page" style="min-height:100vh;padding:24px;">
-  <button class="ds-pron-weak-word" data-pron-idx="0" type="button"
-          style="background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fb923c;cursor:pointer;">
-    fish ⓘ
-  </button>
+  <div id="badges">
+    <button class="ds-pron-weak-word" data-pron-idx="0" type="button"
+            style="background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fb923c;cursor:pointer;">fish ⓘ</button>
+    <button class="ds-pron-weak-word" data-pron-idx="1" type="button"
+            style="background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fb923c;cursor:pointer;">this ⓘ</button>
+  </div>
+  <!-- Spacer so badge-click scroll has somewhere to scroll to. -->
+  <div style="height:1200px;"></div>
+  <div id="acc-mount"></div>
 
   <script>
-    // Stub weak-word registry — the shape practice.js exposes for the modal.
-    // Scores chosen to mirror the Sprint 15.1.2 dogfood ("fish": f 38, sh 43, ih 100).
-    window.__pronWeakWords = [{
-      word: 'fish',
-      phonemes: [
-        { symbol: 'f',  score: 38 },
-        { symbol: 'sh', score: 43 },
-        { symbol: 'ih', score: 100 }
-      ]
-    }];
+    // Two weak words → smartDefaultOpen(2) === false → accordion starts collapsed.
+    window.__pronWeakWords = [
+      { word: 'fish', phonemes: [ { symbol: 'f', score: 38 }, { symbol: 'sh', score: 43 }, { symbol: 'ih', score: 100 } ] },
+      { word: 'this', phonemes: [ { symbol: 'dh', score: 41 }, { symbol: 'ih', score: 88 }, { symbol: 's', score: 72 } ] }
+    ];
   </script>
   <!-- Real production module under test (registers the delegated badge click). -->
   <script src="/js/pronunciation-drilldown.js"></script>
+  <script>
+    // Render the accordion as practice.js does.
+    document.getElementById('acc-mount').innerHTML =
+      window.PronunciationDrilldown.renderPronunciationAccordion(window.__pronWeakWords);
+  </script>
 </body>
 </html>

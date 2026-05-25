@@ -1,18 +1,18 @@
 /**
- * frontend/js/pronunciation-drilldown.js — Sprint 15.1
+ * frontend/js/pronunciation-drilldown.js — Sprint 15.1 / 15.3
  *
  * Per-phoneme drill-down for weak words in the pronunciation feedback panel.
- * A weak-word badge (rendered by practice.js _renderPronBlock) opens a modal
- * listing that word's phonemes, score bars, and — for SAPI symbols present in
- * PHONEME_REF — example words + a Vietnamese-learner tip.
+ * Sprint 15.3 PIVOT: was a native <dialog> modal (15.1.2); now an inline
+ * accordion (native <details>/<summary>) rendered within the pronunciation
+ * section so the surrounding context (scores, corrections, sample answer) stays
+ * visible. A weak-word badge scrolls to + expands + highlights its sub-section.
  *
  * Empirical basis (Sprint 15.0/15.1 PF-1): Azure Granularity=Phoneme returns
- * SAPI phones (e.g. "ih", "ay"), HundredMark 0–100. PHONEME_REF is therefore
- * keyed on SAPI symbols, with IPA as a display field.
+ * SAPI phones (e.g. "ih", "ay"), HundredMark 0–100. PHONEME_REF is keyed on
+ * SAPI symbols, with IPA as a display field.
  *
- * Pattern #26: all colour comes from .ds-* classes (ds.css) — this file bakes
- * NO inline color/background styles. Pattern #29: phonemes missing from the
- * lookup degrade gracefully (symbol + score only).
+ * Pattern #26: colour comes from .ds-* classes (ds.css) — no inline color/bg.
+ * Pattern #29: phonemes missing from the lookup degrade gracefully.
  */
 (function () {
   'use strict';
@@ -77,8 +77,13 @@
     return 'high';
   }
 
-  // Pure: word + its phonemes → modal inner HTML. Exposed for sentinels.
-  function renderPhonemeDrilldown(word, phonemes) {
+  // Smart default (PF-4): expand when there's a single weak word, collapse when
+  // there are several (avoid a wall of phonemes). Pure — exposed for sentinels.
+  function smartDefaultOpen(count) { return count <= 1; }
+
+  // Pure: a word's phonemes → score-bar rows (sorted weakest-first). Pattern #29
+  // fallback for symbols missing from PHONEME_REF.
+  function _phonemeRows(phonemes) {
     var list = (phonemes || []).slice().sort(function (a, b) {
       return (a.score == null ? 999 : a.score) - (b.score == null ? 999 : b.score);
     });
@@ -93,7 +98,7 @@
         : '';
       var tip   = ref
         ? '<p class="ds-phoneme__tip">' + _esc(ref.tip_vn) + '</p>'
-        : '<p class="ds-phoneme__tip">Chưa có gợi ý chi tiết cho âm này.</p>';
+        : '<p class="ds-phoneme__tip">Hướng dẫn cho âm này đang được cập nhật.</p>';
       var score = (p.score == null ? '—' : Math.round(p.score));
       return '<div class="ds-phoneme">'
         + '<div class="ds-phoneme__row">'
@@ -102,12 +107,30 @@
         + '</div>' + bar + ex + tip
         + '</div>';
     }).join('');
-    if (!rows) rows = '<p class="ds-phoneme__tip">Không có dữ liệu âm vị cho từ này.</p>';
-    return '<div class="ds-modal__head">'
-      + '<div><h3 class="ds-modal__title">Âm cần luyện — "' + _esc(word) + '"</h3>'
-      +   '<p class="ds-modal__sub">Điểm theo từng âm vị (Azure, thang 0–100)</p></div>'
-      + '<button type="button" class="ds-modal__close" aria-label="Đóng" data-pron-close>×</button>'
-      + '</div>' + rows;
+    return rows || '<p class="ds-phoneme__tip">Không có dữ liệu âm vị cho từ này.</p>';
+  }
+
+  // Pure: weak words [{word, phonemes}] → accordion HTML (native <details>).
+  // Exposed for practice.js (+ Sprint 15.3.1 result.html) and sentinels.
+  function renderPronunciationAccordion(weakWords) {
+    var items = weakWords || [];
+    if (!items.length) return '';
+    var openByDefault = smartDefaultOpen(items.length);
+    var body = items.map(function (w) {
+      var phs = w.phonemes || [];
+      var weak = phs.filter(function (p) { return p.score != null && p.score < 70; }).length;
+      var count = weak > 0 ? (weak + ' âm cần luyện') : (phs.length + ' âm');
+      return '<details class="ds-accordion__item" data-drilldown-word="' + _esc(w.word) + '"' + (openByDefault ? ' open' : '') + '>'
+        + '<summary class="ds-accordion__head">'
+        +   '<span class="ds-accordion__word">' + _esc(w.word) + '</span>'
+        +   '<span class="ds-accordion__count">' + _esc(count) + '</span>'
+        + '</summary>'
+        + '<div class="ds-accordion__body">' + _phonemeRows(phs) + '</div>'
+        + '</details>';
+    }).join('');
+    return '<div class="ds-accordion" data-drilldown-content>'
+      + '<p class="ds-accordion__hint">Bấm vào mỗi từ để xem chi tiết âm cần luyện.</p>'
+      + body + '</div>';
   }
 
   function _emitTelemetry(word, phonemes) {
@@ -121,69 +144,35 @@
     } catch (e) { /* never block the UI on telemetry */ }
   }
 
-  var _lastTrigger = null;
-
-  // Sprint 15.1.2 — render via the native <dialog> + showModal(), which lives in
-  // the browser TOP LAYER: viewport-centered regardless of any ancestor
-  // transform / overflow / stacking context, with a native ::backdrop, focus
-  // trap and ESC handling. Replaces the hand-rolled position:fixed overlay,
-  // which was correct in source yet rendered bottom-left with no backdrop in
-  // dogfood (an environment-specific failure that source-scan tests can't catch
-  // — the F4 browser-test gap). The top-layer dialog is robust by construction.
-  function openPhonemeDrilldown(word, phonemes) {
-    _lastTrigger = document.activeElement;
-
-    var dlg = document.createElement('dialog');
-    dlg.className = 'ds-modal';
-    dlg.setAttribute('aria-label', 'Phân tích âm vị cho từ ' + word);
-    dlg.innerHTML = renderPhonemeDrilldown(word, phonemes);
-
-    dlg.addEventListener('click', function (e) {
-      if (e.target.closest('[data-pron-close]')) { dlg.close(); return; }
-      // Click outside the panel (on the ::backdrop region) closes. The backdrop
-      // isn't a separate hit-testable node, so compare against the dialog's box.
-      var r = dlg.getBoundingClientRect();
-      var inside = e.clientX >= r.left && e.clientX <= r.right &&
-                   e.clientY >= r.top  && e.clientY <= r.bottom;
-      if (!inside) dlg.close();
-    });
-    // Native ESC fires 'cancel' → 'close'. Clean up + restore focus on close.
-    dlg.addEventListener('close', function () {
-      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
-      if (_lastTrigger && typeof _lastTrigger.focus === 'function') _lastTrigger.focus();
-    });
-
-    document.body.appendChild(dlg);
-    if (typeof dlg.showModal === 'function') dlg.showModal();   // top layer
-    else dlg.setAttribute('open', '');                          // graceful fallback
-
-    var closeBtn = dlg.querySelector('[data-pron-close]');
-    if (closeBtn) closeBtn.focus();
-    _emitTelemetry(word, phonemes);
+  // Expand + scroll to + briefly highlight a word's accordion sub-section.
+  function _expandWord(word) {
+    var sel = (window.CSS && CSS.escape) ? CSS.escape(word) : word;
+    var details = document.querySelector('details.ds-accordion__item[data-drilldown-word="' + sel + '"]');
+    if (!details) return false;
+    details.open = true;
+    if (typeof details.scrollIntoView === 'function') {
+      details.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    details.classList.add('ds-accordion__item--highlight');
+    setTimeout(function () { details.classList.remove('ds-accordion__item--highlight'); }, 1000);
+    return true;
   }
 
-  // Delegated trigger: weak-word badges (practice.js) carry .ds-pron-weak-word
-  // + data-pron-idx into the per-render registry window.__pronWeakWords.
-  function _handleTrigger(el) {
-    var idx = parseInt(el.getAttribute('data-pron-idx'), 10);
-    var reg = window.__pronWeakWords || [];
-    var entry = reg[idx];
-    if (entry) openPhonemeDrilldown(entry.word, entry.phonemes);
-  }
+  // Delegated: weak-word badge (practice.js, .ds-pron-weak-word + data-pron-idx
+  // into window.__pronWeakWords) → expand its accordion sub-section.
   document.addEventListener('click', function (e) {
     var el = e.target.closest && e.target.closest('.ds-pron-weak-word');
-    if (el) _handleTrigger(el);
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    var el = e.target.closest && e.target.closest('.ds-pron-weak-word');
-    if (el) { e.preventDefault(); _handleTrigger(el); }
+    if (!el) return;
+    var idx = parseInt(el.getAttribute('data-pron-idx'), 10);
+    var entry = (window.__pronWeakWords || [])[idx];
+    if (!entry) return;
+    if (_expandWord(entry.word)) _emitTelemetry(entry.word, entry.phonemes);
   });
 
-  // Expose for sentinels + practice.js.
+  // Expose for practice.js + sentinels (+ Sprint 15.3.1 result.html reuse).
   window.PronunciationDrilldown = {
     PHONEME_REF: PHONEME_REF,
-    renderPhonemeDrilldown: renderPhonemeDrilldown,
-    openPhonemeDrilldown: openPhonemeDrilldown,
+    renderPronunciationAccordion: renderPronunciationAccordion,
+    smartDefaultOpen: smartDefaultOpen,
   };
 })();

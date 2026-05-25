@@ -2462,6 +2462,11 @@
       + (summary ? '<ul style="font-size:12px;color:var(--ds-text);'
           + 'padding-left:16px;margin:0 0 4px;line-height:1.7;">' + summary + '</ul>' : '')
       + wordHtml
+      // Sprint 15.3 — inline phoneme accordion (replaces the 15.1.2 modal). The
+      // weak-word badges above scroll to + expand the matching sub-section.
+      + (window.PronunciationDrilldown
+          ? window.PronunciationDrilldown.renderPronunciationAccordion(window.__pronWeakWords)
+          : '')
       + '</div>';
   }
 
