@@ -50,9 +50,9 @@ const VALID_ACTIVE = [
 ];
 
 // Sprint 12.8 graduated `system` (AI Usage + Alerts now LIVE).
-// Sprint 17.2 graduated `usage` (per-user + per-code activity logs now LIVE).
-// `cohorts` remains a Phase B placeholder until the cohort management UI lands.
-const PHASE_B_SECTIONS = new Set(['cohorts']);
+// Sprint 17.2 graduated `usage`; Sprint 17.3 graduated `cohorts` (management UI now LIVE).
+// No Phase-B placeholders remain.
+const PHASE_B_SECTIONS = new Set([]);
 
 const SIDEBAR_LS_KEY = 'av-admin-sidebar-collapsed';
 
@@ -402,7 +402,7 @@ const NAV_GROUPS = [
     items: [
       { section: 'students', label: 'Học viên',           href: '/pages/admin/students/index.html', icon: 'users' },
       { section: 'users',    label: 'Tất cả người dùng',  href: '/pages/admin/users/index.html',    icon: 'user-check' },
-      { section: 'cohorts',  label: 'Lớp / Cohort',       href: '/pages/admin/cohorts/index.html',  icon: 'layers',     phaseB: true },
+      { section: 'cohorts',  label: 'Lớp / Cohort',       href: '/pages/admin/cohorts/index.html',  icon: 'layers' },
     ],
   },
   {
