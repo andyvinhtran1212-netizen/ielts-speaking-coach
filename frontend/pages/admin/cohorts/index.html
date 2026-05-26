@@ -23,11 +23,14 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
 
   <style>
+    /* Sprint 18.3 — shared table/button/chip/modal/banner/empty/subtab moved to
+       admin-components.css. Only page-specific layout remains here. */
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
     .co-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
       display: flex; flex-direction: column; gap: var(--av-space-5); }
@@ -41,64 +44,8 @@
     .co-filter select { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-card);
       color: var(--av-text-primary); font-size: var(--av-fs-sm); }
-
-    .btn-primary { padding: var(--av-space-3) var(--av-space-5); border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none;
-      font-weight: var(--av-fw-semibold); cursor: pointer; font-size: var(--av-fs-sm); }
-    .btn-primary:hover { background: var(--av-brand-teal-800); }
-    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
-    .btn-secondary { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
-      background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default);
-      cursor: pointer; font-size: var(--av-fs-sm); text-decoration: none; }
-
-    .co-table-wrap { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
-      background: var(--av-surface-card); overflow-x: auto; }
-    table.co-table { width: 100%; border-collapse: collapse; }
-    table.co-table th, table.co-table td { padding: var(--av-space-3) var(--av-space-4);
-      text-align: left; font-size: var(--av-fs-sm); border-bottom: 1px solid var(--av-border-default); }
-    table.co-table th { font-weight: var(--av-fw-semibold); color: var(--av-text-secondary);
-      background: var(--av-surface-sunken); font-size: var(--av-fs-xs);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    table.co-table tr:last-child td { border-bottom: none; }
-    td.u-num { text-align: right; font-variant-numeric: tabular-nums; }
-    td.code-cell { font-family: var(--av-font-mono); }
-    .u-name { color: var(--av-text-primary); }
-    .u-email { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
-
-    .co-chip { display: inline-block; padding: 2px 10px; border-radius: var(--av-radius-pill);
-      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); background: var(--av-surface-sunken);
-      color: var(--av-text-secondary); border: 1px solid var(--av-border-default); }
-    .co-chip.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
     .co-meta { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin-left: var(--av-space-2); }
-
-    .co-empty, .co-loading { padding: var(--av-space-8); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
-    .co-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md); font-size: var(--av-fs-sm); }
-    .co-banner.is-error { color: var(--av-color-error, var(--av-text-secondary)); }
-
-    .co-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
-      display: flex; align-items: center; justify-content: center; padding: var(--av-space-4); }
-    .co-modal { background: var(--av-surface-card); border-radius: var(--av-radius-lg);
-      border: 1px solid var(--av-border-default); max-width: 480px; width: 100%;
-      padding: var(--av-space-6); display: flex; flex-direction: column; gap: var(--av-space-4); }
-    .co-modal h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); }
-    .co-field { display: flex; flex-direction: column; gap: 4px; }
-    .co-field label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    .co-field input, .co-field textarea, .co-field select { padding: 8px 12px; border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md); background: var(--av-surface-page, var(--av-surface-card));
-      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
-    .co-modal-actions { display: flex; gap: var(--av-space-2); justify-content: flex-end; }
     .co-back { font-size: var(--av-fs-sm); }
-
-    /* Sprint 18.1 — IA: "Lớp & Học viên" tab bar (segmented sibling pages). */
-    .adm-subtabs { display: flex; gap: var(--av-space-2); max-width: 1100px;
-      margin: 0 auto; padding: var(--av-space-5) var(--av-space-6) 0; }
-    .adm-subtab { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
-      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); color: var(--av-text-secondary);
-      text-decoration: none; border: 1px solid var(--av-border-default); background: var(--av-surface-card); }
-    .adm-subtab:hover { color: var(--av-text-primary); }
-    .adm-subtab.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
-      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -118,7 +65,7 @@
         <p class="subtitle">Tạo và quản lý lớp học trực tiếp. Thành viên được suy ra từ những người dùng đang gắn với mã của lớp.</p>
       </header>
 
-      <div class="co-banner" id="co-banner" hidden></div>
+      <div class="adm-banner" id="co-banner" hidden></div>
 
       <div class="co-toolbar">
         <div class="co-filter">
@@ -129,14 +76,14 @@
             <option value="all">Tất cả</option>
           </select>
         </div>
-        <button class="btn-primary" id="btn-create-cohort" type="button">+ Tạo lớp mới</button>
+        <button class="adm-btn-primary" id="btn-create-cohort" type="button">+ Tạo lớp mới</button>
       </div>
 
-      <div class="co-loading" id="cohorts-loading">Đang tải…</div>
-      <div class="co-empty" id="cohorts-empty" hidden>Chưa có lớp nào.</div>
+      <div class="adm-loading" id="cohorts-loading">Đang tải…</div>
+      <div class="adm-empty" id="cohorts-empty" hidden>Chưa có lớp nào.</div>
 
-      <div class="co-table-wrap" id="cohorts-table-wrap" hidden>
-        <table class="co-table">
+      <div class="adm-table-wrap" id="cohorts-table-wrap" hidden>
+        <table class="adm-table">
           <thead>
             <tr><th>Tên lớp</th><th>Tiền tố mã</th><th>Trạng thái</th><th>Ngày tạo</th><th></th></tr>
           </thead>
@@ -147,20 +94,20 @@
 
     <!-- ── Cohort detail: member roster (?cohort_id=…) ──────────── -->
     <main class="co-shell" id="view-detail" hidden>
-      <a class="co-back btn-secondary" href="/pages/admin/cohorts/index.html">← Tất cả lớp</a>
+      <a class="co-back adm-btn-secondary" href="/pages/admin/cohorts/index.html">← Tất cả lớp</a>
       <header class="co-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--av-space-3);">
         <div>
           <h1 id="cohort-detail-title">Lớp</h1>
           <div id="cohort-detail-meta"></div>
         </div>
-        <button class="btn-primary" id="btn-add-member" type="button">+ Thêm học viên</button>
+        <button class="adm-btn-primary" id="btn-add-member" type="button">+ Thêm học viên</button>
       </header>
 
-      <div class="co-loading" id="members-loading">Đang tải…</div>
-      <div class="co-empty" id="members-empty" hidden>Lớp này chưa có thành viên (chưa ai được cấp mã của lớp).</div>
+      <div class="adm-loading" id="members-loading">Đang tải…</div>
+      <div class="adm-empty" id="members-empty" hidden>Lớp này chưa có thành viên (chưa ai được cấp mã của lớp).</div>
 
-      <div class="co-table-wrap" id="members-table-wrap" hidden>
-        <table class="co-table">
+      <div class="adm-table-wrap" id="members-table-wrap" hidden>
+        <table class="adm-table">
           <thead>
             <tr><th>Thành viên</th><th>Tổng phiên</th><th>Hoạt động gần nhất</th><th>Chi phí AI</th><th>Mã</th><th></th></tr>
           </thead>
@@ -170,31 +117,31 @@
     </main>
 
     <!-- ── Add-member modal (Sprint 17.5) ───────────────────────── -->
-    <div class="co-modal-backdrop" id="addmember-backdrop" hidden>
-      <div class="co-modal" role="dialog" aria-modal="true">
+    <div class="adm-modal-backdrop" id="addmember-backdrop" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true">
         <h2>Thêm học viên vào lớp</h2>
         <p class="co-meta" style="margin:0;">Cấp một mã trực tiếp mới cho học viên và gán vào lớp này.</p>
-        <div class="co-field"><label for="am-user">Học viên</label><select id="am-user"><option value="">— Chọn người dùng —</option></select></div>
-        <div class="co-field"><label for="am-reason">Lý do (tùy chọn)</label><input id="am-reason" type="text" /></div>
-        <div class="co-banner" id="am-error" hidden></div>
-        <div class="co-modal-actions">
-          <button class="btn-secondary" id="btn-am-cancel" type="button">Hủy</button>
-          <button class="btn-primary" id="btn-am-submit" type="button">Thêm</button>
+        <div class="adm-field"><label for="am-user">Học viên</label><select id="am-user"><option value="">— Chọn người dùng —</option></select></div>
+        <div class="adm-field"><label for="am-reason">Lý do (tùy chọn)</label><input id="am-reason" type="text" /></div>
+        <div class="adm-banner" id="am-error" hidden></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-am-cancel" type="button">Hủy</button>
+          <button class="adm-btn-primary" id="btn-am-submit" type="button">Thêm</button>
         </div>
       </div>
     </div>
 
     <!-- ── Create modal ─────────────────────────────────────────── -->
-    <div class="co-modal-backdrop" id="cohort-modal-backdrop" hidden>
-      <div class="co-modal" role="dialog" aria-modal="true">
+    <div class="adm-modal-backdrop" id="cohort-modal-backdrop" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true">
         <h2>Tạo lớp mới</h2>
-        <div class="co-field"><label for="cc-name">Tên lớp</label><input id="cc-name" type="text" /></div>
-        <div class="co-field"><label for="cc-prefix">Tiền tố mã (tùy chọn)</label><input id="cc-prefix" type="text" /></div>
-        <div class="co-field"><label for="cc-desc">Mô tả (tùy chọn)</label><textarea id="cc-desc"></textarea></div>
-        <div class="co-banner" id="cc-error" hidden></div>
-        <div class="co-modal-actions">
-          <button class="btn-secondary" id="btn-cc-cancel" type="button">Hủy</button>
-          <button class="btn-primary" id="btn-cc-submit" type="button">Tạo</button>
+        <div class="adm-field"><label for="cc-name">Tên lớp</label><input id="cc-name" type="text" /></div>
+        <div class="adm-field"><label for="cc-prefix">Tiền tố mã (tùy chọn)</label><input id="cc-prefix" type="text" /></div>
+        <div class="adm-field"><label for="cc-desc">Mô tả (tùy chọn)</label><textarea id="cc-desc"></textarea></div>
+        <div class="adm-banner" id="cc-error" hidden></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-cc-cancel" type="button">Hủy</button>
+          <button class="adm-btn-primary" id="btn-cc-submit" type="button">Tạo</button>
         </div>
       </div>
     </div>

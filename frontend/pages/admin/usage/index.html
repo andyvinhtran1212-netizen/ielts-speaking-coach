@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -40,32 +41,9 @@
     .us-filter input[type="search"] { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-card);
       color: var(--av-text-primary); font-size: var(--av-fs-sm); }
-
-    .us-table-wrap { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
-      background: var(--av-surface-card); overflow-x: auto; }
-    table.us-table { width: 100%; border-collapse: collapse; }
-    table.us-table th, table.us-table td { padding: var(--av-space-3) var(--av-space-4);
-      text-align: left; font-size: var(--av-fs-sm); border-bottom: 1px solid var(--av-border-default); }
-    table.us-table th { font-weight: var(--av-fw-semibold); color: var(--av-text-secondary);
-      background: var(--av-surface-sunken); font-size: var(--av-fs-xs);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    table.us-table tr:last-child td { border-bottom: none; }
     th.us-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
     th.us-sortable:hover { color: var(--av-text-primary); }
-    td.u-num { text-align: right; font-variant-numeric: tabular-nums; }
-    .u-name { color: var(--av-text-primary); }
-    .u-email { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
-
-    .us-empty, .us-loading { padding: var(--av-space-8); text-align: center;
-      color: var(--av-text-muted); font-size: var(--av-fs-sm); }
-
     .cu-summary { display: flex; gap: var(--av-space-4); flex-wrap: wrap; }
-    .cu-stat { display: flex; flex-direction: column; gap: 2px; padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
-      background: var(--av-surface-card); min-width: 140px; }
-    .cu-stat-num { font-size: var(--av-fs-xl); font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
-    .cu-stat-label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -86,11 +64,11 @@
         </div>
       </div>
 
-      <div class="us-loading" id="usage-loading">Đang tải…</div>
-      <div class="us-empty" id="usage-empty" hidden>Chưa có hoạt động nào.</div>
+      <div class="adm-loading" id="usage-loading">Đang tải…</div>
+      <div class="adm-empty" id="usage-empty" hidden>Chưa có hoạt động nào.</div>
 
-      <div class="us-table-wrap" id="usage-table-wrap" hidden>
-        <table class="us-table">
+      <div class="adm-table-wrap" id="usage-table-wrap" hidden>
+        <table class="adm-table">
           <thead>
             <tr>
               <th>Người dùng</th>
@@ -113,11 +91,11 @@
 
       <div class="cu-summary" id="code-usage-summary"></div>
 
-      <div class="us-loading" id="code-usage-loading">Đang tải…</div>
-      <div class="us-empty" id="code-usage-empty" hidden>Mã này chưa có người dùng nào đang hoạt động.</div>
+      <div class="adm-loading" id="code-usage-loading">Đang tải…</div>
+      <div class="adm-empty" id="code-usage-empty" hidden>Mã này chưa có người dùng nào đang hoạt động.</div>
 
-      <div class="us-table-wrap" id="code-usage-table-wrap" hidden>
-        <table class="us-table">
+      <div class="adm-table-wrap" id="code-usage-table-wrap" hidden>
+        <table class="adm-table">
           <thead>
             <tr>
               <th>Người dùng</th>

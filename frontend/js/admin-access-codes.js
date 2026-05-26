@@ -77,9 +77,9 @@ function chipForType(t) {
 }
 
 function chipForStatus(row) {
-  if (row.is_revoked) return '<span class="ac-chip">Đã thu hồi</span>';
-  if (row.is_active === false) return '<span class="ac-chip">Đã khóa</span>';
-  return '<span class="ac-chip is-direct">Hoạt động</span>';
+  if (row.is_revoked) return '<span class="adm-chip">Đã thu hồi</span>';
+  if (row.is_active === false) return '<span class="adm-chip">Đã khóa</span>';
+  return '<span class="adm-chip is-direct">Hoạt động</span>';
 }
 
 function rowMatchesFilters(row, f) {
@@ -115,16 +115,16 @@ function renderTable() {
     const expires = c.expires_at ? new Date(c.expires_at).toLocaleDateString('vi-VN') : '—';
     const created = c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—';
     const limit = c.session_limit == null ? '∞' : String(c.session_limit);
-    const cohort = c.cohort_name ? `<span class="ac-chip is-direct">${c.cohort_name}</span>` : '—';
+    const cohort = c.cohort_name ? `<span class="adm-chip is-direct">${c.cohort_name}</span>` : '—';
     const revokeBtn = (c.is_revoked || c.is_active === false)
       ? ''
-      : `<button class="btn-danger" data-action="revoke" data-id="${c.id}">Thu hồi</button>`;
+      : `<button class="adm-btn-danger" data-action="revoke" data-id="${c.id}">Thu hồi</button>`;
     // Sprint 17.2 — drill into this code's usage rollup.
-    const usageLink = `<a class="btn-secondary" href="/pages/admin/usage/index.html?code_id=${c.id}">Hoạt động</a>`;
+    const usageLink = `<a class="adm-btn-secondary" href="/pages/admin/usage/index.html?code_id=${c.id}">Hoạt động</a>`;
     // Sprint 17.5 — refill: issue a fresh mirrored code for the code's user.
     const refillBtn = (c.is_revoked || c.is_active === false)
       ? ''
-      : `<button class="btn-secondary" data-action="refill" data-id="${c.id}">Cấp mã mới</button>`;
+      : `<button class="adm-btn-secondary" data-action="refill" data-id="${c.id}">Cấp mã mới</button>`;
     return `
       <tr>
         <td class="code-cell">${c.code}</td>

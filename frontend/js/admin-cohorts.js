@@ -29,8 +29,8 @@ let _cohortId = null;
 
 function statusChip(c) {
   return c.is_active === false
-    ? '<span class="co-chip">Đã lưu trữ</span>'
-    : '<span class="co-chip is-active">Hoạt động</span>';
+    ? '<span class="adm-chip">Đã lưu trữ</span>'
+    : '<span class="adm-chip is-active">Hoạt động</span>';
 }
 
 function showBanner(msg, kind) {
@@ -63,14 +63,14 @@ function renderList() {
     const created = c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—';
     const archived = c.is_active === false;
     const toggle = archived
-      ? `<button class="btn-secondary" data-action="restore" data-id="${c.id}">Khôi phục</button>`
-      : `<button class="btn-secondary" data-action="archive" data-id="${c.id}">Lưu trữ</button>`;
+      ? `<button class="adm-btn-secondary" data-action="restore" data-id="${c.id}">Khôi phục</button>`
+      : `<button class="adm-btn-secondary" data-action="archive" data-id="${c.id}">Lưu trữ</button>`;
     return `<tr>
       <td>${esc(c.name)}</td>
       <td>${esc(c.code_prefix) || '—'}</td>
       <td>${statusChip(c)}</td>
       <td>${created}</td>
-      <td><a class="btn-secondary" href="/pages/admin/cohorts/index.html?cohort_id=${c.id}">Xem thành viên</a> ${toggle}</td>
+      <td><a class="adm-btn-secondary" href="/pages/admin/cohorts/index.html?cohort_id=${c.id}">Xem thành viên</a> ${toggle}</td>
     </tr>`;
   }).join('');
 }
@@ -157,7 +157,7 @@ async function loadDetail(cohortId) {
       <td>${esc(lastActiveLabel(m.last_active))}</td>
       <td class="u-num">${esc(usdLabel(m.ai_cost_usd))}</td>
       <td class="code-cell">${esc(m.code) || '—'}</td>
-      <td><button class="btn-secondary" data-action="remove-member" data-user="${esc(m.user_id)}">Xóa khỏi lớp</button></td>
+      <td><button class="adm-btn-secondary" data-action="remove-member" data-user="${esc(m.user_id)}">Xóa khỏi lớp</button></td>
     </tr>`;
   }).join('');
 }
