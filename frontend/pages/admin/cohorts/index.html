@@ -84,16 +84,32 @@
     .co-field { display: flex; flex-direction: column; gap: 4px; }
     .co-field label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    .co-field input, .co-field textarea { padding: 8px 12px; border: 1px solid var(--av-border-default);
+    .co-field input, .co-field textarea, .co-field select { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-page, var(--av-surface-card));
       color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
     .co-modal-actions { display: flex; gap: var(--av-space-2); justify-content: flex-end; }
     .co-back { font-size: var(--av-fs-sm); }
+
+    /* Sprint 18.1 — IA: "Lớp & Học viên" tab bar (segmented sibling pages). */
+    .adm-subtabs { display: flex; gap: var(--av-space-2); max-width: 1100px;
+      margin: 0 auto; padding: var(--av-space-5) var(--av-space-6) 0; }
+    .adm-subtab { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); color: var(--av-text-secondary);
+      text-decoration: none; border: 1px solid var(--av-border-default); background: var(--av-surface-card); }
+    .adm-subtab:hover { color: var(--av-text-primary); }
+    .adm-subtab.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
+      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold); }
     [hidden] { display: none !important; }
   </style>
 </head>
 <body class="av-page">
   <aver-admin-chrome active="cohorts">
+
+    <!-- ── IA tab bar (Sprint 18.1): Lớp & Học viên ─────────────── -->
+    <nav class="adm-subtabs" aria-label="Khu vực Lớp và Học viên">
+      <a class="adm-subtab is-active" href="/pages/admin/cohorts/index.html" aria-current="page">Quản lý lớp</a>
+      <a class="adm-subtab" href="/pages/admin/students/index.html">Học viên</a>
+    </nav>
 
     <!-- ── Cohort list (default) ────────────────────────────────── -->
     <main class="co-shell" id="view-list" hidden>
@@ -158,7 +174,7 @@
       <div class="co-modal" role="dialog" aria-modal="true">
         <h2>Thêm học viên vào lớp</h2>
         <p class="co-meta" style="margin:0;">Cấp một mã trực tiếp mới cho học viên và gán vào lớp này.</p>
-        <div class="co-field"><label for="am-user">User ID học viên</label><input id="am-user" type="text" placeholder="UUID người dùng" /></div>
+        <div class="co-field"><label for="am-user">Học viên</label><select id="am-user"><option value="">— Chọn người dùng —</option></select></div>
         <div class="co-field"><label for="am-reason">Lý do (tùy chọn)</label><input id="am-reason" type="text" /></div>
         <div class="co-banner" id="am-error" hidden></div>
         <div class="co-modal-actions">

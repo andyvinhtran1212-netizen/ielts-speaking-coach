@@ -164,18 +164,41 @@ async function loadDetail(cohortId) {
 
 // ── Member add / remove (Sprint 17.5) ───────────────────────────────────────────
 
+// Sprint 18.1 — the add-member picker is a user dropdown (was a raw UUID
+// text input). Lazy-loaded + cached the first time the modal opens.
+let _usersLoaded = false;
+
+async function populateUserDropdown() {
+  const sel = $('am-user');
+  if (_usersLoaded) return;
+  try {
+    const users = (await api.get('/admin/users')) || [];
+    const opts = users
+      .map((u) => {
+        const label = u.display_name ? `${u.display_name} (${u.email || '—'})` : (u.email || u.id);
+        return `<option value="${esc(u.id)}">${esc(label)}</option>`;
+      })
+      .join('');
+    sel.innerHTML = '<option value="">— Chọn người dùng —</option>' + opts;
+    _usersLoaded = true;
+  } catch (err) {
+    sel.innerHTML = '<option value="">Không tải được danh sách người dùng</option>';
+  }
+}
+
 function openAddMember() {
   $('am-error').hidden = true;
   $('am-user').value = '';
   $('am-reason').value = '';
   $('addmember-backdrop').hidden = false;
+  populateUserDropdown();
 }
 function closeAddMember() { $('addmember-backdrop').hidden = true; }
 
 async function submitAddMember() {
   const user_id = $('am-user').value.trim();
   if (!user_id) {
-    $('am-error').textContent = 'Cần nhập user_id của học viên.';
+    $('am-error').textContent = 'Cần chọn học viên từ danh sách.';
     $('am-error').hidden = false;
     return;
   }
