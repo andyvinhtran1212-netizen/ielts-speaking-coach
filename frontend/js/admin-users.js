@@ -108,6 +108,9 @@ function render(rows) {
         <select class="usr-role-select" data-id="${escapeHtml(u.id)}" data-current="${escapeHtml(u.role || 'student')}">
           ${ROLES.map((r) => `<option value="${r}" ${(u.role || 'student') === r ? 'selected' : ''}>${r}</option>`).join('')}
         </select>
+        <button class="usr-convert-btn" data-convert="${escapeHtml(u.id)}"
+                data-name="${escapeHtml(u.display_name || '')}"
+                data-email="${escapeHtml(u.email || '')}">→ Học viên</button>
       </td>
     </tr>
   `).join('');
@@ -147,6 +150,52 @@ async function changeRole(userId, role, previous, selectEl) {
   }
 }
 
+// ── Sprint 18.1 — "Convert thành học viên" ───────────────────────────
+// Links an existing auth user to a Writing-Coach roster row directly via
+// POST /admin/students { user_id, student_code, full_name } (the backend
+// returns 409 if the user already has a student row).
+let _convertId = null;
+
+function openConvert(userId, name, email) {
+  _convertId = userId;
+  const suggested = (email || '').split('@')[0] || '';
+  $('cv-code').value = suggested;
+  $('cv-name').value = name || email || '';
+  $('convert-who').textContent = email ? `User: ${email}` : `User: ${userId}`;
+  $('convert-error').hidden = true;
+  $('convert-backdrop').hidden = false;
+}
+
+function closeConvert() {
+  $('convert-backdrop').hidden = true;
+  _convertId = null;
+}
+
+async function submitConvert() {
+  const student_code = ($('cv-code').value || '').trim();
+  const full_name = ($('cv-name').value || '').trim();
+  if (!student_code || !full_name) {
+    $('convert-error').textContent = 'Mã học viên và họ tên là bắt buộc.';
+    $('convert-error').hidden = false;
+    return;
+  }
+  $('btn-cv-submit').disabled = true;
+  try {
+    await api.post('/admin/students', { user_id: _convertId, student_code, full_name });
+    closeConvert();
+    showBanner(`Đã tạo hồ sơ học viên cho ${full_name}.`, 'success');
+  } catch (e) {
+    const msg = (e && e.message) || 'lỗi';
+    // Backend 409 → user already a học viên.
+    $('convert-error').textContent = /409|đã là học viên/.test(msg)
+      ? 'Người dùng này đã là học viên.'
+      : 'Không tạo được hồ sơ: ' + msg;
+    $('convert-error').hidden = false;
+  } finally {
+    $('btn-cv-submit').disabled = false;
+  }
+}
+
 function wire() {
   $('usr-role').addEventListener('change', applyFilters);
   $('usr-search').addEventListener('input', applyFilters);
@@ -154,6 +203,17 @@ function wire() {
     $('usr-role').value = '';
     $('usr-search').value = '';
     applyFilters();
+  });
+  // Convert button is rendered per-row; delegate off the tbody (rebuilt on
+  // every render) so a single listener survives re-renders.
+  $('usr-tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-convert]');
+    if (btn) openConvert(btn.dataset.convert, btn.dataset.name, btn.dataset.email);
+  });
+  $('btn-cv-cancel').addEventListener('click', closeConvert);
+  $('btn-cv-submit').addEventListener('click', submitConvert);
+  $('convert-backdrop').addEventListener('click', (e) => {
+    if (e.target === $('convert-backdrop')) closeConvert();
   });
   loadList();
 }

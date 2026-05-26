@@ -34,6 +34,10 @@ class CreateStudentRequest(BaseModel):
     target_date:  Optional[str]   = None  # ISO date string; DB validates
     persona_notes: Optional[str]  = None
     current_band_estimate: Optional[float] = Field(default=None, ge=0, le=9)
+    # Sprint 18.1 — "Convert thành học viên": link this roster row to an EXISTING
+    # auth user directly (instead of waiting for activation to set user_id). When
+    # omitted, behaviour is unchanged (user_id NULL until activation).
+    user_id: Optional[str] = None
 
 
 class UpdateStudentRequest(BaseModel):

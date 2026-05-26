@@ -400,9 +400,12 @@ const NAV_GROUPS = [
   {
     title: 'Người dùng',
     items: [
-      { section: 'students', label: 'Học viên',           href: '/pages/admin/students/index.html', icon: 'users' },
       { section: 'users',    label: 'Tất cả người dùng',  href: '/pages/admin/users/index.html',    icon: 'user-check' },
-      { section: 'cohorts',  label: 'Lớp / Cohort',       href: '/pages/admin/cohorts/index.html',  icon: 'layers' },
+      // Sprint 18.1 — IA fold: the standalone "Học viên" (students) nav entry
+      // is folded into this area. The cohorts + students pages now present as
+      // one tabbed area ("Lớp & Học viên" tab bar); 'students' stays in
+      // VALID_ACTIVE so the students page still resolves when reached via the tab.
+      { section: 'cohorts',  label: 'Lớp & Học viên',     href: '/pages/admin/cohorts/index.html',  icon: 'layers' },
     ],
   },
   {

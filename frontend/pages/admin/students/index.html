@@ -47,11 +47,27 @@
   <link rel="stylesheet" href="/css/admin-writing.css" />
 
   <script src="https://unpkg.com/lucide@latest" defer></script>
+
+  <!-- Sprint 18.1 — IA: "Lớp & Học viên" tab bar (token-based, av-* vars). -->
+  <style>
+    .adm-subtabs { display: flex; gap: var(--av-space-2); max-width: 72rem;
+      margin: 0 auto; padding: var(--av-space-5) 1.5rem 0; }
+    .adm-subtab { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); color: var(--av-text-secondary);
+      text-decoration: none; border: 1px solid var(--av-border-default); background: var(--av-surface-card); }
+    .adm-subtab:hover { color: var(--av-text-primary); }
+    .adm-subtab.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
+      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold); }
+  </style>
 </head>
 <body class="av-page font-sans antialiased">
   <aver-admin-chrome active="students">
 
-  
+  <!-- ── IA tab bar (Sprint 18.1): Lớp & Học viên ─────────────── -->
+  <nav class="adm-subtabs" aria-label="Khu vực Lớp và Học viên">
+    <a class="adm-subtab" href="/pages/admin/cohorts/index.html">Quản lý lớp</a>
+    <a class="adm-subtab is-active" href="/pages/admin/students/index.html" aria-current="page">Học viên</a>
+  </nav>
 
   <div id="state-loading" class="flex items-center justify-center py-32">
     <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>

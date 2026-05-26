@@ -37,8 +37,32 @@ def _is_duplicate_code_error(exc: Exception) -> bool:
 def create_student(*, data: dict, admin_id: str) -> dict:
     """Insert one row into students. Returns the inserted row.
 
-    Raises HTTPException(409) when student_code already exists.
+    Raises HTTPException(409) when student_code already exists, or (Sprint 18.1
+    convert path) when the given user_id already has a student row.
     """
+    # Sprint 18.1 — convert guard: one student row per user (idempotency = 409).
+    user_id = data.get("user_id")
+    if user_id:
+        try:
+            existing = (
+                supabase_admin.table("students")
+                .select("id, student_code, full_name")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+        except Exception as exc:
+            logger.error("[students] user_id pre-check failed: %s", exc)
+            raise HTTPException(500, f"Database lookup failed: {exc}")
+        if existing.data:
+            row = existing.data[0]
+            raise HTTPException(
+                status_code=409,
+                detail={"message": "Người dùng này đã là học viên.",
+                        "student": {"id": row["id"], "student_code": row.get("student_code"),
+                                    "full_name": row.get("full_name")}},
+            )
+
     payload = {**data, "created_by": admin_id}
     try:
         r = supabase_admin.table("students").insert(payload).execute()
