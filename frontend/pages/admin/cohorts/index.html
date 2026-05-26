@@ -46,6 +46,12 @@
       color: var(--av-text-primary); font-size: var(--av-fs-sm); }
     .co-meta { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin-left: var(--av-space-2); }
     .co-back { font-size: var(--av-fs-sm); }
+    /* Sprint 18.3.1.1 — detail header reflows: the title/meta side may shrink
+       (min-width:0) and the row wraps, so "+ Thêm học viên" is never pushed
+       past the right edge. Replaces a no-wrap inline flex that overflowed. */
+    .co-detail-head { display: flex; align-items: flex-start;
+      justify-content: space-between; gap: var(--av-space-3); flex-wrap: wrap; }
+    .co-detail-head > div { min-width: 0; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -95,7 +101,7 @@
     <!-- ── Cohort detail: member roster (?cohort_id=…) ──────────── -->
     <main class="co-shell" id="view-detail" hidden>
       <a class="co-back adm-btn-secondary" href="/pages/admin/cohorts/index.html">← Tất cả lớp</a>
-      <header class="co-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--av-space-3);">
+      <header class="co-header co-detail-head">
         <div>
           <h1 id="cohort-detail-title">Lớp</h1>
           <div id="cohort-detail-meta"></div>

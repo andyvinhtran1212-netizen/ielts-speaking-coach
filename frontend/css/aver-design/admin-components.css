@@ -57,6 +57,9 @@ th.adm-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 th.adm-sortable:hover { color: var(--av-text-primary); }
 
 /* ── Buttons ────────────────────────────────────────────────────────── */
+/* Sprint 18.3.1.1 — labels stay on one line so an action button reads as a
+   single unit and is never squeezed/clipped inside a tight flex toolbar. */
+.adm-btn-primary, .adm-btn-secondary, .adm-btn-danger { white-space: nowrap; }
 .adm-btn-primary {
   padding: var(--av-space-3) var(--av-space-5);
   border-radius: var(--av-radius-md);
