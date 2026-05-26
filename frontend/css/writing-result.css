@@ -402,3 +402,28 @@ main.result-content {
   .tab-icon { font-size: 1.15rem; }
   main.result-content { padding: var(--av-space-4); }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════
+ * Sprint 19.1A — Writing-Coach refinement: accessibility polish.
+ * Additive only — no layout or JS-coupled selector change. Adds the
+ * keyboard focus indicators the interactive controls were missing and
+ * honours the OS reduced-motion preference. See
+ * docs/clusters/19_x/design_baseline.md §6–7.
+ * ════════════════════════════════════════════════════════════════════ */
+
+.tab-btn:focus-visible,
+.btn-icon:focus-visible,
+.back-link:focus-visible,
+.state-block .btn-link:focus-visible {
+  outline: 2px solid var(--av-primary);
+  outline-offset: 2px;
+  border-radius: var(--av-radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-icon-spin { animation: none; }
+  .tab-btn,
+  .btn-icon { transition: none; }
+  html { scroll-behavior: auto; }
+}
