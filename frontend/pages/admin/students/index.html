@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Students — Writing Coach Admin</title>
+  <title>Học viên · Admin</title>
 
-  <!-- Sprint 6.14b: canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <!-- Canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
   <script>
     (function () {
       try {
@@ -23,19 +23,6 @@
     })();
   </script>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
-            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
-          },
-        },
-      },
-    };
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -44,23 +31,67 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
-  <link rel="stylesheet" href="/css/admin-writing.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
 
-  <script src="https://unpkg.com/lucide@latest" defer></script>
-
-  <!-- Sprint 18.1 — IA: "Lớp & Học viên" tab bar (token-based, av-* vars). -->
+  <!-- Sprint 18.3.2 — migrated off Writing-Coach chrome (WC.bootstrap / aw-* /
+       Tailwind / admin-writing.css) to the aver-admin chrome + admin-components.css.
+       Only page-specific layout remains here; tables/buttons/modals/cards/banners
+       come from admin-components.css. -->
   <style>
-    .adm-subtabs { display: flex; gap: var(--av-space-2); max-width: 72rem;
-      margin: 0 auto; padding: var(--av-space-5) 1.5rem 0; }
-    .adm-subtab { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
-      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); color: var(--av-text-secondary);
-      text-decoration: none; border: 1px solid var(--av-border-default); background: var(--av-surface-card); }
-    .adm-subtab:hover { color: var(--av-text-primary); }
-    .adm-subtab.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
-      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold); }
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .hidden { display: none !important; }
+
+    .st-loading { padding: var(--av-space-8); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    .st-denied { max-width: 36rem; margin: 0 auto; padding: var(--av-space-8) var(--av-space-6); text-align: center; }
+    .st-denied h2 { font-size: var(--av-fs-xl); font-weight: var(--av-fw-bold); }
+    .st-denied a { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+      text-decoration: none; margin-top: var(--av-space-4); display: inline-block; }
+
+    .st-shell { max-width: 72rem; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-5); }
+    .st-head { display: flex; align-items: flex-start; justify-content: space-between;
+      flex-wrap: wrap; gap: var(--av-space-3); }
+    .st-head h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold); margin: 0; }
+    .st-subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin: var(--av-space-1) 0 0; }
+    .st-actions { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    .st-file-button { cursor: pointer; }
+    .st-toolbar { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap; }
+    .st-input { padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit;
+      width: 100%; min-width: 0; max-width: 360px; }
+    .st-meta { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .st-empty { padding: var(--av-space-6); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+    .st-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    .th-right { text-align: right; }
+
+    /* Modals (panels + behaviours from .adm-modal / .adm-modal-backdrop). */
+    .st-modal-wide { max-width: 768px; }
+    .st-modal-head { display: flex; align-items: flex-start; justify-content: space-between;
+      flex-wrap: wrap; gap: var(--av-space-2); margin-bottom: var(--av-space-4); }
+    .st-form { display: flex; flex-direction: column; gap: var(--av-space-3); margin-top: var(--av-space-4); }
+    .st-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-3); }
+    .st-form-actions { display: flex; justify-content: flex-end; gap: var(--av-space-2); padding-top: var(--av-space-2); }
+
+    .st-stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-3); }
+    @media (min-width: 768px) { .st-stat-grid { grid-template-columns: repeat(4, 1fr); } }
+    .st-cols { display: grid; grid-template-columns: 1fr; gap: var(--av-space-5); margin-top: var(--av-space-5); }
+    @media (min-width: 768px) { .st-cols { grid-template-columns: 1fr 1fr; } }
+    .st-section-heading { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary); margin: 0 0 var(--av-space-2); }
+    .st-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+      gap: 6px; font-size: var(--av-fs-sm); }
+    .st-list a { color: var(--av-primary, var(--av-brand-teal-700)); text-decoration: none; }
+    .st-list a:hover { text-decoration: underline; }
+    .st-list-empty { color: var(--av-text-muted); }
+    .st-pill { display: inline-block; padding: 1px 8px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); }
+    .st-pill--flagged, .st-flagged { color: var(--av-color-error, var(--av-text-secondary)); }
   </style>
 </head>
-<body class="av-page font-sans antialiased">
+<body class="av-page">
   <aver-admin-chrome active="students">
 
   <!-- ── IA tab bar (Sprint 18.1): Lớp & Học viên ─────────────── -->
@@ -69,39 +100,39 @@
     <a class="adm-subtab is-active" href="/pages/admin/students/index.html" aria-current="page">Học viên</a>
   </nav>
 
-  <div id="state-loading" class="flex items-center justify-center py-32">
-    <p class="aw-state-loading__text text-sm">Đang kiểm tra quyền truy cập…</p>
+  <div id="state-loading" class="st-loading">
+    <p>Đang kiểm tra quyền truy cập…</p>
   </div>
 
-  <div id="state-denied" class="hidden max-w-xl mx-auto px-6 py-20 text-center">
-    <h2 class="aw-state-denied__title text-xl font-bold">🔒 Admin Access Required</h2>
-    <a href="/pages/home.html" class="aw-state-denied__back mt-4 inline-block text-sm">← Quay lại trang chủ</a>
+  <div id="state-denied" class="st-denied hidden">
+    <h2>🔒 Admin Access Required</h2>
+    <a href="/pages/home.html">← Quay lại trang chủ</a>
   </div>
 
-  <main id="state-ready" class="hidden max-w-6xl mx-auto px-6 py-8">
-    <div class="flex items-center justify-between flex-wrap gap-3">
+  <main id="state-ready" class="st-shell hidden">
+    <div class="st-head">
       <div>
-        <h1 class="aw-h1 text-2xl font-bold">Students</h1>
-        <p class="aw-subtitle mt-1 text-sm">Quản lý profile + theo dõi lịch sử bài viết</p>
+        <h1>Học viên</h1>
+        <p class="st-subtitle">Quản lý profile + theo dõi lịch sử bài viết</p>
       </div>
-      <div class="flex gap-2">
-        <label class="aw-btn-secondary aw-file-button">
+      <div class="st-actions">
+        <label class="adm-btn-secondary st-file-button">
           📥 Import CSV
           <input id="csv-input" type="file" accept=".csv,text/csv" class="hidden" />
         </label>
-        <button id="btn-new" class="aw-btn-primary">＋ New Student</button>
+        <button id="btn-new" class="adm-btn-primary">＋ Học viên mới</button>
       </div>
     </div>
 
-    <div class="mt-5 flex items-center gap-3">
-      <input id="search-input" class="aw-input" style="max-width:360px;" placeholder="Tìm theo mã hoặc tên…" />
-      <span id="row-count" class="aw-search-meta text-xs"></span>
+    <div class="st-toolbar">
+      <input id="search-input" class="st-input" placeholder="Tìm theo mã hoặc tên…" />
+      <span id="row-count" class="st-meta"></span>
     </div>
 
-    <div id="alert-area" class="mt-4"></div>
+    <div id="alert-area"></div>
 
-    <div class="aw-card mt-5 overflow-x-auto">
-      <table id="students-table" class="aw-table">
+    <div class="adm-table-wrap">
+      <table id="students-table" class="adm-table">
         <thead>
           <tr>
             <th>Code</th>
@@ -109,83 +140,81 @@
             <th>Target</th>
             <th>Current</th>
             <th>Date</th>
-            <th class="text-right">Actions</th>
+            <th class="th-right">Actions</th>
           </tr>
         </thead>
         <tbody id="students-tbody">
-          <tr><td colspan="6" class="aw-table__empty">Đang tải…</td></tr>
+          <tr><td colspan="6" class="st-empty">Đang tải…</td></tr>
         </tbody>
       </table>
     </div>
   </main>
 
-  <!-- Phase 2.5 — Per-student instructor summary modal -->
-  <div id="summary-modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="aw-modal-panel max-w-3xl w-full p-6">
-      <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+  <!-- Per-student instructor summary modal -->
+  <div id="summary-modal" class="adm-modal-backdrop hidden">
+    <div class="adm-modal st-modal-wide">
+      <div class="st-modal-head">
         <div>
-          <h2 id="summary-title" class="aw-modal-title text-lg font-semibold">—</h2>
-          <p id="summary-subtitle" class="aw-subtitle text-xs mt-1">—</p>
+          <h2 id="summary-title">—</h2>
+          <p id="summary-subtitle" class="st-subtitle">—</p>
         </div>
-        <button id="summary-close" class="aw-btn-secondary">Đóng</button>
+        <button id="summary-close" class="adm-btn-secondary">Đóng</button>
       </div>
 
-      <!-- Stat cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="aw-stat-card"><div class="aw-stat-label">Tổng bài</div><div id="stat-total" class="aw-stat-num">—</div></div>
-        <div class="aw-stat-card"><div class="aw-stat-label">Đã chấm</div><div id="stat-graded" class="aw-stat-num">—</div></div>
-        <div class="aw-stat-card"><div class="aw-stat-label">Flagged</div><div id="stat-flagged" class="aw-stat-num aw-stat-num--flagged">—</div></div>
-        <div class="aw-stat-card"><div class="aw-stat-label">Avg band 5 bài gần nhất</div><div id="stat-avg-band" class="aw-stat-num">—</div></div>
+      <div class="st-stat-grid">
+        <div class="adm-card"><div class="adm-card-label">Tổng bài</div><div id="stat-total" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Đã chấm</div><div id="stat-graded" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Flagged</div><div id="stat-flagged" class="adm-card-num st-flagged">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Avg band 5 bài gần nhất</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
       </div>
 
-      <!-- Two-column lists -->
-      <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="st-cols">
         <div>
-          <h3 class="aw-summary-section-heading">Bài viết gần đây</h3>
-          <ul id="summary-essays" class="aw-summary-list"></ul>
+          <h3 class="st-section-heading">Bài viết gần đây</h3>
+          <ul id="summary-essays" class="st-list"></ul>
         </div>
         <div>
-          <h3 class="aw-summary-section-heading">Đề bài giao gần đây</h3>
-          <ul id="summary-assignments" class="aw-summary-list"></ul>
+          <h3 class="st-section-heading">Đề bài giao gần đây</h3>
+          <ul id="summary-assignments" class="st-list"></ul>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Edit / Create modal -->
-  <div id="modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="aw-modal-panel max-w-lg w-full p-6">
-      <h2 id="modal-title" class="aw-modal-title text-lg font-semibold">New Student</h2>
-      <form id="student-form" class="mt-4 space-y-3">
-        <div>
-          <label class="aw-label text-xs">Mã học viên *</label>
-          <input id="f-code" class="aw-input mt-1" required maxlength="64" />
+  <div id="modal" class="adm-modal-backdrop hidden">
+    <div class="adm-modal">
+      <h2 id="modal-title">Học viên mới</h2>
+      <form id="student-form" class="st-form">
+        <div class="adm-field">
+          <label for="f-code">Mã học viên *</label>
+          <input id="f-code" required maxlength="64" />
         </div>
-        <div>
-          <label class="aw-label text-xs">Họ và tên *</label>
-          <input id="f-name" class="aw-input mt-1" required maxlength="255" />
+        <div class="adm-field">
+          <label for="f-name">Họ và tên *</label>
+          <input id="f-name" required maxlength="255" />
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="aw-label text-xs">Target Band</label>
-            <input id="f-target-band" type="number" step="0.5" min="0" max="9" class="aw-input mt-1" />
+        <div class="st-form-row">
+          <div class="adm-field">
+            <label for="f-target-band">Target Band</label>
+            <input id="f-target-band" type="number" step="0.5" min="0" max="9" />
           </div>
-          <div>
-            <label class="aw-label text-xs">Current Band</label>
-            <input id="f-current-band" type="number" step="0.5" min="0" max="9" class="aw-input mt-1" />
+          <div class="adm-field">
+            <label for="f-current-band">Current Band</label>
+            <input id="f-current-band" type="number" step="0.5" min="0" max="9" />
           </div>
         </div>
-        <div>
-          <label class="aw-label text-xs">Target Date</label>
-          <input id="f-target-date" type="date" class="aw-input mt-1" />
+        <div class="adm-field">
+          <label for="f-target-date">Target Date</label>
+          <input id="f-target-date" type="date" />
         </div>
-        <div>
-          <label class="aw-label text-xs">Persona Notes</label>
-          <textarea id="f-notes" class="aw-input mt-1" rows="2"></textarea>
+        <div class="adm-field">
+          <label for="f-notes">Persona Notes</label>
+          <textarea id="f-notes" rows="2"></textarea>
         </div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button type="button" id="btn-cancel" class="aw-btn-secondary">Cancel</button>
-          <button type="submit" id="btn-save" class="aw-btn-primary">Save</button>
+        <div class="st-form-actions">
+          <button type="button" id="btn-cancel" class="adm-btn-secondary">Hủy</button>
+          <button type="submit" id="btn-save" class="adm-btn-primary">Lưu</button>
         </div>
       </form>
     </div>
@@ -193,17 +222,37 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
-  <script src="/js/writing-admin.js"></script>
   <script>
     'use strict';
+
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
 
     var _editingId = null;  // null = creating new
     var _searchValue = '';
 
+    // ── Local helpers (replace the removed WC.* utilities) ──────
+    function esc(s) {
+      if (s === null || s === undefined) return '';
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    function debounce(fn, ms) {
+      var t = null;
+      return function () {
+        var args = arguments, ctx = this;
+        clearTimeout(t);
+        t = setTimeout(function () { fn.apply(ctx, args); }, ms || 250);
+      };
+    }
+    function _show(id) { var el = document.getElementById(id); if (el) el.classList.remove('hidden'); }
+    function _hide(id) { var el = document.getElementById(id); if (el) el.classList.add('hidden'); }
+
     function setAlert(kind, msg) {
       var area = document.getElementById('alert-area');
-      var cls  = kind === 'error' ? 'aw-alert--error' : kind === 'success' ? 'aw-alert--success' : 'aw-alert--warn';
-      area.innerHTML = '<div class="aw-alert ' + cls + '">' + WC.escapeHtml(msg) + '</div>';
+      var mod  = kind === 'error' ? 'is-error' : kind === 'success' ? 'is-success' : 'is-warn';
+      area.innerHTML = '<div class="adm-banner ' + mod + '">' + esc(msg) + '</div>';
       if (kind !== 'error') setTimeout(function () { area.innerHTML = ''; }, 4000);
     }
 
@@ -211,27 +260,27 @@
       var tb = document.getElementById('students-tbody');
       document.getElementById('row-count').textContent = rows.length + ' học viên';
       if (!rows.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="aw-table__empty">Chưa có học viên.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="st-empty">Chưa có học viên.</td></tr>';
         return;
       }
       tb.innerHTML = rows.map(function (r) {
-        var code  = WC.escapeHtml(r.student_code);
-        var name  = WC.escapeHtml(r.full_name);
+        var code  = esc(r.student_code);
+        var name  = esc(r.full_name);
         var tBand = r.target_band == null ? '—' : r.target_band;
         var cBand = r.current_band_estimate == null ? '—' : r.current_band_estimate;
-        var date  = r.target_date ? WC.escapeHtml(r.target_date) : '—';
+        var date  = r.target_date ? esc(r.target_date) : '—';
         return '<tr>' +
-          '<td class="aw-table__code">' + code + '</td>' +
+          '<td class="code-cell">' + code + '</td>' +
           '<td>' + name + '</td>' +
           '<td>' + tBand + '</td>' +
           '<td>' + cBand + '</td>' +
           '<td>' + date + '</td>' +
-          '<td class="text-right">' +
-            '<button class="aw-btn-secondary" data-act="summary" data-id="' + WC.escapeHtml(r.id) + '" data-name="' + name + '">📊 Tổng quan</button> ' +
-            '<button class="aw-btn-secondary" data-act="essay" data-id="' + WC.escapeHtml(r.id) + '">📝 New Essay</button> ' +
-            '<button class="aw-btn-secondary" data-act="edit" data-id="' + WC.escapeHtml(r.id) + '">Edit</button> ' +
-            '<button class="aw-btn-danger" data-act="delete" data-id="' + WC.escapeHtml(r.id) + '" data-code="' + code + '">Delete</button>' +
-          '</td>' +
+          '<td><div class="st-row-actions">' +
+            '<button class="adm-btn-secondary" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '">📊 Tổng quan</button>' +
+            '<button class="adm-btn-secondary" data-act="essay" data-id="' + esc(r.id) + '">📝 New Essay</button>' +
+            '<button class="adm-btn-secondary" data-act="edit" data-id="' + esc(r.id) + '">Edit</button>' +
+            '<button class="adm-btn-danger" data-act="delete" data-id="' + esc(r.id) + '" data-code="' + code + '">Delete</button>' +
+          '</div></td>' +
         '</tr>';
       }).join('');
     }
@@ -249,7 +298,7 @@
 
     function openModal(student) {
       _editingId = student ? student.id : null;
-      document.getElementById('modal-title').textContent = student ? 'Edit Student' : 'New Student';
+      document.getElementById('modal-title').textContent = student ? 'Sửa học viên' : 'Học viên mới';
       document.getElementById('f-code').value         = student ? student.student_code : '';
       document.getElementById('f-name').value         = student ? student.full_name    : '';
       document.getElementById('f-target-band').value  = student && student.target_band  != null ? student.target_band  : '';
@@ -325,7 +374,7 @@
       }
     }
 
-    // ── Phase 2.5 — student summary modal ───────────────────────
+    // ── Student summary modal ───────────────────────────────────
     function _formatBand(v) {
       return (v == null || v === '') ? '—' : v;
     }
@@ -336,10 +385,9 @@
       return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
     }
     function _bandFromEssay(e) {
-      // PostgREST embed returns writing_feedback as an array (empty
-      // when no feedback row exists). Defensive about both shapes
-      // because the embed cardinality flips between supabase-py
-      // versions and we don't want a render crash on the modal.
+      // PostgREST embed returns writing_feedback as an array (empty when no
+      // feedback row exists). Defensive about both shapes because the embed
+      // cardinality flips between supabase-py versions.
       var fb = e.writing_feedback;
       if (Array.isArray(fb) && fb.length) return fb[0].overall_band_score;
       if (fb && typeof fb === 'object')   return fb.overall_band_score;
@@ -348,17 +396,14 @@
 
     async function openSummary(studentId, fallbackName) {
       var modal = document.getElementById('summary-modal');
-      // Title placeholder while we fetch — reuses the Edit button's
-      // data-name so the modal feels instant.
-      document.getElementById('summary-title').textContent =
-        fallbackName || 'Đang tải…';
+      document.getElementById('summary-title').textContent = fallbackName || 'Đang tải…';
       document.getElementById('summary-subtitle').textContent = '';
       document.getElementById('stat-total').textContent = '—';
       document.getElementById('stat-graded').textContent = '—';
       document.getElementById('stat-flagged').textContent = '—';
       document.getElementById('stat-avg-band').textContent = '—';
       document.getElementById('summary-essays').innerHTML =
-        '<li class="aw-summary-list__empty">Đang tải…</li>';
+        '<li class="st-list-empty">Đang tải…</li>';
       document.getElementById('summary-assignments').innerHTML = '';
       modal.classList.remove('hidden');
 
@@ -384,20 +429,20 @@
         var essaysHtml = essays.length
           ? essays.map(function (e) {
               var band = _bandFromEssay(e);
-              var bandLabel = band != null ? 'Band ' + band : WC.escapeHtml(e.status || '—');
+              var bandLabel = band != null ? 'Band ' + band : esc(e.status || '—');
               var flagged = e.is_flagged
-                ? ' <span class="aw-mini-pill aw-mini-pill--flagged">⚠ Flagged</span>'
+                ? ' <span class="st-pill st-pill--flagged">⚠ Flagged</span>'
                 : '';
               var regraded = (e.regrade_count || 0) > 0
-                ? ' <span class="aw-mini-pill">🔄 ×' + e.regrade_count + '</span>'
+                ? ' <span class="st-pill">🔄 ×' + e.regrade_count + '</span>'
                 : '';
               return '<li>' +
-                '<a href="/pages/admin/writing/grade.html?essay_id=' + WC.escapeHtml(e.id) + '">' +
-                  _formatDateShort(e.created_at) + ' · ' + WC.escapeHtml(bandLabel) +
+                '<a href="/pages/admin/writing/grade.html?essay_id=' + esc(e.id) + '">' +
+                  _formatDateShort(e.created_at) + ' · ' + esc(bandLabel) +
                 '</a>' + flagged + regraded +
               '</li>';
             }).join('')
-          : '<li class="aw-summary-list__empty">Chưa có bài viết.</li>';
+          : '<li class="st-list-empty">Chưa có bài viết.</li>';
         document.getElementById('summary-essays').innerHTML = essaysHtml;
 
         var assigns = s.recent_assignments || [];
@@ -405,11 +450,11 @@
           ? assigns.map(function (a) {
               var p = a.writing_prompts || {};
               return '<li>' +
-                WC.escapeHtml(p.title || '—') +
-                ' <span class="aw-mini-pill">' + WC.escapeHtml(a.status || '—') + '</span>' +
+                esc(p.title || '—') +
+                ' <span class="st-pill">' + esc(a.status || '—') + '</span>' +
               '</li>';
             }).join('')
-          : '<li class="aw-summary-list__empty">Chưa có bài giao.</li>';
+          : '<li class="st-list-empty">Chưa có bài giao.</li>';
         document.getElementById('summary-assignments').innerHTML = assignsHtml;
       } catch (err) {
         setAlert('error', 'Không tải được tổng quan: ' + err.message);
@@ -441,65 +486,59 @@
       }
     }
 
-    WC.bootstrap({
-      onReady: function () {
-        document.getElementById('btn-new').addEventListener('click', function () { openModal(null); });
-        document.getElementById('btn-cancel').addEventListener('click', closeModal);
-        document.getElementById('student-form').addEventListener('submit', handleSave);
-        document.getElementById('students-tbody').addEventListener('click', handleTableClick);
-        document.getElementById('csv-input').addEventListener('change', handleCsvImport);
-        // Phase 2.5 — student summary modal close + ESC dismiss.
-        document.getElementById('summary-close').addEventListener('click', closeSummary);
-        document.getElementById('summary-modal').addEventListener('click', function (e) {
-          // Click on dim backdrop (the modal-bg div itself, not inner card) closes.
-          if (e.target.id === 'summary-modal') closeSummary();
-        });
-        document.addEventListener('keydown', function (e) {
-          if (e.key === 'Escape') {
-            var m = document.getElementById('summary-modal');
-            if (m && !m.classList.contains('hidden')) closeSummary();
-          }
-        });
-
-        var debounced = WC.debounce(function () {
-          _searchValue = document.getElementById('search-input').value.trim();
-          loadStudents();
-        }, 300);
-        document.getElementById('search-input').addEventListener('input', debounced);
-
-        loadStudents();
-      }
-    });
-  </script>
-
-  <!-- Lucide hydration + theme toggle binding (Sprint 6.14b) -->
-  <script>
-    (function () {
-      function hydrateIcons() {
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-          window.lucide.createIcons();
+    function _wireReady() {
+      document.getElementById('btn-new').addEventListener('click', function () { openModal(null); });
+      document.getElementById('btn-cancel').addEventListener('click', closeModal);
+      document.getElementById('student-form').addEventListener('submit', handleSave);
+      document.getElementById('students-tbody').addEventListener('click', handleTableClick);
+      document.getElementById('csv-input').addEventListener('change', handleCsvImport);
+      document.getElementById('modal').addEventListener('click', function (e) {
+        if (e.target.id === 'modal') closeModal();
+      });
+      // Student summary modal close + ESC dismiss.
+      document.getElementById('summary-close').addEventListener('click', closeSummary);
+      document.getElementById('summary-modal').addEventListener('click', function (e) {
+        if (e.target.id === 'summary-modal') closeSummary();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          var m = document.getElementById('summary-modal');
+          if (m && !m.classList.contains('hidden')) closeSummary();
+          var em = document.getElementById('modal');
+          if (em && !em.classList.contains('hidden')) closeModal();
         }
+      });
+
+      var debounced = debounce(function () {
+        _searchValue = document.getElementById('search-input').value.trim();
+        loadStudents();
+      }, 300);
+      document.getElementById('search-input').addEventListener('input', debounced);
+
+      loadStudents();
+    }
+
+    // ── Auth gate (replaces WC.bootstrap): admin-only, reveals #state-ready ──
+    async function _boot() {
+      try { initSupabase(SUPABASE_URL, SUPABASE_ANON); } catch (e) { /* swallow */ }
+      try {
+        var me = await window.api.get('/auth/me');
+        if (!me || me.role !== 'admin') {
+          _hide('state-loading');
+          _show('state-denied');
+          return;
+        }
+        _hide('state-loading');
+        _show('state-ready');
+        _wireReady();
+      } catch (e) {
+        // api.js redirects to login on 401; this covers network / non-401 errors.
+        window.location.href = window.api.url('index.html');
       }
-      function bindToggleButton() {
-        var btn = document.querySelector('.av-theme-toggle');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
-          var current = document.documentElement.getAttribute('data-theme') || 'light';
-          var next = current === 'dark' ? 'light' : 'dark';
-          document.documentElement.setAttribute('data-theme', next);
-          try { localStorage.setItem('av-theme', next); } catch (e) {}
-        });
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-          hydrateIcons(); bindToggleButton();
-        });
-      } else {
-        hydrateIcons(); bindToggleButton();
-      }
-      window.addEventListener('load', hydrateIcons);
-    })();
+    }
+    _boot();
   </script>
+
   </aver-admin-chrome>
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
 </body>

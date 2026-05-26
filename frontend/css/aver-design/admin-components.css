@@ -134,6 +134,8 @@ th.adm-sortable:hover { color: var(--av-text-primary); }
   font-size: var(--av-fs-sm);
 }
 .adm-banner.is-error { color: var(--av-color-error, var(--av-text-secondary)); }
+.adm-banner.is-success { color: var(--av-brand-teal-800); }
+.adm-banner.is-warn { color: var(--av-text-secondary); }
 
 /* ── Modal ──────────────────────────────────────────────────────────── */
 .adm-modal-backdrop {
