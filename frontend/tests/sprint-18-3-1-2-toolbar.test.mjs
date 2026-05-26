@@ -24,8 +24,11 @@ const COHORTS = front('pages', 'admin', 'cohorts', 'index.html');
 
 
 describe('Sprint 18.3.1.2 — Pattern #42: premise check', () => {
-  test('.ac-toolbar already wraps (commission flex-wrap fix was a no-op)', () => {
-    assert.match(ACCESS, /\.ac-toolbar\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+  // Sprint 18.3.1.3 replaced the single-row toolbar with two stacked rows, so
+  // `.ac-toolbar` is now a column (no flex-wrap). The filters still wrap inside
+  // their own row — that is the surviving "it already wraps" truth.
+  test('filter row wraps internally (filters never overflow)', () => {
+    assert.match(ACCESS, /\.ac-filter-bar\s*\{[\s\S]*?flex-wrap:\s*wrap/);
   });
 });
 

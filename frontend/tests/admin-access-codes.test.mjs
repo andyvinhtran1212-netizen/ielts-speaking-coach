@@ -57,13 +57,18 @@ describe('Sprint 12.2 — access-codes filter bar (3 filters)', () => {
 });
 
 
-describe('Sprint 12.2 — access-codes table headers (8 columns)', () => {
+describe('Sprint 12.2 — access-codes table headers (semantic, sortable-aware)', () => {
+  // Sprint 18.3.1.3 cleanup: Sprint 17.1 made some headers sortable
+  // (e.g. `<th class="ac-sortable" data-sort="status">Trạng thái ↕</th>`), so an
+  // exact `<th>label</th>` match no longer holds. Assert the label appears inside
+  // a <th> regardless of attrs / sort indicator.
   const expected = [
     'Mã', 'Loại', 'Lớp', 'Trạng thái', 'Giới hạn', 'Hết hạn', 'Ghi chú',
   ];
   for (const h of expected) {
     it(`table header "${h}" present`, () => {
-      assert.ok(HTML.includes(`<th>${h}</th>`), `Missing <th>${h}</th>`);
+      const label = h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      assert.match(HTML, new RegExp('<th[^>]*>\\s*' + label), `Missing header "${h}"`);
     });
   }
 });

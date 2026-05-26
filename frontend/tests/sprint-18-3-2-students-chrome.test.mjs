@@ -5,7 +5,8 @@
  * Tailwind / admin-writing.css) → aver-admin chrome + admin-components.css.
  * Source-scan: no WC remnants, av/adm-* consumption, preserved features
  * (CRUD + Tổng quan summary + CSV import + search + auth gate) + the 18.1 tabs.
- * Functional behaviour is unchanged JS (verbatim logic); Andy dogfood confirms visuals.
+ * Source-scan sentinel only — it pins markup/wiring, not rendered behaviour;
+ * runtime + visual verification is via Andy dogfood (tracked separately).
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
