@@ -77,9 +77,9 @@ async function loadCodeUsage(codeId) {
   const agg = data.aggregate || {};
   $('code-usage-title').textContent = 'Hoạt động mã: ' + (data.code ? data.code.code : codeId);
   $('code-usage-summary').innerHTML =
-    `<div class="cu-stat"><span class="cu-stat-num">${countLabel(agg.assigned_user_count)}</span><span class="cu-stat-label">Người dùng</span></div>`
-    + `<div class="cu-stat"><span class="cu-stat-num">${countLabel(agg.total_sessions)}</span><span class="cu-stat-label">Tổng phiên</span></div>`
-    + `<div class="cu-stat"><span class="cu-stat-num">${esc(usdLabel(agg.total_ai_cost_usd))}</span><span class="cu-stat-label">Tổng chi phí AI</span></div>`;
+    `<div class="adm-card"><span class="adm-card-num">${countLabel(agg.assigned_user_count)}</span><span class="adm-card-label">Người dùng</span></div>`
+    + `<div class="adm-card"><span class="adm-card-num">${countLabel(agg.total_sessions)}</span><span class="adm-card-label">Tổng phiên</span></div>`
+    + `<div class="adm-card"><span class="adm-card-num">${esc(usdLabel(agg.total_ai_cost_usd))}</span><span class="adm-card-label">Tổng chi phí AI</span></div>`;
   $('code-usage-loading').hidden = true;
   const users = data.assigned_users || [];
   if (!users.length) {

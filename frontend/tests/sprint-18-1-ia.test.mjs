@@ -23,6 +23,9 @@ const COHORTS_JS  = front('js', 'admin-cohorts.js');
 const COHORTS_HTML = front('pages', 'admin', 'cohorts', 'index.html');
 const STUDENTS_HTML = front('pages', 'admin', 'students', 'index.html');
 const CHROME      = front('js', 'components', 'aver-admin-chrome.js');
+// Sprint 18.3 moved the cohorts page's .adm-subtab styles into the shared
+// admin-components.css; the students page keeps them inline until 18.3.1.
+const ADMIN_COMPONENTS = front('css', 'aver-design', 'admin-components.css');
 
 
 describe('Sprint 18.1 B — convert user → học viên', () => {
@@ -73,7 +76,10 @@ describe('Sprint 18.1 A — "Lớp & Học viên" tab bar', () => {
     assert.match(STUDENTS_HTML, /class="adm-subtab"[^>]*href="\/pages\/admin\/cohorts\/index\.html"/);
   });
   test('tab active state uses tokenised brand classes (no inline hex)', () => {
-    assert.match(COHORTS_HTML, /\.adm-subtab\.is-active[\s\S]*?--av-brand-teal-50/);
+    // Cohorts consumes the shared admin-components.css (Sprint 18.3); students
+    // page still defines the tab styles inline (migrates in 18.3.1).
+    assert.match(ADMIN_COMPONENTS, /\.adm-subtab\.is-active[\s\S]*?--av-brand-teal-50/);
+    assert.match(COHORTS_HTML, /admin-components\.css/);
     assert.match(STUDENTS_HTML, /\.adm-subtab\.is-active[\s\S]*?--av-brand-teal-50/);
   });
 });

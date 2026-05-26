@@ -120,4 +120,5 @@ jobs:
             frontend/tests/sprint-17-4-foot-traffic.test.mjs \
             frontend/tests/sprint-17-5-reassignment.test.mjs \
             frontend/tests/sprint-18-1-ia.test.mjs \
-            frontend/tests/sprint-18-2-dashboard.test.mjs
+            frontend/tests/sprint-18-2-dashboard.test.mjs \
+            frontend/tests/sprint-18-3-components.test.mjs

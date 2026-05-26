@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -40,22 +41,9 @@
     .ft-filter input { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-card);
       color: var(--av-text-primary); font-size: var(--av-fs-sm); }
-    .btn-primary { padding: var(--av-space-3) var(--av-space-5); border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none;
-      font-weight: var(--av-fw-semibold); cursor: pointer; font-size: var(--av-fs-sm); }
-    .btn-primary:hover { background: var(--av-brand-teal-800); }
-
     .ft-cards { display: flex; gap: var(--av-space-4); flex-wrap: wrap; }
-    .ft-card { display: flex; flex-direction: column; gap: 2px; padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
-      background: var(--av-surface-card); min-width: 160px; }
-    .ft-card-num { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
-    .ft-card-label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-
     .ft-section-title { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
       color: var(--av-text-secondary); text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-
     .ft-chart { display: flex; align-items: flex-end; gap: 4px; height: 160px;
       padding: var(--av-space-4); border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-card); overflow-x: auto; }
@@ -64,21 +52,7 @@
     .ft-bar-fill { width: 14px; background: var(--av-brand-teal-600, var(--av-brand-teal-700));
       border-radius: 3px 3px 0 0; min-height: 2px; }
     .ft-bar-label { font-size: 9px; color: var(--av-text-muted); white-space: nowrap; }
-
-    .ft-table-wrap { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
-      background: var(--av-surface-card); overflow-x: auto; }
-    table.ft-table { width: 100%; border-collapse: collapse; }
-    table.ft-table th, table.ft-table td { padding: var(--av-space-3) var(--av-space-4);
-      text-align: left; font-size: var(--av-fs-sm); border-bottom: 1px solid var(--av-border-default); }
-    table.ft-table th { font-weight: var(--av-fw-semibold); color: var(--av-text-secondary);
-      background: var(--av-surface-sunken); font-size: var(--av-fs-xs);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    table.ft-table tr:last-child td { border-bottom: none; }
-    td.u-num { text-align: right; font-variant-numeric: tabular-nums; }
-    td.code-cell { font-family: var(--av-font-mono); }
-
-    .ft-loading, .ft-empty, .ft-muted { color: var(--av-text-muted); font-size: var(--av-fs-sm); }
-    .ft-empty { padding: var(--av-space-8); text-align: center; }
+    .ft-muted { color: var(--av-text-muted); font-size: var(--av-fs-sm); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -93,25 +67,25 @@
       <div class="ft-toolbar">
         <div class="ft-filter"><label for="ft-from">Từ ngày</label><input id="ft-from" type="date" /></div>
         <div class="ft-filter"><label for="ft-to">Đến ngày</label><input id="ft-to" type="date" /></div>
-        <button class="btn-primary" id="btn-ft-apply" type="button">Áp dụng</button>
+        <button class="adm-btn-primary" id="btn-ft-apply" type="button">Áp dụng</button>
       </div>
 
-      <div class="ft-loading" id="ft-loading">Đang tải…</div>
-      <div class="ft-empty" id="ft-empty" hidden>Không tải được dữ liệu lưu lượng.</div>
+      <div class="adm-loading" id="ft-loading">Đang tải…</div>
+      <div class="adm-empty" id="ft-empty" hidden>Không tải được dữ liệu lưu lượng.</div>
 
       <div id="ft-body" hidden>
         <div class="ft-cards">
-          <div class="ft-card"><span class="ft-card-num" id="ft-total">0</span><span class="ft-card-label">Tổng lượt xem</span></div>
-          <div class="ft-card"><span class="ft-card-num" id="ft-unique">0</span><span class="ft-card-label">Khách đăng nhập (duy nhất)</span></div>
-          <div class="ft-card"><span class="ft-card-num" id="ft-anon">0</span><span class="ft-card-label">Lượt ẩn danh</span></div>
+          <div class="adm-card"><span class="adm-card-num" id="ft-total">0</span><span class="adm-card-label">Tổng lượt xem</span></div>
+          <div class="adm-card"><span class="adm-card-num" id="ft-unique">0</span><span class="adm-card-label">Khách đăng nhập (duy nhất)</span></div>
+          <div class="adm-card"><span class="adm-card-num" id="ft-anon">0</span><span class="adm-card-label">Lượt ẩn danh</span></div>
         </div>
 
         <p class="ft-section-title" style="margin-top:var(--av-space-5);">Lượt xem theo ngày</p>
         <div class="ft-chart" id="ft-chart"></div>
 
         <p class="ft-section-title" style="margin-top:var(--av-space-5);">Trang xem nhiều nhất</p>
-        <div class="ft-table-wrap">
-          <table class="ft-table">
+        <div class="adm-table-wrap">
+          <table class="adm-table">
             <thead><tr><th>Đường dẫn</th><th>Lượt xem</th></tr></thead>
             <tbody id="ft-pages-tbody"></tbody>
           </table>
