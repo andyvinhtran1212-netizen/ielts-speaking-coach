@@ -123,4 +123,5 @@ jobs:
             frontend/tests/sprint-18-2-dashboard.test.mjs \
             frontend/tests/sprint-18-3-components.test.mjs \
             frontend/tests/sprint-18-3-1-polish.test.mjs \
-            frontend/tests/sprint-18-3-1-1-overflow.test.mjs
+            frontend/tests/sprint-18-3-1-1-overflow.test.mjs \
+            frontend/tests/sprint-18-3-1-2-toolbar.test.mjs

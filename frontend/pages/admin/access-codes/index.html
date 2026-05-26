@@ -53,7 +53,10 @@
       flex: 1 1 auto; min-width: 0; }   /* Sprint 18.3.1.1 — filters absorb/shrink so "+ Tạo mã mới" stays whole */
     .ac-filter {
       display: flex; flex-direction: column; gap: 4px;
-      min-width: 160px;
+      /* Sprint 18.3.1.2 — 160px is the target, not a hard floor: the column may
+         shrink so a long cohort-name <select> never widens the row past the
+         (already wrapping) .ac-toolbar and pushes "+ Tạo mã mới" off-screen. */
+      flex: 1 1 160px; min-width: 0;
     }
     .ac-filter label {
       font-size: var(--av-fs-xs);
@@ -68,6 +71,9 @@
       background: var(--av-surface-card);
       color: var(--av-text-primary);
       font-size: var(--av-fs-sm);
+      /* Sprint 18.3.1.2 — a control never exceeds its column (long <select>
+         option text truncates instead of forcing horizontal overflow). */
+      width: 100%; min-width: 0; max-width: 100%;
     }
     /* Sprint 17.1 — assigned-users cell + sortable headers */
     th.ac-sortable { cursor: pointer; user-select: none; white-space: nowrap; }

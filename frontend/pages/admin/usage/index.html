@@ -40,7 +40,8 @@
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
     .us-filter input[type="search"] { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-card);
-      color: var(--av-text-primary); font-size: var(--av-fs-sm); }
+      color: var(--av-text-primary); font-size: var(--av-fs-sm);
+      width: 100%; min-width: 0; max-width: 100%; }   /* Sprint 18.3.1.2 — control never overflows its column */
     th.us-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
     th.us-sortable:hover { color: var(--av-text-primary); }
     .cu-summary { display: flex; gap: var(--av-space-4); flex-wrap: wrap; }

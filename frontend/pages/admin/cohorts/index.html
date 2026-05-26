@@ -43,7 +43,8 @@
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
     .co-filter select { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-card);
-      color: var(--av-text-primary); font-size: var(--av-fs-sm); }
+      color: var(--av-text-primary); font-size: var(--av-fs-sm);
+      width: 100%; min-width: 0; max-width: 100%; }   /* Sprint 18.3.1.2 — control never overflows its column */
     .co-meta { color: var(--av-text-secondary); font-size: var(--av-fs-sm); margin-left: var(--av-space-2); }
     .co-back { font-size: var(--av-fs-sm); }
     /* Sprint 18.3.1.1 — detail header reflows: the title/meta side may shrink
