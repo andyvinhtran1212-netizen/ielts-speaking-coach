@@ -142,10 +142,20 @@
 
       <!-- Tab 1 — Bài giao (active assignments awaiting submission) -->
       <section id="content-assignments">
+        <!-- Deliverable 2 (Sprint 19.1A) — "Bài sắp đến hạn" surface.
+             Built client-side from the active assignments that carry a
+             deadline, sorted soonest-first with an urgency colour cue.
+             Hidden when no active assignment has a deadline. -->
+        <div id="deadlines-surface" class="wd-deadlines hidden" aria-label="Bài sắp đến hạn">
+          <h2 class="wd-deadlines__title">⏰ Bài sắp đến hạn</h2>
+          <div id="deadlines-list" class="wd-deadlines__list"></div>
+        </div>
+
         <div id="assignments-list" class="space-y-3"></div>
-        <div id="assignments-empty" class="hidden text-center py-16 rounded-lg border border-white/10 bg-white/5">
-          <p class="text-gray-200 mb-2">Em chưa có bài giao nào.</p>
-          <p class="text-sm text-gray-400">Khi giảng viên giao đề, em sẽ thấy ở đây.</p>
+        <div id="assignments-empty" class="wd-empty hidden">
+          <div class="wd-empty__icon" aria-hidden="true">📋</div>
+          <p class="wd-empty__title">Em chưa có bài giao nào</p>
+          <p class="wd-empty__hint">Khi giảng viên giao đề, em sẽ thấy ở đây.</p>
         </div>
       </section>
 
@@ -163,7 +173,7 @@
             <span class="filter-count" id="filter-count-delivered">—</span>
           </button>
           <button type="button" class="essay-filter-btn" data-filter="pending">
-            <span class="filter-label">⏳ Đang chấm</span>
+            <span class="filter-label">⏳ Chờ chấm</span>
             <span class="filter-count" id="filter-count-pending">—</span>
           </button>
           <button type="button" class="essay-filter-btn" data-filter="flagged">
@@ -172,12 +182,13 @@
           </button>
         </nav>
         <div id="essays-list" class="space-y-3"></div>
-        <div id="empty-state" class="hidden text-center py-16 rounded-lg border border-white/10 bg-white/5">
-          <p class="text-gray-200 mb-2">Em chưa có bài viết nào.</p>
-          <p class="text-sm text-gray-400">Hãy nộp bài đầu tiên qua thẻ "Bài giao" hoặc qua giảng viên của em.</p>
+        <div id="empty-state" class="wd-empty hidden">
+          <div class="wd-empty__icon" aria-hidden="true">📝</div>
+          <p class="wd-empty__title">Em chưa có bài viết nào</p>
+          <p class="wd-empty__hint">Hãy nộp bài đầu tiên qua thẻ "Bài giao" hoặc qua giảng viên của em.</p>
         </div>
-        <div id="filter-empty-state" class="hidden text-center py-12 rounded-lg border border-white/10 bg-white/5">
-          <p class="text-sm text-gray-400">Không có bài nào trong nhóm này.</p>
+        <div id="filter-empty-state" class="wd-empty wd-empty--compact hidden">
+          <p class="wd-empty__hint">Không có bài nào trong nhóm này.</p>
         </div>
       </section>
     </div>
@@ -191,19 +202,29 @@
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
     initSupabase(SUPABASE_URL, SUPABASE_ANON);
 
-    // ── Status pill mapping ─────────────────────────────────────────
-    // 'submitted' is included for forward-compat — the 033 schema's
-    // first lifecycle state is 'pending', but Phase 2.3 may rename
-    // the user-facing first state. Both keys map to the same gray
-    // pill so the UI doesn't flash unknown-status.
+    // ── Status pill mapping (Sprint 19.1A — Deliverable 4) ──────────
+    // Student-visible model collapses the 6 backend lifecycle states
+    // into 4 so the AI grading pipeline NEVER surfaces on the student
+    // UI. The flow the student sees is simply: nộp bài → chờ chấm →
+    // đã chấm. Gemini still grades in the background as a tool for the
+    // admin grade.html — it's just hidden here (Andy 2026-05-26).
+    //
+    //   pending/submitted/grading/graded/reviewed → "Chờ chấm" (neutral)
+    //   delivered                                  → "Đã chấm"  (success)
+    //   failed                                     → "Lỗi"      (error)
+    //   is_flagged (resolved separately in renderEssays, takes
+    //   precedence — a flagged essay carries status='delivered' with
+    //   no feedback row per migration 040) → "Bị đánh dấu" (warning)
     var STATUS_CONFIG = {
-      pending:   { text: '⏳ Chờ chấm',         pill: 'pill-gray',  clickable: false },
-      submitted: { text: '⏳ Chờ chấm',         pill: 'pill-gray',  clickable: false },
-      grading:   { text: '⏳ Đang chấm',        pill: 'pill-blue',  clickable: false },
-      graded:    { text: '📋 Đang xem lại',    pill: 'pill-amber', clickable: false },
-      reviewed:  { text: '📋 Đang xem lại',    pill: 'pill-amber', clickable: false },
-      delivered: { text: '✓ Đã nhận xét',      pill: 'pill-green', clickable: true  },
+      pending:   { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      submitted: { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      grading:   { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      graded:    { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      reviewed:  { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      delivered: { text: '✓ Đã chấm',  pill: 'pill-green', clickable: true  },
       failed:    { text: '⚠ Lỗi, liên hệ giảng viên', pill: 'pill-red', clickable: false },
+      // Synthetic key resolved when is_flagged === true (see renderEssays).
+      flagged:   { text: '⚠ Bị đánh dấu', pill: 'pill-amber', clickable: false },
     };
 
     var TASK_LABELS = {
@@ -319,7 +340,13 @@
       hide('filter-empty-state');
 
       list.innerHTML = filtered.map(function (e) {
-        var status = STATUS_CONFIG[e.status] || STATUS_CONFIG.pending;
+        // Deliverable 4 (Sprint 19.1A): is_flagged takes precedence over
+        // status. A flagged essay carries status='delivered' with no
+        // feedback row (migration 040), so without this precedence it
+        // would mislead the student as "Đã chấm".
+        var status = e.is_flagged
+          ? STATUS_CONFIG.flagged
+          : (STATUS_CONFIG[e.status] || STATUS_CONFIG.pending);
         var task   = TASK_LABELS[e.task_type] || 'Bài viết';
         var date   = formatDate(e.created_at);
 
@@ -329,60 +356,62 @@
         // Phase 2.2.1: emit ONLY data-essay-id + a11y attrs. The previous
         // approach inlined onclick="window.location.href=" + JSON.stringify(href)
         // which embedded a double-quoted JSON string inside the double-quoted
-        // onclick attribute. The browser parsed it as
-        //   onclick="window.location.href="   (truncated)
-        // followed by bogus attributes, then SyntaxError on first user click.
+        // onclick attribute, then SyntaxError'd on first user click.
         // Listeners attached after innerHTML (see attachEssayCardClickListeners)
         // compute the URL at click time so nothing is serialised into HTML.
-        var openAttrs = clickable
-          ? ' role="link" tabindex="0"'
-          : '';
+        var openAttrs = clickable ? ' role="link" tabindex="0"' : '';
 
         var arrow = clickable
-          ? '<span class="text-teal-light text-sm font-medium">Xem →</span>'
+          ? '<span class="essay-card__view">Xem →</span>'
           : '';
 
         var essayIdAttr = ' data-essay-id="' + escapeHtml(e.id) + '"';
 
-        // Phase 2.6: flagged essays carry no feedback row, just an
-        // explanation. Surface a pill on the card so the student
-        // doesn't tap through expecting band scores.
-        var flaggedPill = e.is_flagged
-          ? '<span class="pill pill-timed">⚠ Không chấm</span>'
-          : '';
-
-        // Sprint 2.5.5 — band-score pill on the footer line of every
-        // delivered card so the student sees the overall band at a
-        // glance without opening the result page.
+        // Sprint 2.5.5 — band-score pill on the footer of graded
+        // (delivered, non-flagged) cards so the student sees the overall
+        // band at a glance without opening the result page.
+        var isGraded = !e.is_flagged && e.status === 'delivered';
         var bandPill = '';
-        if (e.overall_band_score != null && e.status === 'delivered') {
+        if (e.overall_band_score != null && isGraded) {
           var bc = _bandClass(e.overall_band_score);
           bandPill = '<span class="essay-band-pill band-' + bc + '">' +
             'Band ' + escapeHtml(String(e.overall_band_score)) +
           '</span>';
         }
-        var footerLeft = bandPill;
-        var footerRight = arrow;
-        var hasFooter = footerLeft || footerRight;
+
+        // Deliverable 3 — explicit "tải bài đã chấm" (.docx) affordance on
+        // the history card. Only graded essays have a file to export.
+        // The download listener calls stopPropagation so the click never
+        // bubbles to the card's navigate handler.
+        var dlBtn = isGraded
+          ? '<button type="button" class="essay-dl-btn"' + essayIdAttr +
+              ' aria-label="Tải bài đã chấm định dạng Word">⬇ .docx</button>'
+          : '';
+
+        var footerLeft  = bandPill;
+        var hasFooter   = footerLeft || dlBtn || arrow;
 
         return (
           '<div class="' + cardClass + '"' + essayIdAttr + openAttrs + '>' +
             '<div class="flex items-center justify-between gap-3 mb-2">' +
               '<span class="text-xs text-gray-300 font-medium">' + escapeHtml(task) + ' · ' + escapeHtml(date) + '</span>' +
               '<div class="flex items-center gap-1">' +
-                flaggedPill +
                 '<span class="pill ' + status.pill + '">' + escapeHtml(status.text) + '</span>' +
               '</div>' +
             '</div>' +
             '<p class="text-sm text-gray-200 mb-2 line-clamp-2">' + escapeHtml(e.prompt_preview || '') + '</p>' +
             (hasFooter
-              ? '<div class="flex items-center justify-between gap-2 mt-1">' + footerLeft + footerRight + '</div>'
+              ? '<div class="flex items-center justify-between gap-2 mt-1">' +
+                  footerLeft +
+                  '<div class="essay-card__actions">' + dlBtn + arrow + '</div>' +
+                '</div>'
               : '') +
           '</div>'
         );
       }).join('');
 
       attachEssayCardClickListeners();
+      attachEssayDownloadListeners();
     }
 
     // Filter sub-tab wiring — re-renders from cached _allEssays so we
@@ -432,6 +461,61 @@
           }
         });
       });
+    }
+
+    // Deliverable 3 (Sprint 19.1A) — wire the per-card .docx download.
+    // stopPropagation keeps the click off the card's navigate handler.
+    function attachEssayDownloadListeners() {
+      document.querySelectorAll('.essay-dl-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          ev.preventDefault();
+          downloadEssayDocx(btn.getAttribute('data-essay-id'), btn);
+        });
+        // The button sits inside a role="link" card; Enter/Space on the
+        // button should download, not navigate.
+        btn.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.stopPropagation(); }
+        });
+      });
+    }
+
+    // Authenticated .docx fetch → blob download. Mirrors the result
+    // page's handleDownload; kept page-local (no shared util) to avoid
+    // touching api.js. The endpoint streams a Word file with a
+    // Content-Disposition filename we honour when present.
+    async function downloadEssayDocx(essayId, btn) {
+      if (!essayId) return;
+      var orig = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+      try {
+        var sb = getSupabase();
+        var session = (await sb.auth.getSession()).data.session;
+        if (!session) { window.location.href = '/login.html'; return; }
+        var url = window.api.base + '/api/writing/my-essays/' +
+          encodeURIComponent(essayId) + '/export.docx';
+        var res = await fetch(url, {
+          headers: { 'Authorization': 'Bearer ' + session.access_token },
+        });
+        if (!res.ok) {
+          var detail = '';
+          try { detail = (await res.json()).detail || ''; } catch (_) {}
+          throw new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+        }
+        var cd = res.headers.get('Content-Disposition') || '';
+        var m  = cd.match(/filename="([^"]+)"/);
+        var filename = m ? m[1] : ('essay_' + essayId + '.docx');
+        var blob = await res.blob();
+        var dl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = dl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(dl);
+      } catch (err) {
+        alert('Lỗi tải file: ' + ((err && err.message) || 'không xác định'));
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      }
     }
 
     // ── Sprint 2.6.1 — submit-modal state ───────────────────────────
@@ -497,6 +581,67 @@
       essayBtn.classList.toggle('active',  tab === 'essays');
       document.getElementById('content-assignments').classList.toggle('hidden', tab !== 'assignments');
       document.getElementById('content-essays').classList.toggle('hidden',      tab !== 'essays');
+    }
+
+    // ── Deliverable 2 (Sprint 19.1A) — deadline surface ─────────────
+    // Maps a deadline ISO to { urgency, label }. Thresholds chosen per
+    // common task-management UX: overdue (past), urgent (<24h), soon
+    // (<72h / 3 days), normal (≥72h). urgency drives the colour cue.
+    function formatDeadline(iso) {
+      if (!iso) return null;
+      var t = new Date(iso).getTime();
+      if (isNaN(t)) return null;
+      var diffHrs = (t - Date.now()) / 3600000;
+      if (diffHrs < 0) {
+        var od = Math.floor(-diffHrs / 24);
+        return { urgency: 'overdue', label: od >= 1 ? 'Quá hạn ' + od + ' ngày' : 'Quá hạn hôm nay' };
+      }
+      if (diffHrs < 24) {
+        var h = Math.max(1, Math.round(diffHrs));
+        return { urgency: 'urgent', label: 'Còn ' + h + ' giờ' };
+      }
+      var days = Math.ceil(diffHrs / 24);
+      return { urgency: diffHrs < 72 ? 'soon' : 'normal', label: 'Còn ' + days + ' ngày' };
+    }
+
+    // Renders the "Bài sắp đến hạn" surface from the active assignments
+    // that have a deadline, sorted soonest-first. Each row reuses the
+    // submit-modal entry point so the student can jump straight in.
+    function renderDeadlines(assignments) {
+      var surface = document.getElementById('deadlines-surface');
+      var list    = document.getElementById('deadlines-list');
+      if (!surface || !list) return;
+
+      var withDeadline = (assignments || [])
+        .filter(function (a) { return a.deadline; })
+        .sort(function (a, b) { return new Date(a.deadline) - new Date(b.deadline); });
+
+      if (withDeadline.length === 0) {
+        surface.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+      }
+      surface.classList.remove('hidden');
+
+      list.innerHTML = withDeadline.map(function (a) {
+        var prompt = a.writing_prompts || {};
+        var dl = formatDeadline(a.deadline) || { urgency: 'normal', label: '' };
+        return (
+          '<button type="button" class="wd-deadline-row wd-deadline-row--' + dl.urgency + '"' +
+              ' data-assignment-id="' + escapeHtml(a.id) + '">' +
+            '<span class="wd-deadline-row__dot" aria-hidden="true"></span>' +
+            '<span class="wd-deadline-row__title">' + escapeHtml(prompt.title || '(Đề bài)') + '</span>' +
+            '<span class="wd-deadline-row__when">' + escapeHtml(dl.label) + '</span>' +
+          '</button>'
+        );
+      }).join('');
+
+      list.querySelectorAll('.wd-deadline-row').forEach(function (row) {
+        row.addEventListener('click', function () {
+          var id = row.getAttribute('data-assignment-id');
+          if (id) openSubmitModal(id);
+        });
+      });
     }
 
     function renderAssignments(assignments) {
@@ -880,7 +1025,10 @@
             + '\n\nNếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
           );
         } else if (!force) {
-          alert('✓ Đã nộp bài. Em sẽ nhận kết quả sớm.');
+          // Deliverable 4: confirmation frames the workflow as
+          // "submit → instructor reviews → returns" with no mention of
+          // the AI grading step running in the background.
+          alert('✓ Đã gửi bài thành công! Giảng viên sẽ duyệt và trả bài trong 24–48 tiếng.');
         }
 
         closeModal();
@@ -921,6 +1069,7 @@
         var countEl = document.getElementById('assignments-count');
         countEl.textContent = active.length ? '(' + active.length + ')' : '';
 
+        renderDeadlines(active);
         renderAssignments(active);
       } catch (err) {
         // Soft-fail — the assignments tab can be empty without

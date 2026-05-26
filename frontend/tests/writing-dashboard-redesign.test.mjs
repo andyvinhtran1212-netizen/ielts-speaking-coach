@@ -395,7 +395,9 @@ describe('writing-dashboard.html / color migration', () => {
       'Bài đã nộp',
       'Tất cả',
       'Đã chấm',
-      'Đang chấm',
+      // Sprint 19.1A (Deliverable 4): the AI-exposing "Đang chấm" /
+      // "Đang xem lại" labels were collapsed into the neutral "Chờ chấm".
+      'Chờ chấm',
       'Bị đánh dấu',
       'Em chưa có bài giao nào',
       'Em chưa có bài viết nào',
@@ -591,6 +593,68 @@ describe('writing-dashboard.css / Sprint 6.5.1 utility override pattern', () => 
     assert.match(
       css,
       /body\.av-page\s+\.border-white\\\/10\s*\{[^}]*border-color\s*:\s*var\(--av-/,
+    );
+  });
+});
+
+
+// ── Sprint 19.1A — user-facing refinement contract ────────────────────
+
+
+describe('writing-dashboard / Sprint 19.1A refinement', () => {
+  test('D4: STATUS_CONFIG collapses pre-delivered states to neutral "Chờ chấm"', () => {
+    const m = html.match(/var\s+STATUS_CONFIG\s*=\s*\{([\s\S]*?)\};/);
+    assert.ok(m, 'STATUS_CONFIG must exist');
+    const body = m[1];
+    // grading / graded / reviewed must NOT surface AI-lifecycle copy.
+    assert.ok(!/Đang chấm/.test(body), 'must not expose "Đang chấm"');
+    assert.ok(!/Đang xem lại/.test(body), 'must not expose "Đang xem lại"');
+    // delivered stays the single clickable success state.
+    assert.match(body, /delivered\s*:\s*\{[^}]*clickable:\s*true/);
+  });
+
+  test('D4: a flagged synthetic state exists + is resolved before status', () => {
+    assert.match(html, /flagged\s*:\s*\{[^}]*Bị đánh dấu/);
+    assert.match(html, /e\.is_flagged\s*\n?\s*\?\s*STATUS_CONFIG\.flagged/);
+  });
+
+  test('D4: submit confirmation does not mention AI grading', () => {
+    const m = html.match(/Đã gửi bài thành công[^']*/);
+    assert.ok(m, 'new confirmation copy must exist');
+    assert.ok(!/AI|Gemini|chấm tự động/i.test(m[0]), 'confirmation must not expose AI');
+  });
+
+  test('D2: deadlines surface markup + render path present', () => {
+    assert.match(html, /id="deadlines-surface"/);
+    assert.match(html, /id="deadlines-list"/);
+    assert.match(html, /function\s+renderDeadlines\s*\(/);
+    assert.match(html, /function\s+formatDeadline\s*\(/);
+    assert.match(html, /renderDeadlines\(active\)/);
+  });
+
+  test('D3: per-card .docx download affordance wired', () => {
+    assert.match(html, /class="essay-dl-btn"/);
+    assert.match(html, /function\s+downloadEssayDocx\s*\(/);
+    assert.match(html, /function\s+attachEssayDownloadListeners\s*\(/);
+    assert.match(html, /export\.docx/);
+  });
+
+  test('D1/D2/D3/D4: new component classes declared in CSS', () => {
+    for (const cls of [
+      '.pill-wait',
+      '.wd-deadlines',
+      '.wd-deadline-row',
+      '.essay-dl-btn',
+      '.wd-empty',
+    ]) {
+      assert.ok(css.includes(cls), `${cls} must be declared in writing-dashboard.css`);
+    }
+  });
+
+  test('CSS additions stay on the 4px scale (no skipped --av-space steps)', () => {
+    assert.ok(
+      !/var\(--av-space-(5|7|9|10|11|13|14|15)\)/.test(css),
+      'new CSS must use allowed 4px-scale steps only',
     );
   });
 });
