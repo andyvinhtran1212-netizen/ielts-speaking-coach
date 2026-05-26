@@ -10,8 +10,17 @@
  * Scope: the genuinely-shared components only. Page-specific layout (shells,
  * headers, toolbars, filters, grids, charts, nav-hub cards) stays in each
  * page's own (reduced) <style> block. Consumers: access-codes, usage,
- * foot-traffic, cohorts, dashboard. Students migrates in Sprint 18.3.1.
+ * foot-traffic, cohorts, dashboard. Students migrates in Sprint 18.3.2.
  */
+
+/* ── Box model (Sprint 18.3.1) ──────────────────────────────────────── */
+/* The main-app pages (home.css / vocabulary.css / writing-result.css) each
+   set border-box, but the admin pages never did — so width:100% + padding
+   overflowed the viewport (the access-codes "+ Tạo mã mới" clip + dashboard
+   tile overflow Andy reported). Match the app-wide standard. Only admin pages
+   link this file, and the Shadow-DOM chrome is unaffected by a light-DOM
+   selector, so the reset is safely scoped to slotted admin content. */
+*, *::before, *::after { box-sizing: border-box; }
 
 /* ── Tables ─────────────────────────────────────────────────────────── */
 .adm-table-wrap {
@@ -19,6 +28,7 @@
   border-radius: var(--av-radius-md);
   background: var(--av-surface-card);
   overflow-x: auto;
+  max-width: 100%;   /* wide tables scroll inside the wrap, never push the page */
 }
 table.adm-table { width: 100%; border-collapse: collapse; }
 table.adm-table th, table.adm-table td {
@@ -97,7 +107,7 @@ th.adm-sortable:hover { color: var(--av-text-primary); }
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-md);
   background: var(--av-surface-card);
-  min-width: 140px;
+  min-width: 140px;   /* flex-wrap stat tiles (usage / foot-traffic) keep a sane min size */
 }
 .adm-card-num {
   font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold);
