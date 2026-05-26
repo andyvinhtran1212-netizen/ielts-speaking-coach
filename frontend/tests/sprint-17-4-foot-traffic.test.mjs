@@ -70,8 +70,10 @@ describe('Sprint 17.4 — admin foot-traffic dashboard', () => {
 });
 
 describe('Sprint 17.4 — nav', () => {
-  test('foot-traffic in VALID_ACTIVE + a nav item', () => {
-    assert.match(CHROME, /'foot-traffic'/);
-    assert.match(CHROME, /section:\s*'foot-traffic'[\s\S]*?foot-traffic\/index\.html/);
+  // Sprint 18.2 folded "Lưu lượng" into the Dashboard as a drill-down: the
+  // standalone nav item is gone, but the section stays in VALID_ACTIVE so the
+  // foot-traffic page still resolves (deep link + dashboard "Xem chi tiết").
+  test('foot-traffic stays in VALID_ACTIVE for drill-down resolution', () => {
+    assert.match(CHROME, /VALID_ACTIVE = \[[\s\S]*?'foot-traffic'[\s\S]*?\]/);
   });
 });

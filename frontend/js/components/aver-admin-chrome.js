@@ -41,7 +41,7 @@ import { bindToggleButton } from '/js/theme-toggle.js';
 
 
 const VALID_ACTIVE = [
-  'overview',
+  'overview', 'dashboard',
   'speaking', 'writing', 'listening', 'vocab', 'grammar',
   'students', 'users', 'cohorts',
   'access-codes', 'usage', 'foot-traffic',
@@ -350,7 +350,10 @@ const NAV_GROUPS = [
   {
     title: null,  // ungrouped top of sidebar
     items: [
-      { section: 'overview', label: 'Tổng quan', href: '/pages/admin/index.html', icon: 'home' },
+      { section: 'overview',  label: 'Tổng quan', href: '/pages/admin/index.html', icon: 'home' },
+      // Sprint 18.2 — new ops Dashboard (6-metric overview); consolidates the
+      // Usage / Lưu lượng / Hệ thống surfaces as drill-downs.
+      { section: 'dashboard', label: 'Dashboard',  href: '/pages/admin/dashboard/index.html', icon: 'activity' },
     ],
   },
   {
@@ -412,20 +415,16 @@ const NAV_GROUPS = [
     title: 'Truy cập',
     items: [
       { section: 'access-codes', label: 'Mã kích hoạt', href: '/pages/admin/access-codes/index.html', icon: 'key' },
-      { section: 'usage',        label: 'Usage logs',   href: '/pages/admin/usage/index.html',        icon: 'activity' },
-      { section: 'foot-traffic', label: 'Lưu lượng',    href: '/pages/admin/foot-traffic/index.html', icon: 'activity' },
+      // Sprint 18.2 — "Usage logs" + "Lưu lượng" folded into the Dashboard as
+      // drill-downs. Pages remain reachable + in VALID_ACTIVE for deep links.
     ],
   },
   {
     title: null,
     items: [
       { section: 'error-logs', label: 'Báo lỗi',   href: '/pages/admin/error-logs/index.html', icon: 'alert' },
-      { section: 'system',     label: 'Hệ thống',  href: '/pages/admin/system/index.html',      icon: 'settings',
-        subsections: [
-          { slug: 'ai-usage', label: 'AI Usage', href: '/pages/admin/system/ai-usage.html' },
-          { slug: 'alerts',   label: 'Alerts',   href: '/pages/admin/system/alerts.html' },
-        ],
-      },
+      // Sprint 18.2 — "Hệ thống" folded into the Dashboard (AI Usage is the
+      // cost-card drill-down). system / ai-usage / alerts stay in VALID_ACTIVE.
     ],
   },
 ];

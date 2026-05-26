@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from config import settings
 from database import supabase_admin
+from services import admin_dashboard
 from services.access_code_permissions import validate_permissions_or_raise
 from routers.auth import get_supabase_user
 from services.gemini import (
@@ -1161,6 +1162,21 @@ async def foot_traffic(
         "top_pages": top_pages,
         "daily": daily_series,
     }
+
+
+# ── Sprint 18.2 — GET /admin/dashboard/overview (ops metrics) ────────────────────
+
+@router.get("/dashboard/overview")
+async def dashboard_overview(
+    authorization: str | None = Header(default=None),
+    visitors_window: int = 30,
+):
+    """6-metric operational overview for the admin Dashboard. `visitors_window`
+    (days) drives the distinct-visitors metric (7/30/90; defaults to 30 on any
+    other value). One query per metric; Pattern #29 — a partial outage yields a
+    NULL metric, never a 500."""
+    await require_admin(authorization)
+    return admin_dashboard.compute_dashboard_overview(visitors_window_days=visitors_window)
 
 
 # ── PATCH /admin/access-codes/{code_id} ───────────────────────────────────────
