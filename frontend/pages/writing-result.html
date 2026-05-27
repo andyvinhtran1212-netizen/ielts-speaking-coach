@@ -47,6 +47,11 @@
   <!-- Sprint 19.3.5 — Task 1 Academic chart display + lightbox. -->
   <link rel="stylesheet" href="/css/image-lightbox.css" />
   <script src="/js/image-lightbox.js" defer></script>
+  <!-- Sprint 19.4 — markdown render for the tips-recommendation modal. -->
+  <link rel="stylesheet" href="/css/markdown.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
 
   <!-- Lucide icons (line glyphs replacing legacy ← back-arrow / ⬇ download / 🖨 print) -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
@@ -131,6 +136,12 @@
         <button id="btn-print" class="btn-icon" title="In bài viết">
           <i data-lucide="printer"></i> In
         </button>
+        <!-- Sprint 19.4 — student re-grade request (shown only on a
+             delivered essay with no existing request; state set in JS). -->
+        <button id="btn-regrade-request" class="btn-icon hidden" title="Yêu cầu giảng viên chấm lại bài này">
+          <i data-lucide="rotate-ccw"></i> Yêu cầu chấm lại
+        </button>
+        <span id="regrade-status" class="regrade-status hidden"></span>
       </div>
     </header>
 
@@ -250,6 +261,39 @@
         </section>
       </div>
     </main>
+
+    <!-- Sprint 19.4 (D6) — related writing tips, below the feedback. -->
+    <section id="tips-reco" class="tips-reco hidden">
+      <header class="section-header"><h2>💡 Mẹo viết liên quan</h2></header>
+      <div id="tips-reco-list" class="tips-reco__list"></div>
+    </section>
+  </div>
+
+  <!-- Sprint 19.4 — re-grade request modal -->
+  <div id="regrade-modal" class="wr-modal hidden" role="dialog" aria-modal="true" aria-labelledby="regrade-modal-title">
+    <div class="wr-modal__backdrop" id="regrade-modal-backdrop"></div>
+    <div class="wr-modal__panel">
+      <h2 id="regrade-modal-title" class="wr-modal__title">Yêu cầu chấm lại</h2>
+      <p class="wr-modal__hint">Có gì chưa hài lòng với bài chấm? Em nêu rõ lý do để giảng viên xem lại (50–500 ký tự).</p>
+      <textarea id="regrade-reason" class="wr-modal__textarea" rows="5" maxlength="500"
+                placeholder="VD: Em nghĩ phần Task Response chưa được đánh giá đúng vì…"></textarea>
+      <div class="wr-modal__meta"><span id="regrade-count">0</span> / 500 · tối thiểu 50</div>
+      <div id="regrade-error" class="wr-modal__error hidden"></div>
+      <div class="wr-modal__actions">
+        <button id="regrade-cancel" type="button" class="btn-icon">Hủy</button>
+        <button id="regrade-submit" type="button" class="btn-icon btn-icon--primary" disabled>Gửi yêu cầu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sprint 19.4 — tip detail modal (reco cards open this) -->
+  <div id="tip-reco-modal" class="wr-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tip-reco-title">
+    <div class="wr-modal__backdrop" id="tip-reco-backdrop"></div>
+    <div class="wr-modal__panel wr-modal__panel--wide">
+      <button id="tip-reco-close" type="button" class="wr-modal__close" aria-label="Đóng">✕</button>
+      <h2 id="tip-reco-title" class="wr-modal__title"></h2>
+      <div id="tip-reco-body" class="md-body"></div>
+    </div>
   </div>
 
   <!-- Supabase + API helpers -->
@@ -507,6 +551,127 @@
       }
 
       showState('state-ready');
+
+      // Sprint 19.4 — regrade-request state + related tips (best-effort).
+      loadRegradeState();
+      loadTipsReco(essay.task_type);
+    }
+
+    // ── Sprint 19.4 (D4) — re-grade request ──────────────────────────
+    function _setRegradeStatus(text) {
+      var el = document.getElementById('regrade-status');
+      el.textContent = text || '';
+      el.classList.toggle('hidden', !text);
+    }
+
+    async function loadRegradeState() {
+      var btn = document.getElementById('btn-regrade-request');
+      btn.classList.add('hidden');
+      _setRegradeStatus('');
+      try {
+        var data = await window.api.get(
+          '/api/writing/essays/' + encodeURIComponent(essayId) + '/regrade-request');
+        var req = data && data.request;
+        if (!req) {
+          btn.classList.remove('hidden');           // no request yet → offer it
+        } else if (req.status === 'pending') {
+          _setRegradeStatus('⏳ Đã gửi yêu cầu chấm lại — chờ giảng viên phản hồi.');
+        } else if (req.status === 'rejected') {
+          _setRegradeStatus('Yêu cầu chấm lại bị từ chối: ' + (req.admin_response || '—'));
+        } else if (req.status === 'fulfilled') {
+          _setRegradeStatus('✓ Bài đã được chấm lại theo yêu cầu của em.');
+        }
+      } catch (err) {
+        // Soft-fail: the page is still fully usable without the button.
+        if (window.console) console.warn('[regrade] state check failed', err);
+      }
+    }
+
+    function openRegradeModal() {
+      document.getElementById('regrade-reason').value = '';
+      document.getElementById('regrade-count').textContent = '0';
+      document.getElementById('regrade-submit').disabled = true;
+      document.getElementById('regrade-error').classList.add('hidden');
+      document.getElementById('regrade-modal').classList.remove('hidden');
+      document.getElementById('regrade-reason').focus();
+    }
+    function closeRegradeModal() {
+      document.getElementById('regrade-modal').classList.add('hidden');
+    }
+
+    async function submitRegrade() {
+      var reason = document.getElementById('regrade-reason').value.trim();
+      var errEl = document.getElementById('regrade-error');
+      if (reason.length < 50) { errEl.textContent = 'Vui lòng nhập tối thiểu 50 ký tự.'; errEl.classList.remove('hidden'); return; }
+      var submit = document.getElementById('regrade-submit');
+      submit.disabled = true;
+      errEl.classList.add('hidden');
+      try {
+        await window.api.post(
+          '/api/writing/essays/' + encodeURIComponent(essayId) + '/regrade-request',
+          { reason: reason });
+        closeRegradeModal();
+        document.getElementById('btn-regrade-request').classList.add('hidden');
+        _setRegradeStatus('⏳ Đã gửi yêu cầu chấm lại — chờ giảng viên phản hồi.');
+      } catch (err) {
+        errEl.textContent = (err && err.message) || 'Không gửi được yêu cầu.';
+        errEl.classList.remove('hidden');
+        submit.disabled = false;
+      }
+    }
+
+    // ── Sprint 19.4 (D6) — related tips below the feedback ───────────
+    // Essays use task1_academic/task1_general/task2; tips use
+    // task_1/task_2/both. Map + always include 'both' (cluster 19.5 will
+    // reconcile the two task_type vocabularies).
+    function _essayTaskToTipTask(t) {
+      if (t === 'task2') return 'task_2';
+      if (t === 'task1_academic' || t === 'task1_general') return 'task_1';
+      return null;
+    }
+
+    async function loadTipsReco(taskType) {
+      var section = document.getElementById('tips-reco');
+      var list = document.getElementById('tips-reco-list');
+      var want = _essayTaskToTipTask(taskType);
+      try {
+        var data = await window.api.get('/api/writing/tips');
+        var all = (data && data.tips) || [];
+        var matched = all.filter(function (t) {
+          return t.task_type === want || t.task_type === 'both';
+        }).slice(0, 3);
+        if (!matched.length) { section.classList.add('hidden'); return; }
+        _tipsRecoCache = {};
+        list.innerHTML = matched.map(function (t) {
+          _tipsRecoCache[t.id] = t;
+          return '<button type="button" class="tips-reco__card" data-tip-id="' + escapeHtml(t.id) + '">' +
+            '<span class="tips-reco__card-title">' + escapeHtml(t.title || '(Mẹo viết)') + '</span>' +
+            '<span class="tips-reco__card-preview">' + escapeHtml(_recoPreview(t.body_markdown)) + '</span>' +
+          '</button>';
+        }).join('');
+        list.querySelectorAll('.tips-reco__card').forEach(function (card) {
+          card.addEventListener('click', function () { openTipRecoModal(_tipsRecoCache[card.getAttribute('data-tip-id')]); });
+        });
+        section.classList.remove('hidden');
+      } catch (err) {
+        section.classList.add('hidden');  // best-effort
+      }
+    }
+
+    var _tipsRecoCache = {};
+    function _recoPreview(md) {
+      var t = String(md || '').replace(/[#>*_`~\-]/g, ' ').replace(/\s+/g, ' ').trim();
+      return t.length > 110 ? t.slice(0, 110).trim() + '…' : t;
+    }
+    function openTipRecoModal(tip) {
+      if (!tip) return;
+      document.getElementById('tip-reco-title').textContent = tip.title || '';
+      document.getElementById('tip-reco-body').innerHTML =
+        window.renderMarkdown ? window.renderMarkdown(tip.body_markdown) : '';
+      document.getElementById('tip-reco-modal').classList.remove('hidden');
+    }
+    function closeTipRecoModal() {
+      document.getElementById('tip-reco-modal').classList.add('hidden');
     }
 
     // ── Download .docx ───────────────────────────────────────────
@@ -560,6 +725,24 @@
     wireTabs();
     document.getElementById('btn-download').addEventListener('click', handleDownload);
     document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+
+    // Sprint 19.4 — regrade modal + tip-reco modal wiring.
+    document.getElementById('btn-regrade-request').addEventListener('click', openRegradeModal);
+    document.getElementById('regrade-cancel').addEventListener('click', closeRegradeModal);
+    document.getElementById('regrade-modal-backdrop').addEventListener('click', closeRegradeModal);
+    document.getElementById('regrade-submit').addEventListener('click', submitRegrade);
+    document.getElementById('regrade-reason').addEventListener('input', function (e) {
+      var n = e.target.value.trim().length;
+      document.getElementById('regrade-count').textContent = e.target.value.length;
+      document.getElementById('regrade-submit').disabled = n < 50;
+    });
+    document.getElementById('tip-reco-close').addEventListener('click', closeTipRecoModal);
+    document.getElementById('tip-reco-backdrop').addEventListener('click', closeTipRecoModal);
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape') return;
+      if (!document.getElementById('regrade-modal').classList.contains('hidden')) closeRegradeModal();
+      if (!document.getElementById('tip-reco-modal').classList.contains('hidden')) closeTipRecoModal();
+    });
 
     // Load when ready (api.js boot may set up auth-session listener).
     if (document.readyState === 'loading') {

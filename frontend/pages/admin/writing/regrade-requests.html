@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Yêu cầu chấm lại — Writing Coach Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: {
+      sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+      mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+    } } } };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/admin-writing.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+</head>
+<body class="av-page font-sans antialiased min-h-screen">
+  <aver-admin-chrome active="writing" subsection="regrade-requests">
+  <div class="max-w-5xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-2">
+        <span class="aw-brand text-xl font-bold">Aver<span class="aw-brand__accent">Learning</span></span>
+        <span class="aw-subtitle text-sm hidden md:inline">— Yêu cầu chấm lại</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/admin.html" class="aw-back-link text-sm">← Admin home</a>
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <h1 class="aw-h1 text-2xl font-semibold mb-1 flex items-center gap-2">
+      <span aria-hidden="true">🔄</span> Yêu cầu chấm lại
+    </h1>
+    <p class="aw-subtitle text-sm mb-6">Học viên yêu cầu chấm lại bài đã trả. Đồng ý → bài về trạng thái chờ duyệt để chấm lại; từ chối → kèm lý do.</p>
+
+    <div class="flex flex-wrap gap-1 mb-4">
+      <button class="aw-filter-btn aw-filter-btn--active" data-status="pending">Đang chờ</button>
+      <button class="aw-filter-btn" data-status="accepted">Đã chấp nhận</button>
+      <button class="aw-filter-btn" data-status="rejected">Đã từ chối</button>
+      <button class="aw-filter-btn" data-status="fulfilled">Đã xong</button>
+      <button class="aw-filter-btn" data-status="">Tất cả</button>
+    </div>
+
+    <div id="state-loading" class="aw-state-loading text-center py-10">Đang tải…</div>
+    <div id="state-error"   class="aw-state-error hidden text-sm"></div>
+    <div id="state-empty"   class="aw-state-empty hidden text-center py-10">Không có yêu cầu nào.</div>
+    <div id="requests-list" class="space-y-3 hidden"></div>
+  </div>
+
+  <!-- Detail / action modal -->
+  <div id="modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div class="aw-modal-panel max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="aw-modal-title text-lg font-semibold">Yêu cầu chấm lại</h2>
+        <button id="btn-close-modal" type="button" class="aw-modal-close text-2xl leading-none" aria-label="Close">&times;</button>
+      </div>
+      <div id="modal-body" class="space-y-3 text-sm"></div>
+      <div id="reject-box" class="hidden mt-4">
+        <label class="aw-form-label">Lý do từ chối <span class="aw-form-label__required">*</span></label>
+        <textarea id="reject-response" class="aw-input" placeholder="Giải thích ngắn gọn cho học viên…"></textarea>
+      </div>
+      <div id="modal-error" class="aw-upload-error hidden mt-3 text-sm"></div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button id="btn-reject"  type="button" class="aw-btn-danger">Từ chối</button>
+        <button id="btn-accept"  type="button" class="aw-btn-primary">Đồng ý chấm lại</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    'use strict';
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    var TASK_LABELS = { task1_academic: 'Task 1 Academic', task1_general: 'Task 1 General', task2: 'Task 2' };
+    var STATUS_LABELS = {
+      pending:   '⏳ Đang chờ', accepted: '✓ Đã chấp nhận',
+      rejected:  '✕ Đã từ chối', fulfilled: '✅ Đã chấm lại xong',
+    };
+
+    var _all = [];
+    var _statusFilter = 'pending';
+    var _rejectMode = false;
+    var _activeId = null;
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+      });
+    }
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      var d = new Date(iso);
+      return isNaN(d) ? '—' : d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function load() {
+      hide('state-error'); hide('state-empty'); hide('requests-list');
+      show('state-loading');
+      var qs = _statusFilter ? ('?status=' + _statusFilter) : '';
+      try {
+        var data = await window.api.get('/admin/writing/regrade-requests' + qs);
+        _all = (data && data.requests) || [];
+        render();
+      } catch (err) {
+        hide('state-loading');
+        document.getElementById('state-error').textContent = 'Lỗi tải: ' + (err.message || 'không xác định');
+        show('state-error');
+      }
+    }
+
+    function render() {
+      hide('state-loading');
+      var list = document.getElementById('requests-list');
+      if (!_all.length) { list.innerHTML = ''; show('state-empty'); return; }
+      hide('state-empty');
+      list.innerHTML = _all.map(function (r) {
+        var cohort = r.cohort_name ? ' · ' + escapeHtml(r.cohort_name) : '';
+        return ''
+          + '<div class="aw-prompt-row" data-id="' + escapeHtml(r.id) + '">'
+          +   '<div class="flex items-start justify-between gap-3 mb-1">'
+          +     '<h3 class="aw-prompt-row__title font-semibold">' + escapeHtml(r.student_name || '—') + cohort + '</h3>'
+          +     '<span class="aw-pill">' + escapeHtml(STATUS_LABELS[r.status] || r.status) + '</span>'
+          +   '</div>'
+          +   '<p class="aw-meta-line">' + escapeHtml(TASK_LABELS[r.essay_task_type] || r.essay_task_type || '') + ' · '
+          +     escapeHtml(r.essay_prompt || '') + (r.essay_band != null ? ' · Band ' + escapeHtml(String(r.essay_band)) : '') + '</p>'
+          +   '<p class="aw-prompt-row__body text-sm mt-1">' + escapeHtml(r.reason || '') + '</p>'
+          +   '<div class="flex items-center justify-between flex-wrap gap-2 mt-2">'
+          +     '<span class="aw-meta-line">' + fmtDate(r.created_at) + '</span>'
+          +     '<button type="button" class="aw-btn-secondary" data-detail="' + escapeHtml(r.id) + '">Chi tiết</button>'
+          +   '</div>'
+          + '</div>';
+      }).join('');
+      show('requests-list');
+      list.querySelectorAll('[data-detail]').forEach(function (b) {
+        b.addEventListener('click', function () { openDetail(b.getAttribute('data-detail')); });
+      });
+    }
+
+    function openDetail(id) {
+      var r = _all.find(function (x) { return x.id === id; });
+      if (!r) return;
+      _activeId = id;
+      _rejectMode = false;
+      var pending = r.status === 'pending';
+      document.getElementById('modal-body').innerHTML = ''
+        + '<p><strong>Học viên:</strong> ' + escapeHtml(r.student_name || '—') + (r.cohort_name ? ' (' + escapeHtml(r.cohort_name) + ')' : '') + '</p>'
+        + '<p><strong>Bài viết:</strong> ' + escapeHtml(TASK_LABELS[r.essay_task_type] || '') + ' — ' + escapeHtml(r.essay_prompt || '')
+        +   (r.essay_band != null ? ' · Band ' + escapeHtml(String(r.essay_band)) : '') + '</p>'
+        + '<p><a class="aw-back-link" href="/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(r.essay_id) + '">→ Mở bài trong trang chấm</a></p>'
+        + '<p><strong>Lý do của học viên:</strong></p>'
+        + '<p class="aw-prompt-row__body">' + escapeHtml(r.reason || '') + '</p>'
+        + (r.admin_response ? '<p><strong>Phản hồi của bạn:</strong> ' + escapeHtml(r.admin_response) + '</p>' : '');
+      document.getElementById('reject-box').classList.add('hidden');
+      document.getElementById('reject-response').value = '';
+      hide('modal-error');
+      // Action buttons only for pending requests.
+      document.getElementById('btn-accept').style.display = pending ? '' : 'none';
+      document.getElementById('btn-reject').style.display = pending ? '' : 'none';
+      show('modal');
+    }
+    function closeModal() { hide('modal'); }
+
+    async function action(act) {
+      var payload = { action: act };
+      if (act === 'reject') {
+        if (!_rejectMode) {  // first click reveals the response box
+          _rejectMode = true;
+          document.getElementById('reject-box').classList.remove('hidden');
+          document.getElementById('reject-response').focus();
+          return;
+        }
+        var resp = document.getElementById('reject-response').value.trim();
+        if (!resp) { var e = document.getElementById('modal-error'); e.textContent = 'Vui lòng nhập lý do từ chối.'; show('modal-error'); return; }
+        payload.response = resp;
+      }
+      try {
+        await window.api.patch('/admin/writing/regrade-requests/' + _activeId, payload);
+        closeModal();
+        await load();
+        loadBadge();
+      } catch (err) {
+        var box = document.getElementById('modal-error');
+        box.textContent = 'Lỗi: ' + (err.message || 'không xác định');
+        show('modal-error');
+      }
+    }
+
+    // Nav badge count of pending requests.
+    async function loadBadge() {
+      try {
+        var data = await window.api.get('/admin/writing/regrade-requests?status=pending');
+        var n = ((data && data.requests) || []).length;
+        var navEl = document.querySelector('[data-subsection="regrade-requests"]');
+        // best-effort: append count to the nav label if the chrome exposes it
+        if (navEl && n) navEl.setAttribute('data-badge', String(n));
+      } catch (e) { /* best-effort */ }
+    }
+
+    document.querySelectorAll('[data-status]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        _statusFilter = btn.getAttribute('data-status');
+        document.querySelectorAll('[data-status]').forEach(function (b) { b.classList.toggle('aw-filter-btn--active', b === btn); });
+        load();
+      });
+    });
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+    document.getElementById('btn-accept').addEventListener('click', function () { action('accept'); });
+    document.getElementById('btn-reject').addEventListener('click', function () { action('reject'); });
+
+    load();
+  </script>
+
+  <script>
+    (function () {
+      function hydrateIcons() { if (window.lucide && window.lucide.createIcons) window.lucide.createIcons(); }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var cur = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = cur === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { hydrateIcons(); bindToggleButton(); });
+      else { hydrateIcons(); bindToggleButton(); }
+      window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>

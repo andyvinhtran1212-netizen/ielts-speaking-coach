@@ -427,3 +427,90 @@ main.result-content {
   .btn-icon { transition: none; }
   html { scroll-behavior: auto; }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════
+ * Sprint 19.4 — re-grade request + tips recommendation (student).
+ * All on --av-* tokens; refined minimalism per the cluster baseline.
+ * ════════════════════════════════════════════════════════════════════ */
+
+.regrade-status {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  align-self: center;
+}
+.btn-icon--primary {
+  background: var(--av-primary);
+  color: var(--av-text-on-primary);
+  border-color: var(--av-primary);
+}
+.btn-icon--primary:hover { background: var(--av-primary-hover); }
+.btn-icon[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Centred modal (regrade + tip detail) ──────────────────────────── */
+.wr-modal {
+  position: fixed; inset: 0; z-index: var(--av-z-modal, 1000);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--av-space-4);
+}
+.wr-modal.hidden { display: none; }
+.wr-modal__backdrop { position: absolute; inset: 0; background: var(--av-surface-overlay); backdrop-filter: blur(2px); }
+.wr-modal__panel {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 32rem;
+  max-height: 85vh; overflow-y: auto;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  box-shadow: var(--av-shadow-xl);
+  padding: var(--av-space-6);
+}
+.wr-modal__panel--wide { max-width: 44rem; }
+.wr-modal__title { margin: 0 0 var(--av-space-2); font-size: var(--av-fs-xl); font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+.wr-modal__hint { margin: 0 0 var(--av-space-3); font-size: var(--av-fs-sm); color: var(--av-text-secondary); line-height: var(--av-lh-normal); }
+.wr-modal__textarea {
+  width: 100%; box-sizing: border-box;
+  background: var(--av-surface-page);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  color: var(--av-text-primary);
+  font-family: var(--av-font-sans); font-size: var(--av-fs-sm);
+  padding: var(--av-space-3); resize: vertical;
+}
+.wr-modal__textarea:focus { outline: none; border-color: var(--av-primary); }
+.wr-modal__meta { margin-top: var(--av-space-1); font-size: var(--av-fs-xs); color: var(--av-text-muted); font-family: var(--av-font-mono); text-align: right; }
+.wr-modal__error { margin-top: var(--av-space-2); font-size: var(--av-fs-sm); color: var(--av-error); }
+.wr-modal__actions { display: flex; justify-content: flex-end; gap: var(--av-space-2); margin-top: var(--av-space-4); }
+.wr-modal__close {
+  position: absolute; top: var(--av-space-3); right: var(--av-space-3);
+  width: 2rem; height: 2rem; border-radius: var(--av-radius-pill);
+  border: 1px solid var(--av-border-default); background: var(--av-surface-card);
+  color: var(--av-text-secondary); cursor: pointer;
+}
+
+/* ── Tips recommendation section ───────────────────────────────────── */
+.tips-reco {
+  max-width: 920px; margin: 0 auto;
+  padding: 0 var(--av-space-8) var(--av-space-16);
+}
+.tips-reco.hidden { display: none; }
+.tips-reco__list { display: flex; flex-direction: column; gap: var(--av-space-2); }
+.tips-reco__card {
+  display: flex; flex-direction: column; gap: var(--av-space-1);
+  text-align: left; width: 100%;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3) var(--av-space-4);
+  cursor: pointer;
+  transition: background var(--av-duration-fast) var(--av-easing-default),
+              border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.tips-reco__card:hover { background: var(--av-primary-soft); border-color: var(--av-primary-border); }
+.tips-reco__card:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+.tips-reco__card-title { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); font-size: var(--av-fs-sm); }
+.tips-reco__card-preview { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+
+@media (max-width: 640px) {
+  .tips-reco { padding: 0 var(--av-space-4) var(--av-space-8); }
+}
