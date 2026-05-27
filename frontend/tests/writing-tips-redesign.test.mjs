@@ -163,3 +163,34 @@ describe('admin-writing.css / tips classes', () => {
     }
   });
 });
+
+
+// ── Sprint 19.1C — content import UI ──────────────────────────────────
+
+describe('admin/writing/tips.html / Sprint 19.1C import', () => {
+  test('drag-drop import panel + file input present', () => {
+    assert.match(html, /id="import-dropzone"/);
+    assert.match(html, /id="import-file"[^>]*accept="\.md/);
+    assert.match(html, /Kéo thả file/);
+  });
+
+  test('dry-run preview + commit + reset wired to the import endpoint', () => {
+    assert.match(html, /id="import-preview"/);
+    assert.match(html, /id="import-commit"/);
+    assert.match(html, /id="import-reset"/);
+    assert.match(html, /\/admin\/writing\/content\/import\?dry_run=true/);
+    assert.match(html, /\/admin\/writing\/content\/import\?dry_run=false/);
+  });
+
+  test('preview body rendered through window.renderMarkdown (sanitized)', () => {
+    assert.match(html, /id="import-body"[^>]*class="[^"]*md-body/);
+    assert.match(html, /window\.renderMarkdown/);
+  });
+
+  test('import CSS classes declared', () => {
+    for (const cls of ['.aw-import-dropzone', '.aw-import-dropzone--dragover',
+                       '.aw-import-preview', '.aw-import-errors', '.aw-kv-table']) {
+      assert.ok(css.includes(cls), `${cls} must be declared`);
+    }
+  });
+});

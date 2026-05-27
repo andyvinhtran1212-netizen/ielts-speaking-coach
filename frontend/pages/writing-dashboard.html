@@ -220,6 +220,25 @@
             <span class="filter-label">Cả hai</span>
           </button>
         </nav>
+        <!-- Sprint 19.1C — content_type filter (2nd axis: AND with task) -->
+        <nav id="tips-type-tabs" class="flex gap-1 mb-4 overflow-x-auto"
+             aria-label="Lọc theo loại nội dung">
+          <button type="button" class="essay-filter-btn is-active" data-tip-type-filter="all">
+            <span class="filter-label">Tất cả</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="tip">
+            <span class="filter-label">💡 Mẹo</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="knowledge">
+            <span class="filter-label">📖 Kiến thức</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="sample">
+            <span class="filter-label">✍️ Bài mẫu</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="outline">
+            <span class="filter-label">🗂️ Dàn bài</span>
+          </button>
+        </nav>
         <div id="tips-loading" class="text-center py-10 text-gray-300">Đang tải mẹo…</div>
         <div id="tips-list" class="space-y-3 hidden"></div>
         <div id="tips-empty" class="wd-empty hidden">
@@ -648,10 +667,33 @@
     }
 
     // ── Sprint 19.1B — "Mẹo viết" tab (admin-published writing tips) ──
+    // Sprint 19.1C — extended to 4 content types (tip/knowledge/sample/outline).
     var TIP_TASK_LABELS = { task_1: 'Task 1', task_2: 'Task 2', both: 'Cả hai' };
-    var _allTips    = [];   // cached for the page lifetime (fetch-once)
-    var _tipsLoaded = false;
-    var _tipFilter  = 'all';
+    var TIP_TYPE_LABELS = { tip: '💡 Mẹo', knowledge: '📖 Kiến thức', sample: '✍️ Bài mẫu', outline: '🗂️ Dàn bài' };
+    var _allTips        = [];   // cached for the page lifetime (fetch-once)
+    var _tipsLoaded     = false;
+    var _tipFilter      = 'all';   // task_type axis
+    var _tipTypeFilter  = 'all';   // content_type axis
+
+    // Card snippet by content_type: sample → band/word-count; outline →
+    // first heading; tip/knowledge → markdown lead text.
+    function _tipSnippet(t) {
+      var td = t.type_data || {};
+      if (t.content_type === 'sample') {
+        var bits = [];
+        if (td.target_band != null) bits.push('Band mục tiêu: ' + td.target_band);
+        if (td.word_count != null)  bits.push(td.word_count + ' từ');
+        return bits.join(' · ') || _tipPreview(t.body_markdown);
+      }
+      if (t.content_type === 'outline') {
+        var s = Array.isArray(td.structure) ? td.structure : [];
+        if (s.length && s[0] && s[0].heading) {
+          return 'Dàn bài: ' + s.map(function (i) { return i.heading; }).filter(Boolean).slice(0, 4).join(' → ');
+        }
+        return _tipPreview(t.body_markdown);
+      }
+      return _tipPreview(t.body_markdown);
+    }
 
     // Plain-text preview from a markdown body — strips the common syntax
     // so the card shows readable lead text, not raw `#`/`*`/`` ` `` noise.
@@ -696,19 +738,25 @@
       }
       hide('tips-empty');
 
-      var filtered = _tipFilter === 'all'
-        ? _allTips
-        : _allTips.filter(function (t) { return t.task_type === _tipFilter; });
+      // Two-axis AND filter: task_type chip × content_type chip.
+      var filtered = _allTips.filter(function (t) {
+        var taskOk = _tipFilter === 'all' || t.task_type === _tipFilter;
+        var typeOk = _tipTypeFilter === 'all' || (t.content_type || 'tip') === _tipTypeFilter;
+        return taskOk && typeOk;
+      });
 
       if (filtered.length === 0) {
         list.innerHTML =
           '<div class="wd-empty wd-empty--compact"><p class="wd-empty__hint">' +
-          'Không có mẹo nào cho bộ lọc này.</p></div>';
+          'Không có nội dung nào cho bộ lọc này.</p></div>';
         show('tips-list');
         return;
       }
 
       list.innerHTML = filtered.map(function (t) {
+        var ctype = t.content_type || 'tip';
+        var typePill = '<span class="tip-card__type tip-card__type--' + escapeHtml(ctype) + '">' +
+          escapeHtml(TIP_TYPE_LABELS[ctype] || ctype) + '</span>';
         var taskPill = '<span class="pill pill-wait">' +
           escapeHtml(TIP_TASK_LABELS[t.task_type] || t.task_type) + '</span>';
         var catPill = t.category
@@ -719,9 +767,9 @@
               ' data-tip-id="' + escapeHtml(t.id) + '">' +
             '<div class="flex items-center justify-between gap-3 mb-2">' +
               '<h3 class="tip-card__title font-semibold">' + escapeHtml(t.title || '(Mẹo viết)') + '</h3>' +
-              '<div class="flex items-center gap-1 flex-shrink-0">' + catPill + taskPill + '</div>' +
+              '<div class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">' + typePill + catPill + taskPill + '</div>' +
             '</div>' +
-            '<p class="tip-card__preview text-sm text-gray-300 line-clamp-2">' + escapeHtml(_tipPreview(t.body_markdown)) + '</p>' +
+            '<p class="tip-card__preview text-sm text-gray-300 line-clamp-2">' + escapeHtml(_tipSnippet(t)) + '</p>' +
             '<div class="flex justify-end mt-2"><span class="essay-card__view">Đọc →</span></div>' +
           '</div>'
         );
@@ -742,25 +790,50 @@
     }
 
     function wireTipFilterTabs() {
-      var btns = document.querySelectorAll('[data-tip-filter]');
-      btns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          _tipFilter = btn.getAttribute('data-tip-filter');
-          btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
-          renderTips();
+      // Two independent chip groups: task_type + content_type (Sprint 19.1C).
+      [['[data-tip-filter]', 'data-tip-filter', 'task'],
+       ['[data-tip-type-filter]', 'data-tip-type-filter', 'type']].forEach(function (g) {
+        var btns = document.querySelectorAll(g[0]);
+        btns.forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            if (g[2] === 'task') _tipFilter = btn.getAttribute(g[1]);
+            else                 _tipTypeFilter = btn.getAttribute(g[1]);
+            btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+            renderTips();
+          });
         });
       });
     }
 
     function openTipModal(tip) {
       if (!tip) return;
+      var ctype = tip.content_type || 'tip';
       document.getElementById('tip-modal-title').textContent = tip.title || '';
-      var meta = [TIP_TASK_LABELS[tip.task_type] || tip.task_type];
+      var meta = [TIP_TYPE_LABELS[ctype] || ctype, TIP_TASK_LABELS[tip.task_type] || tip.task_type];
       if (tip.category) meta.push(tip.category);
       document.getElementById('tip-modal-meta').textContent = meta.join(' · ');
-      // renderMarkdown sanitizes via DOMPurify — never inject raw HTML.
-      document.getElementById('tip-modal-body').innerHTML =
-        window.renderMarkdown ? window.renderMarkdown(tip.body_markdown) : '';
+
+      // Sprint 19.1C — type-specific metadata block above the body.
+      var td = tip.type_data || {};
+      var head = '';
+      if (ctype === 'sample') {
+        var bits = [];
+        if (td.target_band != null) bits.push('🎯 Band mục tiêu: <strong>' + escapeHtml(String(td.target_band)) + '</strong>');
+        if (td.word_count != null)  bits.push('✏️ Số từ: <strong>' + escapeHtml(String(td.word_count)) + '</strong>');
+        if (bits.length) head = '<div class="tip-modal-meta-strip">' + bits.join(' &nbsp;·&nbsp; ') + '</div>';
+      } else if (ctype === 'outline' && Array.isArray(td.structure) && td.structure.length) {
+        head = '<div class="tip-modal-outline"><ol>' + td.structure.map(function (s) {
+          var pts = Array.isArray(s.points) && s.points.length
+            ? '<ul>' + s.points.map(function (p) { return '<li>' + escapeHtml(String(p)) + '</li>'; }).join('') + '</ul>'
+            : '';
+          return '<li><strong>' + escapeHtml(String(s.heading || '')) + '</strong>' + pts + '</li>';
+        }).join('') + '</ol></div>';
+      }
+
+      // head is built from escaped strings only; body goes through
+      // renderMarkdown (DOMPurify) — never inject unsanitized HTML.
+      var bodyHtml = window.renderMarkdown ? window.renderMarkdown(tip.body_markdown) : '';
+      document.getElementById('tip-modal-body').innerHTML = head + bodyHtml;
       document.getElementById('tip-modal').classList.remove('hidden');
       if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
     }

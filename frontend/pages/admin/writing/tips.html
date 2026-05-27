@@ -81,6 +81,39 @@
     </h1>
     <p class="aw-subtitle text-sm mb-6">Soạn &amp; publish mẹo viết IELTS cho học viên (hiển thị ở tab "Mẹo viết" trên trang Writing).</p>
 
+    <!-- Sprint 19.1C — content import (Markdown + YAML frontmatter).
+         Drag-drop a .md file → dry-run preview → commit. Format contract:
+         docs/clusters/19_x/content_format_v1.md -->
+    <details id="import-panel" class="aw-import-panel mb-6">
+      <summary class="aw-import-panel__summary">📥 Import từ file (.md) — tip / kiến thức / bài mẫu / dàn bài</summary>
+      <div class="aw-import-panel__body">
+        <div id="import-dropzone" class="aw-import-dropzone" role="button" tabindex="0"
+             aria-label="Kéo thả hoặc chọn file Markdown">
+          <p class="aw-import-dropzone__hint">Kéo thả file <strong>.md</strong> vào đây</p>
+          <p class="aw-import-dropzone__or">hoặc</p>
+          <label class="aw-btn-secondary aw-import-dropzone__pick">
+            Chọn file
+            <input id="import-file" type="file" accept=".md,.markdown,text/markdown" class="hidden" />
+          </label>
+          <p id="import-filename" class="aw-import-dropzone__filename hidden"></p>
+        </div>
+
+        <div id="import-status" class="aw-import-status hidden text-sm"></div>
+
+        <div id="import-preview" class="aw-import-preview hidden">
+          <div id="import-errors" class="aw-import-errors hidden"></div>
+          <p class="aw-tips-preview__label">Frontmatter</p>
+          <table class="aw-kv-table"><tbody id="import-kv"></tbody></table>
+          <p class="aw-tips-preview__label" style="margin-top: var(--av-space-4);">Nội dung</p>
+          <div id="import-body" class="aw-tips-preview md-body"></div>
+          <div class="flex justify-end gap-2 mt-4">
+            <button id="import-reset" type="button" class="aw-btn-secondary">Xóa</button>
+            <button id="import-commit" type="button" class="aw-btn-primary" disabled>Lưu vào thư viện</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
     <!-- Filter bar -->
     <div class="flex flex-wrap gap-3 mb-4 items-center">
       <select id="filter-task-type" class="aw-input" style="width: auto; min-width: 160px;">
@@ -373,6 +406,150 @@
         alert('Lỗi xóa: ' + (err.message || 'không xác định'));
       }
     }
+
+    // ── Sprint 19.1C — content import (drag-drop .md → preview → commit) ─
+    var TYPE_LABELS = { tip: 'Mẹo', knowledge: 'Kiến thức', sample: 'Bài mẫu', outline: 'Dàn bài' };
+    var _importFile = null;
+
+    function _importStatus(msg, kind) {
+      var el = document.getElementById('import-status');
+      el.textContent = msg || '';
+      el.classList.toggle('hidden', !msg);
+      el.classList.remove('is-error', 'is-ok');
+      if (kind) el.classList.add(kind === 'error' ? 'is-error' : 'is-ok');
+    }
+
+    function resetImport() {
+      _importFile = null;
+      document.getElementById('import-file').value = '';
+      document.getElementById('import-filename').classList.add('hidden');
+      document.getElementById('import-preview').classList.add('hidden');
+      document.getElementById('import-commit').disabled = true;
+      _importStatus('', null);
+    }
+
+    function renderImportPreview(data) {
+      var preview = document.getElementById('import-preview');
+      var errorsEl = document.getElementById('import-errors');
+      var kv = document.getElementById('import-kv');
+      var body = document.getElementById('import-body');
+      var commit = document.getElementById('import-commit');
+      preview.classList.remove('hidden');
+
+      var errs = (data && data.validation_errors) || [];
+      if (errs.length) {
+        errorsEl.classList.remove('hidden');
+        errorsEl.innerHTML = '<strong>Lỗi:</strong><ul>' + errs.map(function (e) {
+          return '<li>' + escapeHtml(e.field) + ': ' + escapeHtml(e.message) + '</li>';
+        }).join('') + '</ul>';
+        commit.disabled = true;
+      } else {
+        errorsEl.classList.add('hidden');
+        errorsEl.innerHTML = '';
+        commit.disabled = false;
+      }
+
+      var p = (data && data.parsed_data) || {};
+      if (!data || !data.parsed_data) {
+        kv.innerHTML = '';
+        body.innerHTML = '';
+        return;
+      }
+      var rows = [
+        ['Loại', TYPE_LABELS[p.content_type] || p.content_type || '—'],
+        ['Tiêu đề', p.title || '—'],
+        ['Slug', p.slug || '—'],
+        ['Task', p.task_type || '—'],
+        ['Phân loại', p.category || '—'],
+        ['Publish', p.published ? 'Có' : 'Không'],
+        ['Thứ tự', (p.display_order != null ? p.display_order : 0)],
+      ];
+      if (p.type_data && Object.keys(p.type_data).length) {
+        rows.push(['type_data', JSON.stringify(p.type_data)]);
+      }
+      kv.innerHTML = rows.map(function (r) {
+        return '<tr><th>' + escapeHtml(r[0]) + '</th><td>' + escapeHtml(String(r[1])) + '</td></tr>';
+      }).join('');
+      body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '') : '';
+    }
+
+    async function dryRunImport(file) {
+      _importStatus('Đang phân tích ' + file.name + '…', null);
+      try {
+        var fd = new FormData();
+        fd.append('file', file);
+        var data = await window.api.upload('/admin/writing/content/import?dry_run=true', fd);
+        _importStatus('', null);
+        renderImportPreview(data);
+      } catch (err) {
+        _importStatus('Lỗi phân tích file: ' + ((err && err.message) || 'không xác định'), 'error');
+      }
+    }
+
+    async function commitImport() {
+      if (!_importFile) return;
+      var commit = document.getElementById('import-commit');
+      commit.disabled = true;
+      _importStatus('Đang lưu…', null);
+      try {
+        var fd = new FormData();
+        fd.append('file', _importFile);
+        var data = await window.api.upload('/admin/writing/content/import?dry_run=false', fd);
+        if (data.validation_errors && data.validation_errors.length) {
+          renderImportPreview(data);
+          _importStatus('Còn lỗi — chưa lưu được.', 'error');
+          return;
+        }
+        var verb = data.action === 'updated' ? 'Đã cập nhật' : 'Đã thêm';
+        _importStatus('✓ ' + verb + ' nội dung vào thư viện.', 'ok');
+        resetImport();
+        document.getElementById('import-panel').open = true;
+        await loadTips();
+      } catch (err) {
+        _importStatus('Lỗi lưu: ' + ((err && err.message) || 'không xác định'), 'error');
+        commit.disabled = false;
+      }
+    }
+
+    function handleImportFile(file) {
+      if (!file) return;
+      if (!/\.(md|markdown)$/i.test(file.name)) {
+        _importStatus('Chỉ chấp nhận file .md', 'error');
+        return;
+      }
+      _importFile = file;
+      var fn = document.getElementById('import-filename');
+      fn.textContent = '📄 ' + file.name;
+      fn.classList.remove('hidden');
+      dryRunImport(file);
+    }
+
+    (function wireImport() {
+      var dz = document.getElementById('import-dropzone');
+      var input = document.getElementById('import-file');
+      input.addEventListener('change', function (ev) {
+        handleImportFile(ev.target.files && ev.target.files[0]);
+      });
+      // Clicking the zone (but not the inner label/button) opens the picker.
+      dz.addEventListener('click', function (ev) {
+        if (ev.target.closest('.aw-import-dropzone__pick')) return;
+        input.click();
+      });
+      dz.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); input.click(); }
+      });
+      ['dragenter', 'dragover'].forEach(function (e) {
+        dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.add('aw-import-dropzone--dragover'); });
+      });
+      ['dragleave', 'drop'].forEach(function (e) {
+        dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.remove('aw-import-dropzone--dragover'); });
+      });
+      dz.addEventListener('drop', function (ev) {
+        handleImportFile(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]);
+      });
+      document.getElementById('import-reset').addEventListener('click', resetImport);
+      document.getElementById('import-commit').addEventListener('click', commitImport);
+    })();
 
     // ── Wire up + initial load ─────────────────────────────────────
     document.getElementById('btn-create').addEventListener('click', openCreateModal);

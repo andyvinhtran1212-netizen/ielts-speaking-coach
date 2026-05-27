@@ -1494,23 +1494,32 @@ async def extract_essay_text(
 # read them. body_markdown is returned raw and rendered + sanitized
 # client-side (Pattern #39 — DB markdown is the single source of truth).
 
-_TIPS_TASK_PATTERN = r"^(task_1|task_2|both)$"
+_TIPS_TASK_PATTERN    = r"^(task_1|task_2|both)$"
+# Sprint 19.1C — content_type filter for the 4-type content store.
+_TIPS_CONTENT_PATTERN = r"^(tip|knowledge|sample|outline)$"
+# Columns returned to students. content_type + type_data (Sprint 19.1C)
+# drive the type badge + per-type metadata (sample band/word-count,
+# outline structure) on the dashboard.
+_TIP_COLUMNS = ("id, title, slug, task_type, category, content_type, "
+                "type_data, body_markdown, display_order, created_at")
 
 
 @router.get("/tips")
 async def list_published_tips(
-    task_type: Optional[str] = Query(default=None, pattern=_TIPS_TASK_PATTERN),
+    task_type: Optional[str]    = Query(default=None, pattern=_TIPS_TASK_PATTERN),
+    content_type: Optional[str] = Query(default=None, pattern=_TIPS_CONTENT_PATTERN),
     authorization: Optional[str] = Header(default=None),
 ):
-    """List published tips, ordered by display_order then newest. Optional
-    exact task_type filter (task_1 / task_2 / both) matching the user-side
-    filter chips. body_markdown is included so the dashboard renders the
-    detail view from the cached list without a second round-trip."""
+    """List published content, ordered by display_order then newest.
+    Optional exact task_type and/or content_type filters matching the
+    user-side filter chips. body_markdown is included so the dashboard
+    renders the detail view from the cached list without a second
+    round-trip."""
     await get_supabase_user(authorization)
 
     q = (
         supabase_admin.table("writing_tips")
-        .select("id, title, slug, task_type, category, body_markdown, display_order, created_at")
+        .select(_TIP_COLUMNS)
         .eq("published", True)
         .order("display_order")
         .order("created_at", desc=True)
@@ -1518,6 +1527,8 @@ async def list_published_tips(
     )
     if task_type:
         q = q.eq("task_type", task_type)
+    if content_type:
+        q = q.eq("content_type", content_type)
 
     r = q.execute()
     return {"tips": r.data or []}
@@ -1528,13 +1539,14 @@ async def get_published_tip(
     slug: str,
     authorization: Optional[str] = Header(default=None),
 ):
-    """Fetch one published tip by slug (deep-link / direct access). Drafts
-    are never reachable here — the published=True filter gates them."""
+    """Fetch one published content item by slug (deep-link / direct
+    access). Drafts are never reachable here — the published=True filter
+    gates them."""
     await get_supabase_user(authorization)
 
     r = (
         supabase_admin.table("writing_tips")
-        .select("id, title, slug, task_type, category, body_markdown, created_at")
+        .select(_TIP_COLUMNS)
         .eq("slug", slug)
         .eq("published", True)
         .limit(1)
