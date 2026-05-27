@@ -1,0 +1,120 @@
+/* css/markdown.css — Sprint 19.1B rendered-markdown typography.
+ *
+ * Styles the sanitized HTML emitted by js/markdown.js inside a `.md-body`
+ * wrapper. Shared by the student "Mẹo viết" tip view and the admin tips
+ * editor preview, so both render identically. All values come from the
+ * --av-* token set (see docs/clusters/19_x/design_baseline.md §2–4) — no
+ * hardcoded colors, no new tokens.
+ */
+
+.md-body {
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-base);
+  line-height: var(--av-lh-relaxed);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.md-body > :first-child { margin-top: 0; }
+.md-body > :last-child  { margin-bottom: 0; }
+
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4 {
+  color: var(--av-text-primary);
+  font-weight: var(--av-fw-semibold);
+  line-height: var(--av-lh-snug);
+  margin: var(--av-space-6) 0 var(--av-space-2);
+}
+.md-body h1 { font-size: var(--av-fs-2xl); }
+.md-body h2 { font-size: var(--av-fs-xl); }
+.md-body h3 { font-size: var(--av-fs-lg); }
+.md-body h4 { font-size: var(--av-fs-base); }
+
+.md-body p { margin: 0 0 var(--av-space-4); }
+
+.md-body ul,
+.md-body ol {
+  margin: 0 0 var(--av-space-4);
+  padding-left: var(--av-space-6);
+}
+.md-body li { margin-bottom: var(--av-space-1); }
+
+.md-body a {
+  color: var(--av-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md-body a:hover { color: var(--av-primary-hover); }
+
+.md-body strong { font-weight: var(--av-fw-bold); }
+.md-body em     { font-style: italic; }
+
+.md-body code {
+  font-family: var(--av-font-mono);
+  font-size: 0.875em;
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-sm);
+  padding: 0.1em 0.35em;
+}
+.md-body pre {
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3) var(--av-space-4);
+  overflow-x: auto;
+  margin: 0 0 var(--av-space-4);
+}
+.md-body pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.md-body blockquote {
+  margin: 0 0 var(--av-space-4);
+  padding: var(--av-space-1) var(--av-space-4);
+  border-left: 3px solid var(--av-primary-border);
+  color: var(--av-text-secondary);
+}
+
+.md-body hr {
+  border: none;
+  border-top: 1px solid var(--av-border-default);
+  margin: var(--av-space-6) 0;
+}
+
+.md-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--av-radius-md);
+}
+
+.md-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--av-space-4);
+  font-size: var(--av-fs-sm);
+}
+.md-body th,
+.md-body td {
+  border: 1px solid var(--av-border-default);
+  padding: var(--av-space-2) var(--av-space-3);
+  text-align: left;
+}
+.md-body th {
+  background: var(--av-surface-sunken);
+  font-weight: var(--av-fw-semibold);
+}
+
+/* Plaintext fallback when the markdown libs didn't load (js/markdown.js). */
+.md-body .md-fallback,
+.md-fallback {
+  white-space: pre-wrap;
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  margin: 0;
+}

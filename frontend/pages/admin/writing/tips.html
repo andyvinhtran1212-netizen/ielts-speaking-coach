@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Mẹo viết — Writing Coach Admin</title>
+
+  <!-- Sprint 6.14a canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/admin-writing.css" />
+  <link rel="stylesheet" href="/css/markdown.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <!-- Markdown render + sanitize for the editor preview (Sprint 19.1B).
+       Same libs the student "Mẹo viết" tab uses, so preview === user view. -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
+</head>
+<body class="av-page font-sans antialiased min-h-screen">
+  <aver-admin-chrome active="writing" subsection="tips">
+  <div class="max-w-5xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-2">
+        <span class="aw-brand text-xl font-bold">Aver<span class="aw-brand__accent">Learning</span></span>
+        <span class="aw-subtitle text-sm hidden md:inline">— Mẹo viết</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/admin.html" class="aw-back-link text-sm">← Admin home</a>
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <h1 class="aw-h1 text-2xl font-semibold mb-1 flex items-center gap-2">
+      <span aria-hidden="true">💡</span> Mẹo viết
+    </h1>
+    <p class="aw-subtitle text-sm mb-6">Soạn &amp; publish mẹo viết IELTS cho học viên (hiển thị ở tab "Mẹo viết" trên trang Writing).</p>
+
+    <!-- Filter bar -->
+    <div class="flex flex-wrap gap-3 mb-4 items-center">
+      <select id="filter-task-type" class="aw-input" style="width: auto; min-width: 160px;">
+        <option value="">Tất cả task</option>
+        <option value="task_1">Task 1</option>
+        <option value="task_2">Task 2</option>
+        <option value="both">Cả hai</option>
+      </select>
+      <select id="filter-published" class="aw-input" style="width: auto; min-width: 150px;">
+        <option value="">Tất cả trạng thái</option>
+        <option value="true">Đã publish</option>
+        <option value="false">Bản nháp</option>
+      </select>
+      <button id="btn-create" type="button" class="aw-btn-primary ml-auto">+ Thêm mẹo mới</button>
+    </div>
+
+    <!-- States -->
+    <div id="state-loading" class="aw-state-loading text-center py-10">Đang tải…</div>
+    <div id="state-error"   class="aw-state-error hidden text-sm"></div>
+    <div id="state-empty"   class="aw-state-empty hidden text-center py-10">Chưa có mẹo nào ở bộ lọc hiện tại.</div>
+
+    <!-- Tips list -->
+    <div id="tips-list" class="space-y-3 hidden"></div>
+  </div>
+
+  <!-- Create / edit modal -->
+  <div id="modal" class="aw-modal-bg hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div class="aw-modal-panel max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="modal-title" class="aw-modal-title text-lg font-semibold">Tạo mẹo mới</h2>
+        <button id="btn-close-modal" type="button" class="aw-modal-close text-2xl leading-none" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="aw-form-label">Tiêu đề <span class="aw-form-label__required">*</span></label>
+          <input id="form-title" class="aw-input" placeholder="VD: Cách viết mở bài Task 2" />
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="aw-form-label">Task</label>
+            <select id="form-task-type" class="aw-input">
+              <option value="task_2">Task 2</option>
+              <option value="task_1">Task 1</option>
+              <option value="both">Cả hai</option>
+            </select>
+          </div>
+          <div>
+            <label class="aw-form-label">Phân loại</label>
+            <input id="form-category" class="aw-input" placeholder="grammar, vocabulary…" />
+          </div>
+          <div>
+            <label class="aw-form-label">Thứ tự</label>
+            <input id="form-display-order" class="aw-input" type="number" min="0" value="0" />
+          </div>
+        </div>
+
+        <div>
+          <label class="aw-form-label">Slug</label>
+          <input id="form-slug" class="aw-input" placeholder="tự động tạo từ tiêu đề (có thể sửa)" />
+          <p class="aw-help-text text-xs">Để trống → tự tạo từ tiêu đề. Slug phải là duy nhất.</p>
+        </div>
+
+        <div>
+          <label class="aw-form-label">Nội dung (Markdown) <span class="aw-form-label__required">*</span></label>
+          <div class="aw-tips-editor-grid">
+            <textarea id="form-body" class="aw-input aw-md-textarea"
+                      placeholder="# Tiêu đề&#10;&#10;Hỗ trợ **đậm**, *nghiêng*, danh sách, `code`, > trích dẫn…"></textarea>
+            <div class="aw-tips-preview">
+              <p class="aw-tips-preview__label">Xem trước</p>
+              <div id="form-preview" class="md-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <label class="aw-tips-toggle">
+          <input id="form-published" type="checkbox" />
+          <span>Publish ngay (học viên thấy được)</span>
+        </label>
+      </div>
+
+      <div id="modal-error" class="aw-upload-error hidden mt-3 text-sm"></div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button id="btn-cancel" type="button" class="aw-btn-secondary">Hủy</button>
+        <button id="btn-save"   type="button" class="aw-btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Absolute path: under the /admin/writing/tips rewrite (3 segments),
+       `../js/api.js` resolves to `/admin/js/api.js` and 404s. -->
+  <script src="/js/api.js"></script>
+  <script>
+    'use strict';
+
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    var TASK_LABELS = { task_1: 'Task 1', task_2: 'Task 2', both: 'Cả hai' };
+
+    var _allTips   = [];
+    var _editingId = null;
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+      });
+    }
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // ── Load + render ──────────────────────────────────────────────
+    async function loadTips() {
+      hide('state-error'); hide('state-empty'); hide('tips-list');
+      show('state-loading');
+
+      var taskType  = document.getElementById('filter-task-type').value;
+      var published = document.getElementById('filter-published').value;
+
+      var params = new URLSearchParams();
+      if (taskType)        params.set('task_type', taskType);
+      if (published !== '') params.set('published', published);
+
+      try {
+        var data = await window.api.get('/admin/writing/tips?' + params.toString());
+        _allTips = (data && data.tips) || [];
+        renderTips();
+      } catch (err) {
+        hide('state-loading');
+        var box = document.getElementById('state-error');
+        box.textContent = 'Lỗi tải mẹo: ' + (err.message || 'không xác định');
+        show('state-error');
+      }
+    }
+
+    function renderTips() {
+      hide('state-loading');
+      var list = document.getElementById('tips-list');
+
+      if (_allTips.length === 0) {
+        list.innerHTML = '';
+        show('state-empty');
+        return;
+      }
+
+      list.innerHTML = _allTips.map(function (t) {
+        var statusPill = t.published
+          ? '<span class="aw-pill aw-pill--published">● Đã publish</span>'
+          : '<span class="aw-pill aw-pill--draft">○ Nháp</span>';
+        var cat = t.category
+          ? '<span class="aw-tag">' + escapeHtml(t.category) + '</span>'
+          : '';
+        var toggleLabel = t.published ? 'Ẩn' : 'Publish';
+
+        return ''
+          + '<div class="aw-prompt-row">'
+          +   '<div class="flex items-start justify-between gap-3 mb-2">'
+          +     '<h3 class="aw-prompt-row__title font-semibold text-base">' + escapeHtml(t.title || '(Không tiêu đề)') + '</h3>'
+          +     '<div class="flex flex-wrap gap-1 flex-shrink-0 justify-end">'
+          +       '<span class="aw-pill aw-pill--task">' + escapeHtml(TASK_LABELS[t.task_type] || t.task_type) + '</span>'
+          +       statusPill
+          +     '</div>'
+          +   '</div>'
+          +   '<p class="aw-meta-line">slug: ' + escapeHtml(t.slug || '—') + ' · thứ tự: ' + (t.display_order != null ? t.display_order : 0) + '</p>'
+          +   '<div class="flex items-center justify-between flex-wrap gap-2 mt-2">'
+          +     '<div class="flex flex-wrap gap-1">' + cat + '</div>'
+          +     '<div class="flex gap-2">'
+          +       '<button type="button" class="aw-btn-toggle" data-action="toggle" data-id="' + t.id + '">' + toggleLabel + '</button>'
+          +       '<button type="button" class="aw-btn-secondary" data-action="edit"   data-id="' + t.id + '">Sửa</button>'
+          +       '<button type="button" class="aw-btn-danger"    data-action="delete" data-id="' + t.id + '">Xóa</button>'
+          +     '</div>'
+          +   '</div>'
+          + '</div>';
+      }).join('');
+
+      list.querySelectorAll('button[data-action]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var action = btn.getAttribute('data-action');
+          var id     = btn.getAttribute('data-id');
+          if (action === 'edit')   openEditModal(id);
+          if (action === 'delete') deleteTip(id);
+          if (action === 'toggle') togglePublished(id);
+        });
+      });
+
+      show('tips-list');
+    }
+
+    // ── Markdown preview (reuses window.renderMarkdown) ─────────────
+    function updatePreview() {
+      var el = document.getElementById('form-preview');
+      el.innerHTML = window.renderMarkdown
+        ? window.renderMarkdown(document.getElementById('form-body').value)
+        : '';
+    }
+
+    // ── Modal handlers ─────────────────────────────────────────────
+    function openCreateModal() {
+      _editingId = null;
+      document.getElementById('modal-title').textContent = 'Tạo mẹo mới';
+      document.getElementById('form-title').value         = '';
+      document.getElementById('form-task-type').value     = 'task_2';
+      document.getElementById('form-category').value       = '';
+      document.getElementById('form-display-order').value  = '0';
+      document.getElementById('form-slug').value           = '';
+      document.getElementById('form-body').value           = '';
+      document.getElementById('form-published').checked    = false;
+      updatePreview();
+      hide('modal-error');
+      show('modal');
+    }
+
+    function openEditModal(id) {
+      var t = _allTips.find(function (x) { return x.id === id; });
+      if (!t) return;
+      _editingId = id;
+      document.getElementById('modal-title').textContent = 'Sửa mẹo';
+      document.getElementById('form-title').value         = t.title || '';
+      document.getElementById('form-task-type').value     = t.task_type || 'task_2';
+      document.getElementById('form-category').value       = t.category || '';
+      document.getElementById('form-display-order').value  = t.display_order != null ? t.display_order : 0;
+      document.getElementById('form-slug').value           = t.slug || '';
+      document.getElementById('form-body').value           = t.body_markdown || '';
+      document.getElementById('form-published').checked    = !!t.published;
+      updatePreview();
+      hide('modal-error');
+      show('modal');
+    }
+
+    function closeModal() { hide('modal'); }
+
+    function showModalError(msg) {
+      var box = document.getElementById('modal-error');
+      box.textContent = msg;
+      show('modal-error');
+    }
+
+    async function saveTip() {
+      var title = document.getElementById('form-title').value.trim();
+      var body  = document.getElementById('form-body').value.trim();
+      if (!title || title.length < 2) { showModalError('Tiêu đề phải có ít nhất 2 ký tự.'); return; }
+      if (!body) { showModalError('Nội dung không được để trống.'); return; }
+
+      var slug = document.getElementById('form-slug').value.trim();
+      var payload = {
+        title:         title,
+        task_type:     document.getElementById('form-task-type').value,
+        category:      document.getElementById('form-category').value.trim() || null,
+        display_order: parseInt(document.getElementById('form-display-order').value, 10) || 0,
+        body_markdown: body,
+        published:     document.getElementById('form-published').checked,
+      };
+      if (slug) payload.slug = slug;
+
+      try {
+        if (_editingId) {
+          await window.api.patch('/admin/writing/tips/' + _editingId, payload);
+        } else {
+          await window.api.post('/admin/writing/tips', payload);
+        }
+        closeModal();
+        await loadTips();
+      } catch (err) {
+        // 409 = slug collision (backend message is user-facing Vietnamese).
+        showModalError('Lỗi: ' + (err.message || 'không lưu được'));
+      }
+    }
+
+    async function togglePublished(id) {
+      var t = _allTips.find(function (x) { return x.id === id; });
+      if (!t) return;
+      try {
+        await window.api.patch('/admin/writing/tips/' + id, { published: !t.published });
+        await loadTips();
+      } catch (err) {
+        alert('Lỗi đổi trạng thái: ' + (err.message || 'không xác định'));
+      }
+    }
+
+    async function deleteTip(id) {
+      if (!confirm('Xóa mẹo này? Hành động không thể hoàn tác.')) return;
+      try {
+        await window.api.delete('/admin/writing/tips/' + id);
+        await loadTips();
+      } catch (err) {
+        alert('Lỗi xóa: ' + (err.message || 'không xác định'));
+      }
+    }
+
+    // ── Wire up + initial load ─────────────────────────────────────
+    document.getElementById('btn-create').addEventListener('click', openCreateModal);
+    document.getElementById('btn-save').addEventListener('click', saveTip);
+    document.getElementById('btn-cancel').addEventListener('click', closeModal);
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+    document.getElementById('filter-task-type').addEventListener('change', loadTips);
+    document.getElementById('filter-published').addEventListener('change', loadTips);
+    document.getElementById('form-body').addEventListener('input', updatePreview);
+
+    loadTips();
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14a) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          hydrateIcons(); bindToggleButton();
+        });
+      } else {
+        hydrateIcons(); bindToggleButton();
+      }
+      window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>

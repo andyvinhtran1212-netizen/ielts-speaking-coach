@@ -650,3 +650,60 @@ body.av-page .hover\:text-white:hover {
   .essay-card.clickable:hover,
   .btn-start-assignment:hover { transform: none; }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════
+ * Sprint 19.1B — "Mẹo viết" tab (writing tips).
+ * Tip cards reuse .essay-card / .pill-wait / .essay-card__view; only the
+ * card-internal text + category chip + detail modal are tips-specific.
+ * All on existing --av-* tokens. Markdown body styling lives in
+ * css/markdown.css (.md-body).
+ * ════════════════════════════════════════════════════════════════════ */
+
+.tip-card__title {
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-base);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tip-card__preview { color: var(--av-text-secondary); }
+.tip-card__cat {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.55rem;
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-medium);
+  background: var(--av-accent-soft);
+  color: var(--av-warning);
+}
+
+/* ── Tip detail modal — centred dialog (distinct from the full-screen
+ * submit modal). Backdrop dims; panel scrolls its own overflow. ── */
+.wd-tip-modal {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--av-space-12) var(--av-space-4) var(--av-space-8);
+}
+.wd-tip-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--av-surface-overlay);
+  backdrop-filter: blur(2px);
+}
+.wd-tip-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 720px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  box-shadow: var(--av-shadow-xl);
+  padding: var(--av-space-6);
+}
+.wd-tip-modal__panel h2 { color: var(--av-text-primary); margin: 0; }
