@@ -15,7 +15,9 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -23,6 +25,11 @@ from database import supabase_admin
 from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
 from services import essay_service
+from services.file_extract_service import (
+    MAX_EXTRACTED_CHARS,
+    FileExtractError,
+    extract_text,
+)
 from services.access_code_permissions import (
     get_student_access_code_permissions,
     has_writing_permission,
@@ -674,4 +681,60 @@ async def get_student_summary(
         },
         "recent_essays":      essays[:10],
         "recent_assignments": (assignments_resp.data or [])[:5],
+    }
+
+
+# ── Sprint 19.3 — independent-grading file extract ────────────────────
+
+_logger = logging.getLogger(__name__)
+
+
+@router.post("/extract-text")
+async def extract_essay_file(
+    file: UploadFile = File(...),
+    authorization: str | None = Header(None),
+):
+    """Parse an admin-uploaded .docx/.txt and return plain text for the
+    independent-grading flow (admin/writing/new.html upload mode).
+
+    Stateless extract-and-discard: the file is parsed in memory and never
+    persisted. The admin pastes/edits the returned text into the essay
+    field, then submits through the existing POST /essays pipeline — this
+    endpoint does NOT create an essay or touch grading.
+
+    Reuses services.file_extract_service (same parser the student
+    /api/writing/extract-text uses): .docx + .txt, 2 MB cap, 15 000-char
+    cap, all enforced inside extract_text(). Admin-gated."""
+    await require_admin(authorization)
+
+    file_bytes = await file.read()
+    filename = file.filename or ""
+
+    try:
+        text = extract_text(filename, file_bytes)
+    except FileExtractError as exc:
+        # Size / extension / empty / decode failures → 400 with the
+        # service's Vietnamese message intact.
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        _logger.error("[admin-writing] extract-text failed filename=%s: %s", filename, exc)
+        raise HTTPException(status_code=500, detail="Lỗi xử lý file. Vui lòng thử lại.")
+
+    # Informational, non-blocking warnings the admin should glance at
+    # before submitting (the text is editable, so none of these reject).
+    warnings: list[str] = []
+    if len(text) >= MAX_EXTRACTED_CHARS:
+        warnings.append(
+            f"Văn bản đã bị cắt ở {MAX_EXTRACTED_CHARS} ký tự — kiểm tra phần cuối."
+        )
+    if " | " in text:
+        warnings.append("Phát hiện bảng trong file — đã chuyển thành văn bản, nên kiểm tra lại.")
+    if len(text.strip()) < 50:
+        warnings.append("Văn bản trích xuất rất ngắn — kiểm tra lại file nguồn.")
+
+    return {
+        "extracted_text": text,
+        "word_count":     len(text.split()),
+        "file_metadata":  {"filename": filename, "size_bytes": len(file_bytes)},
+        "warnings":       warnings,
     }
