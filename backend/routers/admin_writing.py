@@ -318,6 +318,18 @@ async def mark_delivered(
 
     if not r.data:
         raise HTTPException(404, "Essay not found")
+
+    # Sprint 19.4 — close the re-grade loop: if this delivery fulfils an
+    # accepted regrade request, mark it fulfilled. Best-effort — never
+    # block delivery on the bookkeeping.
+    try:
+        supabase_admin.table("essay_regrade_requests").update(
+            {"status": "fulfilled", "fulfilled_at": _now_iso()}
+        ).eq("essay_id", str(essay_id)).eq("status", "accepted").execute()
+    except Exception as exc:
+        _logger.warning("[regrade] fulfil bookkeeping failed essay=%s: %s", essay_id, exc)
+    # TODO(19.4 email deferred): notify the student their essay is graded.
+
     return {"essay_id": str(essay_id), "status": "delivered", "method": body.method}
 
 

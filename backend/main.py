@@ -21,6 +21,7 @@ from routers.admin_writing_prompts import router as admin_writing_prompts_router
 from routers.admin_writing_tips import router as admin_writing_tips_router
 from routers.admin_writing_tips import content_router as admin_writing_content_router
 from routers.admin_writing_cohorts import router as admin_writing_cohorts_router
+from routers.admin_writing_regrade import router as admin_writing_regrade_router
 from routers.admin_writing_assignments import router as admin_writing_assignments_router
 from routers.admin_instructor import router as admin_instructor_router
 from routers.admin_students import router as admin_students_router
@@ -116,6 +117,7 @@ app.include_router(admin_writing_prompts_router)
 app.include_router(admin_writing_tips_router)
 app.include_router(admin_writing_content_router)
 app.include_router(admin_writing_cohorts_router)
+app.include_router(admin_writing_regrade_router)
 app.include_router(admin_writing_assignments_router)
 app.include_router(admin_instructor_router)
 app.include_router(admin_students_router)

@@ -581,8 +581,12 @@ def test_mark_delivered_default_method_persists():
     body = r.json()
     assert body["status"] == "delivered"
     assert body["method"] == "google_docs_paste"  # default
-    payload = fake.table.return_value.update.call_args.args[0]
-    assert payload["delivery_method"] == "google_docs_paste"
+    # Sprint 19.4: mark_delivered now also (best-effort) fulfils an accepted
+    # regrade request, so the essay-delivery update is no longer the only
+    # .update() call — find the one carrying delivery_method.
+    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
+    delivery = next(p for p in payloads if "delivery_method" in p)
+    assert delivery["delivery_method"] == "google_docs_paste"
 
 
 def test_mark_delivered_word_download_method():

@@ -1562,3 +1562,73 @@ async def get_published_tip(
     if not r.data:
         raise HTTPException(status_code=404, detail="Không tìm thấy mẹo viết.")
     return r.data[0]
+
+
+# ── Sprint 19.4 — student re-grade requests ───────────────────────────
+#
+# A student who disagrees with a delivered essay's feedback files ONE
+# regrade request with a reason (50–500 chars). Admin triages it via
+# routers/admin_writing_regrade.py. UNIQUE(essay_id) caps it at one per
+# essay (Phase 1) — a duplicate surfaces as 409.
+
+
+class RegradeRequestBody(BaseModel):
+    reason: str = Field(..., min_length=50, max_length=500)
+
+
+@router.post("/essays/{essay_id}/regrade-request")
+async def request_regrade(
+    essay_id: UUID,
+    body: RegradeRequestBody,
+    student: dict = Depends(get_current_student),
+):
+    """Submit a re-grade request on the student's own delivered essay."""
+    # Ownership + precondition: must be this student's essay AND delivered.
+    er = (
+        supabase_admin.table("writing_essays")
+        .select("id, status")
+        .eq("id", str(essay_id))
+        .eq("student_id", student["id"])
+        .limit(1)
+        .execute()
+    )
+    if not er.data:
+        raise HTTPException(404, "Không tìm thấy bài viết.")
+    if er.data[0].get("status") != "delivered":
+        raise HTTPException(409, "Chỉ có thể yêu cầu chấm lại sau khi bài đã được trả.")
+
+    payload = {
+        "essay_id":   str(essay_id),
+        "student_id": student["id"],
+        "reason":     body.reason.strip(),
+    }
+    try:
+        r = supabase_admin.table("essay_regrade_requests").insert(payload).execute()
+    except Exception as exc:
+        msg = str(exc).lower()
+        if "23505" in msg or "duplicate" in msg or "unique" in msg:
+            raise HTTPException(409, "Em đã gửi yêu cầu chấm lại cho bài này rồi.")
+        logger.error("[regrade] insert failed essay=%s: %s", essay_id, exc)
+        raise HTTPException(500, "Không gửi được yêu cầu. Vui lòng thử lại.")
+    if not r.data:
+        raise HTTPException(500, "Không gửi được yêu cầu.")
+    # TODO(19.4 email deferred): notify admin of the new regrade request.
+    return r.data[0]
+
+
+@router.get("/essays/{essay_id}/regrade-request")
+async def get_my_regrade_request(
+    essay_id: UUID,
+    student: dict = Depends(get_current_student),
+):
+    """Return this student's regrade request for the essay (or null) so the
+    result page can show the right state (button / pending / rejected)."""
+    r = (
+        supabase_admin.table("essay_regrade_requests")
+        .select("id, status, reason, admin_response, created_at")
+        .eq("essay_id", str(essay_id))
+        .eq("student_id", student["id"])
+        .limit(1)
+        .execute()
+    )
+    return {"request": r.data[0] if r.data else None}

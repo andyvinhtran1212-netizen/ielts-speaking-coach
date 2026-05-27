@@ -136,10 +136,13 @@ Rules: transition specific properties (not `all`) where practical; hover lifts a
 - **Multimodal Gemini pattern** (`gemini_writing_grader.py`): the legacy `google.generativeai` SDK takes a `generate_content([text, {"mime_type", "data": bytes}])` list. Image fetched from the Cloudinary URL (httpx, ≤2 retries / ~10s cap); fetch failure or missing image → text-only + a caveat prepended to `overallBandScoreSummary` (D7), never a block.
 - **Snapshot wiring (Pattern #42 fix):** the student submit path didn't populate `writing_essays.prompt_image_url`; 19.3.5 wired it so library Task 1 Academic essays reach the grader with their chart.
 
-**19.4 — Notifications + student regrade-request + result-page tips recommendation**
-- Notification chips/badges: use `--av-info-soft` (informational) or `--av-primary-soft`; never invent a new hue.
-- A student "yêu cầu chấm lại" control belongs on `writing-result.html` near the header actions, styled as `.btn-icon` (secondary), with a confirm step; it introduces a new student-visible state — extend the §5 status model deliberately (and keep it AI-free).
-- Result-page tips recommendation should reuse the §5 card pattern at the foot of the `Bài mẫu` tab.
+**19.4 — Student regrade-request + result-page tips recommendation** ✅ SHIPPED (#315) — *email DEFERRED*
+- **Email NOT shipped:** there is NO transactional-email infra in the backend — signup/reset are sent by Supabase Auth (managed), not project code. Building it needs a provider + credentials (out of "reuse-only" scope). Andy chose to defer; trigger points carry `# TODO(19.4 email deferred)` comments at `mark_delivered` (student) + the student regrade POST (admin). A future sprint wires a provider (Resend/SendGrid/SMTP) into those hooks.
+- **Regrade request state machine:** `essay_regrade_requests` (UNIQUE essay_id = 1/essay). Student POSTs reason (50–500) on a `delivered` essay → `pending`. Admin **accept** → un-delivers the essay (`delivered → reviewed`, `delivered_at=null`) so the student stops seeing final feedback + admin re-handles in grade.html; re-delivery (`mark_delivered`) flips the request to `fulfilled`. Admin **reject** → terminal + `admin_response` shown to the student. The student result page polls `GET …/regrade-request` for the right state (button / pending / rejected / fulfilled).
+- **Re-grade control** sits in `writing-result.html` header-actions as a `.btn-icon`; modal reason uses the `.wr-modal` shell (centred, backdrop+Esc close) — reuse `.wr-modal` for any student-side form/detail modal.
+- **Tips recommendation:** `writing-result.html` fetches `GET /api/writing/tips` once + filters client-side by `_essayTaskToTipTask` (essay `task1_academic`/`task1_general` → tip `task_1`; `task2` → `task_2`; always include `both`) — handles the two task_type vocabularies until 19.5 reconciles them. Cards (`.tips-reco__card`) open the tip in a `.wr-modal` via `renderMarkdown`.
+
+> Cluster 19.x retrospective deferred to the **19.5 cleanup phase** (which also closes: email provider, `writing_tips` rename, task_type vocab reconciliation, the stale `aver-admin-chrome.test.mjs` cohorts/usage fails, and `cohorts.html`'s `essay-filter-btn`→`aw-filter-btn` chip-class fix).
 
 ---
 
