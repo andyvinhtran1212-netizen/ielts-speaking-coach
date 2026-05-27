@@ -1002,3 +1002,28 @@ textarea.aw-input {
 }
 .aw-kv-table td { color: var(--av-text-primary); word-break: break-word; }
 
+
+
+/* ── Sprint 19.2 — assign-mode toggle (assignments.html fan-out) ───── */
+.aw-assign-mode {
+  display: inline-flex;
+  gap: var(--av-space-1);
+  padding: var(--av-space-1);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+}
+.aw-assign-mode__btn {
+  border: none;
+  background: transparent;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-medium);
+  padding: var(--av-space-1) var(--av-space-3);
+  border-radius: var(--av-radius-sm);
+  cursor: pointer;
+}
+.aw-assign-mode__btn.is-active {
+  background: var(--av-surface-card);
+  color: var(--av-primary);
+  box-shadow: var(--av-shadow-sm);
+}
