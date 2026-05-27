@@ -707,3 +707,47 @@ body.av-page .hover\:text-white:hover {
   padding: var(--av-space-6);
 }
 .wd-tip-modal__panel h2 { color: var(--av-text-primary); margin: 0; }
+
+
+/* ── Sprint 19.1C — content_type badges + type-specific modal blocks ── */
+.tip-card__type {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.55rem;
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  white-space: nowrap;
+}
+.tip-card__type--tip       { background: var(--av-primary-soft); color: var(--av-primary); }
+.tip-card__type--knowledge { background: var(--av-info-soft);    color: var(--av-info); }
+.tip-card__type--sample    { background: var(--av-accent-soft);  color: var(--av-warning); }
+.tip-card__type--outline   { background: var(--av-success-soft); color: var(--av-success); }
+
+/* Sample band/word-count strip at the top of the detail modal. */
+.tip-modal-meta-strip {
+  margin-bottom: var(--av-space-4);
+  padding: var(--av-space-2) var(--av-space-3);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+}
+.tip-modal-meta-strip strong { color: var(--av-text-primary); }
+
+/* Outline structure rendered above the body. */
+.tip-modal-outline {
+  margin-bottom: var(--av-space-4);
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+}
+.tip-modal-outline ol { margin: 0; padding-left: var(--av-space-4); color: var(--av-text-primary); }
+.tip-modal-outline ul {
+  margin: var(--av-space-1) 0 var(--av-space-2);
+  padding-left: var(--av-space-4);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+}
+.tip-modal-outline > ol > li { margin-bottom: var(--av-space-2); }

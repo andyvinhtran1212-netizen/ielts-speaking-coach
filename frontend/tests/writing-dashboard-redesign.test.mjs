@@ -705,3 +705,34 @@ describe('writing-dashboard / Sprint 19.1B tips tab', () => {
     assert.match(html, /css\/markdown\.css/);
   });
 });
+
+
+// ── Sprint 19.1C — 4 content types in the "Mẹo viết" tab ──────────────
+
+describe('writing-dashboard / Sprint 19.1C content types', () => {
+  test('content_type filter chips (tip/knowledge/sample/outline) present', () => {
+    for (const t of ['all', 'tip', 'knowledge', 'sample', 'outline']) {
+      assert.match(html, new RegExp(`data-tip-type-filter="${t}"`), `type chip ${t}`);
+    }
+  });
+
+  test('cards render a content_type badge + type-specific snippet', () => {
+    assert.match(html, /tip-card__type--/);
+    assert.match(html, /function\s+_tipSnippet\s*\(/);
+    assert.match(html, /TIP_TYPE_LABELS/);
+  });
+
+  test('two-axis AND filter (task_type × content_type)', () => {
+    assert.match(html, /_tipTypeFilter/);
+    assert.match(html, /taskOk && typeOk/);
+  });
+
+  test('detail modal shows sample band/word-count + outline structure', () => {
+    assert.match(html, /Band mục tiêu/);
+    assert.match(html, /tip-modal-outline/);
+  });
+
+  test('type badge CSS declared', () => {
+    assert.match(css, /\.tip-card__type--sample/);
+  });
+});

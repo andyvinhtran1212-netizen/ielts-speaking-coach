@@ -24,16 +24,21 @@ scope).
 from __future__ import annotations
 
 import logging
-import re
-import unicodedata
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.content_import_service import (
+    FrontmatterError,
+    build_db_payload,
+    parse_markdown_with_frontmatter,
+    slugify,
+    validate_content,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,23 +48,20 @@ router = APIRouter(
     tags=["admin-writing-tips"],
 )
 
+# Sprint 19.1C — second router for the import pipeline. Distinct prefix
+# (/admin/writing/content) because the endpoint isn't tip-scoped; mounted
+# alongside `router` in main.py.
+content_router = APIRouter(
+    prefix="/admin/writing/content",
+    tags=["admin-writing-content"],
+)
+
 
 _TASK_TYPE_PATTERN = r"^(task_1|task_2|both)$"
 
-
-def _slugify(text: str) -> str:
-    """ASCII URL slug from a (possibly Vietnamese) title — no external dep.
-
-    đ/Đ don't decompose under NFKD, so map them explicitly first; then
-    strip the remaining combining accent marks, lowercase, and collapse
-    every non-alphanumeric run to a single hyphen. Falls back to 'tip'
-    if the title was all punctuation/emoji."""
-    s = (text or "").strip().lower()
-    s = s.replace("đ", "d")  # NFKD won't decompose đ; lower() already mapped Đ→đ
-    s = unicodedata.normalize("NFKD", s)
-    s = "".join(c for c in s if not unicodedata.combining(c))
-    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
-    return s or "tip"
+# Canonical slugify lives in the import service (Sprint 19.1C de-dup); the
+# alias keeps this module's existing create/update call sites unchanged.
+_slugify = slugify
 
 
 def _is_unique_violation(exc: Exception) -> bool:
@@ -224,3 +226,84 @@ async def delete_tip(
     if not r.data:
         raise HTTPException(404, "Không tìm thấy mẹo viết.")
     return {"message": "Đã xóa mẹo viết", "tip_id": str(tip_id)}
+
+
+# ── Sprint 19.1C — content import (Markdown + YAML frontmatter) ────────
+
+
+@content_router.post("/import")
+async def import_content(
+    file: UploadFile = File(...),
+    dry_run: bool = Query(default=True),
+    authorization: str | None = Header(None),
+):
+    """Parse an uploaded `.md` file, validate it, and (when dry_run=false +
+    no errors) upsert into writing_tips by slug.
+
+    Contract: docs/clusters/19_x/content_format_v1.md. Idempotent by slug —
+    a re-uploaded file with the same slug UPDATES the row in place
+    (created_at + created_by preserved), so there's no slug-collision 409
+    on this path (that's intentional: fixing content = re-upload).
+
+    Response: { parsed_data, validation_errors, dry_run, committed_id,
+    action }. dry_run (default true) and any validation error both
+    short-circuit before touching the DB."""
+    admin = await require_admin(authorization)
+
+    raw = await file.read()
+    text = raw.decode("utf-8", errors="replace")
+
+    try:
+        parsed = parse_markdown_with_frontmatter(text)
+    except FrontmatterError as exc:
+        return {
+            "parsed_data": None,
+            "validation_errors": [{"field": "frontmatter", "message": str(exc)}],
+            "dry_run": dry_run,
+            "committed_id": None,
+            "action": None,
+        }
+
+    # Fill the effective slug for the preview + commit (only when omitted).
+    if not parsed.slug:
+        parsed.slug = slugify(parsed.title or "")
+
+    errors = validate_content(parsed)
+    result = {
+        "parsed_data": parsed.as_preview(),
+        "validation_errors": errors,
+        "dry_run": dry_run,
+        "committed_id": None,
+        "action": None,
+    }
+    if dry_run or errors:
+        return result
+
+    # ── Commit: upsert by slug ──
+    payload = build_db_payload(parsed, parsed.slug)
+    try:
+        existing = (
+            supabase_admin.table("writing_tips")
+            .select("id")
+            .eq("slug", parsed.slug)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            supabase_admin.table("writing_tips").update(payload).eq("slug", parsed.slug).execute()
+            result["committed_id"] = existing.data[0]["id"]
+            result["action"] = "updated"
+        else:
+            payload["created_by"] = admin["id"]
+            r = supabase_admin.table("writing_tips").insert(payload).execute()
+            if not r.data:
+                raise HTTPException(500, "Không lưu được nội dung.")
+            result["committed_id"] = r.data[0]["id"]
+            result["action"] = "created"
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("import_content commit failed slug=%s: %s", parsed.slug, exc)
+        raise HTTPException(500, "Không lưu được nội dung. Vui lòng thử lại.")
+
+    return result
