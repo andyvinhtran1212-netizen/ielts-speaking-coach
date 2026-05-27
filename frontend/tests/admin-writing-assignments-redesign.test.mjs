@@ -266,3 +266,30 @@ describe('admin-writing.css / token discipline (assignments page)', () => {
     assert.ok(total <= 10, `--av-text-faint on this page ≤ 10, got ${total}`);
   });
 });
+
+
+// ── Sprint 19.2 — cohort fan-out + filter ─────────────────────────────
+
+describe('admin-writing-assignments.html / Sprint 19.2 cohort', () => {
+  test('cohort filter dropdown + fan-out mode toggle present', () => {
+    assert.match(html, /id="filter-cohort"/);
+    assert.match(html, /data-assign-mode="individual"/);
+    assert.match(html, /data-assign-mode="cohort"/);
+    assert.match(html, /id="step-cohort"/);
+    assert.match(html, /id="form-cohort"/);
+  });
+
+  test('fan-out posts to the fan-out endpoint with cohort_id', () => {
+    assert.match(html, /\/admin\/writing\/assignments\/fan-out/);
+    assert.match(html, /function\s+setAssignMode\s*\(/);
+    assert.match(html, /loadCohorts\(\)/);
+  });
+
+  test('cohort_id passed to the assignments list filter', () => {
+    assert.match(html, /params\.set\('cohort_id'/);
+  });
+
+  test('assign-mode toggle CSS declared', () => {
+    assert.match(css, /\.aw-assign-mode__btn/);
+  });
+});

@@ -1,0 +1,132 @@
+/* css/admin-writing-cohorts.css — Sprint 19.2 cohort admin views.
+ *
+ * Master-detail layout (cohort list left, status matrix right) + the
+ * student × assignment matrix. Information-dense admin surface — tighter
+ * density than student pages, per the design baseline (#308). All values
+ * from the --av-* token set; no hardcoded colours, no new tokens.
+ */
+
+.cohorts-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: var(--av-space-6);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .cohorts-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Master: cohort list ──────────────────────────────────────────── */
+.cohorts-list__filters {
+  display: flex;
+  gap: var(--av-space-1);
+  margin-bottom: var(--av-space-3);
+  flex-wrap: wrap;
+}
+.cohorts-list__rows { display: flex; flex-direction: column; gap: var(--av-space-2); }
+
+.cohort-row {
+  width: 100%;
+  text-align: left;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3);
+  cursor: pointer;
+  transition: background var(--av-duration-fast) var(--av-easing-default),
+              border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.cohort-row:hover { background: var(--av-surface-elevated); border-color: var(--av-border-default); }
+.cohort-row:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+.cohort-row.is-active { border-color: var(--av-primary-border); background: var(--av-primary-soft); }
+.cohort-row__name { font-weight: var(--av-fw-semibold); color: var(--av-text-primary); margin-bottom: var(--av-space-1); }
+.cohort-row__meta {
+  display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+  font-size: var(--av-fs-xs); color: var(--av-text-muted);
+  font-family: var(--av-font-mono);
+}
+
+/* ── Detail: matrix ───────────────────────────────────────────────── */
+.cohorts-detail__placeholder {
+  border: 1px dashed var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  padding: var(--av-space-16) var(--av-space-6);
+  text-align: center;
+  color: var(--av-text-muted);
+}
+.cohorts-detail__name {
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-primary);
+  margin: 0 0 var(--av-space-3);
+}
+.cohorts-detail__stats { display: flex; gap: var(--av-space-2); flex-wrap: wrap; margin-bottom: var(--av-space-4); }
+.stat-pill {
+  display: inline-flex; align-items: center;
+  padding: 0.2rem 0.7rem;
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-medium);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+}
+.stat-pill--info    { background: var(--av-info-soft);    color: var(--av-info); }
+.stat-pill--success { background: var(--av-primary-soft); color: var(--av-success); }
+.stat-pill--error   { background: var(--av-error-soft);   color: var(--av-error); }
+
+.cohorts-matrix-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+}
+.cohorts-matrix { border-collapse: collapse; font-size: var(--av-fs-sm); width: max-content; min-width: 100%; }
+.cohorts-matrix th,
+.cohorts-matrix td { border: 1px solid var(--av-border-subtle); }
+
+.matrix-corner,
+.matrix-rowhead {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--av-surface-elevated);
+  text-align: left;
+  padding: var(--av-space-2) var(--av-space-3);
+  max-width: 180px; min-width: 140px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--av-text-primary); font-weight: var(--av-fw-medium);
+}
+.matrix-corner { z-index: 2; color: var(--av-text-muted); font-weight: var(--av-fw-semibold); }
+
+.matrix-colhead {
+  padding: var(--av-space-2);
+  background: var(--av-surface-sunken);
+  vertical-align: bottom;
+  max-width: 120px; min-width: 64px;
+}
+.matrix-colhead__text {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+  color: var(--av-text-secondary); line-height: var(--av-lh-snug);
+}
+
+.matrix-cell {
+  text-align: center;
+  padding: var(--av-space-2);
+  min-width: 44px;
+  font-size: var(--av-fs-base);
+  color: var(--av-text-secondary);
+}
+.matrix-cell--empty  { color: var(--av-text-faint); }
+.matrix-cell--muted  { color: var(--av-text-muted); }
+.matrix-cell--info    { background: var(--av-info-soft);    color: var(--av-info); }
+.matrix-cell--amber   { background: var(--av-warning-soft); color: var(--av-warning); }
+.matrix-cell--success { background: var(--av-primary-soft); color: var(--av-success); }
+.matrix-cell--error   { background: var(--av-error-soft);   color: var(--av-error); }
+.matrix-cell--warning { background: var(--av-accent-soft);  color: var(--av-warning); }
+.matrix-cell--overdue { box-shadow: inset 0 0 0 2px var(--av-error); }
+.matrix-cell--link { cursor: pointer; }
+.matrix-cell--link:hover { filter: brightness(1.08); }
+.matrix-cell--link:focus-visible { outline: 2px solid var(--av-primary); outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cohort-row { transition: none; }
+}

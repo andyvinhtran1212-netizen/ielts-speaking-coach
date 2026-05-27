@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.cohort_assignment_service import fan_out_assignment
 
 
 router = APIRouter(
@@ -163,6 +164,7 @@ class AssignmentUpdate(BaseModel):
 async def list_assignments(
     student_id: Optional[UUID] = Query(default=None),
     prompt_id:  Optional[UUID] = Query(default=None),
+    cohort_id:  Optional[UUID] = Query(default=None),
     status_filter: Optional[str] = Query(default=None, alias="status_filter",
                                           pattern=_STATUS_PATTERN),
     limit: int = Query(default=200, ge=1, le=500),
@@ -171,8 +173,24 @@ async def list_assignments(
     """List assignments with optional filters, newest first.  The
     response embeds the joined prompt (id/title/task_type/difficulty)
     and student (id/student_code/full_name) so the admin list view
-    doesn't need a second round-trip."""
+    doesn't need a second round-trip.
+
+    Sprint 19.2: `cohort_id` filters to assignments whose student belongs
+    to that cohort (derived via students.cohort_id — Discovery D1)."""
     await require_admin(authorization)
+
+    # Resolve cohort → student_ids before querying assignments.
+    cohort_student_ids: Optional[list[str]] = None
+    if cohort_id:
+        srows = (
+            supabase_admin.table("students")
+            .select("id")
+            .eq("cohort_id", str(cohort_id))
+            .execute()
+        ).data or []
+        cohort_student_ids = [s["id"] for s in srows]
+        if not cohort_student_ids:
+            return {"assignments": []}
 
     q = (
         supabase_admin.table("writing_assignments")
@@ -191,6 +209,8 @@ async def list_assignments(
         q = q.eq("student_id", str(student_id))
     if prompt_id:
         q = q.eq("prompt_id", str(prompt_id))
+    if cohort_student_ids is not None:
+        q = q.in_("student_id", cohort_student_ids)
     if status_filter:
         q = q.eq("status", status_filter)
 
@@ -261,6 +281,57 @@ async def create_assignments(
         "count":              len(r.data),
         "duplicates_warning": sorted(duplicate_student_ids),
     }
+
+
+# ── Sprint 19.2 — cohort fan-out ("Giao bài theo lớp") ────────────────
+
+
+class FanOutCreate(BaseModel):
+    """One prompt → every student in a cohort. Cohort membership is
+    derived from students.cohort_id (Discovery D1). Idempotent by
+    (student_id, prompt_id) — students who already have this prompt are
+    skipped, not re-assigned."""
+    prompt_id:          UUID
+    cohort_id:          UUID
+    deadline:           Optional[datetime] = None
+    instructions:       Optional[str]      = Field(None, max_length=2000)
+    is_timed:           bool               = False
+    time_limit_minutes: Optional[int]      = Field(None, ge=1, le=180)
+
+    @model_validator(mode="after")
+    def _validate_timer_pairing(self):
+        if self.is_timed and self.time_limit_minutes is None:
+            raise ValueError("time_limit_minutes is required when is_timed=true")
+        if not self.is_timed and self.time_limit_minutes is not None:
+            raise ValueError("time_limit_minutes only allowed when is_timed=true")
+        return self
+
+
+# Declared BEFORE the `/{assignment_id}` parametric routes so the matcher
+# doesn't read "fan-out" as a UUID (mirrors prompts/upload-image ordering).
+@router.post("/fan-out", status_code=status.HTTP_201_CREATED)
+async def fan_out_to_cohort(
+    body: FanOutCreate,
+    authorization: str | None = Header(None),
+):
+    """Create one assignment per student in the cohort from a single
+    template. Returns counts so the UI can confirm "Đã giao cho X học
+    viên" and surface how many were skipped (already assigned)."""
+    admin = await require_admin(authorization)
+
+    result = fan_out_assignment(
+        supabase_admin,
+        prompt_id=body.prompt_id,
+        cohort_id=body.cohort_id,
+        assigned_by=admin["id"],
+        deadline=body.deadline,
+        instructions=body.instructions,
+        is_timed=body.is_timed,
+        time_limit_minutes=body.time_limit_minutes,
+    )
+    if result["student_count"] == 0:
+        raise HTTPException(400, "Lớp này chưa có học viên nào.")
+    return result
 
 
 @router.get("/{assignment_id}")

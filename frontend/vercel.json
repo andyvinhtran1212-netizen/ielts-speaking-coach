@@ -5,6 +5,7 @@
     { "source": "/writing/result",          "destination": "/pages/writing-result.html" },
     { "source": "/admin/writing/prompts",     "destination": "/pages/admin/writing/prompts.html" },
     { "source": "/admin/writing/tips",        "destination": "/pages/admin/writing/tips.html" },
+    { "source": "/admin/writing/cohorts",     "destination": "/pages/admin/writing/cohorts.html" },
     { "source": "/admin/writing/assignments", "destination": "/pages/admin/writing/assignments.html" },
     { "source": "/home",                     "destination": "/pages/home.html" },
     { "source": "/speaking",                 "destination": "/pages/speaking.html" }

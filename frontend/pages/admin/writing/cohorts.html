@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Lớp học — Writing Coach Admin</title>
+
+  <!-- Sprint 6.14a canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: {
+        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+      } } },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/admin-writing.css" />
+  <link rel="stylesheet" href="/css/admin-writing-cohorts.css" />
+
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+</head>
+<body class="av-page font-sans antialiased min-h-screen">
+  <aver-admin-chrome active="writing" subsection="cohorts">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-2">
+        <span class="aw-brand text-xl font-bold">Aver<span class="aw-brand__accent">Learning</span></span>
+        <span class="aw-subtitle text-sm hidden md:inline">— Lớp học</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/admin.html" class="aw-back-link text-sm">← Admin home</a>
+        <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <h1 class="aw-h1 text-2xl font-semibold mb-1 flex items-center gap-2">
+      <span aria-hidden="true">🏫</span> Lớp học — Tiến độ Writing
+    </h1>
+    <p class="aw-subtitle text-sm mb-6">Tổng quan bài viết theo lớp: ai đã nộp, chờ chấm, đã trả.</p>
+
+    <div class="cohorts-layout">
+      <!-- Master: cohort list -->
+      <aside class="cohorts-list" aria-label="Danh sách lớp">
+        <div class="cohorts-list__filters">
+          <button type="button" class="essay-filter-btn is-active" data-cohort-filter="all">Tất cả</button>
+          <button type="button" class="essay-filter-btn" data-cohort-filter="active">Có hoạt động</button>
+          <button type="button" class="essay-filter-btn" data-cohort-filter="idle">Chưa hoạt động</button>
+        </div>
+        <div id="cohorts-loading" class="aw-state-loading text-center py-8">Đang tải…</div>
+        <div id="cohorts-error"   class="aw-state-error hidden text-sm"></div>
+        <div id="cohorts-empty"   class="aw-state-empty hidden text-center py-8">Chưa có lớp nào.</div>
+        <div id="cohorts-rows" class="cohorts-list__rows hidden"></div>
+      </aside>
+
+      <!-- Detail: status matrix -->
+      <section class="cohorts-detail" aria-label="Chi tiết lớp">
+        <div id="detail-placeholder" class="cohorts-detail__placeholder">
+          <p>← Chọn một lớp để xem bảng tiến độ.</p>
+        </div>
+        <div id="detail-loading" class="aw-state-loading text-center py-10 hidden">Đang tải lớp…</div>
+        <div id="detail-content" class="hidden">
+          <h2 id="detail-name" class="cohorts-detail__name"></h2>
+          <div id="detail-stats" class="cohorts-detail__stats"></div>
+          <div id="detail-matrix-empty" class="aw-state-empty hidden text-center py-8">Lớp này chưa có bài giao hoặc học viên nào.</div>
+          <div id="detail-matrix-wrap" class="cohorts-matrix-wrap hidden">
+            <table class="cohorts-matrix">
+              <thead><tr id="matrix-head"></tr></thead>
+              <tbody id="matrix-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    'use strict';
+
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    // Admin-side cell status map (full backend states — Pattern #11; the
+    // 4-state student collapse from 19.1A does NOT apply here). Compact
+    // glyph + colour class; full label shown via the cell title tooltip.
+    var CELL = {
+      not_submitted: { glyph: '·',  label: 'Chưa nộp',          cls: 'cell--muted'   },
+      pending:       { glyph: '⏳', label: 'Chờ chấm',          cls: 'cell--info'    },
+      submitted:     { glyph: '⏳', label: 'Đã nộp',            cls: 'cell--info'    },
+      grading:       { glyph: '⏳', label: 'Đang chấm',         cls: 'cell--info'    },
+      graded:        { glyph: '👀', label: 'Đã chấm (nháp)',    cls: 'cell--amber'   },
+      reviewed:      { glyph: '👀', label: 'Đang review',       cls: 'cell--amber'   },
+      delivered:     { glyph: '✓',  label: 'Đã trả',            cls: 'cell--success' },
+      failed:        { glyph: '⚠',  label: 'Lỗi',               cls: 'cell--error'   },
+      flagged:       { glyph: '⚑',  label: 'Bị đánh dấu',       cls: 'cell--warning' },
+    };
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+      });
+    }
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+    function fmtDate(iso) {
+      if (!iso) return '';
+      var d = new Date(iso);
+      return isNaN(d) ? '' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    var _allCohorts = [];
+    var _cohortFilter = 'all';
+    var _activeCohortId = null;
+
+    // ── Cohort list (master) ───────────────────────────────────────
+    async function loadCohorts() {
+      hide('cohorts-error'); hide('cohorts-empty'); hide('cohorts-rows');
+      show('cohorts-loading');
+      try {
+        var data = await window.api.get('/admin/writing/cohorts');
+        _allCohorts = (data && data.cohorts) || [];
+        hide('cohorts-loading');
+        renderCohorts();
+      } catch (err) {
+        hide('cohorts-loading');
+        var box = document.getElementById('cohorts-error');
+        box.textContent = 'Lỗi tải danh sách lớp: ' + (err.message || 'không xác định');
+        show('cohorts-error');
+      }
+    }
+
+    function renderCohorts() {
+      var rows = document.getElementById('cohorts-rows');
+      if (_allCohorts.length === 0) { rows.innerHTML = ''; hide('cohorts-rows'); show('cohorts-empty'); return; }
+      hide('cohorts-empty');
+
+      var filtered = _allCohorts.filter(function (c) {
+        if (_cohortFilter === 'active') return c.active_assignments > 0;
+        if (_cohortFilter === 'idle')   return c.active_assignments === 0;
+        return true;
+      });
+
+      rows.innerHTML = filtered.map(function (c) {
+        var active = c.id === _activeCohortId ? ' is-active' : '';
+        return (
+          '<button type="button" class="cohort-row' + active + '" data-cohort-id="' + escapeHtml(c.id) + '">' +
+            '<div class="cohort-row__name">' + escapeHtml(c.name || '(Lớp)') + '</div>' +
+            '<div class="cohort-row__meta">' +
+              '<span title="Học viên">👥 ' + (c.student_count || 0) + '</span>' +
+              '<span title="Bài đang giao">📋 ' + (c.active_assignments || 0) + '</span>' +
+              '<span title="Chờ chấm">⏳ ' + (c.essays_pending || 0) + '</span>' +
+              '<span title="Đã trả">✓ ' + (c.essays_delivered || 0) + '</span>' +
+            '</div>' +
+          '</button>'
+        );
+      }).join('');
+      show('cohorts-rows');
+
+      rows.querySelectorAll('.cohort-row').forEach(function (btn) {
+        btn.addEventListener('click', function () { selectCohort(btn.getAttribute('data-cohort-id')); });
+      });
+    }
+
+    // ── Cohort detail (matrix) ─────────────────────────────────────
+    async function selectCohort(cohortId) {
+      _activeCohortId = cohortId;
+      renderCohorts();  // refresh active highlight
+      // Reflect in the URL for deep-link / refresh.
+      try { history.replaceState(null, '', '?cohort_id=' + encodeURIComponent(cohortId)); } catch (e) {}
+
+      hide('detail-placeholder'); hide('detail-content');
+      show('detail-loading');
+      try {
+        var data = await window.api.get('/admin/writing/cohorts/' + encodeURIComponent(cohortId));
+        hide('detail-loading');
+        renderDetail(data);
+      } catch (err) {
+        hide('detail-loading');
+        show('detail-placeholder');
+        document.getElementById('detail-placeholder').innerHTML =
+          '<p class="aw-state-error">Lỗi tải lớp: ' + escapeHtml(err.message || 'không xác định') + '</p>';
+      }
+    }
+
+    function renderDetail(data) {
+      var cohort = data.cohort || {};
+      var students = data.students || [];
+      var cols = data.assignments || [];
+      var matrix = data.matrix || {};
+      var stats = data.stats || {};
+
+      document.getElementById('detail-name').textContent = cohort.name || 'Lớp';
+      document.getElementById('detail-stats').innerHTML =
+        '<span class="stat-pill">👥 ' + (stats.students || 0) + ' học viên</span>' +
+        '<span class="stat-pill">📋 ' + (stats.assignments || 0) + ' bài giao</span>' +
+        '<span class="stat-pill stat-pill--info">⏳ ' + (stats.essays_pending || 0) + ' chờ chấm</span>' +
+        '<span class="stat-pill stat-pill--success">✓ ' + (stats.essays_delivered || 0) + ' đã trả</span>' +
+        (stats.overdue ? '<span class="stat-pill stat-pill--error">⚠ ' + stats.overdue + ' quá hạn</span>' : '');
+
+      show('detail-content');
+
+      if (students.length === 0 || cols.length === 0) {
+        hide('detail-matrix-wrap');
+        show('detail-matrix-empty');
+        return;
+      }
+      hide('detail-matrix-empty');
+
+      // Header: corner + one column per assignment (truncated, tooltip).
+      var head = '<th class="matrix-corner">Học viên</th>' + cols.map(function (col) {
+        return '<th class="matrix-colhead" title="' + escapeHtml(col.title) + '">' +
+          '<span class="matrix-colhead__text">' + escapeHtml(col.title) + '</span></th>';
+      }).join('');
+      document.getElementById('matrix-head').innerHTML = head;
+
+      // Body rows: student name + one cell per assignment.
+      var bodyHtml = students.map(function (s) {
+        var cells = cols.map(function (col) {
+          var cell = (matrix[s.id] || {})[col.prompt_id];
+          if (!cell) return '<td class="matrix-cell matrix-cell--empty">—</td>';
+          var cfg = CELL[cell.status] || CELL.not_submitted;
+          var overdue = cell.deadline && cell.deadline < new Date().toISOString() && cell.status !== 'delivered';
+          var tip = cfg.label + (cell.deadline ? ' · Hạn: ' + fmtDate(cell.deadline) : '') +
+                    (cell.band != null ? ' · Band ' + cell.band : '');
+          var clickable = cell.essay_id ? ' matrix-cell--link' : '';
+          var attrs = cell.essay_id ? ' role="link" tabindex="0" data-essay-id="' + escapeHtml(cell.essay_id) + '"' : '';
+          return '<td class="matrix-cell ' + cfg.cls + clickable + (overdue ? ' matrix-cell--overdue' : '') +
+                 '" title="' + escapeHtml(tip) + '"' + attrs + '>' + cfg.glyph + '</td>';
+        }).join('');
+        return '<tr><th class="matrix-rowhead" title="' + escapeHtml(s.full_name || '') + '">' +
+          escapeHtml(s.full_name || s.student_code || '—') + '</th>' + cells + '</tr>';
+      }).join('');
+      document.getElementById('matrix-body').innerHTML = bodyHtml;
+      show('detail-matrix-wrap');
+
+      // Cell click → existing admin grading interface.
+      document.querySelectorAll('.matrix-cell--link').forEach(function (td) {
+        var go = function () {
+          var eid = td.getAttribute('data-essay-id');
+          if (eid) window.location.href = '/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(eid);
+        };
+        td.addEventListener('click', go);
+        td.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+        });
+      });
+    }
+
+    // ── Wire up ────────────────────────────────────────────────────
+    document.querySelectorAll('[data-cohort-filter]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        _cohortFilter = btn.getAttribute('data-cohort-filter');
+        document.querySelectorAll('[data-cohort-filter]').forEach(function (b) {
+          b.classList.toggle('is-active', b === btn);
+        });
+        renderCohorts();
+      });
+    });
+
+    (async function init() {
+      await loadCohorts();
+      // Deep-link: ?cohort_id=… selects on load.
+      var pid = new URLSearchParams(window.location.search).get('cohort_id');
+      if (pid) selectCohort(pid);
+    })();
+  </script>
+
+  <!-- Lucide hydration + theme toggle binding (Sprint 6.14a) -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+      }
+      function bindToggleButton() {
+        var btn = document.querySelector('.av-theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('av-theme', next); } catch (e) {}
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { hydrateIcons(); bindToggleButton(); });
+      } else { hydrateIcons(); bindToggleButton(); }
+      window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
+  </aver-admin-chrome>
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+</body>
+</html>

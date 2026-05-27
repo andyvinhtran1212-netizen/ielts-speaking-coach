@@ -85,6 +85,10 @@
         <option value="graded">✓ Đã chấm</option>
         <option value="delivered">📨 Đã trả</option>
       </select>
+      <!-- Sprint 19.2 — cohort filter (derived via students.cohort_id). -->
+      <select id="filter-cohort" class="aw-input" style="width: auto; min-width: 180px;">
+        <option value="">Tất cả lớp</option>
+      </select>
       <button id="btn-create" type="button" class="aw-btn-primary ml-auto">+ Giao bài mới</button>
     </div>
 
@@ -105,6 +109,12 @@
       </div>
 
       <div class="space-y-4">
+        <!-- Sprint 19.2 — assign target mode: per-student vs whole cohort -->
+        <div class="aw-assign-mode" role="tablist" aria-label="Chế độ giao bài">
+          <button type="button" class="aw-assign-mode__btn is-active" data-assign-mode="individual">👤 Cá nhân</button>
+          <button type="button" class="aw-assign-mode__btn" data-assign-mode="cohort">🏫 Theo lớp</button>
+        </div>
+
         <!-- Step 1 — pick prompt -->
         <div>
           <label class="aw-modal-step-label">
@@ -116,8 +126,8 @@
           <div id="prompt-preview" class="aw-prompt-preview hidden mt-2 p-3 text-sm"></div>
         </div>
 
-        <!-- Step 2 — pick students -->
-        <div>
+        <!-- Step 2a — pick students (individual mode) -->
+        <div id="step-students">
           <label class="aw-modal-step-label">
             Bước 2 — Chọn học viên
             <span id="selected-count" class="aw-modal-step-label__count">(0 chọn)</span>
@@ -130,6 +140,15 @@
           <div id="students-list" class="aw-student-picker max-h-56 overflow-y-auto p-2">
             <p id="students-empty" class="aw-student-picker__empty hidden text-xs p-2">Không có học viên trùng bộ lọc.</p>
           </div>
+        </div>
+
+        <!-- Step 2b — pick cohort (cohort mode, Sprint 19.2 fan-out) -->
+        <div id="step-cohort" class="hidden">
+          <label class="aw-modal-step-label">Bước 2 — Chọn lớp</label>
+          <select id="form-cohort" class="aw-input">
+            <option value="">— Chọn lớp —</option>
+          </select>
+          <p class="aw-help-text text-xs mt-1">Hệ thống tạo 1 bài cho mỗi học viên trong lớp; bỏ qua học viên đã có đề này.</p>
         </div>
 
         <!-- Step 3 — optional fields -->
@@ -196,6 +215,9 @@
     var _allPrompts          = [];
     var _allStudents         = [];
     var _selectedStudentIds  = new Set();
+    // Sprint 19.2 — cohort fan-out state.
+    var _allCohorts          = [];
+    var _assignMode          = 'individual';   // 'individual' | 'cohort'
 
     function escapeHtml(s) {
       return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -214,6 +236,22 @@
       } catch (_) { return '—'; }
     }
 
+    // ── Cohorts (Sprint 19.2) — filter dropdown + fan-out picker ───
+    async function loadCohorts() {
+      try {
+        var data = await window.api.get('/admin/writing/cohorts');
+        _allCohorts = (data && data.cohorts) || [];
+      } catch (err) {
+        _allCohorts = [];   // soft-fail: cohort features degrade, page still works
+        return;
+      }
+      var opts = _allCohorts.map(function (c) {
+        return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name || '(Lớp)') + '</option>';
+      }).join('');
+      document.getElementById('filter-cohort').innerHTML = '<option value="">Tất cả lớp</option>' + opts;
+      document.getElementById('form-cohort').innerHTML   = '<option value="">— Chọn lớp —</option>' + opts;
+    }
+
     // ── List view ─────────────────────────────────────────────────
     async function loadAssignments() {
       hide('state-error');
@@ -222,8 +260,10 @@
       show('state-loading');
 
       var statusFilter = document.getElementById('filter-status').value;
+      var cohortFilter = document.getElementById('filter-cohort').value;
       var params = new URLSearchParams();
       if (statusFilter) params.set('status_filter', statusFilter);
+      if (cohortFilter) params.set('cohort_id', cohortFilter);
 
       try {
         var data = await window.api.get('/admin/writing/assignments?' + params.toString());
@@ -379,6 +419,8 @@
       document.getElementById('form-is-timed').checked   = false;
       document.getElementById('form-time-limit').value   = '';
       document.getElementById('timer-fields').classList.add('hidden');
+      document.getElementById('form-cohort').value = '';
+      setAssignMode('individual');   // Sprint 19.2 — default to per-student
       hide('prompt-preview');
       hide('modal-error');
       updateSelectedCount();
@@ -407,10 +449,6 @@
         showModalError('Vui lòng chọn đề bài.');
         return;
       }
-      if (_selectedStudentIds.size === 0) {
-        showModalError('Vui lòng chọn ít nhất 1 học viên.');
-        return;
-      }
 
       // Timer pair validation — mirrors the server `model_validator`.
       // Catching it here saves an HTTP round-trip and the modal-level
@@ -424,10 +462,45 @@
         }
       }
 
+      var deadlineIso = deadlineRaw ? new Date(deadlineRaw).toISOString() : null;
+
+      // ── Sprint 19.2 — cohort fan-out branch ──
+      if (_assignMode === 'cohort') {
+        var cohortId = document.getElementById('form-cohort').value;
+        if (!cohortId) { showModalError('Vui lòng chọn lớp.'); return; }
+        var cohort = _allCohorts.find(function (c) { return c.id === cohortId; });
+        var cname = cohort ? cohort.name : 'lớp';
+        var ccount = cohort ? (cohort.student_count || 0) : 0;
+        if (!confirm('Sắp giao đề này cho ' + ccount + ' học viên trong lớp "' + cname + '". Tiếp tục?')) return;
+        try {
+          var fr = await window.api.post('/admin/writing/assignments/fan-out', {
+            prompt_id:          promptId,
+            cohort_id:          cohortId,
+            deadline:           deadlineIso,
+            instructions:       instructions || null,
+            is_timed:           isTimed,
+            time_limit_minutes: timeLimit,
+          });
+          var fmsg = '✓ Đã giao bài cho ' + (fr.created_count || 0) + ' học viên trong lớp "' + cname + '".';
+          if (fr.skipped_count) fmsg += '\n\n(' + fr.skipped_count + ' học viên đã có đề này — bỏ qua.)';
+          alert(fmsg);
+          closeModal();
+          await loadAssignments();
+        } catch (err) {
+          showModalError('Lỗi giao bài theo lớp: ' + (err.message || 'không xác định'));
+        }
+        return;
+      }
+
+      // ── Individual mode (existing per-student flow) ──
+      if (_selectedStudentIds.size === 0) {
+        showModalError('Vui lòng chọn ít nhất 1 học viên.');
+        return;
+      }
       var payload = {
         prompt_id:          promptId,
         student_ids:        Array.from(_selectedStudentIds),
-        deadline:           deadlineRaw ? new Date(deadlineRaw).toISOString() : null,
+        deadline:           deadlineIso,
         instructions:       instructions || null,
         is_timed:           isTimed,
         time_limit_minutes: timeLimit,
@@ -448,12 +521,28 @@
       }
     }
 
+    // Sprint 19.2 — toggle assign target mode (individual ↔ cohort).
+    function setAssignMode(mode) {
+      _assignMode = mode;
+      document.querySelectorAll('[data-assign-mode]').forEach(function (b) {
+        b.classList.toggle('is-active', b.getAttribute('data-assign-mode') === mode);
+      });
+      document.getElementById('step-students').classList.toggle('hidden', mode !== 'individual');
+      document.getElementById('step-cohort').classList.toggle('hidden', mode !== 'cohort');
+    }
+
     // ── Wire up ───────────────────────────────────────────────────
     document.getElementById('btn-create').addEventListener('click', openCreateModal);
     document.getElementById('btn-save').addEventListener('click', saveAssignment);
     document.getElementById('btn-cancel').addEventListener('click', closeModal);
     document.getElementById('btn-close-modal').addEventListener('click', closeModal);
     document.getElementById('filter-status').addEventListener('change', loadAssignments);
+    document.getElementById('filter-cohort').addEventListener('change', loadAssignments);
+
+    // Sprint 19.2 — assign-mode toggle.
+    document.querySelectorAll('[data-assign-mode]').forEach(function (btn) {
+      btn.addEventListener('click', function () { setAssignMode(btn.getAttribute('data-assign-mode')); });
+    });
 
     // Phase 2.3c-3 — toggle the time-limit field's visibility based on
     // the IELTS-mode checkbox.
@@ -490,6 +579,7 @@
       }
     });
 
+    loadCohorts();        // Sprint 19.2 — populate cohort filter + fan-out picker
     loadAssignments();
   </script>
 
