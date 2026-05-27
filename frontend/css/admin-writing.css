@@ -1027,3 +1027,21 @@ textarea.aw-input {
   color: var(--av-primary);
   box-shadow: var(--av-shadow-sm);
 }
+
+
+/* ── Sprint 19.3 — extract warnings (new.html upload) ─────────────── */
+.aw-extract-warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-3);
+}
+.aw-extract-warn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+}

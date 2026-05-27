@@ -121,16 +121,15 @@ Rules: transition specific properties (not `all`) where practical; hover lifts a
 
 ## 8. Subsequent-sprint guidance (best-effort — refine per commission)
 
-**19.1B — Writing-tips library (admin CRUD + student "Mẹo viết" tab)**
-- Student tips surface should live as a **third dashboard tab** alongside `Bài giao` / `Bài đã nộp`, reusing `.tab-btn` + the `.wd-empty` empty state. Tip cards reuse the `.essay-card` (non-clickable or clickable-to-article) pattern.
-- Match the Grammar Wiki reading rhythm for tip bodies: `--av-lh-relaxed`, `--av-fs-base`.
-- Admin CRUD lives on admin chrome (separate design system) — don't import student classes there.
+**19.1B — Writing-tips library (admin CRUD + student "Mẹo viết" tab)** ✅ SHIPPED (#309)
+- Student tips surface lives as a **third dashboard tab** alongside `Bài giao` / `Bài đã nộp`, reusing `.tab-btn` + the `.wd-empty` empty state. Tip cards reuse the `.essay-card` pattern.
+- Admin CRUD on admin chrome. Markdown render+sanitize shared via `js/markdown.js` + `.md-body` (`css/markdown.css`).
 
-**19.2 — Cohort admin views (student × essay status matrix)**
-- This is an **admin** surface (aver-admin chrome) — uses `av-*` admin components, not the student patterns here. Reuse the *status semantics* though: the cohort board may show the full 6 backend states to admins (admins are not subject to the student-side AI-hiding rule — Deliverable 4 is student-only).
+**19.2 — Cohort admin views (student × essay status matrix)** ✅ SHIPPED (#311)
+- Admin surface (aver-admin chrome). Admin cells show the full 6 backend states (the student-side AI-hiding rule is student-only). Drag-drop import idiom: `.aw-import-*` in `admin-writing.css`.
 
-**19.3 — Independent grading file upload (admin)**
-- Admin surface; reuse the existing student `.docx`/`.txt` extract affordance pattern conceptually, but styled in admin chrome.
+**19.3 — Independent grading file upload (admin)** ✅ SHIPPED (#-)
+- Reused the **`.aw-import-*` drag-drop panel** (19.1C) on `new.html` as a `<details>` helper above the essay field. **Established pattern: extract → fill the textarea (textarea stays the source of truth for submit)** — mirrors the student `/extract-text` flow; do NOT hard-toggle/hide the paste field. Backend reuses `file_extract_service` (`.docx`/`.txt`, 2MB, 15k chars). Export UX on `grade.html` was already mature (`/render`→ClipboardItem for Google Docs paste + `export.docx`); 19.3 only added clearer VN labels/tooltips + loading state.
 
 **19.4 — Notifications + student regrade-request + result-page tips recommendation**
 - Notification chips/badges: use `--av-info-soft` (informational) or `--av-primary-soft`; never invent a new hue.

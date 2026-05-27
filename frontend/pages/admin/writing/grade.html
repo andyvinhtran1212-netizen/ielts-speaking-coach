@@ -101,8 +101,8 @@
       </div>
       <div class="header-actions">
         <button id="btn-save"     class="btn btn-primary">💾 Save edits</button>
-        <button id="btn-copy"     class="btn" title="Copy formatted to clipboard">📋 Copy</button>
-        <button id="btn-download" class="btn" title="Download .docx">⬇ Download</button>
+        <button id="btn-copy"     class="btn" title="Sao chép feedback có định dạng — dán (Cmd/Ctrl+V) vào Google Docs của học viên">📋 Sao chép (Google Docs)</button>
+        <button id="btn-download" class="btn" title="Tải feedback về file Word (.docx)">⬇ Tải .docx</button>
         <button id="btn-regrade"  class="btn btn-warn" title="Chấm lại bằng AI">🔄 Chấm lại</button>
         <button id="btn-deliver"  class="btn btn-success">✓ Mark delivered</button>
         <span id="last-saved"></span>
@@ -1230,6 +1230,9 @@
 
     async function handleCopy() {
       if (!await _ensureSavedBefore('copy')) return;
+      // Sprint 19.3 — loading state so the admin sees the click registered.
+      var _btn = document.getElementById('btn-copy');
+      var _orig = _btn.innerHTML; _btn.disabled = true; _btn.innerHTML = '⏳ Đang sao chép…';
       try {
         var data = await window.api.get('/admin/writing/essays/' + _essayId + '/render');
         if (navigator.clipboard && window.ClipboardItem) {
@@ -1245,11 +1248,16 @@
         }
       } catch (err) {
         setAlert('error', 'Copy failed: ' + err.message);
+      } finally {
+        _btn.disabled = false; _btn.innerHTML = _orig;
       }
     }
 
     async function handleDownload() {
       if (!await _ensureSavedBefore('tải file')) return;
+      // Sprint 19.3 — loading state during .docx generation + download.
+      var _btn = document.getElementById('btn-download');
+      var _orig = _btn.innerHTML; _btn.disabled = true; _btn.innerHTML = '⏳ Đang tải…';
       try {
         var sb = getSupabase();
         var res = await sb.auth.getSession();
@@ -1275,6 +1283,8 @@
         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
       } catch (err) {
         setAlert('error', 'Download failed: ' + err.message);
+      } finally {
+        _btn.disabled = false; _btn.innerHTML = _orig;
       }
     }
 

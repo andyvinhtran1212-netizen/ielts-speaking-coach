@@ -154,12 +154,33 @@
         <label class="aw-label text-xs font-medium">Đề bài (prompt) *</label>
         <textarea id="f-prompt" class="aw-input mt-1" rows="4" required placeholder="Some people think that…"></textarea>
       </div>
+      <!-- Sprint 19.3 — independent-grading upload: extract a .docx into
+           the essay field below (paste still works; the textarea is the
+           source of truth for submit). Reuses the 19.1C .aw-import-* UI. -->
+      <details id="upload-panel" class="aw-import-panel">
+        <summary class="aw-import-panel__summary">📎 Tải file .docx (tự điền vào ô bài viết bên dưới)</summary>
+        <div class="aw-import-panel__body">
+          <div id="extract-dropzone" class="aw-import-dropzone" role="button" tabindex="0"
+               aria-label="Kéo thả hoặc chọn file .docx">
+            <p class="aw-import-dropzone__hint">Kéo thả file <strong>.docx</strong> vào đây</p>
+            <p class="aw-import-dropzone__or">hoặc</p>
+            <label class="aw-btn-secondary aw-import-dropzone__pick">
+              Chọn file
+              <input id="extract-file" type="file" accept=".docx,.txt" class="hidden" />
+            </label>
+            <p id="extract-filename" class="aw-import-dropzone__filename hidden"></p>
+          </div>
+          <div id="extract-status" class="aw-import-status hidden text-sm"></div>
+          <div id="extract-warnings" class="aw-extract-warnings hidden"></div>
+        </div>
+      </details>
+
       <div>
         <label class="aw-label text-xs font-medium">
           Bài viết của học viên *
           <span id="word-count" class="aw-word-count ml-2">0 từ</span>
         </label>
-        <textarea id="f-essay" class="aw-input mt-1" rows="14" required placeholder="Paste essay here…"></textarea>
+        <textarea id="f-essay" class="aw-input mt-1" rows="14" required placeholder="Paste essay here… hoặc tải file .docx ở trên."></textarea>
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
@@ -256,6 +277,72 @@
       }
     }
 
+    // ── Sprint 19.3 — .docx upload → extract → fill essay field ─────
+    function extractStatus(msg, kind) {
+      var el = document.getElementById('extract-status');
+      el.textContent = msg || '';
+      el.classList.toggle('hidden', !msg);
+      el.classList.remove('is-error', 'is-ok');
+      if (kind) el.classList.add(kind === 'error' ? 'is-error' : 'is-ok');
+    }
+
+    function renderExtractWarnings(warnings) {
+      var box = document.getElementById('extract-warnings');
+      if (!warnings || !warnings.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      box.innerHTML = warnings.map(function (w) {
+        return '<span class="aw-extract-warn">⚠ ' + WC.escapeHtml(w) + '</span>';
+      }).join('');
+      box.classList.remove('hidden');
+    }
+
+    async function extractFile(file) {
+      if (!file) return;
+      if (!/\.(docx|txt)$/i.test(file.name)) {
+        extractStatus('Chỉ chấp nhận file .docx hoặc .txt.', 'error');
+        return;
+      }
+      document.getElementById('extract-filename').textContent = '📄 ' + file.name;
+      document.getElementById('extract-filename').classList.remove('hidden');
+      renderExtractWarnings([]);
+      extractStatus('Đang trích xuất ' + file.name + '…', null);
+      try {
+        var fd = new FormData();
+        fd.append('file', file);
+        var data = await window.api.upload('/admin/writing/extract-text', fd);
+        // Fill the essay field (the source of truth) + refresh word count.
+        var ta = document.getElementById('f-essay');
+        ta.value = data.extracted_text || '';
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        renderExtractWarnings(data.warnings || []);
+        extractStatus('✓ Đã điền ' + (data.word_count || 0) + ' từ vào ô bài viết. Em có thể chỉnh sửa trước khi chấm.', 'ok');
+      } catch (err) {
+        extractStatus('Lỗi trích xuất: ' + ((err && err.message) || 'không xác định'), 'error');
+      }
+    }
+
+    function wireExtractUpload() {
+      var dz = document.getElementById('extract-dropzone');
+      var input = document.getElementById('extract-file');
+      if (!dz || !input) return;
+      input.addEventListener('change', function (ev) { extractFile(ev.target.files && ev.target.files[0]); });
+      dz.addEventListener('click', function (ev) {
+        if (ev.target.closest('.aw-import-dropzone__pick')) return;
+        input.click();
+      });
+      dz.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); input.click(); }
+      });
+      ['dragenter', 'dragover'].forEach(function (e) {
+        dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.add('aw-import-dropzone--dragover'); });
+      });
+      ['dragleave', 'drop'].forEach(function (e) {
+        dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.remove('aw-import-dropzone--dragover'); });
+      });
+      dz.addEventListener('drop', function (ev) {
+        extractFile(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]);
+      });
+    }
+
     WC.bootstrap({
       onReady: function () {
         var preset = new URLSearchParams(window.location.search).get('student_id');
@@ -263,6 +350,7 @@
         document.getElementById('f-essay').addEventListener('input', updateWordCount);
         document.getElementById('essay-form').addEventListener('submit', handleSubmit);
         bindFoaPills();
+        wireExtractUpload();
       }
     });
   </script>
