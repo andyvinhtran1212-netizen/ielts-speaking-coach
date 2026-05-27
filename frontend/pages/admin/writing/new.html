@@ -154,6 +154,25 @@
         <label class="aw-label text-xs font-medium">Đề bài (prompt) *</label>
         <textarea id="f-prompt" class="aw-input mt-1" rows="4" required placeholder="Some people think that…"></textarea>
       </div>
+
+      <!-- Sprint 19.3.5 — Task 1 Academic chart image (hidden unless
+           task_type === task1_academic). Mirrors the prompts.html idiom;
+           uploads via the existing /admin/writing/prompts/upload-image and
+           sends the returned URL as prompt_image_url so the grader can feed
+           it to Gemini multimodally. -->
+      <div id="prompt-image-section" class="hidden">
+        <label class="aw-label text-xs font-medium">Hình đề bài (Task 1 Academic) — biểu đồ / bảng / sơ đồ</label>
+        <p class="aw-help-text text-xs mb-2">JPG/PNG/WEBP/GIF, tối đa 5MB. AI sẽ "nhìn" hình để chấm độ chính xác phần mô tả số liệu.</p>
+        <div id="prompt-image-preview-box" class="hidden mb-2">
+          <img id="prompt-image-preview" class="aw-image-preview max-w-xs" alt="Xem trước hình đề bài" />
+          <button id="btn-remove-prompt-image" type="button" class="aw-btn-secondary mt-2" style="font-size:12px">✕ Xóa hình</button>
+        </div>
+        <div id="prompt-image-controls">
+          <input id="f-prompt-image" type="file" accept="image/*" class="text-sm" />
+          <span id="prompt-image-status" class="hidden ml-2 text-xs"></span>
+        </div>
+        <input id="f-prompt-image-url" type="hidden" />
+      </div>
       <!-- Sprint 19.3 — independent-grading upload: extract a .docx into
            the essay field below (paste still works; the textarea is the
            source of truth for submit). Reuses the 19.1C .aw-import-* UI. -->
@@ -258,6 +277,10 @@
         grading_tier:    tier ? tier.value : 'standard',
         prompt_text:     document.getElementById('f-prompt').value.trim(),
         essay_text:      document.getElementById('f-essay').value.trim(),
+        // Sprint 19.3.5 — Task 1 Academic chart URL (null for other tasks
+        // or when no image uploaded). Backend snapshots it onto the essay
+        // row; the grader sends it to Gemini.
+        prompt_image_url: document.getElementById('f-prompt-image-url').value || null,
       };
 
       if (!payload.student_id) {
@@ -343,6 +366,64 @@
       });
     }
 
+    // ── Sprint 19.3.5 — Task 1 Academic prompt-image upload ─────────
+    function syncPromptImageSection() {
+      var isT1A = document.getElementById('f-task-type').value === 'task1_academic';
+      document.getElementById('prompt-image-section').classList.toggle('hidden', !isT1A);
+    }
+
+    function setPromptImageState(url) {
+      document.getElementById('f-prompt-image-url').value = url || '';
+      var box = document.getElementById('prompt-image-preview-box');
+      var controls = document.getElementById('prompt-image-controls');
+      var img = document.getElementById('prompt-image-preview');
+      if (url) {
+        img.src = url;
+        box.classList.remove('hidden');
+        controls.classList.add('hidden');
+      } else {
+        img.removeAttribute('src');
+        box.classList.add('hidden');
+        controls.classList.remove('hidden');
+        document.getElementById('f-prompt-image').value = '';
+      }
+    }
+
+    function _promptImageStatus(msg, kind) {
+      var el = document.getElementById('prompt-image-status');
+      el.textContent = msg || '';
+      el.classList.toggle('hidden', !msg);
+      el.classList.remove('aw-extract-warn');
+    }
+
+    async function handlePromptImageUpload(ev) {
+      var file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      if (!/^image\//.test(file.type)) { _promptImageStatus('Chỉ chấp nhận file ảnh.'); return; }
+      if (file.size > 5 * 1024 * 1024) { _promptImageStatus('Ảnh quá lớn (tối đa 5MB).'); return; }
+      _promptImageStatus('Đang upload…');
+      try {
+        var fd = new FormData();
+        fd.append('file', file);
+        // Reuse the existing prompts image-upload endpoint (Cloudinary).
+        var res = await window.api.upload('/admin/writing/prompts/upload-image', fd);
+        setPromptImageState(res.url);
+        _promptImageStatus('');
+      } catch (err) {
+        _promptImageStatus('Lỗi upload: ' + ((err && err.message) || 'không xác định'));
+        document.getElementById('f-prompt-image').value = '';
+      }
+    }
+
+    function wirePromptImage() {
+      document.getElementById('f-task-type').addEventListener('change', syncPromptImageSection);
+      document.getElementById('f-prompt-image').addEventListener('change', handlePromptImageUpload);
+      document.getElementById('btn-remove-prompt-image').addEventListener('click', function () {
+        setPromptImageState('');
+      });
+      syncPromptImageSection();
+    }
+
     WC.bootstrap({
       onReady: function () {
         var preset = new URLSearchParams(window.location.search).get('student_id');
@@ -351,6 +432,7 @@
         document.getElementById('essay-form').addEventListener('submit', handleSubmit);
         bindFoaPills();
         wireExtractUpload();
+        wirePromptImage();
       }
     });
   </script>

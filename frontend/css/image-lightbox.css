@@ -1,0 +1,56 @@
+/* css/image-lightbox.css — Sprint 19.3.5 shared image lightbox + the
+ * inline chart thumbnail. Used by admin grade.html + student
+ * writing-result.html. All values from --av-* tokens. */
+
+/* Inline chart thumbnail (click → lightbox). */
+.prompt-chart-img {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  width: auto;
+  margin: var(--av-space-2) 0 var(--av-space-3);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  cursor: zoom-in;
+  background: var(--av-surface-card);
+}
+.prompt-chart-img:focus-visible {
+  outline: 2px solid var(--av-primary);
+  outline-offset: 2px;
+}
+
+/* Full-screen lightbox overlay. */
+.av-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--av-z-modal, 1000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--av-space-8);
+  background: var(--av-surface-overlay);
+  cursor: zoom-out;
+}
+.av-lightbox.hidden { display: none; }
+.av-lightbox__img {
+  max-width: 95vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--av-radius-md);
+  box-shadow: var(--av-shadow-xl);
+  cursor: default;
+}
+.av-lightbox__close {
+  position: absolute;
+  top: var(--av-space-4);
+  right: var(--av-space-4);
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--av-radius-pill);
+  border: 1px solid var(--av-border-default);
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.av-lightbox__close:hover { background: var(--av-surface-elevated); }

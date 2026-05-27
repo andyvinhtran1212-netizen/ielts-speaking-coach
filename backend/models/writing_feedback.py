@@ -362,6 +362,14 @@ class GraderConfig(BaseModel):
     # explicit override instruction).
     sentence_structure: Optional[dict] = None
 
+    # Sprint 19.3.5 — Task 1 Academic chart/graph/diagram image. The
+    # essay-level snapshot URL (writing_essays.prompt_image_url, Cloudinary).
+    # When present + task_type=='task1_academic', the grader fetches the
+    # bytes and sends them to Gemini as a multimodal Part so the AI can
+    # judge description accuracy. Missing/fetch-failure → text-only +
+    # caveat (D7). Ignored for task1_general / task2.
+    prompt_image_url: Optional[str] = None
+
 
 class GradingResult(BaseModel):
     """Wrapper around feedback + metadata.

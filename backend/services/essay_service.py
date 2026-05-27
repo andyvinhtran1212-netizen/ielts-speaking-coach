@@ -283,7 +283,7 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
         # variant + response schema.
         er = (
             supabase_admin.table("writing_essays")
-            .select("task_type, prompt_text, essay_text, analysis_level, "
+            .select("task_type, prompt_text, prompt_image_url, essay_text, analysis_level, "
                     "form_of_address, selected_model, grading_tier, student_id")
             .eq("id", essay_id)
             .limit(1)
@@ -320,6 +320,11 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             history=recurring_patterns,
             trajectory=band_trajectory,
             sentence_structure=sentence_structure,
+            # Sprint 19.3.5 — forward the Task 1 Academic chart image so the
+            # grader can send it to Gemini multimodally. The snapshot was
+            # persisted on the essay row at submit time (mig 033); the grader
+            # ignores it for non-task1_academic and on fetch failure (D7).
+            prompt_image_url=essay.get("prompt_image_url"),
         )
 
         result = await get_grader().grade_essay(config)

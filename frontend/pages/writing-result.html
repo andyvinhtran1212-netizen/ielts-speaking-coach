@@ -44,6 +44,9 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/writing-renderers.css" />
   <link rel="stylesheet" href="/css/writing-result.css" />
+  <!-- Sprint 19.3.5 — Task 1 Academic chart display + lightbox. -->
+  <link rel="stylesheet" href="/css/image-lightbox.css" />
+  <script src="/js/image-lightbox.js" defer></script>
 
   <!-- Lucide icons (line glyphs replacing legacy ← back-arrow / ⬇ download / 🖨 print) -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
@@ -157,6 +160,8 @@
           <span id="word-count" class="word-count">— từ</span>
         </header>
         <div id="prompt-box" class="prompt-box"></div>
+        <!-- Sprint 19.3.5 — Task 1 Academic chart (shown only when present). -->
+        <img id="prompt-image" class="prompt-chart-img hidden" role="button" tabindex="0" alt="" />
         <pre id="essay-text" class="essay-original">—</pre>
       </section>
 
@@ -457,6 +462,25 @@
       // Body — original essay
       document.getElementById('essay-text').textContent = essay.essay_text || '—';
       document.getElementById('word-count').textContent = wordCount(essay.essay_text) + ' từ';
+
+      // Sprint 19.3.5 — Task 1 Academic chart alongside the essay, so the
+      // student can reference it while reading the feedback. Click → lightbox.
+      var promptImg = document.getElementById('prompt-image');
+      if (essay.task_type === 'task1_academic' && essay.prompt_image_url) {
+        promptImg.src = essay.prompt_image_url;
+        promptImg.alt = 'Hình đề Task 1 của bài viết';
+        promptImg.classList.remove('hidden');
+        var openImg = function () {
+          if (window.AvImageLightbox) window.AvImageLightbox.open(promptImg.src, promptImg.alt);
+        };
+        promptImg.onclick = openImg;
+        promptImg.onkeydown = function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openImg(); }
+        };
+      } else {
+        promptImg.classList.add('hidden');
+        promptImg.removeAttribute('src');
+      }
 
       // Render every section via shared dispatch.
       Object.keys(WritingRenderers.SECTION_KEYS).forEach(function (sectionKey) {

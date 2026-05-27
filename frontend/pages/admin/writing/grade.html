@@ -47,6 +47,9 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/admin-writing.css" />
   <link rel="stylesheet" href="/css/admin-writing-grade.css" />
+  <!-- Sprint 19.3.5 — Task 1 Academic chart display + lightbox. -->
+  <link rel="stylesheet" href="/css/image-lightbox.css" />
+  <script src="/js/image-lightbox.js" defer></script>
 
   <script src="https://unpkg.com/lucide@latest" defer></script>
 
@@ -170,6 +173,8 @@
             <h2>📄 Bài viết gốc</h2>
           </header>
           <div id="prompt-box" class="aw-subtitle text-xs mb-2"></div>
+          <!-- Sprint 19.3.5 — Task 1 Academic chart (shown only when present). -->
+          <img id="prompt-image" class="prompt-chart-img hidden" role="button" tabindex="0" alt="" />
           <pre id="essay-text" class="essay-original">—</pre>
         </section>
 
@@ -1396,6 +1401,25 @@
       // Read-only essay
       var promptBox = document.getElementById('prompt-box');
       promptBox.textContent = detail.prompt_text ? '📝 ' + detail.prompt_text : '';
+
+      // Sprint 19.3.5 — Task 1 Academic chart image (the grader's input).
+      var promptImg = document.getElementById('prompt-image');
+      if (detail.task_type === 'task1_academic' && detail.prompt_image_url) {
+        promptImg.src = detail.prompt_image_url;
+        promptImg.alt = 'Hình đề Task 1: ' + (detail.prompt_text ? detail.prompt_text.slice(0, 60) : '');
+        promptImg.classList.remove('hidden');
+        var _openImg = function () {
+          if (window.AvImageLightbox) window.AvImageLightbox.open(promptImg.src, promptImg.alt);
+        };
+        promptImg.onclick = _openImg;
+        promptImg.onkeydown = function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); _openImg(); }
+        };
+      } else {
+        promptImg.classList.add('hidden');
+        promptImg.removeAttribute('src');
+      }
+
       document.getElementById('essay-text').textContent = detail.essay_text || '—';
 
       renderAllSections();
