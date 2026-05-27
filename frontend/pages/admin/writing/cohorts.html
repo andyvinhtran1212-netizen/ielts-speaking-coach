@@ -76,9 +76,9 @@
       <!-- Master: cohort list -->
       <aside class="cohorts-list" aria-label="Danh sách lớp">
         <div class="cohorts-list__filters">
-          <button type="button" class="essay-filter-btn is-active" data-cohort-filter="all">Tất cả</button>
-          <button type="button" class="essay-filter-btn" data-cohort-filter="active">Có hoạt động</button>
-          <button type="button" class="essay-filter-btn" data-cohort-filter="idle">Chưa hoạt động</button>
+          <button type="button" class="aw-filter-btn aw-filter-btn--active" data-cohort-filter="all">Tất cả</button>
+          <button type="button" class="aw-filter-btn" data-cohort-filter="active">Có hoạt động</button>
+          <button type="button" class="aw-filter-btn" data-cohort-filter="idle">Chưa hoạt động</button>
         </div>
         <div id="cohorts-loading" class="aw-state-loading text-center py-8">Đang tải…</div>
         <div id="cohorts-error"   class="aw-state-error hidden text-sm"></div>
@@ -287,7 +287,7 @@
       btn.addEventListener('click', function () {
         _cohortFilter = btn.getAttribute('data-cohort-filter');
         document.querySelectorAll('[data-cohort-filter]').forEach(function (b) {
-          b.classList.toggle('is-active', b === btn);
+          b.classList.toggle('aw-filter-btn--active', b === btn);  // 19.5: was unstyled 'is-active'
         });
         renderCohorts();
       });

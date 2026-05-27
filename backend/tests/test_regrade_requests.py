@@ -162,7 +162,10 @@ def test_admin_list_requires_auth():
 
 
 def test_admin_accept_un_delivers_essay():
-    db = _routed_db({"essay_regrade_requests": [{"id": _REQ, "status": "pending", "essay_id": _ESSAY}]})
+    db = _routed_db({
+        "essay_regrade_requests": [{"id": _REQ, "status": "pending", "essay_id": _ESSAY}],
+        "writing_essays": [{"id": _ESSAY}],   # conditional un-deliver matched a delivered row
+    })
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
@@ -207,3 +210,33 @@ def test_admin_action_non_pending_409():
         r = TestClient(_app()).patch(f"/admin/writing/regrade-requests/{_REQ}",
                                      json={"action": "accept"}, headers=_ADMIN_AUTH)
     assert r.status_code == 409
+
+
+def test_admin_accept_noop_when_essay_not_delivered_409():
+    """Codex C1: accept on a pending request whose essay is no longer
+    'delivered' must 409 and leave the request 'pending' (the essay-update
+    matched 0 rows → no silent accept)."""
+    # essay_regrade_requests: request lookup returns pending; the essay
+    # un-deliver update returns data=[] (matched no delivered row).
+    db = _routed_db({
+        "essay_regrade_requests": [{"id": _REQ, "status": "pending", "essay_id": _ESSAY}],
+        "writing_essays": [],   # conditional update (WHERE status='delivered') matched nothing
+    })
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db), \
+         patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
+        r = TestClient(_app()).patch(f"/admin/writing/regrade-requests/{_REQ}",
+                                     json={"action": "accept"}, headers=_ADMIN_AUTH)
+    assert r.status_code == 409
+    # The request must NOT have been patched to 'accepted'.
+    assert db._cache["essay_regrade_requests"].update.call_count == 0
+
+
+def test_migration_085_declares_reason_check():
+    """Sentinel: the reason-length CHECK is canonical at the DB layer
+    (can't exercise a live CHECK without a real Postgres)."""
+    import pathlib
+    sql = pathlib.Path(__file__).resolve().parents[1].joinpath(
+        "migrations", "085_essay_regrade_reason_check.sql").read_text()
+    assert "essay_regrade_reason_length" in sql
+    assert "char_length(reason) BETWEEN 50 AND 500" in sql
