@@ -189,16 +189,27 @@ async def action_regrade_request(
         patch["status"] = "rejected"
         patch["admin_response"] = body.response.strip()
     else:  # accept
-        patch["status"] = "accepted"
-        # Un-deliver the essay so the student stops seeing final feedback
-        # and the admin can re-handle it. Only meaningful from 'delivered'.
+        # Un-deliver the essay so the student stops seeing final feedback and
+        # the admin can re-handle it. The conditional update only matches a
+        # currently-'delivered' essay; if it matched NO row (the essay moved
+        # off 'delivered' concurrently), accept is a no-op — abort 409 and
+        # DO NOT mark the request accepted (Codex C1: previously the request
+        # flipped to accepted regardless, a silent contract hole).
         try:
-            supabase_admin.table("writing_essays").update(
-                {"status": "reviewed", "delivered_at": None}
-            ).eq("id", req["essay_id"]).eq("status", "delivered").execute()
+            res = (
+                supabase_admin.table("writing_essays").update(
+                    {"status": "reviewed", "delivered_at": None}
+                ).eq("id", req["essay_id"]).eq("status", "delivered").execute()
+            )
         except Exception as exc:
             logger.error("[regrade] essay un-deliver failed essay=%s: %s", req["essay_id"], exc)
             raise HTTPException(500, "Không thể đặt lại trạng thái bài viết.")
+        if not res.data:
+            raise HTTPException(
+                409,
+                "Bài viết không còn ở trạng thái 'đã trả' — không thể chấp nhận yêu cầu chấm lại.",
+            )
+        patch["status"] = "accepted"
         # TODO(19.4 email deferred): notify the student their regrade was accepted.
 
     updated = (

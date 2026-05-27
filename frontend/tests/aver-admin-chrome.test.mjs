@@ -62,18 +62,19 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
     }
   });
 
-  it('marks the 2 remaining Phase B sections (cohorts, usage) post Sprint 12.8', () => {
-    // Sprint 12.8 graduated `system` (AI Usage + Alerts now LIVE).
-    // Cohorts + usage stay Phase B until the cohort cluster ships.
-    assert.match(
-      CHROME_JS,
-      /PHASE_B_SECTIONS\s*=\s*new Set\(\[[^\]]*['"]cohorts['"][^\]]*['"]usage['"][^\]]*\]\)/,
-    );
-    // `system` must NOT be in the PHASE_B set anymore.
-    assert.doesNotMatch(
-      CHROME_JS,
-      /PHASE_B_SECTIONS\s*=\s*new Set\(\[[^\]]*['"]system['"][^\]]*\]\)/,
-    );
+  it('has no remaining Phase B sections (cohort cluster shipped, set is empty)', () => {
+    // Sprint 19.5 cleanup: the Sprint 17.x cohort cluster graduated the
+    // last placeholders (cohorts + usage), so PHASE_B_SECTIONS is now
+    // empty. (Was asserting cohorts/usage still Phase B — one of the 3
+    // stale cluster-19.x chrome fails.)
+    assert.match(CHROME_JS, /PHASE_B_SECTIONS\s*=\s*new Set\(\[\s*\]\)/);
+    // No section should still be tagged Phase B.
+    for (const s of ['cohorts', 'usage', 'system']) {
+      assert.doesNotMatch(
+        CHROME_JS,
+        new RegExp(`PHASE_B_SECTIONS\\s*=\\s*new Set\\(\\[[^\\]]*['"]${s}['"]`),
+      );
+    }
   });
 
   it('reads/writes sidebar collapse state via localStorage', () => {
@@ -214,20 +215,21 @@ describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', ()
 
 /* ── Placeholder pages exist for empty sections ───────────────── */
 
-describe('Sprint 12.1 — placeholder index pages for empty sections', () => {
-  // Sprint 12.2 graduated `access-codes`; Sprint 12.3 graduated
-  // `error-logs`; Sprint 12.5 graduated `speaking`; Sprint 12.6
-  // graduated `vocab`; Sprint 12.7 graduated `grammar`; Sprint 12.8
-  // graduated `system` (AI Usage + Alerts LIVE) and `users` (real
-  // role-management page). Only Phase B cohorts/usage stubs remain.
+describe('Sprint 12.1 — section index pages (all graduated from placeholders)', () => {
+  // Sprint 12.x graduated access-codes/error-logs/speaking/vocab/grammar/
+  // system/users; the Sprint 17.x cohort cluster graduated the LAST two
+  // placeholders — `cohorts` + `usage` are now real pages (no "Sắp ra mắt").
+  // Sprint 19.5 cleanup: these tests asserted the obsolete placeholder
+  // state and were the cluster-19.x "3 stale chrome fails". Now they pin
+  // the durable contract: the page exists + mounts the admin chrome.
   const sections = [
     'cohorts', 'usage',
   ];
   for (const s of sections) {
-    it(`/pages/admin/${s}/index.html exists with chrome + "Sắp ra mắt"`, () => {
+    it(`/pages/admin/${s}/index.html exists with chrome (now LIVE, not a placeholder)`, () => {
       const html = read('pages', 'admin', s, 'index.html');
       assert.match(html, new RegExp(`<aver-admin-chrome\\s+active=["']${s}["']`));
-      assert.match(html, /Sắp ra mắt/);
+      assert.doesNotMatch(html, /Sắp ra mắt/);  // graduated — no longer a stub
     });
   }
 
