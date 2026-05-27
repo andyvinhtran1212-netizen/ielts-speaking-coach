@@ -63,9 +63,17 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/ds.css" />
   <link rel="stylesheet" href="/css/writing-dashboard.css" />
+  <!-- Sprint 19.1B — rendered-markdown typography for the "Mẹo viết" tab. -->
+  <link rel="stylesheet" href="/css/markdown.css" />
 
   <!-- Lucide icons (line glyphs replacing the legacy ✕ close button). -->
   <script src="https://unpkg.com/lucide@latest" defer></script>
+
+  <!-- Sprint 19.1B — markdown render + sanitize for the "Mẹo viết" tab.
+       Loaded only here + admin/writing/tips.html (not bundled app-wide). -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
 
   <!-- Canonical chrome Web Component (Sprint 7.12). -->
   <script type="module" src="/js/components/aver-chrome.js"></script>
@@ -138,6 +146,9 @@
           📝 Bài đã nộp
           <span id="essays-count" class="ml-1 text-xs text-gray-500"></span>
         </button>
+        <button id="tab-tips" type="button" class="tab-btn">
+          💡 Mẹo viết
+        </button>
       </div>
 
       <!-- Tab 1 — Bài giao (active assignments awaiting submission) -->
@@ -191,8 +202,54 @@
           <p class="wd-empty__hint">Không có bài nào trong nhóm này.</p>
         </div>
       </section>
+
+      <!-- Tab 3 — Mẹo viết (Sprint 19.1B: admin-published writing tips) -->
+      <section id="content-tips" class="hidden">
+        <nav id="tips-filter-tabs" class="flex gap-1 mb-4 border-b border-white/5 pb-1 overflow-x-auto"
+             aria-label="Lọc mẹo theo loại task">
+          <button type="button" class="essay-filter-btn is-active" data-tip-filter="all">
+            <span class="filter-label">Tất cả</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-filter="task_1">
+            <span class="filter-label">Task 1</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-filter="task_2">
+            <span class="filter-label">Task 2</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-filter="both">
+            <span class="filter-label">Cả hai</span>
+          </button>
+        </nav>
+        <div id="tips-loading" class="text-center py-10 text-gray-300">Đang tải mẹo…</div>
+        <div id="tips-list" class="space-y-3 hidden"></div>
+        <div id="tips-empty" class="wd-empty hidden">
+          <div class="wd-empty__icon" aria-hidden="true">💡</div>
+          <p class="wd-empty__title">Chưa có mẹo nào</p>
+          <p class="wd-empty__hint">Giảng viên sẽ publish mẹo viết sớm — em quay lại sau nhé.</p>
+        </div>
+        <div id="tips-error" class="wd-empty wd-empty--compact hidden">
+          <p class="wd-empty__hint" id="tips-error-msg">Không tải được mẹo viết.</p>
+        </div>
+      </section>
     </div>
   </main>
+
+  <!-- Tip detail modal (Sprint 19.1B) — renders the sanitized markdown body. -->
+  <div id="tip-modal" class="wd-tip-modal hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="tip-modal-title">
+    <div class="wd-tip-modal__backdrop" id="tip-modal-backdrop"></div>
+    <div class="wd-tip-modal__panel">
+      <header class="flex items-start justify-between gap-3 mb-3">
+        <div class="min-w-0">
+          <h2 id="tip-modal-title" class="text-xl font-semibold"></h2>
+          <p id="tip-modal-meta" class="text-xs text-gray-400 mt-1"></p>
+        </div>
+        <button id="tip-modal-close" type="button" class="wd-modal-close leading-none" aria-label="Đóng">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+      <div id="tip-modal-body" class="md-body"></div>
+    </div>
+  </div>
 
   <!-- ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -577,10 +634,139 @@
     function setTabActive(tab) {
       var assignBtn = document.getElementById('tab-assignments');
       var essayBtn  = document.getElementById('tab-essays');
+      var tipsBtn   = document.getElementById('tab-tips');
       assignBtn.classList.toggle('active', tab === 'assignments');
       essayBtn.classList.toggle('active',  tab === 'essays');
+      if (tipsBtn) tipsBtn.classList.toggle('active', tab === 'tips');
       document.getElementById('content-assignments').classList.toggle('hidden', tab !== 'assignments');
       document.getElementById('content-essays').classList.toggle('hidden',      tab !== 'essays');
+      document.getElementById('content-tips').classList.toggle('hidden',        tab !== 'tips');
+
+      // Sprint 19.1B — lazy-load tips on first open of the "Mẹo viết"
+      // tab, then serve from the in-memory cache on subsequent opens.
+      if (tab === 'tips' && !_tipsLoaded) { loadTips(); }
+    }
+
+    // ── Sprint 19.1B — "Mẹo viết" tab (admin-published writing tips) ──
+    var TIP_TASK_LABELS = { task_1: 'Task 1', task_2: 'Task 2', both: 'Cả hai' };
+    var _allTips    = [];   // cached for the page lifetime (fetch-once)
+    var _tipsLoaded = false;
+    var _tipFilter  = 'all';
+
+    // Plain-text preview from a markdown body — strips the common syntax
+    // so the card shows readable lead text, not raw `#`/`*`/`` ` `` noise.
+    function _tipPreview(md) {
+      var t = String(md || '')
+        .replace(/```[\s\S]*?```/g, ' ')              // fenced code
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')        // images
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')       // links → text
+        .replace(/[#>*_`~]/g, ' ')                     // md punctuation
+        .replace(/\s+/g, ' ')
+        .trim();
+      return t.length > 140 ? t.slice(0, 140).trim() + '…' : t;
+    }
+
+    async function loadTips() {
+      hide('tips-empty'); hide('tips-error'); hide('tips-list');
+      document.getElementById('tips-loading').classList.remove('hidden');
+      try {
+        // Fetch ALL published tips once; the chips filter client-side.
+        var data = await window.api.get('/api/writing/tips');
+        _allTips = (data && data.tips) || [];
+        _tipsLoaded = true;
+        hide('tips-loading');
+        renderTips();
+      } catch (err) {
+        hide('tips-loading');
+        document.getElementById('tips-error-msg').textContent =
+          'Không tải được mẹo viết: ' + ((err && err.message) || 'lỗi không xác định');
+        show('tips-error');
+      }
+    }
+
+    function renderTips() {
+      var list = document.getElementById('tips-list');
+      hide('tips-loading'); hide('tips-error');
+
+      if (_allTips.length === 0) {
+        list.innerHTML = '';
+        hide('tips-list');
+        show('tips-empty');
+        return;
+      }
+      hide('tips-empty');
+
+      var filtered = _tipFilter === 'all'
+        ? _allTips
+        : _allTips.filter(function (t) { return t.task_type === _tipFilter; });
+
+      if (filtered.length === 0) {
+        list.innerHTML =
+          '<div class="wd-empty wd-empty--compact"><p class="wd-empty__hint">' +
+          'Không có mẹo nào cho bộ lọc này.</p></div>';
+        show('tips-list');
+        return;
+      }
+
+      list.innerHTML = filtered.map(function (t) {
+        var taskPill = '<span class="pill pill-wait">' +
+          escapeHtml(TIP_TASK_LABELS[t.task_type] || t.task_type) + '</span>';
+        var catPill = t.category
+          ? '<span class="tip-card__cat">' + escapeHtml(t.category) + '</span>'
+          : '';
+        return (
+          '<div class="essay-card tip-card clickable rounded-lg p-4" role="link" tabindex="0"' +
+              ' data-tip-id="' + escapeHtml(t.id) + '">' +
+            '<div class="flex items-center justify-between gap-3 mb-2">' +
+              '<h3 class="tip-card__title font-semibold">' + escapeHtml(t.title || '(Mẹo viết)') + '</h3>' +
+              '<div class="flex items-center gap-1 flex-shrink-0">' + catPill + taskPill + '</div>' +
+            '</div>' +
+            '<p class="tip-card__preview text-sm text-gray-300 line-clamp-2">' + escapeHtml(_tipPreview(t.body_markdown)) + '</p>' +
+            '<div class="flex justify-end mt-2"><span class="essay-card__view">Đọc →</span></div>' +
+          '</div>'
+        );
+      }).join('');
+      show('tips-list');
+
+      list.querySelectorAll('.tip-card').forEach(function (card) {
+        var go = function () {
+          var id  = card.getAttribute('data-tip-id');
+          var tip = _allTips.find(function (t) { return t.id === id; });
+          openTipModal(tip);
+        };
+        card.addEventListener('click', go);
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+        });
+      });
+    }
+
+    function wireTipFilterTabs() {
+      var btns = document.querySelectorAll('[data-tip-filter]');
+      btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          _tipFilter = btn.getAttribute('data-tip-filter');
+          btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+          renderTips();
+        });
+      });
+    }
+
+    function openTipModal(tip) {
+      if (!tip) return;
+      document.getElementById('tip-modal-title').textContent = tip.title || '';
+      var meta = [TIP_TASK_LABELS[tip.task_type] || tip.task_type];
+      if (tip.category) meta.push(tip.category);
+      document.getElementById('tip-modal-meta').textContent = meta.join(' · ');
+      // renderMarkdown sanitizes via DOMPurify — never inject raw HTML.
+      document.getElementById('tip-modal-body').innerHTML =
+        window.renderMarkdown ? window.renderMarkdown(tip.body_markdown) : '';
+      document.getElementById('tip-modal').classList.remove('hidden');
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    function closeTipModal() {
+      document.getElementById('tip-modal').classList.add('hidden');
     }
 
     // ── Deliverable 2 (Sprint 19.1A) — deadline surface ─────────────
@@ -1185,9 +1371,22 @@
     document.getElementById('tab-essays').addEventListener('click', function () {
       setTabActive('essays');
     });
+    document.getElementById('tab-tips').addEventListener('click', function () {
+      setTabActive('tips');
+    });
 
     // Sprint 2.5.5 — filter sub-tabs within the "Bài đã nộp" view.
     wireEssayFilterTabs();
+
+    // Sprint 19.1B — "Mẹo viết" filter chips + detail modal close wiring.
+    wireTipFilterTabs();
+    document.getElementById('tip-modal-close').addEventListener('click', closeTipModal);
+    document.getElementById('tip-modal-backdrop').addEventListener('click', closeTipModal);
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !document.getElementById('tip-modal').classList.contains('hidden')) {
+        closeTipModal();
+      }
+    });
 
     // ── Sprint 2.6.1 — wire the submit modal ─────────────────────────
     //

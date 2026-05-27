@@ -367,6 +367,7 @@ const NAV_GROUPS = [
           { slug: 'status',           label: 'Trạng thái chấm',   href: '/pages/admin/writing/status.html' },
           { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
           { slug: 'prompts',          label: 'Thư viện prompt',   href: '/pages/admin/writing/prompts.html' },
+          { slug: 'tips',             label: 'Mẹo viết',          href: '/pages/admin/writing/tips.html' },
           { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/pages/admin/writing/instructor-queue.html' },
         ],
       },

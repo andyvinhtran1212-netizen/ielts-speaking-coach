@@ -658,3 +658,50 @@ describe('writing-dashboard / Sprint 19.1A refinement', () => {
     );
   });
 });
+
+
+// ── Sprint 19.1B — "Mẹo viết" tips tab ────────────────────────────────
+
+
+describe('writing-dashboard / Sprint 19.1B tips tab', () => {
+  test('third tab "Mẹo viết" added (tab-tips) + content-tips section', () => {
+    assert.match(html, /id="tab-tips"/);
+    assert.match(html, /Mẹo viết/);
+    assert.match(html, /id="content-tips"/);
+  });
+
+  test('tips states + filter chips present', () => {
+    for (const id of ['tips-list', 'tips-empty', 'tips-loading', 'tips-error']) {
+      assert.match(html, new RegExp(`id="${id}"`), `#${id} must exist`);
+    }
+    for (const f of ['all', 'task_1', 'task_2', 'both']) {
+      assert.match(html, new RegExp(`data-tip-filter="${f}"`), `chip ${f} must exist`);
+    }
+  });
+
+  test('tip detail modal renders sanitized markdown (.md-body)', () => {
+    assert.match(html, /id="tip-modal"/);
+    assert.match(html, /id="tip-modal-body"[^>]*class="md-body"/);
+    assert.match(html, /id="tip-modal-close"/);
+  });
+
+  test('tips render path present + hits GET /api/writing/tips', () => {
+    assert.match(html, /function\s+loadTips\s*\(/);
+    assert.match(html, /function\s+renderTips\s*\(/);
+    assert.match(html, /function\s+openTipModal\s*\(/);
+    assert.match(html, /window\.api\.get\('\/api\/writing\/tips'\)/);
+    assert.match(html, /window\.renderMarkdown/);
+  });
+
+  test('setTabActive handles the tips tab + lazy-loads once', () => {
+    assert.match(html, /tab\s*!==\s*'tips'/);
+    assert.match(html, /tab === 'tips' && !_tipsLoaded/);
+  });
+
+  test('markdown render libs + stylesheet loaded on the dashboard', () => {
+    assert.match(html, /marked@\d/);
+    assert.match(html, /dompurify@\d/);
+    assert.match(html, /\/js\/markdown\.js/);
+    assert.match(html, /css\/markdown\.css/);
+  });
+});

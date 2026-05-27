@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
@@ -1482,3 +1482,64 @@ async def extract_essay_text(
         "char_count": len(text),
         "word_count": len(text.split()),
     }
+
+
+# ── Sprint 19.1B — published writing tips (student "Mẹo viết" tab) ─────
+#
+# Admin authors + publishes tips via /admin/writing/tips (see
+# routers/admin_writing_tips.py); students read PUBLISHED tips here. Gated
+# by get_supabase_user (any authenticated user) rather than
+# get_current_student: tips are generic educational content, not tied to a
+# students row, so a logged-in user without a student profile can still
+# read them. body_markdown is returned raw and rendered + sanitized
+# client-side (Pattern #39 — DB markdown is the single source of truth).
+
+_TIPS_TASK_PATTERN = r"^(task_1|task_2|both)$"
+
+
+@router.get("/tips")
+async def list_published_tips(
+    task_type: Optional[str] = Query(default=None, pattern=_TIPS_TASK_PATTERN),
+    authorization: Optional[str] = Header(default=None),
+):
+    """List published tips, ordered by display_order then newest. Optional
+    exact task_type filter (task_1 / task_2 / both) matching the user-side
+    filter chips. body_markdown is included so the dashboard renders the
+    detail view from the cached list without a second round-trip."""
+    await get_supabase_user(authorization)
+
+    q = (
+        supabase_admin.table("writing_tips")
+        .select("id, title, slug, task_type, category, body_markdown, display_order, created_at")
+        .eq("published", True)
+        .order("display_order")
+        .order("created_at", desc=True)
+        .limit(500)
+    )
+    if task_type:
+        q = q.eq("task_type", task_type)
+
+    r = q.execute()
+    return {"tips": r.data or []}
+
+
+@router.get("/tips/{slug}")
+async def get_published_tip(
+    slug: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Fetch one published tip by slug (deep-link / direct access). Drafts
+    are never reachable here — the published=True filter gates them."""
+    await get_supabase_user(authorization)
+
+    r = (
+        supabase_admin.table("writing_tips")
+        .select("id, title, slug, task_type, category, body_markdown, created_at")
+        .eq("slug", slug)
+        .eq("published", True)
+        .limit(1)
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(status_code=404, detail="Không tìm thấy mẹo viết.")
+    return r.data[0]

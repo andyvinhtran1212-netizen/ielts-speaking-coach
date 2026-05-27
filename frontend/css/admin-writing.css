@@ -854,3 +854,71 @@ textarea.aw-input {
 .aw-meta-line { font-size: var(--av-fs-xs); color: var(--av-text-muted); margin-top: 2px; }
 .aw-meta-count { color: var(--av-text-secondary); }
 
+
+/* ── Sprint 19.1B — tips library (admin/writing/tips.html) ─────────── *
+ * Reuses .aw-prompt-row / .aw-pill / .aw-input from above; only the
+ * published/draft status pills, the markdown editor + live preview, and
+ * the quick-toggle button are tips-specific. All on --av-* tokens. */
+.aw-pill--published { background: color-mix(in srgb, var(--av-success) 15%, transparent); color: var(--av-success); }
+.aw-pill--draft     { background: var(--av-surface-sunken); color: var(--av-text-muted); }
+
+.aw-md-textarea {
+  min-height: 18rem;
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-normal);
+  resize: vertical;
+}
+
+.aw-tips-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--av-space-3);
+}
+@media (max-width: 720px) {
+  .aw-tips-editor-grid { grid-template-columns: 1fr; }
+}
+
+.aw-tips-preview {
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+  padding: var(--av-space-3) var(--av-space-4);
+  min-height: 18rem;
+  max-height: 28rem;
+  overflow-y: auto;
+}
+.aw-tips-preview__label {
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  letter-spacing: var(--av-tracking-wide);
+  text-transform: uppercase;
+  color: var(--av-text-muted);
+  margin: 0 0 var(--av-space-2);
+}
+
+.aw-tips-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  cursor: pointer;
+}
+.aw-tips-toggle input { cursor: pointer; }
+
+/* Quick publish/unpublish button on each list row. */
+.aw-btn-toggle {
+  background: transparent;
+  border: 1px solid var(--av-border-default);
+  color: var(--av-text-secondary);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-1) var(--av-space-3);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-medium);
+  cursor: pointer;
+  transition: background var(--av-duration-fast) var(--av-easing-default),
+              border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.aw-btn-toggle:hover { background: var(--av-surface-elevated); border-color: var(--av-border-strong); }
+
