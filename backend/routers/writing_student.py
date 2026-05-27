@@ -239,7 +239,7 @@ async def get_my_essay(
         essay_result = (
             supabase_admin.table("writing_essays")
             .select(
-                "id, task_type, prompt_text, essay_text, "
+                "id, task_type, prompt_text, prompt_image_url, essay_text, "
                 "status, created_at, delivered_at, "
                 "is_flagged, flag_reasons, flagged_at, error_message"
             )
@@ -1009,6 +1009,12 @@ async def submit_my_assignment(
     prompt = assignment.get("writing_prompts") or {}
     prompt_text = prompt.get("prompt_text")
     task_type   = prompt.get("task_type")
+    # Sprint 19.3.5 — snapshot the Task 1 Academic chart URL onto the essay
+    # so the grader can send it to Gemini. The submit path previously
+    # dropped it (the writing_essays.prompt_image_url column existed but was
+    # never populated for student submissions) — without this the library
+    # Task 1 Academic flow would still grade text-only.
+    prompt_image_url = prompt.get("prompt_image_url")
     if not prompt_text or not task_type:
         # The assignment can outlive its prompt (ON DELETE RESTRICT
         # blocks hard deletes, but soft-deleted prompts could leave
@@ -1085,6 +1091,7 @@ async def submit_my_assignment(
                 "student_id":       student_id,
                 "task_type":        task_type,
                 "prompt_text":      prompt_text,
+                "prompt_image_url": prompt_image_url,
                 "essay_text":       essay_text,
                 "analysis_level":   3,
                 "form_of_address":  "em",

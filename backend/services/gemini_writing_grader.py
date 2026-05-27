@@ -25,6 +25,7 @@ import logging
 import time
 from typing import Optional
 
+import httpx
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
 
@@ -191,13 +192,29 @@ class GeminiWritingGrader:
         stamp = loader.PROMPT_VERSION
         user_prompt = self._build_user_prompt(config)
 
+        # Sprint 19.3.5 — Task 1 Academic multimodal: fetch the chart image
+        # (essay-level snapshot) and pass it to Gemini so the model can
+        # judge description accuracy, not just generic grammar/structure.
+        image = await self._maybe_fetch_prompt_image(config)
+
+        # Only pass `image` when present, so the text-only call (the common
+        # path + every existing caller/mock) keeps its 3-arg signature
+        # unchanged — the multimodal kwarg appears only for Task 1 charts.
+        extra = {"image": image} if image is not None else {}
         response_text, usage = await self._call_with_retry(
             model_name=model_name,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
+            **extra,
         )
 
         feedback = self._parse_response(response_text, schema=WritingFeedback)
+
+        # D7 — Task 1 Academic graded WITHOUT a chart (no URL or fetch
+        # failed): surface a caveat so student + admin know content accuracy
+        # wasn't assessed. Never blocks; text-only grading still delivered.
+        if config.task_type == "task1_academic" and image is None:
+            feedback = self._inject_missing_image_caveat(feedback)
 
         duration_ms = int((time.time() - start) * 1000)
         cost = self._calculate_cost(
@@ -547,13 +564,80 @@ class GeminiWritingGrader:
 
         return "\n\n".join(parts)
 
+    # ── Sprint 19.3.5 — Task 1 Academic chart image (multimodal) ──────
+
+    _IMAGE_FETCH_TIMEOUT_S = 5.0
+    _IMAGE_FETCH_ATTEMPTS = 2
+    _MISSING_IMAGE_CAVEAT = (
+        "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. "
+    )
+
+    @staticmethod
+    def _guess_image_mime(url: str) -> str:
+        u = (url or "").split("?")[0].lower()
+        if u.endswith((".jpg", ".jpeg")): return "image/jpeg"
+        if u.endswith(".webp"):           return "image/webp"
+        if u.endswith(".gif"):            return "image/gif"
+        return "image/png"
+
+    async def _maybe_fetch_prompt_image(
+        self, config: GraderConfig
+    ) -> Optional[tuple[bytes, str]]:
+        """Fetch the Task 1 Academic chart image for multimodal grading.
+
+        Returns (bytes, mime_type), or None when there's nothing to send —
+        non-task1_academic, no URL, or a fetch failure (timeout / 404 /
+        network). On None the caller falls back to text-only + caveat (D7);
+        a flaky image must never fail or stall grading (cap ~10s total)."""
+        if config.task_type != "task1_academic" or not config.prompt_image_url:
+            return None
+
+        url = config.prompt_image_url
+        try:
+            async with httpx.AsyncClient(timeout=self._IMAGE_FETCH_TIMEOUT_S) as client:
+                last: Optional[Exception] = None
+                for attempt in range(self._IMAGE_FETCH_ATTEMPTS):
+                    try:
+                        resp = await client.get(url)
+                        if resp.status_code == 200 and resp.content:
+                            mime = (resp.headers.get("content-type") or "").split(";")[0].strip()
+                            if not mime.startswith("image/"):
+                                mime = self._guess_image_mime(url)
+                            return resp.content, mime
+                        last = RuntimeError(f"HTTP {resp.status_code}")
+                    except httpx.RequestError as exc:
+                        last = exc
+                if last:
+                    raise last
+        except Exception as exc:
+            logger.warning(
+                "[grader] Task1 image fetch failed (grading text-only) url=%s: %s",
+                url, exc,
+            )
+        return None
+
+    @classmethod
+    def _inject_missing_image_caveat(cls, feedback: WritingFeedback) -> WritingFeedback:
+        """Prepend the D7 caveat to overallBandScoreSummary (the prose the
+        student/admin reads first). Idempotent — a re-grade won't stack it."""
+        summary = feedback.overallBandScoreSummary or ""
+        if not summary.startswith("⚠️"):
+            feedback.overallBandScoreSummary = cls._MISSING_IMAGE_CAVEAT + summary
+        return feedback
+
     async def _call_with_retry(
         self,
         model_name: str,
         system_prompt: str,
         user_prompt: str,
+        image: Optional[tuple[bytes, str]] = None,
     ) -> tuple[str, dict]:
-        """Call Gemini with exponential backoff retry."""
+        """Call Gemini with exponential backoff retry.
+
+        Sprint 19.3.5 — `image` (bytes, mime_type) is sent as a multimodal
+        inline Part alongside the text when present (Task 1 Academic chart).
+        The legacy google.generativeai SDK accepts a `[text, {mime_type,
+        data}]` contents list (verified on 0.8.3)."""
 
         model = genai.GenerativeModel(
             model_name=model_name,
@@ -564,12 +648,18 @@ class GeminiWritingGrader:
             temperature=0.3,
         )
 
+        # Single string for text-only; [text, image-part] for multimodal.
+        contents = user_prompt
+        if image is not None:
+            img_bytes, img_mime = image
+            contents = [user_prompt, {"mime_type": img_mime, "data": img_bytes}]
+
         last_error: Optional[Exception] = None
         for attempt in range(MAX_RETRIES):
             try:
                 response = await asyncio.to_thread(
                     model.generate_content,
-                    user_prompt,
+                    contents,
                     generation_config=generation_config,
                 )
 

@@ -131,6 +131,11 @@ Rules: transition specific properties (not `all`) where practical; hover lifts a
 **19.3 — Independent grading file upload (admin)** ✅ SHIPPED (#-)
 - Reused the **`.aw-import-*` drag-drop panel** (19.1C) on `new.html` as a `<details>` helper above the essay field. **Established pattern: extract → fill the textarea (textarea stays the source of truth for submit)** — mirrors the student `/extract-text` flow; do NOT hard-toggle/hide the paste field. Backend reuses `file_extract_service` (`.docx`/`.txt`, 2MB, 15k chars). Export UX on `grade.html` was already mature (`/render`→ClipboardItem for Google Docs paste + `export.docx`); 19.3 only added clearer VN labels/tooltips + loading state.
 
+**19.3.5 — Task 1 Academic image support** ✅ SHIPPED (#314)
+- **Image display + lightbox is a shared idiom now:** `js/image-lightbox.js` (`window.AvImageLightbox.open(src, alt)`, Esc/backdrop close) + `css/image-lightbox.css` (`.prompt-chart-img` thumbnail + `.av-lightbox` overlay, all `--av-*`). Reuse on any page that shows a chart/diagram — link both, render `<img class="prompt-chart-img" role="button" tabindex="0">`, call `AvImageLightbox.open` on click/Enter/Space. Used by `grade.html` (admin) + `writing-result.html` (student).
+- **Multimodal Gemini pattern** (`gemini_writing_grader.py`): the legacy `google.generativeai` SDK takes a `generate_content([text, {"mime_type", "data": bytes}])` list. Image fetched from the Cloudinary URL (httpx, ≤2 retries / ~10s cap); fetch failure or missing image → text-only + a caveat prepended to `overallBandScoreSummary` (D7), never a block.
+- **Snapshot wiring (Pattern #42 fix):** the student submit path didn't populate `writing_essays.prompt_image_url`; 19.3.5 wired it so library Task 1 Academic essays reach the grader with their chart.
+
 **19.4 — Notifications + student regrade-request + result-page tips recommendation**
 - Notification chips/badges: use `--av-info-soft` (informational) or `--av-primary-soft`; never invent a new hue.
 - A student "yêu cầu chấm lại" control belongs on `writing-result.html` near the header actions, styled as `.btn-icon` (secondary), with a confirm step; it introduces a new student-visible state — extend the §5 status model deliberately (and keep it AI-free).

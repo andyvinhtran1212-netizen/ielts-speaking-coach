@@ -109,6 +109,7 @@ jobs:
             frontend/tests/writing-tips-redesign.test.mjs \
             frontend/tests/writing-cohorts-admin.test.mjs \
             frontend/tests/writing-independent-upload.test.mjs \
+            frontend/tests/writing-task1-image.test.mjs \
             frontend/tests/full-test-result-redesign.test.mjs \
             frontend/tests/vocabulary-redesign.test.mjs \
             frontend/tests/sprint-14-6-5-light-theme-panels.test.mjs \
