@@ -39,6 +39,7 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.listening_test_grader import answer_matches
+from services.reading_diagnostic_engine import build_reading_diagnostic
 
 logger = logging.getLogger(__name__)
 
@@ -341,6 +342,7 @@ _READING_MODULES = {"academic", "general_training"}
 # (clock skew, network latency between countdown-zero and the POST). The
 # client's countdown is the primary UX guard; this is just a backstop.
 _SUBMIT_GRACE_SECONDS = 5 * 60
+_DIAGNOSTIC_ATTEMPT_LIMIT = 8
 
 
 def _fetch_published_test(test_id: str) -> dict:
@@ -711,3 +713,77 @@ async def patch_reading_test_attempt_answer(
         "q_num":      body.q_num,
         "answered":   len(answers),
     }
+
+
+def _fetch_submitted_attempts_for_user(user_id: str, limit: int = _DIAGNOSTIC_ATTEMPT_LIMIT) -> list[dict]:
+    res = (
+        supabase_admin.table("reading_test_attempts")
+        .select("id,status,submitted_at,score,band_estimate,skill_breakdown")
+        .eq("user_id", user_id)
+        .eq("status", "submitted")
+        .order("submitted_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return res.data or []
+
+
+def _fetch_l2_skill_exercises(skill_tags: list[str]) -> list[dict]:
+    tags = sorted({tag for tag in skill_tags if tag in _SKILL_TAG_VALUES})
+    if not tags:
+        return []
+    res = (
+        supabase_admin.table("reading_passages")
+        .select("id,slug,title,skill_focus,difficulty_level,estimated_minutes,topic_tags,created_at")
+        .eq("library", "l2_skill")
+        .eq("status", "published")
+        .in_("skill_focus", tags)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return res.data or []
+
+
+@router.get("/diagnostic")
+async def get_reading_diagnostic(
+    attempt_id: str | None = Query(default=None),
+    authorization: str | None = Header(default=None),
+):
+    """Rule-based learner diagnostic over submitted L3 attempts.
+
+    The selected attempt (explicit attempt_id or latest submitted attempt)
+    drives the "current" weakness view; prior submitted attempts provide the
+    trend signal. L2 recommendations are exact skill_tag → skill_focus matches.
+    """
+    user = await _require_auth(authorization)
+    attempts = _fetch_submitted_attempts_for_user(user["id"])
+    if not attempts and attempt_id:
+        selected = _fetch_attempt_or_404(attempt_id, user["id"])
+        if selected.get("status") != "submitted":
+            raise HTTPException(422, "Diagnostic chỉ hỗ trợ submitted attempts.")
+        attempts = [selected]
+    elif not attempts:
+        return build_reading_diagnostic([], [], selected_attempt_id=attempt_id)
+
+    selected_attempt_id = attempt_id
+    if selected_attempt_id:
+        if not any(a.get("id") == selected_attempt_id for a in attempts):
+            selected = _fetch_attempt_or_404(selected_attempt_id, user["id"])
+            if selected.get("status") != "submitted":
+                raise HTTPException(422, "Diagnostic chỉ hỗ trợ submitted attempts.")
+            attempts = [selected] + [a for a in attempts if a.get("id") != selected_attempt_id]
+
+    current_attempt = attempts[0]
+    if selected_attempt_id:
+        for attempt in attempts:
+            if attempt.get("id") == selected_attempt_id:
+                current_attempt = attempt
+                break
+
+    current_skills = list((current_attempt.get("skill_breakdown") or {}).keys())
+    exercises = _fetch_l2_skill_exercises(current_skills)
+    return build_reading_diagnostic(
+        attempts,
+        exercises,
+        selected_attempt_id=selected_attempt_id or current_attempt.get("id"),
+    )

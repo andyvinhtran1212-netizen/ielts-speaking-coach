@@ -386,6 +386,113 @@
     reference_cohesion: 'Reference / cohesion',
     writer_view_TFNG: "Writer's view (T/F/NG)",
   };
+  function diagnosticLevelLabel(level) {
+    if (level === 'weak') return 'Cần ưu tiên';
+    if (level === 'watch') return 'Nên luyện thêm';
+    return 'Ổn định';
+  }
+  function diagnosticTrendText(trend) {
+    if (!trend || trend.direction === 'first_attempt') {
+      return 'Chưa có attempt trước để so sánh xu hướng.';
+    }
+    if (trend.direction === 'improving') {
+      return 'Đang cải thiện +' + Math.abs(trend.delta_pct || 0) + ' điểm so với lần trước.';
+    }
+    if (trend.direction === 'declining') {
+      return 'Đang giảm ' + Math.abs(trend.delta_pct || 0) + ' điểm so với lần trước.';
+    }
+    return 'Xu hướng đang ổn định so với lần trước.';
+  }
+  function setDiagnosticStatus(message, isError) {
+    var status = $('results-diagnostic-status');
+    if (!status) return;
+    status.hidden = !message;
+    status.textContent = message || '';
+    status.style.color = isError ? 'var(--exam-critical)' : 'var(--exam-text-secondary)';
+  }
+  function renderDiagnostic(diag) {
+    var host = $('results-diagnostic');
+    var intro = $('results-diagnostic-intro');
+    if (!host || !intro) return;
+    host.innerHTML = '';
+
+    if (!diag || !diag.skills || !diag.skills.length) {
+      intro.textContent = 'Chưa có đủ dữ liệu submitted để tạo diagnostic. Hãy hoàn thành ít nhất một full test.';
+      host.innerHTML = '<div class="exam-results-diagnostic__empty">Diagnostic sẽ xuất hiện sau khi bạn có submitted attempt đầu tiên.</div>';
+      return;
+    }
+
+    var focus = diag.focus_skills || [];
+    if (!focus.length) {
+      intro.textContent = 'Hiện chưa có kỹ năng nào rơi vào vùng yếu hoặc cần theo dõi. Bạn vẫn có thể xem breakdown phía trên để duy trì phong độ.';
+      host.innerHTML = '<div class="exam-results-diagnostic__empty">Không có skill nào dưới ngưỡng 75% ở attempt này.</div>';
+      return;
+    }
+
+    intro.textContent = 'Các skill dưới đây được xếp theo mức cần ưu tiên dựa trên attempt vừa nộp, có kèm xu hướng từ các full-test trước và bài L2 nên luyện tiếp.';
+    focus.forEach(function (item) {
+      var card = document.createElement('section');
+      card.className = 'exam-diagnostic-card';
+      var recs = item.recommendations || [];
+      var links = recs.length
+        ? recs.map(function (rec) {
+            var meta = [];
+            if (rec.skill_focus) meta.push(SKILL_LABEL[rec.skill_focus] || rec.skill_focus);
+            if (rec.difficulty_level) meta.push(rec.difficulty_level);
+            if (rec.estimated_minutes) meta.push(rec.estimated_minutes + ' phút');
+            return '<a href="/pages/reading-skill-exercise.html?slug=' + encodeURIComponent(rec.slug) + '">' +
+              '<strong>' + escapeHtml(rec.title || rec.slug || 'Bài luyện kỹ năng') + '</strong>' +
+              '<span>' + escapeHtml(meta.join(' · ')) + '</span>' +
+            '</a>';
+          }).join('')
+        : '<div class="exam-results-diagnostic__empty">Chưa có bài L2 published khớp trực tiếp với skill này.</div>';
+
+      card.innerHTML =
+        '<div class="exam-diagnostic-card__top">' +
+          '<div>' +
+            '<h4 class="exam-diagnostic-card__title">' + escapeHtml(item.label || item.skill_tag) + '</h4>' +
+            '<p class="exam-diagnostic-card__meta">' + escapeHtml(diagnosticTrendText(item.trend)) + '</p>' +
+          '</div>' +
+          '<span class="exam-diagnostic-card__pill" data-level="' + escapeHtml(item.diagnostic_level || 'strong') + '">' +
+            escapeHtml(diagnosticLevelLabel(item.diagnostic_level)) +
+          '</span>' +
+        '</div>' +
+        '<div class="exam-diagnostic-card__stats">' +
+          '<div class="exam-diagnostic-card__stat">' +
+            '<span class="exam-diagnostic-card__stat-label">Attempt này</span>' +
+            '<div class="exam-diagnostic-card__stat-value">' + item.current.correct + '/' + item.current.total + ' · ' + item.current.accuracy_pct + '%</div>' +
+          '</div>' +
+          '<div class="exam-diagnostic-card__stat">' +
+            '<span class="exam-diagnostic-card__stat-label">Tổng gần đây</span>' +
+            '<div class="exam-diagnostic-card__stat-value">' + item.aggregate.correct + '/' + item.aggregate.total + ' · ' + item.aggregate.accuracy_pct + '%</div>' +
+          '</div>' +
+          '<div class="exam-diagnostic-card__stat">' +
+            '<span class="exam-diagnostic-card__stat-label">Bài L2 gợi ý</span>' +
+            '<div class="exam-diagnostic-card__stat-value">' + (item.recommendation_count || 0) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="exam-diagnostic-card__links">' + links + '</div>';
+      host.appendChild(card);
+    });
+  }
+  function loadDiagnostic(attemptId) {
+    var host = $('results-diagnostic');
+    var intro = $('results-diagnostic-intro');
+    if (!host || !attemptId) return;
+    host.innerHTML = '';
+    if (intro) intro.textContent = 'Đang phân tích weak skills và gợi ý bài L2 phù hợp…';
+    setDiagnosticStatus('Đang tải diagnostic...', false);
+    window.api.get('/api/reading/diagnostic?attempt_id=' + encodeURIComponent(attemptId))
+      .then(function (diag) {
+        setDiagnosticStatus('', false);
+        renderDiagnostic(diag);
+      })
+      .catch(function (e) {
+        if (intro) intro.textContent = 'Kết quả bài thi vẫn chính xác, nhưng diagnostic nâng cao chưa tải được.';
+        host.innerHTML = '<div class="exam-results-diagnostic__empty">Bạn có thể quay lại thư viện L2 để luyện thêm theo skill breakdown phía trên.</div>';
+        setDiagnosticStatus('Không tải được diagnostic. ' + (e && e.message ? e.message : ''), true);
+      });
+  }
   function renderResults(result) {
     $('results-score').textContent = (result.score != null ? result.score : '—') + '/' + (result.max_score != null ? result.max_score : '40');
     $('results-band').textContent = result.band_estimate != null ? ('Band ' + result.band_estimate) : 'Band —';
@@ -427,6 +534,8 @@
         '<div class="exam-results-review__expected">' + escapeHtml(r.expected || '') + '</div>';
       revHost.appendChild(row);
     });
+
+    loadDiagnostic(result.attempt_id);
   }
 
   // ── Settings popover (text-size A/A/A) ────────────────────────────
