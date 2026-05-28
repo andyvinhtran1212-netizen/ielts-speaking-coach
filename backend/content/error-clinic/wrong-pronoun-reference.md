@@ -44,8 +44,22 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: wrong-pronoun-reference.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: wrong-pronoun-reference.it-ambiguous
+    location: '## KIỂU 1: "IT" MƠ HỒ'
+    type: pitfall
+  - id: wrong-pronoun-reference.they-ambiguous
+    location: '## KIỂU 2: "THEY" MƠ HỒ'
+    type: pitfall
+  - id: wrong-pronoun-reference.this-that-ambiguous
+    location: '## KIỂU 3: "THIS" / "THAT" MƠ HỒ'
+    type: pitfall
 ---
 
+<!-- anchor: wrong-pronoun-reference.overview -->
 ## Tóm tắt
 
 | Loại lỗi | Ví dụ | Vấn đề |
@@ -69,6 +83,7 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 
 ---
 
+<!-- anchor: wrong-pronoun-reference.it-ambiguous -->
 ## KIỂU 1: "IT" MƠ HỒ
 
 "It" là đại từ thay thế cho một danh từ số ít, không người. Lỗi xảy ra khi câu trước có nhiều danh từ và không rõ "it" chỉ cái nào.
@@ -95,6 +110,7 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 
 ---
 
+<!-- anchor: wrong-pronoun-reference.they-ambiguous -->
 ## KIỂU 2: "THEY" MƠ HỒ
 
 "They" thay thế cho danh từ số nhiều. Lỗi xảy ra khi câu trước có nhiều nhóm danh từ số nhiều.
@@ -119,6 +135,7 @@ Câu trên mơ hồ vì "he" có thể là teacher hoặc student.
 
 ---
 
+<!-- anchor: wrong-pronoun-reference.this-that-ambiguous -->
 ## KIỂU 3: "THIS" / "THAT" MƠ HỒ
 
 "This" và "that" thường dùng để chỉ đến một **ý/tình huống** vừa được đề cập. Lỗi xảy ra khi đoạn văn trước đó có nhiều ý và không rõ "this" đang gộp lại cái gì.

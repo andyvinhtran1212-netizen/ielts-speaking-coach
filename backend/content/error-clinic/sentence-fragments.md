@@ -45,8 +45,22 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: sentence-fragments.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: sentence-fragments.missing-main-verb
+    location: '## LOẠI 1: THIẾU ĐỘNG TỪ CHÍNH'
+    type: pitfall
+  - id: sentence-fragments.subordinate-clause-alone
+    location: '## LOẠI 2: MỆNH ĐỀ PHỤ ĐỨNG MỘT MÌNH'
+    type: pitfall
+  - id: sentence-fragments.ving-toinf-alone
+    location: '## LOẠI 4: CỤM V-ING HOẶC TO-INFINITIVE ĐỨNG MỘT MÌNH'
+    type: pitfall
 ---
 
+<!-- anchor: sentence-fragments.overview -->
 ## Tóm tắt
 
 | Loại fragment | Ví dụ lỗi | Vấn đề |
@@ -71,6 +85,7 @@ Thiếu bất kỳ yếu tố nào trong số này → **fragment**.
 
 ---
 
+<!-- anchor: sentence-fragments.missing-main-verb -->
 ## LOẠI 1: THIẾU ĐỘNG TỪ CHÍNH
 
 Nhóm từ có chủ ngữ nhưng không có động từ diễn đạt hành động/trạng thái.
@@ -89,6 +104,7 @@ Nhóm từ có chủ ngữ nhưng không có động từ diễn đạt hành đ
 
 ---
 
+<!-- anchor: sentence-fragments.subordinate-clause-alone -->
 ## LOẠI 2: MỆNH ĐỀ PHỤ ĐỨNG MỘT MÌNH
 
 Đây là loại fragment phổ biến nhất và dễ nhầm nhất. Mệnh đề phụ (subordinate clause) bắt đầu bằng các từ như **because, although, when, if, since, while, as, unless, until, after, before** — và **không thể đứng một mình** vì nó luôn cần câu chính đi kèm.
@@ -125,6 +141,7 @@ Câu có động từ nhưng không rõ ai/cái gì thực hiện hành động.
 
 ---
 
+<!-- anchor: sentence-fragments.ving-toinf-alone -->
 ## LOẠI 4: CỤM V-ING HOẶC TO-INFINITIVE ĐỨNG MỘT MÌNH
 
 Những cụm này trông giống câu nhưng không phải — chúng thiếu chủ ngữ và động từ chính.

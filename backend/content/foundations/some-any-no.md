@@ -45,8 +45,22 @@ next_articles:
 pathways:
 - grammar-for-beginners
 - band-6-to-7
+anchors:
+  - id: some-any-no.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: some-any-no.some.invitations-and-expected-yes
+    location: '### Ngoại lệ: Some trong câu hỏi (mời mọc, đề nghị, kỳ vọng câu trả lời "yes")'
+    type: pitfall
+  - id: some-any-no.any.negatives-and-questions
+    location: '## PHẦN 2: ANY — Trong câu phủ định và câu hỏi'
+    type: concept
+  - id: some-any-no.no.double-negative
+    location: '### Lỗi 3: Double negative với "no"'
+    type: pitfall
 ---
 
+<!-- anchor: some-any-no.overview -->
 ## Tóm tắt
 
 | Từ | Dùng khi | Ví dụ |
@@ -82,6 +96,7 @@ some + uncountable noun
 - I need **some** time to think.
 - There is **some** water in the bottle.
 
+<!-- anchor: some-any-no.some.invitations-and-expected-yes -->
 ### Ngoại lệ: Some trong câu hỏi (mời mọc, đề nghị, kỳ vọng câu trả lời "yes")
 
 Khi **mời mọc** hoặc **đề nghị**, dùng "some" dù đó là câu hỏi:
@@ -96,6 +111,7 @@ So sánh:
 
 ---
 
+<!-- anchor: some-any-no.any.negatives-and-questions -->
 ## PHẦN 2: ANY — Trong câu phủ định và câu hỏi
 
 ### Câu phủ định
@@ -230,6 +246,7 @@ Khi chủ ngữ là *nothing, nobody, no one* — dùng động từ **số ít*
 - ❌ "I have **any** questions for you."
 - ✅ "I have **some** questions for you."
 
+<!-- anchor: some-any-no.no.double-negative -->
 ### Lỗi 3: Double negative với "no"
 
 - ❌ "I don't have **no** time."

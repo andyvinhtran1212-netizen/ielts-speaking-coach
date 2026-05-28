@@ -45,8 +45,22 @@ next_articles:
 pathways:
 - fix-common-mistakes
 - band-6-to-7
+anchors:
+  - id: preposition-errors.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: preposition-errors.time.at-on-in
+    location: '## Phần 1: Giới từ thời gian — at / on / in'
+    type: section
+  - id: preposition-errors.verb-preposition-collocations
+    location: '## Phần 3: Verb + Preposition Collocations'
+    type: section
+  - id: preposition-errors.adjective-preposition-collocations
+    location: '## Phần 4: Adjective + Preposition Collocations'
+    type: section
 ---
 
+<!-- anchor: preposition-errors.overview -->
 ## Tóm tắt
 
 Giới từ trong tiếng Anh thường phải học theo **collocation** (cụm từ cố định) vì không có quy tắc logic hoàn toàn. Các lỗi phổ biến nhất là:
@@ -60,6 +74,7 @@ Giới từ trong tiếng Anh thường phải học theo **collocation** (cụm
 
 Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe lạ tai. IELTS examiners đánh giá collocational accuracy như một phần của Lexical Resource (LR) và Grammatical Accuracy (GRA).
 
+<!-- anchor: preposition-errors.time.at-on-in -->
 ## Phần 1: Giới từ thời gian — at / on / in
 
 | Giới từ | Dùng cho | Ví dụ |
@@ -109,6 +124,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 - ❌ He's studying **on** Oxford University.
 - ✅ He's studying **at** Oxford University.
 
+<!-- anchor: preposition-errors.verb-preposition-collocations -->
 ## Phần 3: Verb + Preposition Collocations
 
 ### Các động từ hay bị dùng sai giới từ:
@@ -145,6 +161,7 @@ Giới từ sai tạo ra "unnatural English" — câu đúng nghĩa nhưng nghe 
 - The government **contributed to** the problem by cutting funding.
 - She **concentrated on** her studies for the final exam.
 
+<!-- anchor: preposition-errors.adjective-preposition-collocations -->
 ## Phần 4: Adjective + Preposition Collocations
 
 | Adjective | Preposition | Ví dụ |

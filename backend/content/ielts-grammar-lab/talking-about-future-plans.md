@@ -48,8 +48,22 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: talking-about-future-plans.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: talking-about-future-plans.will.decisions-and-predictions
+    location: '## PHẦN 1: WILL + V — Quyết định, dự đoán, lời hứa'
+    type: section
+  - id: talking-about-future-plans.be-going-to.prior-intention
+    location: '## PHẦN 2: BE GOING TO + V — Kế hoạch đã có, dự đoán hiển nhiên'
+    type: section
+  - id: talking-about-future-plans.present-continuous.arrangements
+    location: '## PHẦN 3: PRESENT CONTINUOUS — Sắp xếp cụ thể đã định'
+    type: ielts-application
 ---
 
+<!-- anchor: talking-about-future-plans.overview -->
 ## Tóm tắt
 
 Bốn cách nói về tương lai — khác nhau về mức độ chắc chắn và loại kế hoạch:
@@ -75,6 +89,7 @@ Dùng "will" cho mọi tình huống là lỗi phổ biến. Biết phân biệt
 
 ---
 
+<!-- anchor: talking-about-future-plans.will.decisions-and-predictions -->
 ## PHẦN 1: WILL + V — Quyết định, dự đoán, lời hứa
 
 ### 1a. Quyết định tức thì (spontaneous decision)
@@ -109,6 +124,7 @@ won't + V (dự đoán tiêu cực)
 
 ---
 
+<!-- anchor: talking-about-future-plans.be-going-to.prior-intention -->
 ## PHẦN 2: BE GOING TO + V — Kế hoạch đã có, dự đoán hiển nhiên
 
 ### 2a. Kế hoạch đã có từ trước (prior intention)
@@ -134,6 +150,7 @@ Khi bạn thấy có bằng chứng rõ ràng chứng tỏ điều gì đó sắ
 
 ---
 
+<!-- anchor: talking-about-future-plans.present-continuous.arrangements -->
 ## PHẦN 3: PRESENT CONTINUOUS — Sắp xếp cụ thể đã định
 
 Present Continuous dùng cho kế hoạch **đã được sắp xếp cụ thể** — có ngày giờ, địa điểm hoặc sự xác nhận từ người khác.
