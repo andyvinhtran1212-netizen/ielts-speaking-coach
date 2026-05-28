@@ -47,6 +47,56 @@ router = APIRouter(
 )
 
 
+_LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
+_STATUSES = {"draft", "published", "archived"}
+
+
+@router.get("")
+async def list_reading_content(
+    library: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(None),
+):
+    """Admin list across reading_passages (Sprint 20.3 — drives the admin
+    content page). Returns all rows regardless of publish state (distinct from
+    the student endpoints, which filter status='published'). Optional library +
+    status filters. Light fields only — clients fetch the body via re-import or
+    a future detail endpoint.
+    """
+    await require_admin(authorization)
+
+    if library is not None and library not in _LIBRARIES:
+        raise HTTPException(422, f"library must be one of {sorted(_LIBRARIES)}")
+    if status is not None and status not in _STATUSES:
+        raise HTTPException(422, f"status must be one of {sorted(_STATUSES)}")
+
+    q = (
+        supabase_admin.table("reading_passages")
+        .select(
+            "id,slug,library,title,status,difficulty_level,skill_focus,"
+            "topic_tags,updated_at,created_at",
+            count="exact",
+        )
+        .order("updated_at", desc=True)
+        .range(offset, offset + limit - 1)
+    )
+    if library:
+        q = q.eq("library", library)
+    if status:
+        q = q.eq("status", status)
+
+    res = q.execute()
+    return {
+        "items":  res.data or [],
+        "total":  getattr(res, "count", None) or 0,
+        "limit":  limit,
+        "offset": offset,
+    }
+
+
+
 @router.post("/import")
 async def import_reading_content(
     file: UploadFile = File(...),

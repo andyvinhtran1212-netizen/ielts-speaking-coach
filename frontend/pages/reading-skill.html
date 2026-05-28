@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Vocab Reading — Aver Learning</title>
+  <title>Skill Practice — Aver Learning</title>
 
   <script>
     (function () {
@@ -37,14 +37,14 @@
     <main class="rv-shell">
       <header class="rv-header">
         <p class="eyebrow"><a href="/pages/home.html" style="color: var(--av-text-secondary);">← Trang chủ</a></p>
-        <h1>Vocab Reading <span class="accent">·</span> <span style="color: var(--av-text-muted);">Thư viện</span></h1>
-        <p class="subtitle">Đọc đoạn văn ngắn, tra từ vựng ngay trong bài, và kiểm tra hiểu nhanh.</p>
+        <h1>Skill Practice <span class="accent">·</span> <span style="color: var(--av-text-muted);">Luyện kỹ năng</span></h1>
+        <p class="subtitle">Chọn một bài luyện theo kỹ năng đọc — skimming, scanning, detail, inference… — và kiểm tra hiểu ngay sau khi đọc.</p>
       </header>
 
       <!-- Library switcher: L1 Vocab ↔ L2 Skill (Reading tab covers both). -->
       <nav class="rv-libnav" aria-label="Reading libraries">
-        <a class="rv-libnav__link is-active" aria-current="page">Vocab Reading</a>
-        <a class="rv-libnav__link" href="/pages/reading-skill.html">Skill Practice</a>
+        <a class="rv-libnav__link" href="/pages/reading-vocab.html">Vocab Reading</a>
+        <a class="rv-libnav__link is-active" aria-current="page">Skill Practice</a>
       </nav>
 
       <div class="rv-filters">
@@ -56,19 +56,29 @@
             <option value="advanced">Advanced</option>
           </select>
         </label>
-        <label>Chủ đề
-          <select id="filter-tag"><option value="">Tất cả</option></select>
+        <label>Kỹ năng
+          <select id="filter-skill">
+            <option value="">Tất cả</option>
+            <option value="skimming">Skimming</option>
+            <option value="scanning">Scanning</option>
+            <option value="detail">Detail</option>
+            <option value="main_idea">Main idea</option>
+            <option value="inference">Inference</option>
+            <option value="vocabulary_in_context">Vocab in context</option>
+            <option value="reference_cohesion">Reference / cohesion</option>
+            <option value="writer_view_TFNG">Writer's view (T/F/NG)</option>
+          </select>
         </label>
       </div>
 
       <div class="rv-empty" id="state-loading">Đang tải…</div>
-      <div class="rv-empty" id="state-empty" hidden>Chưa có bài đọc nào khớp bộ lọc.</div>
+      <div class="rv-empty" id="state-empty" hidden>Chưa có bài luyện kỹ năng nào khớp bộ lọc.</div>
       <div class="rv-error" id="state-error" hidden></div>
 
       <div class="rv-grid" id="rv-grid" hidden></div>
     </main>
   </div>
 
-  <script type="module" src="/js/reading-vocab.js"></script>
+  <script type="module" src="/js/reading-skill.js"></script>
 </body>
 </html>

@@ -79,10 +79,12 @@ describe('Sprint 20.2 — library JS (reading-vocab.js)', () => {
 
 describe('Sprint 20.2 — passage JS (reading-vocab-passage.js)', () => {
   const js = read('frontend/js/reading-vocab-passage.js');
-  test('loads one passage + checks answers server-side', () => {
+  test('loads one L1 passage from the detail endpoint', () => {
+    // The /check POST moved to the shared ReadingQuestions component in
+    // Sprint 20.3; the L1 page now delegates grading there (covered by the
+    // 20.3 sentinel). What the L1 page still owns is the detail fetch.
     assert.match(js, /\/api\/reading\/vocab\/'\s*\+\s*encodeURIComponent\(slug\)/);
-    assert.match(js, /\/check'/);
-    assert.match(js, /window\.api\.post/);
+    assert.match(js, /window\.api\.get/);
   });
   test('renders markdown + glossary + lightbox via shared modules', () => {
     assert.match(js, /window\.renderMarkdown/);

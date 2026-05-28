@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Quản lý nội dung Reading — Aver Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: {
+        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+      } } },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/admin-reading.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+</head>
+<body class="av-page font-sans antialiased min-h-screen">
+  <aver-admin-chrome active="reading" subsection="content">
+  <div class="max-w-5xl mx-auto px-4 py-6">
+
+    <header class="mb-6">
+      <h1 class="ar-h1">Quản lý nội dung Reading</h1>
+      <p class="ar-subtitle">Import từ file <code>.md</code> theo định dạng
+        <code>reading_content_format_v1</code>. Idempotent theo slug — upload lại để cập nhật.</p>
+    </header>
+
+    <!-- Import panel ────────────────────────────────────────────────── -->
+    <section class="ar-panel" aria-labelledby="ar-import-title">
+      <h2 id="ar-import-title" class="ar-panel__title">📥 Import nội dung mới</h2>
+
+      <div id="ar-dropzone" class="ar-dropzone" role="button" tabindex="0"
+           aria-label="Kéo thả hoặc chọn file .md để import">
+        <p class="ar-dropzone__hint">Kéo thả file <strong>.md</strong> vào đây</p>
+        <p class="ar-dropzone__or">hoặc</p>
+        <label class="ar-btn ar-btn--secondary ar-dropzone__pick">
+          Chọn file
+          <input id="ar-file" type="file" accept=".md,.markdown,text/markdown" hidden />
+        </label>
+        <p id="ar-filename" class="ar-dropzone__filename" hidden></p>
+      </div>
+
+      <div id="ar-status" class="ar-status" hidden></div>
+
+      <div id="ar-preview" class="ar-preview" hidden>
+        <div id="ar-errors" class="ar-errors" hidden></div>
+        <h3 class="ar-preview__title">Xem trước</h3>
+        <table class="ar-kv"><tbody id="ar-kv"></tbody></table>
+        <div class="ar-preview__actions">
+          <button id="ar-reset" type="button" class="ar-btn ar-btn--secondary">Hủy</button>
+          <button id="ar-commit" type="button" class="ar-btn ar-btn--primary" disabled>Lưu vào thư viện</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- List panel ──────────────────────────────────────────────────── -->
+    <section class="ar-panel" aria-labelledby="ar-list-title">
+      <div class="ar-list-header">
+        <h2 id="ar-list-title" class="ar-panel__title">Thư viện</h2>
+        <div class="ar-list-filters" role="tablist" aria-label="Library filter">
+          <button class="ar-filter is-active" data-library=""        role="tab" aria-selected="true">Tất cả</button>
+          <button class="ar-filter"            data-library="l1_vocab" role="tab" aria-selected="false">L1 Vocab</button>
+          <button class="ar-filter"            data-library="l2_skill" role="tab" aria-selected="false">L2 Skill</button>
+        </div>
+      </div>
+
+      <div id="ar-list-state" class="ar-list-state">Đang tải…</div>
+      <div id="ar-list-empty" class="ar-list-state" hidden>Chưa có nội dung nào.</div>
+
+      <table id="ar-list-table" class="ar-table" hidden>
+        <thead>
+          <tr>
+            <th>Title</th><th>Slug</th><th>Library</th><th>Skill / Difficulty</th>
+            <th>Status</th><th>Cập nhật</th>
+          </tr>
+        </thead>
+        <tbody id="ar-list-rows"></tbody>
+      </table>
+    </section>
+
+  </div>
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/admin-reading.js" defer></script>
+</body>
+</html>

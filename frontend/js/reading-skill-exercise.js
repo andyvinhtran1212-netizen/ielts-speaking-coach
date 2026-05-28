@@ -1,14 +1,10 @@
-/* frontend/js/reading-vocab-passage.js — Sprint 20.2 L1 passage detail.
+/* frontend/js/reading-skill-exercise.js — Sprint 20.3 L2 exercise detail.
  *
- * Loads one published L1 passage (GET /api/reading/vocab/{slug}), renders the
- * markdown body, highlights glossary terms (GlossaryPopover), wires the image
- * lightbox, drives the reading-progress bar, and renders light comprehension
- * questions with server-side instant feedback (POST .../check — answer keys
- * never reach the client). No persistence: L1 is ungraded practice.
- *
- * Code-authoritative (Discovery blind-spot #5): a compact purpose-built
- * instant-feedback renderer for the 4 Phase-1 L1 types, NOT the attempt-mode
- * listening player (which is coupled to its own STATE/auto-save).
+ * Loads one published L2 skill-practice exercise (GET /api/reading/skill/{slug}),
+ * renders the markdown body, highlights glossary terms, wires the image
+ * lightbox, drives the reading-progress bar, and delegates the questions to
+ * the shared ReadingQuestions component (library='skill' → POSTs /check at
+ * /api/reading/skill/{slug}/check). Mirrors reading-vocab-passage.js (20.2).
  */
 (function () {
   'use strict';
@@ -19,6 +15,18 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var SESSION = { slug: null };
+
+  // Display labels for the D2 skill_tag enum (kept in lockstep with reading-skill.js).
+  var SKILL_LABEL = {
+    skimming: 'Skimming',
+    scanning: 'Scanning',
+    detail: 'Detail',
+    main_idea: 'Main idea',
+    inference: 'Inference',
+    vocabulary_in_context: 'Vocab in context',
+    reference_cohesion: 'Reference / cohesion',
+    writer_view_TFNG: "Writer's view (T/F/NG)",
+  };
 
   function showState(name) {
     $('state-loading').hidden = name !== 'loading';
@@ -32,7 +40,6 @@
     return (new URLSearchParams(window.location.search).get('slug') || '').trim() || null;
   }
 
-  // ── Reading progress bar ──
   function updateProgress() {
     var doc = document.documentElement;
     var max = doc.scrollHeight - doc.clientHeight;
@@ -40,20 +47,20 @@
     $('rv-progress-fill').style.width = pct + '%';
   }
 
-  // ── Light comprehension questions ──
-  // Renderer + server-side check live in the shared component at
-  // /js/components/reading-questions.js (Sprint 20.3 extraction — L1 + L2
-  // share it; loaded as a classic defer script in this page's head).
-
-  // ── Passage render ──
   function renderPassage(p) {
-    document.title = (p.title || 'Bài đọc') + ' — Aver Learning';
-    $('rv-title').textContent = p.title || 'Bài đọc';
+    document.title = (p.title || 'Bài luyện') + ' — Aver Learning';
+    $('rv-title').textContent = p.title || 'Bài luyện';
+
+    // The defining L2 affordance: announce which skill this exercise targets.
+    if (p.skill_focus) {
+      var banner = $('rv-skill-banner');
+      banner.hidden = false;
+      banner.textContent = 'Kỹ năng: ' + (SKILL_LABEL[p.skill_focus] || p.skill_focus);
+    }
 
     var body = $('rv-body');
     body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '') : '';
 
-    // Lead image (Cloudinary) → lightbox. Also wire any inline images.
     if (p.image_url) {
       var img = document.createElement('img');
       img.className = 'prompt-chart-img'; img.src = p.image_url;
@@ -72,7 +79,7 @@
       window.ReadingQuestions.attach({
         host:      $('rv-questions'),
         questions: p.questions || [],
-        library:   'vocab',
+        library:   'skill',
         slug:      SESSION.slug,
       });
     }
@@ -81,7 +88,7 @@
   function load(slug) {
     showState('loading');
     SESSION.slug = slug;
-    window.api.get('/api/reading/vocab/' + encodeURIComponent(slug))
+    window.api.get('/api/reading/skill/' + encodeURIComponent(slug))
       .then(function (p) {
         if (!p) { showState('empty'); return; }
         renderPassage(p);
@@ -90,7 +97,7 @@
       })
       .catch(function (e) {
         if (e && e.status === 404) { showState('empty'); }
-        else { showError('Không tải được bài đọc. ' + (e && e.message ? e.message : '')); }
+        else { showError('Không tải được bài luyện. ' + (e && e.message ? e.message : '')); }
       });
   }
 

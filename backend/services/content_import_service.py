@@ -39,11 +39,17 @@ _TYPE_KEYS    = _SAMPLE_KEYS | _OUTLINE_KEYS
 # tables — reading_passages — per the cluster 20.0 Discovery watch-item;
 # this is NOT routed into writing_tips). L2/L3 structured question import
 # is a separate pipeline (Sprints 20.3/20.5), not handled here.
-READING_CONTENT_TYPES = ("reading_passage_l1",)
+READING_CONTENT_TYPES = ("reading_passage_l1", "reading_skill_exercise")
 DIFFICULTY_LEVELS     = ("foundation", "intermediate", "advanced")
 SKILL_TAGS            = ("skimming", "scanning", "detail", "main_idea",
                          "inference", "vocabulary_in_context",
                          "reference_cohesion", "writer_view_TFNG")
+# Sprint 20.3 — content_type → reading_passages.library mapping.
+# (L3 reading_full_test is spec-only; pipeline lands in Sprint 20.5.)
+_LIBRARY_BY_CONTENT_TYPE = {
+    "reading_passage_l1":     "l1_vocab",
+    "reading_skill_exercise": "l2_skill",
+}
 # Sprint 20.2 — the question types L1 light-comprehension Qs may author
 # (the DB CHECK in mig 086 allows the full IELTS set; the AUTHORING subset
 # is restricted to Phase 1 here, matching reading_content_format_v1.md).
@@ -224,10 +230,15 @@ def build_db_payload(p: ParsedContent, slug: str) -> dict:
     }
 
 
-# ── Sprint 20.1 — L1 vocab-reading passage import ─────────────────────
-# Reuses _split_frontmatter + slugify above; lands in reading_passages
-# (library='l1_vocab'), NOT writing_tips. The router (admin_reading.py)
-# owns the supabase upsert + auth, mirroring the writing import split.
+# ── Sprint 20.1/20.3 — Reading-module passage import (L1 + L2) ───────
+# Single parser + validator + builder for both L1 vocab passages
+# (`reading_passage_l1` → library='l1_vocab') and L2 skill-practice
+# exercises (`reading_skill_exercise` → library='l2_skill'). L1 and L2
+# differ only by the required `skill_focus` field and the derived
+# library — everything else (title, slug, body, glossary, questions,
+# image) is shared. Lands in reading_passages, NOT writing_tips (reading
+# keeps its own tables per the cluster 20.0 Discovery watch-item).
+# The router (admin_reading.py) owns the supabase upsert + auth.
 
 
 @dataclass
@@ -243,21 +254,29 @@ class ParsedReadingPassage:
     estimated_minutes: Optional[int]
     published:         bool
     body_markdown:     str
+    skill_focus:       Optional[str] = None
     questions:         list = field(default_factory=list)
     raw_frontmatter:   dict = field(default_factory=dict)
 
+    @property
+    def library(self) -> Optional[str]:
+        """Derived `reading_passages.library` value (None when the
+        content_type is unrecognised — validate flags that separately)."""
+        return _LIBRARY_BY_CONTENT_TYPE.get(self.content_type or "")
+
     def as_preview(self) -> dict:
-        """Flat dict for the admin import preview. library is fixed to
-        l1_vocab so the preview matches the committed reading_passages row."""
+        """Flat dict for the admin import preview. library is derived from
+        content_type so the preview matches the committed row."""
         return {
             "content_type":      self.content_type,
-            "library":           "l1_vocab",
+            "library":           self.library,
             "title":             self.title,
             "slug":              self.slug,
             "difficulty_level":  self.difficulty_level,
             "topic_tags":        self.topic_tags,
             "image_url":         self.image_url,
             "glossary":          self.glossary,
+            "skill_focus":       self.skill_focus,
             "word_count":        self.word_count,
             "estimated_minutes": self.estimated_minutes,
             "published":         self.published,
@@ -267,10 +286,11 @@ class ParsedReadingPassage:
 
 
 def parse_reading_passage(text: str) -> ParsedReadingPassage:
-    """Parse an L1 vocab-reading passage (Markdown + YAML frontmatter).
-    Raises FrontmatterError when no frontmatter block exists. glossary is
-    coerced to a list here; validate_reading_passage checks its shape (and
-    reads raw_frontmatter to flag a non-list glossary)."""
+    """Parse a reading passage (L1 vocab OR L2 skill-exercise) — Markdown +
+    YAML frontmatter. Raises FrontmatterError when no frontmatter block
+    exists. glossary/questions/skill_focus are pulled here; shape
+    validation is deferred to validate_reading_passage (which reads
+    raw_frontmatter to flag non-list glossary/questions)."""
     fm, body = _split_frontmatter(text)
     raw_glossary = fm.get("glossary")
     raw_questions = fm.get("questions")
@@ -287,6 +307,7 @@ def parse_reading_passage(text: str) -> ParsedReadingPassage:
         estimated_minutes = _as_opt_int(fm.get("estimated_minutes")),
         published         = bool(fm.get("published", False)),
         body_markdown     = body,
+        skill_focus       = _as_str(fm.get("skill_focus")),
         questions         = raw_questions if isinstance(raw_questions, list) else [],
         raw_frontmatter   = fm,
     )
@@ -316,6 +337,19 @@ def validate_reading_passage(p: ParsedReadingPassage) -> list[dict]:
             f"Phải là một trong: {', '.join(DIFFICULTY_LEVELS)} (hoặc bỏ trống).")
     if p.image_url is not None and not p.image_url.startswith(("http://", "https://")):
         err("image_url", "image_url phải là URL hợp lệ (http/https).")
+
+    # Sprint 20.3 — skill_focus rules differ by content type. Required for L2
+    # skill-practice exercises (it's the primary skill the exercise targets);
+    # ignored/optional for L1. Either way, if present it must be a valid D2 tag.
+    if p.content_type == "reading_skill_exercise":
+        if not p.skill_focus:
+            err("skill_focus",
+                f"Bài luyện kỹ năng (L2) bắt buộc 'skill_focus' "
+                f"(một trong: {', '.join(SKILL_TAGS)}).")
+        elif p.skill_focus not in SKILL_TAGS:
+            err("skill_focus", f"Phải là một trong: {', '.join(SKILL_TAGS)}.")
+    elif p.skill_focus is not None and p.skill_focus not in SKILL_TAGS:
+        err("skill_focus", f"Phải là một trong: {', '.join(SKILL_TAGS)} (hoặc bỏ trống).")
 
     # glossary (optional) — list of {term, definition}. Read raw so a
     # non-list value is flagged rather than silently coerced to [].
@@ -409,11 +443,14 @@ def build_reading_question_payloads(questions: list, passage_id: str) -> list[di
 
 
 def build_reading_passage_payload(p: ParsedReadingPassage, slug: str) -> dict:
-    """Map a validated L1 passage to a reading_passages row payload.
-    library is fixed to 'l1_vocab'; the `published` bool maps to the status
-    enum. `created_by` is stamped by the router on INSERT only."""
+    """Map a validated passage to a reading_passages row payload. library is
+    DERIVED from content_type (Sprint 20.3 generalisation): L1 → 'l1_vocab',
+    L2 → 'l2_skill'. The `published` bool maps to the status enum. skill_focus
+    is persisted for L2 (the schema CHECK in mig 086 allows it for L1/L3 too
+    but the column is L2-meaningful). `created_by` is stamped by the router on
+    INSERT only."""
     return {
-        "library":           "l1_vocab",
+        "library":           p.library,
         "slug":              slug,
         "title":             p.title,
         "body_markdown":     p.body_markdown,
@@ -421,6 +458,7 @@ def build_reading_passage_payload(p: ParsedReadingPassage, slug: str) -> dict:
         "topic_tags":        p.topic_tags,
         "image_url":         p.image_url,
         "glossary":          p.glossary if isinstance(p.glossary, list) else [],
+        "skill_focus":       p.skill_focus,
         "word_count":        p.word_count,
         "estimated_minutes": p.estimated_minutes,
         "status":            "published" if p.published else "draft",

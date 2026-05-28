@@ -386,6 +386,11 @@ const NAV_GROUPS = [
           { slug: 'mini-test', label: 'Mini Test',        href: '/pages/admin/listening/mini-test.html' },
         ],
       },
+      { section: 'reading',   label: 'Reading',   href: '/pages/admin/reading/content.html', icon: 'book-open',
+        subsections: [
+          { slug: 'content',  label: 'Quản lý nội dung', href: '/pages/admin/reading/content.html' },
+        ],
+      },
       { section: 'vocab',     label: 'Vocab',     href: '/pages/admin/vocab/index.html',     icon: 'book',
         subsections: [
           { slug: 'stats',         label: 'Stats',           href: '/pages/admin/vocab/stats.html' },
