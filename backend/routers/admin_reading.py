@@ -32,11 +32,15 @@ from database import supabase_admin
 from routers.admin import require_admin
 from services.content_import_service import (
     FrontmatterError,
+    _split_frontmatter,
     build_reading_passage_payload,
     build_reading_question_payloads,
+    build_reading_test_payloads,
     parse_reading_passage,
+    parse_reading_test,
     slugify,
     validate_reading_passage,
+    validate_reading_test,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,11 +107,15 @@ async def import_reading_content(
     dry_run: bool = Query(default=True),
     authorization: str | None = Header(None),
 ):
-    """Parse an uploaded `.md` L1 passage, validate it, and (when
-    dry_run=false + no errors) upsert into reading_passages by slug.
+    """Parse an uploaded `.md` file, validate, and (when dry_run=false + no
+    errors) upsert into the appropriate tables.
 
-    Idempotent by slug — a re-uploaded file with the same slug UPDATES the
-    row in place (created_by preserved), so fixing content = re-upload.
+    Dispatches by content_type:
+      • reading_passage_l1 / reading_skill_exercise → reading_passages
+        (+ reading_questions) — L1/L2 path, idempotent by slug.
+      • reading_full_test → reading_tests + 3 reading_passages
+        (library='l3_test') + reading_questions — L3 path (Sprint 20.5),
+        idempotent by test_id (test row) + slug (each passage).
 
     Response: { parsed_data, validation_errors, dry_run, committed_id,
     action }. dry_run (default true) and any validation error both
@@ -117,6 +125,23 @@ async def import_reading_content(
     raw = await file.read()
     text = raw.decode("utf-8", errors="replace")
 
+    # Peek the content_type once before committing to a parser. Frontmatter
+    # parse errors short-circuit the same way for both L1/L2 and L3.
+    try:
+        fm, _body = _split_frontmatter(text)
+    except FrontmatterError as exc:
+        return {
+            "parsed_data": None,
+            "validation_errors": [{"field": "frontmatter", "message": str(exc)}],
+            "dry_run": dry_run,
+            "committed_id": None,
+            "action": None,
+        }
+
+    if fm.get("content_type") == "reading_full_test":
+        return await _import_l3_full_test(text, dry_run, admin)
+
+    # L1 / L2 path (unchanged Sprint 20.1/20.3 logic below).
     try:
         parsed = parse_reading_passage(text)
     except FrontmatterError as exc:
@@ -179,5 +204,108 @@ async def import_reading_content(
     except Exception as exc:
         logger.error("import_reading_content commit failed slug=%s: %s", parsed.slug, exc)
         raise HTTPException(500, "Không lưu được nội dung. Vui lòng thử lại.")
+
+    return result
+
+
+# ── Sprint 20.5 — L3 full-test import handler ─────────────────────────
+
+
+async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
+    """Commit an L3 full-test: one reading_tests row + 3 reading_passages
+    rows + their reading_questions. Idempotent by test_id (test row) and by
+    slug (each passage). Re-import REPLACES the question set for each
+    passage (delete-then-insert), so a corrected file fully overwrites.
+
+    The supabase-py client doesn't expose transactions over REST, so the
+    sequence runs best-effort sequential. A failure mid-way is logged and
+    surfaces as a 500 — the partial state is consistent enough for an
+    admin re-import to recover (idempotency above)."""
+    parsed = parse_reading_test(text)
+    errors = validate_reading_test(parsed)
+    result = {
+        "parsed_data":       parsed.as_preview(),
+        "validation_errors": errors,
+        "dry_run":           dry_run,
+        "committed_id":      None,
+        "action":            None,
+    }
+    if dry_run or errors:
+        return result
+
+    plan = build_reading_test_payloads(parsed)
+
+    try:
+        # 1) Upsert reading_tests row by test_id (TEXT UNIQUE — mig 086).
+        test_existing = (
+            supabase_admin.table("reading_tests")
+            .select("id")
+            .eq("test_id", parsed.test_id)
+            .limit(1)
+            .execute()
+        )
+        if test_existing.data:
+            supabase_admin.table("reading_tests").update(plan["test_row"]).eq(
+                "test_id", parsed.test_id
+            ).execute()
+            test_uuid = test_existing.data[0]["id"]
+            result["action"] = "updated"
+        else:
+            test_payload = dict(plan["test_row"])
+            test_payload["created_by"] = admin["id"]
+            r = supabase_admin.table("reading_tests").insert(test_payload).execute()
+            if not r.data:
+                raise HTTPException(500, "Không lưu được test.")
+            test_uuid = r.data[0]["id"]
+            result["action"] = "created"
+        result["committed_id"] = test_uuid
+
+        # 2) Upsert each passage by slug (with test_id FK = the test we just
+        #    created/found). Collect the passage_id per slug so step 3 can
+        #    fan questions out.
+        slug_to_passage_id: dict[str, str] = {}
+        for prow in plan["passage_rows"]:
+            prow = dict(prow)
+            prow["test_id"] = test_uuid
+            slug = prow.get("slug")
+            existing = (
+                supabase_admin.table("reading_passages")
+                .select("id")
+                .eq("slug", slug)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                supabase_admin.table("reading_passages").update(prow).eq(
+                    "slug", slug
+                ).execute()
+                slug_to_passage_id[slug] = existing.data[0]["id"]
+            else:
+                prow["created_by"] = admin["id"]
+                r = supabase_admin.table("reading_passages").insert(prow).execute()
+                if not r.data:
+                    raise HTTPException(500, f"Không lưu được passage '{slug}'.")
+                slug_to_passage_id[slug] = r.data[0]["id"]
+
+        # 3) Replace each passage's reading_questions (delete-then-insert).
+        total_qs = 0
+        for slug, q_rows_partial in plan["passage_questions"]:
+            passage_id = slug_to_passage_id.get(slug)
+            if not passage_id:
+                continue
+            supabase_admin.table("reading_questions").delete().eq(
+                "passage_id", passage_id
+            ).execute()
+            if q_rows_partial:
+                q_rows = [dict(r, passage_id=passage_id) for r in q_rows_partial]
+                supabase_admin.table("reading_questions").insert(q_rows).execute()
+                total_qs += len(q_rows)
+        result["question_count"] = total_qs
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("import_reading_content L3 commit failed test_id=%s: %s",
+                     parsed.test_id, exc)
+        raise HTTPException(500, "Không lưu được test. Vui lòng thử lại.")
 
     return result

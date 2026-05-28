@@ -39,17 +39,20 @@ _TYPE_KEYS    = _SAMPLE_KEYS | _OUTLINE_KEYS
 # tables — reading_passages — per the cluster 20.0 Discovery watch-item;
 # this is NOT routed into writing_tips). L2/L3 structured question import
 # is a separate pipeline (Sprints 20.3/20.5), not handled here.
-READING_CONTENT_TYPES = ("reading_passage_l1", "reading_skill_exercise")
+READING_CONTENT_TYPES = ("reading_passage_l1", "reading_skill_exercise", "reading_full_test")
 DIFFICULTY_LEVELS     = ("foundation", "intermediate", "advanced")
 SKILL_TAGS            = ("skimming", "scanning", "detail", "main_idea",
                          "inference", "vocabulary_in_context",
                          "reference_cohesion", "writer_view_TFNG")
 # Sprint 20.3 — content_type → reading_passages.library mapping.
-# (L3 reading_full_test is spec-only; pipeline lands in Sprint 20.5.)
+# Sprint 20.5 — L3 full-test pipeline now LIVE.
 _LIBRARY_BY_CONTENT_TYPE = {
     "reading_passage_l1":     "l1_vocab",
     "reading_skill_exercise": "l2_skill",
+    "reading_full_test":      "l3_test",
 }
+# Sprint 20.5 — L3 module enum (Academic ships now; General Training = Phase B).
+READING_TEST_MODULES = ("academic", "general_training")
 # Sprint 20.2 — the question types L1 light-comprehension Qs may author
 # (the DB CHECK in mig 086 allows the full IELTS set; the AUTHORING subset
 # is restricted to Phase 1 here, matching reading_content_format_v1.md).
@@ -500,3 +503,235 @@ def _as_str_list(v: Any) -> list:
     if isinstance(v, str) and v.strip():
         return [v.strip()]
     return []
+
+
+# ── Sprint 20.5 — L3 full-test import (reading_full_test) ─────────────
+# L3 is structurally different from L1/L2: a single .md file describes ONE
+# reading_tests row + 3 reading_passages rows (library='l3_test', passage_order
+# 1..3) + their reading_questions (40 total, q_num continuous across the test).
+# Implementation choice (Code-authoritative per the 20.4-spec note): the entire
+# test shape is carried in YAML frontmatter (test metadata + passages list +
+# questions per passage). The markdown body of the .md file is intentionally
+# unused — keeps parsing trivial (no markdown-header scanning, no fenced-JSON
+# extraction) and reuses the L1 questions-in-YAML idiom.
+
+
+@dataclass
+class ParsedReadingTest:
+    content_type:       Optional[str]
+    test_id:            Optional[str]
+    title:              Optional[str]
+    module:             Optional[str]
+    time_limit_minutes: Optional[int]
+    passage_count:      Optional[int]
+    total_questions:    Optional[int]
+    band_target:        Optional[float]
+    published:          bool
+    passages:           list                       # list of raw passage dicts
+    raw_frontmatter:    dict = field(default_factory=dict)
+
+    @property
+    def library(self) -> Optional[str]:
+        return _LIBRARY_BY_CONTENT_TYPE.get(self.content_type or "")
+
+    def as_preview(self) -> dict:
+        passage_summary = []
+        total_qs = 0
+        for p in self.passages:
+            if not isinstance(p, dict):
+                continue
+            qs = p.get("questions") if isinstance(p.get("questions"), list) else []
+            total_qs += len(qs)
+            passage_summary.append({
+                "passage_order": p.get("passage_order"),
+                "title":         p.get("title"),
+                "slug":          p.get("slug"),
+                "word_count":    p.get("word_count"),
+                "question_count": len(qs),
+            })
+        return {
+            "content_type":       self.content_type,
+            "library":            self.library,
+            "test_id":            self.test_id,
+            "title":              self.title,
+            "module":             self.module,
+            "time_limit_minutes": self.time_limit_minutes,
+            "passage_count":      self.passage_count,
+            "total_questions":    self.total_questions,
+            "band_target":        self.band_target,
+            "published":          self.published,
+            "passages":           passage_summary,
+            "question_count":     total_qs,
+        }
+
+
+def parse_reading_test(text: str) -> ParsedReadingTest:
+    """Parse an L3 full-test markdown file (YAML-only frontmatter). The body of
+    the .md is unused for L3 — all test data lives in frontmatter."""
+    fm, _body = _split_frontmatter(text)
+    raw_passages = fm.get("passages")
+    return ParsedReadingTest(
+        content_type       = _as_str(fm.get("content_type")),
+        test_id            = _as_str(fm.get("test_id")),
+        title              = _as_str(fm.get("title")),
+        module             = _as_str(fm.get("module")) or "academic",
+        time_limit_minutes = _as_opt_int(fm.get("time_limit_minutes")) or 60,
+        passage_count      = _as_opt_int(fm.get("passage_count")) or 3,
+        total_questions    = _as_opt_int(fm.get("total_questions")) or 40,
+        band_target        = _as_opt_float(fm.get("band_target")),
+        published          = bool(fm.get("published", False)),
+        passages           = raw_passages if isinstance(raw_passages, list) else [],
+        raw_frontmatter    = fm,
+    )
+
+
+_TEST_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]{1,63}$")
+
+
+def validate_reading_test(p: ParsedReadingTest) -> list[dict]:
+    """Validate an L3 parsed test. Returns a list of {field, message} errors.
+    Checks test metadata, the 3-passage structure, and each passage's questions
+    (via validate_reading_questions for type/skill_tag/answer-key shape)."""
+    errors: list[dict] = []
+
+    def err(fieldname: str, message: str) -> None:
+        errors.append({"field": fieldname, "message": message})
+
+    if p.content_type != "reading_full_test":
+        err("content_type", "L3 phải dùng content_type=reading_full_test.")
+    if not p.test_id or not _TEST_ID_RE.match(p.test_id):
+        err("test_id", "test_id bắt buộc (chữ/số/dấu - hoặc _; ví dụ 'AVR-READ-001').")
+    if not p.title or len(p.title) < 2:
+        err("title", "Bắt buộc, tối thiểu 2 ký tự.")
+    elif len(p.title) > 200:
+        err("title", "Tối đa 200 ký tự.")
+    if p.module not in READING_TEST_MODULES:
+        err("module", f"Phải là một trong: {', '.join(READING_TEST_MODULES)}.")
+    if not isinstance(p.time_limit_minutes, int) or p.time_limit_minutes <= 0:
+        err("time_limit_minutes", "Phải là số nguyên dương (phút).")
+    if not isinstance(p.passage_count, int) or not (1 <= p.passage_count <= 3):
+        err("passage_count", "Phải là 1–3.")
+    if not isinstance(p.total_questions, int) or not (1 <= p.total_questions <= 40):
+        err("total_questions", "Phải là 1–40.")
+    if p.band_target is not None and not (1.0 <= p.band_target <= 9.0):
+        err("band_target", "band_target phải nằm trong 1.0–9.0 (hoặc bỏ trống).")
+
+    # Passages list shape.
+    if not isinstance(p.passages, list) or not p.passages:
+        err("passages", "passages phải là danh sách (1–3 mục).")
+        return errors
+
+    if len(p.passages) != p.passage_count:
+        err("passages", f"Số passages ({len(p.passages)}) khác passage_count ({p.passage_count}).")
+
+    seen_orders: set = set()
+    seen_slugs: set = set()
+    all_q_nums: list[int] = []
+
+    for i, pas in enumerate(p.passages):
+        label = f"Passage #{i + 1}"
+        if not isinstance(pas, dict):
+            err("passages", f"{label}: phải là các cặp key: value.")
+            continue
+        order = pas.get("passage_order")
+        if not isinstance(order, int) or not (1 <= order <= 3):
+            err("passages", f"{label}: 'passage_order' phải là 1–3.")
+        elif order in seen_orders:
+            err("passages", f"{label}: passage_order {order} bị trùng.")
+        else:
+            seen_orders.add(order)
+        slug = _as_str(pas.get("slug"))
+        if not slug or not _SLUG_RE.match(slug):
+            err("passages", f"{label}: 'slug' bắt buộc (chữ thường a–z, số, gạch ngang).")
+        elif slug in seen_slugs:
+            err("passages", f"{label}: slug '{slug}' bị trùng.")
+        else:
+            seen_slugs.add(slug)
+        if not _as_str(pas.get("title")):
+            err("passages", f"{label}: 'title' bắt buộc.")
+        body = pas.get("body_markdown")
+        if not (isinstance(body, str) and body.strip()):
+            err("passages", f"{label}: 'body_markdown' không được để trống.")
+        elif len(body) > MAX_BODY_CHARS:
+            err("passages", f"{label}: 'body_markdown' vượt quá {MAX_BODY_CHARS} ký tự.")
+
+        qs = pas.get("questions") if isinstance(pas.get("questions"), list) else None
+        if not qs:
+            err("passages", f"{label}: 'questions' phải là danh sách câu hỏi.")
+            continue
+        # Reuse the L1 per-question validator (type/skill_tag/answer shape).
+        q_errs = validate_reading_questions(qs)
+        for e in q_errs:
+            errors.append({"field": "passages", "message": f"{label} → {e['message']}"})
+        for q in qs:
+            if isinstance(q, dict) and isinstance(q.get("q_num"), int):
+                all_q_nums.append(q["q_num"])
+
+    # q_num must be unique + continuous across the WHOLE test (1..total_questions).
+    if all_q_nums:
+        dups = {n for n in all_q_nums if all_q_nums.count(n) > 1}
+        if dups:
+            err("passages", f"q_num bị trùng giữa các passages: {sorted(dups)}.")
+        if len(all_q_nums) != p.total_questions:
+            err("passages",
+                f"Tổng số câu hỏi ({len(all_q_nums)}) khác total_questions ({p.total_questions}).")
+
+    return errors
+
+
+def build_reading_test_payloads(p: ParsedReadingTest) -> dict:
+    """Map a validated L3 test to a 3-table insert plan:
+      • test_row     — one reading_tests row (insert/update keyed by test_id)
+      • passage_rows — 3 reading_passages rows (library='l3_test'; passage_id
+                       is assigned by the DB on insert; the router fills
+                       passage_id back into each question row before inserting)
+      • passage_questions — list of (slug, [question_row_without_passage_id])
+                       tuples so the router can fan questions out by passage.
+    """
+    test_row = {
+        "test_id":            p.test_id,
+        "title":              p.title,
+        "module":             p.module or "academic",
+        "time_limit_minutes": p.time_limit_minutes or 60,
+        "passage_count":      p.passage_count or len(p.passages),
+        "total_questions":    p.total_questions or sum(len(pas.get("questions") or []) for pas in p.passages),
+        "band_target":        p.band_target,
+        "status":             "published" if p.published else "draft",
+    }
+
+    passage_rows: list[dict] = []
+    passage_questions: list[tuple] = []
+    for pas in p.passages:
+        slug = _as_str(pas.get("slug"))
+        passage_rows.append({
+            "library":          "l3_test",
+            "slug":             slug,
+            "title":            _as_str(pas.get("title")),
+            "body_markdown":    pas.get("body_markdown"),
+            "passage_order":    pas.get("passage_order"),
+            "word_count":       _as_opt_int(pas.get("word_count")),
+            "estimated_minutes": _as_opt_int(pas.get("estimated_minutes")),
+            "topic_tags":       _as_str_list(pas.get("topic_tags")),
+            "status":           "published" if p.published else "draft",
+        })
+        # Build per-question payloads WITHOUT passage_id (router fills it).
+        qs = pas.get("questions") or []
+        q_rows_partial = build_reading_question_payloads(qs, passage_id="__placeholder__")
+        for r in q_rows_partial:
+            r.pop("passage_id", None)
+        passage_questions.append((slug, q_rows_partial))
+
+    return {
+        "test_row":          test_row,
+        "passage_rows":      passage_rows,
+        "passage_questions": passage_questions,
+    }
+
+
+def _as_opt_float(v: Any) -> Optional[float]:
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
