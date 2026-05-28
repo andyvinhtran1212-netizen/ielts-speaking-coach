@@ -44,6 +44,10 @@ _CONTENT_DIR = Path(__file__).parent.parent / "content" / "reading"
 
 
 # Minimal valid L3 MD (3 small passages × 1 question, total_questions=3).
+# Sprint 20.6.6 — rewritten from the v1-spec NESTED shape to the v2 FLAT
+# shape (options at question top level, answer as a string). The original
+# nested shape now fails validation loudly (F1/F2). See
+# reading_content_format_v2.md §4 for the author contract.
 _L3_MIN = """---
 content_type: reading_full_test
 test_id: TEST-MIN-001
@@ -62,7 +66,8 @@ passages:
       - q_num: 1
         question_type: true_false_not_given
         prompt: x
-        answer: { answer: "TRUE", alternatives: [T] }
+        answer: "TRUE"
+        alternatives: ["T"]
         skill_tag: detail
   - passage_order: 2
     slug: tiny-t1-p2
@@ -72,7 +77,7 @@ passages:
       - q_num: 2
         question_type: short_answer
         prompt: x
-        answer: { answer: "cat", alternatives: [] }
+        answer: cat
         skill_tag: scanning
   - passage_order: 3
     slug: tiny-t1-p3
@@ -82,8 +87,12 @@ passages:
       - q_num: 3
         question_type: mcq_single
         prompt: x
-        payload: { options: [{label: A, text: a}, {label: B, text: b}] }
-        answer: { answer: "A", alternatives: [] }
+        options:
+          - label: A
+            text: a
+          - label: B
+            text: b
+        answer: "A"
         skill_tag: main_idea
 ---
 """

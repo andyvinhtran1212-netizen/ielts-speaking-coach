@@ -518,9 +518,9 @@ If an L3 commit fails mid-way (e.g. between passage 2 and passage 3 insert), the
 
 These are quirks of the current importer that authors may run into. They are accurate as of Sprint 20.6 — none are guaranteed forever; treat them as today's reality and fix in your file rather than relying on the quirk.
 
-1. **`answer:` as a YAML dict passes the "missing answer" guard.** `validate_reading_questions` checks "answer is not None, not empty string, not empty list". A dict (e.g. `answer: { answer: "B", alternatives: [] }`) is none of those, so it passes validation — but the builder then double-nests it in the stored answer column, producing a row the grader cannot interpret. **Always write `answer:` as a string (or list for `mcq_multi`).** See §11.
-2. **`options:` nested under `payload:` is silently ignored.** The builder reads `q["options"]` from the question top level only. If you write `payload: { options: [...] }`, the resulting row has `payload: {}` — the renderer will show no options. **Always put `options:` at the question top level.**
-3. **`alternatives:` as a string (not a list) is silently dropped.** The builder coerces non-list `alternatives` to `[]`. The validator does not flag this.
+1. **~~`answer:` as a YAML dict passes the "missing answer" guard~~** — **CLOSED in Sprint 20.6.6.** The validator now rejects dict-valued `answer:` loudly at dry-run, with an error pointing to v2 §4. Write `answer:` as a string (or list for `mcq_multi`).
+2. **~~`options:` nested under `payload:` is silently ignored~~** — **CLOSED in Sprint 20.6.6.** The validator now rejects an author-level `payload:` key loudly. Put `options:` at the question top level.
+3. **~~`alternatives:` as a string is silently dropped~~** — **CLOSED in Sprint 20.6.6.** The validator now requires `alternatives:` to be a list when present.
 4. **`order_num` from the author is ignored.** The builder always assigns `order_num = i + 1` based on list order. This is by design — authors should not set it.
 5. **`word_count` is informational.** The validator does not cross-check it against the actual body word count. Author it from your own count.
 6. **L1 `skill_focus`** is allowed (and validated against `SKILL_TAGS` if given) but the L1 renderer ignores it. Use only when authoring L2; leave it out of L1.
@@ -528,48 +528,25 @@ These are quirks of the current importer that authors may run into. They are acc
 
 ---
 
-## 11. Importer findings flagged this sprint (not auto-fixed)
+## 11. Importer findings — history
 
-Documented here for traceability; addressed in a follow-up ticket (out of scope for the 20.6.5 docs sprint per the commission scope rule).
+### F1 / F2 — CLOSED in Sprint 20.6.6 (silent → loud)
 
-### F1 — L3 seed `l3-academic-reading-test-1.md` uses nested question YAML
+**Surfaced in:** Sprint 20.6.5 (PR #329, spec audit) — the v1-spec **nested** question shape (`payload: {options: …}` + `answer: {answer, alternatives}`) parsed + validated clean but built into broken DB rows (`payload: {}`, double-nested `answer`). The 20.5 seed `l3-academic-reading-test-1.md` shipped in this shape; importing it via `dry_run=false` would have produced an L3 exam where 40/40 questions render with no options and 40/40 grade wrong for any student answer.
 
-The Sprint 20.5 seed ships questions in the v1-spec **nested** shape:
+**Closed in:** Sprint 20.6.6 (this PR). Three changes:
 
-```yaml
-# In the seed file
-payload: { options: [ {label: i, text: ...}, ... ] }
-answer: { answer: "ii", alternatives: [] }
-```
+1. **Validator hardening (F1):** `validate_reading_questions` now rejects (a) author-level `payload:` and (b) dict-valued `answer:` with clear errors pointing to v2 §4. Authors who submit the v1 nested shape see the failure at dry-run instead of in production.
+2. **Validator hardening (F2):** `validate_reading_questions` now requires non-empty `options: [{label, text}, …]` for `mcq_single` and `matching_headings` (the only Phase 1 types that render a labelled-choice list).
+3. **Seed correction:** `l3-academic-reading-test-1.md` (test_id `AVR-READ-001`) is rewritten to the v2 FLAT shape. Content (passages, questions, answers, alternatives, skill_tags, explanations) is unchanged; only the question YAML reshapes. Round-trips cleanly through parse → validate → build → grader: a perfect student now scores 40/40 (band 9.0).
 
-This **parses + validates clean** (the dict `answer:` passes the "non-empty" guard in `validate_reading_questions`), but the build step (`build_reading_question_payloads`) reads only `q["options"]` and `q["answer"]` from the question top level. The resulting DB row is:
+**Test coverage gap closed:** the existing seed regression (`test_seed_l3_test_parses_and_validates_clean`) stopped at parse + validate and missed the build-step regression. Sprint 20.6.6 adds `test_corrected_l3_seed_builds_and_grades_correctly` which rounds the seed through the full parse → validate → build → `collect_answer_key` → grade chain.
 
-```jsonc
-{
-  "payload": {},                                     // empty — options dropped
-  "answer": {
-    "answer": { "answer": "ii", "alternatives": [] },  // double-nested
-    "alternatives": []
-  }
-}
-```
+### Production impact (was anything actually broken?)
 
-…which the grader cannot interpret (it expects `answer.answer` to be a string). If the seed is committed to a real DB via the import endpoint, L3 grading silently fails for every question.
+The broken seed lives at `backend/content/reading/l3-academic-reading-test-1.md` — content files are **not** auto-imported. They land in the DB only when an admin uploads them through `POST /admin/reading/content/import?dry_run=false`. **If `AVR-READ-001` was ever committed via that endpoint** between Sprint 20.5 and 20.6.6, the resulting `reading_questions` rows have `payload: {}` (options dropped) + double-nested `answer` (un-gradeable), and any `reading_test_attempts` against them are mis-scored. **Recovery is straightforward:** re-upload the corrected seed (this PR's `l3-academic-reading-test-1.md`) with `dry_run=false`. The L3 importer is idempotent (`test_id` + `slug` keyed upsert) and deletes-then-reinserts the question set per passage, so re-import fully overwrites the broken rows. Existing `reading_test_attempts` retain their stored `grading_details`; if any pre-fix attempts need recomputation, re-grade them off the corrected `reading_questions` (separate ops task).
 
-**Mitigation in this spec:** v2 documents the FLAT shape as the authoritative author format, matching what the L1/L2 importer actually accepts and what `build_reading_question_payloads()` actually consumes. Worked example `l3-academic-reading-test-2.md` uses the flat shape and round-trips cleanly through parse → validate → build → grader-shape.
-
-**Suggested follow-up (separate ticket):**
-- Either: rewrite `l3-academic-reading-test-1.md` to the flat shape (one-time content edit).
-- Or: tighten `validate_reading_questions` to reject dict-valued `answer:` and nested `payload:` at question top level (cheap importer hardening, < 20 LOC).
-- A regression test that round-trips each seed through the *full* parse → validate → build → collect_answer_key chain (not just parse + validate) would catch this class of bug.
-
-### F2 — `validate_reading_questions` doesn't enforce `options` presence for `mcq_single` / `matching_headings`
-
-The validator checks `answer` presence and `question_type` enum membership, but does not require `options` for question types that need them. An `mcq_single` question with no `options:` parses + validates clean and lands as a row with `payload: {}` — the renderer shows the prompt and no choices.
-
-**Suggested follow-up (separate ticket):** add a per-type "required render data" check (10–20 LOC).
-
-Neither finding is in scope for Sprint 20.6.5 (per the commission: "If importer has a genuine bug/inconsistency surfaced while documenting, flag separately — not auto-fix in this docs sprint unless trivial.").
+The L1/L2 seeds (`l1-*.md`, `l2-*.md`) and the 20.6.5 worked examples were always in the FLAT shape and were never affected.
 
 ---
 

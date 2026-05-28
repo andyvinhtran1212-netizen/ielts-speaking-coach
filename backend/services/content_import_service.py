@@ -55,12 +55,17 @@ _LIBRARY_BY_CONTENT_TYPE = {
 READING_TEST_MODULES = ("academic", "general_training")
 # Sprint 20.2 — the question types L1 light-comprehension Qs may author
 # (the DB CHECK in mig 086 allows the full IELTS set; the AUTHORING subset
-# is restricted to Phase 1 here, matching reading_content_format_v1.md).
+# is restricted to Phase 1 here, matching reading_content_format_v2.md).
 READING_QUESTION_TYPES_PHASE1 = (
     "mcq_single", "true_false_not_given", "yes_no_not_given",
     "sentence_completion", "summary_completion", "notes_completion",
     "table_completion", "form_completion", "short_answer", "matching_headings",
 )
+# Sprint 20.6.6 — question types that render a labelled-choice list and
+# therefore REQUIRE author-level `options: [{label, text}, …]`. Other Phase 1
+# types (T/F/NG, Y/N/NG, *_completion, short_answer) carry implied or
+# free-text answers and don't need `options`.
+_READING_QUESTION_TYPES_REQUIRE_OPTIONS = ("mcq_single", "matching_headings")
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
@@ -374,9 +379,25 @@ def validate_reading_passage(p: ParsedReadingPassage) -> list[dict]:
 
 
 def validate_reading_questions(questions: Any) -> list[dict]:
-    """Validate the L1 `questions` block — a list of question dicts matching
-    the reading_questions JSON shape (reading_content_format_v1.md §4). Empty
-    list = valid (passages may have no comprehension Qs)."""
+    """Validate the `questions` block (L1 comprehension Qs, L2 exercises, L3
+    per-passage Qs all share this validator). Each item must follow the FLAT
+    author shape — see reading_content_format_v2.md §4. Empty list = valid
+    (passages may have no comprehension Qs).
+
+    Sprint 20.6.6 (F1+F2 — silent→loud):
+
+    * F1 — `payload:` at the question top level and dict-valued `answer:` are
+      the **nested storage shape** (what the builder produces, not what the
+      author writes). The v1 spec example accidentally leaked that shape; the
+      old validator let it through, and the builder silently dropped
+      `payload.options` + double-nested the answer (rows that render without
+      choices and never grade correctly). We now reject both **loudly** so
+      content authors see the error at dry-run instead of in production.
+    * F2 — `mcq_single` and `matching_headings` render a labelled-choice list;
+      a missing/empty `options:` makes the question render with the prompt
+      and no choices. Require `options:` for those types, and verify each
+      entry is `{label, text}`.
+    """
     errors: list[dict] = []
 
     def err(message: str) -> None:
@@ -399,17 +420,66 @@ def validate_reading_questions(questions: Any) -> list[dict]:
             err(f"{label}: q_num {qn} bị trùng.")
         else:
             seen_qnums.add(qn)
-        if q.get("question_type") not in READING_QUESTION_TYPES_PHASE1:
+        qtype = q.get("question_type")
+        if qtype not in READING_QUESTION_TYPES_PHASE1:
             err(f"{label}: 'question_type' phải là một trong "
                 f"{', '.join(READING_QUESTION_TYPES_PHASE1)}.")
         if not _as_str(q.get("prompt")):
             err(f"{label}: thiếu 'prompt'.")
+
+        # F1 — `payload:` at the question top level is the v1-spec nested
+        # storage shape. The builder constructs `payload` itself from the
+        # author's top-level `options:` / `template:`; an author-level
+        # `payload:` is always a sign the file follows the wrong template
+        # (and would silently drop the options).
+        if "payload" in q:
+            err(f"{label}: KHÔNG đặt 'payload:' ở cấp câu hỏi — đó là cấu trúc "
+                "lưu trữ DB, không phải định dạng tác giả. Đặt 'options:' "
+                "(và 'template:' nếu có) trực tiếp ở cấp câu hỏi. "
+                "Xem reading_content_format_v2.md §4.")
+
+        # F1 — `answer:` must be a string (or a list of strings for the
+        # Phase B `mcq_multi`). A dict-valued `answer:` is the nested storage
+        # shape (`{answer: "B", alternatives: []}`) and would double-nest
+        # at build time, breaking every student attempt.
         ans = q.get("answer")
-        if ans is None or (isinstance(ans, str) and not ans.strip()) or \
+        if isinstance(ans, dict):
+            err(f"{label}: 'answer:' phải là chuỗi (vd: answer: \"B\"), "
+                "không phải dict {answer, alternatives}. Đó là cấu trúc lưu "
+                "trữ DB — đặt 'alternatives:' riêng ở cấp câu hỏi. "
+                "Xem reading_content_format_v2.md §4.")
+        elif ans is None or (isinstance(ans, str) and not ans.strip()) or \
                 (isinstance(ans, list) and not ans):
             err(f"{label}: thiếu 'answer'.")
+
+        # `alternatives:` (when present) must be a list. The builder silently
+        # coerces non-list values to []; the validator now flags this so the
+        # author notices spelling/T-F shortcuts they intended to allow.
+        alts = q.get("alternatives")
+        if alts is not None and not isinstance(alts, list):
+            err(f"{label}: 'alternatives:' phải là danh sách chuỗi "
+                "(vd: [\"F\", \"false\"]); một chuỗi đơn sẽ bị bỏ qua.")
+
+        # F2 — options-list questions need a non-empty `options:` of
+        # {label, text} entries. (Other Phase 1 types — T/F/NG, Y/N/NG,
+        # *_completion, short_answer — don't need options.)
+        if qtype in _READING_QUESTION_TYPES_REQUIRE_OPTIONS:
+            opts = q.get("options")
+            if not isinstance(opts, list) or not opts:
+                err(f"{label}: '{qtype}' bắt buộc có 'options:' "
+                    "là danh sách không rỗng các mục {label, text} ở cấp "
+                    "câu hỏi. Xem reading_content_format_v2.md §4.2.")
+            else:
+                for j, opt in enumerate(opts):
+                    if not isinstance(opt, dict) or \
+                            not _as_str(opt.get("label")) or \
+                            not _as_str(opt.get("text")):
+                        err(f"{label}: options[{j}] cần 'label' và 'text'.")
+                        break  # one option-shape error per question is enough
+
         if q.get("skill_tag") not in SKILL_TAGS:
-            err(f"{label}: 'skill_tag' phải là một trong {', '.join(SKILL_TAGS)}.")
+            err(f"{label}: 'skill_tag' phải là một trong "
+                f"{', '.join(SKILL_TAGS)}.")
 
     return errors
 
