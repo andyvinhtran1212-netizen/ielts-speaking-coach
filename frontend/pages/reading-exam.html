@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Reading Test — Aver Learning</title>
+
+  <!-- Sprint 20.6 — L3 exam UI (production). Wires the approved 20.4c exam
+       chrome to the 20.5 backend (GET /test/{id}, POST /attempts, PATCH
+       /answers, POST submit). State machine: loading → pre_start → in_progress
+       → results (inline; mirrors listening test-player). The exam chrome CSS
+       is the same scoped layer (.exam-chrome) shipped with the mockup —
+       reused, not duplicated. -->
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/reading-exam-mockup.css" />   <!-- exam chrome (from 20.4c, reused) -->
+  <link rel="stylesheet" href="/css/reading-exam.css" />          <!-- pre-start + results + modals (20.6) -->
+</head>
+<body class="exam-chrome" data-text-size="medium">
+
+  <!-- ── TOP BAR ───────────────────────────────────────────────────── -->
+  <header class="exam-topbar" role="banner">
+    <div class="exam-topbar__left">
+      <div class="exam-topbar__candidate">Candidate <b id="exam-candidate-id">—</b></div>
+      <div class="exam-topbar__section" aria-live="polite">
+        <span id="exam-test-label">Reading Test</span>
+      </div>
+    </div>
+    <div class="exam-timer-wrap" id="exam-timer-wrap" hidden>
+      <div class="exam-timer" id="exam-timer" data-state="normal" aria-label="Time remaining">--:--</div>
+      <div class="exam-timer__label">time remaining</div>
+    </div>
+    <div class="exam-topbar__right">
+      <button type="button" class="exam-tool" id="exam-settings-toggle"
+              aria-haspopup="dialog" aria-controls="exam-settings" aria-expanded="false">⚙ Settings</button>
+      <button type="button" class="exam-tool" id="exam-hide-toggle" aria-pressed="false">Hide</button>
+      <button type="button" class="exam-tool" id="exam-help-toggle">Help</button>
+    </div>
+
+    <div class="exam-settings" id="exam-settings" role="dialog" aria-label="Display settings" hidden>
+      <div class="exam-settings__title">Text size</div>
+      <div class="exam-settings__row" role="group">
+        <button type="button" data-size="small"  aria-pressed="false">A</button>
+        <button type="button" data-size="medium" aria-pressed="true" class="is-active">A</button>
+        <button type="button" data-size="large"  aria-pressed="false">A</button>
+      </div>
+      <div class="exam-settings__title">Contrast</div>
+      <div class="exam-settings__row">
+        <button type="button" disabled title="Phase B">Standard</button>
+        <button type="button" disabled title="Phase B">High</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="exam-mobile-notice">For best results, take this test on a desktop browser.</div>
+
+  <!-- ── LOADING ────────────────────────────────────────────────── -->
+  <main class="exam-state-shell" id="state-loading">
+    <p class="exam-state-msg">Đang tải bài thi…</p>
+  </main>
+
+  <!-- ── ERROR ──────────────────────────────────────────────────── -->
+  <main class="exam-state-shell" id="state-error" hidden>
+    <p class="exam-state-msg exam-state-msg--error" id="error-msg"></p>
+    <a class="exam-btn" href="/pages/reading-test.html">← Back to test library</a>
+  </main>
+
+  <!-- ── PRE-START (rules + Start button) ──────────────────────── -->
+  <main class="exam-state-shell" id="state-prestart" hidden>
+    <div class="exam-card">
+      <h1 class="exam-card__title" id="prestart-title">Reading Test</h1>
+      <div class="exam-card__meta" id="prestart-meta"></div>
+      <div class="exam-rules">
+        <h3>Trước khi bắt đầu</h3>
+        <ul>
+          <li>Một khi nhấn <strong>Bắt đầu</strong>, đồng hồ sẽ chạy và không thể tạm dừng.</li>
+          <li>Bạn có thể di chuyển tự do giữa 3 đoạn và 40 câu hỏi.</li>
+          <li>Right-click trong đoạn văn hoặc câu hỏi để <strong>tô sáng</strong> hoặc <strong>ghi chú</strong>.</li>
+          <li>Câu trả lời được lưu tự động — refresh là không mất bài.</li>
+          <li>Khi hết giờ, bài thi sẽ tự động nộp.</li>
+        </ul>
+      </div>
+      <div class="exam-card__actions">
+        <a class="exam-btn" href="/pages/reading-test.html">← Quay lại</a>
+        <button type="button" class="exam-btn exam-btn--primary" id="exam-start-btn">Bắt đầu bài thi</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── IN-PROGRESS (split-view exam) ─────────────────────────── -->
+  <main class="exam-split" id="state-inprogress" hidden>
+    <section class="exam-passage" id="exam-passage" aria-label="Reading passages"></section>
+    <div class="exam-divider" id="exam-divider" role="separator"
+         aria-orientation="vertical" aria-label="Resize panels" tabindex="0"></div>
+    <section class="exam-questions" id="exam-questions" aria-label="Questions"></section>
+  </main>
+
+  <footer class="exam-palette" id="exam-palette" hidden role="navigation" aria-label="Question palette">
+    <div class="exam-palette__grid" id="exam-palette-grid"></div>
+    <div class="exam-palette__actions">
+      <div class="exam-palette__nav" role="group" aria-label="Previous / next question">
+        <button type="button" class="exam-palette__nav-btn" id="exam-prev" aria-label="Previous">← Prev</button>
+        <button type="button" class="exam-palette__nav-btn" id="exam-next" aria-label="Next">Next →</button>
+      </div>
+      <button type="button" class="exam-btn exam-btn--primary" id="exam-submit-btn">Submit</button>
+    </div>
+  </footer>
+
+  <!-- Hide overlay — covers passages + questions but keeps the timer visible. -->
+  <div class="exam-hide-overlay" id="exam-hide-overlay" hidden>
+    <div class="exam-hide-overlay__card">
+      <p>Test paused. Your timer is still running.</p>
+      <button type="button" class="exam-btn exam-btn--primary" id="exam-resume-btn">Resume test</button>
+    </div>
+  </div>
+
+  <!-- ── RESULTS (inline; no separate page) ─────────────────────── -->
+  <main class="exam-state-shell exam-state-shell--results" id="state-results" hidden>
+    <div class="exam-card exam-card--results">
+      <h1 class="exam-card__title">Kết quả</h1>
+      <div class="exam-results-band-row">
+        <div class="exam-results-score" id="results-score">--/40</div>
+        <div class="exam-results-band" id="results-band">Band --</div>
+      </div>
+      <div class="exam-results-section">
+        <h3>Theo đoạn (3 parts)</h3>
+        <div class="exam-results-bygrid" id="results-by-part"></div>
+      </div>
+      <div class="exam-results-section">
+        <h3>Theo kỹ năng đọc</h3>
+        <div class="exam-results-skillgrid" id="results-skill"></div>
+      </div>
+      <div class="exam-results-section">
+        <h3>Chi tiết từng câu</h3>
+        <div class="exam-results-review" id="results-review"></div>
+      </div>
+      <div class="exam-card__actions">
+        <a class="exam-btn" href="/pages/reading-test.html">← Back to test library</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Modals: submit confirmation (Q8) + Help (Q6) ─────────── -->
+  <div class="exam-modal" id="exam-submit-modal" hidden role="dialog" aria-modal="true" aria-labelledby="submit-modal-title">
+    <div class="exam-modal__backdrop" data-close="submit"></div>
+    <div class="exam-modal__panel">
+      <h2 id="submit-modal-title">Nộp bài?</h2>
+      <p id="exam-submit-warn"></p>
+      <div class="exam-modal__actions">
+        <button type="button" class="exam-btn" id="exam-submit-cancel">Quay lại làm tiếp</button>
+        <button type="button" class="exam-btn exam-btn--primary" id="exam-submit-confirm">Nộp bài</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="exam-modal" id="exam-help-modal" hidden role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+    <div class="exam-modal__backdrop" data-close="help"></div>
+    <div class="exam-modal__panel">
+      <h2 id="help-modal-title">Hướng dẫn</h2>
+      <ul>
+        <li>Right-click trong đoạn văn hoặc câu hỏi để <strong>tô sáng</strong> hoặc <strong>ghi chú</strong>.</li>
+        <li>Kéo thanh ở giữa để chỉnh kích thước hai bảng.</li>
+        <li>Click số trong bảng câu hỏi (cuối trang) để nhảy tới câu đó.</li>
+        <li>Dùng nút cờ ⚑ trên mỗi câu để đánh dấu xem lại sau.</li>
+        <li>Settings cho phép đổi cỡ chữ.</li>
+      </ul>
+      <div class="exam-modal__actions">
+        <button type="button" class="exam-btn exam-btn--primary" id="exam-help-close">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Context menu + note popover (port from mockup) ────────── -->
+  <div class="exam-context-menu" id="exam-context-menu" role="menu" hidden>
+    <button type="button" class="exam-context-menu__item" data-action="highlight" role="menuitem">
+      <span class="exam-context-menu__icon">▮</span> Highlight
+    </button>
+    <button type="button" class="exam-context-menu__item" data-action="note" role="menuitem">
+      <span class="exam-context-menu__icon">✎</span> Note
+    </button>
+    <button type="button" class="exam-context-menu__item" data-action="remove" role="menuitem" hidden>
+      <span class="exam-context-menu__icon">✕</span> Remove highlight
+    </button>
+  </div>
+
+  <div class="exam-note-popover" id="exam-note-popover" role="dialog" aria-label="Edit note" hidden>
+    <div class="exam-note-popover__title">Note</div>
+    <textarea class="exam-note-popover__textarea" id="exam-note-textarea"
+              placeholder="Write a note for this passage…"></textarea>
+    <div class="exam-note-popover__actions">
+      <button type="button" class="is-danger" id="exam-note-delete">Delete</button>
+      <button type="button"                   id="exam-note-cancel">Cancel</button>
+      <button type="button" class="is-primary" id="exam-note-save">Save</button>
+    </div>
+  </div>
+
+  <!-- CDN: markdown for passage rendering (gfm + DOMPurify sanitisation). -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
+  <script src="/js/reading-exam.js" defer></script>
+</body>
+</html>

@@ -12,11 +12,13 @@ Three libraries, ten endpoints (all auth-gated, mirroring the listening user_rou
     GET  /api/reading/skill/{slug}                — exercise + skill-tagged Qs
     POST /api/reading/skill/{slug}/check          — grade Qs server-side
 
-  L3 Full Test (Sprint 20.5)
-    GET  /api/reading/test                        — list published L3 tests
-    GET  /api/reading/test/{test_id}              — test + 3 passages + 40 Qs (keys stripped)
-    POST /api/reading/test/{test_id}/attempts     — start: create attempt row (started_at NOW)
-    POST /api/reading/test/attempts/{attempt_id}/submit  — submit + grade + finalize attempt
+  L3 Full Test (Sprint 20.5 + 20.6 resilience)
+    GET   /api/reading/test                                       — list published L3 tests
+    GET   /api/reading/test/{test_id}                             — test + 3 passages + 40 Qs (keys stripped)
+    POST  /api/reading/test/{test_id}/attempts                    — start: create attempt (started_at NOW)
+    GET   /api/reading/test/{test_id}/attempts/in-progress  (20.6)— resume: user's open attempt for this test
+    PATCH /api/reading/test/attempts/{attempt_id}/answers   (20.6)— auto-save one answer (debounced client-side)
+    POST  /api/reading/test/attempts/{attempt_id}/submit          — submit + grade + finalize attempt
 
 L1/L2 are ungraded practice (instant per-Q feedback, no attempt rows). L3 is the
 graded path: ONE attempt per test (Q7 — continuous 60-min, 3 parts, 40 Qs in a
@@ -622,4 +624,90 @@ async def submit_reading_test_attempt(
         "skill_breakdown":    result["skill_breakdown"],
         "by_part":            result["by_part"],
         "time_spent_seconds": max(0, elapsed_seconds),
+    }
+
+
+# ── Sprint 20.6 — resilience: in-progress lookup + auto-save PATCH ────
+
+
+@router.get("/test/{test_id}/attempts/in-progress")
+async def get_in_progress_reading_attempt(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Find the user's open attempt for this test, if any. Used by the exam
+    page on (re)load to **resume** an interrupted attempt: returns the same
+    shape as POST .../attempts (attempt_id, started_at, time_limit_minutes)
+    plus the saved `answers` array so the client can repaint state. 404 when
+    no in-progress attempt exists — the client then calls POST attempts to
+    start fresh. The Q7 invariant (≤1 active attempt per user+test) makes
+    this lookup unambiguous."""
+    user = await _require_auth(authorization)
+    test = _fetch_published_test(test_id)
+
+    res = (
+        supabase_admin.table("reading_test_attempts")
+        .select("id,started_at,answers,status")
+        .eq("user_id", user["id"])
+        .eq("test_id", test["id"])
+        .eq("status", "in_progress")
+        .order("started_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "No in-progress attempt for this test")
+
+    row = res.data[0]
+    return {
+        "attempt_id":         row["id"],
+        "test_id":            test_id,
+        "status":             row["status"],
+        "started_at":         row.get("started_at"),
+        "answers":            row.get("answers") or [],
+        "time_limit_minutes": test["time_limit_minutes"],
+    }
+
+
+class _AnswerPatchItem(BaseModel):
+    q_num:       int = Field(..., ge=1, le=40)
+    user_answer: Optional[str] = Field(default="")
+
+
+@router.patch("/test/attempts/{attempt_id}/answers")
+async def patch_reading_test_attempt_answer(
+    attempt_id: str,
+    body: _AnswerPatchItem,
+    authorization: str | None = Header(default=None),
+):
+    """Upsert a single answer (auto-save). Idempotent by q_num — re-PATCH
+    of the same q_num overwrites the prior value. Mirrors the listening
+    PATCH pattern (mig 068; listening.py:4955). Returns the updated
+    answers array so the client can verify state.
+
+    Rejected when the attempt is not in_progress (422) so a stale tab
+    can't accidentally write to a submitted/abandoned attempt."""
+    from datetime import datetime, timezone
+
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+
+    answers = attempt.get("answers") or []
+    answers = [a for a in answers if a.get("q_num") != body.q_num]
+    answers.append({
+        "q_num":       body.q_num,
+        "user_answer": body.user_answer or "",
+        "answered_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    supabase_admin.table("reading_test_attempts").update({
+        "answers": answers,
+    }).eq("id", attempt_id).execute()
+
+    return {
+        "attempt_id": attempt_id,
+        "q_num":      body.q_num,
+        "answered":   len(answers),
     }

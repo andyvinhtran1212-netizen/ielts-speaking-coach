@@ -377,3 +377,117 @@ def test_import_l3_dry_run_shows_passage_summaries():
     assert body["parsed_data"]["question_count"] == 3
     assert len(body["parsed_data"]["passages"]) == 3
     mock_db.table.return_value.insert.assert_not_called()
+
+
+# ── Sprint 20.6 — resilience endpoints (PATCH /answers + GET in-progress) ─
+
+
+def test_resume_in_progress_requires_auth():
+    assert _client().get("/api/reading/test/T1/attempts/in-progress").status_code == 401
+
+
+def test_patch_answers_requires_auth():
+    assert _client().patch("/api/reading/test/attempts/some-uuid/answers",
+                           json={"q_num": 1, "user_answer": "A"}).status_code == 401
+
+
+def test_resume_returns_open_attempt_when_one_exists():
+    mock_db = MagicMock()
+    chain = mock_db.table.return_value.select.return_value
+    # _fetch_published_test: select.eq.eq.limit.execute (status=published)
+    chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "test-uuid", "test_id": "T1", "title": "T", "module": "academic",
+                          "time_limit_minutes": 60, "passage_count": 3, "total_questions": 40,
+                          "band_target": None, "status": "published"}])
+    # in-progress lookup: select.eq.eq.eq.order.limit.execute
+    chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "a-uuid", "started_at": "2026-05-28T10:00:00+00:00",
+                          "answers": [{"q_num": 1, "user_answer": "A"}], "status": "in_progress"}])
+
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", mock_db):
+        r = _client().get("/api/reading/test/T1/attempts/in-progress", headers=_AUTH)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["attempt_id"] == "a-uuid"
+    assert body["time_limit_minutes"] == 60
+    assert body["answers"] == [{"q_num": 1, "user_answer": "A"}]
+
+
+def test_resume_404_when_no_in_progress_attempt():
+    mock_db = MagicMock()
+    chain = mock_db.table.return_value.select.return_value
+    # Test exists (published).
+    chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "test-uuid", "test_id": "T1", "title": "T", "module": "academic",
+                          "time_limit_minutes": 60, "passage_count": 3, "total_questions": 40,
+                          "band_target": None, "status": "published"}])
+    # No in-progress attempt for this user+test.
+    chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[])
+
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", mock_db):
+        r = _client().get("/api/reading/test/T1/attempts/in-progress", headers=_AUTH)
+    assert r.status_code == 404
+
+
+def test_patch_answers_upserts_by_qnum_when_in_progress():
+    mock_db = MagicMock()
+    chain = mock_db.table.return_value
+    # _fetch_attempt_or_404: select.eq.limit.execute returns the attempt row.
+    chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{
+            "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
+            "status": "in_progress",
+            "answers": [{"q_num": 1, "user_answer": "OLD"}, {"q_num": 2, "user_answer": "B"}],
+        }])
+
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", mock_db):
+        r = _client().patch("/api/reading/test/attempts/a-uuid/answers",
+                            headers=_AUTH, json={"q_num": 1, "user_answer": "NEW"})
+
+    assert r.status_code == 200
+    # Update was called on the attempt row with a new answers array — q_num 1
+    # replaced (not duplicated). The Python list literal is whatever the
+    # handler passed to .update(...).
+    update_call = chain.update.call_args
+    assert update_call is not None, "update was not called"
+    payload = update_call.args[0]
+    assert "answers" in payload
+    answers = payload["answers"]
+    q1 = [a for a in answers if a["q_num"] == 1]
+    q2 = [a for a in answers if a["q_num"] == 2]
+    assert len(q1) == 1 and q1[0]["user_answer"] == "NEW"
+    assert len(q2) == 1 and q2[0]["user_answer"] == "B"
+    # The body shape returned to the client is small + non-leaking.
+    body = r.json()
+    assert body["attempt_id"] == "a-uuid"
+    assert body["q_num"] == 1
+
+
+def test_patch_answers_rejects_when_attempt_already_submitted():
+    mock_db = MagicMock()
+    chain = mock_db.table.return_value
+    chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{
+            "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
+            "status": "submitted",      # final state
+            "answers": [],
+        }])
+
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", mock_db):
+        r = _client().patch("/api/reading/test/attempts/a-uuid/answers",
+                            headers=_AUTH, json={"q_num": 1, "user_answer": "X"})
+    assert r.status_code == 422
+    chain.update.assert_not_called()
+
+
+def test_patch_answers_rejects_qnum_out_of_range():
+    """Pydantic ge=1, le=40 — q_num outside that range = 422 before any DB hit."""
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)):
+        r = _client().patch("/api/reading/test/attempts/a-uuid/answers",
+                            headers=_AUTH, json={"q_num": 99, "user_answer": "X"})
+    assert r.status_code == 422
