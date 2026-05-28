@@ -1,6 +1,7 @@
 """Sprint 7 Phase 1 — mapping coverage audit.
 
-Inventory every grammar wiki article (`backend/content/**/*.md`) against
+Inventory every grammar wiki article (`backend/content/**/*.md`, excluding
+reading seeds under `backend/content/reading/`) against
 `feedback-anchor-mapping.yaml`. Two outputs:
 
   1. MAPPING_COVERAGE_GAP_REPORT.md — markdown report grouping missing
@@ -43,9 +44,24 @@ REPORT_OUT    = ROOT / "MAPPING_COVERAGE_GAP_REPORT.md"
 SKELETON_OUT  = ROOT / "MAPPING_SKELETONS_SPRINT_7.yaml"
 
 GENERATED_DATE = "2026-05-05"
+EXCLUDED_TOP_LEVEL_DIRS = {"reading"}
 
 
 # ── Data collection ──────────────────────────────────────────────────────
+
+def is_grammar_article(md_path: Path) -> bool:
+    """Return True for grammar wiki markdown content only.
+
+    Sprint 21.3: reading seed passages also live under backend/content,
+    but they are not part of the Grammar Wiki denominator.
+    """
+    if "_archive" in md_path.parts:
+        return False
+    rel = md_path.relative_to(CONTENT_DIR)
+    if rel.parts and rel.parts[0] in EXCLUDED_TOP_LEVEL_DIRS:
+        return False
+    return True
+
 
 def parse_frontmatter(md_path: Path) -> dict:
     """Return parsed YAML frontmatter dict, or {} if file has no
@@ -63,14 +79,14 @@ def parse_frontmatter(md_path: Path) -> dict:
 
 
 def collect_articles() -> list[dict]:
-    """Walk CONTENT_DIR/**/*.md (skipping _archive). Return one dict per
+    """Walk CONTENT_DIR/**/*.md for grammar wiki content only. Return one dict per
     article: {slug, category, path, anchors: list[id]}.
 
     `slug` comes from frontmatter when present; falls back to file stem
     (matches GrammarContentService._parse_file resolution order)."""
     out: list[dict] = []
     for md_file in sorted(CONTENT_DIR.rglob("*.md")):
-        if "_archive" in md_file.parts:
+        if not is_grammar_article(md_file):
             continue
         if md_file.name.startswith("README"):
             continue

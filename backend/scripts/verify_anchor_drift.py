@@ -1,5 +1,5 @@
 """Verify that every active target_anchor in feedback-anchor-mapping.yaml
-exists in some content file's frontmatter `anchors:` list.
+exists in some Grammar Wiki content file's frontmatter `anchors:` list.
 
 A mapping with `deferred_until: <sprint-id>` is treated as an expected
 deferral, not drift — the target anchor is allowed to be missing until
@@ -22,14 +22,28 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 CONTENT_DIR = ROOT / "backend" / "content"
 MAPPING_FILE = CONTENT_DIR / "feedback-anchor-mapping.yaml"
+EXCLUDED_TOP_LEVEL_DIRS = {"reading"}
+
+
+def is_grammar_article(md_path: Path) -> bool:
+    """Return True for Grammar Wiki markdown files only.
+
+    Sprint 21.3: exclude reading seed passages from grammar anchor audits.
+    """
+    if "_archive" in md_path.parts:
+        return False
+    rel = md_path.relative_to(CONTENT_DIR)
+    if rel.parts and rel.parts[0] in EXCLUDED_TOP_LEVEL_DIRS:
+        return False
+    return True
 
 
 def collect_declared_anchors() -> dict[str, str]:
-    """Scan all .md files (skipping _archive/), collect anchor IDs from
+    """Scan grammar wiki .md files only, collect anchor IDs from
     frontmatter `anchors:` lists. Returns id -> first-file-found."""
     declared: dict[str, str] = {}
     for md_file in CONTENT_DIR.rglob("*.md"):
-        if "_archive" in md_file.parts:
+        if not is_grammar_article(md_file):
             continue
         raw = md_file.read_text(encoding="utf-8")
         if not raw.startswith("---"):

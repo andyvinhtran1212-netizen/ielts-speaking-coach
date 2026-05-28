@@ -41,8 +41,8 @@ next_articles:
 pathways:
   - grammar-for-ielts-speaking
 order: 18
-status: draft
-last_updated: 2026-05-02
+status: complete
+last_updated: 2026-05-28
 created_by: cowork-audit-2026-05-02
 audit_index: 129
 group: ielts-grammar-lab
