@@ -40,8 +40,8 @@ next_articles:
 pathways:
   - grammar-for-ielts-speaking
 order: 12
-status: draft
-last_updated: 2026-05-02
+status: complete
+last_updated: 2026-05-28
 created_by: cowork-audit-2026-05-02
 audit_index: 127
 group: grammar-for-meaning
