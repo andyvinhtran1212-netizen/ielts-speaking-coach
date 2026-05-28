@@ -1,11 +1,18 @@
-# Exam Chrome Mockup — Sprint 20.4 Approval Gate
+# Exam Chrome Mockup — Sprint 20.4 + 20.4b Approval Gate
 
-**Sprint:** 20.4 — exam-chrome mockup (Pattern #43, approval-as-Discovery)
+**Sprint:** 20.4 (mockup) + **20.4b (fidelity revision per Andy feedback)**
 **Predecessor:** Sprint 20.3 (PR #322 merged) — L2 + admin authoring UI
 **Successor:** Sprint 20.5 (L3 backend, clone listening grader) — **BLOCKED until this mockup is approved**
 **Authority:** Code authoritative on implementation; **Andy authoritative on fidelity acceptance**
 
-> This is the approval gate. The mockup is a **reviewable visual prototype, not production**. Andy's review decides whether to proceed to Sprint 20.5 (L3 backend) as-is or iterate.
+> Approval gate, iteration 1. The mockup is a **reviewable visual prototype, not production**.
+>
+> **What changed in 20.4b** (Andy review of 20.4 PR #323): rubric text bumped to 15 px;
+> **draggable** split divider (50/50 default, clamps 30–70%, sessionStorage persistence);
+> **highlight + note** tools live now (right-click context menu, faithful to real BC/IDP);
+> timer moved upper-MIDDLE with minutes-only display per Mình's research; exam-only typeface
+> override to institutional `system-ui / Arial`; prev/next palette nav arrows added.
+> See §3 below for which 20.4 open questions are now resolved.
 
 ## How to review
 
@@ -33,40 +40,43 @@ The page is static — no auth, no backend, no real timer. Click around the ques
 - **Chrome isolation = inline page CSS scoped under `.exam-chrome`**, not a Shadow-DOM web component (yet). The design baseline calls for a 3rd chrome via the existing per-page Shadow-DOM opt-in mechanism, but for a *mockup*, a single-page inline shell is enough — and lets Andy review the surface without component-encapsulation overhead. The web-component `aver-exam-chrome.js` lands in Sprint 20.6 when L3 ships (the CSS + structure here is what it'll wrap).
 - **Token override layer**: a small set of `--exam-*` vars on `.exam-chrome` (not new global tokens). Surfaces, borders, accent + warning + critical, mono-timer alias. Student/aver-admin chromes are untouched.
 - **Mockup-only affordances**: the yellow banner across the top + the `?demo=warning|critical` query flag exist for Andy's review and are removed when the production exam chrome ships.
+- **🔶 Intentional fidelity deviation: draggable split divider** (Sprint 20.4b). Strict real-exam fidelity = a fixed 50/50 split with independent scrollbars (the real BC/IDP CD Reading UI does **not** expose a user-resizable divider in most versions). Andy's product decision favours usability over strict fidelity, so the mockup ships a **draggable** divider (default 50%, clamps 30–70%, sessionStorage persistence, keyboard arrow-key a11y when focused). Surfacing this here so it's not mistaken for a fidelity oversight when Andy compares against the real exam.
 
 ## §2 — Fidelity checklist (BC/IDP element → mockup status)
 
-| BC/IDP element (Discovery §5) | Mockup status | Notes |
+| BC/IDP element (Discovery §5 + Mình research) | Mockup status | Notes |
 |---|---|---|
-| Top bar — candidate id / name | ✅ Placeholder (`Candidate 0000-0000 · Test Taker`) | Real id wired in 20.6 from session |
-| Top bar — countdown timer (mono, prominent, top-right) | ✅ Visual (static `59:42`) + warning / critical states demoable via `?demo=warning\|critical` | Real countdown + auto-submit = 20.6 |
-| Top bar — section indicator (e.g. "Part 1 of 3") | ✅ Centered | Section transitions wired in 20.6 |
-| Top bar — Settings (text size / contrast) | ✅ Text size (A / A / A) interactive; Contrast disabled (Phase B label) | Contrast = Phase B per Discovery §5 |
-| Top bar — Hide / Help | ⚠ Buttons present but inert | Phase B; surface in open questions |
-| **Split view — passage LEFT, questions RIGHT** | ✅ 55% / 45%, **independent scroll** per panel, visible vertical boundary | Faithful to "use both scroll bars" Discovery finding |
-| Passage rendering | ✅ Paragraph-labelled (A–E), institutional sans, line-height 1.7 | Real passages = markdown → marked + DOMPurify in 20.6 |
-| **Question nav palette (bottom, numbered 1–N)** | ✅ Numbered buttons, current/answered/flagged states, click-to-jump scroll | Full 40-Q grid in 20.6; mockup ships 10 |
-| **Flag-for-review** per question | ✅ Flag button on each card; corner-triangle indicator on the palette | Faithful to BC/IDP "skip & return later" flow |
-| Auto "answered" state when a control changes | ✅ Wired (palette button gets `.is-answered` on input/change) | Mockup-level — production tracks server-side |
-| **Highlight tool** (select text → highlight) | ⚠ **Visual-only example** in para A (`citizen science` highlighted) | Interactive highlight = Phase B per Discovery §5 + commission decision 4 |
-| Notes tool | ❌ Not shown | Phase B per Discovery §5 |
-| Copy/paste from passage | ✅ Native browser copy works | Don't block — Discovery §5 |
-| Review screen (end of section) | ❌ Not in this mockup | Sprint 20.6 — flag indicators on the palette communicate intent for now |
-| Back / Next / Submit buttons | ⚠ Submit + Review buttons present, inert | Section navigation = 20.6 |
-| Visual tone — institutional, no brand warmth | ✅ Neutral grays (`~#F5F6F7` base, `~#C7CBD1` border), single teal accent, zero amber | Override layer; student/aver-admin chromes unchanged |
-| Mobile policy | ✅ "Best on desktop" notice + stacked fallback under 900px | Real exam is desktop-only (test centres) |
+| Top bar — candidate id / name | ✅ Placeholder (`Candidate 0000-0000 · Test Taker`) | Real id wired in 20.6 |
+| **Top bar — countdown timer — upper-MIDDLE, MINUTES-ONLY** | ✅ **20.4b**: `<div class="exam-timer-wrap">` in the centre column, value is a bare integer + "MIN REMAINING" label; warning at 10 min, critical pulse at 5 min (preview via `?demo=warning\|critical`) | Real countdown + auto-submit = 20.6 |
+| Top bar — section indicator | ✅ "Reading · Part 1 of 3" under candidate info (top-left) | Section transitions = 20.6 |
+| Top bar — Settings (text size / contrast) | ✅ Text size (A / A / A) interactive; Contrast disabled (Phase B label) | Phase B per Discovery §5 |
+| Top bar — Hide / Help | ⚠ Buttons present, inert | Phase B |
+| **Split view — passage LEFT, questions RIGHT, draggable** | ✅ **20.4b**: default **50/50** ("two halves"), **draggable divider** (clamps 30–70%, sessionStorage, keyboard arrows when focused), independent scroll preserved | **Intentional fidelity deviation** per Andy — real exam has a fixed split; Andy's product decision favours usability (see §1) |
+| Passage rendering | ✅ Paragraph-labelled A–E, institutional sans, line-height 1.7 | Real passages → marked + DOMPurify in 20.6 |
+| **Rubric / instruction text** | ✅ **20.4b**: bumped 13 px → 15 px (matches question-prompt size; was Andy feedback #1) | — |
+| **Question nav palette** (numbered 1–N) | ✅ Numbered buttons + current/answered/flagged states + click-to-jump + **20.4b prev/next arrows** bottom-right | Full 40-Q grid in 20.6; mockup ships 10 |
+| **Flag-for-review** per question | ✅ Flag button on each card; corner-triangle indicator on the palette | Faithful to BC/IDP "skip & return later" |
+| Auto "answered" state when a control changes | ✅ Palette button gets `.is-answered` on input/change | Mockup-level |
+| **Highlight tool** (select → right-click → Highlight) | ✅ **20.4b LIVE** — works on **both** passage AND questions panels (per Mình research); multiple highlights coexist; right-click an existing one → Remove; XSS-safe (TreeWalker text-node walking, never `innerHTML`) | Was Phase B (Sprint 20.4) → **built now** per Andy feedback #3 |
+| **Notes tool** (select → Note → popover) | ✅ **20.4b LIVE** — same context menu's Note action wraps the selection + adds an inline `note` marker; click marker re-opens the popover (Save / Cancel / Delete); persists in-session via `data-note` attribute | Was Phase B → built now |
+| Copy/paste from passage | ✅ Native browser copy works | — |
+| Review screen (end of section) | ❌ Not in this mockup | Sprint 20.6 |
+| Back / Next / Submit buttons | ✅ **20.4b**: Prev/Next arrows wired (cycle palette + scroll); Review + Submit inert | Section transitions = 20.6 |
+| **Typeface** | ✅ **20.4b**: exam-only override `system-ui, -apple-system, Segoe UI, Verdana, Arial, sans-serif` (resolves Q1 toward institutional fidelity) | Student + aver-admin chromes keep Plus Jakarta Sans |
+| Visual tone — institutional, no brand warmth | ✅ Neutral grays (`~#F5F6F7` base, `~#C7CBD1` border), single teal accent, zero amber | Scoped override layer |
+| Mobile policy | ✅ "Best on desktop" notice + stacked fallback under 900px | Real exam is desktop-only |
 
-## §3 — Open questions for Andy (fidelity decisions)
+## §3 — Open questions (status after Andy's 20.4 review)
 
-These are decisions where the Discovery research left room or where screenshot fidelity would tighten the call. Each has a Code lean — Andy override at will.
+Andy's 20.4 review resolved three of the original eight. The rest stand for the next decision point (Sprint 20.5/20.6).
 
-1. **Body typeface for the chrome** — I'm using `Plus Jakarta Sans` (the project brand sans) because the design baseline §2 lists it as transferring to exam. **Real BC/IDP exam looks more like Verdana / system-ui**. *Lean: keep Plus Jakarta Sans (already documented in the baseline). Override = swap to `system-ui, -apple-system, Segoe UI, Verdana` for stricter institutional feel.* Reference screenshots would settle this in one look.
-2. **Passage typeface** — currently same sans as the chrome. Some commentary on the real BC exam mentions a serif passage body; my Discovery §5 found sans-serif. *Lean: stay sans (Discovery finding). Override = add a serif (e.g. Georgia, system-ui-serif) for the `.exam-passage__body` only.*
-3. **Highlight tool — interactive in the chrome mockup, or deferred to 20.6?** Discovery §5 + commission decision 4 say Phase B. Mockup ships **visual-only** (one example highlight). *Lean: keep Phase B. Override = build a `select → toolbar → highlight` interaction in this sprint (cheap-ish, ~80–120 LOC).* Andy may prefer to see it as a fidelity demo before 20.5.
-4. **Resizable split divider** — real exam: fixed proportions, not user-resizable (per Discovery §5). Mockup ships fixed 55/45. *Lean: keep fixed.*
-5. **Timer treatment in 20.6** — mockup is static + `?demo=` flag. *Lean for 20.6:* client countdown UX + server `started_at` validation on submit (D3 from 20.0 Discovery). Confirm this stands.
+1. ~~**Body typeface for the chrome**~~ → **RESOLVED 20.4b: institutional system stack.** Mình + Andy's fidelity reading is that the real CD exam uses Arial-family / system-ui, not the brand sans. The exam chrome now uses `system-ui, -apple-system, Segoe UI, Verdana, Arial, sans-serif` (scoped to `.exam-chrome` only; student + aver-admin chromes still use Plus Jakarta Sans).
+2. **Passage typeface** — still same sans as the chrome. Mình's research note mentioned "institutional sans + serif passage text per BC/IDP", but Discovery §5 found sans-serif. *Lean: stay sans for now.* Andy can override → add a serif (e.g. Georgia) for `.exam-passage__body` only. Reference screenshots would still settle this in one look.
+3. ~~**Highlight tool — interactive in the mockup?**~~ → **RESOLVED 20.4b: built now.** Right-click context menu (Highlight / Note / Remove) wired on both passage and question panels. XSS-safe (TreeWalker + textContent). Multi-paragraph selections supported.
+4. ~~**Resizable split divider**~~ → **RESOLVED 20.4b: draggable, with explicit fidelity-deviation flag.** Andy's product decision overrides strict fidelity here (real exam = fixed split). Default 50/50 ("two halves"), clamped 30–70%, sessionStorage persistence, arrow-key a11y when focused. *Documented as intentional deviation* in §1.
+5. **Timer treatment in 20.6** — mockup is static (now minutes-only, upper-middle) + `?demo=` flag. *Lean for 20.6:* client countdown UX + server `started_at` validation on submit (D3 from 20.0 Discovery). **Open — confirm at 20.5/20.6 hand-off.**
 6. **Hide / Help buttons** — inert in the mockup. *Lean: keep as Phase B placeholders.* Override = wire Help to a static help modal in 20.6.
-7. **Single-section vs full 3-part test in the production exam** — mockup shows one Part 1 only. 20.6 will need Part transitions. *Lean:* 3 separate `reading_test_attempts` answer regions OR one attempt with section navigation; 20.5 backend design will pick. Surface here in case Andy has a preference.
+7. **Single-section vs full 3-part test in production** — mockup shows Part 1 only. 20.6 will need Part transitions. *Lean:* 3 separate `reading_test_attempts` answer regions OR one attempt with section navigation. **20.5 backend design surfaces the choice.**
 8. **Submit confirmation modal** — real exam shows a confirm dialog before final submit. Mockup omits. *Lean: build in 20.6.*
 
 ## §4 — Acceptance criteria (what Andy is approving)

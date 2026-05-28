@@ -50,17 +50,26 @@
   </div>
 
   <!-- ── TOP BAR ───────────────────────────────────────────────────── -->
+  <!-- Sprint 20.4b — timer moved from upper-right (20.4) to upper-MIDDLE
+       per Mình's real-exam research. Display is minutes-only (real exam
+       counts down in whole minutes; seconds are hidden) with warning + flash
+       at 10 + 5 min remaining (preview via ?demo=warning|critical). -->
   <header class="exam-topbar" role="banner">
-    <div class="exam-topbar__candidate">
-      Candidate <b>0000-0000</b> · Test Taker
+    <div class="exam-topbar__left">
+      <div class="exam-topbar__candidate">
+        Candidate <b>0000-0000</b> · Test Taker
+      </div>
+      <div class="exam-topbar__section" aria-live="polite">
+        Reading · Part <b>1</b> of <b>3</b>
+      </div>
     </div>
-    <div class="exam-topbar__section" aria-live="polite">
-      Reading · Part <b>1</b> of <b>3</b>
+    <div class="exam-timer-wrap">
+      <div class="exam-timer" id="exam-timer" data-state="normal" aria-label="Time remaining">
+        59
+      </div>
+      <div class="exam-timer__label">min remaining</div>
     </div>
     <div class="exam-topbar__right">
-      <div class="exam-timer" id="exam-timer" data-state="normal" aria-label="Time remaining">
-        59:42
-      </div>
       <button type="button" class="exam-tool" id="exam-settings-toggle" aria-haspopup="dialog"
               aria-controls="exam-settings" aria-expanded="false">⚙ Settings</button>
       <button type="button" class="exam-tool" aria-label="Hide screen">Hide</button>
@@ -146,6 +155,14 @@
         </p>
       </div>
     </section>
+
+    <!-- DRAGGABLE DIVIDER (Sprint 20.4b — Andy feedback #2). Real-exam
+         strict fidelity has a fixed split; Andy's product decision overrides
+         that here for usability. JS sets `--exam-split-left` on .exam-split
+         from drag events, clamped 30–70%, persisted in sessionStorage. -->
+    <div class="exam-divider" id="exam-divider" role="separator"
+         aria-orientation="vertical" aria-label="Resize panels"
+         tabindex="0"></div>
 
     <!-- QUESTIONS PANEL — independent scroll. Q numbers tie to the bottom
          palette (#q-1 … #q-10). Static HTML in the mockup; production
@@ -325,10 +342,46 @@
       <button type="button" class="exam-palette__q"                        data-q="10" aria-label="Question 10">10</button>
     </div>
     <div class="exam-palette__actions">
+      <!-- Sprint 20.4b — prev/next arrows (real-exam bottom-right nav). JS
+           cycles `.is-current` on the palette + scrolls the question into view. -->
+      <div class="exam-palette__nav" role="group" aria-label="Previous / next question">
+        <button type="button" class="exam-palette__nav-btn" id="exam-prev" aria-label="Previous question">← Prev</button>
+        <button type="button" class="exam-palette__nav-btn" id="exam-next" aria-label="Next question">Next →</button>
+      </div>
       <button type="button" class="exam-btn">Review</button>
       <button type="button" class="exam-btn exam-btn--primary">Submit Part 1</button>
     </div>
   </footer>
+
+  <!-- ── Sprint 20.4b — Context menu (right-click) + note popover ────
+       The context menu shows on right-click within .exam-passage or
+       .exam-questions (works on BOTH per Mình's research). Highlight wraps
+       the current selection in `<span class="exam-highlight is-user">`;
+       Note adds a marker + opens the popover. Persistence is in-session
+       (data-note attribute on the span) — mockup-level. -->
+  <div class="exam-context-menu" id="exam-context-menu" role="menu" hidden>
+    <button type="button" class="exam-context-menu__item" data-action="highlight" role="menuitem">
+      <span class="exam-context-menu__icon">▮</span> Highlight
+    </button>
+    <button type="button" class="exam-context-menu__item" data-action="note" role="menuitem">
+      <span class="exam-context-menu__icon">✎</span> Note
+    </button>
+    <button type="button" class="exam-context-menu__item" data-action="remove" role="menuitem" hidden>
+      <span class="exam-context-menu__icon">✕</span> Remove highlight
+    </button>
+  </div>
+
+  <div class="exam-note-popover" id="exam-note-popover" role="dialog"
+       aria-label="Edit note" hidden>
+    <div class="exam-note-popover__title">Note</div>
+    <textarea class="exam-note-popover__textarea" id="exam-note-textarea"
+              placeholder="Write a note for this passage…"></textarea>
+    <div class="exam-note-popover__actions">
+      <button type="button" class="is-danger" id="exam-note-delete">Delete</button>
+      <button type="button"                   id="exam-note-cancel">Cancel</button>
+      <button type="button" class="is-primary" id="exam-note-save">Save</button>
+    </div>
+  </div>
 
   <script src="/js/reading-exam-mockup.js" defer></script>
 </body>
