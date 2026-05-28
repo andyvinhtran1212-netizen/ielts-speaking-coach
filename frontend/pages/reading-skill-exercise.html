@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Vocab Reading — Aver Learning</title>
+  <title>Bài luyện kỹ năng — Aver Learning</title>
 
   <script>
     (function () {
@@ -23,52 +23,47 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/markdown.css" />
+  <link rel="stylesheet" href="/css/image-lightbox.css" />
   <link rel="stylesheet" href="/css/reading-vocab.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
   <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <!-- Markdown render + lightbox + glossary popover + Q renderer (defer → ready before the page script). -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
+  <script src="/js/image-lightbox.js" defer></script>
+  <script src="/js/components/glossary-popover.js" defer></script>
+  <script src="/js/components/reading-questions.js" defer></script>
 </head>
 <body class="av-page">
+
+  <div class="rv-progress" aria-hidden="true"><div class="rv-progress__fill" id="rv-progress-fill"></div></div>
 
   <aver-chrome active="reading"></aver-chrome>
 
   <div class="shell">
     <main class="rv-shell">
-      <header class="rv-header">
-        <p class="eyebrow"><a href="/pages/home.html" style="color: var(--av-text-secondary);">← Trang chủ</a></p>
-        <h1>Vocab Reading <span class="accent">·</span> <span style="color: var(--av-text-muted);">Thư viện</span></h1>
-        <p class="subtitle">Đọc đoạn văn ngắn, tra từ vựng ngay trong bài, và kiểm tra hiểu nhanh.</p>
-      </header>
-
-      <!-- Library switcher: L1 Vocab ↔ L2 Skill (Reading tab covers both). -->
-      <nav class="rv-libnav" aria-label="Reading libraries">
-        <a class="rv-libnav__link is-active" aria-current="page">Vocab Reading</a>
-        <a class="rv-libnav__link" href="/pages/reading-skill.html">Skill Practice</a>
-      </nav>
-
-      <div class="rv-filters">
-        <label>Trình độ
-          <select id="filter-difficulty">
-            <option value="">Tất cả</option>
-            <option value="foundation">Foundation</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-        </label>
-        <label>Chủ đề
-          <select id="filter-tag"><option value="">Tất cả</option></select>
-        </label>
-      </div>
+      <p class="eyebrow"><a href="/pages/reading-skill.html" style="color: var(--av-text-secondary);">← Skill Practice</a></p>
 
       <div class="rv-empty" id="state-loading">Đang tải…</div>
-      <div class="rv-empty" id="state-empty" hidden>Chưa có bài đọc nào khớp bộ lọc.</div>
+      <div class="rv-empty" id="state-empty" hidden>Không tìm thấy bài luyện.</div>
       <div class="rv-error" id="state-error" hidden></div>
 
-      <div class="rv-grid" id="rv-grid" hidden></div>
+      <div class="rv-passage-layout" id="rv-passage" hidden>
+        <article>
+          <div class="rv-skill-banner" id="rv-skill-banner" hidden></div>
+          <h1 class="rv-passage__title" id="rv-title"></h1>
+          <div class="rv-passage__body md-body" id="rv-body"></div>
+        </article>
+        <aside class="rv-questions" id="rv-questions" aria-label="Câu hỏi luyện kỹ năng"></aside>
+      </div>
     </main>
   </div>
 
-  <script type="module" src="/js/reading-vocab.js"></script>
+  <script src="/js/reading-skill-exercise.js" defer></script>
 </body>
 </html>

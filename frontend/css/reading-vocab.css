@@ -170,11 +170,45 @@
   background: var(--av-surface-sunken); border-radius: var(--av-radius-md);
 }
 
+/* ── Sprint 20.3 — library switcher (L1 Vocab ↔ L2 Skill) ───────────── */
+/* Reading tab is a single chrome nav slot covering both libraries; this
+ * page-level switcher lets students jump between them. Underline-active
+ * idiom mirrors `.tab-btn` in 19.x baseline §5. */
+.rv-libnav {
+  display: flex; gap: var(--av-space-4);
+  border-bottom: 1px solid var(--av-border-subtle);
+  padding-bottom: var(--av-space-1);
+}
+.rv-libnav__link {
+  font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+  color: var(--av-text-secondary); text-decoration: none;
+  padding: var(--av-space-2) 0;
+  border-bottom: 2px solid transparent;
+  transition: color var(--av-duration-fast) var(--av-easing-default),
+              border-color var(--av-duration-fast) var(--av-easing-default);
+}
+.rv-libnav__link:hover { color: var(--av-text-primary); }
+.rv-libnav__link.is-active {
+  color: var(--av-primary); border-bottom-color: var(--av-primary);
+}
+.rv-libnav__link:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+
+/* ── Sprint 20.3 — L2 skill-focus banner (above the exercise passage) ── */
+.rv-skill-banner {
+  display: inline-block;
+  font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+  padding: var(--av-space-1) var(--av-space-3);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary-soft); color: var(--av-primary);
+  border: 1px solid var(--av-primary-border);
+  margin-bottom: var(--av-space-3);
+}
+
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .rv-passage-layout { grid-template-columns: 1fr; gap: var(--av-space-6); }
   .rv-questions { position: static; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rv-card, .rv-progress__fill { transition: none; }
+  .rv-card, .rv-progress__fill, .rv-libnav__link { transition: none; }
 }
