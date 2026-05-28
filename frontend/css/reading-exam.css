@@ -1,0 +1,214 @@
+/* frontend/css/reading-exam.css — Sprint 20.6 PRODUCTION EXAM UI.
+ *
+ * Extends the approved exam chrome (reading-exam-mockup.css → loaded first
+ * on reading-exam.html) with the production-specific surfaces the mockup
+ * didn't have: loading / error / pre-start / results state-shells, submit
+ * + Help modals, Hide-mode overlay. All scoped under .exam-chrome — student
+ * + aver-admin chromes untouched. Tokens come from the override layer
+ * (--exam-*) defined in reading-exam-mockup.css. */
+
+/* ── State-shell scaffold (loading / error / pre-start / results) ── */
+.exam-state-shell {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
+  padding: var(--av-space-8, 32px) var(--av-space-6, 24px);
+  gap: var(--av-space-4, 16px);
+}
+.exam-state-shell--results { align-items: stretch; padding-top: var(--av-space-6, 24px); }
+.exam-state-msg {
+  font-size: 16px; color: var(--exam-text-secondary);
+}
+.exam-state-msg--error { color: var(--exam-critical); }
+
+.exam-card {
+  max-width: 720px; margin: 0 auto; width: 100%;
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-default);
+  padding: 28px 32px;
+}
+.exam-card--results { max-width: 920px; }
+.exam-card__title {
+  font-size: 24px; font-weight: 700; margin: 0 0 8px;
+  color: var(--exam-text-primary);
+}
+.exam-card__meta {
+  font-family: var(--exam-font-mono); font-size: 13px;
+  color: var(--exam-text-secondary); margin-bottom: 16px;
+}
+.exam-card__actions {
+  display: flex; gap: 12px; justify-content: flex-end;
+  margin-top: 24px;
+}
+.exam-rules h3 {
+  font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--exam-text-muted); margin: 0 0 8px;
+}
+.exam-rules ul {
+  margin: 0; padding-left: 20px;
+  font-size: 15px; line-height: 1.65;
+  color: var(--exam-text-primary);
+}
+.exam-rules ul li { margin-bottom: 6px; }
+
+/* ── Results: band block + by-part grid + skill grid + per-Q review ── */
+.exam-results-band-row {
+  display: flex; gap: 20px; align-items: stretch;
+  padding: 20px; margin: 4px 0 24px;
+  background: var(--exam-surface-sunken);
+  border: 1px solid var(--exam-border-default);
+}
+.exam-results-score {
+  flex: 1; min-width: 0;
+  font-family: var(--exam-font-mono); font-size: 36px; font-weight: 700;
+  color: var(--exam-text-primary);
+  display: flex; align-items: center; justify-content: center;
+}
+.exam-results-band {
+  flex: 1; min-width: 0;
+  font-family: var(--exam-font-mono); font-size: 36px; font-weight: 700;
+  color: #FFFFFF; background: var(--exam-accent);
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px;
+}
+
+.exam-results-section { margin-bottom: 24px; }
+.exam-results-section h3 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--exam-text-muted); margin: 0 0 10px;
+}
+
+.exam-results-bygrid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.exam-results-bygrid__cell {
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-default);
+  padding: 12px 16px;
+  text-align: center;
+}
+.exam-results-bygrid__label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--exam-text-muted); margin-bottom: 4px;
+}
+.exam-results-bygrid__value {
+  font-family: var(--exam-font-mono); font-size: 22px; font-weight: 700;
+  color: var(--exam-text-primary);
+}
+
+.exam-results-skillgrid {
+  display: grid; gap: 8px;
+}
+.exam-results-skillrow {
+  display: grid; grid-template-columns: 200px 1fr 60px;
+  align-items: center; gap: 12px;
+  font-size: 14px;
+}
+.exam-results-skillrow__label { color: var(--exam-text-primary); }
+.exam-results-skillrow__bar {
+  position: relative; height: 8px;
+  background: var(--exam-surface-sunken);
+  border: 1px solid var(--exam-border-default);
+}
+.exam-results-skillrow__bar-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--exam-accent);
+}
+.exam-results-skillrow__value {
+  font-family: var(--exam-font-mono); font-size: 13px;
+  color: var(--exam-text-secondary); text-align: right;
+}
+
+.exam-results-review {
+  border: 1px solid var(--exam-border-default);
+  max-height: 360px; overflow-y: auto;
+  background: var(--exam-surface-card);
+}
+.exam-results-review__row {
+  display: grid; grid-template-columns: 40px 60px 1fr 1fr;
+  gap: 8px; align-items: start;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--exam-border-subtle);
+  font-size: 13px;
+  font-family: var(--exam-font-mono);
+}
+.exam-results-review__row:last-child { border-bottom: 0; }
+.exam-results-review__num {
+  font-weight: 700; color: var(--exam-text-primary);
+}
+.exam-results-review__verdict { font-weight: 700; }
+.exam-results-review__verdict.is-correct   { color: var(--exam-success); }
+.exam-results-review__verdict.is-incorrect { color: var(--exam-critical); }
+.exam-results-review__user, .exam-results-review__expected {
+  color: var(--exam-text-secondary);
+  font-family: var(--exam-font-sans);
+  word-break: break-word;
+}
+
+/* ── Modals (submit confirmation + Help) ──────────────────────────── */
+.exam-modal {
+  position: fixed; inset: 0; z-index: 80;
+  display: flex; align-items: center; justify-content: center;
+}
+.exam-modal[hidden] { display: none; }
+.exam-modal__backdrop {
+  position: absolute; inset: 0;
+  background: rgba(15, 20, 30, 0.55);
+}
+.exam-modal__panel {
+  position: relative;
+  width: min(480px, calc(100% - 40px));
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-strong);
+  padding: 22px 26px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+}
+.exam-modal__panel h2 {
+  font-size: 18px; margin: 0 0 10px; font-weight: 700;
+  color: var(--exam-text-primary);
+}
+.exam-modal__panel p, .exam-modal__panel ul {
+  font-size: 14px; line-height: 1.55;
+  color: var(--exam-text-primary); margin: 0 0 14px;
+}
+.exam-modal__panel ul { padding-left: 18px; }
+.exam-modal__panel ul li { margin-bottom: 4px; }
+.exam-modal__actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 18px;
+}
+
+/* ── Hide-mode overlay (covers panels; timer stays visible) ───────── */
+.exam-hide-overlay {
+  position: fixed; left: 0; right: 0; bottom: 0; top: 64px;   /* below top bar */
+  z-index: 70;
+  background: rgba(245, 246, 247, 0.96);
+  display: flex; align-items: center; justify-content: center;
+}
+.exam-hide-overlay[hidden] { display: none; }
+.exam-hide-overlay__card {
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-default);
+  padding: 24px 32px;
+  text-align: center;
+}
+.exam-hide-overlay__card p {
+  font-size: 16px; color: var(--exam-text-primary); margin: 0 0 16px;
+}
+
+/* ── Lock state (time-up): inputs disabled visually ──────────────── */
+.exam-chrome.is-locked .exam-q__gap,
+.exam-chrome.is-locked .exam-q__select,
+.exam-chrome.is-locked .exam-q__option input,
+.exam-chrome.is-locked .exam-q__flag,
+.exam-chrome.is-locked .exam-palette__q,
+.exam-chrome.is-locked .exam-palette__nav-btn,
+.exam-chrome.is-locked #exam-submit-btn {
+  pointer-events: none; opacity: 0.6;
+}
+
+/* ── Responsive: results readable on narrow screens ──────────────── */
+@media (max-width: 700px) {
+  .exam-results-band-row { flex-direction: column; }
+  .exam-results-bygrid { grid-template-columns: 1fr; }
+  .exam-results-skillrow { grid-template-columns: 1fr; gap: 4px; }
+}

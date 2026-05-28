@@ -135,4 +135,5 @@ jobs:
             frontend/tests/sprint-18-3-1-3-toolbar-split.test.mjs \
             frontend/tests/sprint-20-2-l1-reading.test.mjs \
             frontend/tests/sprint-20-3-l2-skill-and-admin.test.mjs \
-            frontend/tests/sprint-20-4-exam-chrome-mockup.test.mjs
+            frontend/tests/sprint-20-4-exam-chrome-mockup.test.mjs \
+            frontend/tests/sprint-20-6-l3-exam-ui.test.mjs
