@@ -641,6 +641,17 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
   font-size: 15.5px;
 }
 
+.grammar-anchor-notice {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--av-text-primary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 /* Sprint 5 deep-link anchor scroll offset + pulse highlight */
 .article-body .grammar-anchor { scroll-margin-top: 80px; }
 .grammar-anchor-pulse {

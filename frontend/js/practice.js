@@ -987,15 +987,32 @@
     return 'Gợi ý dựa trên grammar feedback' + t;
   }
 
+  function _grammarRecHref(rec) {
+    if (!rec || !rec.slug || !rec.category) return '';
+    return '/grammar/' + encodeURIComponent(rec.category)
+      + '/' + encodeURIComponent(rec.slug)
+      + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
+  }
+
+  function _grammarRecTelemetryAttrs(rec) {
+    if (!rec || !rec.rec_id) return '';
+    return ' data-rec-id="' + _esc(rec.rec_id) + '"'
+      + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"';
+  }
+
   // Card HTML: primary = full treatment with summary, secondary = compact muted
   function _grammarCardHtml(match, isPrimary) {
     var slug   = match.slug, meta = match.meta;
-    var href   = '/grammar/' + encodeURIComponent(meta.category) + '/' + encodeURIComponent(slug)
-               + (match.anchor ? '#' + encodeURIComponent(match.anchor) : '');
+    var href   = _grammarRecHref({
+      category: meta.category,
+      slug: slug,
+      anchor: match.anchor,
+    });
+    var telemetryAttrs = _grammarRecTelemetryAttrs(match);
     var reason = _grReason(match.topField, match.topic);
 
     if (isPrimary) {
-      return '<a href="' + href + '" target="_blank" rel="noopener"'
+      return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs
         + ' style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;'
         + 'background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.28);'
         + 'border-left:3px solid #14b8a6;border-radius:14px;text-decoration:none;'
@@ -1014,7 +1031,7 @@
         + 'white-space:nowrap;align-self:center;">Học ngay →</span>'
         + '</a>';
     }
-    return '<a href="' + href + '" target="_blank" rel="noopener"'
+    return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs
       + ' style="display:flex;align-items:center;gap:10px;padding:10px 14px;'
       + 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
       + 'border-radius:12px;text-decoration:none;transition:border-color 0.15s,background 0.15s;"'
@@ -1040,7 +1057,7 @@
     if (recs.length) {
       var rec  = recs[0];
       var meta = _grMeta(rec.slug) || { category: rec.category, title: rec.title, summary: '' };
-      var match = { slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue, anchor: rec.anchor || null };
+      var match = { slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue, anchor: rec.anchor || null, rec_id: rec.rec_id || null };
       _GR_TRACKER.track([match]);
       cards.innerHTML = _grammarCardHtml(match, true);
       wrap.style.display = '';
@@ -1364,13 +1381,8 @@
       var rec = recMap[issue];
       var link = '';
       if (rec && rec.slug && rec.category) {
-        var recHref = '/grammar.html?category=' + encodeURIComponent(rec.category)
-          + '&slug=' + encodeURIComponent(rec.slug)
-          + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
-        var recClick = rec.rec_id
-          ? ' data-rec-id="' + _esc(rec.rec_id) + '"'
-            + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"'
-          : '';
+        var recHref = _grammarRecHref(rec);
+        var recClick = _grammarRecTelemetryAttrs(rec);
         link = ' <a href="' + recHref + '" target="_blank" rel="noopener"' + recClick
           + ' style="font-size:11px;color:#14b8a6;text-decoration:none;white-space:nowrap;">'
           + '→ Học bài: ' + _esc(rec.title) + '</a>';

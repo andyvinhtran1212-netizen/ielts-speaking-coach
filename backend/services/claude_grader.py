@@ -1295,6 +1295,20 @@ def _attach_grammar_recommendations(result: dict) -> None:
         if not match:
             continue
         slug = match["slug"]
+        article = grammar_service.get_article_by_slug(slug) or {}
+        if article.get("status") == "draft":
+            logger.info(
+                "grammar_recommendations_skipped event=grammar_recommendations_skipped "
+                "reason=draft_article slug=%s issue=%r",
+                slug, issue[:160],
+                extra={
+                    "event": "grammar_recommendations_skipped",
+                    "reason": "draft_article",
+                    "slug": slug,
+                    "issue": issue[:160],
+                },
+            )
+            continue
         if slug in seen_slugs:
             continue
         title_lower = match["title"].lower()

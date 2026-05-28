@@ -484,6 +484,19 @@
         + '</div>';
     }
 
+    function _grammarRecHref(rec) {
+      if (!rec || !rec.slug || !rec.category) return '';
+      return '/grammar/' + encodeURIComponent(rec.category)
+        + '/' + encodeURIComponent(rec.slug)
+        + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
+    }
+
+    function _grammarRecTelemetryAttrs(rec) {
+      if (!rec || !rec.rec_id) return '';
+      return ' data-rec-id="' + escHtml(rec.rec_id) + '"'
+        + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"';
+    }
+
     function _fbGrammarIssues(issues, recs) {
       if (!issues || issues.length === 0) return '';
       var recMap = {};
@@ -495,11 +508,10 @@
         var issueHtml = escHtml(issue);
         var linkHtml = '';
         if (rec && rec.slug && rec.category) {
-          var href = '/grammar.html?category=' + encodeURIComponent(rec.category)
-            + '&slug=' + encodeURIComponent(rec.slug)
-            + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
+          var href = _grammarRecHref(rec);
           linkHtml = ' <a href="' + href + '" style="color:var(--av-info);font-size:11px;'
-            + 'text-decoration:underline;opacity:0.85;" target="_blank">'
+            + 'text-decoration:underline;opacity:0.85;" target="_blank" rel="noopener"'
+            + _grammarRecTelemetryAttrs(rec) + '>'
             + '→ ' + escHtml(rec.title || rec.slug) + '</a>';
         }
         return '<li class="flex gap-2">'
@@ -1048,12 +1060,16 @@
     // Card HTML: primary = full treatment with summary, secondary = compact muted
     function _grammarCardHtml(match, isPrimary) {
       var slug   = match.slug, meta = match.meta;
-      var href   = '/grammar/' + encodeURIComponent(meta.category) + '/' + encodeURIComponent(slug)
-                 + (match.anchor ? '#' + encodeURIComponent(match.anchor) : '');
+      var href   = _grammarRecHref({
+        category: meta.category,
+        slug: slug,
+        anchor: match.anchor,
+      });
+      var telemetryAttrs = _grammarRecTelemetryAttrs(match);
       var reason = _grReason(match.topField, match.topic);
 
       if (isPrimary) {
-        return '<a href="' + href + '" target="_blank" rel="noopener" class="result-grammar-card result-grammar-card--primary">'
+        return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs + ' class="result-grammar-card result-grammar-card--primary">'
           + '<div class="result-grammar-card__body">'
           + '<p class="result-grammar-card__title">' + _grEsc(meta.title) + '</p>'
           + '<p class="result-grammar-card__summary">' + _grEsc(meta.summary) + '</p>'
@@ -1062,9 +1078,9 @@
           + '<span class="result-grammar-card__cta">Học ngay →</span>'
           + '</a>';
       }
-      return '<a href="' + href + '" target="_blank" rel="noopener" class="result-grammar-card result-grammar-card--secondary">'
+      return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs + ' class="result-grammar-card result-grammar-card--secondary">'
         + '<div class="result-grammar-card__body">'
-        + '<p class="result-grammar-card__title">' + _grEsc(meta.title) + '</p>'
+          + '<p class="result-grammar-card__title">' + _grEsc(meta.title) + '</p>'
         + '<p class="result-grammar-card__reason">' + _grEsc(reason) + '</p>'
         + '</div>'
         + '<span class="result-grammar-card__chevron">→</span>'
@@ -1087,7 +1103,7 @@
           if (!rec.slug || seen[rec.slug]) return;
           seen[rec.slug] = true;
           var meta = _grMeta(rec.slug) || { category: rec.category, title: rec.title, summary: '' };
-          recMatches.push({ slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue, anchor: rec.anchor || null });
+          recMatches.push({ slug: rec.slug, meta: meta, topField: 'gi', topic: rec.issue, anchor: rec.anchor || null, rec_id: rec.rec_id || null });
         });
       });
       if (recMatches.length) {

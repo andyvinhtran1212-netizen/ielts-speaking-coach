@@ -537,9 +537,42 @@
   // Phase 5: extends _scrollToHashAnchor with a brief pulse highlight on
   //          the landed section so it's visually obvious which part of the
   //          article the AI feedback was referencing.
+  var _grammarHashchangeBound = false;
+
+  function _ensureAnchorNoticeEl() {
+    var existing = document.getElementById('grammar-anchor-notice');
+    if (existing) return existing;
+    var bodyEl = document.getElementById('article-body');
+    if (!bodyEl || !bodyEl.parentNode) return null;
+    var notice = document.createElement('div');
+    notice.id = 'grammar-anchor-notice';
+    notice.className = 'grammar-anchor-notice hidden';
+    notice.setAttribute('role', 'status');
+    notice.setAttribute('aria-live', 'polite');
+    bodyEl.parentNode.insertBefore(notice, bodyEl);
+    return notice;
+  }
+
+  function _showAnchorNotice(message) {
+    var notice = _ensureAnchorNoticeEl();
+    if (!notice) return;
+    notice.textContent = message;
+    notice.classList.remove('hidden');
+  }
+
+  function _clearAnchorNotice() {
+    var notice = document.getElementById('grammar-anchor-notice');
+    if (!notice) return;
+    notice.textContent = '';
+    notice.classList.add('hidden');
+  }
+
   function _scrollToHashAnchor() {
     var hash = window.location.hash;
-    if (!hash || hash === '#') return;
+    if (!hash || hash === '#') {
+      _clearAnchorNotice();
+      return;
+    }
     var anchorId;
     try {
       anchorId = decodeURIComponent(hash.substring(1));
@@ -553,13 +586,14 @@
     requestAnimationFrame(function () {
       var el = document.getElementById(anchorId);
       if (!el) {
-        // Graceful: hash points at unknown anchor (e.g. content removed)
-        // — leave page at top, no error to user.
+        _showAnchorNotice('Phần được đề xuất không tìm thấy trong bài này. Đang đưa bạn về đầu bài.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         if (window.console && console.warn) {
           console.warn('Grammar deep-link: anchor not found', anchorId);
         }
         return;
       }
+      _clearAnchorNotice();
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       _pulseAnchorHeading(el);
     });
@@ -699,6 +733,10 @@
       // point.  Manually scroll to the target on next paint.  Pulse
       // highlight is layered on in Phase 5 via _pulseAnchor().
       _scrollToHashAnchor();
+      if (!_grammarHashchangeBound) {
+        window.addEventListener('hashchange', _scrollToHashAnchor);
+        _grammarHashchangeBound = true;
+      }
 
       // ── Track view (fire-and-forget, auth optional) ──────────
       _trackArticleView(slug);
