@@ -1,0 +1,464 @@
+/* frontend/css/reading-exam-mockup.css — Sprint 20.4 EXAM CHROME MOCKUP.
+ *
+ * APPROVAL-GATE artefact. Faithful (best-effort, sans Andy reference
+ * screenshots) replication of the official IELTS BC/IDP computer-based
+ * Reading test UI. Per the cluster 20.x design baseline §3C: institutional
+ * neutral surfaces, single interactive accent, functional-only motion. The
+ * frontend-design skill's creative-freedom direction is OVERRIDDEN here in
+ * favour of exam fidelity. Student/aver-admin chromes keep aver brand
+ * styling — exam chrome is the only neutral one. */
+
+/* ── Exam-specific surface + accent tokens (override layer, exam pages only) ── */
+.exam-chrome {
+  /* Institutional grays — design_baseline §3C calls for ~#F4F5F6 / ~#E5E7EB */
+  --exam-surface-page:    #F5F6F7;
+  --exam-surface-card:    #FFFFFF;
+  --exam-surface-sunken:  #ECEDEF;
+  --exam-border-subtle:   #E1E3E6;
+  --exam-border-default:  #C7CBD1;
+  --exam-border-strong:   #8B919A;
+  --exam-text-primary:    #1B1F24;
+  --exam-text-secondary:  #4A5057;
+  --exam-text-muted:      #6B7280;
+  /* Single accent + warning. Teal (--av-primary) is the ONE interactive
+   * colour; --av-error reserved for timer-critical state (red flash). */
+  --exam-accent:          var(--av-primary, #0F766E);
+  --exam-accent-soft:     #DDEDEB;
+  --exam-warning:         #B45309;          /* timer warning at 10 min */
+  --exam-critical:        var(--av-error, #B91C1C);  /* timer critical at 5 min */
+  --exam-success:         #1E7E34;
+  /* Mono token already exists; alias here for readability. */
+  --exam-font-mono:       var(--av-font-mono, 'JetBrains Mono', monospace);
+  /* Sprint 20.4b — exam-only typeface override per Andy fidelity feedback +
+   * Mình's BC/IDP UI research. Real IELTS CD exam uses an institutional sans
+   * (Arial-family / system stack), NOT the project's brand font. This
+   * resolves Sprint 20.4 open-question Q1 toward institutional fidelity.
+   * Student + aver-admin chromes keep Plus Jakarta Sans (this token is
+   * scoped under `.exam-chrome` only). */
+  --exam-font-sans:       system-ui, -apple-system, 'Segoe UI', Verdana, Arial, sans-serif;
+  /* Sprint 20.4b — draggable split default. Real exam research says ~50/50
+   * ("two halves"); the JS handle clamps to 30–70% on drag. */
+  --exam-split-left:      50%;
+}
+
+/* Full-viewport exam shell — top bar / split / palette stacked, no body scroll. */
+.exam-chrome {
+  margin: 0;
+  font-family: var(--exam-font-sans);
+  color: var(--exam-text-primary);
+  background: var(--exam-surface-page);
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+/* Text-size toggle (settings menu) re-scales the type-scale base. The
+ * three steps correspond to BC/IDP's three settings choices. */
+.exam-chrome[data-text-size="medium"] { font-size: 17px; }
+.exam-chrome[data-text-size="large"]  { font-size: 19px; }
+
+/* ── Top bar ─────────────────────────────────────────────────────── */
+/* Sprint 20.4b — timer moves from upper-right (Sprint 20.4) to upper-MIDDLE
+ * per Mình's real-exam research. Top bar = 3-column grid where the middle
+ * cell holds the timer; left + right flex equally so the timer stays centred
+ * regardless of side widths. */
+.exam-topbar {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 10px 20px;
+  background: var(--exam-surface-card);
+  border-bottom: 1px solid var(--exam-border-default);
+  font-size: 14px;
+}
+.exam-topbar__left { display: flex; flex-direction: column; gap: 2px; }
+.exam-topbar__candidate {
+  color: var(--exam-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.exam-topbar__candidate b { color: var(--exam-text-primary); font-weight: 600; }
+.exam-topbar__section {
+  font-weight: 600; color: var(--exam-text-primary);
+  letter-spacing: 0.01em;
+  font-size: 13px;
+}
+.exam-topbar__right { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+
+/* Centred timer block. Minutes-only display per Mình's research (real CD
+ * exam hides seconds and counts down in whole minutes; warnings flash at
+ * 10 + 5 min remaining). */
+.exam-timer-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.exam-timer {
+  font-family: var(--exam-font-mono);
+  font-size: 26px; font-weight: 700;
+  padding: 4px 18px;
+  border: 1px solid var(--exam-border-strong);
+  background: var(--exam-surface-sunken);
+  color: var(--exam-text-primary);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.exam-timer__label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--exam-text-muted);
+}
+.exam-timer[data-state="warning"]  { color: var(--exam-warning); border-color: var(--exam-warning); }
+.exam-timer[data-state="critical"] {
+  color: #FFFFFF; background: var(--exam-critical); border-color: var(--exam-critical);
+  animation: exam-timer-pulse 1s ease-in-out infinite;
+}
+@keyframes exam-timer-pulse {
+  0%, 100% { opacity: 1; } 50% { opacity: 0.7; }
+}
+
+.exam-tool {
+  background: transparent; border: 1px solid var(--exam-border-default);
+  color: var(--exam-text-secondary); cursor: pointer;
+  font: inherit; padding: 4px 10px;
+}
+.exam-tool:hover  { background: var(--exam-surface-sunken); color: var(--exam-text-primary); }
+.exam-tool:focus-visible { outline: 2px solid var(--exam-accent); outline-offset: 1px; }
+
+/* ── Split view: passage LEFT / draggable divider / questions RIGHT ── */
+/* Sprint 20.4b — default 50/50 per real-exam "two halves" research, with a
+ * draggable middle column (the .exam-divider handle) the JS resizes by
+ * setting `--exam-split-left` on this container (clamped 30–70%). The
+ * divider is 6px so the cursor target is comfortable without dominating the
+ * layout. Strict real-exam fidelity would have NO user-resizable divider;
+ * Andy's product decision overrides fidelity here (flagged in the doc). */
+.exam-split {
+  display: grid;
+  grid-template-columns: var(--exam-split-left, 50%) 6px 1fr;
+  overflow: hidden;                                    /* panels scroll, not page */
+}
+.exam-passage,
+.exam-questions {
+  overflow-y: auto;                                    /* INDEPENDENT scroll */
+  padding: 20px 28px 24px;
+}
+.exam-passage {
+  background: var(--exam-surface-card);
+  /* visible vertical boundary is provided by the divider column now. */
+}
+.exam-divider {
+  background: var(--exam-border-default);
+  cursor: col-resize;
+  position: relative;
+  touch-action: none;                                  /* prevent scroll on touch-drag */
+  transition: background var(--av-duration-fast, 150ms) ease;
+}
+.exam-divider:hover,
+.exam-divider.is-dragging { background: var(--exam-accent); }
+/* Grip dots — three small marks centred on the handle. */
+.exam-divider::before {
+  content: ""; position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 2px; height: 24px;
+  background: var(--exam-surface-card);
+  box-shadow: 0 -8px 0 var(--exam-surface-card), 0 8px 0 var(--exam-surface-card);
+}
+.exam-passage__eyebrow {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--exam-text-muted); margin-bottom: 6px;
+}
+.exam-passage__title {
+  font-size: 22px; font-weight: 700; margin: 0 0 18px;
+  color: var(--exam-text-primary);
+}
+.exam-passage__body {
+  font-size: inherit; line-height: 1.7; max-width: 70ch;
+  color: var(--exam-text-primary);
+}
+.exam-passage__body p { margin: 0 0 16px; }
+/* Sprint 20.4c — Andy feedback #1: paragraph labels A–E were too small to
+ * scan. Bumped to a bold inline letter at primary-text contrast so the
+ * matching-headings + "according to paragraph C" question prompts read
+ * cleanly. Kept inline (not a badge) to stay institutional / unobtrusive. */
+.exam-passage__body .para-label {
+  font-family: var(--exam-font-mono); font-size: 16px; font-weight: 700;
+  color: var(--exam-text-primary);
+  letter-spacing: 0.04em;
+  margin-right: 8px;
+}
+/* Highlight tool — visual-only demonstration in the mockup (interactive
+ * deferred to Sprint 20.6 per Discovery §5 / commission decision 4). */
+.exam-highlight {
+  background: #FEF3C7; padding: 0 2px;
+  box-shadow: 0 -1px 0 #F59E0B inset;
+}
+
+.exam-questions { background: var(--exam-surface-page); }
+/* Sprint 20.4b — Andy feedback #1: rubric/instruction text was too small.
+ * Bumped from 13px to 15px (matches the question-prompt size; rubric should
+ * read as an authoritative instruction, not a hint). Real exam rubrics are
+ * clearly legible — this matches that hierarchy. */
+.exam-questions__instructions {
+  font-size: 15px; line-height: 1.5;
+  color: var(--exam-text-primary);
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-subtle); border-left: 3px solid var(--exam-accent);
+  padding: 12px 16px; margin-bottom: 16px;
+}
+.exam-questions__instructions strong { color: var(--exam-text-primary); }
+
+/* ── Question block ──────────────────────────────────────────────── */
+.exam-q {
+  display: grid; grid-template-columns: 28px 1fr auto; gap: 8px 12px;
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-subtle);
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.exam-q.is-current { border-color: var(--exam-accent); box-shadow: 0 0 0 1px var(--exam-accent) inset; }
+.exam-q__num {
+  font-family: var(--exam-font-mono); font-weight: 700; font-size: 14px;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--exam-text-primary); color: var(--exam-text-primary);
+}
+.exam-q__body { min-width: 0; }
+.exam-q__prompt { font-size: inherit; margin: 0 0 6px; }
+.exam-q__options { display: flex; flex-direction: column; gap: 4px; }
+.exam-q__option { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.exam-q__option input { margin-top: 4px; }
+.exam-q__gap {
+  font: inherit; font-size: inherit;
+  border: 0; border-bottom: 1.5px dotted var(--exam-text-primary);
+  background: transparent; padding: 2px 4px; min-width: 160px;
+  color: var(--exam-text-primary);
+}
+.exam-q__gap:focus { outline: 2px solid var(--exam-accent); outline-offset: 2px; border-bottom-style: solid; }
+.exam-q__select {
+  font: inherit; font-size: inherit;
+  border: 1px solid var(--exam-border-default); background: var(--exam-surface-card);
+  padding: 4px 6px; min-width: 280px;
+}
+
+/* Flag-for-review button (signature BC/IDP affordance). */
+.exam-q__flag {
+  align-self: start;
+  width: 28px; height: 28px; border-radius: 0;
+  border: 1px solid var(--exam-border-default); background: var(--exam-surface-card);
+  cursor: pointer; line-height: 1; font-size: 14px;
+  color: var(--exam-text-muted);
+}
+.exam-q__flag:hover { background: var(--exam-surface-sunken); }
+.exam-q__flag[aria-pressed="true"] {
+  color: #FFFFFF; background: var(--exam-warning); border-color: var(--exam-warning);
+}
+
+/* ── Bottom nav palette (1–N + Review + Submit) ──────────────────── */
+.exam-palette {
+  display: grid; grid-template-columns: 1fr auto; gap: 14px;
+  padding: 10px 20px;
+  background: var(--exam-surface-card);
+  border-top: 1px solid var(--exam-border-default);
+}
+.exam-palette__grid {
+  display: grid; grid-auto-flow: column;
+  grid-auto-columns: 36px; gap: 4px;
+  align-items: center;
+  overflow-x: auto;                                  /* scroll if 40 buttons exceed width */
+}
+/* Sprint 20.4c — Andy feedback #2: palette state contrast. The three states
+ * follow the real-exam pattern (outline / filled-dark / filled-bright):
+ *   unanswered → white box, dark border, dark text   (OUTLINE)
+ *   answered   → dark-grey fill, white text          (FILLED-DARK)
+ *   current    → teal fill, white text               (FILLED-BRIGHT)
+ * `is-flagged` keeps its amber corner triangle and stacks with any state. */
+.exam-palette__q {
+  position: relative;
+  width: 36px; height: 32px;
+  font: inherit; font-family: var(--exam-font-mono);
+  font-size: 13px; font-weight: 600;
+  background: var(--exam-surface-card);
+  border: 1.5px solid var(--exam-border-strong);
+  color: var(--exam-text-primary);
+  cursor: pointer; padding: 0;
+}
+.exam-palette__q:hover {
+  background: var(--exam-surface-sunken);
+  border-color: var(--exam-text-primary);
+}
+.exam-palette__q.is-answered {
+  background: var(--exam-text-secondary);                /* dark fill */
+  color: #FFFFFF;
+  border-color: var(--exam-text-secondary);
+}
+.exam-palette__q.is-answered:hover {
+  background: var(--exam-text-primary); border-color: var(--exam-text-primary);
+}
+.exam-palette__q.is-current {
+  background: var(--exam-accent);                        /* bright fill */
+  color: #FFFFFF;
+  border-color: var(--exam-accent);
+  /* Subtle outline ring so "current" reads above "answered" even at the same fill weight. */
+  box-shadow: 0 0 0 2px var(--exam-surface-card), 0 0 0 3px var(--exam-accent);
+}
+.exam-palette__q:focus-visible {
+  outline: 2px solid var(--exam-accent); outline-offset: 2px;
+}
+/* Flag indicator: filled amber corner triangle (bumped to 10px so it reads
+ * cleanly against the new high-contrast fills). */
+.exam-palette__q.is-flagged::after {
+  content: ""; position: absolute; top: 0; right: 0;
+  width: 0; height: 0;
+  border-style: solid; border-width: 0 10px 10px 0;
+  border-color: transparent var(--exam-warning) transparent transparent;
+}
+.exam-palette__actions { display: flex; gap: 10px; align-items: center; }
+.exam-btn {
+  font: inherit; padding: 6px 16px;
+  border: 1px solid var(--exam-border-strong); background: var(--exam-surface-card);
+  color: var(--exam-text-primary); cursor: pointer;
+}
+.exam-btn--primary {
+  background: var(--exam-accent); border-color: var(--exam-accent); color: #FFFFFF;
+}
+.exam-btn:focus-visible { outline: 2px solid var(--exam-accent); outline-offset: 2px; }
+
+/* ── Settings popover (text-size toggle) ─────────────────────────── */
+.exam-settings {
+  position: absolute; top: 56px; right: 20px; z-index: 10;
+  background: var(--exam-surface-card); color: var(--exam-text-primary);
+  border: 1px solid var(--exam-border-strong); padding: 12px 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  min-width: 200px;
+}
+.exam-settings[hidden] { display: none; }
+.exam-settings__title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--exam-text-muted); margin-bottom: 6px; }
+.exam-settings__row { display: flex; gap: 4px; margin-bottom: 10px; }
+.exam-settings__row button {
+  flex: 1; font: inherit; padding: 4px 8px;
+  background: var(--exam-surface-card); border: 1px solid var(--exam-border-default); cursor: pointer;
+}
+.exam-settings__row button.is-active { background: var(--exam-accent); color: #FFFFFF; border-color: var(--exam-accent); }
+
+/* ── Sprint 20.4b — User highlights + notes (Andy feedback #3) ────── */
+/* Faithful to real IELTS CD exam: select passage/question text → right-click
+ * → "Highlight" wraps the selection in yellow; same menu offers "Note"
+ * (inline marker + popover). Works in BOTH passage and question panels.
+ * Visual-only highlights from Sprint 20.4 (.exam-highlight only) keep the
+ * same yellow; user-applied highlights add .is-user for the click-to-remove
+ * affordance. */
+.exam-highlight.is-user {
+  cursor: pointer;
+  position: relative;
+}
+.exam-highlight.is-user:hover {
+  background: #FDE68A;
+  box-shadow: 0 -2px 0 #F59E0B inset;
+}
+/* Note marker — small inline pill following the highlighted text. */
+.exam-note-marker {
+  display: inline-block;
+  margin-left: 2px;
+  font-size: 0.78em; line-height: 1;
+  padding: 1px 6px;
+  background: var(--exam-accent); color: #FFFFFF;
+  border-radius: 999px;
+  cursor: pointer; vertical-align: 0.05em;
+  user-select: none;
+}
+.exam-note-marker::before { content: "✎ "; }
+
+/* Right-click context menu (Highlight / Note / Remove). Positioned absolutely
+ * by the JS at the mouse coords; hidden by default via [hidden]. */
+.exam-context-menu {
+  position: absolute; z-index: 60;
+  min-width: 160px;
+  background: var(--exam-surface-card); color: var(--exam-text-primary);
+  border: 1px solid var(--exam-border-strong);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  padding: 4px;
+  font: inherit; font-size: 13px;
+}
+.exam-context-menu[hidden] { display: none; }
+.exam-context-menu__item {
+  display: flex; gap: 10px; align-items: center; width: 100%;
+  padding: 6px 10px; border: 0; background: transparent;
+  text-align: left; cursor: pointer; font: inherit; color: inherit;
+}
+.exam-context-menu__item:hover,
+.exam-context-menu__item:focus { background: var(--exam-surface-sunken); outline: none; }
+.exam-context-menu__icon {
+  display: inline-block; width: 14px; text-align: center;
+  color: var(--exam-text-muted);
+}
+.exam-context-menu__item[data-action="highlight"] .exam-context-menu__icon { color: #B45309; }
+.exam-context-menu__item[data-action="note"]      .exam-context-menu__icon { color: var(--exam-accent); }
+.exam-context-menu__item[data-action="remove"]    .exam-context-menu__icon { color: var(--exam-critical); }
+
+/* Inline note popover — appears anchored to a note marker; mockup-level
+ * persistence on the highlight span's data-note attribute. */
+.exam-note-popover {
+  position: absolute; z-index: 65;
+  width: 280px;
+  background: var(--exam-surface-card); color: var(--exam-text-primary);
+  border: 1px solid var(--exam-border-strong);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.14);
+  padding: 10px 12px;
+  font: inherit; font-size: 13px;
+}
+.exam-note-popover[hidden] { display: none; }
+.exam-note-popover__title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--exam-text-muted); margin-bottom: 6px;
+}
+.exam-note-popover__textarea {
+  width: 100%; min-height: 76px; resize: vertical;
+  font: inherit; padding: 6px 8px;
+  border: 1px solid var(--exam-border-default);
+  background: var(--exam-surface-card); color: var(--exam-text-primary);
+}
+.exam-note-popover__actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.exam-note-popover__actions button {
+  font: inherit; font-size: 12px; padding: 4px 10px;
+  border: 1px solid var(--exam-border-strong);
+  background: var(--exam-surface-card); color: var(--exam-text-primary);
+  cursor: pointer;
+}
+.exam-note-popover__actions button.is-primary {
+  background: var(--exam-accent); color: #FFFFFF; border-color: var(--exam-accent);
+}
+.exam-note-popover__actions button.is-danger {
+  background: var(--exam-surface-card); color: var(--exam-critical);
+  border-color: var(--exam-critical);
+}
+
+/* ── Sprint 20.4b — Prev/Next nav arrows (palette) ─────────────────── */
+.exam-palette__nav { display: flex; gap: 6px; }
+.exam-palette__nav-btn {
+  font: inherit; padding: 6px 12px;
+  border: 1px solid var(--exam-border-strong);
+  background: var(--exam-surface-card); color: var(--exam-text-primary);
+  cursor: pointer;
+}
+.exam-palette__nav-btn:hover { background: var(--exam-surface-sunken); }
+.exam-palette__nav-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Mockup-only "demo" banner so reviewers know this is not production ── */
+.exam-mockup-banner {
+  background: #FEF3C7; color: #78350F;
+  border-bottom: 1px solid #F59E0B;
+  font-size: 13px; padding: 6px 20px;
+  text-align: center;
+}
+.exam-mockup-banner code { font-family: var(--exam-font-mono); }
+
+/* ── Mobile graceful degradation (real exam is desktop-only — test centres) ── */
+@media (max-width: 900px) {
+  .exam-chrome { grid-template-rows: auto auto 1fr auto; }
+  .exam-mobile-notice {
+    background: var(--exam-surface-sunken); color: var(--exam-text-secondary);
+    padding: 8px 20px; font-size: 13px; text-align: center;
+    border-bottom: 1px solid var(--exam-border-default);
+  }
+  .exam-split { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; }
+  .exam-passage { border-right: 0; border-bottom: 1px solid var(--exam-border-default); }
+}
+@media (min-width: 901px) { .exam-mobile-notice { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .exam-timer[data-state="critical"] { animation: none; }
+}
