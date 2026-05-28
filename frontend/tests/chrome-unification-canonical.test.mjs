@@ -553,22 +553,27 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /Aver<span class="dot">\.<\/span>Learning/);
   });
 
-  test('shadow tree contains all 6 skill links with data-tab attrs', () => {
-    // Sprint 11.1 — 'listening' joins the canonical 5 (was: home/writing/
-    // speaking/grammar/vocabulary).
-    for (const tab of ['home', 'writing', 'speaking', 'listening', 'grammar', 'vocabulary']) {
+  test('shadow tree contains all 7 skill links with data-tab attrs', () => {
+    // Sprint 11.1 — 'listening' joined the canonical 5; Sprint 20.2 — 'reading'
+    // promoted from locked tab to active link (cluster 20.x L1 Vocab Reading).
+    for (const tab of ['home', 'writing', 'speaking', 'listening', 'grammar', 'vocabulary', 'reading']) {
       const re = new RegExp(`data-tab="${tab}"`);
       assert.match(component, re, `nav-links must include data-tab="${tab}"`);
     }
   });
 
-  test('shadow tree contains exactly 1 locked span (Reading) — Listening promoted in Sprint 11.1', () => {
+  test('shadow tree contains zero locked spans (Reading promoted to active in Sprint 20.2)', () => {
     const matches = component.match(/<span class="locked"/g) || [];
-    assert.equal(matches.length, 1, 'expected 1 locked tab; Listening promoted to active in 11.1');
-    assert.match(component, /<span class="locked" aria-disabled="true">Reading<\/span>/);
+    assert.equal(matches.length, 0, 'expected 0 locked tabs; Reading promoted to active in Sprint 20.2');
+    // Reading is now an active nav link, not a locked span.
+    assert.match(
+      component,
+      /href="\/pages\/reading-vocab\.html"\s+data-tab="reading">Reading<\/a>/,
+      'Reading must be an active nav link (Sprint 20.2 unlock).',
+    );
     assert.ok(
-      !/<span class="locked" aria-disabled="true">Listening<\/span>/.test(component),
-      'Listening must NOT carry the locked class anymore (Sprint 11.1).',
+      !/<span class="locked" aria-disabled="true">Reading<\/span>/.test(component),
+      'Reading must NOT carry the locked class anymore (Sprint 20.2).',
     );
   });
 
@@ -623,14 +628,15 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /this\._mounted\s*=\s*true/);
   });
 
-  test('href targets match canonical chrome contract (6 skill landings + profile)', () => {
-    // Sprint 11.1 — Listening href joins the canonical 5.
+  test('href targets match canonical chrome contract (7 skill landings + profile)', () => {
+    // Sprint 11.1 — Listening href joined the canonical 5; Sprint 20.2 — Reading.
     assert.match(component, /href="\/pages\/home\.html"\s+data-tab="home"/);
     assert.match(component, /href="\/pages\/writing-dashboard\.html"\s+data-tab="writing"/);
     assert.match(component, /href="\/pages\/speaking\.html"\s+data-tab="speaking"/);
     assert.match(component, /href="\/pages\/listening\.html"\s+data-tab="listening"/);
     assert.match(component, /href="\/grammar\.html"\s+data-tab="grammar"/);
     assert.match(component, /href="\/pages\/vocabulary\.html"\s+data-tab="vocabulary"/);
+    assert.match(component, /href="\/pages\/reading-vocab\.html"\s+data-tab="reading"/);
   });
 });
 

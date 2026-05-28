@@ -45,6 +45,7 @@ from routers.health import router as health_router
 from routers.dashboard import router as dashboard_router
 from routers.student_home import router as student_home_router
 from routers.admin_reading import router as admin_reading_content_router
+from routers.reading_student import router as reading_student_router
 
 # Configure logging to emit INFO+ to stdout (Railway captures stdout).
 # Sprint 6.6: backend never called basicConfig before, so Python defaulted
@@ -135,6 +136,7 @@ app.include_router(flashcards_user_router)
 app.include_router(listening_user_router)
 app.include_router(listening_admin_router)
 app.include_router(admin_reading_content_router)
+app.include_router(reading_student_router)
 app.include_router(health_router)
 app.include_router(dashboard_router)
 app.include_router(student_home_router)

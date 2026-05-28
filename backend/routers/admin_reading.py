@@ -33,6 +33,7 @@ from routers.admin import require_admin
 from services.content_import_service import (
     FrontmatterError,
     build_reading_passage_payload,
+    build_reading_question_payloads,
     parse_reading_passage,
     slugify,
     validate_reading_passage,
@@ -104,15 +105,25 @@ async def import_reading_content(
         )
         if existing.data:
             supabase_admin.table("reading_passages").update(payload).eq("slug", parsed.slug).execute()
-            result["committed_id"] = existing.data[0]["id"]
+            passage_id = existing.data[0]["id"]
             result["action"] = "updated"
         else:
             payload["created_by"] = admin["id"]
             r = supabase_admin.table("reading_passages").insert(payload).execute()
             if not r.data:
                 raise HTTPException(500, "Không lưu được nội dung.")
-            result["committed_id"] = r.data[0]["id"]
+            passage_id = r.data[0]["id"]
             result["action"] = "created"
+        result["committed_id"] = passage_id
+
+        # Sync the passage's comprehension questions (idempotent: replace the
+        # whole set on re-import so a corrected file fully overwrites). Delete
+        # then insert — the FK is ON DELETE CASCADE but we scope by passage_id.
+        supabase_admin.table("reading_questions").delete().eq("passage_id", passage_id).execute()
+        if parsed.questions:
+            q_rows = build_reading_question_payloads(parsed.questions, passage_id)
+            supabase_admin.table("reading_questions").insert(q_rows).execute()
+        result["question_count"] = len(parsed.questions)
     except HTTPException:
         raise
     except Exception as exc:
