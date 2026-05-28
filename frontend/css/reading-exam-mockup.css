@@ -1,0 +1,278 @@
+/* frontend/css/reading-exam-mockup.css — Sprint 20.4 EXAM CHROME MOCKUP.
+ *
+ * APPROVAL-GATE artefact. Faithful (best-effort, sans Andy reference
+ * screenshots) replication of the official IELTS BC/IDP computer-based
+ * Reading test UI. Per the cluster 20.x design baseline §3C: institutional
+ * neutral surfaces, single interactive accent, functional-only motion. The
+ * frontend-design skill's creative-freedom direction is OVERRIDDEN here in
+ * favour of exam fidelity. Student/aver-admin chromes keep aver brand
+ * styling — exam chrome is the only neutral one. */
+
+/* ── Exam-specific surface + accent tokens (override layer, exam pages only) ── */
+.exam-chrome {
+  /* Institutional grays — design_baseline §3C calls for ~#F4F5F6 / ~#E5E7EB */
+  --exam-surface-page:    #F5F6F7;
+  --exam-surface-card:    #FFFFFF;
+  --exam-surface-sunken:  #ECEDEF;
+  --exam-border-subtle:   #E1E3E6;
+  --exam-border-default:  #C7CBD1;
+  --exam-border-strong:   #8B919A;
+  --exam-text-primary:    #1B1F24;
+  --exam-text-secondary:  #4A5057;
+  --exam-text-muted:      #6B7280;
+  /* Single accent + warning. Teal (--av-primary) is the ONE interactive
+   * colour; --av-error reserved for timer-critical state (red flash). */
+  --exam-accent:          var(--av-primary, #0F766E);
+  --exam-accent-soft:     #DDEDEB;
+  --exam-warning:         #B45309;          /* timer warning at 10 min */
+  --exam-critical:        var(--av-error, #B91C1C);  /* timer critical at 5 min */
+  --exam-success:         #1E7E34;
+  /* Mono token already exists; alias here for readability. */
+  --exam-font-mono:       var(--av-font-mono, 'JetBrains Mono', monospace);
+  --exam-font-sans:       var(--av-font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+}
+
+/* Full-viewport exam shell — top bar / split / palette stacked, no body scroll. */
+.exam-chrome {
+  margin: 0;
+  font-family: var(--exam-font-sans);
+  color: var(--exam-text-primary);
+  background: var(--exam-surface-page);
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+/* Text-size toggle (settings menu) re-scales the type-scale base. The
+ * three steps correspond to BC/IDP's three settings choices. */
+.exam-chrome[data-text-size="medium"] { font-size: 17px; }
+.exam-chrome[data-text-size="large"]  { font-size: 19px; }
+
+/* ── Top bar ─────────────────────────────────────────────────────── */
+.exam-topbar {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 10px 20px;
+  background: var(--exam-surface-card);
+  border-bottom: 1px solid var(--exam-border-default);
+  font-size: 14px;
+}
+.exam-topbar__candidate {
+  color: var(--exam-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.exam-topbar__candidate b { color: var(--exam-text-primary); font-weight: 600; }
+.exam-topbar__section {
+  text-align: center; font-weight: 600; color: var(--exam-text-primary);
+  letter-spacing: 0.01em;
+}
+.exam-topbar__right { display: flex; justify-content: flex-end; align-items: center; gap: 16px; }
+
+.exam-timer {
+  font-family: var(--exam-font-mono);
+  font-size: 22px; font-weight: 600;
+  padding: 4px 12px;
+  border: 1px solid var(--exam-border-strong);
+  background: var(--exam-surface-sunken);
+  color: var(--exam-text-primary);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.exam-timer[data-state="warning"]  { color: var(--exam-warning); border-color: var(--exam-warning); }
+.exam-timer[data-state="critical"] {
+  color: #FFFFFF; background: var(--exam-critical); border-color: var(--exam-critical);
+  animation: exam-timer-pulse 1s ease-in-out infinite;
+}
+@keyframes exam-timer-pulse {
+  0%, 100% { opacity: 1; } 50% { opacity: 0.7; }
+}
+
+.exam-tool {
+  background: transparent; border: 1px solid var(--exam-border-default);
+  color: var(--exam-text-secondary); cursor: pointer;
+  font: inherit; padding: 4px 10px;
+}
+.exam-tool:hover  { background: var(--exam-surface-sunken); color: var(--exam-text-primary); }
+.exam-tool:focus-visible { outline: 2px solid var(--exam-accent); outline-offset: 1px; }
+
+/* ── Split view: passage LEFT 55% / questions RIGHT 45% ───────────── */
+.exam-split {
+  display: grid; grid-template-columns: 55% 45%;
+  overflow: hidden;                                    /* panels scroll, not page */
+}
+.exam-passage,
+.exam-questions {
+  overflow-y: auto;                                    /* INDEPENDENT scroll */
+  padding: 20px 28px 24px;
+}
+.exam-passage {
+  background: var(--exam-surface-card);
+  border-right: 1px solid var(--exam-border-default); /* visible vertical boundary */
+}
+.exam-passage__eyebrow {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--exam-text-muted); margin-bottom: 6px;
+}
+.exam-passage__title {
+  font-size: 22px; font-weight: 700; margin: 0 0 18px;
+  color: var(--exam-text-primary);
+}
+.exam-passage__body {
+  font-size: inherit; line-height: 1.7; max-width: 70ch;
+  color: var(--exam-text-primary);
+}
+.exam-passage__body p { margin: 0 0 16px; }
+.exam-passage__body p::first-letter { /* paragraph numbering hook */ }
+.exam-passage__body .para-label {
+  font-family: var(--exam-font-mono); font-size: 12px;
+  color: var(--exam-text-muted); margin-right: 4px;
+}
+/* Highlight tool — visual-only demonstration in the mockup (interactive
+ * deferred to Sprint 20.6 per Discovery §5 / commission decision 4). */
+.exam-highlight {
+  background: #FEF3C7; padding: 0 2px;
+  box-shadow: 0 -1px 0 #F59E0B inset;
+}
+
+.exam-questions { background: var(--exam-surface-page); }
+.exam-questions__instructions {
+  font-size: 13px; color: var(--exam-text-secondary);
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-subtle); border-left: 3px solid var(--exam-accent);
+  padding: 10px 14px; margin-bottom: 16px;
+}
+
+/* ── Question block ──────────────────────────────────────────────── */
+.exam-q {
+  display: grid; grid-template-columns: 28px 1fr auto; gap: 8px 12px;
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-subtle);
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.exam-q.is-current { border-color: var(--exam-accent); box-shadow: 0 0 0 1px var(--exam-accent) inset; }
+.exam-q__num {
+  font-family: var(--exam-font-mono); font-weight: 700; font-size: 14px;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--exam-text-primary); color: var(--exam-text-primary);
+}
+.exam-q__body { min-width: 0; }
+.exam-q__prompt { font-size: inherit; margin: 0 0 6px; }
+.exam-q__options { display: flex; flex-direction: column; gap: 4px; }
+.exam-q__option { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.exam-q__option input { margin-top: 4px; }
+.exam-q__gap {
+  font: inherit; font-size: inherit;
+  border: 0; border-bottom: 1.5px dotted var(--exam-text-primary);
+  background: transparent; padding: 2px 4px; min-width: 160px;
+  color: var(--exam-text-primary);
+}
+.exam-q__gap:focus { outline: 2px solid var(--exam-accent); outline-offset: 2px; border-bottom-style: solid; }
+.exam-q__select {
+  font: inherit; font-size: inherit;
+  border: 1px solid var(--exam-border-default); background: var(--exam-surface-card);
+  padding: 4px 6px; min-width: 280px;
+}
+
+/* Flag-for-review button (signature BC/IDP affordance). */
+.exam-q__flag {
+  align-self: start;
+  width: 28px; height: 28px; border-radius: 0;
+  border: 1px solid var(--exam-border-default); background: var(--exam-surface-card);
+  cursor: pointer; line-height: 1; font-size: 14px;
+  color: var(--exam-text-muted);
+}
+.exam-q__flag:hover { background: var(--exam-surface-sunken); }
+.exam-q__flag[aria-pressed="true"] {
+  color: #FFFFFF; background: var(--exam-warning); border-color: var(--exam-warning);
+}
+
+/* ── Bottom nav palette (1–N + Review + Submit) ──────────────────── */
+.exam-palette {
+  display: grid; grid-template-columns: 1fr auto; gap: 14px;
+  padding: 10px 20px;
+  background: var(--exam-surface-card);
+  border-top: 1px solid var(--exam-border-default);
+}
+.exam-palette__grid {
+  display: grid; grid-auto-flow: column;
+  grid-auto-columns: 36px; gap: 4px;
+  align-items: center;
+  overflow-x: auto;                                  /* scroll if 40 buttons exceed width */
+}
+.exam-palette__q {
+  position: relative;
+  width: 36px; height: 32px;
+  font: inherit; font-family: var(--exam-font-mono); font-size: 13px;
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-default);
+  color: var(--exam-text-primary);
+  cursor: pointer; padding: 0;
+}
+.exam-palette__q:hover { background: var(--exam-surface-sunken); }
+.exam-palette__q.is-answered {
+  background: var(--exam-surface-sunken); color: var(--exam-text-primary);
+  border-color: var(--exam-border-strong);
+}
+.exam-palette__q.is-current {
+  background: var(--exam-accent); color: #FFFFFF; border-color: var(--exam-accent);
+}
+/* Flag indicator: a small filled corner triangle on the top-right. */
+.exam-palette__q.is-flagged::after {
+  content: ""; position: absolute; top: 0; right: 0;
+  width: 0; height: 0;
+  border-style: solid; border-width: 0 8px 8px 0;
+  border-color: transparent var(--exam-warning) transparent transparent;
+}
+.exam-palette__actions { display: flex; gap: 10px; align-items: center; }
+.exam-btn {
+  font: inherit; padding: 6px 16px;
+  border: 1px solid var(--exam-border-strong); background: var(--exam-surface-card);
+  color: var(--exam-text-primary); cursor: pointer;
+}
+.exam-btn--primary {
+  background: var(--exam-accent); border-color: var(--exam-accent); color: #FFFFFF;
+}
+.exam-btn:focus-visible { outline: 2px solid var(--exam-accent); outline-offset: 2px; }
+
+/* ── Settings popover (text-size toggle) ─────────────────────────── */
+.exam-settings {
+  position: absolute; top: 56px; right: 20px; z-index: 10;
+  background: var(--exam-surface-card); color: var(--exam-text-primary);
+  border: 1px solid var(--exam-border-strong); padding: 12px 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  min-width: 200px;
+}
+.exam-settings[hidden] { display: none; }
+.exam-settings__title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--exam-text-muted); margin-bottom: 6px; }
+.exam-settings__row { display: flex; gap: 4px; margin-bottom: 10px; }
+.exam-settings__row button {
+  flex: 1; font: inherit; padding: 4px 8px;
+  background: var(--exam-surface-card); border: 1px solid var(--exam-border-default); cursor: pointer;
+}
+.exam-settings__row button.is-active { background: var(--exam-accent); color: #FFFFFF; border-color: var(--exam-accent); }
+
+/* ── Mockup-only "demo" banner so reviewers know this is not production ── */
+.exam-mockup-banner {
+  background: #FEF3C7; color: #78350F;
+  border-bottom: 1px solid #F59E0B;
+  font-size: 13px; padding: 6px 20px;
+  text-align: center;
+}
+.exam-mockup-banner code { font-family: var(--exam-font-mono); }
+
+/* ── Mobile graceful degradation (real exam is desktop-only — test centres) ── */
+@media (max-width: 900px) {
+  .exam-chrome { grid-template-rows: auto auto 1fr auto; }
+  .exam-mobile-notice {
+    background: var(--exam-surface-sunken); color: var(--exam-text-secondary);
+    padding: 8px 20px; font-size: 13px; text-align: center;
+    border-bottom: 1px solid var(--exam-border-default);
+  }
+  .exam-split { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; }
+  .exam-passage { border-right: 0; border-bottom: 1px solid var(--exam-border-default); }
+}
+@media (min-width: 901px) { .exam-mobile-notice { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .exam-timer[data-state="critical"] { animation: none; }
+}
