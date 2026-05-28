@@ -144,6 +144,124 @@
   word-break: break-word;
 }
 
+.exam-results-diagnostic__intro {
+  margin: 0 0 12px;
+  color: var(--exam-text-secondary);
+  line-height: 1.55;
+}
+.exam-results-diagnostic__status {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--exam-border-default);
+  background: var(--exam-surface-sunken);
+  color: var(--exam-text-secondary);
+  font-size: 14px;
+}
+.exam-results-diagnostic {
+  display: grid;
+  gap: 12px;
+}
+.exam-results-diagnostic__empty {
+  padding: 16px;
+  border: 1px solid var(--exam-border-default);
+  background: var(--exam-surface-card);
+  color: var(--exam-text-secondary);
+  line-height: 1.55;
+}
+.exam-diagnostic-card {
+  border: 1px solid var(--exam-border-default);
+  background: var(--exam-surface-card);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.exam-diagnostic-card__top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.exam-diagnostic-card__title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--exam-text-primary);
+}
+.exam-diagnostic-card__meta {
+  margin: 4px 0 0;
+  color: var(--exam-text-secondary);
+  font-size: 14px;
+}
+.exam-diagnostic-card__pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid var(--exam-border-default);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.exam-diagnostic-card__pill[data-level="weak"] {
+  color: var(--exam-critical);
+  border-color: rgba(177, 51, 43, 0.28);
+  background: rgba(177, 51, 43, 0.08);
+}
+.exam-diagnostic-card__pill[data-level="watch"] {
+  color: #8a5b00;
+  border-color: rgba(138, 91, 0, 0.25);
+  background: rgba(227, 175, 70, 0.14);
+}
+.exam-diagnostic-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.exam-diagnostic-card__stat {
+  padding: 10px 12px;
+  background: var(--exam-surface-sunken);
+  border: 1px solid var(--exam-border-default);
+}
+.exam-diagnostic-card__stat-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--exam-text-muted);
+}
+.exam-diagnostic-card__stat-value {
+  color: var(--exam-text-primary);
+  font-family: var(--exam-font-mono);
+  font-size: 20px;
+  font-weight: 700;
+}
+.exam-diagnostic-card__links {
+  display: grid;
+  gap: 8px;
+}
+.exam-diagnostic-card__links a {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--exam-border-default);
+  color: var(--exam-text-primary);
+  text-decoration: none;
+  background: var(--exam-surface-sunken);
+}
+.exam-diagnostic-card__links a:hover,
+.exam-diagnostic-card__links a:focus-visible {
+  border-color: var(--exam-accent);
+  outline: none;
+}
+.exam-diagnostic-card__links strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.exam-diagnostic-card__links span {
+  color: var(--exam-text-secondary);
+  font-size: 13px;
+}
+
 /* ── Modals (submit confirmation + Help) ──────────────────────────── */
 .exam-modal {
   position: fixed; inset: 0; z-index: 80;
@@ -211,4 +329,6 @@
   .exam-results-band-row { flex-direction: column; }
   .exam-results-bygrid { grid-template-columns: 1fr; }
   .exam-results-skillrow { grid-template-columns: 1fr; gap: 4px; }
+  .exam-diagnostic-card__top,
+  .exam-diagnostic-card__stats { grid-template-columns: 1fr; display: grid; }
 }
