@@ -44,6 +44,14 @@ DIFFICULTY_LEVELS     = ("foundation", "intermediate", "advanced")
 SKILL_TAGS            = ("skimming", "scanning", "detail", "main_idea",
                          "inference", "vocabulary_in_context",
                          "reference_cohesion", "writer_view_TFNG")
+# Sprint 20.2 — the question types L1 light-comprehension Qs may author
+# (the DB CHECK in mig 086 allows the full IELTS set; the AUTHORING subset
+# is restricted to Phase 1 here, matching reading_content_format_v1.md).
+READING_QUESTION_TYPES_PHASE1 = (
+    "mcq_single", "true_false_not_given", "yes_no_not_given",
+    "sentence_completion", "summary_completion", "notes_completion",
+    "table_completion", "form_completion", "short_answer", "matching_headings",
+)
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
@@ -235,6 +243,7 @@ class ParsedReadingPassage:
     estimated_minutes: Optional[int]
     published:         bool
     body_markdown:     str
+    questions:         list = field(default_factory=list)
     raw_frontmatter:   dict = field(default_factory=dict)
 
     def as_preview(self) -> dict:
@@ -252,6 +261,7 @@ class ParsedReadingPassage:
             "word_count":        self.word_count,
             "estimated_minutes": self.estimated_minutes,
             "published":         self.published,
+            "question_count":    len(self.questions),
             "body_markdown":     self.body_markdown,
         }
 
@@ -263,6 +273,7 @@ def parse_reading_passage(text: str) -> ParsedReadingPassage:
     reads raw_frontmatter to flag a non-list glossary)."""
     fm, body = _split_frontmatter(text)
     raw_glossary = fm.get("glossary")
+    raw_questions = fm.get("questions")
 
     return ParsedReadingPassage(
         content_type      = _as_str(fm.get("content_type")),
@@ -276,6 +287,7 @@ def parse_reading_passage(text: str) -> ParsedReadingPassage:
         estimated_minutes = _as_opt_int(fm.get("estimated_minutes")),
         published         = bool(fm.get("published", False)),
         body_markdown     = body,
+        questions         = raw_questions if isinstance(raw_questions, list) else [],
         raw_frontmatter   = fm,
     )
 
@@ -316,7 +328,84 @@ def validate_reading_passage(p: ParsedReadingPassage) -> list[dict]:
                 if not isinstance(item, dict) or not item.get("term") or not item.get("definition"):
                     err("glossary", f"Mục glossary #{i + 1} cần 'term' và 'definition'.")
 
+    # Light comprehension questions (optional). Read raw so a non-list is flagged.
+    raw_questions = p.raw_frontmatter.get("questions")
+    if raw_questions is not None:
+        errors.extend(validate_reading_questions(raw_questions))
+
     return errors
+
+
+def validate_reading_questions(questions: Any) -> list[dict]:
+    """Validate the L1 `questions` block — a list of question dicts matching
+    the reading_questions JSON shape (reading_content_format_v1.md §4). Empty
+    list = valid (passages may have no comprehension Qs)."""
+    errors: list[dict] = []
+
+    def err(message: str) -> None:
+        errors.append({"field": "questions", "message": message})
+
+    if not isinstance(questions, list):
+        err("questions phải là danh sách câu hỏi.")
+        return errors
+
+    seen_qnums: set = set()
+    for i, q in enumerate(questions):
+        label = f"Câu hỏi #{i + 1}"
+        if not isinstance(q, dict):
+            err(f"{label}: phải là các cặp key: value.")
+            continue
+        qn = q.get("q_num")
+        if not isinstance(qn, int) or isinstance(qn, bool) or qn <= 0:
+            err(f"{label}: cần 'q_num' là số nguyên dương.")
+        elif qn in seen_qnums:
+            err(f"{label}: q_num {qn} bị trùng.")
+        else:
+            seen_qnums.add(qn)
+        if q.get("question_type") not in READING_QUESTION_TYPES_PHASE1:
+            err(f"{label}: 'question_type' phải là một trong "
+                f"{', '.join(READING_QUESTION_TYPES_PHASE1)}.")
+        if not _as_str(q.get("prompt")):
+            err(f"{label}: thiếu 'prompt'.")
+        ans = q.get("answer")
+        if ans is None or (isinstance(ans, str) and not ans.strip()) or \
+                (isinstance(ans, list) and not ans):
+            err(f"{label}: thiếu 'answer'.")
+        if q.get("skill_tag") not in SKILL_TAGS:
+            err(f"{label}: 'skill_tag' phải là một trong {', '.join(SKILL_TAGS)}.")
+
+    return errors
+
+
+def build_reading_question_payloads(questions: list, passage_id: str) -> list[dict]:
+    """Map validated question dicts to reading_questions row payloads. Splits
+    the render-time fields (options/template → payload JSONB) from the answer
+    key ({answer, alternatives} → answer JSONB) so the student fetch can strip
+    the key column."""
+    rows: list[dict] = []
+    for i, q in enumerate(questions):
+        payload: dict = {}
+        if isinstance(q.get("options"), list):
+            payload["options"] = q["options"]
+        if isinstance(q.get("template"), dict):
+            payload["template"] = q["template"]
+        alternatives = q.get("alternatives")
+        rows.append({
+            "passage_id":    passage_id,
+            "q_num":         q.get("q_num"),
+            "question_type": q.get("question_type"),
+            "prompt":        _as_str(q.get("prompt")),
+            "payload":       payload,
+            "answer":        {
+                "answer":       q.get("answer"),
+                "alternatives": alternatives if isinstance(alternatives, list) else [],
+            },
+            "skill_tag":     q.get("skill_tag"),
+            "sub_skill":     _as_str(q.get("sub_skill")),
+            "explanation":   _as_str(q.get("explanation")),
+            "order_num":     i + 1,
+        })
+    return rows
 
 
 def build_reading_passage_payload(p: ParsedReadingPassage, slug: str) -> dict:

@@ -213,10 +213,13 @@ def test_import_commit_new_slug_inserts_into_reading_passages():
     assert r.status_code == 200
     assert r.json()["action"] == "created"
     assert r.json()["committed_id"] == "new-id"
-    # Upserts into reading_passages, never writing_tips (table separation).
+    # Upserts into reading_passages (+ reading_questions, Sprint 20.2), NEVER
+    # writing_tips (table-separation watch-item).
     table_names = {c.args[0] for c in mock_db.table.call_args_list}
-    assert table_names == {"reading_passages"}
+    assert "reading_passages" in table_names
+    assert "writing_tips" not in table_names
     sent = mock_db.table.return_value.insert.call_args[0][0]
+    # _L1_MD has no questions block, so the only insert is the passage row.
     assert sent["created_by"] == _ADMIN_USER["id"]
     assert sent["library"] == "l1_vocab"
 
