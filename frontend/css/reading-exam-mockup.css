@@ -171,10 +171,15 @@
   color: var(--exam-text-primary);
 }
 .exam-passage__body p { margin: 0 0 16px; }
-.exam-passage__body p::first-letter { /* paragraph numbering hook */ }
+/* Sprint 20.4c — Andy feedback #1: paragraph labels A–E were too small to
+ * scan. Bumped to a bold inline letter at primary-text contrast so the
+ * matching-headings + "according to paragraph C" question prompts read
+ * cleanly. Kept inline (not a badge) to stay institutional / unobtrusive. */
 .exam-passage__body .para-label {
-  font-family: var(--exam-font-mono); font-size: 12px;
-  color: var(--exam-text-muted); margin-right: 4px;
+  font-family: var(--exam-font-mono); font-size: 16px; font-weight: 700;
+  color: var(--exam-text-primary);
+  letter-spacing: 0.04em;
+  margin-right: 8px;
 }
 /* Highlight tool — visual-only demonstration in the mockup (interactive
  * deferred to Sprint 20.6 per Discovery §5 / commission decision 4). */
@@ -255,28 +260,50 @@
   align-items: center;
   overflow-x: auto;                                  /* scroll if 40 buttons exceed width */
 }
+/* Sprint 20.4c — Andy feedback #2: palette state contrast. The three states
+ * follow the real-exam pattern (outline / filled-dark / filled-bright):
+ *   unanswered → white box, dark border, dark text   (OUTLINE)
+ *   answered   → dark-grey fill, white text          (FILLED-DARK)
+ *   current    → teal fill, white text               (FILLED-BRIGHT)
+ * `is-flagged` keeps its amber corner triangle and stacks with any state. */
 .exam-palette__q {
   position: relative;
   width: 36px; height: 32px;
-  font: inherit; font-family: var(--exam-font-mono); font-size: 13px;
+  font: inherit; font-family: var(--exam-font-mono);
+  font-size: 13px; font-weight: 600;
   background: var(--exam-surface-card);
-  border: 1px solid var(--exam-border-default);
+  border: 1.5px solid var(--exam-border-strong);
   color: var(--exam-text-primary);
   cursor: pointer; padding: 0;
 }
-.exam-palette__q:hover { background: var(--exam-surface-sunken); }
+.exam-palette__q:hover {
+  background: var(--exam-surface-sunken);
+  border-color: var(--exam-text-primary);
+}
 .exam-palette__q.is-answered {
-  background: var(--exam-surface-sunken); color: var(--exam-text-primary);
-  border-color: var(--exam-border-strong);
+  background: var(--exam-text-secondary);                /* dark fill */
+  color: #FFFFFF;
+  border-color: var(--exam-text-secondary);
+}
+.exam-palette__q.is-answered:hover {
+  background: var(--exam-text-primary); border-color: var(--exam-text-primary);
 }
 .exam-palette__q.is-current {
-  background: var(--exam-accent); color: #FFFFFF; border-color: var(--exam-accent);
+  background: var(--exam-accent);                        /* bright fill */
+  color: #FFFFFF;
+  border-color: var(--exam-accent);
+  /* Subtle outline ring so "current" reads above "answered" even at the same fill weight. */
+  box-shadow: 0 0 0 2px var(--exam-surface-card), 0 0 0 3px var(--exam-accent);
 }
-/* Flag indicator: a small filled corner triangle on the top-right. */
+.exam-palette__q:focus-visible {
+  outline: 2px solid var(--exam-accent); outline-offset: 2px;
+}
+/* Flag indicator: filled amber corner triangle (bumped to 10px so it reads
+ * cleanly against the new high-contrast fills). */
 .exam-palette__q.is-flagged::after {
   content: ""; position: absolute; top: 0; right: 0;
   width: 0; height: 0;
-  border-style: solid; border-width: 0 8px 8px 0;
+  border-style: solid; border-width: 0 10px 10px 0;
   border-color: transparent var(--exam-warning) transparent transparent;
 }
 .exam-palette__actions { display: flex; gap: 10px; align-items: center; }

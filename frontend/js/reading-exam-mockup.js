@@ -382,15 +382,41 @@
     hideNotePopover();
   });
 
-  // ── Reviewer affordance: ?demo=warning|critical pre-sets timer state ─
-  // Sprint 20.4b — minutes-only display (real exam hides seconds). The
-  // critical pulse is the same CSS animation; the value changes only.
-  var demoState = new URLSearchParams(window.location.search).get('demo');
-  if (demoState === 'warning' || demoState === 'critical') {
-    var timer = $('#exam-timer');
-    if (timer) {
-      timer.setAttribute('data-state', demoState);
-      timer.textContent = demoState === 'critical' ? '4' : '9';
-    }
+  // ── Sprint 20.4c — mm:ss live countdown (Andy product call) ────────
+  // INTENTIONAL fidelity deviation #2 (alongside the draggable divider).
+  // Real BC/IDP CD exam shows minutes-only and locks the screen at zero;
+  // Andy chose seconds + visible countdown for better pacing UX. This is
+  // a MOCKUP countdown — no server `started_at` guard, no auto-submit,
+  // no screen-lock. Production timer wiring lands in Sprint 20.6 (the
+  // open-question Q5 confirmation point).
+  var timer = $('#exam-timer');
+  if (timer) {
+    var demo = new URLSearchParams(window.location.search).get('demo');
+    // Default: just under 60 min (standard IELTS Reading allowance).
+    // Demo flags pre-seek so reviewers can preview each state.
+    var totalSec = 59 * 60 + 59;
+    if (demo === 'warning')  { totalSec = 9 * 60 + 59; timer.setAttribute('data-state', 'warning'); }
+    if (demo === 'critical') { totalSec = 4 * 60 + 59; timer.setAttribute('data-state', 'critical'); }
+
+    var format = function (s) {
+      var m = Math.floor(s / 60), r = s % 60;
+      return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+    };
+    var paint = function () {
+      timer.textContent = format(totalSec);
+      // Threshold escalation (only escalates, never de-escalates).
+      if (totalSec <= 300 && timer.getAttribute('data-state') !== 'critical') {
+        timer.setAttribute('data-state', 'critical');
+      } else if (totalSec <= 600 && timer.getAttribute('data-state') === 'normal') {
+        timer.setAttribute('data-state', 'warning');
+      }
+    };
+    paint();
+
+    var interval = setInterval(function () {
+      if (totalSec <= 0) { clearInterval(interval); return; }
+      totalSec -= 1;
+      paint();
+    }, 1000);
   }
 })();

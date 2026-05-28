@@ -90,15 +90,22 @@ describe('Sprint 20.4 — exam mockup interactions (reading-exam-mockup.js)', ()
     assert.match(js, /data-text-size/);
   });
   test('?demo=warning|critical lets reviewers preview timer states', () => {
-    assert.match(js, /demoState/);
-    assert.match(js, /warning/);
-    assert.match(js, /critical/);
+    // Sprint 20.4c — JS renamed the local var from `demoState` to `demo`
+    // when the timer became a live countdown. The behaviour is the same.
+    assert.match(js, /URLSearchParams[\s\S]{0,80}\.get\('demo'\)/);
+    assert.match(js, /demo === 'warning'/);
+    assert.match(js, /demo === 'critical'/);
   });
-  test('NO real countdown or grading wiring (those are 20.5/20.6)', () => {
-    assert.ok(!/setInterval\s*\(/.test(js),
-      'mockup must not run a real countdown — that is Sprint 20.6');
+  test('NO backend wiring (still static — grading + server timer guard are 20.5/20.6)', () => {
+    // Sprint 20.4c update: the blanket setInterval ban from 20.4 was scoped
+    // too tight — Andy's product call adds a mockup-level mm:ss countdown
+    // (allowed). The real fence is "no backend calls + no production timer
+    // wiring" (server `started_at` guard + auto-submit = Sprint 20.6).
     assert.ok(!/window\.api\.(get|post|upload)/.test(js),
       'mockup must not call any backend endpoint — it is a static prototype');
+    // No fetch / XHR either, just to be explicit.
+    assert.ok(!/\bfetch\s*\(/.test(js) && !/XMLHttpRequest/.test(js),
+      'mockup must not use fetch or XHR — no backend wiring');
   });
 });
 
@@ -146,13 +153,10 @@ describe('Sprint 20.4b — Andy fidelity feedback applied', () => {
     // the same weight as the question prompt.
     assert.match(css, /\.exam-questions__instructions\s*\{[\s\S]{0,200}font-size:\s*15px/);
   });
-  test('timer moved upper-MIDDLE with minutes-only display (Mình research)', () => {
-    // The timer block lives in the centre column of the 3-col top bar,
-    // wrapped in .exam-timer-wrap (label = "min remaining").
+  test('timer moved upper-MIDDLE in 20.4b (Mình research)', () => {
+    // The timer block lives in the centre column of the 3-col top bar.
     assert.match(html, /<div class="exam-timer-wrap">/);
-    assert.match(html, /class="exam-timer__label">min remaining/);
-    // The current value is a bare integer (not mm:ss) — minutes-only per research.
-    assert.match(html, /id="exam-timer"[^>]*>\s*59\s*<\/div>/);
+    assert.match(html, /class="exam-timer__label">time remaining/);
   });
   test('draggable split divider element + JS handler (Andy feedback #2)', () => {
     assert.match(html, /id="exam-divider"[^>]*role="separator"[^>]*aria-orientation="vertical"/);
@@ -193,6 +197,51 @@ describe('Sprint 20.4b — Andy fidelity feedback applied', () => {
     assert.match(html, /id="exam-prev"[^>]*aria-label="Previous question"/);
     assert.match(html, /id="exam-next"[^>]*aria-label="Next question"/);
     assert.match(js, /function navTo\(/);
+  });
+});
+
+
+describe('Sprint 20.4c — Andy polish (paragraph labels + palette contrast + timer countdown)', () => {
+  const html = read('frontend/pages/reading-exam-mockup.html');
+  const js   = read('frontend/js/reading-exam-mockup.js');
+  const css  = read('frontend/css/reading-exam-mockup.css');
+
+  test('paragraph labels A–E are bold + larger (Andy feedback #1)', () => {
+    // Bumped from 12px muted to 16px bold primary-text (matches matching-headings
+    // question prompts that reference paragraphs by letter).
+    assert.match(css, /\.para-label\s*\{[\s\S]{0,200}font-size:\s*16px/);
+    assert.match(css, /\.para-label\s*\{[\s\S]{0,200}font-weight:\s*700/);
+  });
+
+  test('palette state contrast: outline / filled-dark / filled-bright (Andy feedback #2)', () => {
+    // Unanswered = white with a strong dark border (outline). The rule body
+    // is ~200 chars so widen the match window to be safe.
+    assert.match(css, /\.exam-palette__q\s*\{[\s\S]{0,400}border:\s*1\.5px\s+solid\s+var\(--exam-border-strong\)/);
+    // Answered = dark fill, white text (filled-dark).
+    assert.match(css, /\.exam-palette__q\.is-answered[\s\S]{0,180}background:\s*var\(--exam-text-secondary\)/);
+    assert.match(css, /\.exam-palette__q\.is-answered[\s\S]{0,180}color:\s*#FFFFFF/);
+    // Current = teal fill + a contrast ring so it reads above answered.
+    assert.match(css, /\.exam-palette__q\.is-current[\s\S]{0,400}box-shadow:[^;]*var\(--exam-accent\)/);
+  });
+
+  test('timer ships mm:ss + live countdown via setInterval (Andy product call)', () => {
+    // Initial HTML matches the JS start so there's no first-paint flash.
+    assert.match(html, /id="exam-timer"[^>]*>\s*\d{2}:\d{2}\s*<\/div>/);
+    // setInterval drives a per-second decrement; mm:ss formatter present.
+    assert.match(js, /setInterval\(\s*function/);
+    assert.match(js, /totalSec\s*-=\s*1/);
+    assert.match(js, /m\s*<\s*10/);                  // mm:ss zero-pad logic
+    // Threshold escalation: warning at 10:00 (600s), critical at 5:00 (300s).
+    assert.match(js, /totalSec\s*<=\s*600/);
+    assert.match(js, /totalSec\s*<=\s*300/);
+  });
+
+  test('countdown stops at 0 — clearInterval, not auto-submit', () => {
+    // At zero the mockup stops; production auto-submit lands in 20.6. The
+    // earlier no-window.api / no-fetch sentinel already fences real submits;
+    // here we just pin the clearInterval call so a future refactor can't
+    // silently turn the mockup countdown into a runaway loop.
+    assert.match(js, /clearInterval\(\s*interval\s*\)/);
   });
 });
 

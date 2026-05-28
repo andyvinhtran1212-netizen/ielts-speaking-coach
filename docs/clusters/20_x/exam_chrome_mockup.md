@@ -1,18 +1,22 @@
-# Exam Chrome Mockup — Sprint 20.4 + 20.4b Approval Gate
+# Exam Chrome Mockup — Sprint 20.4 + 20.4b + 20.4c Approval Gate
 
-**Sprint:** 20.4 (mockup) + **20.4b (fidelity revision per Andy feedback)**
+**Sprint:** 20.4 → **20.4b (fidelity revision)** → **20.4c (polish, this iteration)**
 **Predecessor:** Sprint 20.3 (PR #322 merged) — L2 + admin authoring UI
 **Successor:** Sprint 20.5 (L3 backend, clone listening grader) — **BLOCKED until this mockup is approved**
 **Authority:** Code authoritative on implementation; **Andy authoritative on fidelity acceptance**
 
-> Approval gate, iteration 1. The mockup is a **reviewable visual prototype, not production**.
+> Approval gate, iteration 2. The mockup is a **reviewable visual prototype, not production**.
 >
-> **What changed in 20.4b** (Andy review of 20.4 PR #323): rubric text bumped to 15 px;
-> **draggable** split divider (50/50 default, clamps 30–70%, sessionStorage persistence);
-> **highlight + note** tools live now (right-click context menu, faithful to real BC/IDP);
-> timer moved upper-MIDDLE with minutes-only display per Mình's research; exam-only typeface
-> override to institutional `system-ui / Arial`; prev/next palette nav arrows added.
-> See §3 below for which 20.4 open questions are now resolved.
+> **What changed in 20.4b**: rubric 13 → 15 px; draggable 50/50 split divider;
+> highlight + note tools live (right-click context menu, faithful to BC/IDP);
+> timer upper-MIDDLE; institutional `system-ui/Arial` typeface override;
+> prev/next palette arrows. → Resolved open Qs 1, 3, 4.
+>
+> **What changed in 20.4c** (Andy polish, this commit): paragraph labels A–E
+> bumped to 16 px bold (was 12 px muted); palette state contrast redesigned
+> as outline / filled-dark / filled-bright with a contrast ring on "current";
+> **timer now shows mm:ss with a live setInterval countdown** (intentional
+> fidelity deviation #2 alongside the draggable divider — see §1).
 
 ## How to review
 
@@ -40,21 +44,23 @@ The page is static — no auth, no backend, no real timer. Click around the ques
 - **Chrome isolation = inline page CSS scoped under `.exam-chrome`**, not a Shadow-DOM web component (yet). The design baseline calls for a 3rd chrome via the existing per-page Shadow-DOM opt-in mechanism, but for a *mockup*, a single-page inline shell is enough — and lets Andy review the surface without component-encapsulation overhead. The web-component `aver-exam-chrome.js` lands in Sprint 20.6 when L3 ships (the CSS + structure here is what it'll wrap).
 - **Token override layer**: a small set of `--exam-*` vars on `.exam-chrome` (not new global tokens). Surfaces, borders, accent + warning + critical, mono-timer alias. Student/aver-admin chromes are untouched.
 - **Mockup-only affordances**: the yellow banner across the top + the `?demo=warning|critical` query flag exist for Andy's review and are removed when the production exam chrome ships.
-- **🔶 Intentional fidelity deviation: draggable split divider** (Sprint 20.4b). Strict real-exam fidelity = a fixed 50/50 split with independent scrollbars (the real BC/IDP CD Reading UI does **not** expose a user-resizable divider in most versions). Andy's product decision favours usability over strict fidelity, so the mockup ships a **draggable** divider (default 50%, clamps 30–70%, sessionStorage persistence, keyboard arrow-key a11y when focused). Surfacing this here so it's not mistaken for a fidelity oversight when Andy compares against the real exam.
+- **🔶 Intentional fidelity deviation #1: draggable split divider** (Sprint 20.4b). Strict real-exam fidelity = a fixed 50/50 split with independent scrollbars (the real BC/IDP CD Reading UI does **not** expose a user-resizable divider in most versions). Andy's product decision favours usability over strict fidelity, so the mockup ships a **draggable** divider (default 50%, clamps 30–70%, sessionStorage persistence, keyboard arrow-key a11y when focused). Surfacing this here so it's not mistaken for a fidelity oversight when Andy compares against the real exam.
+- **🔶 Intentional fidelity deviation #2: mm:ss timer + live countdown** (Sprint 20.4c). Strict real-exam fidelity = minutes-only display with no last-minute countdown (the screen just locks at zero). Andy's product call: show seconds + count down live for better pacing UX. Mockup ships an mm:ss `setInterval` countdown starting at 59:59, escalating styling at 10:00 (warning) and 5:00 (critical pulse), and stopping at 0:00. This is **mockup-level only** — no server `started_at` guard, no auto-submit, no screen-lock. Production timer wiring (with those guards) lands in Sprint 20.6 and adopts the same mm:ss + countdown UX per this product decision.
 
 ## §2 — Fidelity checklist (BC/IDP element → mockup status)
 
 | BC/IDP element (Discovery §5 + Mình research) | Mockup status | Notes |
 |---|---|---|
 | Top bar — candidate id / name | ✅ Placeholder (`Candidate 0000-0000 · Test Taker`) | Real id wired in 20.6 |
-| **Top bar — countdown timer — upper-MIDDLE, MINUTES-ONLY** | ✅ **20.4b**: `<div class="exam-timer-wrap">` in the centre column, value is a bare integer + "MIN REMAINING" label; warning at 10 min, critical pulse at 5 min (preview via `?demo=warning\|critical`) | Real countdown + auto-submit = 20.6 |
+| **Top bar — countdown timer — upper-MIDDLE, mm:ss live countdown** | ✅ **20.4c** (Andy product call): centre-column `<div class="exam-timer-wrap">`, mm:ss display + "TIME REMAINING" label, `setInterval` decrement starting at 59:59; warning state at 10:00, critical pulse at 5:00 (preview via `?demo=warning\|critical`); stops at 0:00. **Intentional fidelity deviation #2** — real exam is minutes-only. Production guards (server `started_at`, auto-submit) = 20.6 |
 | Top bar — section indicator | ✅ "Reading · Part 1 of 3" under candidate info (top-left) | Section transitions = 20.6 |
 | Top bar — Settings (text size / contrast) | ✅ Text size (A / A / A) interactive; Contrast disabled (Phase B label) | Phase B per Discovery §5 |
 | Top bar — Hide / Help | ⚠ Buttons present, inert | Phase B |
 | **Split view — passage LEFT, questions RIGHT, draggable** | ✅ **20.4b**: default **50/50** ("two halves"), **draggable divider** (clamps 30–70%, sessionStorage, keyboard arrows when focused), independent scroll preserved | **Intentional fidelity deviation** per Andy — real exam has a fixed split; Andy's product decision favours usability (see §1) |
 | Passage rendering | ✅ Paragraph-labelled A–E, institutional sans, line-height 1.7 | Real passages → marked + DOMPurify in 20.6 |
+| **Paragraph labels A–E** | ✅ **20.4c**: bumped 12 px muted-mono → **16 px bold primary-text** (Andy feedback #1). Reads cleanly for matching-headings + "according to paragraph C" questions | — |
 | **Rubric / instruction text** | ✅ **20.4b**: bumped 13 px → 15 px (matches question-prompt size; was Andy feedback #1) | — |
-| **Question nav palette** (numbered 1–N) | ✅ Numbered buttons + current/answered/flagged states + click-to-jump + **20.4b prev/next arrows** bottom-right | Full 40-Q grid in 20.6; mockup ships 10 |
+| **Question nav palette** (numbered 1–N) | ✅ **20.4c**: state contrast redesigned as **outline / filled-dark / filled-bright** (Andy feedback #2) — unanswered = white box w/ strong border, answered = dark grey fill + white text, current = teal fill + contrast ring. Plus 20.4b prev/next arrows + flag corner-triangle | Full 40-Q grid in 20.6; mockup ships 10 |
 | **Flag-for-review** per question | ✅ Flag button on each card; corner-triangle indicator on the palette | Faithful to BC/IDP "skip & return later" |
 | Auto "answered" state when a control changes | ✅ Palette button gets `.is-answered` on input/change | Mockup-level |
 | **Highlight tool** (select → right-click → Highlight) | ✅ **20.4b LIVE** — works on **both** passage AND questions panels (per Mình research); multiple highlights coexist; right-click an existing one → Remove; XSS-safe (TreeWalker text-node walking, never `innerHTML`) | Was Phase B (Sprint 20.4) → **built now** per Andy feedback #3 |
