@@ -1,4 +1,10 @@
 ---
+# Sprint 20.6.6 — converted from the v1-spec NESTED question shape (which the
+# importer silently mis-handled — see reading_content_format_v2.md §11/F1) to
+# the v2 FLAT author shape (options/answer/alternatives at the question top
+# level). Content (passages, questions, answers, alternatives, skill_tags,
+# explanations) is unchanged. Importer round-trip is now correct.
+
 content_type: reading_full_test
 test_id: AVR-READ-001
 title: "Academic Reading — Test 1"
@@ -62,98 +68,111 @@ passages:
       - q_num: 1
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph A."
-        payload: { options:
-          [ {label: i,   text: "A measurable, growing industry"},
-            {label: ii,  text: "Why uniformity once seemed like progress"},
-            {label: iii, text: "Two real difficulties for the movement"},
-            {label: iv,  text: "Two reasons buyers are drawn back to makers"},
-            {label: v,   text: "What the future might look like"} ] }
-        answer: { answer: "ii", alternatives: [] }
+        options:
+          - { label: i,   text: "A measurable, growing industry" }
+          - { label: ii,  text: "Why uniformity once seemed like progress" }
+          - { label: iii, text: "Two real difficulties for the movement" }
+          - { label: iv,  text: "Two reasons buyers are drawn back to makers" }
+          - { label: v,   text: "What the future might look like" }
+        answer: "ii"
+        alternatives: []
         skill_tag: skimming
         explanation: "Paragraph A sets up uniformity as the older default."
       - q_num: 2
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph B."
-        payload: { options:
-          [ {label: i,   text: "A measurable, growing industry"},
-            {label: ii,  text: "Why uniformity once seemed like progress"},
-            {label: iii, text: "Two real difficulties for the movement"},
-            {label: iv,  text: "Two reasons buyers are drawn back to makers"},
-            {label: v,   text: "What the future might look like"} ] }
-        answer: { answer: "iv", alternatives: [] }
+        options:
+          - { label: i,   text: "A measurable, growing industry" }
+          - { label: ii,  text: "Why uniformity once seemed like progress" }
+          - { label: iii, text: "Two real difficulties for the movement" }
+          - { label: iv,  text: "Two reasons buyers are drawn back to makers" }
+          - { label: v,   text: "What the future might look like" }
+        answer: "iv"
+        alternatives: []
         skill_tag: skimming
       - q_num: 3
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph C."
-        payload: { options:
-          [ {label: i,   text: "A measurable, growing industry"},
-            {label: ii,  text: "Why uniformity once seemed like progress"},
-            {label: iii, text: "Two real difficulties for the movement"},
-            {label: iv,  text: "Two reasons buyers are drawn back to makers"},
-            {label: v,   text: "What the future might look like"} ] }
-        answer: { answer: "i", alternatives: [] }
+        options:
+          - { label: i,   text: "A measurable, growing industry" }
+          - { label: ii,  text: "Why uniformity once seemed like progress" }
+          - { label: iii, text: "Two real difficulties for the movement" }
+          - { label: iv,  text: "Two reasons buyers are drawn back to makers" }
+          - { label: v,   text: "What the future might look like" }
+        answer: "i"
+        alternatives: []
         skill_tag: skimming
       - q_num: 4
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph D."
-        payload: { options:
-          [ {label: i,   text: "A measurable, growing industry"},
-            {label: ii,  text: "Why uniformity once seemed like progress"},
-            {label: iii, text: "Two real difficulties for the movement"},
-            {label: iv,  text: "Two reasons buyers are drawn back to makers"},
-            {label: v,   text: "What the future might look like"} ] }
-        answer: { answer: "iii", alternatives: [] }
+        options:
+          - { label: i,   text: "A measurable, growing industry" }
+          - { label: ii,  text: "Why uniformity once seemed like progress" }
+          - { label: iii, text: "Two real difficulties for the movement" }
+          - { label: iv,  text: "Two reasons buyers are drawn back to makers" }
+          - { label: v,   text: "What the future might look like" }
+        answer: "iii"
+        alternatives: []
         skill_tag: skimming
       - q_num: 5
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph E."
-        payload: { options:
-          [ {label: i,   text: "A measurable, growing industry"},
-            {label: ii,  text: "Why uniformity once seemed like progress"},
-            {label: iii, text: "Two real difficulties for the movement"},
-            {label: iv,  text: "Two reasons buyers are drawn back to makers"},
-            {label: v,   text: "What the future might look like"} ] }
-        answer: { answer: "v", alternatives: [] }
+        options:
+          - { label: i,   text: "A measurable, growing industry" }
+          - { label: ii,  text: "Why uniformity once seemed like progress" }
+          - { label: iii, text: "Two real difficulties for the movement" }
+          - { label: iv,  text: "Two reasons buyers are drawn back to makers" }
+          - { label: v,   text: "What the future might look like" }
+        answer: "v"
+        alternatives: []
         skill_tag: skimming
       - q_num: 6
         question_type: true_false_not_given
         prompt: "Hand-made goods are usually cheaper than mass-produced equivalents."
-        answer: { answer: "FALSE", alternatives: ["F", "false"] }
+        answer: "FALSE"
+        alternatives: ["F", "false"]
         skill_tag: detail
       - q_num: 7
         question_type: true_false_not_given
         prompt: "Online videos of makers at work have attracted large audiences."
-        answer: { answer: "TRUE", alternatives: ["T", "true"] }
+        answer: "TRUE"
+        alternatives: ["T", "true"]
         skill_tag: detail
       - q_num: 8
         question_type: true_false_not_given
         prompt: "Most hand-made craft sales are tracked in official retail data."
-        answer: { answer: "FALSE", alternatives: ["F", "false"] }
+        answer: "FALSE"
+        alternatives: ["F", "false"]
         skill_tag: detail
       - q_num: 9
         question_type: true_false_not_given
         prompt: "A specific 2024 government policy is mentioned as a cause of the trend."
-        answer: { answer: "NOT GIVEN", alternatives: ["NG", "not given"] }
+        answer: "NOT GIVEN"
+        alternatives: ["NG", "not given"]
         skill_tag: writer_view_TFNG
       - q_num: 10
         question_type: short_answer
         prompt: "Which industry is the 150,000 craft figure compared with? (ONE word)"
-        answer: { answer: "coal", alternatives: [] }
+        answer: coal
+        alternatives: []
         skill_tag: scanning
       - q_num: 11
         question_type: short_answer
         prompt: "How many times more expensive can a hand-thrown mug be? (ONE word)"
-        answer: { answer: "ten", alternatives: ["10"] }
+        answer: ten
+        alternatives: ["10"]
         skill_tag: scanning
       - q_num: 12
         question_type: short_answer
         prompt: "What do defenders say each piece is a record of? (TWO words)"
-        answer: { answer: "maker's choices", alternatives: ["maker choices"] }
+        answer: "maker's choices"
+        alternatives: ["maker choices"]
         skill_tag: detail
       - q_num: 13
         question_type: short_answer
         prompt: "Where does the writer say the movement has carved out a niche? (TWO words)"
-        answer: { answer: "higher end", alternatives: ["the higher end"] }
+        answer: "higher end"
+        alternatives: ["the higher end"]
         skill_tag: scanning
 
   # ── Passage 2 — Qs 14–26 ────────────────────────────────────────
@@ -217,124 +236,137 @@ passages:
       - q_num: 14
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph A."
-        payload: { options:
-          [ {label: i,   text: "Why a single tactic is not enough"},
-            {label: ii,  text: "Painting the roof white"},
-            {label: iii, text: "What heat does to a city"},
-            {label: iv,  text: "The slow gift of urban trees"},
-            {label: v,   text: "From accepted problem to engineering challenge"},
-            {label: vi,  text: "Water as a cooling surface"} ] }
-        answer: { answer: "iii", alternatives: [] }
+        options:
+          - { label: i,   text: "Why a single tactic is not enough" }
+          - { label: ii,  text: "Painting the roof white" }
+          - { label: iii, text: "What heat does to a city" }
+          - { label: iv,  text: "The slow gift of urban trees" }
+          - { label: v,   text: "From accepted problem to engineering challenge" }
+          - { label: vi,  text: "Water as a cooling surface" }
+        answer: "iii"
+        alternatives: []
         skill_tag: skimming
       - q_num: 15
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph B."
-        payload: { options:
-          [ {label: i,   text: "Why a single tactic is not enough"},
-            {label: ii,  text: "Painting the roof white"},
-            {label: iii, text: "What heat does to a city"},
-            {label: iv,  text: "The slow gift of urban trees"},
-            {label: v,   text: "From accepted problem to engineering challenge"},
-            {label: vi,  text: "Water as a cooling surface"} ] }
-        answer: { answer: "v", alternatives: [] }
+        options:
+          - { label: i,   text: "Why a single tactic is not enough" }
+          - { label: ii,  text: "Painting the roof white" }
+          - { label: iii, text: "What heat does to a city" }
+          - { label: iv,  text: "The slow gift of urban trees" }
+          - { label: v,   text: "From accepted problem to engineering challenge" }
+          - { label: vi,  text: "Water as a cooling surface" }
+        answer: "v"
+        alternatives: []
         skill_tag: skimming
       - q_num: 16
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph C."
-        payload: { options:
-          [ {label: i,   text: "Why a single tactic is not enough"},
-            {label: ii,  text: "Painting the roof white"},
-            {label: iii, text: "What heat does to a city"},
-            {label: iv,  text: "The slow gift of urban trees"},
-            {label: v,   text: "From accepted problem to engineering challenge"},
-            {label: vi,  text: "Water as a cooling surface"} ] }
-        answer: { answer: "ii", alternatives: [] }
+        options:
+          - { label: i,   text: "Why a single tactic is not enough" }
+          - { label: ii,  text: "Painting the roof white" }
+          - { label: iii, text: "What heat does to a city" }
+          - { label: iv,  text: "The slow gift of urban trees" }
+          - { label: v,   text: "From accepted problem to engineering challenge" }
+          - { label: vi,  text: "Water as a cooling surface" }
+        answer: "ii"
+        alternatives: []
         skill_tag: skimming
       - q_num: 17
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph D."
-        payload: { options:
-          [ {label: i,   text: "Why a single tactic is not enough"},
-            {label: ii,  text: "Painting the roof white"},
-            {label: iii, text: "What heat does to a city"},
-            {label: iv,  text: "The slow gift of urban trees"},
-            {label: v,   text: "From accepted problem to engineering challenge"},
-            {label: vi,  text: "Water as a cooling surface"} ] }
-        answer: { answer: "iv", alternatives: [] }
+        options:
+          - { label: i,   text: "Why a single tactic is not enough" }
+          - { label: ii,  text: "Painting the roof white" }
+          - { label: iii, text: "What heat does to a city" }
+          - { label: iv,  text: "The slow gift of urban trees" }
+          - { label: v,   text: "From accepted problem to engineering challenge" }
+          - { label: vi,  text: "Water as a cooling surface" }
+        answer: "iv"
+        alternatives: []
         skill_tag: skimming
       - q_num: 18
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph E."
-        payload: { options:
-          [ {label: i,   text: "Why a single tactic is not enough"},
-            {label: ii,  text: "Painting the roof white"},
-            {label: iii, text: "What heat does to a city"},
-            {label: iv,  text: "The slow gift of urban trees"},
-            {label: v,   text: "From accepted problem to engineering challenge"},
-            {label: vi,  text: "Water as a cooling surface"} ] }
-        answer: { answer: "vi", alternatives: [] }
+        options:
+          - { label: i,   text: "Why a single tactic is not enough" }
+          - { label: ii,  text: "Painting the roof white" }
+          - { label: iii, text: "What heat does to a city" }
+          - { label: iv,  text: "The slow gift of urban trees" }
+          - { label: v,   text: "From accepted problem to engineering challenge" }
+          - { label: vi,  text: "Water as a cooling surface" }
+        answer: "vi"
+        alternatives: []
         skill_tag: skimming
       - q_num: 19
         question_type: matching_headings
         prompt: "Choose the best heading for paragraph F."
-        payload: { options:
-          [ {label: i,   text: "Why a single tactic is not enough"},
-            {label: ii,  text: "Painting the roof white"},
-            {label: iii, text: "What heat does to a city"},
-            {label: iv,  text: "The slow gift of urban trees"},
-            {label: v,   text: "From accepted problem to engineering challenge"},
-            {label: vi,  text: "Water as a cooling surface"} ] }
-        answer: { answer: "i", alternatives: [] }
+        options:
+          - { label: i,   text: "Why a single tactic is not enough" }
+          - { label: ii,  text: "Painting the roof white" }
+          - { label: iii, text: "What heat does to a city" }
+          - { label: iv,  text: "The slow gift of urban trees" }
+          - { label: v,   text: "From accepted problem to engineering challenge" }
+          - { label: vi,  text: "Water as a cooling surface" }
+        answer: "i"
+        alternatives: []
         skill_tag: skimming
       - q_num: 20
         question_type: mcq_single
         prompt: "According to paragraph C, the main NON-thermal benefit of a cool roof is"
-        payload: { options:
-          [ {label: A, text: "longer roof life"},
-            {label: B, text: "lower air-conditioning energy use and emissions"},
-            {label: C, text: "cheaper paint materials"},
-            {label: D, text: "easier rooftop maintenance"} ] }
-        answer: { answer: "B", alternatives: [] }
+        options:
+          - { label: A, text: "longer roof life" }
+          - { label: B, text: "lower air-conditioning energy use and emissions" }
+          - { label: C, text: "cheaper paint materials" }
+          - { label: D, text: "easier rooftop maintenance" }
+        answer: "B"
+        alternatives: []
         skill_tag: detail
       - q_num: 21
         question_type: mcq_single
         prompt: "What is the writer's main point about urban trees?"
-        payload: { options:
-          [ {label: A, text: "They cool the air mostly by shading buildings."},
-            {label: B, text: "Their benefits are immediate."},
-            {label: C, text: "They both shade and release water vapour, but take years to mature."},
-            {label: D, text: "They are cheaper than cool roofs."} ] }
-        answer: { answer: "C", alternatives: [] }
+        options:
+          - { label: A, text: "They cool the air mostly by shading buildings." }
+          - { label: B, text: "Their benefits are immediate." }
+          - { label: C, text: "They both shade and release water vapour, but take years to mature." }
+          - { label: D, text: "They are cheaper than cool roofs." }
+        answer: "C"
+        alternatives: []
         skill_tag: main_idea
       - q_num: 22
         question_type: mcq_single
         prompt: "What does Medellín's example illustrate?"
-        payload: { options:
-          [ {label: A, text: "That cool roofs alone can solve the problem."},
-            {label: B, text: "That combining multiple strategies works."},
-            {label: C, text: "That trees are the most effective single tactic."},
-            {label: D, text: "That blue corridors are no longer needed."} ] }
-        answer: { answer: "B", alternatives: [] }
+        options:
+          - { label: A, text: "That cool roofs alone can solve the problem." }
+          - { label: B, text: "That combining multiple strategies works." }
+          - { label: C, text: "That trees are the most effective single tactic." }
+          - { label: D, text: "That blue corridors are no longer needed." }
+        answer: "B"
+        alternatives: []
         skill_tag: main_idea
       - q_num: 23
         question_type: sentence_completion
         prompt: "Cities have asphalt and dark roofs that absorb sunlight and release it slowly through the ____."
-        answer: { answer: "night", alternatives: [] }
+        answer: night
+        alternatives: []
         skill_tag: detail
       - q_num: 24
         question_type: sentence_completion
         prompt: "Trees cool the air through a process called ____."
-        answer: { answer: "evapotranspiration", alternatives: [] }
+        answer: evapotranspiration
+        alternatives: []
         skill_tag: vocabulary_in_context
       - q_num: 25
         question_type: sentence_completion
         prompt: "Blue corridors use the high ____ of water to absorb daytime warmth."
-        answer: { answer: "heat capacity", alternatives: [] }
+        answer: "heat capacity"
+        alternatives: []
         skill_tag: detail
       - q_num: 26
         question_type: sentence_completion
         prompt: "Two cities that build water channels into redevelopments are Singapore and ____."
-        answer: { answer: "Copenhagen", alternatives: [] }
+        answer: Copenhagen
+        alternatives: []
         skill_tag: scanning
 
   # ── Passage 3 — Qs 27–40 ────────────────────────────────────────
@@ -390,91 +422,108 @@ passages:
       - q_num: 27
         question_type: yes_no_not_given
         prompt: "The writer believes the old view of sleep as a rest period is no longer accurate."
-        answer: { answer: "YES", alternatives: ["Y", "yes"] }
+        answer: "YES"
+        alternatives: ["Y", "yes"]
         skill_tag: writer_view_TFNG
       - q_num: 28
         question_type: yes_no_not_given
         prompt: "Animal studies are presented as the only useful source of evidence."
-        answer: { answer: "NO", alternatives: ["N", "no"] }
+        answer: "NO"
+        alternatives: ["N", "no"]
         skill_tag: writer_view_TFNG
       - q_num: 29
         question_type: yes_no_not_given
         prompt: "Slow-wave sleep is more important than REM for the storage of factual material."
-        answer: { answer: "YES", alternatives: ["Y", "yes"] }
+        answer: "YES"
+        alternatives: ["Y", "yes"]
         skill_tag: inference
       - q_num: 30
         question_type: yes_no_not_given
         prompt: "Caffeine is the most reliable substitute for a full night's sleep."
-        answer: { answer: "NO", alternatives: ["N", "no"] }
+        answer: "NO"
+        alternatives: ["N", "no"]
         skill_tag: writer_view_TFNG
       - q_num: 31
         question_type: yes_no_not_given
         prompt: "Sleep's effect on long-term skill development is now fully understood."
-        answer: { answer: "NO", alternatives: ["N", "no"] }
+        answer: "NO"
+        alternatives: ["N", "no"]
         skill_tag: writer_view_TFNG
       - q_num: 32
         question_type: mcq_single
         prompt: "According to paragraph B, the hippocampus mainly"
-        payload: { options:
-          [ {label: A, text: "stores memories permanently."},
-            {label: B, text: "produces caffeine receptors."},
-            {label: C, text: "holds new information temporarily before transferring it elsewhere."},
-            {label: D, text: "controls the timing of REM sleep."} ] }
-        answer: { answer: "C", alternatives: [] }
+        options:
+          - { label: A, text: "stores memories permanently." }
+          - { label: B, text: "produces caffeine receptors." }
+          - { label: C, text: "holds new information temporarily before transferring it elsewhere." }
+          - { label: D, text: "controls the timing of REM sleep." }
+        answer: "C"
+        alternatives: []
         skill_tag: detail
       - q_num: 33
         question_type: mcq_single
         prompt: "According to paragraph C, REM sleep helps the brain to"
-        payload: { options:
-          [ {label: A, text: "delete useless detail."},
-            {label: B, text: "link new information to existing knowledge."},
-            {label: C, text: "rebuild the hippocampus."},
-            {label: D, text: "produce stress hormones."} ] }
-        answer: { answer: "B", alternatives: [] }
+        options:
+          - { label: A, text: "delete useless detail." }
+          - { label: B, text: "link new information to existing knowledge." }
+          - { label: C, text: "rebuild the hippocampus." }
+          - { label: D, text: "produce stress hormones." }
+        answer: "B"
+        alternatives: []
         skill_tag: detail
       - q_num: 34
         question_type: mcq_single
         prompt: "Which of the following best summarises paragraph D?"
-        payload: { options:
-          [ {label: A, text: "Naps cannot substitute for night sleep under any circumstances."},
-            {label: B, text: "Students who sleep little retain less; naps long enough to include slow-wave sleep help."},
-            {label: C, text: "Caffeine improves long-term memory."},
-            {label: D, text: "Workplaces already widely allow nap rooms."} ] }
-        answer: { answer: "B", alternatives: [] }
+        options:
+          - { label: A, text: "Naps cannot substitute for night sleep under any circumstances." }
+          - { label: B, text: "Students who sleep little retain less; naps long enough to include slow-wave sleep help." }
+          - { label: C, text: "Caffeine improves long-term memory." }
+          - { label: D, text: "Workplaces already widely allow nap rooms." }
+        answer: "B"
+        alternatives: []
         skill_tag: main_idea
       - q_num: 35
         question_type: mcq_single
         prompt: "The writer's overall view of sleep is best described as"
-        payload: { options:
-          [ {label: A, text: "an unimportant biological cycle."},
-            {label: B, text: "an essential phase of mental activity, not its opposite."},
-            {label: C, text: "interesting but practically irrelevant."},
-            {label: D, text: "fully explained by current science."} ] }
-        answer: { answer: "B", alternatives: [] }
+        options:
+          - { label: A, text: "an unimportant biological cycle." }
+          - { label: B, text: "an essential phase of mental activity, not its opposite." }
+          - { label: C, text: "interesting but practically irrelevant." }
+          - { label: D, text: "fully explained by current science." }
+        answer: "B"
+        alternatives: []
         skill_tag: main_idea
       - q_num: 36
         question_type: summary_completion
         prompt: "During slow-wave sleep, the hippocampus appears to ____ fragments learned earlier."
-        answer: { answer: "replay", alternatives: ["replays"] }
+        answer: replay
+        alternatives: ["replays"]
         skill_tag: detail
       - q_num: 37
         question_type: summary_completion
         prompt: "Long-term storage of memories happens in the ____."
-        answer: { answer: "cortex", alternatives: ["the cortex"] }
+        answer: cortex
+        alternatives: ["the cortex"]
         skill_tag: detail
       - q_num: 38
         question_type: summary_completion
         prompt: "A nap that consolidates memory should usually last about ____ minutes."
-        answer: { answer: "ninety", alternatives: ["90"] }
+        answer: ninety
+        alternatives: ["90"]
         skill_tag: scanning
       - q_num: 39
         question_type: summary_completion
         prompt: "REM sleep may be where ____ originates, by linking unrelated knowledge."
-        answer: { answer: "creativity", alternatives: [] }
+        answer: creativity
+        alternatives: []
         skill_tag: inference
       - q_num: 40
         question_type: summary_completion
         prompt: "What the writer says is no longer debated is that sleep is an essential ____ of mental activity."
-        answer: { answer: "phase", alternatives: [] }
+        answer: phase
+        alternatives: []
         skill_tag: main_idea
 ---
+<!--
+L3 files are YAML-only — all test data lives in the frontmatter above.
+-->
