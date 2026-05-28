@@ -197,9 +197,10 @@ class GrammarContentService:
         word_count   = len(re.sub(r"<[^>]+>", " ", html).split())
         reading_time = max(1, round(word_count / 200))
 
-        status = fm.get("status", "complete")
-        # Normalise — only allow known values
-        if status not in ("complete", "updating"):
+        status = str(fm.get("status", "complete") or "complete").strip().lower()
+        # Preserve canonical editorial states so downstream callers can make
+        # honest visibility decisions (e.g. avoid recommending draft content).
+        if status not in ("complete", "updating", "draft"):
             status = "complete"
 
         return {
