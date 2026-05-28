@@ -44,8 +44,22 @@ next_articles:
 pathways:
 - grammar-for-ielts-speaking
 - band-6-to-7
+anchors:
+  - id: expressing-preferences-naturally.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: expressing-preferences-naturally.prefer-structure
+    location: '## PHẦN 1: I PREFER — Cấu trúc nền tảng'
+    type: section
+  - id: expressing-preferences-naturally.id-rather
+    location: '## PHẦN 2: I''D RATHER — Sở thích trong tình huống cụ thể'
+    type: section
+  - id: expressing-preferences-naturally.reason-expansion
+    location: '## PHẦN 5: GIẢI THÍCH LÝ DO — Mở rộng câu trả lời'
+    type: ielts-application
 ---
 
+<!-- anchor: expressing-preferences-naturally.overview -->
 ## Tóm tắt
 
 | Cấu trúc | Ví dụ | Mức độ |
@@ -67,6 +81,7 @@ Trong IELTS Speaking Part 1 và Part 2, câu hỏi về sở thích rất phổ 
 
 ---
 
+<!-- anchor: expressing-preferences-naturally.prefer-structure -->
 ## PHẦN 1: I PREFER — Cấu trúc nền tảng
 
 ### prefer + V-ing (không so sánh):
@@ -95,6 +110,7 @@ I prefer + V-ing (+ to/over + V-ing)
 
 ---
 
+<!-- anchor: expressing-preferences-naturally.id-rather -->
 ## PHẦN 2: I'D RATHER — Sở thích trong tình huống cụ thể
 
 ```
@@ -162,6 +178,7 @@ Dùng khi muốn thể hiện sự yêu thích đặc biệt, hơi sentimental:
 
 ---
 
+<!-- anchor: expressing-preferences-naturally.reason-expansion -->
 ## PHẦN 5: GIẢI THÍCH LÝ DO — Mở rộng câu trả lời
 
 Sở thích mà không có lý do nghe rất flat. Luôn thêm lý do bằng:

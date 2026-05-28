@@ -54,6 +54,15 @@ anchors:
   - id: tense-consistency.overview
     location: '## Tóm tắt'
     type: overview
+  - id: tense-consistency.past-narrative.main-timeline
+    location: '## Phần 1: Nhất quán trong mô tả quá khứ (Past narrative)'
+    type: section
+  - id: tense-consistency.ielts-writing.task2-default-tense
+    location: '## Phần 2: Nhất quán trong IELTS Writing Task 2'
+    type: section
+  - id: tense-consistency.ielts-speaking.storytelling
+    location: '## Ứng dụng trong IELTS Speaking'
+    type: ielts-application
   - id: tense-consistency.common-mistake.tense-shift-mid-narrative
     location: '### Lỗi 1: Random tense shift — chuyển thì vô lý'
     type: pitfall
@@ -93,6 +102,7 @@ Trước khi viết, xác định:
 - Chuyển từ Present Simple sang Past Simple không có lý do
 - Quên thống nhất thì trong cùng một đoạn
 
+<!-- anchor: tense-consistency.past-narrative.main-timeline -->
 ## Phần 1: Nhất quán trong mô tả quá khứ (Past narrative)
 
 Khi kể chuyện hoặc mô tả sự kiện quá khứ, **Past Simple là thì chủ đạo**. Các hành động song song hoặc nối tiếp đều dùng Past Simple.
@@ -111,6 +121,7 @@ Dùng Past Perfect để nhắc đến sự kiện xảy ra **trước** sự ki
 Sự thật khoa học hoặc quy luật bất biến vẫn dùng Present Simple dù đang kể chuyện quá khứ:
 > He **explained** that the earth **orbits** the sun. (sự thật hiện tại → không backshift)
 
+<!-- anchor: tense-consistency.ielts-writing.task2-default-tense -->
 ## Phần 2: Nhất quán trong IELTS Writing Task 2
 
 ### Thì chuẩn cho Task 2:
@@ -238,6 +249,7 @@ Mỗi đoạn văn nên bắt đầu bằng câu chủ đề với thì rõ ràn
 ❌ **Không nhất quán:**
 > Urbanisation **has brought** significant economic benefits. Cities **create** millions of jobs and **have driven** innovation. As people **moved** to urban areas, **they gain** access to better education.
 
+<!-- anchor: tense-consistency.ielts-speaking.storytelling -->
 ## Ứng dụng trong IELTS Speaking
 
 Trong Speaking, tense consistency ít nghiêm ngặt hơn vì đây là giao tiếp tự nhiên, nhưng vẫn cần:

@@ -1316,19 +1316,335 @@ mappings:
       - missing-main-verbs.common-mistake.ving-without-be
       - missing-main-verbs.common-mistake.noun-phrase-only
 
+  # ==========================================================
+  # Sprint 21.2 — Coverage expansion
+  # ==========================================================
+
+  - mapping_id: M051
+    target_anchor: grammar-for-band7plus.high-leverage.cleft-inversion-conditional
+    target_file: backend/content/ielts-grammar-lab/grammar-for-band7plus.md
+    feedback_pattern_summary: "Range ngữ pháp quá cơ bản — cần complex structures để lên Band 7+"
+    feedback_keywords:
+      - "limited grammatical range"
+      - "grammar range too basic"
+      - "needs more complex structures"
+      - "simple sentence overuse"
+      - "lacks advanced grammar"
+      - "band 7 grammar range"
+    user_phrase_examples:
+      - "The answer is accurate but too basic"
+      - "Mostly simple sentences throughout"
+      - "Needs more advanced grammar for a higher band"
+      - "Lacks flexible complex structures"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - grammar-for-band7plus.high-leverage.hedging-and-modality
+      - grammar-in-speaking.gra.band-7-criteria
+      - cleft-sentences.usage.emphasis
+
+  - mapping_id: M052
+    target_anchor: grammar-in-speaking.gra.band-7-criteria
+    target_file: backend/content/ielts-grammar-lab/grammar-in-speaking.md
+    feedback_pattern_summary: "Ngữ pháp trong Speaking còn hẹp, cần nhiều range hơn theo tiêu chí GRA"
+    feedback_keywords:
+      - "limited grammatical range in speaking"
+      - "simple grammar in speaking"
+      - "needs more range in part 3"
+      - "repetitive sentence patterns"
+      - "few complex structures in speaking"
+      - "limited gra"
+    user_phrase_examples:
+      - "Speaking grammar feels repetitive"
+      - "The answer needs more complex structures in Part 3"
+      - "Good fluency but grammar range is still narrow"
+      - "Uses mostly simple clauses when speaking"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - grammar-in-speaking.part3.complex-structures-and-hedging
+      - grammar-for-band7plus.high-leverage.cleft-inversion-conditional
+      - grammar-in-speaking.cross-reference.core-topics
+
+  - mapping_id: M053
+    target_anchor: cleft-sentences.usage.emphasis
+    target_file: backend/content/sentence-structures/cleft-sentences.md
+    feedback_pattern_summary: "Cần cấu trúc nhấn mạnh như it-cleft / what-cleft thay vì chỉ câu thẳng"
+    feedback_keywords:
+      - "needs emphasis structure"
+      - "no emphasis variety"
+      - "cleft sentence"
+      - "it is x that"
+      - "what i enjoy most is"
+    user_phrase_examples:
+      - "What I enjoy most is learning languages"
+      - "It is education that matters most"
+      - "Needs a stronger emphasis structure in the answer"
+      - "The sentence could use an it-cleft for focus"
+    confidence: medium
+    severity: nuance
+    related_anchors:
+      - cleft-sentences.it-cleft
+      - cleft-sentences.what-cleft
+      - cleft-sentences.ielts.part3-emphasis
+
+  - mapping_id: M054
+    target_anchor: articles-a-an-sound-rules.core.sound-not-letter
+    target_file: backend/content/foundations/articles-a-an-sound-rules.md
+    feedback_pattern_summary: "Nhầm a/an vì nhìn chữ cái thay vì âm đầu"
+    feedback_keywords:
+      - "a an confusion"
+      - "wrong indefinite article"
+      - "article based on sound"
+      - "an before consonant sound"
+      - "a before vowel sound"
+    user_phrase_examples:
+      - "a apple"
+      - "an university"
+      - "a honest person"
+      - "an one-day trip"
+      - "a MBA student"
+    confidence: high
+    severity: common
+    related_anchors:
+      - articles-a-an-sound-rules.h-silent-vs-pronounced
+      - articles-a-an-sound-rules.initialisms-and-letters
+      - article-errors.common-mistake.a-vs-an-confusion
+
+  - mapping_id: M055
+    target_anchor: zero-article.institutions.school-work-home-bed
+    target_file: backend/content/foundations/zero-article.md
+    feedback_pattern_summary: "Thêm mạo từ sai với school / work / home / bed khi đang nói về chức năng thông thường"
+    feedback_keywords:
+      - "the with school home bed work"
+      - "go to the school when meaning study"
+      - "at the home"
+      - "in the bed"
+      - "institutional zero article"
+    user_phrase_examples:
+      - "I go to the school every day"
+      - "My mother is at the home now"
+      - "He is still in the bed"
+      - "She went to the university to study"
+    confidence: high
+    severity: important
+    related_anchors:
+      - zero-article.overview
+      - zero-article.generic.plural-nouns
+      - zero-article.generic.uncountable-nouns
+
+  - mapping_id: M056
+    target_anchor: some-any-no.any.negatives-and-questions
+    target_file: backend/content/foundations/some-any-no.md
+    feedback_pattern_summary: "Nhầm some/any/no trong câu hỏi, phủ định, hoặc khẳng định"
+    feedback_keywords:
+      - "some any confusion"
+      - "some in real question"
+      - "any in affirmative"
+      - "wrong quantifier some any"
+      - "double negative with no"
+    user_phrase_examples:
+      - "Do you have some questions?"
+      - "I have any free time"
+      - "I don't have no idea"
+      - "Is there some reason for that?"
+    confidence: high
+    severity: common
+    related_anchors:
+      - some-any-no.some.invitations-and-expected-yes
+      - some-any-no.no.double-negative
+      - zero-article.overview
+
+  - mapping_id: M057
+    target_anchor: singular-vs-plural.subject-verb-agreement
+    target_file: backend/content/foundations/singular-vs-plural.md
+    feedback_pattern_summary: "Nhầm số ít/số nhiều dẫn đến subject-verb agreement sai"
+    feedback_keywords:
+      - "plural noun singular verb"
+      - "subject verb disagreement with plural"
+      - "the number of students are"
+      - "many people is"
+      - "singular plural confusion"
+    user_phrase_examples:
+      - "The number of students are increasing"
+      - "Many people is using social media"
+      - "Two book are on the table"
+      - "Each students have a laptop"
+    confidence: high
+    severity: common
+    related_anchors:
+      - singular-vs-plural.number-of-vs-a-number-of
+      - singular-vs-plural.irregular-plurals
+      - countable-vs-uncountable.vietnamese-classifier-contrast
+
+  - mapping_id: M058
+    target_anchor: preposition-errors.time.at-on-in
+    target_file: backend/content/error-clinic/preposition-errors.md
+    feedback_pattern_summary: "Nhầm giới từ thời gian / ngày / tháng như at-on-in"
+    feedback_keywords:
+      - "at on in time confusion"
+      - "wrong preposition for day date time"
+      - "in monday"
+      - "on 7pm"
+      - "at july"
+    user_phrase_examples:
+      - "I was born on 1998"
+      - "Let's meet in Monday"
+      - "The class starts on 7pm"
+      - "I usually study at the evening"
+    confidence: high
+    severity: common
+    related_anchors:
+      - preposition-errors.verb-preposition-collocations
+      - preposition-errors.adjective-preposition-collocations
+      - prepositions.time.at-on-in
+
+  - mapping_id: M059
+    target_anchor: sentence-fragments.subordinate-clause-alone
+    target_file: backend/content/error-clinic/sentence-fragments.md
+    feedback_pattern_summary: "Dùng because/which/that clause như một câu hoàn chỉnh"
+    feedback_keywords:
+      - "because fragment"
+      - "subordinate clause as sentence"
+      - "which fragment"
+      - "that fragment"
+      - "incomplete clause"
+    user_phrase_examples:
+      - "Because technology is changing rapidly."
+      - "Which makes the problem worse."
+      - "That many students feel stressed."
+      - "Although the idea is interesting."
+    confidence: high
+    severity: common
+    related_anchors:
+      - sentence-fragments.overview
+      - sentence-fragments.missing-main-verb
+      - sentence-fragments.ving-toinf-alone
+
+  - mapping_id: M060
+    target_anchor: wrong-pronoun-reference.this-that-ambiguous
+    target_file: backend/content/error-clinic/wrong-pronoun-reference.md
+    feedback_pattern_summary: "Đại từ this/that/it/they mơ hồ, không rõ đang chỉ cái gì"
+    feedback_keywords:
+      - "ambiguous pronoun reference"
+      - "this that unclear"
+      - "it unclear reference"
+      - "they unclear reference"
+      - "pronoun reference problem"
+    user_phrase_examples:
+      - "Pollution is rising and traffic is increasing. This is worrying."
+      - "Parents and teachers disagree. They are often too strict."
+      - "Technology changed society. It is not always good."
+      - "The teacher told the student that he was wrong."
+    confidence: high
+    severity: important
+    related_anchors:
+      - wrong-pronoun-reference.it-ambiguous
+      - wrong-pronoun-reference.they-ambiguous
+      - missing-subjects.overview
+
+  - mapping_id: M061
+    target_anchor: expressing-preferences-naturally.prefer-structure
+    target_file: backend/content/ielts-grammar-lab/expressing-preferences-naturally.md
+    feedback_pattern_summary: "Diễn đạt sở thích cứng hoặc sai cấu trúc như prefer than / I'd rather to"
+    feedback_keywords:
+      - "prefer than"
+      - "preference structure error"
+      - "i'd rather to"
+      - "expressing preferences unnaturally"
+      - "prefer overuse"
+    user_phrase_examples:
+      - "I prefer coffee than tea"
+      - "I'd rather to stay at home"
+      - "I like movies. I like books. I like music."
+      - "I prefer go by bus"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - expressing-preferences-naturally.id-rather
+      - expressing-preferences-naturally.reason-expansion
+      - grammar-in-speaking.part1.tenses-and-frequency
+
+  - mapping_id: M062
+    target_anchor: talking-about-past-experiences.past-simple-backbone
+    target_file: backend/content/ielts-grammar-lab/talking-about-past-experiences.md
+    feedback_pattern_summary: "Kể trải nghiệm quá khứ nhưng dùng thì lẫn lộn hoặc không tạo mốc kể chuyện"
+    feedback_keywords:
+      - "telling past story in present tense"
+      - "past experience tense confusion"
+      - "narrative tense in speaking"
+      - "story told without past simple"
+      - "past speaking answer lacks sequencing"
+    user_phrase_examples:
+      - "Last year I go to Da Nang and I am very happy"
+      - "When I visit my grandmother I feel nervous and then I met my cousins"
+      - "I talked about the trip but never marked the timeline clearly"
+      - "The story keeps switching between past and present"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - talking-about-past-experiences.past-perfect-before-past
+      - talking-about-past-experiences.sequencing-language
+      - tense-consistency.past-narrative.main-timeline
+
+  - mapping_id: M063
+    target_anchor: talking-about-future-plans.be-going-to.prior-intention
+    target_file: backend/content/ielts-grammar-lab/talking-about-future-plans.md
+    feedback_pattern_summary: "Diễn đạt kế hoạch tương lai chưa tự nhiên: will cho plan có sẵn, hope will, hoặc lẫn future forms"
+    feedback_keywords:
+      - "future plan grammar"
+      - "will for fixed plan"
+      - "going to plan misuse"
+      - "hope will"
+      - "future forms in speaking"
+    user_phrase_examples:
+      - "Next year I will study abroad because I already applied"
+      - "I hope I will get a scholarship"
+      - "I'm going to probably start on Monday and meet my boss at 9"
+      - "My future plans answer keeps mixing will and going to randomly"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - talking-about-future-plans.will.decisions-and-predictions
+      - talking-about-future-plans.present-continuous.arrangements
+      - future-forms.common-mistake.will-overuse
+
+  - mapping_id: M064
+    target_anchor: tense-consistency.ielts-speaking.storytelling
+    target_file: backend/content/error-clinic/tense-consistency.md
+    feedback_pattern_summary: "Tense shift trong câu trả lời Speaking khi kể chuyện hoặc mô tả trải nghiệm"
+    feedback_keywords:
+      - "tense shift while telling story"
+      - "switches tense in speaking narrative"
+      - "past experience answer changes to present"
+      - "storytelling tense inconsistency"
+      - "speaking answer tense drift"
+    user_phrase_examples:
+      - "I was walking home and then I see my teacher"
+      - "Last summer I travel to Hue and it is amazing"
+      - "My Part 2 answer keeps changing tense mid-story"
+      - "The narrative starts in past but ends in present for no reason"
+    confidence: medium
+    severity: important
+    related_anchors:
+      - tense-consistency.past-narrative.main-timeline
+      - tense-consistency.common-mistake.tense-shift-mid-narrative
+      - talking-about-past-experiences.past-simple-backbone
+
 # ==========================================================
 # Coverage summary
 # ==========================================================
-# Total mappings: 47 (Sprint 7a added M038-M048 with M041/M042/M045
+# Total mappings: 61 (Sprint 7a added M038-M048 with M041/M042/M045
 #                     reserved as audit-trail gaps; Sprint 7b added
-#                     M049 + M050 for missing-subjects + main-verbs)
+#                     M049 + M050 for missing-subjects + main-verbs;
+#                     Sprint 21.2 added M051–M064 for coverage expansion)
 # Coverage by severity:
-#   common:    29
-#   important: 15
-#   nuance:    3
+#   common:    34
+#   important: 23
+#   nuance:    4
 # Coverage by confidence:
-#   high:    27
-#   medium:  20
+#   high:    34
+#   medium:  27
 #   low:     0
 #
 # Each CORE topic has at least 1 mapping. Articles with multiple high-frequency

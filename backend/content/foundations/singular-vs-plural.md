@@ -41,8 +41,22 @@ next_articles:
 - sentence-elements
 pathways:
 - grammar-for-beginners
+anchors:
+  - id: singular-vs-plural.overview
+    location: '## Tóm tắt'
+    type: overview
+  - id: singular-vs-plural.irregular-plurals
+    location: '### Plural bất quy tắc (Irregular Plurals)'
+    type: section
+  - id: singular-vs-plural.subject-verb-agreement
+    location: '### 1. Subject-Verb Agreement (Hòa hợp chủ-vị)'
+    type: concept
+  - id: singular-vs-plural.number-of-vs-a-number-of
+    location: '### Lỗi 2: Nhầm "the number of" với "a number of"'
+    type: pitfall
 ---
 
+<!-- anchor: singular-vs-plural.overview -->
 ## Tóm tắt
 
 **Singular** = một (dùng với *is, was, has, does*); **Plural** = hai trở lên (dùng với *are, were, have, do*). Dạng số nhiều thường thêm *-s* hoặc *-es*, nhưng có nhiều trường hợp bất quy tắc quan trọng cần nhớ.
@@ -90,6 +104,7 @@ Chỉ **hai trở lên**. Dùng với:
 | **-f/-fe → -ves** | Một số từ kết thúc *-f/-fe* | *leaf → leaves*, *wife → wives*, *knife → knives*, *half → halves* |
 | Giữ nguyên **-f → -fs** | Một số từ khác | *roof → roofs*, *belief → beliefs*, *chief → chiefs* |
 
+<!-- anchor: singular-vs-plural.irregular-plurals -->
 ### Plural bất quy tắc (Irregular Plurals)
 
 | Singular | Plural | Ghi chú |
@@ -142,6 +157,7 @@ Một số danh từ **luôn ở dạng số nhiều** và dùng động từ s�
 
 ## Cách dùng phổ biến
 
+<!-- anchor: singular-vs-plural.subject-verb-agreement -->
 ### 1. Subject-Verb Agreement (Hòa hợp chủ-vị)
 
 Đây là ứng dụng quan trọng nhất:
@@ -246,6 +262,7 @@ Phân tích:
 - ✅ ĐÚNG: *The results of the study were surprising.*
 - **TẠI SAO:** *results* (chủ ngữ thật) là số nhiều, dù bị tách ra khỏi động từ bởi *of the study*.
 
+<!-- anchor: singular-vs-plural.number-of-vs-a-number-of -->
 ### Lỗi 2: Nhầm "the number of" với "a number of"
 
 - ❌ SAI: *The number of applicants are increasing.*
