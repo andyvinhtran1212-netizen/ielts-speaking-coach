@@ -34,6 +34,19 @@
 </head>
 <body class="exam-chrome" data-text-size="medium" data-exam-theme="default">
 
+  <!-- Sprint 20.13b B2 — skip link is the first focusable element, hidden
+       by .vh until focused. Tabs from address bar → skip link → activates →
+       focus jumps past chrome into the test content (standards §4.1,
+       anti-pattern §10.3: "Skip link ẩn vĩnh viễn"). -->
+  <a class="vh" href="#exam-questions" id="exam-skip-link">Skip to test content</a>
+
+  <!-- Sprint 20.13b B2 — persistent polite live region for time warnings
+       (10/5 min remaining + 0:00 auto-submit) and post-submit score
+       announcements. Visually hidden via .vh; cleared then re-populated
+       with a tiny setTimeout so AT clients re-announce when the same
+       message repeats (standards §4.2 + §4.7). -->
+  <div id="exam-live-region" class="vh" aria-live="polite" aria-atomic="true"></div>
+
   <!-- ── TOP BAR ───────────────────────────────────────────────────── -->
   <header class="exam-topbar" role="banner">
     <div class="exam-topbar__left">
@@ -43,7 +56,12 @@
       </div>
     </div>
     <div class="exam-timer-wrap" id="exam-timer-wrap" hidden>
-      <div class="exam-timer" id="exam-timer" data-state="normal" aria-label="Time remaining">--:--</div>
+      <!-- Sprint 20.13b B2 — timer is role="timer" with aria-live="off"
+           (don't read every second — anti-pattern §10.3). Warnings at
+           10 min / 5 min / 0 are announced via the polite #exam-live-region
+           below. -->
+      <div class="exam-timer" id="exam-timer" data-state="normal"
+           role="timer" aria-live="off" aria-label="Time remaining">--:--</div>
       <div class="exam-timer__label">time remaining</div>
     </div>
     <div class="exam-topbar__right">
@@ -123,7 +141,10 @@
   </main>
 
   <footer class="exam-palette" id="exam-palette" hidden role="navigation" aria-label="Question palette">
-    <div class="exam-palette__grid" id="exam-palette-grid"></div>
+    <!-- Sprint 20.13b B4 — palette buttons sit in role="group" (NOT
+         role="tablist", standards §4.6 + anti-pattern §10.3). The outer
+         footer carries the navigation landmark; the grid is the group. -->
+    <div class="exam-palette__grid" id="exam-palette-grid" role="group" aria-label="Questions 1 to 40"></div>
     <div class="exam-palette__actions">
       <div class="exam-palette__nav" role="group" aria-label="Previous / next question">
         <button type="button" class="exam-palette__nav-btn" id="exam-prev" aria-label="Previous">← Prev</button>
@@ -133,9 +154,13 @@
     </div>
   </footer>
 
-  <!-- Hide overlay — covers passages + questions but keeps the timer visible. -->
-  <div class="exam-hide-overlay" id="exam-hide-overlay" hidden>
+  <!-- Hide overlay — covers passages + questions but keeps the timer visible.
+       Sprint 20.13b B1 — upgraded to a true modal: dialog role, aria-modal,
+       aria-labelledby, focus trap via the shared openOverlay helper. -->
+  <div class="exam-hide-overlay" id="exam-hide-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="exam-hide-title">
     <div class="exam-hide-overlay__card">
+      <h2 id="exam-hide-title" class="vh">Test paused</h2>
       <p>Test paused. Your timer is still running.</p>
       <button type="button" class="exam-btn exam-btn--primary" id="exam-resume-btn">Resume test</button>
     </div>
@@ -241,9 +266,14 @@
     </div>
   </div>
 
-  <div class="exam-note-popover" id="exam-note-popover" role="dialog" aria-label="Edit note" hidden>
-    <div class="exam-note-popover__title">Note</div>
+  <!-- Sprint 20.13b B1 — Note popover promoted to a true modal: aria-modal,
+       aria-labelledby on the visible "Note" heading, focus trap via the
+       shared openOverlay helper. -->
+  <div class="exam-note-popover" id="exam-note-popover"
+       role="dialog" aria-modal="true" aria-labelledby="exam-note-title" hidden>
+    <div class="exam-note-popover__title" id="exam-note-title">Note</div>
     <textarea class="exam-note-popover__textarea" id="exam-note-textarea"
+              aria-label="Note text"
               placeholder="Write a note for this passage…"></textarea>
     <div class="exam-note-popover__actions">
       <button type="button" class="is-danger" id="exam-note-delete">Delete</button>

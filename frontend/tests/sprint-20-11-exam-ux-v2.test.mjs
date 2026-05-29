@@ -232,7 +232,12 @@ describe('Sprint 20.11 D5 — Resume + Start-fresh on pre-start', () => {
   test('Start button opens restart-confirm modal when a resume is live', () => {
     assert.match(
       js,
-      /SESSION\.resume_inprogress\s*\)[\s\S]{0,200}exam-restart-modal['"]\)\.hidden\s*=\s*false/,
+      // Sprint 20.13b B1 — the open path was refactored from a direct
+      // `#exam-restart-modal.hidden = false` to `openOverlay($('exam-restart-modal'), ...)`
+      // for focus-trap + return-focus discipline. Accept either form:
+      // the contract pinned here is "Start button opens the restart-confirm
+      // modal when a resume is live", not the specific assignment style.
+      /SESSION\.resume_inprogress\s*\)[\s\S]{0,300}(?:exam-restart-modal['"]\)\.hidden\s*=\s*false|openOverlay\(\s*\$\(\s*['"]exam-restart-modal['"])/,
     );
   });
 
