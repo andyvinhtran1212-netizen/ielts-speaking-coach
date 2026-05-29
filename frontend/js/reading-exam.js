@@ -92,6 +92,146 @@
     });
   }
 
+  // ── Sprint 20.13b — a11y shared helpers (Standards §4.3 + §4.9) ───
+  // Shared modal lifecycle. One `openOverlay()` + `closeOverlay()` pair
+  // wraps the 5 true modals (Help, Hide overlay, Submit-confirm,
+  // Restart-confirm, Note popover) so every open/close path runs the
+  // SAME a11y discipline:
+  //   • on open: remember opener; move focus into the modal; install a
+  //     Tab trap on the modal; mark the rest of the chrome `inert` +
+  //     `aria-hidden="true"` so AT users can't escape upward.
+  //   • on close (button OR Escape OR backdrop): uninstall the trap;
+  //     clear `inert`/`aria-hidden`; return focus to the opener.
+  // Anti-pattern §10.3 ("Escape chỉ ẩn class mà không gỡ trap+inert →
+  // kẹt bàn phím") is the regression this rule eliminates.
+  //
+  // The Settings popover (anchored, not aria-modal) keeps its lighter
+  // 20.11 pattern — it doesn't take focus from the chrome, just opens
+  // a small disclosure menu.
+  var _BG_REGIONS_FOR_INERT = [
+    '.exam-topbar', '.exam-mobile-notice', '#state-loading',
+    '#state-error', '#state-prestart', '#state-inprogress',
+    '#state-results', '.exam-palette',
+  ];
+  var _overlayStack = [];   // tracks open modals so Escape always closes the topmost
+  function _focusableIn(root) {
+    if (!root) return [];
+    var sel = 'a[href], button:not([disabled]), input:not([disabled]),'
+            + ' select:not([disabled]), textarea:not([disabled]),'
+            + ' [tabindex]:not([tabindex="-1"])';
+    return Array.prototype.slice.call(root.querySelectorAll(sel))
+      .filter(function (el) {
+        // exclude controls that are themselves hidden / inside a hidden ancestor.
+        if (el.hasAttribute('hidden')) return false;
+        var p = el.parentElement;
+        while (p && p !== root) {
+          if (p.hasAttribute('hidden')) return false;
+          p = p.parentElement;
+        }
+        return true;
+      });
+  }
+  function _setBackgroundInert(on) {
+    _BG_REGIONS_FOR_INERT.forEach(function (sel) {
+      var el = document.querySelector(sel);
+      if (!el) return;
+      if (on) {
+        el.setAttribute('inert', '');
+        el.setAttribute('aria-hidden', 'true');
+      } else {
+        el.removeAttribute('inert');
+        el.removeAttribute('aria-hidden');
+      }
+    });
+  }
+  function _installTrap(overlay) {
+    overlay._a11yTrap = function (ev) {
+      if (ev.key !== 'Tab') return;
+      var f = _focusableIn(overlay);
+      if (!f.length) { ev.preventDefault(); return; }
+      var first = f[0], last = f[f.length - 1];
+      if (ev.shiftKey && document.activeElement === first) {
+        ev.preventDefault(); last.focus();
+      } else if (!ev.shiftKey && document.activeElement === last) {
+        ev.preventDefault(); first.focus();
+      }
+    };
+    overlay.addEventListener('keydown', overlay._a11yTrap);
+  }
+  function _releaseTrap(overlay) {
+    if (overlay && overlay._a11yTrap) {
+      overlay.removeEventListener('keydown', overlay._a11yTrap);
+      overlay._a11yTrap = null;
+    }
+  }
+  function openOverlay(overlay, opener) {
+    if (!overlay) return;
+    // Track who opened so we can return focus there on close.
+    overlay._a11yOpener = opener || document.activeElement;
+    overlay.hidden = false;
+    // First overlay opens → mark the background inert; nested opens
+    // (e.g. confirm-from-restart) keep the existing inert and push.
+    if (_overlayStack.length === 0) _setBackgroundInert(true);
+    _overlayStack.push(overlay);
+    _installTrap(overlay);
+    // Move focus into the modal. Prefer the first focusable; fall back
+    // to focusing the modal itself with tabindex -1 if it has no
+    // controls (extremely defensive — every overlay we ship has at
+    // least one button).
+    setTimeout(function () {
+      var f = _focusableIn(overlay);
+      if (f.length) f[0].focus();
+      else { overlay.setAttribute('tabindex', '-1'); overlay.focus(); }
+    }, 0);
+  }
+  function closeOverlay(overlay) {
+    if (!overlay) return;
+    var idx = _overlayStack.indexOf(overlay);
+    if (idx !== -1) _overlayStack.splice(idx, 1);
+    _releaseTrap(overlay);
+    overlay.hidden = true;
+    var opener = overlay._a11yOpener;
+    overlay._a11yOpener = null;
+    // Last overlay closes → release background; otherwise keep inert
+    // because another overlay is still on top.
+    if (_overlayStack.length === 0) _setBackgroundInert(false);
+    if (opener && typeof opener.focus === 'function') {
+      try { opener.focus(); } catch (e) {}
+    }
+  }
+  // Global Escape: close the topmost overlay (anti-pattern §10.3 guard).
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    if (!_overlayStack.length) return;
+    closeOverlay(_overlayStack[_overlayStack.length - 1]);
+  });
+
+  // Sprint 20.13b B2 — polite live-region announcer. Cleared then
+  // re-populated with a tiny setTimeout so AT clients re-announce the
+  // same string (e.g. successive 10/5 min warnings or a repeated
+  // "submitted" message after a retry). Wrapped in try/catch because
+  // the live region is the FIRST DOM element after <body> — if the
+  // document hasn't parsed it yet (extremely defensive), we degrade
+  // silently rather than throw.
+  function liveSay(msg) {
+    try {
+      var lr = $('exam-live-region');
+      if (!lr) return;
+      lr.textContent = '';
+      setTimeout(function () { lr.textContent = String(msg || ''); }, 30);
+    } catch (e) {}
+  }
+
+  // Sprint 20.13b B3 — reduced-motion detector. JS-driven animations
+  // (e.g. the timer toast wobble Layer C may add) check this before
+  // firing; the CSS @media block above handles all declarative cases.
+  function prefersReducedMotion() {
+    try {
+      return window.matchMedia &&
+             window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) { return false; }
+  }
+
   // ── URL parsing ───────────────────────────────────────────────────
   function testIdFromUrl() {
     return (new URLSearchParams(window.location.search).get('test_id') || '').trim() || null;
@@ -460,9 +600,11 @@
     var btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'exam-palette__q';
     btn.dataset.q = String(q);
-    btn.setAttribute('aria-label', 'Question ' + q);
     btn.textContent = String(q);
     btn.addEventListener('click', function () { jumpTo(q); });
+    // Sprint 20.13b B4 — initial aria-label includes "not answered" so
+    // a fresh palette reads consistently from the first focus.
+    _updatePaletteAriaLabel(btn);
     return btn;
   }
   function _groupQuestionsByPart(totalQs, questions) {
@@ -497,9 +639,24 @@
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setCurrent(qNum);
   }
+  // Sprint 20.13b B4 — keep palette-tile `aria-label` in sync with state
+  // (standards §4.6). Single helper called from every state mutation so
+  // screen-reader users hear "Question N, answered, flagged for review,
+  // current" instead of the static "Question N" from 20.10.
+  function _updatePaletteAriaLabel(btn) {
+    if (!btn) return;
+    var q = btn.dataset.q;
+    var parts = ['Question ' + q];
+    if (btn.classList.contains('is-answered')) parts.push('answered');
+    else parts.push('not answered');
+    if (btn.classList.contains('is-flagged')) parts.push('flagged for review');
+    if (btn.classList.contains('is-current')) parts.push('current');
+    btn.setAttribute('aria-label', parts.join(', '));
+  }
   function setCurrent(qNum) {
     document.querySelectorAll('.exam-palette__q').forEach(function (b) {
       b.classList.toggle('is-current', b.dataset.q === String(qNum));
+      _updatePaletteAriaLabel(b);
     });
     document.querySelectorAll('.exam-q').forEach(function (c) {
       c.classList.toggle('is-current', c.dataset.q === String(qNum));
@@ -507,14 +664,14 @@
   }
   function markAnswered(qNum) {
     var btn = document.querySelector('.exam-palette__q[data-q="' + qNum + '"]');
-    if (btn) btn.classList.add('is-answered');
+    if (btn) { btn.classList.add('is-answered'); _updatePaletteAriaLabel(btn); }
   }
   function toggleFlag(qNum, flagBtn) {
     var pressed = flagBtn.getAttribute('aria-pressed') !== 'true';
     flagBtn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
     if (pressed) SESSION.flagged.add(qNum); else SESSION.flagged['delete'](qNum);
     var btn = document.querySelector('.exam-palette__q[data-q="' + qNum + '"]');
-    if (btn) btn.classList.toggle('is-flagged', pressed);
+    if (btn) { btn.classList.toggle('is-flagged', pressed); _updatePaletteAriaLabel(btn); }
   }
 
   // ── Timer: production countdown from started_at + time_limit ──────
@@ -534,14 +691,21 @@
       timer.textContent = formatTime(remaining);
       if (remaining <= 300 && timer.getAttribute('data-state') !== 'critical') {
         timer.setAttribute('data-state', 'critical');
+        // Sprint 20.13b B2 — announce the 5-minute warning ONCE (the
+        // attribute guard above keeps it from re-firing every tick).
+        liveSay('Warning: 5 minutes remaining.');
       } else if (remaining <= 600 && timer.getAttribute('data-state') === 'normal') {
         timer.setAttribute('data-state', 'warning');
+        liveSay('Warning: 10 minutes remaining.');
       }
       if (remaining <= 0) {
         if (SESSION.timer_interval) {
           clearInterval(SESSION.timer_interval);
           SESSION.timer_interval = null;
         }
+        // Sprint 20.13b B2 — announce auto-submit so AT users know the
+        // exam has just been finalised on their behalf.
+        liveSay('Time is up. Your test has been submitted automatically.');
         autoSubmit();
       }
     };
@@ -565,9 +729,11 @@
     $('exam-submit-warn').textContent = unanswered > 0
       ? 'Bạn còn ' + unanswered + '/' + total + ' câu chưa trả lời. Nộp luôn?'
       : 'Bạn đã trả lời tất cả ' + total + ' câu.';
-    $('exam-submit-modal').hidden = false;
+    // Sprint 20.13b B1 — open via shared helper; opener is the Submit
+    // button so closing the modal returns focus there.
+    openOverlay($('exam-submit-modal'), $('exam-submit-btn'));
   }
-  function closeSubmitModal() { $('exam-submit-modal').hidden = true; }
+  function closeSubmitModal() { closeOverlay($('exam-submit-modal')); }
 
   function autoSubmit() {
     // Time-up: lock UI first so further input is impossible, then submit.
@@ -600,6 +766,15 @@
       }
       renderResults(result);
       showState('results');
+      // Sprint 20.13b B2 — announce the score on the polite live region
+      // so AT users get an immediate read of "X out of Y, band Z".
+      try {
+        var score = (result && result.score != null) ? result.score : '?';
+        var max   = (result && result.max_score != null) ? result.max_score : 40;
+        var band  = (result && result.band_estimate != null) ? result.band_estimate : null;
+        liveSay('Test submitted. You scored ' + score + ' out of ' + max +
+                (band != null ? ', estimated band ' + Number(band).toFixed(1) : '') + '.');
+      } catch (_e) {}
     }).catch(function (e) {
       if (e && e.status === 422) {
         showError('Bài thi đã hết giờ. ' + (e.message || ''));
@@ -849,17 +1024,24 @@
 
   // ── Hide / Help / submit-modal wiring ─────────────────────────────
   $('exam-hide-toggle').addEventListener('click', function () {
-    $('exam-hide-overlay').hidden = false;
+    // Sprint 20.13b B1 — through the shared modal helper.
+    openOverlay($('exam-hide-overlay'), $('exam-hide-toggle'));
     $('exam-hide-toggle').setAttribute('aria-pressed', 'true');
   });
   $('exam-resume-btn').addEventListener('click', function () {
-    $('exam-hide-overlay').hidden = true;
+    // Sprint 20.13b B1 — uniform close path (releases trap + returns focus).
+    closeOverlay($('exam-hide-overlay'));
     $('exam-hide-toggle').setAttribute('aria-pressed', 'false');
   });
-  $('exam-help-toggle').addEventListener('click', function () { $('exam-help-modal').hidden = false; });
-  $('exam-help-close').addEventListener('click', function () { $('exam-help-modal').hidden = true; });
+  // Sprint 20.13b B1 — Help modal through shared helper.
+  $('exam-help-toggle').addEventListener('click', function () {
+    openOverlay($('exam-help-modal'), $('exam-help-toggle'));
+  });
+  $('exam-help-close').addEventListener('click', function () {
+    closeOverlay($('exam-help-modal'));
+  });
   $('exam-help-modal').querySelector('[data-close="help"]').addEventListener('click',
-    function () { $('exam-help-modal').hidden = true; });
+    function () { closeOverlay($('exam-help-modal')); });
 
   $('exam-submit-btn').addEventListener('click', openSubmitModal);
   $('exam-submit-cancel').addEventListener('click', closeSubmitModal);
@@ -954,7 +1136,13 @@
       el.style.top  = Math.max(8, Math.min(y, maxTop)) + 'px';
     }
     function hideContextMenu() { ctxMenu.hidden = true; }
-    function hideNotePopover() { notePop.hidden = true; notePopTargetSpan = null; }
+    // Sprint 20.13b B1 — the Note popover is a true modal now (aria-modal,
+    // focus-trapped). Route close through the shared helper so the trap
+    // is released + focus returned to the opener.
+    function hideNotePopover() {
+      if (!notePop.hidden) closeOverlay(notePop);
+      notePopTargetSpan = null;
+    }
     function showContextMenu(x, y) {
       var sel = window.getSelection();
       var hasSelection = sel && !sel.isCollapsed && sel.toString().trim().length > 0;
@@ -988,7 +1176,11 @@
       }
     });
     document.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape') { hideContextMenu(); hideNotePopover(); }
+      // Sprint 20.13b B1 — the note-popover Escape close is now handled by
+      // the global Escape handler near the top of this module (which walks
+      // _overlayStack). This local handler only closes the context menu
+      // (which is `role="menu"`, NOT a modal — not in the overlay stack).
+      if (ev.key === 'Escape') { hideContextMenu(); }
     });
 
     function applyHighlight(range, options) {
@@ -1066,9 +1258,15 @@
     function openNoteEditor(span, x, y) {
       notePopTargetSpan = span;
       noteTA.value = span.getAttribute('data-note') || '';
-      notePop.hidden = false;
+      // Sprint 20.13b B1 — through the shared modal helper. The opener
+      // remembered is whatever had focus when openNoteEditor was called
+      // (typically the context menu Note button or the Alt+N source) so
+      // close-via-Escape returns focus there.
+      openOverlay(notePop, document.activeElement);
       positionPopover(notePop, x, y);
-      noteTA.focus();
+      // openOverlay focuses the first focusable (the textarea wins in
+      // this modal — explicit re-focus is defensive only).
+      try { noteTA.focus(); } catch (e) {}
     }
     ctxMenu.addEventListener('click', function (ev) {
       // Sprint 20.13a A5 — colour-swatch path: apply highlight with the
@@ -1126,6 +1324,72 @@
       if (marker && marker.parentNode) marker.parentNode.removeChild(marker);
       hideNotePopover();
     });
+
+    // Sprint 20.13b B5 — keyboard parity with right-click highlight + note.
+    // Alt+H / Alt+N / Alt+C let the student work from the keyboard alone
+    // (standards §4.8). Behaviour:
+    //   Alt+H — apply the default-yellow highlight to the current selection
+    //           (no-selection → refuse silently)
+    //   Alt+N — apply highlight + open the Note editor on it
+    //   Alt+C — if focus or selection is inside an existing highlight,
+    //           clear it. Caret position is used; selection ignored.
+    // We refuse silently when nothing applies so the keys don't surprise
+    // users who happen to hold Alt for other reasons.
+    //
+    // Selection must intersect the passage pane or the questions pane
+    // (the same surfaces the right-click menu listens on) so the
+    // shortcuts can't accidentally fire from a stray Alt-press inside a
+    // modal or the chrome.
+    var ALT_TARGET_PANELS = ['#exam-passage', '#exam-questions'];
+    function _selectionInsidePanels() {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) return null;
+      var anchor = sel.anchorNode;
+      var ok = false;
+      ALT_TARGET_PANELS.forEach(function (s) {
+        var p = document.querySelector(s);
+        if (p && anchor && p.contains(anchor)) ok = true;
+      });
+      return ok ? sel.getRangeAt(0).cloneRange() : null;
+    }
+    function _highlightAtFocus() {
+      // Find a `.exam-highlight.is-user` ancestor of the active element
+      // or of the selection's anchor node — whichever exists.
+      var el = document.activeElement;
+      var sel = window.getSelection();
+      var node = (sel && sel.anchorNode) || el || null;
+      while (node && node !== document.body) {
+        if (node.classList && node.classList.contains('exam-highlight')
+            && node.classList.contains('is-user')) return node;
+        node = node.parentNode;
+      }
+      return null;
+    }
+    document.addEventListener('keydown', function (ev) {
+      if (!ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      var key = String(ev.key || '').toLowerCase();
+      if (key === 'h') {
+        var range = _selectionInsidePanels();
+        if (!range) return;          // no selection or wrong surface → silent
+        ev.preventDefault();
+        applyHighlight(range, { color: 'c-yellow' });
+      } else if (key === 'n') {
+        var range2 = _selectionInsidePanels();
+        if (!range2) return;
+        ev.preventDefault();
+        var spans = applyHighlight(range2, { color: 'c-yellow' });
+        if (spans && spans.length) {
+          var last = spans[spans.length - 1];
+          var r = last.getBoundingClientRect();
+          openNoteEditor(last, r.left + window.scrollX, r.bottom + window.scrollY + 6);
+        }
+      } else if (key === 'c') {
+        var hl = _highlightAtFocus();
+        if (!hl) return;
+        ev.preventDefault();
+        removeHighlight(hl);
+      }
+    });
   })();
 
   // ── Boot: fetch test → resume-or-prestart ─────────────────────────
@@ -1166,7 +1430,8 @@
     // If a resumable attempt is live, the Start button means "abandon the
     // current attempt and start over" — confirm before destroying state.
     if (SESSION.resume_inprogress) {
-      $('exam-restart-modal').hidden = false;
+      // Sprint 20.13b B1 — through the shared modal helper.
+      openOverlay($('exam-restart-modal'), $('exam-start-btn'));
       return;
     }
     startFreshAttempt();
@@ -1181,16 +1446,18 @@
   });
 
   // Sprint 20.11 D5 — Restart-confirm modal handlers.
+  // Sprint 20.13b B1 — every close path goes through closeOverlay so the
+  // trap is released and focus returns to the Start button (the opener).
   $('exam-restart-cancel').addEventListener('click', function () {
-    $('exam-restart-modal').hidden = true;
+    closeOverlay($('exam-restart-modal'));
   });
   $('exam-restart-confirm').addEventListener('click', function () {
-    $('exam-restart-modal').hidden = true;
+    closeOverlay($('exam-restart-modal'));
     startFreshAttempt();
   });
   // Backdrop click closes the modal (does not confirm).
   document.querySelector('#exam-restart-modal .exam-modal__backdrop')
-    .addEventListener('click', function () { $('exam-restart-modal').hidden = true; });
+    .addEventListener('click', function () { closeOverlay($('exam-restart-modal')); });
 
   function boot() {
     var testId = testIdFromUrl();

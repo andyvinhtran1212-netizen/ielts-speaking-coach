@@ -573,7 +573,10 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 /* Sprint 20.13a A3 — settings theme swatch buttons.
  * Each swatch shows the theme's pane colour so the user picks visually. */
 .exam-theme-swatch {
-  width: 36px; height: 28px;
+  /* Sprint 20.13b touch-target audit: 36×32 (was 36×28). Above the
+   * WCAG AA 24px desktop floor with margin so the 4 themes are easy to
+   * click on touch + comfortable to keyboard-focus. */
+  width: 36px; height: 32px;
   font: inherit; font-size: 0;       /* hide the 'A' label, swatches show colour only */
   border: 2px solid var(--exam-border-default);
   border-radius: 4px; cursor: pointer; padding: 0;
@@ -604,7 +607,9 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   border-top: 1px solid var(--exam-border-subtle);
 }
 .exam-context-menu__color {
-  width: 20px; height: 20px;
+  /* Sprint 20.13b touch-target audit: 24×24 (was 20×20). The 20px shipped
+   * in 20.13a A5 was below the WCAG AA 24px desktop floor — fixed here. */
+  width: 24px; height: 24px;
   border: 1px solid var(--exam-border-strong);
   border-radius: 3px; cursor: pointer; padding: 0;
   font: inherit; font-size: 0;
@@ -614,4 +619,84 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 .exam-context-menu__color.is-pink   { background: #f48fb1; }
 .exam-context-menu__color:focus-visible {
   outline: 2px solid var(--exam-accent); outline-offset: 1px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Sprint 20.13b — Interactive HTML Standards Layer B (a11y / WCAG AA).
+ * Closes anti-patterns §10.3 (modal-stuck-Escape, skip-link-permanently-
+ * hidden, role=tablist, motion-not-respected). Multi-state visual
+ * composition + behaviour both verified through the new sentinel; prod
+ * dogfood is keyboard-only nav + reduced-motion sysprefs + screen reader.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* Sprint 20.13b B2 — `.vh` (visually-hidden) utility. Hidden from sight
+ * but staying in the a11y tree + focus order — standards §4.1 + gold
+ * reference pattern. The `:focus` reveal lifts the skip link out of the
+ * void when keyboard-tabbed (anti-pattern §10.3: "Skip link ẩn vĩnh viễn"). */
+.vh {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap;
+  margin: -1px; padding: 0;
+  border: 0;
+}
+.vh:focus {
+  position: fixed !important;
+  top: 8px; left: 8px;
+  width: auto; height: auto;
+  clip: auto; clip-path: none;
+  background: var(--exam-accent, #2b6cb0);
+  color: #FFFFFF;
+  padding: 10px 16px;
+  text-decoration: none;
+  font: inherit; font-weight: 700;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  z-index: 2000;
+}
+
+/* Sprint 20.13b B2 — time-warning toast. Lives at the top of the
+ * viewport for ~4s when the timer crosses 10/5/0; the polite live region
+ * announces the same text to AT users (the toast is the visual half). */
+.exam-time-toast {
+  position: fixed;
+  top: 60px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--exam-critical, #c62828);
+  color: #FFFFFF;
+  padding: 10px 22px;
+  border-radius: 6px;
+  font-weight: 700;
+  z-index: 1600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+/* Sprint 20.13b B3 — extend `prefers-reduced-motion` to cover every
+ * animation/transition in the exam UI (standards §4.9, anti-pattern
+ * §10.3). The 20.4c mockup CSS already disabled the timer-critical
+ * keyframe pulse; this block covers the remaining transition on the
+ * draggable divider + any toast-style animation that future work may
+ * add by re-using the `*` selector to make the default lenient. */
+@media (prefers-reduced-motion: reduce) {
+  .exam-timer[data-state="critical"] { animation: none !important; }
+  .exam-divider { transition: none !important; }
+  .exam-time-toast { animation: none !important; }
+  * { scroll-behavior: auto !important; }
+}
+
+/* Sprint 20.13b B5 — keyboard-focus ring is more important here than in
+ * the 20.4c mockup because the new shortcuts (Alt+H / Alt+N / Alt+C)
+ * make keyboard-only highlight + note workflows real. `:focus-visible`
+ * keeps mouse clicks clean while restoring a clear visual indicator for
+ * Tab-driven traversal. */
+.exam-context-menu :focus-visible,
+.exam-settings :focus-visible,
+.exam-modal :focus-visible,
+.exam-note-popover :focus-visible,
+.exam-hide-overlay :focus-visible {
+  outline: 2px solid var(--exam-accent, #2b6cb0);
+  outline-offset: 2px;
 }
