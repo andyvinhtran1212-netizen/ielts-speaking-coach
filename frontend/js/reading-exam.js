@@ -47,6 +47,9 @@
     timer_interval: null,
     timer_locked: false,
     debounce_timers: new Map(), // q_num → setTimeout handle (auto-save debounce)
+    resume_inprogress: false,   // Sprint 20.11 D5 — true when boot detected an
+                                // open attempt; pre-start surfaces the Resume
+                                // affordance and the Start button confirms.
   };
 
   // ── State machine ─────────────────────────────────────────────────
@@ -94,6 +97,23 @@
     return (new URLSearchParams(window.location.search).get('test_id') || '').trim() || null;
   }
 
+  // Sprint 20.11 D5 — surface a resume affordance on pre-start when an
+  // open attempt is detected. The 20.6 boot auto-resumed; that meant a
+  // student stuck mid-attempt could not see the pre-start screen again
+  // (Andy's dogfood: needed a SQL UPDATE to abandon the attempt and
+  // start fresh). Now the pre-start shows BOTH "Resume" and "Start
+  // fresh" when SESSION.resume_inprogress is set.
+  function configurePreStartActions(hasResumable) {
+    var startBtn = $('exam-start-btn');
+    var resumeBtn = $('exam-resume-btn-prestart');
+    if (resumeBtn) resumeBtn.hidden = !hasResumable;
+    if (startBtn) {
+      startBtn.textContent = hasResumable
+        ? 'Bắt đầu lại từ đầu'        // restart wins (existing button)
+        : 'Bắt đầu bài thi';          // fresh path (no prior attempt)
+    }
+  }
+
   // ── Pre-start render ──────────────────────────────────────────────
   function renderPreStart(test) {
     $('prestart-title').textContent = test.title || 'Reading Test';
@@ -128,11 +148,87 @@
     });
   }
 
-  // ── Render questions (grouped by passage_order; Part heading per group) ──
+  // ── Question-type instruction templates (Sprint 20.11 D2) ────────
+  // English-language instruction blocks rendered above each consecutive
+  // run of same-type questions inside a passage. Wording follows real BC /
+  // IDP / Cambridge official-sample patterns so the surface feels familiar
+  // to anyone who has practised against released materials. The optional
+  // {part} and {options_count} placeholders are filled from runtime data.
+  var QTYPE_INSTRUCTIONS = {
+    matching_headings: function (range, ctx) {
+      // The list of headings is shown per-question (dropdown), so the
+      // instruction names the heading bank size when the part has a
+      // consistent set, and references the choice slot otherwise.
+      var n = ctx.optionsCount || '';
+      return 'Questions ' + range + ': Reading Passage ' + ctx.part +
+        ' has several paragraphs. Choose the correct heading for each ' +
+        'paragraph from the list of headings' +
+        (n ? ' (i–' + _toRoman(n) + ')' : '') + '. ' +
+        'Select your answer from the dropdown beside each question.';
+    },
+    true_false_not_given: function (range, ctx) {
+      return 'Questions ' + range + ': Do the following statements agree with ' +
+        'the information given in Reading Passage ' + ctx.part + '? Choose ' +
+        'TRUE if the statement agrees with the information, FALSE if the ' +
+        'statement contradicts the information, or NOT GIVEN if there is ' +
+        'no information on this in the passage.';
+    },
+    yes_no_not_given: function (range, ctx) {
+      return 'Questions ' + range + ': Do the following statements agree with ' +
+        "the claims of the writer in Reading Passage " + ctx.part + '? Choose ' +
+        "YES if the statement agrees with the writer's claims, NO if the " +
+        "statement contradicts the writer's claims, or NOT GIVEN if it is " +
+        "impossible to say what the writer thinks about this.";
+    },
+    mcq_single: function (range, ctx) {
+      var n = ctx.optionsCount;
+      var letters = n === 5 ? 'A, B, C, D or E'
+                   : n === 3 ? 'A, B or C'
+                   : 'A, B, C or D';
+      return 'Questions ' + range + ': Choose the correct letter, ' +
+        letters + '.';
+    },
+    sentence_completion: function (range) {
+      return 'Questions ' + range + ': Complete the sentences below. Choose ' +
+        'NO MORE THAN TWO WORDS from the passage for each answer.';
+    },
+    summary_completion: function (range) {
+      return 'Questions ' + range + ': Complete the summary below. Choose ' +
+        'NO MORE THAN TWO WORDS from the passage for each answer.';
+    },
+    notes_completion: function (range) {
+      return 'Questions ' + range + ': Complete the notes below. Choose ' +
+        'NO MORE THAN TWO WORDS from the passage for each answer.';
+    },
+    table_completion: function (range) {
+      return 'Questions ' + range + ': Complete the table below. Choose ' +
+        'NO MORE THAN TWO WORDS from the passage for each answer.';
+    },
+    form_completion: function (range) {
+      return 'Questions ' + range + ': Complete the form below. Choose ' +
+        'NO MORE THAN TWO WORDS from the passage for each answer.';
+    },
+    short_answer: function (range) {
+      return 'Questions ' + range + ': Answer the questions below. Choose ' +
+        'NO MORE THAN THREE WORDS from the passage for each answer.';
+    },
+  };
+  function _toRoman(n) {
+    var roman = ['','i','ii','iii','iv','v','vi','vii','viii','ix','x',
+                 'xi','xii','xiii','xiv','xv','xvi','xvii','xviii','xix','xx'];
+    return roman[n] || String(n);
+  }
+  function _qRangeLabel(qs) {
+    var first = qs[0].q_num, last = qs[qs.length - 1].q_num;
+    return first === last ? String(first) : first + '–' + last;
+  }
+
+  // ── Render questions (grouped by passage_order; per-type instruction
+  //    block above each consecutive run of same-typed questions) ───
   function renderQuestions(questions) {
     var host = $('exam-questions');
     host.innerHTML = '';
-    // Group by passage_order
+    // Group by passage_order (preserves the part-level header from 20.6).
     var byPart = new Map();
     questions.forEach(function (q) {
       var part = q.passage_order || 1;
@@ -140,14 +236,49 @@
       byPart.get(part).push(q);
     });
     Array.from(byPart.keys()).sort(function (a, b) { return a - b; }).forEach(function (part) {
-      var qs = byPart.get(part);
-      var heading = document.createElement('div');
-      heading.className = 'exam-questions__instructions';
-      heading.innerHTML = '<strong>Part ' + part + '</strong> — Questions ' +
-                          qs[0].q_num + '–' + qs[qs.length - 1].q_num;
-      host.appendChild(heading);
-      qs.forEach(function (q) { host.appendChild(renderQuestion(q)); });
+      var partQs = byPart.get(part);
+      var partHeading = document.createElement('div');
+      partHeading.className = 'exam-questions__part-heading';
+      partHeading.innerHTML = '<strong>Part ' + part + '</strong> — Questions ' +
+                              partQs[0].q_num + '–' + partQs[partQs.length - 1].q_num;
+      host.appendChild(partHeading);
+
+      // Sprint 20.11 D2 — sub-group by question_type within the part.
+      // Consecutive runs of the same type share one instruction block;
+      // a type change starts a new block (so a Part with matching_headings
+      // → T/F/NG → short_answer shows three labelled instruction blocks).
+      var typeRuns = _consecutiveTypeRuns(partQs);
+      typeRuns.forEach(function (run) {
+        var type = run[0].question_type;
+        var rangeLabel = _qRangeLabel(run);
+        var instructionEl = document.createElement('div');
+        instructionEl.className = 'exam-questions__instructions exam-questions__instructions--type';
+        instructionEl.setAttribute('data-question-type', type);
+        var template = QTYPE_INSTRUCTIONS[type];
+        // optionsCount: matching_headings uses the heading-bank size; mcq uses
+        // the choice count. Read from the FIRST question in the run as a
+        // representative — same-typed runs in real IELTS share the same
+        // option bank.
+        var optionsCount = (run[0].payload && Array.isArray(run[0].payload.options))
+          ? run[0].payload.options.length : 0;
+        var ctx = { part: part, optionsCount: optionsCount };
+        instructionEl.textContent = template
+          ? template(rangeLabel, ctx)
+          : 'Questions ' + rangeLabel + '.';
+        host.appendChild(instructionEl);
+        run.forEach(function (q) { host.appendChild(renderQuestion(q)); });
+      });
     });
+  }
+  function _consecutiveTypeRuns(qs) {
+    if (!qs.length) return [];
+    var runs = []; var cur = [qs[0]];
+    for (var i = 1; i < qs.length; i++) {
+      if (qs[i].question_type === cur[0].question_type) cur.push(qs[i]);
+      else { runs.push(cur); cur = [qs[i]]; }
+    }
+    runs.push(cur);
+    return runs;
   }
 
   function renderQuestion(q) {
@@ -201,7 +332,11 @@
       var sel = document.createElement('select');
       sel.className = 'exam-q__select'; sel.name = name;
       var ph = document.createElement('option');
-      ph.value = ''; ph.textContent = '— Chọn tiêu đề —';
+      // Sprint 20.11 D4 — English inside exam content (real IELTS fidelity).
+      // The pre-start, modals, and Hide/Help chrome stay Vietnamese (app
+      // voice); the surface a student reads to answer an IELTS question
+      // is English to match BC / IDP / Cambridge official samples.
+      ph.value = ''; ph.textContent = '— Select —';
       sel.appendChild(ph);
       ((q.payload && q.payload.options) || []).forEach(function (o) {
         var val = o.label != null ? String(o.label) : String(o.text || '');
@@ -215,7 +350,8 @@
       // short_answer / *_completion text gap
       var input = document.createElement('input');
       input.type = 'text'; input.className = 'exam-q__gap'; input.name = name;
-      input.placeholder = 'Nhập câu trả lời…';
+      // Sprint 20.11 D4 — English inside exam content (see _qRangeLabel note).
+      input.placeholder = 'Type your answer…';
       body.appendChild(input);
     }
   }
@@ -914,18 +1050,56 @@
     startTimer();
   }
 
-  $('exam-start-btn').addEventListener('click', function () {
-    window.api.post('/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts')
+  // Sprint 20.11 D5 — POST /attempts. The 20.5/20.9 backend abandons any
+  // prior in_progress row for (user, test) before inserting the new one
+  // (mig 088 partial unique index + router retry). So "Start fresh" is
+  // simply this same POST — no extra "abandon" endpoint needed.
+  function startFreshAttempt() {
+    return window.api.post('/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts')
       .then(function (res) {
         SESSION.attempt_id = res.attempt_id;
         SESSION.started_at = res.started_at;
         SESSION.time_limit_minutes = res.time_limit_minutes;
+        // Clear the resumed answers — this is a fresh attempt.
+        SESSION.answers = new Map();
+        SESSION.flagged = new Set();
+        SESSION.resume_inprogress = false;
         enterInProgress();
       })
       .catch(function (e) {
         showError('Không bắt đầu được bài thi. ' + (e && e.message || ''));
       });
+  }
+
+  $('exam-start-btn').addEventListener('click', function () {
+    // If a resumable attempt is live, the Start button means "abandon the
+    // current attempt and start over" — confirm before destroying state.
+    if (SESSION.resume_inprogress) {
+      $('exam-restart-modal').hidden = false;
+      return;
+    }
+    startFreshAttempt();
   });
+
+  // Sprint 20.11 D5 — Resume button (visible only when boot detected an
+  // open attempt). Skips the restart-confirm modal and re-enters in_progress
+  // with the resumed SESSION state.
+  $('exam-resume-btn-prestart').addEventListener('click', function () {
+    if (!SESSION.resume_inprogress) return;
+    enterInProgress();
+  });
+
+  // Sprint 20.11 D5 — Restart-confirm modal handlers.
+  $('exam-restart-cancel').addEventListener('click', function () {
+    $('exam-restart-modal').hidden = true;
+  });
+  $('exam-restart-confirm').addEventListener('click', function () {
+    $('exam-restart-modal').hidden = true;
+    startFreshAttempt();
+  });
+  // Backdrop click closes the modal (does not confirm).
+  document.querySelector('#exam-restart-modal .exam-modal__backdrop')
+    .addEventListener('click', function () { $('exam-restart-modal').hidden = true; });
 
   function boot() {
     var testId = testIdFromUrl();
@@ -939,17 +1113,26 @@
         // Check for an in-progress attempt to resume.
         return window.api.get('/api/reading/test/' + encodeURIComponent(testId) + '/attempts/in-progress')
           .then(function (inprog) {
+            // Sprint 20.11 D5 — surface the resume affordance on
+            // pre-start instead of auto-entering in_progress. The student
+            // now sees both "Tiếp tục bài đang làm" (Resume) and the
+            // primary "Bắt đầu lại từ đầu" (Start fresh, with confirm).
             SESSION.attempt_id = inprog.attempt_id;
             SESSION.started_at = inprog.started_at;
             SESSION.time_limit_minutes = inprog.time_limit_minutes;
             (inprog.answers || []).forEach(function (a) {
               SESSION.answers.set(a.q_num, a.user_answer);
             });
-            enterInProgress();
+            SESSION.resume_inprogress = true;
+            configurePreStartActions(true);
+            showState('prestart');
           })
           .catch(function (e) {
-            // 404 = no in-progress attempt → show pre-start screen.
+            // 404 = no in-progress attempt → show pre-start screen with
+            //       just the primary Start button (no Resume).
             if (e && e.status === 404) {
+              SESSION.resume_inprogress = false;
+              configurePreStartActions(false);
               showState('prestart');
             } else {
               showError('Failed to check existing attempt. ' + (e && e.message || ''));
