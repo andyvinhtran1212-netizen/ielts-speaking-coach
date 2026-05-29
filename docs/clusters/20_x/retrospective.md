@@ -22,8 +22,11 @@
 | 20.6.5 | Content Format v2 | Unified FLAT/NESTED spec; 3 dry-run-validated examples; flagged F1/F2 | v1 example shape mismatch surfaced via spec audit |
 | 20.6.6 | F1/F2 fix | Validator silent → loud; seed correction; full parse → grade round-trip test | 76 errors raised on broken seed at dry-run |
 | 20.7 | Diagnostic engine | Per-attempt skill_breakdown rollups + recommendations | (CI-verify only sprint — small surface) |
-| 20.8 | Close (provisional) | Admin polish (5 gaps) + mockup retirement + retrospective + governance | Observation phase declared |
-| **20.9** | **Audit-driven hardening (post-close)** | **3 P1 integrity seams + 2 P2 quality gaps + docs corrections** | **Cluster truly closed; observation phase begins** |
+| 20.8 | Close (provisional) | Admin polish (5 gaps) + mockup retirement + retrospective + governance | Observation phase declared (rescinded — see 20.10) |
+| 20.9 | Audit-driven hardening (post-close) | 3 P1 integrity seams + 2 P2 quality gaps + docs corrections | "Truly closed" again (rescinded — see 20.10) |
+| 20.10 | Production hotfix | CORS apex/www regex + CSS `[hidden]` override + timer-state gating + palette grouping; 4 prod bugs in one shot | First prod dogfood; "truly closed" again (rescinded — see 20.11) |
+| 20.11 | Exam UX iteration v2 | Divider visual upgrade + per-type English instruction blocks + palette pill separation + locale boundary + Resume/Start-fresh affordance | Second prod dogfood — UX gaps + stuck-attempt trap closed |
+| **20.12** | **Meta-process docs hardening** | **Lessons 10/11/12 added to retrospective + governance §5b/§8/§9 expanded with prod-dogfood-anchor + deploy procedure + workaround review** | **Cluster truly closed (this time gated by post-merge prod-dogfood + ops-applied checklist)** |
 
 ## 1. By the numbers
 
@@ -189,6 +192,107 @@ the docs must say explicitly whether they are heuristic observation
 choices or externally calibrated. If heuristic, that's fine — name it.
 **Carry forward:** any future diagnostic rule with numeric cutoffs ships
 with a one-line note on rationale (`# heuristic observation; tune in Phase B`).
+
+### 2.11 Production dogfood is a separate closure gate (added in 20.12)
+**Where surfaced:** Sprint 20.10. By the time 20.9 merged the cluster had
+2,148 passing backend tests, 89 passing reading-frontend sentinels, a
+Codex audit with no P0 findings, and an end-to-end integration test
+(D6) covering admin import → student detail → start → patch → submit →
+diagnostic at the live HTTP route layer. Mind declared the cluster
+"truly closed" — twice (20.8 + 20.9). **Andy's first real production
+dogfood, a few days after the 20.9 merge, surfaced four bugs in one
+session:** CORS rejecting `www.averlearning.com`, the `.exam-state-shell { display: flex }`
+rule silently overriding `[hidden]` (so every state panel was visible at
+once after the first transition), the timer interval continuing to tick
+after a transition out of `in_progress`, and the palette ungrouped vs
+real BC/IDP fidelity. Each was the kind of defect that only surfaces when
+the multi-state composition is rendered in a real browser, with real
+state transitions, on the real production deployment.
+**Why it slipped:** unit + integration tests in this cluster render single
+DOM elements or single response shapes; they don't compose multiple state
+panels at once. The Codex audit reads code statically — it would not catch
+a CSS specificity bug that depends on the cascade of two rules from two
+different stylesheets. The full-chain D6 integration test exercised the
+HTTP route chain end-to-end, not the *visual* composition.
+**Heuristic:** test-green + audit-pass are necessary but NOT sufficient
+for cluster closure. The fourth gate is *production dogfood pass on the
+real deployed surfaces*. Without it, "truly closed" is wishful thinking
+about classes of defects that the prior three gates structurally cannot
+see.
+**Closed in:** Sprint 20.12 (this PR) — governance §5b extended with a
+fourth anchor type ("prod-dogfood pass"), Pattern #45 carry-forward says
+cluster closure REQUIRES a documented prod-dogfood pass alongside the
+three test/audit/integration gates.
+**Carry forward:** no cluster closure ships without a one-paragraph
+prod-dogfood report from a real user on a real deployment. The report
+names the surfaces exercised + states transitioned through + bugs
+surfaced (zero is fine; one is enough to defer closure).
+
+### 2.12 Code deploys and DB migrations are 2 separate ops steps (added in 20.12)
+**Where surfaced:** Sprint 20.10's audit of the CORS symptom revealed a
+parallel discovery: the explicit `www.averlearning.com` origin had been
+in `main` since commit `4c9fc1e9` on 2026-04-08 — **seven weeks** before
+Andy hit the prod CORS error. Railway's auto-deploy had been stale that
+whole time; the merged code never reached the running backend. Sprint
+20.9's migration 088 (partial unique index + `reading_attempt_answers`
+table) had the same problem: the PR merge dropped the SQL file on disk
+but never applied it to the production Supabase instance. Andy had to
+manually trigger a Railway redeploy AND apply migration 088 via the
+Supabase SQL editor before the 20.9 work was actually live.
+**Why it slipped:** Mind's commissions and the retrospective both
+treated "merged to main" as synonymous with "deployed and applied". No
+sprint closure checklist explicitly verified Railway's deployed commit
+hash or Supabase's applied-migration state. The PR templates didn't ask.
+The 20.9 integration test ran against in-process FastAPI + a mocked
+Supabase client — green tests said nothing about the prod runtime.
+**Heuristic:** for any sprint touching backend code, a migration, or
+both, "merged" is only the first of three ops steps. The remaining two
+are *deployed* (Railway dashboard's latest deployment commit hash matches
+`main` HEAD) and, when a migration shipped, *applied* (schema assertion
+passes against the prod DB). Closure is contingent on all three.
+**Closed in:** Sprint 20.12 — new governance §8 (Deploy & Apply
+Procedure) makes the three-step checklist explicit and pins it as a
+closure requirement. The §5b doc-claim discipline now lists "deployed +
+applied" as a precondition for any post-merge integrity claim.
+**Carry forward:** every PR that touches `backend/` or `backend/migrations/`
+ends with a two-line "Deploy + Apply" status comment in the merge thread
+or coordination memory. The status is one of: `not-applicable` (frontend-
+only), `deployed-only` (backend, no migration), `deployed-and-applied`
+(both). Anything else is open work, not closure.
+
+### 2.13 "Dev workaround" framing in commissions can mask production UX defects (added in 20.12)
+**Where surfaced:** Sprint 20.11 D5 was commissioned as a "dev / admin
+'Start fresh' affordance to abandon current attempt" — Mind's framing
+treated the stuck-mid-attempt problem as friction *Andy hit during
+dogfood*, fixable with an internal tool. Code's read of the commission
+recognised the larger shape: any student who paused mid-attempt and
+came back to the exam URL was auto-resumed into the running clock with
+no way to restart short of a SQL UPDATE. The "dev workaround" was just
+the developer's name for a UX defect every user shared. Code shipped
+D5 as a Resume + Start-fresh affordance in the pre-start screen for
+**every authenticated user**, with a confirmation modal — no SQL hatch
+needed because the production UX no longer requires one.
+**Why it slipped:** when an agent (Mind) sees a peer (Andy) hit
+immediate friction, the natural framing is "what tool would unblock
+the peer right now?" That framing collapses the difference between
+internal-tool scope and product-UX scope. If the underlying defect
+affects every user but is *discovered* during dev work, "dev workaround"
+prejudges the scope as the smaller of the two.
+**Heuristic:** when a commission deliverable carries the words
+"workaround", "dev tool", "admin affordance", "SQL fix", or "manual
+procedure", the first question to answer before accepting the framing
+is: *would a real user encounter the underlying defect on the production
+surface?* If yes, the deliverable's true scope is a UX fix for all users,
+not a tool for the dev. The workaround belongs in the discarded-options
+list, not in the shipped deliverable.
+**Closed in:** Sprint 20.12 — new governance §9 (Workaround Review)
+codifies the check. Mind's commission template (Mind-side, not in this
+repo) absorbs the same checklist.
+**Carry forward:** every commission whose scope contains a
+workaround-style word goes through one explicit checklist line: "Is
+this workaround needed because production UX has the underlying defect?
+[yes / no — justify]". If yes, the deliverable rewrites as a UX fix
+before the sprint starts.
 
 ---
 

@@ -141,20 +141,45 @@ or the spec must satisfy at least one of:
    if the invariant were violated. The test ships in the same PR.
 3. **Explicit "unenforced quirk" labelling** — listed under
    `reading_content_format_v2.md` §10 with the residual risk named.
+4. **Prod-dogfood pass anchor** *(added in 20.12)* — for visual / UX /
+   multi-state composition behaviours that the prior three anchors
+   cannot see (CSS specificity bugs, state-transition leaks, real-browser
+   composition issues, end-to-end stuck-state traps). The anchor is
+   satisfied by a dated, signed-off prod-dogfood report on the real
+   deployed surfaces; the report is filed in the closing PR description
+   or in `retrospective.md §2.X`. The Sprint 20.10 production hotfix is
+   the cautionary tale here — three test/audit/integration gates passed,
+   the fourth (un-named at the time) caught four bugs in one session.
 
-Concrete invariants currently enforced this way (post-20.9):
+> **When to pick which anchor.** DB-level is the right anchor for
+> integrity invariants the database itself can enforce (uniqueness, FK
+> existence, type constraints). Test-level is right when the contract
+> lives in code paths that exercising end-to-end would catch. Quirk
+> labels are right for known limitations that aren't worth fixing yet.
+> **Prod-dogfood is the right anchor when the failure mode requires the
+> whole composition rendered in a real browser** — anything CSS
+> specificity, state-machine visual leakage, real-deployment CORS
+> behaviour, or UX flows that span multiple states with persisted state
+> in between.
 
-| Invariant | Enforced by | Test |
-|---|---|---|
-| ≤1 in_progress attempt per (user, test) | Partial unique index in mig 088 + router retry | `test_d2_start_retries_on_unique_violation_until_insert_succeeds` |
-| PATCH /answers is atomic per q_num | PK upsert on (attempt_id, q_num) in mig 088 | `test_d3_patch_two_different_qnums_each_upserts_independently` |
-| L3 re-import deletes removed passages | Reconciliation step in `_import_l3_full_test` | `test_d1_l3_reimport_deletes_passage_removed_from_source` |
-| Submit fails closed on bad started_at | Router 422 path | `test_d4_submit_fails_closed_on_unparseable_started_at` |
-| Diagnostic thresholds (60/75) | Hard-coded constants | `test_d5_diagnostic_level_at_exact_boundary_{59,60,74,75}` |
+Concrete invariants currently enforced this way:
+
+| Invariant | Anchor type | Enforced by | Verification |
+|---|---|---|---|
+| ≤1 in_progress attempt per (user, test) | DB | Partial unique index in mig 088 + router retry | `test_d2_start_retries_on_unique_violation_until_insert_succeeds` |
+| PATCH /answers is atomic per q_num | DB | PK upsert on (attempt_id, q_num) in mig 088 | `test_d3_patch_two_different_qnums_each_upserts_independently` |
+| L3 re-import deletes removed passages | Test | Reconciliation step in `_import_l3_full_test` | `test_d1_l3_reimport_deletes_passage_removed_from_source` |
+| Submit fails closed on bad started_at | Test | Router 422 path | `test_d4_submit_fails_closed_on_unparseable_started_at` |
+| Diagnostic thresholds (60/75) | Test | Hard-coded constants | `test_d5_diagnostic_level_at_exact_boundary_{59,60,74,75}` |
+| `[hidden]` actually hides state shells / timer / palette | Test | CSS `[hidden] { display: none !important }` overrides | `sprint-20-10-prod-hotfix.test.mjs` + 20.10 prod-dogfood |
+| Timer interval bound to `in_progress` state | Test | `stopTimer()` in `showState()` transitions | `sprint-20-10-prod-hotfix.test.mjs` + 20.10 prod-dogfood |
+| Per-type English instruction blocks above each q-type run | Test | `QTYPE_INSTRUCTIONS` + `_consecutiveTypeRuns()` | `sprint-20-11-exam-ux-v2.test.mjs` + 20.11 prod-dogfood |
+| Pre-start surfaces Resume + Start-fresh on resumable attempt | Test + prod-dogfood | `SESSION.resume_inprogress` + boot flow + `#exam-restart-modal` | `sprint-20-11-exam-ux-v2.test.mjs` + 20.11 prod-dogfood |
+| Multi-state visual composition holds on prod | Prod-dogfood | The real deployed surface | Andy's 20.10 + 20.11 + 20.12 prod-dogfood reports |
 
 Anti-pattern (what the audit caught): writing "the system guarantees X"
-in the retrospective without a corresponding constraint or test that
-breaks if X fails. Don't do this again.
+in the retrospective without a corresponding constraint, test, or
+prod-dogfood report that breaks if X fails. Don't do this again.
 
 ---
 
@@ -194,7 +219,164 @@ For any non-trivial change to the reading module during observation:
 
 ---
 
-## 8. What's NOT governed by this doc
+## 8. Deploy & Apply Procedure *(added in 20.12 — Lesson 11)*
+
+> Cluster 20.x learned the hard way that "merged to main" is not the
+> same thing as "running in production". Sprint 20.10 traced the prod
+> CORS symptom back to a Railway auto-deploy that had been stale for
+> seven weeks; Sprint 20.9's migration 088 sat as an unapplied `.sql`
+> file in `backend/migrations/` until Andy ran it manually in Supabase.
+> Both gaps closed only because Andy noticed during dogfood. The rule
+> below makes the ops handoff explicit instead of relying on noticing.
+
+### When this procedure applies
+
+Any PR that touches:
+- `backend/**` (router, service, main.py, etc.) — needs **deploy**
+- `backend/migrations/**` — needs **apply**
+- `vercel.json`, `.github/workflows/**`, deploy-affecting infra config — needs **deploy**
+
+Frontend-only PRs (anything strictly under `frontend/**`, plus docs) ship
+via GitHub Pages on push to `main` — they are still "deploy" but the
+deploy mechanism is automatic-on-merge and confirmed by a browser load.
+The 3-step checklist below applies to backend + migration changes.
+
+### The 3-step checklist
+
+After PR merge to `main`:
+
+**Step 1 — Code deploy (Railway)**
+
+- Open the Railway dashboard → Deployments tab → confirm the latest
+  successful deployment's commit hash matches `main` HEAD.
+- If stale (auto-deploy disabled, build failed, queue stuck): manual
+  "Redeploy" from the dashboard, OR push an empty commit
+  (`git commit --allow-empty -m "trigger railway redeploy"`) to force.
+- Wait until status reaches **Success**. Check the deployment logs for
+  startup errors (FastAPI emitting "INFO: Application startup complete"
+  is the simplest signal).
+
+**Step 2 — DB migration apply (Supabase, if applicable)**
+
+Migration files live at `backend/migrations/NNN_*.sql`. They are
+forward-only and idempotent (every `CREATE` is `IF NOT EXISTS`, every
+`ALTER` is wrapped in `DO $$` blocks where re-runs need guards). Apply
+via one of:
+
+- (a) **Supabase dashboard → SQL Editor**: paste the file contents +
+  Run. Easiest for one-shot changes; the dashboard's transaction
+  semantics are friendly.
+- (b) **`supabase` CLI**: `supabase db push` from the project root,
+  with a configured access token. Good for batches.
+- (c) **`psql` with the prod connection string**: `psql "$SUPABASE_DB_URL" -f backend/migrations/NNN_*.sql`.
+  Right for CI integration.
+
+After apply, run a schema assertion against the prod DB — at minimum
+the indexes / tables / columns the migration created should show up
+in `pg_indexes` / `information_schema.tables` / `information_schema.columns`.
+The corresponding `backend/tests/test_reading_schema_contract.py`
+pattern works locally too — adapt the same selects for a one-shot prod
+check.
+
+**Step 3 — Prod smoke check**
+
+- Hit the affected endpoint(s) from a real client (browser DevTools,
+  `curl`, or the affected production frontend page) and confirm the
+  response shape + status matches expectation.
+- For UI-affecting changes, load the production frontend in a real
+  browser, walk the smallest representative flow, watch the DevTools
+  console for errors.
+- For changes that affect background jobs or async pathways, monitor
+  the Railway logs for one full cycle to confirm no new errors.
+
+### Closure marker
+
+Once steps 1–3 pass, post a single-line status to the closing PR
+description (or to the coordination memory if the PR is already merged
+and locked). One of:
+
+- `Deploy: not-applicable` — frontend-only PR; the GitHub-Pages
+  automatic deploy is enough.
+- `Deploy: deployed-only` — backend change, no migration; Railway is
+  on the merge commit; prod smoke passed.
+- `Deploy: deployed-and-applied` — backend + migration both shipped;
+  Railway is on the merge commit; migration applied to Supabase;
+  schema assertion passed; prod smoke passed.
+
+> **A sprint is not closed without a closure marker for the ops step.**
+> The integrity invariants table in §5b is read against the deployed
+> state, not the merged state — a passing test on the merge commit is
+> not a passing test on the running backend if the running backend is
+> seven weeks behind.
+
+---
+
+## 9. Workaround Review *(added in 20.12 — Lesson 12)*
+
+> Cluster 20.x's Sprint 20.11 D5 (Resume + Start-fresh affordance on
+> pre-start) was originally commissioned as a "dev / admin 'Start fresh'
+> affordance to abandon current attempt". The framing treated a problem
+> Andy hit during dogfood as friction worth a developer tool. The real
+> shape was a UX defect every student would hit: any student who paused
+> mid-attempt and came back to the URL got auto-resumed into the running
+> clock with no UI path to restart. The "dev workaround" name was just
+> the developer's name for a production UX defect. Sprint 20.11 shipped
+> the affordance for **every** authenticated user; no SQL hatch remains.
+
+### When this review applies
+
+Run this review whenever a commission's scope text contains a word from
+this set:
+
+- **workaround**
+- **dev tool**
+- **admin affordance**
+- **SQL fix**
+- **manual procedure**
+- **temporary hatch**
+- **internal-only**
+
+These words signal that the commission author has prejudged the
+solution scope. The review tests whether the prejudgement is correct.
+
+### The review checklist
+
+Before accepting a workaround-framed deliverable, the commission author
+(or any reviewer) must answer one question explicitly, in writing, in
+the commission or the PR description:
+
+> **Q.** *Would a real user encounter the underlying defect on the
+> production surface?*
+
+The two acceptable answers, with consequences:
+
+- **Yes, real users would encounter it.** → The deliverable's true
+  scope is a production UX fix for all users. Rewrite the commission's
+  D-section before the sprint starts. Strip the "workaround" framing.
+  The 20.11 D5 case is the cautionary tale.
+- **No, only the dev / admin would encounter it under specific
+  operational conditions.** → Workaround framing is acceptable. The
+  deliverable's scope is bounded to the internal flow + the conditions
+  that produce it.
+
+Either answer is fine; the review is about making the answer explicit
+before the work starts, not about always preferring the UX fix. A
+genuine dev-only need (e.g., a CLI tool for bulk-importing content
+during ops migration) keeps its "dev tool" scope. The defect this
+section guards against is the *implicit* prejudgement that doesn't get
+audited.
+
+### Anti-pattern
+
+Shipping a "dev workaround" deliverable when the underlying defect
+*does* affect production users. The workaround papers over the UX gap,
+the gap survives into production observation, and the next user who
+hits it has no recourse short of contacting support. Don't ship the
+hatch when the right fix is the door.
+
+---
+
+## 10. What's NOT governed by this doc
 
 - Listening module (cluster 13.x). Reuses some shared infrastructure
   (e.g. `answer_matches`) but is its own cluster.
