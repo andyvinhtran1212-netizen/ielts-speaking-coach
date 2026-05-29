@@ -1,5 +1,6 @@
 import logging
 import sys
+from time import perf_counter
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,12 @@ from fastapi.responses import JSONResponse
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
+from services.server_timing import (
+    format_header as format_server_timing_header,
+    install_supabase_timing,
+    reset_request as reset_server_timing_request,
+    start_request as start_server_timing_request,
+)
 from routers.sessions import router as sessions_router
 from routers.questions import router as questions_router
 from routers.grading import router as grading_router
@@ -67,6 +74,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+install_supabase_timing()
 
 app = FastAPI(
     title="IELTS Speaking Coach",
@@ -153,6 +161,28 @@ app.include_router(reading_student_router)
 app.include_router(health_router)
 app.include_router(dashboard_router)
 app.include_router(student_home_router)
+
+
+# ── Sprint Perf-1 — Server-Timing observability ───────────────────────
+@app.middleware("http")
+async def server_timing_middleware(request: Request, call_next):
+    """Emit W3C Server-Timing for API observability.
+
+    Skip health probes so uptime checks stay minimal. All other routes get a
+    total/auth/db/app breakdown; auth/db are accumulated by helper wrappers.
+    """
+    if request.url.path.startswith("/health"):
+        return await call_next(request)
+
+    token = start_server_timing_request()
+    start = perf_counter()
+    try:
+        response = await call_next(request)
+        total_ms = (perf_counter() - start) * 1000
+        response.headers["Server-Timing"] = format_server_timing_header(total_ms)
+        return response
+    finally:
+        reset_server_timing_request(token)
 
 
 # ── Sprint 12.3 — X-Request-ID middleware ─────────────────────────────

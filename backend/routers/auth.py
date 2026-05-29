@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from time import perf_counter
 
 from fastapi import APIRouter, HTTPException, Header
 
@@ -9,6 +10,7 @@ import httpx
 
 from config import settings
 from database import supabase_admin
+from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -42,6 +44,7 @@ async def get_supabase_user(authorization: str | None):
 
     token = authorization.replace("Bearer ", "").strip()
 
+    auth_start = perf_counter()
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
@@ -56,6 +59,8 @@ async def get_supabase_user(authorization: str | None):
             status_code=502,
             detail=f"Không thể kết nối Supabase để xác thực: {e}",
         )
+    finally:
+        record_stage("auth", (perf_counter() - auth_start) * 1000)
 
     if response.status_code != 200:
         raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
