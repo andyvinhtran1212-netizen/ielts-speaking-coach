@@ -9,7 +9,7 @@
  *
  * State machine:
  *
- *   load → [content fetch + exercises fetch]
+ *   load → [combined boot fetch: content + dictation exercises]
  *     ├─ no segments     → empty state ("Bài này chưa được phân câu")
  *     └─ segments loaded → segment 0:
  *         idle → recording (n/a — pre-rendered audio) → submitted →
@@ -91,15 +91,13 @@ function getContentIdFromUrl() {
 async function loadContentAndExercise(contentId) {
   showState('loading');
   try {
-    const content = await window.api.get(`/api/listening/content/${contentId}`);
+    const boot = await window.api.get(`/api/listening/dictation/${encodeURIComponent(contentId)}/boot`);
+    const content = boot && boot.content;
     if (!content || !content.audio_signed_url) {
       showError('Bài nghe không khả dụng (thiếu audio URL).');
       return;
     }
-    const exRes = await window.api.get(
-      `/api/listening/exercises?content_id=${encodeURIComponent(contentId)}&exercise_type=dictation`,
-    );
-    const exercises = (exRes && exRes.exercises) || [];
+    const exercises = (boot && boot.exercises) || [];
     const dictation = exercises.find((e) => Array.isArray(e.segments) && e.segments.length > 0);
 
     if (!dictation) {

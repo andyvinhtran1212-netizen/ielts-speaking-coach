@@ -41,6 +41,15 @@ def test_health_routes_skip_server_timing():
     assert "server-timing" not in r.headers
 
 
+def test_listening_boot_route_participates_in_server_timing():
+    r = _client().get("/api/listening/dictation/c1/boot")
+    assert r.status_code == 401
+    header = r.headers.get("server-timing")
+    assert header
+    stages = _parse(header)
+    assert set(stages) == {"total", "auth", "db", "app"}
+
+
 def test_postgrest_execute_methods_are_wrapped_for_db_timing():
     # Importing main installs the PostgREST execute wrappers once at startup.
     import main  # noqa: F401

@@ -435,25 +435,8 @@ class ListeningExerciseUpsertRequest(BaseModel):
 # ── User route — single content fetch ─────────────────────────────────────────
 
 
-@user_router.get("/content/{content_id}")
-async def get_listening_content(
-    content_id: str,
-    authorization: str | None = Header(default=None),
-):
-    """Fetch one published listening_content row + a fresh signed URL
-    to the audio. Used by Sprint 11.2's audio player to load both
-    metadata and the playable URL in one round-trip.
-
-    Draft + archived rows return 404 so admins can stage content
-    without exposing it. The Sprint 10.6 vocab pattern (return shape
-    field always present, derived per request) applies here: the
-    `audio_signed_url` is computed on each GET, never stored.
-    """
-    user = await _require_auth(authorization)  # 401 on missing/bad token
-    # `user` reserved for future per-user gating (e.g. premium tier);
-    # Sprint 11.1 doesn't use it but the auth check still gates the route.
-    _ = user
-
+def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
+    """Return one published listening_content row with a fresh signed audio URL."""
     res = (
         supabase_admin.table("listening_content")
         .select("*")
@@ -488,6 +471,73 @@ async def get_listening_content(
         )
 
     return row
+
+
+def _fetch_published_listening_exercises(
+    *,
+    content_id: str,
+    exercise_type: str,
+) -> list[dict]:
+    """Return published exercises for an already published content row."""
+    if exercise_type not in _EXERCISE_TYPES:
+        raise HTTPException(
+            422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
+        )
+
+    res = (
+        supabase_admin.table("listening_exercises")
+        .select("*")
+        .eq("content_id", content_id)
+        .eq("exercise_type", exercise_type)
+        .eq("status", "published")
+        .order("order_num", desc=False)
+        .execute()
+    )
+    return res.data or []
+
+
+@user_router.get("/content/{content_id}")
+async def get_listening_content(
+    content_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Fetch one published listening_content row + a fresh signed URL
+    to the audio. Used by Sprint 11.2's audio player to load both
+    metadata and the playable URL in one round-trip.
+
+    Draft + archived rows return 404 so admins can stage content
+    without exposing it. The Sprint 10.6 vocab pattern (return shape
+    field always present, derived per request) applies here: the
+    `audio_signed_url` is computed on each GET, never stored.
+    """
+    user = await _require_auth(authorization)  # 401 on missing/bad token
+    # `user` reserved for future per-user gating (e.g. premium tier);
+    # Sprint 11.1 doesn't use it but the auth check still gates the route.
+    _ = user
+
+    return _fetch_published_listening_content_with_signed_url(content_id)
+
+
+@user_router.get("/dictation/{content_id}/boot")
+async def boot_listening_dictation(
+    content_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Combined dictation boot payload.
+
+    Perf-2 collapses the previous frontend waterfall:
+    GET /api/listening/content/{id} → GET /api/listening/exercises?...dictation.
+    Dictation has no in-progress attempt state; attempts remain POST-only per
+    segment, preserving the first-attempt rule in ``post_listening_attempt``.
+    """
+    user = await _require_auth(authorization)
+    _ = user
+    content = _fetch_published_listening_content_with_signed_url(content_id)
+    exercises = _fetch_published_listening_exercises(
+        content_id=content_id,
+        exercise_type="dictation",
+    )
+    return {"content": content, "exercises": exercises}
 
 
 # ── Admin route — MP3 upload ──────────────────────────────────────────────────
