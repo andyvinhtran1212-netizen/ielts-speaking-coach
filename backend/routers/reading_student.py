@@ -363,6 +363,94 @@ def _fetch_published_test(test_id: str) -> dict:
     return res.data[0]
 
 
+def _build_reading_test_detail(test_id: str) -> dict:
+    """Return the student-safe L3 test bundle with answer keys stripped."""
+    test = dict(_fetch_published_test(test_id))
+
+    passages_res = (
+        supabase_admin.table("reading_passages")
+        .select("id,slug,title,body_markdown,passage_order,word_count,"
+                "estimated_minutes,topic_tags")
+        .eq("test_id", test["id"])
+        .eq("library", "l3_test")
+        .order("passage_order")
+        .execute()
+    )
+    passages = passages_res.data or []
+
+    passage_ids = [p["id"] for p in passages]
+    questions: list[dict] = []
+    if passage_ids:
+        q_res = (
+            supabase_admin.table("reading_questions")
+            .select("q_num,question_type,prompt,payload,skill_tag,sub_skill,"
+                    "order_num,passage_id")
+            .in_("passage_id", passage_ids)
+            .order("q_num")
+            .execute()
+        )
+        questions = q_res.data or []
+
+    # Stamp each question with its passage's order — saves the client a
+    # second lookup when rendering the part header above each block.
+    passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
+    for q in questions:
+        q["passage_order"] = passage_order_by_id.get(q.get("passage_id"))
+
+    test["passages"] = passages
+    test["questions"] = questions
+    return test
+
+
+def _fetch_in_progress_payload(
+    user_id: str,
+    test_id: str,
+    test: dict,
+    *,
+    raise_on_missing: bool,
+) -> dict | None:
+    """Return the user's in-progress attempt payload for ``test`` if present."""
+    res = (
+        supabase_admin.table("reading_test_attempts")
+        .select("id,started_at,status")
+        .eq("user_id", user_id)
+        .eq("test_id", test["id"])
+        .eq("status", "in_progress")
+        .order("started_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        if raise_on_missing:
+            raise HTTPException(404, "No in-progress attempt for this test")
+        return None
+
+    row = res.data[0]
+    persisted_res = (
+        supabase_admin.table("reading_attempt_answers")
+        .select("q_num,user_answer,answered_at")
+        .eq("attempt_id", row["id"])
+        .order("q_num")
+        .execute()
+    )
+    answers = [
+        {
+            "q_num":       a["q_num"],
+            "user_answer": a.get("user_answer") or "",
+            "answered_at": a.get("answered_at"),
+        }
+        for a in (persisted_res.data or [])
+    ]
+    return {
+        "attempt_id":         row["id"],
+        "test_id":            test_id,
+        "status":             row["status"],
+        "started_at":         row.get("started_at"),
+        "answers":            answers,
+        "time_limit_minutes": test["time_limit_minutes"],
+    }
+
+
 @router.get("/test")
 async def list_reading_tests(
     module: str | None = Query(default=None),
@@ -411,41 +499,27 @@ async def get_reading_test(
     three parts. The exam UI scrolls between them; the backend doesn't
     enforce a per-part lock here — that's a UX call in 20.6."""
     await _require_auth(authorization)
-    test = _fetch_published_test(test_id)
+    return _build_reading_test_detail(test_id)
 
-    passages_res = (
-        supabase_admin.table("reading_passages")
-        .select("id,slug,title,body_markdown,passage_order,word_count,"
-                "estimated_minutes,topic_tags")
-        .eq("test_id", test["id"])
-        .eq("library", "l3_test")
-        .order("passage_order")
-        .execute()
+
+@router.get("/test/{test_id}/boot")
+async def boot_reading_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Combined exam boot payload.
+
+    Perf-1 collapses the previous frontend waterfall:
+    GET /api/reading/test/{id} → GET /attempts/in-progress.
+    The response keeps the existing detail payload under ``test`` and returns
+    ``in_progress`` as either the existing resume payload or ``null``.
+    """
+    user = await _require_auth(authorization)
+    test = _build_reading_test_detail(test_id)
+    in_progress = _fetch_in_progress_payload(
+        user["id"], test_id, test, raise_on_missing=False
     )
-    passages = passages_res.data or []
-
-    passage_ids = [p["id"] for p in passages]
-    questions: list[dict] = []
-    if passage_ids:
-        q_res = (
-            supabase_admin.table("reading_questions")
-            .select("q_num,question_type,prompt,payload,skill_tag,sub_skill,"
-                    "order_num,passage_id")
-            .in_("passage_id", passage_ids)
-            .order("q_num")
-            .execute()
-        )
-        questions = q_res.data or []
-
-    # Stamp each question with its passage's order — saves the client a
-    # second lookup when rendering the part header above each block.
-    passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
-    for q in questions:
-        q["passage_order"] = passage_order_by_id.get(q.get("passage_id"))
-
-    test["passages"] = passages
-    test["questions"] = questions
-    return test
+    return {"test": test, "in_progress": in_progress}
 
 
 def _abandon_open_attempts(user_id: str, test_uuid: str) -> None:
@@ -737,48 +811,9 @@ async def get_in_progress_reading_attempt(
     this lookup unambiguous."""
     user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
-
-    res = (
-        supabase_admin.table("reading_test_attempts")
-        .select("id,started_at,status")
-        .eq("user_id", user["id"])
-        .eq("test_id", test["id"])
-        .eq("status", "in_progress")
-        .order("started_at", desc=True)
-        .limit(1)
-        .execute()
+    return _fetch_in_progress_payload(
+        user["id"], test_id, test, raise_on_missing=True
     )
-    if not res.data:
-        raise HTTPException(404, "No in-progress attempt for this test")
-
-    row = res.data[0]
-    # Sprint 20.9 D3 — gather answers from the per-q_num table (mig 088). The
-    # `reading_test_attempts.answers` JSONB column is no longer the in-flight
-    # source of truth — it's the post-submit immutable snapshot. Drop it from
-    # the SELECT above and hydrate from reading_attempt_answers instead.
-    persisted_res = (
-        supabase_admin.table("reading_attempt_answers")
-        .select("q_num,user_answer,answered_at")
-        .eq("attempt_id", row["id"])
-        .order("q_num")
-        .execute()
-    )
-    answers = [
-        {
-            "q_num":       a["q_num"],
-            "user_answer": a.get("user_answer") or "",
-            "answered_at": a.get("answered_at"),
-        }
-        for a in (persisted_res.data or [])
-    ]
-    return {
-        "attempt_id":         row["id"],
-        "test_id":            test_id,
-        "status":             row["status"],
-        "started_at":         row.get("started_at"),
-        "answers":            answers,
-        "time_limit_minutes": test["time_limit_minutes"],
-    }
 
 
 class _AnswerPatchItem(BaseModel):

@@ -223,10 +223,9 @@ describe('Sprint 20.11 D5 — Resume + Start-fresh on pre-start', () => {
   test('boot sets resume_inprogress=true and goes to pre-start (not auto-resume)', () => {
     // Pre-20.11: boot called enterInProgress() directly on resume detect.
     // 20.11: boot calls showState('prestart') + configurePreStartActions(true).
-    assert.match(
-      js,
-      /SESSION\.resume_inprogress\s*=\s*true[\s\S]{0,300}configurePreStartActions\(true\)[\s\S]{0,100}showState\(['"]prestart['"]\)/,
-    );
+    assert.match(js, /SESSION\.resume_inprogress\s*=\s*true[\s\S]{0,300}configurePreStartActions\(true\)/);
+    assert.match(js, /configurePreStartActions\(false\)[\s\S]{0,200}showState\(['"]prestart['"]\)/);
+    assert.doesNotMatch(js, /if\s*\(\s*inprog\s*\)[\s\S]{0,500}enterInProgress\(\)/);
   });
 
   test('Start button opens restart-confirm modal when a resume is live', () => {

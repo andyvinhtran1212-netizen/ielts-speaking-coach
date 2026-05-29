@@ -519,3 +519,93 @@ def test_patch_answers_rejects_qnum_out_of_range():
         r = _client().patch("/api/reading/test/attempts/a-uuid/answers",
                             headers=_AUTH, json={"q_num": 99, "user_answer": "X"})
     assert r.status_code == 422
+
+
+# ── Sprint Perf-1 — combined Reading boot endpoint ─────────────────────
+
+
+def test_l3_boot_requires_auth():
+    assert _client().get("/api/reading/test/T1/boot").status_code == 401
+
+
+def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
+    """Perf-1: the combined boot endpoint replaces the frontend waterfall
+    without weakening answer-key stripping or resume hydration."""
+    mock_db = MagicMock()
+    chain = mock_db.table.return_value.select.return_value
+    # _fetch_published_test: select.eq.eq.limit.execute
+    chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "test-uuid", "test_id": "T1", "title": "T", "module": "academic",
+                          "time_limit_minutes": 60, "passage_count": 3, "total_questions": 40,
+                          "band_target": None, "status": "published"}])
+    # passages: select.eq.eq.order.execute
+    chain.eq.return_value.eq.return_value.order.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "p1", "passage_order": 1, "slug": "s", "title": "P",
+                          "body_markdown": "b"}])
+    # questions: select.in_.order.execute
+    chain.in_.return_value.order.return_value.execute.return_value = \
+        MagicMock(data=[{"q_num": 1, "question_type": "true_false_not_given", "prompt": "p",
+                          "payload": {}, "skill_tag": "detail", "sub_skill": None,
+                          "order_num": 1, "passage_id": "p1"}])
+    # in-progress lookup: select.eq.eq.eq.order.limit.execute
+    chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "a-uuid", "started_at": "2026-05-28T10:00:00+00:00",
+                          "status": "in_progress"}])
+    # per-q_num answers: select.eq.order.execute
+    chain.eq.return_value.order.return_value.execute.return_value = \
+        MagicMock(data=[{"q_num": 1, "user_answer": "A",
+                          "answered_at": "2026-05-28T10:01:00+00:00"}])
+
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", mock_db):
+        r = _client().get("/api/reading/test/T1/boot", headers=_AUTH)
+
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body) == {"test", "in_progress"}
+    assert body["test"]["test_id"] == "T1"
+    assert body["test"]["questions"][0]["passage_order"] == 1
+    assert all("answer" not in q for q in body["test"]["questions"])
+    assert all("explanation" not in q for q in body["test"]["questions"])
+    assert body["in_progress"] == {
+        "attempt_id": "a-uuid",
+        "test_id": "T1",
+        "status": "in_progress",
+        "started_at": "2026-05-28T10:00:00+00:00",
+        "answers": [{
+            "q_num": 1, "user_answer": "A",
+            "answered_at": "2026-05-28T10:01:00+00:00",
+        }],
+        "time_limit_minutes": 60,
+    }
+    # The attempts query must remain user-scoped (RLS/application guard).
+    assert any(c.args == ("user_id", _USER["id"]) for c in chain.eq.call_args_list)
+    for call in mock_db.table.return_value.select.call_args_list:
+        cols = call.args[0] if call.args else ""
+        if "q_num,question_type" in cols:
+            assert "answer" not in cols
+            assert "explanation" not in cols
+
+
+def test_l3_boot_returns_null_resume_when_no_in_progress_attempt():
+    mock_db = MagicMock()
+    chain = mock_db.table.return_value.select.return_value
+    chain.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"id": "test-uuid", "test_id": "T1", "title": "T", "module": "academic",
+                          "time_limit_minutes": 60, "passage_count": 3, "total_questions": 40,
+                          "band_target": None, "status": "published"}])
+    chain.eq.return_value.eq.return_value.order.return_value.execute.return_value = \
+        MagicMock(data=[])
+    chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[])
+
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", mock_db):
+        r = _client().get("/api/reading/test/T1/boot", headers=_AUTH)
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["test"]["test_id"] == "T1"
+    assert body["test"]["passages"] == []
+    assert body["test"]["questions"] == []
+    assert body["in_progress"] is None

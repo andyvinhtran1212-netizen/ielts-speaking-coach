@@ -1128,7 +1128,7 @@
     });
   })();
 
-  // ── Boot: fetch test → resume-or-prestart ─────────────────────────
+  // ── Boot: combined test + resume payload ──────────────────────────
   function enterInProgress() {
     renderPassages((SESSION.test && SESSION.test.passages) || []);
     renderQuestions((SESSION.test && SESSION.test.questions) || []);
@@ -1196,39 +1196,31 @@
     var testId = testIdFromUrl();
     if (!testId) { showError('No test specified (use ?test_id=…).'); return; }
     SESSION.test_id = testId;
-    window.api.get('/api/reading/test/' + encodeURIComponent(testId))
-      .then(function (test) {
+    window.api.get('/api/reading/test/' + encodeURIComponent(testId) + '/boot')
+      .then(function (bootPayload) {
+        var test = bootPayload && bootPayload.test;
+        if (!test) throw new Error('Boot payload missing test');
         SESSION.test = test;
         SESSION.time_limit_minutes = test.time_limit_minutes || 60;
         renderPreStart(test);
-        // Check for an in-progress attempt to resume.
-        return window.api.get('/api/reading/test/' + encodeURIComponent(testId) + '/attempts/in-progress')
-          .then(function (inprog) {
-            // Sprint 20.11 D5 — surface the resume affordance on
-            // pre-start instead of auto-entering in_progress. The student
-            // now sees both "Tiếp tục bài đang làm" (Resume) and the
-            // primary "Bắt đầu lại từ đầu" (Start fresh, with confirm).
-            SESSION.attempt_id = inprog.attempt_id;
-            SESSION.started_at = inprog.started_at;
-            SESSION.time_limit_minutes = inprog.time_limit_minutes;
-            (inprog.answers || []).forEach(function (a) {
-              SESSION.answers.set(a.q_num, a.user_answer);
-            });
-            SESSION.resume_inprogress = true;
-            configurePreStartActions(true);
-            showState('prestart');
-          })
-          .catch(function (e) {
-            // 404 = no in-progress attempt → show pre-start screen with
-            //       just the primary Start button (no Resume).
-            if (e && e.status === 404) {
-              SESSION.resume_inprogress = false;
-              configurePreStartActions(false);
-              showState('prestart');
-            } else {
-              showError('Failed to check existing attempt. ' + (e && e.message || ''));
-            }
+        var inprog = bootPayload.in_progress;
+        if (inprog) {
+          // Sprint 20.11 D5 — surface the resume affordance on pre-start
+          // instead of auto-entering in_progress. Perf-1 keeps that UX while
+          // loading test detail + resume state through one backend request.
+          SESSION.attempt_id = inprog.attempt_id;
+          SESSION.started_at = inprog.started_at;
+          SESSION.time_limit_minutes = inprog.time_limit_minutes;
+          (inprog.answers || []).forEach(function (a) {
+            SESSION.answers.set(a.q_num, a.user_answer);
           });
+          SESSION.resume_inprogress = true;
+          configurePreStartActions(true);
+        } else {
+          SESSION.resume_inprogress = false;
+          configurePreStartActions(false);
+        }
+        showState('prestart');
       })
       .catch(function (e) {
         if (e && e.status === 404) showError('Test not found or not published.');

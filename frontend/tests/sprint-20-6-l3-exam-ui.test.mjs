@@ -112,9 +112,10 @@ describe('Sprint 20.6 — production exam page (reading-exam.html)', () => {
 describe('Sprint 20.6 — exam page JS (reading-exam.js)', () => {
   const js = read('frontend/js/reading-exam.js');
 
-  test('boot wires GET /test/{id} + GET in-progress (resume) + POST /attempts (start)', () => {
+  test('boot wires combined GET /test/{id}/boot + POST /attempts (start)', () => {
     assert.match(js, /window\.api\.get\(\s*'\/api\/reading\/test\/'/);
-    assert.match(js, /\/attempts\/in-progress/);
+    assert.match(js, /\/boot'/);
+    assert.match(js, /bootPayload\.in_progress/);
     assert.match(js, /window\.api\.post\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(SESSION\.test_id\)\s*\+\s*'\/attempts'\)/);
   });
   test('auto-save: PATCH /answers debounced (500ms) on input/change', () => {
