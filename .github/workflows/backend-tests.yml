@@ -137,4 +137,5 @@ jobs:
             frontend/tests/sprint-20-3-l2-skill-and-admin.test.mjs \
             frontend/tests/sprint-20-6-l3-exam-ui.test.mjs \
             frontend/tests/sprint-20-8-admin-polish-and-cleanup.test.mjs \
-            frontend/tests/sprint-20-10-prod-hotfix.test.mjs
+            frontend/tests/sprint-20-10-prod-hotfix.test.mjs \
+            frontend/tests/sprint-20-11-exam-ux-v2.test.mjs

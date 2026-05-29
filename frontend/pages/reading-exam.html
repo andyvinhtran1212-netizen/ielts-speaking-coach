@@ -98,6 +98,11 @@
       </div>
       <div class="exam-card__actions">
         <a class="exam-btn" href="/pages/reading-test.html">← Quay lại</a>
+        <!-- Sprint 20.11 D5 — Resume + Start-fresh affordance. The Resume
+             button is shown only when boot detected an open attempt; the
+             Start button text changes from "Bắt đầu bài thi" (no prior) to
+             "Bắt đầu lại từ đầu" (has prior, will abandon). -->
+        <button type="button" class="exam-btn" id="exam-resume-btn-prestart" hidden>Tiếp tục bài đang làm</button>
         <button type="button" class="exam-btn exam-btn--primary" id="exam-start-btn">Bắt đầu bài thi</button>
       </div>
     </div>
@@ -163,6 +168,20 @@
       </div>
     </div>
   </main>
+
+  <!-- Sprint 20.11 D5 — restart-confirm modal (abandon existing attempt) -->
+  <div class="exam-modal" id="exam-restart-modal" hidden role="dialog" aria-modal="true" aria-labelledby="restart-modal-title">
+    <div class="exam-modal__backdrop" data-close="restart"></div>
+    <div class="exam-modal__panel">
+      <h2 id="restart-modal-title">Bắt đầu lại từ đầu?</h2>
+      <p>Bài làm hiện tại sẽ bị hủy (abandoned) và bạn sẽ làm lại từ câu 1.
+        Câu trả lời đã lưu của bài hiện tại không thể khôi phục.</p>
+      <div class="exam-modal__actions">
+        <button type="button" class="exam-btn" id="exam-restart-cancel">Hủy</button>
+        <button type="button" class="exam-btn exam-btn--primary" id="exam-restart-confirm">Bắt đầu lại</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Modals: submit confirmation (Q8) + Help (Q6) ─────────── -->
   <div class="exam-modal" id="exam-submit-modal" hidden role="dialog" aria-modal="true" aria-labelledby="submit-modal-title">
