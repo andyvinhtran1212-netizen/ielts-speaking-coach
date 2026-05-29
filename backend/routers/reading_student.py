@@ -452,7 +452,15 @@ def _abandon_open_attempts(user_id: str, test_uuid: str) -> None:
     """Maintain the 1-active-attempt invariant per (user, test). Mirrors the
     listening pattern (mig 068 / listening.py:4914) — any prior in-progress
     attempt for the same (user, test) is marked abandoned before a new one
-    is created."""
+    is created.
+
+    Sprint 20.9 D2 — this is now the *application* leg of a two-layer
+    invariant. The *database* leg is migration 088's partial unique index
+    `uniq_reading_test_attempts_active`. Together they enforce Q7 even
+    under concurrent POSTs: the abandon step usually wins; on the rare
+    race where two starts both observe no in-progress row, the unique
+    index rejects the second INSERT and the router retries (see
+    `start_reading_test_attempt`)."""
     (
         supabase_admin.table("reading_test_attempts")
         .update({"status": "abandoned"})
@@ -461,6 +469,27 @@ def _abandon_open_attempts(user_id: str, test_uuid: str) -> None:
         .eq("status", "in_progress")
         .execute()
     )
+
+
+# Sprint 20.9 D2 — the partial unique index in mig 088 surfaces collisions as
+# Postgres error 23505 (unique_violation); supabase-py wraps that in APIError
+# with `code='23505'` on `.code` or `.details`. Bound the retry loop tightly:
+# the abandon step on the next iteration will always succeed (it sees the row
+# the other request inserted) and the next insert wins. Three tries is plenty
+# headroom; we raise 503 only if the system is genuinely contended.
+_START_RETRY_MAX = 3
+
+
+def _is_unique_violation(exc: Exception) -> bool:
+    """True when a supabase-py exception is a Postgres unique-constraint
+    violation. supabase-py / postgrest-py surface this with PG error code
+    `23505`; the exact attribute name varies across client versions, so we
+    sniff both the attribute and the stringified payload."""
+    code = getattr(exc, "code", None) or getattr(exc, "pgcode", None)
+    if code == "23505":
+        return True
+    msg = str(exc)
+    return "23505" in msg or "duplicate key" in msg.lower()
 
 
 @router.post("/test/{test_id}/attempts")
@@ -472,33 +501,58 @@ async def start_reading_test_attempt(
     prior open attempt for this user+test). Returns the attempt_id +
     started_at + time_limit_minutes so the client can drive the countdown.
     The server's started_at is the authoritative anchor for the submit-time
-    elapsed-check (Q5 server-guard, with a generous grace window)."""
+    elapsed-check (Q5 server-guard, with a generous grace window).
+
+    Sprint 20.9 D2: race-safe via the partial unique index in mig 088.
+    Semantics under contention: newest start wins, prior in-progress is
+    abandoned. Two concurrent POSTs from the same (user, test) will produce
+    exactly one in_progress row in the DB; the loser retries its
+    abandon-then-insert and wins next iteration."""
     import uuid
     from datetime import datetime, timezone
 
     user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
     test_uuid = test["id"]
-    _abandon_open_attempts(user["id"], test_uuid)
 
-    attempt_id = str(uuid.uuid4())
-    started_at = datetime.now(timezone.utc).isoformat()
-    payload = {
-        "id":         attempt_id,
-        "test_id":    test_uuid,
-        "user_id":    user["id"],
-        "status":     "in_progress",
-        "answers":    [],
-        "started_at": started_at,
-    }
-    supabase_admin.table("reading_test_attempts").insert(payload).execute()
-    return {
-        "attempt_id":         attempt_id,
-        "test_id":            test_id,
-        "status":             "in_progress",
-        "started_at":         started_at,
-        "time_limit_minutes": test["time_limit_minutes"],
-    }
+    last_exc: Exception | None = None
+    for _retry in range(_START_RETRY_MAX):
+        _abandon_open_attempts(user["id"], test_uuid)
+        attempt_id = str(uuid.uuid4())
+        started_at = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "id":         attempt_id,
+            "test_id":    test_uuid,
+            "user_id":    user["id"],
+            "status":     "in_progress",
+            "answers":    [],
+            "started_at": started_at,
+        }
+        try:
+            supabase_admin.table("reading_test_attempts").insert(payload).execute()
+        except Exception as exc:
+            if _is_unique_violation(exc):
+                # Another concurrent POST just inserted an in_progress row
+                # between our abandon and our insert. Loop: re-abandon
+                # (which will now see + abandon their row) and try again.
+                last_exc = exc
+                continue
+            raise
+
+        return {
+            "attempt_id":         attempt_id,
+            "test_id":            test_id,
+            "status":             "in_progress",
+            "started_at":         started_at,
+            "time_limit_minutes": test["time_limit_minutes"],
+        }
+
+    logger.error(
+        "start_reading_test_attempt: unique-violation retry budget exhausted "
+        "for user=%s test=%s; last_exc=%s",
+        user["id"], test_uuid, last_exc,
+    )
+    raise HTTPException(503, "Concurrent start contention — please retry.")
 
 
 def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
@@ -567,15 +621,27 @@ async def submit_reading_test_attempt(
 
     # Q5 server-guard: enforce the limit at submit (client countdown is the
     # primary UX layer; this is the backstop).
+    #
+    # Sprint 20.9 D4 — fail closed on malformed started_at (audit P2-1). The
+    # 20.5 implementation defaulted elapsed_seconds=0 on parse failure or
+    # missing value, which silently disabled the Q5 guard. A corrupted
+    # `started_at` (e.g. a manual DB edit, a botched migration, or a future
+    # storage-format change) would let a stale attempt grade as if it had
+    # just started. Now we 422 instead — the guard fails closed, the
+    # operator notices, and the integrity invariant survives.
     started_at_str = attempt.get("started_at")
     now = datetime.now(timezone.utc)
-    elapsed_seconds = 0
-    if started_at_str:
-        try:
-            started = datetime.fromisoformat(started_at_str.replace("Z", "+00:00"))
-            elapsed_seconds = int((now - started).total_seconds())
-        except Exception:
-            elapsed_seconds = 0
+    if not started_at_str:
+        logger.error("submit: attempt %s has no started_at — fail-closed (422)",
+                     attempt_id)
+        raise HTTPException(422, "Attempt thiếu started_at — không thể chấm điểm an toàn.")
+    try:
+        started = datetime.fromisoformat(started_at_str.replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        logger.error("submit: attempt %s has unparseable started_at=%r (%s) — fail-closed (422)",
+                     attempt_id, started_at_str, exc)
+        raise HTTPException(422, "Attempt có started_at không hợp lệ — không thể chấm điểm an toàn.")
+    elapsed_seconds = int((now - started).total_seconds())
     limit_seconds = int(test_row["time_limit_minutes"]) * 60
     if elapsed_seconds > limit_seconds + _SUBMIT_GRACE_SECONDS:
         raise HTTPException(422, "Time limit exceeded — attempt expired.")
@@ -602,7 +668,32 @@ async def submit_reading_test_attempt(
     )
     answer_key = grader.collect_answer_key(q_res.data or [], passage_order_by_id)
 
-    user_answers = [{"q_num": a.q_num, "user_answer": a.user_answer} for a in body.answers]
+    # Sprint 20.9 D3 — gather authoritative answers from reading_attempt_answers
+    # (where PATCH /answers has been atomically upserting per (attempt, q_num)
+    # since mig 088). The submit body is still accepted as a final-batch
+    # fallback: anything in the body overrides the persisted row for that q_num
+    # (last-write-wins), which preserves the 20.5 contract that "the body is
+    # graded" — but the persisted per-q_num rows fill the gap when the body is
+    # incomplete (the common case after auto-save).
+    persisted_res = (
+        supabase_admin.table("reading_attempt_answers")
+        .select("q_num,user_answer")
+        .eq("attempt_id", attempt_id)
+        .execute()
+    )
+    answers_by_qnum: dict[int, str] = {}
+    for row in (persisted_res.data or []):
+        try:
+            qn = int(row["q_num"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        answers_by_qnum[qn] = row.get("user_answer") or ""
+    for a in body.answers:
+        answers_by_qnum[int(a.q_num)] = a.user_answer or ""
+    user_answers = [
+        {"q_num": qn, "user_answer": ua}
+        for qn, ua in sorted(answers_by_qnum.items())
+    ]
     result = grader.grade_attempt(user_answers, answer_key, module=test_row.get("module") or "academic")
 
     submitted_at = now.isoformat()
@@ -649,7 +740,7 @@ async def get_in_progress_reading_attempt(
 
     res = (
         supabase_admin.table("reading_test_attempts")
-        .select("id,started_at,answers,status")
+        .select("id,started_at,status")
         .eq("user_id", user["id"])
         .eq("test_id", test["id"])
         .eq("status", "in_progress")
@@ -661,12 +752,31 @@ async def get_in_progress_reading_attempt(
         raise HTTPException(404, "No in-progress attempt for this test")
 
     row = res.data[0]
+    # Sprint 20.9 D3 — gather answers from the per-q_num table (mig 088). The
+    # `reading_test_attempts.answers` JSONB column is no longer the in-flight
+    # source of truth — it's the post-submit immutable snapshot. Drop it from
+    # the SELECT above and hydrate from reading_attempt_answers instead.
+    persisted_res = (
+        supabase_admin.table("reading_attempt_answers")
+        .select("q_num,user_answer,answered_at")
+        .eq("attempt_id", row["id"])
+        .order("q_num")
+        .execute()
+    )
+    answers = [
+        {
+            "q_num":       a["q_num"],
+            "user_answer": a.get("user_answer") or "",
+            "answered_at": a.get("answered_at"),
+        }
+        for a in (persisted_res.data or [])
+    ]
     return {
         "attempt_id":         row["id"],
         "test_id":            test_id,
         "status":             row["status"],
         "started_at":         row.get("started_at"),
-        "answers":            row.get("answers") or [],
+        "answers":            answers,
         "time_limit_minutes": test["time_limit_minutes"],
     }
 
@@ -683,9 +793,19 @@ async def patch_reading_test_attempt_answer(
     authorization: str | None = Header(default=None),
 ):
     """Upsert a single answer (auto-save). Idempotent by q_num — re-PATCH
-    of the same q_num overwrites the prior value. Mirrors the listening
-    PATCH pattern (mig 068; listening.py:4955). Returns the updated
-    answers array so the client can verify state.
+    of the same q_num overwrites the prior value.
+
+    Sprint 20.9 D3 (audit P1-3) — atomic by design. Writes go to
+    `reading_attempt_answers` keyed by (attempt_id, q_num) PK, so two
+    overlapping PATCHes for DIFFERENT q_nums never see each other and
+    cannot lose data. (The pre-20.9 implementation read the whole answers
+    JSONB array, filtered, appended, and wrote back — classic
+    read-modify-write race that could drop concurrent edits.)
+
+    Same q_num concurrency is last-write-wins — acceptable for autosave
+    (the latest user input is the intended answer), and the per-q_num
+    `answered_at` timestamp preserves an audit trail if anyone cares to
+    inspect it later.
 
     Rejected when the attempt is not in_progress (422) so a stale tab
     can't accidentally write to a submitted/abandoned attempt."""
@@ -696,22 +816,31 @@ async def patch_reading_test_attempt_answer(
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
 
-    answers = attempt.get("answers") or []
-    answers = [a for a in answers if a.get("q_num") != body.q_num]
-    answers.append({
+    # PK upsert — supabase-py routes this to PostgREST's `Prefer:
+    # resolution=merge-duplicates` semantics. PostgreSQL handles the conflict
+    # against the (attempt_id, q_num) PK in a single statement; no concurrent
+    # PATCH for a different q_num can see a stale snapshot.
+    supabase_admin.table("reading_attempt_answers").upsert({
+        "attempt_id":  attempt_id,
         "q_num":       body.q_num,
         "user_answer": body.user_answer or "",
         "answered_at": datetime.now(timezone.utc).isoformat(),
-    })
+    }, on_conflict="attempt_id,q_num").execute()
 
-    supabase_admin.table("reading_test_attempts").update({
-        "answers": answers,
-    }).eq("id", attempt_id).execute()
-
+    # Echo a small ack with the persisted-row count for the test surface to
+    # verify state. We don't echo the whole answers array — the client
+    # already knows its own input and the GET /attempts/in-progress route
+    # is the canonical hydrator for a fresh tab.
+    count_res = (
+        supabase_admin.table("reading_attempt_answers")
+        .select("q_num", count="exact")
+        .eq("attempt_id", attempt_id)
+        .execute()
+    )
     return {
         "attempt_id": attempt_id,
         "q_num":      body.q_num,
-        "answered":   len(answers),
+        "answered":   getattr(count_res, "count", None) or 0,
     }
 
 

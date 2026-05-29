@@ -401,6 +401,9 @@ def test_patch_answers_requires_auth():
 
 
 def test_resume_returns_open_attempt_when_one_exists():
+    """Sprint 20.9 D3: the resume payload hydrates answers from the new
+    `reading_attempt_answers` table (mig 088), not from the in_progress
+    row's JSONB array."""
     mock_db = MagicMock()
     chain = mock_db.table.return_value.select.return_value
     # _fetch_published_test: select.eq.eq.limit.execute (status=published)
@@ -408,10 +411,14 @@ def test_resume_returns_open_attempt_when_one_exists():
         MagicMock(data=[{"id": "test-uuid", "test_id": "T1", "title": "T", "module": "academic",
                           "time_limit_minutes": 60, "passage_count": 3, "total_questions": 40,
                           "band_target": None, "status": "published"}])
-    # in-progress lookup: select.eq.eq.eq.order.limit.execute
+    # in-progress lookup (reading_test_attempts): select.eq.eq.eq.order.limit.execute
     chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{"id": "a-uuid", "started_at": "2026-05-28T10:00:00+00:00",
-                          "answers": [{"q_num": 1, "user_answer": "A"}], "status": "in_progress"}])
+                          "status": "in_progress"}])
+    # 20.9 — per-q_num answers fetch (reading_attempt_answers): select.eq.order.execute
+    chain.eq.return_value.order.return_value.execute.return_value = \
+        MagicMock(data=[{"q_num": 1, "user_answer": "A",
+                          "answered_at": "2026-05-28T10:01:00+00:00"}])
 
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", mock_db):
@@ -420,7 +427,10 @@ def test_resume_returns_open_attempt_when_one_exists():
     body = r.json()
     assert body["attempt_id"] == "a-uuid"
     assert body["time_limit_minutes"] == 60
-    assert body["answers"] == [{"q_num": 1, "user_answer": "A"}]
+    assert body["answers"] == [{
+        "q_num": 1, "user_answer": "A",
+        "answered_at": "2026-05-28T10:01:00+00:00",
+    }]
 
 
 def test_resume_404_when_no_in_progress_attempt():
@@ -442,6 +452,10 @@ def test_resume_404_when_no_in_progress_attempt():
 
 
 def test_patch_answers_upserts_by_qnum_when_in_progress():
+    """Sprint 20.9 D3: PATCH /answers writes to the new
+    `reading_attempt_answers` table as a single PK upsert (atomic). The pre-
+    20.9 read-modify-write against reading_test_attempts.answers JSONB is
+    GONE — no .update() of the attempt row, no read-modify-write window."""
     mock_db = MagicMock()
     chain = mock_db.table.return_value
     # _fetch_attempt_or_404: select.eq.limit.execute returns the attempt row.
@@ -449,8 +463,10 @@ def test_patch_answers_upserts_by_qnum_when_in_progress():
         MagicMock(data=[{
             "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
             "status": "in_progress",
-            "answers": [{"q_num": 1, "user_answer": "OLD"}, {"q_num": 2, "user_answer": "B"}],
         }])
+    # Echo count fetch (after the upsert) — select.eq.execute returns row count.
+    chain.select.return_value.eq.return_value.execute.return_value = \
+        MagicMock(data=[{"q_num": 1}], count=1)
 
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", mock_db):
@@ -458,18 +474,20 @@ def test_patch_answers_upserts_by_qnum_when_in_progress():
                             headers=_AUTH, json={"q_num": 1, "user_answer": "NEW"})
 
     assert r.status_code == 200
-    # Update was called on the attempt row with a new answers array — q_num 1
-    # replaced (not duplicated). The Python list literal is whatever the
-    # handler passed to .update(...).
-    update_call = chain.update.call_args
-    assert update_call is not None, "update was not called"
-    payload = update_call.args[0]
-    assert "answers" in payload
-    answers = payload["answers"]
-    q1 = [a for a in answers if a["q_num"] == 1]
-    q2 = [a for a in answers if a["q_num"] == 2]
-    assert len(q1) == 1 and q1[0]["user_answer"] == "NEW"
-    assert len(q2) == 1 and q2[0]["user_answer"] == "B"
+    # The handler must NOT update the attempt row's answers JSONB anymore.
+    chain.update.assert_not_called()
+    # It MUST upsert into reading_attempt_answers with the (attempt_id, q_num)
+    # PK conflict target (atomic by construction — no race with other q_nums).
+    upsert_call = chain.upsert.call_args
+    assert upsert_call is not None, "upsert was not called"
+    payload = upsert_call.args[0]
+    assert payload["attempt_id"] == "a-uuid"
+    assert payload["q_num"] == 1
+    assert payload["user_answer"] == "NEW"
+    assert "answered_at" in payload
+    # Confirm the conflict target was the composite PK so PostgREST resolves
+    # against (attempt_id, q_num), not just attempt_id.
+    assert upsert_call.kwargs.get("on_conflict") == "attempt_id,q_num"
     # The body shape returned to the client is small + non-leaking.
     body = r.json()
     assert body["attempt_id"] == "a-uuid"
@@ -477,13 +495,13 @@ def test_patch_answers_upserts_by_qnum_when_in_progress():
 
 
 def test_patch_answers_rejects_when_attempt_already_submitted():
+    """Sprint 20.9 D3: the upsert path still respects the in_progress gate."""
     mock_db = MagicMock()
     chain = mock_db.table.return_value
     chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{
             "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
             "status": "submitted",      # final state
-            "answers": [],
         }])
 
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
@@ -492,6 +510,7 @@ def test_patch_answers_rejects_when_attempt_already_submitted():
                             headers=_AUTH, json={"q_num": 1, "user_answer": "X"})
     assert r.status_code == 422
     chain.update.assert_not_called()
+    chain.upsert.assert_not_called()
 
 
 def test_patch_answers_rejects_qnum_out_of_range():
