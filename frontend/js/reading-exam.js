@@ -50,6 +50,13 @@
   };
 
   // ── State machine ─────────────────────────────────────────────────
+  // Sprint 20.10 D2 — the timer interval is now tied to the in_progress
+  // state explicitly. Pre-20.10 the interval kept ticking after a
+  // transition away from in_progress (e.g. an unexpected results render),
+  // which combined with the CSS-hidden-override bug surfaced a visible
+  // ticking timer on the loading / pre-start screens. Stopping the
+  // interval here also guards against the same class of bug surfacing
+  // again if a future state ever re-enters in_progress.
   function showState(name) {
     ['loading', 'error', 'prestart', 'inprogress', 'results'].forEach(function (s) {
       var elNode = $('state-' + s);
@@ -57,6 +64,20 @@
     });
     $('exam-palette').hidden = name !== 'inprogress';
     $('exam-timer-wrap').hidden = name !== 'inprogress';
+    if (name !== 'inprogress') stopTimer();
+  }
+  function stopTimer() {
+    if (SESSION.timer_interval) {
+      clearInterval(SESSION.timer_interval);
+      SESSION.timer_interval = null;
+    }
+    // Blank the display so a stale "58:58" can't leak through if the wrap
+    // is ever shown again before startTimer fires a fresh tick.
+    var timer = $('exam-timer');
+    if (timer) {
+      timer.textContent = '--:--';
+      timer.setAttribute('data-state', 'normal');
+    }
   }
   function showError(msg) {
     $('error-msg').textContent = msg;
@@ -253,19 +274,71 @@
   }
 
   // ── Palette ───────────────────────────────────────────────────────
-  function renderPalette(totalQs) {
+  // Sprint 20.10 D3 — group questions by passage_order ("Part 1 / 2 / 3")
+  // to match real Cambridge IELTS / BC / IDP exam UX. The mockup approval
+  // (20.4c) shipped a flat 1-N grid; production dogfood surfaced that the
+  // grouping is institutional-fidelity. Layout: 3 groups in a single
+  // flex row across the bottom (CSS gates each group's width), each with
+  // its own label + buttons. Falls back gracefully to a flat layout if
+  // `questions` is absent (legacy callers or partial test bundles).
+  function renderPalette(totalQs, questions) {
     var grid = $('exam-palette-grid'); grid.innerHTML = '';
-    for (var q = 1; q <= totalQs; q++) {
-      var btn = document.createElement('button');
-      btn.type = 'button'; btn.className = 'exam-palette__q';
-      btn.dataset.q = String(q);
-      btn.setAttribute('aria-label', 'Question ' + q);
-      btn.textContent = String(q);
-      (function (qNum) {
-        btn.addEventListener('click', function () { jumpTo(qNum); });
-      })(q);
-      grid.appendChild(btn);
+    var groups = _groupQuestionsByPart(totalQs, questions);
+    if (groups.length === 1) {
+      // Flat fallback — unchanged shape from the pre-20.10 renderer.
+      groups[0].qnums.forEach(function (q) { grid.appendChild(_makePaletteBtn(q)); });
+      return;
     }
+    groups.forEach(function (group) {
+      var groupEl = document.createElement('div');
+      groupEl.className = 'exam-palette__group';
+      groupEl.setAttribute('aria-label', group.label);
+      var labelEl = document.createElement('span');
+      labelEl.className = 'exam-palette__group-label';
+      labelEl.textContent = group.label;
+      groupEl.appendChild(labelEl);
+      var btnsEl = document.createElement('div');
+      btnsEl.className = 'exam-palette__group-btns';
+      group.qnums.forEach(function (q) { btnsEl.appendChild(_makePaletteBtn(q)); });
+      groupEl.appendChild(btnsEl);
+      grid.appendChild(groupEl);
+    });
+  }
+  function _makePaletteBtn(q) {
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'exam-palette__q';
+    btn.dataset.q = String(q);
+    btn.setAttribute('aria-label', 'Question ' + q);
+    btn.textContent = String(q);
+    btn.addEventListener('click', function () { jumpTo(q); });
+    return btn;
+  }
+  function _groupQuestionsByPart(totalQs, questions) {
+    // Build {1: [q_nums], 2: […], 3: […]} from the questions list's
+    // per-question passage_order (stamped server-side in 20.6 student
+    // detail). Fall back to a single flat group when grouping data is
+    // missing — this lets the UI degrade safely on legacy tests.
+    if (!Array.isArray(questions) || !questions.length) {
+      var flat = [];
+      for (var q = 1; q <= totalQs; q++) flat.push(q);
+      return [{ label: 'Questions', qnums: flat }];
+    }
+    var byOrder = {};
+    questions.forEach(function (q) {
+      var order = q && q.passage_order;
+      if (!order || !q.q_num) return;
+      (byOrder[order] = byOrder[order] || []).push(q.q_num);
+    });
+    var orders = Object.keys(byOrder).map(Number).sort(function (a, b) { return a - b; });
+    if (!orders.length) {
+      var fallback = [];
+      for (var i = 1; i <= totalQs; i++) fallback.push(i);
+      return [{ label: 'Questions', qnums: fallback }];
+    }
+    return orders.map(function (order) {
+      var qnums = byOrder[order].slice().sort(function (a, b) { return a - b; });
+      return { label: 'Part ' + order, qnums: qnums };
+    });
   }
   function jumpTo(qNum) {
     var card = document.getElementById('q-' + qNum);
@@ -294,6 +367,12 @@
 
   // ── Timer: production countdown from started_at + time_limit ──────
   function startTimer() {
+    // Sprint 20.10 D2 — defence in depth. Clear any prior interval (so a
+    // second enterInProgress call from an unusual code path doesn't run
+    // two ticks per second) and require the in_progress state shell to
+    // be visible. If the state machine is somewhere else, don't tick.
+    stopTimer();
+    if ($('state-inprogress') && $('state-inprogress').hidden) return;
     var limitSec = (SESSION.time_limit_minutes || 60) * 60;
     var startedMs = SESSION.started_at ? Date.parse(SESSION.started_at) : Date.now();
     var tick = function () {
@@ -826,7 +905,10 @@
   function enterInProgress() {
     renderPassages((SESSION.test && SESSION.test.passages) || []);
     renderQuestions((SESSION.test && SESSION.test.questions) || []);
-    renderPalette((SESSION.test && SESSION.test.total_questions) || 40);
+    renderPalette(
+      (SESSION.test && SESSION.test.total_questions) || 40,
+      (SESSION.test && SESSION.test.questions) || []
+    );
     restoreAnswers();
     showState('inprogress');
     startTimer();
