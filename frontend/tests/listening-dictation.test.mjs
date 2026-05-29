@@ -85,8 +85,11 @@ describe('Sprint 11.2 — dictation JS contract', () => {
     assert.match(JS, /['"]content_id['"]/);
   });
 
-  it('fetches /api/listening/content/{id} for metadata + signed URL', () => {
-    assert.match(JS, /\/api\/listening\/content\//);
+  it('fetches the combined dictation boot endpoint for content + segments', () => {
+    assert.match(JS, /\/api\/listening\/dictation\/\$\{encodeURIComponent\(contentId\)\}\/boot/);
+    assert.match(JS, /boot\s*&&\s*boot\.content/);
+    assert.match(JS, /boot\s*&&\s*boot\.exercises/);
+    assert.doesNotMatch(JS, /\/api\/listening\/exercises\?content_id=/);
     // Refetch-url wired through the audio player attribute.
     assert.match(JS, /refetch-url/);
   });
@@ -122,9 +125,9 @@ describe('Sprint 11.2 — dictation JS contract', () => {
     assert.match(JS, /nqhrtqspznepmveyurzm\.supabase\.co/);
   });
 
-  it('Sprint 11.3 — fetches /api/listening/exercises for segment list', () => {
-    assert.match(JS, /\/api\/listening\/exercises\?content_id=/);
-    assert.match(JS, /exercise_type=dictation/);
+  it('Sprint Perf-2 — no longer performs the content → exercises waterfall', () => {
+    assert.doesNotMatch(JS, /window\.api\.get\(\s*`\/api\/listening\/content\//);
+    assert.doesNotMatch(JS, /exercise_type=dictation/);
   });
 
   it('Sprint 11.3 — POSTs attempts with segment_idx + exercise_id', () => {

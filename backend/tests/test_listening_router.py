@@ -63,6 +63,7 @@ class _FakeTableQuery:
 
     def select(self, *_a, **_k): return self
     def limit(self, *_a, **_k): return self
+    def order(self, *_a, **_k): return self
 
     def eq(self, col, val):
         self._filters.append((col, val))
@@ -123,10 +124,12 @@ class _FakeAdminClient:
         self.canned = canned or {}
         self.inserts: list[tuple] = []
         self.uploads: list[tuple] = []
+        self.table_calls: list[str] = []
         self.upload_should_fail = upload_should_fail
         self.storage = _FakeStorage(self)
 
     def table(self, name: str):
+        self.table_calls.append(name)
         return _FakeTableQuery(self, name)
 
 
@@ -218,6 +221,85 @@ def test_get_listening_content_404_for_missing_id(monkeypatch):
             content_id="nope", authorization=authz,
         ))
     assert exc.value.status_code == 404
+
+
+def test_boot_listening_dictation_combines_content_and_exercises(monkeypatch):
+    canned = {
+        "listening_content": [{
+            "id": "c1",
+            "status": "published",
+            "audio_storage_path": "ai/c1.mp3",
+            "title": "Section 1 booking",
+            "transcript": "Full transcript",
+        }],
+        "listening_exercises": [{
+            "id": "ex1",
+            "content_id": "c1",
+            "exercise_type": "dictation",
+            "status": "published",
+            "order_num": 1,
+            "segments": [{"idx": 0, "transcript": "Full transcript"}],
+        }],
+        # Boot does not expose user attempt/progress state; attempts stay POST-only.
+        "listening_attempts": [{
+            "id": "attempt-other",
+            "user_id": "other-user",
+            "exercise_id": "ex1",
+        }],
+    }
+    fake = _FakeAdminClient(canned)
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user_auth(monkeypatch)
+
+    out = _run(listening_router.boot_listening_dictation(
+        content_id="c1", authorization=authz,
+    ))
+
+    assert out["content"]["id"] == "c1"
+    assert out["content"]["audio_signed_url"].startswith("https://storage.test/")
+    assert out["exercises"][0]["id"] == "ex1"
+    assert out["exercises"][0]["segments"][0]["transcript"] == "Full transcript"
+    assert "attempts" not in out
+    assert "listening_attempts" not in fake.table_calls
+
+
+def test_boot_listening_dictation_requires_auth(monkeypatch):
+    _patch_admin_client(monkeypatch, _FakeAdminClient({"listening_content": []}))
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.boot_listening_dictation(
+            content_id="c1", authorization=None,
+        ))
+    assert exc.value.status_code == 401
+
+
+def test_boot_listening_dictation_404_for_draft(monkeypatch):
+    canned = {
+        "listening_content": [{
+            "id": "c1",
+            "status": "draft",
+            "audio_storage_path": "ai/c1.mp3",
+            "title": "WIP",
+            "transcript": "x",
+        }],
+        "listening_exercises": [{
+            "id": "ex1",
+            "content_id": "c1",
+            "exercise_type": "dictation",
+            "status": "published",
+            "segments": [{"idx": 0, "transcript": "x"}],
+        }],
+    }
+    fake = _FakeAdminClient(canned)
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user_auth(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.boot_listening_dictation(
+            content_id="c1", authorization=authz,
+        ))
+    assert exc.value.status_code == 404
+    assert "listening_exercises" not in fake.table_calls
 
 
 # ── POST /admin/listening/upload ─────────────────────────────────────
