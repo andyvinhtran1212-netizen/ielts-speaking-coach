@@ -275,10 +275,13 @@ Cloned from listening's `answer_matches`:
 
 - Case-insensitive.
 - Whitespace collapsed and trimmed.
+- **Diacritic-insensitive** (Sprint 20.13c, Interactive HTML Standards §5.3). NFD-decompose the answer and strip combining marks (U+0300–U+036F), so `El Niño` ≡ `El Nino` and `café` ≡ `cafe`. The change is forward-compatible — the AVR-READ-001 seed carries zero non-ASCII characters in answer keys, so existing graded attempts produce identical scores.
 - UK/US spelling pairs normalised (e.g. `colour` ↔ `color`).
 - No contractions normalisation — `it's` ≠ `it is`. Spell out if both forms are acceptable answers.
 - `T` / `F` / `NG` are accepted as shortcut alternatives for `TRUE` / `FALSE` / `NOT GIVEN` (and likewise `Y` / `N` / `NG`) **when you list them in `alternatives:`**. They are not auto-normalised.
 - `answer:` may be a **string list** for `mcq_multi` (Phase B): the grader treats list answers as a candidate set; any match wins. Phase 1 authors should use a single string.
+
+> **Naming**: `alternatives:` is this format's name for the Interactive HTML Standards' `answer_accept` field (Standards §5.3). Same semantics — accepted variants matched alongside the canonical `answer`. The format keeps `alternatives:` to avoid churning the existing seeds and importer.
 
 ### 4.4 Per-question validation errors
 

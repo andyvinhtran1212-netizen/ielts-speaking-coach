@@ -140,4 +140,5 @@ jobs:
             frontend/tests/sprint-20-10-prod-hotfix.test.mjs \
             frontend/tests/sprint-20-11-exam-ux-v2.test.mjs \
             frontend/tests/sprint-20-13a-standards-fidelity.test.mjs \
-            frontend/tests/sprint-20-13b-standards-a11y.test.mjs
+            frontend/tests/sprint-20-13b-standards-a11y.test.mjs \
+            frontend/tests/sprint-20-13c-standards-behavior.test.mjs

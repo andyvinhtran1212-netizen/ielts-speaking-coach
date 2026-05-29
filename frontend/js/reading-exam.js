@@ -50,7 +50,66 @@
     resume_inprogress: false,   // Sprint 20.11 D5 — true when boot detected an
                                 // open attempt; pre-start surfaces the Resume
                                 // affordance and the Start button confirms.
+    test_version: null,         // Sprint 20.13c C3 — `updated_at` from the
+                                // backend; used as the version-gate key for
+                                // per-test localStorage cache (highlights,
+                                // notes, anything Phase B may add). The
+                                // primary student state (answers, attempt)
+                                // is server-authoritative, so this gate is
+                                // forward-compatible insurance against
+                                // stale local caches after admin re-imports.
   };
+
+  // ── Per-test localStorage version-gate (Standards §5.1, anti §10.2) ──
+  // Format: per-test cache lives under the namespace key
+  //   `ielts-exam:${test_id}` → JSON-encoded `{ ver, data }`
+  // On boot, if the stored `ver` does not match the live `${test_id}|${updated_at}`,
+  // the whole namespace is dropped and a fresh empty entry is created. This
+  // applies to every piece of per-test local state, present or future.
+  // App-wide display prefs (text-size, theme) live under their own keys —
+  // they are intentionally test-agnostic and not gated.
+  var EXAM_CACHE_NS_PREFIX = 'ielts-exam:';
+  function _examCacheKey(testId) { return EXAM_CACHE_NS_PREFIX + testId; }
+  function _examVer(testId, version) {
+    return String(testId || '') + '|' + String(version || '');
+  }
+  function loadExamCache(testId, version) {
+    if (!testId) return {};
+    var key = _examCacheKey(testId);
+    var expectedVer = _examVer(testId, version);
+    try {
+      var raw = localStorage.getItem(key);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.ver === expectedVer && parsed.data) {
+          return parsed.data;
+        }
+        // ver mismatch (or malformed) — discard so we never serve stale
+        // content for a re-imported / re-edited test.
+        localStorage.removeItem(key);
+      }
+    } catch (e) { /* private browsing / quota — degrade silently */ }
+    return {};
+  }
+  function saveExamCache(testId, version, data) {
+    if (!testId) return;
+    try {
+      localStorage.setItem(_examCacheKey(testId), JSON.stringify({
+        ver:  _examVer(testId, version),
+        data: data || {},
+      }));
+    } catch (e) { /* see above */ }
+  }
+  // Expose for sentinels (jsdom tests) without leaking onto the global
+  // window object in production — only mounted when a test harness asks.
+  if (typeof window !== 'undefined' && window.__READING_EXAM_TEST_HOOK__) {
+    window.__READING_EXAM_CACHE__ = {
+      load:  loadExamCache,
+      save:  saveExamCache,
+      key:   _examCacheKey,
+      ver:   _examVer,
+    };
+  }
 
   // ── State machine ─────────────────────────────────────────────────
   // Sprint 20.10 D2 — the timer interval is now tied to the in_progress
@@ -257,10 +316,21 @@
   // ── Pre-start render ──────────────────────────────────────────────
   function renderPreStart(test) {
     $('prestart-title').textContent = test.title || 'Reading Test';
-    var meta = (test.passage_count || 3) + ' parts · ' +
-               (test.total_questions || 40) + ' questions · ' +
-               (test.time_limit_minutes || 60) + ' minutes';
-    $('prestart-meta').textContent = meta;
+    // Sprint 20.13c C4 — derive every number from the test payload
+    // (Standards §5.3, anti-pattern §10.2). If a value is genuinely
+    // missing, surface it as `?` rather than mislabelling with the
+    // Cambridge default `40` / `60` so a broken test reads as broken.
+    var qCount = (typeof test.total_questions === 'number')
+      ? test.total_questions
+      : (Array.isArray(test.questions) ? test.questions.length : '?');
+    var pCount = (typeof test.passage_count === 'number')
+      ? test.passage_count
+      : (Array.isArray(test.passages) ? test.passages.length : '?');
+    var minutes = (typeof test.time_limit_minutes === 'number')
+      ? test.time_limit_minutes
+      : '?';
+    $('prestart-meta').textContent =
+      pCount + ' parts · ' + qCount + ' questions · ' + minutes + ' minutes';
     $('exam-test-label').textContent = test.title || 'Reading Test';
   }
 
@@ -716,6 +786,14 @@
     var m = Math.floor(s / 60), r = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
   }
+  // Sprint 20.13c C4 — single source of truth for "how many questions in
+  // this test". Prefer the spec value; fall back to the rendered length.
+  // Never the hard-coded "40" (Standards §5.3, anti-pattern §10.2).
+  function _totalQuestions() {
+    var t = SESSION.test || {};
+    if (typeof t.total_questions === 'number') return t.total_questions;
+    return Array.isArray(t.questions) ? t.questions.length : 0;
+  }
   function lockExam() {
     if (chrome) chrome.classList.add('is-locked');
     SESSION.timer_locked = true;
@@ -723,7 +801,10 @@
 
   // ── Submit flow ───────────────────────────────────────────────────
   function openSubmitModal() {
-    var total = (SESSION.test && SESSION.test.total_questions) || 40;
+    // Sprint 20.13c C4 — derive total from data, never the hard-coded
+    // "40" (Standards §5.3). `total_questions` is the spec value;
+    // `questions.length` is the live count from the rendered payload.
+    var total = _totalQuestions();
     var answered = SESSION.answers.size;
     var unanswered = total - answered;
     $('exam-submit-warn').textContent = unanswered > 0
@@ -770,7 +851,9 @@
       // so AT users get an immediate read of "X out of Y, band Z".
       try {
         var score = (result && result.score != null) ? result.score : '?';
-        var max   = (result && result.max_score != null) ? result.max_score : 40;
+        // Sprint 20.13c C4 — derive from data (Standards §5.3). Fall back
+        // to the test's total_questions, not the hard-coded "40".
+        var max   = (result && result.max_score != null) ? result.max_score : _totalQuestions();
         var band  = (result && result.band_estimate != null) ? result.band_estimate : null;
         liveSay('Test submitted. You scored ' + score + ' out of ' + max +
                 (band != null ? ', estimated band ' + Number(band).toFixed(1) : '') + '.');
@@ -900,7 +983,13 @@
       });
   }
   function renderResults(result) {
-    $('results-score').textContent = (result.score != null ? result.score : '—') + '/' + (result.max_score != null ? result.max_score : '40');
+    // Sprint 20.13c C4 — derive max from result, fall through to the
+    // test's total_questions, finally `—` if neither is known. The
+    // hard-coded "40" is gone (Standards §5.3, anti §10.2).
+    var maxDisplay;
+    if (result.max_score != null) maxDisplay = result.max_score;
+    else { var tq = _totalQuestions(); maxDisplay = tq > 0 ? tq : '—'; }
+    $('results-score').textContent = (result.score != null ? result.score : '—') + '/' + maxDisplay;
     $('results-band').textContent = result.band_estimate != null ? ('Band ' + result.band_estimate) : 'Band —';
 
     var byPartHost = $('results-by-part'); byPartHost.innerHTML = '';
@@ -1397,7 +1486,8 @@
     renderPassages((SESSION.test && SESSION.test.passages) || []);
     renderQuestions((SESSION.test && SESSION.test.questions) || []);
     renderPalette(
-      (SESSION.test && SESSION.test.total_questions) || 40,
+      // Sprint 20.13c C4 — derive from data, not the "40" anti-pattern.
+      _totalQuestions(),
       (SESSION.test && SESSION.test.questions) || []
     );
     restoreAnswers();
@@ -1469,6 +1559,12 @@
         if (!test) throw new Error('Boot payload missing test');
         SESSION.test = test;
         SESSION.time_limit_minutes = test.time_limit_minutes || 60;
+        // Sprint 20.13c C3 — version-gate cache (Standards §5.1).
+        // `test.updated_at` is the canonical version proxy; loading
+        // through this helper drops any stale per-test cache from a
+        // prior version of the same test_id and re-seeds the namespace.
+        SESSION.test_version = test.updated_at || null;
+        loadExamCache(testId, SESSION.test_version);
         renderPreStart(test);
         var inprog = bootPayload.in_progress;
         if (inprog) {

@@ -130,9 +130,13 @@ describe('Sprint 20.10 D3 — palette grouped by Part 1 / Part 2 / Part 3', () =
 
   test('enterInProgress passes questions to renderPalette', () => {
     // Without this the renderPalette call falls back to the flat layout.
+    // The first arg may be the literal `…total_questions…` access (the
+    // 20.10 D3 pattern) OR the Sprint 20.13c `_totalQuestions()` helper
+    // that wraps the same derivation — both satisfy the D3 intent (total
+    // derives from data; questions list is the second arg for grouping).
     assert.match(
       js,
-      /renderPalette\(\s*[\s\S]{0,200}total_questions[\s\S]{0,100},\s*[\s\S]{0,200}questions[\s\S]{0,200}\)/,
+      /renderPalette\(\s*[\s\S]{0,200}(?:total_questions|_totalQuestions\(\))[\s\S]{0,100},\s*[\s\S]{0,200}questions[\s\S]{0,200}\)/,
     );
   });
 });

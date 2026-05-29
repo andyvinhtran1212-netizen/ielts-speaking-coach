@@ -348,11 +348,17 @@ _DIAGNOSTIC_ATTEMPT_LIMIT = 8
 def _fetch_published_test(test_id: str) -> dict:
     """Fetch one published L3 test by test_id (TEXT UNIQUE — mig 086).
     404 on missing/draft/archived so admins can stage tests without exposing
-    them to students."""
+    them to students.
+
+    ``updated_at`` is included so the exam UI can version-gate its
+    per-test localStorage cache (Sprint 20.13c, Interactive HTML
+    Standards §5.1). Bumping the row (re-import, admin edit) invalidates
+    any stale cached highlights/notes/etc.
+    """
     res = (
         supabase_admin.table("reading_tests")
         .select("id,test_id,title,module,time_limit_minutes,passage_count,"
-                "total_questions,band_target,status")
+                "total_questions,band_target,status,updated_at")
         .eq("test_id", test_id)
         .eq("status", "published")
         .limit(1)
