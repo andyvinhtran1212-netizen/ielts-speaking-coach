@@ -425,10 +425,13 @@ The `|` keeps newlines. Indent every body line by **the same amount of spaces** 
 
 When committed with `?dry_run=false`:
 1. `reading_tests` row is upserted by `test_id`.
-2. Each `reading_passages` row is upserted by `slug` (with `test_id` FK + `library='l3_test'` stamped).
-3. For each passage, `reading_questions` are **deleted then re-inserted** (delete-by-`passage_id`, then insert). Re-importing a corrected file fully overwrites the question set — no orphans, no duplicates.
+2. **Passage reconciliation (Sprint 20.9 D1):** the importer enumerates every `reading_passages` row currently attached to the test (`test_id` FK, `library='l3_test'`) and **deletes any whose `slug` is missing from the new payload**. Their `reading_questions` go with them via `ON DELETE CASCADE`. The slugs that were deleted are returned in `response.removed_passage_slugs` for operator visibility.
+3. Each `reading_passages` row in the incoming payload is upserted by `slug` (with `test_id` FK + `library='l3_test'` stamped).
+4. For each passage, `reading_questions` are **deleted then re-inserted** (delete-by-`passage_id`, then insert). The question set for each incoming passage is fully replaced.
 
-Supabase doesn't expose REST transactions, so the sequence is best-effort sequential. If a mid-way failure happens, re-importing the same file recovers (idempotency above).
+Together, steps 2–4 make "fully overwrites" accurate: an L3 file with a removed or renamed passage leaves no orphan rows after re-upload. (Before Sprint 20.9 / Codex audit P1-1, only steps 1, 3, and 4 ran; an operator removing a passage would silently leave stale passage + question rows attached to the test.)
+
+**Residual non-transactional risk.** The sequence is still best-effort sequential — Supabase REST doesn't expose multi-statement transactions. If commit fails between the `reading_tests` update and the per-passage step (e.g. a network drop, a 5xx from Postgres), the database is in a real partial state until the next re-import. Re-importing the same file converges: every step's key is the `test_id` / `slug`, and the reconciliation step in (2) makes orphan cleanup automatic. The remaining risk is documented in §11/P1-4 — escalating to a server-side transactional import is deferred until operational failures justify the redesign.
 
 ---
 
@@ -504,13 +507,13 @@ Re-uploading the same file is safe (slug- / test_id-keyed upsert). If you change
 
 ### Idempotent re-import
 - **L1/L2**: keyed by `slug` (`reading_passages.slug` is UNIQUE). Re-upload with the same slug → row is `update`d; `reading_questions` for that passage are deleted-then-reinserted (full set replaced).
-- **L3**: keyed by `test_id` for the `reading_tests` row, and by `slug` for each `reading_passages` row. Re-upload → all rows update in place; every passage's questions are replaced.
+- **L3**: keyed by `test_id` for the `reading_tests` row, and by `slug` for each `reading_passages` row. Re-upload → all rows update in place; every passage's questions are replaced; **and any passage row missing from the new upload is deleted** (Sprint 20.9 D1 — see §6.6). `response.removed_passage_slugs` lists the cleanups so the operator can spot accidental deletions.
 
 ### Deleting content
 There is no admin "delete" endpoint yet (Sprint 20.3 shipped a list endpoint; delete is Phase B). To remove a row, use the Supabase admin UI / SQL. Cascading: `reading_passages → reading_questions` via FK `ON DELETE CASCADE`, so deleting a passage cleans up its questions.
 
 ### Recovery after a partial L3 import
-If an L3 commit fails mid-way (e.g. between passage 2 and passage 3 insert), the partial state is consistent enough for a re-import to recover: re-upload the same file with `dry_run=false`, and every step's upsert is keyed by `test_id` / `slug` so it picks up where it left off.
+If an L3 commit fails mid-way (e.g. between passage 2 and passage 3 insert), the partial state is consistent enough for a re-import to converge: re-upload the same file with `dry_run=false`. Every step's upsert is keyed by `test_id` / `slug` so it picks up where it left off, and the Sprint 20.9 reconciliation step cleans up any orphan passages from the failed run. The recovery is not transactional — see §11/P1-4 for the residual debt.
 
 ---
 
@@ -525,6 +528,7 @@ These are quirks of the current importer that authors may run into. They are acc
 5. **`word_count` is informational.** The validator does not cross-check it against the actual body word count. Author it from your own count.
 6. **L1 `skill_focus`** is allowed (and validated against `SKILL_TAGS` if given) but the L1 renderer ignores it. Use only when authoring L2; leave it out of L1.
 7. **L3 `module: general_training`** parses and validates, but `band_estimate()` returns `None` for GT — by design, until the GT raw→band table ships (Phase B). The submit endpoint will surface `band_estimate: null` rather than a wrong estimate.
+8. **L3 import is best-effort sequential, not transactional** (Codex audit P1-4 residual). The importer runs through `reading_tests` → passage reconciliation → passage upsert → per-passage question replacement as a sequence of independent Supabase REST calls. A mid-way failure leaves a partial state; re-importing the same file converges (Sprint 20.9 reconciliation cleans orphans), but there is a window where the DB does not reflect a single consistent test. The redesign to a transactional path is deferred — see §11/P1-4.
 
 ---
 
@@ -547,6 +551,32 @@ These are quirks of the current importer that authors may run into. They are acc
 The broken seed lives at `backend/content/reading/l3-academic-reading-test-1.md` — content files are **not** auto-imported. They land in the DB only when an admin uploads them through `POST /admin/reading/content/import?dry_run=false`. **If `AVR-READ-001` was ever committed via that endpoint** between Sprint 20.5 and 20.6.6, the resulting `reading_questions` rows have `payload: {}` (options dropped) + double-nested `answer` (un-gradeable), and any `reading_test_attempts` against them are mis-scored. **Recovery is straightforward:** re-upload the corrected seed (this PR's `l3-academic-reading-test-1.md`) with `dry_run=false`. The L3 importer is idempotent (`test_id` + `slug` keyed upsert) and deletes-then-reinserts the question set per passage, so re-import fully overwrites the broken rows. Existing `reading_test_attempts` retain their stored `grading_details`; if any pre-fix attempts need recomputation, re-grade them off the corrected `reading_questions` (separate ops task).
 
 The L1/L2 seeds (`l1-*.md`, `l2-*.md`) and the 20.6.5 worked examples were always in the FLAT shape and were never affected.
+
+### P1-1, P1-2, P1-3, P2-1, P2-2 — CLOSED in Sprint 20.9 (audit-driven hardening)
+
+The Codex audit (`docs/clusters/20_x/audits/codex_audit_cluster_20_x.md`) surfaced five integrity / quality gaps where the cluster's docs claimed stronger guarantees than the code enforced. Sprint 20.9 closes them and updates the language above to match the new reality:
+
+- **P1-1 (L3 reconciliation)** — was "Re-import fully overwrites; no orphans" in §6.6, even though the importer only updated **incoming** passages. Now §6.6 documents the actual reconciliation step (Sprint 20.9 D1, migration 088-adjacent change in `admin_reading.py`), and the importer enumerates + deletes orphan passages on every re-import. `response.removed_passage_slugs` surfaces what was cleaned.
+
+- **P1-2 (one-active-attempt invariant)** — was "the Q7 invariant ensures ≤1 active attempt per user+test" in governance §1, even though only application code enforced it. Migration 088 adds the partial unique index `uniq_reading_test_attempts_active`; the router (`start_reading_test_attempt`) handles the unique-violation race by retrying its abandon-then-insert sequence (newest start wins).
+
+- **P1-3 (atomic autosave)** — was "PATCH /answers is idempotent per q_num" implied across multiple docs, even though the implementation was a read-modify-write against the `answers` JSONB array that could lose concurrent edits. Migration 088 introduces `reading_attempt_answers (attempt_id, q_num PK)`; PATCH is now an upsert by composite PK (intrinsically atomic). The submit handler gathers the authoritative answer set from this table; the body's `answers:` field still overrides per-q_num for the final batch as a last-write-wins fallback.
+
+- **P2-1 (fail-closed `started_at`)** — the submit handler used to default `elapsed_seconds = 0` on a parse failure, silently disabling the Q5 time-limit guard. Now it returns 422 with a clear "Attempt có started_at không hợp lệ" message, so an operator notices instead of grading a corrupted attempt as if it just started.
+
+- **P2-2 (diagnostic boundary tests)** — 20.7's diagnostic engine had representative-value tests but no exact-boundary pins. Sprint 20.9 adds `test_d5_diagnostic_level_at_exact_boundary_{59,60,74,75}` covering both sides of the `weak`/`watch`/`strong` thresholds.
+
+### P1-4 — residual debt acknowledged (still open)
+
+The L3 import sequence remains best-effort sequential — Supabase REST does not expose multi-statement transactions, so a mid-way failure between step 2 (passages) and step 4 (questions) leaves a real partial state until the operator re-imports. Sprint 20.9 D1 reduces the blast radius (orphan passages are reconciled on next import), but does not make the import transactional. The redesign (server-side SQL function, or a worker-queue model) is out of scope; reopen if operational failures justify it. The doc in §6.6 is honest about the residual risk.
+
+### P2-3 — diagnostic recommendation ranking (deferred)
+
+L2 recommendations are returned in `created_at desc` order (recency-ranked, not pedagogically-ranked) and silently return `recommendations: []` when no L2 exercise matches a weak skill. Governance §1 now documents this as **intentional Phase 1 behavior**; the change to a pedagogical ranking or a learner-facing fallback message is deferred until product signal justifies the work.
+
+### P2-5 — diagnostic thresholds are heuristics (documented)
+
+`WEAK_THRESHOLD_PCT = 60`, `WATCH_THRESHOLD_PCT = 75`, and `TREND_DELTA_PCT = 10` are observation-phase product heuristics, not externally validated IELTS thresholds. Retrospective §2.8 (new) records this honestly.
 
 ---
 

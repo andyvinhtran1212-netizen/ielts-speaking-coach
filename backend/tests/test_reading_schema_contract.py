@@ -54,12 +54,17 @@ def test_migrations_are_idempotent():
 
 
 def test_numbering_is_contiguous_from_085():
-    # 086/087 exist; the next slot (088) must not yet (avoids a numbering gap).
-    assert not (_MIGRATIONS / "088_reading_module_foundation.sql").exists()
+    # Sprint 20.9 added migration 088_reading_attempt_hardening.sql (per-q_num
+    # answer table + partial unique index on in_progress attempts). Update the
+    # contract: the cluster's reading migration slots are 086, 087, 088;
+    # nothing should appear past 088 yet.
     nums = sorted(int(p.name[:3]) for p in _MIGRATIONS.glob("0*.sql")
                   if p.name[:3].isdigit())
-    assert 86 in nums and 87 in nums
-    assert max(nums) == 87, f"unexpected migrations beyond 087: {nums}"
+    assert 86 in nums and 87 in nums and 88 in nums
+    assert max(nums) == 88, f"unexpected migrations beyond 088: {nums}"
+    # Confirm 088 is the audit-hardening migration and not a stray reuse of
+    # the slot for unrelated content.
+    assert (_MIGRATIONS / "088_reading_attempt_hardening.sql").exists()
 
 
 # ── reading_passages ──────────────────────────────────────────────────

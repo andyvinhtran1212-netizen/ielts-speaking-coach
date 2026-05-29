@@ -50,9 +50,15 @@ Every new content file follows this exact sequence. **No exceptions.**
 
 > **Re-import safety:** every re-upload of the same `slug` (L1/L2) or
 > `test_id` (L3) is idempotent. The per-passage `reading_questions` set
-> is deleted-then-reinserted, so a corrected file fully overwrites the
-> previous state. There is no "draft → published" promotion separate
-> from re-import — the `published:` flag in frontmatter is the toggle.
+> is deleted-then-reinserted, **and (Sprint 20.9 D1) the L3 importer
+> reconciles passages removed from the source file — orphan passage rows
+> and their cascaded questions are deleted before the new passages are
+> upserted.** `response.removed_passage_slugs` surfaces what was cleaned.
+> So "the file is the truth" holds. There is no "draft → published"
+> promotion separate from re-import — the `published:` flag in frontmatter
+> is the toggle. The import sequence is not fully transactional; see
+> `reading_content_format_v2.md` §10 quirk #8 and §11/P1-4 for the
+> residual partial-write risk.
 
 ---
 
@@ -108,6 +114,47 @@ Stopping at `parse + validate` was the F1 escape route in Sprint 20.5.
 The template lives at `test_reading_validator_f1_f2.py::test_corrected_l3_seed_builds_and_grades_correctly`
 (L3) and `test_reading_content_format_v2_examples.py` (L1/L2/L3 examples).
 Copy that pattern when adding new seeds.
+
+For the live HTTP route chain (import → admin list → student detail →
+start → patch → submit → diagnostic) the template is
+`test_reading_live_route_integration.py` (Sprint 20.9 D6, closing audit
+P2-4). Any change that touches more than one of those routes should
+verify the chain still hangs together end-to-end.
+
+---
+
+## 5b. Integrity-invariant discipline (Sprint 20.9 audit closure)
+
+The cluster docs used to claim several integrity guarantees ("≤1 active
+attempt per user+test", "PATCH is idempotent per q_num", "fully overwrites
+on re-import") that were enforced only by application convention, not by
+the database or by tests. The Codex audit surfaced this docs-vs-code gap
+as a generalisation of the F1/F2 lesson family: **a doc claim without a
+matching enforcement is a fragile invariant**.
+
+Going forward, every integrity claim added to retrospective, governance,
+or the spec must satisfy at least one of:
+
+1. **DB-level enforcement** — partial unique index, PK constraint, CHECK,
+   FK, or trigger. The migration ships in the same PR as the doc.
+2. **Test-level enforcement** — a regression test that would fail loudly
+   if the invariant were violated. The test ships in the same PR.
+3. **Explicit "unenforced quirk" labelling** — listed under
+   `reading_content_format_v2.md` §10 with the residual risk named.
+
+Concrete invariants currently enforced this way (post-20.9):
+
+| Invariant | Enforced by | Test |
+|---|---|---|
+| ≤1 in_progress attempt per (user, test) | Partial unique index in mig 088 + router retry | `test_d2_start_retries_on_unique_violation_until_insert_succeeds` |
+| PATCH /answers is atomic per q_num | PK upsert on (attempt_id, q_num) in mig 088 | `test_d3_patch_two_different_qnums_each_upserts_independently` |
+| L3 re-import deletes removed passages | Reconciliation step in `_import_l3_full_test` | `test_d1_l3_reimport_deletes_passage_removed_from_source` |
+| Submit fails closed on bad started_at | Router 422 path | `test_d4_submit_fails_closed_on_unparseable_started_at` |
+| Diagnostic thresholds (60/75) | Hard-coded constants | `test_d5_diagnostic_level_at_exact_boundary_{59,60,74,75}` |
+
+Anti-pattern (what the audit caught): writing "the system guarantees X"
+in the retrospective without a corresponding constraint or test that
+breaks if X fails. Don't do this again.
 
 ---
 

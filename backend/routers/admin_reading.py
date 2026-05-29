@@ -264,15 +264,22 @@ async def import_reading_content(
 
 
 async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
-    """Commit an L3 full-test: one reading_tests row + 3 reading_passages
+    """Commit an L3 full-test: one reading_tests row + 1..3 reading_passages
     rows + their reading_questions. Idempotent by test_id (test row) and by
     slug (each passage). Re-import REPLACES the question set for each
-    passage (delete-then-insert), so a corrected file fully overwrites.
+    passage (delete-then-insert) AND reconciles passages removed from the
+    source file (Sprint 20.9 D1 — Codex audit P1-1): any reading_passages
+    row attached to this test_id whose slug is not in the new payload is
+    DELETED before the upsert step, so re-uploading a corrected file leaves
+    no orphan rows. The FK on reading_questions is ON DELETE CASCADE, so
+    the orphaned questions clean themselves up.
 
     The supabase-py client doesn't expose transactions over REST, so the
     sequence runs best-effort sequential. A failure mid-way is logged and
-    surfaces as a 500 — the partial state is consistent enough for an
-    admin re-import to recover (idempotency above)."""
+    surfaces as a 500 — the residual partial-state risk is documented in
+    reading_content_format_v2.md §10 (quirk #8) and §11/P1-4; an admin
+    re-import keys by test_id + slug + the new reconciliation step, so a
+    second commit converges the state."""
     parsed = parse_reading_test(text)
     errors = validate_reading_test(parsed)
     result = {
@@ -312,9 +319,40 @@ async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
             result["action"] = "created"
         result["committed_id"] = test_uuid
 
-        # 2) Upsert each passage by slug (with test_id FK = the test we just
-        #    created/found). Collect the passage_id per slug so step 3 can
-        #    fan questions out.
+        # 2a) Sprint 20.9 D1 — RECONCILE removed passages. List the passages
+        #     currently attached to this test, compare with the incoming slugs,
+        #     and delete any that the operator removed from the source file.
+        #     Their reading_questions go with them via the ON DELETE CASCADE
+        #     FK in mig 086. This makes "fully overwrites" actually true in
+        #     code, not just docs (audit P1-1).
+        incoming_slugs = {
+            prow.get("slug") for prow in plan["passage_rows"] if prow.get("slug")
+        }
+        existing_passages_res = (
+            supabase_admin.table("reading_passages")
+            .select("id,slug")
+            .eq("test_id", test_uuid)
+            .eq("library", "l3_test")
+            .execute()
+        )
+        removed_slugs: list[str] = []
+        for row in (existing_passages_res.data or []):
+            slug = row.get("slug")
+            if slug and slug not in incoming_slugs:
+                supabase_admin.table("reading_passages").delete().eq(
+                    "id", row["id"]
+                ).execute()
+                removed_slugs.append(slug)
+        if removed_slugs:
+            logger.info(
+                "L3 import reconciled %d removed passage(s) for test_id=%s: %s",
+                len(removed_slugs), parsed.test_id, removed_slugs,
+            )
+        result["removed_passage_slugs"] = removed_slugs
+
+        # 2b) Upsert each passage by slug (with test_id FK = the test we just
+        #     created/found). Collect the passage_id per slug so step 3 can
+        #     fan questions out.
         slug_to_passage_id: dict[str, str] = {}
         for prow in plan["passage_rows"]:
             prow = dict(prow)

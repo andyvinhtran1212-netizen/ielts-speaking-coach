@@ -22,7 +22,8 @@
 | 20.6.5 | Content Format v2 | Unified FLAT/NESTED spec; 3 dry-run-validated examples; flagged F1/F2 | v1 example shape mismatch surfaced via spec audit |
 | 20.6.6 | F1/F2 fix | Validator silent → loud; seed correction; full parse → grade round-trip test | 76 errors raised on broken seed at dry-run |
 | 20.7 | Diagnostic engine | Per-attempt skill_breakdown rollups + recommendations | (CI-verify only sprint — small surface) |
-| **20.8** | **Close** | **Admin polish (5 gaps) + mockup retirement + retrospective + governance** | **Observation phase begins** |
+| 20.8 | Close (provisional) | Admin polish (5 gaps) + mockup retirement + retrospective + governance | Observation phase declared |
+| **20.9** | **Audit-driven hardening (post-close)** | **3 P1 integrity seams + 2 P2 quality gaps + docs corrections** | **Cluster truly closed; observation phase begins** |
 
 ## 1. By the numbers
 
@@ -152,6 +153,42 @@ slightly over the 600 cap), flagged transparently.
 into single-sprint if the cohesion is genuine, or escalate into two
 sprints if scope balloons. The option is a control valve.
 **Carry forward:** SPLIT clauses are cheap insurance on ambitious sprints.
+
+### 2.9 Claim → enforced: the docs-vs-code parallel of F1/F2 (added in 20.9)
+**Where surfaced:** the Codex audit (after 20.8 close) found the cluster's
+docs claimed three integrity guarantees the code didn't actually enforce:
+"≤1 active attempt per user+test" (router-only, no DB constraint), "PATCH
+is idempotent per q_num" (read-modify-write race window), "fully overwrites
+on re-import" (orphan passages survived). Each was a doc claim with no
+matching test or constraint — the same shape as F1/F2 but at the
+integrity-claim layer instead of the spec-rule layer.
+**Heuristic:** F1/F2 said "if the spec says X, the validator rejects not-X".
+The 20.9 generalisation is "if the docs claim invariant X, the code or DB
+enforces X — or the docs label X as 'unenforced quirk' explicitly".
+**Closed in:** Sprint 20.9 (this PR). Three doc claims are now real:
+partial unique index for active attempts; PK upsert for per-q_num PATCH;
+reconciliation step for L3 re-import. The governance §5b table lists every
+integrity invariant with the matching enforcement (DB constraint, test,
+or explicit quirk label).
+**Carry forward:** retrospective / governance / spec language is reviewed
+the same way validator code is — every claim sits next to a test or
+constraint, or it's labelled as a known unenforced quirk. The audit also
+hardened the diagnostic-threshold language: those numbers are observation
+heuristics, not externally validated IELTS calibration; the retrospective
+now says so.
+
+### 2.10 Diagnostic thresholds are heuristic observation values (added in 20.9)
+**Where surfaced:** Sprint 20.7's diagnostic engine uses `WEAK < 60%`,
+`WATCH < 75%`, and `TREND_DELTA = 10` as cluster-wide cutoffs. The Codex
+audit (P2-5) flagged that the cluster docs didn't say these are heuristic
+product choices, not externally validated IELTS thresholds. Treating
+them as if they were anchored could mislead future content prioritisation.
+**Heuristic:** when an engine uses numeric thresholds that look anchored
+(60 = sounds like a percentage band, 75 = sounds like a B2 threshold),
+the docs must say explicitly whether they are heuristic observation
+choices or externally calibrated. If heuristic, that's fine — name it.
+**Carry forward:** any future diagnostic rule with numeric cutoffs ships
+with a one-line note on rationale (`# heuristic observation; tune in Phase B`).
 
 ---
 
