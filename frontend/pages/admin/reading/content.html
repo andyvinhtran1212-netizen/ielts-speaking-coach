@@ -44,7 +44,9 @@
     <header class="mb-6">
       <h1 class="ar-h1">Quản lý nội dung Reading</h1>
       <p class="ar-subtitle">Import từ file <code>.md</code> theo định dạng
-        <code>reading_content_format_v1</code>. Idempotent theo slug — upload lại để cập nhật.</p>
+        <a href="https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/blob/main/docs/clusters/20_x/reading_content_format_v2.md"
+           target="_blank" rel="noopener"><code>reading_content_format_v2</code></a>.
+        Idempotent theo slug (L1/L2) hoặc <code>test_id</code> (L3) — upload lại để cập nhật.</p>
     </header>
 
     <!-- Import panel ────────────────────────────────────────────────── -->
@@ -68,6 +70,7 @@
         <div id="ar-errors" class="ar-errors" hidden></div>
         <h3 class="ar-preview__title">Xem trước</h3>
         <table class="ar-kv"><tbody id="ar-kv"></tbody></table>
+        <div id="ar-structure" class="ar-structure" hidden></div>
         <div class="ar-preview__actions">
           <button id="ar-reset" type="button" class="ar-btn ar-btn--secondary">Hủy</button>
           <button id="ar-commit" type="button" class="ar-btn ar-btn--primary" disabled>Lưu vào thư viện</button>
@@ -80,9 +83,10 @@
       <div class="ar-list-header">
         <h2 id="ar-list-title" class="ar-panel__title">Thư viện</h2>
         <div class="ar-list-filters" role="tablist" aria-label="Library filter">
-          <button class="ar-filter is-active" data-library=""        role="tab" aria-selected="true">Tất cả</button>
+          <button class="ar-filter is-active" data-library=""         role="tab" aria-selected="true">Tất cả</button>
           <button class="ar-filter"            data-library="l1_vocab" role="tab" aria-selected="false">L1 Vocab</button>
           <button class="ar-filter"            data-library="l2_skill" role="tab" aria-selected="false">L2 Skill</button>
+          <button class="ar-filter"            data-library="l3_test"  role="tab" aria-selected="false">L3 Full Test</button>
         </div>
       </div>
 

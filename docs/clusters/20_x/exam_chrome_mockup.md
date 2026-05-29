@@ -1,37 +1,44 @@
 # Exam Chrome Mockup — Sprint 20.4 + 20.4b + 20.4c Approval Gate
 
-**Sprint:** 20.4 → **20.4b (fidelity revision)** → **20.4c (polish, this iteration)**
+> **STATUS — Sprint 20.8 (cluster 20.x close):** the standalone mockup files
+> (`frontend/pages/reading-exam-mockup.html`, `frontend/js/reading-exam-mockup.js`,
+> sentinel `frontend/tests/sprint-20-4-exam-chrome-mockup.test.mjs`) have been
+> **retired**. They were the approval-gate prototype only; the production exam
+> page `frontend/pages/reading-exam.html` (Sprint 20.6) carries every approved
+> mockup interaction in the production state machine, and the 20.6 sentinel
+> `frontend/tests/sprint-20-6-l3-exam-ui.test.mjs` pins the same structural
+> claims against production. The shared chrome stylesheet
+> `frontend/css/reading-exam-mockup.css` is **kept** — the production page
+> consumes it; the filename is historical (from this approval-gate sprint)
+> and a rename is deferred (cosmetic-only, not worth the risk in a closing
+> sprint). This document stays as the cluster's design-record for the
+> approval-gate process — references to the deleted files below describe
+> the mockup as it existed at approval time.
+
+**Sprint:** 20.4 → **20.4b (fidelity revision)** → **20.4c (polish)**
 **Predecessor:** Sprint 20.3 (PR #322 merged) — L2 + admin authoring UI
-**Successor:** Sprint 20.5 (L3 backend, clone listening grader) — **BLOCKED until this mockup is approved**
+**Successor:** Sprint 20.5 (L3 backend) — was BLOCKED until this mockup approved; now MERGED, mockup retired in 20.8.
 **Authority:** Code authoritative on implementation; **Andy authoritative on fidelity acceptance**
 
-> Approval gate, iteration 2. The mockup is a **reviewable visual prototype, not production**.
+> Approval gate, iteration 2. The mockup was a **reviewable visual prototype, not production**.
 >
 > **What changed in 20.4b**: rubric 13 → 15 px; draggable 50/50 split divider;
 > highlight + note tools live (right-click context menu, faithful to BC/IDP);
 > timer upper-MIDDLE; institutional `system-ui/Arial` typeface override;
 > prev/next palette arrows. → Resolved open Qs 1, 3, 4.
 >
-> **What changed in 20.4c** (Andy polish, this commit): paragraph labels A–E
-> bumped to 16 px bold (was 12 px muted); palette state contrast redesigned
-> as outline / filled-dark / filled-bright with a contrast ring on "current";
-> **timer now shows mm:ss with a live setInterval countdown** (intentional
-> fidelity deviation #2 alongside the draggable divider — see §1).
+> **What changed in 20.4c** (Andy polish): paragraph labels A–E bumped to
+> 16 px bold (was 12 px muted); palette state contrast redesigned as outline
+> / filled-dark / filled-bright with a contrast ring on "current"; **timer
+> now shows mm:ss with a live setInterval countdown** (intentional fidelity
+> deviation #2 alongside the draggable divider — see §1).
 
-## How to review
+## How to review (historical — files retired in 20.8)
 
-```bash
-# Serve the worktree's frontend directory on :5500 (any static server)
-cd ~/Documents/ielts-worktrees/reading-20-3/frontend
-python3 -m http.server 5500
-# Open:
-# http://localhost:5500/pages/reading-exam-mockup.html
-# Preview the timer warning/critical states:
-# http://localhost:5500/pages/reading-exam-mockup.html?demo=warning
-# http://localhost:5500/pages/reading-exam-mockup.html?demo=critical
-```
-
-The page is static — no auth, no backend, no real timer. Click around the question palette, toggle flags, change the text size in the Settings popover.
+The mockup URL no longer resolves. To preview the equivalent UI today, run
+the production exam against a real L3 attempt (`/pages/reading-exam.html?test_id=AVR-READ-001`).
+The state-machine sequence is `loading → prestart → in-progress → results`;
+the chrome inside `in-progress` matches what the mockup approved.
 
 ## Fidelity reference + caveat
 

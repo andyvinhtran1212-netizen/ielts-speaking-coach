@@ -63,11 +63,17 @@ async def list_reading_content(
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(None),
 ):
-    """Admin list across reading_passages (Sprint 20.3 — drives the admin
-    content page). Returns all rows regardless of publish state (distinct from
+    """Admin list across reading_passages OR reading_tests (Sprint 20.3 →
+    Sprint 20.8). Returns all rows regardless of publish state (distinct from
     the student endpoints, which filter status='published'). Optional library +
     status filters. Light fields only — clients fetch the body via re-import or
     a future detail endpoint.
+
+    Sprint 20.8 A4: when library='l3_test', the listing switches to the
+    reading_tests table (one row per uploaded test, not three rows per test
+    via reading_passages). This matches the import unit (one .md upload = one
+    test_id) and gives a coherent admin view. Output rows share a normalised
+    shape with the L1/L2 case so the frontend's list template stays uniform.
     """
     await require_admin(authorization)
 
@@ -76,6 +82,52 @@ async def list_reading_content(
     if status is not None and status not in _STATUSES:
         raise HTTPException(422, f"status must be one of {sorted(_STATUSES)}")
 
+    # ── L3 branch — list reading_tests (one row per test_id) ───────────
+    if library == "l3_test":
+        q = (
+            supabase_admin.table("reading_tests")
+            .select(
+                "id,test_id,title,module,time_limit_minutes,passage_count,"
+                "total_questions,band_target,status,updated_at,created_at",
+                count="exact",
+            )
+            .order("updated_at", desc=True)
+            .range(offset, offset + limit - 1)
+        )
+        if status:
+            q = q.eq("status", status)
+        res = q.execute()
+        # Normalise to the L1/L2 row shape so the frontend can reuse one
+        # template. Map test_id → slug (the file-level identity), surface
+        # module + the "60 min · 40 Qs" summary in `skill_focus`-equivalent.
+        items: list[dict] = []
+        for r in res.data or []:
+            mins = r.get("time_limit_minutes")
+            tot  = r.get("total_questions")
+            summary = " · ".join(filter(None, [
+                f"{mins} phút" if mins else None,
+                f"{tot} câu" if tot else None,
+            ]))
+            items.append({
+                "id":               r.get("id"),
+                "slug":             r.get("test_id"),
+                "library":          "l3_test",
+                "title":            r.get("title"),
+                "status":           r.get("status"),
+                "difficulty_level": r.get("module"),
+                "skill_focus":      summary,
+                "topic_tags":       [],
+                "updated_at":       r.get("updated_at"),
+                "created_at":       r.get("created_at"),
+            })
+        return {
+            "items":  items,
+            "total":  getattr(res, "count", None) or 0,
+            "limit":  limit,
+            "offset": offset,
+        }
+
+    # ── L1/L2/all (other) branch — list reading_passages ───────────────
     q = (
         supabase_admin.table("reading_passages")
         .select(
