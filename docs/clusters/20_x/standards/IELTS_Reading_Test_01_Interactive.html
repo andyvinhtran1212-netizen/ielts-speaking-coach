@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>IELTS Academic Reading — Practice Test 01 (computer-delivered simulation)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ielts-navy: #1d1d3b;        /* official header bar dark navy */
+    --ielts-blue: #2b6cb0;        /* interactive blue */
+    --ielts-blue-d: #1f5290;
+    --bg-app: #d7d7d7;            /* grey desktop behind panes */
+    --bg-pane: #ffffff;
+    --bg-q: #ffffff;
+    --border: #b9b9b9;
+    --text: #1a1a1a;
+    --hl-yellow: #fff176;
+    --hl-green: #a5d6a7;
+    --hl-pink: #f48fb1;
+    --review-ring: #2b6cb0;
+    --answered: #2b6cb0;
+    --correct: #2e7d32;
+    --incorrect: #c62828;
+    --grey: #757575;
+    --font-scale: 1;
+  }
+  /* colour themes (Settings) */
+  body[data-theme="black-on-cream"] { --bg-pane:#fbf3df; --bg-q:#fbf3df; --bg-app:#e8dcc0; --text:#1a1a1a; }
+  body[data-theme="white-on-black"] { --bg-pane:#1c1c1c; --bg-q:#1c1c1c; --bg-app:#000; --text:#f2f2f2; --border:#555; }
+  body[data-theme="yellow-on-blue"] { --bg-pane:#06214a; --bg-q:#06214a; --bg-app:#02132c; --text:#ffe96b; --border:#3a5a86; }
+
+  html, body { height: 100%; }
+  body {
+    font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
+    background: var(--bg-app);
+    color: var(--text);
+    font-size: calc(15px * var(--font-scale));
+    line-height: 1.55;
+    overflow: hidden;
+  }
+  body.results-open, body.intro-open { overflow: auto; }
+  :focus-visible { outline: 2px solid var(--ielts-blue); outline-offset: 1px; }
+  button, label, select, input[type="text"] { font-family: inherit; }
+
+  /* ===================== TOP BAR ===================== */
+  .top-bar {
+    background: var(--ielts-navy);
+    color: #fff;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; gap: 12px;
+  }
+  .top-bar .cand { font-size: 12px; line-height: 1.2; }
+  .top-bar .cand strong { display:block; font-size: 13px; }
+  .top-bar .cand span { color: #b9c2d6; font-size: 11px; }
+  .timer-wrap { display: flex; align-items: center; gap: 8px; }
+  .timer-clock {
+    font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums;
+    background: #fff; color: #000; padding: 3px 14px; border-radius: 4px; min-width: 86px; text-align:center;
+  }
+  .timer-clock.warn { background:#ffd54f; color:#3d2c00; }
+  .timer-clock.danger { background:#e53935; color:#fff; animation: flashRed 1s steps(2,start) infinite; }
+  @keyframes flashRed { 50% { background:#ffcdd2; color:#b71c1c; } }
+  .timer-label { font-size: 11px; color:#b9c2d6; }
+  .tools { display:flex; gap:6px; }
+  .tool-btn {
+    background: transparent; border: 1px solid #54608a; color:#fff;
+    padding: 6px 12px; font-size: 12.5px; border-radius:4px; cursor:pointer; min-height:32px;
+    display:inline-flex; align-items:center; gap:5px;
+  }
+  .tool-btn:hover { background:#2c2c55; }
+  .tool-btn[aria-pressed="true"] { background:#fff; color:var(--ielts-navy); border-color:#fff; font-weight:700; }
+
+  /* ===================== INSTRUCTION STRIP ===================== */
+  .part-strip {
+    background: var(--bg-pane); color: var(--text);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 18px; font-size: 13px; display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  .part-strip .ps-title { font-weight: 700; }
+  .part-strip .ps-sub { color: var(--grey); font-size: 12px; }
+  body[data-theme="white-on-black"] .part-strip .ps-sub,
+  body[data-theme="yellow-on-blue"] .part-strip .ps-sub { color: inherit; opacity:.8; }
+
+  /* ===================== MAIN SPLIT ===================== */
+  .main { display:flex; height: calc(100vh - 52px - 35px - 84px); background: var(--bg-app); }
+  body.results-open .main, body.intro-open .main { display:none; }
+  .pane { overflow-y:auto; padding: 18px 24px 90px; background: var(--bg-pane); }
+  #passage-pane { width: 50%; }
+  #questions-pane { width: 50%; background: var(--bg-q); border-left: 1px solid var(--border); }
+  .divider { width: 6px; background: #c2c2c2; cursor: col-resize; flex-shrink:0; }
+  .divider:hover { background: var(--ielts-blue); }
+
+  .passage-label { font-size: 12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color: var(--ielts-blue); margin-bottom:2px; }
+  .passage-timing { font-size: 12px; font-style:italic; color: var(--grey); margin-bottom: 12px; }
+  body[data-theme="white-on-black"] .passage-timing, body[data-theme="yellow-on-blue"] .passage-timing { color: inherit; opacity:.75; }
+  #passage-pane h2 { font-size: 20px; line-height:1.3; margin: 4px 0 4px; }
+  #passage-pane h3.sub { font-size: 14px; font-style:italic; font-weight:400; color: var(--grey); margin-bottom: 14px; }
+  body[data-theme="white-on-black"] #passage-pane h3.sub, body[data-theme="yellow-on-blue"] #passage-pane h3.sub { color:inherit; opacity:.8; }
+  .para { margin-bottom: 12px; text-align: justify; }
+  .para .plabel { font-weight: 700; margin-right: 8px; }
+  .hl { border-radius: 2px; }
+  .hl.c-yellow { background: var(--hl-yellow); } .hl.c-green { background: var(--hl-green); } .hl.c-pink { background: var(--hl-pink); }
+  body[data-theme="white-on-black"] .hl, body[data-theme="yellow-on-blue"] .hl { color:#1a1a1a; }
+  .note-anchor { border-bottom: 2px dotted #a85f00; cursor: help; position: relative; }
+  .note-anchor .note-flag { font-size: 10px; color:#a85f00; vertical-align: super; }
+
+  /* ===================== QUESTIONS ===================== */
+  .q-group { margin-bottom: 22px; }
+  .q-group h3.qg-title { font-size: 15px; font-weight:700; margin-bottom: 4px; }
+  .q-group .qg-instr { font-size: 13px; white-space: pre-wrap; padding: 6px 0 8px; border-bottom:1px solid var(--border); margin-bottom: 10px; }
+  .headings-box, .features-box {
+    border: 1px solid var(--border); background: rgba(43,108,176,.05);
+    padding: 8px 12px; margin: 8px 0 12px; font-size: 13px; border-radius: 4px;
+  }
+  .headings-box strong, .features-box strong { display:block; margin-bottom: 4px; }
+  .headings-box div, .features-box div { padding: 1px 0; }
+
+  .q-item { display:flex; gap:10px; align-items:flex-start; padding: 8px 8px; margin: 4px 0; border-radius:4px; border-left: 3px solid transparent; }
+  .q-item.answered { border-left-color: var(--answered); background: rgba(43,108,176,.06); }
+  .q-item.review { border-left-color:#d17b00; }
+  .q-num-badge { flex-shrink:0; width:26px; height:26px; border-radius:50%; background: var(--ielts-navy); color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .q-body { flex:1; min-width:0; }
+  .q-stem { margin-bottom: 5px; }
+  .q-review-toggle {
+    flex-shrink:0; font-size:11px; color: var(--grey); border:1px solid var(--border);
+    background:transparent; border-radius:4px; padding:3px 8px; cursor:pointer; min-height:28px; white-space:nowrap;
+  }
+  .q-review-toggle[aria-pressed="true"] { background:#d17b00; color:#fff; border-color:#d17b00; }
+
+  .opts label { display:flex; gap:8px; padding:5px 8px; border-radius:4px; cursor:pointer; align-items:flex-start; }
+  .opts label:hover { background: rgba(43,108,176,.08); }
+  .opts input { margin-top:3px; }
+  select.q-select { font-size:13px; padding:5px 8px; border:1px solid #888; border-radius:3px; background:#fff; color:#000; max-width:100%; margin-top:4px; }
+  input.q-text { font-size:14px; padding:4px 8px; border:1px solid #888; border-radius:3px; background:#fff; color:#000; min-width:120px; max-width:220px; margin:0 3px; }
+  .gap-box { background: rgba(43,108,176,.05); border:1px solid var(--border); border-radius:4px; padding: 12px 14px; margin: 8px 0; line-height: 2.1; font-size: 14px; white-space: pre-wrap; }
+  .gap-box .gnum { font-weight:700; color: var(--ielts-blue); }
+  .mono-block { font-family: 'Courier New', monospace; white-space: pre-wrap; }
+
+  /* ===================== BOTTOM NAV ===================== */
+  .navbar {
+    background: var(--ielts-navy); color:#fff; height: 84px;
+    display:flex; flex-direction: column; border-top: 1px solid #000;
+  }
+  body.results-open .navbar, body.intro-open .navbar { display:none; }
+  .nav-top { display:flex; align-items:center; gap:10px; padding: 5px 14px 0; }
+  .review-check { display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; }
+  .review-check input { width:15px; height:15px; }
+  .nav-arrows { margin-left:auto; display:flex; gap:6px; }
+  .nav-arrows button, .end-btn {
+    background:#fff; color:var(--ielts-navy); border:none; border-radius:4px; font-weight:700;
+    padding:6px 14px; font-size:12.5px; cursor:pointer; min-height:32px;
+  }
+  .nav-arrows button:hover, .end-btn:hover { background:#e3e9f4; }
+  .end-btn { background: var(--ielts-blue); color:#fff; }
+  .end-btn:hover { background: var(--ielts-blue-d); }
+  .nav-palette { display:flex; align-items:center; gap:4px; padding: 4px 14px 8px; overflow-x:auto; flex-wrap:nowrap; }
+  .nav-part-label { font-size:10px; font-weight:700; letter-spacing:.5px; color:#9aa6c8; flex-shrink:0; padding-right:4px; text-transform:uppercase; }
+  .nav-sep { width:1px; background:#3b4673; height:30px; margin:0 6px; flex-shrink:0; }
+  .palette-btn {
+    flex-shrink:0; width:30px; height:30px; font-size:12px; font-weight:600;
+    background:#3b4060; color:#cfd6ea; border:1px solid #54608a; border-radius:3px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .palette-btn:hover { background:#4a5180; color:#fff; }
+  .palette-btn.answered { background:#fff; color:var(--ielts-navy); border-color:#fff; }
+  /* review = SQUARE turns to CIRCLE (key CD-IELTS detail) */
+  .palette-btn.review { border-radius:50%; border-color:#ffb74d; }
+  .palette-btn.current { box-shadow: 0 0 0 2px #ffd54f; }
+
+  /* ===================== MODALS ===================== */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1000; }
+  .overlay.open { display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; }
+  .sheet { background:#fff; color:#1a1a1a; max-width:560px; width:92%; margin:40px auto; padding:24px 28px; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.3); }
+  .sheet.wide { max-width:1080px; }
+  .sheet h2 { color: var(--ielts-navy); margin-bottom: 12px; }
+  .sheet h3 { color: var(--ielts-navy); margin-bottom: 8px; }
+  .sheet p { margin-bottom: 10px; font-size:14px; }
+  .sheet .row-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap; }
+  .btn { padding:9px 20px; border-radius:5px; border:1px solid; font-size:14px; cursor:pointer; min-height:38px; }
+  .btn-primary { background: var(--ielts-blue); color:#fff; border-color: var(--ielts-blue-d); }
+  .btn-primary:hover { background: var(--ielts-blue-d); }
+  .btn-ghost { background:#eee; color:#333; border-color:#bbb; }
+  .btn-ghost:hover { background:#ddd; }
+
+  /* settings controls */
+  .set-group { margin-bottom: 18px; }
+  .set-group > label { font-weight:700; display:block; margin-bottom:6px; font-size:13px; }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; }
+  .seg button { padding:8px 14px; border:1px solid #bbb; background:#f3f3f3; border-radius:5px; cursor:pointer; font-size:13px; }
+  .seg button[aria-pressed="true"] { background: var(--ielts-blue); color:#fff; border-color: var(--ielts-blue-d); }
+  .swatch { width:46px; height:34px; border:2px solid #bbb; border-radius:5px; cursor:pointer; font-size:0; }
+  .swatch[aria-pressed="true"] { border-color: var(--ielts-blue); box-shadow:0 0 0 2px rgba(43,108,176,.3); }
+
+  /* context menu */
+  .ctx-menu { position:fixed; z-index:1200; background:#fff; border:1px solid #999; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,.25); display:none; min-width:150px; overflow:hidden; }
+  .ctx-menu.open { display:block; }
+  .ctx-menu button { display:block; width:100%; text-align:left; background:#fff; border:none; padding:9px 14px; font-size:13px; cursor:pointer; color:#1a1a1a; }
+  .ctx-menu button:hover { background:#eef3fb; }
+  .ctx-menu .ctx-colors { display:flex; gap:6px; padding:8px 14px; border-top:1px solid #eee; }
+  .ctx-menu .ctx-colors span { width:22px; height:22px; border-radius:3px; cursor:pointer; border:1px solid #999; }
+
+  /* hide screen */
+  #hide-screen { display:none; position:fixed; inset:0; background: var(--ielts-navy); color:#fff; z-index:1500; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  #hide-screen.open { display:flex; }
+  #hide-screen h2 { color:#fff; }
+
+  /* ===================== RESULTS ===================== */
+  .score-cards { display:flex; gap:12px; flex-wrap:wrap; margin: 14px 0 20px; }
+  .score-card { flex:1; min-width:150px; background: var(--ielts-navy); color:#fff; padding:16px; border-radius:8px; text-align:center; }
+  .score-card.band { background: var(--ielts-blue); }
+  .score-card.wrong { background: var(--grey); }
+  .score-card .big { font-size:34px; font-weight:700; line-height:1; }
+  .score-card .cap { font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:.9; margin-top:4px; }
+  .ans-filter { display:flex; gap:6px; margin:14px 0; flex-wrap:wrap; align-items:center; }
+  .ans-filter button { padding:6px 14px; border:1px solid #bbb; background:#f0f0f0; border-radius:5px; cursor:pointer; font-size:13px; }
+  .ans-filter button[aria-pressed="true"] { background: var(--ielts-blue); color:#fff; border-color: var(--ielts-blue-d); }
+  .ans-row { border-bottom:1px solid #e2e2e2; padding:12px 0; }
+  .ans-row[data-state="correct"] { background:#f1f8e9; }
+  .ans-row[data-state="incorrect"] { background:#ffebee; }
+  .ans-row[data-state="blank"] { background:#f5f5f5; }
+  .ans-row .ah { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; color:#fff; }
+  .pill.correct { background: var(--correct); } .pill.incorrect { background: var(--incorrect); } .pill.blank { background: var(--grey); }
+  .pill.type { background:#546e7a; } .pill.band { background:#37474f; }
+  .ans-row .detail { margin: 6px 0 0 6px; font-size:13.5px; }
+  .ans-row .ua { color:#555; } .ans-row .ca { color: var(--correct); font-weight:700; }
+  .expl { background:#fff8e1; border-left:3px solid #c9a200; padding:8px 12px; margin-top:6px; font-size:13px; border-radius:0 4px 4px 0; }
+  .tip { background:#e8f1fb; border-left:3px solid var(--ielts-blue); padding:8px 12px; margin-top:6px; font-size:12.5px; border-radius:0 4px 4px 0; }
+
+  /* ===================== RESPONSIVE ===================== */
+  @media (max-width: 860px) {
+    .main { flex-direction:column; height:auto; }
+    #passage-pane, #questions-pane { width:100%; max-height: 46vh; border-left:none; }
+    #questions-pane { border-top: 2px solid var(--border); }
+    .divider { display:none; }
+    body { overflow-y:auto; height:auto; }
+    .top-bar .cand span { display:none; }
+  }
+  @media (max-width: 560px) {
+    .top-bar { padding:0 8px; }
+    .tool-btn { padding:6px 8px; font-size:11px; }
+    .palette-btn { width:34px; height:34px; }
+    .nav-arrows button, .end-btn { padding:8px 10px; }
+  }
+  @media print {
+    body, body.results-open { overflow:visible; height:auto; background:#fff; }
+    .top-bar, .navbar, .part-strip, .overlay button, .ans-filter, .divider, .q-review-toggle, #ctx-menu { display:none !important; }
+    .main { display:block !important; height:auto !important; }
+    .pane { width:100% !important; max-height:none !important; overflow:visible !important; }
+  }
+  .vh { position:absolute!important; width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0); white-space:nowrap; }
+  .vh:focus { position:static!important; width:auto;height:auto;overflow:visible;clip:auto; background:var(--ielts-blue); color:#fff; padding:8px 14px; display:inline-block; z-index:2000; }
+  .time-toast { position:fixed; top:60px; left:50%; transform:translateX(-50%); background:#e53935; color:#fff; padding:10px 22px; border-radius:6px; font-weight:700; z-index:1600; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+  .palette-legend { display:flex; gap:14px; align-items:center; font-size:10px; color:#9aa6c8; padding:0 14px 4px; flex-wrap:wrap; }
+  .palette-legend span { display:inline-flex; align-items:center; gap:4px; }
+  .lg-box { width:14px;height:14px;border:1px solid #54608a;background:#3b4060;border-radius:3px; }
+  .lg-box.ans { background:#fff;border-color:#fff; } .lg-box.rev { border-radius:50%;border-color:#ffb74d; }
+  @media (prefers-reduced-motion: reduce) { .timer-clock.danger { animation:none; } * { scroll-behavior:auto !important; } }
+</style>
+</head>
+<body data-theme="default">
+
+<a class="vh" href="#questions-pane">Skip to questions</a>
+<div id="live-region" class="vh" aria-live="polite" aria-atomic="true"></div>
+
+<!-- INTRO -->
+<div class="overlay open" id="intro-modal" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+  <div class="sheet">
+    <h2 id="intro-title">IELTS Academic Reading — Test on Computer</h2>
+    <p><strong>Practice Test 01</strong> · 3 passages · 40 questions · <strong>60 minutes</strong>.</p>
+    <p>This is a faithful simulation of the British Council / IDP computer-delivered Reading interface. The passage is on the left and the questions on the right; both panes scroll independently. Use the numbered bar at the bottom to move between questions, tick <em>Review</em> to flag a question (its marker becomes a circle), and use <em>Settings</em> to change text size or colours. Right-click selected passage text to highlight or add a note.</p>
+    <p>The timer warns you at 10 and 5 minutes remaining; when it reaches zero the test is submitted automatically. After you finish you will get an automatic score, band estimate and Vietnamese explanations for every question.</p>
+    <div class="row-actions">
+      <button class="btn btn-primary" id="start-btn" type="button">Start Test</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<header class="top-bar">
+  <div class="cand">
+    <strong>Andy</strong>
+    <span>Candidate 048291-001 · Academic Reading</span>
+  </div>
+  <div class="timer-wrap">
+    <span class="timer-label">Time remaining</span>
+    <span class="timer-clock" id="timer" role="timer" aria-live="off">60:00</span>
+  </div>
+  <div class="tools">
+    <button class="tool-btn" id="settings-btn" type="button" aria-haspopup="dialog">⚙ Settings</button>
+    <button class="tool-btn" id="hide-btn" type="button">◯ Hide</button>
+    <button class="tool-btn" id="help-btn" type="button" aria-haspopup="dialog">？ Help</button>
+  </div>
+</header>
+
+<!-- PART STRIP -->
+<div class="part-strip">
+  <span class="ps-title" id="ps-title">Part 1</span>
+  <span class="ps-sub" id="ps-sub">Read the text and answer questions 1–13.</span>
+</div>
+
+<!-- MAIN -->
+<main class="main">
+  <section class="pane" id="passage-pane" tabindex="0" aria-label="Reading passage"></section>
+  <div class="divider" id="divider" role="separator" aria-label="Resize panes"></div>
+  <section class="pane" id="questions-pane" tabindex="0" aria-label="Questions"></section>
+</main>
+
+<!-- BOTTOM NAV -->
+<nav class="navbar" aria-label="Question navigation">
+  <div class="nav-top">
+    <label class="review-check"><input type="checkbox" id="review-check"> Review</label>
+    <div class="nav-arrows">
+      <button id="prev-btn" type="button">‹ Previous</button>
+      <button id="next-btn" type="button">Next ›</button>
+      <button class="end-btn" id="end-btn" type="button">End Test</button>
+    </div>
+  </div>
+  <div class="nav-palette" id="palette" role="group" aria-label="Questions 1 to 40"></div>
+  <div class="palette-legend" aria-hidden="true"><span><i class="lg-box"></i>chưa làm</span><span><i class="lg-box ans"></i>đã làm</span><span><i class="lg-box rev"></i>đánh dấu xem lại</span></div>
+</nav>
+
+<!-- CONTEXT MENU (highlight/notes) -->
+<div class="ctx-menu" id="ctx-menu" role="menu">
+  <button id="ctx-highlight" type="button" role="menuitem">Highlight</button>
+  <button id="ctx-note" type="button" role="menuitem">Notes</button>
+  <button id="ctx-clear" type="button" role="menuitem">Clear</button>
+  <div class="ctx-colors" aria-label="Highlight colour">
+    <span data-color="c-yellow" style="background:#fff176" title="Yellow"></span>
+    <span data-color="c-green" style="background:#a5d6a7" title="Green"></span>
+    <span data-color="c-pink" style="background:#f48fb1" title="Pink"></span>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="overlay" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="set-title">
+  <div class="sheet">
+    <h2 id="set-title">Settings</h2>
+    <div class="set-group">
+      <label>Text size</label>
+      <div class="seg" id="size-seg">
+        <button data-size="0.9" type="button">Standard</button>
+        <button data-size="1.1" type="button">Large</button>
+        <button data-size="1.3" type="button">Largest</button>
+      </div>
+    </div>
+    <div class="set-group">
+      <label>Colour theme</label>
+      <div class="seg" id="theme-seg">
+        <button class="swatch" data-tcfg="default" style="background:#fff" title="Black on white">A</button>
+        <button class="swatch" data-tcfg="black-on-cream" style="background:#fbf3df" title="Black on cream">A</button>
+        <button class="swatch" data-tcfg="white-on-black" style="background:#1c1c1c" title="White on black">A</button>
+        <button class="swatch" data-tcfg="yellow-on-blue" style="background:#06214a" title="Yellow on blue">A</button>
+      </div>
+    </div>
+    <div class="row-actions"><button class="btn btn-primary" id="set-close" type="button">Done</button></div>
+  </div>
+</div>
+
+<!-- HELP -->
+<div class="overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+  <div class="sheet">
+    <h2 id="help-title">How to use this test</h2>
+    <p><strong>Navigation.</strong> The bottom bar shows all 40 questions grouped by Part 1–3. Click a number to jump to it; use <em>Previous / Next</em> to step through. Answered questions turn white.</p>
+    <p><strong>Review.</strong> Tick the <em>Review</em> box (lower-left) for the current question — its marker in the bar changes from a square to a circle so you can find it again.</p>
+    <p><strong>Highlight &amp; notes.</strong> Select text in the passage, then right-click and choose <em>Highlight</em>, <em>Notes</em>, or <em>Clear</em>. Keyboard: select text and press <kbd>Alt</kbd>+<kbd>H</kbd> to highlight or <kbd>Alt</kbd>+<kbd>N</kbd> to add a note.</p>
+    <p><strong>Answering.</strong> Multiple choice = click an option. True/False/Not Given and matching = choose from the drop-down. Completion = type into the box (you may copy-paste from the passage).</p>
+    <p><strong>Time.</strong> 60 minutes, counting down; it warns at 10 and 5 minutes and submits automatically at zero.</p>
+    <div class="row-actions"><button class="btn btn-primary" id="help-close" type="button">Close</button></div>
+  </div>
+</div>
+
+<!-- NOTE EDITOR -->
+<div class="overlay" id="note-modal" role="dialog" aria-modal="true" aria-labelledby="note-title">
+  <div class="sheet">
+    <h3 id="note-title">Note</h3>
+    <p style="font-size:13px;color:#666;" id="note-context"></p>
+    <textarea id="note-text" rows="4" style="width:100%;font-size:14px;padding:8px;border:1px solid #999;border-radius:4px;"></textarea>
+    <div class="row-actions">
+      <button class="btn btn-ghost" id="note-delete" type="button">Delete</button>
+      <button class="btn btn-primary" id="note-save" type="button">Save note</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="overlay" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="sheet">
+    <h3 id="confirm-title">Confirm</h3>
+    <p id="confirm-msg"></p>
+    <div class="row-actions" id="confirm-actions"></div>
+  </div>
+</div>
+
+<!-- HIDE SCREEN -->
+<div id="hide-screen">
+  <h2>Screen hidden</h2>
+  <p>Your test is paused. The timer is still running.</p>
+  <button class="btn btn-primary" id="resume-btn" type="button">Resume test</button>
+</div>
+
+<!-- RESULTS -->
+<div class="overlay" id="results-modal" role="dialog" aria-modal="true" aria-labelledby="res-title">
+  <div class="sheet wide">
+    <h2 id="res-title">Kết quả bài thi — Test 01</h2>
+    <div class="score-cards" id="score-cards"></div>
+    <div class="ans-filter">
+      <strong style="font-size:13px;">Lọc:</strong>
+      <button data-filter="all" aria-pressed="true" type="button">Tất cả</button>
+      <button data-filter="incorrect" aria-pressed="false" type="button">Sai</button>
+      <button data-filter="correct" aria-pressed="false" type="button">Đúng</button>
+      <button data-filter="blank" aria-pressed="false" type="button">Bỏ trống</button>
+    </div>
+    <div id="ans-list"></div>
+    <div class="row-actions">
+      <button class="btn btn-ghost" id="res-print" type="button">In / PDF</button>
+      <button class="btn btn-ghost" id="res-retry" type="button">Làm lại</button>
+      <button class="btn btn-primary" id="res-close" type="button">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script id="test-data" type="application/json">{"test_id":"TEST_01","version":"1.0","batch":"A","tier":"spread","target_band":6.5,"band_spread":"4.5–8.5","question_types_used":["Sentence Completion","T/F/NG","Matching Headings","Summary Completion","MCQ","Matching Features","Y/N/NG"],"passage1":{"number":1,"title":"Reading the Stars: The Lost Art of Polynesian Navigation","subtitle":"How early Pacific seafarers crossed thousands of kilometres of open ocean without instruments","macro_topic":"History & Archaeology","sub_topic":"Polynesian navigation","band_target":"4.5–6.0","word_count":756,"paragraphs":[{"label":"","text":"Long before European explorers ventured into the Pacific, the islands scattered across some sixteen million square kilometres of ocean had already been settled by a single, remarkable people. The Polynesians, whose ancestors are thought to have set out from Taiwan more than three thousand years ago, reached Tonga and Samoa by 1000 BCE, the Marquesas by 200 CE, and Hawaii and Easter Island within the next eight centuries. They did so in twin-hulled wooden canoes, without compasses, charts, or any of the navigational instruments that the Europeans considered indispensable. For a long time historians struggled to explain this achievement, and some even suggested that the Polynesians had stumbled across the islands by accident, drifting on favourable currents. That view has now been firmly overturned."},{"label":"","text":"The change came in the 1970s, when a small group of researchers in Hawaii began to take seriously the oral traditions of Pacific elders. One such elder was Mau Piailug, a fisherman from the tiny island of Satawal in Micronesia. Mau, who had been trained as a navigator from the age of five, agreed to guide a replica voyaging canoe, the Hōkūleʻa, on the long passage from Hawaii to Tahiti in 1976. He carried with him only what he had been taught: a mental map of more than two hundred stars, an intimate knowledge of swell patterns, and an ability to read the behaviour of seabirds and clouds. The voyage covered roughly 4,000 kilometres of open ocean. The canoe arrived within a few kilometres of its target."},{"label":"","text":"Mau's knowledge belonged to a tradition that scholars now call wayfinding. At its core lay the so-called star compass: a mental division of the horizon into thirty-two points, each associated with the rising or setting position of a particular star. By memorising which stars rose and set on the heading he wished to follow, the navigator could maintain a constant course through the night. During the day, when the stars were invisible, he relied on the sun's arc, the prevailing trade winds, and, crucially, the long ocean swell. An experienced wayfinder could distinguish between several swells running at the same time, even feeling them through the hull of his canoe while lying down."},{"label":"","text":"Equally important was the technique known as 'reading the sea'. Distant islands, though far below the horizon, often left traces in the surrounding water. A piece of driftwood, the colour of the sky reflected by a lagoon, a particular species of bird returning at dusk, or a slight bend in the long ocean swell as it wrapped around a hidden landmass — all of these could betray the presence of land hundreds of kilometres away. The navigator's task was less to chart a course on a map than to listen to a continuous flow of small signals and interpret them correctly."},{"label":"","text":"Modern attempts to reconstruct these voyages have produced surprising results. In a series of computer simulations published in 2014, researchers at the University of Auckland modelled wind and current conditions across the eastern Pacific between 800 and 1200 CE. They found that drift voyages from West Polynesia to remote islands such as Easter Island would have been extremely unlikely. Deliberate, instrument-free navigation, however, was entirely feasible under the prevailing conditions, provided the navigator could maintain a heading to within roughly five degrees. Mau's voyages have repeatedly shown that such accuracy is achievable in practice."},{"label":"","text":"Wayfinding came close to disappearing during the colonial period. As Western charts and compasses arrived in the Pacific, the demand for traditional navigators collapsed, and by the early twentieth century only a handful of elders still possessed the full knowledge. Mau's decision to teach outsiders was therefore controversial within his own community. He defended it on the grounds that the knowledge would otherwise be lost. His students went on to train a new generation of Pacific navigators, several of whom have since completed voyages of more than 20,000 kilometres without instruments. The revival has had wider effects, contributing to a sense of cultural pride in Pacific communities from New Zealand to Hawaii."},{"label":"","text":"For all its richness, traditional wayfinding remains imperfectly understood. Mau himself often said that some of what he knew could not be put into words, only learned through years of practice at sea. Researchers are now using GPS tracking to compare the routes chosen by trained wayfinders with those predicted by computer models, in the hope of capturing techniques that may otherwise slip away. Whether such efforts can preserve a knowledge system so thoroughly embedded in daily life remains, for the moment, an open question."}],"questions":[{"q_number_range":"1-7","type":"Sentence Completion","instruction":"Complete the sentences below.\n\nChoose NO MORE THAN TWO WORDS from the passage for each answer.\n\nWrite your answers in boxes 1–7 on your answer sheet.","items":[{"n":1,"stem":"The ancestors of the Polynesians are believed to have originally come from ____.","answer":"Taiwan","band":4.5},{"n":2,"stem":"Some historians once argued that the Polynesians reached the islands by drifting on favourable ____.","answer":"currents","band":5},{"n":3,"stem":"Mau Piailug began his training as a navigator at the age of ____.","answer":"five","band":4.5},{"n":4,"stem":"The mental tool used to maintain a course at night was known as the ____.","answer":"star compass","band":5.5},{"n":5,"stem":"When trying to detect a hidden island, the wayfinder relied in part on the behaviour of seagoing ____.","answer":"birds","answer_accept":["birds","seabirds"],"band":6},{"n":6,"stem":"Simulations have shown that wayfinders needed to keep their heading accurate to about ____.","answer":"five degrees","band":6},{"n":7,"stem":"By the early twentieth century, only a few ____ still held the complete body of navigation knowledge.","answer":"elders","band":5.5}]},{"q_number_range":"8-13","type":"True/False/Not Given","instruction":"Do the following statements agree with the information given in Reading Passage 1?\n\nIn boxes 8–13 on your answer sheet, write\n\nTRUE      if the statement agrees with the information\nFALSE     if the statement contradicts the information\nNOT GIVEN if there is no information on this","items":[{"n":8,"stem":"European explorers were the first to settle the islands of the Pacific.","answer":"FALSE","mechanism":"Polarity flip — passage says the islands had ALREADY been settled before Europeans arrived.","band":5},{"n":9,"stem":"Mau Piailug used only traditional methods on his 1976 voyage to Tahiti.","answer":"TRUE","mechanism":"Specification — passage explicitly states he carried only what he had been taught: stars, swells, birds.","band":6},{"n":10,"stem":"Wayfinders found it impossible to navigate during daylight hours.","answer":"FALSE","mechanism":"Polarity flip — passage says he relied on sun arc, winds and swells during the day.","band":6.5},{"n":11,"stem":"Mau accompanied his students on most of the long voyages they completed after his retirement.","answer":"NOT GIVEN","mechanism":"Detail not stated — passage mentions students completing voyages of more than 20,000 km but says nothing about whether Mau himself accompanied them.","band":7},{"n":12,"stem":"The 2014 Auckland simulations indicated that instrument-free navigation was feasible across the eastern Pacific.","answer":"TRUE","mechanism":"Specification + nominalisation — passage states 'Deliberate, instrument-free navigation, however, was entirely feasible under the prevailing conditions'.","band":7},{"n":13,"stem":"Modern GPS tracking has produced more accurate measurements of distance than Mau's own observations.","answer":"NOT GIVEN","mechanism":"Comparative invention — passage mentions GPS being used to compare routes with computer models, but never compares accuracy to Mau's observations.","band":7.5}]}]},"passage2":{"number":2,"title":"When Reefs Lose Their Colour","subtitle":"Coral bleaching is no longer an isolated event. What is driving its spread, and what is being done?","macro_topic":"Environment & Ecology","sub_topic":"Coral bleaching","band_target":"6.0–7.5","word_count":821,"paragraphs":[{"label":"A","text":"Tropical coral reefs are among the most productive ecosystems on Earth, sheltering roughly a quarter of all marine species while occupying less than one per cent of the seabed. Their structural backbone consists of stony corals, animals that build calcium carbonate skeletons over thousands of years. The corals themselves, however, are barely coloured; the brilliant hues for which reefs are famous come from microscopic algae called zooxanthellae, which live within the corals' tissues and supply most of the energy the corals need to grow. When this partnership breaks down, the corals expel their algae, exposing their pale skeletons in a phenomenon known as bleaching."},{"label":"B","text":"A reef does not turn white in protest at any single insult. Bleaching is the cumulative result of stress, of which elevated sea temperature is by far the most important. As little as a sustained increase of one degree Celsius above the long-term summer maximum can disrupt the chemistry of photosynthesis inside the algae and force the coral to release them. Other stressors — unusually low salinity following heavy rainfall, exposure to ultraviolet radiation at low tides, or sediment from coastal development — can have similar effects, but only ocean warming has been capable of producing bleaching on a planetary scale."},{"label":"C","text":"The first event large enough to attract international attention occurred in 1998, when an unusually warm El Niño led to widespread bleaching across the Indian Ocean. Roughly 16 per cent of the world's living coral cover was estimated to have died over the following two years. In some heavily affected lagoons in the Seychelles and the Maldives, divers reported that the loss was so sudden that the dead skeletons were still standing upright months later, gradually colonised by a turf of fine green algae. At the time, many marine biologists considered the event a once-in-a-century catastrophe. That assumption did not survive long. A second global bleaching event followed in 2010, and a third, the longest ever recorded, ran from 2014 to 2017 and affected reefs in every ocean basin. By the end of the third event, parts of the northern Great Barrier Reef had lost more than half of their shallow corals, and aerial surveys found that the worst damage was concentrated in the remote northern third of the system, where reefs had previously been considered relatively pristine."},{"label":"D","text":"Not all corals respond to heat in the same way. Branching species such as Acropora are particularly vulnerable; massive boulder-shaped species such as Porites are far more resistant. The ability of a coral to tolerate heat also depends on which strain of zooxanthellae it hosts: certain strains thrive at temperatures that would kill others. After a severe bleaching event, surviving corals are often dominated by the more heat-tolerant combinations, a process described by some researchers as an unintentional, large-scale natural selection experiment. Whether the corals can adapt fast enough to keep pace with continued warming is, however, a different question."},{"label":"E","text":"Reef ecologists have therefore turned to active intervention. The most modest interventions involve protecting reefs from non-temperature stressors, on the assumption that healthier corals are more likely to survive a heatwave. Banning coastal pollution, restricting fishing of herbivorous fish that keep algal overgrowth in check, and reducing tourism pressure all fall under this approach. More ambitious projects attempt to speed up adaptation: at the Australian Institute of Marine Science, researchers have crossbred heat-tolerant corals from warmer regions with corals from cooler reefs and outplanted the offspring back onto the Great Barrier Reef. Early trials suggest that some hybrid colonies can tolerate temperatures roughly one degree above the parent stock's tolerance, though the long-term ecological consequences are not yet known."},{"label":"F","text":"More speculative still are proposals to engineer the corals themselves. A team at the University of Melbourne has been training laboratory cultures of zooxanthellae to survive higher temperatures, in the hope of producing 'designer symbionts' that could be transplanted into wild corals. Critics object that such interventions risk introducing new diseases or disrupting the genetic structure of existing reefs. Supporters reply that, in the absence of rapid global cuts to greenhouse gas emissions, the alternative is to watch many reefs disappear within a few decades. The argument is unlikely to be settled in the laboratory; it will be settled at sea."},{"label":"G","text":"Even successful local interventions, most marine biologists agree, cannot substitute for action on the underlying cause. The most thorough projections, published by the Intergovernmental Panel on Climate Change, suggest that even at warming of 1.5 degrees above pre-industrial levels, between 70 and 90 per cent of tropical reefs will experience severe bleaching every year. At 2 degrees, that figure approaches 99 per cent. Reefs, in other words, are a leading indicator of the wider climate problem, and their fate is bound to the broader question of how rapidly the world achieves decarbonisation. As Terry Hughes, a coral-reef researcher at James Cook University, has remarked, 'we are not so much running out of time as out of comfortable choices.'"}],"questions":[{"q_number_range":"14-19","type":"Matching Headings","instruction":"Reading Passage 2 has seven paragraphs, A–G.\n\nChoose the correct heading for paragraphs B–G from the list of headings below.\n\nWrite the correct number, i–ix, in boxes 14–19 on your answer sheet.\n\nList of Headings:\ni    The biological basis of reef colour\nii   A growing pattern of large-scale bleaching events\niii  Why temperature matters more than other stressors\niv   Limits of laboratory engineering\nv    Differences in coral resilience\nvi   Local actions to protect reefs from broader threats\nvii  Predictions for the coming decades\nviii The economic value of reefs to coastal communities\nix   The slow recovery of bleached corals","items":[{"n":14,"paragraph":"B","answer":"iii","band":6.5,"distractor_analysis":"Distractor 'ix' is partial-overlap (mentions stress but not recovery); answer 'iii' is the only one that captures 'why heat dominates over other stressors'."},{"n":15,"paragraph":"C","answer":"ii","band":6},{"n":16,"paragraph":"D","answer":"v","band":7},{"n":17,"paragraph":"E","answer":"vi","band":7},{"n":18,"paragraph":"F","answer":"iv","band":7.5,"distractor_analysis":"Heading 'iv' is precise — it captures both the laboratory engineering attempt and the criticism. Distractor 'vii' is plausible-but-wrong (about future predictions, which belongs in G)."},{"n":19,"paragraph":"G","answer":"vii","band":6.5}]},{"q_number_range":"20-26","type":"Summary Completion (without box)","instruction":"Complete the summary below.\n\nChoose NO MORE THAN TWO WORDS from the passage for each answer.\n\nWrite your answers in boxes 20–26 on your answer sheet.","summary_text":"Coral bleaching occurs when stony corals lose the microscopic algae, known as 20 ____, that supply most of their energy. Of the various pressures that can cause bleaching, the most significant by far is elevated 21 ____. The first major event recognised internationally was triggered by an unusually warm 22 ____ in 1998 and killed about 16 per cent of the world's living corals. Bleaching events have since become more frequent. Some species are more vulnerable than others: branching corals such as Acropora suffer more than 23 ____ species such as Porites. Researchers in Australia have produced 24 ____ corals that can survive temperatures roughly one degree higher than their parents. Other scientists are working on 'designer 25 ____' that could be placed into wild corals. According to IPCC projections, however, even at 1.5 °C of warming, up to 90 per cent of reefs would face severe bleaching every year, meaning that reef survival ultimately depends on faster 26 ____ at a global scale.","items":[{"n":20,"answer":"zooxanthellae","band":7},{"n":21,"answer":"sea temperature","answer_accept":["sea temperature","ocean temperature"],"band":6.5},{"n":22,"answer":"El Niño","band":7},{"n":23,"answer":"boulder-shaped","band":7},{"n":24,"answer":"hybrid","band":7.5},{"n":25,"answer":"symbionts","band":7.5},{"n":26,"answer":"decarbonisation","answer_accept":["decarbonisation"],"band":7.5}]}]},"passage3":{"number":3,"title":"Thinking About Thinking","subtitle":"Metacognition is widely promoted as a key to better learning. The evidence is more interesting than the claim.","macro_topic":"Education & Psychology","sub_topic":"Metacognition","band_target":"7.5–8.5","word_count":945,"paragraphs":[{"label":"A","text":"It has become commonplace, in educational policy documents at least, to declare that pupils should be taught to 'think about their own thinking'. Behind the slogan lies the concept of metacognition, first described in detail by the psychologist John Flavell in the late 1970s. In Flavell's original formulation, metacognition referred to a learner's awareness of their own mental processes and to the active monitoring and regulation of those processes during a task. The term was at first largely confined to laboratory studies of children's memory; over the following four decades it has migrated into mainstream pedagogy, where it is widely treated as a kind of intellectual superpower. As the field has expanded, however, it has also become harder to say precisely what is meant by the word."},{"label":"B","text":"Most contemporary researchers accept a broad distinction between metacognitive knowledge, which concerns what learners know about their own cognition, and metacognitive regulation, which concerns what they actually do during a task. The former encompasses, for example, a pupil's awareness that they tend to underestimate the difficulty of long word problems; the latter covers the strategies — re-reading, self-questioning, calculating intermediate estimates — that the pupil deploys to compensate. Marie Caterino, an educational psychologist at the University of Leeds, argues that this distinction is more than terminological. 'Knowing that one is a slow reader is not the same as choosing, on a particular task, to slow down,' she observes. 'The literature has often conflated the two, with the result that programmes intended to promote regulation have actually targeted knowledge, or the other way around.'"},{"label":"C","text":"The empirical case for metacognitive training, taken in aggregate, is unusually strong by the standards of educational research. A 2018 meta-analysis by the Education Endowment Foundation, drawing on roughly 200 studies and several hundred thousand pupils, concluded that lessons explicitly designed to develop metacognitive strategies produced, on average, the equivalent of seven additional months of academic progress per year. The effect appeared in mathematics, reading and writing, and across most age groups, though it was particularly pronounced in older primary and lower-secondary pupils. Importantly, the gains were not confined to high-achieving children; in several of the studies the pupils who started furthest behind were precisely those who benefited most, a pattern that has attracted the attention of policy-makers concerned with closing attainment gaps. Few interventions in the field can claim comparable effects at comparable cost, and fewer still rest on so large an evidence base."},{"label":"D","text":"Such findings have made metacognition fashionable. They have also, in the view of some commentators, encouraged a misleadingly tidy picture. Daniel Ansari, a developmental cognitive neuroscientist at Western University in Canada, points out that the meta-analytic averages mask considerable variation. 'The cheapest interventions, which simply teach pupils a checklist of strategies, often produce the smallest effects,' he notes. 'The interventions that work tend to involve sustained dialogue between teacher and pupil, in which the teacher models metacognitive reasoning out loud and gradually transfers responsibility to the learner. That is expensive, and it is not what most schools end up implementing.'"},{"label":"E","text":"A second complication concerns the relationship between metacognition and domain knowledge. Hilary Drake, a researcher at the University of Cape Town, has shown that the same pupils may appear strongly metacognitive in a subject they understand well and barely metacognitive in another. In her 2021 study of secondary-school chemistry students, those who scored highest on a metacognitive questionnaire in their first language failed to display similar strategies in a second-language version of the same task. The implication, Drake argues, is that metacognitive skill is not a fully transferable, content-free capacity but something deeply entangled with what the learner already knows."},{"label":"F","text":"If that is right, the popular notion that metacognition can be 'unlocked' through a short course of dedicated lessons looks doubtful. Ansari goes further: 'There is a risk that schools will spend a term on generic metacognition workshops and conclude that they have done their bit. In practice, the children may learn the vocabulary without changing what they actually do when faced with a difficult problem.' Some research groups, particularly in the Netherlands and Finland, have therefore begun to integrate metacognitive instruction into ordinary subject teaching rather than treating it as a separate strand, so that a history teacher, for instance, models how an expert weighs conflicting sources while teaching the history itself. Early results suggest that the integrated approach yields more durable gains, although these studies are still small in number and have rarely followed pupils for more than a single school year."},{"label":"G","text":"A further question, less often discussed, concerns the limits of self-knowledge itself. There is now a substantial literature, beginning with the work of David Dunning and Justin Kruger in the late 1990s, showing that the people most likely to overestimate their performance are precisely those who lack the skills to evaluate it. Metacognition, in other words, can fail in exactly the situations where it is most needed. Caterino regards this as a humbling rather than a discouraging finding: 'We are not training learners to be infallible. We are training them to ask themselves whether they have understood, which is a different and more modest goal. The aim is not certainty but a habit of checking.'"},{"label":"H","text":"The policy enthusiasm for metacognition is unlikely to fade soon. Few other classroom strategies enjoy such consistent empirical support, and few sit so comfortably with the rhetoric of self-directed learning. Yet the most thoughtful researchers in the field tend to be the most cautious about generic prescriptions. The conclusion most often heard at recent conferences is, perhaps inevitably, a metacognitive one: that the field should treat its own confident claims with the same scepticism it teaches pupils to apply to theirs."}],"questions":[{"q_number_range":"27-31","type":"Multiple Choice","instruction":"Choose the correct letter, A, B, C or D.\n\nWrite the correct letter in boxes 27–31 on your answer sheet.","items":[{"n":27,"stem":"According to the first paragraph, the term 'metacognition'","options":{"A":"was originally proposed by educational policy-makers.","B":"first attracted attention through studies of children's memory.","C":"has had a stable, agreed definition for the past four decades.","D":"was rejected by mainstream pedagogy until recently."},"answer":"B","band":7,"distractor_analysis":{"A":"D3 out-of-scope: passage says policy documents use the term, not that they invented it.","B":"ĐÚNG — passage states the term was first confined to 'laboratory studies of children's memory'.","C":"D4 extreme/reversed: passage explicitly says it has become 'harder to say precisely what is meant'.","D":"D1 lexical overlap but reversed: borrows 'mainstream pedagogy' from the text, but the passage says the term migrated INTO it, not that it was rejected."}},{"n":28,"stem":"Marie Caterino's main concern about previous research is that","options":{"A":"researchers have used too few children in their samples.","B":"metacognitive knowledge cannot be measured reliably.","C":"studies have often treated two distinct ideas as the same thing.","D":"the most effective strategies have not yet been identified."},"answer":"C","band":7.5,"distractor_analysis":{"A":"D3 out-of-scope: sample size never mentioned.","B":"D1 lexical overlap: 'measure' isn't discussed.","C":"ĐÚNG — Caterino says literature has 'conflated' knowledge and regulation.","D":"D2 half-correct: effective strategies are discussed by Ansari, not Caterino."}},{"n":29,"stem":"The 2018 meta-analysis described in paragraph C is presented as showing that","options":{"A":"metacognitive training works equally well in every subject and age group.","B":"metacognition is more effective than any other classroom strategy.","C":"the impact of metacognitive lessons is unusually large for the cost involved.","D":"explicit teaching of metacognition is ineffective in primary school."},"answer":"C","band":7.5,"distractor_analysis":{"A":"D1 lexical overlap but wrong: echoes 'mathematics, reading and writing ... across most age groups' yet ignores 'particularly pronounced in older primary and lower-secondary', so 'equally well' is unsupported.","B":"D2 half-correct: the effect is genuinely large, but the passage says 'comparable effects at comparable cost', not that it beats every other strategy.","C":"ĐÚNG — paraphrase of 'few interventions ... at comparable cost'.","D":"D4 reversed: the gains were strong, not ineffective, and not limited to primary school."}},{"n":30,"stem":"Daniel Ansari suggests that the most effective metacognitive interventions","options":{"A":"use a fixed checklist of strategies.","B":"depend on prolonged interaction between teacher and pupil.","C":"require pupils to teach each other.","D":"can be delivered relatively cheaply by trained staff."},"answer":"B","band":7,"distractor_analysis":{"A":"D4 reversed: he criticises checklist-only interventions as having smallest effects.","B":"ĐÚNG — 'sustained dialogue between teacher and pupil'.","C":"D3 out-of-scope: peer teaching isn't mentioned.","D":"D2 half-correct: trained teachers are indeed central, but Ansari stresses the approach is 'expensive', not cheap."}},{"n":31,"stem":"Hilary Drake's 2021 study is cited as evidence that","options":{"A":"second-language learners are generally less metacognitive than native speakers.","B":"questionnaires are an unreliable way to measure metacognition.","C":"metacognitive skill is closely tied to a learner's existing knowledge of a domain.","D":"chemistry students perform poorly on language-based tasks."},"answer":"C","band":8,"distractor_analysis":{"A":"D4 over-generalisation; passage is about the same pupils across languages.","B":"D3 out-of-scope.","C":"ĐÚNG — 'metacognitive skill is not a fully transferable, content-free capacity'.","D":"D1 lexical overlap; not the point of the study."}}]},{"q_number_range":"32-35","type":"Matching Features","instruction":"Look at the following statements (Questions 32–35) and the list of researchers below.\n\nMatch each statement with the correct researcher, A–D.\n\nWrite the correct letter, A–D, in boxes 32–35 on your answer sheet.\n\nList of Researchers\nA  John Flavell\nB  Marie Caterino\nC  Daniel Ansari\nD  Hilary Drake","items":[{"n":32,"statement":"Metacognitive ability shown in one subject may not appear in another.","answer":"D","band":7},{"n":33,"statement":"Cheap, checklist-style interventions tend to produce the smallest gains.","answer":"C","band":6.5},{"n":34,"statement":"The goal of teaching metacognition is to cultivate a habit of checking, not to guarantee correctness.","answer":"B","band":8},{"n":35,"statement":"Metacognition was originally defined as awareness of one's own mental processes during a task.","answer":"A","band":6.5}]},{"q_number_range":"36-40","type":"Yes/No/Not Given","instruction":"Do the following statements agree with the views of the writer in Reading Passage 3?\n\nIn boxes 36–40 on your answer sheet, write\n\nYES        if the statement agrees with the views of the writer\nNO         if the statement contradicts the views of the writer\nNOT GIVEN  if it is impossible to say what the writer thinks about this","items":[{"n":36,"stem":"The current popularity of metacognition in schools is largely justified by experimental evidence.","answer":"YES","mechanism":"Logical equivalent + hedging — passage describes empirical case as 'unusually strong'.","band":7},{"n":37,"stem":"Short, generic workshops on metacognition are likely to deliver the same benefits as more integrated approaches.","answer":"NO","mechanism":"Polarity flip — author endorses Ansari's worry that short courses 'may learn the vocabulary without changing what they actually do' and notes integrated approach 'yields more durable gains'.","band":8},{"n":38,"stem":"Most schools currently use the integrated model favoured by Dutch and Finnish researchers.","answer":"NO","mechanism":"Quantifier reversal — Ansari notes integrated model 'is not what most schools end up implementing'.","band":7.5},{"n":39,"stem":"Pupils who lack a skill are more likely than skilled pupils to overestimate their own performance.","answer":"YES","mechanism":"Direct paraphrase of Dunning–Kruger summary in para G.","band":7},{"n":40,"stem":"Researchers should largely stop publishing meta-analytic averages of metacognition studies.","answer":"NOT GIVEN","mechanism":"Out-of-scope addition — author criticises 'tidy picture' but never recommends discontinuing meta-analyses.","band":8.5}]}]}}</script>
+<script>
+/* ============================================================
+   IELTS Reading Test 01 — CD-IELTS simulation app
+   ============================================================ */
+"use strict";
+const TEST_DATA = JSON.parse(document.getElementById('test-data').textContent);
+const PASSAGES = [TEST_DATA.passage1, TEST_DATA.passage2, TEST_DATA.passage3];
+
+// ---------- helpers ----------
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function norm(s){
+  return String(s||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // strip diacritics: El Niño === El Nino
+    .trim().toLowerCase()
+    .replace(/[.,;:!?'"()]/g,'').replace(/\s+/g,' ');
+}
+// Vietnamese glosses for trap codes / mechanism keywords used in explanations.
+// Distractor strings look like "D4 extreme/reversed: ..." — collapse the code + its English
+// descriptor into a single Vietnamese label in ONE rule so nothing is translated twice.
+const VI_GLOSS = [
+  // D-code + adjacent descriptor (optional) -> single annotated label
+  [/\bD1\b(\s*(?:lexical overlap|lexical))?/gi,'D1 [bẫy lặp từ vựng]'],
+  [/\bD2\b(\s*half-?correct)?/gi,'D2 [đúng một nửa]'],
+  [/\bD3\b(\s*(?:out-of-scope addition|out-of-scope))?/gi,'D3 [ngoài phạm vi]'],
+  [/\bD4\b(\s*(?:extreme\/reversed|over-generalisation|extreme|reversed))?/gi,'D4 [cực đoan/đảo ngược]'],
+  // mechanism keywords (TFNG/YNG explanations)
+  [/Polarity flip/gi,'Đảo cực (positive↔negative)'], [/Quantifier reversal|quantifier shift/gi,'Đảo lượng từ'],
+  [/Detail not stated/gi,'Chi tiết không nêu'], [/Comparative invention/gi,'So sánh bịa thêm'],
+  [/Specification/gi,'Cụ thể hoá'], [/Direct paraphrase/gi,'Diễn đạt lại trực tiếp'],
+  [/Logical equivalent/gi,'Tương đương logic'], [/nominalisation/gi,'danh từ hoá'],
+  // residual standalone descriptors (e.g. inside Matching Headings string analyses)
+  [/partial-overlap/gi,'trùng một phần'], [/plausible-but-wrong/gi,'hợp lý nhưng sai'],
+  [/out-of-scope/gi,'ngoài phạm vi'], [/lexical overlap/gi,'lặp từ vựng']
+];
+function viGloss(s){ let o=String(s); VI_GLOSS.forEach(([re,vi])=>{ o=o.replace(re,vi); }); return o; }
+
+// ---------- band table (Cambridge Academic Reading) ----------
+const BAND_TABLE = [[39,9.0],[37,8.5],[35,8.0],[33,7.5],[30,7.0],[27,6.5],[23,6.0],[19,5.5],[15,5.0],[13,4.5],[10,4.0],[8,3.5],[6,3.0]];
+function scoreToBand(s){ for(const [n,b] of BAND_TABLE) if(s>=n) return b; return 2.5; }
+
+// ---------- build flat question index ----------
+const Q_INDEX = {};   // n -> {part, group, item}
+const Q_ORDER = [];   // [n,...] ascending
+PASSAGES.forEach((p, pi) => {
+  p.questions.forEach(g => {
+    g.items.forEach(it => { Q_INDEX[it.n] = {part: pi+1, group: g, item: it}; Q_ORDER.push(it.n); });
+  });
+});
+Q_ORDER.sort((a,b)=>a-b);
+
+// ---------- state ----------
+const TOTAL_Q = Q_ORDER.length;                         // derive, don't hard-code 40
+const STORAGE_KEY = 'ielts_'+(TEST_DATA.test_id||'t01').toLowerCase()+'_cd_v3';
+const HL_KEY = STORAGE_KEY+'_hl';
+const CONTENT_VER = (TEST_DATA.test_id||'')+'|'+(TEST_DATA.version||'');  // invalidate hl cache on content change
+let answers = {};            // n -> string
+let review = new Set();      // n flagged for review
+let notes = {};              // id -> {text, snippet}
+let currentPart = 1;
+let currentQ = 1;
+let submitted = false;
+let timeLeft = 60*60;
+let timer = null;
+let cfg = { size: 1, theme: 'default' };
+
+let deadline = null;  // epoch ms when time runs out (survives tab close → no clock-pause cheat)
+function saveState(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    answers, review:[...review], notes, currentPart, currentQ, timeLeft, deadline, submitted, cfg, ver: CONTENT_VER
+  })); } catch(e){}
+}
+function loadState(){
+  try {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    if(!s || s.submitted || s.ver !== CONTENT_VER) return false;   // stale content → fresh start
+    answers = s.answers||{}; review = new Set(s.review||[]); notes = s.notes||{};
+    currentPart = s.currentPart||1; currentQ = s.currentQ||1;
+    cfg = s.cfg||cfg;
+    // reconcile against wall clock if a deadline was stored
+    if(s.deadline){ deadline = s.deadline; timeLeft = Math.max(0, Math.round((deadline - Date.now())/1000)); }
+    else { timeLeft = Math.max(0, Number(s.timeLeft)||3600); }
+    return true;
+  } catch(e){ return false; }
+}
+function clearState(){ try{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(HL_KEY); }catch(e){} }
+
+// ---------- list parsing (headings / features / endings) ----------
+function parseRoman(instr){
+  const out=[]; instr.split('\n').forEach(l=>{ const m=l.match(/^\s*(i{1,3}|iv|v|vi{0,3}|ix|x)\s+(.+)$/i); if(m) out.push({k:m[1].toLowerCase(), t:m[2].trim()}); });
+  return out;
+}
+function parseAlpha(instr){
+  const out=[]; instr.split('\n').forEach(l=>{ const m=l.match(/^\s*([A-J])\s{2,}(.+)$/); if(m) out.push({k:m[1], t:m[2].trim()}); });
+  return out;
+}
+
+// ============================================================
+// RENDER PASSAGE
+// ============================================================
+function renderPassage(){
+  const p = PASSAGES[currentPart-1];
+  const first = Q_ORDER.filter(n=>Q_INDEX[n].part===currentPart)[0];
+  const arr = Q_ORDER.filter(n=>Q_INDEX[n].part===currentPart); const last = arr[arr.length-1];
+  let h = '';
+  h += '<div class="passage-label">Reading Passage '+p.number+'</div>';
+  h += '<div class="passage-timing">You should spend about 20 minutes on Questions '+first+'–'+last+', which are based on Reading Passage '+p.number+' below.</div>';
+  h += '<h2>'+esc(p.title)+'</h2>';
+  if(p.subtitle) h += '<h3 class="sub">'+esc(p.subtitle)+'</h3>';
+  p.paragraphs.forEach((par, i) => {
+    h += '<p class="para" data-pi="'+i+'">';
+    if(par.label) h += '<span class="plabel">'+esc(par.label)+'</span>';
+    h += esc(par.text)+'</p>';
+  });
+  $('#passage-pane').innerHTML = h;
+  restoreHighlights();
+}
+
+// ============================================================
+// RENDER QUESTIONS
+// ============================================================
+function renderQuestions(){
+  const p = PASSAGES[currentPart-1];
+  let h = '';
+  p.questions.forEach(g => {
+    h += '<div class="q-group">';
+    h += '<h3 class="qg-title">Questions '+g.q_number_range+'</h3>';
+    h += '<div class="qg-instr">'+esc(instructionHead(g.instruction))+'</div>';
+    if(g.type==='Matching Headings'){
+      const list=parseRoman(g.instruction);
+      if(list.length){ h+='<div class="headings-box"><strong>List of Headings</strong>'; list.forEach(x=>h+='<div><b>'+x.k+'</b> &nbsp;'+esc(x.t)+'</div>'); h+='</div>'; }
+    } else if(g.type==='Matching Features' || g.type==='Matching Sentence Endings'){
+      const list=parseAlpha(g.instruction);
+      if(list.length){ h+='<div class="features-box"><strong>'+(g.type==='Matching Features'?'List':'Endings')+'</strong>'; list.forEach(x=>h+='<div><b>'+x.k+'</b> &nbsp;'+esc(x.t)+'</div>'); h+='</div>'; }
+    }
+    // block-style completion
+    const block = g.summary_text||g.notes_text||g.table_text||g.flowchart_text||g.diagram_text;
+    if(block){ h += renderGapBlock(block, !!(g.table_text||g.flowchart_text||g.diagram_text)); }
+    g.items.forEach(it => { const b=renderItem(g,it); if(b) h+=b; });
+    h += '</div>';
+  });
+  $('#questions-pane').innerHTML = h;
+  bindAnswerInputs();
+}
+
+function instructionHead(instr){
+  // for matching types the list is rendered in a box; strip the trailing list lines from the shown instruction
+  const lines = instr.split('\n');
+  const cut = lines.findIndex(l => /^(List of Headings:|List of Researchers|List|Endings)/.test(l.trim()));
+  return (cut>=0 ? lines.slice(0,cut).join('\n') : instr).trim();
+}
+
+function renderGapBlock(text, mono){
+  let t = esc(text).replace(/(\d{1,3})\s+_{2,}/g, (_,n)=>{
+    const v = esc(answers[n]||'');
+    return '<span class="gnum">'+n+'</span> <input class="q-text" type="text" data-q="'+n+'" value="'+v+'" aria-label="Answer '+n+'" autocomplete="off">';
+  });
+  return '<div class="gap-box'+(mono?' mono-block':'')+'">'+t+'</div>';
+}
+
+function renderItem(g, it){
+  const n = it.n;
+  const t = g.type;
+  // block completion types render inside the gap-box, no separate row
+  if(['Summary Completion (without box)','Summary Completion (with box)','Note Completion','Table Completion','Flow-chart Completion','Diagram Label Completion'].includes(t)) return '';
+  let body = '';
+  if(t==='Multiple Choice'){
+    body += '<div class="q-stem">'+esc(it.stem)+'</div><div class="opts" role="radiogroup" aria-label="Question '+n+'">';
+    for(const [L,txt] of Object.entries(it.options)){
+      const ck = answers[n]===L?'checked':'';
+      body += '<label><input type="radio" name="q'+n+'" value="'+L+'" data-q="'+n+'" '+ck+'><span><b>'+L+'</b> &nbsp;'+esc(txt)+'</span></label>';
+    }
+    body += '</div>';
+  } else if(t==='True/False/Not Given' || t==='Yes/No/Not Given'){
+    const opts = t==='True/False/Not Given' ? ['TRUE','FALSE','NOT GIVEN'] : ['YES','NO','NOT GIVEN'];
+    body += '<div class="q-stem">'+esc(it.stem)+'</div>'+selectHtml(n, opts.map(o=>({k:o,t:o})));
+  } else if(t==='Matching Headings'){
+    const list = parseRoman(g.instruction);
+    body += '<div class="q-stem">Paragraph <b>'+esc(it.paragraph)+'</b></div>'+selectHtml(n, list.map(x=>({k:x.k,t:x.k+' — '+trunc(x.t,70)})));
+  } else if(t==='Matching Features'){
+    const list = parseAlpha(g.instruction);
+    body += '<div class="q-stem">'+esc(it.statement||it.stem||'')+'</div>'+selectHtml(n, list.map(x=>({k:x.k,t:x.k+' — '+trunc(x.t,60)})));
+  } else if(t==='Matching Sentence Endings'){
+    const list = parseAlpha(g.instruction);
+    body += '<div class="q-stem">'+esc(it.beginning||it.stem||'')+' …</div>'+selectHtml(n, list.map(x=>({k:x.k,t:x.k+' — '+trunc(x.t,70)})));
+  } else if(t==='Matching Information'){
+    const labels = PASSAGES[currentPart-1].paragraphs.filter(p=>p.label).map(p=>p.label);
+    body += '<div class="q-stem">'+esc(it.statement||it.stem||'')+'</div>'+selectHtml(n, labels.map(l=>({k:l,t:'Paragraph '+l})));
+  } else if(t==='Sentence Completion' || t==='Short-Answer Questions'){
+    const v = esc(answers[n]||'');
+    const inp = '<input class="q-text" type="text" data-q="'+n+'" value="'+v+'" aria-label="Answer '+n+'" autocomplete="off">';
+    const stem = it.stem||'';
+    body += '<div class="q-stem">'+ (stem.includes('____') ? esc(stem).replace(/_{2,}/, inp) : esc(stem)+' '+inp) +'</div>';
+  } else {
+    body += '<em>'+esc(t)+'</em>';
+  }
+  const cls = (answers[n]!==undefined && answers[n]!=='' ? ' answered':'') + (review.has(n)?' review':'');
+  return '<div class="q-item'+cls+'" id="q-'+n+'">'
+    + '<span class="q-num-badge">'+n+'</span>'
+    + '<div class="q-body">'+body+'</div>'
+    + '</div>';
+}
+
+function selectHtml(n, opts){
+  let h = '<select class="q-select" data-q="'+n+'" aria-label="Answer '+n+'"><option value="">— select —</option>';
+  opts.forEach(o=>{ const sel = answers[n]===o.k?'selected':''; h += '<option value="'+esc(o.k)+'" '+sel+'>'+esc(o.t)+'</option>'; });
+  return h+'</select>';
+}
+function trunc(s,n){ return s.length<=n ? s : s.slice(0,n-1)+'…'; }
+
+// ============================================================
+// ANSWER INPUTS
+// ============================================================
+function bindAnswerInputs(){
+  $$('[data-q]', $('#questions-pane')).forEach(el=>{
+    const handler = ()=>{ setAnswer(Number(el.dataset.q), el.value); };
+    el.addEventListener('change', handler);
+    if(el.tagName==='INPUT' && el.type==='text') el.addEventListener('input', handler);
+  });
+}
+function setAnswer(n, val){
+  const v = String(val).trim();
+  if(v==='') delete answers[n]; else answers[n]=v;
+  const qEl = $('#q-'+n);
+  if(qEl) qEl.classList.toggle('answered', !!answers[n]);
+  updatePaletteBtn(n);
+  saveState();
+}
+
+// ============================================================
+// PALETTE (bottom nav)
+// ============================================================
+function renderPalette(){
+  const pal = $('#palette');
+  let h='';
+  for(let pi=0; pi<3; pi++){
+    if(pi>0) h+='<span class="nav-sep" aria-hidden="true"></span>';
+    h+='<span class="nav-part-label">Part '+(pi+1)+'</span>';
+    Q_ORDER.filter(n=>Q_INDEX[n].part===pi+1).forEach(n=>{
+      h+='<button class="palette-btn" data-q="'+n+'" type="button" aria-label="Question '+n+', not answered">'+n+'</button>';
+    });
+  }
+  pal.innerHTML=h;
+  $$('.palette-btn', pal).forEach(b=>{
+    b.addEventListener('click', ()=> gotoQuestion(Number(b.dataset.q)));
+  });
+  Q_ORDER.forEach(updatePaletteBtn);
+}
+function updatePaletteBtn(n){
+  const b = $('.palette-btn[data-q="'+n+'"]'); if(!b) return;
+  const ans=!!answers[n], rev=review.has(n);
+  b.classList.toggle('answered', ans);
+  b.classList.toggle('review', rev);
+  b.classList.toggle('current', n===currentQ);
+  b.setAttribute('aria-label','Question '+n+(ans?', answered':', not answered')+(rev?', flagged for review':'')+(n===currentQ?', current':''));
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function gotoQuestion(n){
+  const part = Q_INDEX[n].part;
+  if(part!==currentPart){ currentPart=part; renderPassage(); renderQuestions(); }
+  currentQ = n;
+  Q_ORDER.forEach(updatePaletteBtn);
+  $('#review-check').checked = review.has(n);
+  const el = $('#q-'+n);
+  if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); flashFocus(el); }
+  else { // block-completion question: scroll questions pane to its gap
+    const gap = $('#questions-pane .q-text[data-q="'+n+'"]');
+    if(gap){ gap.scrollIntoView({behavior:'smooth',block:'center'}); gap.focus(); }
+  }
+  updatePartStrip();
+  saveState();
+}
+function flashFocus(el){ if(prefersReducedMotion()) return; el.style.transition='background .3s'; const old=el.style.background; el.style.background='rgba(255,213,79,.4)'; setTimeout(()=>el.style.background=old||'',500); }
+function updatePartStrip(){
+  const arr = Q_ORDER.filter(n=>Q_INDEX[n].part===currentPart);
+  $('#ps-title').textContent = 'Part '+currentPart;
+  $('#ps-sub').textContent = 'Read the text and answer questions '+arr[0]+'–'+arr[arr.length-1]+'.';
+}
+function step(dir){
+  const idx = Q_ORDER.indexOf(currentQ);
+  let ni = idx + dir;
+  if(ni<0) ni=0; if(ni>=Q_ORDER.length) ni=Q_ORDER.length-1;
+  gotoQuestion(Q_ORDER[ni]);
+}
+
+// ============================================================
+// TIMER
+// ============================================================
+function fmt(s){ return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function paintTimer(){
+  const t=$('#timer'); t.textContent=fmt(timeLeft);
+  t.classList.toggle('warn', timeLeft<=600 && timeLeft>300);
+  t.classList.toggle('danger', timeLeft<=300);
+}
+function startTimer(){
+  if(!deadline) deadline = Date.now() + timeLeft*1000;   // anchor to wall clock
+  paintTimer();
+  timer = setInterval(()=>{
+    if(submitted) return;
+    timeLeft = Math.max(0, Math.round((deadline - Date.now())/1000));
+    paintTimer();
+    if(timeLeft<=0){ submitTest(true); return; }
+    if(timeLeft%5===0) saveState();
+    if(timeLeft===600 || timeLeft===300) announceTime();
+  },1000);
+}
+function announceTime(){
+  const m = timeLeft===600?'10 minutes':'5 minutes';
+  liveSay('Warning: '+m+' remaining.');
+  const t=$('#timer'); if(t.animate && !prefersReducedMotion()){ t.animate([{transform:'scale(1)'},{transform:'scale(1.18)'},{transform:'scale(1)'}],{duration:600,iterations:3}); }
+  // visible toast (independent of Web Animations API)
+  const toast=document.createElement('div'); toast.className='time-toast'; toast.textContent=m+' remaining';
+  document.body.appendChild(toast); setTimeout(()=>toast.remove(), 4000);
+}
+// polite live region for screen readers
+function liveSay(msg){ const lr=$('#live-region'); if(lr){ lr.textContent=''; setTimeout(()=>lr.textContent=msg, 30); } }
+
+// ============================================================
+// REVIEW
+// ============================================================
+$('#review-check').addEventListener('change', e=>{
+  if(e.target.checked) review.add(currentQ); else review.delete(currentQ);
+  const qEl=$('#q-'+currentQ); if(qEl) qEl.classList.toggle('review', review.has(currentQ));
+  updatePaletteBtn(currentQ); saveState();
+});
+
+// ============================================================
+// HIGHLIGHT + NOTES (right-click context menu)
+// ============================================================
+let savedRange = null;
+const ctx = $('#ctx-menu');
+$('#passage-pane').addEventListener('contextmenu', e=>{
+  const sel = window.getSelection();
+  const hlEl = e.target.closest('.hl, .note-anchor');
+  if((!sel || !sel.toString().trim()) && !hlEl) return;
+  e.preventDefault();
+  savedRange = (sel && sel.rangeCount && sel.toString().trim()) ? sel.getRangeAt(0).cloneRange() : null;
+  ctx._hlEl = hlEl || null;
+  $('#ctx-highlight').style.display = savedRange ? 'block':'none';
+  $('#ctx-note').style.display = savedRange ? 'block':'none';
+  $('#ctx-clear').style.display = hlEl ? 'block':'none';
+  ctx.querySelector('.ctx-colors').style.display = savedRange ? 'flex':'none';
+  openCtx(e.clientX, e.clientY);
+});
+function openCtx(x,y){
+  ctx.classList.add('open');
+  const r=ctx.getBoundingClientRect();
+  ctx.style.left = Math.min(x, window.innerWidth-r.width-6)+'px';
+  ctx.style.top = Math.min(y, window.innerHeight-r.height-6)+'px';
+}
+function closeCtx(){ ctx.classList.remove('open'); }
+document.addEventListener('click', e=>{ if(!ctx.contains(e.target)) closeCtx(); });
+document.addEventListener('scroll', closeCtx, true);
+
+function applyHighlight(colorClass){
+  if(!savedRange) return;
+  try{
+    const span=document.createElement('span'); span.className='hl '+colorClass;
+    savedRange.surroundContents(span);
+    window.getSelection().removeAllRanges();
+    persistHighlights();
+  }catch(err){ /* selection spans multiple nodes — wrap via extract */
+    try{
+      const span=document.createElement('span'); span.className='hl '+colorClass;
+      span.appendChild(savedRange.extractContents()); savedRange.insertNode(span);
+      window.getSelection().removeAllRanges(); persistHighlights();
+    }catch(e2){}
+  }
+  closeCtx();
+}
+$('#ctx-highlight').addEventListener('click', ()=>applyHighlight('c-yellow'));
+ctx.querySelectorAll('.ctx-colors span').forEach(s=> s.addEventListener('click', ()=>applyHighlight(s.dataset.color)));
+$('#ctx-clear').addEventListener('click', ()=>{
+  const el=ctx._hlEl; if(el){ const parent=el.parentNode; while(el.firstChild) parent.insertBefore(el.firstChild, el); parent.removeChild(el); parent.normalize(); persistHighlights(); }
+  closeCtx();
+});
+$('#ctx-note').addEventListener('click', ()=>{
+  if(!savedRange) return;
+  const snippet = savedRange.toString().slice(0,60);
+  const span=document.createElement('span'); span.className='note-anchor'; const id='note-'+Date.now();
+  span.dataset.noteId=id;
+  try{ span.appendChild(savedRange.extractContents()); savedRange.insertNode(span);
+    span.insertAdjacentHTML('beforeend','<span class="note-flag">✎</span>');
+  }catch(e){ closeCtx(); return; }
+  window.getSelection().removeAllRanges();
+  openNoteEditor(id, snippet, '');
+  closeCtx();
+});
+// note editor
+let editingNote=null;
+function openNoteEditor(id, snippet, text){
+  editingNote=id; $('#note-context').textContent='“'+snippet+'”';
+  $('#note-text').value=text||''; openOverlay('#note-modal'); setTimeout(()=>$('#note-text').focus(),50);
+}
+$('#note-save').addEventListener('click', ()=>{
+  if(editingNote){ notes[editingNote]={text:$('#note-text').value, snippet:$('#note-context').textContent}; persistHighlights(); }
+  closeOverlay('#note-modal');
+});
+$('#note-delete').addEventListener('click', ()=>{
+  if(editingNote){ const el=$('.note-anchor[data-note-id="'+editingNote+'"]'); if(el){ const f=el.querySelector('.note-flag'); if(f)f.remove(); const parent=el.parentNode; while(el.firstChild) parent.insertBefore(el.firstChild,el); parent.removeChild(el); parent.normalize(); } delete notes[editingNote]; persistHighlights(); }
+  closeOverlay('#note-modal');
+});
+function anchorSnippet(na){ const c=na.cloneNode(true); const f=c.querySelector('.note-flag'); if(f) f.remove(); return c.textContent.slice(0,60); }
+$('#passage-pane').addEventListener('click', e=>{
+  const na=e.target.closest('.note-anchor'); if(na){ const id=na.dataset.noteId; openNoteEditor(id, (notes[id]&&notes[id].snippet)||anchorSnippet(na), notes[id]?notes[id].text:''); }
+});
+// keyboard path for highlight/notes: Alt+H highlights current selection, Alt+N adds a note
+document.addEventListener('keydown', e=>{
+  if(!e.altKey) return;
+  const sel=window.getSelection();
+  if(!sel || !sel.toString().trim()) return;
+  const r=sel.getRangeAt(0); if(!$('#passage-pane').contains(r.commonAncestorContainer)) return;
+  if(e.key.toLowerCase()==='h'){ e.preventDefault(); savedRange=r.cloneRange(); applyHighlight('c-yellow'); }
+  else if(e.key.toLowerCase()==='n'){ e.preventDefault(); savedRange=r.cloneRange(); $('#ctx-note').click(); }
+});
+// persist highlights per part (store HTML of passage pane)
+function persistHighlights(){
+  try{
+    const store = JSON.parse(localStorage.getItem(HL_KEY)||'{}');
+    if(store.ver !== CONTENT_VER){ store.parts = {}; store.ver = CONTENT_VER; }
+    store.parts = store.parts || {};
+    store.parts[currentPart] = $('#passage-pane').innerHTML;
+    localStorage.setItem(HL_KEY, JSON.stringify(store));
+  }catch(e){}
+  saveState();
+}
+function restoreHighlights(){
+  try{
+    const store = JSON.parse(localStorage.getItem(HL_KEY)||'{}');
+    if(store.ver === CONTENT_VER && store.parts && store.parts[currentPart]){
+      $('#passage-pane').innerHTML = store.parts[currentPart];
+    }
+  }catch(e){}
+}
+
+// ============================================================
+// SETTINGS / HELP / HIDE
+// ============================================================
+function applyCfg(){
+  document.documentElement.style.setProperty('--font-scale', cfg.size);
+  document.body.dataset.theme = cfg.theme;
+  $$('#size-seg button').forEach(b=>b.setAttribute('aria-pressed', Number(b.dataset.size)===cfg.size?'true':'false'));
+  $$('#theme-seg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.tcfg===cfg.theme?'true':'false'));
+}
+$$('#size-seg button').forEach(b=> b.addEventListener('click', ()=>{ cfg.size=Number(b.dataset.size); applyCfg(); saveState(); }));
+$$('#theme-seg button').forEach(b=> b.addEventListener('click', ()=>{ cfg.theme=b.dataset.tcfg; applyCfg(); saveState(); }));
+$('#settings-btn').addEventListener('click', ()=>openOverlay('#settings-modal'));
+$('#set-close').addEventListener('click', ()=>closeOverlay('#settings-modal'));
+$('#help-btn').addEventListener('click', ()=>openOverlay('#help-modal'));
+$('#help-close').addEventListener('click', ()=>closeOverlay('#help-modal'));
+$('#hide-btn').addEventListener('click', ()=>{ const hs=$('#hide-screen'); hs.classList.add('open'); setBackgroundInert(true); trapFocus(hs); });
+$('#resume-btn').addEventListener('click', ()=>{ const hs=$('#hide-screen'); hs.classList.remove('open'); releaseTrap(hs); setBackgroundInert(false); $('#hide-btn').focus(); });
+
+let lastTrigger = null;
+const BG_SELECTORS = ['.top-bar','.part-strip','.main','.navbar'];
+function setBackgroundInert(on){
+  BG_SELECTORS.forEach(s=>{ const el=$(s); if(!el) return; if(on){ el.setAttribute('inert',''); el.setAttribute('aria-hidden','true'); } else { el.removeAttribute('inert'); el.removeAttribute('aria-hidden'); } });
+}
+function focusables(root){
+  // root is an already-open dialog, so its controls are visible; avoid offsetParent
+  // (null for position:fixed and in headless DOMs) and just exclude disabled/hidden/tabindex=-1.
+  return $$('button, [href], input, select, textarea, [tabindex]', root)
+    .filter(el=> !el.disabled && el.getAttribute('tabindex')!=='-1' && el.type!=='hidden' && el.closest('[hidden]')===null);
+}
+function trapFocus(ov){
+  setTimeout(()=>{ if(!ov.classList.contains('open')) return; const f=focusables(ov); if(f.length) f[0].focus(); }, 40);
+  ov._trap = (e)=>{
+    if(e.key!=='Tab') return;
+    const f=focusables(ov); if(!f.length) return;
+    const first=f[0], last=f[f.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  ov.addEventListener('keydown', ov._trap);
+}
+function releaseTrap(ov){ if(ov._trap){ ov.removeEventListener('keydown', ov._trap); ov._trap=null; } }
+function openOverlay(sel){
+  lastTrigger = document.activeElement;
+  const ov=$(sel); ov.classList.add('open');
+  document.body.classList.add(sel==='#results-modal'?'results-open':'intro-open');
+  if(sel!=='#results-modal') document.body.classList.remove('results-open');
+  setBackgroundInert(true);
+  trapFocus(ov);
+}
+function closeOverlay(sel){
+  const ov=$(sel); ov.classList.remove('open');
+  releaseTrap(ov);
+  if(!$('.overlay.open')){ document.body.classList.remove('results-open','intro-open'); setBackgroundInert(false); }
+  if(lastTrigger && lastTrigger.focus){ try{ lastTrigger.focus(); }catch(e){} }
+}
+function prefersReducedMotion(){ try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
+
+// ============================================================
+// CONFIRM dialog
+// ============================================================
+function confirmBox(msg, onYes, yes='OK', no='Cancel'){
+  $('#confirm-msg').textContent=msg;
+  const a=$('#confirm-actions'); a.innerHTML='';
+  const nb=document.createElement('button'); nb.className='btn btn-ghost'; nb.textContent=no; nb.onclick=()=>closeOverlay('#confirm-modal');
+  const yb=document.createElement('button'); yb.className='btn btn-primary'; yb.textContent=yes; yb.onclick=()=>{ closeOverlay('#confirm-modal'); onYes(); };
+  a.append(nb,yb); openOverlay('#confirm-modal');
+}
+
+// ============================================================
+// SUBMIT + SCORING
+// ============================================================
+function checkAnswer(it, group){
+  const ua = answers[it.n];
+  if(ua===undefined || ua==='') return 'blank';
+  const accept = it.answer_accept && it.answer_accept.length ? it.answer_accept : [it.answer];
+  const u = norm(ua);
+  for(const a of accept){ if(norm(a)===u) return 'correct'; }
+  return 'incorrect';
+}
+function submitTest(auto){
+  if(submitted) return;
+  if(auto){ doSubmit(); return; }
+  const unanswered = TOTAL_Q - Object.keys(answers).filter(k=>answers[k]!=='').length;
+  const msg = unanswered>0 ? ('Bạn còn '+unanswered+' câu chưa trả lời. Kết thúc và chấm điểm?') : ('Bạn đã làm xong '+TOTAL_Q+' câu. Kết thúc và chấm điểm?');
+  confirmBox(msg, doSubmit, 'End & score', 'Keep working');
+}
+function doSubmit(){
+  submitted=true; if(timer) clearInterval(timer); saveState();
+  let correct=0, wrong=0, blank=0;
+  const byPart={1:{c:0,t:0},2:{c:0,t:0},3:{c:0,t:0}};
+  Q_ORDER.forEach(n=>{
+    const {part,group,item}=Q_INDEX[n]; const st=checkAnswer(item,group);
+    byPart[part].t++;
+    if(st==='correct'){correct++; byPart[part].c++;} else if(st==='incorrect') wrong++; else blank++;
+  });
+  const band=scoreToBand(correct);
+  renderResults(correct,wrong,blank,band,byPart);
+  openOverlay('#results-modal');
+  document.body.classList.add('results-open');
+  liveSay('Test submitted. You scored '+correct+' out of '+TOTAL_Q+', estimated band '+band.toFixed(1)+'.');
+  setTimeout(()=>{ const h=$('#res-title'); if(h){ h.setAttribute('tabindex','-1'); h.focus(); } }, 60);
+}
+function renderResults(correct,wrong,blank,band,byPart){
+  $('#score-cards').innerHTML =
+    card(correct+' / '+TOTAL_Q,'Đúng','') + card(band.toFixed(1),'Band ước tính','band') +
+    card(wrong,'Sai','wrong') + card(blank,'Bỏ trống','wrong');
+  // answer list
+  let h='';
+  Q_ORDER.forEach(n=>{
+    const {group,item}=Q_INDEX[n]; const st=checkAnswer(item,group);
+    const ua = answers[n] ? esc(answers[n]) : '<em>—</em>';
+    const ca = esc(displayAnswer(item));
+    const pill = st==='correct'?'<span class="pill correct">✓ Đúng</span>':st==='incorrect'?'<span class="pill incorrect">✗ Sai</span>':'<span class="pill blank">○ Trống</span>';
+    h+='<div class="ans-row" data-state="'+st+'">';
+    h+='<div class="ah"><span class="pill type">Q'+n+'</span>'+pill+'<span class="pill type">'+esc(group.type)+'</span><span class="pill band">band '+(item.band||'')+'</span></div>';
+    h+='<div class="detail">';
+    if(item.stem) h+='<div>'+esc(item.stem)+'</div>';
+    else if(item.statement) h+='<div>'+esc(item.statement)+'</div>';
+    else if(item.beginning) h+='<div>'+esc(item.beginning)+' …</div>';
+    else if(item.paragraph) h+='<div>Paragraph '+esc(item.paragraph)+'</div>';
+    h+='<div class="ua">Bạn trả lời: '+ua+'</div>';
+    if(st!=='correct') h+='<div class="ca">Đáp án đúng: '+ca+'</div>';
+    const ex = explanationFor(item, group);
+    if(ex) h+='<div class="expl">'+ex+'</div>';
+    h+='</div></div>';
+  });
+  $('#ans-list').innerHTML=h;
+  // filters
+  $$('.ans-filter button').forEach(b=> b.onclick=()=>{
+    $$('.ans-filter button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+    const f=b.dataset.filter;
+    $$('.ans-row').forEach(r=> r.style.display = (f==='all'||r.dataset.state===f)?'':'none');
+  });
+}
+function card(big,cap,cls){ return '<div class="score-card '+cls+'"><div class="big">'+big+'</div><div class="cap">'+cap+'</div></div>'; }
+function displayAnswer(it){
+  if(it.answer_accept && it.answer_accept.length>1) return it.answer_accept.join(' / ');
+  return it.answer;
+}
+function explanationFor(it, g){
+  if(it.mechanism) return '<strong>Cơ chế:</strong> '+viGloss(esc(it.mechanism));
+  if(typeof it.distractor_analysis==='string') return '<strong>Gợi ý:</strong> '+viGloss(esc(it.distractor_analysis));
+  if(it.distractor_analysis && typeof it.distractor_analysis==='object'){
+    let s='<strong>Phân tích phương án:</strong><br>';
+    for(const [L,v] of Object.entries(it.distractor_analysis)) s+='<b>'+L+':</b> '+viGloss(esc(v))+'<br>';
+    return s;
+  }
+  return '';
+}
+$('#res-close').addEventListener('click', ()=>{ closeOverlay('#results-modal'); document.body.classList.remove('results-open'); });
+$('#res-print').addEventListener('click', ()=>window.print());
+$('#res-retry').addEventListener('click', ()=>{ clearState(); location.reload(); });
+
+// ============================================================
+// WIRING
+// ============================================================
+$('#prev-btn').addEventListener('click', ()=>step(-1));
+$('#next-btn').addEventListener('click', ()=>step(1));
+$('#end-btn').addEventListener('click', ()=>submitTest(false));
+$('#divider').addEventListener('mousedown', e=>{
+  e.preventDefault(); const main=$('.main'); const startX=e.clientX; const lw=$('#passage-pane').offsetWidth; const total=main.offsetWidth;
+  function mv(ev){ let w=lw+(ev.clientX-startX); const pct=Math.max(25,Math.min(75, w/total*100)); $('#passage-pane').style.width=pct+'%'; $('#questions-pane').style.width=(100-pct)+'%'; }
+  function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); }
+  document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    $$('.overlay.open').forEach(o=>{ if(o.id!=='intro-modal'&&o.id!=='results-modal') closeOverlay('#'+o.id); });
+    closeCtx();
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+function boot(){
+  const resumed = loadState();
+  applyCfg();
+  renderPalette();
+  currentPart = Q_INDEX[currentQ] ? Q_INDEX[currentQ].part : 1;
+  renderPassage(); renderQuestions(); updatePartStrip();
+  Q_ORDER.forEach(updatePaletteBtn);
+  $('#review-check').checked = review.has(currentQ);
+  if(resumed){
+    // skip intro if a test is already in progress
+    $('#intro-modal').classList.remove('open'); document.body.classList.remove('intro-open');
+    startTimer();
+  } else {
+    // intro modal is open in markup — apply focus trap + background inert
+    setBackgroundInert(true);
+    trapFocus($('#intro-modal'));
+  }
+}
+$('#start-btn').addEventListener('click', ()=>{
+  const intro=$('#intro-modal'); intro.classList.remove('open'); releaseTrap(intro);
+  document.body.classList.remove('intro-open'); setBackgroundInert(false);
+  startTimer();
+});
+boot();
+
+</script>
+</body>
+</html>

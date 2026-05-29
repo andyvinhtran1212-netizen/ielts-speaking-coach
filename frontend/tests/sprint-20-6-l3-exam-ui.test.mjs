@@ -151,7 +151,13 @@ describe('Sprint 20.6 — exam page JS (reading-exam.js)', () => {
     // Specifically the highlight wrap path uses textContent for the span,
     // never innerHTML — innerHTML lives only on the container-clear paths
     // (host.innerHTML = '') which are XSS-safe (empty string).
-    assert.match(js, /class="exam-highlight is-user"|className = 'exam-highlight is-user'/);
+    // Sprint 20.13a A5 extended the className to carry a per-highlight
+    // colour class (`'exam-highlight is-user ' + colorClass`); the XSS
+    // claim is unchanged (still textContent), only the class string
+    // grew a trailing space + variable. The regex below accepts both
+    // the pre-20.13a and the post-20.13a forms so the 20.6 contract
+    // still pins the right line.
+    assert.match(js, /class="exam-highlight is-user"|className\s*=\s*'exam-highlight is-user(?:\s*['"])?/);
   });
   test('draggable split divider clamps 30-70% and persists in sessionStorage', () => {
     assert.match(js, /Math\.max\(30,\s*Math\.min\(70/);

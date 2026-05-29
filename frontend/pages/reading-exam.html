@@ -32,7 +32,7 @@
   <link rel="stylesheet" href="/css/reading-exam-mockup.css" />   <!-- exam chrome (from 20.4c, reused) -->
   <link rel="stylesheet" href="/css/reading-exam.css" />          <!-- pre-start + results + modals (20.6) -->
 </head>
-<body class="exam-chrome" data-text-size="medium">
+<body class="exam-chrome" data-text-size="medium" data-exam-theme="default">
 
   <!-- ── TOP BAR ───────────────────────────────────────────────────── -->
   <header class="exam-topbar" role="banner">
@@ -55,15 +55,21 @@
 
     <div class="exam-settings" id="exam-settings" role="dialog" aria-label="Display settings" hidden>
       <div class="exam-settings__title">Text size</div>
-      <div class="exam-settings__row" role="group">
+      <div class="exam-settings__row" role="group" aria-label="Text size">
         <button type="button" data-size="small"  aria-pressed="false">A</button>
         <button type="button" data-size="medium" aria-pressed="true" class="is-active">A</button>
         <button type="button" data-size="large"  aria-pressed="false">A</button>
       </div>
-      <div class="exam-settings__title">Contrast</div>
-      <div class="exam-settings__row">
-        <button type="button" disabled title="Phase B">Standard</button>
-        <button type="button" disabled title="Phase B">High</button>
+      <!-- Sprint 20.13a A3 — four theme swatches replace the 20.4c "Contrast
+           Phase B" placeholder. Standards §2.10 + §3: ≥3 themes required;
+           gold ref ships default / black-on-cream / white-on-black /
+           yellow-on-blue. Persisted via localStorage('ielts-exam-theme'). -->
+      <div class="exam-settings__title">Theme</div>
+      <div class="exam-settings__row" role="group" aria-label="Colour theme">
+        <button type="button" class="exam-theme-swatch is-default" data-theme="default" aria-pressed="true" title="Black on white">A</button>
+        <button type="button" class="exam-theme-swatch is-cream"   data-theme="cream"   aria-pressed="false" title="Black on cream">A</button>
+        <button type="button" class="exam-theme-swatch is-dark"    data-theme="dark"    aria-pressed="false" title="White on black">A</button>
+        <button type="button" class="exam-theme-swatch is-yob"     data-theme="yellow-on-blue" aria-pressed="false" title="Yellow on blue">A</button>
       </div>
     </div>
   </header>
@@ -224,6 +230,15 @@
     <button type="button" class="exam-context-menu__item" data-action="remove" role="menuitem" hidden>
       <span class="exam-context-menu__icon">✕</span> Remove highlight
     </button>
+    <!-- Sprint 20.13a A5 — three-colour highlight swatches per standards
+         §3 tokens (yellow / green / pink). Clicking a swatch applies the
+         highlight with that colour (no separate "highlight first then
+         recolour" step). -->
+    <div class="exam-context-menu__colors" role="group" aria-label="Highlight colour">
+      <button type="button" class="exam-context-menu__color is-yellow" data-color="c-yellow" aria-label="Highlight yellow">Y</button>
+      <button type="button" class="exam-context-menu__color is-green"  data-color="c-green"  aria-label="Highlight green">G</button>
+      <button type="button" class="exam-context-menu__color is-pink"   data-color="c-pink"   aria-label="Highlight pink">P</button>
+    </div>
   </div>
 
   <div class="exam-note-popover" id="exam-note-popover" role="dialog" aria-label="Edit note" hidden>
