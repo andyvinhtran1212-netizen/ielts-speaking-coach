@@ -24,6 +24,7 @@ official map only covers 10+.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 
@@ -91,12 +92,27 @@ def _canonical_spelling(token: str) -> str:
     return _SPELLING_NORMAL.get(token.lower(), token.lower())
 
 
+def _strip_diacritics(s: str) -> str:
+    # NFD decomposes "é" → "e" + U+0301; the comprehension drops the
+    # combining marks (U+0300–U+036F), leaving the base letters.
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn"
+    )
+
+
 def normalize_answer(raw: str | None) -> str:
     """Normalise a user-typed answer for comparison.
 
-    Steps: trim → lowercase → collapse internal whitespace → drop
-    surrounding punctuation → canonicalise UK/US spelling per token.
+    Steps: trim → strip diacritics → drop surrounding punctuation → collapse
+    internal whitespace → lowercase → canonicalise UK/US spelling per token.
     Returns ``""`` for empty/None input.
+
+    Diacritic strip (Sprint 20.13c, Interactive HTML Standards §5.3): the
+    NFD pass lets "El Niño" match "El Nino" and "café" match "cafe". The
+    existing IELTS Reading/Listening seeds carry zero non-ASCII characters
+    in their answer keys (verified at sprint time), so this change is a
+    forward-compatible improvement rather than a behavioural shift.
     """
     if raw is None:
         return ""
@@ -106,6 +122,7 @@ def normalize_answer(raw: str | None) -> str:
     s = _strip_contractions(s)
     if s == "__contraction_present__":
         return s
+    s = _strip_diacritics(s)
     # Strip surrounding punctuation but preserve hyphens inside words.
     s = re.sub(r"^[^\w]+|[^\w]+$", "", s)
     s = re.sub(r"\s+", " ", s).lower()
