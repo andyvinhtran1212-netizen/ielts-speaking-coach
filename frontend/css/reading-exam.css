@@ -15,6 +15,21 @@
   gap: var(--av-space-4, 16px);
 }
 .exam-state-shell--results { align-items: stretch; padding-top: var(--av-space-6, 24px); }
+
+/* Sprint 20.10 D2/D4 — restore the user-agent default for `hidden` on
+ * elements whose base rule sets `display: flex|grid|…`. Without this,
+ * `[hidden]` (specificity 0,0,1,0) is silently overridden by `.exam-state-shell`
+ * (0,0,1,0 — same specificity but later cascade wins for display), so
+ * `state-results`, `state-prestart`, `state-loading` etc. were ALL visible
+ * at once after the first state transition, regardless of what `showState()`
+ * set on the `hidden` attribute. The same trap caught `.exam-timer-wrap`,
+ * `.exam-palette`, and `.exam-split`. Explicit override + !important is the
+ * minimum surgical fix and matches the pattern already used downstream for
+ * `.exam-modal[hidden]` and `.exam-hide-overlay[hidden]`. */
+.exam-state-shell[hidden],
+.exam-timer-wrap[hidden],
+.exam-palette[hidden],
+.exam-split[hidden] { display: none !important; }
 .exam-state-msg {
   font-size: 16px; color: var(--exam-text-secondary);
 }
@@ -331,4 +346,43 @@
   .exam-results-skillrow { grid-template-columns: 1fr; gap: 4px; }
   .exam-diagnostic-card__top,
   .exam-diagnostic-card__stats { grid-template-columns: 1fr; display: grid; }
+}
+
+/* Sprint 20.10 D3 — palette grouped by passage (Part 1 / Part 2 / Part 3).
+ * The flat 1-N grid from 20.4c (mockup) shipped to production; prod
+ * dogfood surfaced that the Cambridge IELTS / BC / IDP exam UX groups
+ * questions by passage. The 3 groups sit side-by-side across the bottom
+ * (.exam-palette__grid is the row container; each .exam-palette__group is
+ * a labelled cluster). The mockup CSS still sizes each .exam-palette__q
+ * (36×32px) — we layer the group wrappers on top without changing the
+ * button itself, so palette state styles (.is-answered / .is-current /
+ * .is-flagged) keep working unchanged. */
+.exam-palette__grid {
+  /* Override mockup's `grid-auto-flow: column; grid-auto-columns: 36px;`
+   * — we now have grouped children, not raw buttons, so let them flex. */
+  display: flex !important;
+  grid-template-columns: none;
+  gap: 18px;
+  align-items: stretch;
+  overflow-x: auto;
+}
+.exam-palette__group {
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0;
+}
+.exam-palette__group + .exam-palette__group {
+  border-left: 1px solid var(--exam-border-default);
+  padding-left: 18px;
+}
+.exam-palette__group-label {
+  font-family: var(--exam-font-mono);
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--exam-text-muted);
+  line-height: 1.2;
+}
+.exam-palette__group-btns {
+  display: grid; grid-auto-flow: column;
+  grid-auto-columns: 36px; gap: 4px;
+  align-items: center;
 }

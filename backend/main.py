@@ -79,15 +79,28 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    # Production
+    # Production — explicit list as primary
     "https://averlearning.com",
     "https://www.averlearning.com",
     "https://ielts-speaking-coach-sage.vercel.app",
 ]
 
+# Sprint 20.10 D1 — belt-and-suspenders against subdomain drift.
+# Andy's prod dogfood hit "No 'Access-Control-Allow-Origin' header" from
+# https://www.averlearning.com even though both apex and www were already
+# in the explicit list (commit 4c9fc1e9, 2026-04-08). The most likely
+# remaining single-point-of-failure is the explicit list itself going
+# stale as new subdomains roll out (staging.averlearning.com, app.…, etc.).
+# This regex matches the apex + any direct subdomain of averlearning.com
+# over HTTPS — orthogonal to the explicit list, so either match grants
+# the request. The explicit list still wins for fast-path matching;
+# the regex is the safety net.
+_AVERLEARNING_ORIGIN_REGEX = r"^https://(?:[a-z0-9-]+\.)?averlearning\.com$"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=_AVERLEARNING_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
