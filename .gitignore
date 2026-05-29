@@ -47,3 +47,7 @@ coverage.xml
 # TODO: post-Sprint-5, move grammar-audit/ → docs/audits/grammar-2026-05/
 backups/
 grammar-audit/
+# Local performance-discovery data. JWT/HAR exports can contain sensitive tokens.
+data/auth/
+data/har/
+data/api-timings/
