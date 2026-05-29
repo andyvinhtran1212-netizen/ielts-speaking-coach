@@ -159,3 +159,65 @@
 .ar-status-pill.is-published { background: var(--av-success-soft); color: var(--av-success); }
 .ar-status-pill.is-draft     { background: var(--av-surface-sunken); color: var(--av-text-secondary); }
 .ar-status-pill.is-archived  { background: var(--av-surface-sunken); color: var(--av-text-muted); }
+
+/* Sprint 20.8 A2 — structured-content preview (passages/glossary/body
+   excerpt) shown only after a clean dry-run. Sits between the kv table
+   and the commit button so the reviewer scans top→bottom: shape → details
+   → commit. */
+.ar-structure {
+  margin-top: var(--av-space-4);
+  padding-top: var(--av-space-4);
+  border-top: 1px solid var(--av-border-subtle);
+}
+.ar-struct__title {
+  margin: var(--av-space-3) 0 var(--av-space-2);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ar-struct__title:first-child { margin-top: 0; }
+.ar-struct__table {
+  width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm);
+}
+.ar-struct__table th,
+.ar-struct__table td {
+  padding: var(--av-space-2) var(--av-space-3);
+  border-bottom: 1px solid var(--av-border-subtle);
+  text-align: left; vertical-align: top;
+}
+.ar-struct__table th {
+  font-weight: var(--av-fw-semibold); color: var(--av-text-secondary);
+  background: var(--av-surface-sunken);
+}
+.ar-struct__num { text-align: right; font-variant-numeric: tabular-nums; }
+.ar-struct__total td {
+  font-weight: var(--av-fw-semibold);
+  background: var(--av-surface-sunken);
+  border-bottom: none;
+}
+.ar-struct__glossary {
+  margin: 0; padding-left: var(--av-space-5);
+  font-size: var(--av-fs-sm); color: var(--av-text);
+  list-style: disc;
+}
+.ar-struct__glossary li { padding: 2px 0; }
+.ar-struct__more {
+  list-style: none; margin-left: calc(-1 * var(--av-space-5));
+  color: var(--av-text-muted); font-style: italic;
+}
+.ar-struct__body {
+  margin: 0;
+  padding: var(--av-space-3);
+  background: var(--av-surface-sunken);
+  border-radius: var(--av-radius-md);
+  font-family: var(--av-font-sans);
+  font-size: var(--av-fs-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--av-text-secondary);
+  max-height: 18em;
+  overflow-y: auto;
+}
