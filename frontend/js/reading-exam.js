@@ -323,11 +323,27 @@
       });
       body.appendChild(opts);
     } else if (type === 'true_false_not_given' || type === 'yes_no_not_given') {
+      // Sprint 20.13a A2 — TFNG / YNG render as <select> dropdown (standards
+      // §2.3a, anti-pattern §10.1: "TFNG/YNG bắt gõ chữ 'TRUE/FALSE' (phải
+      // là dropdown)"). The 20.6 implementation used three radio buttons;
+      // gold reference + BC/IDP both use a dropdown so the input control
+      // matches Matching Headings + Matching Features etc. The control type
+      // change is silent for grading — the persisted value is the same
+      // canonical TRUE/FALSE/NOT GIVEN string.
       var vals = type === 'true_false_not_given'
         ? ['TRUE', 'FALSE', 'NOT GIVEN'] : ['YES', 'NO', 'NOT GIVEN'];
-      var grp = document.createElement('div'); grp.className = 'exam-q__options';
-      vals.forEach(function (v) { grp.appendChild(radioOption(name, v, v)); });
-      body.appendChild(grp);
+      var sel = document.createElement('select');
+      sel.className = 'exam-q__select'; sel.name = name;
+      sel.setAttribute('aria-label', 'Answer ' + q.q_num);
+      var ph = document.createElement('option');
+      ph.value = ''; ph.textContent = '— Select —';
+      sel.appendChild(ph);
+      vals.forEach(function (v) {
+        var opt = document.createElement('option');
+        opt.value = v; opt.textContent = v;
+        sel.appendChild(opt);
+      });
+      body.appendChild(sel);
     } else if (type === 'matching_headings') {
       var sel = document.createElement('select');
       sel.className = 'exam-q__select'; sel.name = name;
@@ -753,7 +769,34 @@
     loadDiagnostic(result.attempt_id);
   }
 
-  // ── Settings popover (text-size A/A/A) ────────────────────────────
+  // ── Settings popover (text-size A/A/A + theme swatches) ─────────
+  // Sprint 20.13a A3 + A4 — persist text-size and exam theme to
+  // localStorage so the student's display preferences survive page
+  // refresh + resume. Keys are SCOPED to the exam page (not the global
+  // av-theme app theme) and read with try/catch so private-browsing
+  // failures degrade silently (standards §5.1).
+  var EXAM_PREFS_KEY_SIZE  = 'ielts-exam-text-size';
+  var EXAM_PREFS_KEY_THEME = 'ielts-exam-theme';
+  var VALID_SIZES  = ['small', 'medium', 'large'];
+  var VALID_THEMES = ['default', 'cream', 'dark', 'yellow-on-blue'];
+  function _safeGetStorage(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function _safeSetStorage(key, val) {
+    try { localStorage.setItem(key, val); } catch (e) {}
+  }
+
+  (function applyStoredDisplayPrefs() {
+    var size = _safeGetStorage(EXAM_PREFS_KEY_SIZE);
+    if (size && VALID_SIZES.indexOf(size) !== -1) {
+      chrome.setAttribute('data-text-size', size);
+    }
+    var theme = _safeGetStorage(EXAM_PREFS_KEY_THEME);
+    if (theme && VALID_THEMES.indexOf(theme) !== -1) {
+      chrome.setAttribute('data-exam-theme', theme);
+    }
+  })();
+
   (function wireSettings() {
     var toggle = $('exam-settings-toggle'), popover = $('exam-settings');
     if (!toggle || !popover) return;
@@ -770,14 +813,36 @@
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape' && !popover.hidden) setOpen(false);
     });
+
+    // Reflect any stored prefs into aria-pressed states so the open popover
+    // shows the right active swatches before the user clicks anything.
+    function syncPressedFromAttributes() {
+      var size = chrome.getAttribute('data-text-size') || 'medium';
+      popover.querySelectorAll('[data-size]').forEach(function (b) {
+        var on = b.dataset.size === size;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      var theme = chrome.getAttribute('data-exam-theme') || 'default';
+      popover.querySelectorAll('[data-theme]').forEach(function (b) {
+        b.setAttribute('aria-pressed', b.dataset.theme === theme ? 'true' : 'false');
+      });
+    }
+    syncPressedFromAttributes();
+
     popover.querySelectorAll('[data-size]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        popover.querySelectorAll('[data-size]').forEach(function (b) {
-          var on = b === btn;
-          b.classList.toggle('is-active', on);
-          b.setAttribute('aria-pressed', on ? 'true' : 'false');
-        });
         chrome.setAttribute('data-text-size', btn.dataset.size);
+        _safeSetStorage(EXAM_PREFS_KEY_SIZE, btn.dataset.size);    // 20.13a A4
+        syncPressedFromAttributes();
+      });
+    });
+    // Sprint 20.13a A3 — theme swatch handlers.
+    popover.querySelectorAll('[data-theme]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        chrome.setAttribute('data-exam-theme', btn.dataset.theme);
+        _safeSetStorage(EXAM_PREFS_KEY_THEME, btn.dataset.theme);
+        syncPressedFromAttributes();
       });
     });
   })();
@@ -898,6 +963,11 @@
       ctxMenu.querySelector('[data-action="highlight"]').hidden = !hasSelection;
       ctxMenu.querySelector('[data-action="note"]').hidden      = !hasSelection;
       ctxMenu.querySelector('[data-action="remove"]').hidden    = !onHl;
+      // Sprint 20.13a A5 — colour swatches relevant only when something is
+      // selected (we can recolour by re-highlighting the selection); hide
+      // on "click an existing highlight to remove" path.
+      var colorRow = ctxMenu.querySelector('.exam-context-menu__colors');
+      if (colorRow) colorRow.hidden = !hasSelection;
       if (!hasSelection && !onHl) return;
       ctxMenu.hidden = false;
       positionPopover(ctxMenu, x, y);
@@ -938,6 +1008,15 @@
           if (cur === endNode) break;
         }
       }
+      // Sprint 20.13a A5 — multi-colour highlight per standards §3 tokens.
+      // 20.4b used a single yellow tint hard-coded in CSS. The standards-
+      // compliant version stamps the colour as a class on each created
+      // span (`c-yellow|c-green|c-pink`) so persistence + theme
+      // legibility work uniformly. Falls back to `c-yellow` when no
+      // colour is passed (matches the 20.4b default).
+      var VALID_HL_COLORS = { 'c-yellow': 1, 'c-green': 1, 'c-pink': 1 };
+      var colorClass = (options.color && VALID_HL_COLORS[options.color])
+        ? options.color : 'c-yellow';
       var created = [];
       textNodes.forEach(function (textNode) {
         var startOff = (textNode === startNode) ? range.startOffset : 0;
@@ -948,7 +1027,7 @@
         var after  = textNode.nodeValue.slice(endOff);
         if (!middle.replace(/\s/g, '').length) return;
         var span = document.createElement('span');
-        span.className = 'exam-highlight is-user';
+        span.className = 'exam-highlight is-user ' + colorClass;
         span.textContent = middle;
         var parent = textNode.parentNode, next = textNode.nextSibling;
         parent.removeChild(textNode);
@@ -992,11 +1071,23 @@
       noteTA.focus();
     }
     ctxMenu.addEventListener('click', function (ev) {
+      // Sprint 20.13a A5 — colour-swatch path: apply highlight with the
+      // chosen colour. The swatch click takes precedence over the
+      // (default-yellow) Highlight item because the user has explicitly
+      // picked a colour.
+      var swatch = ev.target.closest('.exam-context-menu__color');
+      if (swatch && savedRange) {
+        applyHighlight(savedRange, { color: swatch.dataset.color });
+        ctxTargetSpan = null; savedRange = null;
+        hideContextMenu();
+        return;
+      }
+
       var btn = ev.target.closest('.exam-context-menu__item');
       if (!btn) return;
       var action = btn.dataset.action;
       if (action === 'highlight' && savedRange) {
-        applyHighlight(savedRange);
+        applyHighlight(savedRange);                 // default c-yellow
       } else if (action === 'note' && savedRange) {
         var spans = applyHighlight(savedRange);
         if (spans.length) {
