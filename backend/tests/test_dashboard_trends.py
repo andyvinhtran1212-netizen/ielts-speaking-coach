@@ -80,8 +80,8 @@ def _trend_results():
             {"completed_at": _TODAY}, {"completed_at": _TODAY},
         ]),
         "ai_usage_logs": _Result(data=[
-            {"cost_usd_est": 0.5, "created_at": _TODAY},
-            {"cost_usd_est": 0.25, "created_at": _TODAY},
+            {"input_tokens": 100, "output_tokens": 50, "created_at": _TODAY},
+            {"input_tokens": 30, "output_tokens": None, "created_at": _TODAY},
         ]),
     }
 
@@ -92,9 +92,9 @@ def test_trends_shape_and_default_window(monkeypatch):
     monkeypatch.setattr(admin_dashboard, "supabase_admin", _Stub(_trend_results()))
     out = admin_dashboard.compute_dashboard_trends()
     assert out["days"] == 30
-    assert set(out["series"].keys()) == {"visitors", "practices", "cost_usd"}
+    assert set(out["series"].keys()) == {"visitors", "practices", "tokens"}
     # contiguous axis: exactly `days` daily buckets per series
-    for key in ("visitors", "practices", "cost_usd"):
+    for key in ("visitors", "practices", "tokens"):
         assert len(out["series"][key]) == 30
         assert all("date" in p and "value" in p for p in out["series"][key])
     assert "computed_at" in out
@@ -113,11 +113,11 @@ def test_trends_bucketing(monkeypatch):
     out = admin_dashboard.compute_dashboard_trends(7)
     vis = out["series"]["visitors"]
     prac = out["series"]["practices"]
-    cost = out["series"]["cost_usd"]
+    tok = out["series"]["tokens"]
     # all today's rows land in the last bucket
     assert vis[-1]["value"] == 2          # distinct users a,b (NULL excluded)
     assert prac[-1]["value"] == 2         # 2 completed sessions
-    assert cost[-1]["value"] == 0.75      # 0.5 + 0.25
+    assert tok[-1]["value"] == 180        # (100+50) + (30+0) tokens
     # earlier buckets are zero-filled (contiguous)
     assert vis[0]["value"] == 0
 

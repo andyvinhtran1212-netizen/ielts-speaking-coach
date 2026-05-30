@@ -66,14 +66,14 @@ describe('dashboard page — tiles + sparklines + trends + attention', () => {
   });
 
   test('six KPI tiles preserved (ids stable)', () => {
-    for (const id of ['m-users', 'm-codes', 'm-visitors', 'm-practices', 'm-grading', 'm-cost']) {
+    for (const id of ['m-users', 'm-codes', 'm-visitors', 'm-practices', 'm-grading', 'm-tokens']) {
       assert.match(html, new RegExp(`id="${id}"`), `#${id} must exist`);
     }
   });
 
   test('sparkline + delta slots on the trend-having tiles', () => {
-    for (const id of ['spark-visitors', 'spark-practices', 'spark-cost',
-                      'd-visitors', 'd-practices', 'd-cost']) {
+    for (const id of ['spark-visitors', 'spark-practices', 'spark-tokens',
+                      'd-visitors', 'd-practices', 'd-tokens']) {
       assert.match(html, new RegExp(`id="${id}"`), `#${id} must exist`);
     }
   });
@@ -83,7 +83,7 @@ describe('dashboard page — tiles + sparklines + trends + attention', () => {
     assert.match(html, /id="db-trend-tabs"/);
     assert.match(html, /data-series="practices"/);
     assert.match(html, /data-series="visitors"/);
-    assert.match(html, /data-series="cost_usd"/);
+    assert.match(html, /data-series="tokens"/);
   });
 
   test('"Cần chú ý" strip with error + writing-pending counts', () => {

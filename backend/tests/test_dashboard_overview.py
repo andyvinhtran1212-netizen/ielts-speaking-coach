@@ -9,7 +9,7 @@ count (no N+1) + route-level admin guard.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
@@ -79,7 +79,9 @@ def _default_results():
             {"duration_seconds": 120.0}, {"duration_seconds": None}, {"duration_seconds": 60},
         ]),
         "ai_usage_logs": _Result(data=[
-            {"cost_usd_est": 0.01}, {"cost_usd_est": None}, {"cost_usd_est": 0.02},
+            {"input_tokens": 100, "output_tokens": 50},
+            {"input_tokens": None, "output_tokens": 20},   # NULL coalesces to 0
+            {"input_tokens": 30, "output_tokens": None},
         ]),
         # admin-dashboard-redesign — "Cần chú ý" cheap COUNT metrics.
         "error_logs": _Result(count=3),
@@ -103,7 +105,8 @@ def test_dashboard_overview_returns_6_metrics(monkeypatch):
     assert out["distinct_visitors"] == {"count": 2, "window_days": 30}   # a, b (NULL excluded)
     assert out["total_practices"] == 7
     assert out["grading_minutes"] == 3.0                                  # (120+0+60)/60
-    assert out["monthly_cost_usd"] == 0.03                                # 0.01 + 0 + 0.02
+    # dashboard-tweaks — tokens called (prompt+completion), windowed; NULL→0.
+    assert out["tokens_called"] == {"count": 200, "window_days": 30}        # (100+50)+(0+20)+(30+0)
     # admin-dashboard-redesign — "Cần chú ý" counts (cheap COUNT(exact)).
     assert out["attention"] == {"errors_undismissed": 3, "writing_pending": 5}
     assert "computed_at" in out
@@ -125,17 +128,18 @@ def test_dashboard_overview_visitors_window_param(monkeypatch):
     assert admin_dashboard.compute_dashboard_overview(45)["distinct_visitors"]["window_days"] == 30
 
 
-# ── #4 calendar-month cost boundary ──────────────────────────────────
+# ── #4 tokens windowed by the SELECTOR (dashboard-tweaks; was calendar-month) ──
 
-def test_dashboard_overview_calendar_month_cost(monkeypatch):
+def test_dashboard_overview_tokens_windowed_by_selector(monkeypatch):
     stub = _install(monkeypatch)
-    admin_dashboard.compute_dashboard_overview()
+    admin_dashboard.compute_dashboard_overview(7)
     gte = stub.chains["ai_usage_logs"].gte_args
-    assert gte, "monthly cost must be windowed by created_at"
+    assert gte, "tokens must be windowed by created_at"
     col, value = gte[0]
     assert col == "created_at"
-    expected = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    assert value.startswith(expected.strftime("%Y-%m-%dT00:00:00"))
+    # Windowed by the 7-day selector (NOT the calendar month).
+    expected = datetime.now(timezone.utc) - timedelta(days=7)
+    assert value.startswith(expected.strftime("%Y-%m-%dT"))
 
 
 # ── #5 duration NULL-coalesce ────────────────────────────────────────
@@ -157,7 +161,7 @@ def test_dashboard_overview_graceful_subquery_failure(monkeypatch):
     out = admin_dashboard.compute_dashboard_overview()
     assert out["grading_minutes"] is None        # failed metric degrades to None
     assert out["total_users"] == 42              # others still computed
-    assert out["monthly_cost_usd"] == 0.03
+    assert out["tokens_called"]["count"] == 200
 
 
 # ── #7 fixed query count (no N+1) ────────────────────────────────────

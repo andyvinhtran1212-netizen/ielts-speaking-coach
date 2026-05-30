@@ -20,13 +20,13 @@ const CHROME    = front('js', 'components', 'aver-admin-chrome.js');
 
 
 describe('Sprint 18.2 — dashboard page renders 6 metric cards', () => {
-  for (const id of ['m-users', 'm-codes', 'm-visitors', 'm-practices', 'm-grading', 'm-cost']) {
+  for (const id of ['m-users', 'm-codes', 'm-visitors', 'm-practices', 'm-grading', 'm-tokens']) {
     test(`card value slot #${id} present`, () => {
       assert.match(DASH_HTML, new RegExp(`id="${id}"`));
     });
   }
   test('controller paints all 6 slots', () => {
-    for (const id of ['m-users', 'm-codes', 'm-visitors', 'm-practices', 'm-grading', 'm-cost']) {
+    for (const id of ['m-users', 'm-codes', 'm-visitors', 'm-practices', 'm-grading', 'm-tokens']) {
       assert.match(DASH_JS, new RegExp(`'${id}'`));
     }
   });
@@ -39,9 +39,11 @@ describe('Sprint 18.2 — visitors window selector', () => {
     assert.match(DASH_HTML, /value="30"\s+selected/);
     assert.match(DASH_HTML, /value="90"/);
   });
-  test('selector + refresh re-fetch; endpoint carries visitors_window', () => {
-    assert.match(DASH_JS, /db-window'\)\.addEventListener\('change', load\)/);
-    assert.match(DASH_JS, /db-refresh'\)\.addEventListener\('click', load\)/);
+  test('selector + refresh re-fetch immediately; endpoint carries visitors_window', () => {
+    // dashboard-tweaks: window switch reloads only the windowed tiles ('windowed'),
+    // refresh reloads everything ('all'); both call load() immediately.
+    assert.match(DASH_JS, /db-window'\)\.addEventListener\('change',\s*\(\)\s*=>\s*load\(/);
+    assert.match(DASH_JS, /db-refresh'\)\.addEventListener\('click',\s*\(\)\s*=>\s*load\(/);
     assert.match(DASH_JS, /\/admin\/dashboard\/overview\?visitors_window=/);
   });
 });

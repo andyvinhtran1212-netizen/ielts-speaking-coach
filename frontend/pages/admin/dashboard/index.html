@@ -62,6 +62,33 @@
       min-width: 0; }
     .db-card__label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide); font-weight: var(--av-fw-semibold); }
+    /* "toàn thời gian" / window scope hint — small, lowercase, de-emphasised. */
+    .db-card__scope { text-transform: none; letter-spacing: 0; font-weight: var(--av-fw-regular);
+      color: var(--av-text-faint); }
+
+    /* ── Loading state (dashboard-tweaks Item 3) ───────────────────── */
+    /* Only the windowed value-tiles + chart show loading on a window switch;
+       the all-time tiles stay put so they never look "affected by the window". */
+    .db-card.is-loading .db-card__value,
+    .db-card.is-loading .db-delta,
+    .db-card.is-loading .db-card__spark,
+    .db-trends__chart.is-loading {
+      position: relative; color: transparent !important;
+      border-radius: var(--av-radius-sm);
+      background: linear-gradient(90deg,
+        var(--av-surface-sunken) 25%, var(--av-border-subtle) 37%, var(--av-surface-sunken) 63%);
+      background-size: 400% 100%;
+      animation: db-shimmer 1.2s ease-in-out infinite;
+    }
+    .db-card.is-loading .db-delta[hidden] { display: inline-block; min-width: 3ch; }
+    .db-trends__chart.is-loading { min-height: 160px; }
+    @keyframes db-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .db-card.is-loading .db-card__value,
+      .db-card.is-loading .db-card__spark,
+      .db-trends__chart.is-loading { animation: none; }
+    }
+    .db-refresh:disabled { opacity: 0.6; cursor: progress; }
     .db-card__valrow { display: flex; align-items: baseline; gap: var(--av-space-2); flex-wrap: wrap; }
     .db-card__value { font-size: var(--av-fs-3xl, 2rem); font-weight: var(--av-fw-bold);
       color: var(--av-text-primary); font-variant-numeric: tabular-nums; line-height: 1.1; }
@@ -148,17 +175,17 @@
       <!-- ── KPI tiles ───────────────────────────────────────────── -->
       <section class="db-grid" aria-label="Số liệu tổng quan">
         <div class="db-card">
-          <div class="db-card__label">Tổng người dùng</div>
+          <div class="db-card__label">Tổng người dùng <span class="db-card__scope">toàn thời gian</span></div>
           <div class="db-card__valrow"><span class="db-card__value" id="m-users">—</span></div>
           <a class="db-card__link" href="/pages/admin/users/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
-          <div class="db-card__label">Mã đã kích hoạt</div>
+          <div class="db-card__label">Mã đã kích hoạt <span class="db-card__scope">toàn thời gian</span></div>
           <div class="db-card__valrow"><span class="db-card__value" id="m-codes">—</span></div>
           <a class="db-card__link" href="/pages/admin/access-codes/index.html">Xem chi tiết →</a>
         </div>
-        <div class="db-card">
-          <div class="db-card__label">Người xem (<span id="m-visitors-window">30</span> ngày)</div>
+        <div class="db-card db-card--windowed">
+          <div class="db-card__label">Người xem (<span class="m-window">30</span> ngày)</div>
           <div class="db-card__valrow">
             <span class="db-card__value" id="m-visitors">—</span>
             <span class="db-delta" id="d-visitors" hidden></span>
@@ -167,7 +194,7 @@
           <a class="db-card__link" href="/pages/admin/foot-traffic/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
-          <div class="db-card__label">Bài practice đã hoàn thành</div>
+          <div class="db-card__label">Bài practice đã hoàn thành <span class="db-card__scope">toàn thời gian</span></div>
           <div class="db-card__valrow">
             <span class="db-card__value" id="m-practices">—</span>
             <span class="db-delta" id="d-practices" hidden></span>
@@ -176,20 +203,20 @@
           <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
-          <div class="db-card__label">Phút chấm (tích lũy)</div>
+          <div class="db-card__label">Phút chấm <span class="db-card__scope">tích lũy</span></div>
           <div class="db-card__valrow">
             <span class="db-card__value" id="m-grading">—</span>
             <span class="db-card__unit">phút</span>
           </div>
           <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
         </div>
-        <div class="db-card">
-          <div class="db-card__label">Chi phí tháng này</div>
+        <div class="db-card db-card--windowed">
+          <div class="db-card__label">Token đã gọi (<span class="m-window">30</span> ngày)</div>
           <div class="db-card__valrow">
-            <span class="db-card__value" id="m-cost">—</span>
-            <span class="db-delta" id="d-cost" hidden></span>
+            <span class="db-card__value" id="m-tokens">—</span>
+            <span class="db-delta" id="d-tokens" hidden></span>
           </div>
-          <div class="db-card__spark" id="spark-cost"></div>
+          <div class="db-card__spark" id="spark-tokens"></div>
           <a class="db-card__link" href="/pages/admin/system/ai-usage.html">Xem chi tiết →</a>
         </div>
       </section>
@@ -201,7 +228,7 @@
           <div class="db-trends__tabs" id="db-trend-tabs" role="tablist">
             <button type="button" class="db-trend-tab is-active" data-series="practices" role="tab">Practice</button>
             <button type="button" class="db-trend-tab" data-series="visitors" role="tab">Người xem</button>
-            <button type="button" class="db-trend-tab" data-series="cost_usd" role="tab">Chi phí</button>
+            <button type="button" class="db-trend-tab" data-series="tokens" role="tab">Token</button>
           </div>
         </div>
         <div class="db-trends__chart" id="db-trend-chart">
