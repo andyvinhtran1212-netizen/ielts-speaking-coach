@@ -74,11 +74,15 @@ describe('Sprint 20.15 D1 — admin preview page', () => {
 describe('Sprint 20.15 D2 — per-row delete action', () => {
   const js = read('frontend/js/admin-reading.js');
 
-  test('L3 rows render a "Xem trước" link + "Xoá" button (L1/L2 do not)', () => {
-    // L3 rows: actions present, gated by `it.library === "l3_test"`.
+  test('test actions render only on the L3 Test filter tab (not on passage rows)', () => {
+    // reading-admin-preview-fix: actions gated on the ACTIVE FILTER
+    // (STATE.libraryFilter === 'l3_test'), not the per-row library. Only that
+    // filter lists genuine reading_tests rows where slug === test_id; the
+    // unfiltered view lists reading_passages (L3 passages carry
+    // library='l3_test' too, with a passage slug → previewing that 404'd).
     assert.match(
       js,
-      /it\.library\s*===\s*['"]l3_test['"][\s\S]{0,400}data-action="delete-test"/,
+      /STATE\.libraryFilter\s*===\s*['"]l3_test['"][\s\S]{0,500}data-action="delete-test"/,
     );
     assert.match(js, /href="\/pages\/admin\/reading\/preview\.html\?test_id=['"]/);
   });

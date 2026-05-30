@@ -151,49 +151,49 @@ describe('Sprint 20.14f-α — diagram CSS ships', () => {
 
 // ── α.4 Admin UI scaffold ────────────────────────────────────────────
 
-describe('Sprint 20.14f-α — admin diagram manager wired', () => {
-  const html = read('frontend/pages/admin/reading/content.html');
-  const adminJs = read('frontend/js/admin-reading.js');
+// reading-admin-preview-fix: the standalone "type a test_id" diagram manager
+// moved OFF /admin/reading/content INTO the per-test preview page, where each
+// diagram/flow question shows its upload/delete controls inline (and the admin
+// preview endpoint works on draft tests too, unlike the old student-endpoint
+// manager). These assertions now target the preview page.
+describe('Sprint 20.14f-α — diagram manager (folded into per-test preview)', () => {
+  const contentHtml = read('frontend/pages/admin/reading/content.html');
+  const previewJs = read('frontend/js/admin-reading-preview.js');
   const adminCss = read('frontend/css/admin-reading.css');
 
-  test('HTML page exposes the diagram-manager toolbar + list container', () => {
-    assert.match(html, /id="ar-diagram-test-id"/);
-    assert.match(html, /id="ar-diagram-load"/);
-    assert.match(html, /id="ar-diagram-status"/);
-    assert.match(html, /id="ar-diagram-list"/);
+  test('standalone diagram-manager toolbar removed from content.html', () => {
+    assert.doesNotMatch(contentHtml, /id="ar-diagram-test-id"/);
+    assert.doesNotMatch(contentHtml, /id="ar-diagram-load"/);
   });
 
-  test('admin-reading.js loads the diagram list via /api/reading/test/<id>', () => {
+  test('preview JS gates controls to diagram_label + flow_chart question_types', () => {
     assert.match(
-      adminJs,
-      /window\.api\.get\(\s*['"]\/api\/reading\/test\/['"]\s*\+\s*encodeURIComponent\(testId\)/,
+      previewJs,
+      /DIAGRAM_TYPES\s*=\s*\{[\s\S]{0,120}diagram_label_completion[\s\S]{0,80}flow_chart_completion/,
     );
   });
 
-  test('admin-reading.js filters to diagram_label + flow_chart question_types', () => {
-    assert.match(
-      adminJs,
-      /question_type\s*===\s*['"]diagram_label_completion['"][\s\S]{0,200}question_type\s*===\s*['"]flow_chart_completion['"]/,
-    );
+  test('preview JS renders upload/delete controls keyed by the question id', () => {
+    assert.match(previewJs, /data-q-id="/);
+    assert.match(previewJs, /renderDiagramControls/);
   });
 
-  test('admin-reading.js posts uploads to the correct admin endpoint', () => {
+  test('preview JS posts uploads to the correct admin endpoint', () => {
     assert.match(
-      adminJs,
+      previewJs,
       /window\.api\.upload\(\s*['"]\/admin\/reading\/questions\/['"]\s*\+\s*encodeURIComponent\(qId\)\s*\+\s*['"]\/upload-diagram-image['"]/,
     );
   });
 
-  test('admin-reading.js calls DELETE via bracket notation (reserved word safe)', () => {
-    // window.api.delete via `['delete']` because `delete` is a JS
-    // reserved word. The api client exports `delete: function (path)`.
+  test('preview JS calls DELETE via bracket notation (reserved word safe)', () => {
+    // window.api.delete via `['delete']` because `delete` is a JS reserved word.
     assert.match(
-      adminJs,
+      previewJs,
       /window\.api\[['"]delete['"]\]\(\s*['"]\/admin\/reading\/questions\/['"]\s*\+\s*encodeURIComponent\(qId\)\s*\+\s*['"]\/diagram-image['"]/,
     );
   });
 
-  test('admin CSS ships .ar-diagram-card + .ar-diagram-thumb styles', () => {
+  test('admin CSS still ships .ar-diagram-card + .ar-diagram-thumb styles (reused by preview)', () => {
     assert.match(adminCss, /\.ar-diagram-card\s*\{/);
     assert.match(adminCss, /\.ar-diagram-thumb\s*\{[\s\S]{0,400}object-fit:\s*contain/);
   });

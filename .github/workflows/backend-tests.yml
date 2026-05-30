@@ -150,4 +150,5 @@ jobs:
             frontend/tests/sprint-20-14b-phase-b-types.test.mjs \
             frontend/tests/sprint-20-14e-summary-instruction.test.mjs \
             frontend/tests/sprint-20-14f-alpha-diagram-image.test.mjs \
-            frontend/tests/sprint-20-15-admin-reading-mgmt.test.mjs
+            frontend/tests/sprint-20-15-admin-reading-mgmt.test.mjs \
+            frontend/tests/reading-admin-preview-fix.test.mjs
