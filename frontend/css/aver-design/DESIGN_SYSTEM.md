@@ -1419,4 +1419,37 @@ layers; the legacy bridge is for compatibility only and must not grow.
    `--av-warning` / `--av-error` / `--av-info` (and their `-soft` variants), not
    raw `#hex` red/amber/teal. A future CSS sentinel may flag new hardcoded
    semantic hex values in touched files; annotate any intentional exception
-   (e.g. the Reading exam `--exam-*` chrome).
+   (e.g. the Reading exam `--exam-*` chrome). State colours (correct/incorrect,
+   error banners) MUST be theme-aware tokens — design-fix-3 migrated the
+   user-facing Listening MCQ/TF + browse/analytics surfaces (audit rows 19,20).
+6. **No semantic token that doesn't exist.** `--av-critical` and
+   `--av-color-error` were never defined — `var(--av-critical, #c62828)` silently
+   fell back to a hardcoded red that ignored dark theme. The canonical names are
+   `--av-error` / `--av-success` / `--av-warning` / `--av-info`. Don't invent
+   token names; check `tokens.css`.
+
+### Inline-Tailwind long-tail (design-fix-3 B5, record-only)
+
+Several user-facing pages still declare their own navy/teal palette in an inline
+`tailwind.config` block even while loading `tokens.css`, duplicating the token
+truth (audit row 27). This is a **long-tail migration**, done opportunistically
+when a page is otherwise touched — NOT in one sweep. **No new page may add an
+inline Tailwind colour config.** Known pages carrying inline palettes:
+
+`result.html`, `vocabulary.html`, `writing-dashboard.html`, `practice.html`,
+`speaking.html`, `listening.html`, `listening-dictation.html`, `my-vocabulary.html`,
+`full-test-result.html`, `exercises.html`, `d1-exercise.html`, `flashcards.html`,
+`flashcard-study.html`, `grammar-article.html`, `grammar-compare.html`,
+`grammar-roadmap.html`, `grammar-search.html`, `vocab-article.html`.
+
+### Editorial subsystems (typography exception)
+
+Grammar Wiki (`grammar-wiki.css`) intentionally uses DM Sans + Lora — a
+documented editorial exception, NOT drift. **`vocab-article.html` belongs to the
+same editorial family** (DM Sans body + Lora headings) but is more drifted: it
+carries a hardcoded dark background (`#07111f`) and loads legacy `ds.css` rather
+than the `--av-*` token system. Recommendation (design-fix-3, **pending product
+decision**): treat Vocab Article as part of the editorial subsystem — keep
+DM Sans/Lora, but migrate its surfaces onto the token system + share the Grammar
+Wiki editorial CSS in a dedicated follow-up (it is a larger lift than a colour
+swap, so it was deliberately NOT normalized in B5).

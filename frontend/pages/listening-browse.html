@@ -130,8 +130,9 @@
     }
     .error-banner {
       padding: var(--av-space-3) var(--av-space-4);
-      background: #FEF2F2; color: #991B1B;
-      border: 1px solid #FECACA; font-size: var(--av-fs-sm);
+      /* design-fix-3 B5: theme-aware error tokens (was hardcoded red). */
+      background: var(--av-error-soft); color: var(--av-error);
+      border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent); font-size: var(--av-fs-sm);
       text-align: left;
     }
     [hidden] { display: none !important; }
