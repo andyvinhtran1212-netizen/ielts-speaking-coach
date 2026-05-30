@@ -700,3 +700,392 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   outline: 2px solid var(--exam-accent, #2b6cb0);
   outline-offset: 2px;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Sprint 20.14a — Interactive HTML Standards v1.1 compliance, display
+ * fidelity refactor. Production layer overrides for §2A (per-question-
+ * type display), §3A (palette / time signalling / live feedback), plus
+ * Andy AV1–AV4 visual dissatisfactions (passage justify · compact navy
+ * palette · per-type rendering · navy chrome aesthetic).
+ *
+ * Backend untouched; mockup CSS untouched. Every rule here is a
+ * production-layer override on top of the 20.4c mockup base.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* Sprint 20.14a — design tokens for the v1.1 navy chrome (Standards §3
+ * + §3A.1). Scoped to `.exam-chrome` so the rest of the app keeps its
+ * own colour system. The `--ielts-*` names mirror the standards doc.
+ *
+ * Note: --exam-timer-warn-bg = the §3A.3 yellow background the mockup
+ * never had (mockup only flipped border colour). */
+.exam-chrome {
+  --ielts-navy:           #1d1d3b;
+  --ielts-navy-2:         #2a2a55;          /* slightly lighter for hover/active */
+  --ielts-palette-bg:     #3b4060;          /* unanswered tile fill (Standards §3A.1) */
+  --ielts-palette-border: #54608a;
+  --ielts-palette-text:   #c9cce0;
+  --ielts-review:         #ffb74d;          /* amber for review circles */
+  --ielts-current-ring:   #ffd54f;          /* yellow ring for current */
+  --ielts-blue:           #2b6cb0;
+  --exam-timer-warn-bg:   #fff176;          /* §3A.3 10-min yellow background */
+  --exam-timer-crit-bg:   #c62828;          /* §3A.3 5-min red background */
+}
+
+/* ── AV4 — Navy header (Standards §3) ──────────────────────────────── */
+/* The mockup ships a white topbar; standards require navy with light
+ * text. Tokens cascade so timer + tool buttons read on navy. */
+.exam-chrome .exam-topbar {
+  background: var(--ielts-navy);
+  border-bottom: 1px solid var(--ielts-navy-2);
+  color: #FFFFFF;
+}
+.exam-chrome .exam-topbar__candidate,
+.exam-chrome .exam-topbar__candidate b,
+.exam-chrome .exam-topbar__section,
+.exam-chrome .exam-timer__label {
+  color: rgba(255, 255, 255, 0.86);
+}
+.exam-chrome .exam-topbar__section { color: #FFFFFF; }
+.exam-chrome .exam-tool {
+  color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.38);
+  background: transparent;
+}
+.exam-chrome .exam-tool:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: #FFFFFF;
+}
+.exam-chrome .exam-tool:focus-visible {
+  outline-color: var(--ielts-current-ring);
+}
+/* Timer block sits on navy — keep its inner contrast (black on white)
+ * by lifting the surface against the navy background. Border drops
+ * since the white pill is contrast enough. */
+.exam-chrome .exam-timer {
+  background: #FFFFFF;
+  color: var(--ielts-navy);
+  border-color: rgba(255, 255, 255, 0.30);
+}
+
+/* §3A.3 T2.2 — 10-minute warning becomes a yellow BACKGROUND (mockup
+ * only changed colour + border). Critical (5-min) stays red+flash, but
+ * recolours to use the v1.1 token so the cascade is consistent. */
+.exam-chrome .exam-timer[data-state="warning"] {
+  background: var(--exam-timer-warn-bg);
+  color: var(--ielts-navy);
+  border-color: var(--exam-timer-warn-bg);
+}
+.exam-chrome .exam-timer[data-state="critical"] {
+  background: var(--exam-timer-crit-bg);
+  color: #FFFFFF;
+  border-color: var(--exam-timer-crit-bg);
+}
+
+/* ── AV1 — Passage justified, fluid width (Q2 decision) ─────────────── */
+/* The mockup caps body at `max-width: 70ch` and leaves it ragged-right;
+ * Andy's dogfood wants the text to FILL the pane and reflow with
+ * window resize. Drop the cap, justify. `text-justify: inter-word`
+ * keeps spacing professional (no inter-character stretching). */
+.exam-chrome .exam-passage__body {
+  max-width: none;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+/* ── T1.6 — Borderless question card + navy circle badge (§2A.15) ──── */
+/* Standards: regular questions have NO border; the navy badge does the
+ * "this is question N" work on its own. Drop the mockup's grey card. */
+.exam-chrome .exam-q {
+  border: 0;
+  background: transparent;
+  padding: 6px 4px;
+  margin-bottom: 14px;
+  /* §2A.15 spacing — items ≥8px; q-groups handled by .exam-gap-box gap. */
+}
+.exam-chrome .exam-q.is-current {
+  /* Drop the mockup accent-border highlight too; the palette tile carries
+   * "current" affordance now, and the question card avoids competing rings. */
+  border-color: transparent;
+  box-shadow: none;
+}
+/* Filled navy circle (mockup ships an outlined circle). */
+.exam-chrome .exam-q__num {
+  background: var(--ielts-navy);
+  color: #FFFFFF;
+  border: 0;
+  font-family: var(--exam-font-sans);
+}
+
+/* ── T1.4 — MCQ option layout (§2A.1) ──────────────────────────────── */
+/* Each option on its own line, bold letter prefix, hanging indent, hover
+ * light-blue. The radio sits left; the label text wraps under itself. */
+.exam-chrome .exam-q__options {
+  display: flex; flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.exam-chrome .exam-q__option {
+  display: grid;
+  /* radio | bold letter prefix | option text — hanging indent under text. */
+  grid-template-columns: 22px 22px 1fr;
+  gap: 4px 8px;
+  align-items: start;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.exam-chrome .exam-q__option:hover {
+  background: #e8f1fb;                       /* light blue hover (Standards §2A.1) */
+}
+.exam-chrome .exam-q__option input {
+  margin-top: 5px;
+}
+.exam-chrome .exam-q__option-prefix {
+  font-weight: 700;
+  color: var(--ielts-navy);
+  line-height: 1.5;
+}
+.exam-chrome .exam-q__option-text {
+  line-height: 1.5;
+}
+
+/* ── §2A.15 — Instruction strict (Q3 decision: standards-strict) ──── */
+/* Drop the heavy sunken box + 3-px left accent; the instruction reads
+ * as italic body text with a thin separator under it (Standards §2A.15
+ * "có đường phân tách mảnh dưới câu lệnh"). */
+.exam-chrome .exam-questions__instructions--type {
+  margin: 12px 0 10px;
+  padding: 0 0 8px 0;
+  background: transparent;
+  border-left: 0;
+  border-bottom: 1px solid var(--exam-border-default);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--exam-text-primary);
+  /* §2A.15 — `pre-wrap` so the TFNG/YNG 3-line block (T1.5) keeps its
+   * line breaks. Other types are single-line, so pre-wrap is a no-op. */
+  white-space: pre-wrap;
+}
+
+/* ── T1.2 / T1.3 — Headings box + gap box ──────────────────────────── */
+/* `.exam-headings-box` for matching_headings (§2A.5). Sticky so it stays
+ * visible as the student scrolls through the questions; bordered, white
+ * card; Roman numerals bold-prefixed. */
+.exam-chrome .exam-headings-box {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--exam-surface-card);
+  border: 1px solid var(--exam-border-default);
+  border-radius: 6px;
+  padding: 12px 14px 14px;
+  margin: 4px 0 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+.exam-chrome .exam-headings-box__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--exam-text-secondary);
+}
+.exam-chrome .exam-headings-box__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.exam-chrome .exam-headings-box__item {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 6px 8px;
+  align-items: start;
+  padding: 3px 0;
+  line-height: 1.5;
+  font-size: 14px;
+}
+.exam-chrome .exam-headings-box__roman {
+  font-weight: 700;
+  color: var(--ielts-navy);
+  font-family: var(--exam-font-sans);
+  letter-spacing: 0.02em;
+}
+.exam-chrome .exam-headings-box__text {
+  color: var(--exam-text-primary);
+}
+
+/* `.exam-gap-box` wraps summary / notes / table runs (Standards §2A.10
+ * / §2A.12). Light background so the gap-filling region reads as one
+ * scannable block. The `--mono` modifier flips font + `pre-wrap` so
+ * ASCII columns / arrows / indent in a table or flow-chart stem survive
+ * layout (T1.3). AVR-READ-001 has no table/notes seeds today — the
+ * mono-block CSS ships as scaffolding for 20.14b / new content. */
+.exam-chrome .exam-gap-box {
+  background: #f7f8fa;
+  border: 1px solid var(--exam-border-subtle, #e2e5e9);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+}
+.exam-chrome .exam-gap-box .exam-q {
+  /* Tighten cards inside the box — they share the box's chrome. */
+  margin-bottom: 8px;
+}
+.exam-chrome .exam-gap-box .exam-q:last-child { margin-bottom: 0; }
+.exam-chrome .exam-gap-box--mono {
+  font-family: var(--exam-font-mono);
+  white-space: pre-wrap;
+}
+
+/* Inline gap input (T1.1) — sits AT the `____` position in the stem
+ * instead of being appended as a separate element. ~140px so it reads
+ * as a clear blank without dominating the line; bottom border only so
+ * it looks like an underline gap (matches the `____` glyph it replaces). */
+.exam-chrome .exam-q__prompt--inline {
+  line-height: 1.7;
+  margin: 0;
+}
+.exam-chrome .exam-q__gap--inline {
+  display: inline-block;
+  width: 140px;
+  min-width: 100px;
+  margin: 0 4px;
+  padding: 2px 4px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ielts-navy);
+  background: transparent;
+  border: 0;
+  border-bottom: 1.5px solid var(--ielts-navy);
+  vertical-align: baseline;
+}
+.exam-chrome .exam-q__gap--inline:focus {
+  outline: 2px solid var(--ielts-blue);
+  outline-offset: 2px;
+  border-bottom-color: var(--ielts-blue);
+}
+
+/* ── T2.3 — .is-answered on the Q card + jump-flash (§3A.4) ────────── */
+/* Left blue border + faint tint when an answer is present. The cue
+ * lives at the answer site (the question), parallel to the palette
+ * tile's white-inverted state. */
+.exam-chrome .exam-q.is-answered {
+  border-left: 4px solid var(--ielts-blue);
+  padding-left: 10px;
+  background: #f3f8fd;
+  border-radius: 0 4px 4px 0;
+}
+/* Jump-flash — 0.5s yellow background pulse triggered by JS adding the
+ * `is-flash` class on palette-click. Reduced-motion users see no
+ * animation (the JS skips the class entirely; this rule + the global
+ * `prefers-reduced-motion` block below close the loop). */
+@keyframes exam-q-flash {
+  0%, 100% { background-color: transparent; }
+  35%      { background-color: #fff3a6; }
+}
+.exam-chrome .exam-q.is-flash {
+  animation: exam-q-flash 0.5s ease-in-out 1;
+}
+
+/* ── AV2 / T2.1 — Palette re-skin to navy bar (§3A.1) ──────────────── */
+/* The 20.13a layer shipped the framed white pills + dark-grey "answered"
+ * fill; v1.1 wants ONE navy bar + inverted white/navy on answered +
+ * yellow ring on current. Override the per-group framed pills AND the
+ * 4-state colours. */
+.exam-chrome .exam-palette {
+  background: var(--ielts-navy);
+  color: #FFFFFF;
+  border-top: 1px solid var(--ielts-navy-2);
+}
+.exam-chrome .exam-palette__grid {
+  gap: 14px;
+  flex-wrap: nowrap;                         /* single navy row, horizontal scroll on narrow */
+  overflow-x: auto;
+}
+/* Drop the framed pills shipped in 20.11 D3 — `.nav-sep` thin vertical
+ * rule between Parts is the §3A.1 affordance instead. */
+.exam-chrome .exam-palette__group {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  gap: 4px;
+}
+.exam-chrome .exam-palette__group + .exam-palette__group {
+  border-left: 1px solid var(--ielts-palette-border);
+  padding-left: 14px;
+}
+.exam-chrome .exam-palette__group-label {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.exam-chrome .exam-palette__group-btns {
+  grid-auto-columns: 30px;                  /* §3A.1 ~30px square */
+  gap: 4px;
+}
+/* Tile base — unanswered = navy-grey square (Standards §3A.1). */
+.exam-chrome .exam-palette__q {
+  width: 30px; height: 30px;
+  border-radius: 3px;
+  background: var(--ielts-palette-bg);
+  color: var(--ielts-palette-text);
+  border: 1px solid var(--ielts-palette-border);
+  font-size: 12px;
+  font-family: var(--exam-font-sans);
+}
+.exam-chrome .exam-palette__q:hover {
+  background: var(--ielts-navy-2);
+  border-color: rgba(255, 255, 255, 0.50);
+  color: #FFFFFF;
+}
+/* Answered = WHITE bg, NAVY text (inverted) — Standards §3A.1. */
+.exam-chrome .exam-palette__q.is-answered {
+  background: #FFFFFF;
+  color: var(--ielts-navy);
+  border-color: #FFFFFF;
+}
+.exam-chrome .exam-palette__q.is-answered:hover {
+  background: #e6ebf5;
+  color: var(--ielts-navy);
+  border-color: #e6ebf5;
+}
+/* Current = yellow ring overlay (Standards §3A.1) — does not change the
+ * underlying answered/unanswered fill. */
+.exam-chrome .exam-palette__q.is-current {
+  background: var(--ielts-palette-bg);
+  color: var(--ielts-palette-text);
+  border-color: var(--ielts-palette-border);
+  box-shadow: 0 0 0 2px var(--ielts-current-ring);
+}
+.exam-chrome .exam-palette__q.is-current.is-answered {
+  background: #FFFFFF;
+  color: var(--ielts-navy);
+  border-color: #FFFFFF;
+}
+/* Review = circle + amber border (20.13a A1 shipped this correctly).
+ * Re-state under the new tokens so the cascade is explicit and the
+ * combined `is-answered + is-flagged` keeps the amber circle. */
+.exam-chrome .exam-palette__q.is-flagged {
+  border-radius: 50%;
+  border-color: var(--ielts-review);
+}
+.exam-chrome .exam-palette__q.is-flagged.is-answered {
+  border-color: var(--ielts-review);
+}
+/* Legend strip (already aria-hidden) — recolour swatches against navy. */
+.exam-chrome .exam-palette__legend {
+  color: rgba(255, 255, 255, 0.70);
+}
+
+/* ── Reduced-motion guards (Standards §4.9) ─────────────────────────── */
+/* The jump-flash animation is already gated in JS (jumpTo skips the
+ * class). Belt-and-braces: also disable the keyframe under media query
+ * so any future code-path that adds the class still respects the user
+ * preference. */
+@media (prefers-reduced-motion: reduce) {
+  .exam-chrome .exam-q.is-flash { animation: none !important; }
+}

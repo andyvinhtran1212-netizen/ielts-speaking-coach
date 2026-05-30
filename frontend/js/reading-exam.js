@@ -377,18 +377,26 @@
         'Select your answer from the dropdown beside each question.';
     },
     true_false_not_given: function (range, ctx) {
+      // Sprint 20.14a T1.5 — 3-line pre-wrap block per Standards §2A.3.
+      // Real BC/IDP exam ships this as a three-line vertical instruction
+      // (TRUE if… / FALSE if… / NOT GIVEN if…); the one-line variant the
+      // 20.11 D2 sprint shipped scanned as a paragraph and lost the
+      // structure students rely on. The renderer keeps these as line
+      // breaks; `.exam-questions__instructions--type` sets pre-wrap so
+      // the breaks survive layout.
       return 'Questions ' + range + ': Do the following statements agree with ' +
-        'the information given in Reading Passage ' + ctx.part + '? Choose ' +
-        'TRUE if the statement agrees with the information, FALSE if the ' +
-        'statement contradicts the information, or NOT GIVEN if there is ' +
-        'no information on this in the passage.';
+        'the information given in Reading Passage ' + ctx.part + '?\n' +
+        'TRUE        if the statement agrees with the information\n' +
+        'FALSE       if the statement contradicts the information\n' +
+        'NOT GIVEN   if there is no information on this';
     },
     yes_no_not_given: function (range, ctx) {
+      // Sprint 20.14a T1.5 — same 3-line pre-wrap treatment as TFNG.
       return 'Questions ' + range + ': Do the following statements agree with ' +
-        "the claims of the writer in Reading Passage " + ctx.part + '? Choose ' +
-        "YES if the statement agrees with the writer's claims, NO if the " +
-        "statement contradicts the writer's claims, or NOT GIVEN if it is " +
-        "impossible to say what the writer thinks about this.";
+        "the claims of the writer in Reading Passage " + ctx.part + '?\n' +
+        "YES         if the statement agrees with the writer's claims\n" +
+        "NO          if the statement contradicts the writer's claims\n" +
+        "NOT GIVEN   if it is impossible to say what the writer thinks about this";
     },
     mcq_single: function (range, ctx) {
       var n = ctx.optionsCount;
@@ -476,9 +484,67 @@
           ? template(rangeLabel, ctx)
           : 'Questions ' + rangeLabel + '.';
         host.appendChild(instructionEl);
-        run.forEach(function (q) { host.appendChild(renderQuestion(q)); });
+
+        // Sprint 20.14a T1.2 — matching_headings: emit the heading bank
+        // BOX above the question list (Standards §2A.5 BẮT BUỘC). The
+        // dropdown options drop the heading TEXT since the bank is now
+        // visible (renderInputs reads the same flag), keeping the select
+        // narrow to "i / ii / iii…" labels.
+        if (type === 'matching_headings') {
+          var headingsBox = _renderHeadingsBox(run[0].payload && run[0].payload.options);
+          if (headingsBox) host.appendChild(headingsBox);
+        }
+
+        // Sprint 20.14a T1.1 / T1.3 — wrap completion runs in a `.gap-box`
+        // so summary / notes / table groups read as a single block, with
+        // each question's stem flowing inline (Standards §2A.10 / §2A.12).
+        // sentence_completion + short_answer stay un-boxed (§2A.9 / §2A.14).
+        // table/notes get the additional `.mono-block` modifier so
+        // columns / arrows / indent in the stem survive layout.
+        var boxedTypes = { summary_completion: false, notes_completion: true, table_completion: true, form_completion: true };
+        if (Object.prototype.hasOwnProperty.call(boxedTypes, type)) {
+          var box = document.createElement('div');
+          box.className = 'exam-gap-box' + (boxedTypes[type] ? ' exam-gap-box--mono' : '');
+          box.setAttribute('data-question-type', type);
+          run.forEach(function (q) { box.appendChild(renderQuestion(q)); });
+          host.appendChild(box);
+        } else {
+          run.forEach(function (q) { host.appendChild(renderQuestion(q)); });
+        }
       });
     });
+  }
+
+  // Sprint 20.14a T1.2 — heading-bank box for matching_headings (§2A.5).
+  // The box sits above the question list, sticky so it stays visible as
+  // the student scrolls through the questions. Roman numerals in bold,
+  // one heading per line, hanging indent inside each line.
+  function _renderHeadingsBox(options) {
+    if (!Array.isArray(options) || !options.length) return null;
+    var box = document.createElement('aside');
+    box.className = 'exam-headings-box';
+    box.setAttribute('aria-label', 'List of Headings');
+    var title = document.createElement('p');
+    title.className = 'exam-headings-box__title';
+    title.textContent = 'List of Headings';
+    box.appendChild(title);
+    var list = document.createElement('ol');
+    list.className = 'exam-headings-box__list';
+    options.forEach(function (o) {
+      var item = document.createElement('li');
+      item.className = 'exam-headings-box__item';
+      var label = document.createElement('span');
+      label.className = 'exam-headings-box__roman';
+      label.textContent = o.label != null ? String(o.label) : '';
+      var text = document.createElement('span');
+      text.className = 'exam-headings-box__text';
+      text.textContent = o.text || '';
+      item.appendChild(label);
+      item.appendChild(text);
+      list.appendChild(item);
+    });
+    box.appendChild(list);
+    return box;
   }
   function _consecutiveTypeRuns(qs) {
     if (!qs.length) return [];
@@ -496,16 +562,28 @@
     card.className = 'exam-q';
     card.id = 'q-' + q.q_num;
     card.dataset.q = String(q.q_num);
+    card.dataset.questionType = String(q.question_type || '');
 
     var num = document.createElement('span');
     num.className = 'exam-q__num'; num.textContent = String(q.q_num);
 
     var body = document.createElement('div');
     body.className = 'exam-q__body';
-    var prompt = document.createElement('p');
-    prompt.className = 'exam-q__prompt'; prompt.textContent = q.prompt || '';
-    body.appendChild(prompt);
-    renderInputs(body, q);
+
+    // Sprint 20.14a T1.1 — inline-gap rendering for completion types
+    // (Standards §2A.9 / §2A.10 / §2A.12 / §2A.14). When the stem contains
+    // `____` (≥2 underscores), the input slots IN PLACE of the underscores
+    // — not as a separate element appended after the prompt. For types
+    // that don't carry a gap glyph in the stem (mcq, TFNG/YNG, matching),
+    // fall back to the historic "prompt then control" layout.
+    if (_isInlineGapType(q.question_type) && _stemHasGap(q.prompt)) {
+      body.appendChild(_renderInlineStem(q));
+    } else {
+      var prompt = document.createElement('p');
+      prompt.className = 'exam-q__prompt'; prompt.textContent = q.prompt || '';
+      body.appendChild(prompt);
+      renderInputs(body, q);
+    }
 
     var flag = document.createElement('button');
     flag.type = 'button'; flag.className = 'exam-q__flag';
@@ -520,16 +598,54 @@
     card.addEventListener('input',  function () { onAnswerChanged(q.q_num, card); });
     return card;
   }
+  // Sprint 20.14a T1.1 — types whose stems can carry a `____` gap.
+  // form_completion stems are typically `key: ____` style; same renderer.
+  function _isInlineGapType(type) {
+    return type === 'sentence_completion' || type === 'summary_completion' ||
+           type === 'notes_completion'    || type === 'table_completion'   ||
+           type === 'form_completion'     || type === 'short_answer';
+  }
+  var _GAP_RE = /_{2,}/;
+  function _stemHasGap(prompt) {
+    return typeof prompt === 'string' && _GAP_RE.test(prompt);
+  }
+  function _renderInlineStem(q) {
+    // Split the stem on the FIRST `____` run; the suffix may itself
+    // contain more gaps, but per AVR-READ-001 the seed shape is one
+    // gap per question, so we render one inline input. Multi-gap stems
+    // (Phase B) can extend this with a /g split.
+    var p = document.createElement('p');
+    p.className = 'exam-q__prompt exam-q__prompt--inline';
+    var s = String(q.prompt || '');
+    var idx = s.search(_GAP_RE);
+    var match = s.match(_GAP_RE);
+    var prefix = idx >= 0 ? s.slice(0, idx) : s;
+    var suffix = idx >= 0 ? s.slice(idx + (match ? match[0].length : 0)) : '';
+    if (prefix) p.appendChild(document.createTextNode(prefix));
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'exam-q__gap exam-q__gap--inline';
+    input.name = 'q-' + q.q_num;
+    input.setAttribute('aria-label', 'Answer ' + q.q_num);
+    input.setAttribute('autocomplete', 'off');
+    p.appendChild(input);
+    if (suffix) p.appendChild(document.createTextNode(suffix));
+    return p;
+  }
 
   function renderInputs(body, q) {
     var name = 'q-' + q.q_num;
     var type = q.question_type;
     if (type === 'mcq_single') {
+      // Sprint 20.14a T1.4 — bold A/B/C/D prefix as a separate span so
+      // CSS can weight it independently (Standards §2A.1). The label
+      // text wraps under itself via the grid layout in
+      // `.exam-q__option` (hanging indent).
       var opts = document.createElement('div'); opts.className = 'exam-q__options';
       ((q.payload && q.payload.options) || []).forEach(function (o) {
         var val = o.label != null ? String(o.label) : String(o.text || '');
-        var text = o.label != null ? (o.label + '. ' + (o.text || '')) : (o.text || '');
-        opts.appendChild(radioOption(name, val, text));
+        var prefix = o.label != null ? String(o.label) : '';
+        opts.appendChild(radioOption(name, val, prefix, o.text || ''));
       });
       body.appendChild(opts);
     } else if (type === 'true_false_not_given' || type === 'yes_no_not_given') {
@@ -555,20 +671,21 @@
       });
       body.appendChild(sel);
     } else if (type === 'matching_headings') {
+      // Sprint 20.14a T1.2 — the heading bank now renders ABOVE the
+      // question list in `.exam-headings-box` (Standards §2A.5), so the
+      // dropdown only needs to surface the LABEL (i, ii, iii…). The
+      // student maps "label → heading text" by reading the visible bank.
+      // Dropping the text from each `<option>` also keeps the select
+      // narrow and prevents Roman numerals from being lost in long lines.
       var sel = document.createElement('select');
       sel.className = 'exam-q__select'; sel.name = name;
       var ph = document.createElement('option');
-      // Sprint 20.11 D4 — English inside exam content (real IELTS fidelity).
-      // The pre-start, modals, and Hide/Help chrome stay Vietnamese (app
-      // voice); the surface a student reads to answer an IELTS question
-      // is English to match BC / IDP / Cambridge official samples.
       ph.value = ''; ph.textContent = '— Select —';
       sel.appendChild(ph);
       ((q.payload && q.payload.options) || []).forEach(function (o) {
         var val = o.label != null ? String(o.label) : String(o.text || '');
-        var text = o.label != null ? (o.label + '. ' + (o.text || '')) : (o.text || '');
         var opt = document.createElement('option');
-        opt.value = val; opt.textContent = text;
+        opt.value = val; opt.textContent = val;
         sel.appendChild(opt);
       });
       body.appendChild(sel);
@@ -581,12 +698,28 @@
       body.appendChild(input);
     }
   }
-  function radioOption(name, value, labelText) {
+  function radioOption(name, value, prefixOrText, optionalText) {
+    // Sprint 20.14a T1.4 — accept either (name, value, fullText) for
+    // back-compat with internal callers OR (name, value, prefix, text)
+    // for the bold-prefix split. When `optionalText` is supplied the
+    // prefix renders as its own bold span; the text follows in a sibling
+    // span so the grid layout hangs the wrap under the text column.
     var label = document.createElement('label'); label.className = 'exam-q__option';
     var input = document.createElement('input');
     input.type = 'radio'; input.name = name; input.value = value;
-    var span = document.createElement('span'); span.textContent = labelText;
-    label.appendChild(input); label.appendChild(span);
+    label.appendChild(input);
+    if (optionalText !== undefined) {
+      var prefixEl = document.createElement('span');
+      prefixEl.className = 'exam-q__option-prefix';
+      prefixEl.textContent = String(prefixOrText || '');
+      var textEl = document.createElement('span');
+      textEl.className = 'exam-q__option-text';
+      textEl.textContent = String(optionalText || '');
+      label.appendChild(prefixEl); label.appendChild(textEl);
+    } else {
+      var span = document.createElement('span'); span.textContent = prefixOrText;
+      label.appendChild(span);
+    }
     return label;
   }
   function readAnswer(card) {
@@ -603,12 +736,37 @@
   function onAnswerChanged(qNum, card) {
     var value = readAnswer(card);
     SESSION.answers.set(qNum, value);
-    markAnswered(qNum);
+    // Sprint 20.14a T2.3 — clearing the input drops the `is-answered`
+    // class on the card AND the palette (Standards §3A.4: "xoá nội dung
+    // ô text → tự gỡ trạng thái đã làm"). For non-text inputs (radio,
+    // select) a value of '' shouldn't occur via interaction (the change
+    // event only fires on a selection), so treat any falsy value as
+    // "not answered".
+    if (value === '' || value == null) {
+      SESSION.answers['delete'](qNum);
+      _setAnsweredState(qNum, false);
+    } else {
+      _setAnsweredState(qNum, true);
+    }
     if (SESSION.debounce_timers.has(qNum)) clearTimeout(SESSION.debounce_timers.get(qNum));
     SESSION.debounce_timers.set(qNum, setTimeout(function () {
       patchAnswer(qNum, value);
       SESSION.debounce_timers.delete(qNum);
     }, 500));
+  }
+  // Sprint 20.14a T2.3 — single source of truth for "this question now
+  // is / is not answered" (Standards §3A.4). Toggles BOTH the palette
+  // tile and the question card so the answered cue reads at the answer
+  // site itself (left blue border via `.exam-q.is-answered`) and on the
+  // bottom palette simultaneously.
+  function _setAnsweredState(qNum, answered) {
+    var btn = document.querySelector('.exam-palette__q[data-q="' + qNum + '"]');
+    if (btn) {
+      btn.classList.toggle('is-answered', !!answered);
+      _updatePaletteAriaLabel(btn);
+    }
+    var card = document.getElementById('q-' + qNum);
+    if (card) card.classList.toggle('is-answered', !!answered);
   }
   function patchAnswer(qNum, userAnswer) {
     if (!SESSION.attempt_id || SESSION.timer_locked) return;
@@ -706,7 +864,24 @@
   }
   function jumpTo(qNum) {
     var card = document.getElementById('q-' + qNum);
-    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Sprint 20.14a T2.3 — jump-flash (Standards §3A.4). 0.5s yellow
+      // background pulse lands the eye on the just-clicked question.
+      // `prefersReducedMotion()` (20.13b helper) caller skips the flash
+      // class so the underlying transition rule (also reduced-motion-
+      // gated in CSS) doesn't try to animate.
+      if (!prefersReducedMotion()) {
+        card.classList.remove('is-flash');           // restart if mid-animation
+        // Force reflow so re-adding the class re-triggers the animation.
+        void card.offsetWidth;
+        card.classList.add('is-flash');
+        card.addEventListener('animationend', function _drop() {
+          card.classList.remove('is-flash');
+          card.removeEventListener('animationend', _drop);
+        });
+      }
+    }
     setCurrent(qNum);
   }
   // Sprint 20.13b B4 — keep palette-tile `aria-label` in sync with state
@@ -733,8 +908,11 @@
     });
   }
   function markAnswered(qNum) {
-    var btn = document.querySelector('.exam-palette__q[data-q="' + qNum + '"]');
-    if (btn) { btn.classList.add('is-answered'); _updatePaletteAriaLabel(btn); }
+    // Sprint 20.14a T2.3 — delegate to _setAnsweredState so the Q-card
+    // `.is-answered` left-border lights up on resume too (not just the
+    // palette tile). Restoring a saved attempt that had answers persisted
+    // server-side now visually matches a freshly typed answer.
+    _setAnsweredState(qNum, true);
   }
   function toggleFlag(qNum, flagBtn) {
     var pressed = flagBtn.getAttribute('aria-pressed') !== 'true';
@@ -764,9 +942,14 @@
         // Sprint 20.13b B2 — announce the 5-minute warning ONCE (the
         // attribute guard above keeps it from re-firing every tick).
         liveSay('Warning: 5 minutes remaining.');
+        // Sprint 20.14a T2.2 — visible toast for sighted users
+        // (Standards §3A.3). The CSS for `.exam-time-toast` shipped in
+        // 20.13b but JS wiring was missing — toast was SR-only.
+        _showTimeToast('5 minutes remaining');
       } else if (remaining <= 600 && timer.getAttribute('data-state') === 'normal') {
         timer.setAttribute('data-state', 'warning');
         liveSay('Warning: 10 minutes remaining.');
+        _showTimeToast('10 minutes remaining');
       }
       if (remaining <= 0) {
         if (SESSION.timer_interval) {
@@ -785,6 +968,31 @@
   function formatTime(s) {
     var m = Math.floor(s / 60), r = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+  }
+  // Sprint 20.14a T2.2 — time-warning toast (Standards §3A.3). 4-second
+  // visible toast at the 10-/5-minute thresholds, fixed-positioned at
+  // the top of the viewport. Pointer-events-none so it never blocks
+  // input. Only ONE toast lives at a time — opening a new one removes
+  // any prior toast (covers the corner case where the user pauses on
+  // a slow tab and both thresholds fire in the same tick).
+  var _timeToastEl = null;
+  var _timeToastTimer = null;
+  function _showTimeToast(message) {
+    if (_timeToastEl && _timeToastEl.parentNode) {
+      _timeToastEl.parentNode.removeChild(_timeToastEl);
+    }
+    if (_timeToastTimer) clearTimeout(_timeToastTimer);
+    var toast = document.createElement('div');
+    toast.className = 'exam-time-toast';
+    toast.setAttribute('role', 'status');
+    toast.textContent = String(message || '');
+    document.body.appendChild(toast);
+    _timeToastEl = toast;
+    _timeToastTimer = setTimeout(function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+      if (_timeToastEl === toast) _timeToastEl = null;
+      _timeToastTimer = null;
+    }, 4000);
   }
   // Sprint 20.13c C4 — single source of truth for "how many questions in
   // this test". Prefer the spec value; fall back to the rendered length.

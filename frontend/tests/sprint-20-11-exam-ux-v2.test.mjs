@@ -125,33 +125,25 @@ describe('Sprint 20.11 D2 — instruction-block CSS', () => {
 // ── D3 — Palette stronger per-part separation ─────────────────────────
 
 
-describe('Sprint 20.11 D3 — palette per-part visual separation', () => {
-  const css = read('frontend/css/reading-exam.css');
-
-  test('palette grid uses a bigger gap (≥ 24px) and can wrap', () => {
-    // 20.10 D3 shipped 18px gaps without wrap. Andy's dogfood wanted
-    // "2 visual rows" — wrap enables that automatically on narrower
-    // viewports while keeping single-row layout where space allows.
-    // Look for the LAST `.exam-palette__grid { … }` rule in the file —
-    // the 20.11 override.
-    const blocks = [...css.matchAll(/\.exam-palette__grid\s*\{([\s\S]*?)\}/g)];
-    assert.ok(blocks.length >= 2, 'expected 20.10 + 20.11 grid rules');
-    const last = blocks[blocks.length - 1][1];
-    assert.match(last, /gap:\s*(2[4-9]|[3-9]\d)px/, 'gap < 24px in 20.11 grid rule');
-    assert.match(last, /flex-wrap:\s*wrap/);
-  });
-
-  test('group container is a framed pill (background + border + radius)', () => {
-    // Match the standalone `.exam-palette__group { … }` rule by anchoring
-    // at the start of a line — this excludes the sibling combinator
-    // `.exam-palette__group + .exam-palette__group {` whose trailing
-    // `.exam-palette__group {` would otherwise match too.
-    const blocks = [...css.matchAll(/(?:^|\n)\.exam-palette__group\s*\{([\s\S]*?)\}/g)];
-    assert.ok(blocks.length >= 2, 'expected 20.10 + 20.11 standalone group rules');
-    const last = blocks[blocks.length - 1][1];
-    assert.match(last, /background:/);
-    assert.match(last, /border:/);
-    assert.match(last, /border-radius:/);
+describe('Sprint 20.11 D3 — palette per-part visual separation (superseded by 20.14a §3A.1)', () => {
+  // Sprint 20.14a re-skinned the palette to a single navy bar with
+  // `.nav-sep` thin vertical rules between Parts (Standards v1.1 §3A.1),
+  // deliberately replacing the 20.11 D3 framed-pill + ≥24px-gap design.
+  // The "stronger per-part separation" intent now lives in the navy
+  // bar + light-coloured Part labels, NOT in the framed pills. Per-Part
+  // visual separation is pinned in sprint-20-14-display-fidelity.test.mjs
+  // (the navy bar, the .nav-sep border-left, the inverted-tile states).
+  //
+  // The two specific assertions deleted here pinned the FRAMED-PILL
+  // implementation (≥24px gap + group.background+border+radius), which
+  // is the very thing 20.14a swaps out. Keeping them would force the
+  // older design back. The describe block remains as a breadcrumb for
+  // anyone reading git blame.
+  test('see sprint-20-14-display-fidelity.test.mjs for the navy-bar replacement', () => {
+    const css = read('frontend/css/reading-exam.css');
+    // Light touch: just confirm the new design tokens shipped, so a
+    // hypothetical full-revert of 20.14a would fail this guard too.
+    assert.match(css, /--ielts-palette-bg:/);
   });
 });
 
