@@ -465,10 +465,28 @@
       // Consecutive runs of the same type share one instruction block;
       // a type change starts a new block (so a Part with matching_headings
       // → T/F/NG → short_answer shows three labelled instruction blocks).
+      //
+      // Sprint 20.14a.1 — every run now lives in a `<section
+      // class="exam-questions__group">` so any sticky element inside
+      // (e.g. the matching_headings `.exam-headings-box`) is BOUNDED to
+      // the run's own section. Pre-20.14a.1 the headings box was
+      // appended directly to `.exam-questions` and sticky-positioned
+      // against the pane's top; it persisted past the matching_headings
+      // run into the next question type's view (Andy's dogfood Bug 2 —
+      // the i–v heading bank lingered over the TFNG block that follows
+      // matching_headings in AVR-READ-001). Wrapping in a section
+      // means `position: sticky` computes its containing block as the
+      // section, and the box scrolls off naturally when the section's
+      // bottom edge reaches the top of the pane.
       var typeRuns = _consecutiveTypeRuns(partQs);
       typeRuns.forEach(function (run) {
         var type = run[0].question_type;
         var rangeLabel = _qRangeLabel(run);
+
+        var groupEl = document.createElement('section');
+        groupEl.className = 'exam-questions__group';
+        groupEl.setAttribute('data-question-type', type);
+
         var instructionEl = document.createElement('div');
         instructionEl.className = 'exam-questions__instructions exam-questions__instructions--type';
         instructionEl.setAttribute('data-question-type', type);
@@ -483,16 +501,17 @@
         instructionEl.textContent = template
           ? template(rangeLabel, ctx)
           : 'Questions ' + rangeLabel + '.';
-        host.appendChild(instructionEl);
+        groupEl.appendChild(instructionEl);
 
         // Sprint 20.14a T1.2 — matching_headings: emit the heading bank
         // BOX above the question list (Standards §2A.5 BẮT BUỘC). The
         // dropdown options drop the heading TEXT since the bank is now
         // visible (renderInputs reads the same flag), keeping the select
-        // narrow to "i / ii / iii…" labels.
+        // narrow to "i / ii / iii…" labels. The box is now appended
+        // INSIDE the group section (Bug 2 fix — see comment above).
         if (type === 'matching_headings') {
           var headingsBox = _renderHeadingsBox(run[0].payload && run[0].payload.options);
-          if (headingsBox) host.appendChild(headingsBox);
+          if (headingsBox) groupEl.appendChild(headingsBox);
         }
 
         // Sprint 20.14a T1.1 / T1.3 — wrap completion runs in a `.gap-box`
@@ -507,10 +526,12 @@
           box.className = 'exam-gap-box' + (boxedTypes[type] ? ' exam-gap-box--mono' : '');
           box.setAttribute('data-question-type', type);
           run.forEach(function (q) { box.appendChild(renderQuestion(q)); });
-          host.appendChild(box);
+          groupEl.appendChild(box);
         } else {
-          run.forEach(function (q) { host.appendChild(renderQuestion(q)); });
+          run.forEach(function (q) { groupEl.appendChild(renderQuestion(q)); });
         }
+
+        host.appendChild(groupEl);
       });
     });
   }
