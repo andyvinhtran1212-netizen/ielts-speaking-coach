@@ -389,7 +389,12 @@ def _build_reading_test_detail(test_id: str) -> dict:
     if passage_ids:
         q_res = (
             supabase_admin.table("reading_questions")
-            .select("q_num,question_type,prompt,payload,skill_tag,sub_skill,"
+            # Sprint 20.14f-α — include `id` so the admin diagram-image
+            # manager can address rows by UUID. The id column is public
+            # (mig 086 has no policy restricting it) and the student
+            # client ignores fields it doesn't use, so the additive
+            # projection is safe.
+            .select("id,q_num,question_type,prompt,payload,skill_tag,sub_skill,"
                     "order_num,passage_id")
             .in_("passage_id", passage_ids)
             .order("q_num")
@@ -403,9 +408,65 @@ def _build_reading_test_detail(test_id: str) -> dict:
     for q in questions:
         q["passage_order"] = passage_order_by_id.get(q.get("passage_id"))
 
+    # Sprint 20.14f-α — sign + emit `payload.image_url` for diagram /
+    # flow-chart questions that carry an admin-uploaded image. The on-
+    # row source-of-truth is `payload.template.image_storage_path`
+    # (written by the admin upload endpoint); we mint a 2h signed URL
+    # per request — never persist the signed URL. Matches the listening
+    # `_sign_map_image_url` 2h student-fetch TTL.
+    _stamp_diagram_image_urls(questions)
+
     test["passages"] = passages
     test["questions"] = questions
     return test
+
+
+# Sprint 20.14f-α — student fetch helper. Lives at module scope so the
+# unit tests can patch the signer without going through the full route.
+_DIAGRAM_FLOW_TYPES = ("diagram_label_completion", "flow_chart_completion")
+_DIAGRAM_IMAGE_TTL_STUDENT = 2 * 3600   # 2h — matches listening student fetch
+
+
+def _stamp_diagram_image_urls(questions: list[dict]) -> None:
+    """In-place: for each diagram_label / flow_chart question that has
+    `payload.template.image_storage_path`, mint a signed URL and
+    surface it as `payload.image_url`. Other questions are untouched.
+
+    Best-effort: failures (bucket missing, signing error) leave
+    `image_url` unset and the frontend falls back to the legacy
+    ASCII mono-block render. The empty bucket case is the most likely
+    production miss (bucket creation is the one out-of-band deploy
+    step); the renderer handles `image_url` absent cleanly.
+    """
+    from config import settings
+
+    bucket = settings.READING_IMAGES_BUCKET
+    for q in questions:
+        if q.get("question_type") not in _DIAGRAM_FLOW_TYPES:
+            continue
+        payload = q.get("payload") or {}
+        template = payload.get("template") or {}
+        storage_path = template.get("image_storage_path")
+        if not storage_path:
+            continue
+        try:
+            signed = supabase_admin.storage.from_(bucket).create_signed_url(
+                storage_path, _DIAGRAM_IMAGE_TTL_STUDENT,
+            )
+            url = (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+        except Exception as exc:                                              # pragma: no cover
+            logger.warning(
+                "[reading_image] sign URL for q_num=%s failed: %s",
+                q.get("q_num"), exc,
+            )
+            url = None
+        if url:
+            # Use a mutable copy so the row's stored payload (already a
+            # reference to the JSONB dict from supabase-py) isn't
+            # mutated in a way that confuses upstream callers.
+            payload = dict(payload)
+            payload["image_url"] = url
+            q["payload"] = payload
 
 
 def _fetch_in_progress_payload(

@@ -316,6 +316,45 @@ For the **word-bank variant** (§2A.11), add `options: [...]` on the first Q alo
 
 The `prompt:` field on absorbed questions must still satisfy the importer's "non-empty prompt" rule. A short placeholder like `"(see summary above)"` is the convention.
 
+#### `diagram_label_completion` / `flow_chart_completion` — image variant (Sprint 20.14f-α)
+
+Standards §2A.13 (and the §2A.12 flow-chart sibling) accept BOTH ASCII art and a real image. As of Sprint 20.14f-α the image path is wired up via the same manual-upload mechanism listening uses for plan-label maps.
+
+**Storage:** image bytes live in the private Supabase Storage bucket `reading-images`, under `tests/<test_uuid>/diagrams/<question_uuid>.<ext>`. The student fetch mints a 2-hour signed URL per request — the URL is NOT persisted in the row.
+
+**Author shape — first Q of the run owns the image** (mirrors the 20.14e `summary_text` first-Q-owns-the-block pattern). The author does NOT write `template.image_storage_path` themselves; instead the admin uploads the image via `POST /admin/reading/questions/{q_id}/upload-diagram-image`, which writes `template.image_storage_path` (and supporting metadata) onto the question's `payload.template`.
+
+The admin upload tags the payload with:
+
+| Field | Source | Used by |
+|---|---|---|
+| `template.image_storage_path` | upload endpoint | student fetch (input to URL signer) |
+| `template.image_source` | upload endpoint | admin UI ("Manual upload" / "AI generation") |
+| `template.image_size_bytes` | upload endpoint | admin UI |
+| `template.image_uploaded_at` | upload endpoint | admin UI |
+| `template.image_uploaded_by` | upload endpoint | admin UI |
+| `payload.image_url` | student fetch (signed URL) | renderer (`<img src>`) |
+
+**Renderer behaviour:**
+
+- **With image** — `frontend/js/reading-exam.js` detects `payload.image_url` on the first Q of a diagram/flow run and emits a `.exam-diagram-container` with the image on top + a numbered side-list of inputs below (one row per q_num: badge + text input). Mirrors listening's `renderPlanLabel`.
+- **Without image** — falls through to the legacy 20.14b `.exam-gap-box--mono` ASCII path. No content migration is needed before this sprint ships; admin uploads an image when the question's diagram is ready.
+
+**Authoring example** — the seed YAML stays exactly the same as 20.14b (`template:` is optional and only carries `summary_text` for summary completion). The image is bolted on AFTER import, via the admin upload UI:
+
+```yaml
+# AVR-READ-002 Qs 38-40 already validate clean with the mono-block path.
+# After admin upload, payload.template.image_storage_path lands on Q38
+# (the first Q of the diagram run), and the student fetch signs it.
+- q_num: 38
+  question_type: diagram_label_completion
+  prompt: "Label 1 (input side): pre-graded ____"
+  answer: "seeds"
+  skill_tag: scanning
+```
+
+**Variant guard** — the admin upload endpoint refuses any `question_type` other than `diagram_label_completion` or `flow_chart_completion` (422). Other types that conceptually carry an image (e.g. an L1 vocab passage hero image) use the existing `reading_passages.image_url` Cloudinary path, not this bucket.
+
 #### `mcq_multi` scoring (Sprint 20.14b)
 
 Set-equality, all-or-nothing. The grader normalises each chosen label (case / whitespace / diacritic / UK-US per §4.3) and compares the user's set to the authored set. Extras OR omissions both fail the question. There is no partial credit (matches IELTS marking-guide convention for the format). The frontend serialises the chosen labels as a comma-separated string (e.g. `"A,C"` or `"A, C"`) — the grader splits on both `,` and `;` before normalising.

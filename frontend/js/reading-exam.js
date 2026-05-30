@@ -633,6 +633,24 @@
           return; // skip the per-Q card path entirely for this run
         }
 
+        // Sprint 20.14f-α — diagram_label / flow_chart with admin-
+        // uploaded image (Standards §2A.13 / §2A.12 image variant). The
+        // student fetch surfaces a signed `payload.image_url` on the
+        // FIRST Q of a diagram/flow run when an admin has uploaded an
+        // image; the renderer emits ONE `.exam-diagram-container` with
+        // the image on top + a numbered side-list of inputs below.
+        // Runs without an image fall through to the legacy mono-block
+        // path below (back-compat — admins upload an image when the
+        // diagram is ready; legacy seeds keep working until then).
+        if ((type === 'diagram_label_completion' || type === 'flow_chart_completion') &&
+            run[0].payload && typeof run[0].payload.image_url === 'string' &&
+            run[0].payload.image_url) {
+          var diagramBox = _renderDiagramImageBlock(run);
+          groupEl.appendChild(diagramBox);
+          host.appendChild(groupEl);
+          return; // skip the mono-block path for this run
+        }
+
         // Sprint 20.14a T1.1 / T1.3 — wrap completion runs in a `.gap-box`
         // so summary / notes / table groups read as a single block, with
         // each question's stem flowing inline (Standards §2A.10 / §2A.12).
@@ -841,6 +859,87 @@
       SESSION.debounce_timers['delete'](qNum);
     }, 500));
   }
+
+  // Sprint 20.14f-α — render a diagram_label / flow_chart run as one
+  // `.exam-diagram-container` with the admin-uploaded image on top + a
+  // numbered side-list of text inputs below (Standards §2A.13). The
+  // first Q of the run carries `payload.image_url` (signed by the
+  // student fetch); follow-up Qs render their per-Q input row without
+  // duplicating the image. Each row uses `name="q-N"` + `data-q="N"`
+  // so the existing palette / answered-state / autosave wiring fires
+  // unchanged via the box-level delegated change/input listeners (the
+  // same delegation pattern Sprint 20.14e introduced for the flowing
+  // summary block).
+  function _renderDiagramImageBlock(run) {
+    var first = run[0];
+    var imgUrl = first.payload.image_url;
+
+    var container = document.createElement('div');
+    container.className = 'exam-diagram-container';
+    container.setAttribute('data-question-type', first.question_type);
+
+    var img = document.createElement('img');
+    img.className = 'exam-diagram-image';
+    img.src = imgUrl;
+    img.alt = (first.question_type === 'flow_chart_completion'
+      ? 'Flow chart' : 'Labeled diagram')
+      + ' for questions ' + first.q_num + '–' + run[run.length - 1].q_num;
+    container.appendChild(img);
+
+    var list = document.createElement('ol');
+    list.className = 'exam-diagram-rows';
+    run.forEach(function (q) {
+      var row = document.createElement('li');
+      row.className = 'exam-diagram-row';
+
+      var num = document.createElement('span');
+      num.className = 'exam-diagram-row__num';
+      num.textContent = String(q.q_num);
+
+      var prompt = document.createElement('span');
+      prompt.className = 'exam-diagram-row__prompt';
+      // Author-supplied prompt is the per-callout cue (e.g. "Label
+      // 3 — the part marked with arrow 3"). Pre-image content seeds
+      // (AVR-READ-002) use placeholder prose; the image carries the
+      // numbered cues. Either reads fine in the side-list slot.
+      prompt.textContent = q.prompt || '';
+
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'exam-diagram-row__input';
+      input.name = 'q-' + q.q_num;
+      input.setAttribute('aria-label', 'Answer ' + q.q_num);
+      input.setAttribute('autocomplete', 'off');
+      input.dataset.q = String(q.q_num);
+
+      row.appendChild(num);
+      row.appendChild(prompt);
+      row.appendChild(input);
+      list.appendChild(row);
+    });
+    container.appendChild(list);
+
+    // Box-level delegation: route per-gap input/change → the per-Q
+    // change handler shared with the summary flowing block. Same
+    // SESSION.answers / palette flip / debounce PATCH side-effects.
+    container.addEventListener('input', function (ev) {
+      var t = ev.target;
+      if (!t || !t.dataset || !t.dataset.q) return;
+      var qNum = parseInt(t.dataset.q, 10);
+      if (isNaN(qNum)) return;
+      _summaryGapChanged(qNum, t.value);
+    });
+    container.addEventListener('change', function (ev) {
+      var t = ev.target;
+      if (!t || !t.dataset || !t.dataset.q) return;
+      var qNum = parseInt(t.dataset.q, 10);
+      if (isNaN(qNum)) return;
+      _summaryGapChanged(qNum, t.value);
+    });
+
+    return container;
+  }
+
   function _consecutiveTypeRuns(qs) {
     if (!qs.length) return [];
     var runs = []; var cur = [qs[0]];
@@ -1199,14 +1298,16 @@
     SESSION.answers.forEach(function (value, qNum) {
       // Sprint 20.14e — flowing summary block: gaps live inside the
       // shared `.exam-gap-box--summary` (NOT inside a `.exam-q` card).
-      // Lookup by `[name="q-N"]` first. The cloning approach lets the
-      // existing markAnswered side-effects fire while still landing on
-      // the right input element.
-      var flowingInput = document.querySelector(
-        '.exam-gap-box--summary [name="q-' + qNum + '"]',
+      // Sprint 20.14f-α — diagram/flow image block: same out-of-card
+      // pattern under `.exam-diagram-container`. Both lookups land on
+      // a single per-q_num input; markAnswered fires the standard
+      // SESSION.flagged + palette + Q-card-class side-effects.
+      var outOfCardInput = document.querySelector(
+        '.exam-gap-box--summary [name="q-' + qNum + '"], ' +
+        '.exam-diagram-container [name="q-' + qNum + '"]',
       );
-      if (flowingInput) {
-        flowingInput.value = value || '';
+      if (outOfCardInput) {
+        outOfCardInput.value = value || '';
         if (value !== '' && value != null) markAnswered(qNum);
         return;
       }

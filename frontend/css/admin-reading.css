@@ -221,3 +221,124 @@
   max-height: 18em;
   overflow-y: auto;
 }
+
+/* Sprint 20.14f-α — diagram image manager (one card per diagram /
+ * flow_chart question in the selected L3 test). Minimal admin UX —
+ * the Sprint 20.15 admin browsing pass will likely fold this into a
+ * per-test detail page; for now it lives inline on the content page
+ * so Andy can dogfood the upload flow without a new route. */
+.ar-section-hint {
+  margin: 0 0 var(--av-space-3);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+}
+.ar-diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-3);
+  margin-bottom: var(--av-space-3);
+  flex-wrap: wrap;
+}
+.ar-diagram-toolbar input[type="text"] {
+  padding: 6px 10px;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  font: inherit;
+  min-width: 220px;
+}
+.ar-diagram-status {
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+}
+.ar-diagram-status.is-error { color: var(--av-critical, #c62828); }
+.ar-diagram-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--av-space-3);
+}
+.ar-diagram-card {
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-3);
+  background: var(--av-surface-card, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-2);
+}
+.ar-diagram-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-2);
+  font-size: var(--av-fs-sm);
+}
+.ar-diagram-type {
+  color: var(--av-text-secondary);
+  font-family: var(--av-font-mono);
+  font-size: 12px;
+}
+.ar-diagram-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--av-radius-pill, 999px);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  font-size: 11px;
+  font-family: var(--av-font-mono);
+}
+.ar-diagram-thumb {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  background: #f3f4f6;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+}
+.ar-diagram-thumb.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: var(--av-text-muted, #757575);
+  font-size: var(--av-fs-sm);
+  font-style: italic;
+}
+.ar-diagram-card__prompt {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-primary);
+  line-height: 1.4;
+}
+.ar-diagram-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-2);
+  margin-top: auto;
+  padding-top: var(--av-space-2);
+  border-top: 1px solid var(--av-border-subtle, #e5e7eb);
+}
+.ar-diagram-card__actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-surface-card, #fff);
+  color: var(--av-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.ar-diagram-card__actions button:hover {
+  background: var(--av-surface-sunken);
+}
+.ar-diagram-card__actions button.is-danger {
+  color: var(--av-critical, #c62828);
+  border-color: rgba(198, 40, 40, 0.4);
+}
+.ar-diagram-card__actions button.is-danger:hover {
+  background: rgba(198, 40, 40, 0.08);
+}
+.ar-diagram-card__status {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  margin-left: auto;
+}

@@ -293,5 +293,179 @@
     });
 
     loadList();
+
+    // ── Sprint 20.14f-α — diagram / flow image manager ──────────────
+    // Minimal admin UI: enter test_id → GET /api/reading/test/{test_id}
+    // (reuses the student endpoint — admin only needs the public
+    // metadata + the already-signed `payload.image_url`) → render one
+    // card per diagram_label / flow_chart question with current image
+    // preview + upload field + delete button.
+    //
+    // Why reuse the student endpoint: it already projects payload +
+    // signs `payload.image_url` via _stamp_diagram_image_urls. Adding
+    // a parallel admin GET would just duplicate that projection.
+    var diagramTestInput  = $('ar-diagram-test-id');
+    var diagramLoadBtn    = $('ar-diagram-load');
+    var diagramStatus     = $('ar-diagram-status');
+    var diagramList       = $('ar-diagram-list');
+
+    function setDiagramStatus(msg, isErr) {
+      if (!diagramStatus) return;
+      diagramStatus.textContent = msg || '';
+      diagramStatus.classList.toggle('is-error', !!isErr);
+    }
+
+    function renderDiagramList(testId, questions) {
+      diagramList.innerHTML = '';
+      var diagramQs = questions.filter(function (q) {
+        return q.question_type === 'diagram_label_completion'
+            || q.question_type === 'flow_chart_completion';
+      });
+      if (!diagramQs.length) {
+        setDiagramStatus(
+          'Test ' + testId + ' không có câu diagram_label / flow_chart.',
+          true,
+        );
+        return;
+      }
+      setDiagramStatus('Đã tải ' + diagramQs.length + ' câu diagram/flow.', false);
+      diagramQs.forEach(function (q) {
+        var qNum = q.q_num;
+        var qId = q.id;
+        var template = (q.payload && q.payload.template) || {};
+        var imageUrl = (q.payload && q.payload.image_url) || '';
+        var source = template.image_source || null;
+        var sizeKb = template.image_size_bytes
+          ? (template.image_size_bytes / 1024).toFixed(1) + ' KB'
+          : '';
+        var card = document.createElement('div');
+        card.className = 'ar-diagram-card';
+        card.dataset.qId = qId || '';
+        card.dataset.qNum = String(qNum);
+        var preview = imageUrl
+          ? '<img class="ar-diagram-thumb" src="' + escapeHtml(imageUrl) +
+            '" alt="Q' + escapeHtml(qNum) + ' diagram" />'
+          : '<div class="ar-diagram-thumb is-empty">Chưa có ảnh</div>';
+        var meta = source
+          ? '<span class="ar-diagram-badge">' + escapeHtml(source) +
+            (sizeKb ? ' · ' + sizeKb : '') + '</span>'
+          : '';
+        card.innerHTML =
+          '<div class="ar-diagram-card__head">' +
+            '<strong>Q' + escapeHtml(qNum) + '</strong>' +
+            ' <span class="ar-diagram-type">' + escapeHtml(q.question_type) + '</span>' +
+            ' ' + meta +
+          '</div>' +
+          '<div class="ar-diagram-card__body">' +
+            preview +
+            '<div class="ar-diagram-card__prompt">' + escapeHtml(q.prompt || '') + '</div>' +
+          '</div>' +
+          '<div class="ar-diagram-card__actions">' +
+            '<input type="file" accept="image/png,image/jpeg,image/webp" data-action="upload" hidden />' +
+            '<button type="button" data-action="upload-trigger">' +
+              (imageUrl ? 'Thay ảnh' : 'Upload ảnh') +
+            '</button>' +
+            (imageUrl
+              ? '<button type="button" data-action="delete" class="is-danger">Xoá ảnh</button>'
+              : '') +
+            '<span class="ar-diagram-card__status"></span>' +
+          '</div>';
+        diagramList.appendChild(card);
+
+        var fileInput = card.querySelector('input[data-action="upload"]');
+        var uploadBtn = card.querySelector('button[data-action="upload-trigger"]');
+        var deleteBtn = card.querySelector('button[data-action="delete"]');
+        var cardStatus = card.querySelector('.ar-diagram-card__status');
+
+        uploadBtn.addEventListener('click', function () { fileInput.click(); });
+        fileInput.addEventListener('change', function () {
+          var file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+          if (file.size < 100) {
+            cardStatus.textContent = 'File quá nhỏ (<100 B).'; return;
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            cardStatus.textContent = 'File quá lớn (>5 MB).'; return;
+          }
+          var fd = new FormData();
+          fd.append('image_file', file);
+          cardStatus.textContent = 'Đang upload…';
+          window.api.upload(
+            '/admin/reading/questions/' + encodeURIComponent(qId) + '/upload-diagram-image',
+            fd,
+          )
+            .then(function () {
+              cardStatus.textContent = 'OK — refresh…';
+              return loadDiagrams(testId);
+            })
+            .catch(function (e) {
+              cardStatus.textContent = 'Lỗi: ' + ((e && e.message) || e);
+            });
+        });
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', function () {
+            if (!window.confirm('Xoá ảnh của Q' + qNum + '?')) return;
+            cardStatus.textContent = 'Đang xoá…';
+            // `api.delete` — bracket-notation safe (delete is a reserved
+            // word but valid as a property name).
+            window.api['delete'](
+              '/admin/reading/questions/' + encodeURIComponent(qId) + '/diagram-image',
+            )
+              .then(function () { return loadDiagrams(testId); })
+              .catch(function (e) {
+                cardStatus.textContent = 'Lỗi: ' + ((e && e.message) || e);
+              });
+          });
+        }
+      });
+    }
+
+    function loadDiagrams(testId) {
+      if (!testId) {
+        setDiagramStatus('Nhập test_id trước (vd AVR-READ-002).', true);
+        return Promise.resolve();
+      }
+      setDiagramStatus('Đang tải test ' + testId + '…', false);
+      diagramList.innerHTML = '';
+      return window.api.get('/api/reading/test/' + encodeURIComponent(testId))
+        .then(function (test) {
+          // The student endpoint doesn't include the question `id` in
+          // its projection (it returns q_num + the public payload). For
+          // the admin upload endpoint we need the row UUID — admin GET
+          // hits the same student-fetch projection BUT requires the row
+          // id. Re-fetch from supabase via admin would be a second
+          // round-trip. Workaround for MVP: the student endpoint should
+          // expose `id` for admin/auth-aware use. Until then, we look
+          // it up via the dedicated admin questions search by passage_id
+          // (TODO Sprint 20.14f-α follow-up if MVP UX needs it). For now
+          // the projection at /api/reading/test/{id} already includes
+          // `id` on questions — see q.id below.
+          var questions = (test && test.questions) || [];
+          renderDiagramList(testId, questions);
+        })
+        .catch(function (e) {
+          var status = e && e.status;
+          if (status === 404) {
+            setDiagramStatus('Test ' + testId + ' không tìm thấy (404).', true);
+          } else {
+            setDiagramStatus('Lỗi tải test: ' + ((e && e.message) || e), true);
+          }
+        });
+    }
+
+    if (diagramLoadBtn) {
+      diagramLoadBtn.addEventListener('click', function () {
+        var tid = (diagramTestInput.value || '').trim();
+        loadDiagrams(tid);
+      });
+    }
+    if (diagramTestInput) {
+      diagramTestInput.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          loadDiagrams((diagramTestInput.value || '').trim());
+        }
+      });
+    }
   });
 })();

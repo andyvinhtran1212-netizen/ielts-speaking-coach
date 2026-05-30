@@ -1243,3 +1243,105 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 @media (prefers-reduced-motion: reduce) {
   .exam-chrome .exam-q.is-flash { animation: none !important; }
 }
+
+/* ── Sprint 20.14f-α — Diagram / flow-chart image layout ───────────── */
+/* Standards §2A.13 (and the §2A.12 flow-chart sibling) accept BOTH
+ * ASCII art and a real image. When the admin uploads an image via
+ * `POST /admin/reading/questions/{q_id}/upload-diagram-image`, the
+ * student fetch surfaces `payload.image_url` (signed) and the
+ * renderer emits this container in place of the legacy
+ * `.exam-gap-box--mono` ASCII block. Layout mirrors listening's
+ * `renderPlanLabel`: image on top + numbered side list of inputs
+ * below. Per-callout coordinates are NOT used (Discovery decision 3
+ * — side-list matches Cambridge IELTS convention + halves renderer
+ * complexity vs coordinate overlay). */
+.exam-chrome .exam-diagram-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #f7f8fa;
+  border: 1px solid var(--exam-border-subtle, #e2e5e9);
+  border-radius: 4px;
+  margin: 0 0 14px;
+}
+.exam-chrome .exam-diagram-image {
+  /* The image is centred + capped so wide diagrams don't overflow the
+   * pane. `max-height: 65vh` keeps the side-list below the image
+   * visible without scrolling for typical (480-720px tall) IELTS
+   * diagrams. Object-fit: contain preserves the aspect ratio. */
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 65vh;
+  width: auto;
+  height: auto;
+  background: #ffffff;
+  border: 1px solid var(--exam-border-default);
+  border-radius: 4px;
+  object-fit: contain;
+}
+.exam-chrome .exam-diagram-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.exam-chrome .exam-diagram-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 200px;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--exam-border-subtle, #e2e5e9);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.exam-chrome .exam-diagram-row:last-child { border-bottom: 0; }
+.exam-chrome .exam-diagram-row__num {
+  /* Same navy badge as `.exam-q__num` so the visual rhythm matches
+   * the borderless question cards elsewhere in the pane. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ielts-navy);
+  color: #FFFFFF;
+  font-family: var(--exam-font-sans);
+  font-weight: 700;
+  font-size: 14px;
+}
+.exam-chrome .exam-diagram-row__prompt {
+  color: var(--exam-text-primary);
+}
+.exam-chrome .exam-diagram-row__input {
+  /* The text-input column sits at a fixed-ish width so the rows align
+   * vertically across the side list — easier to scan when reading
+   * back the answers before submit. */
+  font: inherit;
+  font-size: inherit;
+  border: 0;
+  border-bottom: 1.5px solid var(--ielts-navy);
+  background: transparent;
+  padding: 2px 4px;
+  width: 100%;
+}
+.exam-chrome .exam-diagram-row__input:focus {
+  outline: 2px solid var(--ielts-blue);
+  outline-offset: 2px;
+}
+
+/* Mobile: stack the row into 2 lines so the input has room. */
+@media (max-width: 600px) {
+  .exam-chrome .exam-diagram-row {
+    grid-template-columns: 28px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .exam-chrome .exam-diagram-row__input {
+    grid-column: 1 / -1;
+  }
+}

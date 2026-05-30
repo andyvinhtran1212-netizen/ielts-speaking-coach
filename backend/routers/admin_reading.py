@@ -399,3 +399,230 @@ async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
         raise HTTPException(500, "Không lưu được test. Vui lòng thử lại.")
 
     return result
+
+
+# ── Sprint 20.14f-α — Diagram / flow-chart image upload ──────────────
+#
+# Manual image upload for `diagram_label_completion` /
+# `flow_chart_completion` questions. Standards §2A.13 + §2A.12 accept
+# both ASCII art and a real image; this endpoint is the image path
+# (AI-gen is Sprint 20.14f-β, deferred).
+#
+# Sits on a sibling router with a different URL prefix
+# (`/admin/reading/questions/...`) so it doesn't pollute the
+# content-import router. Both are registered in main.py.
+#
+# Why a separate file boundary wasn't created: the upload endpoints are
+# small (~120 LOC) and share the same admin auth + supabase_admin
+# client the import router already uses. Splitting into a third reading
+# admin file would mean a third Mind-side index without earning the
+# isolation.
+
+questions_router = APIRouter(
+    prefix="/admin/reading/questions",
+    tags=["admin-reading-questions"],
+)
+
+_DIAGRAM_FLOW_TYPES = ("diagram_label_completion", "flow_chart_completion")
+_SIGNED_URL_TTL_PREVIEW = 3600   # 1h — admin upload-preview round-trip
+
+
+def _fetch_question_or_404(question_id: str) -> dict:
+    """Read one reading_questions row. 404 if absent, 422 if its
+    question_type isn't in the diagram / flow family — both upload +
+    delete need to refuse non-image-bearing types up front."""
+    res = (
+        supabase_admin.table("reading_questions")
+        .select("id, q_num, question_type, payload, passage_id")
+        .eq("id", question_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, f"Reading question {question_id} not found.")
+    row = res.data[0]
+    if row.get("question_type") not in _DIAGRAM_FLOW_TYPES:
+        raise HTTPException(
+            422,
+            f"Image upload is only available for {', '.join(_DIAGRAM_FLOW_TYPES)} "
+            f"questions; this question is {row.get('question_type')!r}.",
+        )
+    return row
+
+
+def _resolve_test_id_for_question(passage_id: str) -> str:
+    """Walk passage_id → reading_passages.test_id (the parent L3 test UUID)
+    so the storage path bins images by test. 500 if either lookup fails —
+    every diagram/flow Q must belong to an L3 passage with a non-NULL
+    test_id (mig 086 NOT NULL on reading_questions.passage_id, and L3
+    passages always carry test_id by Sprint 20.5 import contract)."""
+    res = (
+        supabase_admin.table("reading_passages")
+        .select("test_id")
+        .eq("id", passage_id)
+        .limit(1)
+        .execute()
+    )
+    test_id = (res.data or [{}])[0].get("test_id")
+    if not test_id:
+        raise HTTPException(
+            500,
+            f"Reading passage {passage_id} has no parent test_id; cannot "
+            "scope the diagram image storage path.",
+        )
+    return str(test_id)
+
+
+def _sign_diagram_image_url(storage_path: str | None,
+                            expires_in: int = _SIGNED_URL_TTL_PREVIEW) -> str | None:
+    """Best-effort signed URL for a diagram image. Returns ``None`` on
+    any failure so the admin UI can degrade to a "image uploaded but
+    preview unavailable" notice without a follow-up round-trip."""
+    if not storage_path:
+        return None
+    from config import settings
+    try:
+        signed = supabase_admin.storage.from_(
+            settings.READING_IMAGES_BUCKET,
+        ).create_signed_url(storage_path, expires_in)
+    except Exception as exc:                                                  # pragma: no cover
+        logger.warning("[reading_image] signed URL mint failed: %s", exc)
+        return None
+    return (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+
+
+@questions_router.post("/{question_id}/upload-diagram-image")
+async def admin_upload_diagram_image(
+    question_id: str,
+    image_file: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 20.14f-α — manual image upload for a diagram / flow-chart
+    question. Mirrors the listening map-image upload (Sprint 13.5.9.3).
+
+    Returns the updated `payload.template` bundle + a 1h signed URL so
+    the admin UI can preview the image without a follow-up fetch.
+
+    Status codes:
+      • 200 — upload succeeded
+      • 400 — image too small (<100 B)
+      • 413 — image too large (>5 MB)
+      • 415 — unsupported format (only PNG/JPG/WebP via magic-byte sniff)
+      • 422 — question_type isn't diagram_label_completion /
+              flow_chart_completion
+      • 404 — question_id not found
+      • 500 — bucket / storage error (likely deploy precondition: the
+              `READING_IMAGES_BUCKET` Supabase bucket doesn't exist yet)
+    """
+    from services.reading_image import (
+        InvalidImageError, upload_diagram_image,
+    )
+
+    admin_user = await require_admin(authorization)
+    question = _fetch_question_or_404(question_id)
+    test_id = _resolve_test_id_for_question(question["passage_id"])
+
+    contents = await image_file.read()
+    try:
+        meta = upload_diagram_image(
+            contents=contents,
+            question_id=question_id,
+            test_id=test_id,
+            supabase=supabase_admin,
+            uploaded_by=admin_user.get("id"),
+        )
+    except InvalidImageError as exc:
+        raise HTTPException(exc.http_status, str(exc))
+
+    # Merge metadata into payload.template. The existing payload may
+    # already carry a template (e.g. summary_text on summary_completion
+    # — not applicable here, but defensive). Read-modify-write keeps
+    # any unrelated template keys intact.
+    payload = dict(question.get("payload") or {})
+    template = dict(payload.get("template") or {})
+    template.update(meta)
+    payload["template"] = template
+
+    (
+        supabase_admin.table("reading_questions")
+        .update({"payload": payload})
+        .eq("id", question_id)
+        .execute()
+    )
+
+    logger.info(
+        "[reading_image] upload q=%s size=%d fmt=%s by=%s",
+        question_id, meta["image_size_bytes"], meta["image_format"],
+        admin_user.get("id"),
+    )
+
+    return {
+        "question_id":        question_id,
+        "image_storage_path": meta["image_storage_path"],
+        "image_size_bytes":   meta["image_size_bytes"],
+        "image_format":       meta["image_format"],
+        "image_source":       meta["image_source"],
+        "image_uploaded_at":  meta["image_uploaded_at"],
+        "signed_url":         _sign_diagram_image_url(meta["image_storage_path"]),
+    }
+
+
+@questions_router.delete("/{question_id}/diagram-image")
+async def admin_delete_diagram_image(
+    question_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 20.14f-α — remove the diagram image so the admin can
+    re-upload (e.g. after a new render). Both the Storage object and
+    the `payload.template.image_*` metadata are cleared.
+
+    Status codes:
+      • 200 — deleted (or no-op if no image was present)
+      • 404 — question_id not found
+      • 422 — wrong question_type
+    """
+    from config import settings
+
+    admin_user = await require_admin(authorization)
+    question = _fetch_question_or_404(question_id)
+
+    payload = dict(question.get("payload") or {})
+    template = dict(payload.get("template") or {})
+    storage_path = template.get("image_storage_path")
+
+    if storage_path:
+        try:
+            supabase_admin.storage.from_(
+                settings.READING_IMAGES_BUCKET,
+            ).remove([storage_path])
+        except Exception as exc:                                              # pragma: no cover
+            logger.warning(
+                "[reading_image] delete bytes failed q=%s path=%s: %s",
+                question_id, storage_path, exc,
+            )
+            # Continue — clearing the row metadata is the primary
+            # source of truth, the stale bytes can be reaped later.
+
+    # Strip every image_* key from template; keep unrelated template
+    # fields (e.g. a future summary_text) intact.
+    for k in ("image_storage_path", "image_size_bytes", "image_format",
+              "image_source", "image_uploaded_at", "image_uploaded_by"):
+        template.pop(k, None)
+    if template:
+        payload["template"] = template
+    else:
+        payload.pop("template", None)
+
+    (
+        supabase_admin.table("reading_questions")
+        .update({"payload": payload})
+        .eq("id", question_id)
+        .execute()
+    )
+
+    logger.info(
+        "[reading_image] delete q=%s by=%s",
+        question_id, admin_user.get("id"),
+    )
+
+    return {"question_id": question_id, "deleted": bool(storage_path)}
