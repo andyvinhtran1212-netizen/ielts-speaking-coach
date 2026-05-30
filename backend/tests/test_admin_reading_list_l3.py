@@ -125,6 +125,55 @@ def test_unknown_library_rejected_422():
     assert r.status_code == 422
 
 
+def test_l3_passage_rows_get_parent_test_id():
+    """admin-polish — L3 passage rows in the default/passage view are enriched
+    with the parent test's TEXT test_id (resolved from the UUID FK) so preview
+    is reachable from any view. The raw UUID FK is dropped; L1/L2 passages
+    (NULL test_id) get no parent_test_id."""
+    passages = MagicMock()
+    passages.select.return_value.order.return_value.range.return_value.execute.return_value = MagicMock(
+        data=[
+            # L3 passage — has a UUID test_id FK → should resolve to AVR-READ-001
+            {"id": "p1", "slug": "l3-t1-p1-x", "library": "l3_test", "title": "P1",
+             "status": "published", "difficulty_level": None, "skill_focus": None,
+             "topic_tags": [], "updated_at": "2026-05-29", "created_at": "2026-05-28",
+             "test_id": "uuid-test-1"},
+            # L1 passage — no parent test
+            {"id": "p2", "slug": "l1-vocab-y", "library": "l1_vocab", "title": "V1",
+             "status": "published", "difficulty_level": "b1", "skill_focus": "skim",
+             "topic_tags": [], "updated_at": "2026-05-29", "created_at": "2026-05-28",
+             "test_id": None},
+        ],
+        count=2,
+    )
+    tests = MagicMock()
+    tests.select.return_value.in_.return_value.execute.return_value = MagicMock(
+        data=[{"id": "uuid-test-1", "test_id": "AVR-READ-001"}],
+    )
+
+    def _table(name):
+        return tests if name == "reading_tests" else passages
+
+    mock_db = MagicMock()
+    mock_db.table.side_effect = _table
+
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        r = _client().get("/admin/reading/content", headers=_ADMIN_AUTH)
+
+    assert r.status_code == 200
+    items = r.json()["items"]
+    by_slug = {it["slug"]: it for it in items}
+    # L3 passage → parent TEXT test_id; raw UUID FK dropped (never exposed)
+    assert by_slug["l3-t1-p1-x"].get("parent_test_id") == "AVR-READ-001"
+    assert "test_id" not in by_slug["l3-t1-p1-x"]
+    # L1 passage → no parent_test_id, no raw test_id
+    assert "parent_test_id" not in by_slug["l1-vocab-y"]
+    assert "test_id" not in by_slug["l1-vocab-y"]
+    # the enrichment batch-resolved via reading_tests
+    assert "reading_tests" in [c.args[0] for c in mock_db.table.call_args_list]
+
+
 def test_status_filter_applied_on_l3_branch():
     """status= filter must still be honoured on the L3 branch (admin can
     list only draft tests, for instance)."""

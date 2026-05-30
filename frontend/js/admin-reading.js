@@ -252,20 +252,25 @@
       // (one-row-per-test). L1/L2 list passages — that path stays
       // action-less until a passage-level admin op lands.
       //
-      // reading-admin-preview-fix: gate on the ACTIVE FILTER, not on the
-      // per-row library. The reading_tests branch (slug === test_id) only
-      // runs under the `l3_test` filter; the default/unfiltered view lists
-      // reading_passages, where L3 passages ALSO carry library='l3_test'
-      // but slug is a passage slug. Keying on it.library put a preview
-      // button on those passage rows that passed the passage slug as
-      // test_id → 404. Keying on the filter means the button only renders
-      // when the row genuinely is a test (slug === test_id).
+      // Test-level actions. The test_id we preview is resolved 404-safely
+      // (reading-admin-preview-fix), NEVER the passage slug:
+      //   • L3 Full Test tab → rows ARE tests, slug === test_id.
+      //   • any other view (Tất cả / L1 / L2) → rows are passages; the backend
+      //     enriches L3 passages with `parent_test_id` (the parent test's TEXT
+      //     id) so preview is discoverable everywhere (admin-polish Item 2).
+      // Delete stays L3-tab-only — hard-deleting a whole test from a passage
+      // row would be a footgun; the test tab is the unambiguous place for it.
+      var isTestTab = STATE.libraryFilter === 'l3_test';
+      var previewTid = isTestTab ? it.slug : it.parent_test_id;
       var actions = '';
-      if (STATE.libraryFilter === 'l3_test' && it.slug) {
-        actions =
+      if (previewTid) {
+        actions +=
           '<a class="ar-row-action" target="_blank" rel="noopener" ' +
             'href="/pages/admin/reading/preview.html?test_id=' +
-            encodeURIComponent(it.slug) + '">Xem trước</a>' +
+            encodeURIComponent(previewTid) + '">Xem trước</a>';
+      }
+      if (isTestTab && it.slug) {
+        actions +=
           ' <button type="button" class="ar-row-action is-danger" ' +
             'data-action="delete-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
             'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>';

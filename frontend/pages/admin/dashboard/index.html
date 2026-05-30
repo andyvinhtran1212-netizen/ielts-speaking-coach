@@ -31,7 +31,7 @@
   <style>
     body.av-page { font-family: var(--av-font-sans); margin: 0; }
     .db-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-5); }
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
     .db-header { display: flex; align-items: flex-start; justify-content: space-between;
       gap: var(--av-space-3); flex-wrap: wrap; }
     .db-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
@@ -57,7 +57,7 @@
     @media (max-width: 560px) { .db-grid { grid-template-columns: 1fr; } }
 
     .db-card { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card); padding: var(--av-space-5);
+      background: var(--av-surface-card); padding: var(--av-space-6);
       display: flex; flex-direction: column; gap: var(--av-space-2); min-height: 148px;
       min-width: 0; }
     .db-card__label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
@@ -78,7 +78,7 @@
 
     /* ── Trends panel ──────────────────────────────────────────────── */
     .db-trends { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
-      background: var(--av-surface-card); padding: var(--av-space-5);
+      background: var(--av-surface-card); padding: var(--av-space-6);
       display: flex; flex-direction: column; gap: var(--av-space-3); }
     .db-trends__head { display: flex; align-items: center; justify-content: space-between;
       gap: var(--av-space-3); flex-wrap: wrap; }
@@ -96,22 +96,26 @@
       text-align: center; padding: var(--av-space-8); }
 
     /* ── "Cần chú ý" strip ─────────────────────────────────────────── */
-    .db-attention { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-3); }
+    /* Block wrapper so the section title hugs its cards (space-3), while the
+       shell's space-6 rhythm separates the block from the panels above. */
+    .db-block { display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .db-attention { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-4); }
     @media (max-width: 560px) { .db-attention { grid-template-columns: 1fr; } }
     .db-attn-card { display: flex; align-items: center; gap: var(--av-space-3);
-      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
-      background: var(--av-surface-card); padding: var(--av-space-4);
-      text-decoration: none; color: var(--av-text-primary); }
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-4) var(--av-space-6);
+      text-decoration: none; color: var(--av-text-primary);
+      transition: border-color var(--av-duration-fast) var(--av-easing-default); }
     .db-attn-card:hover { border-color: var(--av-brand-teal-700); }
     .db-attn-card__count { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
-      font-variant-numeric: tabular-nums; min-width: 2ch; }
+      font-variant-numeric: tabular-nums; min-width: 2ch; color: var(--av-text-primary); }
     .db-attn-card__body { display: flex; flex-direction: column; gap: 2px; }
     .db-attn-card__label { font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); }
     .db-attn-card__sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
 
     .db-section-title { font-size: var(--av-fs-xs); text-transform: uppercase;
       letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted);
-      font-weight: var(--av-fw-semibold); margin: var(--av-space-2) 0 0; }
+      font-weight: var(--av-fw-semibold); margin: 0; }
 
     .db-foot { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     [hidden] { display: none !important; }
@@ -206,23 +210,25 @@
       </section>
 
       <!-- ── Cần chú ý ───────────────────────────────────────────── -->
-      <p class="db-section-title">Cần chú ý</p>
-      <section class="db-attention" aria-label="Mục cần chú ý">
-        <a class="db-attn-card" href="/pages/admin/error-logs/index.html">
-          <span class="db-attn-card__count" id="a-errors">—</span>
-          <span class="db-attn-card__body">
-            <span class="db-attn-card__label">Lỗi chưa xử lý</span>
-            <span class="db-attn-card__sub">error_logs chưa dismiss</span>
-          </span>
-        </a>
-        <a class="db-attn-card" href="/pages/admin/writing/instructor-queue.html">
-          <span class="db-attn-card__count" id="a-writing">—</span>
-          <span class="db-attn-card__body">
-            <span class="db-attn-card__label">Bài viết chờ chấm</span>
-            <span class="db-attn-card__sub">writing_essays chưa trả kết quả</span>
-          </span>
-        </a>
-      </section>
+      <div class="db-block">
+        <p class="db-section-title">Cần chú ý</p>
+        <section class="db-attention" aria-label="Mục cần chú ý">
+          <a class="db-attn-card" href="/pages/admin/error-logs/index.html">
+            <span class="db-attn-card__count" id="a-errors">—</span>
+            <span class="db-attn-card__body">
+              <span class="db-attn-card__label">Lỗi chưa xử lý</span>
+              <span class="db-attn-card__sub">error_logs chưa dismiss</span>
+            </span>
+          </a>
+          <a class="db-attn-card" href="/pages/admin/writing/instructor-queue.html">
+            <span class="db-attn-card__count" id="a-writing">—</span>
+            <span class="db-attn-card__body">
+              <span class="db-attn-card__label">Bài viết chờ chấm</span>
+              <span class="db-attn-card__sub">writing_essays chưa trả kết quả</span>
+            </span>
+          </a>
+        </section>
+      </div>
 
       <p class="db-foot" id="db-updated"></p>
     </main>

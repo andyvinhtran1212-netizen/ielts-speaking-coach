@@ -44,8 +44,12 @@ describe('Item 1 — preview link no longer passes a passage slug as test_id', (
     );
   });
 
-  test('preview link still targets the test-level preview with a test_id param', () => {
-    assert.match(listJs, /preview\.html\?test_id=['"]\s*\+\s*encodeURIComponent\(it\.slug\)/);
+  test('preview link uses a 404-safe resolved test_id (never the passage slug)', () => {
+    // admin-polish: the preview test_id is `previewTid` = it.slug on the L3 tab
+    // (rows ARE tests, slug === test_id), else it.parent_test_id (the backend-
+    // resolved parent TEXT id for L3 passage rows). Never the passage slug.
+    assert.match(listJs, /preview\.html\?test_id=['"]\s*\+\s*encodeURIComponent\(previewTid\)/);
+    assert.match(listJs, /previewTid\s*=\s*isTestTab\s*\?\s*it\.slug\s*:\s*it\.parent_test_id/);
   });
 
   test('preview JS reads the admin test endpoint (works on drafts) by test_id', () => {
