@@ -154,4 +154,5 @@ jobs:
             frontend/tests/reading-admin-preview-fix.test.mjs \
             frontend/tests/admin-dashboard-redesign.test.mjs \
             frontend/tests/admin-polish.test.mjs \
-            frontend/tests/undefined-token-sentinel.test.mjs
+            frontend/tests/undefined-token-sentinel.test.mjs \
+            frontend/tests/dashboard-tweaks.test.mjs

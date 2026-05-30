@@ -11,7 +11,9 @@ errors). This computes operational health:
                            GET /admin/analytics/foot-traffic, Sprint 17.4)
   4. total_practices     — COUNT(sessions WHERE status='completed')
   5. grading_minutes     — SUM(responses.duration_seconds) / 60 (cumulative)
-  6. monthly_cost_usd    — SUM(ai_usage_logs.cost_usd_est) this CALENDAR month
+  6. tokens_called       — SUM(input_tokens + output_tokens) over the selector
+                           window (dashboard-tweaks; replaced the calendar-month
+                           cost sum — ai_usage_logs already logs tokens per call)
 
 Fixed query count (one round trip per metric — no N+1). Pattern #29: each
 metric is wrapped so a single sub-query failure yields `None` for that metric
@@ -26,7 +28,7 @@ Schema (all confirmed against migrations, no new migration this sprint):
   - analytics_events (user_id, event_name, created_at)      [mig 018/080]
   - sessions (id, status)                                   [mig 003: status]
   - responses (duration_seconds FLOAT)                      [mig 010/011]
-  - ai_usage_logs (cost_usd_est real, created_at)           [ai_usage_logs]
+  - ai_usage_logs (input_tokens, output_tokens, created_at) [mig 031]
 """
 
 from __future__ import annotations
@@ -111,15 +113,20 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         total = sum((r.get("duration_seconds") or 0) for r in rows)
         return round(total / 60.0, 1)
 
-    def _monthly_cost():
+    def _tokens_called():
+        # dashboard-tweaks Item 2 — total AI tokens called across all agents
+        # (prompt + completion), WINDOWED by the selector (was a calendar-month
+        # cost sum). ai_usage_logs (mig 031) already logs tokens per call, so no
+        # new logging is needed. Cache read/write tokens are a caching detail —
+        # excluded from the headline "tokens called" figure.
         rows = (
             supabase_admin.table("ai_usage_logs")
-            .select("cost_usd_est")
-            .gte("created_at", month_start)
+            .select("input_tokens, output_tokens")
+            .gte("created_at", visitors_since)
             .execute()
             .data
         ) or []
-        return round(sum((r.get("cost_usd_est") or 0) for r in rows), 4)
+        return sum((r.get("input_tokens") or 0) + (r.get("output_tokens") or 0) for r in rows)
 
     return {
         "total_users": _metric("total_users", _users),
@@ -130,7 +137,11 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         },
         "total_practices": _metric("total_practices", _practices),
         "grading_minutes": _metric("grading_minutes", _grading_minutes),
-        "monthly_cost_usd": _metric("monthly_cost_usd", _monthly_cost),
+        # Windowed by the selector (dashboard-tweaks): replaced the old cost tile.
+        "tokens_called": {
+            "count": _metric("tokens_called", _tokens_called),
+            "window_days": visitors_window_days,
+        },
         # admin-dashboard-redesign — actionable "Cần chú ý" strip. Cheap
         # COUNT(exact) queries (no row transfer); reuses data the ops admin
         # cares about without duplicating Overview's pedagogical activity feed.
@@ -153,7 +164,7 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
     (admin-dashboard-redesign).
 
     Three series over the last `days` (7/30/90): distinct visitors, completed
-    practices, and AI cost. Every fetch is WINDOWED (`gte created_at/completed_at`)
+    practices, and AI tokens called. Every fetch is WINDOWED (`gte created_at/completed_at`)
     so the row set is bounded by the range — no unbounded scan, no migration
     (buckets by UTC date in Python). Gap days are filled with 0 so the series is
     contiguous (sparkline-safe). Pattern #29: a per-series failure degrades to a
@@ -204,11 +215,13 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
                 buckets[d] += 1
         return [{"date": d, "value": buckets[d]} for d in axis]
 
-    def _cost_series():
-        buckets: dict[str, float] = {d: 0.0 for d in axis}
+    def _tokens_series():
+        # dashboard-tweaks — daily AI tokens called (prompt + completion),
+        # replacing the cost series so the dashboard speaks tokens throughout.
+        buckets: dict[str, int] = {d: 0 for d in axis}
         rows = (
             supabase_admin.table("ai_usage_logs")
-            .select("cost_usd_est, created_at")
+            .select("input_tokens, output_tokens, created_at")
             .gte("created_at", since_iso)
             .execute()
             .data
@@ -216,8 +229,8 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
         for r in rows:
             d = _day(r.get("created_at"))
             if d in buckets:
-                buckets[d] += (r.get("cost_usd_est") or 0)
-        return [{"date": d, "value": round(buckets[d], 4)} for d in axis]
+                buckets[d] += (r.get("input_tokens") or 0) + (r.get("output_tokens") or 0)
+        return [{"date": d, "value": buckets[d]} for d in axis]
 
     def _zero_series():
         return [{"date": d, "value": 0} for d in axis]
@@ -234,7 +247,7 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
         "series": {
             "visitors":  _safe_series("visitors", _visitors_series),
             "practices": _safe_series("practices", _practices_series),
-            "cost_usd":  _safe_series("cost_usd", _cost_series),
+            "tokens":    _safe_series("tokens", _tokens_series),
         },
         "computed_at": now.isoformat(),
     }
