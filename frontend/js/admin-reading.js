@@ -269,7 +269,7 @@
         '<td><span class="ar-status-pill is-' + escapeHtml(it.status || 'draft') + '">' +
           escapeHtml(it.status || '') + '</span></td>' +
         '<td>' + escapeHtml(date) + '</td>' +
-        '<td class="ar-row-actions">' + actions + '</td>' +
+        '<td class="ar-row-actions"><div class="adm-action-group">' + actions + '</div></td>' +
       '</tr>';
     }).join('');
   }

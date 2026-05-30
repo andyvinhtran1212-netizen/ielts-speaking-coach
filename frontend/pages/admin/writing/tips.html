@@ -44,6 +44,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
   <link rel="stylesheet" href="/css/admin-writing.css" />
   <link rel="stylesheet" href="/css/markdown.css" />
 
@@ -265,8 +266,8 @@
 
       list.innerHTML = _allTips.map(function (t) {
         var statusPill = t.published
-          ? '<span class="aw-pill aw-pill--published">● Đã publish</span>'
-          : '<span class="aw-pill aw-pill--draft">○ Nháp</span>';
+          ? '<span class="adm-status-pill is-published">● Đã publish</span>'
+          : '<span class="adm-status-pill is-draft">○ Nháp</span>';
         var cat = t.category
           ? '<span class="aw-tag">' + escapeHtml(t.category) + '</span>'
           : '';

@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -120,18 +121,8 @@
     .lst-row-title a { color: var(--av-text-primary); text-decoration: none; font-weight: var(--av-fw-semibold); }
     .lst-row-title a:hover { color: var(--av-brand-teal-700); text-decoration: underline; }
 
-    .lst-chip {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: var(--av-radius-pill);
-      font-size: var(--av-fs-xs);
-      background: var(--av-surface-sunken);
-      color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default);
-    }
-    .lst-chip.is-draft     { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
-    .lst-chip.is-published { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
-    .lst-chip.is-archived  { background: #F3F4F6; color: #6B7280; border-color: #E5E7EB; }
+    /* Status chips (.lst-chip is-draft|published|archived) are aliased onto
+       the shared .adm-status-pill primitive in admin-status.css. */
     .lst-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
 
     .lst-ex-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
@@ -147,7 +138,8 @@
     }
     .lst-ex-empty { color: var(--av-text-muted); font-size: var(--av-fs-xs); font-style: italic; }
 
-    .lst-actions { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    /* Layout (inline-flex/wrap/gap) comes from the shared .adm-action-group
+       primitive in admin-status.css; only the button skin stays page-local. */
     .lst-actions a {
       padding: 2px 8px;
       border-radius: var(--av-radius-sm);

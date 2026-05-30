@@ -856,11 +856,12 @@ textarea.aw-input {
 
 
 /* ── Sprint 19.1B — tips library (admin/writing/tips.html) ─────────── *
- * Reuses .aw-prompt-row / .aw-pill / .aw-input from above; only the
- * published/draft status pills, the markdown editor + live preview, and
- * the quick-toggle button are tips-specific. All on --av-* tokens. */
-.aw-pill--published { background: color-mix(in srgb, var(--av-success) 15%, transparent); color: var(--av-success); }
-.aw-pill--draft     { background: var(--av-surface-sunken); color: var(--av-text-muted); }
+ * Reuses .aw-prompt-row / .aw-input from above; the markdown editor + live
+ * preview and the quick-toggle button are tips-specific. The published/draft
+ * status pills migrated to the shared .adm-status-pill primitive
+ * (admin-status.css) in design-fix-1 — the writing .aw-pill family (mono tags
+ * for task/difficulty metadata) stays writing-local for those metadata tags,
+ * but status is no longer one of them. */
 
 .aw-md-textarea {
   min-height: 18rem;

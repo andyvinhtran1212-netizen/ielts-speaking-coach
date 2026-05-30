@@ -156,11 +156,21 @@ describe('aver-admin-chrome.js / tips nav entry', () => {
 
 
 describe('admin-writing.css / tips classes', () => {
-  test('publish/draft pills + editor classes declared', () => {
-    for (const cls of ['.aw-pill--published', '.aw-pill--draft', '.aw-md-textarea',
-                       '.aw-tips-preview', '.aw-btn-toggle']) {
+  test('editor classes declared (markdown textarea / preview / toggle)', () => {
+    for (const cls of ['.aw-md-textarea', '.aw-tips-preview', '.aw-btn-toggle']) {
       assert.ok(css.includes(cls), `${cls} must be declared`);
     }
+  });
+
+  test('status pills migrated to shared .adm-status-pill primitive (design-fix-1)', () => {
+    // The publish/draft status pills moved off the writing-local .aw-pill mono
+    // tag family onto the shared admin status primitive (admin-status.css), so
+    // status reads consistently with Listening/Reading admin pages.
+    assert.match(html, /class="adm-status-pill is-published"/);
+    assert.match(html, /class="adm-status-pill is-draft"/);
+    assert.match(html, /css\/aver-design\/admin-status\.css/, 'tips.html links admin-status.css');
+    assert.ok(!css.includes('.aw-pill--published'), '.aw-pill--published must be retired');
+    assert.ok(!css.includes('.aw-pill--draft'), '.aw-pill--draft must be retired');
   });
 });
 

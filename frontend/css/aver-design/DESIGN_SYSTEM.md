@@ -1384,3 +1384,39 @@ The blind-spot pattern: every prior gate verifies a property of the chrome **its
 - All 18 canonical chrome pages (every host of `<aver-chrome>`)
 - Any future page that adopts a polling Web Component or chrome helper
 - Any page that depends on a host-bootstrapped global the chrome consumes
+
+---
+
+## Legacy bridge governance (design-fix-1, B6)
+
+The CSS layers have a defined order of precedence. New work uses the canonical
+layers; the legacy bridge is for compatibility only and must not grow.
+
+### Layer responsibilities
+
+| Layer | File | Use for |
+|---|---|---|
+| Tokens | `aver-design/tokens.css` | The only source of `--av-*` color/spacing/type/radius tokens |
+| App components | `aver-design/components.css` | User-facing `.av-*` (buttons, cards, …) |
+| Admin components | `aver-design/admin-components.css` | Admin `.adm-*` (table, button, chip, card, modal). Carries the `* { box-sizing: border-box }` reset, so **any admin page that links it adopts border-box** |
+| Admin status/actions | `aver-design/admin-status.css` | Shared `.adm-status-pill`, `.adm-action-group`, `.adm-btn-sm`. **No box-model reset** — safe to link on pages that have not adopted border-box. Imported by `admin-components.css` |
+| Legacy bridge | `ds.css` | Compatibility only for already-emitted `.ds-*` / `.btn-*` / `.badge-*` classes |
+
+### Rules
+
+1. **New pages** link `tokens.css` + `components.css` (and `admin-components.css`
+   for admin surfaces). They must **not** link `ds.css`.
+2. **No new** `.ds-*`, `.btn-*`, or `.badge-*` classes. Use `.av-button*` /
+   `.adm-btn-*`. When you touch a page that still emits legacy classes, migrate
+   that page's classes to the canonical ones rather than extending the bridge.
+3. **Do not remove `ds.css`** — pages still load it for legacy emitted classes.
+   It is retired per-page, not globally.
+4. **Status pills and row actions** use the shared primitives in
+   `admin-status.css`. Do not re-introduce per-page status-chip classes with
+   hardcoded `#hex` colors (that drift is what design-fix-1 consolidated). New
+   status states get a `.adm-status-pill.is-*` modifier on semantic tokens.
+5. **No new hardcoded semantic colors.** Reach for `--av-success` /
+   `--av-warning` / `--av-error` / `--av-info` (and their `-soft` variants), not
+   raw `#hex` red/amber/teal. A future CSS sentinel may flag new hardcoded
+   semantic hex values in touched files; annotate any intentional exception
+   (e.g. the Reading exam `--exam-*` chrome).
