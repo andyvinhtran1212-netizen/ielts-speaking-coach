@@ -8,9 +8,10 @@
  * endpoint exposes them because verifying the keys is the whole point
  * of the preview).
  *
- * Read-only. The diagram-image upload UX + the import + delete actions
- * live on /admin/reading/content; this page is for inspecting parsed
- * content + correctness only.
+ * Mostly a verification view (keys + parsed content). The diagram/flow
+ * image upload+delete UX is folded in here per question
+ * (reading-admin-preview-fix) so admins manage images in context; the test
+ * import + delete actions still live on /admin/reading/content.
  */
 (function () {
   'use strict';
@@ -149,6 +150,30 @@
       '</div>';
   }
 
+  // reading-admin-preview-fix — diagram/flow image manager, folded INTO the
+  // preview (was a standalone "type test_id" panel on /admin/reading/content).
+  // Each diagram_label / flow_chart question gets inline upload/delete controls
+  // keyed by the question id (q.id, which the admin preview endpoint returns).
+  // The controls call the existing 20.14f-α endpoints; on success we re-fetch
+  // the test so the signed image preview refreshes.
+  var DIAGRAM_TYPES = { diagram_label_completion: 1, flow_chart_completion: 1 };
+
+  function renderDiagramControls(q) {
+    if (!DIAGRAM_TYPES[q.question_type] || !q.id) return '';
+    var hasImg = !!(q.payload && q.payload.image_url);
+    return '<div class="ar-diagram-card__actions" data-diagram-controls ' +
+        'data-q-id="' + escapeHtml(q.id) + '" data-q-num="' + escapeHtml(q.q_num) + '">' +
+      '<input type="file" accept="image/png,image/jpeg,image/webp" data-action="upload" hidden />' +
+      '<button type="button" class="ar-row-action" data-action="upload-trigger">' +
+        (hasImg ? 'Thay ảnh' : 'Upload ảnh') +
+      '</button>' +
+      (hasImg
+        ? '<button type="button" class="ar-row-action is-danger" data-action="delete">Xoá ảnh</button>'
+        : '') +
+      '<span class="ar-diagram-card__status"></span>' +
+    '</div>';
+  }
+
   function renderQuestion(q) {
     var typeLabel = QTYPE_LABEL[q.question_type] || q.question_type;
     return '<article class="ar-preview-q" data-q="' + escapeHtml(q.q_num) + '">' +
@@ -162,6 +187,7 @@
       renderTemplate(q) +
       renderOptions(q) +
       renderImagePreview(q) +
+      renderDiagramControls(q) +
       '<dl class="ar-preview-q__keys">' +
         '<dt>Đáp án</dt><dd>' + renderAnswer(q) + '</dd>' +
         '<dt>Đáp án thay thế</dt><dd>' + renderAlternatives(q) + '</dd>' +
@@ -230,16 +256,12 @@
     setState('');
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    var testId = getQueryParam('test_id');
-    if (!testId) {
-      setState('');
-      setError('Thiếu test_id trong URL. Vd: /pages/admin/reading/preview.html?test_id=AVR-READ-001');
-      return;
-    }
+  var CURRENT_TEST_ID = '';
+
+  function loadTest(testId) {
     setState('Đang tải test ' + testId + '…');
     setError('');
-    window.api.get('/admin/reading/content/tests/' + encodeURIComponent(testId))
+    return window.api.get('/admin/reading/content/tests/' + encodeURIComponent(testId))
       .then(function (test) {
         setState('');
         renderTest(test);
@@ -256,5 +278,72 @@
           setError('Lỗi tải test: ' + ((e && e.message) || e));
         }
       });
+  }
+
+  // ── Diagram image upload / delete (reading-admin-preview-fix) ──────────
+  // Delegated on the (persistent) passages host so the wiring survives every
+  // re-render. Buttons carry data-q-id; uploads/deletes hit the existing
+  // 20.14f-α admin endpoints, then re-fetch so the signed preview refreshes.
+  function ctrlOf(el) { return el.closest('[data-diagram-controls]'); }
+  function statusEl(ctrl) { return ctrl.querySelector('.ar-diagram-card__status'); }
+
+  function wireDiagramControls() {
+    var host = $('ar-preview-passages');
+    if (!host) return;
+
+    host.addEventListener('click', function (e) {
+      var trigger = e.target.closest('[data-action="upload-trigger"]');
+      if (trigger) {
+        var ctrl = ctrlOf(trigger);
+        if (ctrl) ctrl.querySelector('input[data-action="upload"]').click();
+        return;
+      }
+      var del = e.target.closest('[data-action="delete"]');
+      if (del) {
+        var dctrl = ctrlOf(del);
+        if (!dctrl) return;
+        var qId = dctrl.getAttribute('data-q-id');
+        var qNum = dctrl.getAttribute('data-q-num');
+        if (!window.confirm('Xoá ảnh của Q' + qNum + '?')) return;
+        statusEl(dctrl).textContent = 'Đang xoá…';
+        // bracket notation — `delete` is a reserved word but valid as a key.
+        window.api['delete']('/admin/reading/questions/' + encodeURIComponent(qId) + '/diagram-image')
+          .then(function () { return loadTest(CURRENT_TEST_ID); })
+          .catch(function (err) { statusEl(dctrl).textContent = 'Lỗi: ' + ((err && err.message) || err); });
+      }
+    });
+
+    host.addEventListener('change', function (e) {
+      var input = e.target.closest('input[data-action="upload"]');
+      if (!input) return;
+      var ctrl = ctrlOf(input);
+      if (!ctrl) return;
+      var qId = ctrl.getAttribute('data-q-id');
+      var st = statusEl(ctrl);
+      var file = input.files && input.files[0];
+      if (!file) return;
+      if (file.size < 100) { st.textContent = 'File quá nhỏ (<100 B).'; return; }
+      if (file.size > 5 * 1024 * 1024) { st.textContent = 'File quá lớn (>5 MB).'; return; }
+      var fd = new FormData();
+      fd.append('image_file', file);
+      st.textContent = 'Đang upload…';
+      window.api.upload(
+        '/admin/reading/questions/' + encodeURIComponent(qId) + '/upload-diagram-image', fd,
+      )
+        .then(function () { return loadTest(CURRENT_TEST_ID); })
+        .catch(function (err) { st.textContent = 'Lỗi: ' + ((err && err.message) || err); });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var testId = getQueryParam('test_id');
+    if (!testId) {
+      setState('');
+      setError('Thiếu test_id trong URL. Vd: /pages/admin/reading/preview.html?test_id=AVR-READ-001');
+      return;
+    }
+    CURRENT_TEST_ID = testId;
+    wireDiagramControls();
+    loadTest(testId);
   });
 })();
