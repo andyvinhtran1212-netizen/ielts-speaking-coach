@@ -17,12 +17,13 @@ GET /api/grammar/search?q=...              → keyword search (≤20 results)
 from datetime import datetime, timedelta, timezone
 from collections import Counter
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services.grammar_content import grammar_service
+from services.grammar_content import CONTENT_DIR, GROUPS_FILE, MAPPING_FILE, grammar_service
+from services.public_cache import cacheable_json, content_last_modified
 
 
 class ViewBody(BaseModel):
@@ -30,31 +31,40 @@ class ViewBody(BaseModel):
     session_id: str | None = None
 
 router = APIRouter(prefix="/api/grammar", tags=["grammar"])
+_PUBLIC_LAST_MODIFIED = content_last_modified(CONTENT_DIR, GROUPS_FILE, MAPPING_FILE)
 
 
 @router.get("/home")
-async def get_home():
+async def get_home(request: Request) -> Response:
     """Return homepage data: all categories and up to 6 featured articles."""
-    return grammar_service.get_home_data()
+    return cacheable_json(
+        grammar_service.get_home_data(),
+        request,
+        last_modified=_PUBLIC_LAST_MODIFIED,
+    )
 
 
 @router.get("/categories")
-async def get_categories():
+async def get_categories(request: Request) -> Response:
     """Return all categories with their article summaries."""
-    return grammar_service.all_categories
+    return cacheable_json(
+        grammar_service.all_categories,
+        request,
+        last_modified=_PUBLIC_LAST_MODIFIED,
+    )
 
 
 @router.get("/category/{slug}")
-async def get_category(slug: str):
+async def get_category(slug: str, request: Request) -> Response:
     """Return all article summaries for a specific category."""
     data = grammar_service.get_category(slug)
     if data is None:
         raise HTTPException(status_code=404, detail=f"Category '{slug}' not found")
-    return data
+    return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
 @router.get("/article/{category}/{slug}")
-async def get_article(category: str, slug: str):
+async def get_article(category: str, slug: str, request: Request) -> Response:
     """
     Return the full article: HTML body, TOC, band scores metadata,
     resolved related_pages, and prev/next navigation.
@@ -65,11 +75,11 @@ async def get_article(category: str, slug: str):
             status_code=404,
             detail=f"Article '{category}/{slug}' not found",
         )
-    return data
+    return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
 @router.get("/roadmap/{slug}")
-async def get_roadmap(slug: str):
+async def get_roadmap(slug: str, request: Request) -> Response:
     """
     Return the ordered article list for a category as a learning roadmap.
     Slug is a category slug (e.g. 'tenses').
@@ -77,11 +87,11 @@ async def get_roadmap(slug: str):
     data = grammar_service.get_roadmap(slug)
     if data is None:
         raise HTTPException(status_code=404, detail=f"Roadmap '{slug}' not found")
-    return data
+    return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
 @router.get("/compare/{slug}")
-async def get_compare(slug: str):
+async def get_compare(slug: str, request: Request) -> Response:
     """
     Return two articles side-by-side for comparison.
     Slug format: '<left-article>-vs-<right-article>'
@@ -90,16 +100,23 @@ async def get_compare(slug: str):
     data = grammar_service.get_compare(slug)
     if data is None:
         raise HTTPException(status_code=404, detail=f"Compare page '{slug}' not found")
-    return data
+    return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
 @router.get("/search")
-async def search(q: str = Query("", description="Search query (min 2 chars)")):
+async def search(
+    request: Request,
+    q: str = Query("", description="Search query (min 2 chars)"),
+) -> Response:
     """
     Keyword search across title, summary, tags, and body text.
     Returns up to 20 results ranked by relevance score.
     """
-    return grammar_service.search(q)
+    return cacheable_json(
+        grammar_service.search(q),
+        request,
+        last_modified=_PUBLIC_LAST_MODIFIED,
+    )
 
 
 @router.patch("/recommendations/{rec_id}/clicked")
@@ -132,13 +149,17 @@ async def mark_recommendation_clicked(
 
 
 @router.get("/groups")
-async def get_groups():
+async def get_groups(request: Request) -> Response:
     """
     Return the 8 conceptual topic groups with enriched article lists.
     Each article has a resolved status: complete | updating | planned.
     Planned articles have no MD file yet — they should be shown but not linked.
     """
-    return grammar_service.get_groups()
+    return cacheable_json(
+        grammar_service.get_groups(),
+        request,
+        last_modified=_PUBLIC_LAST_MODIFIED,
+    )
 
 
 # ── User interaction endpoints (auth required) ────────────────────────────────

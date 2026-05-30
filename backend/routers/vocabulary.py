@@ -11,27 +11,37 @@ GET /api/vocabulary/articles/{cat}/{slug}    → full article detail
 GET /api/vocabulary/search?q=...            → simple headword prefix match
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
-from services.vocab_content import vocab_service
+from services.public_cache import cacheable_json, content_last_modified
+from services.vocab_content import CATEGORIES_FILE, CONTENT_DIR, vocab_service
 
 router = APIRouter(prefix="/api/vocabulary", tags=["vocabulary"])
+_PUBLIC_LAST_MODIFIED = content_last_modified(CONTENT_DIR, CATEGORIES_FILE)
 
 
 @router.get("/categories")
-async def get_categories():
+async def get_categories(request: Request) -> Response:
     """Return all vocab categories with article summaries."""
-    return vocab_service.get_categories()
+    return cacheable_json(
+        vocab_service.get_categories(),
+        request,
+        last_modified=_PUBLIC_LAST_MODIFIED,
+    )
 
 
 @router.get("/articles")
-async def get_articles():
+async def get_articles(request: Request) -> Response:
     """Return flat list of all article summaries (for client-side search/listing)."""
-    return vocab_service.get_all_articles()
+    return cacheable_json(
+        vocab_service.get_all_articles(),
+        request,
+        last_modified=_PUBLIC_LAST_MODIFIED,
+    )
 
 
 @router.get("/articles/{category}/{slug}")
-async def get_article(category: str, slug: str):
+async def get_article(category: str, slug: str, request: Request) -> Response:
     """Return full article: HTML body, pronunciation, synonyms, collocations, related words."""
     data = vocab_service.get_article(category, slug)
     if data is None:
@@ -39,10 +49,17 @@ async def get_article(category: str, slug: str):
             status_code=404,
             detail=f"Article '{category}/{slug}' not found",
         )
-    return data
+    return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
 @router.get("/search")
-async def search(q: str = Query(default="", min_length=0)):
+async def search(
+    request: Request,
+    q: str = Query(default="", min_length=0),
+) -> Response:
     """Simple prefix match on headword. Returns up to 20 results."""
-    return vocab_service.search_prefix(q)
+    return cacheable_json(
+        vocab_service.search_prefix(q),
+        request,
+        last_modified=_PUBLIC_LAST_MODIFIED,
+    )
