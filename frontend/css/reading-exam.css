@@ -905,7 +905,17 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
    * share their own internal spacing). */
   margin-top: 22px;
 }
-.exam-chrome .exam-headings-box {
+/* Sprint 20.14a (headings) + Sprint 20.14b (features / endings / word-
+ * bank) — the matching / word-bank family shares one box pattern.
+ * Standards §2A.5 / §2A.7 / §2A.8 / §2A.11 mandate the same: sticky
+ * bordered card above the questions, label bold + text in a hanging-
+ * indent column. Width of the label column is wider for the word-bank
+ * variant (single letter A–J) than the headings (Roman numerals i–x);
+ * keeping it 36px works for both. */
+.exam-chrome .exam-headings-box,
+.exam-chrome .exam-features-box,
+.exam-chrome .exam-endings-box,
+.exam-chrome .exam-word-bank-box {
   position: sticky;
   top: 0;
   z-index: 5;
@@ -916,7 +926,10 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   margin: 4px 0 14px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
-.exam-chrome .exam-headings-box__title {
+.exam-chrome .exam-headings-box__title,
+.exam-chrome .exam-features-box__title,
+.exam-chrome .exam-endings-box__title,
+.exam-chrome .exam-word-bank-box__title {
   margin: 0 0 8px;
   font-size: 13px;
   font-weight: 700;
@@ -924,12 +937,18 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   letter-spacing: 0.08em;
   color: var(--exam-text-secondary);
 }
-.exam-chrome .exam-headings-box__list {
+.exam-chrome .exam-headings-box__list,
+.exam-chrome .exam-features-box__list,
+.exam-chrome .exam-endings-box__list,
+.exam-chrome .exam-word-bank-box__list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.exam-chrome .exam-headings-box__item {
+.exam-chrome .exam-headings-box__item,
+.exam-chrome .exam-features-box__item,
+.exam-chrome .exam-endings-box__item,
+.exam-chrome .exam-word-bank-box__item {
   display: grid;
   grid-template-columns: 36px 1fr;
   gap: 6px 8px;
@@ -938,14 +957,31 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   line-height: 1.5;
   font-size: 14px;
 }
-.exam-chrome .exam-headings-box__roman {
+.exam-chrome .exam-headings-box__roman,
+.exam-chrome .exam-features-box__roman,
+.exam-chrome .exam-endings-box__roman,
+.exam-chrome .exam-word-bank-box__roman {
   font-weight: 700;
   color: var(--ielts-navy);
   font-family: var(--exam-font-sans);
   letter-spacing: 0.02em;
 }
-.exam-chrome .exam-headings-box__text {
+.exam-chrome .exam-headings-box__text,
+.exam-chrome .exam-features-box__text,
+.exam-chrome .exam-endings-box__text,
+.exam-chrome .exam-word-bank-box__text {
   color: var(--exam-text-primary);
+}
+/* Sprint 20.14b — mcq_multi checkbox option (Standards §2A.2). Same
+ * grid as `.exam-q__option` (radio | bold prefix | text) so the visual
+ * rhythm matches mcq_single. Disabled state mutes the row when the
+ * "Choose N" soft-lock fires. */
+.exam-chrome .exam-q__option--checkbox input[type="checkbox"] {
+  margin-top: 5px;
+}
+.exam-chrome .exam-q__option--checkbox input[disabled] + .exam-q__option-prefix,
+.exam-chrome .exam-q__option--checkbox input[disabled] ~ .exam-q__option-text {
+  opacity: 0.55;
 }
 
 /* `.exam-gap-box` wraps summary / notes / table runs (Standards §2A.10

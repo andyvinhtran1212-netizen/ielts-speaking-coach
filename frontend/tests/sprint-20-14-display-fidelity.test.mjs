@@ -70,7 +70,7 @@ describe('Sprint 20.14a T1.1 — inline-gap rendering for completion types', () 
   test('renderQuestion routes inline-gap types through _renderInlineStem', () => {
     assert.match(
       js,
-      /function\s+renderQuestion[\s\S]{0,1200}_isInlineGapType\(q\.question_type\)[\s\S]{0,200}_renderInlineStem/,
+      /function\s+renderQuestion[\s\S]{0,2500}_isInlineGapType\(q\.question_type\)[\s\S]{0,400}_renderInlineStem/,
     );
   });
 });
@@ -81,21 +81,31 @@ describe('Sprint 20.14a T1.1 — inline-gap rendering for completion types', () 
 describe('Sprint 20.14a T1.2 — matching_headings headings-box (Standards §2A.5)', () => {
   const js = read('frontend/js/reading-exam.js');
 
-  test('_renderHeadingsBox exists and builds an `.exam-headings-box` aside', () => {
-    assert.match(js, /function\s+_renderHeadingsBox\s*\(\s*options\s*\)/);
-    assert.match(js, /_renderHeadingsBox[\s\S]{0,400}createElement\(['"]aside['"]\)/);
-    assert.match(js, /_renderHeadingsBox[\s\S]{0,800}exam-headings-box(?!_)/);
+  test('shared bank-box renderer exists and builds an `.exam-headings-box` aside', () => {
+    // Sprint 20.14b — `_renderHeadingsBox` was renamed to the variant-
+    // aware `_renderBankBox` so matching_features / matching_sentence_
+    // endings / summary_completion-word-bank can reuse the same code
+    // path. The variant arg carries `className: 'exam-headings-box'`
+    // for the headings case.
+    assert.match(js, /function\s+_renderBankBox\s*\(\s*options\s*,\s*variant\s*\)/);
+    assert.match(js, /_renderBankBox[\s\S]{0,800}createElement\(['"]aside['"]\)/);
+    assert.match(
+      js,
+      /matching_headings:\s*\{\s*className:\s*['"]exam-headings-box['"]/,
+    );
   });
 
   test('renderQuestions emits the headings box before any matching_headings run', () => {
     // The box is appended BEFORE the run.forEach renders the question
-    // cards — pin that flow. Sprint 20.14a.1 (Bug 2) moved the append
-    // target from the pane host to the per-run `<section>` so sticky is
-    // bounded; accept either spelling so a future renderer rewrite that
-    // appends to a different intermediate container stays green.
+    // cards — pin that flow. Sprint 20.14b: the variants table drives
+    // the dispatch; matching_headings is one of four entries.
     assert.match(
       js,
-      /type\s*===\s*['"]matching_headings['"][\s\S]{0,400}_renderHeadingsBox\([\s\S]{0,80}\)[\s\S]{0,200}(?:host|groupEl)\.appendChild\(headingsBox\)/,
+      /BANK_VARIANTS[\s\S]{0,400}matching_headings:\s*\{/,
+    );
+    assert.match(
+      js,
+      /_renderBankBox\(\s*options\s*,\s*bankVariant\s*\)[\s\S]{0,200}groupEl\.appendChild\(bankBox\)/,
     );
   });
 
@@ -110,7 +120,14 @@ describe('Sprint 20.14a T1.2 — matching_headings headings-box (Standards §2A.
   });
 
   test('headings box marks each item with bold Roman numeral class', () => {
-    assert.match(js, /exam-headings-box__roman/);
+    // Sprint 20.14b — class names are now BUILT from `v.className + '__roman'`
+    // so the bank-box renderer works for all 4 variants. Pin the
+    // construction pattern rather than the literal class string.
+    assert.match(js, /v\.className\s*\+\s*['"]__roman['"]/);
+    // And confirm the CSS still ships a `.exam-headings-box__roman` rule
+    // for the headings variant (legacy CSS expectation).
+    const css = read('frontend/css/reading-exam.css');
+    assert.match(css, /\.exam-headings-box__roman/);
   });
 });
 
@@ -121,8 +138,18 @@ describe('Sprint 20.14a T1.3 — headings-box + gap-box CSS shipped', () => {
   const css = read('frontend/css/reading-exam.css');
 
   test('.exam-headings-box is sticky + bordered', () => {
-    assert.match(css, /\.exam-chrome\s+\.exam-headings-box\s*\{[\s\S]{0,400}position:\s*sticky/);
-    assert.match(css, /\.exam-chrome\s+\.exam-headings-box\s*\{[\s\S]{0,400}border:\s*1px\s+solid/);
+    // Sprint 20.14b — the rule is now a shared selector list across the
+    // 4 bank variants. Match `.exam-headings-box,` as one of the
+    // selectors in the list, then the shared block carrying sticky +
+    // border. The 0,1500-char window covers the comma-joined list.
+    assert.match(
+      css,
+      /\.exam-chrome\s+\.exam-headings-box[,\s][\s\S]{0,1500}\{[\s\S]{0,400}position:\s*sticky/,
+    );
+    assert.match(
+      css,
+      /\.exam-chrome\s+\.exam-headings-box[,\s][\s\S]{0,1500}\{[\s\S]{0,400}border:\s*1px\s+solid/,
+    );
   });
 
   test('.exam-gap-box has light background + padding', () => {
@@ -526,11 +553,13 @@ describe('Sprint 20.14a.1 Bug 2 — sticky headings box bounded to its group', (
   });
 
   test('typeRun iteration appends instruction + cards INSIDE the group section', () => {
-    // The instruction element, headings box (when matching_headings),
+    // The instruction element, bank box (matching/word-bank variants),
     // and question cards all attach to the per-run section — not the
     // pane host. The section itself is what appends to host.
+    // Sprint 20.14b: the `headingsBox` variable was renamed `bankBox`
+    // once the renderer became variant-aware (4 bank types share it).
     assert.match(js, /groupEl\.appendChild\(instructionEl\)/);
-    assert.match(js, /groupEl\.appendChild\(headingsBox\)/);
+    assert.match(js, /groupEl\.appendChild\(bankBox\)/);
     assert.match(js, /host\.appendChild\(groupEl\)/);
   });
 
@@ -543,12 +572,12 @@ describe('Sprint 20.14a.1 Bug 2 — sticky headings box bounded to its group', (
   });
 
   test('headings box still has `position: sticky; top: 0` (unchanged)', () => {
-    // The sticky CSS is unchanged from 20.14a — the FIX is structural
-    // (JS wrap), not a CSS rule swap. Pin both lines so a future
-    // refactor that drops sticky here would fail loudly.
+    // Sprint 20.14b — selector is now a shared list (headings/features/
+    // endings/word-bank). The sticky + top: 0 declarations are in the
+    // shared block. Same intent as the 20.14a.1 sentinel.
     assert.match(
       css,
-      /\.exam-chrome\s+\.exam-headings-box\s*\{[\s\S]{0,400}position:\s*sticky[\s\S]{0,200}top:\s*0/,
+      /\.exam-chrome\s+\.exam-headings-box[,\s][\s\S]{0,1500}\{[\s\S]{0,400}position:\s*sticky[\s\S]{0,200}top:\s*0/,
     );
   });
 });

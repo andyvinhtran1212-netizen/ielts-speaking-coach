@@ -488,6 +488,35 @@
       return 'Questions ' + range + ': Answer the questions below. Choose ' +
         'NO MORE THAN THREE WORDS from the passage for each answer.';
     },
+    // Sprint 20.14b — Phase B type instructions per Standards §2A.2 /
+    // §2A.6 / §2A.7 / §2A.8 / §2A.12 / §2A.13. Wording mirrors real
+    // CD-IELTS BC / IDP / Cambridge official-sample phrasing.
+    mcq_multi: function (range, ctx) {
+      var n = ctx.optionsCount || 5;
+      var lettersUpper = String.fromCharCode(64 + n);    // 5 → "E"
+      return 'Questions ' + range + ': Choose TWO letters, A–' + lettersUpper + '.';
+    },
+    matching_information: function (range, ctx) {
+      return 'Questions ' + range + ': Reading Passage ' + ctx.part +
+        ' has several paragraphs. Which paragraph contains the following ' +
+        'information? Write the correct letter beside each statement.';
+    },
+    matching_features: function (range) {
+      return 'Questions ' + range + ': Look at the following statements and ' +
+        'the list of features. Match each statement with the correct feature.';
+    },
+    matching_sentence_endings: function (range) {
+      return 'Questions ' + range + ': Complete each sentence with the ' +
+        'correct ending from the list below.';
+    },
+    flow_chart_completion: function (range) {
+      return 'Questions ' + range + ': Complete the flow-chart below. Choose ' +
+        'NO MORE THAN TWO WORDS from the passage for each answer.';
+    },
+    diagram_label_completion: function (range) {
+      return 'Questions ' + range + ': Label the diagram below. Choose ' +
+        'NO MORE THAN TWO WORDS from the passage for each answer.';
+    },
   };
   function _toRoman(n) {
     var roman = ['','i','ii','iii','iv','v','vi','vii','viii','ix','x',
@@ -561,15 +590,29 @@
           : 'Questions ' + rangeLabel + '.';
         groupEl.appendChild(instructionEl);
 
-        // Sprint 20.14a T1.2 — matching_headings: emit the heading bank
-        // BOX above the question list (Standards §2A.5 BẮT BUỘC). The
-        // dropdown options drop the heading TEXT since the bank is now
-        // visible (renderInputs reads the same flag), keeping the select
-        // narrow to "i / ii / iii…" labels. The box is now appended
-        // INSIDE the group section (Bug 2 fix — see comment above).
-        if (type === 'matching_headings') {
-          var headingsBox = _renderHeadingsBox(run[0].payload && run[0].payload.options);
-          if (headingsBox) groupEl.appendChild(headingsBox);
+        // Sprint 20.14a T1.2 + Sprint 20.14b — bank box for the matching
+        // / word-bank family (Standards §2A.5 / §2A.7 / §2A.8 / §2A.11
+        // all mandate a bordered bank above the questions). The same
+        // helper builds all four — variant choice is the wrapping class
+        // (`exam-headings-box` / `exam-features-box` / `exam-endings-box`
+        // / `exam-word-bank-box`) and the title text.
+        var BANK_VARIANTS = {
+          matching_headings:         { className: 'exam-headings-box',  title: 'List of Headings' },
+          matching_features:         { className: 'exam-features-box',  title: 'List of Features' },
+          matching_sentence_endings: { className: 'exam-endings-box',   title: 'Sentence Endings' },
+          // summary_completion only renders a bank when authored with
+          // `options:` (the word-bank variant); the no-bank variant
+          // skips this branch.
+          summary_completion:        { className: 'exam-word-bank-box', title: 'Word Bank', requireOptions: true },
+        };
+        var bankVariant = BANK_VARIANTS[type];
+        if (bankVariant) {
+          var options = run[0].payload && run[0].payload.options;
+          var skip = bankVariant.requireOptions && (!Array.isArray(options) || !options.length);
+          if (!skip) {
+            var bankBox = _renderBankBox(options, bankVariant);
+            if (bankBox) groupEl.appendChild(bankBox);
+          }
         }
 
         // Sprint 20.14a T1.1 / T1.3 — wrap completion runs in a `.gap-box`
@@ -578,7 +621,18 @@
         // sentence_completion + short_answer stay un-boxed (§2A.9 / §2A.14).
         // table/notes get the additional `.mono-block` modifier so
         // columns / arrows / indent in the stem survive layout.
-        var boxedTypes = { summary_completion: false, notes_completion: true, table_completion: true, form_completion: true };
+        // Sprint 20.14b — Phase B completion types added. flow_chart and
+        // diagram_label join the mono-block family (preserve column /
+        // arrow / indent alignment); summary_completion stays in the
+        // boxed-not-mono group (the no-word-bank variant; word-bank
+        // variant is rendered separately in renderInputs and is also
+        // wrapped here in `.exam-gap-box` so the summary reads as one
+        // block).
+        var boxedTypes = {
+          summary_completion: false, notes_completion: true,
+          table_completion: true, form_completion: true,
+          flow_chart_completion: true, diagram_label_completion: true,
+        };
         if (Object.prototype.hasOwnProperty.call(boxedTypes, type)) {
           var box = document.createElement('div');
           box.className = 'exam-gap-box' + (boxedTypes[type] ? ' exam-gap-box--mono' : '');
@@ -593,29 +647,32 @@
       });
   }
 
-  // Sprint 20.14a T1.2 — heading-bank box for matching_headings (§2A.5).
-  // The box sits above the question list, sticky so it stays visible as
-  // the student scrolls through the questions. Roman numerals in bold,
-  // one heading per line, hanging indent inside each line.
-  function _renderHeadingsBox(options) {
+  // Sprint 20.14a T1.2 (headings) + Sprint 20.14b (features / endings /
+  // word-bank) — shared bank-box renderer. Standards §2A.5 / §2A.7 /
+  // §2A.8 / §2A.11 all mandate the same shape: bordered card above the
+  // questions, sticky, one entry per line with the label in bold and
+  // the text in a hanging-indent column. Variant only differs by
+  // wrapping class + title; the helper's `variant` arg supplies both.
+  function _renderBankBox(options, variant) {
     if (!Array.isArray(options) || !options.length) return null;
+    var v = variant || { className: 'exam-headings-box', title: 'List' };
     var box = document.createElement('aside');
-    box.className = 'exam-headings-box';
-    box.setAttribute('aria-label', 'List of Headings');
+    box.className = v.className;
+    box.setAttribute('aria-label', v.title);
     var title = document.createElement('p');
-    title.className = 'exam-headings-box__title';
-    title.textContent = 'List of Headings';
+    title.className = v.className + '__title';
+    title.textContent = v.title;
     box.appendChild(title);
     var list = document.createElement('ol');
-    list.className = 'exam-headings-box__list';
+    list.className = v.className + '__list';
     options.forEach(function (o) {
       var item = document.createElement('li');
-      item.className = 'exam-headings-box__item';
+      item.className = v.className + '__item';
       var label = document.createElement('span');
-      label.className = 'exam-headings-box__roman';
+      label.className = v.className + '__roman';
       label.textContent = o.label != null ? String(o.label) : '';
       var text = document.createElement('span');
-      text.className = 'exam-headings-box__text';
+      text.className = v.className + '__text';
       text.textContent = o.text || '';
       item.appendChild(label);
       item.appendChild(text);
@@ -654,7 +711,15 @@
     // — not as a separate element appended after the prompt. For types
     // that don't carry a gap glyph in the stem (mcq, TFNG/YNG, matching),
     // fall back to the historic "prompt then control" layout.
-    if (_isInlineGapType(q.question_type) && _stemHasGap(q.prompt)) {
+    // Sprint 20.14b — word-bank summary (`summary_completion` WITH
+    // `options:`) is an exception: even though its stem has `____`, the
+    // gap accepts a label-pick from the word-bank dropdown rather than
+    // free-typed text. _renderInlineStem still does the split, but the
+    // input element it emits needs to be a <select>; for MVP we route
+    // it through the standard prompt+control layout instead so the
+    // dropdown wins. Phase B+ refinement could thread a "make-select"
+    // hook into _renderInlineStem for inline-select gaps.
+    if (_isInlineGapType(q.question_type) && _stemHasGap(q.prompt) && !_isWordBankSummary(q)) {
       body.appendChild(_renderInlineStem(q));
     } else {
       var prompt = document.createElement('p');
@@ -684,10 +749,25 @@
   }
   // Sprint 20.14a T1.1 — types whose stems can carry a `____` gap.
   // form_completion stems are typically `key: ____` style; same renderer.
+  // Sprint 20.14b — diagram_label_completion + flow_chart_completion
+  // join the inline-gap family. summary_completion stays inline-gap;
+  // its word-bank variant (presence of `options:` on the question) is
+  // routed AWAY from `_renderInlineStem` and handled by `renderInputs`
+  // below (which emits a `<select>` instead of a text input).
   function _isInlineGapType(type) {
     return type === 'sentence_completion' || type === 'summary_completion' ||
            type === 'notes_completion'    || type === 'table_completion'   ||
-           type === 'form_completion'     || type === 'short_answer';
+           type === 'form_completion'     || type === 'short_answer'       ||
+           type === 'flow_chart_completion' || type === 'diagram_label_completion';
+  }
+  // Sprint 20.14b — `summary_completion` with authored `options:` is
+  // the word-bank variant (§2A.11) — the gap accepts a label-pick via
+  // a dropdown, not free-typed text. Route those to the standard
+  // (non-inline) renderInputs path so the dropdown wins over the
+  // text-input.
+  function _isWordBankSummary(q) {
+    return q && q.question_type === 'summary_completion' &&
+           q.payload && Array.isArray(q.payload.options) && q.payload.options.length > 0;
   }
   var _GAP_RE = /_{2,}/;
   function _stemHasGap(prompt) {
@@ -754,13 +834,15 @@
         sel.appendChild(opt);
       });
       body.appendChild(sel);
-    } else if (type === 'matching_headings') {
-      // Sprint 20.14a T1.2 — the heading bank now renders ABOVE the
-      // question list in `.exam-headings-box` (Standards §2A.5), so the
-      // dropdown only needs to surface the LABEL (i, ii, iii…). The
-      // student maps "label → heading text" by reading the visible bank.
-      // Dropping the text from each `<option>` also keeps the select
-      // narrow and prevents Roman numerals from being lost in long lines.
+    } else if (type === 'matching_headings' || type === 'matching_features' ||
+               type === 'matching_sentence_endings' ||
+               (type === 'summary_completion' && _isWordBankSummary(q))) {
+      // Sprint 20.14a T1.2 + Sprint 20.14b — bank-driven select. Same
+      // dispatch path for matching_headings (i/ii/iii…) and the Phase B
+      // matching_features (A–E), matching_sentence_endings (A–G), and
+      // summary_completion word-bank variant (A–J). The bank itself
+      // renders ABOVE the questions in its respective `.exam-*-box`
+      // (see renderQuestions), so each `<option>` here is label-only.
       var sel = document.createElement('select');
       sel.className = 'exam-q__select'; sel.name = name;
       var ph = document.createElement('option');
@@ -773,6 +855,67 @@
         sel.appendChild(opt);
       });
       body.appendChild(sel);
+    } else if (type === 'matching_information') {
+      // Sprint 20.14b — Standards §2A.6: the "options" are the
+      // passage's own paragraph labels (A–H), not an authored bank.
+      // The author scopes the letters via `template: { paragraph_labels: [...] }`
+      // (the builder copies template → payload.template) — if absent,
+      // fall back to the conventional A–H range. No box renders above
+      // the questions for this type; the student picks letters that are
+      // visible inline in the passage.
+      var tmpl = (q.payload && q.payload.template) || {};
+      var labels = (Array.isArray(tmpl.paragraph_labels) && tmpl.paragraph_labels.length)
+        ? tmpl.paragraph_labels
+        : ['A','B','C','D','E','F','G','H'];
+      var sel = document.createElement('select');
+      sel.className = 'exam-q__select'; sel.name = name;
+      var ph = document.createElement('option');
+      ph.value = ''; ph.textContent = '— Select —';
+      sel.appendChild(ph);
+      labels.forEach(function (lab) {
+        var opt = document.createElement('option');
+        opt.value = String(lab); opt.textContent = String(lab);
+        sel.appendChild(opt);
+      });
+      body.appendChild(sel);
+    } else if (type === 'mcq_multi') {
+      // Sprint 20.14b — Standards §2A.2 "Choose TWO letters, A–E".
+      // Checkbox per option. Soft-lock at N picks (the count comes from
+      // the authored answer-key length, propagated via payload.choose).
+      // When the user already has N boxes ticked, additional clicks are
+      // ignored and a tiny live-region hint fires (a11y-only — no toast,
+      // matching the §2A.2 "lock additional input" hint). Submit
+      // serialises the picked labels comma-joined for the grader's
+      // set-equality compare (see services/reading_test_grader.py).
+      // `choose` lives at template.choose (author writes
+       // `template: { choose: 2 }`; builder copies to payload.template).
+      var tmpl = (q.payload && q.payload.template) || {};
+      var chooseN = (typeof tmpl.choose === 'number') ? tmpl.choose : null;
+      var opts = document.createElement('div');
+      opts.className = 'exam-q__options exam-q__options--multi';
+      opts.setAttribute('role', 'group');
+      opts.setAttribute('aria-label', 'Answer ' + q.q_num +
+        (chooseN ? ' (choose ' + chooseN + ')' : ''));
+      ((q.payload && q.payload.options) || []).forEach(function (o) {
+        var val = o.label != null ? String(o.label) : String(o.text || '');
+        var prefix = o.label != null ? String(o.label) : '';
+        opts.appendChild(checkboxOption(name, val, prefix, o.text || ''));
+      });
+      // Soft-lock: when the Nth box is ticked, lock the rest until one
+      // is un-ticked. Listens on the group's change events.
+      if (chooseN && chooseN > 0) {
+        opts.addEventListener('change', function () {
+          var boxes = opts.querySelectorAll('input[type="checkbox"]');
+          var checked = 0;
+          for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) checked++;
+          var lock = checked >= chooseN;
+          for (var j = 0; j < boxes.length; j++) {
+            if (!boxes[j].checked) boxes[j].disabled = lock;
+          }
+          if (lock) liveSay('Choose ' + chooseN + ' answers — limit reached.');
+        });
+      }
+      body.appendChild(opts);
     } else {
       // short_answer / *_completion text gap
       var input = document.createElement('input');
@@ -781,6 +924,24 @@
       input.placeholder = 'Type your answer…';
       body.appendChild(input);
     }
+  }
+  // Sprint 20.14b — mcq_multi checkbox option. Same grid layout as
+  // mcq_single radio (radio | bold prefix | text) so the visual rhythm
+  // is unchanged between the two MCQ variants.
+  function checkboxOption(name, value, prefix, text) {
+    var label = document.createElement('label');
+    label.className = 'exam-q__option exam-q__option--checkbox';
+    var input = document.createElement('input');
+    input.type = 'checkbox'; input.name = name; input.value = value;
+    label.appendChild(input);
+    var prefixEl = document.createElement('span');
+    prefixEl.className = 'exam-q__option-prefix';
+    prefixEl.textContent = String(prefix || '');
+    var textEl = document.createElement('span');
+    textEl.className = 'exam-q__option-text';
+    textEl.textContent = String(text || '');
+    label.appendChild(prefixEl); label.appendChild(textEl);
+    return label;
   }
   function radioOption(name, value, prefixOrText, optionalText) {
     // Sprint 20.14a T1.4 — accept either (name, value, fullText) for
@@ -809,6 +970,19 @@
   function readAnswer(card) {
     var input = card.querySelector('.exam-q__gap');
     if (input) return input.value;
+    // Sprint 20.14b — mcq_multi: comma-join the ticked checkbox labels.
+    // The grader splits on `,` and `;` and normalises each token, so
+    // ordering and surrounding whitespace don't matter. Empty selection
+    // returns "" which onAnswerChanged treats as "not answered".
+    var multi = card.querySelectorAll('input[type="checkbox"]:checked');
+    if (multi.length || card.querySelector('input[type="checkbox"]')) {
+      // Has checkboxes — even if none ticked, this is the mcq_multi
+      // shape (return the empty selection rather than falling through
+      // to radio/select which would mis-read).
+      var vals = [];
+      for (var i = 0; i < multi.length; i++) vals.push(multi[i].value);
+      return vals.join(',');
+    }
     var checked = card.querySelector('input[type="radio"]:checked');
     if (checked) return checked.value;
     var sel = card.querySelector('select');
@@ -869,6 +1043,24 @@
       if (input) { input.value = value || ''; markAnswered(qNum); return; }
       var sel = card.querySelector('select');
       if (sel) { sel.value = value || ''; markAnswered(qNum); return; }
+      // Sprint 20.14b — mcq_multi: split the comma-joined value, tick
+      // each matching checkbox. The escape-on-attribute-selector pattern
+      // mirrors the radio branch below.
+      var checkboxes = card.querySelectorAll('input[type="checkbox"]');
+      if (checkboxes.length) {
+        var labels = String(value || '').replace(/;/g, ',').split(',')
+          .map(function (s) { return s.trim(); })
+          .filter(function (s) { return s.length; });
+        labels.forEach(function (lab) {
+          try {
+            var safe = (window.CSS && CSS.escape) ? CSS.escape(lab) : lab.replace(/"/g, '\\"');
+            var cb = card.querySelector('input[type="checkbox"][value="' + safe + '"]');
+            if (cb) cb.checked = true;
+          } catch (e) {}
+        });
+        if (labels.length) markAnswered(qNum);
+        return;
+      }
       try {
         var radio = card.querySelector('input[type="radio"][value="' +
           (window.CSS && CSS.escape ? CSS.escape(String(value)) : String(value).replace(/"/g, '\\"')) + '"]');
