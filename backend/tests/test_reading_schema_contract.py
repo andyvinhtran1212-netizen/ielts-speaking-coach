@@ -55,13 +55,18 @@ def test_migrations_are_idempotent():
 
 def test_numbering_is_contiguous_from_085():
     # Sprint 20.9 added migration 088_reading_attempt_hardening.sql (per-q_num
-    # answer table + partial unique index on in_progress attempts). Update the
-    # contract: the cluster's reading migration slots are 086, 087, 088;
-    # nothing should appear past 088 yet.
+    # answer table + partial unique index on in_progress attempts). The READING
+    # cluster owns slots 086, 087, 088. Newer NON-reading migrations (e.g. 089
+    # admin-dashboard SUM RPC) are fine — this contract only guards that no
+    # *reading* migration sneaks past 088 (a stray slot reuse), not the global
+    # migration max (which any unrelated sprint legitimately advances).
     nums = sorted(int(p.name[:3]) for p in _MIGRATIONS.glob("0*.sql")
                   if p.name[:3].isdigit())
     assert 86 in nums and 87 in nums and 88 in nums
-    assert max(nums) == 88, f"unexpected migrations beyond 088: {nums}"
+    reading_nums = sorted(int(p.name[:3]) for p in _MIGRATIONS.glob("0*reading*.sql")
+                          if p.name[:3].isdigit())
+    assert reading_nums and max(reading_nums) == 88, \
+        f"unexpected reading migration past 088: {reading_nums}"
     # Confirm 088 is the audit-hardening migration and not a stray reuse of
     # the slot for unrelated content.
     assert (_MIGRATIONS / "088_reading_attempt_hardening.sql").exists()
