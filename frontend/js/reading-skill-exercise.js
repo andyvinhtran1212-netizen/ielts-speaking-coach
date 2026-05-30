@@ -59,7 +59,10 @@
     }
 
     var body = $('rv-body');
-    body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '') : '';
+    // Sprint 20.14d — same fix as reading-exam.js. CommonMark soft-break
+    // for IELTS reading passages so YAML-literal-block hard-wrapped
+    // source text reflows to fill the pane, not the source's column.
+    body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '', { breaks: false }) : '';
 
     if (p.image_url) {
       var img = document.createElement('img');

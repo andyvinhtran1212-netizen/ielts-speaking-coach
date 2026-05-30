@@ -782,36 +782,25 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 }
 
 /* ── AV1 — Passage justified, fluid width (Q2 decision) ─────────────── */
-/* The mockup caps body at `max-width: 70ch` (line 170 of reading-exam-
- * mockup.css) and leaves it ragged-right; Andy's dogfood wants the text
- * to FILL the pane and reflow on window resize. Drop the cap, justify.
+/* Sprint 20.14a — drop the mockup's `max-width: 70ch` cap (line 170 of
+ * reading-exam-mockup.css) so the passage column fills the pane and
+ * reflows on window resize. Justify the text per AV1.
  *
- * Sprint 20.14a.1 — added `!important` + selector boost to 0,0,3,1.
- * Sprint 20.14c D2 — Andy's dogfood after #350 still showed the cap.
- *   Theory: GitHub Pages cache + Service Worker may serve a pre-#350
- *   CSS until forced refresh. Third pass: make `width: 100%`, declare
- *   `display: block`, and `box-sizing: border-box` explicit so even if
- *   somehow a stale cascade returns, the body fills the pane edge to
- *   edge (minus the pane's own padding). Cosmetic-only, no DOM change. */
-body.exam-chrome .exam-passage__part .exam-passage__body,
+ * Sprint 20.14d — REMOVED the 20.14a.1 / 20.14c.D2 `!important` +
+ * `width: 100%` + `box-sizing` belt-and-braces. Those passes were
+ * treating the wrong layer: the true reason text wrapped at ~670px in a
+ * 1340px pane was `marked.js` emitting `<br>` after every source line
+ * (the YAML `|` literal-block body_markdown is hard-wrapped at ~60
+ * chars for editor readability, and `breaks: true` turned every one
+ * into a hard line break). Fix lives in frontend/js/markdown.js + the
+ * reading callers, which now pass `{ breaks: false }`. With `<br>` gone
+ * from the rendered HTML, the original minimal override below works as
+ * intended — text reflows to the pane and justifies cleanly. */
 .exam-chrome .exam-passage__body {
-  display: block !important;
-  max-width: none !important;
-  width: 100% !important;
-  box-sizing: border-box;
-  text-align: justify !important;
+  max-width: none;
+  text-align: justify;
   text-justify: inter-word;
   hyphens: auto;
-}
-/* Sprint 20.14c D2 — also force the part wrapper to fill the pane so
- * the body has 100% of something to fill. Defaults already make this
- * true (block div = 100% of parent), but pinning it forecloses any
- * future mockup edit that adds `display: inline-block` or `width: max-
- * content` from collapsing the wrapper. */
-body.exam-chrome .exam-passage__part {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 /* ── T1.6 — Borderless question card + navy circle badge (§2A.15) ──── */

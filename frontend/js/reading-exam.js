@@ -391,7 +391,14 @@
     if (cached) {
       body.innerHTML = cached;
     } else {
-      body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '') : '';
+      // Sprint 20.14d — `breaks: false` (CommonMark soft-break). The
+      // YAML `|` literal-block body_markdown in the seed is hard-wrapped
+      // at ~60 chars for editor readability; under the default
+      // `breaks: true`, marked emits a `<br>` after every source line
+      // and prose can't reflow to the pane width. Soft-break collapses
+      // single `\n` to space (double `\n` still = paragraph break), so
+      // paragraphs flow to fill the pane and respond to window resize.
+      body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '', { breaks: false }) : '';
     }
     wrap.appendChild(eyebrow);
     wrap.appendChild(title);

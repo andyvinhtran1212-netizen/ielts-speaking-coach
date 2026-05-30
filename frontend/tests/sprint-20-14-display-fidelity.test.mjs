@@ -483,35 +483,26 @@ describe('Sprint 20.14a T1.1 (runtime) — gap-split math', () => {
 //   questions__group">` so the sticky element's containing block ends
 //   at the section's bottom, scrolling off naturally with the section.
 
-describe('Sprint 20.14a.1 Bug 1 — passage fills pane width (!important defence)', () => {
+// Sprint 20.14a.1 / 20.14c D2 — REPLACED by 20.14d. The earlier passes
+// (`!important`, `width: 100%`, `box-sizing`, selector boost to 0,0,3,1,
+// `display: block !important`) treated the wrong layer. Andy's dogfood
+// kept reporting the cap because `marked.js` was emitting `<br>` after
+// every source line in the YAML-literal-block passage body — wrapping
+// happened in the HTML, not via CSS max-width. The real fix lives in
+// frontend/js/markdown.js + the reading callers (now pass
+// `{ breaks: false }`). The defence-in-depth CSS is rolled back to the
+// minimal 20.14a `.exam-passage__body { max-width: none; text-align:
+// justify }` because the underlying bug never lived there. See the
+// `Sprint 20.14d` describe blocks below.
+describe('Sprint 20.14a — passage body CSS (minimal 20.14d-reverted form)', () => {
   const css = read('frontend/css/reading-exam.css');
 
-  test('max-width: none is marked !important on the 20.14a.1 override', () => {
-    // The 20.14a override (specificity 0,0,2,0) should have won against
-    // the mockup's 0,0,1,0 — but the dogfood showed it didn't (browser
-    // cache or build drift suspected). Belt-and-braces: !important
-    // closes that class of bug regardless of root cause.
+  test('max-width: none + text-align: justify remain on the production override', () => {
+    // Original 20.14a rule, now without !important — the `<br>`-removal
+    // fix in markdown.js means specificity alone is enough.
     assert.match(
       css,
-      /\.exam-passage__body[\s\S]{0,400}max-width:\s*none\s*!important/,
-    );
-  });
-
-  test('text-align: justify is marked !important too (right edge was ragged)', () => {
-    assert.match(
-      css,
-      /\.exam-passage__body[\s\S]{0,400}text-align:\s*justify\s*!important/,
-    );
-  });
-
-  test('Selector boost: a 0,0,3,1-specificity rule targets the passage body', () => {
-    // `body.exam-chrome .exam-passage__part .exam-passage__body` is
-    // (0,0,3,1). The compound `body.exam-chrome` lifts the type-selector
-    // count to 1 (body) and class count to 3 (exam-chrome + __part +
-    // __body) — strictly stronger than any reasonable mockup selector.
-    assert.match(
-      css,
-      /body\.exam-chrome\s+\.exam-passage__part\s+\.exam-passage__body/,
+      /\.exam-chrome\s+\.exam-passage__body\s*\{[\s\S]{0,400}max-width:\s*none[\s\S]{0,200}text-align:\s*justify/,
     );
   });
 });
@@ -721,33 +712,106 @@ describe('Sprint 20.14c D1 — state preservation across Part swaps', () => {
 });
 
 
-// ── Sprint 20.14c D2 — passage resize re-fix (3rd pass) ───────────────
+// ── Sprint 20.14d — real fix: collapse `<br>` in passage markdown ─────
+//
+// The 3 previous passes (20.14a / 20.14a.1 / 20.14c D2) all tried to
+// solve "passage capped at ~670px" with CSS belt-and-braces. The actual
+// cause was upstream: marked.js's `breaks: true` was emitting `<br>`
+// after every source line in the YAML `|` literal-block body_markdown.
+// The text wrapped at the HTML's hard breaks, not the pane's CSS
+// max-width — which is why every CSS pass left the symptom unchanged.
 
-describe('Sprint 20.14c D2 — passage body bulletproof fill (3rd pass)', () => {
-  const css = read('frontend/css/reading-exam.css');
+describe('Sprint 20.14d — renderMarkdown accepts opts.breaks (CommonMark soft-break)', () => {
+  const js = read('frontend/js/markdown.js');
 
-  test('width: 100% !important + box-sizing border-box on the override', () => {
+  test('renderMarkdown takes a second `opts` arg', () => {
+    assert.match(js, /function\s+renderMarkdown\s*\(\s*md\s*,\s*opts\s*\)/);
+  });
+
+  test('breaks flag defaults to true (back-compat with writing-tips callers)', () => {
+    // The historic single-arg callers must keep emitting `<br>` after
+    // single newlines — that's how the writing-tips admin authoring
+    // experience has worked since Sprint 19.1B.
     assert.match(
-      css,
-      /\.exam-passage__body[\s\S]{0,400}width:\s*100%\s*!important/,
-    );
-    assert.match(
-      css,
-      /\.exam-passage__body[\s\S]{0,400}box-sizing:\s*border-box/,
+      js,
+      /var\s+breaks\s*=\s*\(opts\s*&&\s*typeof\s+opts\.breaks\s*===\s*['"]boolean['"]\)\s*\?\s*opts\.breaks\s*:\s*true/,
     );
   });
 
-  test('display: block !important on the override (forecloses inline drift)', () => {
+  test('marked.parse receives the resolved `breaks` value (not the hard-coded true)', () => {
     assert.match(
-      css,
-      /\.exam-passage__body[\s\S]{0,400}display:\s*block\s*!important/,
+      js,
+      /marked\.parse\(src,\s*\{\s*breaks:\s*breaks\s*,\s*gfm:\s*true\s*\}\)/,
+    );
+  });
+});
+
+describe('Sprint 20.14d — reading callers pass `{ breaks: false }`', () => {
+  // Every reading-pane render path (exam, skill exercise, vocab passage)
+  // must opt in to CommonMark soft-break so prose flows naturally. The
+  // writing-tip callers (writing-dashboard, writing-result, admin tips
+  // editor) intentionally stay on the default.
+  test('reading-exam.js passes { breaks: false } when rendering passage body', () => {
+    const exam = read('frontend/js/reading-exam.js');
+    assert.match(
+      exam,
+      /renderMarkdown\(p\.body_markdown\s*\|\|\s*['"]{2}\s*,\s*\{\s*breaks:\s*false\s*\}\)/,
     );
   });
 
-  test('part wrapper also pinned to block + 100% width', () => {
+  test('reading-skill-exercise.js passes { breaks: false }', () => {
+    const skill = read('frontend/js/reading-skill-exercise.js');
     assert.match(
-      css,
-      /body\.exam-chrome\s+\.exam-passage__part\s*\{[\s\S]{0,400}display:\s*block[\s\S]{0,200}width:\s*100%/,
+      skill,
+      /renderMarkdown\(p\.body_markdown\s*\|\|\s*['"]{2}\s*,\s*\{\s*breaks:\s*false\s*\}\)/,
     );
+  });
+
+  test('reading-vocab-passage.js passes { breaks: false }', () => {
+    const vocab = read('frontend/js/reading-vocab-passage.js');
+    assert.match(
+      vocab,
+      /renderMarkdown\(p\.body_markdown\s*\|\|\s*['"]{2}\s*,\s*\{\s*breaks:\s*false\s*\}\)/,
+    );
+  });
+
+  test('writing-tips callers stay on the default (no opts arg)', () => {
+    // Back-compat guard — if a future refactor accidentally flips the
+    // default or rewires writing-tips to opt in, this sentinel flags it.
+    const tipsAdmin = read('frontend/pages/admin/writing/tips.html');
+    const wDash    = read('frontend/pages/writing-dashboard.html');
+    // The writing-tips renderMarkdown calls pass tip.body_markdown
+    // (not p.body_markdown) and rely on the historic `breaks: true`
+    // default — they take a single argument.
+    assert.match(tipsAdmin, /renderMarkdown\(document\.getElementById\(['"]form-body['"]\)\.value\)/);
+    assert.match(wDash, /renderMarkdown\(tip\.body_markdown\)/);
+  });
+});
+
+describe('Sprint 20.14d — runtime: no <br> in prose paragraph render', () => {
+  // Recreate the renderMarkdown logic minus the CDN deps so the test
+  // can exercise the actual marked behaviour. Skipped when the host has
+  // no `marked` (CI sandbox doesn't). The static-analysis tests above
+  // pin the wiring; this is the behavioural backstop for when a
+  // jsdom/CDN harness lands.
+  test('hard-wrapped source paragraph produces NO <br> with breaks: false', () => {
+    if (typeof globalThis.marked === 'undefined') {
+      // No marked.js in this CI environment — skip the runtime check.
+      // The static assertions above already pin the contract.
+      return;
+    }
+    var src = 'The high street of any large city used to look the same.\n'
+            + 'A row of familiar shop signs, the same goods in every window,\n'
+            + 'the same prices to within a few pence.';
+    var html = globalThis.marked.parse(src, { breaks: false, gfm: true });
+    assert.ok(!/<br\s*\/?>/i.test(html), 'breaks:false must NOT emit <br> on single \\n');
+    assert.match(html, /<p>/);
+  });
+
+  test('back-compat: breaks: true still emits <br> for admin writing-tip linebreaks', () => {
+    if (typeof globalThis.marked === 'undefined') return;
+    var src = 'Line one.\nLine two.';
+    var html = globalThis.marked.parse(src, { breaks: true, gfm: true });
+    assert.match(html, /<br\s*\/?>/i);
   });
 });
