@@ -306,14 +306,14 @@ describe('Sprint 20.14a T2.3 — jump-flash + answered-class on card', () => {
   test('jumpTo adds `.is-flash` to the target card (reduced-motion gated)', () => {
     assert.match(
       js,
-      /function\s+jumpTo[\s\S]{0,800}prefersReducedMotion\(\)[\s\S]{0,400}classList\.add\(['"]is-flash['"]\)/,
+      /function\s+jumpTo[\s\S]{0,2000}prefersReducedMotion\(\)[\s\S]{0,400}classList\.add\(['"]is-flash['"]\)/,
     );
   });
 
   test('Animation cleanup: card removes the class on animationend', () => {
     assert.match(
       js,
-      /function\s+jumpTo[\s\S]{0,1200}addEventListener\(['"]animationend['"][\s\S]{0,200}classList\.remove\(['"]is-flash['"]\)/,
+      /function\s+jumpTo[\s\S]{0,2500}addEventListener\(['"]animationend['"][\s\S]{0,200}classList\.remove\(['"]is-flash['"]\)/,
     );
   });
 
@@ -558,6 +558,196 @@ describe('Sprint 20.14a.1 Bug 2 — sticky headings box bounded to its group', (
     assert.match(
       css,
       /\.exam-chrome\s+\.exam-headings-box\s*\{[\s\S]{0,400}position:\s*sticky[\s\S]{0,200}top:\s*0/,
+    );
+  });
+});
+
+
+// ── Sprint 20.14c D1 — one-Part-at-a-time scroll model (§3A.2) ────────
+//
+// Pre-20.14c: renderPassages + renderQuestions stacked all 3 passages
+// and all 40 questions, scrolling continuously. The passage / question
+// pane content was DESYNCED — student reading passage 1 saw Q1–40 in
+// the right pane simultaneously. Standards §3A.2 mandates one Part at
+// a time: pane-left = current passage only, pane-right = current Part's
+// questions only, palette click crossing a Part boundary swaps both
+// panes instantly (no confirm).
+
+describe('Sprint 20.14c D1 — SESSION.currentPart + per-Part render', () => {
+  const js = read('frontend/js/reading-exam.js');
+
+  test('SESSION declares currentPart (defaults to 1)', () => {
+    assert.match(
+      js,
+      /currentPart:\s*1,[\s\S]{0,400}Sprint 20\.14c D1/,
+    );
+  });
+
+  test('SESSION declares highlights_by_part cache (Map)', () => {
+    assert.match(
+      js,
+      /highlights_by_part:\s*new Map\(\),[\s\S]{0,400}Sprint 20\.14c D1/,
+    );
+  });
+
+  test('renderCurrentPassage exists, picks passage by passage_order match', () => {
+    assert.match(js, /function\s+renderCurrentPassage\s*\(\s*\)/);
+    assert.match(
+      js,
+      /function\s+renderCurrentPassage[\s\S]{0,800}passages\[i\]\.passage_order\s*===\s*SESSION\.currentPart/,
+    );
+  });
+
+  test('renderCurrentPassage restores highlights_by_part cache when present', () => {
+    assert.match(
+      js,
+      /function\s+renderCurrentPassage[\s\S]{0,2500}SESSION\.highlights_by_part\.get/,
+    );
+    // And the markdown fall-back path for fresh first-visit renders.
+    assert.match(
+      js,
+      /function\s+renderCurrentPassage[\s\S]{0,2500}window\.renderMarkdown/,
+    );
+  });
+
+  test('renderCurrentPartQuestions filters by passage_order === currentPart', () => {
+    assert.match(js, /function\s+renderCurrentPartQuestions\s*\(\s*\)/);
+    assert.match(
+      js,
+      /function\s+renderCurrentPartQuestions[\s\S]{0,800}filter[\s\S]{0,200}passage_order[\s\S]{0,80}SESSION\.currentPart/,
+    );
+  });
+
+  test('enterInProgress calls the one-Part renderers (not the old stack-all forms)', () => {
+    assert.match(
+      js,
+      /function\s+enterInProgress[\s\S]{0,800}renderCurrentPassage\(\)[\s\S]{0,200}renderCurrentPartQuestions\(\)/,
+    );
+    // And the old stack-all function names are gone.
+    assert.ok(
+      !/function\s+renderPassages\s*\(/.test(js),
+      'old renderPassages should be gone — replaced by renderCurrentPassage',
+    );
+    assert.ok(
+      !/function\s+renderQuestions\s*\(/.test(js),
+      'old renderQuestions should be gone — replaced by renderCurrentPartQuestions',
+    );
+  });
+});
+
+describe('Sprint 20.14c D1 — setCurrentPart orchestrator + Part-aware jumpTo', () => {
+  const js = read('frontend/js/reading-exam.js');
+
+  test('setCurrentPart exists with the no-op guard for same-Part calls', () => {
+    assert.match(js, /function\s+setCurrentPart\s*\(\s*part\s*,\s*skipScrollTop\s*\)/);
+    assert.match(
+      js,
+      /function\s+setCurrentPart[\s\S]{0,400}part\s*===\s*SESSION\.currentPart\)\s*return/,
+    );
+  });
+
+  test('setCurrentPart snapshots the outgoing Part highlights BEFORE re-render', () => {
+    // Order matters — snapshot must happen before currentPart changes
+    // and before renderCurrentPassage overwrites the DOM.
+    assert.match(
+      js,
+      /function\s+setCurrentPart[\s\S]{0,800}snapshotCurrentPartHighlights\(\)[\s\S]{0,400}SESSION\.currentPart\s*=\s*part[\s\S]{0,400}renderCurrentPassage/,
+    );
+  });
+
+  test('setCurrentPart re-renders BOTH panes + restores answers', () => {
+    assert.match(
+      js,
+      /function\s+setCurrentPart[\s\S]{0,2000}renderCurrentPassage\(\)[\s\S]{0,500}renderCurrentPartQuestions\(\)[\s\S]{0,500}restoreAnswers\(\)/,
+    );
+  });
+
+  test('setCurrentPart scrolls both panes to top by default (skipScrollTop opt)', () => {
+    // Standards §3A.2 — "Part mới load cuộn về đầu cả hai pane".
+    assert.match(
+      js,
+      /function\s+setCurrentPart[\s\S]{0,3000}passagePane\.scrollTop\s*=\s*0[\s\S]{0,400}questionsPane\.scrollTop\s*=\s*0/,
+    );
+    assert.match(
+      js,
+      /function\s+setCurrentPart[\s\S]{0,2500}if\s*\(!skipScrollTop\)/,
+    );
+  });
+
+  test('jumpTo looks up the target Q passage_order and swaps Parts when crossing', () => {
+    assert.match(
+      js,
+      /function\s+jumpTo[\s\S]{0,800}targetPart[\s\S]{0,400}setCurrentPart\(targetPart,\s*\/\*\s*skipScrollTop\s*\*\/\s*true\)/,
+    );
+  });
+
+  test('snapshotCurrentPartHighlights captures the live body innerHTML into the cache', () => {
+    assert.match(js, /function\s+snapshotCurrentPartHighlights\s*\(\s*\)/);
+    assert.match(
+      js,
+      /snapshotCurrentPartHighlights[\s\S]{0,400}SESSION\.highlights_by_part\.set\(SESSION\.currentPart/,
+    );
+  });
+});
+
+describe('Sprint 20.14c D1 — state preservation across Part swaps', () => {
+  const js = read('frontend/js/reading-exam.js');
+
+  test('flag aria-pressed initialised from SESSION.flagged on render (survives Part swap re-render)', () => {
+    assert.match(
+      js,
+      /var\s+isFlagged\s*=\s*SESSION\.flagged\.has\(q\.q_num\)[\s\S]{0,200}aria-pressed[\s\S]{0,80}isFlagged/,
+    );
+  });
+
+  test('palette renders ALL questions (not filtered) so all 40 tiles stay visible', () => {
+    // The palette is rendered ONCE in enterInProgress with the full
+    // question list. Per-Part filtering would lose tiles for other
+    // Parts; the palette is the cross-Part nav so all 40 must show.
+    assert.match(
+      js,
+      /renderPalette\([\s\S]{0,200}SESSION\.test\.questions[\s\S]{0,200}\)/,
+    );
+  });
+
+  test('submitAttempt reads SESSION.answers (all 40), not the visible Part only', () => {
+    // Submit must grade EVERY answered Q regardless of which Part is
+    // currently rendered. SESSION.answers is the cross-Part store.
+    assert.match(
+      js,
+      /function\s+submitAttempt[\s\S]{0,800}SESSION\.answers\.forEach\(function\s*\(\s*value\s*,\s*qNum\s*\)/,
+    );
+  });
+});
+
+
+// ── Sprint 20.14c D2 — passage resize re-fix (3rd pass) ───────────────
+
+describe('Sprint 20.14c D2 — passage body bulletproof fill (3rd pass)', () => {
+  const css = read('frontend/css/reading-exam.css');
+
+  test('width: 100% !important + box-sizing border-box on the override', () => {
+    assert.match(
+      css,
+      /\.exam-passage__body[\s\S]{0,400}width:\s*100%\s*!important/,
+    );
+    assert.match(
+      css,
+      /\.exam-passage__body[\s\S]{0,400}box-sizing:\s*border-box/,
+    );
+  });
+
+  test('display: block !important on the override (forecloses inline drift)', () => {
+    assert.match(
+      css,
+      /\.exam-passage__body[\s\S]{0,400}display:\s*block\s*!important/,
+    );
+  });
+
+  test('part wrapper also pinned to block + 100% width', () => {
+    assert.match(
+      css,
+      /body\.exam-chrome\s+\.exam-passage__part\s*\{[\s\S]{0,400}display:\s*block[\s\S]{0,200}width:\s*100%/,
     );
   });
 });

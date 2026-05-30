@@ -58,6 +58,24 @@
                                 // is server-authoritative, so this gate is
                                 // forward-compatible insurance against
                                 // stale local caches after admin re-imports.
+    currentPart: 1,             // Sprint 20.14c D1 — one-Part-at-a-time
+                                // scroll model (Standards §3A.2). Only this
+                                // Part's passage + questions render in the
+                                // panes; palette / Prev / Next swap Parts
+                                // implicitly. Answers, flags, attempt all
+                                // stay scoped to the whole test (40 Qs),
+                                // not the visible Part. Default 1; resume
+                                // restores to Part 1 (simplest predictable
+                                // behaviour — last-active Part is a 20.14c+
+                                // option if Andy asks).
+    highlights_by_part: new Map(), // Sprint 20.14c D1 — Part → cached
+                                // passage-body innerHTML (Standards §3A.2:
+                                // "Highlight đã tạo ở mỗi Part được khôi
+                                // phục khi quay lại"). On Part swap, the
+                                // outgoing Part's passage body is snapshot
+                                // here BEFORE re-render destroys the DOM,
+                                // and the incoming Part's snapshot (if any)
+                                // is restored AFTER the markdown re-render.
   };
 
   // ── Per-test localStorage version-gate (Standards §5.1, anti §10.2) ──
@@ -334,28 +352,61 @@
     $('exam-test-label').textContent = test.title || 'Reading Test';
   }
 
-  // ── Render passages (markdown body, all 3 stacked, independent scroll) ──
-  function renderPassages(passages) {
+  // ── Render passages — Sprint 20.14c D1: ONE Part at a time ────────
+  // Standards §3A.2 — only the current Part's passage occupies the left
+  // pane. The other passages remain in SESSION.test.passages (untouched)
+  // and re-render when setCurrentPart() swaps Parts. Pre-20.14c stacked
+  // all 3 passages with continuous scroll; that left the passage and the
+  // visible question list desynced (student reading passage 1 while
+  // questions Q1-40 all scrolled together in the right pane).
+  function renderCurrentPassage() {
     var host = $('exam-passage');
     host.innerHTML = '';
-    passages.forEach(function (p, i) {
-      var wrap = document.createElement('section');
-      wrap.className = 'exam-passage__part';
-      wrap.id = 'passage-' + (p.passage_order || (i + 1));
-      var eyebrow = document.createElement('p');
-      eyebrow.className = 'exam-passage__eyebrow';
-      eyebrow.textContent = 'Passage ' + (p.passage_order || (i + 1));
-      var title = document.createElement('h2');
-      title.className = 'exam-passage__title';
-      title.textContent = p.title || '';
-      var body = document.createElement('div');
-      body.className = 'exam-passage__body md-body';
+    var passages = (SESSION.test && SESSION.test.passages) || [];
+    // Find the passage whose passage_order matches currentPart (1-based).
+    // Defensive: if no exact match, fall back to passages[currentPart-1]
+    // for old test bundles that didn't stamp passage_order.
+    var p = null;
+    for (var i = 0; i < passages.length; i++) {
+      if (passages[i].passage_order === SESSION.currentPart) { p = passages[i]; break; }
+    }
+    if (!p) p = passages[Math.max(0, Math.min(passages.length - 1, SESSION.currentPart - 1))];
+    if (!p) return;
+    var wrap = document.createElement('section');
+    wrap.className = 'exam-passage__part';
+    wrap.id = 'passage-' + (p.passage_order || SESSION.currentPart);
+    var eyebrow = document.createElement('p');
+    eyebrow.className = 'exam-passage__eyebrow';
+    eyebrow.textContent = 'Passage ' + (p.passage_order || SESSION.currentPart);
+    var title = document.createElement('h2');
+    title.className = 'exam-passage__title';
+    title.textContent = p.title || '';
+    var body = document.createElement('div');
+    body.className = 'exam-passage__body md-body';
+    // Highlight-restore (Standards §3A.2): if the student has highlighted
+    // this Part on an earlier visit, the cached innerHTML carries the
+    // `.exam-highlight.is-user` spans + note markers. Use it instead of
+    // a fresh markdown render so the work persists across Part swaps.
+    var cached = SESSION.highlights_by_part.get(p.passage_order || SESSION.currentPart);
+    if (cached) {
+      body.innerHTML = cached;
+    } else {
       body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '') : '';
-      wrap.appendChild(eyebrow);
-      wrap.appendChild(title);
-      wrap.appendChild(body);
-      host.appendChild(wrap);
-    });
+    }
+    wrap.appendChild(eyebrow);
+    wrap.appendChild(title);
+    wrap.appendChild(body);
+    host.appendChild(wrap);
+  }
+  // Sprint 20.14c D1 — capture the live passage body innerHTML into the
+  // per-Part cache. Called BEFORE setCurrentPart re-renders the pane so
+  // highlights / notes survive Part swaps. Also exposed for direct calls
+  // from any highlight mutation site that wants to snapshot immediately
+  // (insurance against an unexpected re-render).
+  function snapshotCurrentPartHighlights() {
+    var body = document.querySelector('#exam-passage .exam-passage__body');
+    if (!body) return;
+    SESSION.highlights_by_part.set(SESSION.currentPart, body.innerHTML);
   }
 
   // ── Question-type instruction templates (Sprint 20.11 D2) ────────
@@ -441,25 +492,25 @@
     return first === last ? String(first) : first + '–' + last;
   }
 
-  // ── Render questions (grouped by passage_order; per-type instruction
-  //    block above each consecutive run of same-typed questions) ───
-  function renderQuestions(questions) {
+  // ── Render questions — Sprint 20.14c D1: only the current Part's Qs ──
+  // Standards §3A.2 — the right pane shows ONLY the questions whose
+  // `passage_order` matches the currently-displayed passage. The full
+  // question list (all 40) is preserved in SESSION.test.questions for
+  // submit + palette + cross-Part navigation.
+  function renderCurrentPartQuestions() {
     var host = $('exam-questions');
     host.innerHTML = '';
-    // Group by passage_order (preserves the part-level header from 20.6).
-    var byPart = new Map();
-    questions.forEach(function (q) {
-      var part = q.passage_order || 1;
-      if (!byPart.has(part)) byPart.set(part, []);
-      byPart.get(part).push(q);
-    });
-    Array.from(byPart.keys()).sort(function (a, b) { return a - b; }).forEach(function (part) {
-      var partQs = byPart.get(part);
-      var partHeading = document.createElement('div');
-      partHeading.className = 'exam-questions__part-heading';
-      partHeading.innerHTML = '<strong>Part ' + part + '</strong> — Questions ' +
-                              partQs[0].q_num + '–' + partQs[partQs.length - 1].q_num;
-      host.appendChild(partHeading);
+    var all = (SESSION.test && SESSION.test.questions) || [];
+    var partQs = all.filter(function (q) { return (q.passage_order || 1) === SESSION.currentPart; });
+    if (!partQs.length) return;
+    var part = SESSION.currentPart;
+    // Render the same Part-heading + typeRun structure 20.14a shipped —
+    // just for this single Part now, not all three.
+    var partHeading = document.createElement('div');
+    partHeading.className = 'exam-questions__part-heading';
+    partHeading.innerHTML = '<strong>Part ' + part + '</strong> — Questions ' +
+                            partQs[0].q_num + '–' + partQs[partQs.length - 1].q_num;
+    host.appendChild(partHeading);
 
       // Sprint 20.11 D2 — sub-group by question_type within the part.
       // Consecutive runs of the same type share one instruction block;
@@ -533,7 +584,6 @@
 
         host.appendChild(groupEl);
       });
-    });
   }
 
   // Sprint 20.14a T1.2 — heading-bank box for matching_headings (§2A.5).
@@ -608,7 +658,13 @@
 
     var flag = document.createElement('button');
     flag.type = 'button'; flag.className = 'exam-q__flag';
-    flag.setAttribute('aria-pressed', 'false');
+    // Sprint 20.14c D1 — initialize from SESSION.flagged so Part swaps
+    // (which re-render the card) restore the pressed state. Without
+    // this, returning to a Part where the student previously flagged
+    // Q3 would show Q3 unflagged on the card (palette tile is unchanged
+    // and still showed the amber circle, so the cue was inconsistent).
+    var isFlagged = SESSION.flagged.has(q.q_num);
+    flag.setAttribute('aria-pressed', isFlagged ? 'true' : 'false');
     flag.setAttribute('aria-label', 'Flag question ' + q.q_num + ' for review');
     flag.textContent = '⚑';
     flag.addEventListener('click', function () { toggleFlag(q.q_num, flag); });
@@ -884,6 +940,22 @@
     });
   }
   function jumpTo(qNum) {
+    // Sprint 20.14c D1 — palette / Prev / Next click handler. If the
+    // target question belongs to a different Part than the one currently
+    // rendered, swap Parts FIRST (re-render both panes, restore answers
+    // + highlights), then scroll to the question in the freshly-rendered
+    // pane. Standards §3A.2 — no confirm dialog, instant swap.
+    var all = (SESSION.test && SESSION.test.questions) || [];
+    var targetQ = null;
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].q_num === qNum) { targetQ = all[i]; break; }
+    }
+    var targetPart = (targetQ && targetQ.passage_order) || SESSION.currentPart;
+    if (targetPart !== SESSION.currentPart) {
+      setCurrentPart(targetPart, /* skipScrollTop */ true);
+      // Re-render destroyed the prior `#q-N`; the new pane has the
+      // matching card now. Continue with scrollIntoView below.
+    }
     var card = document.getElementById('q-' + qNum);
     if (card) {
       card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -904,6 +976,37 @@
       }
     }
     setCurrent(qNum);
+  }
+
+  // ── Sprint 20.14c D1 — Part swap orchestrator (Standards §3A.2) ───
+  // Snapshots the outgoing Part's highlights, updates state, re-renders
+  // BOTH panes (passage + questions), restores answers + answered-state
+  // markers, and scrolls both panes to the top (matches the standards'
+  // "Part mới load cuộn về đầu cả hai pane" rule). `skipScrollTop` is
+  // used by jumpTo so the subsequent scrollIntoView(qNum) lands the
+  // student on the clicked question rather than the Part's top.
+  function setCurrentPart(part, skipScrollTop) {
+    if (!part || part === SESSION.currentPart) return;
+    // 1) Snapshot the outgoing Part's highlights/notes before re-render.
+    snapshotCurrentPartHighlights();
+    // 2) Flip state.
+    SESSION.currentPart = part;
+    // 3) Re-render both panes.
+    renderCurrentPassage();
+    renderCurrentPartQuestions();
+    // 4) Restore answers + answered-state markers for the new Part's Qs
+    //    (answers held in SESSION.answers; markers are DOM-level so a
+    //    re-render wipes them and they need re-applying).
+    restoreAnswers();
+    // 5) Scroll-to-top both panes (Standards §3A.2). The student starts
+    //    fresh on the new Part instead of inheriting a mid-scroll
+    //    position from the prior Part.
+    if (!skipScrollTop) {
+      var passagePane = $('exam-passage');
+      var questionsPane = $('exam-questions');
+      if (passagePane) passagePane.scrollTop = 0;
+      if (questionsPane) questionsPane.scrollTop = 0;
+    }
   }
   // Sprint 20.13b B4 — keep palette-tile `aria-label` in sync with state
   // (standards §4.6). Single helper called from every state mutation so
@@ -1712,8 +1815,13 @@
 
   // ── Boot: combined test + resume payload ──────────────────────────
   function enterInProgress() {
-    renderPassages((SESSION.test && SESSION.test.passages) || []);
-    renderQuestions((SESSION.test && SESSION.test.questions) || []);
+    // Sprint 20.14c D1 — render only the currentPart's passage + Qs
+    // (Standards §3A.2). The palette still receives the FULL question
+    // list (so all 40 tiles render in the bottom bar) — only the panes
+    // are filtered. Default currentPart is 1 from SESSION init; resume
+    // keeps it 1 too (last-active-Part is a future option if Andy asks).
+    renderCurrentPassage();
+    renderCurrentPartQuestions();
     renderPalette(
       // Sprint 20.13c C4 — derive from data, not the "40" anti-pattern.
       _totalQuestions(),
