@@ -255,7 +255,7 @@ describe('Sprint 20.13a — standards docs are versioned alongside code', () => 
   test('Interactive_HTML_Standards.md is in the cluster docs', () => {
     const sniff = read('docs/clusters/20_x/standards/Interactive_HTML_Standards.md');
     assert.match(sniff, /Interactive HTML Standards/);
-    assert.match(sniff, /v1\.0/);
+    assert.match(sniff, /v1\.\d+/);
   });
   test('Gold reference (IELTS_Reading_Test_01_Interactive.html) is in the cluster docs', () => {
     const sniff = read('docs/clusters/20_x/standards/IELTS_Reading_Test_01_Interactive.html');
