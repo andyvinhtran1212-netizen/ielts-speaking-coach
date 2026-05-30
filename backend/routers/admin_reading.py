@@ -132,7 +132,7 @@ async def list_reading_content(
         supabase_admin.table("reading_passages")
         .select(
             "id,slug,library,title,status,difficulty_level,skill_focus,"
-            "topic_tags,updated_at,created_at",
+            "topic_tags,updated_at,created_at,test_id",
             count="exact",
         )
         .order("updated_at", desc=True)
@@ -144,8 +144,37 @@ async def list_reading_content(
         q = q.eq("status", status)
 
     res = q.execute()
+    items = res.data or []
+
+    # admin-polish — surface the parent test's TEXT test_id on L3 passage rows so
+    # the library's "Xem trước" link resolves to the right test from ANY view (not
+    # just the "L3 Full Test" tab). reading_passages.test_id is a UUID FK; the
+    # preview endpoint keys on reading_tests.test_id (TEXT), so batch-resolve
+    # UUID → TEXT here. We NEVER expose the passage slug as a test_id (that was the
+    # #363 404 bug); the raw UUID FK is dropped from the row so the frontend can
+    # only ever use the resolved TEXT id. Enrichment failure degrades gracefully
+    # (rows just lack parent_test_id → no preview link, never a 500).
+    test_uuids = sorted({r.get("test_id") for r in items if r.get("test_id")})
+    text_by_uuid: dict[str, str] = {}
+    if test_uuids:
+        try:
+            trows = (
+                supabase_admin.table("reading_tests")
+                .select("id, test_id")
+                .in_("id", test_uuids)
+                .execute()
+                .data
+            ) or []
+            text_by_uuid = {t["id"]: t.get("test_id") for t in trows}
+        except Exception as exc:
+            logger.warning("admin_reading list: parent_test_id enrich failed: %s", exc)
+    for r in items:
+        parent = text_by_uuid.get(r.pop("test_id", None))
+        if parent:
+            r["parent_test_id"] = parent
+
     return {
-        "items":  res.data or [],
+        "items":  items,
         "total":  getattr(res, "count", None) or 0,
         "limit":  limit,
         "offset": offset,
