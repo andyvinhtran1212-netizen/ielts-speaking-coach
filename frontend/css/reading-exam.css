@@ -786,21 +786,32 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
  * mockup.css) and leaves it ragged-right; Andy's dogfood wants the text
  * to FILL the pane and reflow on window resize. Drop the cap, justify.
  *
- * Sprint 20.14a.1 — the 20.14a override (specificity 0,0,2,0) targeted
- * `.exam-chrome .exam-passage__body { max-width: none }` and should win
- * against the mockup's (0,0,1,0). But Andy's dogfood after deploy
- * still showed the column capped at ~670px in a ~1340px pane.
- * Defence-in-depth fix: stamp `!important` on width + justify, and
- * scope the rule to `body.exam-chrome .exam-passage__part .exam-passage__body`
- * (specificity 0,0,3,1) so the cascade is unambiguous regardless of
- * any caching, build-pipeline, or future-mockup-edit drift. */
+ * Sprint 20.14a.1 — added `!important` + selector boost to 0,0,3,1.
+ * Sprint 20.14c D2 — Andy's dogfood after #350 still showed the cap.
+ *   Theory: GitHub Pages cache + Service Worker may serve a pre-#350
+ *   CSS until forced refresh. Third pass: make `width: 100%`, declare
+ *   `display: block`, and `box-sizing: border-box` explicit so even if
+ *   somehow a stale cascade returns, the body fills the pane edge to
+ *   edge (minus the pane's own padding). Cosmetic-only, no DOM change. */
 body.exam-chrome .exam-passage__part .exam-passage__body,
 .exam-chrome .exam-passage__body {
+  display: block !important;
   max-width: none !important;
-  width: auto;
+  width: 100% !important;
+  box-sizing: border-box;
   text-align: justify !important;
   text-justify: inter-word;
   hyphens: auto;
+}
+/* Sprint 20.14c D2 — also force the part wrapper to fill the pane so
+ * the body has 100% of something to fill. Defaults already make this
+ * true (block div = 100% of parent), but pinning it forecloses any
+ * future mockup edit that adds `display: inline-block` or `width: max-
+ * content` from collapsing the wrapper. */
+body.exam-chrome .exam-passage__part {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ── T1.6 — Borderless question card + navy circle badge (§2A.15) ──── */
