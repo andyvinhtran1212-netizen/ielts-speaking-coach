@@ -47,23 +47,71 @@
     /* db-refresh → admin-buttons.css bridge via admin-components.css @import */
 
     .db-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
-      font-size: var(--av-fs-sm); color: var(--av-color-error, var(--av-text-secondary));
-      border: 1px solid var(--av-border-default); }
+      font-size: var(--av-fs-sm); color: var(--av-error);   /* was non-existent --av-color-error */
+      background: var(--av-error-soft);
+      border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent); }
 
+    /* ── KPI tiles ─────────────────────────────────────────────────── */
     .db-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--av-space-4); }
     @media (max-width: 880px) { .db-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .db-grid { grid-template-columns: 1fr; } }
 
     .db-card { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
       background: var(--av-surface-card); padding: var(--av-space-5);
-      display: flex; flex-direction: column; gap: var(--av-space-2); min-height: 132px;
-      min-width: 0; }   /* grid track may shrink — long numbers don't push the tile past the border */
+      display: flex; flex-direction: column; gap: var(--av-space-2); min-height: 148px;
+      min-width: 0; }
     .db-card__label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide); font-weight: var(--av-fw-semibold); }
+    .db-card__valrow { display: flex; align-items: baseline; gap: var(--av-space-2); flex-wrap: wrap; }
     .db-card__value { font-size: var(--av-fs-3xl, 2rem); font-weight: var(--av-fw-bold);
       color: var(--av-text-primary); font-variant-numeric: tabular-nums; line-height: 1.1; }
     .db-card__unit { font-size: var(--av-fs-sm); color: var(--av-text-secondary); font-weight: var(--av-fw-medium); }
-    /* db-card__link → aliased in admin-hub.css via admin-components.css @import */
+    /* Period-over-period delta chip — theme-aware semantic colours. */
+    .db-delta { font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+      font-variant-numeric: tabular-nums; }
+    .db-delta.is-up   { color: var(--av-success); }
+    .db-delta.is-down { color: var(--av-error); }
+    .db-delta.is-flat { color: var(--av-text-muted); }
+    /* Sparkline slot — `color` themes the SVG (currentColor). */
+    .db-card__spark { margin-top: auto; height: 28px; color: var(--av-primary); }
+    .db-card__spark .av-spark { width: 100%; height: 28px; display: block; }
+
+    /* ── Trends panel ──────────────────────────────────────────────── */
+    .db-trends { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-5);
+      display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .db-trends__head { display: flex; align-items: center; justify-content: space-between;
+      gap: var(--av-space-3); flex-wrap: wrap; }
+    .db-trends__title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .db-trends__tabs { display: inline-flex; gap: var(--av-space-1); flex-wrap: wrap; }
+    .db-trend-tab { padding: 4px 12px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); cursor: pointer;
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); font-family: inherit; }
+    .db-trend-tab.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
+      border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold); }
+    .db-trends__chart { color: var(--av-primary); min-height: 160px; }
+    .db-trends__chart .av-area { width: 100%; height: 160px; display: block; }
+    .db-trends__empty { color: var(--av-text-muted); font-size: var(--av-fs-sm);
+      text-align: center; padding: var(--av-space-8); }
+
+    /* ── "Cần chú ý" strip ─────────────────────────────────────────── */
+    .db-attention { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-3); }
+    @media (max-width: 560px) { .db-attention { grid-template-columns: 1fr; } }
+    .db-attn-card { display: flex; align-items: center; gap: var(--av-space-3);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); padding: var(--av-space-4);
+      text-decoration: none; color: var(--av-text-primary); }
+    .db-attn-card:hover { border-color: var(--av-brand-teal-700); }
+    .db-attn-card__count { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+      font-variant-numeric: tabular-nums; min-width: 2ch; }
+    .db-attn-card__body { display: flex; flex-direction: column; gap: 2px; }
+    .db-attn-card__label { font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); }
+    .db-attn-card__sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+
+    .db-section-title { font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted);
+      font-weight: var(--av-fw-semibold); margin: var(--av-space-2) 0 0; }
 
     .db-foot { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     [hidden] { display: none !important; }
@@ -76,11 +124,11 @@
       <header class="db-header">
         <div>
           <h1>Dashboard</h1>
-          <p class="subtitle">Tổng quan vận hành — số liệu hệ thống theo thời gian thực (làm mới thủ công).</p>
+          <p class="subtitle">Tổng quan vận hành — số liệu + xu hướng hệ thống (làm mới thủ công).</p>
         </div>
         <div class="db-controls">
           <div class="db-field">
-            <label for="db-window">Người xem — cửa sổ</label>
+            <label for="db-window">Cửa sổ</label>
             <select id="db-window">
               <option value="7">7 ngày</option>
               <option value="30" selected>30 ngày</option>
@@ -93,37 +141,87 @@
 
       <div class="db-banner" id="db-banner" hidden></div>
 
+      <!-- ── KPI tiles ───────────────────────────────────────────── -->
       <section class="db-grid" aria-label="Số liệu tổng quan">
         <div class="db-card">
           <div class="db-card__label">Tổng người dùng</div>
-          <div class="db-card__value" id="m-users">—</div>
+          <div class="db-card__valrow"><span class="db-card__value" id="m-users">—</span></div>
           <a class="db-card__link" href="/pages/admin/users/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
           <div class="db-card__label">Mã đã kích hoạt</div>
-          <div class="db-card__value" id="m-codes">—</div>
+          <div class="db-card__valrow"><span class="db-card__value" id="m-codes">—</span></div>
           <a class="db-card__link" href="/pages/admin/access-codes/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
           <div class="db-card__label">Người xem (<span id="m-visitors-window">30</span> ngày)</div>
-          <div class="db-card__value" id="m-visitors">—</div>
+          <div class="db-card__valrow">
+            <span class="db-card__value" id="m-visitors">—</span>
+            <span class="db-delta" id="d-visitors" hidden></span>
+          </div>
+          <div class="db-card__spark" id="spark-visitors"></div>
           <a class="db-card__link" href="/pages/admin/foot-traffic/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
           <div class="db-card__label">Bài practice đã hoàn thành</div>
-          <div class="db-card__value" id="m-practices">—</div>
+          <div class="db-card__valrow">
+            <span class="db-card__value" id="m-practices">—</span>
+            <span class="db-delta" id="d-practices" hidden></span>
+          </div>
+          <div class="db-card__spark" id="spark-practices"></div>
           <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
           <div class="db-card__label">Phút chấm (tích lũy)</div>
-          <div class="db-card__value"><span id="m-grading">—</span> <span class="db-card__unit">phút</span></div>
+          <div class="db-card__valrow">
+            <span class="db-card__value" id="m-grading">—</span>
+            <span class="db-card__unit">phút</span>
+          </div>
           <a class="db-card__link" href="/pages/admin/usage/index.html">Xem chi tiết →</a>
         </div>
         <div class="db-card">
           <div class="db-card__label">Chi phí tháng này</div>
-          <div class="db-card__value" id="m-cost">—</div>
+          <div class="db-card__valrow">
+            <span class="db-card__value" id="m-cost">—</span>
+            <span class="db-delta" id="d-cost" hidden></span>
+          </div>
+          <div class="db-card__spark" id="spark-cost"></div>
           <a class="db-card__link" href="/pages/admin/system/ai-usage.html">Xem chi tiết →</a>
         </div>
+      </section>
+
+      <!-- ── Trends panel ────────────────────────────────────────── -->
+      <section class="db-trends" aria-label="Xu hướng theo ngày">
+        <div class="db-trends__head">
+          <h2 class="db-trends__title">Xu hướng theo ngày</h2>
+          <div class="db-trends__tabs" id="db-trend-tabs" role="tablist">
+            <button type="button" class="db-trend-tab is-active" data-series="practices" role="tab">Practice</button>
+            <button type="button" class="db-trend-tab" data-series="visitors" role="tab">Người xem</button>
+            <button type="button" class="db-trend-tab" data-series="cost_usd" role="tab">Chi phí</button>
+          </div>
+        </div>
+        <div class="db-trends__chart" id="db-trend-chart">
+          <div class="db-trends__empty" id="db-trend-empty">Đang tải xu hướng…</div>
+        </div>
+      </section>
+
+      <!-- ── Cần chú ý ───────────────────────────────────────────── -->
+      <p class="db-section-title">Cần chú ý</p>
+      <section class="db-attention" aria-label="Mục cần chú ý">
+        <a class="db-attn-card" href="/pages/admin/error-logs/index.html">
+          <span class="db-attn-card__count" id="a-errors">—</span>
+          <span class="db-attn-card__body">
+            <span class="db-attn-card__label">Lỗi chưa xử lý</span>
+            <span class="db-attn-card__sub">error_logs chưa dismiss</span>
+          </span>
+        </a>
+        <a class="db-attn-card" href="/pages/admin/writing/instructor-queue.html">
+          <span class="db-attn-card__count" id="a-writing">—</span>
+          <span class="db-attn-card__body">
+            <span class="db-attn-card__label">Bài viết chờ chấm</span>
+            <span class="db-attn-card__sub">writing_essays chưa trả kết quả</span>
+          </span>
+        </a>
       </section>
 
       <p class="db-foot" id="db-updated"></p>
@@ -133,6 +231,7 @@
 
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
   <script src="/js/error-reporter.js"></script>
+  <script src="/js/charts/sparkline.js"></script>
   <script type="module" src="/js/admin-dashboard.js"></script>
 </body>
 </html>
