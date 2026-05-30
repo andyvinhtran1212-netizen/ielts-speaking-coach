@@ -248,6 +248,19 @@
       var skillOrDiff = [it.skill_focus, it.difficulty_level].filter(Boolean).join(' · ');
       var libLabel = LIBRARY_LABEL[it.library] || it.library || '';
       var date = it.updated_at ? new Date(it.updated_at).toISOString().slice(0, 10) : '';
+      // Sprint 20.15 — Preview + Delete only meaningful for L3 tests
+      // (one-row-per-test). L1/L2 list passages — that path stays
+      // action-less until a passage-level admin op lands.
+      var actions = '';
+      if (it.library === 'l3_test' && it.slug) {
+        actions =
+          '<a class="ar-row-action" target="_blank" rel="noopener" ' +
+            'href="/pages/admin/reading/preview.html?test_id=' +
+            encodeURIComponent(it.slug) + '">Xem trước</a>' +
+          ' <button type="button" class="ar-row-action is-danger" ' +
+            'data-action="delete-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
+            'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>';
+      }
       return '<tr>' +
         '<td>' + escapeHtml(it.title || '') + '</td>' +
         '<td><code>' + escapeHtml(it.slug || '') + '</code></td>' +
@@ -256,8 +269,59 @@
         '<td><span class="ar-status-pill is-' + escapeHtml(it.status || 'draft') + '">' +
           escapeHtml(it.status || '') + '</span></td>' +
         '<td>' + escapeHtml(date) + '</td>' +
+        '<td class="ar-row-actions">' + actions + '</td>' +
       '</tr>';
     }).join('');
+  }
+
+  // Sprint 20.15 D2 — attempt-safe delete handler. Confirms first,
+  // then calls the DELETE endpoint and surfaces the action it took
+  // (hard `deleted` vs soft `archived`, with attempt count preserved).
+  // The handler is wired ONCE via event delegation on the table body
+  // so re-renders don't accumulate listeners.
+  function handleListClick(ev) {
+    var btn = ev.target && ev.target.closest && ev.target.closest('button[data-action="delete-test"]');
+    if (!btn) return;
+    var testId = btn.getAttribute('data-test-id');
+    var testTitle = btn.getAttribute('data-test-title') || testId;
+    if (!testId) return;
+    var ok = window.confirm(
+      'Xoá test "' + testTitle + '" (' + testId + ')?\n\n' +
+      'Nếu test đã có lượt làm bài, server sẽ tự động ARCHIVE để bảo vệ ' +
+      'dữ liệu học sinh (đáp án + điểm), không xoá vật lý.\n\n' +
+      'Nếu chưa có lượt làm nào, test + 3 passages + ~40 questions sẽ bị ' +
+      'xoá vĩnh viễn.',
+    );
+    if (!ok) return;
+    btn.disabled = true;
+    btn.textContent = 'Đang xoá…';
+    window.api['delete'](
+      '/admin/reading/content/tests/' + encodeURIComponent(testId),
+    )
+      .then(function (res) {
+        var action = (res && res.action) || 'deleted';
+        var preserved = (res && res.attempts_preserved) || 0;
+        var msg = (action === 'archived')
+          ? 'Đã ARCHIVE test "' + testTitle + '" (' + preserved +
+            ' lượt làm bài được giữ nguyên). Test sẽ ẩn khỏi học sinh nhưng ' +
+            'dữ liệu attempt + điểm vẫn còn để phân tích.'
+          : 'Đã xoá vĩnh viễn test "' + testTitle + '" (không có lượt làm nào).';
+        window.alert(msg);
+        loadList();
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        btn.textContent = 'Xoá';
+        var status = e && e.status;
+        if (status === 404) {
+          window.alert('Test ' + testId + ' không tìm thấy (có thể đã bị xoá).');
+          loadList();
+        } else if (status === 401 || status === 403) {
+          window.alert('Không có quyền xoá (cần đăng nhập admin).');
+        } else {
+          window.alert('Lỗi xoá: ' + ((e && e.message) || e));
+        }
+      });
   }
 
   // ── Wiring ──────────────────────────────────────────────────────────
@@ -291,6 +355,11 @@
         loadList();
       });
     });
+
+    // Sprint 20.15 D2 — delete handler is delegated on the tbody so
+    // re-renders don't drop the wiring.
+    var listTbody = $('ar-list-rows');
+    if (listTbody) listTbody.addEventListener('click', handleListClick);
 
     loadList();
 
