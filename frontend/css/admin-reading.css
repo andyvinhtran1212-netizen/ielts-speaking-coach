@@ -246,7 +246,7 @@
   color: var(--av-text-secondary);
   font-size: var(--av-fs-sm);
 }
-.ar-diagram-status.is-error { color: var(--av-critical, #c62828); }
+.ar-diagram-status.is-error { color: var(--av-error); }  /* design-fix-3: --av-critical does not exist (fell back to hardcoded red) */
 .ar-diagram-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -327,11 +327,12 @@
   background: var(--av-surface-sunken);
 }
 .ar-diagram-card__actions button.is-danger {
-  color: var(--av-critical, #c62828);
-  border-color: rgba(198, 40, 40, 0.4);
+  /* design-fix-3: theme-aware --av-error (was non-existent --av-critical + hardcoded red). */
+  color: var(--av-error);
+  border-color: color-mix(in srgb, var(--av-error) 32%, transparent);
 }
 .ar-diagram-card__actions button.is-danger:hover {
-  background: rgba(198, 40, 40, 0.08);
+  background: var(--av-error-soft);
 }
 .ar-diagram-card__status {
   font-size: var(--av-fs-sm);
@@ -382,7 +383,7 @@
   text-decoration: none;
 }
 .ar-back-link:hover { color: var(--av-text-primary); }
-.ar-preview-error { color: var(--av-critical, #c62828); }
+.ar-preview-error { color: var(--av-error); }  /* design-fix-3: --av-critical does not exist */
 
 .ar-preview-passage {
   padding: var(--av-space-5);

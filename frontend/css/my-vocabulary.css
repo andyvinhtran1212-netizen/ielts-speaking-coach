@@ -94,7 +94,7 @@
 /* ── Stats bar ───────────────────────────────────────────────────── */
 
 .mv-stat            { color: var(--av-text-muted); }
-.mv-stat__val       { color: var(--av-text-primary); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.mv-stat__val       { color: var(--av-text-primary); font-family: var(--av-font-mono); }
 .mv-stat__val--learning { color: var(--av-warning); }
 .mv-stat__val--mastered { color: var(--av-primary); }
 
@@ -578,7 +578,7 @@
 }
 
 .mv-preview-ipa {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--av-font-mono);
   font-size: 13px;
   color: var(--av-info);
   padding: 2px var(--av-space-2);

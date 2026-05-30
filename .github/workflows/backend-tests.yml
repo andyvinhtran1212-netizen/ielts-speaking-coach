@@ -95,6 +95,7 @@ jobs:
             frontend/tests/brief-lock-contract.test.mjs \
             frontend/tests/design-fix-1-admin-primitives.test.mjs \
             frontend/tests/design-fix-2-admin-buttons-hubs.test.mjs \
+            frontend/tests/design-fix-3-user-tokens.test.mjs \
             frontend/tests/home.test.js \
             frontend/tests/home-redesign.test.mjs \
             frontend/tests/practice-redesign.test.mjs \
