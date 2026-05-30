@@ -18,7 +18,7 @@
   border: 1px solid var(--av-info);
   border-radius: var(--av-radius-md);
   padding: var(--av-space-3) var(--av-space-4);
-  margin-bottom: var(--av-space-5);
+  margin-bottom: var(--av-space-6);
 }
 .needs-review-intro__body {
   font-size: var(--av-fs-sm);

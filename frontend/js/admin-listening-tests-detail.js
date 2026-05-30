@@ -323,7 +323,7 @@ function renderMapImagesPanel() {
           </p>
           <div class="td-map-dropzone"
                data-exercise-id="${escapeHtml(ex.id)}"
-               style="border:2px dashed var(--av-border-default);border-radius:var(--av-radius-md);padding:var(--av-space-5) var(--av-space-3);text-align:center;cursor:pointer;transition:border-color 0.15s ease,background 0.15s ease;">
+               style="border:2px dashed var(--av-border-default);border-radius:var(--av-radius-md);padding:var(--av-space-6) var(--av-space-3);text-align:center;cursor:pointer;transition:border-color 0.15s ease,background 0.15s ease;">
             <input type="file" class="td-map-file-input"
                    data-exercise-id="${escapeHtml(ex.id)}"
                    accept="image/png,image/jpeg,image/webp"

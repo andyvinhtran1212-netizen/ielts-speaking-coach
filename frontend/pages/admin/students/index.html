@@ -49,7 +49,7 @@
       text-decoration: none; margin-top: var(--av-space-4); display: inline-block; }
 
     .st-shell { max-width: 72rem; margin: 0 auto; padding: var(--av-space-6);
-      display: flex; flex-direction: column; gap: var(--av-space-5); }
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
     .st-head { display: flex; align-items: flex-start; justify-content: space-between;
       flex-wrap: wrap; gap: var(--av-space-3); }
     .st-head h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold); margin: 0; }
@@ -76,7 +76,7 @@
 
     .st-stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-3); }
     @media (min-width: 768px) { .st-stat-grid { grid-template-columns: repeat(4, 1fr); } }
-    .st-cols { display: grid; grid-template-columns: 1fr; gap: var(--av-space-5); margin-top: var(--av-space-5); }
+    .st-cols { display: grid; grid-template-columns: 1fr; gap: var(--av-space-6); margin-top: var(--av-space-6); }
     @media (min-width: 768px) { .st-cols { grid-template-columns: 1fr 1fr; } }
     .st-section-heading { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
       color: var(--av-text-secondary); margin: 0 0 var(--av-space-2); }
@@ -88,7 +88,7 @@
     .st-pill { display: inline-block; padding: 1px 8px; border-radius: var(--av-radius-pill);
       font-size: var(--av-fs-xs); background: var(--av-surface-sunken); color: var(--av-text-secondary);
       border: 1px solid var(--av-border-default); }
-    .st-pill--flagged, .st-flagged { color: var(--av-color-error, var(--av-text-secondary)); }
+    .st-pill--flagged, .st-flagged { color: var(--av-error); }
   </style>
 </head>
 <body class="av-page">

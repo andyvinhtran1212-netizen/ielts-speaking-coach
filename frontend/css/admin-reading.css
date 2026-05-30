@@ -194,13 +194,13 @@
   border-bottom: none;
 }
 .ar-struct__glossary {
-  margin: 0; padding-left: var(--av-space-5);
-  font-size: var(--av-fs-sm); color: var(--av-text);
+  margin: 0; padding-left: var(--av-space-6);
+  font-size: var(--av-fs-sm); color: var(--av-text-primary);
   list-style: disc;
 }
 .ar-struct__glossary li { padding: 2px 0; }
 .ar-struct__more {
-  list-style: none; margin-left: calc(-1 * var(--av-space-5));
+  list-style: none; margin-left: calc(-1 * var(--av-space-6));
   color: var(--av-text-muted); font-style: italic;
 }
 .ar-struct__body {
@@ -386,8 +386,8 @@
 .ar-preview-error { color: var(--av-error); }  /* design-fix-3: --av-critical does not exist */
 
 .ar-preview-passage {
-  padding: var(--av-space-5);
-  margin-bottom: var(--av-space-5);
+  padding: var(--av-space-6);
+  margin-bottom: var(--av-space-6);
   background: var(--av-surface-card, #fff);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-md);
