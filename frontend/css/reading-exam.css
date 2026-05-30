@@ -782,13 +782,23 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 }
 
 /* ── AV1 — Passage justified, fluid width (Q2 decision) ─────────────── */
-/* The mockup caps body at `max-width: 70ch` and leaves it ragged-right;
- * Andy's dogfood wants the text to FILL the pane and reflow with
- * window resize. Drop the cap, justify. `text-justify: inter-word`
- * keeps spacing professional (no inter-character stretching). */
+/* The mockup caps body at `max-width: 70ch` (line 170 of reading-exam-
+ * mockup.css) and leaves it ragged-right; Andy's dogfood wants the text
+ * to FILL the pane and reflow on window resize. Drop the cap, justify.
+ *
+ * Sprint 20.14a.1 — the 20.14a override (specificity 0,0,2,0) targeted
+ * `.exam-chrome .exam-passage__body { max-width: none }` and should win
+ * against the mockup's (0,0,1,0). But Andy's dogfood after deploy
+ * still showed the column capped at ~670px in a ~1340px pane.
+ * Defence-in-depth fix: stamp `!important` on width + justify, and
+ * scope the rule to `body.exam-chrome .exam-passage__part .exam-passage__body`
+ * (specificity 0,0,3,1) so the cascade is unambiguous regardless of
+ * any caching, build-pipeline, or future-mockup-edit drift. */
+body.exam-chrome .exam-passage__part .exam-passage__body,
 .exam-chrome .exam-passage__body {
-  max-width: none;
-  text-align: justify;
+  max-width: none !important;
+  width: auto;
+  text-align: justify !important;
   text-justify: inter-word;
   hyphens: auto;
 }
@@ -872,7 +882,29 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 /* ── T1.2 / T1.3 — Headings box + gap box ──────────────────────────── */
 /* `.exam-headings-box` for matching_headings (§2A.5). Sticky so it stays
  * visible as the student scrolls through the questions; bordered, white
- * card; Roman numerals bold-prefixed. */
+ * card; Roman numerals bold-prefixed.
+ *
+ * Sprint 20.14a.1 — the box sticks to the top of the scrolling pane
+ * (`position: sticky; top: 0`), but is BOUNDED by its containing block —
+ * the `.exam-questions__group` `<section>` that wraps the matching_headings
+ * run (see renderQuestions in reading-exam.js). When that section scrolls
+ * past the top of the pane, the sticky box scrolls off with it. Fixes
+ * Bug 2 from the 20.14a dogfood: the box persisted past the matching_
+ * headings group into the next question type. */
+.exam-chrome .exam-questions__group {
+  /* No special positioning needed — the default block flow already
+   * makes this the sticky child's containing block. The class exists so
+   * a future change can target per-run treatment (e.g. extra spacing
+   * before a non-first group) without a JS render edit. */
+  display: block;
+}
+.exam-chrome .exam-questions__group + .exam-questions__group {
+  /* §2A.15 — q-groups ≥22px apart. Targeted at the group boundary
+   * rather than `.exam-q` so the cap kicks in only between different
+   * question types (consecutive question cards of the same type already
+   * share their own internal spacing). */
+  margin-top: 22px;
+}
 .exam-chrome .exam-headings-box {
   position: sticky;
   top: 0;

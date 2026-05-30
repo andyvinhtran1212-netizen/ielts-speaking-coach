@@ -88,11 +88,14 @@ describe('Sprint 20.14a T1.2 — matching_headings headings-box (Standards §2A.
   });
 
   test('renderQuestions emits the headings box before any matching_headings run', () => {
-    // The box is appended to the host BEFORE the run.forEach renders the
-    // individual question cards — pin that flow.
+    // The box is appended BEFORE the run.forEach renders the question
+    // cards — pin that flow. Sprint 20.14a.1 (Bug 2) moved the append
+    // target from the pane host to the per-run `<section>` so sticky is
+    // bounded; accept either spelling so a future renderer rewrite that
+    // appends to a different intermediate container stays green.
     assert.match(
       js,
-      /type\s*===\s*['"]matching_headings['"][\s\S]{0,400}_renderHeadingsBox\([\s\S]{0,80}\)[\s\S]{0,200}host\.appendChild\(headingsBox\)/,
+      /type\s*===\s*['"]matching_headings['"][\s\S]{0,400}_renderHeadingsBox\([\s\S]{0,80}\)[\s\S]{0,200}(?:host|groupEl)\.appendChild\(headingsBox\)/,
     );
   });
 
@@ -461,5 +464,100 @@ describe('Sprint 20.14a T1.1 (runtime) — gap-split math', () => {
     const { prefix, suffix } = split('The result is _____ of the cell.');
     assert.equal(prefix, 'The result is ');
     assert.equal(suffix, ' of the cell.');
+  });
+});
+
+
+// ── Sprint 20.14a.1 — dogfood Bug 1 + Bug 2 fixes ─────────────────────
+//
+// Bug 1: passage capped at ~670px in ~1340px pane even though the
+//   20.14a override targeted `.exam-passage__body { max-width: none }`.
+//   Defence-in-depth fix: stamp !important + a stronger selector so the
+//   cascade is unambiguous against any cache / build / drift cause.
+//
+// Bug 2: the matching_headings heading bank stuck to the top of the
+//   whole questions pane (`position: sticky; top: 0` against the pane's
+//   scroll container) and PERSISTED past the matching_headings group,
+//   showing the i–v bank while the student worked on the next type's
+//   questions. Fix: wrap each typeRun in a `<section class="exam-
+//   questions__group">` so the sticky element's containing block ends
+//   at the section's bottom, scrolling off naturally with the section.
+
+describe('Sprint 20.14a.1 Bug 1 — passage fills pane width (!important defence)', () => {
+  const css = read('frontend/css/reading-exam.css');
+
+  test('max-width: none is marked !important on the 20.14a.1 override', () => {
+    // The 20.14a override (specificity 0,0,2,0) should have won against
+    // the mockup's 0,0,1,0 — but the dogfood showed it didn't (browser
+    // cache or build drift suspected). Belt-and-braces: !important
+    // closes that class of bug regardless of root cause.
+    assert.match(
+      css,
+      /\.exam-passage__body[\s\S]{0,400}max-width:\s*none\s*!important/,
+    );
+  });
+
+  test('text-align: justify is marked !important too (right edge was ragged)', () => {
+    assert.match(
+      css,
+      /\.exam-passage__body[\s\S]{0,400}text-align:\s*justify\s*!important/,
+    );
+  });
+
+  test('Selector boost: a 0,0,3,1-specificity rule targets the passage body', () => {
+    // `body.exam-chrome .exam-passage__part .exam-passage__body` is
+    // (0,0,3,1). The compound `body.exam-chrome` lifts the type-selector
+    // count to 1 (body) and class count to 3 (exam-chrome + __part +
+    // __body) — strictly stronger than any reasonable mockup selector.
+    assert.match(
+      css,
+      /body\.exam-chrome\s+\.exam-passage__part\s+\.exam-passage__body/,
+    );
+  });
+});
+
+describe('Sprint 20.14a.1 Bug 2 — sticky headings box bounded to its group', () => {
+  const js  = read('frontend/js/reading-exam.js');
+  const css = read('frontend/css/reading-exam.css');
+
+  test('renderQuestions wraps every type run in a `.exam-questions__group` <section>', () => {
+    // The section is the containing block for `position: sticky` so the
+    // headings box (or any future sticky element a Phase B type might
+    // add) is naturally bounded by the run.
+    assert.match(
+      js,
+      /var\s+groupEl\s*=\s*document\.createElement\(['"]section['"]\)/,
+    );
+    assert.match(
+      js,
+      /groupEl\.className\s*=\s*['"]exam-questions__group['"]/,
+    );
+  });
+
+  test('typeRun iteration appends instruction + cards INSIDE the group section', () => {
+    // The instruction element, headings box (when matching_headings),
+    // and question cards all attach to the per-run section — not the
+    // pane host. The section itself is what appends to host.
+    assert.match(js, /groupEl\.appendChild\(instructionEl\)/);
+    assert.match(js, /groupEl\.appendChild\(headingsBox\)/);
+    assert.match(js, /host\.appendChild\(groupEl\)/);
+  });
+
+  test('CSS for .exam-questions__group ships (block + group-to-group margin)', () => {
+    assert.match(css, /\.exam-chrome\s+\.exam-questions__group\s*\{[\s\S]{0,500}display:\s*block/);
+    assert.match(
+      css,
+      /\.exam-chrome\s+\.exam-questions__group\s*\+\s*\.exam-questions__group\s*\{[\s\S]{0,400}margin-top:\s*22px/,
+    );
+  });
+
+  test('headings box still has `position: sticky; top: 0` (unchanged)', () => {
+    // The sticky CSS is unchanged from 20.14a — the FIX is structural
+    // (JS wrap), not a CSS rule swap. Pin both lines so a future
+    // refactor that drops sticky here would fail loudly.
+    assert.match(
+      css,
+      /\.exam-chrome\s+\.exam-headings-box\s*\{[\s\S]{0,400}position:\s*sticky[\s\S]{0,200}top:\s*0/,
+    );
   });
 });
