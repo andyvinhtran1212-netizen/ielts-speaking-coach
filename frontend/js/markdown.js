@@ -21,7 +21,20 @@
     });
   }
 
-  function renderMarkdown(md) {
+  function renderMarkdown(md, opts) {
+    // Sprint 20.14d — second arg `opts` lets callers choose CommonMark
+    // soft-break semantics (`{ breaks: false }`) instead of the GFM
+    // hard-break default. Background: marked's `breaks: true` converts
+    // every single `\n` inside a paragraph into `<br>`. For admin-
+    // authored writing tips that pattern matches intent — the admin
+    // typed a deliberate line break. For IELTS reading passages whose
+    // YAML `|` literal-block source is incidentally hard-wrapped at
+    // ~60 chars (visual convention for editing), the `<br>` after every
+    // source line BREAKS prose reflow — the text wraps at the source's
+    // 60-char column instead of the pane's edge, justify can't apply,
+    // and resizing the window does nothing. Reading callers pass
+    // `{ breaks: false }`; writing-tip callers keep the historic
+    // default for back-compat.
     var src = String(md == null ? '' : md);
     if (!src.trim()) return '';
 
@@ -36,7 +49,8 @@
       return '<pre class="md-fallback">' + escapeText(src) + '</pre>';
     }
 
-    var rawHtml = window.marked.parse(src, { breaks: true, gfm: true });
+    var breaks = (opts && typeof opts.breaks === 'boolean') ? opts.breaks : true;
+    var rawHtml = window.marked.parse(src, { breaks: breaks, gfm: true });
     return window.DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
   }
 

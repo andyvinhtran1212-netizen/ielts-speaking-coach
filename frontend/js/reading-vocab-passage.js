@@ -51,7 +51,9 @@
     $('rv-title').textContent = p.title || 'Bài đọc';
 
     var body = $('rv-body');
-    body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '') : '';
+    // Sprint 20.14d — CommonMark soft-break for prose reflow; see
+    // reading-exam.js for the full rationale.
+    body.innerHTML = window.renderMarkdown ? window.renderMarkdown(p.body_markdown || '', { breaks: false }) : '';
 
     // Lead image (Cloudinary) → lightbox. Also wire any inline images.
     if (p.image_url) {
