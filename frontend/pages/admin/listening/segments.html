@@ -31,6 +31,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
 
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -92,25 +93,7 @@
       flex-wrap: wrap;
       align-items: center;
     }
-    .btn-primary {
-      padding: var(--av-space-3) var(--av-space-6);
-      border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700);
-      color: var(--av-text-on-primary);
-      border: none;
-      font-weight: var(--av-fw-semibold);
-      cursor: pointer;
-    }
-    .btn-primary:hover { background: var(--av-brand-teal-800); }
-    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
-    .btn-secondary {
-      padding: var(--av-space-3) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      background: transparent;
-      color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default);
-      cursor: pointer;
-    }
+    /* admin buttons → admin-buttons.css bridge (design-fix-2 B3) */
     .btn-ghost {
       padding: 4px 10px;
       border-radius: var(--av-radius-sm);
@@ -121,15 +104,6 @@
       font-size: var(--av-fs-xs);
     }
     .btn-ghost:hover { color: var(--av-brand-teal-700); border-color: var(--av-brand-teal-700); }
-    .btn-danger {
-      padding: 4px 10px;
-      border-radius: var(--av-radius-sm);
-      background: transparent;
-      color: #B91C1C;
-      border: 1px solid #FECACA;
-      cursor: pointer;
-      font-size: var(--av-fs-xs);
-    }
     .segments-list {
       display: flex;
       flex-direction: column;

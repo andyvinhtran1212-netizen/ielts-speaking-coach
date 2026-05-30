@@ -44,10 +44,7 @@
     .db-field select { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-card);
       color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
-    .db-refresh { padding: 8px 14px; border-radius: var(--av-radius-md); background: transparent;
-      color: var(--av-text-secondary); border: 1px solid var(--av-border-default);
-      cursor: pointer; font-size: var(--av-fs-sm); font-family: inherit; }
-    .db-refresh:hover { background: var(--av-surface-sunken); color: var(--av-text-primary); }
+    /* db-refresh → admin-buttons.css bridge via admin-components.css @import */
 
     .db-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
       font-size: var(--av-fs-sm); color: var(--av-color-error, var(--av-text-secondary));
@@ -66,9 +63,7 @@
     .db-card__value { font-size: var(--av-fs-3xl, 2rem); font-weight: var(--av-fw-bold);
       color: var(--av-text-primary); font-variant-numeric: tabular-nums; line-height: 1.1; }
     .db-card__unit { font-size: var(--av-fs-sm); color: var(--av-text-secondary); font-weight: var(--av-fw-medium); }
-    .db-card__link { margin-top: auto; font-size: var(--av-fs-xs); color: var(--av-primary, var(--av-brand-teal-700));
-      text-decoration: none; }
-    .db-card__link:hover { text-decoration: underline; }
+    /* db-card__link → aliased in admin-hub.css via admin-components.css @import */
 
     .db-foot { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     [hidden] { display: none !important; }

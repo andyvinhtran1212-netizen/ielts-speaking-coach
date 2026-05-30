@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -39,8 +40,7 @@
     .vex-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
     .vex-toolbar { display: flex; gap: var(--av-space-2); align-items: center; flex-wrap: wrap; }
 
-    .btn-primary { padding: 8px 14px; border-radius: var(--av-radius-md); background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border: none; font-weight: var(--av-fw-semibold); cursor: pointer; font-size: var(--av-fs-sm); }
-    .btn-secondary { padding: 8px 14px; border-radius: var(--av-radius-md); background: transparent; color: var(--av-text-secondary); border: 1px solid var(--av-border-default); cursor: pointer; font-size: var(--av-fs-sm); }
+    /* admin buttons → admin-buttons.css bridge (design-fix-2 B3) */
     .btn-pub  { padding: 4px 10px; border-radius: var(--av-radius-sm); background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); cursor: pointer; font-size: var(--av-fs-xs); }
     .btn-rej  { padding: 4px 10px; border-radius: var(--av-radius-sm); background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; cursor: pointer; font-size: var(--av-fs-xs); }
     .btn-warn { padding: 4px 10px; border-radius: var(--av-radius-sm); background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; cursor: pointer; font-size: var(--av-fs-xs); }

@@ -23,6 +23,8 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-hub.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -55,42 +57,9 @@
       border-radius: var(--av-radius-sm);
     }
 
-    .grm-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--av-space-3);
-    }
-    .grm-card {
-      display: flex; flex-direction: column; gap: var(--av-space-2);
-      padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-card);
-      text-decoration: none;
-      color: var(--av-text-primary);
-      transition: border-color 0.15s ease, transform 0.15s ease;
-    }
-    .grm-card:hover {
-      border-color: var(--av-brand-teal-700);
-      transform: translateY(-1px);
-    }
-    .grm-card h3 { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold); margin: 0; }
-    .grm-card .lede { font-size: var(--av-fs-sm); color: var(--av-text-secondary); line-height: var(--av-lh-normal); }
-    .grm-card .meta { margin-top: auto; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
-    .grm-tag {
-      padding: 2px 8px;
-      border-radius: var(--av-radius-pill);
-      background: var(--av-brand-teal-50);
-      color: var(--av-brand-teal-800);
-      border: 1px solid var(--av-brand-teal-200);
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-    }
-    .grm-tag.is-readonly {
-      background: var(--av-surface-sunken);
-      color: var(--av-text-muted);
-      border-color: var(--av-border-default);
-    }
+    /* Card grid (.admin-hub-grid / .admin-hub-card) + status tags
+       (.adm-status-pill is-live|is-readonly) come from admin-hub.css +
+       admin-status.css (design-fix-2 B4). */
   </style>
 </head>
 <body class="av-page">
@@ -112,30 +81,30 @@
         edit qua repo + git commit (Vercel auto-deploy publish).
       </div>
 
-      <section class="grm-grid" aria-label="Grammar admin sections">
-        <a href="/pages/admin/grammar/articles.html" class="grm-card">
+      <section class="admin-hub-grid" aria-label="Grammar admin sections">
+        <a href="/pages/admin/grammar/articles.html" class="admin-hub-card">
           <h3>Articles browser</h3>
           <p class="lede">
             Danh sách toàn bộ articles, filter category + search title,
             inline preview markdown đã render.
           </p>
-          <div class="meta"><span class="grm-tag is-readonly">READ-ONLY</span></div>
+          <div class="meta"><span class="adm-status-pill is-readonly">READ-ONLY</span></div>
         </a>
-        <a href="/pages/admin/grammar/analytics.html" class="grm-card">
+        <a href="/pages/admin/grammar/analytics.html" class="admin-hub-card">
           <h3>Analytics</h3>
           <p class="lede">
             Tổng views/saves, top articles, danh sách articles chưa có
             view (signal cho content gap).
           </p>
-          <div class="meta"><span class="grm-tag">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/grammar/recommend-test.html" class="grm-card">
+        <a href="/pages/admin/grammar/recommend-test.html" class="admin-hub-card">
           <h3>Recommendation tester</h3>
           <p class="lede">
             Paste synthetic issue → xem matcher chọn article nào + score.
             Dogfood chất lượng matching trước khi users gặp.
           </p>
-          <div class="meta"><span class="grm-tag">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
       </section>
     </main>

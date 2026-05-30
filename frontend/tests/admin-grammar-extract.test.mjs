@@ -54,7 +54,7 @@ describe('Sprint 12.7 — grammar landing (pages/admin/grammar/index.html)', () 
   });
 
   it('Articles card is tagged READ-ONLY', () => {
-    assert.match(GRM_INDEX, /grm-tag is-readonly[^"]*">\s*READ-ONLY/);
+    assert.match(GRM_INDEX, /adm-status-pill is-readonly[^"]*">\s*READ-ONLY/);  // design-fix-2: hub tags reuse .adm-status-pill
   });
 });
 

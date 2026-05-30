@@ -90,8 +90,10 @@ describe('admin-students.html / 36 JS-coupled IDs preserved byte-identical', () 
 
 
 describe('admin-students.html / table contract preserved', () => {
-  test('semantic <table id="students-table" class="aw-table"> present', () => {
-    assert.match(html, /<table\s+id=["']students-table["']\s+class=["']aw-table["']/);
+  test('semantic <table id="students-table" class="adm-table"> present', () => {
+    // Sprint 18.3.2 migrated this page off the Writing-Coach chrome (.aw-table)
+    // onto the shared admin components layer (.adm-table).
+    assert.match(html, /<table\s+id=["']students-table["']\s+class=["']adm-table["']/);
   });
 
   test('6-column thead preserved: Code / Name / Target / Current / Date / Actions', () => {
@@ -108,8 +110,9 @@ describe('admin-students.html / table contract preserved', () => {
     }
   });
 
-  test('row code cell uses aw-table__code (monospace)', () => {
-    assert.match(html, /class=["']aw-table__code["']/);
+  test('row code cell uses code-cell (monospace)', () => {
+    // .adm-table td.code-cell carries var(--av-font-mono) (admin-components.css).
+    assert.match(html, /class=["']code-cell["']/);
   });
 });
 
@@ -195,8 +198,9 @@ describe('admin-students.html / Phase 2.5 summary modal contract preserved', () 
 
 
 describe('admin-students.html / search debounce + delete confirm preserved', () => {
-  test('WC.debounce wraps the search handler with 300ms', () => {
-    assert.match(html, /WC\.debounce\(function\s*\(\s*\)\s*\{[\s\S]*?_searchValue\s*=\s*document\.getElementById\(\s*['"]search-input['"][\s\S]*?\}\s*,\s*300\)/);
+  test('debounce wraps the search handler with 300ms', () => {
+    // Post-migration this page uses a local debounce() helper, not WC.debounce.
+    assert.match(html, /\bdebounce\(function\s*\(\s*\)\s*\{[\s\S]*?_searchValue\s*=\s*document\.getElementById\(\s*['"]search-input['"][\s\S]*?\}\s*,\s*300\)/);
   });
 
   test('Delete confirm uses Vietnamese with embedded student code', () => {

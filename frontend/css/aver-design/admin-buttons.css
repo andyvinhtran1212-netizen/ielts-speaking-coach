@@ -1,0 +1,64 @@
+/**
+ * aver-design/admin-buttons.css — Design-Fix Sprint 2 (B3).
+ *
+ * Legacy admin button-class BRIDGE. ~20 admin pages each defined their own
+ * .btn-primary / .btn-secondary / .btn-danger (+ tests-detail .td-btn-*,
+ * dashboard .db-refresh, a couple of .btn-refresh) with the same token rules
+ * under page-local names (design-consistency audit rows 16,17,18). This file
+ * maps those legacy names onto the canonical .adm-btn-* look (admin-components
+ * .css) so 20+ duplicated copies collapse to one definition — WITHOUT having to
+ * rename every button's markup class (Lesson 9: alias-first, no JS coupling
+ * broken; these buttons are wired by id / data-action, never by class).
+ *
+ * Why a dedicated, side-effect-free file (not admin-components.css): same
+ * rationale as admin-status.css — admin-components.css carries a global
+ * `* { box-sizing: border-box }` reset that these pages never adopted, so they
+ * link THIS file directly with zero box-model side effects. admin-components
+ * .css @imports it, so its consumers get the bridge transparently too.
+ *
+ * Danger now uses --av-error (theme-aware) — fixes the vocab/listening pages
+ * that hardcoded #B91C1C / #FEE2E2 red (audit row 18). All --av-* tokens, so
+ * light + dark themes track automatically.
+ *
+ * Out of bridge scope (left page-local intentionally): .btn-ghost (a smaller
+ * tertiary variant), .btn-warn / .btn-rej / .btn-pub (distinct semantic
+ * colors), and page-specific .ac-btn* / .cv-btn* families.
+ */
+
+/* Labels stay on one line (matches .adm-btn-*, Sprint 18.3.1.1). */
+.btn-primary, .btn-secondary, .btn-danger, .btn-refresh,
+.td-btn-primary, .td-btn-ghost, .td-btn-danger, .db-refresh { white-space: nowrap; }
+
+/* Primary — solid teal. */
+.btn-primary, .td-btn-primary {
+  padding: var(--av-space-3) var(--av-space-5);
+  border-radius: var(--av-radius-md);
+  background: var(--av-brand-teal-700);
+  color: var(--av-text-on-primary);
+  border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
+  font-size: var(--av-fs-sm); font-family: inherit;
+}
+.btn-primary:hover, .td-btn-primary:hover { background: var(--av-brand-teal-800); }
+.btn-primary:disabled, .td-btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
+
+/* Secondary / refresh / ghost-tabs — transparent, bordered. */
+.btn-secondary, .btn-refresh, .td-btn-ghost, .db-refresh {
+  padding: var(--av-space-2) var(--av-space-4);
+  border-radius: var(--av-radius-md);
+  background: transparent; color: var(--av-text-secondary);
+  border: 1px solid var(--av-border-default); cursor: pointer;
+  font-size: var(--av-fs-sm); text-decoration: none; font-family: inherit;
+}
+.btn-secondary:hover, .btn-refresh:hover, .td-btn-ghost:hover, .db-refresh:hover {
+  background: var(--av-surface-sunken); color: var(--av-text-primary);
+}
+
+/* Danger — outline, theme-aware --av-error (was hardcoded red, audit row 18). */
+.btn-danger, .td-btn-danger {
+  padding: 4px 10px; border-radius: var(--av-radius-sm);
+  background: transparent;
+  color: var(--av-error);
+  border: 1px solid color-mix(in srgb, var(--av-error) 32%, transparent);
+  cursor: pointer; font-size: var(--av-fs-xs); font-family: inherit;
+}
+.btn-danger:hover, .td-btn-danger:hover { background: var(--av-error-soft); border-color: var(--av-error); }

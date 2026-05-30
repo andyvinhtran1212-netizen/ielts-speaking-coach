@@ -23,6 +23,8 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-hub.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -36,54 +38,7 @@
     }
     .vcb-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
     .vcb-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
-    .vcb-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--av-space-3);
-    }
-    .vcb-card {
-      display: flex; flex-direction: column; gap: var(--av-space-2);
-      padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-card);
-      text-decoration: none;
-      color: var(--av-text-primary);
-      transition: border-color 0.15s ease, transform 0.15s ease;
-    }
-    .vcb-card:hover {
-      border-color: var(--av-brand-teal-700);
-      transform: translateY(-1px);
-    }
-    .vcb-card h3 {
-      font-size: var(--av-fs-base);
-      font-weight: var(--av-fw-semibold);
-      margin: 0;
-    }
-    .vcb-card .lede {
-      font-size: var(--av-fs-sm);
-      color: var(--av-text-secondary);
-      line-height: var(--av-lh-normal);
-    }
-    .vcb-card .meta {
-      margin-top: auto;
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-muted);
-    }
-    .vcb-tag {
-      padding: 2px 8px;
-      border-radius: var(--av-radius-pill);
-      background: var(--av-brand-teal-50);
-      color: var(--av-brand-teal-800);
-      border: 1px solid var(--av-brand-teal-200);
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-    }
-    .vcb-tag.is-new {
-      background: #FEF3C7;
-      color: #92400E;
-      border-color: #FDE68A;
-    }
+    /* card grid + status tags → admin-hub.css + admin-status.css (design-fix-2 B4) */
   </style>
 </head>
 <body class="av-page">
@@ -98,38 +53,38 @@
         </p>
       </header>
 
-      <section class="vcb-grid" aria-label="Vocab admin sections">
-        <a href="/pages/admin/vocab/stats.html" class="vcb-card">
+      <section class="admin-hub-grid" aria-label="Vocab admin sections">
+        <a href="/pages/admin/vocab/stats.html" class="admin-hub-card">
           <h3>Vocab + Flashcards Stats</h3>
           <p class="lede">
             Aggregate counts (bank size, FP rate), feature flag toggle, SRS
             health, rating distribution, time-series review activity.
           </p>
-          <div class="meta"><span class="vcb-tag">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/vocab/d1-curation.html" class="vcb-card">
+        <a href="/pages/admin/vocab/d1-curation.html" class="admin-hub-card">
           <h3>D1 Curation</h3>
           <p class="lede">
             Kiểm duyệt câu hỏi fill-blank cá nhân hoá (Haiku 4.5).
             Filter theo source, edit context, soft-delete câu yếu.
           </p>
-          <div class="meta"><span class="vcb-tag is-new">NEW · Sprint 12.6</span></div>
+          <div class="meta"><span class="adm-status-pill is-new">NEW · Sprint 12.6</span></div>
         </a>
-        <a href="/pages/admin/vocab/lemmas.html" class="vcb-card">
+        <a href="/pages/admin/vocab/lemmas.html" class="admin-hub-card">
           <h3>Lemma Overrides</h3>
           <p class="lede">
             Sửa lỗi spaCy lemmatization với manual mapping. Hữu ích cho
             idioms, proper nouns, loanwords.
           </p>
-          <div class="meta"><span class="vcb-tag is-new">NEW · Sprint 12.6</span></div>
+          <div class="meta"><span class="adm-status-pill is-new">NEW · Sprint 12.6</span></div>
         </a>
-        <a href="/pages/admin/vocab/exercises.html" class="vcb-card">
+        <a href="/pages/admin/vocab/exercises.html" class="admin-hub-card">
           <h3>D1 Exercises (admin pool)</h3>
           <p class="lede">
             Hàng đợi draft → published cho admin pool exercises. Filter
             theo status, bulk publish/reject, Gemini batch generate.
           </p>
-          <div class="meta"><span class="vcb-tag">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
       </section>
     </main>

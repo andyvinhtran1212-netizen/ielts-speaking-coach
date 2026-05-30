@@ -23,6 +23,9 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-hub.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -47,17 +50,7 @@
       display: flex; align-items: center; gap: var(--av-space-3);
       font-size: var(--av-fs-xs); color: var(--av-text-muted);
     }
-    .btn-refresh {
-      padding: 6px 12px;
-      border-radius: var(--av-radius-md);
-      background: transparent;
-      color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default);
-      cursor: pointer;
-      font-size: var(--av-fs-sm);
-      font-family: inherit;
-    }
-    .btn-refresh:hover { background: var(--av-surface-card); }
+    /* .btn-refresh → admin-buttons.css bridge (design-fix-2 B3) */
 
     /* ── Stat tiles (Sprint 12.4) ─────────────────────────────── */
     .stat-grid {
@@ -115,73 +108,27 @@
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: var(--av-space-3);
     }
-    .ov-card {
-      display: flex; flex-direction: column;
-      gap: var(--av-space-2);
-      padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-card);
-      text-decoration: none;
-      color: var(--av-text-primary);
-      transition: border-color 0.15s ease, transform 0.15s ease;
-    }
-    .ov-card:hover {
-      border-color: var(--av-brand-teal-700);
-      transform: translateY(-1px);
-    }
-    .ov-card.is-placeholder { opacity: 0.7; }
-    .ov-card.is-placeholder:hover {
-      border-color: var(--av-border-default);
-      transform: none;
-    }
-    .ov-card h3 {
-      font-size: var(--av-fs-base);
-      font-weight: var(--av-fw-semibold);
-      margin: 0;
-    }
-    .ov-card .skill-stats {
+    /* Card grid + status tags → admin-hub.css + admin-status.css (design-fix-2 B4).
+       The skill-stats block stays Overview-local but now hangs off the shared
+       .admin-hub-card (the cards were renamed from .ov-card). */
+    .admin-hub-card .skill-stats {
       display: flex; gap: var(--av-space-4);
       font-family: var(--av-font-mono);
     }
-    .ov-card .skill-stats > div {
+    .admin-hub-card .skill-stats > div {
       display: flex; flex-direction: column;
     }
-    .ov-card .skill-stats .stat-label {
+    .admin-hub-card .skill-stats .stat-label {
       font-size: var(--av-fs-xs);
       color: var(--av-text-muted);
       font-family: var(--av-font-sans);
       text-transform: uppercase;
       letter-spacing: var(--av-tracking-wide);
     }
-    .ov-card .skill-stats .stat-num {
+    .admin-hub-card .skill-stats .stat-num {
       font-size: var(--av-fs-lg);
       font-weight: var(--av-fw-semibold);
       color: var(--av-text-primary);
-    }
-    .ov-card .meta {
-      margin-top: auto;
-      font-size: var(--av-fs-xs);
-      color: var(--av-text-muted);
-    }
-    .ov-tag {
-      padding: 2px 8px;
-      border-radius: var(--av-radius-pill);
-      background: var(--av-surface-sunken);
-      color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default);
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-    }
-    .ov-tag.is-live {
-      background: var(--av-brand-teal-50);
-      color: var(--av-brand-teal-800);
-      border-color: var(--av-brand-teal-200);
-    }
-    .ov-tag.is-soon {
-      background: #FFFBEB;
-      color: #92400E;
-      border-color: #FDE68A;
     }
 
     /* ── Activity feed ────────────────────────────────────────── */
@@ -300,47 +247,47 @@
       <!-- ── Skill cards (5) ──────────────────────────────────── -->
       <h2 class="ov-section-title">Hoạt động theo kỹ năng</h2>
       <section class="skill-grid" aria-label="Tóm tắt theo kỹ năng">
-        <a href="/pages/admin/speaking/index.html" class="ov-card" data-skill="speaking">
+        <a href="/pages/admin/speaking/index.html" class="admin-hub-card" data-skill="speaking">
           <h3>Speaking</h3>
           <div class="skill-stats">
             <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="speaking">—</span></div>
             <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="speaking">—</span></div>
             <div><span class="stat-label">Band TB</span><span class="stat-num" data-skill-extra="speaking">—</span></div>
           </div>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/writing/index.html" class="ov-card" data-skill="writing">
+        <a href="/pages/admin/writing/index.html" class="admin-hub-card" data-skill="writing">
           <h3>Writing</h3>
           <div class="skill-stats">
             <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="writing">—</span></div>
             <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="writing">—</span></div>
             <div><span class="stat-label">Chờ chấm</span><span class="stat-num" data-skill-extra="writing">—</span></div>
           </div>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/listening/index.html" class="ov-card" data-skill="listening">
+        <a href="/pages/admin/listening/index.html" class="admin-hub-card" data-skill="listening">
           <h3>Listening</h3>
           <div class="skill-stats">
             <div><span class="stat-label">7 ngày</span><span class="stat-num" data-skill-7d="listening">—</span></div>
             <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="listening">—</span></div>
             <div><span class="stat-label">Điểm TB</span><span class="stat-num" data-skill-extra="listening">—</span></div>
           </div>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/vocab/index.html" class="ov-card" data-skill="vocab">
+        <a href="/pages/admin/vocab/index.html" class="admin-hub-card" data-skill="vocab">
           <h3>Vocab</h3>
           <div class="skill-stats">
             <div><span class="stat-label">Đang học</span><span class="stat-num" data-skill-7d="vocab">—</span></div>
             <div><span class="stat-label">Tổng</span><span class="stat-num" data-skill-total="vocab">—</span></div>
           </div>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/grammar/index.html" class="ov-card" data-skill="grammar">
+        <a href="/pages/admin/grammar/index.html" class="admin-hub-card" data-skill="grammar">
           <h3>Grammar</h3>
           <div class="skill-stats">
             <div><span class="stat-label">Đề xuất 7d</span><span class="stat-num" data-skill-7d="grammar">—</span></div>
           </div>
-          <div class="meta"><span class="ov-tag is-live">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
       </section>
 
