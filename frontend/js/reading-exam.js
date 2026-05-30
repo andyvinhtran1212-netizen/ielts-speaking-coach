@@ -615,6 +615,24 @@
           }
         }
 
+        // Sprint 20.14e — summary_completion FLOWING block (Standards §2A.10
+        // / §2A.11). When the first Q in a summary_completion run carries
+        // `template.summary_text`, render the WHOLE run as one prose
+        // paragraph in a `.exam-gap-box` with inline inputs (or selects
+        // for the word-bank variant) at each `{{N}}` marker. The legacy
+        // per-Q card rendering is the fallback for runs without
+        // summary_text — kept for back-compat with seeds that pre-date
+        // 20.14e. See reading_content_format_v2.md §4.2 (Sprint 20.14e
+        // sub-section) for the authoring contract.
+        if (type === 'summary_completion' &&
+            run[0].payload && run[0].payload.template &&
+            typeof run[0].payload.template.summary_text === 'string') {
+          var sumBox = _renderFlowingSummaryBlock(run);
+          groupEl.appendChild(sumBox);
+          host.appendChild(groupEl);
+          return; // skip the per-Q card path entirely for this run
+        }
+
         // Sprint 20.14a T1.1 / T1.3 — wrap completion runs in a `.gap-box`
         // so summary / notes / table groups read as a single block, with
         // each question's stem flowing inline (Standards §2A.10 / §2A.12).
@@ -680,6 +698,148 @@
     });
     box.appendChild(list);
     return box;
+  }
+
+  // Sprint 20.14e — render a summary_completion run as ONE flowing
+  // paragraph in a single `.exam-gap-box` (Standards §2A.10 / §2A.11).
+  // The first Q of the run carries `template.summary_text` containing
+  // `{{N}}` markers; each marker is replaced by either:
+  //   • a text `<input>` (no-word-bank variant, §2A.10), OR
+  //   • a `<select>` of label-only options (word-bank variant, §2A.11
+  //     — bank already rendered as `.exam-word-bank-box` above by the
+  //     BANK_VARIANTS dispatch).
+  // Each `{{N}}` maps to the q_num of the question that owns that gap;
+  // the `<input>`/`<select>` carries `name="q-N"` so the existing
+  // change/input/readAnswer/restoreAnswers path keeps grading per Q.
+  var _SUMMARY_MARKER_RE = /\{\{\s*(\d{1,3})\s*\}\}/g;
+  function _renderFlowingSummaryBlock(run) {
+    var first = run[0];
+    var template = first.payload.template.summary_text;
+    var wordBank = first.payload && Array.isArray(first.payload.options) && first.payload.options.length
+      ? first.payload.options : null;
+    // Build a Map<q_num, Q> so each marker resolves to the right
+    // question — answers + flag state still attach via q_num.
+    var byQNum = {};
+    run.forEach(function (q) { byQNum[q.q_num] = q; });
+
+    var box = document.createElement('div');
+    box.className = 'exam-gap-box exam-gap-box--summary';
+    box.setAttribute('data-question-type', 'summary_completion');
+
+    var prose = document.createElement('p');
+    prose.className = 'exam-summary__prose';
+
+    // Walk the template; for each {{N}} marker emit a numbered gap
+    // (bold number badge + input/select). The non-marker text chunks
+    // are emitted as plain text nodes so prose flows normally and
+    // CSS `text-align: justify` can apply.
+    var src = String(template || '');
+    var last = 0;
+    var match;
+    _SUMMARY_MARKER_RE.lastIndex = 0;
+    while ((match = _SUMMARY_MARKER_RE.exec(src)) !== null) {
+      if (match.index > last) {
+        prose.appendChild(document.createTextNode(src.slice(last, match.index)));
+      }
+      var qNum = parseInt(match[1], 10);
+      var q = byQNum[qNum];
+      // Number badge + control. Even if q is missing (unknown q_num)
+      // we still render the marker literally so the issue is visible.
+      if (!q) {
+        prose.appendChild(document.createTextNode(match[0]));
+      } else {
+        var numEl = document.createElement('span');
+        numEl.className = 'exam-summary__gnum';
+        numEl.textContent = String(qNum);
+        prose.appendChild(numEl);
+        prose.appendChild(document.createTextNode(' '));
+        if (wordBank) {
+          var sel = document.createElement('select');
+          sel.className = 'exam-q__select exam-q__select--inline';
+          sel.name = 'q-' + qNum;
+          sel.setAttribute('aria-label', 'Answer ' + qNum);
+          sel.dataset.q = String(qNum);
+          var ph = document.createElement('option');
+          ph.value = ''; ph.textContent = '— Select —';
+          sel.appendChild(ph);
+          wordBank.forEach(function (o) {
+            var val = o.label != null ? String(o.label) : String(o.text || '');
+            var opt = document.createElement('option');
+            opt.value = val; opt.textContent = val;
+            sel.appendChild(opt);
+          });
+          prose.appendChild(sel);
+        } else {
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'exam-q__gap exam-q__gap--inline';
+          input.name = 'q-' + qNum;
+          input.setAttribute('aria-label', 'Answer ' + qNum);
+          input.setAttribute('autocomplete', 'off');
+          input.dataset.q = String(qNum);
+          prose.appendChild(input);
+        }
+      }
+      last = match.index + match[0].length;
+    }
+    if (last < src.length) {
+      prose.appendChild(document.createTextNode(src.slice(last)));
+    }
+    box.appendChild(prose);
+
+    // The flowing summary uses the per-card change/input handlers via
+    // delegation on the box. The `dataset.q` on each input + the
+    // existing onAnswerChanged(qNum, card) signature mean we synthesise
+    // a "card-like" wrapper: pass the box itself; readAnswer walks the
+    // element and finds the focused input by name. For per-Q routing
+    // we need a more targeted listener that resolves the changed
+    // element's `data-q` and looks up that element only.
+    box.addEventListener('input', function (ev) {
+      var t = ev.target;
+      if (!t || !t.dataset || !t.dataset.q) return;
+      var qNum = parseInt(t.dataset.q, 10);
+      if (isNaN(qNum)) return;
+      // Build a minimal "card" that readAnswer can scan to find the
+      // single input/select that fired. Re-use onAnswerChanged so
+      // SESSION.answers + palette state + autosave stay synchronised.
+      var pseudoCard = document.createElement('div');
+      pseudoCard.appendChild(t.cloneNode(true));
+      // readAnswer only reads attributes, so clone-then-restore works.
+      // But it's cleaner to read the value directly here.
+      var value = t.tagName === 'SELECT' ? t.value : t.value;
+      // Re-implement the onAnswerChanged side-effects for this single
+      // gap (debounce flush, palette flip, SESSION.answers update).
+      _summaryGapChanged(qNum, value);
+    });
+    box.addEventListener('change', function (ev) {
+      var t = ev.target;
+      if (!t || !t.dataset || !t.dataset.q) return;
+      var qNum = parseInt(t.dataset.q, 10);
+      if (isNaN(qNum)) return;
+      var value = t.tagName === 'SELECT' ? t.value : t.value;
+      _summaryGapChanged(qNum, value);
+    });
+
+    return box;
+  }
+
+  // Sprint 20.14e — per-gap change handler for the flowing summary
+  // block. Mirrors onAnswerChanged's side-effects (SESSION.answers +
+  // answered-state + debounce-PATCH) but bypasses readAnswer's
+  // card-scan since the flowing block doesn't have one card per gap.
+  function _summaryGapChanged(qNum, value) {
+    SESSION.answers.set(qNum, value);
+    if (value === '' || value == null) {
+      SESSION.answers['delete'](qNum);
+      _setAnsweredState(qNum, false);
+    } else {
+      _setAnsweredState(qNum, true);
+    }
+    if (SESSION.debounce_timers.has(qNum)) clearTimeout(SESSION.debounce_timers.get(qNum));
+    SESSION.debounce_timers.set(qNum, setTimeout(function () {
+      patchAnswer(qNum, value);
+      SESSION.debounce_timers['delete'](qNum);
+    }, 500));
   }
   function _consecutiveTypeRuns(qs) {
     if (!qs.length) return [];
@@ -1037,6 +1197,19 @@
   }
   function restoreAnswers() {
     SESSION.answers.forEach(function (value, qNum) {
+      // Sprint 20.14e — flowing summary block: gaps live inside the
+      // shared `.exam-gap-box--summary` (NOT inside a `.exam-q` card).
+      // Lookup by `[name="q-N"]` first. The cloning approach lets the
+      // existing markAnswered side-effects fire while still landing on
+      // the right input element.
+      var flowingInput = document.querySelector(
+        '.exam-gap-box--summary [name="q-' + qNum + '"]',
+      );
+      if (flowingInput) {
+        flowingInput.value = value || '';
+        if (value !== '' && value != null) markAnswered(qNum);
+        return;
+      }
       var card = document.getElementById('q-' + qNum);
       if (!card) return;
       var input = card.querySelector('.exam-q__gap');
