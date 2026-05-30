@@ -130,14 +130,22 @@ def collect_answer_key(
     passage_order_by_id: dict[str, int] | None = None,
 ) -> list[dict[str, Any]]:
     """Project reading_questions rows into the flat answer-key shape the
-    grader consumes: ``{q_num, answer, alternatives, skill_tag,
-    explanation, passage_order}``.
+    grader consumes: ``{q_num, question_type, answer, alternatives,
+    skill_tag, explanation, passage_order}``.
 
     The `passage_order_by_id` map lets the router stamp each question with
     its passage's `passage_order` so by_part_breakdown groups correctly
     (reading_questions rows don't carry passage_order themselves — only a
     passage_id FK). When the map is omitted, passage_order is left None
-    and per-part rollup is skipped for that row."""
+    and per-part rollup is skipped for that row.
+
+    Sprint 20.14b — `question_type` is now propagated so grade_attempt
+    can branch on it for type-specific semantics. mcq_multi requires
+    set-equality (all-or-nothing, no extras), distinct from the default
+    candidate-set "any match wins" used for other types whose answer
+    happens to be a list. Other Phase B types reuse the existing letter/
+    text matching paths.
+    """
     out: list[dict[str, Any]] = []
     for row in question_rows:
         q_num = row.get("q_num")
@@ -146,6 +154,7 @@ def collect_answer_key(
         answer_blob = row.get("answer") or {}
         out.append({
             "q_num":         q_num,
+            "question_type": row.get("question_type"),
             "answer":        answer_blob.get("answer"),
             "alternatives": list(answer_blob.get("alternatives") or []),
             "skill_tag":     row.get("skill_tag"),
@@ -197,9 +206,32 @@ def grade_attempt(
 
         ua_row = user_by_q.get(q_num) or {}
         user_answer = ua_row.get("user_answer")
-        is_correct = any(
-            answer_matches(user_answer, str(c), alternatives) for c in candidates
-        )
+        qtype = ak.get("question_type")
+
+        # Sprint 20.14b — mcq_multi uses set-equality, not the default
+        # "any candidate matches" semantics. The user picks N checkboxes;
+        # all N must be in the answer set, no extras (IELTS marking guide
+        # default — partial credit is not a recognised IELTS variant for
+        # this format). The frontend serialises the chosen labels as a
+        # comma-separated string (e.g. "A,C" or "A, C"), which we split
+        # and trim before comparing.
+        if qtype == "mcq_multi" and isinstance(primary, list):
+            # Build the canonical expected set (normalised single letters
+            # or labels). Use the listening grader's normalize_answer so
+            # the comparison is case/whitespace-insensitive and respects
+            # the existing diacritic + UK/US rules.
+            from services.listening_test_grader import normalize_answer
+            expected_norm = {normalize_answer(str(c)) for c in candidates}
+            expected_norm.discard("")
+            user_str = str(user_answer or "")
+            user_parts = [p for p in user_str.replace(";", ",").split(",")]
+            user_norm = {normalize_answer(p) for p in user_parts}
+            user_norm.discard("")
+            is_correct = bool(expected_norm) and user_norm == expected_norm
+        else:
+            is_correct = any(
+                answer_matches(user_answer, str(c), alternatives) for c in candidates
+            )
 
         expected_display = ", ".join(str(c) for c in candidates) if candidates else ""
         per_question.append({

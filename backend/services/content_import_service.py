@@ -55,17 +55,42 @@ _LIBRARY_BY_CONTENT_TYPE = {
 READING_TEST_MODULES = ("academic", "general_training")
 # Sprint 20.2 — the question types L1 light-comprehension Qs may author
 # (the DB CHECK in mig 086 allows the full IELTS set; the AUTHORING subset
-# is restricted to Phase 1 here, matching reading_content_format_v2.md).
+# is restricted to the whitelist here, matching reading_content_format_v2.md).
+#
+# Sprint 20.14b — Phase B unlock: the 7 missing IELTS reading types
+# join the whitelist. AVR-READ-002 seed exercises them; v2 spec §4.2 +
+# §4.3 document the per-type authoring shape and grader semantics.
+#   • mcq_multi               — choose N of M; answer is a list of labels
+#   • matching_information    — pick paragraph letter (A–H of passage)
+#   • matching_features       — match statement to feature A–E (with bank)
+#   • matching_sentence_endings — match beginning to ending A–G (with bank)
+#   • flow_chart_completion   — gap-fill in a vertical chain of boxes
+#   • diagram_label_completion — gap-fill on a labeled diagram
+# `summary_completion` keeps the same enum tag for BOTH the no-word-bank
+# (§2A.10) and the with-word-bank (§2A.11) variants; the distinguishing
+# signal is the presence of authored `options:` (word bank present ⇒
+# word-bank variant). See §4.2 of the v2 spec.
 READING_QUESTION_TYPES_PHASE1 = (
     "mcq_single", "true_false_not_given", "yes_no_not_given",
     "sentence_completion", "summary_completion", "notes_completion",
     "table_completion", "form_completion", "short_answer", "matching_headings",
+    # Sprint 20.14b — Phase B types added:
+    "mcq_multi", "matching_information", "matching_features",
+    "matching_sentence_endings", "flow_chart_completion",
+    "diagram_label_completion",
 )
 # Sprint 20.6.6 — question types that render a labelled-choice list and
-# therefore REQUIRE author-level `options: [{label, text}, …]`. Other Phase 1
-# types (T/F/NG, Y/N/NG, *_completion, short_answer) carry implied or
-# free-text answers and don't need `options`.
-_READING_QUESTION_TYPES_REQUIRE_OPTIONS = ("mcq_single", "matching_headings")
+# therefore REQUIRE author-level `options: [{label, text}, …]`. Other types
+# (T/F/NG, Y/N/NG, *_completion without word bank, short_answer, matching_
+# information) carry implied or free-text answers and don't need `options`.
+# `matching_information` is the outlier in the matching family — its
+# "options" are the paragraphs of the passage itself, identified by
+# label inline, so the question doesn't author a separate bank.
+_READING_QUESTION_TYPES_REQUIRE_OPTIONS = (
+    "mcq_single", "matching_headings",
+    # Sprint 20.14b — Phase B types with shared option banks:
+    "mcq_multi", "matching_features", "matching_sentence_endings",
+)
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"

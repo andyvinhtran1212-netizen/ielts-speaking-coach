@@ -260,14 +260,26 @@ The builder `build_reading_question_payloads()` takes the flat author input and 
 | `table_completion` | ✅ | – | optional | Same |
 | `form_completion` | ✅ | – | optional | Same |
 | `short_answer` | ✅ | – | – | Free-typed answer string |
-| `mcq_multi` | ❌ Phase B | – | – | – |
-| `matching_information` | ❌ Phase B | – | – | – |
-| `matching_features` | ❌ Phase B | – | – | – |
-| `matching_sentence_endings` | ❌ Phase B | – | – | – |
-| `flow_chart_completion` | ❌ Phase B | – | – | – |
-| `diagram_label_completion` | ❌ Phase B | – | – | – |
+| `mcq_multi` | ✅ (Sprint 20.14b) | ✅ (list of {label, text}) | – | `["A", "C"]` — a **string list** of N chosen labels (all-or-nothing scoring) |
+| `matching_information` | ✅ (Sprint 20.14b) | – | – | The chosen paragraph label, e.g. `"B"`. Paragraphs are labelled inline in the passage; no separate bank |
+| `matching_features` | ✅ (Sprint 20.14b) | ✅ (list of {label, text} — the feature bank) | – | The chosen label, e.g. `"D"` |
+| `matching_sentence_endings` | ✅ (Sprint 20.14b) | ✅ (list of {label, text} — the endings bank) | – | The chosen label, e.g. `"E"` |
+| `flow_chart_completion` | ✅ (Sprint 20.14b) | – | optional | Same as `sentence_completion` (filled-in word(s) as a string) |
+| `diagram_label_completion` | ✅ (Sprint 20.14b) | – | optional | Same — a string |
 
-> The DB `CHECK` constraint (migration `086_reading_module_foundation.sql`) accepts the *full* IELTS question-type set, but the **importer's Phase 1 validation** rejects anything outside `READING_QUESTION_TYPES_PHASE1`. Do not author Phase B types — they will fail validation.
+> The DB `CHECK` constraint (migration `086_reading_module_foundation.sql`) accepts the *full* IELTS question-type set, and the **importer's whitelist** (Sprint 20.14b) now accepts all 16 IELTS reading types.
+
+#### `summary_completion` — word-bank vs no-word-bank variant (Sprint 20.14b)
+
+Per Standards §2A.10 / §2A.11 the two variants of summary completion render differently:
+- **2A.10 — no word bank** — student types a word from the passage into each gap. Author shape: `summary_completion` with **no `options:`**, `answer:` is a string.
+- **2A.11 — with word bank A–J** — student picks a label from the bank. Author shape: `summary_completion` with **`options: [{label: "A", text: "factor"}, …]`** (the bank, ≥ gaps + 2), `answer:` is a label string `"C"`.
+
+The DB type tag stays `summary_completion` for both. The renderer + grader branch on the presence of authored `options:`.
+
+#### `mcq_multi` scoring (Sprint 20.14b)
+
+Set-equality, all-or-nothing. The grader normalises each chosen label (case / whitespace / diacritic / UK-US per §4.3) and compares the user's set to the authored set. Extras OR omissions both fail the question. There is no partial credit (matches IELTS marking-guide convention for the format). The frontend serialises the chosen labels as a comma-separated string (e.g. `"A,C"` or `"A, C"`) — the grader splits on both `,` and `;` before normalising.
 
 ### 4.3 Answer-matching rules (Sprint 20.5 grader)
 
