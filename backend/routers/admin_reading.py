@@ -401,6 +401,182 @@ async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
     return result
 
 
+# ── Sprint 20.15 — L3 test admin preview + delete ──────────────────────
+#
+# Two test-level admin ops Andy flagged from the 20.14 dogfood:
+#   GET    /admin/reading/content/tests/{test_id} — verification view
+#          (full bundle WITH answer keys + explanations, any status)
+#   DELETE /admin/reading/content/tests/{test_id} — attempt-safe delete
+#          (hard cascade when 0 attempts, soft `status=archived` when
+#          any attempt rows exist; never destroys student attempt data)
+#
+# Both look up by the human `test_id` text key (e.g. "AVR-READ-001") to
+# match the admin list rows. The existing student detail endpoint
+# (`routers/reading_student.py::get_reading_test`) is what students hit
+# — it filters `status='published'` and STRIPS answer keys; the admin
+# preview here filters NOTHING and includes the answer column.
+
+
+def _fetch_admin_test_or_404(test_id: str) -> dict:
+    """Read one reading_tests row by `test_id` (human key, TEXT UNIQUE in
+    mig 086) for admin operations. 404 if absent; status filter is NOT
+    applied — admins need to inspect / delete drafts + archived rows
+    too. The student endpoint applies its own `status='published'` filter
+    independently."""
+    res = (
+        supabase_admin.table("reading_tests")
+        .select("id,test_id,title,module,time_limit_minutes,passage_count,"
+                "total_questions,band_target,status,created_at,updated_at")
+        .eq("test_id", test_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, f"Reading test {test_id!r} not found.")
+    return res.data[0]
+
+
+@router.get("/tests/{test_id}")
+async def admin_get_reading_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 20.15 D1 — admin verification view of an uploaded L3 test.
+
+    Same shape as the student detail (passages + questions stamped with
+    passage_order + image_url signed for diagram/flow questions) but:
+      • accepts any status (draft / published / archived) — admin needs
+        to preview drafts before publishing
+      • the question projection INCLUDES the answer key + explanation
+        columns the student fetch deliberately strips. The whole
+        purpose of the admin preview is to verify the keys are right
+        before students see the test, so a "leak" here IS the feature.
+    """
+    await require_admin(authorization)
+    test = _fetch_admin_test_or_404(test_id)
+
+    passages_res = (
+        supabase_admin.table("reading_passages")
+        .select("id,slug,title,body_markdown,passage_order,word_count,"
+                "estimated_minutes,topic_tags,status")
+        .eq("test_id", test["id"])
+        .eq("library", "l3_test")
+        .order("passage_order")
+        .execute()
+    )
+    passages = passages_res.data or []
+
+    passage_ids = [p["id"] for p in passages]
+    questions: list[dict] = []
+    if passage_ids:
+        q_res = (
+            supabase_admin.table("reading_questions")
+            # Admin projection INCLUDES `answer` + `explanation` — the
+            # student endpoint omits these on purpose; admin preview
+            # exists precisely to check them.
+            .select("id,q_num,question_type,prompt,payload,answer,"
+                    "explanation,skill_tag,sub_skill,order_num,passage_id")
+            .in_("passage_id", passage_ids)
+            .order("q_num")
+            .execute()
+        )
+        questions = q_res.data or []
+
+    passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
+    for q in questions:
+        q["passage_order"] = passage_order_by_id.get(q.get("passage_id"))
+
+    # Sign diagram/flow images for the preview too — admin needs to see
+    # what students will see. Reuse the existing helper from the student
+    # router (single source of truth for the storage-path → signed-URL
+    # transform).
+    from routers.reading_student import _stamp_diagram_image_urls
+    _stamp_diagram_image_urls(questions)
+
+    test["passages"] = passages
+    test["questions"] = questions
+    return test
+
+
+@router.delete("/tests/{test_id}")
+async def admin_delete_reading_test(
+    test_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Sprint 20.15 D2 — attempt-safe delete.
+
+    Semantics (Code-authoritative per Lesson 9 "no workaround that
+    loses student data"):
+      • 0 attempts → HARD delete. Cascades through reading_passages →
+        reading_questions via the mig 086 FK chains. The reading_test_
+        attempts FK also cascades (mig 087) but there are no rows to
+        cascade through. Returns ``{"action": "deleted"}``.
+      • >0 attempts → SOFT delete. Sets `status='archived'` on the test
+        row. Passages + questions + attempts stay intact so any
+        in-flight student attempt can still resolve + so the admin's
+        historic-attempt views (Sprint 20.7 diagnostic, etc) keep
+        working. Student-facing endpoints already filter
+        `status='published'`, so archived = invisible to new starters.
+        Returns ``{"action": "archived", "attempts_preserved": N}``.
+
+    The student-facing GET (`reading_student.get_reading_test`) and the
+    list endpoint both filter `status='published'`, so a soft-delete is
+    effectively the same as removal from the student's POV.
+    """
+    await require_admin(authorization)
+    test = _fetch_admin_test_or_404(test_id)
+    test_uuid = test["id"]
+
+    # Count attempt rows. We use a head-style count so we don't haul
+    # the rows themselves into memory; a single int back from supabase
+    # is enough to branch the action.
+    attempts_res = (
+        supabase_admin.table("reading_test_attempts")
+        .select("id", count="exact")
+        .eq("test_id", test_uuid)
+        .limit(1)
+        .execute()
+    )
+    attempt_count = getattr(attempts_res, "count", None) or 0
+
+    if attempt_count > 0:
+        # Soft delete. Stays in the table so attempts (in-progress +
+        # submitted) keep resolving and historic analytics work.
+        (
+            supabase_admin.table("reading_tests")
+            .update({"status": "archived"})
+            .eq("id", test_uuid)
+            .execute()
+        )
+        logger.info(
+            "[admin_reading] soft-delete (archived) test_id=%s attempts=%d",
+            test_id, attempt_count,
+        )
+        return {
+            "test_id":             test_id,
+            "action":              "archived",
+            "attempts_preserved":  attempt_count,
+        }
+
+    # Hard delete. The FK cascades (mig 086 + 087) clean up passages,
+    # questions, and the (empty) attempt-row slot for this test.
+    (
+        supabase_admin.table("reading_tests")
+        .delete()
+        .eq("id", test_uuid)
+        .execute()
+    )
+    logger.info(
+        "[admin_reading] hard-delete test_id=%s (no attempts)",
+        test_id,
+    )
+    return {
+        "test_id":             test_id,
+        "action":              "deleted",
+        "attempts_preserved":  0,
+    }
+
+
 # ── Sprint 20.14f-α — Diagram / flow-chart image upload ──────────────
 #
 # Manual image upload for `diagram_label_completion` /

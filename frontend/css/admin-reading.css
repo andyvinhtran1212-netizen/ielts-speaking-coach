@@ -342,3 +342,172 @@
   color: var(--av-text-secondary);
   margin-left: auto;
 }
+
+/* Sprint 20.15 D2 — per-row Preview + Delete actions on the L3 list. */
+.ar-row-actions {
+  white-space: nowrap;
+}
+.ar-row-action {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: var(--av-fs-sm);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-surface-card, #fff);
+  color: var(--av-text-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ar-row-action:hover { background: var(--av-surface-sunken); }
+.ar-row-action.is-danger {
+  color: var(--av-critical, #c62828);
+  border-color: rgba(198, 40, 40, 0.4);
+}
+.ar-row-action.is-danger:hover {
+  background: rgba(198, 40, 40, 0.08);
+}
+.ar-row-action:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Sprint 20.15 D1 — admin preview page (/admin/reading/preview.html).
+ * Verification-focused: passages rendered as the student would see
+ * them, but each question card explicitly displays the answer key +
+ * accepted alternatives + explanation. NOT a student simulator. */
+.ar-back-link {
+  display: inline-block;
+  margin-bottom: var(--av-space-2);
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm);
+  text-decoration: none;
+}
+.ar-back-link:hover { color: var(--av-text-primary); }
+.ar-preview-error { color: var(--av-critical, #c62828); }
+
+.ar-preview-passage {
+  padding: var(--av-space-5);
+  margin-bottom: var(--av-space-5);
+  background: var(--av-surface-card, #fff);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+}
+.ar-preview-passage__eyebrow {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--av-text-muted, #757575);
+  margin-bottom: var(--av-space-1);
+}
+.ar-preview-passage__title {
+  font-size: var(--av-fs-xl);
+  font-weight: var(--av-fw-semibold);
+  margin: 0 0 var(--av-space-1);
+  color: var(--av-text-primary);
+}
+.ar-preview-passage__meta {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  margin-bottom: var(--av-space-3);
+}
+.ar-preview-passage__body {
+  padding: var(--av-space-3);
+  background: var(--av-surface-sunken);
+  border-radius: var(--av-radius-sm);
+  margin-bottom: var(--av-space-4);
+}
+.ar-preview-passage__qs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-3);
+}
+.ar-preview-q {
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-border-subtle, #e5e7eb);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-surface-card, #fff);
+}
+.ar-preview-q__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--av-space-2);
+  margin-bottom: var(--av-space-2);
+  font-size: var(--av-fs-sm);
+}
+.ar-preview-q__num {
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+  font-family: var(--av-font-mono);
+}
+.ar-preview-q__type {
+  color: var(--av-text-secondary);
+}
+.ar-preview-q__type code {
+  font-size: 11px;
+  margin-left: 4px;
+}
+.ar-preview-q__skill {
+  margin-left: auto;
+  font-family: var(--av-font-mono);
+  font-size: 11px;
+  color: var(--av-text-muted, #757575);
+}
+.ar-preview-q__prompt {
+  margin: 0 0 var(--av-space-2);
+  white-space: pre-wrap;
+}
+.ar-preview-options {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 var(--av-space-2);
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 4px 8px;
+  font-size: var(--av-fs-sm);
+}
+.ar-preview-options li {
+  display: contents;
+}
+.ar-preview-q__keys {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 4px 12px;
+  margin: var(--av-space-2) 0 0;
+  padding: var(--av-space-2);
+  background: var(--av-surface-sunken);
+  border-left: 3px solid var(--av-accent, #0F766E);
+  font-size: var(--av-fs-sm);
+}
+.ar-preview-q__keys dt {
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-secondary);
+}
+.ar-preview-q__keys dd { margin: 0; color: var(--av-text-primary); }
+.ar-preview-summary-text pre,
+.ar-preview-tmpl-extras {
+  font-size: var(--av-fs-sm);
+  margin: 0 0 var(--av-space-2);
+}
+.ar-preview-summary-text pre {
+  padding: var(--av-space-2);
+  background: var(--av-surface-sunken);
+  border-radius: var(--av-radius-sm);
+  white-space: pre-wrap;
+}
+.ar-preview-img-meta {
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  margin-bottom: var(--av-space-2);
+}
+.ar-preview-img {
+  margin: 0 0 var(--av-space-2);
+}
+.ar-preview-img img {
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  object-fit: contain;
+  background: #fff;
+}

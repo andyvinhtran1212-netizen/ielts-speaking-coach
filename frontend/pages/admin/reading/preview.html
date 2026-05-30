@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Xem trước Reading Test — Aver Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: {
+        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+      } } },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/admin-reading.css" />
+  <link rel="stylesheet" href="/css/markdown.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/markdown.js" defer></script>
+  <!-- Sprint 19.1B markdown deps. They're CDN-loaded by markdown.js's
+       sibling pages; admin tip preview uses them too. Loaded eagerly
+       here since the preview page renders body_markdown on every
+       passage. -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@13.0.0/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.5/dist/purify.min.js"></script>
+</head>
+<body class="av-page font-sans antialiased min-h-screen">
+  <aver-admin-chrome active="reading" subsection="content">
+  <div class="max-w-5xl mx-auto px-4 py-6">
+
+    <header class="mb-6">
+      <a href="/pages/admin/reading/content.html" class="ar-back-link">← Quản lý nội dung Reading</a>
+      <h1 class="ar-h1" id="ar-preview-title">Xem trước Reading Test</h1>
+      <p class="ar-subtitle" id="ar-preview-meta"></p>
+      <p class="ar-subtitle">
+        <strong>Lưu ý:</strong> đây là chế độ <em>xem trước cho admin</em> —
+        đáp án, đáp án thay thế, và lời giải đều hiển thị để kiểm tra.
+        Không phải mô phỏng phía học sinh.
+      </p>
+    </header>
+
+    <div id="ar-preview-state" class="ar-list-state">Đang tải…</div>
+    <div id="ar-preview-error" class="ar-list-state ar-preview-error" hidden></div>
+
+    <section id="ar-preview-content" hidden>
+      <div id="ar-preview-passages"></div>
+    </section>
+
+  </div>
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/admin-reading-preview.js" defer></script>
+</body>
+</html>
