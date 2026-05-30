@@ -103,6 +103,14 @@ class Settings(BaseSettings):
     LISTENING_MAP_IMAGE_MODEL: str = "gemini-3.1-flash-image-preview"
     LISTENING_IMAGES_BUCKET: str = "listening-images"
 
+    # Sprint 20.14f-α — Supabase Storage bucket holding reading
+    # diagram / flow-chart images. Same private + signed-URL pattern
+    # as LISTENING_IMAGES_BUCKET. Created out-of-band BEFORE the first
+    # admin upload works (Supabase dashboard → Storage → New bucket →
+    # `reading-images` → Private). The student fetch mints 2h signed
+    # URLs per request; nothing is persisted as a public URL.
+    READING_IMAGES_BUCKET: str = "reading-images"
+
     # Sprint 11.2 — IELTS-friendly default voices locked during the
     # Sprint 11.1 audition (2026-05-18). Render endpoint uses these as
     # fallback when voice_id is omitted + accent_tag is set. AU defers

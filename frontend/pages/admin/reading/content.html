@@ -104,6 +104,38 @@
       </table>
     </section>
 
+    <!-- Sprint 20.14f-α — diagram / flow-chart image manager. Lets an
+         admin upload an image per diagram_label / flow_chart question
+         on an L3 test. Enter the test_id (visible in the table above)
+         → the panel lists every diagram/flow question with its current
+         image (if any) + an upload field + a delete button. The
+         upload endpoint is /admin/reading/questions/{q_id}/upload-
+         diagram-image; the listing reuses /api/reading/test/{test_id}
+         (same student endpoint — the admin only needs the public
+         metadata + signed URL, which it already serves). -->
+    <section class="ar-section" aria-labelledby="ar-diagram-title">
+      <h2 id="ar-diagram-title">Quản lý ảnh diagram / flow-chart</h2>
+      <p class="ar-section-hint">
+        Nhập <code>test_id</code> (vd <code>AVR-READ-002</code>) để liệt kê
+        các câu diagram_label / flow_chart trong test đó. Mỗi câu có thể
+        upload hoặc xoá ảnh; ảnh cần là PNG/JPG/WebP (100 B – 5 MB).
+        Khi không có ảnh, frontend sẽ render bằng khối ASCII mono-block
+        (fallback).
+      </p>
+      <div class="ar-diagram-toolbar">
+        <label for="ar-diagram-test-id">Test ID:</label>
+        <input
+          type="text"
+          id="ar-diagram-test-id"
+          placeholder="AVR-READ-002"
+          autocomplete="off"
+        />
+        <button type="button" id="ar-diagram-load">Tải danh sách</button>
+        <span id="ar-diagram-status" class="ar-diagram-status"></span>
+      </div>
+      <div id="ar-diagram-list" class="ar-diagram-list"></div>
+    </section>
+
   </div>
   </aver-admin-chrome>
 
