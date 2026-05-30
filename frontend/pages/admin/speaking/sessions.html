@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -60,21 +61,7 @@
       font-family: inherit;
     }
 
-    .btn-primary {
-      padding: var(--av-space-2) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700);
-      color: var(--av-text-on-primary);
-      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
-      font-size: var(--av-fs-sm);
-    }
-    .btn-secondary {
-      padding: var(--av-space-2) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      background: transparent; color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default); cursor: pointer;
-      font-size: var(--av-fs-sm);
-    }
+    /* admin buttons → admin-buttons.css bridge (design-fix-2 B3) */
     .btn-ghost {
       padding: 4px 10px; border-radius: var(--av-radius-sm);
       background: transparent; color: var(--av-text-secondary);

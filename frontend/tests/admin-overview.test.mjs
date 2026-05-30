@@ -85,11 +85,12 @@ describe('Sprint 12.4 — 5 skill cards', () => {
 
   it('all 5 skill cards link to their hubs (no is-placeholder remaining)', () => {
     // Sprint 12.7 graduated Grammar — every skill card is now LIVE.
-    assert.match(HTML, /href="\/pages\/admin\/speaking\/index\.html"[^>]*class="ov-card"\s+data-skill="speaking"/);
-    assert.match(HTML, /href="\/pages\/admin\/writing\/index\.html"[^>]*class="ov-card"\s+data-skill="writing"/);
-    assert.match(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*class="ov-card"\s+data-skill="listening"/);
-    assert.match(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*class="ov-card"\s+data-skill="vocab"/);
-    assert.match(HTML, /href="\/pages\/admin\/grammar\/index\.html"[^>]*class="ov-card"\s+data-skill="grammar"/);
+    // design-fix-2 B4: skill cards reuse the shared .admin-hub-card primitive.
+    assert.match(HTML, /href="\/pages\/admin\/speaking\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="speaking"/);
+    assert.match(HTML, /href="\/pages\/admin\/writing\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="writing"/);
+    assert.match(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="listening"/);
+    assert.match(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="vocab"/);
+    assert.match(HTML, /href="\/pages\/admin\/grammar\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="grammar"/);
   });
 
   it('no skill card carries is-placeholder anymore', () => {
@@ -97,7 +98,7 @@ describe('Sprint 12.4 — 5 skill cards', () => {
     // was cleared by 12.5/12.6/12.7. Any remaining `is-placeholder`
     // must be on a non-skill surface; pin that no `data-skill=` card
     // still wears the class.
-    assert.doesNotMatch(HTML, /class="ov-card is-placeholder"\s+data-skill=/);
+    assert.doesNotMatch(HTML, /class="admin-hub-card is-placeholder"\s+data-skill=/);
   });
 });
 

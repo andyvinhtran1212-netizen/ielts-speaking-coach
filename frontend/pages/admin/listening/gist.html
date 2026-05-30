@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -70,21 +71,7 @@
     .button-row {
       display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: center;
     }
-    .btn-primary {
-      padding: var(--av-space-3) var(--av-space-6);
-      border-radius: var(--av-radius-md);
-      background: var(--av-brand-teal-700);
-      color: var(--av-text-on-primary);
-      border: none; font-weight: var(--av-fw-semibold); cursor: pointer;
-    }
-    .btn-primary:hover { background: var(--av-brand-teal-800); }
-    .btn-primary:disabled { background: var(--av-text-muted); cursor: not-allowed; }
-    .btn-secondary {
-      padding: var(--av-space-3) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      background: transparent; color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default); cursor: pointer;
-    }
+    /* admin buttons → admin-buttons.css bridge (design-fix-2 B3) */
     .status-banner {
       padding: var(--av-space-3) var(--av-space-4);
       border-radius: var(--av-radius-md);

@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -131,15 +132,7 @@
       .td-parts-grid { grid-template-columns: 1fr; }
     }
 
-    .td-btn {
-      padding: 10px 18px; border-radius: var(--av-radius-md);
-      border: 1px solid transparent; cursor: pointer;
-      font-size: var(--av-fs-sm); font-family: inherit; font-weight: var(--av-fw-semibold);
-    }
-    .td-btn-primary { background: var(--av-brand-teal-700); color: var(--av-text-on-primary); }
-    .td-btn-primary:disabled { background: var(--av-surface-sunken); color: var(--av-text-muted); cursor: not-allowed; }
-    .td-btn-ghost { background: transparent; color: var(--av-text-secondary); border-color: var(--av-border-default); }
-    .td-btn-danger { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
+    /* admin buttons (.td-btn-primary/ghost/danger) → admin-buttons.css bridge (design-fix-2 B3) */
 
     .td-cue-table {
       width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm);

@@ -44,7 +44,7 @@ describe('Sprint 12.5 — speaking landing (pages/admin/speaking/index.html)', (
     assert.match(SPK_INDEX, /href=["']\/pages\/admin\/speaking\/sessions\.html["']/);
     assert.match(SPK_INDEX, /href=["']\/pages\/admin\/speaking\/topics\.html["']/);
     // Both LIVE — at least two LIVE tags present.
-    const liveTags = SPK_INDEX.match(/class="spk-tag"\s*>\s*LIVE/g) || [];
+    const liveTags = SPK_INDEX.match(/class="adm-status-pill is-live"\s*>\s*LIVE/g) || [];  // design-fix-2: hub tags reuse .adm-status-pill
     assert.ok(liveTags.length >= 2,
       `expected at least 2 LIVE tags on speaking landing; got ${liveTags.length}`);
   });
@@ -53,7 +53,7 @@ describe('Sprint 12.5 — speaking landing (pages/admin/speaking/index.html)', (
     // Until cluster close, AI usage stays under the monolith — landing
     // should advertise that, not pretend it carved already.
     assert.match(SPK_INDEX, /Sprint 12\.8/);
-    assert.match(SPK_INDEX, /spk-tag is-soon/);
+    assert.match(SPK_INDEX, /adm-status-pill is-soon/);  // design-fix-2: hub tags reuse .adm-status-pill
   });
 
   it('loads the aver-admin-chrome module + error-reporter', () => {

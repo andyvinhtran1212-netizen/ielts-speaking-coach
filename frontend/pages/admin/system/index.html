@@ -24,6 +24,8 @@
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-hub.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -37,34 +39,7 @@
     }
     .sys-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
     .sys-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
-    .sys-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--av-space-3);
-    }
-    .sys-card {
-      display: flex; flex-direction: column; gap: var(--av-space-2);
-      padding: var(--av-space-4);
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
-      background: var(--av-surface-card);
-      text-decoration: none;
-      color: var(--av-text-primary);
-      transition: border-color 0.15s ease, transform 0.15s ease;
-    }
-    .sys-card:hover { border-color: var(--av-brand-teal-700); transform: translateY(-1px); }
-    .sys-card h3 { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold); margin: 0; }
-    .sys-card .lede { font-size: var(--av-fs-sm); color: var(--av-text-secondary); line-height: var(--av-lh-normal); }
-    .sys-card .meta { margin-top: auto; font-size: var(--av-fs-xs); color: var(--av-text-muted); }
-    .sys-tag {
-      padding: 2px 8px;
-      border-radius: var(--av-radius-pill);
-      background: var(--av-brand-teal-50);
-      color: var(--av-brand-teal-800);
-      border: 1px solid var(--av-brand-teal-200);
-      font-family: var(--av-font-mono);
-      font-size: var(--av-fs-xs);
-    }
+    /* card grid + status tags → admin-hub.css + admin-status.css (design-fix-2 B4) */
   </style>
 </head>
 <body class="av-page">
@@ -79,22 +54,22 @@
         </p>
       </header>
 
-      <section class="sys-grid" aria-label="System admin sections">
-        <a href="/pages/admin/system/ai-usage.html" class="sys-card">
+      <section class="admin-hub-grid" aria-label="System admin sections">
+        <a href="/pages/admin/system/ai-usage.html" class="admin-hub-card">
           <h3>AI Usage</h3>
           <p class="lede">
             Theo dõi chi phí AI (Claude / Gemini / Whisper / TTS), filter
             theo cửa sổ thời gian, breakdown per-user.
           </p>
-          <div class="meta"><span class="sys-tag">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
-        <a href="/pages/admin/system/alerts.html" class="sys-card">
+        <a href="/pages/admin/system/alerts.html" class="admin-hub-card">
           <h3>Alerts</h3>
           <p class="lede">
             Cảnh báo lỗi gần đây — session errors + grading failures.
             Xem chi tiết, regrade response/session.
           </p>
-          <div class="meta"><span class="sys-tag">LIVE</span></div>
+          <div class="meta"><span class="adm-status-pill is-live">LIVE</span></div>
         </a>
       </section>
     </main>

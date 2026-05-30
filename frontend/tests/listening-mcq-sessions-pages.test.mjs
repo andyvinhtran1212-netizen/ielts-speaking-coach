@@ -271,8 +271,11 @@ describe('Sprint 11.5 — design-token discipline across the 6 new pages', () =>
       ['browse',        BROWSE_HTML],
       ['analytics',     ANALYTICS_HTML],
     ]) {
-      assert.match(html, /var\(--av-brand-teal-700\)/,
-        `${name} page missing canonical brand teal token`);
+      // design-fix-2 B3: admin pages may reach the canonical brand teal via the
+      // shared button bridge (admin-buttons.css) instead of an inline ref.
+      assert.ok(
+        /var\(--av-brand-teal-700\)/.test(html) || /admin-buttons\.css/.test(html),
+        `${name} page missing canonical brand teal token (inline or via admin-buttons.css bridge)`);
     }
   });
 

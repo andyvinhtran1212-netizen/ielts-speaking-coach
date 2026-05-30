@@ -13,11 +13,16 @@
  * foot-traffic, cohorts, dashboard. Students migrates in Sprint 18.3.2.
  */
 
-/* Shared admin status-pill + action-group primitives live in a sibling file
-   that carries NO box-model reset, so pages that can't take the border-box
-   flip below still link it directly (design-fix-1). Importing it here keeps
-   the primitives reachable for every admin-components.css consumer too. */
+/* Shared admin primitives live in sibling files that carry NO box-model reset,
+   so pages that can't take the border-box flip below still link them directly
+   (design-fix-1/2). Importing them here keeps the primitives reachable for
+   every admin-components.css consumer too.
+     - admin-status.css  status pills + action groups (design-fix-1)
+     - admin-buttons.css  legacy admin button-class bridge (design-fix-2 B3)
+     - admin-hub.css      hub card/grid + card link (design-fix-2 B4) */
 @import url('admin-status.css');
+@import url('admin-buttons.css');
+@import url('admin-hub.css');
 
 /* ── Box model (Sprint 18.3.1) ──────────────────────────────────────── */
 /* The main-app pages (home.css / vocabulary.css / writing-result.css) each

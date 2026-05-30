@@ -191,7 +191,7 @@ describe('Sprint 12.1+12.4 — Tổng quan landing (pages/admin/index.html)', ()
   });
 
   it('renders 5 skill cards (ov-card class with data-skill attribute)', () => {
-    const cards = ADMIN_INDEX.match(/class="ov-card(?: is-placeholder)?"\s+data-skill="/g) || [];
+    const cards = ADMIN_INDEX.match(/class="admin-hub-card(?: is-placeholder)?"\s+data-skill="/g) || [];  // design-fix-2 B4
     assert.equal(cards.length, 5,
       `expected 5 skill cards (Speaking/Writing/Listening/Vocab/Grammar); got ${cards.length}`);
   });
