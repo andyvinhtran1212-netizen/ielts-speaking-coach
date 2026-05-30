@@ -35,6 +35,7 @@
  */
 
 import { bindToggleButton } from '/js/theme-toggle.js';
+import { installPerfResourceHints } from '/js/components/perf-hints.js';
 
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -58,6 +59,8 @@ const SIDEBAR_LS_KEY = 'av-admin-sidebar-collapsed';
 
 const POLL_INTERVAL_MS = 50;
 const POLL_MAX_TRIES = 60;
+
+installPerfResourceHints();
 
 
 // ── Shadow tree styles ─────────────────────────────────────────────

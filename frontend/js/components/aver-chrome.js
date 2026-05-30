@@ -47,6 +47,7 @@
 
 import { bindToggleButton } from '/js/theme-toggle.js';
 import { canonicalInitials } from '/js/user-pill.js';
+import { installPerfResourceHints } from '/js/components/perf-hints.js';
 
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -62,6 +63,8 @@ const VALID_ACTIVE = ['home', 'writing', 'speaking', 'listening', 'grammar', 'vo
 // pattern. 50ms tick × 60 tries.
 const POLL_INTERVAL_MS = 50;
 const POLL_MAX_TRIES = 60;
+
+installPerfResourceHints();
 
 
 // ── Shadow tree template ───────────────────────────────────────────
