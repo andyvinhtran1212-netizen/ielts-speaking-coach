@@ -93,6 +93,18 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         return _count("sessions", lambda q: q.eq("status", "completed"))
 
     def _grading_minutes():
+        # Perf (mig 089): SUM server-side via RPC so no rows cross the wire
+        # (the old path fetched EVERY responses row — unbounded). Falls back
+        # to the in-app sum if the function isn't applied yet (Lesson 11 —
+        # deploy ordering safe).
+        try:
+            val = supabase_admin.rpc("fn_total_grading_minutes", {}).execute().data
+            if isinstance(val, list):
+                val = val[0] if val else None
+            if val is not None:
+                return round(float(val), 1)
+        except Exception as exc:
+            logger.warning("[admin_dashboard] grading_minutes rpc fallback: %s", exc)
         rows = (
             supabase_admin.table("responses").select("duration_seconds").execute().data
         ) or []
@@ -119,5 +131,110 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         "total_practices": _metric("total_practices", _practices),
         "grading_minutes": _metric("grading_minutes", _grading_minutes),
         "monthly_cost_usd": _metric("monthly_cost_usd", _monthly_cost),
+        # admin-dashboard-redesign — actionable "Cần chú ý" strip. Cheap
+        # COUNT(exact) queries (no row transfer); reuses data the ops admin
+        # cares about without duplicating Overview's pedagogical activity feed.
+        "attention": {
+            "errors_undismissed": _metric(
+                "errors_undismissed",
+                lambda: _count("error_logs", lambda q: q.is_("dismissed_at", "null")),
+            ),
+            "writing_pending": _metric(
+                "writing_pending",
+                lambda: _count("writing_essays", lambda q: q.is_("delivered_at", "null")),
+            ),
+        },
+        "computed_at": now.isoformat(),
+    }
+
+
+def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
+    """Daily ops trend series for the Dashboard sparklines + trends chart
+    (admin-dashboard-redesign).
+
+    Three series over the last `days` (7/30/90): distinct visitors, completed
+    practices, and AI cost. Every fetch is WINDOWED (`gte created_at/completed_at`)
+    so the row set is bounded by the range — no unbounded scan, no migration
+    (buckets by UTC date in Python). Gap days are filled with 0 so the series is
+    contiguous (sparkline-safe). Pattern #29: a per-series failure degrades to a
+    zero-filled series, never a 500.
+    """
+    if days not in ALLOWED_VISITOR_WINDOWS:
+        days = DEFAULT_VISITOR_WINDOW
+
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=days - 1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    since_iso = start.isoformat()
+    axis = [(start + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+
+    def _day(ts: str | None) -> str:
+        return (ts or "")[:10]
+
+    def _visitors_series():
+        buckets: dict[str, set] = {d: set() for d in axis}
+        rows = (
+            supabase_admin.table("analytics_events")
+            .select("user_id, created_at")
+            .eq("event_name", "page_view")
+            .gte("created_at", since_iso)
+            .execute()
+            .data
+        ) or []
+        for r in rows:
+            d = _day(r.get("created_at"))
+            if d in buckets and r.get("user_id"):
+                buckets[d].add(r["user_id"])
+        return [{"date": d, "value": len(buckets[d])} for d in axis]
+
+    def _practices_series():
+        buckets: dict[str, int] = {d: 0 for d in axis}
+        rows = (
+            supabase_admin.table("sessions")
+            .select("completed_at")
+            .eq("status", "completed")
+            .gte("completed_at", since_iso)
+            .execute()
+            .data
+        ) or []
+        for r in rows:
+            d = _day(r.get("completed_at"))
+            if d in buckets:
+                buckets[d] += 1
+        return [{"date": d, "value": buckets[d]} for d in axis]
+
+    def _cost_series():
+        buckets: dict[str, float] = {d: 0.0 for d in axis}
+        rows = (
+            supabase_admin.table("ai_usage_logs")
+            .select("cost_usd_est, created_at")
+            .gte("created_at", since_iso)
+            .execute()
+            .data
+        ) or []
+        for r in rows:
+            d = _day(r.get("created_at"))
+            if d in buckets:
+                buckets[d] += (r.get("cost_usd_est") or 0)
+        return [{"date": d, "value": round(buckets[d], 4)} for d in axis]
+
+    def _zero_series():
+        return [{"date": d, "value": 0} for d in axis]
+
+    def _safe_series(name, fn):
+        try:
+            return fn()
+        except Exception as exc:  # pragma: no cover - exercised via stub in tests
+            logger.warning("[admin_dashboard] trend series %s failed: %s", name, exc)
+            return _zero_series()
+
+    return {
+        "days": days,
+        "series": {
+            "visitors":  _safe_series("visitors", _visitors_series),
+            "practices": _safe_series("practices", _practices_series),
+            "cost_usd":  _safe_series("cost_usd", _cost_series),
+        },
         "computed_at": now.isoformat(),
     }

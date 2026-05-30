@@ -16,6 +16,7 @@ import string
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
+from fastapi.responses import JSONResponse
 import uuid as _uuid
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -1177,6 +1178,22 @@ async def dashboard_overview(
     NULL metric, never a 500."""
     await require_admin(authorization)
     return admin_dashboard.compute_dashboard_overview(visitors_window_days=visitors_window)
+
+
+# ── admin-dashboard-redesign — GET /admin/dashboard/trends (daily series) ─────
+
+@router.get("/dashboard/trends")
+async def dashboard_trends(
+    authorization: str | None = Header(default=None),
+    days: int = 30,
+):
+    """Daily ops trend series (visitors / completed practices / cost) over the
+    last `days` (7/30/90; other values clamp to 30). Windowed + bucketed —
+    bounded fetch, no migration. Cache-Control: 300s (admin has manual refresh);
+    Pattern #29 — a per-series outage yields a zero-filled series, never a 500."""
+    await require_admin(authorization)
+    body = admin_dashboard.compute_dashboard_trends(days=days)
+    return JSONResponse(content=body, headers={"Cache-Control": "max-age=300"})
 
 
 # ── PATCH /admin/access-codes/{code_id} ───────────────────────────────────────

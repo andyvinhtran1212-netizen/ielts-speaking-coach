@@ -44,6 +44,7 @@ class _Chain:
     def limit(self, *a, **k): return self
     def eq(self, *a, **k): self.eq_args.append(a); return self
     def gte(self, *a, **k): self.gte_args.append(a); return self
+    def is_(self, *a, **k): return self   # attention counts filter delivered_at/dismissed_at IS NULL
 
     def execute(self):
         if isinstance(self._result, Exception):
@@ -80,6 +81,9 @@ def _default_results():
         "ai_usage_logs": _Result(data=[
             {"cost_usd_est": 0.01}, {"cost_usd_est": None}, {"cost_usd_est": 0.02},
         ]),
+        # admin-dashboard-redesign — "Cần chú ý" cheap COUNT metrics.
+        "error_logs": _Result(count=3),
+        "writing_essays": _Result(count=5),
     }
 
 
@@ -100,6 +104,8 @@ def test_dashboard_overview_returns_6_metrics(monkeypatch):
     assert out["total_practices"] == 7
     assert out["grading_minutes"] == 3.0                                  # (120+0+60)/60
     assert out["monthly_cost_usd"] == 0.03                                # 0.01 + 0 + 0.02
+    # admin-dashboard-redesign — "Cần chú ý" counts (cheap COUNT(exact)).
+    assert out["attention"] == {"errors_undismissed": 3, "writing_pending": 5}
     assert "computed_at" in out
 
 
@@ -159,11 +165,15 @@ def test_dashboard_overview_graceful_subquery_failure(monkeypatch):
 def test_dashboard_overview_no_n_plus_1(monkeypatch):
     stub = _install(monkeypatch)
     admin_dashboard.compute_dashboard_overview()
-    # Exactly one table() call per metric — independent of row counts.
-    assert len(stub.table_calls) == 6
+    # One table() call per metric — independent of row counts. 6 core metrics
+    # + 2 "Cần chú ý" COUNT metrics (admin-dashboard-redesign). grading_minutes
+    # tries the SUM RPC first and falls back to a responses scan here (the stub
+    # has no .rpc), so `responses` is still counted exactly once.
+    assert len(stub.table_calls) == 8
     assert sorted(set(stub.table_calls)) == sorted([
         "users", "user_code_assignments", "analytics_events",
         "sessions", "responses", "ai_usage_logs",
+        "error_logs", "writing_essays",
     ])
 
 
