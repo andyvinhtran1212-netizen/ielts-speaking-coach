@@ -493,33 +493,48 @@ passages:
         answer: "B"
         alternatives: []
         skill_tag: main_idea
+      # Sprint 20.14e — flowing-summary shape (Standards §2A.10). The
+      # first Q (Q36) carries `template.summary_text` with `{{N}}` gap
+      # markers; the renderer absorbs Qs 37–40 into the same flowing
+      # paragraph. Each `{{N}}` maps to its q_num for grading. Prompts
+      # are placeholder text — the renderer ignores them when
+      # summary_text is present.
       - q_num: 36
         question_type: summary_completion
-        prompt: "During slow-wave sleep, the hippocampus appears to ____ fragments learned earlier."
+        prompt: "(see summary above)"
+        template:
+          summary_text: |
+            During slow-wave sleep, the hippocampus appears to {{36}}
+            fragments learned earlier. Long-term storage of memories
+            happens in the {{37}}. A nap that consolidates memory should
+            usually last about {{38}} minutes. REM sleep may be where
+            {{39}} originates, by linking unrelated knowledge. What the
+            writer says is no longer debated is that sleep is an
+            essential {{40}} of mental activity.
         answer: replay
         alternatives: ["replays"]
         skill_tag: detail
       - q_num: 37
         question_type: summary_completion
-        prompt: "Long-term storage of memories happens in the ____."
+        prompt: "(see summary above)"
         answer: cortex
         alternatives: ["the cortex"]
         skill_tag: detail
       - q_num: 38
         question_type: summary_completion
-        prompt: "A nap that consolidates memory should usually last about ____ minutes."
+        prompt: "(see summary above)"
         answer: ninety
         alternatives: ["90"]
         skill_tag: scanning
       - q_num: 39
         question_type: summary_completion
-        prompt: "REM sleep may be where ____ originates, by linking unrelated knowledge."
+        prompt: "(see summary above)"
         answer: creativity
         alternatives: []
         skill_tag: inference
       - q_num: 40
         question_type: summary_completion
-        prompt: "What the writer says is no longer debated is that sleep is an essential ____ of mental activity."
+        prompt: "(see summary above)"
         answer: phase
         alternatives: []
         skill_tag: main_idea

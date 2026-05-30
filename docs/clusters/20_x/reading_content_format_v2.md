@@ -277,6 +277,45 @@ Per Standards §2A.10 / §2A.11 the two variants of summary completion render di
 
 The DB type tag stays `summary_completion` for both. The renderer + grader branch on the presence of authored `options:`.
 
+#### `summary_completion` — flowing block via `template.summary_text` (Sprint 20.14e)
+
+Standards §2A.10 mandates that summary completion render as **one flowing paragraph in a single box**, with a numbered gap (and the answer input) AT each `____` position — not as a column of separate sentence cards.
+
+Authoring shape: the **first** `summary_completion` question in a consecutive run carries `template: { summary_text: "..." }`. The text is the full summary prose with `{{N}}` gap markers, where `N` is the q_num of the question whose answer fills that gap. Example for a run covering Qs 36–40:
+
+```yaml
+- q_num: 36
+  question_type: summary_completion
+  prompt: "(see summary above)"
+  template:
+    summary_text: |
+      During slow-wave sleep, the hippocampus appears to {{36}} fragments
+      learned earlier. Long-term storage of memories happens in the {{37}}.
+      A nap that consolidates memory should usually last about {{38}}
+      minutes. REM sleep may be where {{39}} originates, by linking
+      unrelated knowledge. What the writer says is no longer debated is
+      that sleep is an essential {{40}} of mental activity.
+  answer: "replay"
+  skill_tag: detail
+- q_num: 37
+  question_type: summary_completion
+  prompt: "(see summary above)"
+  answer: "cortex"
+  skill_tag: detail
+# … Qs 38–40 same pattern: prompt is a placeholder, answer is per-Q,
+# no `template:` on the follow-up questions
+```
+
+For the **word-bank variant** (§2A.11), add `options: [...]` on the first Q alongside `summary_text`. The renderer emits a separate `.exam-word-bank-box` above the summary box, and each `{{N}}` gap becomes a `<select>` of labels (not a text input).
+
+**Behaviour:**
+- The renderer treats the first-Q with `summary_text` as the OWNER of the run; the cards for Qs 37–40 are absorbed into the flowing block. Only the first Q's prompt is visible (as a fallback to the standards' summary-instruction placement).
+- `{{N}}` markers must reference q_nums that exist in the run; an unrecognised `{{N}}` renders as literal text.
+- Each gap maps to its q_num for grading — `submitAttempt` posts one answer per q_num, same as the legacy per-Q shape.
+- **Backward compat:** runs without `template.summary_text` on the first Q still render as the per-Q card path (legacy behaviour). The DB type tag stays `summary_completion`; the validator + grader are unchanged.
+
+The `prompt:` field on absorbed questions must still satisfy the importer's "non-empty prompt" rule. A short placeholder like `"(see summary above)"` is the convention.
+
 #### `mcq_multi` scoring (Sprint 20.14b)
 
 Set-equality, all-or-nothing. The grader normalises each chosen label (case / whitespace / diacritic / UK-US per §4.3) and compares the user's set to the authored set. Extras OR omissions both fail the question. There is no partial credit (matches IELTS marking-guide convention for the format). The frontend serialises the chosen labels as a comma-separated string (e.g. `"A,C"` or `"A, C"`) — the grader splits on both `,` and `;` before normalising.

@@ -399,11 +399,27 @@ passages:
       market price. Until that gap closes, vertical farming will stay
       a salad-and-herb business.
     questions:
-      # Qs 27–32 — summary_completion (word bank A–J)
-      # The summary stem uses `____` for the gap; the word bank lives in `options:`.
+      # Qs 27–32 — summary_completion (word bank A–J), flowing variant
+      # Sprint 20.14e — Standards §2A.11: the bank lives in `options:` on
+      # the FIRST Q of the run, alongside `template.summary_text` carrying
+      # the flowing prose with `{{N}}` gap markers. The renderer absorbs
+      # all 6 Qs into ONE box; the bank renders as a sticky
+      # `.exam-word-bank-box` above. Each `{{N}}` becomes a
+      # `<select>` of labels; per-Q answers grade as before.
       - q_num: 27
         question_type: summary_completion
-        prompt: "A modern commercial vertical farm produces around ____ harvests of leafy greens each year on a much smaller footprint than conventional farming."
+        prompt: "(see summary above)"
+        template:
+          summary_text: |
+            A modern commercial vertical farm produces around {{27}}
+            harvests of leafy greens each year on a much smaller
+            footprint than conventional farming. Seeds are placed into
+            {{28}} plugs on trays before germination begins; the
+            germination chamber is kept near {{29}} degrees Celsius.
+            After {{30}} days the seedlings are moved to the grow
+            racks. On the racks, {{31}} is grown under a heavy blue
+            light recipe. Packed greens typically reach supermarket
+            shelves within {{32}} hours of harvest.
         options:
           - { label: A, text: "five" }
           - { label: B, text: "ten" }
@@ -420,86 +436,31 @@ passages:
         explanation: "Stated: 'around twenty harvests of leafy greens per year'."
       - q_num: 28
         question_type: summary_completion
-        prompt: "Seeds are placed into ____ plugs on trays before germination begins."
-        options:
-          - { label: A, text: "five" }
-          - { label: B, text: "ten" }
-          - { label: C, text: "twenty" }
-          - { label: D, text: "fifty" }
-          - { label: E, text: "rockwool" }
-          - { label: F, text: "twenty-four" }
-          - { label: G, text: "five" }
-          - { label: H, text: "lettuce" }
-          - { label: I, text: "basil" }
-          - { label: J, text: "twelve" }
+        prompt: "(see summary above)"
         answer: "E"
         skill_tag: detail
         explanation: "Stated: 'placed into rockwool plugs, which sit on trays'."
       - q_num: 29
         question_type: summary_completion
-        prompt: "The germination chamber is kept near ____ degrees Celsius."
-        options:
-          - { label: A, text: "five" }
-          - { label: B, text: "ten" }
-          - { label: C, text: "twenty" }
-          - { label: D, text: "fifty" }
-          - { label: E, text: "rockwool" }
-          - { label: F, text: "twenty-four" }
-          - { label: G, text: "five" }
-          - { label: H, text: "lettuce" }
-          - { label: I, text: "basil" }
-          - { label: J, text: "twelve" }
+        prompt: "(see summary above)"
         answer: "F"
         skill_tag: detail
         explanation: "Stated: 'kept near twenty-four degrees Celsius'."
       - q_num: 30
         question_type: summary_completion
-        prompt: "After ____ days the seedlings are moved from the chamber to the grow racks."
-        options:
-          - { label: A, text: "five" }
-          - { label: B, text: "ten" }
-          - { label: C, text: "twenty" }
-          - { label: D, text: "fifty" }
-          - { label: E, text: "rockwool" }
-          - { label: F, text: "twenty-four" }
-          - { label: G, text: "five" }
-          - { label: H, text: "lettuce" }
-          - { label: I, text: "basil" }
-          - { label: J, text: "twelve" }
+        prompt: "(see summary above)"
         answer: "G"
         skill_tag: detail
         explanation: "Stated: 'after five days the seedlings move to the grow racks'."
       - q_num: 31
         question_type: summary_completion
-        prompt: "On the grow racks, ____ is grown under a heavy blue light recipe."
-        options:
-          - { label: A, text: "five" }
-          - { label: B, text: "ten" }
-          - { label: C, text: "twenty" }
-          - { label: D, text: "fifty" }
-          - { label: E, text: "rockwool" }
-          - { label: F, text: "twenty-four" }
-          - { label: G, text: "five" }
-          - { label: H, text: "lettuce" }
-          - { label: I, text: "basil" }
-          - { label: J, text: "twelve" }
+        prompt: "(see summary above)"
         answer: "H"
         skill_tag: detail
         explanation: "Stated: 'lettuce thrives on a heavy blue spectrum'."
       - q_num: 32
         question_type: summary_completion
-        prompt: "Packed greens typically reach supermarket shelves within ____ hours of harvest."
-        options:
-          - { label: A, text: "five" }
-          - { label: B, text: "ten" }
-          - { label: C, text: "twenty" }
-          - { label: D, text: "fifty" }
-          - { label: E, text: "rockwool" }
-          - { label: F, text: "twenty-four" }
-          - { label: G, text: "five" }
-          - { label: H, text: "lettuce" }
-          - { label: I, text: "basil" }
-          - { label: J, text: "twelve" }
+        prompt: "(see summary above)"
         answer: "J"
         skill_tag: detail
         explanation: "Stated: 'within twelve hours of being cut'."

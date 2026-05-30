@@ -860,23 +860,109 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   line-height: 1.5;
 }
 
-/* ── §2A.15 — Instruction strict (Q3 decision: standards-strict) ──── */
-/* Drop the heavy sunken box + 3-px left accent; the instruction reads
- * as italic body text with a thin separator under it (Standards §2A.15
- * "có đường phân tách mảnh dưới câu lệnh"). */
+/* ── §2A.15 — Instruction prominence (Sprint 20.14e) ───────────────── */
+/* Sprint 20.14a chose "standards-strict" — drop the sunken box, thin
+ * separator. Andy's dogfood after 20.14a said the result was TOO
+ * subtle: the "Questions 1–3:" lead-in and the instruction reading
+ * blended into the question cards.
+ *
+ * Sprint 20.14e — lift the prominence WITHOUT reverting to the
+ * anti-pattern heavy box. Typography only:
+ *   • Larger font (15px → 16px) + line-height 1.65 for breathing room.
+ *   • Drop the italic — italic at small sizes is hard to read; the
+ *     §2A.15 mandate is "italic OR bold" and bold reads better on the
+ *     navy chrome.
+ *   • The leading `Questions X–Y:` substring is wrapped in a `<strong>`
+ *     by `_qRangeLabel`-driven render → keep a heavier weight on the
+ *     first line via `font-weight: 500` (medium) for the body, with
+ *     the `<strong>` carrying 700.
+ *   • Bump the bottom margin so the next gap-box / card sits clearly
+ *     below the instruction block.
+ *   • Keep `pre-wrap` for the TFNG/YNG 3-line blocks. */
 .exam-chrome .exam-questions__instructions--type {
-  margin: 12px 0 10px;
-  padding: 0 0 8px 0;
+  margin: 16px 0 14px;
+  padding: 0 0 10px 0;
   background: transparent;
   border-left: 0;
   border-bottom: 1px solid var(--exam-border-default);
-  font-style: italic;
-  font-size: 14px;
-  line-height: 1.55;
+  font-style: normal;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.65;
   color: var(--exam-text-primary);
-  /* §2A.15 — `pre-wrap` so the TFNG/YNG 3-line block (T1.5) keeps its
-   * line breaks. Other types are single-line, so pre-wrap is a no-op. */
   white-space: pre-wrap;
+}
+.exam-chrome .exam-questions__instructions--type strong {
+  font-weight: 700;
+}
+
+/* §2A.15 — the part-heading carries the "Part N — Questions X–Y" lead
+ * and is the secondary prominence cue under the navy palette. Lift it
+ * from the muted treatment (13px uppercase muted) to a confident
+ * primary heading. */
+.exam-chrome .exam-questions__part-heading {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--exam-text-primary);
+  border-bottom: 2px solid var(--ielts-navy);
+  padding-bottom: 8px;
+  margin: 24px 0 12px;
+}
+.exam-chrome .exam-questions__part-heading strong {
+  color: var(--ielts-navy);
+}
+
+/* Sprint 20.14e — flowing summary block (Standards §2A.10 / §2A.11).
+ * Renderer-side: one `.exam-gap-box--summary` contains the whole
+ * summary prose with inline `{{N}}` gaps. The box reuses the base
+ * `.exam-gap-box` chrome (light bg, padding) and adds a bigger
+ * `.exam-summary__prose` paragraph that flows naturally — `text-align:
+ * justify` matches the passage column for visual coherence. Each gap
+ * carries a bold navy `__gnum` badge before the input/select. */
+.exam-chrome .exam-gap-box--summary {
+  /* slightly bigger padding than the .exam-gap-box default so the
+   * summary reads as a distinct prose block, not a list of fields. */
+  padding: 16px 18px;
+  background: #f7f8fa;
+}
+.exam-chrome .exam-summary__prose {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.75;
+  text-align: justify;
+  text-justify: inter-word;
+  color: var(--exam-text-primary);
+}
+.exam-chrome .exam-summary__gnum {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ielts-navy);
+  background: rgba(29, 29, 59, 0.08);
+  padding: 0 6px;
+  border-radius: 3px;
+  margin: 0 4px;
+}
+.exam-chrome .exam-q__gap--inline {
+  /* The inline text input already exists for 20.14a sentence-completion.
+   * Bump width slightly inside the summary block so multi-word answers
+   * fit visibly. */
+  vertical-align: baseline;
+}
+.exam-chrome .exam-q__select--inline {
+  /* Word-bank inline select inside the flowing summary. The base
+   * .exam-q__select rule from the mockup makes the select 280px wide,
+   * which dominates a flowing paragraph. Override to a compact width
+   * that fits a single letter A–J. */
+  min-width: 60px;
+  width: auto;
+  padding: 2px 6px;
+  margin: 0 4px;
+  vertical-align: baseline;
+  font-size: inherit;
 }
 
 /* ── T1.2 / T1.3 — Headings box + gap box ──────────────────────────── */

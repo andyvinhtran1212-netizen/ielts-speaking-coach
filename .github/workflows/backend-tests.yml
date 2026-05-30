@@ -144,4 +144,5 @@ jobs:
             frontend/tests/sprint-20-13b-standards-a11y.test.mjs \
             frontend/tests/sprint-20-13c-standards-behavior.test.mjs \
             frontend/tests/sprint-20-14-display-fidelity.test.mjs \
-            frontend/tests/sprint-20-14b-phase-b-types.test.mjs
+            frontend/tests/sprint-20-14b-phase-b-types.test.mjs \
+            frontend/tests/sprint-20-14e-summary-instruction.test.mjs
