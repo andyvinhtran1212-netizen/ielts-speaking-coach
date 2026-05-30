@@ -72,14 +72,19 @@ function showBanner(msg, kind) {
 
 function chipForType(t) {
   const label = { mass: 'Đại trà', direct: 'Trực tiếp', staff: 'Nhân viên' }[t] || t;
-  const cls = t === 'direct' ? 'ac-chip is-direct' : 'ac-chip';
+  // Type chip: canonical .adm-chip (the old `ac-chip` had no CSS rule — audit
+  // row 3). `is-direct` stays a TYPE modifier (teal) on .adm-chip.
+  const cls = t === 'direct' ? 'adm-chip is-direct' : 'adm-chip';
   return `<span class="${cls}">${label}</span>`;
 }
 
 function chipForStatus(row) {
-  if (row.is_revoked) return '<span class="adm-chip">Đã thu hồi</span>';
-  if (row.is_active === false) return '<span class="adm-chip">Đã khóa</span>';
-  return '<span class="adm-chip is-direct">Hoạt động</span>';
+  // Status uses the .adm-status-pill primitive with state modifiers, not the
+  // type chip — `is-direct` was being overloaded for the active state (audit
+  // row 4). Now: revoked → error, locked → inactive, active → teal.
+  if (row.is_revoked) return '<span class="adm-status-pill is-revoked">Đã thu hồi</span>';
+  if (row.is_active === false) return '<span class="adm-status-pill is-inactive">Đã khóa</span>';
+  return '<span class="adm-status-pill is-active">Hoạt động</span>';
 }
 
 function rowMatchesFilters(row, f) {
@@ -118,13 +123,13 @@ function renderTable() {
     const cohort = c.cohort_name ? `<span class="adm-chip is-direct">${c.cohort_name}</span>` : '—';
     const revokeBtn = (c.is_revoked || c.is_active === false)
       ? ''
-      : `<button class="adm-btn-danger" data-action="revoke" data-id="${c.id}">Thu hồi</button>`;
+      : `<button class="adm-btn-danger adm-btn-sm" data-action="revoke" data-id="${c.id}">Thu hồi</button>`;
     // Sprint 17.2 — drill into this code's usage rollup.
-    const usageLink = `<a class="adm-btn-secondary" href="/pages/admin/usage/index.html?code_id=${c.id}">Hoạt động</a>`;
+    const usageLink = `<a class="adm-btn-secondary adm-btn-sm" href="/pages/admin/usage/index.html?code_id=${c.id}">Hoạt động</a>`;
     // Sprint 17.5 — refill: issue a fresh mirrored code for the code's user.
     const refillBtn = (c.is_revoked || c.is_active === false)
       ? ''
-      : `<button class="adm-btn-secondary" data-action="refill" data-id="${c.id}">Cấp mã mới</button>`;
+      : `<button class="adm-btn-secondary adm-btn-sm" data-action="refill" data-id="${c.id}">Cấp mã mới</button>`;
     return `
       <tr>
         <td class="code-cell">${c.code}</td>
@@ -136,7 +141,7 @@ function renderTable() {
         <td>${expires}</td>
         <td>${created}</td>
         <td>${fmt(c.notes)}</td>
-        <td>${usageLink} ${refillBtn} ${revokeBtn}</td>
+        <td><div class="adm-action-group">${usageLink}${refillBtn}${revokeBtn}</div></td>
       </tr>
     `;
   }).join('');

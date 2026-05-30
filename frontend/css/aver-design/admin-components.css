@@ -13,6 +13,12 @@
  * foot-traffic, cohorts, dashboard. Students migrates in Sprint 18.3.2.
  */
 
+/* Shared admin status-pill + action-group primitives live in a sibling file
+   that carries NO box-model reset, so pages that can't take the border-box
+   flip below still link it directly (design-fix-1). Importing it here keeps
+   the primitives reachable for every admin-components.css consumer too. */
+@import url('admin-status.css');
+
 /* ── Box model (Sprint 18.3.1) ──────────────────────────────────────── */
 /* The main-app pages (home.css / vocabulary.css / writing-result.css) each
    set border-box, but the admin pages never did — so width:100% + padding
@@ -81,10 +87,14 @@ th.adm-sortable:hover { color: var(--av-text-primary); }
 .adm-btn-danger {
   padding: 4px 10px; border-radius: var(--av-radius-sm);
   background: transparent;
-  color: var(--av-color-error, var(--av-text-secondary));
-  border: 1px solid var(--av-border-default);
+  /* Was var(--av-color-error, …) — a token that does not exist, so danger
+     silently fell back to muted text (audit row 5). --av-error is canonical
+     and theme-aware. */
+  color: var(--av-error);
+  border: 1px solid color-mix(in srgb, var(--av-error) 32%, transparent);
   cursor: pointer; font-size: var(--av-fs-xs); font-family: inherit;
 }
+.adm-btn-danger:hover { background: var(--av-error-soft); border-color: var(--av-error); }
 
 /* ── Chips (status) ─────────────────────────────────────────────────── */
 .adm-chip {
@@ -133,7 +143,7 @@ th.adm-sortable:hover { color: var(--av-text-primary); }
   border-radius: var(--av-radius-md);
   font-size: var(--av-fs-sm);
 }
-.adm-banner.is-error { color: var(--av-color-error, var(--av-text-secondary)); }
+.adm-banner.is-error { color: var(--av-error); }  /* was non-existent --av-color-error (audit row 5) */
 .adm-banner.is-success { color: var(--av-brand-teal-800); }
 .adm-banner.is-warn { color: var(--av-text-secondary); }
 

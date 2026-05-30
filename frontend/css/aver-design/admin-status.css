@@ -1,0 +1,123 @@
+/**
+ * aver-design/admin-status.css — Design-Fix Sprint 1 (B1 + B2).
+ *
+ * Shared admin STATUS PILL + ACTION GROUP primitives, extracted from the
+ * per-page status chips that had drifted into six near-duplicate class
+ * families with hardcoded colors and inconsistent sizing (design-consistency
+ * audit rows 1,3,4,6-11,26):
+ *   .lst-chip (listening list)     .tl-chip  (listening tests)
+ *   .det-chip (listening detail)   .td-chip  (listening test detail)
+ *   .ar-status-pill (reading)      .aw-pill--published/draft (writing)
+ *
+ * Why a dedicated file (not folded into admin-components.css): that file
+ * carries a global `* { box-sizing: border-box }` reset (Sprint 18.3.1). The
+ * listening/reading/writing admin pages never adopted that reset, so pulling
+ * in the whole file just to reach the pill primitive would silently flip
+ * their box model — an unscoped visual change. This file holds ONLY the
+ * primitives, so any page can link it with zero box-model side effects.
+ * admin-components.css @imports it, so pages already on the admin component
+ * layer (access-codes, usage, …) get the primitives transparently too.
+ *
+ * All values are --av-* tokens, so light + dark themes track automatically
+ * (Pattern #25). Legacy class names are ALIASED onto the primitive (Lesson 9
+ * — don't break JS-emitted class names): the renderers keep emitting
+ * `lst-chip is-draft` / `det-chip is-published` etc. and resolve to the
+ * shared rule, so no JS selector or listener coupling breaks.
+ */
+
+/* ── Status pill ────────────────────────────────────────────────────── */
+.adm-status-pill,
+.lst-chip, .tl-chip, .det-chip, .td-chip,   /* listening aliases */
+.ar-status-pill {                           /* reading alias */
+  display: inline-block;
+  padding: 2px 10px;                        /* matches canonical .adm-chip */
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-medium);
+  line-height: 1.5;
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  border: 1px solid var(--av-border-default);
+  white-space: nowrap;
+}
+
+/* Neutral (draft / readonly) — the base look, named for clarity. */
+.adm-status-pill.is-draft, .adm-status-pill.is-readonly,
+.lst-chip.is-draft, .tl-chip.is-draft, .det-chip.is-draft, .td-chip.is-draft,
+.ar-status-pill.is-draft {
+  background: var(--av-surface-sunken);
+  color: var(--av-text-secondary);
+  border-color: var(--av-border-default);
+}
+
+/* Muted neutral (archived / inactive) — present but dimmed. */
+.adm-status-pill.is-archived, .adm-status-pill.is-inactive,
+.lst-chip.is-archived, .tl-chip.is-archived, .det-chip.is-archived, .td-chip.is-archived,
+.ar-status-pill.is-archived {
+  background: var(--av-surface-sunken);
+  color: var(--av-text-muted);
+  border-color: var(--av-border-default);
+}
+
+/* Success (published) — content is live to students. */
+.adm-status-pill.is-published,
+.lst-chip.is-published, .tl-chip.is-published, .det-chip.is-published, .td-chip.is-published,
+.ar-status-pill.is-published {
+  background: var(--av-success-soft);
+  color: var(--av-success);
+  border-color: color-mix(in srgb, var(--av-success) 30%, transparent);
+}
+
+/* Teal (active / live) — currently operating (access code, feature). */
+.adm-status-pill.is-active,
+.adm-status-pill.is-live {
+  background: var(--av-brand-teal-50);
+  color: var(--av-brand-teal-800);
+  border-color: var(--av-brand-teal-200);
+}
+
+/* Warning (new) — recently added, worth noticing. */
+.adm-status-pill.is-new {
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+  border-color: color-mix(in srgb, var(--av-warning) 30%, transparent);
+}
+
+/* Error (revoked) — withdrawn / disabled. */
+.adm-status-pill.is-revoked {
+  background: var(--av-error-soft);
+  color: var(--av-error);
+  border-color: color-mix(in srgb, var(--av-error) 30%, transparent);
+}
+
+/* Info (soon) — planned, not yet live. */
+.adm-status-pill.is-soon {
+  background: var(--av-info-soft);
+  color: var(--av-info);
+  border-color: color-mix(in srgb, var(--av-info) 30%, transparent);
+}
+
+/* ── Action group ───────────────────────────────────────────────────── */
+/* Row-action wrapper: keep buttons on one visual line, wrapping cleanly to a
+   second line on narrow widths instead of overflowing or fragmenting the cell.
+   Aliases the existing listening wrappers — which already sit on a flex
+   container — so their markup keeps working under one primitive. (Reading wraps
+   its actions in an inner .adm-action-group div instead, because .ar-row-actions
+   is a <td> and making a table cell inline-flex breaks table layout.) */
+.adm-action-group,
+.lst-actions, .tl-actions {   /* listening list / test row actions */
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-2);
+}
+.adm-action-group--compact { gap: var(--av-space-1); }
+
+/* ── Small button (row-action density) ──────────────────────────────── */
+/* Compact size so row actions in a tight table cell read as one unit and
+   share the danger button's footprint (padding/size/radius). */
+.adm-btn-sm {
+  padding: 4px 10px;
+  font-size: var(--av-fs-xs);
+  border-radius: var(--av-radius-sm);
+}

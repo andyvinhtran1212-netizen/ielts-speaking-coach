@@ -151,14 +151,10 @@
   font-family: var(--av-font-mono); font-size: 0.95em;
   background: var(--av-surface-sunken); padding: 1px 6px; border-radius: var(--av-radius-sm);
 }
-.ar-status-pill {
-  display: inline-block; font-family: var(--av-font-mono);
-  font-size: var(--av-fs-xs);
-  padding: 1px 8px; border-radius: var(--av-radius-pill);
-}
-.ar-status-pill.is-published { background: var(--av-success-soft); color: var(--av-success); }
-.ar-status-pill.is-draft     { background: var(--av-surface-sunken); color: var(--av-text-secondary); }
-.ar-status-pill.is-archived  { background: var(--av-surface-sunken); color: var(--av-text-muted); }
+/* Status pills (.ar-status-pill is-published|draft|archived) are aliased onto
+   the shared .adm-status-pill primitive in admin-status.css — bordered,
+   consistent size, and NOT mono (mono is reserved for code-like identifiers
+   like the test_id <code> cell, audit row 10). */
 
 /* Sprint 20.8 A2 — structured-content preview (passages/glossary/body
    excerpt) shown only after a clean dry-run. Sits between the kv table
@@ -343,10 +339,11 @@
   margin-left: auto;
 }
 
-/* Sprint 20.15 D2 — per-row Preview + Delete actions on the L3 list. */
-.ar-row-actions {
-  white-space: nowrap;
-}
+/* Sprint 20.15 D2 — per-row Preview + Delete actions on the L3 list.
+   The actions sit inside an inner .adm-action-group div (admin-status.css)
+   that handles inline-flex/wrap/gap, so they wrap cleanly on narrow widths
+   instead of overflowing the old nowrap cell. .ar-row-actions stays a plain
+   <td> (a table cell must not become inline-flex). */
 .ar-row-action {
   display: inline-block;
   padding: 4px 10px;
@@ -360,11 +357,13 @@
 }
 .ar-row-action:hover { background: var(--av-surface-sunken); }
 .ar-row-action.is-danger {
-  color: var(--av-critical, #c62828);
-  border-color: rgba(198, 40, 40, 0.4);
+  /* Was var(--av-critical, #c62828) — non-existent token + hardcoded red that
+     ignored dark theme. --av-error is canonical and theme-aware (audit row 5). */
+  color: var(--av-error);
+  border-color: color-mix(in srgb, var(--av-error) 32%, transparent);
 }
 .ar-row-action.is-danger:hover {
-  background: rgba(198, 40, 40, 0.08);
+  background: var(--av-error-soft);
 }
 .ar-row-action:disabled {
   opacity: 0.5;

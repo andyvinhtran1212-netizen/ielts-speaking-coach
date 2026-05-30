@@ -23,6 +23,7 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
@@ -94,19 +95,8 @@
       text-transform: uppercase;
       letter-spacing: var(--av-tracking-wide);
     }
-    .tl-chip {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: var(--av-radius-pill);
-      font-size: var(--av-fs-xs);
-      border: 1px solid var(--av-border-default);
-      background: var(--av-surface-sunken);
-      color: var(--av-text-secondary);
-    }
-    .tl-chip.is-draft     { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
-    .tl-chip.is-published { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
-    .tl-chip.is-archived  { background: #F3F4F6; color: #6B7280; border-color: #E5E7EB; }
-
+    /* Status chips (.tl-chip is-draft|published|archived) are aliased onto
+       the shared .adm-status-pill primitive in admin-status.css. */
     .tl-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
 
     .tl-loading, .tl-empty {
@@ -121,7 +111,8 @@
     }
     .tl-banner.is-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
 
-    .tl-actions { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    /* Layout comes from the shared .adm-action-group primitive in
+       admin-status.css; only the button skin stays page-local. */
     .tl-actions a, .tl-actions button {
       padding: 4px 10px;
       border-radius: var(--av-radius-sm);
