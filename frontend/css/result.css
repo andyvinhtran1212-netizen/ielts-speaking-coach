@@ -229,7 +229,7 @@
   margin: 0 0 var(--av-space-2);
 }
 .result-grammar-card__reason {
-  font-size: var(--av-fs-2xs, 11px);
+  font-size: var(--av-fs-xs);
   color: var(--av-primary);
   margin: 0;
 }
@@ -238,7 +238,7 @@
 }
 .result-grammar-card__cta {
   flex-shrink: 0;
-  font-size: var(--av-fs-2xs, 11px);
+  font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-bold);
   color: var(--av-primary);
   background: var(--av-primary-soft);
@@ -249,7 +249,7 @@
 }
 .result-grammar-card__chevron {
   flex-shrink: 0;
-  font-size: var(--av-fs-2xs, 11px);
+  font-size: var(--av-fs-xs);
   color: var(--av-text-faint);
 }
 
@@ -260,11 +260,11 @@
   margin-top: 10px;
   padding: 10px var(--av-space-4);
   background: var(--av-info-soft, rgba(139, 92, 246, 0.07));
-  border: 1px solid var(--av-info-border, rgba(139, 92, 246, 0.2));
+  border: 1px solid color-mix(in srgb, var(--av-info) 30%, transparent);
   border-radius: var(--av-radius-lg);
 }
 .result-pron-block__eyebrow {
-  font-size: var(--av-fs-2xs, 11px);
+  font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-bold);
   text-transform: uppercase;
   letter-spacing: 0.06em;

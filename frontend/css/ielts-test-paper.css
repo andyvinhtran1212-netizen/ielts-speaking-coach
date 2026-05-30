@@ -526,7 +526,7 @@ select.ielts-gap-input {
    flex-shrink: 0 so flexbox doesn't squeeze it when the counter text
    gets long. */
 .btn-submit-final {
-  padding: var(--av-space-2) var(--av-space-5);
+  padding: var(--av-space-2) var(--av-space-6);
   background: var(--ielts-paper-accent);
   color: #ffffff;
   border: none;
