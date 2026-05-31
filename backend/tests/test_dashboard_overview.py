@@ -104,7 +104,10 @@ def test_dashboard_overview_returns_6_metrics(monkeypatch):
     out = admin_dashboard.compute_dashboard_overview()
     assert out["total_users"] == 42
     assert out["active_codes"] == 10
-    assert out["distinct_visitors"] == {"count": 2, "window_days": 30}   # a, b (NULL excluded)
+    # viewers-anonymous: total = 2 distinct auth (a,b) + 1 anonymous hit (NULL user_id).
+    assert out["distinct_visitors"] == {
+        "count": 3, "authenticated": 2, "anonymous": 1, "window_days": 30,
+    }
     assert out["total_practices"] == 7
     assert out["grading_minutes"] == 3.0                                  # (120+0+60)/60
     # dashboard-tweaks — tokens called (prompt+completion), windowed; NULL→0.

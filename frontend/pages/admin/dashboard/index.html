@@ -65,6 +65,9 @@
     /* "toàn thời gian" / window scope hint — small, lowercase, de-emphasised. */
     .db-card__scope { text-transform: none; letter-spacing: 0; font-weight: var(--av-fw-regular);
       color: var(--av-text-faint); }
+    /* Auth-vs-anonymous viewer split (viewers-anonymous) — small, muted subline. */
+    .db-card__split { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .db-card__split:empty { display: none; }
 
     /* ── Loading state (dashboard-tweaks Item 3) ───────────────────── */
     /* Only the windowed value-tiles + chart show loading on a window switch;
@@ -190,6 +193,7 @@
             <span class="db-card__value" id="m-visitors">—</span>
             <span class="db-delta" id="d-visitors" hidden></span>
           </div>
+          <div class="db-card__split" id="m-visitors-split"></div>
           <div class="db-card__spark" id="spark-visitors"></div>
           <a class="db-card__link" href="/pages/admin/foot-traffic/index.html">Xem chi tiết →</a>
         </div>
