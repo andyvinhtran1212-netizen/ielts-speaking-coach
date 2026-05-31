@@ -38,7 +38,9 @@ describe('Item 1 — all-time metrics are window-independent', () => {
 
   test('backend users/codes counts take no window argument', () => {
     assert.match(svc, /def _users\(\):\s*return _count\("users"\)/);
-    assert.match(svc, /def _codes\(\):\s*return _count\("user_code_assignments"/);
+    // dashboard-counter-audit: codes counts activated access_codes (is_used),
+    // still window-independent (no visitors_since in the body).
+    assert.match(svc, /def _codes\(\)[\s\S]{0,1000}_count\("access_codes", lambda q: q\.eq\("is_used", True\)\)/);
   });
 
   test('window switch reloads only the windowed tiles (all-time tiles stay put)', () => {

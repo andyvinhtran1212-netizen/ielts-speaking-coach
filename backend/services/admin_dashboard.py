@@ -77,7 +77,21 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         return _count("users")
 
     def _codes():
-        return _count("user_code_assignments", lambda q: q.eq("is_active", True))
+        # "Mã đã kích hoạt" = codes that have been ACTIVATED (redeemed by a user),
+        # matching the admin codes page's assigned count.
+        #
+        # BUG (dashboard-counter-audit): the old query counted active
+        # user_code_assignments rows only (23). But reassign / remove-user /
+        # revoke flip a code's assignment row to is_active=false, while
+        # access_codes.is_used + used_by persist (immutable after activation —
+        # auth.py sets both atomically on redeem). So ~21 genuinely-activated
+        # codes had no active assignment row and were dropped → 23 vs 44.
+        #
+        # access_codes.is_used is the canonical "this code was activated" flag
+        # (a proven superset of the admin page's `active-assignment OR
+        # is_used+used_by` union), so counting it matches ground truth (incl. the
+        # 1 activated-then-revoked code).
+        return _count("access_codes", lambda q: q.eq("is_used", True))
 
     def _visitors():
         rows = (
