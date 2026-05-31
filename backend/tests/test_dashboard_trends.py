@@ -115,7 +115,7 @@ def test_trends_bucketing(monkeypatch):
     prac = out["series"]["practices"]
     tok = out["series"]["tokens"]
     # all today's rows land in the last bucket
-    assert vis[-1]["value"] == 2          # distinct users a,b (NULL excluded)
+    assert vis[-1]["value"] == 3          # viewers-anonymous: 2 distinct auth (a,b) + 1 anon hit
     assert prac[-1]["value"] == 2         # 2 completed sessions
     assert tok[-1]["value"] == 180        # (100+50) + (30+0) tokens
     # earlier buckets are zero-filled (contiguous)

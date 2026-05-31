@@ -94,6 +94,11 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         return _count("access_codes", lambda q: q.eq("is_used", True))
 
     def _visitors():
+        # "Người xem" = authenticated distinct users + anonymous page-view HITS
+        # (viewers-anonymous). Anonymous page_views carry NO dedup id — the beacon
+        # sends no session_id and there's no IP/device id — so anonymous can only
+        # be counted as hits (visits), NOT distinct viewers. Authenticated stays
+        # distinct (by user_id). The breakdown labels the two units honestly.
         rows = (
             supabase_admin.table("analytics_events")
             .select("user_id")
@@ -102,8 +107,9 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
             .execute()
             .data
         ) or []
-        # Anonymous hits (NULL user_id) excluded — authenticated viewers only.
-        return len({r["user_id"] for r in rows if r.get("user_id")})
+        auth = len({r["user_id"] for r in rows if r.get("user_id")})
+        anon = sum(1 for r in rows if not r.get("user_id"))
+        return {"authenticated": auth, "anonymous": anon}
 
     def _practices():
         return _count("sessions", lambda q: q.eq("status", "completed"))
@@ -142,12 +148,23 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
         ) or []
         return sum((r.get("input_tokens") or 0) + (r.get("output_tokens") or 0) for r in rows)
 
+    # viewers-anonymous: total = authenticated distinct + anonymous hits, with
+    # the auth/anon split surfaced for the inline tile breakdown.
+    _vis = _metric("distinct_visitors", _visitors)
+    if _vis:
+        _vis_total = _vis["authenticated"] + _vis["anonymous"]
+        _vis_auth, _vis_anon = _vis["authenticated"], _vis["anonymous"]
+    else:
+        _vis_total = _vis_auth = _vis_anon = None
+
     return {
         "total_users": _metric("total_users", _users),
         "active_codes": _metric("active_codes", _codes),
         "distinct_visitors": {
-            "count": _metric("distinct_visitors", _visitors),
-            "window_days": visitors_window_days,
+            "count":         _vis_total,   # total viewers (auth distinct + anon hits)
+            "authenticated": _vis_auth,
+            "anonymous":     _vis_anon,
+            "window_days":   visitors_window_days,
         },
         "total_practices": _metric("total_practices", _practices),
         "grading_minutes": _metric("grading_minutes", _grading_minutes),
@@ -198,7 +215,10 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
         return (ts or "")[:10]
 
     def _visitors_series():
-        buckets: dict[str, set] = {d: set() for d in axis}
+        # Daily total viewers = authenticated distinct + anonymous hits, matching
+        # the tile (viewers-anonymous).
+        auth: dict[str, set] = {d: set() for d in axis}
+        anon: dict[str, int] = {d: 0 for d in axis}
         rows = (
             supabase_admin.table("analytics_events")
             .select("user_id, created_at")
@@ -209,9 +229,13 @@ def compute_dashboard_trends(days: int = DEFAULT_VISITOR_WINDOW) -> dict:
         ) or []
         for r in rows:
             d = _day(r.get("created_at"))
-            if d in buckets and r.get("user_id"):
-                buckets[d].add(r["user_id"])
-        return [{"date": d, "value": len(buckets[d])} for d in axis]
+            if d not in auth:
+                continue
+            if r.get("user_id"):
+                auth[d].add(r["user_id"])
+            else:
+                anon[d] += 1
+        return [{"date": d, "value": len(auth[d]) + anon[d]} for d in axis]
 
     def _practices_series():
         buckets: dict[str, int] = {d: 0 for d in axis}

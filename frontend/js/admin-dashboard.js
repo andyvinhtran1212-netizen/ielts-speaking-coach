@@ -81,6 +81,14 @@ function renderOverview(data) {
 
   const dv = data.distinct_visitors || {};
   $('m-visitors').textContent = fmtInt(dv.count);
+  // viewers-anonymous: auth-vs-anonymous split. Honest units — authenticated is
+  // distinct users; anonymous is page-view hits (no dedup id available).
+  const vsplit = $('m-visitors-split');
+  if (vsplit) {
+    vsplit.textContent = (dv.authenticated == null && dv.anonymous == null)
+      ? ''
+      : fmtInt(dv.authenticated) + ' đăng nhập · ' + fmtInt(dv.anonymous) + ' lượt ẩn danh';
+  }
 
   const tok = data.tokens_called || {};
   $('m-tokens').textContent = fmtTokens(tok.count);
