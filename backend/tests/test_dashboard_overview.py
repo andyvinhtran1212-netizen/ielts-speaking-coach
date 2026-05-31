@@ -70,7 +70,9 @@ class _Stub:
 def _default_results():
     return {
         "users": _Result(count=42),
-        "user_code_assignments": _Result(count=10),
+        # dashboard-counter-audit: "Mã đã kích hoạt" now counts activated
+        # access_codes (is_used=true), not active user_code_assignments.
+        "access_codes": _Result(count=10),
         "analytics_events": _Result(data=[
             {"user_id": "a"}, {"user_id": "a"}, {"user_id": "b"}, {"user_id": None},
         ]),
@@ -175,10 +177,27 @@ def test_dashboard_overview_no_n_plus_1(monkeypatch):
     # has no .rpc), so `responses` is still counted exactly once.
     assert len(stub.table_calls) == 8
     assert sorted(set(stub.table_calls)) == sorted([
-        "users", "user_code_assignments", "analytics_events",
+        "users", "access_codes", "analytics_events",
         "sessions", "responses", "ai_usage_logs",
         "error_logs", "writing_essays",
     ])
+
+
+# ── dashboard-counter-audit: activated-codes counts access_codes.is_used ──
+
+def test_active_codes_counts_activated_access_codes_not_assignments(monkeypatch):
+    """Regression: "Mã đã kích hoạt" must count ACTIVATED access_codes
+    (is_used=true) — the canonical activated set, matching the admin codes page
+    (44) — NOT active user_code_assignments, which drops codes reassigned /
+    removed / revoked into inactive rows (the 23-vs-44 undercount bug)."""
+    stub = _install(monkeypatch)
+    admin_dashboard.compute_dashboard_overview()
+    assert "access_codes" in stub.table_calls
+    assert "user_code_assignments" not in stub.table_calls, (
+        "must not count active assignments — that misses legacy/removed/revoked "
+        "activated codes (23 vs 44)"
+    )
+    assert ("is_used", True) in stub.chains["access_codes"].eq_args
 
 
 # ── #8 route-level admin guard ───────────────────────────────────────
