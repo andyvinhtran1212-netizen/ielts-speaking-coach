@@ -60,28 +60,33 @@ describe('Item 1 — dashboard spacing/border polish', () => {
 });
 
 
-describe('Item 2 — reading preview discoverable from any view (404-safe)', () => {
-  test('backend enriches L3 passage rows with the parent test TEXT id', () => {
-    // resolve UUID FK → reading_tests.test_id (TEXT), and DROP the raw UUID so
-    // the frontend can never mistake it for a usable test_id.
-    assert.match(readingRouter, /reading_tests[\s\S]{0,160}\.in_\(\s*["']id["']\s*,\s*test_uuids\s*\)/);
-    assert.match(readingRouter, /r\["parent_test_id"\]\s*=\s*parent/);
-    assert.match(readingRouter, /r\.pop\(\s*["']test_id["']/);   // raw UUID dropped
+describe('Item 2 — L3 grouped as test rows (consistent + 404-safe)', () => {
+  // l3-action-consistency superseded the parent_test_id approach: the backend
+  // now groups L3 into ONE normalised test row per test (slug === test_id) in
+  // every view, so the frontend gives L3 the same preview+edit+delete as L1/L2,
+  // gated on it.library, with no passage-vs-test ambiguity.
+  test('backend groups L3 into a normalised test row (slug ← test_id); excludes raw L3 passages', () => {
+    assert.match(readingRouter, /def _normalise_l3_test_row/);
+    assert.match(readingRouter, /"slug":\s*r\.get\("test_id"\)/);          // slug ← test_id
+    assert.match(readingRouter, /\.neq\(\s*"library",\s*"l3_test"\s*\)/);  // "Tất cả" drops raw l3 passages
+    assert.match(readingRouter, /_l3_test_rows\(status\)/);                // splice in the test rows
   });
 
-  test('frontend resolves the preview test_id 404-safely (slug on test tab, else parent_test_id)', () => {
-    assert.match(listJs, /previewTid\s*=\s*isTestTab\s*\?\s*it\.slug\s*:\s*it\.parent_test_id/);
-    assert.match(listJs, /preview\.html\?test_id=['"]\s*\+\s*encodeURIComponent\(previewTid\)/);
-    // preview renders whenever a resolved id exists (i.e. on L3 passage rows too)
-    assert.match(listJs, /if\s*\(\s*previewTid\s*\)/);
+  test('frontend previews L3 by its test_id (it.slug), gated on it.library', () => {
+    assert.match(listJs, /it\.library === 'l3_test' && it\.slug/);
+    assert.match(listJs, /preview\.html\?test_id=[\s\S]{0,60}encodeURIComponent\(it\.slug\)/);
+    // the obsolete tab-gating + parent_test_id mechanism is gone
+    assert.ok(!/it\.parent_test_id/.test(listJs), 'parent_test_id no longer used');
+    assert.ok(!/STATE\.libraryFilter\s*===\s*['"]l3_test['"]/.test(listJs), 'isTestTab gating removed');
   });
 
-  test('delete stays gated to the L3 Test tab (footgun guard)', () => {
-    assert.match(listJs, /if\s*\(\s*isTestTab\s*&&\s*it\.slug\s*\)[\s\S]{0,800}data-action="delete-test"/);
+  test('delete gated on library — no footgun (no passage rows to mis-delete a test from)', () => {
+    assert.match(listJs, /if\s*\(\s*it\.library === 'l3_test' && it\.slug\s*\)[\s\S]{0,900}data-action="delete-test"/);
   });
 
-  test('never passes a passage slug as the preview test_id (the #363 404 bug)', () => {
-    // the only encodeURIComponent feeding the preview href is previewTid.
-    assert.ok(!/preview\.html\?test_id=['"]\s*\+\s*encodeURIComponent\(it\.slug\)/.test(listJs));
+  test('#363 404-safety holds: L3 slug IS the test_id (backend), never a passage slug', () => {
+    // slug is sourced from reading_tests.test_id in the normaliser, so the
+    // preview/edit/delete key (it.slug) can never be a passage slug.
+    assert.match(readingRouter, /def _normalise_l3_test_row[\s\S]{0,700}"slug":\s*r\.get\("test_id"\)/);
   });
 });

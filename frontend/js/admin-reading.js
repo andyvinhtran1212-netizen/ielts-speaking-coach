@@ -248,33 +248,22 @@
       var skillOrDiff = [it.skill_focus, it.difficulty_level].filter(Boolean).join(' · ');
       var libLabel = LIBRARY_LABEL[it.library] || it.library || '';
       var date = it.updated_at ? new Date(it.updated_at).toISOString().slice(0, 10) : '';
-      // Sprint 20.15 — Preview + Delete only meaningful for L3 tests
-      // (one-row-per-test). L1/L2 list passages — that path stays
-      // action-less until a passage-level admin op lands.
-      //
-      // Test-level actions. The test_id we preview is resolved 404-safely
-      // (reading-admin-preview-fix), NEVER the passage slug:
-      //   • L3 Full Test tab → rows ARE tests, slug === test_id.
-      //   • any other view (Tất cả / L1 / L2) → rows are passages; the backend
-      //     enriches L3 passages with `parent_test_id` (the parent test's TEXT
-      //     id) so preview is discoverable everywhere (admin-polish Item 2).
-      // Delete stays L3-tab-only — hard-deleting a whole test from a passage
-      // row would be a footgun; the test tab is the unambiguous place for it.
-      var isTestTab = STATE.libraryFilter === 'l3_test';
-      var previewTid = isTestTab ? it.slug : it.parent_test_id;
+      // l3-action-consistency — L3 Full Tests are now ALWAYS represented as ONE
+      // test row (slug === test_id) in EVERY view (the backend groups L3 into
+      // reading_tests rows, never raw passage rows). So L3 gets the same
+      // preview + Sửa + Xoá as L1/L2, gated on it.library — unambiguous and
+      // 404-safe: every L3 action keys on it.slug, which IS the test_id (#363),
+      // NEVER a passage slug. No tab-gating + no parent_test_id needed: the row
+      // IS the test, so deleting it is well-defined (no passage-vs-test footgun).
       var actions = '';
-      if (previewTid) {
+      if (it.library === 'l3_test' && it.slug) {
         actions +=
           '<a class="ar-row-action" target="_blank" rel="noopener" ' +
             'href="/pages/admin/reading/preview.html?test_id=' +
-            encodeURIComponent(previewTid) + '">Xem trước</a>';
-      }
-      if (isTestTab && it.slug) {
-        // l3-edit-delete-block-images — L3 edit = re-import by test_id (the
-        // import is idempotent by test_id and PRESERVES uploaded diagram
-        // images across the re-import). Delete already exists (attempt-safe,
-        // 20.15 D2). Both stay on the test_id path (#363 separation).
-        actions +=
+            encodeURIComponent(it.slug) + '">Xem trước</a>' +
+          // edit = re-import by test_id (idempotent; PRESERVES uploaded diagram
+          // images — l3-edit-delete-block-images). delete = attempt-safe (20.15
+          // D2 — archives when attempts exist, never hard-deletes student data).
           ' <button type="button" class="ar-row-action" ' +
             'data-action="edit-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
             'data-test-title="' + escapeHtml(it.title || '') + '">Sửa</button>' +

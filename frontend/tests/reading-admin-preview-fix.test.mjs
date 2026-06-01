@@ -31,25 +31,29 @@ before(() => {
 });
 
 
-describe('Item 1 — preview link no longer passes a passage slug as test_id', () => {
-  test('test actions gated on the active filter (STATE.libraryFilter), not it.library', () => {
+describe('Item 1 — preview link never passes a passage slug as test_id', () => {
+  test('L3 actions gated on it.library (now safe: L3 is a test row everywhere)', () => {
+    // l3-action-consistency: the backend groups L3 into ONE test row per test
+    // (slug === test_id) in EVERY view, so there are NO L3 passage rows to
+    // confuse — gating on it.library is now correct + unambiguous.
     assert.match(
       listJs,
-      /STATE\.libraryFilter\s*===\s*['"]l3_test['"][\s\S]{0,1400}data-action="delete-test"/,
+      /it\.library === 'l3_test' && it\.slug[\s\S]{0,800}data-action="delete-test"/,
     );
-    // The old per-row guard must be gone from the action-gating site.
-    assert.ok(
-      !/if\s*\(\s*it\.library\s*===\s*['"]l3_test['"]\s*&&\s*it\.slug\s*\)/.test(listJs),
-      'must not gate row actions on it.library (matches L3 passage rows too)',
-    );
+    // The old tab-gating + parent_test_id mechanism is gone from the action site.
+    assert.ok(!/STATE\.libraryFilter\s*===\s*['"]l3_test['"]/.test(listJs),
+      'isTestTab tab-gating removed (L3 is a test row in every view)');
+    assert.ok(!/it\.parent_test_id/.test(listJs),
+      'parent_test_id no longer needed (no L3 passage rows to resolve)');
   });
 
-  test('preview link uses a 404-safe resolved test_id (never the passage slug)', () => {
-    // admin-polish: the preview test_id is `previewTid` = it.slug on the L3 tab
-    // (rows ARE tests, slug === test_id), else it.parent_test_id (the backend-
-    // resolved parent TEXT id for L3 passage rows). Never the passage slug.
-    assert.match(listJs, /preview\.html\?test_id=['"]\s*\+\s*encodeURIComponent\(previewTid\)/);
-    assert.match(listJs, /previewTid\s*=\s*isTestTab\s*\?\s*it\.slug\s*:\s*it\.parent_test_id/);
+  test('preview link uses the test_id (it.slug) — never a passage slug (#363)', () => {
+    // L3 rows carry slug === test_id (backend grouping), so previewing by
+    // it.slug is 404-safe. The whole L3 action block keys on it.slug.
+    assert.match(
+      listJs,
+      /it\.library === 'l3_test' && it\.slug[\s\S]{0,300}preview\.html\?test_id=[\s\S]{0,60}encodeURIComponent\(it\.slug\)/,
+    );
   });
 
   test('preview JS reads the admin test endpoint (works on drafts) by test_id', () => {

@@ -74,16 +74,13 @@ describe('Sprint 20.15 D1 — admin preview page', () => {
 describe('Sprint 20.15 D2 — per-row delete action', () => {
   const js = read('frontend/js/admin-reading.js');
 
-  test('delete gated to the L3 Test tab; preview link present', () => {
-    // reading-admin-preview-fix gated actions on the ACTIVE FILTER, not the
-    // per-row library (L3 passages carry library='l3_test' with a passage slug
-    // → previewing that 404'd). admin-polish then surfaced PREVIEW on L3
-    // passage rows too (via the backend-resolved parent_test_id), but DELETE
-    // stays L3-tab-only (isTestTab) — deleting a whole test from a passage row
-    // would be a footgun.
+  test('L3 delete gated on library (test rows everywhere); preview link present', () => {
+    // l3-action-consistency: L3 is now grouped into ONE test row per test
+    // (slug === test_id) in EVERY view, so delete is gated on it.library
+    // (no passage rows leak → no footgun) and keys on the test_id (it.slug).
     assert.match(
       js,
-      /isTestTab\s*&&\s*it\.slug[\s\S]{0,800}data-action="delete-test"/,
+      /it\.library === 'l3_test' && it\.slug[\s\S]{0,800}data-action="delete-test"/,
     );
     assert.match(js, /href="\/pages\/admin\/reading\/preview\.html\?test_id=['"]/);
   });
