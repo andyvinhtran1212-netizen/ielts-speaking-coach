@@ -351,6 +351,18 @@ _SUBMIT_GRACE_SECONDS = 5 * 60
 _DIAGNOSTIC_ATTEMPT_LIMIT = 8
 
 
+def _strip_solution_from_payload(questions: list[dict]) -> None:
+    """In-place: drop payload.solution from each question (reading-rich-test-
+    solution). The rich solution reveals the answer + source, so it must never
+    ship during the test — only the post-submit chữa-bài review surfaces it."""
+    for q in questions:
+        pl = q.get("payload")
+        if isinstance(pl, dict) and "solution" in pl:
+            pl = dict(pl)
+            pl.pop("solution", None)
+            q["payload"] = pl
+
+
 def _fetch_published_test(test_id: str) -> dict:
     """Fetch one published L3 test by test_id (TEXT UNIQUE — mig 086).
     404 on missing/draft/archived so admins can stage tests without exposing
@@ -421,6 +433,12 @@ def _build_reading_test_detail(test_id: str) -> dict:
     # per request — never persist the signed URL. Matches the listening
     # `_sign_map_image_url` 2h student-fetch TTL.
     _stamp_diagram_image_urls(questions)
+
+    # reading-rich-test-solution — the detailed solution rides payload.solution
+    # (steps, source excerpt, answer reasoning). It MUST NOT leak during the
+    # test: strip it here, same spirit as the answer-key strip. It's surfaced
+    # only post-submit via the chữa-bài review endpoint (Part C).
+    _strip_solution_from_payload(questions)
 
     test["passages"] = passages
     test["questions"] = questions
