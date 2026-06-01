@@ -615,13 +615,20 @@ async def admin_get_reading_test(
     passages_res = (
         supabase_admin.table("reading_passages")
         .select("id,slug,title,body_markdown,passage_order,word_count,"
-                "estimated_minutes,topic_tags,status")
+                "estimated_minutes,topic_tags,status,metadata")
         .eq("test_id", test["id"])
         .eq("library", "l3_test")
         .order("passage_order")
         .execute()
     )
     passages = passages_res.data or []
+    # reading-rich Part B — surface the extracted IMG-PROMPT blocks (Part A
+    # stored them in metadata.img_prompts) as a clean top-level field so the
+    # admin preview can show each prompt next to its block-image upload (#374),
+    # for the copy → generate-externally → upload workflow. The rest of the
+    # metadata blob stays server-side.
+    for p in passages:
+        p["img_prompts"] = (p.pop("metadata", None) or {}).get("img_prompts") or []
 
     passage_ids = [p["id"] for p in passages]
     questions: list[dict] = []

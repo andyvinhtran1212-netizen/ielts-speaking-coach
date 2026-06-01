@@ -368,6 +368,34 @@
   font-style: italic;
 }
 
+/* reading-rich Part B — extracted IMG-PROMPT next to the block-image upload. */
+.ar-imgprompt {
+  margin-top: var(--av-space-3);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-surface-sunken);
+}
+.ar-imgprompt__summary {
+  cursor: pointer; padding: var(--av-space-2) var(--av-space-3);
+  font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+  color: var(--av-primary);
+}
+.ar-imgprompt__bar {
+  display: flex; align-items: center; gap: var(--av-space-2); flex-wrap: wrap;
+  padding: 0 var(--av-space-3) var(--av-space-2);
+}
+.ar-imgprompt__id { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
+.ar-imgprompt__status { font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
+.ar-imgprompt__text {
+  margin: 0 var(--av-space-3) var(--av-space-3);
+  padding: var(--av-space-3);
+  max-height: 18rem; overflow: auto;
+  font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-normal); white-space: pre-wrap; word-break: break-word;
+  background: var(--av-surface-card, #fff); color: var(--av-text-primary);
+  border: 1px solid var(--av-border-default); border-radius: var(--av-radius-sm);
+}
+
 /* Sprint 20.15 D2 — per-row Preview + Delete actions on the L3 list.
    The actions sit inside an inner .adm-action-group div (admin-status.css)
    that handles inline-flex/wrap/gap, so they wrap cleanly on narrow widths
