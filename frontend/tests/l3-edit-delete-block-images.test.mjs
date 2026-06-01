@@ -30,8 +30,10 @@ const router     = read('backend/routers/admin_reading.py');
 
 
 describe('A — L3 edit action (re-import by test_id)', () => {
-  test('L3 (test tab) row renders an edit-test button carrying the test_id', () => {
-    assert.match(listJs, /isTestTab && it\.slug[\s\S]{0,400}data-action="edit-test" data-test-id="/);
+  test('L3 row renders an edit-test button carrying the test_id', () => {
+    // l3-action-consistency: L3 is a test row in every view, gated on
+    // it.library (slug === test_id). edit-test carries it.slug (= test_id).
+    assert.match(listJs, /it\.library === 'l3_test' && it\.slug[\s\S]{0,800}data-action="edit-test" data-test-id="' \+ escapeHtml\(it\.slug\)/);
   });
 
   test('dispatcher routes edit-test → handleEditTest (L1/L2 + delete intact)', () => {

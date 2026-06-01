@@ -87,12 +87,34 @@ def test_l3_row_normalised_to_l1_l2_shape():
     assert "40 câu" in it["skill_focus"]
 
 
-def test_no_library_filter_still_queries_passages():
-    """Regression: 'Tất cả' filter (no library) keeps the original
-    reading_passages query — L1/L2 listings unchanged."""
+def test_all_view_groups_l3_as_test_rows():
+    """l3-action-consistency: the 'Tất cả' view lists L1/L2 passages PLUS one
+    normalised L3 test row per test (slug=test_id) — it EXCLUDES raw l3_test
+    passage rows (.neq) and splices in reading_tests. So L3 gets the same full
+    actions as L1/L2 and there are no 3-passages-per-test rows."""
+    passages = MagicMock()
+    passages.select.return_value.neq.return_value.order.return_value.range.return_value.execute.return_value = MagicMock(
+        data=[
+            {"id": "p2", "slug": "l1-vocab-y", "library": "l1_vocab", "title": "V1",
+             "status": "published", "difficulty_level": "b1", "skill_focus": "skim",
+             "topic_tags": [], "updated_at": "2026-05-20", "created_at": "2026-05-19"},
+        ],
+    )
+    tests = MagicMock()
+    tests.select.return_value.order.return_value.execute.return_value = MagicMock(
+        data=[
+            {"id": "uuid-1", "test_id": "AVR-READ-001", "title": "Academic Reading — Test 1",
+             "module": "academic", "time_limit_minutes": 60, "passage_count": 3,
+             "total_questions": 40, "band_target": 7.0, "status": "published",
+             "updated_at": "2026-05-29", "created_at": "2026-05-28"},
+        ],
+    )
+
+    def _table(name):
+        return tests if name == "reading_tests" else passages
+
     mock_db = MagicMock()
-    chain = mock_db.table.return_value.select.return_value.order.return_value.range.return_value
-    chain.execute.return_value = MagicMock(data=[], count=0)
+    mock_db.table.side_effect = _table
 
     with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_reading.supabase_admin", mock_db):
@@ -100,8 +122,17 @@ def test_no_library_filter_still_queries_passages():
 
     assert r.status_code == 200
     called = [c.args[0] for c in mock_db.table.call_args_list]
-    assert "reading_passages" in called
-    assert "reading_tests" not in called
+    assert "reading_passages" in called and "reading_tests" in called
+    # the passages query EXCLUDED l3_test (raw passage rows never leak in)
+    passages.select.return_value.neq.assert_called_with("library", "l3_test")
+    items = r.json()["items"]
+    by_slug = {it["slug"]: it for it in items}
+    # L3 grouped into ONE test row (slug === test_id), full normalised shape
+    assert by_slug["AVR-READ-001"]["library"] == "l3_test"
+    assert "60 phút" in by_slug["AVR-READ-001"]["skill_focus"]
+    assert "l1-vocab-y" in by_slug
+    # sorted by recency: L3 (2026-05-29) before L1 (2026-05-20)
+    assert items[0]["slug"] == "AVR-READ-001"
 
 
 def test_l1_filter_still_queries_passages():
@@ -125,30 +156,23 @@ def test_unknown_library_rejected_422():
     assert r.status_code == 422
 
 
-def test_l3_passage_rows_get_parent_test_id():
-    """admin-polish — L3 passage rows in the default/passage view are enriched
-    with the parent test's TEXT test_id (resolved from the UUID FK) so preview
-    is reachable from any view. The raw UUID FK is dropped; L1/L2 passages
-    (NULL test_id) get no parent_test_id."""
+def test_all_view_l3_row_preview_identity_is_test_id():
+    """404-safety (#363) under grouping: an L3 row in the 'Tất cả' view carries
+    the TEXT test_id as its slug (the canonical preview/edit/delete key), NEVER
+    a passage slug. The old per-passage parent_test_id enrichment is gone —
+    L3 is one test row, so there is no passage-vs-test ambiguity to resolve."""
     passages = MagicMock()
-    passages.select.return_value.order.return_value.range.return_value.execute.return_value = MagicMock(
-        data=[
-            # L3 passage — has a UUID test_id FK → should resolve to AVR-READ-001
-            {"id": "p1", "slug": "l3-t1-p1-x", "library": "l3_test", "title": "P1",
-             "status": "published", "difficulty_level": None, "skill_focus": None,
-             "topic_tags": [], "updated_at": "2026-05-29", "created_at": "2026-05-28",
-             "test_id": "uuid-test-1"},
-            # L1 passage — no parent test
-            {"id": "p2", "slug": "l1-vocab-y", "library": "l1_vocab", "title": "V1",
-             "status": "published", "difficulty_level": "b1", "skill_focus": "skim",
-             "topic_tags": [], "updated_at": "2026-05-29", "created_at": "2026-05-28",
-             "test_id": None},
-        ],
-        count=2,
+    passages.select.return_value.neq.return_value.order.return_value.range.return_value.execute.return_value = MagicMock(
+        data=[],
     )
     tests = MagicMock()
-    tests.select.return_value.in_.return_value.execute.return_value = MagicMock(
-        data=[{"id": "uuid-test-1", "test_id": "AVR-READ-001"}],
+    tests.select.return_value.order.return_value.execute.return_value = MagicMock(
+        data=[
+            {"id": "uuid-test-1", "test_id": "AVR-READ-002", "title": "Test 2",
+             "module": "academic", "time_limit_minutes": 60, "passage_count": 3,
+             "total_questions": 40, "band_target": 7.5, "status": "draft",
+             "updated_at": "2026-05-29", "created_at": "2026-05-28"},
+        ],
     )
 
     def _table(name):
@@ -162,16 +186,13 @@ def test_l3_passage_rows_get_parent_test_id():
         r = _client().get("/admin/reading/content", headers=_ADMIN_AUTH)
 
     assert r.status_code == 200
-    items = r.json()["items"]
-    by_slug = {it["slug"]: it for it in items}
-    # L3 passage → parent TEXT test_id; raw UUID FK dropped (never exposed)
-    assert by_slug["l3-t1-p1-x"].get("parent_test_id") == "AVR-READ-001"
-    assert "test_id" not in by_slug["l3-t1-p1-x"]
-    # L1 passage → no parent_test_id, no raw test_id
-    assert "parent_test_id" not in by_slug["l1-vocab-y"]
-    assert "test_id" not in by_slug["l1-vocab-y"]
-    # the enrichment batch-resolved via reading_tests
-    assert "reading_tests" in [c.args[0] for c in mock_db.table.call_args_list]
+    it = r.json()["items"][0]
+    # slug IS the test_id — frontend previews/edits/deletes by it.slug, 404-safe.
+    assert it["slug"] == "AVR-READ-002"
+    assert it["library"] == "l3_test"
+    # the obsolete parent_test_id / raw UUID test_id are NOT present
+    assert "parent_test_id" not in it
+    assert "test_id" not in it
 
 
 def test_status_filter_applied_on_l3_branch():

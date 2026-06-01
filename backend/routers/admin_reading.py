@@ -55,6 +55,47 @@ _LIBRARIES = {"l1_vocab", "l2_skill", "l3_test"}
 _STATUSES = {"draft", "published", "archived"}
 
 
+def _normalise_l3_test_row(r: dict) -> dict:
+    """A reading_tests row → the shared admin-list row shape (slug = test_id,
+    difficulty_level ← module, skill_focus ← '60 phút · 40 câu' summary). The
+    frontend renders ONE row per L3 test with full preview/edit/delete actions
+    (l3-action-consistency), so test_id is the canonical identity everywhere."""
+    mins = r.get("time_limit_minutes")
+    tot = r.get("total_questions")
+    summary = " · ".join(filter(None, [
+        f"{mins} phút" if mins else None,
+        f"{tot} câu" if tot else None,
+    ]))
+    return {
+        "id":               r.get("id"),
+        "slug":             r.get("test_id"),
+        "library":          "l3_test",
+        "title":            r.get("title"),
+        "status":           r.get("status"),
+        "difficulty_level": r.get("module"),
+        "skill_focus":      summary,
+        "topic_tags":       [],
+        "updated_at":       r.get("updated_at"),
+        "created_at":       r.get("created_at"),
+    }
+
+
+def _l3_test_rows(status: str | None) -> list[dict]:
+    """All L3 tests, normalised — for splicing into the 'Tất cả' view so L3
+    shows as test rows, not raw passages (l3-action-consistency)."""
+    q = (
+        supabase_admin.table("reading_tests")
+        .select(
+            "id,test_id,title,module,time_limit_minutes,passage_count,"
+            "total_questions,band_target,status,updated_at,created_at",
+        )
+        .order("updated_at", desc=True)
+    )
+    if status:
+        q = q.eq("status", status)
+    return [_normalise_l3_test_row(r) for r in (q.execute().data or [])]
+
+
 @router.get("")
 async def list_reading_content(
     library: str | None = Query(default=None),
@@ -82,7 +123,7 @@ async def list_reading_content(
     if status is not None and status not in _STATUSES:
         raise HTTPException(422, f"status must be one of {sorted(_STATUSES)}")
 
-    # ── L3 branch — list reading_tests (one row per test_id) ───────────
+    # ── "L3 Full Test" tab → one row per test (reading_tests) ──────────
     if library == "l3_test":
         q = (
             supabase_admin.table("reading_tests")
@@ -97,85 +138,62 @@ async def list_reading_content(
         if status:
             q = q.eq("status", status)
         res = q.execute()
-        # Normalise to the L1/L2 row shape so the frontend can reuse one
-        # template. Map test_id → slug (the file-level identity), surface
-        # module + the "60 min · 40 Qs" summary in `skill_focus`-equivalent.
-        items: list[dict] = []
-        for r in res.data or []:
-            mins = r.get("time_limit_minutes")
-            tot  = r.get("total_questions")
-            summary = " · ".join(filter(None, [
-                f"{mins} phút" if mins else None,
-                f"{tot} câu" if tot else None,
-            ]))
-            items.append({
-                "id":               r.get("id"),
-                "slug":             r.get("test_id"),
-                "library":          "l3_test",
-                "title":            r.get("title"),
-                "status":           r.get("status"),
-                "difficulty_level": r.get("module"),
-                "skill_focus":      summary,
-                "topic_tags":       [],
-                "updated_at":       r.get("updated_at"),
-                "created_at":       r.get("created_at"),
-            })
         return {
-            "items":  items,
+            "items":  [_normalise_l3_test_row(r) for r in (res.data or [])],
             "total":  getattr(res, "count", None) or 0,
             "limit":  limit,
             "offset": offset,
         }
 
-    # ── L1/L2/all (other) branch — list reading_passages ───────────────
-    q = (
+    # ── L1 / L2 explicit tab → just those passages ─────────────────────
+    if library in ("l1_vocab", "l2_skill"):
+        q = (
+            supabase_admin.table("reading_passages")
+            .select(
+                "id,slug,library,title,status,difficulty_level,skill_focus,"
+                "topic_tags,updated_at,created_at",
+                count="exact",
+            )
+            .order("updated_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .eq("library", library)
+        )
+        if status:
+            q = q.eq("status", status)
+        res = q.execute()
+        return {
+            "items":  res.data or [],
+            "total":  getattr(res, "count", None) or 0,
+            "limit":  limit,
+            "offset": offset,
+        }
+
+    # ── "Tất cả" (no library filter) → L1 + L2 passages + L3 TEST rows ──
+    # l3-action-consistency: L3 appears as ONE test row per test (slug=test_id)
+    # with full preview/edit/delete — NOT three raw passage rows (preview-only
+    # + ambiguous to delete). Exclude l3_test passages, splice in the normalised
+    # reading_tests rows, then sort by recency. The client fetches a single
+    # ~200-row page (no pagination UI), so merge-then-slice in Python is correct
+    # for the real usage; #363 stays safe because L3 carries test_id as its slug.
+    pq = (
         supabase_admin.table("reading_passages")
         .select(
             "id,slug,library,title,status,difficulty_level,skill_focus,"
-            "topic_tags,updated_at,created_at,test_id",
-            count="exact",
+            "topic_tags,updated_at,created_at",
         )
+        .neq("library", "l3_test")
         .order("updated_at", desc=True)
-        .range(offset, offset + limit - 1)
+        .range(0, limit - 1)
     )
-    if library:
-        q = q.eq("library", library)
     if status:
-        q = q.eq("status", status)
+        pq = pq.eq("status", status)
+    passage_items = pq.execute().data or []
 
-    res = q.execute()
-    items = res.data or []
-
-    # admin-polish — surface the parent test's TEXT test_id on L3 passage rows so
-    # the library's "Xem trước" link resolves to the right test from ANY view (not
-    # just the "L3 Full Test" tab). reading_passages.test_id is a UUID FK; the
-    # preview endpoint keys on reading_tests.test_id (TEXT), so batch-resolve
-    # UUID → TEXT here. We NEVER expose the passage slug as a test_id (that was the
-    # #363 404 bug); the raw UUID FK is dropped from the row so the frontend can
-    # only ever use the resolved TEXT id. Enrichment failure degrades gracefully
-    # (rows just lack parent_test_id → no preview link, never a 500).
-    test_uuids = sorted({r.get("test_id") for r in items if r.get("test_id")})
-    text_by_uuid: dict[str, str] = {}
-    if test_uuids:
-        try:
-            trows = (
-                supabase_admin.table("reading_tests")
-                .select("id, test_id")
-                .in_("id", test_uuids)
-                .execute()
-                .data
-            ) or []
-            text_by_uuid = {t["id"]: t.get("test_id") for t in trows}
-        except Exception as exc:
-            logger.warning("admin_reading list: parent_test_id enrich failed: %s", exc)
-    for r in items:
-        parent = text_by_uuid.get(r.pop("test_id", None))
-        if parent:
-            r["parent_test_id"] = parent
-
+    merged = list(passage_items) + _l3_test_rows(status)
+    merged.sort(key=lambda r: (r.get("updated_at") or ""), reverse=True)
     return {
-        "items":  items,
-        "total":  getattr(res, "count", None) or 0,
+        "items":  merged[offset:offset + limit],
+        "total":  len(merged),
         "limit":  limit,
         "offset": offset,
     }
