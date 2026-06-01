@@ -885,6 +885,103 @@ async def submit_reading_test_attempt(
     }
 
 
+# ── reading-rich Part C — post-submit chữa-bài (solution review) ──────
+
+
+@router.get("/test/attempts/{attempt_id}/review")
+async def review_reading_test_attempt(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Post-submit solution review ("chữa bài"). Returns, ONLY for a SUBMITTED
+    attempt owned by the caller: the score/band/skill breakdown, the per-Q
+    grading (user vs correct), and — now REVEALED — each question's rich
+    `payload.solution` (steps / source / vocab / paraphrase / trap / tips) plus
+    the passage bodies + VI translation.
+
+    Security boundary (reading-rich Part A): the solution is stripped from the
+    DURING-test fetch; this endpoint is the only place it surfaces, and it
+    HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
+    abandoned attempt can never leak the answers."""
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") != "submitted":
+        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+
+    test_uuid = attempt["test_id"]
+    test_res = (
+        supabase_admin.table("reading_tests")
+        .select("test_id,title,module")
+        .eq("id", test_uuid).limit(1).execute()
+    )
+    test_row = (test_res.data or [{}])[0]
+
+    passages_res = (
+        supabase_admin.table("reading_passages")
+        .select("id,slug,title,body_markdown,passage_order,metadata")
+        .eq("test_id", test_uuid)
+        .eq("library", "l3_test")
+        .order("passage_order")
+        .execute()
+    )
+    passages: list[dict] = []
+    for p in (passages_res.data or []):
+        meta = p.pop("metadata", None) or {}
+        p["translation_vi"] = meta.get("translation_vi")
+        passages.append(p)
+
+    # Per-Q rich solution + prompt/type for context (joined by q_num).
+    sol_by_qnum: dict = {}
+    ctx_by_qnum: dict = {}
+    passage_ids = [p["id"] for p in passages]
+    if passage_ids:
+        q_res = (
+            supabase_admin.table("reading_questions")
+            .select("q_num,question_type,prompt,payload,passage_id")
+            .in_("passage_id", passage_ids)
+            .execute()
+        )
+        for q in (q_res.data or []):
+            qn = q.get("q_num")
+            sol = (q.get("payload") or {}).get("solution")
+            if sol:
+                sol_by_qnum[qn] = sol
+            ctx_by_qnum[qn] = {
+                "prompt": q.get("prompt"), "question_type": q.get("question_type"),
+            }
+
+    grading = attempt.get("grading_details") or []
+    review: list[dict] = []
+    by_part: dict = {}
+    for g in grading:
+        qn = g.get("q_num")
+        ctx = ctx_by_qnum.get(qn) or {}
+        item = dict(g)
+        item["prompt"] = ctx.get("prompt")
+        item["question_type"] = ctx.get("question_type")
+        item["solution"] = sol_by_qnum.get(qn)
+        review.append(item)
+        po = g.get("passage_order")
+        bucket = by_part.setdefault("p%s" % po if po else "p?", {"correct": 0, "total": 0})
+        bucket["total"] += 1
+        if g.get("correct"):
+            bucket["correct"] += 1
+
+    return {
+        "attempt_id":       attempt_id,
+        "status":           attempt.get("status"),
+        "test_id":          test_row.get("test_id"),
+        "title":            test_row.get("title"),
+        "score":            attempt.get("score"),
+        "max_score":        len(grading),
+        "band_estimate":    attempt.get("band_estimate"),
+        "skill_breakdown":  attempt.get("skill_breakdown") or {},
+        "by_part":          by_part,
+        "passages":         passages,
+        "review":           review,
+    }
+
+
 # ── Sprint 20.6 — resilience: in-progress lookup + auto-save PATCH ────
 
 

@@ -1835,6 +1835,14 @@
       revHost.appendChild(row);
     });
 
+    // reading-rich Part C — point the CTA at the chữa-bài review for this
+    // attempt (the rich solution is revealed only post-submit, server-gated).
+    var chuaBai = $('results-chuabai-link');
+    if (chuaBai && result.attempt_id) {
+      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id);
+      chuaBai.hidden = false;
+    }
+
     loadDiagnostic(result.attempt_id);
   }
 
