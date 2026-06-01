@@ -83,6 +83,7 @@
 .ar-status.is-error   { background: var(--av-error-soft);   color: var(--av-error); }
 .ar-status.is-success { background: var(--av-success-soft); color: var(--av-success); }
 .ar-status.is-loading { background: var(--av-primary-soft); color: var(--av-primary); }
+.ar-status.is-info    { background: var(--av-primary-soft); color: var(--av-text-primary); }
 
 .ar-preview { margin-top: var(--av-space-4); }
 .ar-preview__title {
