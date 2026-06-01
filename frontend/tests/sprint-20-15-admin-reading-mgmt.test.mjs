@@ -83,7 +83,7 @@ describe('Sprint 20.15 D2 — per-row delete action', () => {
     // would be a footgun.
     assert.match(
       js,
-      /isTestTab\s*&&\s*it\.slug[\s\S]{0,400}data-action="delete-test"/,
+      /isTestTab\s*&&\s*it\.slug[\s\S]{0,800}data-action="delete-test"/,
     );
     assert.match(js, /href="\/pages\/admin\/reading\/preview\.html\?test_id=['"]/);
   });

@@ -270,7 +270,14 @@
             encodeURIComponent(previewTid) + '">Xem trước</a>';
       }
       if (isTestTab && it.slug) {
+        // l3-edit-delete-block-images — L3 edit = re-import by test_id (the
+        // import is idempotent by test_id and PRESERVES uploaded diagram
+        // images across the re-import). Delete already exists (attempt-safe,
+        // 20.15 D2). Both stay on the test_id path (#363 separation).
         actions +=
+          ' <button type="button" class="ar-row-action" ' +
+            'data-action="edit-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
+            'data-test-title="' + escapeHtml(it.title || '') + '">Sửa</button>' +
           ' <button type="button" class="ar-row-action is-danger" ' +
             'data-action="delete-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
             'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>';
@@ -317,6 +324,7 @@
     if (!btn) return;
     var action = btn.getAttribute('data-action');
     if (action === 'delete-test')   return handleDeleteTest(btn);
+    if (action === 'edit-test')     return handleEditTest(btn);
     if (action === 'edit-passage')  return handleEditPassage(btn);
     if (action === 'delete-passage') return handleDeletePassage(btn);
   }
@@ -376,6 +384,23 @@
     if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setStatus('Để sửa "' + title + '" (slug: ' + slug + '), tải lên lại file .md ' +
               'của bài này — hệ thống cập nhật theo slug (giữ nguyên người tạo).', 'info');
+    var dz = $('ar-dropzone');
+    if (dz && dz.focus) { try { dz.focus(); } catch (e) {} }
+  }
+
+  // l3-edit-delete-block-images — "Sửa" for an L3 full test. Editing = re-import
+  // (no inline editor): the import is idempotent by test_id and PRESERVES any
+  // uploaded diagram/flow images across the re-import (the backend snapshots +
+  // restores payload.template.image_* by q_num). Reveal the import panel + a
+  // hint naming the test_id to re-upload.
+  function handleEditTest(btn) {
+    var testId = btn.getAttribute('data-test-id');
+    var title = btn.getAttribute('data-test-title') || testId;
+    if (!testId) return;
+    var panel = document.querySelector('.ar-panel');
+    if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setStatus('Để sửa test "' + title + '" (' + testId + '), tải lên lại file .md ' +
+              'của test — hệ thống cập nhật theo test_id (giữ nguyên ảnh sơ đồ đã upload).', 'info');
     var dz = $('ar-dropzone');
     if (dz && dz.focus) { try { dz.focus(); } catch (e) {} }
   }

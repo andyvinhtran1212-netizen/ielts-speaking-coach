@@ -86,7 +86,7 @@ describe('B — handlers (dispatch + edit + delete)', () => {
 
 describe('C — L3 actions unchanged (no regression)', () => {
   test('L3 delete still gated to the test tab + test_id endpoint', () => {
-    assert.match(js, /isTestTab && it\.slug[\s\S]{0,300}data-action="delete-test"/);
+    assert.match(js, /isTestTab && it\.slug[\s\S]{0,800}data-action="delete-test"/);
     assert.match(
       js,
       /window\.api\[['"]delete['"]\]\([\s\S]{0,80}'\/admin\/reading\/content\/tests\/' \+ encodeURIComponent\(testId\)/,

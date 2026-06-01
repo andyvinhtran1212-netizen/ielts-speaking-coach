@@ -292,6 +292,53 @@ async def import_reading_content(
 # ── Sprint 20.5 — L3 full-test import handler ─────────────────────────
 
 
+# l3-edit-delete-block-images — diagram/flow image metadata written by the
+# upload endpoint into payload.template. The authored MD never carries these,
+# so an edit (re-import = delete-then-insert of questions) must SNAPSHOT and
+# RESTORE them, or editing a test would silently wipe its uploaded diagrams.
+# The image lives on the run's first question (first-Q-owns the block image).
+_IMAGE_TEMPLATE_KEYS = (
+    "image_storage_path", "image_size_bytes", "image_format",
+    "image_source", "image_uploaded_at", "image_uploaded_by",
+)
+
+
+def _snapshot_question_images(passage_id: str) -> dict:
+    """q_num → preserved payload.template image_* keys for a passage's existing
+    questions (so a re-import keeps admin-uploaded diagram/flow images)."""
+    try:
+        rows = (
+            supabase_admin.table("reading_questions")
+            .select("q_num,payload")
+            .eq("passage_id", passage_id)
+            .execute()
+            .data
+        ) or []
+    except Exception:                                            # pragma: no cover
+        return {}
+    snap: dict = {}
+    for r in rows:
+        template = ((r.get("payload") or {}).get("template")) or {}
+        img = {k: template[k] for k in _IMAGE_TEMPLATE_KEYS if k in template}
+        if img:
+            snap[r.get("q_num")] = img
+    return snap
+
+
+def _restore_question_images(q_rows: list[dict], preserved: dict) -> None:
+    """In-place: re-merge preserved image_* keys into the new rows' payload.
+    template, matched by q_num."""
+    for row in q_rows:
+        img = preserved.get(row.get("q_num"))
+        if not img:
+            continue
+        payload = dict(row.get("payload") or {})
+        template = dict(payload.get("template") or {})
+        template.update(img)
+        payload["template"] = template
+        row["payload"] = payload
+
+
 async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
     """Commit an L3 full-test: one reading_tests row + 1..3 reading_passages
     rows + their reading_questions. Idempotent by test_id (test row) and by
@@ -407,16 +454,22 @@ async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
                 slug_to_passage_id[slug] = r.data[0]["id"]
 
         # 3) Replace each passage's reading_questions (delete-then-insert).
+        # Snapshot uploaded diagram/flow images first, restore them onto the
+        # new rows by q_num — an edit/re-import must not destroy them
+        # (l3-edit-delete-block-images).
         total_qs = 0
         for slug, q_rows_partial in plan["passage_questions"]:
             passage_id = slug_to_passage_id.get(slug)
             if not passage_id:
                 continue
+            preserved = _snapshot_question_images(passage_id)
             supabase_admin.table("reading_questions").delete().eq(
                 "passage_id", passage_id
             ).execute()
             if q_rows_partial:
                 q_rows = [dict(r, passage_id=passage_id) for r in q_rows_partial]
+                if preserved:
+                    _restore_question_images(q_rows, preserved)
                 supabase_admin.table("reading_questions").insert(q_rows).execute()
                 total_qs += len(q_rows)
         result["question_count"] = total_qs
