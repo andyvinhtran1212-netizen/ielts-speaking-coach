@@ -134,7 +134,7 @@ def _fetch_published_passage(slug: str, library: str) -> dict:
     res = (
         supabase_admin.table("reading_passages")
         .select("id,slug,title,body_markdown,difficulty_level,topic_tags,"
-                "image_url,glossary,skill_focus,word_count,estimated_minutes")
+                "image_url,glossary,skill_focus,word_count,estimated_minutes,metadata")
         .eq("slug", slug)
         .eq("library", library)
         .eq("status", "published")
@@ -143,7 +143,13 @@ def _fetch_published_passage(slug: str, library: str) -> dict:
     )
     if not res.data:
         raise HTTPException(404, "Reading passage not found or not published")
-    return res.data[0]
+    row = res.data[0]
+    # Surface the full Vietnamese translation as a clean top-level field; the raw
+    # metadata blob stays server-side (reading-translation-vi). Absent → None,
+    # so the frontend hides the toggle gracefully.
+    meta = row.pop("metadata", None) or {}
+    row["translation_vi"] = meta.get("translation_vi")
+    return row
 
 
 @router.get("/vocab/{slug}")

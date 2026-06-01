@@ -156,6 +156,42 @@ def test_build_payload_draft_when_unpublished():
     assert build_reading_passage_payload(p, p.slug)["status"] == "draft"
 
 
+# ── translation_vi: MD → parser → metadata payload (reading-translation-vi) ──
+_TRANSLATION_MD = _L1_MD.replace(
+    "---\nWhen wolves",
+    "translation_vi: |\n"
+    "  Khi những con sói được tái thả vào Yellowstone năm 1995, hệ sinh thái đã thay đổi.\n"
+    "---\nWhen wolves",
+)
+
+
+def test_parse_captures_translation_vi():
+    p = parse_reading_passage(_TRANSLATION_MD)
+    assert p.translation_vi is not None
+    assert "Yellowstone" in p.translation_vi
+
+
+def test_build_payload_carries_translation_vi_in_metadata():
+    # No schema change — the full VI translation rides in the metadata JSONB.
+    p = parse_reading_passage(_TRANSLATION_MD)
+    payload = build_reading_passage_payload(p, p.slug)
+    assert payload["metadata"]["translation_vi"].startswith("Khi những con sói")
+
+
+def test_build_payload_omits_metadata_when_no_translation():
+    # tea-style content (no translation_vi) → no metadata key written, so an
+    # existing passage's metadata blob is never clobbered with an empty dict.
+    p = parse_reading_passage(_L1_MD)
+    assert "metadata" not in build_reading_passage_payload(p, p.slug)
+
+
+def test_preview_exposes_translation_vi():
+    p = parse_reading_passage(_TRANSLATION_MD)
+    assert "Yellowstone" in p.as_preview()["translation_vi"]
+    # graceful: absent → None in preview
+    assert parse_reading_passage(_L1_MD).as_preview()["translation_vi"] is None
+
+
 def test_slugify_shared_with_writing():
     # Same slugify the writing import uses (Vietnamese-aware, no dep).
     assert slugify("The Return of the Wolves") == "the-return-of-the-wolves"

@@ -288,6 +288,7 @@ class ParsedReadingPassage:
     published:         bool
     body_markdown:     str
     skill_focus:       Optional[str] = None
+    translation_vi:    Optional[str] = None   # full Vietnamese passage translation
     questions:         list = field(default_factory=list)
     raw_frontmatter:   dict = field(default_factory=dict)
 
@@ -315,6 +316,7 @@ class ParsedReadingPassage:
             "published":         self.published,
             "question_count":    len(self.questions),
             "body_markdown":     self.body_markdown,
+            "translation_vi":    self.translation_vi,   # dry-run preview confirms capture
         }
 
 
@@ -341,6 +343,7 @@ def parse_reading_passage(text: str) -> ParsedReadingPassage:
         published         = bool(fm.get("published", False)),
         body_markdown     = body,
         skill_focus       = _as_str(fm.get("skill_focus")),
+        translation_vi    = _as_str(fm.get("translation_vi")),
         questions         = raw_questions if isinstance(raw_questions, list) else [],
         raw_frontmatter   = fm,
     )
@@ -547,7 +550,7 @@ def build_reading_passage_payload(p: ParsedReadingPassage, slug: str) -> dict:
     is persisted for L2 (the schema CHECK in mig 086 allows it for L1/L3 too
     but the column is L2-meaningful). `created_by` is stamped by the router on
     INSERT only."""
-    return {
+    payload = {
         "library":           p.library,
         "slug":              slug,
         "title":             p.title,
@@ -561,6 +564,12 @@ def build_reading_passage_payload(p: ParsedReadingPassage, slug: str) -> dict:
         "estimated_minutes": p.estimated_minutes,
         "status":            "published" if p.published else "draft",
     }
+    # Full Vietnamese translation lives in the metadata JSONB (no schema change —
+    # reading_passages.metadata is the catch-all). Only written when present, so
+    # passages without a translation keep their existing metadata untouched.
+    if p.translation_vi:
+        payload["metadata"] = {"translation_vi": p.translation_vi}
+    return payload
 
 
 # ── small coercion helpers (YAML can hand back odd types) ─────────────
