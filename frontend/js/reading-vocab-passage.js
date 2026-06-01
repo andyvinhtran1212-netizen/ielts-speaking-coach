@@ -75,6 +75,7 @@
     });
 
     if (window.GlossaryPopover) window.GlossaryPopover.attach(body, p.glossary || []);
+    renderTranslation(body, p.translation_vi);
     if (window.ReadingQuestions) {
       window.ReadingQuestions.attach({
         host:      $('rv-questions'),
@@ -83,6 +84,45 @@
         slug:      SESSION.slug,
       });
     }
+  }
+
+  // Full Vietnamese translation (reading-translation-vi) — collapsed by default,
+  // revealed by a toggle. Appended inside the passage <article> so it scrolls
+  // with the passage pane. Graceful: no translation_vi → nothing rendered.
+  function renderTranslation(body, translationVi) {
+    var text = (translationVi || '').trim();
+    if (!text || !body || !body.parentNode) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'rv-translation';
+
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'rv-translation__toggle';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.textContent = 'Xem bản dịch tiếng Việt';
+
+    var panel = document.createElement('div');
+    panel.className = 'rv-translation__body md-body';
+    panel.hidden = true;
+    text.split(/\n\s*\n/).forEach(function (para) {
+      var t = para.trim();
+      if (!t) return;
+      var pEl = document.createElement('p');
+      pEl.textContent = t;          // XSS-safe — plain prose, never innerHTML
+      panel.appendChild(pEl);
+    });
+
+    toggle.addEventListener('click', function () {
+      var willOpen = panel.hidden;
+      panel.hidden = !willOpen;
+      toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      toggle.textContent = willOpen ? 'Ẩn bản dịch' : 'Xem bản dịch tiếng Việt';
+    });
+
+    wrap.appendChild(toggle);
+    wrap.appendChild(panel);
+    body.parentNode.appendChild(wrap);
   }
 
   function load(slug) {
