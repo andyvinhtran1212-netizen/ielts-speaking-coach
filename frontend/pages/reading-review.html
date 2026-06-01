@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Chữa bài — Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/markdown.css" />
+  <link rel="stylesheet" href="/css/reading-vocab.css" />
+  <link rel="stylesheet" href="/css/reading-review.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
+  <script src="/js/components/glossary-popover.js" defer></script>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="reading"></aver-chrome>
+
+  <div class="shell">
+    <main class="rr-shell">
+      <p class="eyebrow"><a href="/pages/reading.html" class="rr-back">← Thư viện Reading</a></p>
+
+      <div class="rr-state" id="state-loading">Đang tải chữa bài…</div>
+      <div class="rr-state" id="state-empty" hidden>Không tìm thấy bài làm để chữa.</div>
+      <div class="rr-state rr-state--error" id="state-error" hidden></div>
+
+      <div id="rr-content" hidden>
+        <!-- Summary hero: band + score + time -->
+        <header class="rr-summary" id="rr-summary"></header>
+
+        <!-- Skill breakdown: where the learner is strong / weak -->
+        <section class="rr-skills" id="rr-skills" aria-label="Phân bố kỹ năng"></section>
+
+        <!-- Part tabs -->
+        <nav class="rr-parts" id="rr-parts" role="tablist" aria-label="Chọn phần"></nav>
+
+        <!-- 2-pane: passage reference | per-question solution review -->
+        <div class="rr-layout">
+          <article class="rr-passage" id="rr-passage" aria-label="Đoạn văn"></article>
+          <section class="rr-review" id="rr-review" aria-label="Chữa từng câu"></section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/reading-review.js" defer></script>
+</body>
+</html>
