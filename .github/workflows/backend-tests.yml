@@ -156,4 +156,5 @@ jobs:
             frontend/tests/admin-polish.test.mjs \
             frontend/tests/undefined-token-sentinel.test.mjs \
             frontend/tests/dashboard-tweaks.test.mjs \
-            frontend/tests/viewers-anonymous.test.mjs
+            frontend/tests/viewers-anonymous.test.mjs \
+            frontend/tests/reading-content-rich-layout.test.mjs

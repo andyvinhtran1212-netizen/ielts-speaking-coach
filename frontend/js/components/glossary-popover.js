@@ -10,7 +10,9 @@
  * custom scheme, and auto-wrap means zero authoring burden). XSS-safe: term
  * labels + definitions are set with textContent, never innerHTML.
  *
- * glossary item shape: { term, definition, example?, audio_url? }.
+ * glossary item shape: { term, definition, ipa?, pos?, example?, synonyms?,
+ *   audio_url? }. ipa/pos/synonyms are the rich (rainbow) format — rendered when
+ *   present, gracefully skipped for the simpler (tea) format.
  * Only the FIRST occurrence of each term is wrapped. Dismiss: click-outside /
  * Esc / ✕ (reuses the image-lightbox dismissal idiom). Mobile (<600px) renders
  * a bottom modal instead of an anchored popover.
@@ -116,18 +118,48 @@
     termEl.className = 'glossary-popover__term';
     termEl.textContent = entry.term || '';
 
+    // Rich meta — IPA + part-of-speech (từ loại) when present (the rainbow
+    // format). Graceful: tea-style entries (no ipa/pos) just skip this row.
+    var metaEl = null;
+    if (entry.ipa || entry.pos) {
+      metaEl = document.createElement('div');
+      metaEl.className = 'glossary-popover__meta';
+      if (entry.ipa) {
+        var ipaEl = document.createElement('span');
+        ipaEl.className = 'glossary-popover__ipa';
+        ipaEl.textContent = '/' + String(entry.ipa).replace(/^\/+|\/+$/g, '') + '/';
+        metaEl.appendChild(ipaEl);
+      }
+      if (entry.pos) {
+        var posEl = document.createElement('span');
+        posEl.className = 'glossary-popover__pos';
+        posEl.textContent = entry.pos;
+        metaEl.appendChild(posEl);
+      }
+    }
+
     var defEl = document.createElement('div');
     defEl.className = 'glossary-popover__def';
-    defEl.textContent = entry.definition || '';
+    defEl.textContent = entry.definition || '';   // dịch nghĩa (Vietnamese)
 
     popover.appendChild(closeBtn);
     popover.appendChild(termEl);
+    if (metaEl) popover.appendChild(metaEl);
     popover.appendChild(defEl);
     if (entry.example) {
       var exEl = document.createElement('div');
       exEl.className = 'glossary-popover__ex';
       exEl.textContent = '“' + entry.example + '”';
       popover.appendChild(exEl);
+    }
+    // Synonyms (từ đồng nghĩa) — accept an array or a comma string.
+    var syns = entry.synonyms;
+    if (Array.isArray(syns)) syns = syns.filter(Boolean).join(', ');
+    if (syns) {
+      var synEl = document.createElement('div');
+      synEl.className = 'glossary-popover__syn';
+      synEl.textContent = 'Đồng nghĩa: ' + syns;
+      popover.appendChild(synEl);
     }
 
     document.body.appendChild(popover);

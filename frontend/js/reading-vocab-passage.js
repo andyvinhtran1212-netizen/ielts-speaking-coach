@@ -34,10 +34,15 @@
 
   // ── Reading progress bar ──
   function updateProgress() {
-    var doc = document.documentElement;
-    var max = doc.scrollHeight - doc.clientHeight;
-    var pct = max > 0 ? Math.min(100, (doc.scrollTop || window.scrollY) / max * 100) : 0;
-    $('rv-progress-fill').style.width = pct + '%';
+    // 2-pane layout: track the passage pane's own scroll when it's the
+    // scroller (desktop independent panes); fall back to window scroll
+    // (mobile single column). reading-content-rich-layout.
+    var pane = document.querySelector('.rv-passage-layout > article');
+    var el = (pane && pane.scrollHeight > pane.clientHeight + 1) ? pane : document.documentElement;
+    var max = el.scrollHeight - el.clientHeight;
+    var pct = max > 0 ? Math.min(100, (el.scrollTop || window.scrollY) / max * 100) : 0;
+    var fill = $('rv-progress-fill');
+    if (fill) fill.style.width = pct + '%';
   }
 
   // ── Light comprehension questions ──
@@ -97,7 +102,9 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    window.addEventListener('scroll', updateProgress, { passive: true });
+    // Capture phase catches scroll from the passage pane too (scroll doesn't
+    // bubble, but it propagates in capture) — covers both pane + window.
+    document.addEventListener('scroll', updateProgress, { passive: true, capture: true });
     var slug = slugFromUrl();
     if (!slug) { showState('empty'); return; }
     load(slug);
