@@ -340,6 +340,14 @@
   color: var(--av-text-secondary);
   margin-left: auto;
 }
+/* l3-edit-delete-block-images — note on a non-lead diagram/flow question that
+   its image is shared from the run's lead Q (the only place it's managed). */
+.ar-diagram-card__shared {
+  margin-top: var(--av-space-2);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+  font-style: italic;
+}
 
 /* Sprint 20.15 D2 — per-row Preview + Delete actions on the L3 list.
    The actions sit inside an inner .adm-action-group div (admin-status.css)

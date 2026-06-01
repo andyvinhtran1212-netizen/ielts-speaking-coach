@@ -159,4 +159,5 @@ jobs:
             frontend/tests/viewers-anonymous.test.mjs \
             frontend/tests/reading-content-rich-layout.test.mjs \
             frontend/tests/reading-translation-vi.test.mjs \
-            frontend/tests/admin-reading-l1-l2-actions.test.mjs
+            frontend/tests/admin-reading-l1-l2-actions.test.mjs \
+            frontend/tests/l3-edit-delete-block-images.test.mjs

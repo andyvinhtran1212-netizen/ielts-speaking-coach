@@ -341,3 +341,61 @@ def test_delete_passage_refuses_l3_with_409():
         r = _delete_passage("some-l3-passage", _ADMIN_AUTH)
     assert r.status_code == 409
     mock_db.table.return_value.delete.assert_not_called()
+
+
+# ── L3 edit (re-import) preserves uploaded diagram images ────────────
+# l3-edit-delete-block-images — the diagram/flow image lives in
+# payload.template.image_* on the run's first question; the authored MD never
+# carries it, so the delete-then-insert re-import must snapshot + restore it.
+
+
+def test_restore_question_images_merges_by_qnum():
+    from routers.admin_reading import _restore_question_images
+    q_rows = [
+        {"q_num": 38, "payload": {"options": [1, 2]}},
+        {"q_num": 39, "payload": {}},
+    ]
+    preserved = {38: {"image_storage_path": "tests/x/diagrams/old.png", "image_format": "png"}}
+    _restore_question_images(q_rows, preserved)
+    # lead Q gets its image back, unrelated payload keys intact
+    assert q_rows[0]["payload"]["template"]["image_storage_path"] == "tests/x/diagrams/old.png"
+    assert q_rows[0]["payload"]["template"]["image_format"] == "png"
+    assert q_rows[0]["payload"]["options"] == [1, 2]
+    # a Q with no preserved image is left untouched (no empty template)
+    assert "template" not in q_rows[1]["payload"]
+
+
+def test_snapshot_question_images_extracts_only_image_keys():
+    from routers import admin_reading
+    mock_db = MagicMock()
+    sel = mock_db.table.return_value.select.return_value.eq.return_value
+    sel.execute.return_value = MagicMock(data=[
+        {"q_num": 38, "payload": {"template": {
+            "image_storage_path": "p.png", "image_format": "png", "summary_text": "x"}}},
+        {"q_num": 39, "payload": {"template": {}}},   # no image → skipped
+        {"q_num": 40, "payload": {}},                  # no template → skipped
+    ])
+    with patch.object(admin_reading, "supabase_admin", mock_db):
+        snap = admin_reading._snapshot_question_images("passage-1")
+    assert snap[38]["image_storage_path"] == "p.png"
+    assert snap[38]["image_format"] == "png"
+    assert "summary_text" not in snap[38]   # only image_* keys preserved
+    assert 39 not in snap and 40 not in snap
+
+
+def test_snapshot_then_restore_roundtrip_survives_reimport():
+    # Snapshot from the OLD rows, then restore onto the NEW (MD-parsed) rows
+    # whose payload has no template — the image survives the round-trip.
+    from routers import admin_reading
+    mock_db = MagicMock()
+    sel = mock_db.table.return_value.select.return_value.eq.return_value
+    sel.execute.return_value = MagicMock(data=[
+        {"q_num": 33, "payload": {"template": {"image_storage_path": "flow.png", "image_source": "manual_upload"}}},
+    ])
+    with patch.object(admin_reading, "supabase_admin", mock_db):
+        preserved = admin_reading._snapshot_question_images("passage-1")
+    new_rows = [{"q_num": 33, "payload": {}}, {"q_num": 34, "payload": {}}]
+    admin_reading._restore_question_images(new_rows, preserved)
+    assert new_rows[0]["payload"]["template"]["image_storage_path"] == "flow.png"
+    assert new_rows[0]["payload"]["template"]["image_source"] == "manual_upload"
+    assert "template" not in new_rows[1]["payload"]

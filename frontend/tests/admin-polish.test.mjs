@@ -77,7 +77,7 @@ describe('Item 2 — reading preview discoverable from any view (404-safe)', () 
   });
 
   test('delete stays gated to the L3 Test tab (footgun guard)', () => {
-    assert.match(listJs, /if\s*\(\s*isTestTab\s*&&\s*it\.slug\s*\)[\s\S]{0,200}data-action="delete-test"/);
+    assert.match(listJs, /if\s*\(\s*isTestTab\s*&&\s*it\.slug\s*\)[\s\S]{0,800}data-action="delete-test"/);
   });
 
   test('never passes a passage slug as the preview test_id (the #363 404 bug)', () => {

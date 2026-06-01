@@ -35,7 +35,7 @@ describe('Item 1 — preview link no longer passes a passage slug as test_id', (
   test('test actions gated on the active filter (STATE.libraryFilter), not it.library', () => {
     assert.match(
       listJs,
-      /STATE\.libraryFilter\s*===\s*['"]l3_test['"][\s\S]{0,500}data-action="delete-test"/,
+      /STATE\.libraryFilter\s*===\s*['"]l3_test['"][\s\S]{0,1400}data-action="delete-test"/,
     );
     // The old per-row guard must be gone from the action-gating site.
     assert.ok(

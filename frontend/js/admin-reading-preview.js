@@ -158,6 +158,12 @@
   // the test so the signed image preview refreshes.
   var DIAGRAM_TYPES = { diagram_label_completion: 1, flow_chart_completion: 1 };
 
+  // l3-edit-delete-block-images — the diagram/flow image belongs to the
+  // question BLOCK (a run of consecutive same-type questions), not each
+  // question: the first Q of the run owns it and the student renders it ONCE
+  // for the whole run. So the upload/delete control belongs on the run's LEAD
+  // question only. `role` is {lead:true} on the lead, {lead:false, leadQNum}
+  // on a member, or null for non-diagram questions.
   function renderDiagramControls(q) {
     if (!DIAGRAM_TYPES[q.question_type] || !q.id) return '';
     var hasImg = !!(q.payload && q.payload.image_url);
@@ -165,7 +171,7 @@
         'data-q-id="' + escapeHtml(q.id) + '" data-q-num="' + escapeHtml(q.q_num) + '">' +
       '<input type="file" accept="image/png,image/jpeg,image/webp" data-action="upload" hidden />' +
       '<button type="button" class="ar-row-action" data-action="upload-trigger">' +
-        (hasImg ? 'Thay ảnh' : 'Upload ảnh') +
+        (hasImg ? 'Thay ảnh sơ đồ' : 'Upload ảnh sơ đồ') +
       '</button>' +
       (hasImg
         ? '<button type="button" class="ar-row-action is-danger" data-action="delete">Xoá ảnh</button>'
@@ -174,7 +180,19 @@
     '</div>';
   }
 
-  function renderQuestion(q) {
+  function renderDiagramBlock(q, role) {
+    if (!role) return '';                      // not a diagram/flow question
+    if (role.lead) {
+      // The lead carries the (shared) image preview + the ONE upload control.
+      return renderImagePreview(q) + renderDiagramControls(q);
+    }
+    // A non-lead member of the run: no control — the image is shared from the
+    // lead. A small note tells the admin where to manage it.
+    return '<div class="ar-diagram-card__shared">↳ Dùng chung ảnh sơ đồ với Q' +
+      escapeHtml(role.leadQNum) + ' (quản lý ảnh ở Q' + escapeHtml(role.leadQNum) + ').</div>';
+  }
+
+  function renderQuestion(q, diagramRole) {
     var typeLabel = QTYPE_LABEL[q.question_type] || q.question_type;
     return '<article class="ar-preview-q" data-q="' + escapeHtml(q.q_num) + '">' +
       '<header class="ar-preview-q__head">' +
@@ -186,8 +204,7 @@
       '<p class="ar-preview-q__prompt">' + escapeHtml(q.prompt || '') + '</p>' +
       renderTemplate(q) +
       renderOptions(q) +
-      renderImagePreview(q) +
-      renderDiagramControls(q) +
+      renderDiagramBlock(q, diagramRole) +
       '<dl class="ar-preview-q__keys">' +
         '<dt>Đáp án</dt><dd>' + renderAnswer(q) + '</dd>' +
         '<dt>Đáp án thay thế</dt><dd>' + renderAlternatives(q) + '</dd>' +
@@ -196,6 +213,27 @@
           : '') +
       '</dl>' +
     '</article>';
+  }
+
+  // Render a passage's questions, detecting diagram/flow RUNS (consecutive
+  // same-type) the same way the student renderer does (reading-exam.js
+  // _consecutiveTypeRuns), so the image control shows once per run on the
+  // lead question. l3-edit-delete-block-images.
+  function renderQuestionsForPassage(qs) {
+    var out = [];
+    var leadQNum = null;
+    for (var i = 0; i < qs.length; i++) {
+      var q = qs[i];
+      var isDiagram = !!DIAGRAM_TYPES[q.question_type];
+      var role = null;
+      if (isDiagram) {
+        var sameAsPrev = i > 0 && qs[i - 1].question_type === q.question_type;
+        if (!sameAsPrev) { leadQNum = q.q_num; role = { lead: true }; }
+        else { role = { lead: false, leadQNum: leadQNum }; }
+      }
+      out.push(renderQuestion(q, role));
+    }
+    return out.join('');
   }
 
   function renderPassageBody(md) {
@@ -247,7 +285,7 @@
         '</header>' +
         '<div class="ar-preview-passage__body md-body">' + renderPassageBody(p.body_markdown) + '</div>' +
         '<div class="ar-preview-passage__qs">' +
-          qs.map(renderQuestion).join('') +
+          renderQuestionsForPassage(qs) +
         '</div>' +
       '</section>';
     }).join('');
