@@ -65,6 +65,33 @@
         <p id="ar-filename" class="ar-dropzone__filename" hidden></p>
       </div>
 
+      <!-- bundle-import-ui — full-test prose import (đề + giải) → /import-bundle.
+           The prose format has no YAML frontmatter, so it can't go through the
+           single-file dropzone above; the answer keys live in the GIẢI file, so
+           BOTH files are required. -->
+      <div class="ar-bundle">
+        <h3 class="ar-bundle__title">Hoặc: Import full test (đề + giải)</h3>
+        <p class="ar-bundle__hint">
+          Định dạng prose 2 file (như <code>IELTS_Reading_Test_06.md</code>):
+          tải lên <strong>file đề</strong> + <strong>file giải/đáp án</strong>.
+          Đáp án + giải chi tiết + bản dịch nằm trong file giải.
+        </p>
+        <div class="ar-bundle__inputs">
+          <label class="ar-btn ar-btn--secondary">
+            Chọn file ĐỀ (.md)
+            <input id="ar-bundle-test" type="file" accept=".md,.markdown,text/markdown" hidden />
+          </label>
+          <span id="ar-bundle-test-name" class="ar-bundle__name" aria-live="polite"></span>
+        </div>
+        <div class="ar-bundle__inputs">
+          <label class="ar-btn ar-btn--secondary">
+            Chọn file GIẢI (.md)
+            <input id="ar-bundle-solution" type="file" accept=".md,.markdown,text/markdown" hidden />
+          </label>
+          <span id="ar-bundle-solution-name" class="ar-bundle__name" aria-live="polite"></span>
+        </div>
+      </div>
+
       <div id="ar-status" class="ar-status" hidden></div>
 
       <div id="ar-preview" class="ar-preview" hidden>

@@ -207,3 +207,9 @@ def test_import_bundle_dry_run_validates_without_db():
     assert body["parsed_data"]["test_id"] == "TEST_06"
     assert body["parsed_data"]["total_questions"] == 40
     mock_db.table.return_value.insert.assert_not_called()
+    # bundle-import-ui — the dry-run surfaces what the prose parse extracted so
+    # the admin UI can confirm fidelity before committing.
+    summary = body["bundle_summary"]
+    assert summary["passages_with_translation"] == 3
+    assert summary["img_prompt_blocks"] == 1
+    assert summary["questions_with_solution"] == 40
