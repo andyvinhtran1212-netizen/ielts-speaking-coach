@@ -49,16 +49,22 @@
       <div class="rr-state rr-state--error" id="state-error" hidden></div>
 
       <div id="rr-content" hidden>
-        <!-- Summary hero: band + score + time -->
+        <!-- Summary: band + score + by-part -->
         <header class="rr-summary" id="rr-summary"></header>
 
         <!-- Skill breakdown: where the learner is strong / weak -->
         <section class="rr-skills" id="rr-skills" aria-label="Phân bố kỹ năng"></section>
 
-        <!-- Part tabs -->
-        <nav class="rr-parts" id="rr-parts" role="tablist" aria-label="Chọn phần"></nav>
+        <!-- Toolbar: part tabs (left) + passage original/translation toggle (right) -->
+        <div class="rr-toolbar">
+          <nav class="rr-parts" id="rr-parts" role="tablist" aria-label="Chọn phần"></nav>
+          <div class="rr-passage-toggle" role="group" aria-label="Hiển thị đoạn văn">
+            <button type="button" class="rr-passage-toggle__btn is-active" id="rr-mode-original" aria-pressed="true">Văn bản gốc</button>
+            <button type="button" class="rr-passage-toggle__btn" id="rr-mode-translation" aria-pressed="false">Bài dịch</button>
+          </div>
+        </div>
 
-        <!-- 2-pane: passage reference | per-question solution review -->
+        <!-- 2-pane (mirrors the test view): passage | annotated question cards -->
         <div class="rr-layout">
           <article class="rr-passage" id="rr-passage" aria-label="Đoạn văn"></article>
           <section class="rr-review" id="rr-review" aria-label="Chữa từng câu"></section>
