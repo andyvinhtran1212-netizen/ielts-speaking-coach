@@ -307,6 +307,43 @@ async def import_reading_content(
     return result
 
 
+@router.post("/import-bundle")
+async def import_reading_test_bundle(
+    test_file: UploadFile = File(...),
+    solution_file: UploadFile = File(...),
+    dry_run: bool = Query(default=True),
+    published: bool = Query(default=False),
+    authorization: str | None = Header(None),
+):
+    """reading-rich-test-solution (Part A) — import a TEST + SOLUTION markdown
+    PAIR (the human-readable prose format). The answer keys live ONLY in the
+    solution file, so both are required: the prose parser merges them into a
+    ParsedReadingTest and commits through the SAME idempotent L3 path as the
+    YAML import (_commit_l3_parsed). Rich per-Q solution → payload.solution; VI
+    translation + extracted IMG-PROMPT blocks → reading_passages.metadata.
+
+    dry_run=true (default) parses + validates without touching the DB."""
+    admin = await require_admin(authorization)
+    from services.reading_prose_import import build_parsed_reading_test_from_prose
+
+    test_text = (await test_file.read()).decode("utf-8", errors="replace")
+    sol_text = (await solution_file.read()).decode("utf-8", errors="replace")
+    try:
+        parsed = build_parsed_reading_test_from_prose(
+            test_text, sol_text, published=published,
+        )
+    except Exception as exc:                                     # noqa: BLE001
+        logger.error("prose-bundle parse failed: %s", exc)
+        return {
+            "parsed_data":       None,
+            "validation_errors": [{"field": "bundle", "message": f"Parse lỗi: {exc}"}],
+            "dry_run":           dry_run,
+            "committed_id":      None,
+            "action":            None,
+        }
+    return await _commit_l3_parsed(parsed, dry_run, admin)
+
+
 # ── Sprint 20.5 — L3 full-test import handler ─────────────────────────
 
 
@@ -374,7 +411,14 @@ async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
     reading_content_format_v2.md §10 (quirk #8) and §11/P1-4; an admin
     re-import keys by test_id + slug + the new reconciliation step, so a
     second commit converges the state."""
-    parsed = parse_reading_test(text)
+    return await _commit_l3_parsed(parse_reading_test(text), dry_run, admin)
+
+
+async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict) -> dict:
+    """Commit a pre-parsed ParsedReadingTest. Shared by the strict-YAML import
+    (_import_l3_full_test) and the reading-rich-test-solution prose-bundle
+    import, so both go through the SAME idempotent test_id/slug upsert +
+    image-preserving question replace."""
     errors = validate_reading_test(parsed)
     result = {
         "parsed_data":       parsed.as_preview(),

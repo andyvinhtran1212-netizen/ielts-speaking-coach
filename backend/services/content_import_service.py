@@ -524,6 +524,11 @@ def build_reading_question_payloads(questions: list, passage_id: str) -> list[di
             payload["options"] = q["options"]
         if isinstance(q.get("template"), dict):
             payload["template"] = q["template"]
+        # reading-rich-test-solution — the detailed "chữa bài" solution rides
+        # payload.solution (Pattern #15; no schema change). Shape: {band, steps,
+        # source_excerpt, vocab, paraphrase, trap_analysis, tips, skill_code}.
+        if isinstance(q.get("solution"), dict) and q["solution"]:
+            payload["solution"] = q["solution"]
         alternatives = q.get("alternatives")
         rows.append({
             "passage_id":    passage_id,
@@ -807,7 +812,7 @@ def build_reading_test_payloads(p: ParsedReadingTest) -> dict:
     passage_questions: list[tuple] = []
     for pas in p.passages:
         slug = _as_str(pas.get("slug"))
-        passage_rows.append({
+        prow = {
             "library":          "l3_test",
             "slug":             slug,
             "title":            _as_str(pas.get("title")),
@@ -817,7 +822,17 @@ def build_reading_test_payloads(p: ParsedReadingTest) -> dict:
             "estimated_minutes": _as_opt_int(pas.get("estimated_minutes")),
             "topic_tags":       _as_str_list(pas.get("topic_tags")),
             "status":           "published" if p.published else "draft",
-        })
+        }
+        # reading-rich-test-solution — passage translation + extracted IMG-PROMPT
+        # blocks ride reading_passages.metadata JSONB (Pattern #15, like #372).
+        meta: dict = {}
+        if _as_str(pas.get("translation_vi")):
+            meta["translation_vi"] = pas.get("translation_vi")
+        if isinstance(pas.get("img_prompts"), list) and pas["img_prompts"]:
+            meta["img_prompts"] = pas["img_prompts"]
+        if meta:
+            prow["metadata"] = meta
+        passage_rows.append(prow)
         # Build per-question payloads WITHOUT passage_id (router fills it).
         qs = pas.get("questions") or []
         q_rows_partial = build_reading_question_payloads(qs, passage_id="__placeholder__")
