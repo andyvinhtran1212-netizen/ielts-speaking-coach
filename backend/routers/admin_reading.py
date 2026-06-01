@@ -341,7 +341,20 @@ async def import_reading_test_bundle(
             "committed_id":      None,
             "action":            None,
         }
-    return await _commit_l3_parsed(parsed, dry_run, admin)
+    result = await _commit_l3_parsed(parsed, dry_run, admin)
+    # bundle-import-ui — surface what the prose parse extracted so the admin
+    # dry-run preview can confirm fidelity (translation + IMG-PROMPT + rich
+    # solution aren't in the generic as_preview()).
+    result["bundle_summary"] = {
+        "passages_with_translation": sum(
+            1 for p in parsed.passages if p.get("translation_vi")),
+        "img_prompt_blocks": sum(
+            len(p.get("img_prompts") or []) for p in parsed.passages),
+        "questions_with_solution": sum(
+            1 for p in parsed.passages for q in (p.get("questions") or [])
+            if q.get("solution")),
+    }
+    return result
 
 
 # ── Sprint 20.5 — L3 full-test import handler ─────────────────────────

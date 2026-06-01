@@ -55,6 +55,25 @@
   color: var(--av-text-secondary);
 }
 
+/* bundle-import-ui — full-test prose import (đề + giải) → /import-bundle. */
+.ar-bundle {
+  margin-top: var(--av-space-4);
+  padding: var(--av-space-4);
+  border: 1px dashed var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+}
+.ar-bundle__title { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-2); }
+.ar-bundle__hint { font-size: var(--av-fs-xs); color: var(--av-text-secondary); margin: 0 0 var(--av-space-3); }
+.ar-bundle__inputs {
+  display: flex; align-items: center; gap: var(--av-space-3);
+  margin-top: var(--av-space-2); flex-wrap: wrap;
+}
+.ar-bundle__name {
+  font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+  color: var(--av-text-secondary);
+}
+
 .ar-btn {
   display: inline-block; cursor: pointer;
   padding: var(--av-space-2) var(--av-space-4);

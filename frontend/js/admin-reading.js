@@ -16,7 +16,9 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
-  var STATE = { file: null, libraryFilter: '' };
+  // mode: 'single' (YAML/L1/L2/L3 one-file) | 'bundle' (prose đề+giải) — set
+  // when a preview is run; runCommit routes to the matching endpoint.
+  var STATE = { file: null, testFile: null, solutionFile: null, mode: 'single', libraryFilter: '' };
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -45,6 +47,7 @@
       setStatus('Chỉ chấp nhận file .md / .markdown.', 'error');
       return;
     }
+    STATE.mode = 'single';
     STATE.file = file;
     $('ar-filename').textContent = file.name;
     $('ar-filename').hidden = false;
@@ -53,11 +56,77 @@
 
   function resetImport() {
     STATE.file = null;
+    STATE.testFile = null;
+    STATE.solutionFile = null;
+    STATE.mode = 'single';
     $('ar-file').value = '';
     $('ar-filename').hidden = true;
+    if ($('ar-bundle-test')) $('ar-bundle-test').value = '';
+    if ($('ar-bundle-solution')) $('ar-bundle-solution').value = '';
+    if ($('ar-bundle-test-name')) $('ar-bundle-test-name').textContent = '';
+    if ($('ar-bundle-solution-name')) $('ar-bundle-solution-name').textContent = '';
     $('ar-preview').hidden = true;
     $('ar-commit').disabled = true;
     setStatus('', null);
+  }
+
+  // ── Bundle (prose đề+giải) import — bundle-import-ui ───────────────────
+  // The prose format has no YAML frontmatter (the single-file dropzone would
+  // reject it), and the answer keys live in the GIẢI file — so the test + the
+  // solution must be uploaded TOGETHER to POST /import-bundle. Reuses the same
+  // dry-run → preview → commit panel as the single-file flow.
+  function pickBundleFile(which, file) {
+    var name = (file && file.name) || '';
+    if (!file || !/\.(md|markdown)$/i.test(name)) {
+      setStatus('Chỉ chấp nhận file .md / .markdown.', 'error');
+      return;
+    }
+    if (which === 'test') { STATE.testFile = file; $('ar-bundle-test-name').textContent = name; }
+    else { STATE.solutionFile = file; $('ar-bundle-solution-name').textContent = name; }
+
+    if (STATE.testFile && STATE.solutionFile) {
+      runBundlePreview();
+    } else {
+      // Helpful nudge — NOT the raw YAML-frontmatter error.
+      var need = STATE.testFile ? 'GIẢI/đáp án' : 'ĐỀ thi';
+      setStatus('Đã chọn 1 file. Chọn thêm file ' + need + ' (.md) để xem trước.', 'info');
+    }
+  }
+
+  function _bundleFormData() {
+    var fd = new FormData();
+    fd.append('test_file', STATE.testFile);
+    fd.append('solution_file', STATE.solutionFile);
+    return fd;
+  }
+
+  function runBundlePreview() {
+    if (!STATE.testFile || !STATE.solutionFile) return;
+    STATE.mode = 'bundle';
+    setStatus('Đang phân tích đề + giải…', 'loading');
+    window.api.upload('/admin/reading/content/import-bundle?dry_run=true', _bundleFormData())
+      .then(renderPreview)
+      .catch(function (e) { setStatus('Preview lỗi: ' + (e && e.message || ''), 'error'); });
+  }
+
+  function runBundleCommit() {
+    if (!STATE.testFile || !STATE.solutionFile) return;
+    $('ar-commit').disabled = true;
+    setStatus('Đang lưu full test…', 'loading');
+    // published=true: the prose format carries no `published` field, and the
+    // admin clicking "Lưu" intends the test to go live (gradeable after import).
+    window.api.upload('/admin/reading/content/import-bundle?dry_run=false&published=true', _bundleFormData())
+      .then(function (res) {
+        if (res && res.validation_errors && res.validation_errors.length) {
+          renderPreview(res); // re-show errors
+          return;
+        }
+        setStatus('✓ Đã lưu full test (' + (res && res.action) + ', id=' +
+                  (res && res.committed_id) + ').', 'success');
+        resetImport();
+        loadList();
+      })
+      .catch(function (e) { setStatus('Lưu lỗi: ' + (e && e.message || ''), 'error'); });
   }
 
   function runPreview() {
@@ -71,6 +140,7 @@
   }
 
   function runCommit() {
+    if (STATE.mode === 'bundle') { runBundleCommit(); return; }
     if (!STATE.file) return;
     $('ar-commit').disabled = true;
     setStatus('Đang lưu…', 'loading');
@@ -144,6 +214,14 @@
           ['questions',        d.question_count || 0],
           ['published',        d.published ? 'true' : 'false'],
         ];
+    // bundle-import-ui — what the prose parse extracted (đề+giải dry-run), so
+    // the admin can confirm fidelity before committing.
+    var bs = res && res.bundle_summary;
+    if (bs) {
+      rows.push(['bản dịch (passage)', bs.passages_with_translation]);
+      rows.push(['IMG-PROMPT (cụm)',   bs.img_prompt_blocks]);
+      rows.push(['giải chi tiết (câu)', bs.questions_with_solution]);
+    }
     kv.innerHTML = rows.map(function (r) {
       var v = r[1] == null || r[1] === '' ? '<span class="ar-kv__empty">—</span>' : escapeHtml(String(r[1]));
       return '<tr><th>' + escapeHtml(r[0]) + '</th><td>' + v + '</td></tr>';
@@ -449,6 +527,16 @@
     dz.addEventListener('drop', function (e) {
       e.preventDefault(); dz.classList.remove('is-drag');
       if (e.dataTransfer.files && e.dataTransfer.files[0]) pickFile(e.dataTransfer.files[0]);
+    });
+
+    // bundle-import-ui — đề + giải file inputs.
+    var bt = $('ar-bundle-test');
+    var bs = $('ar-bundle-solution');
+    if (bt) bt.addEventListener('change', function (e) {
+      if (e.target.files && e.target.files[0]) pickBundleFile('test', e.target.files[0]);
+    });
+    if (bs) bs.addEventListener('change', function (e) {
+      if (e.target.files && e.target.files[0]) pickBundleFile('solution', e.target.files[0]);
     });
 
     $('ar-reset').addEventListener('click', resetImport);

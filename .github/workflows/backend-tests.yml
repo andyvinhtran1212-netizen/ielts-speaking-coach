@@ -161,4 +161,5 @@ jobs:
             frontend/tests/reading-translation-vi.test.mjs \
             frontend/tests/admin-reading-l1-l2-actions.test.mjs \
             frontend/tests/l3-edit-delete-block-images.test.mjs \
-            frontend/tests/l3-action-consistency.test.mjs
+            frontend/tests/l3-action-consistency.test.mjs \
+            frontend/tests/bundle-import-ui.test.mjs
