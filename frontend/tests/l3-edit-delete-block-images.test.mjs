@@ -58,25 +58,26 @@ describe('A — L3 edit action (re-import by test_id)', () => {
 
 describe('B — block-level image upload UX (admin preview)', () => {
   test('one control per run: renderDiagramBlock gates the control to the lead', () => {
-    assert.match(previewJs, /function renderDiagramBlock\(q, role\)/);
+    // (Part B extended the signature with imgPrompt — additive.)
+    assert.match(previewJs, /function renderDiagramBlock\(q, role, imgPrompt\)/);
     // lead → image preview + the upload control; non-lead → shared note only
-    assert.match(previewJs, /role\.lead[\s\S]{0,160}renderImagePreview\(q\) \+ renderDiagramControls\(q\)/);
+    assert.match(previewJs, /role\.lead[\s\S]{0,400}renderImagePreview\(q\) \+ renderDiagramControls\(q\)/);
     assert.match(previewJs, /Dùng chung ảnh sơ đồ với Q/);
   });
 
   test('runs detected like the student renderer (consecutive same-type)', () => {
-    assert.match(previewJs, /function renderQuestionsForPassage\(qs\)/);
+    assert.match(previewJs, /function renderQuestionsForPassage\(qs, imgPrompts\)/);
     assert.match(previewJs, /qs\[i - 1\]\.question_type === q\.question_type/);
     // the per-passage render goes through the run-aware function, not a bare map
-    assert.match(previewJs, /renderQuestionsForPassage\(qs\)/);
+    assert.match(previewJs, /renderQuestionsForPassage\(qs, p\.img_prompts\)/);
     assert.ok(!/qs\.map\(renderQuestion\)/.test(previewJs),
       'questions must render via the run-aware renderer, not a per-Q map');
   });
 
   test('renderQuestion no longer unconditionally calls the per-Q control', () => {
-    // It now takes a diagramRole and delegates to renderDiagramBlock.
-    assert.match(previewJs, /function renderQuestion\(q, diagramRole\)/);
-    assert.match(previewJs, /renderDiagramBlock\(q, diagramRole\)/);
+    // It takes a diagramRole (+ imgPrompt, Part B) and delegates to renderDiagramBlock.
+    assert.match(previewJs, /function renderQuestion\(q, diagramRole, imgPrompt\)/);
+    assert.match(previewJs, /renderDiagramBlock\(q, diagramRole, imgPrompt\)/);
   });
 });
 

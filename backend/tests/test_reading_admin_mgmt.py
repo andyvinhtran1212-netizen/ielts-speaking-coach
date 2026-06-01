@@ -145,6 +145,48 @@ def test_admin_preview_returns_test_with_answer_keys():
     assert qs[0]["passage_order"] == 1
 
 
+def test_admin_preview_surfaces_img_prompts_from_metadata():
+    """reading-rich Part B — the admin preview must surface the extracted
+    IMG-PROMPT blocks (Part A stored them in passage metadata) as a clean
+    top-level img_prompts field, dropping the raw metadata blob."""
+    passages = [
+        {"id": "p-1", "slug": "p1", "title": "P1", "body_markdown": "...",
+         "passage_order": 1, "word_count": 100, "estimated_minutes": 2,
+         "topic_tags": [], "status": "published",
+         "metadata": {"translation_vi": "…", "img_prompts": [
+             {"id": "TEST_06_P1_Q1-6", "type": "diagram", "qrange": "1-6",
+              "prompt": "STYLE: clean line-art …"}]}},
+        # passage with no img prompts → graceful empty list
+        {"id": "p-2", "slug": "p2", "title": "P2", "body_markdown": "...",
+         "passage_order": 2, "word_count": 100, "estimated_minutes": 2,
+         "topic_tags": [], "status": "published", "metadata": {}},
+    ]
+
+    def table_router(name):
+        if name == "reading_tests":      return _mk_test_select_chain(_TEST_ROW)
+        if name == "reading_passages":   return _mk_passages_select_chain(passages)
+        if name == "reading_questions":  return _mk_questions_select_chain([])
+        return MagicMock()
+
+    with patch("routers.admin_reading.require_admin") as req_admin, \
+         patch("routers.admin_reading.supabase_admin") as supa, \
+         patch("routers.reading_student.supabase_admin"):
+        async def _ok(_): return _ADMIN_USER
+        req_admin.side_effect = _ok
+        supa.table.side_effect = table_router
+        resp = _client().get(
+            "/admin/reading/content/tests/AVR-READ-001", headers=_ADMIN_AUTH,
+        )
+
+    assert resp.status_code == 200
+    p1, p2 = resp.json()["passages"]
+    assert p1["img_prompts"][0]["id"] == "TEST_06_P1_Q1-6"
+    assert p1["img_prompts"][0]["qrange"] == "1-6"
+    assert p2["img_prompts"] == []                  # graceful: no prompts
+    # the raw metadata blob is NOT leaked to the client
+    assert "metadata" not in p1 and "metadata" not in p2
+
+
 def test_admin_preview_404_on_missing_test():
     with patch("routers.admin_reading.require_admin") as req_admin, \
          patch("routers.admin_reading.supabase_admin") as supa:

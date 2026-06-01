@@ -180,11 +180,44 @@
     '</div>';
   }
 
-  function renderDiagramBlock(q, role) {
+  // reading-rich Part B — the lower bound of a "1-6" / "33–37" qrange (en-dash
+  // or hyphen), used to match an extracted IMG-PROMPT to its diagram run's lead.
+  function _qrangeLow(qrange) {
+    var m = /(\d+)/.exec(String(qrange || ''));
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function _promptForLead(imgPrompts, leadQNum) {
+    return (imgPrompts || []).filter(function (ip) {
+      return _qrangeLow(ip && ip.qrange) === leadQNum;
+    })[0] || null;
+  }
+
+  // reading-rich Part B — the extracted IMG-PROMPT, shown next to the block's
+  // #374 upload control on the run's lead Q. Collapsible (the prompt is long) +
+  // a copy button so the admin copies it → generates the diagram externally →
+  // uploads via #374. Manual workflow; no auto-gen. XSS-safe (escapeHtml; the
+  // copy handler reads the <pre>'s textContent → original chars).
+  function renderImgPrompt(ip) {
+    if (!ip || !ip.prompt) return '';
+    var meta = [ip.id, ip.type, ip.qrange ? ('Q' + ip.qrange) : '']
+      .filter(Boolean).map(escapeHtml).join(' · ');
+    return '<details class="ar-imgprompt">' +
+      '<summary class="ar-imgprompt__summary">🎨 Prompt tạo ảnh sơ đồ (copy để generate ngoài rồi upload)</summary>' +
+      '<div class="ar-imgprompt__bar">' +
+        '<code class="ar-imgprompt__id">' + meta + '</code>' +
+        '<button type="button" class="ar-row-action" data-action="copy-prompt">Copy prompt</button>' +
+        '<span class="ar-imgprompt__status" aria-live="polite"></span>' +
+      '</div>' +
+      '<pre class="ar-imgprompt__text">' + escapeHtml(ip.prompt) + '</pre>' +
+    '</details>';
+  }
+
+  function renderDiagramBlock(q, role, imgPrompt) {
     if (!role) return '';                      // not a diagram/flow question
     if (role.lead) {
-      // The lead carries the (shared) image preview + the ONE upload control.
-      return renderImagePreview(q) + renderDiagramControls(q);
+      // The lead carries the (shared) image preview + the ONE upload control +
+      // (when present) the extracted IMG-PROMPT for the copy→generate workflow.
+      return renderImagePreview(q) + renderDiagramControls(q) + renderImgPrompt(imgPrompt);
     }
     // A non-lead member of the run: no control — the image is shared from the
     // lead. A small note tells the admin where to manage it.
@@ -192,7 +225,7 @@
       escapeHtml(role.leadQNum) + ' (quản lý ảnh ở Q' + escapeHtml(role.leadQNum) + ').</div>';
   }
 
-  function renderQuestion(q, diagramRole) {
+  function renderQuestion(q, diagramRole, imgPrompt) {
     var typeLabel = QTYPE_LABEL[q.question_type] || q.question_type;
     return '<article class="ar-preview-q" data-q="' + escapeHtml(q.q_num) + '">' +
       '<header class="ar-preview-q__head">' +
@@ -204,7 +237,7 @@
       '<p class="ar-preview-q__prompt">' + escapeHtml(q.prompt || '') + '</p>' +
       renderTemplate(q) +
       renderOptions(q) +
-      renderDiagramBlock(q, diagramRole) +
+      renderDiagramBlock(q, diagramRole, imgPrompt) +
       '<dl class="ar-preview-q__keys">' +
         '<dt>Đáp án</dt><dd>' + renderAnswer(q) + '</dd>' +
         '<dt>Đáp án thay thế</dt><dd>' + renderAlternatives(q) + '</dd>' +
@@ -219,19 +252,23 @@
   // same-type) the same way the student renderer does (reading-exam.js
   // _consecutiveTypeRuns), so the image control shows once per run on the
   // lead question. l3-edit-delete-block-images.
-  function renderQuestionsForPassage(qs) {
+  function renderQuestionsForPassage(qs, imgPrompts) {
     var out = [];
     var leadQNum = null;
     for (var i = 0; i < qs.length; i++) {
       var q = qs[i];
       var isDiagram = !!DIAGRAM_TYPES[q.question_type];
       var role = null;
+      var imgPrompt = null;
       if (isDiagram) {
         var sameAsPrev = i > 0 && qs[i - 1].question_type === q.question_type;
-        if (!sameAsPrev) { leadQNum = q.q_num; role = { lead: true }; }
-        else { role = { lead: false, leadQNum: leadQNum }; }
+        if (!sameAsPrev) {
+          leadQNum = q.q_num; role = { lead: true };
+          // match the extracted IMG-PROMPT to this run's lead (Part B)
+          imgPrompt = _promptForLead(imgPrompts, leadQNum);
+        } else { role = { lead: false, leadQNum: leadQNum }; }
       }
-      out.push(renderQuestion(q, role));
+      out.push(renderQuestion(q, role, imgPrompt));
     }
     return out.join('');
   }
@@ -285,7 +322,7 @@
         '</header>' +
         '<div class="ar-preview-passage__body md-body">' + renderPassageBody(p.body_markdown) + '</div>' +
         '<div class="ar-preview-passage__qs">' +
-          renderQuestionsForPassage(qs) +
+          renderQuestionsForPassage(qs, p.img_prompts) +
         '</div>' +
       '</section>';
     }).join('');
@@ -334,6 +371,23 @@
       if (trigger) {
         var ctrl = ctrlOf(trigger);
         if (ctrl) ctrl.querySelector('input[data-action="upload"]').click();
+        return;
+      }
+      // reading-rich Part B — copy the IMG-PROMPT to the clipboard. The raw
+      // text is the <pre>'s textContent (escapeHtml round-trips back to the
+      // original chars), so the admin can paste it straight into a gen tool.
+      var copyBtn = e.target.closest('[data-action="copy-prompt"]');
+      if (copyBtn) {
+        var box = copyBtn.closest('.ar-imgprompt');
+        var pre = box && box.querySelector('.ar-imgprompt__text');
+        var note = box && box.querySelector('.ar-imgprompt__status');
+        var text = pre ? pre.textContent : '';
+        var done = function (ok) { if (note) note.textContent = ok ? '✓ Đã copy' : 'Copy lỗi — chọn + Ctrl/Cmd-C'; };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        } else {
+          done(false);
+        }
         return;
       }
       var del = e.target.closest('[data-action="delete"]');
