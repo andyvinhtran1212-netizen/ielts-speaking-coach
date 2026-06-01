@@ -275,6 +275,25 @@
             'data-action="delete-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
             'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>';
       }
+      // admin-reading-l1-l2-actions — standalone L1 vocab / L2 skill passages
+      // get preview/edit/delete. STRICTLY slug-based, never test_id, so the
+      // #363 404-safety separation holds (L3 = test_id path above; L1/L2 =
+      // slug path here). Preview reuses the student page; edit = re-import;
+      // delete = hard delete (L1/L2 have no attempts to protect).
+      if ((it.library === 'l1_vocab' || it.library === 'l2_skill') && it.slug) {
+        var passagePage = it.library === 'l1_vocab'
+          ? 'reading-vocab-passage' : 'reading-skill-exercise';
+        actions +=
+          '<a class="ar-row-action" target="_blank" rel="noopener" ' +
+            'href="/pages/' + passagePage + '.html?slug=' +
+            encodeURIComponent(it.slug) + '">Xem trước</a>' +
+          ' <button type="button" class="ar-row-action" ' +
+            'data-action="edit-passage" data-slug="' + escapeHtml(it.slug) + '" ' +
+            'data-title="' + escapeHtml(it.title || '') + '">Sửa</button>' +
+          ' <button type="button" class="ar-row-action is-danger" ' +
+            'data-action="delete-passage" data-slug="' + escapeHtml(it.slug) + '" ' +
+            'data-title="' + escapeHtml(it.title || '') + '">Xoá</button>';
+      }
       return '<tr>' +
         '<td>' + escapeHtml(it.title || '') + '</td>' +
         '<td><code>' + escapeHtml(it.slug || '') + '</code></td>' +
@@ -294,8 +313,15 @@
   // The handler is wired ONCE via event delegation on the table body
   // so re-renders don't accumulate listeners.
   function handleListClick(ev) {
-    var btn = ev.target && ev.target.closest && ev.target.closest('button[data-action="delete-test"]');
+    var btn = ev.target && ev.target.closest && ev.target.closest('button[data-action]');
     if (!btn) return;
+    var action = btn.getAttribute('data-action');
+    if (action === 'delete-test')   return handleDeleteTest(btn);
+    if (action === 'edit-passage')  return handleEditPassage(btn);
+    if (action === 'delete-passage') return handleDeletePassage(btn);
+  }
+
+  function handleDeleteTest(btn) {
     var testId = btn.getAttribute('data-test-id');
     var testTitle = btn.getAttribute('data-test-title') || testId;
     if (!testId) return;
@@ -330,6 +356,63 @@
         if (status === 404) {
           window.alert('Test ' + testId + ' không tìm thấy (có thể đã bị xoá).');
           loadList();
+        } else if (status === 401 || status === 403) {
+          window.alert('Không có quyền xoá (cần đăng nhập admin).');
+        } else {
+          window.alert('Lỗi xoá: ' + ((e && e.message) || e));
+        }
+      });
+  }
+
+  // admin-reading-l1-l2-actions — "Sửa" for a standalone passage. There is no
+  // inline editor (out of scope): editing = re-import. The import endpoint is
+  // idempotent by slug (UPDATE, created_by preserved), so we reveal the import
+  // panel + a contextual hint naming the slug to re-upload.
+  function handleEditPassage(btn) {
+    var slug = btn.getAttribute('data-slug');
+    var title = btn.getAttribute('data-title') || slug;
+    if (!slug) return;
+    var panel = document.querySelector('.ar-panel');
+    if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setStatus('Để sửa "' + title + '" (slug: ' + slug + '), tải lên lại file .md ' +
+              'của bài này — hệ thống cập nhật theo slug (giữ nguyên người tạo).', 'info');
+    var dz = $('ar-dropzone');
+    if (dz && dz.focus) { try { dz.focus(); } catch (e) {} }
+  }
+
+  // admin-reading-l1-l2-actions — hard delete for L1/L2. No attempt-safety
+  // branch: L1/L2 are ungraded (no attempt rows reference them), so there is
+  // no student data to preserve. Content is recoverable by re-importing the
+  // .md. The server refuses L3 slugs (409) — those go through the test delete.
+  function handleDeletePassage(btn) {
+    var slug = btn.getAttribute('data-slug');
+    var title = btn.getAttribute('data-title') || slug;
+    if (!slug) return;
+    var ok = window.confirm(
+      'Xoá vĩnh viễn bài "' + title + '" (' + slug + ')?\n\n' +
+      'Bài đọc + các câu hỏi của nó sẽ bị xoá khỏi thư viện. L1/L2 là luyện ' +
+      'tập không tính điểm nên không ảnh hưởng dữ liệu học sinh. Có thể khôi ' +
+      'phục bằng cách import lại file .md.',
+    );
+    if (!ok) return;
+    btn.disabled = true;
+    btn.textContent = 'Đang xoá…';
+    window.api['delete'](
+      '/admin/reading/content/passages/' + encodeURIComponent(slug),
+    )
+      .then(function () {
+        window.alert('Đã xoá vĩnh viễn bài "' + title + '".');
+        loadList();
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        btn.textContent = 'Xoá';
+        var status = e && e.status;
+        if (status === 404) {
+          window.alert('Bài ' + slug + ' không tìm thấy (có thể đã bị xoá).');
+          loadList();
+        } else if (status === 409) {
+          window.alert('Bài này thuộc một L3 Full Test — hãy xoá qua tab "L3 Test".');
         } else if (status === 401 || status === 403) {
           window.alert('Không có quyền xoá (cần đăng nhập admin).');
         } else {

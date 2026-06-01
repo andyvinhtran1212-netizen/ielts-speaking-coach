@@ -606,6 +606,64 @@ async def admin_delete_reading_test(
     }
 
 
+@router.delete("/passages/{slug}")
+async def admin_delete_reading_passage(
+    slug: str,
+    authorization: str | None = Header(default=None),
+):
+    """admin-reading-l1-l2-actions — delete a standalone L1/L2 passage by slug.
+
+    L1 vocab + L2 skill are *ungraded* practice: instant per-Q feedback with
+    NO persistence — there is no L1/L2 attempt table (only `reading_test_
+    attempts`, which references L3 tests). So unlike the L3 delete there is no
+    student data to protect, and this is always a HARD delete: it removes the
+    `reading_passages` row and cascades its `reading_questions` via the mig 086
+    `passage_id` FK. Content is recoverable by re-importing the source `.md`.
+
+    L3 passages are NOT deletable here — they belong to a test and must go
+    through ``DELETE /tests/{test_id}`` (attempt-safe). This keeps the
+    reading-admin-preview-fix (#363) separation intact: L3 = test_id path,
+    L1/L2 = slug path, never crossed. An L3 slug → 409 pointing at the right
+    endpoint.
+    """
+    await require_admin(authorization)
+
+    res = (
+        supabase_admin.table("reading_passages")
+        .select("id,library,title")
+        .eq("slug", slug)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Reading passage not found")
+    passage = res.data[0]
+
+    if passage.get("library") not in ("l1_vocab", "l2_skill"):
+        # An L3 passage row — refuse and point at the attempt-safe test delete.
+        raise HTTPException(
+            409,
+            "L3 test passages must be deleted via the test (DELETE "
+            "/admin/reading/content/tests/{test_id}), not by passage slug.",
+        )
+
+    (
+        supabase_admin.table("reading_passages")
+        .delete()
+        .eq("id", passage["id"])
+        .execute()
+    )
+    logger.info(
+        "[admin_reading] hard-delete passage slug=%s library=%s",
+        slug, passage.get("library"),
+    )
+    return {
+        "slug":    slug,
+        "library": passage.get("library"),
+        "action":  "deleted",
+    }
+
+
 # ── Sprint 20.14f-α — Diagram / flow-chart image upload ──────────────
 #
 # Manual image upload for `diagram_label_completion` /

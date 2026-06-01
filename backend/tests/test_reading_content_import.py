@@ -276,3 +276,68 @@ def test_import_commit_existing_slug_updates_without_restamping_author():
     assert r.json()["committed_id"] == "existing-id"
     upd_payload = mock_db.table.return_value.update.call_args[0][0]
     assert "created_by" not in upd_payload
+
+
+# ── Endpoint: L1/L2 passage delete (admin-reading-l1-l2-actions) ──────
+
+
+def _delete_passage(slug: str, headers=None):
+    return _client().delete(
+        "/admin/reading/content/passages/" + slug, headers=headers or {}
+    )
+
+
+def _mock_passage_lookup(mock_db, row):
+    """Stub the slug → {id,library,title} lookup; data=[] means 404."""
+    sel = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+    sel.execute.return_value = MagicMock(data=([row] if row else []))
+
+
+def test_delete_passage_requires_auth():
+    assert _delete_passage("some-slug").status_code == 401
+
+
+def test_delete_passage_404_when_missing():
+    mock_db = MagicMock()
+    _mock_passage_lookup(mock_db, None)
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        r = _delete_passage("ghost-slug", _ADMIN_AUTH)
+    assert r.status_code == 404
+    mock_db.table.return_value.delete.assert_not_called()
+
+
+def test_delete_passage_l1_hard_deletes():
+    mock_db = MagicMock()
+    _mock_passage_lookup(mock_db, {"id": "p-1", "library": "l1_vocab", "title": "Tea"})
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        r = _delete_passage("a-short-history-of-tea", _ADMIN_AUTH)
+    assert r.status_code == 200
+    assert r.json()["action"] == "deleted"
+    assert r.json()["library"] == "l1_vocab"
+    # The delete targets the resolved PK (cascades reading_questions via FK).
+    mock_db.table.return_value.delete.return_value.eq.assert_called_with("id", "p-1")
+
+
+def test_delete_passage_l2_hard_deletes():
+    mock_db = MagicMock()
+    _mock_passage_lookup(mock_db, {"id": "p-2", "library": "l2_skill", "title": "Amazon"})
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        r = _delete_passage("amazon-rainforest", _ADMIN_AUTH)
+    assert r.status_code == 200
+    assert r.json()["action"] == "deleted"
+    assert r.json()["library"] == "l2_skill"
+
+
+def test_delete_passage_refuses_l3_with_409():
+    # An L3 passage row must go through the attempt-safe test delete, NOT the
+    # slug path — keeps the #363 test_id/slug separation intact.
+    mock_db = MagicMock()
+    _mock_passage_lookup(mock_db, {"id": "p-3", "library": "l3_test", "title": "Full Test P1"})
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        r = _delete_passage("some-l3-passage", _ADMIN_AUTH)
+    assert r.status_code == 409
+    mock_db.table.return_value.delete.assert_not_called()
