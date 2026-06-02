@@ -150,7 +150,10 @@ describe('B2 — admin: generate / rotate / revoke link control', () => {
   });
   test('the link is built for the student exam page in share mode', () => {
     assert.match(adminJs, /function _shareUrl\(token\)/);
-    assert.match(adminJs, /pages\/reading-exam\.html'\)\s*\+\s*\n?\s*'\?share=' \+ encodeURIComponent\(token\)/);
+    // reading-sharelink-url-fix — canonical absolute origin + root-absolute path
+    // (no relative api.url(); the well-formed-output assertions live in
+    // reading-sharelink-url-fix.test.mjs).
+    assert.match(adminJs, /_canonicalOrigin\(\)\s*\+\s*'\/pages\/reading-exam\.html\?share=' \+ encodeURIComponent\(token\)/);
   });
   test('the modal warns that generating/rotating kills the old link', () => {
     assert.match(adminJs, /huỷ liên kết cũ ngay lập tức/);
