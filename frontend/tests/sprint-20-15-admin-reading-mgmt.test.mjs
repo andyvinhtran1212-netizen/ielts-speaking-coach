@@ -87,9 +87,11 @@ describe('Sprint 20.15 D2 — per-row delete action', () => {
 
   test('delete handler confirms before firing the DELETE', () => {
     assert.match(js, /function\s+handleListClick\s*\(/);
+    // anchor on the delete handler itself (other handlers — e.g. lock — also
+    // confirm; reading-access-tracking added handleLockTest to the dispatcher).
     assert.match(
       js,
-      /handleListClick[\s\S]{0,800}window\.confirm/,
+      /function\s+handleDeleteTest\s*\([\s\S]{0,400}window\.confirm/,
     );
   });
 

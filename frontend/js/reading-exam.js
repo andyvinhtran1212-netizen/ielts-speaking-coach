@@ -2373,7 +2373,8 @@
   // (mig 088 partial unique index + router retry). So "Start fresh" is
   // simply this same POST — no extra "abandon" endpoint needed.
   function startFreshAttempt() {
-    return window.api.post('/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts')
+    // F1 — carry the locked-test password (if any) so start passes the gate.
+    return window.api.postWith('/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts', null, _pwHeaders())
       .then(function (res) {
         SESSION.attempt_id = res.attempt_id;
         SESSION.started_at = res.started_at;
@@ -2422,11 +2423,35 @@
   document.querySelector('#exam-restart-modal .exam-modal__backdrop')
     .addEventListener('click', function () { closeOverlay($('exam-restart-modal')); });
 
+  // reading-access-tracking F1 — locked-test password gate. The password is
+  // held in sessionStorage (per test_id) and sent as X-Reading-Password on
+  // boot + start; a 403 means locked/wrong → prompt + retry. The gate is
+  // enforced server-side (the bundle is never returned without it).
+  function _pwKey() { return 'reading-pw:' + SESSION.test_id; }
+  function _pwHeaders() {
+    var pw = null;
+    try { pw = sessionStorage.getItem(_pwKey()); } catch (e) {}
+    return pw ? { 'X-Reading-Password': pw } : null;
+  }
+  function _promptPasswordThenRetry() {
+    var pw = window.prompt('🔒 Bài thi này đang khoá. Nhập mật khẩu để vào:');
+    if (pw == null || !pw.trim()) {
+      showError('Bài thi đang khoá — cần mật khẩu đúng để truy cập.');
+      return;
+    }
+    try { sessionStorage.setItem(_pwKey(), pw.trim()); } catch (e) {}
+    _doBoot();
+  }
+
   function boot() {
     var testId = testIdFromUrl();
     if (!testId) { showError('No test specified (use ?test_id=…).'); return; }
     SESSION.test_id = testId;
-    window.api.get('/api/reading/test/' + encodeURIComponent(testId) + '/boot')
+    _doBoot();
+  }
+  function _doBoot() {
+    var testId = SESSION.test_id;
+    window.api.getWith('/api/reading/test/' + encodeURIComponent(testId) + '/boot', _pwHeaders())
       .then(function (bootPayload) {
         var test = bootPayload && bootPayload.test;
         if (!test) throw new Error('Boot payload missing test');
@@ -2459,6 +2484,7 @@
         showState('prestart');
       })
       .catch(function (e) {
+        if (e && e.status === 403) { _promptPasswordThenRetry(); return; }
         if (e && e.status === 404) showError('Test not found or not published.');
         else showError('Failed to load test. ' + (e && e.message ? e.message : ''));
       });

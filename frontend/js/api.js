@@ -29,12 +29,15 @@
     return result.data.session ? result.data.session.access_token : null;
   }
 
-  async function _apiRequest(method, path, body, isFormData) {
+  async function _apiRequest(method, path, body, isFormData, extraHeaders) {
     var token = await _getAuthToken();
     var headers = {};
 
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (!isFormData) headers['Content-Type'] = 'application/json';
+    // reading-access-tracking — optional per-call headers (e.g. the locked-test
+    // X-Reading-Password gate). Merged last so callers can't drop auth.
+    if (extraHeaders) { for (var k in extraHeaders) { if (extraHeaders[k] != null) headers[k] = extraHeaders[k]; } }
 
     var response = await fetch(_API_BASE + path, {
       method: method,
@@ -86,6 +89,9 @@
     patch:  function (path, body)  { return _apiRequest('PATCH',  path, body); },
     delete: function (path)        { return _apiRequest('DELETE', path); },
     upload: function (path, fd)    { return _apiRequest('POST',   path, fd, true); },
+    // reading-access-tracking — GET/POST with extra request headers.
+    getWith:  function (path, hdrs)       { return _apiRequest('GET',  path, null, false, hdrs); },
+    postWith: function (path, body, hdrs) { return _apiRequest('POST', path, body, false, hdrs); },
   };
 
   // Expose only what the page scripts need
