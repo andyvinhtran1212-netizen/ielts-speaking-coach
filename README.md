@@ -18,113 +18,48 @@ SRS flashcards and fill-blank exercises.
 
 ---
 
-## Features shipped
+## What it includes
 
-### Speaking practice (core)
-- IELTS Speaking topic library (Part 1 / 2 / 3) + sample answers.
-- In-browser audio recording with Whisper STT.
-- Claude grading: band scores (Fluency, Lexical, Grammar, Pronunciation),
-  per-criterion feedback, grammar recommendations.
-- Session history + result page; full-test mode with band aggregation.
-- Pronunciation Assessment via Azure Speech.
+A multi-skill IELTS prep platform. Each skill follows the same shape — admin
+authors content, students (or, via shared reading links, anonymous visitors)
+practice, the system grades / auto-scores, students review, and admins see
+analytics.
 
-### Phase B — Personal Vocab Bank
-- AI vocab extractor (Claude Haiku) reads transcripts after grading.
-- Three categories: `used_well`, `needs_review`, `upgrade_suggested`.
-- "My Vocabulary" page with filter, search, archive, and per-row report.
-- Admin monitoring dashboard with FP-rate gate before broader rollout.
-- Default-deny per-user feature flag (`vocab_enabled`).
+- **Speaking** — record → Whisper STT → Claude band grading + per-criterion
+  feedback + grammar recommendations; single-question and full 3-part test;
+  Azure pronunciation.
+- **Writing** — Gemini-graded essays (levels × tiers); instructor grade
+  workflow, prompts, assignments, cohorts.
+- **Listening** — dictation / gist / true-false / MCQ / mini- and full tests
+  with AI-rendered audio.
+- **Reading** — L1 vocab passages + L2 skill exercises (glossary · VI
+  translation · grammar toggle) + L3 full tests (auto-scored, band + skill
+  breakdown, solution review); per-test lock + shareable links + anonymous take.
+- **Vocabulary** — personal bank, SRS flashcards, fill-blank exercises.
+- **Grammar Wiki** — articles, compare pairs, roadmap, search; feeds the
+  speaking grammar recommendations.
+- **Admin + dashboards** — per-skill content authoring, access-code / cohort
+  management, ops + reading-attempts dashboards.
 
-### Phase D Wave 1 — Vocabulary Exercises
-- D1 fill-blank, session-based (10 cards/session).
-- Local grading for instant feedback; backend re-grades for analytics +
-  rate limit (50 D1 attempts/day).
-- Admin tool generates exercises via Gemini with batch chunking; never
-  auto-publishes — every draft passes through manual review (Draft /
-  Published / Rejected filter).
-- End-of-session summary with "Review wrong answers" loop.
-
-### Phase D Wave 2 — Flashcard system + SRS
-- Stack types: 3 auto-stacks (All vocab / Recent / Needs review) +
-  user-curated manual stacks filtered by topic / category / search /
-  added_after.
-- Simplified SM-2 SRS with per-(user, vocabulary) state shared across
-  stacks (review word X in stack A → progress carries into stack B).
-- 4-rating self-grade (Quên / Khó / Tốt / Dễ) + hotkeys 1-4 + Space-flip.
-- Optimistic UI: rating advances immediately, sync runs in background.
-- IPA pronunciation + AI-generated example sentence on the back face
-  (Gemini Flash); the user's transcript stays behind an opt-in
-  "Xem câu gốc" overlay with a grammar-error caveat.
-- Daily-due badge on the dashboard nav.
-- "📚 +Stack" entry point from My Vocabulary for one-tap add.
-
-### Infrastructure
-- **Default-deny** feature flags per user (`vocab_enabled`, `d1_enabled`,
-  `flashcard_enabled`); strict `is True` checks across backend + frontend.
-- **RLS** with `USING + WITH CHECK` on every UPDATE policy; live 2-JWT
-  cross-user tests run in CI (no skips).
-- **Daily backups** at 03:00 via launchd → `backups/` (script:
-  `backend/scripts/backup_production.sh`).
-- **Page parity** check (`backend/scripts/verify_page_parity.sh`) blocks
-  PRs that ship a page missing the Supabase + api.js init triplet.
-- **Hardcoded URLs banned** — every fetch routes through `window.api.base`,
-  set once in `frontend/js/api.js` from the localhost/Railway switch.
+> **Full detail lives in [`docs/SITE_OVERVIEW.md`](docs/SITE_OVERVIEW.md)** — the
+> single source of truth for every module, how they relate, and what each
+> sub-page does (purpose · audience · operation + key endpoints). This README
+> stays a thin intro on purpose: per-page / feature detail belongs in
+> SITE_OVERVIEW so it can't drift in two competing places.
 
 ---
 
-## Architecture at a glance
+## Repo layout
 
-```
-backend/
-  main.py                  FastAPI app entry; mounts every router below.
-  config.py                Pydantic settings (env vars + feature flags).
-  database.py              Supabase service-role client (admin/background only).
-  routers/
-    auth.py                /auth/* — login, /me, profile, activate.
-    sessions.py            /sessions/* — practice session lifecycle.
-    grading.py             POST /sessions/{id}/responses (Whisper + Claude).
-    questions.py           Topic question library (per session).
-    vocabulary_bank.py     /api/vocabulary/bank/* — Phase B user surface.
-    exercises.py           /api/exercises/* + /admin/exercises/* (D1).
-    flashcards.py          /api/flashcards/* (Wave 2).
-    admin.py               /admin/* (access codes, vocab flags, backfill jobs).
-    grammar.py, pronunciation.py, analytics.py, …
-  services/
-    claude_grader.py       Band-score grading prompt + post-processing.
-    whisper.py             OpenAI Whisper STT.
-    vocab_extractor.py     Claude Haiku — Phase B vocab categorisation.
-    vocab_enrichment.py    Gemini Flash — IPA + example sentence (Wave 2 RC).
-    d1_content_gen.py      Gemini — D1 fill-blank generator (Phase D).
-    feature_flags.py       Strict default-deny per-user flag reads.
-    rate_limit.py          Per-user-per-day attempt counters + decorators.
-    srs.py                 Pure-function SM-2 (no DB).
-  migrations/              Numbered SQL with -- ROLLBACK SCRIPT (commented).
-  tests/                   pytest — pure-function suites + live 2-JWT RLS.
-  scripts/
-    setup_phase_b_test_env.sh
-    setup_phase_d_test_env.sh
-    setup_phase_d_wave_2_test_env.sh
-    verify_page_parity.sh
-    backup_production.sh
+- `backend/` — FastAPI app (`main.py`); one router per domain under `routers/`,
+  AI + domain logic under `services/`, numbered SQL in `migrations/`, pytest in
+  `tests/`.
+- `frontend/` — static HTML/CSS/JS, no build step; pages under `pages/`, one
+  controller per page in `js/`, `js/api.js` holds the single localhost↔Railway
+  base-URL switch, `aver-design` tokens in `css/`.
 
-frontend/
-  index.html               Landing + login + activation.
-  pages/
-    dashboard.html         Hub (practice CTA + nav to all surfaces).
-    practice.html          Recording page (session_id-driven).
-    result.html            Per-response feedback.
-    full-test-result.html  Full-test band aggregation.
-    my-vocabulary.html     Vocab bank (Phase B).
-    exercises.html         Exercise hub (Phase D).
-    d1-exercise.html       Fill-blank session (Wave 1).
-    flashcards.html        Stack list + create modal (Wave 2).
-    flashcard-study.html   Study session with flip + 4-rating (Wave 2).
-  grammar.html             Grammar Wiki home + article pages.
-  admin.html               Admin dashboard.
-  js/                      One controller per page; api.js holds the
-                           single localhost/Railway base-URL switch.
-  css/ds.css               Design system tokens used across pages.
-```
+For the current router + per-sub-page inventory, see `docs/SITE_OVERVIEW.md`
+(§ "Backend router map" + the per-sub-page tables).
 
 ---
 
@@ -197,6 +132,7 @@ Hard rules (also in `CLAUDE.md`):
 
 | Doc | What |
 |---|---|
+| `docs/SITE_OVERVIEW.md` | **Product map** — modules, relations, every sub-page (single source of truth). |
 | `CLAUDE.md` | Project source-of-truth + standing rules for Claude Code. |
 | `DEPLOY_CHECKLIST.md` | Per-phase production deploy + rollback steps. |
 | `TECH_DEBT.md` | Current debt + improvement opportunities, prioritised. |
