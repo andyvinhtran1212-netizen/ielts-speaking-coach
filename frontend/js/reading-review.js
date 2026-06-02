@@ -271,7 +271,12 @@
 
     var sections = [
       _section('Các bước ra đáp án', sol.steps ? _stepsList(sol.steps) : '', 'rr-sol__sec--steps'),
-      _section('Trích đoạn nguồn', sol.source_excerpt ? ('<blockquote>' + formatProse(sol.source_excerpt) + '</blockquote>') : '', 'rr-sol__sec--quote'),
+      _section('Trích đoạn nguồn', sol.source_excerpt
+        ? ('<blockquote>' + formatProse(sol.source_excerpt) + '</blockquote>' +
+           // reading-review-locate-exam-format A2 — explicit locate trigger
+           // (the expand toggle no longer auto-highlights).
+           '<button type="button" class="rr-locate-btn" data-locate>📍 Locate trong bài đọc</button>')
+        : '', 'rr-sol__sec--quote'),
       _section('Từ vựng', (sol.vocab && sol.vocab.length) ? _vocabList(sol.vocab) : '', 'rr-sol__sec--vocab'),
       _section('Paraphrase', sol.paraphrase ? _bulletList(sol.paraphrase) : ''),
       _section('Phân tích bẫy & kỹ năng', sol.trap_analysis ? _bulletList(sol.trap_analysis) : '', 'rr-sol__sec--trap'),
@@ -302,18 +307,25 @@
       var top = card.querySelector('.rr-card__top');
       var detail = card.querySelector('.rr-card__detail');
       var toggleText = top.querySelector('.rr-card__toggle-text');
+      // A2 — the toggle now ONLY shows/collapses the solution (no auto-locate,
+      // no auto-scroll, no mode switch). Locating is an explicit button below.
       var toggle = function () {
         var open = detail.hidden;
         detail.hidden = !open;
         top.setAttribute('aria-expanded', open ? 'true' : 'false');
         card.classList.toggle('is-open', open);
         if (toggleText) toggleText.textContent = open ? 'Ẩn lời giải' : 'Xem lời giải';
-        if (open) highlightSource(sol.source_excerpt); else clearHighlight();
       };
       top.addEventListener('click', toggle);
       top.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
       });
+      // A2 — explicit "Locate trong bài đọc": highlight the source paragraph(s),
+      // scroll into view, switch to "Văn bản gốc" (handled inside highlightSource).
+      var locateBtn = detail.querySelector('[data-locate]');
+      if (locateBtn) {
+        locateBtn.addEventListener('click', function () { highlightSource(sol.source_excerpt); });
+      }
     }
     return card;
   }

@@ -895,6 +895,18 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
 .exam-chrome .exam-questions__instructions--type strong {
   font-weight: 700;
 }
+/* reading-review-locate-exam-format B2/B3 — group header + format restrictions */
+.exam-chrome .exam-q-range {
+  display: inline-block;
+  font-size: 18px; font-weight: 800; letter-spacing: 0.01em;
+  color: var(--exam-text-primary);
+}
+.exam-chrome .exam-instr-em {
+  font-weight: 700;
+  color: var(--exam-text-primary);
+  background: var(--exam-accent-soft);
+  padding: 0 4px; border-radius: 3px;
+}
 
 /* §2A.15 — the part-heading carries the "Part N — Questions X–Y" lead
  * and is the secondary prominence cue under the navy palette. Lift it
@@ -934,13 +946,25 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   text-justify: inter-word;
   color: var(--exam-text-primary);
 }
-/* reading-header-notefill B — notes keep their line/bullet structure (the
-   ```text``` block has headings + "• " bullets across lines), so preserve
-   newlines + don't justify. summary_completion stays a flowing paragraph. */
-.exam-chrome .exam-summary__prose--notes {
-  white-space: pre-wrap;
-  text-align: left;
+/* reading-review-locate-exam-format B1 — notes render as a STRUCTURED block:
+   a bold title, bold section sub-headings, and styled bullets, with the inline
+   numbered blanks intact. (Replaces the #383 pre-wrap blob.) */
+.exam-chrome .exam-gap-box--notes { line-height: 1.7; }
+.exam-chrome .exam-note__title {
+  font-size: 16px; font-weight: 800; color: var(--exam-text-primary);
+  margin-bottom: 6px;
 }
+.exam-chrome .exam-note__heading {
+  font-weight: 700; color: var(--exam-text-primary);
+  margin-top: 14px; margin-bottom: 4px;
+}
+.exam-chrome .exam-note__bullet {
+  position: relative; padding-left: 18px; margin: 4px 0;
+}
+.exam-chrome .exam-note__bullet::before {
+  content: "•"; position: absolute; left: 4px; color: var(--exam-accent); font-weight: 700;
+}
+.exam-chrome .exam-note__line { margin: 4px 0; }
 .exam-chrome .exam-summary__gnum {
   display: inline-block;
   min-width: 22px;
