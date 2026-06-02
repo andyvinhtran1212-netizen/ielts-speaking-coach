@@ -168,4 +168,5 @@ jobs:
             frontend/tests/reading-access-lock.test.mjs \
             frontend/tests/reading-access-share.test.mjs \
             frontend/tests/reading-sharelink-url-fix.test.mjs \
-            frontend/tests/reading-attempts-dashboard.test.mjs
+            frontend/tests/reading-attempts-dashboard.test.mjs \
+            frontend/tests/reading-l1l2-grammar-toggle.test.mjs

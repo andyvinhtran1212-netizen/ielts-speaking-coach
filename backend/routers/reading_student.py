@@ -263,11 +263,13 @@ def _fetch_published_passage(slug: str, library: str) -> dict:
     if not res.data:
         raise HTTPException(404, "Reading passage not found or not published")
     row = res.data[0]
-    # Surface the full Vietnamese translation as a clean top-level field; the raw
-    # metadata blob stays server-side (reading-translation-vi). Absent → None,
-    # so the frontend hides the toggle gracefully.
+    # Surface the full Vietnamese translation + grammar_focus as clean top-level
+    # fields; the raw metadata blob stays server-side (reading-translation-vi /
+    # reading-l1l2-grammar-toggle). Absent → None / [], so the frontend hides the
+    # corresponding toggle gracefully.
     meta = row.pop("metadata", None) or {}
     row["translation_vi"] = meta.get("translation_vi")
+    row["grammar_focus"] = meta.get("grammar_focus") or []
     return row
 
 
