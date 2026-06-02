@@ -347,7 +347,12 @@
             'data-test-title="' + escapeHtml(it.title || '') + '">Sửa</button>' +
           ' <button type="button" class="ar-row-action is-danger" ' +
             'data-action="delete-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
-            'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>';
+            'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>' +
+          // reading-access-tracking F1 — lock/unlock (mock-exam password gate).
+          ' <button type="button" class="ar-row-action' + (it.locked ? ' is-locked' : '') + '" ' +
+            'data-action="lock-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
+            'data-locked="' + (it.locked ? '1' : '0') + '">' +
+            (it.locked ? '🔒 Đang khoá' : '🔓 Khoá') + '</button>';
       }
       // admin-reading-l1-l2-actions — standalone L1 vocab / L2 skill passages
       // get preview/edit/delete. STRICTLY slug-based, never test_id, so the
@@ -392,8 +397,39 @@
     var action = btn.getAttribute('data-action');
     if (action === 'delete-test')   return handleDeleteTest(btn);
     if (action === 'edit-test')     return handleEditTest(btn);
+    if (action === 'lock-test')     return handleLockTest(btn);
     if (action === 'edit-passage')  return handleEditPassage(btn);
     if (action === 'delete-passage') return handleDeletePassage(btn);
+  }
+
+  // reading-access-tracking F1 — lock/unlock a test (mock-exam password gate).
+  // Locking mints a NEW password each time (the old one dies); the server
+  // enforces it. Confirms the old-password-dies caveat before re-locking.
+  function handleLockTest(btn) {
+    var testId = btn.getAttribute('data-test-id');
+    var locked = btn.getAttribute('data-locked') === '1';
+    if (!testId) return;
+    var wantLock = !locked;
+    var msg = wantLock
+      ? 'Khoá bài "' + testId + '"? Hệ thống sẽ tạo MẬT KHẨU MỚI; học sinh phải nhập đúng mật khẩu để vào. ' +
+        '(Mỗi lần khoá tạo mật khẩu mới — mật khẩu cũ sẽ hết hiệu lực.)'
+      : 'Mở khoá bài "' + testId + '"? Mật khẩu hiện tại sẽ bị xoá; ai cũng vào được (theo quyền thường).';
+    if (!window.confirm(msg)) return;
+    btn.disabled = true;
+    window.api.post('/admin/reading/content/tests/' + encodeURIComponent(testId) + '/lock',
+      { locked: wantLock })
+      .then(function (res) {
+        if (res && res.locked && res.password) {
+          window.prompt('Đã khoá. Mật khẩu MỚI (copy để chia sẻ — mật khẩu cũ đã hết hiệu lực):', res.password);
+        } else {
+          window.alert('Đã mở khoá bài "' + testId + '".');
+        }
+        loadList();
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        window.alert('Lỗi khoá/mở khoá: ' + ((e && e.message) || e));
+      });
   }
 
   function handleDeleteTest(btn) {

@@ -25,6 +25,8 @@ driven by the test suite / curl until the admin page lands (Sprint 20.3/20.8).
 from __future__ import annotations
 
 import logging
+import secrets
+import string
 
 from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
 
@@ -77,6 +79,9 @@ def _normalise_l3_test_row(r: dict) -> dict:
         "topic_tags":       [],
         "updated_at":       r.get("updated_at"),
         "created_at":       r.get("created_at"),
+        # reading-access-tracking F1 — surface lock state for the admin row
+        # action (never the password itself).
+        "locked":           bool(((r.get("metadata") or {}).get("access") or {}).get("locked")),
     }
 
 
@@ -87,7 +92,7 @@ def _l3_test_rows(status: str | None) -> list[dict]:
         supabase_admin.table("reading_tests")
         .select(
             "id,test_id,title,module,time_limit_minutes,passage_count,"
-            "total_questions,band_target,status,updated_at,created_at",
+            "total_questions,band_target,status,updated_at,created_at,metadata",
         )
         .order("updated_at", desc=True)
     )
@@ -129,7 +134,7 @@ async def list_reading_content(
             supabase_admin.table("reading_tests")
             .select(
                 "id,test_id,title,module,time_limit_minutes,passage_count,"
-                "total_questions,band_target,status,updated_at,created_at",
+                "total_questions,band_target,status,updated_at,created_at,metadata",
                 count="exact",
             )
             .order("updated_at", desc=True)
@@ -739,6 +744,63 @@ async def admin_delete_reading_test(
         "action":              "deleted",
         "attempts_preserved":  0,
     }
+
+
+# ── reading-access-tracking F1 — lock / unlock + password ─────────────
+
+def _gen_test_password() -> str:
+    """Access-code-style password (XXXX-XXXX), via secrets. Each lock mints a
+    fresh one — the old password dies."""
+    alphabet = string.ascii_uppercase + string.digits
+    grp = lambda: "".join(secrets.choice(alphabet) for _ in range(4))
+    return grp() + "-" + grp()
+
+
+@router.post("/tests/{test_id}/lock")
+async def admin_lock_reading_test(
+    test_id: str,
+    body: dict,
+    authorization: str | None = Header(default=None),
+):
+    """Toggle a test's password lock (for mock exams). Locking mints a NEW
+    auto-generated password (regenerated every lock — the old one dies, access-
+    code style) and returns it so the admin can copy + share it. Unlocking
+    clears the password. The lock is enforced server-side in reading_student
+    (the test bundle / start are 403'd without the matching X-Reading-Password).
+
+    The lock config rides reading_tests.metadata.access (Pattern #15 — no
+    schema change); read-modify-write preserves the rest of metadata
+    (translation, img_prompts, …)."""
+    admin = await require_admin(authorization)
+    locked = bool((body or {}).get("locked"))
+
+    res = (
+        supabase_admin.table("reading_tests")
+        .select("id,metadata").eq("test_id", test_id).limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, f"Reading test {test_id!r} not found.")
+    row = res.data[0]
+    metadata = dict(row.get("metadata") or {})
+
+    if locked:
+        password = _gen_test_password()
+        metadata["access"] = {
+            "locked":     True,
+            "password":   password,
+            "locked_at":  None,           # stamped by the row's updated_at
+            "locked_by":  admin.get("id"),
+        }
+    else:
+        password = None
+        metadata["access"] = {"locked": False}
+
+    supabase_admin.table("reading_tests").update(
+        {"metadata": metadata}
+    ).eq("id", row["id"]).execute()
+    logger.info("[admin_reading] %s test_id=%s by=%s",
+                "lock" if locked else "unlock", test_id, admin.get("id"))
+    return {"test_id": test_id, "locked": locked, "password": password}
 
 
 @router.delete("/passages/{slug}")

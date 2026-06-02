@@ -419,6 +419,13 @@
   color: var(--av-error);
   border-color: color-mix(in srgb, var(--av-error) 32%, transparent);
 }
+/* reading-access-tracking F1 — a locked test's lock button reads as active. */
+.ar-row-action.is-locked {
+  color: var(--av-warning, var(--av-primary));
+  border-color: color-mix(in srgb, var(--av-warning, var(--av-primary)) 40%, transparent);
+  background: color-mix(in srgb, var(--av-warning, var(--av-primary)) 10%, transparent);
+  font-weight: var(--av-fw-semibold);
+}
 .ar-row-action.is-danger:hover {
   background: var(--av-error-soft);
 }

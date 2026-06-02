@@ -113,10 +113,12 @@ describe('Sprint 20.6 — exam page JS (reading-exam.js)', () => {
   const js = read('frontend/js/reading-exam.js');
 
   test('boot wires combined GET /test/{id}/boot + POST /attempts (start)', () => {
-    assert.match(js, /window\.api\.get\(\s*'\/api\/reading\/test\/'/);
+    // reading-access-tracking — boot/start now use getWith/postWith to carry
+    // the locked-test X-Reading-Password header (F1).
+    assert.match(js, /window\.api\.getWith\(\s*'\/api\/reading\/test\/'/);
     assert.match(js, /\/boot'/);
     assert.match(js, /bootPayload\.in_progress/);
-    assert.match(js, /window\.api\.post\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(SESSION\.test_id\)\s*\+\s*'\/attempts'\)/);
+    assert.match(js, /window\.api\.postWith\(\s*'\/api\/reading\/test\/'\s*\+\s*encodeURIComponent\(SESSION\.test_id\)\s*\+\s*'\/attempts', null, _pwHeaders\(\)\)/);
   });
   test('auto-save: PATCH /answers debounced (500ms) on input/change', () => {
     assert.match(js, /\/api\/reading\/test\/attempts\//);

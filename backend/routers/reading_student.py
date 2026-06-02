@@ -376,7 +376,7 @@ def _fetch_published_test(test_id: str) -> dict:
     res = (
         supabase_admin.table("reading_tests")
         .select("id,test_id,title,module,time_limit_minutes,passage_count,"
-                "total_questions,band_target,status,updated_at")
+                "total_questions,band_target,status,updated_at,metadata")
         .eq("test_id", test_id)
         .eq("status", "published")
         .limit(1)
@@ -387,9 +387,29 @@ def _fetch_published_test(test_id: str) -> dict:
     return res.data[0]
 
 
-def _build_reading_test_detail(test_id: str) -> dict:
-    """Return the student-safe L3 test bundle with answer keys stripped."""
+def _require_test_unlocked(test: dict, password: str | None) -> None:
+    """reading-access-tracking F1 — server-side password gate. If the test is
+    locked (metadata.access.locked), the caller MUST supply the matching
+    password; wrong/absent → 403. The lock is real: the bundle is never
+    returned without the password (no frontend-only hiding). A valid share-link
+    bypasses this (handled on the /share route, not here)."""
+    access = (test.get("metadata") or {}).get("access") or {}
+    if not access.get("locked"):
+        return
+    expected = access.get("password")
+    if not expected or not password or str(password).strip() != str(expected):
+        raise HTTPException(403, "Bài thi đang khoá — cần nhập đúng mật khẩu để truy cập.")
+
+
+def _build_reading_test_detail(test_id: str, password: str | None = None) -> dict:
+    """Return the student-safe L3 test bundle with answer keys stripped.
+    Enforces the lock gate (F1) then drops the raw metadata (never leak the
+    password to the client)."""
     test = dict(_fetch_published_test(test_id))
+    _require_test_unlocked(test, password)
+    locked = bool(((test.get("metadata") or {}).get("access") or {}).get("locked"))
+    test.pop("metadata", None)
+    test["locked"] = locked
 
     passages_res = (
         supabase_admin.table("reading_passages")
@@ -579,6 +599,7 @@ async def list_reading_tests(
 async def get_reading_test(
     test_id: str,
     authorization: str | None = Header(default=None),
+    x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
 ):
     """One L3 test — full bundle for the exam UI:
       • test metadata (module, time_limit_minutes, total_questions)
@@ -590,13 +611,14 @@ async def get_reading_test(
     three parts. The exam UI scrolls between them; the backend doesn't
     enforce a per-part lock here — that's a UX call in 20.6."""
     await _require_auth(authorization)
-    return _build_reading_test_detail(test_id)
+    return _build_reading_test_detail(test_id, x_reading_password)
 
 
 @router.get("/test/{test_id}/boot")
 async def boot_reading_test(
     test_id: str,
     authorization: str | None = Header(default=None),
+    x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
 ):
     """Combined exam boot payload.
 
@@ -606,11 +628,27 @@ async def boot_reading_test(
     ``in_progress`` as either the existing resume payload or ``null``.
     """
     user = await _require_auth(authorization)
-    test = _build_reading_test_detail(test_id)
+    test = _build_reading_test_detail(test_id, x_reading_password)
     in_progress = _fetch_in_progress_payload(
         user["id"], test_id, test, raise_on_missing=False
     )
     return {"test": test, "in_progress": in_progress}
+
+
+@router.post("/test/{test_id}/unlock")
+async def unlock_reading_test(
+    test_id: str,
+    body: dict,
+    authorization: str | None = Header(default=None),
+):
+    """reading-access-tracking F1 — verify a locked test's password. Returns
+    {ok: true} so the client can proceed (and then send X-Reading-Password on
+    the boot/fetch/start calls); wrong/absent password → 403. Unlocked tests
+    return ok:true immediately."""
+    await _require_auth(authorization)
+    test = _fetch_published_test(test_id)
+    _require_test_unlocked(test, (body or {}).get("password"))
+    return {"ok": True}
 
 
 def _abandon_open_attempts(user_id: str, test_uuid: str) -> None:
@@ -661,6 +699,7 @@ def _is_unique_violation(exc: Exception) -> bool:
 async def start_reading_test_attempt(
     test_id: str,
     authorization: str | None = Header(default=None),
+    x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
 ):
     """Open a new student attempt (Q7: one row per attempt; abandon any
     prior open attempt for this user+test). Returns the attempt_id +
@@ -678,6 +717,7 @@ async def start_reading_test_attempt(
 
     user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
+    _require_test_unlocked(test, x_reading_password)   # F1 gate on start too
     test_uuid = test["id"]
 
     last_exc: Exception | None = None

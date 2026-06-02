@@ -164,4 +164,5 @@ jobs:
             frontend/tests/l3-action-consistency.test.mjs \
             frontend/tests/bundle-import-ui.test.mjs \
             frontend/tests/reading-rich-imgprompt.test.mjs \
-            frontend/tests/reading-rich-chuabai.test.mjs
+            frontend/tests/reading-rich-chuabai.test.mjs \
+            frontend/tests/reading-access-lock.test.mjs
