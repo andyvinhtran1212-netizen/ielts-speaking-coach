@@ -65,8 +65,11 @@ def test_numbering_is_contiguous_from_085():
     assert 86 in nums and 87 in nums and 88 in nums
     reading_nums = sorted(int(p.name[:3]) for p in _MIGRATIONS.glob("0*reading*.sql")
                           if p.name[:3].isdigit())
-    assert reading_nums and max(reading_nums) == 88, \
-        f"unexpected reading migration past 088: {reading_nums}"
+    # reading-access-tracking B added 090_reading_anon_attempts.sql (anonymous
+    # share-link attempts). 089 is a NON-reading (admin-dashboard) slot, so the
+    # reading cluster owns 086/087/088/090.
+    assert reading_nums and max(reading_nums) == 90, \
+        f"unexpected reading migration past 090: {reading_nums}"
     # Confirm 088 is the audit-hardening migration and not a stray reuse of
     # the slot for unrelated content.
     assert (_MIGRATIONS / "088_reading_attempt_hardening.sql").exists()
