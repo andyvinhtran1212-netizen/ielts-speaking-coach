@@ -246,8 +246,10 @@ describe('Sprint 20.11 D5 — Resume + Start-fresh on pre-start', () => {
   test('Start-fresh path clears the resumed answers and flagged set', () => {
     // startFreshAttempt resets SESSION.answers + SESSION.flagged before
     // entering in_progress — otherwise the new attempt would inherit
-    // answers from the abandoned one.
-    assert.match(js, /function\s+startFreshAttempt[\s\S]{0,800}SESSION\.answers\s*=\s*new\s+Map\(\)/);
-    assert.match(js, /function\s+startFreshAttempt[\s\S]{0,800}SESSION\.flagged\s*=\s*new\s+Set\(\)/);
+    // answers from the abandoned one. (Window widened in reading-access-
+    // tracking B2: the fn gained an anonymous share-link start branch ahead
+    // of the resets.)
+    assert.match(js, /function\s+startFreshAttempt[\s\S]{0,1600}SESSION\.answers\s*=\s*new\s+Map\(\)/);
+    assert.match(js, /function\s+startFreshAttempt[\s\S]{0,1600}SESSION\.flagged\s*=\s*new\s+Set\(\)/);
   });
 });

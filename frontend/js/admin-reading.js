@@ -352,7 +352,17 @@
           ' <button type="button" class="ar-row-action' + (it.locked ? ' is-locked' : '') + '" ' +
             'data-action="lock-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
             'data-locked="' + (it.locked ? '1' : '0') + '">' +
-            (it.locked ? '🔒 Đang khoá' : '🔓 Khoá') + '</button>';
+            (it.locked ? '🔒 Đang khoá' : '🔓 Khoá') + '</button>' +
+          // reading-access-tracking B2 — shareable-link control. Generate /
+          // rotate / revoke a time-limited link that ANYONE (incl. anonymous)
+          // can use to take this test. The token is shown once at generate
+          // time (rotation kills the old link); the row only reflects whether
+          // a link is active + its expiry.
+          ' <button type="button" class="ar-row-action' + (it.share_active ? ' is-shared' : '') + '" ' +
+            'data-action="share-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
+            'data-share-active="' + (it.share_active ? '1' : '0') + '" ' +
+            'data-share-expires="' + escapeHtml(it.share_expires_at || '') + '">' +
+            (it.share_active ? '🔗 Đang chia sẻ' : '🔗 Link') + '</button>';
       }
       // admin-reading-l1-l2-actions — standalone L1 vocab / L2 skill passages
       // get preview/edit/delete. STRICTLY slug-based, never test_id, so the
@@ -398,6 +408,7 @@
     if (action === 'delete-test')   return handleDeleteTest(btn);
     if (action === 'edit-test')     return handleEditTest(btn);
     if (action === 'lock-test')     return handleLockTest(btn);
+    if (action === 'share-test')    return handleShareTest(btn);
     if (action === 'edit-passage')  return handleEditPassage(btn);
     if (action === 'delete-passage') return handleDeletePassage(btn);
   }
@@ -430,6 +441,169 @@
         btn.disabled = false;
         window.alert('Lỗi khoá/mở khoá: ' + ((e && e.message) || e));
       });
+  }
+
+  // reading-access-tracking B2 — shareable-link control. Generate / rotate /
+  // revoke a time-limited link that anyone (incl. anonymous) can use to take
+  // this test. Generating ROTATES (a fresh token; the old link dies instantly,
+  // mirroring the F1 password regen), so the modal warns before rotating.
+  // The full link is shown ONCE here (copyable) — the row never re-exposes the
+  // token (it is the access grant).
+  function _shareUrl(token) {
+    // Absolute URL to the student exam page in share mode, origin-correct on
+    // localhost + GitHub Pages (window.api.url resolves the app root).
+    return window.location.origin + window.api.url('pages/reading-exam.html') +
+      '?share=' + encodeURIComponent(token);
+  }
+  function _fmtExpiry(iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleString('vi-VN');
+    } catch (e) { return ''; }
+  }
+  function handleShareTest(btn) {
+    var testId = btn.getAttribute('data-test-id');
+    if (!testId) return;
+    var active = btn.getAttribute('data-share-active') === '1';
+    var expires = btn.getAttribute('data-share-expires') || '';
+    openShareModal(testId, active, expires);
+  }
+
+  // Generate / rotate the link with a chosen expiry (days).
+  function _shareGenerate(testId, days, onDone, onErr) {
+    window.api.post(
+      '/admin/reading/content/tests/' + encodeURIComponent(testId) + '/share',
+      { expires_in_days: days })
+      .then(onDone).catch(onErr);
+  }
+  // Revoke (kill all links to this test).
+  function _shareRevoke(testId, onDone, onErr) {
+    window.api.post(
+      '/admin/reading/content/tests/' + encodeURIComponent(testId) + '/share',
+      { revoke: true })
+      .then(onDone).catch(onErr);
+  }
+
+  // ── Share modal (self-contained; injected once, reused) ───────────
+  var _shareModalEl = null;
+  function _ensureShareModal() {
+    if (_shareModalEl) return _shareModalEl;
+    var wrap = document.createElement('div');
+    wrap.id = 'ar-share-modal';
+    wrap.className = 'ar-modal';
+    wrap.hidden = true;
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'ar-share-modal-title');
+    wrap.innerHTML =
+      '<div class="ar-modal__backdrop" data-share-close></div>' +
+      '<div class="ar-modal__panel">' +
+        '<h3 id="ar-share-modal-title" class="ar-modal__title">🔗 Liên kết chia sẻ</h3>' +
+        '<p id="ar-share-state" class="ar-modal__state"></p>' +
+        '<label class="ar-modal__field">Thời hạn (ngày, 1–90)' +
+          '<input id="ar-share-days" type="number" min="1" max="90" value="7" />' +
+        '</label>' +
+        '<div id="ar-share-result" class="ar-modal__result" hidden>' +
+          '<label class="ar-modal__field">Liên kết (sao chép để gửi học sinh)' +
+            '<input id="ar-share-link" type="text" readonly />' +
+          '</label>' +
+          '<button type="button" id="ar-share-copy" class="ar-row-action">📋 Sao chép</button>' +
+          '<span id="ar-share-copied" class="ar-modal__copied" hidden>Đã sao chép ✓</span>' +
+        '</div>' +
+        '<p class="ar-modal__warn">Tạo / tạo lại liên kết sẽ huỷ liên kết cũ ngay lập tức.</p>' +
+        '<div class="ar-modal__actions">' +
+          '<button type="button" id="ar-share-generate" class="ar-row-action">Tạo liên kết</button>' +
+          '<button type="button" id="ar-share-revoke" class="ar-row-action is-danger" hidden>Huỷ liên kết</button>' +
+          '<button type="button" id="ar-share-close" class="ar-row-action" data-share-close>Đóng</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    // Close paths: backdrop, Đóng button, Esc.
+    wrap.addEventListener('click', function (e) {
+      if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-share-close')) closeShareModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (!wrap.hidden && e.key === 'Escape') closeShareModal();
+    });
+    _shareModalEl = wrap;
+    return wrap;
+  }
+  function closeShareModal() {
+    if (_shareModalEl) _shareModalEl.hidden = true;
+  }
+  function openShareModal(testId, active, expires) {
+    var m = _ensureShareModal();
+    var stateEl = m.querySelector('#ar-share-state');
+    var resultEl = m.querySelector('#ar-share-result');
+    var linkEl = m.querySelector('#ar-share-link');
+    var daysEl = m.querySelector('#ar-share-days');
+    var genBtn = m.querySelector('#ar-share-generate');
+    var revBtn = m.querySelector('#ar-share-revoke');
+    var copiedEl = m.querySelector('#ar-share-copied');
+
+    resultEl.hidden = true;
+    copiedEl.hidden = true;
+    linkEl.value = '';
+    stateEl.textContent = active
+      ? 'Đang chia sẻ' + (expires ? ' · hết hạn ' + _fmtExpiry(expires) : '') +
+        '. Tạo lại để lấy liên kết mới (liên kết cũ sẽ chết).'
+      : 'Chưa có liên kết. Chọn thời hạn rồi bấm "Tạo liên kết".';
+    genBtn.textContent = active ? 'Tạo lại liên kết' : 'Tạo liên kết';
+    revBtn.hidden = !active;
+
+    genBtn.disabled = false;
+    genBtn.onclick = function () {
+      var days = parseInt(daysEl.value, 10);
+      if (!(days >= 1 && days <= 90)) { window.alert('Thời hạn phải từ 1 đến 90 ngày.'); return; }
+      genBtn.disabled = true;
+      _shareGenerate(testId, days, function (res) {
+        var token = res && res.share && res.share.token;
+        if (!token) { window.alert('Không tạo được liên kết.'); genBtn.disabled = false; return; }
+        linkEl.value = _shareUrl(token);
+        resultEl.hidden = false;
+        var exp = res.share.expires_at;
+        stateEl.textContent = 'Đã tạo liên kết' + (exp ? ' · hết hạn ' + _fmtExpiry(exp) : '') +
+          '. Sao chép ngay — liên kết cũ (nếu có) đã chết.';
+        genBtn.textContent = 'Tạo lại liên kết';
+        revBtn.hidden = false;
+        genBtn.disabled = false;
+        linkEl.focus(); linkEl.select();
+        loadList();
+      }, function (e) {
+        genBtn.disabled = false;
+        window.alert('Lỗi tạo liên kết: ' + ((e && e.message) || e));
+      });
+    };
+    revBtn.onclick = function () {
+      if (!window.confirm('Huỷ liên kết chia sẻ? Mọi người đang giữ liên kết sẽ không vào được nữa.')) return;
+      revBtn.disabled = true;
+      _shareRevoke(testId, function () {
+        stateEl.textContent = 'Đã huỷ liên kết. Không ai vào được bằng liên kết cũ nữa.';
+        resultEl.hidden = true;
+        revBtn.hidden = true;
+        genBtn.textContent = 'Tạo liên kết';
+        revBtn.disabled = false;
+        loadList();
+      }, function (e) {
+        revBtn.disabled = false;
+        window.alert('Lỗi huỷ liên kết: ' + ((e && e.message) || e));
+      });
+    };
+    m.querySelector('#ar-share-copy').onclick = function () {
+      linkEl.focus(); linkEl.select();
+      var done = function () { copiedEl.hidden = false; };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(linkEl.value).then(done, function () {
+            try { document.execCommand('copy'); done(); } catch (e) {}
+          });
+        } else { document.execCommand('copy'); done(); }
+      } catch (e) {}
+    };
+    m.hidden = false;
+    daysEl.focus();
   }
 
   function handleDeleteTest(btn) {

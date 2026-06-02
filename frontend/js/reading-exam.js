@@ -332,6 +332,12 @@
   function testIdFromUrl() {
     return (new URLSearchParams(window.location.search).get('test_id') || '').trim() || null;
   }
+  // reading-access-tracking B2 — anonymous share-link mode. `?share=<token>`
+  // opens the exam for ANYONE (no account): boot/start/submit/answers go to the
+  // B1 share + anon endpoints and carry the minted anon_id as X-Reading-Anon.
+  function shareTokenFromUrl() {
+    return (new URLSearchParams(window.location.search).get('share') || '').trim() || null;
+  }
 
   // Sprint 20.11 D5 — surface a resume affordance on pre-start when an
   // open attempt is detected. The 20.6 boot auto-resumed; that meant a
@@ -1342,9 +1348,16 @@
   }
   function patchAnswer(qNum, userAnswer) {
     if (!SESSION.attempt_id || SESSION.timer_locked) return;
-    window.api.patch('/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers',
-      { q_num: qNum, user_answer: String(userAnswer || '') }
-    ).catch(function (e) {
+    var answersUrl = '/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers';
+    var answerBody = { q_num: qNum, user_answer: String(userAnswer || '') };
+    // reading-access-tracking B2 — anonymous auto-save carries X-Reading-Anon +
+    // noRedirect (a transient 401 must not bounce an anon mid-test to login);
+    // the authed path keeps the plain window.api.patch call.
+    var savePromise = SESSION.share_mode
+      ? window.api.patchWith(answersUrl, answerBody, _anonHeaders(), { noRedirect: true })
+      : window.api.patch('/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/answers',
+          { q_num: qNum, user_answer: String(userAnswer || '') });
+    savePromise.catch(function (e) {
       // Best-effort auto-save — the source of truth is in-memory + submit body.
       if (window.console) console.warn('auto-save failed q=' + qNum, e && e.message);
     });
@@ -1696,10 +1709,17 @@
       answers.push({ q_num: qNum, user_answer: String(value) });
     });
 
-    window.api.post(
-      '/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/submit',
-      { answers: answers }
-    ).then(function (result) {
+    // reading-access-tracking B2 — anonymous submit carries X-Reading-Anon
+    // (ownership) + noRedirect; the authed path is unchanged.
+    var submitPromise = SESSION.share_mode
+      ? window.api.postWith(
+          '/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/submit',
+          { answers: answers }, _anonHeaders(), { noRedirect: true })
+      : window.api.post(
+          '/api/reading/test/attempts/' + encodeURIComponent(SESSION.attempt_id) + '/submit',
+          { answers: answers }
+        );
+    submitPromise.then(function (result) {
       lockExam();
       if (SESSION.timer_interval) {
         clearInterval(SESSION.timer_interval);
@@ -1828,6 +1848,15 @@
     var host = $('results-diagnostic');
     var intro = $('results-diagnostic-intro');
     if (!host || !attemptId) return;
+    // reading-access-tracking B2 — the diagnostic endpoint is auth-only (it ties
+    // weak-skill history to an account). An anonymous share-link taker has no
+    // account, so skip it (calling it would 401); the band + skill breakdown +
+    // chữa-bài above already give full per-attempt feedback.
+    if (SESSION.share_mode) {
+      if (intro) intro.textContent = 'Phân tích weak-skill theo tài khoản không áp dụng cho bài làm ẩn danh — bạn vẫn có đầy đủ điểm, skill breakdown và chữa bài ở trên.';
+      host.innerHTML = '';
+      return;
+    }
     host.innerHTML = '';
     if (intro) intro.textContent = 'Đang phân tích weak skills và gợi ý bài L2 phù hợp…';
     setDiagnosticStatus('Đang tải diagnostic...', false);
@@ -1894,7 +1923,12 @@
     // attempt (the rich solution is revealed only post-submit, server-gated).
     var chuaBai = $('results-chuabai-link');
     if (chuaBai && result.attempt_id) {
-      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id);
+      // reading-access-tracking B2 — an anonymous taker owns the review via the
+      // anon_id capability token, so append it on the chữa-bài URL (the review
+      // page replays it as X-Reading-Anon). Authed takers use their session.
+      var anonSuffix = (SESSION.share_mode && _getAnonId())
+        ? '&anon=' + encodeURIComponent(_getAnonId()) : '';
+      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id) + anonSuffix;
       chuaBai.hidden = false;
     }
 
@@ -2373,8 +2407,17 @@
   // (mig 088 partial unique index + router retry). So "Start fresh" is
   // simply this same POST — no extra "abandon" endpoint needed.
   function startFreshAttempt() {
-    // F1 — carry the locked-test password (if any) so start passes the gate.
-    return window.api.postWith('/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts', null, _pwHeaders())
+    // reading-access-tracking B2 — anonymous share-link start. Mints an anon_id
+    // (stored so resume + review work) and creates a user_id-NULL attempt; no
+    // password gate (the share token already bypassed the lock at boot).
+    var startPromise = SESSION.share_mode
+      ? window.api.postWith(
+          '/api/reading/test/share/' + encodeURIComponent(SESSION.share_token) + '/attempts',
+          null, _anonHeaders(), { noRedirect: true })
+        .then(function (res) { _setAnonId(res && res.anon_id); return res; })
+      // F1 — carry the locked-test password (if any) so start passes the gate.
+      : window.api.postWith('/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts', null, _pwHeaders());
+    return startPromise
       .then(function (res) {
         SESSION.attempt_id = res.attempt_id;
         SESSION.started_at = res.started_at;
@@ -2443,18 +2486,63 @@
     _doBoot();
   }
 
+  // reading-access-tracking B2 — anonymous identity. The minted anon_id is the
+  // ONLY credential for a share-link attempt (the server verifies it on
+  // submit/review/answers), so persist it in localStorage keyed by the share
+  // token — that survives a refresh/return so resume + chữa-bài work. (If the
+  // user clears storage they lose access to that attempt; the anon_id is
+  // unrecoverable by design — there's no account to fall back on.)
+  function _anonKey() { return 'reading-anon:' + SESSION.share_token; }
+  function _getAnonId() {
+    try { return localStorage.getItem(_anonKey()) || null; } catch (e) { return null; }
+  }
+  function _setAnonId(id) {
+    if (!id) return;
+    try { localStorage.setItem(_anonKey(), id); } catch (e) {}
+  }
+  function _anonHeaders() {
+    if (!SESSION.share_mode) return null;
+    var id = _getAnonId();
+    return id ? { 'X-Reading-Anon': id } : null;
+  }
+
   function boot() {
+    // Share-link mode wins when `?share=<token>` is present (anonymous, no
+    // test_id needed). Otherwise the normal authed `?test_id=…` path.
+    var shareToken = shareTokenFromUrl();
+    if (shareToken) {
+      SESSION.share_mode = true;
+      SESSION.share_token = shareToken;
+      _doBoot();
+      return;
+    }
     var testId = testIdFromUrl();
     if (!testId) { showError('No test specified (use ?test_id=…).'); return; }
     SESSION.test_id = testId;
     _doBoot();
   }
   function _doBoot() {
+    // reading-access-tracking B2 — anonymous share boot (no auth, lock-bypassed,
+    // solution-stripped). Carries the stored anon_id so an interrupted attempt
+    // resumes. noRedirect: a rejected token must show a friendly state, never
+    // bounce to login (the user has no account).
     var testId = SESSION.test_id;
-    window.api.getWith('/api/reading/test/' + encodeURIComponent(testId) + '/boot', _pwHeaders())
+    var bootPromise = SESSION.share_mode
+      ? window.api.getWith(
+          '/api/reading/test/share/' + encodeURIComponent(SESSION.share_token) + '/boot',
+          _anonHeaders(), { noRedirect: true })
+      : window.api.getWith('/api/reading/test/' + encodeURIComponent(testId) + '/boot', _pwHeaders());
+    bootPromise
       .then(function (bootPayload) {
         var test = bootPayload && bootPayload.test;
         if (!test) throw new Error('Boot payload missing test');
+        // In share mode there is no ?test_id= — adopt the bundle's test_id so
+        // the per-test cache namespace + downstream display work (reassign the
+        // local testId too so the cache call below keys correctly).
+        if (SESSION.share_mode) {
+          SESSION.test_id = test.test_id || SESSION.share_token;
+          testId = SESSION.test_id;
+        }
         SESSION.test = test;
         SESSION.time_limit_minutes = test.time_limit_minutes || 60;
         // Sprint 20.13c C3 — version-gate cache (Standards §5.1).
@@ -2484,6 +2572,17 @@
         showState('prestart');
       })
       .catch(function (e) {
+        // reading-access-tracking B2 — in share mode a 403 (expired / rotated)
+        // or 404 (unknown / revoked) token is a dead link, NOT a locked test:
+        // show a clear friendly state, never the password prompt or login.
+        if (SESSION.share_mode) {
+          if (e && (e.status === 403 || e.status === 404)) {
+            showError('Liên kết chia sẻ đã hết hạn hoặc không hợp lệ. Hãy xin người gửi một liên kết mới.');
+          } else {
+            showError('Không tải được bài thi. ' + (e && e.message ? e.message : ''));
+          }
+          return;
+        }
         if (e && e.status === 403) { _promptPasswordThenRetry(); return; }
         if (e && e.status === 404) showError('Test not found or not published.');
         else showError('Failed to load test. ' + (e && e.message ? e.message : ''));
