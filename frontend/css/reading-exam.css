@@ -934,6 +934,13 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   text-justify: inter-word;
   color: var(--exam-text-primary);
 }
+/* reading-header-notefill B — notes keep their line/bullet structure (the
+   ```text``` block has headings + "• " bullets across lines), so preserve
+   newlines + don't justify. summary_completion stays a flowing paragraph. */
+.exam-chrome .exam-summary__prose--notes {
+  white-space: pre-wrap;
+  text-align: left;
+}
 .exam-chrome .exam-summary__gnum {
   display: inline-block;
   min-width: 22px;

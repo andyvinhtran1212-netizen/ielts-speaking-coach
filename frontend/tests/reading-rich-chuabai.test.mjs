@@ -26,6 +26,7 @@ const js = read('frontend/js/reading-review.js');
 const css = read('frontend/css/reading-review.css');
 const examJs = read('frontend/js/reading-exam.js');
 const examHtml = read('frontend/pages/reading-exam.html');
+const readExamCss = read('frontend/css/reading-exam.css');
 
 
 describe('1 — full-screen exam-like layout (reuses the exam shell)', () => {
@@ -124,5 +125,40 @@ describe('regression — endpoint reuse, security, results link, XSS, tokens', (
     const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
     assert.ok(!/--av-space-(5|7|9|10|11|13|14|15)\b/.test(live));
     assert.ok(!/--av-fs-md\b/.test(live) && !/--av-on-primary\b/.test(live));
+  });
+});
+
+
+/* ── reading-header-notefill — header refinements (A) + note block (B) ── */
+describe('header-notefill A — clean header, inline skills, sticky toggle', () => {
+  test('back link is a clean link (no awkward exam-tool box) + test label', () => {
+    assert.match(html, /class="rr-back" href="\/pages\/reading\.html"/);
+    assert.ok(!/exam-tool[^>]*Thư viện/.test(html), 'back link must not use the boxed .exam-tool');
+    assert.match(html, /class="rr-test-label" id="rr-test-label"/);
+  });
+  test('skills shown INLINE as chips (no dropdown)', () => {
+    assert.match(js, /rr-skill-chip/);
+    assert.ok(!/rr-skills-pop/.test(html) && !/rr-skills-pop/.test(js), 'no skills dropdown');
+    assert.ok(!/Kỹ năng ▾/.test(html), 'no "Kỹ năng ▾" dropdown summary');
+    assert.match(css, /\.rr-skill-chip\.is-weak[\s\S]{0,120}var\(--av-error\)/);
+  });
+  test('passage toggle is sticky (stays on scroll)', () => {
+    assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,200}position:\s*sticky/);
+  });
+});
+
+describe('header-notefill B — exam note/summary completion as one inline-blank block', () => {
+  test('the flowing-block path now gates notes_completion too', () => {
+    assert.match(examJs, /type === 'summary_completion' \|\| type === 'notes_completion'\)[\s\S]{0,300}_renderFlowingSummaryBlock/);
+  });
+  test('notes preserve their line/bullet structure (pre-wrap), not justified', () => {
+    assert.match(examJs, /question_type === 'notes_completion'/);
+    assert.match(examJs, /exam-summary__prose--notes/);
+    assert.match(readExamCss, /\.exam-summary__prose--notes[\s\S]{0,120}white-space:\s*pre-wrap/);
+  });
+  test('answer binding stays per q_num (grading intact)', () => {
+    // inline inputs carry name="q-N" + dataset.q=N → the existing per-q path
+    assert.match(examJs, /name = 'q-' \+ qNum/);
+    assert.match(examJs, /_summaryGapChanged\(qNum/);
   });
 });

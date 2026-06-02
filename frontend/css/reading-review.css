@@ -12,49 +12,59 @@
  * tints). Spacing/type/radius use --av-* metrics. Token-clean (#367).
  */
 
-/* ── Top bar: compact summary + skills popover ────────────────────── */
+/* ── Top bar (reading-header-notefill A): clean header, no empty box ─ */
+.rr-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--av-space-4); flex-wrap: wrap;
+}
+.rr-topbar__left { display: flex; align-items: baseline; gap: var(--av-space-3); min-width: 0; }
+.rr-back {
+  font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+  color: var(--exam-accent); text-decoration: none; white-space: nowrap;
+}
+.rr-back:hover { text-decoration: underline; }
+.rr-test-label { font-size: var(--av-fs-base); font-weight: var(--av-fw-semibold); color: var(--exam-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr-topbar__right { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 .rr-topbar-summary { display: flex; align-items: center; gap: var(--av-space-2); }
 .rr-topbar-summary__band, .rr-topbar-summary__score {
   font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
   padding: 2px var(--av-space-3); border-radius: var(--av-radius-pill);
-  background: var(--exam-accent-soft); color: var(--exam-text-primary);
+  background: var(--exam-accent-soft); color: var(--exam-text-primary); white-space: nowrap;
 }
-.rr-skills-pop { position: relative; }
-.rr-skills-pop > summary { list-style: none; cursor: pointer; }
-.rr-skills-pop > summary::-webkit-details-marker { display: none; }
-.rr-skills-pop[open] > .rr-skills {
-  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(92vw, 380px);
-  padding: var(--av-space-4); border: 1px solid var(--exam-border-default);
-  border-radius: var(--av-radius-md); background: var(--exam-surface-card);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+/* inline skill chips (no dropdown) */
+.rr-skills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rr-skill-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--av-fs-xs); padding: 2px var(--av-space-2);
+  border-radius: var(--av-radius-pill); border: 1px solid;
+  white-space: nowrap; line-height: 1.4;
 }
-.rr-skills { display: none; }
-.rr-skills-pop[open] > .rr-skills { display: block; }
-.rr-skills__title { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-3); color: var(--exam-text-primary); }
-.rr-skills__grid { display: flex; flex-direction: column; gap: var(--av-space-2); }
-.rr-skill__head { display: flex; justify-content: space-between; gap: var(--av-space-2); margin-bottom: 2px; }
-.rr-skill__name { font-size: var(--av-fs-xs); color: var(--exam-text-primary); }
-.rr-skill__count { font-size: var(--av-fs-xs); font-family: var(--av-font-mono); color: var(--exam-text-secondary); }
-.rr-skill__bar { height: 6px; border-radius: var(--av-radius-pill); background: var(--exam-surface-sunken); overflow: hidden; }
-.rr-skill__fill { height: 100%; border-radius: var(--av-radius-pill); }
-.rr-skill.is-strong .rr-skill__fill { background: var(--av-success); }
-.rr-skill.is-mid    .rr-skill__fill { background: var(--exam-warning); }
-.rr-skill.is-weak   .rr-skill__fill { background: var(--av-error); }
+.rr-skill-chip__count { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); }
+.rr-skill-chip.is-strong { color: var(--av-success); border-color: color-mix(in srgb, var(--av-success) 40%, transparent); background: color-mix(in srgb, var(--av-success) 10%, transparent); }
+.rr-skill-chip.is-mid    { color: var(--exam-warning); border-color: color-mix(in srgb, var(--exam-warning) 40%, transparent); background: color-mix(in srgb, var(--exam-warning) 10%, transparent); }
+.rr-skill-chip.is-weak   { color: var(--av-error); border-color: color-mix(in srgb, var(--av-error) 40%, transparent); background: color-mix(in srgb, var(--av-error) 10%, transparent); }
 
-/* ── Passage pane: original/translation toggle (top-LEFT) ─────────── */
+/* ── Passage pane: original/translation toggle (top-LEFT, STICKY) ──── */
+/* reading-header-notefill A — a clean opaque bar pinned to the top of the
+   passage pane so the two buttons stay reachable as the passage scrolls. The
+   opaque pane-coloured background prevents scrolling text bleeding through. */
 .rr-passage-toggle {
-  display: inline-flex; gap: 2px; padding: 3px; margin-bottom: var(--av-space-3);
-  border: 1px solid var(--exam-border-default); border-radius: var(--av-radius-pill);
-  background: var(--exam-surface-sunken);
+  position: sticky; top: 0; z-index: 5;
+  display: flex; gap: var(--av-space-2);
+  margin-bottom: var(--av-space-3); padding: var(--av-space-2) 0;
+  background: var(--exam-surface-card);
+  border-bottom: 1px solid var(--exam-border-subtle, var(--exam-border-default));
 }
 .rr-passage-toggle__btn {
-  font: inherit; font-size: var(--av-fs-sm); cursor: pointer; border: none;
-  padding: var(--av-space-1) var(--av-space-3); border-radius: var(--av-radius-pill);
-  background: transparent; color: var(--exam-text-secondary);
+  font: inherit; font-size: var(--av-fs-sm); cursor: pointer;
+  padding: var(--av-space-1) var(--av-space-4); border-radius: var(--av-radius-pill);
+  border: 1px solid var(--exam-border-default);
+  background: var(--exam-surface-card); color: var(--exam-text-secondary);
 }
+.rr-passage-toggle__btn:hover { background: var(--exam-surface-sunken); }
 .rr-passage-toggle__btn.is-active {
-  background: var(--exam-surface-card); color: var(--exam-text-primary);
-  font-weight: var(--av-fw-semibold); box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  background: var(--exam-accent); color: #fff; border-color: var(--exam-accent);
+  font-weight: var(--av-fw-semibold);
 }
 .rr-passage__title { font-size: var(--av-fs-xl); margin: 0 0 var(--av-space-3); color: var(--exam-text-primary); }
 .rr-passage__body { font-size: var(--av-fs-base); line-height: var(--av-lh-relaxed); color: var(--exam-text-primary); }

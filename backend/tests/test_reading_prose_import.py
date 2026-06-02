@@ -98,6 +98,24 @@ def test_diagram_prompts_cleaned():
 
 
 @_skip
+def test_note_completion_preserves_flowing_template():
+    # reading-header-notefill B — note/summary completion keeps the connected
+    # ```text``` block as a {{N}} flowing template on the run's first Q, so the
+    # exam renders ONE block with inline numbered blanks (not per-Q rows).
+    p = build_parsed_reading_test_from_prose(_read(_TEST_MD), _read(_SOL_MD))
+    allq = {q["q_num"]: q for pas in p.passages for q in pas["questions"]}
+    assert allq[20]["question_type"] == "notes_completion"
+    tmpl = (allq[20].get("template") or {}).get("summary_text")
+    assert tmpl, "the note run's first Q must carry the flowing template"
+    # markers for every Q in the run, none as raw "N ____"
+    import re as _re
+    assert set(_re.findall(r"\{\{(\d+)\}\}", tmpl)) == {str(n) for n in range(20, 27)}
+    assert "____" not in tmpl
+    # the run's non-lead Qs do NOT duplicate the template
+    assert (allq[21].get("template") or {}).get("summary_text") is None
+
+
+@_skip
 def test_meo_does_not_bleed_next_passage():
     # reading-display-fixes C — the "Mẹo làm bài" field must stop at its section
     # boundary, NOT over-capture the next passage's heading/translation.

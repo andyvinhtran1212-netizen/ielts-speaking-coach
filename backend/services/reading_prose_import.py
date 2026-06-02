@@ -303,6 +303,12 @@ _QGROUP_RE = re.compile(rf"^###\s+Questions\s+(\d+)\s*{_DASH}\s*(\d+)\s*$", re.M
 _STATEMENT_RE = re.compile(r"^\*\*(\d+)\*\*\s+(.*)$")
 _MCQ_OPT_RE = re.compile(r"^\*\*([A-D])\*\*\s+(.*)$")
 _HEADING_OPT_RE = re.compile(r"^>\s*([ivxIVX]+)\s+(\S.*)$")
+# A fenced ```text``` block (note/summary template or ASCII diagram).
+_TEXT_BLOCK_RE = re.compile(r"```text\s*\n(.*?)\n```", re.DOTALL)
+# reading-header-notefill B — note/summary blank marker "20 ____" → "{{20}}"
+# so the flowing-block renderer (reading-exam.js _renderFlowingSummaryBlock)
+# places a numbered inline input bound to that q_num.
+_BLANK_MARKER_RE = re.compile(r"(\d{1,3})\s+_{2,}")
 
 
 def _meta_value(test_text: str, field: str) -> Optional[str]:
@@ -354,6 +360,7 @@ def _parse_test_md(test_text: str) -> dict:
     prompts: dict[int, str] = {}
     options: dict[int, list] = {}
     group_type: dict[int, str] = {}
+    templates: dict[int, str] = {}      # first-q-of-run → note/summary flowing template
 
     pmatches = list(_TEST_PASSAGE_RE.finditer(test_text))
     for i, pm in enumerate(pmatches):
@@ -416,6 +423,15 @@ def _parse_test_md(test_text: str) -> dict:
                 if gtype:
                     group_type[q] = gtype
 
+            # reading-header-notefill B — for note/summary completion, preserve
+            # the connected ```text``` block as a flowing template ({{N}} markers
+            # on the run's first Q) so the exam renders ONE block with inline
+            # numbered blanks instead of per-Q rows.
+            if gtype in ("notes_completion", "summary_completion"):
+                tb = _TEXT_BLOCK_RE.search(gtext)
+                if tb and _BLANK_MARKER_RE.search(tb.group(1)):
+                    templates[g_lo] = _BLANK_MARKER_RE.sub(r"{{\1}}", tb.group(1)).strip()
+
             # Shared heading options (matching_headings) from the instruction.
             heading_opts = []
             for l in gtext.splitlines():
@@ -448,6 +464,7 @@ def _parse_test_md(test_text: str) -> dict:
         "prompts":      prompts,
         "options":      options,
         "group_type":   group_type,
+        "templates":    templates,
     }
 
 
@@ -503,6 +520,11 @@ def build_parsed_reading_test_from_prose(
         opts = test["options"].get(q_num)
         if opts:
             q["options"] = opts
+        # reading-header-notefill B — the run's first Q carries the note/summary
+        # flowing template ({{N}} markers); the exam renders it as one block.
+        tmpl = test.get("templates", {}).get(q_num)
+        if tmpl:
+            q["template"] = {"summary_text": tmpl}
         if solution:
             q["solution"] = solution
         by_passage.setdefault(order, []).append(q)
