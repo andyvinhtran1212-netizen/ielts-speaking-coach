@@ -48,13 +48,15 @@
 /* reading-header-notefill A — a clean opaque bar pinned to the top of the
    passage pane so the two buttons stay reachable as the passage scrolls. The
    opaque pane-coloured background prevents scrolling text bleeding through. */
+/* reading-review-toggle-fix Bug 1 — zero the pane's top padding so the sticky
+   toggle pins TRULY flush (the previous -20px top margin + sticky was finicky
+   and left a gap where passage text peeked above the bar). The toggle now
+   provides the top spacing; horizontal full-bleed keeps it edge-to-edge. */
+#rr-passage-pane { padding-top: 0; }
 .rr-passage-toggle {
   position: sticky; top: 0; z-index: 5;
   display: flex; gap: var(--av-space-2);
-  /* reading-review-locate-exam-format A1 — full-bleed to the pane edges
-     (cancel the .exam-passage 20px/28px padding) so the bar pins FLUSH to the
-     top with no gap, opaque, and the passage scrolls cleanly underneath. */
-  margin: -20px -28px var(--av-space-3); padding: var(--av-space-3) 28px;
+  margin: 0 -28px var(--av-space-3); padding: var(--av-space-3) 28px;
   background: var(--exam-surface-card);
   border-bottom: 1px solid var(--exam-border-subtle, var(--exam-border-default));
 }
@@ -139,6 +141,12 @@
   margin-top: var(--av-space-4); padding-top: var(--av-space-3);
   border-top: 1px solid var(--exam-border-subtle); display: flex; flex-direction: column; gap: var(--av-space-4);
 }
+/* reading-review-toggle-fix Bug 2 — the explicit `display: flex` above
+   overrides the [hidden] attribute's UA `display: none`, so the solution was
+   stuck visible (the toggle flipped the attribute but the content never
+   collapsed). This attribute+class selector (higher specificity) restores
+   the collapse, so "Xem/Ẩn lời giải" actually expands/collapses. */
+.rr-card__detail[hidden] { display: none; }
 .rr-sol__label {
   font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); text-transform: uppercase;
   letter-spacing: 0.03em; color: var(--exam-text-secondary); margin-bottom: var(--av-space-2);
