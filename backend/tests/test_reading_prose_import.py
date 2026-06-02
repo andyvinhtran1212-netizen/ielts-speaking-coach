@@ -86,6 +86,30 @@ def test_translations_all_three_passages():
 
 
 @_skip
+@_skip
+def test_diagram_prompts_cleaned():
+    # reading-display-fixes A — diagram prompts come from the solution's quoted
+    # "Câu hỏi (diagram)" field; surrounding quotes are stripped and ASCII flow
+    # arrows '-->' become '→' so the exam diagram block doesn't show artifacts.
+    p = build_parsed_reading_test_from_prose(_read(_TEST_MD), _read(_SOL_MD))
+    allq = {q["q_num"]: q for pas in p.passages for q in pas["questions"]}
+    assert not allq[1]["prompt"].startswith('"') and not allq[1]["prompt"].endswith('"')
+    assert "-->" not in allq[2]["prompt"] and "→" in allq[2]["prompt"]
+
+
+@_skip
+def test_meo_does_not_bleed_next_passage():
+    # reading-display-fixes C — the "Mẹo làm bài" field must stop at its section
+    # boundary, NOT over-capture the next passage's heading/translation.
+    rich = parse_rich_solutions(_read(_SOL_MD))
+    for qn, sol in rich.items():
+        for field in ("tips", "trap_analysis", "paraphrase"):
+            val = sol.get(field) or ""
+            assert "## PASSAGE" not in val, f"Q{qn} {field} bled a passage heading"
+            assert "Bản dịch" not in val, f"Q{qn} {field} bled the translation"
+            assert "TAKEAWAYS" not in val, f"Q{qn} {field} bled the takeaways"
+
+
 def test_rich_solutions_fields():
     rich = parse_rich_solutions(_read(_SOL_MD))
     assert len(rich) == 40

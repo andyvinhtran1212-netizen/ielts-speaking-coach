@@ -78,6 +78,18 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip())
 
 
+def _clean_prompt(s: str) -> str:
+    """Tidy a question prompt for display (reading-display-fixes A). Diagram/
+    flow prompts are lifted from the solution's quoted "Câu hỏi (diagram)"
+    field, which wraps the text in quotes and uses ASCII flow arrows — those
+    render as literal artifacts in the exam diagram block. Strip one surrounding
+    quote pair and normalise '-->' / '->' to '→'."""
+    s = _norm(s)
+    s = re.sub(r'^["“”\'](.*)["“”\']$', r"\1", s).strip()
+    s = s.replace("-->", "→").replace("->", "→")
+    return s
+
+
 # ── Quick-answer table → {q_num: {type, answer, alternatives, band}} ──
 
 _QA_ROW_RE = re.compile(
@@ -257,6 +269,14 @@ def parse_rich_solutions(sol_text: str) -> dict:
             cur_field = None
             continue
         if cur_q is None:
+            continue
+        # reading-display-fixes C — stop field capture at a structural boundary
+        # (a markdown heading "## PASSAGE"/"### A./B.", a "---" rule, or a
+        # "**Đoạn …**" translation paragraph). A real "**Câu N —" header is
+        # handled above; without this guard the last field (Mẹo) over-captures
+        # the NEXT passage's content (the reported bleed).
+        if re.match(r"^(#{1,6}\s|-{3,}\s*$|\*\*Đoạn\b)", line.strip()):
+            flush(); cur_q = None; cur = {}; cur_field = None
             continue
         fm = _SOL_FIELD_RE.match(line.strip())
         if fm:
@@ -458,7 +478,7 @@ def build_parsed_reading_test_from_prose(
         r = rich.get(q_num, {})
         # prompt: prefer the test-extracted statement/MCQ stem; else the
         # solution's "Câu hỏi"; else a generic label (diagram/note blanks).
-        prompt = test["prompts"].get(q_num) or r.get("question_text") or f"Câu {q_num}"
+        prompt = _clean_prompt(test["prompts"].get(q_num) or r.get("question_text") or f"Câu {q_num}")
         skill_code = (r.get("skill_code") or skills.get(q_num) or "").upper()
         skill_tag = _SKILL_CODE_TO_TAG.get(skill_code, "detail")
 

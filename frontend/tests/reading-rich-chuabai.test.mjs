@@ -52,6 +52,13 @@ describe('3 — 40-Q navigator grouped by passage (no Phần tabs)', () => {
     assert.match(js, /rr-nav-q ' \+ \(correctByQ\[qn\] \? 'is-correct' : 'is-incorrect'\)/);
     assert.match(js, /jumpToQ\(qn\)/);
   });
+  test('navigator lays out horizontally (reading-display-fixes B) + has a legend', () => {
+    // the group layout (missing from the linked mockup CSS) is replicated here
+    assert.match(css, /\.exam-palette__grid\s*\{[\s\S]{0,120}display:\s*flex\s*!important/);
+    assert.match(css, /\.exam-palette__group\s*\{[\s\S]{0,80}flex-direction:\s*column/);
+    assert.match(css, /\.exam-palette__group-btns\s*\{[\s\S]{0,120}grid-auto-flow:\s*column/);
+    assert.match(html, /rr-nav-legend/);
+  });
   test('the 3 "Phần" tabs are gone (navigator replaces them)', () => {
     assert.ok(!/rr-part-tab/.test(js) && !/rr-part-tab/.test(html) && !/rr-part-tab/.test(css));
     assert.ok(!/function renderParts/.test(js));
@@ -91,6 +98,10 @@ describe('6 — paraphrase + trap/skill as bullet lists', () => {
     assert.match(js, /_section\('Paraphrase', sol\.paraphrase \? _bulletList\(sol\.paraphrase\)/);
     assert.match(js, /_section\('Phân tích bẫy & kỹ năng', sol\.trap_analysis \? _bulletList\(sol\.trap_analysis\)/);
     assert.match(js, /rr-sol__bullets/);
+  });
+  test('Mẹo is refactored: 💡 label + bullets + distinct tint (reading-display-fixes C)', () => {
+    assert.match(js, /_section\('💡 Mẹo làm bài', sol\.tips \? _bulletList\(sol\.tips\)[\s\S]{0,40}rr-sol__sec--tip/);
+    assert.match(css, /\.rr-sol__sec--tip \.rr-sol__text/);
   });
 });
 

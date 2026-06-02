@@ -274,7 +274,7 @@
       _section('Từ vựng', (sol.vocab && sol.vocab.length) ? _vocabList(sol.vocab) : '', 'rr-sol__sec--vocab'),
       _section('Paraphrase', sol.paraphrase ? _bulletList(sol.paraphrase) : ''),
       _section('Phân tích bẫy & kỹ năng', sol.trap_analysis ? _bulletList(sol.trap_analysis) : '', 'rr-sol__sec--trap'),
-      _section('Mẹo làm bài', sol.tips ? ('<p>' + formatProse(sol.tips) + '</p>') : '', 'rr-sol__sec--tip'),
+      _section('💡 Mẹo làm bài', sol.tips ? _bulletList(sol.tips) : '', 'rr-sol__sec--tip'),
       (!sol.steps && item.explanation) ? _section('Lời giải', '<p>' + formatProse(item.explanation) + '</p>') : '',
     ].join('');
     var hasRich = sections.replace(/\s/g, '') !== '';

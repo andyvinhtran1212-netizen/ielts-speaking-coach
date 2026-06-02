@@ -145,7 +145,34 @@
 .rr-sol__vocab-row dt { font-weight: var(--av-fw-semibold); color: var(--exam-text-primary); }
 .rr-sol__vocab-row dd { margin: 0; color: var(--exam-text-secondary); }
 
+/* ── Navigator (palette) layout — horizontal groups along the bottom ──
+ * reading-display-fixes B: the .exam-palette__group layout lives in
+ * reading-exam.css (which this page does NOT link), so without these rules the
+ * groups collapse into the mockup's 36px auto-columns → vertical/overlapping.
+ * Replicate the exam's horizontal grouped row here. */
+.exam-palette__grid {
+  display: flex !important;            /* override the mockup grid-auto-columns */
+  grid-template-columns: none;
+  gap: var(--av-space-6); align-items: stretch; overflow-x: auto;
+}
+.exam-palette__group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.exam-palette__group + .exam-palette__group {
+  border-left: 1px solid var(--exam-border-default); padding-left: var(--av-space-6);
+}
+.exam-palette__group-label {
+  font-family: var(--av-font-mono); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--exam-text-muted); line-height: 1.2;
+}
+.exam-palette__group-btns { display: grid; grid-auto-flow: column; grid-auto-columns: 32px; gap: 4px; align-items: center; }
+/* tint legend in the palette's actions column */
+.rr-nav-legend { display: flex; align-items: center; gap: var(--av-space-3); font-size: var(--av-fs-xs); color: var(--exam-text-secondary); }
+.rr-nav-legend__item { display: inline-flex; align-items: center; gap: 5px; }
+.rr-nav-legend__swatch { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; }
+.rr-nav-legend__swatch.is-correct   { border-color: var(--av-success); color: var(--av-success); }
+.rr-nav-legend__swatch.is-incorrect { border-color: var(--av-error); color: var(--av-error); }
+
 /* ── Navigator (palette) right/wrong tint ─────────────────────────── */
+.rr-nav-q { width: 32px; height: 30px; }
 .rr-nav-q.is-correct   { border-color: var(--av-success); color: var(--av-success); }
 .rr-nav-q.is-incorrect { border-color: var(--av-error); color: var(--av-error); }
 .rr-nav-q.is-correct.is-current   { background: color-mix(in srgb, var(--av-success) 18%, transparent); }
