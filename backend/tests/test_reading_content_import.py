@@ -179,10 +179,72 @@ def test_build_payload_carries_translation_vi_in_metadata():
 
 
 def test_build_payload_omits_metadata_when_no_translation():
-    # tea-style content (no translation_vi) → no metadata key written, so an
-    # existing passage's metadata blob is never clobbered with an empty dict.
+    # tea-style content (no translation_vi / grammar_focus) → no metadata key
+    # written, so an existing passage's metadata blob is never clobbered.
     p = parse_reading_passage(_L1_MD)
     assert "metadata" not in build_reading_passage_payload(p, p.slug)
+
+
+# ── grammar_focus: MD → parser → metadata payload (reading-l1l2-grammar-toggle) ──
+_GRAMMAR_MD = _L1_MD.replace(
+    "---\nWhen wolves",
+    "grammar_focus:\n"
+    "  - point: Past simple passive\n"
+    "    example: Wolves **were reintroduced** to Yellowstone.\n"
+    "    analysis: The passive keeps the focus on the wolves, not the actor.\n"
+    "    review: be + past participle\n"
+    "    tip: Scan for 'were + V3' when a question asks who/what was affected.\n"
+    "  - point: Defining relative clause\n"
+    "    example: The species **that returned** changed the rivers.\n"
+    "    analysis: The clause identifies which species changed the rivers.\n"
+    "---\nWhen wolves",
+)
+
+
+def test_parse_captures_grammar_focus():
+    p = parse_reading_passage(_GRAMMAR_MD)
+    assert isinstance(p.grammar_focus, list) and len(p.grammar_focus) == 2
+    assert p.grammar_focus[0]["point"] == "Past simple passive"
+    assert "**were reintroduced**" in p.grammar_focus[0]["example"]
+    assert p.grammar_focus[0]["review"] == "be + past participle"
+    # the 2nd point only authored point/example/analysis → optional keys absent
+    assert "review" not in p.grammar_focus[1] and "tip" not in p.grammar_focus[1]
+
+
+def test_grammar_focus_drops_malformed_entries():
+    from services.content_import_service import _as_grammar_focus
+    cleaned = _as_grammar_focus([
+        {"point": "Valid", "example": "x"},
+        {"example": "no point — dropped"},
+        "not-a-dict — dropped",
+        {"point": "   "},   # blank point — dropped
+    ])
+    assert len(cleaned) == 1 and cleaned[0]["point"] == "Valid"
+    assert _as_grammar_focus(None) == [] and _as_grammar_focus("scalar") == []
+
+
+def test_build_payload_carries_grammar_focus_in_metadata():
+    # No schema change — grammar_focus rides the metadata JSONB (Pattern #15).
+    p = parse_reading_passage(_GRAMMAR_MD)
+    payload = build_reading_passage_payload(p, p.slug)
+    assert payload["metadata"]["grammar_focus"][0]["point"] == "Past simple passive"
+
+
+def test_build_payload_merges_translation_and_grammar():
+    # A passage with BOTH must keep both in metadata (no clobber).
+    both_md = _GRAMMAR_MD.replace(
+        "grammar_focus:",
+        "translation_vi: |\n  Bản dịch tiếng Việt.\ngrammar_focus:",
+    )
+    p = parse_reading_passage(both_md)
+    meta = build_reading_passage_payload(p, p.slug)["metadata"]
+    assert meta["translation_vi"].startswith("Bản dịch")
+    assert len(meta["grammar_focus"]) == 2
+
+
+def test_preview_exposes_grammar_focus():
+    p = parse_reading_passage(_GRAMMAR_MD)
+    assert len(p.as_preview()["grammar_focus"]) == 2
 
 
 def test_preview_exposes_translation_vi():

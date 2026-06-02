@@ -289,6 +289,10 @@ class ParsedReadingPassage:
     body_markdown:     str
     skill_focus:       Optional[str] = None
     translation_vi:    Optional[str] = None   # full Vietnamese passage translation
+    # reading-l1l2-grammar-toggle — list of grammar points, each a dict
+    # {point, example, analysis, review, tip}. Rides metadata JSONB (Pattern
+    # #15), same as translation_vi. Empty when the content doesn't author it.
+    grammar_focus:     list = field(default_factory=list)
     questions:         list = field(default_factory=list)
     raw_frontmatter:   dict = field(default_factory=dict)
 
@@ -317,6 +321,7 @@ class ParsedReadingPassage:
             "question_count":    len(self.questions),
             "body_markdown":     self.body_markdown,
             "translation_vi":    self.translation_vi,   # dry-run preview confirms capture
+            "grammar_focus":     self.grammar_focus,    # dry-run preview confirms capture
         }
 
 
@@ -344,6 +349,7 @@ def parse_reading_passage(text: str) -> ParsedReadingPassage:
         body_markdown     = body,
         skill_focus       = _as_str(fm.get("skill_focus")),
         translation_vi    = _as_str(fm.get("translation_vi")),
+        grammar_focus     = _as_grammar_focus(fm.get("grammar_focus")),
         questions         = raw_questions if isinstance(raw_questions, list) else [],
         raw_frontmatter   = fm,
     )
@@ -569,11 +575,18 @@ def build_reading_passage_payload(p: ParsedReadingPassage, slug: str) -> dict:
         "estimated_minutes": p.estimated_minutes,
         "status":            "published" if p.published else "draft",
     }
-    # Full Vietnamese translation lives in the metadata JSONB (no schema change —
-    # reading_passages.metadata is the catch-all). Only written when present, so
-    # passages without a translation keep their existing metadata untouched.
+    # Full Vietnamese translation + grammar_focus live in the metadata JSONB (no
+    # schema change — reading_passages.metadata is the catch-all, Pattern #15).
+    # Built as ONE dict so a passage carrying BOTH doesn't clobber the other;
+    # only written when at least one is present, so passages without either keep
+    # their existing metadata untouched.
+    metadata: dict = {}
     if p.translation_vi:
-        payload["metadata"] = {"translation_vi": p.translation_vi}
+        metadata["translation_vi"] = p.translation_vi
+    if p.grammar_focus:
+        metadata["grammar_focus"] = p.grammar_focus
+    if metadata:
+        payload["metadata"] = metadata
     return payload
 
 
@@ -612,6 +625,37 @@ def _as_str_list(v: Any) -> list:
     if isinstance(v, str) and v.strip():
         return [v.strip()]
     return []
+
+
+# reading-l1l2-grammar-toggle — known keys of one grammar point. `point` is the
+# only required field (an entry without a concept title is meaningless and is
+# dropped); the rest are optional strings the UI hides when absent.
+_GRAMMAR_FOCUS_KEYS = ("point", "example", "analysis", "review", "tip")
+
+
+def _as_grammar_focus(v: Any) -> list:
+    """Coerce the YAML `grammar_focus` sequence into a clean list of dicts
+    {point, example, analysis, review, tip} (all strings). Non-list input,
+    non-dict entries, and entries without a `point` are dropped — so malformed
+    authoring degrades to "no grammar" rather than breaking the import."""
+    if not isinstance(v, list):
+        return []
+    out: list = []
+    for entry in v:
+        if not isinstance(entry, dict):
+            continue
+        point = _as_str(entry.get("point"))
+        if not point:
+            continue
+        clean = {"point": point}
+        for key in _GRAMMAR_FOCUS_KEYS:
+            if key == "point":
+                continue
+            val = _as_str(entry.get(key))
+            if val:
+                clean[key] = val
+        out.append(clean)
+    return out
 
 
 # ── Sprint 20.5 — L3 full-test import (reading_full_test) ─────────────

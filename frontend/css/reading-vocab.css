@@ -115,25 +115,60 @@
 }
 .rv-passage__body img.prompt-chart-img { max-width: 100%; border-radius: var(--av-radius-md); cursor: zoom-in; }
 
-/* ── Vietnamese translation (collapsible) — reading-translation-vi ──── */
-.rv-translation { margin-top: var(--av-space-6); max-width: 68ch; }
-.rv-translation__toggle {
-  font: inherit; font-weight: var(--av-fw-semibold); cursor: pointer;
-  display: inline-flex; align-items: center; gap: var(--av-space-2);
+/* ── 3-toggle reading panes (Gốc / Dịch / Grammar) — reading-l1l2-grammar-toggle ──
+   A prominent, responsive toggle bar above the passage; buttons wrap/stack on
+   narrow screens. Subsumes the old collapsible translation panel — "Bài dịch"
+   is now one of the three panes. Reused by L1 + L2 (shared module). */
+.rv-panes {
+  display: flex; flex-wrap: wrap; gap: var(--av-space-2);
+  margin-bottom: var(--av-space-4);
+}
+.rv-panes__btn {
+  font: inherit; font-weight: var(--av-fw-medium); cursor: pointer;
+  flex: 1 1 auto; min-width: 0; text-align: center;
   padding: var(--av-space-2) var(--av-space-4);
-  color: var(--av-primary); background: var(--av-primary-soft);
+  color: var(--av-text-secondary); background: var(--av-surface-card);
   border: 1px solid var(--av-border-default); border-radius: var(--av-radius-pill);
 }
-.rv-translation__toggle:hover { background: var(--av-surface-sunken); }
-.rv-translation__toggle:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
-.rv-translation__body {
-  margin-top: var(--av-space-4); padding: var(--av-space-4) var(--av-space-6);
+.rv-panes__btn:hover { background: var(--av-surface-sunken); }
+.rv-panes__btn:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+.rv-panes__btn.is-active {
+  background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
+  border-color: var(--av-primary); font-weight: var(--av-fw-semibold);
+}
+@media (max-width: 560px) { .rv-panes__btn { flex-basis: 100%; } }
+
+/* Translation pane (the original collapsible body, now a swap-in pane). */
+.rv-pane--vi {
   font-size: var(--av-fs-lg); line-height: var(--av-lh-relaxed);
   color: var(--av-text-secondary); background: var(--av-surface-sunken);
+  padding: var(--av-space-4) var(--av-space-6);
   border-radius: var(--av-radius-md); border-left: 3px solid var(--av-primary);
 }
-.rv-translation__body p { margin: 0 0 var(--av-space-3); }
-.rv-translation__body p:last-child { margin-bottom: 0; }
+.rv-pane--vi p { margin: 0 0 var(--av-space-3); }
+.rv-pane--vi p:last-child { margin-bottom: 0; }
+
+/* Grammar analysis pane — one card per grammar point. */
+.rv-pane--grammar { display: flex; flex-direction: column; gap: var(--av-space-4); }
+.rv-gpoint {
+  padding: var(--av-space-4) var(--av-space-6);
+  background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg); border-left: 3px solid var(--av-primary);
+}
+.rv-gpoint__title {
+  margin: 0 0 var(--av-space-2); font-size: var(--av-fs-lg);
+  font-weight: var(--av-fw-semibold); color: var(--av-text-primary);
+}
+.rv-gpoint__example {
+  margin: 0 0 var(--av-space-3); padding: var(--av-space-2) var(--av-space-4);
+  background: var(--av-surface-sunken); border-radius: var(--av-radius-sm);
+  color: var(--av-text-primary); line-height: var(--av-lh-relaxed);
+}
+.rv-gpoint__example strong { color: var(--av-primary); }
+.rv-gpoint__row { margin: 0 0 var(--av-space-2); color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm); line-height: var(--av-lh-relaxed); }
+.rv-gpoint__row:last-child { margin-bottom: 0; }
+.rv-gpoint__lbl { color: var(--av-text-primary); font-weight: var(--av-fw-semibold); }
 
 .rv-questions {
   /* Independent scroll (above) replaces the old sticky behaviour on desktop. */
