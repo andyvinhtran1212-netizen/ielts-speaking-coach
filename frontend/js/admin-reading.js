@@ -449,11 +449,28 @@
   // mirroring the F1 password regen), so the modal warns before rotating.
   // The full link is shown ONCE here (copyable) — the row never re-exposes the
   // token (it is the access grant).
+  // reading-sharelink-url-fix — build a CANONICAL, well-formed absolute URL.
+  // The previous code did `window.location.origin + window.api.url('pages/…')`,
+  // but api.url() returns a RELATIVE path ('./pages/…' / '../pages/…') meant for
+  // `location.href` navigation. Concatenated after the origin (which has no
+  // trailing slash) the leading '.' of './' glued onto the host →
+  // `https://www.averlearning.com./pages/…` (trailing-dot FQDN). That host
+  // doesn't match the TLS cert → ERR_CONNECTION_CLOSED. The relative path was
+  // also resolved against the deep admin page, not the site root. Fix:
+  //   • strip any trailing dot(s) from the host (the FQDN form is cert-mismatched),
+  //   • upgrade the averlearning.com apex to the canonical www host (where the
+  //     cert + the GitHub Pages site actually live),
+  //   • use the ROOT-absolute '/pages/reading-exam.html' (the exam page sits at
+  //     the site root regardless of how deep the admin page is).
+  function _canonicalOrigin() {
+    var loc = window.location;
+    var host = String(loc.hostname || '').replace(/\.+$/, '');   // strip trailing dot(s)
+    if (host === 'averlearning.com') host = 'www.averlearning.com';
+    var port = loc.port ? ':' + loc.port : '';
+    return loc.protocol + '//' + host + port;
+  }
   function _shareUrl(token) {
-    // Absolute URL to the student exam page in share mode, origin-correct on
-    // localhost + GitHub Pages (window.api.url resolves the app root).
-    return window.location.origin + window.api.url('pages/reading-exam.html') +
-      '?share=' + encodeURIComponent(token);
+    return _canonicalOrigin() + '/pages/reading-exam.html?share=' + encodeURIComponent(token);
   }
   function _fmtExpiry(iso) {
     if (!iso) return '';
@@ -773,4 +790,11 @@
     loadList();
 
   });
+
+  // reading-sharelink-url-fix — expose the pure share-URL builders to the test
+  // harness only (never on the production window) so a unit test can assert the
+  // ACTUAL generated URL is well-formed (canonical host, no trailing dot).
+  if (typeof window !== 'undefined' && window.__AR_SHARE_TEST__) {
+    window.__AR_SHARE_HELPERS__ = { shareUrl: _shareUrl, canonicalOrigin: _canonicalOrigin };
+  }
 })();
