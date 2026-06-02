@@ -81,6 +81,9 @@
       '<span class="rr-topbar-summary__band">Band ' + escapeHtml(band) + '</span>' +
       '<span class="rr-topbar-summary__score">Đúng ' + escapeHtml(score) + '</span>';
   }
+  // reading-header-notefill A — skills shown INLINE in the top-right as
+  // compact tinted chips (skill code · correct/total), sorted weakest-first,
+  // visible at a glance (no dropdown). Hover/title gives the full VN name.
   function renderSkills(d) {
     var host = $('rr-skills');
     var skills = d.skill_breakdown || {};
@@ -89,15 +92,13 @@
     keys.sort(function (a, b) {
       return (skills[a].correct / skills[a].total) - (skills[b].correct / skills[b].total);
     });
-    host.innerHTML = '<h2 class="rr-skills__title">Kỹ năng — điểm mạnh & điểm yếu</h2>' +
-      '<div class="rr-skills__grid">' + keys.map(function (k) {
-        var r = skills[k], pct = r.total ? Math.round((r.correct / r.total) * 100) : 0;
-        var tone = pct >= 75 ? 'is-strong' : (pct >= 50 ? 'is-mid' : 'is-weak');
-        return '<div class="rr-skill ' + tone + '"><div class="rr-skill__head">' +
-          '<span class="rr-skill__name">' + escapeHtml(SKILL_LABEL[k] || k) + '</span>' +
-          '<span class="rr-skill__count">' + r.correct + '/' + r.total + '</span></div>' +
-          '<div class="rr-skill__bar"><div class="rr-skill__fill" style="width:' + pct + '%"></div></div></div>';
-      }).join('') + '</div>';
+    host.innerHTML = keys.map(function (k) {
+      var r = skills[k], pct = r.total ? Math.round((r.correct / r.total) * 100) : 0;
+      var tone = pct >= 75 ? 'is-strong' : (pct >= 50 ? 'is-mid' : 'is-weak');
+      return '<span class="rr-skill-chip ' + tone + '" title="' + escapeHtml(SKILL_LABEL[k] || k) + '">' +
+        '<span class="rr-skill-chip__name">' + escapeHtml(SKILL_LABEL[k] || k) + '</span>' +
+        '<span class="rr-skill-chip__count">' + r.correct + '/' + r.total + '</span></span>';
+    }).join('');
   }
 
   // ── 40-question navigator (reuses the exam palette, grouped by passage) ──

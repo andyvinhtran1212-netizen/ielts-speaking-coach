@@ -39,17 +39,15 @@
 <body class="exam-chrome" data-text-size="medium">
 
   <!-- ── TOP BAR ───────────────────────────────────────────────────── -->
-  <header class="exam-topbar" role="banner">
-    <div class="exam-topbar__left">
-      <a class="exam-tool" href="/pages/reading.html">← Thư viện</a>
-      <div class="exam-topbar__section"><span id="rr-test-label">Chữa bài</span></div>
+  <header class="exam-topbar rr-topbar" role="banner">
+    <div class="rr-topbar__left">
+      <a class="rr-back" href="/pages/reading.html">← Thư viện</a>
+      <span class="rr-test-label" id="rr-test-label">Chữa bài</span>
     </div>
-    <div class="rr-topbar-summary" id="rr-summary" aria-live="polite"></div>
-    <div class="exam-topbar__right">
-      <details class="rr-skills-pop">
-        <summary class="exam-tool">Kỹ năng ▾</summary>
-        <div class="rr-skills" id="rr-skills" aria-label="Phân bố kỹ năng"></div>
-      </details>
+    <div class="rr-topbar__right">
+      <div class="rr-topbar-summary" id="rr-summary" aria-live="polite"></div>
+      <!-- reading-header-notefill A — skills shown INLINE (no dropdown). -->
+      <div class="rr-skills" id="rr-skills" aria-label="Phân bố kỹ năng"></div>
     </div>
   </header>
 

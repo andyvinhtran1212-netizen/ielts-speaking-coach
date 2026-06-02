@@ -624,7 +624,11 @@
         // summary_text — kept for back-compat with seeds that pre-date
         // 20.14e. See reading_content_format_v2.md §4.2 (Sprint 20.14e
         // sub-section) for the authoring contract.
-        if (type === 'summary_completion' &&
+        // reading-header-notefill B — note_completion joins this path: an
+        // authentic IELTS note/summary is ONE connected block with the
+        // numbered blanks inline, not per-Q rows. Both carry the flowing
+        // template ({{N}} markers) on the run's first Q.
+        if ((type === 'summary_completion' || type === 'notes_completion') &&
             run[0].payload && run[0].payload.template &&
             typeof run[0].payload.template.summary_text === 'string') {
           var sumBox = _renderFlowingSummaryBlock(run);
@@ -740,12 +744,16 @@
     var byQNum = {};
     run.forEach(function (q) { byQNum[q.q_num] = q; });
 
+    // reading-header-notefill B — notes keep the connected-block path but need
+    // their line/bullet structure preserved (a --notes modifier flips the
+    // prose to white-space: pre-wrap).
+    var isNotes = first.question_type === 'notes_completion';
     var box = document.createElement('div');
-    box.className = 'exam-gap-box exam-gap-box--summary';
-    box.setAttribute('data-question-type', 'summary_completion');
+    box.className = 'exam-gap-box exam-gap-box--summary' + (isNotes ? ' exam-gap-box--notes' : '');
+    box.setAttribute('data-question-type', first.question_type || 'summary_completion');
 
     var prose = document.createElement('p');
-    prose.className = 'exam-summary__prose';
+    prose.className = 'exam-summary__prose' + (isNotes ? ' exam-summary__prose--notes' : '');
 
     // Walk the template; for each {{N}} marker emit a numbered gap
     // (bold number badge + input/select). The non-marker text chunks
