@@ -30,12 +30,16 @@ grading is server-side via `answer_matches`.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import secrets
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.listening_test_grader import answer_matches
@@ -55,6 +59,121 @@ _EXCERPT_CHARS = 180
 
 async def _require_auth(authorization: str | None) -> dict:
     return await get_supabase_user(authorization)
+
+
+# ── reading-access-tracking Part B — share-link + anonymous helpers ───
+
+async def _optional_auth(authorization: str | None) -> Optional[dict]:
+    """Return the user dict for a valid Bearer token, else None — never raises.
+    Anonymous (share-link) callers have no token, so submit/review must not hard-
+    require auth; ownership is then established by the anon_id capability token."""
+    if not authorization:
+        return None
+    try:
+        return await get_supabase_user(authorization)
+    except Exception:
+        return None
+
+
+def _gen_anon_id() -> str:
+    """An unguessable capability token that OWNS an anonymous attempt (sent back
+    on submit/review). Secret + random — never sequential/guessable."""
+    return secrets.token_urlsafe(24)
+
+
+def _client_ip(request: Request | None) -> str | None:
+    if request is None:
+        return None
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()      # first hop = the real client
+    return request.client.host if request.client else None
+
+
+def _hash_anon_src(ip: str | None) -> str | None:
+    """Salted hash of the client IP for the attempts dashboard (Part C). NEVER
+    stores the raw IP. Fail-LOUD in production when READING_ANON_SALT is unset
+    (an empty salt would make the hash brute-forceable → defeats the privacy
+    purpose); a clearly dev-only fallback keeps local development working."""
+    if not ip:
+        return None
+    salt = settings.READING_ANON_SALT
+    if not salt:
+        if (settings.ENVIRONMENT or "").lower() == "production":
+            raise HTTPException(
+                500,
+                "READING_ANON_SALT is not configured — refusing to record an "
+                "anonymous source unsalted (privacy).",
+            )
+        salt = "dev-only-insecure-salt"
+    return hashlib.sha256((salt + "|" + str(ip)).encode("utf-8")).hexdigest()[:16]
+
+
+def _fetch_attempt_owned(attempt_id: str, user: Optional[dict], anon_id: str | None) -> dict:
+    """Fetch an attempt with ownership enforced for BOTH attempt kinds:
+      • authenticated attempt (user_id set) → the caller's auth user_id must
+        match (403 otherwise);
+      • anonymous attempt (user_id NULL) → the caller must present the matching
+        secret anon_id capability token (403 otherwise — NOT "any anonymous").
+    Replaces the user_id-only _fetch_attempt_or_404 on the shared (auth+anon)
+    paths (submit / review / answers)."""
+    # No credential at all (no auth token AND no anon_id) → 401 before any DB
+    # work. A caller must present *something* that could own an attempt; this
+    # also preserves the pre-Part-B "requires auth" contract for bare requests.
+    if user is None and not anon_id:
+        raise HTTPException(401, "Authentication required")
+    res = (
+        supabase_admin.table("reading_test_attempts")
+        .select("*").eq("id", attempt_id).limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Attempt not found")
+    row = res.data[0]
+    owner = row.get("user_id")
+    if owner:
+        if not user or user.get("id") != owner:
+            raise HTTPException(403, "Attempt belongs to another user")
+    else:
+        stored = row.get("anon_id")
+        if not anon_id or not stored or not secrets.compare_digest(str(anon_id), str(stored)):
+            raise HTTPException(403, "Attempt belongs to another session")
+    return row
+
+
+def _resolve_share(test_id_or_token: str, *, by_token: bool) -> dict:
+    """Resolve a published test for share-link access. by_token=True looks the
+    test up by its metadata.share.token and validates expiry (expired/rotated →
+    403); by_token=False is a direct test_id (used after the token check). A
+    valid share-link is itself the access grant — it BYPASSES the F1 password
+    lock by design (D0-approved)."""
+    if by_token:
+        res = (
+            supabase_admin.table("reading_tests")
+            .select("id,test_id,title,module,time_limit_minutes,passage_count,"
+                    "total_questions,band_target,status,updated_at,metadata")
+            .eq("metadata->share->>token", test_id_or_token)
+            .eq("status", "published")
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            raise HTTPException(404, "Liên kết không hợp lệ hoặc đã bị thay thế.")
+        test = res.data[0]
+    else:
+        test = _fetch_published_test(test_id_or_token)
+    share = ((test.get("metadata") or {}).get("share") or {})
+    token = share.get("token")
+    if not token or token != (test_id_or_token if by_token else share.get("token")):
+        raise HTTPException(404, "Liên kết không hợp lệ hoặc đã bị thay thế.")
+    expires = share.get("expires_at")
+    if expires:
+        try:
+            exp = datetime.fromisoformat(str(expires).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            raise HTTPException(403, "Liên kết có thời hạn không hợp lệ.")
+        if datetime.now(timezone.utc) > exp:
+            raise HTTPException(403, "Liên kết đã hết hạn.")
+    return test
 
 
 def _excerpt(body_markdown: str | None) -> str:
@@ -410,6 +529,15 @@ def _build_reading_test_detail(test_id: str, password: str | None = None) -> dic
     locked = bool(((test.get("metadata") or {}).get("access") or {}).get("locked"))
     test.pop("metadata", None)
     test["locked"] = locked
+    return _assemble_test_detail(test)
+
+
+def _assemble_test_detail(test: dict) -> dict:
+    """Assemble the student-safe bundle (passages + questions, answer keys +
+    solution stripped) for an already-resolved, access-checked test row. Shared
+    by the authed fetch (lock-gated) and the anonymous /share route (lock-
+    bypassed). The caller must have already dropped metadata / set `locked`."""
+    test.pop("metadata", None)
 
     passages_res = (
         supabase_admin.table("reading_passages")
@@ -514,18 +642,26 @@ def _stamp_diagram_image_urls(questions: list[dict]) -> None:
 
 
 def _fetch_in_progress_payload(
-    user_id: str,
+    user_id: str | None,
     test_id: str,
     test: dict,
     *,
     raise_on_missing: bool,
+    anon_id: str | None = None,
 ) -> dict | None:
-    """Return the user's in-progress attempt payload for ``test`` if present."""
+    """Return the open in-progress attempt payload for ``test`` if present.
+    Owned EITHER by an authenticated user (``user_id``) OR — for share-link
+    takers — by an anonymous capability token (``anon_id``). Exactly one of the
+    two is set by the caller; the other filter is omitted."""
+    q = supabase_admin.table("reading_test_attempts").select("id,started_at,status")
+    # Owner filter FIRST (the authed user_id, or the anonymous anon_id token),
+    # then test + status. Exactly one ownership filter is applied.
+    if anon_id is not None:
+        q = q.eq("anon_id", anon_id)
+    else:
+        q = q.eq("user_id", user_id)
     res = (
-        supabase_admin.table("reading_test_attempts")
-        .select("id,started_at,status")
-        .eq("user_id", user_id)
-        .eq("test_id", test["id"])
+        q.eq("test_id", test["id"])
         .eq("status", "in_progress")
         .order("started_at", desc=True)
         .limit(1)
@@ -649,6 +785,79 @@ async def unlock_reading_test(
     test = _fetch_published_test(test_id)
     _require_test_unlocked(test, (body or {}).get("password"))
     return {"ok": True}
+
+
+# ── reading-access-tracking Part B — anonymous share-link access ──────
+# NO auth: a valid, unexpired share-token IS the access grant (it bypasses the
+# F1 lock by design). The bundle is still answer-key + solution stripped.
+
+
+@router.get("/test/share/{share_token}/boot")
+async def boot_shared_reading_test(
+    share_token: str,
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
+):
+    """Anonymous boot via share-link. Validates the token + expiry, returns the
+    student-safe bundle (lock bypassed), and — if the caller already holds an
+    anon_id for an in-progress attempt on this test — the resume payload."""
+    test = _resolve_share(share_token, by_token=True)
+    test_text_id = test.get("test_id")
+    detail = dict(test)
+    detail["locked"] = False              # the valid share token IS the grant (bypass F1)
+    detail = _assemble_test_detail(detail)
+
+    in_progress = None
+    if x_reading_anon:
+        in_progress = _fetch_in_progress_payload(
+            None, test_text_id, detail, raise_on_missing=False,
+            anon_id=x_reading_anon,
+        )
+    return {"test": detail, "in_progress": in_progress}
+
+
+@router.post("/test/share/{share_token}/attempts")
+async def start_shared_reading_test_attempt(
+    share_token: str,
+    request: Request,
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
+):
+    """Anonymous start via share-link. Validates the token, mints a NEW anon_id
+    capability token (the client stores + replays it on submit/review) when one
+    isn't supplied, records a SALTED IP hash (anon_src — never the raw IP), and
+    creates an attempt with user_id NULL. Returns attempt_id + anon_id."""
+    import uuid as _uuid
+    test = _resolve_share(share_token, by_token=True)
+    test_uuid = test["id"]
+    share = ((test.get("metadata") or {}).get("share") or {})
+
+    anon_id = x_reading_anon or _gen_anon_id()
+    # Maintain one active anonymous attempt per (anon_id, test): abandon any
+    # open one this session held (mirror of the authed invariant, anon-scoped).
+    (
+        supabase_admin.table("reading_test_attempts")
+        .update({"status": "abandoned"})
+        .eq("anon_id", anon_id).eq("test_id", test_uuid).eq("status", "in_progress")
+        .execute()
+    )
+    attempt_id = str(_uuid.uuid4())
+    started_at = datetime.now(timezone.utc).isoformat()
+    supabase_admin.table("reading_test_attempts").insert({
+        "id":          attempt_id,
+        "test_id":     test_uuid,
+        "user_id":     None,                       # anonymous
+        "anon_id":     anon_id,
+        "share_token": share.get("token"),
+        "anon_src":    _hash_anon_src(_client_ip(request)),
+        "status":      "in_progress",
+        "answers":     [],
+        "started_at":  started_at,
+    }).execute()
+    return {
+        "attempt_id":         attempt_id,
+        "anon_id":            anon_id,             # client MUST keep this (ownership)
+        "started_at":         started_at,
+        "time_limit_minutes": test.get("time_limit_minutes") or 60,
+    }
 
 
 def _abandon_open_attempts(user_id: str, test_uuid: str) -> None:
@@ -794,9 +1003,13 @@ async def submit_reading_test_attempt(
     attempt_id: str,
     body: _SubmitRequest,
     authorization: str | None = Header(default=None),
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
     """Finalize an L3 attempt: load the answer key, grade, write the
     immutable grading payload to the attempt row, return the result.
+
+    Ownership is auth user_id (authenticated) OR the anon_id capability token
+    (anonymous share-link attempts) — reading-access-tracking B.
 
     Q5 server-guard: if (now − started_at) exceeds the test's time_limit
     plus a 5-minute grace, the submit is rejected as expired. The grace
@@ -806,8 +1019,8 @@ async def submit_reading_test_attempt(
 
     from services import reading_test_grader as grader
 
-    user = await _require_auth(authorization)
-    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    user = await _optional_auth(authorization)
+    attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     if attempt.get("status") == "submitted":
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
@@ -932,6 +1145,7 @@ async def submit_reading_test_attempt(
 async def review_reading_test_attempt(
     attempt_id: str,
     authorization: str | None = Header(default=None),
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
     """Post-submit solution review ("chữa bài"). Returns, ONLY for a SUBMITTED
     attempt owned by the caller: the score/band/skill breakdown, the per-Q
@@ -939,12 +1153,16 @@ async def review_reading_test_attempt(
     `payload.solution` (steps / source / vocab / paraphrase / trap / tips) plus
     the passage bodies + VI translation.
 
+    Ownership = auth user_id OR the anon_id capability token (anonymous share-
+    link attempts can review THEIR OWN attempt only — another anon_id 403s;
+    reading-access-tracking B).
+
     Security boundary (reading-rich Part A): the solution is stripped from the
     DURING-test fetch; this endpoint is the only place it surfaces, and it
     HARD-gates on status == 'submitted' (409 otherwise) so an in-progress or
     abandoned attempt can never leak the answers."""
-    user = await _require_auth(authorization)
-    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    user = await _optional_auth(authorization)
+    attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
 
@@ -1054,6 +1272,7 @@ async def patch_reading_test_attempt_answer(
     attempt_id: str,
     body: _AnswerPatchItem,
     authorization: str | None = Header(default=None),
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
     """Upsert a single answer (auto-save). Idempotent by q_num — re-PATCH
     of the same q_num overwrites the prior value.
@@ -1074,8 +1293,8 @@ async def patch_reading_test_attempt_answer(
     can't accidentally write to a submitted/abandoned attempt."""
     from datetime import datetime, timezone
 
-    user = await _require_auth(authorization)
-    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    user = await _optional_auth(authorization)
+    attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
 

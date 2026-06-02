@@ -13,6 +13,13 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str = ""
     DATABASE_URL: str = ""
 
+    # reading-access-tracking B — salt for hashing anonymous share-link takers'
+    # IPs (reading_test_attempts.anon_src). MUST be set on Railway and kept
+    # STABLE (changing it orphans existing hashes). Empty → fail-loud in
+    # production (reading_student._hash_anon_src); a dev-only fallback keeps
+    # local dev working.
+    READING_ANON_SALT: str = ""
+
     # AI APIs
     ANTHROPIC_API_KEY: str = ""
     GEMINI_API_KEY: str = ""

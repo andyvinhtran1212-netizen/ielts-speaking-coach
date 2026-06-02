@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import secrets
 import string
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
 
@@ -801,6 +802,80 @@ async def admin_lock_reading_test(
     logger.info("[admin_reading] %s test_id=%s by=%s",
                 "lock" if locked else "unlock", test_id, admin.get("id"))
     return {"test_id": test_id, "locked": locked, "password": password}
+
+
+_SHARE_MAX_DAYS = 90
+_SHARE_DEFAULT_DAYS = 7
+
+
+@router.post("/tests/{test_id}/share")
+async def admin_share_reading_test(
+    test_id: str,
+    body: dict,
+    authorization: str | None = Header(default=None),
+):
+    """reading-access-tracking Part B — generate / rotate / revoke a shareable,
+    time-limited link for a full reading test. ANYONE with a live link (incl.
+    anonymous, no account) can take the test and review the solution; the link
+    BYPASSES the F1 password lock (it is itself the grant).
+
+      body = {"expires_in_days": N}  → mint a FRESH token (rotation: the old one
+                                       dies instantly because the student resolve
+                                       looks up by the current metadata.share.token)
+      body = {"revoke": true}        → drop the share entirely (all links die)
+
+    Config rides reading_tests.metadata.share (Pattern #15 — no schema change);
+    read-modify-write preserves the rest of metadata (access/translation/…).
+    The token is unguessable (secrets.token_urlsafe). The client builds the URL
+    (GitHub Pages origin) from the returned token."""
+    admin = await require_admin(authorization)
+    body = body or {}
+
+    res = (
+        supabase_admin.table("reading_tests")
+        .select("id,metadata").eq("test_id", test_id).limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, f"Reading test {test_id!r} not found.")
+    row = res.data[0]
+    metadata = dict(row.get("metadata") or {})
+
+    if body.get("revoke"):
+        metadata.pop("share", None)
+        supabase_admin.table("reading_tests").update(
+            {"metadata": metadata}
+        ).eq("id", row["id"]).execute()
+        logger.info("[admin_reading] share-revoke test_id=%s by=%s",
+                    test_id, admin.get("id"))
+        return {"test_id": test_id, "share": None}
+
+    try:
+        days = int(body.get("expires_in_days") or _SHARE_DEFAULT_DAYS)
+    except (TypeError, ValueError):
+        raise HTTPException(422, "expires_in_days must be an integer")
+    if not (1 <= days <= _SHARE_MAX_DAYS):
+        raise HTTPException(422, f"expires_in_days must be 1..{_SHARE_MAX_DAYS}")
+
+    token = secrets.token_urlsafe(24)            # unguessable; rotation kills the old
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+    metadata["share"] = {
+        "token":      token,
+        "expires_at": expires_at,
+        "created_by": admin.get("id"),
+    }
+    supabase_admin.table("reading_tests").update(
+        {"metadata": metadata}
+    ).eq("id", row["id"]).execute()
+    logger.info("[admin_reading] share-generate test_id=%s days=%s by=%s",
+                test_id, days, admin.get("id"))
+    return {
+        "test_id":    test_id,
+        "share": {
+            "token":          token,
+            "expires_at":     expires_at,
+            "expires_in_days": days,
+        },
+    }
 
 
 @router.delete("/passages/{slug}")
