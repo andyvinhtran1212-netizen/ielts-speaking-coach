@@ -165,4 +165,5 @@ jobs:
             frontend/tests/bundle-import-ui.test.mjs \
             frontend/tests/reading-rich-imgprompt.test.mjs \
             frontend/tests/reading-rich-chuabai.test.mjs \
-            frontend/tests/reading-access-lock.test.mjs
+            frontend/tests/reading-access-lock.test.mjs \
+            frontend/tests/reading-access-share.test.mjs

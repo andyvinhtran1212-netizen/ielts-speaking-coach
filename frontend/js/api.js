@@ -29,14 +29,15 @@
     return result.data.session ? result.data.session.access_token : null;
   }
 
-  async function _apiRequest(method, path, body, isFormData, extraHeaders) {
+  async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {
     var token = await _getAuthToken();
     var headers = {};
 
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (!isFormData) headers['Content-Type'] = 'application/json';
     // reading-access-tracking — optional per-call headers (e.g. the locked-test
-    // X-Reading-Password gate). Merged last so callers can't drop auth.
+    // X-Reading-Password gate, or the anonymous X-Reading-Anon capability
+    // token). Merged last so callers can't drop auth.
     if (extraHeaders) { for (var k in extraHeaders) { if (extraHeaders[k] != null) headers[k] = extraHeaders[k]; } }
 
     var response = await fetch(_API_BASE + path, {
@@ -45,7 +46,12 @@
       body: isFormData ? body : body ? JSON.stringify(body) : null,
     });
 
-    if (response.status === 401) {
+    // reading-access-tracking B2 — anonymous (share-link) callers have NO
+    // account; a 401 there must surface as a friendly error to the caller, not
+    // a redirect to the login page. opts.noRedirect lets those calls fall
+    // through to the throw path below. The default (authed) behaviour is
+    // unchanged: bounce to login on 401.
+    if (response.status === 401 && !(opts && opts.noRedirect)) {
       // Sprint 13.4.1 hotfix — login.html lives at the site root
       // (/login.html). The previous _appRoot+'login.html' build
       // resolved correctly for /pages/X.html but broke for any deeper
@@ -89,9 +95,12 @@
     patch:  function (path, body)  { return _apiRequest('PATCH',  path, body); },
     delete: function (path)        { return _apiRequest('DELETE', path); },
     upload: function (path, fd)    { return _apiRequest('POST',   path, fd, true); },
-    // reading-access-tracking — GET/POST with extra request headers.
-    getWith:  function (path, hdrs)       { return _apiRequest('GET',  path, null, false, hdrs); },
-    postWith: function (path, body, hdrs) { return _apiRequest('POST', path, body, false, hdrs); },
+    // reading-access-tracking — GET/POST/PATCH with extra request headers
+    // (X-Reading-Password / X-Reading-Anon) + optional opts ({noRedirect:true}
+    // suppresses the 401→login bounce for the anonymous share-link path).
+    getWith:   function (path, hdrs, opts)       { return _apiRequest('GET',   path, null, false, hdrs, opts); },
+    postWith:  function (path, body, hdrs, opts) { return _apiRequest('POST',  path, body, false, hdrs, opts); },
+    patchWith: function (path, body, hdrs, opts) { return _apiRequest('PATCH', path, body, false, hdrs, opts); },
   };
 
   // Expose only what the page scripts need

@@ -433,6 +433,92 @@
   opacity: 0.5;
   cursor: wait;
 }
+/* reading-access-tracking B2 — an actively-shared test's link button reads as
+   active (info-toned, distinct from the warning-toned lock). */
+.ar-row-action.is-shared {
+  color: var(--av-info);
+  border-color: color-mix(in srgb, var(--av-info) 40%, transparent);
+  background: color-mix(in srgb, var(--av-info) 10%, transparent);
+  font-weight: var(--av-fw-semibold);
+}
+
+/* reading-access-tracking B2 — share-link modal (generate / rotate / revoke +
+   copyable link). Injected once by admin-reading.js; theme-aware via tokens. */
+.ar-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--av-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ar-modal[hidden] { display: none; }
+.ar-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--av-surface-overlay);
+}
+.ar-modal__panel {
+  position: relative;
+  width: min(440px, calc(100vw - var(--av-space-8)));
+  max-height: calc(100vh - var(--av-space-8));
+  overflow: auto;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  box-shadow: var(--av-shadow-lg);
+  padding: var(--av-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-3);
+}
+.ar-modal__title {
+  margin: 0;
+  font-size: var(--av-fs-lg);
+  color: var(--av-text-primary);
+}
+.ar-modal__state,
+.ar-modal__warn {
+  margin: 0;
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+.ar-modal__warn { font-style: italic; }
+.ar-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-1);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-primary);
+}
+.ar-modal__field input {
+  padding: var(--av-space-2);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+}
+.ar-modal__result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-2);
+  padding: var(--av-space-3);
+  border-radius: var(--av-radius-md);
+  background: color-mix(in srgb, var(--av-info) 8%, transparent);
+}
+.ar-modal__copied {
+  font-size: var(--av-fs-sm);
+  color: var(--av-info);
+  font-weight: var(--av-fw-semibold);
+}
+.ar-modal__copied[hidden] { display: none; }
+.ar-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-2);
+}
 
 /* Sprint 20.15 D1 — admin preview page (/admin/reading/preview.html).
  * Verification-focused: passages rendered as the student would see

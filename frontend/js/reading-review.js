@@ -70,6 +70,13 @@
   function attemptIdFromUrl() {
     return (new URLSearchParams(window.location.search).get('attempt_id') || '').trim() || null;
   }
+  // reading-access-tracking B2 — an anonymous (share-link) taker owns this
+  // review via the anon_id capability token, passed on the URL by the exam
+  // results CTA. When present we replay it as X-Reading-Anon and suppress the
+  // 401→login bounce (the user has no account).
+  function anonIdFromUrl() {
+    return (new URLSearchParams(window.location.search).get('anon') || '').trim() || null;
+  }
 
   // ── Compact top-bar summary (band + score) + skills popover ───────
   function renderSummary(d) {
@@ -382,7 +389,14 @@
   function load(attemptId) {
     showState('loading');
     SESSION.attemptId = attemptId;
-    window.api.get('/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/review')
+    // reading-access-tracking B2 — anonymous ownership header + noRedirect when
+    // an anon_id is on the URL; otherwise the plain authed fetch.
+    var anonId = anonIdFromUrl();
+    var reviewUrl = '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/review';
+    var reviewPromise = anonId
+      ? window.api.getWith(reviewUrl, { 'X-Reading-Anon': anonId }, { noRedirect: true })
+      : window.api.get(reviewUrl);
+    reviewPromise
       .then(function (d) {
         if (!d || !(d.review || []).length) { showState('empty'); return; }
         render(d);
@@ -390,8 +404,12 @@
       .catch(function (e) {
         if (e && e.status === 409) {
           showError('Bài làm này chưa nộp — chưa có chữa bài. Hãy hoàn thành và nộp bài trước.');
-        } else if (e && e.status === 403) {
-          showError('Bài làm này không thuộc tài khoản của bạn.');
+        } else if (e && (e.status === 403 || e.status === 401)) {
+          // 403 = foreign owner; 401 = anon link lost its credential. Both are
+          // ownership failures for the anonymous path → one clear message.
+          showError(anonId
+            ? 'Không xem được chữa bài của bài làm này (liên kết không còn hiệu lực hoặc thuộc phiên khác).'
+            : 'Bài làm này không thuộc tài khoản của bạn.');
         } else if (e && e.status === 404) {
           showState('empty');
         } else {

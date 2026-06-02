@@ -83,6 +83,12 @@ def _normalise_l3_test_row(r: dict) -> dict:
         # reading-access-tracking F1 — surface lock state for the admin row
         # action (never the password itself).
         "locked":           bool(((r.get("metadata") or {}).get("access") or {}).get("locked")),
+        # reading-access-tracking B2 — surface share-link state for the admin
+        # row "🔗 Link" control: whether a link is active + its (non-secret)
+        # expiry. The token itself is NEVER surfaced here (it is the access
+        # grant — shown only once at generate time, like the F1 password).
+        "share_active":     bool(((r.get("metadata") or {}).get("share") or {}).get("token")),
+        "share_expires_at": ((r.get("metadata") or {}).get("share") or {}).get("expires_at"),
     }
 
 
