@@ -37,10 +37,25 @@
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
     });
   }
-  // Escape, THEN bold "quoted" spans for legibility — XSS-safe (escape first).
+  // Escape, THEN layer formatting — XSS-safe (escape first, so any HTML in the
+  // data is already inert before we add <code>/<strong>).
+  //  • `backtick` spans → styled mono (chuabai-refine #5 — no literal backticks)
+  //  • "quoted" spans   → bold for legibility
   function formatProse(s) {
-    return escapeHtml(s).replace(/(&quot;|&#39;|“|”)(.+?)(&quot;|&#39;|“|”)/g,
+    var out = escapeHtml(s);
+    out = out.replace(/`([^`]+)`/g, function (_, t) { return '<code class="rr-code">' + t + '</code>'; });
+    out = out.replace(/(&quot;|&#39;|“|”)([^&"'“”]+?)(&quot;|&#39;|“|”)/g,
       function (_, a, mid, b) { return '<strong>' + a + mid + b + '</strong>'; });
+    return out;
+  }
+  // Split a prose block into bullet-sized pieces (chuabai-refine #6). Splits on
+  // ';' and sentence boundaries ('. '); a single sentence → one bullet.
+  function _bulletList(text) {
+    var items = String(text).split(/;\s+|\.\s+/).map(function (s) { return s.trim(); })
+      .filter(Boolean);
+    if (!items.length) return '';
+    return '<ul class="rr-sol__bullets">' +
+      items.map(function (s) { return '<li>' + formatProse(s) + '</li>'; }).join('') + '</ul>';
   }
   function showState(name) {
     $('state-loading').hidden = name !== 'loading';
@@ -48,28 +63,23 @@
     $('state-error').hidden   = name !== 'error';
     $('rr-content').hidden    = name !== 'ready';
   }
-  function showError(msg) { $('state-error').textContent = msg; showState('error'); }
+  function showError(msg) {
+    var el = $('error-msg'); if (el) el.textContent = msg;
+    showState('error');
+  }
   function attemptIdFromUrl() {
     return (new URLSearchParams(window.location.search).get('attempt_id') || '').trim() || null;
   }
 
-  // ── Summary + skills (overview) ───────────────────────────────────
+  // ── Compact top-bar summary (band + score) + skills popover ───────
   function renderSummary(d) {
     var band = (d.band_estimate != null) ? d.band_estimate : '—';
     var score = (d.score != null ? d.score : '—') + '/' + (d.max_score || 40);
-    var parts = Object.keys(d.by_part || {}).sort().map(function (k) {
-      var r = d.by_part[k];
-      return '<div class="rr-summary__part"><span>' + escapeHtml(k.replace('p', 'Phần ')) +
-        '</span><strong>' + r.correct + '/' + r.total + '</strong></div>';
-    }).join('');
+    var label = $('rr-test-label');
+    if (label) label.textContent = (d.title || d.test_id || 'Chữa bài');
     $('rr-summary').innerHTML =
-      '<div class="rr-summary__band"><span class="rr-summary__band-label">Band ước tính</span>' +
-        '<span class="rr-summary__band-value">' + escapeHtml(band) + '</span></div>' +
-      '<div class="rr-summary__meta">' +
-        '<div class="rr-summary__title">' + escapeHtml(d.title || d.test_id || 'Chữa bài') + '</div>' +
-        '<div class="rr-summary__score">Số câu đúng: <strong>' + escapeHtml(score) + '</strong></div>' +
-        '<div class="rr-summary__parts">' + parts + '</div>' +
-      '</div>';
+      '<span class="rr-topbar-summary__band">Band ' + escapeHtml(band) + '</span>' +
+      '<span class="rr-topbar-summary__score">Đúng ' + escapeHtml(score) + '</span>';
   }
   function renderSkills(d) {
     var host = $('rr-skills');
@@ -90,22 +100,59 @@
       }).join('') + '</div>';
   }
 
-  // ── Part tabs + passage original/translation toggle ───────────────
-  function renderParts(d) {
-    var host = $('rr-parts');
-    var passages = (d.passages || []).slice().sort(function (a, b) {
-      return (a.passage_order || 0) - (b.passage_order || 0);
+  // ── 40-question navigator (reuses the exam palette, grouped by passage) ──
+  // chuabai-refine #3 — replaces the 3 "Phần" tabs. Each number jumps to that
+  // question's review; the button is tinted by right/wrong (#42 latitude).
+  function renderNavigator(d) {
+    var grid = $('rr-nav-grid');
+    var correctByQ = {};
+    (d.review || []).forEach(function (r) { correctByQ[r.q_num] = !!r.correct; });
+    var byPart = {};
+    (d.review || []).forEach(function (r) {
+      (byPart[r.passage_order] = byPart[r.passage_order] || []).push(r.q_num);
     });
-    host.innerHTML = passages.map(function (p) {
-      return '<button type="button" class="rr-part-tab" role="tab" data-part="' +
-        escapeHtml(p.passage_order) + '">Phần ' + escapeHtml(p.passage_order) + '</button>';
-    }).join('');
-    host.addEventListener('click', function (ev) {
-      var btn = ev.target.closest && ev.target.closest('.rr-part-tab');
-      if (btn) selectPart(parseInt(btn.getAttribute('data-part'), 10));
+    var orders = Object.keys(byPart).map(Number).sort(function (a, b) { return a - b; });
+    grid.innerHTML = '';
+    orders.forEach(function (order) {
+      var groupEl = document.createElement('div');
+      groupEl.className = 'exam-palette__group';
+      var labelEl = document.createElement('span');
+      labelEl.className = 'exam-palette__group-label';
+      labelEl.textContent = 'Passage ' + order;
+      groupEl.appendChild(labelEl);
+      var btns = document.createElement('div');
+      btns.className = 'exam-palette__group-btns';
+      byPart[order].sort(function (a, b) { return a - b; }).forEach(function (qn) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'exam-palette__q rr-nav-q ' + (correctByQ[qn] ? 'is-correct' : 'is-incorrect');
+        b.dataset.q = String(qn);
+        b.textContent = String(qn);
+        b.setAttribute('aria-label', 'Câu ' + qn + (correctByQ[qn] ? ' — đúng' : ' — sai'));
+        b.addEventListener('click', function () { jumpToQ(qn); });
+        btns.appendChild(b);
+      });
+      groupEl.appendChild(btns);
+      grid.appendChild(groupEl);
     });
     $('rr-mode-original').addEventListener('click', function () { setPassageMode('original'); });
     $('rr-mode-translation').addEventListener('click', function () { setPassageMode('translation'); });
+  }
+
+  // Jump to a question's review: switch to its passage if needed, scroll the
+  // card into view, expand it (which highlights the source), mark nav active.
+  function jumpToQ(qNum) {
+    var item = (SESSION.data.review || []).filter(function (r) { return r.q_num === qNum; })[0];
+    if (!item) return;
+    if (item.passage_order !== SESSION.part) selectPart(item.passage_order);
+    document.querySelectorAll('.rr-nav-q').forEach(function (b) {
+      b.classList.toggle('is-current', parseInt(b.getAttribute('data-q'), 10) === qNum);
+    });
+    var card = document.querySelector('.rr-card[data-q="' + qNum + '"]');
+    if (!card) return;
+    if (card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var detail = card.querySelector('.rr-card__detail');
+    if (detail && detail.hidden) { var top = card.querySelector('.rr-card__top'); if (top) top.click(); }
   }
 
   function setPassageMode(mode) {
@@ -119,12 +166,12 @@
   }
 
   // ── Passage pane ──────────────────────────────────────────────────
+  // The toggle + title + body live in the HTML (persistent); we only set the
+  // title text + (re)render the body, so the gốc/dịch toggle isn't wiped.
   function renderPassage(passage) {
     SESSION.passage = passage;
-    var host = $('rr-passage');
-    host.innerHTML =
-      '<h2 class="rr-passage__title">' + escapeHtml(passage.title || ('Phần ' + passage.passage_order)) + '</h2>' +
-      '<div class="rr-passage__body md-body" id="rr-passage-body"></div>';
+    var titleEl = $('rr-passage-title');
+    if (titleEl) titleEl.textContent = passage.title || ('Phần ' + passage.passage_order);
     renderPassageBody(passage);
   }
   function renderPassageBody(passage) {
@@ -225,8 +272,8 @@
       _section('Các bước ra đáp án', sol.steps ? _stepsList(sol.steps) : '', 'rr-sol__sec--steps'),
       _section('Trích đoạn nguồn', sol.source_excerpt ? ('<blockquote>' + formatProse(sol.source_excerpt) + '</blockquote>') : '', 'rr-sol__sec--quote'),
       _section('Từ vựng', (sol.vocab && sol.vocab.length) ? _vocabList(sol.vocab) : '', 'rr-sol__sec--vocab'),
-      _section('Paraphrase', sol.paraphrase ? ('<p>' + formatProse(sol.paraphrase) + '</p>') : ''),
-      _section('Phân tích bẫy & kỹ năng', sol.trap_analysis ? ('<p>' + formatProse(sol.trap_analysis) + '</p>') : '', 'rr-sol__sec--trap'),
+      _section('Paraphrase', sol.paraphrase ? _bulletList(sol.paraphrase) : ''),
+      _section('Phân tích bẫy & kỹ năng', sol.trap_analysis ? _bulletList(sol.trap_analysis) : '', 'rr-sol__sec--trap'),
       _section('Mẹo làm bài', sol.tips ? ('<p>' + formatProse(sol.tips) + '</p>') : '', 'rr-sol__sec--tip'),
       (!sol.steps && item.explanation) ? _section('Lời giải', '<p>' + formatProse(item.explanation) + '</p>') : '',
     ].join('');
@@ -237,7 +284,9 @@
         '<span class="rr-card__num">Câu ' + escapeHtml(item.q_num) + '</span>' +
         '<span class="rr-card__verdict">' + (correct ? '✓ Đúng' : '✗ Sai') + '</span>' +
         '<span class="rr-card__tag">' + escapeHtml((item.question_type || '') + skillStr + bandStr) + '</span>' +
-        (hasRich ? '<span class="rr-card__chevron" aria-hidden="true">▸</span>' : '') +
+        // chuabai-refine #4 — prominent, clearly-labelled expand affordance.
+        (hasRich ? '<span class="rr-card__toggle"><span class="rr-card__toggle-text">Xem lời giải</span>' +
+                   '<span class="rr-card__chevron" aria-hidden="true">▸</span></span>' : '') +
       '</div>' +
       (item.prompt ? '<p class="rr-card__prompt">' + escapeHtml(item.prompt) + '</p>' : '') +
       '<div class="rr-card__answers">' +
@@ -251,11 +300,13 @@
     if (hasRich) {
       var top = card.querySelector('.rr-card__top');
       var detail = card.querySelector('.rr-card__detail');
+      var toggleText = top.querySelector('.rr-card__toggle-text');
       var toggle = function () {
         var open = detail.hidden;
         detail.hidden = !open;
         top.setAttribute('aria-expanded', open ? 'true' : 'false');
         card.classList.toggle('is-open', open);
+        if (toggleText) toggleText.textContent = open ? 'Ẩn lời giải' : 'Xem lời giải';
         if (open) highlightSource(sol.source_excerpt); else clearHighlight();
       };
       top.addEventListener('click', toggle);
@@ -269,11 +320,6 @@
   function selectPart(order) {
     SESSION.part = order;
     var d = SESSION.data;
-    document.querySelectorAll('.rr-part-tab').forEach(function (b) {
-      var on = parseInt(b.getAttribute('data-part'), 10) === order;
-      b.classList.toggle('is-active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
     var passage = (d.passages || []).filter(function (p) { return p.passage_order === order; })[0];
     if (passage) renderPassage(passage);
 
@@ -307,12 +353,17 @@
 
   function render(d) {
     SESSION.data = d;
-    renderSummary(d); renderSkills(d); renderParts(d);
+    renderSummary(d); renderSkills(d); renderNavigator(d);
     showState('ready');
+    $('rr-palette').hidden = false;
     var first = (d.passages || []).slice().sort(function (a, b) {
       return (a.passage_order || 0) - (b.passage_order || 0);
     })[0];
-    selectPart(first ? first.passage_order : 1);
+    var order = first ? first.passage_order : 1;
+    selectPart(order);
+    // mark the first nav button current
+    var firstBtn = document.querySelector('.rr-nav-q');
+    if (firstBtn) firstBtn.classList.add('is-current');
   }
 
   function load(attemptId) {
