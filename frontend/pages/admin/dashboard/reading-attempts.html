@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Reading — Lượt làm bài · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    /* Reuses the ops-dashboard `.db-*` vocabulary (pages/admin/dashboard/index.html)
+       so the two reading + ops dashboards read as one system; `.rd-*` adds the
+       reading-specific distribution bars + tables. Token-clean + theme-aware. */
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .db-shell { max-width: 1100px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
+    .db-header { display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--av-space-3); flex-wrap: wrap; }
+    .db-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .db-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .db-controls { display: flex; gap: var(--av-space-3); align-items: flex-end; flex-wrap: wrap; }
+    .db-field { display: flex; flex-direction: column; gap: 4px; }
+    .db-field label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+    .db-field select { padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-card);
+      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
+
+    .db-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm); color: var(--av-error); background: var(--av-error-soft);
+      border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent); }
+    .rd-note { padding: var(--av-space-2) var(--av-space-3); border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-xs); color: var(--av-text-secondary); background: var(--av-surface-sunken);
+      border: 1px solid var(--av-border-subtle); }
+
+    .db-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--av-space-4); }
+    @media (max-width: 880px) { .db-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .db-grid { grid-template-columns: 1fr; } }
+    .db-card { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-2); min-height: 120px; min-width: 0; }
+    .db-card__label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); font-weight: var(--av-fw-semibold); }
+    .db-card__scope { text-transform: none; letter-spacing: 0; font-weight: var(--av-fw-regular);
+      color: var(--av-text-faint); }
+    .db-card__value { font-size: var(--av-fs-3xl, 2rem); font-weight: var(--av-fw-bold);
+      color: var(--av-text-primary); font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .db-card__split { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .db-card__split:empty { display: none; }
+
+    .db-card.is-loading .db-card__value, .db-card.is-loading .db-card__split {
+      color: transparent !important; border-radius: var(--av-radius-sm);
+      background: linear-gradient(90deg, var(--av-surface-sunken) 25%, var(--av-border-subtle) 37%, var(--av-surface-sunken) 63%);
+      background-size: 400% 100%; animation: db-shimmer 1.2s ease-in-out infinite; }
+    @keyframes db-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) { .db-card.is-loading .db-card__value { animation: none; } }
+    .db-refresh:disabled { opacity: 0.6; cursor: progress; }
+
+    /* ── Blocks (skills / bands / per-test / recent) ───────────────── */
+    .db-block { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .db-block__title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .db-block__sub { font-size: var(--av-fs-xs); color: var(--av-text-muted); margin: 0; }
+    .db-2col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-6); }
+    @media (max-width: 760px) { .db-2col { grid-template-columns: 1fr; } }
+
+    /* Horizontal bars (skill accuracy + band distribution) */
+    .rd-bars { display: flex; flex-direction: column; gap: var(--av-space-2); }
+    .rd-bar { display: grid; grid-template-columns: 130px 1fr auto; align-items: center;
+      gap: var(--av-space-3); font-size: var(--av-fs-sm); }
+    .rd-bar__label { color: var(--av-text-secondary); min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rd-bar__track { height: 10px; border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken); overflow: hidden; }
+    .rd-bar__fill { height: 100%; border-radius: var(--av-radius-pill); background: var(--av-primary); }
+    /* weakest skills flagged — the actionable cue */
+    .rd-bar.is-weak .rd-bar__fill { background: var(--av-error); }
+    .rd-bar.is-weak .rd-bar__label { color: var(--av-error); font-weight: var(--av-fw-semibold); }
+    .rd-bar__val { font-variant-numeric: tabular-nums; color: var(--av-text-primary); min-width: 7ch; text-align: right; }
+
+    /* Tables (per-test + recent) reuse admin table chrome where present */
+    .rd-table { width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm); }
+    .rd-table th, .rd-table td { text-align: left; padding: var(--av-space-2) var(--av-space-3);
+      border-bottom: 1px solid var(--av-border-subtle); }
+    .rd-table th { font-size: var(--av-fs-xs); text-transform: uppercase; color: var(--av-text-muted);
+      letter-spacing: var(--av-tracking-wide); font-weight: var(--av-fw-semibold); }
+    .rd-table td.num { font-variant-numeric: tabular-nums; text-align: right; }
+    .rd-pill { display: inline-block; padding: 1px 8px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); }
+    .rd-pill--anon { color: var(--av-text-secondary); background: var(--av-surface-sunken); }
+    .rd-pill--auth { color: var(--av-brand-teal-800); background: var(--av-brand-teal-50); }
+    .rd-empty { color: var(--av-text-muted); font-size: var(--av-fs-sm); text-align: center; padding: var(--av-space-6); }
+
+    .db-foot { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="dashboard" subsection="reading-attempts">
+
+    <main class="db-shell">
+      <header class="db-header">
+        <div>
+          <h1>Reading — Lượt làm bài</h1>
+          <p class="subtitle">Theo dõi lượt làm bài đọc — người dùng đã đăng nhập + người làm ẩn danh qua liên kết chia sẻ. Thời gian · điểm (band) · kỹ năng. (Làm mới thủ công.)</p>
+        </div>
+        <div class="db-controls">
+          <div class="db-field">
+            <label for="rd-window">Cửa sổ</label>
+            <select id="rd-window">
+              <option value="7">7 ngày</option>
+              <option value="30" selected>30 ngày</option>
+              <option value="90">90 ngày</option>
+            </select>
+          </div>
+          <button type="button" id="rd-refresh" class="db-refresh av-btn av-btn--secondary">↻ Làm mới</button>
+        </div>
+      </header>
+
+      <div id="rd-banner" class="db-banner" hidden></div>
+      <div id="rd-trunc" class="rd-note" hidden></div>
+
+      <!-- KPI tiles -->
+      <section class="db-grid" aria-label="Tổng quan lượt làm bài">
+        <div class="db-card">
+          <div class="db-card__label">Tổng lượt nộp <span class="db-card__scope">· toàn thời gian</span></div>
+          <div class="db-card__value" id="rd-total-alltime">—</div>
+        </div>
+        <div class="db-card db-card--windowed">
+          <div class="db-card__label">Lượt nộp <span class="db-card__scope">· <span class="rd-window-lbl">30</span> ngày</span></div>
+          <div class="db-card__value" id="rd-total-window">—</div>
+          <div class="db-card__split" id="rd-split"></div>
+        </div>
+        <div class="db-card db-card--windowed">
+          <div class="db-card__label">Người dùng đã đăng nhập <span class="db-card__scope">· chính xác</span></div>
+          <div class="db-card__value" id="rd-auth-users">—</div>
+        </div>
+        <div class="db-card db-card--windowed">
+          <div class="db-card__label">Nguồn ẩn danh <span class="db-card__scope">· xấp xỉ</span></div>
+          <div class="db-card__value" id="rd-anon-sources">—</div>
+          <div class="db-card__split">≈ ước lượng theo IP băm (NAT/IP chung → không khử trùng tuyệt đối)</div>
+        </div>
+        <div class="db-card db-card--windowed">
+          <div class="db-card__label">Thời gian trung bình</div>
+          <div class="db-card__value" id="rd-time-avg">—</div>
+          <div class="db-card__split" id="rd-time-sub"></div>
+        </div>
+      </section>
+
+      <!-- Skills + band distribution -->
+      <div class="db-2col">
+        <section class="db-block">
+          <div>
+            <h2 class="db-block__title">Kỹ năng — điểm yếu</h2>
+            <p class="db-block__sub">Tỷ lệ đúng theo kỹ năng (đỏ = yếu nhất, cần luyện thêm).</p>
+          </div>
+          <div class="rd-bars" id="rd-skills"></div>
+        </section>
+        <section class="db-block">
+          <div>
+            <h2 class="db-block__title">Phân bố band</h2>
+            <p class="db-block__sub">Số lượt theo điểm ước lượng (band).</p>
+          </div>
+          <div class="rd-bars" id="rd-bands"></div>
+        </section>
+      </div>
+
+      <!-- Per-test usage -->
+      <section class="db-block">
+        <h2 class="db-block__title">Lượt theo đề</h2>
+        <table class="rd-table">
+          <thead>
+            <tr><th>Đề</th><th class="num">Lượt</th><th class="num">Đăng nhập</th><th class="num">Ẩn danh</th><th class="num">Band TB</th></tr>
+          </thead>
+          <tbody id="rd-pertest"></tbody>
+        </table>
+        <div id="rd-pertest-empty" class="rd-empty" hidden>Chưa có lượt làm bài nào trong cửa sổ này.</div>
+      </section>
+
+      <!-- Recent attempts -->
+      <section class="db-block">
+        <h2 class="db-block__title">Lượt gần đây</h2>
+        <table class="rd-table">
+          <thead>
+            <tr><th>Thời điểm</th><th>Đề</th><th>Người làm</th><th class="num">Band</th><th class="num">Thời gian</th></tr>
+          </thead>
+          <tbody id="rd-recent"></tbody>
+        </table>
+        <div id="rd-recent-empty" class="rd-empty" hidden>Chưa có lượt làm bài nào trong cửa sổ này.</div>
+      </section>
+
+      <p class="db-foot" id="rd-updated"></p>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/charts/sparkline.js"></script>
+  <script src="/js/admin-reading-attempts.js" defer></script>
+</body>
+</html>

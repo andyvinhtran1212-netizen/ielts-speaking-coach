@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from config import settings
 from database import supabase_admin
 from services import admin_dashboard
+from services import admin_reading_dashboard
 from services.access_code_permissions import validate_permissions_or_raise
 from routers.auth import get_supabase_user
 from services.gemini import (
@@ -1193,6 +1194,25 @@ async def dashboard_trends(
     Pattern #29 — a per-series outage yields a zero-filled series, never a 500."""
     await require_admin(authorization)
     body = admin_dashboard.compute_dashboard_trends(days=days)
+    return JSONResponse(content=body, headers={"Cache-Control": "max-age=300"})
+
+
+# ── reading-access-tracking C — GET /admin/dashboard/reading-attempts ─────────
+
+@router.get("/dashboard/reading-attempts")
+async def dashboard_reading_attempts(
+    authorization: str | None = Header(default=None),
+    days: int = 30,
+):
+    """Reading-attempt aggregates for the admin dashboard — authenticated +
+    anonymous (share-link) takers: counts, per-test usage, band distribution,
+    skill performance (weakest first), and time-taken stats over the last
+    `days` (7/30/90; other values clamp to 30). Anonymous distinct counts are
+    APPROXIMATE (salted-IP-hash dedupe limit) and the raw hash is never
+    returned. Aggregated in Python over a bounded fetch (no RPC); Pattern #29 —
+    a query outage yields ok=false, never a 500. Cache-Control: 300s."""
+    await require_admin(authorization)
+    body = admin_reading_dashboard.compute_reading_attempts_dashboard(days=days)
     return JSONResponse(content=body, headers={"Cache-Control": "max-age=300"})
 
 

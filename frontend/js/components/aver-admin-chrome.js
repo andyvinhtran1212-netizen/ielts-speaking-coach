@@ -356,7 +356,13 @@ const NAV_GROUPS = [
       { section: 'overview',  label: 'Tổng quan', href: '/pages/admin/index.html', icon: 'home' },
       // Sprint 18.2 — new ops Dashboard (6-metric overview); consolidates the
       // Usage / Lưu lượng / Hệ thống surfaces as drill-downs.
-      { section: 'dashboard', label: 'Dashboard',  href: '/pages/admin/dashboard/index.html', icon: 'activity' },
+      { section: 'dashboard', label: 'Dashboard',  href: '/pages/admin/dashboard/index.html', icon: 'activity',
+        subsections: [
+          // reading-access-tracking C — reading-attempts drill-down (auth +
+          // anonymous share-link takers: time/band/skills).
+          { slug: 'reading-attempts', label: 'Reading — Lượt làm bài', href: '/pages/admin/dashboard/reading-attempts.html' },
+        ],
+      },
     ],
   },
   {
