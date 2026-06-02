@@ -1,8 +1,8 @@
 # averlearning.com — Site / Product Overview
 
-> **What this is:** a product map of the live site — every module, how the modules relate, and what each sub-page does (purpose · audience · basic operation). Use it to onboard fast or to locate where a feature lives.
+> **What this is:** the **single source of truth** for the live site's product map — every module, how the modules relate, and what each sub-page does (purpose · audience · basic operation). Use it to onboard fast or to locate where a feature lives. `README.md` is a thin intro that points here; keep per-page / feature detail in this file only (don't reconstruct a competing map elsewhere).
 > **Updated:** 2026-06-02 · reflects state through PR #392 (Reading module feature-complete: L1/L2 glossary + translation + grammar toggle, L3 full test + solution + chữa-bài, access control lock/share/anonymous, attempts dashboard; speaking daily limit 24).
-> **Not this:** orchestration plans/lessons/patterns live in `docs/HANDOFF.md`; day-to-day Claude rules in `CLAUDE.md`; design-system narrative in `frontend/css/aver-design/DESIGN_SYSTEM.md`. The root `CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md` is a **gitignored personal-notes file, stale at Sprint 6** — do not treat it as current.
+> **Not this:** orchestration plans/lessons/patterns live in `docs/HANDOFF.md`; day-to-day Claude rules in `CLAUDE.md`; design-system narrative in `frontend/css/aver-design/DESIGN_SYSTEM.md`. The root `CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md` is **retired** as a product-direction doc — superseded by this file (it remains a gitignored, stale-at-Sprint-6 personal-notes file on the author's machine; do not treat it as current).
 > **Sub-page unit:** one real route-bearing `.html` under `frontend/` = one sub-page. Test fixtures (`frontend/tests/**`), `graphify-out/`, `_theme-test.html`, and `practice.legacy.html` are excluded.
 
 ---

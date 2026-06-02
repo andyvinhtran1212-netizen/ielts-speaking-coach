@@ -71,6 +71,16 @@ describe('SITE_OVERVIEW — coverage floor (B)', () => {
   });
 });
 
+describe('SITE_OVERVIEW — README points here (D)', () => {
+  // Single-source guard: README must defer to SITE_OVERVIEW for the product
+  // map, so the detailed per-page/feature map lives in exactly one place.
+  test('README links to docs/SITE_OVERVIEW.md', () => {
+    const readme = readFileSync(path.join(REPO, 'README.md'), 'utf8');
+    assert.match(readme, /docs\/SITE_OVERVIEW\.md/,
+      'README must point to docs/SITE_OVERVIEW.md (single source of truth)');
+  });
+});
+
 describe('SITE_OVERVIEW — spine pages present (C)', () => {
   const spine = [
     'pages/practice.html', 'pages/reading-exam.html', 'pages/reading-review.html',
