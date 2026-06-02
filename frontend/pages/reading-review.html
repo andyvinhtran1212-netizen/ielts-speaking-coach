@@ -22,56 +22,60 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
-  <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/markdown.css" />
-  <link rel="stylesheet" href="/css/reading-vocab.css" />
+  <!-- chuabai-refine — reuse the full-screen exam shell + palette navigator. -->
+  <link rel="stylesheet" href="/css/reading-exam-mockup.css" />
   <link rel="stylesheet" href="/css/reading-review.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="/js/api.js"></script>
-  <script type="module" src="/js/components/aver-chrome.js"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
   <script src="/js/markdown.js" defer></script>
   <script src="/js/components/glossary-popover.js" defer></script>
 </head>
-<body class="av-page">
+<!-- exam-chrome → the institutional full-viewport shell (top bar / split / palette). -->
+<body class="exam-chrome" data-text-size="medium">
 
-  <aver-chrome active="reading"></aver-chrome>
+  <!-- ── TOP BAR ───────────────────────────────────────────────────── -->
+  <header class="exam-topbar" role="banner">
+    <div class="exam-topbar__left">
+      <a class="exam-tool" href="/pages/reading.html">← Thư viện</a>
+      <div class="exam-topbar__section"><span id="rr-test-label">Chữa bài</span></div>
+    </div>
+    <div class="rr-topbar-summary" id="rr-summary" aria-live="polite"></div>
+    <div class="exam-topbar__right">
+      <details class="rr-skills-pop">
+        <summary class="exam-tool">Kỹ năng ▾</summary>
+        <div class="rr-skills" id="rr-skills" aria-label="Phân bố kỹ năng"></div>
+      </details>
+    </div>
+  </header>
 
-  <div class="shell">
-    <main class="rr-shell">
-      <p class="eyebrow"><a href="/pages/reading.html" class="rr-back">← Thư viện Reading</a></p>
+  <main class="exam-state-shell" id="state-loading"><p class="exam-state-msg">Đang tải chữa bài…</p></main>
+  <main class="exam-state-shell" id="state-empty" hidden><p class="exam-state-msg">Không tìm thấy bài làm để chữa.</p></main>
+  <main class="exam-state-shell" id="state-error" hidden><p class="exam-state-msg exam-state-msg--error" id="error-msg"></p></main>
 
-      <div class="rr-state" id="state-loading">Đang tải chữa bài…</div>
-      <div class="rr-state" id="state-empty" hidden>Không tìm thấy bài làm để chữa.</div>
-      <div class="rr-state rr-state--error" id="state-error" hidden></div>
-
-      <div id="rr-content" hidden>
-        <!-- Summary: band + score + by-part -->
-        <header class="rr-summary" id="rr-summary"></header>
-
-        <!-- Skill breakdown: where the learner is strong / weak -->
-        <section class="rr-skills" id="rr-skills" aria-label="Phân bố kỹ năng"></section>
-
-        <!-- Toolbar: part tabs (left) + passage original/translation toggle (right) -->
-        <div class="rr-toolbar">
-          <nav class="rr-parts" id="rr-parts" role="tablist" aria-label="Chọn phần"></nav>
-          <div class="rr-passage-toggle" role="group" aria-label="Hiển thị đoạn văn">
-            <button type="button" class="rr-passage-toggle__btn is-active" id="rr-mode-original" aria-pressed="true">Văn bản gốc</button>
-            <button type="button" class="rr-passage-toggle__btn" id="rr-mode-translation" aria-pressed="false">Bài dịch</button>
-          </div>
-        </div>
-
-        <!-- 2-pane (mirrors the test view): passage | annotated question cards -->
-        <div class="rr-layout">
-          <article class="rr-passage" id="rr-passage" aria-label="Đoạn văn"></article>
-          <section class="rr-review" id="rr-review" aria-label="Chữa từng câu"></section>
-        </div>
+  <!-- ── SPLIT: passage | per-question review (reuses .exam-split) ──── -->
+  <main class="exam-split" id="rr-content" hidden>
+    <section class="exam-passage" id="rr-passage-pane" aria-label="Đoạn văn">
+      <!-- chuabai-refine #2 — original/translation toggle, top-LEFT. -->
+      <div class="rr-passage-toggle" role="group" aria-label="Hiển thị đoạn văn">
+        <button type="button" class="rr-passage-toggle__btn is-active" id="rr-mode-original" aria-pressed="true">Văn bản gốc</button>
+        <button type="button" class="rr-passage-toggle__btn" id="rr-mode-translation" aria-pressed="false">Bài dịch</button>
       </div>
-    </main>
-  </div>
+      <h2 class="rr-passage__title" id="rr-passage-title"></h2>
+      <div class="rr-passage__body md-body" id="rr-passage-body"></div>
+    </section>
+    <div class="exam-divider" aria-hidden="true"></div>
+    <section class="exam-questions rr-review" id="rr-review" aria-label="Chữa từng câu"></section>
+  </main>
+
+  <!-- ── PALETTE: 40-question navigator grouped by passage (reuses .exam-palette) ── -->
+  <footer class="exam-palette" id="rr-palette" hidden role="navigation" aria-label="Chọn câu để chữa">
+    <div class="exam-palette__grid" id="rr-nav-grid" role="group" aria-label="40 câu"></div>
+  </footer>
 
   <script src="/js/reading-review.js" defer></script>
 </body>

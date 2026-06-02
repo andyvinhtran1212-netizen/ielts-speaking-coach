@@ -1,12 +1,14 @@
 /**
  * frontend/tests/reading-rich-chuabai.test.mjs
  *
- * reading-rich Part C + chuabai-redesign — the post-submit chữa-bài review,
- * refactored to MIRROR the test view: 2-pane (passage | question cards), part
- * tabs, a passage original/translation toggle, and per-Q dropdown cards whose
- * expansion shows a richly-formatted solution (steps as bullets, trap/tips
- * colour-coded, vocab as a definition list, source as a quote) AND highlights
- * the source paragraph in the passage. Reuses the #379 review endpoint.
+ * reading-rich Part C + chuabai-refine — the chữa-bài review, refined to:
+ *  1. full-screen EXAM-like layout (reuses .exam-chrome shell + .exam-split)
+ *  2. original/translation toggle on the LEFT (above the passage)
+ *  3. the exam's 40-question navigator grouped by passage (no "Phần" tabs)
+ *  4. a prominent per-Q "Xem lời giải" toggle (not a tiny chevron)
+ *  5. vocab/backtick terms rendered as mono <code> (no literal backticks)
+ *  6. paraphrase + trap/skill as bullet lists
+ * Reuses the #379 review endpoint; solution stays stripped during the test.
  */
 
 import { test, describe } from 'node:test';
@@ -26,107 +28,90 @@ const examJs = read('frontend/js/reading-exam.js');
 const examHtml = read('frontend/pages/reading-exam.html');
 
 
-describe('A — page + data wiring (reuses #379 endpoint)', () => {
-  test('review page links chrome + tokens + the review script', () => {
-    assert.match(html, /css\/reading-review\.css/);
-    assert.match(html, /js\/reading-review\.js/);
-    assert.match(html, /<aver-chrome/);
+describe('1 — full-screen exam-like layout (reuses the exam shell)', () => {
+  test('page is exam-chrome + links the exam stylesheet + reuses .exam-split / .exam-palette', () => {
+    assert.match(html, /<body class="exam-chrome"/);
+    assert.match(html, /css\/reading-exam-mockup\.css/);
+    assert.match(html, /class="exam-split" id="rr-content"/);
+    assert.match(html, /class="exam-palette" id="rr-palette"/);
   });
-  test('fetches the submitted-only review endpoint by attempt_id; gates 409', () => {
+});
+
+describe('2 — original/translation toggle on the LEFT (above the passage)', () => {
+  test('the toggle sits inside the passage pane (.exam-passage), before the body', () => {
+    assert.match(html, /class="exam-passage" id="rr-passage-pane"[\s\S]{0,300}rr-passage-toggle[\s\S]{0,500}rr-passage__body/);
+    assert.match(html, /id="rr-mode-original"[\s\S]{0,60}Văn bản gốc/);
+    assert.match(html, /id="rr-mode-translation"[\s\S]{0,60}Bài dịch/);
+  });
+});
+
+describe('3 — 40-Q navigator grouped by passage (no Phần tabs)', () => {
+  test('navigator reuses the exam palette groups + tints by right/wrong', () => {
+    assert.match(js, /function renderNavigator\(d\)/);
+    assert.match(js, /exam-palette__group/);
+    assert.match(js, /rr-nav-q ' \+ \(correctByQ\[qn\] \? 'is-correct' : 'is-incorrect'\)/);
+    assert.match(js, /jumpToQ\(qn\)/);
+  });
+  test('the 3 "Phần" tabs are gone (navigator replaces them)', () => {
+    assert.ok(!/rr-part-tab/.test(js) && !/rr-part-tab/.test(html) && !/rr-part-tab/.test(css));
+    assert.ok(!/function renderParts/.test(js));
+  });
+  test('jumpToQ switches passage if needed + scrolls + expands the card', () => {
+    assert.match(js, /function jumpToQ\(qNum\)/);
+    assert.match(js, /passage_order !== SESSION\.part\) selectPart/);
+    assert.match(js, /scrollIntoView/);
+  });
+});
+
+describe('4 — prominent per-Q expand toggle', () => {
+  test('a labelled "Xem lời giải" affordance (not just a chevron)', () => {
+    assert.match(js, /rr-card__toggle[\s\S]{0,80}Xem lời giải/);
+    assert.match(js, /toggleText\.textContent = open \? 'Ẩn lời giải' : 'Xem lời giải'/);
+    // styled as a clear button (accent background)
+    assert.match(css, /\.rr-card__toggle\s*\{[\s\S]{0,200}var\(--exam-accent\)/);
+  });
+});
+
+describe('5 — vocab / backtick terms render as mono (no literal backticks)', () => {
+  test('formatProse converts `backtick` spans to <code> (after escaping)', () => {
+    const fn = js.slice(js.indexOf('function formatProse'), js.indexOf('function _bulletList'));
+    assert.match(fn, /escapeHtml\(s\)/);
+    assert.match(fn, /replace\(\/`\(\[\^`\]\+\)`\/g/);
+    assert.match(fn, /rr-code/);
+    assert.ok(!/innerHTML/.test(fn));   // escape-first, no raw HTML injection
+  });
+  test('.rr-code is mono-styled', () => {
+    assert.match(css, /\.rr-code\s*\{[\s\S]{0,120}var\(--av-font-mono\)/);
+  });
+});
+
+describe('6 — paraphrase + trap/skill as bullet lists', () => {
+  test('paraphrase + trap go through the bullet builder', () => {
+    assert.match(js, /function _bulletList\(text\)/);
+    assert.match(js, /_section\('Paraphrase', sol\.paraphrase \? _bulletList\(sol\.paraphrase\)/);
+    assert.match(js, /_section\('Phân tích bẫy & kỹ năng', sol\.trap_analysis \? _bulletList\(sol\.trap_analysis\)/);
+    assert.match(js, /rr-sol__bullets/);
+  });
+});
+
+describe('regression — endpoint reuse, security, results link, XSS, tokens', () => {
+  test('reuses the submitted-only review endpoint (409 gated)', () => {
     assert.match(js, /\/api\/reading\/test\/attempts\/' \+ encodeURIComponent\(attemptId\) \+ '\/review/);
     assert.match(js, /status === 409[\s\S]{0,160}chưa nộp/i);
   });
-});
-
-
-describe('B — per-Q dropdown card mirrors the test view', () => {
-  test('card top is a keyboard-accessible toggle with a chevron', () => {
-    assert.match(js, /rr-card__top['"] role="button" tabindex="0" aria-expanded="false"/);
-    assert.match(js, /rr-card__chevron/);
-    assert.match(css, /\.rr-card\.is-open \.rr-card__chevron[\s\S]{0,80}rotate/);
-  });
-  test('detail is collapsed by default and toggles on click', () => {
-    assert.match(js, /rr-card__detail['"] hidden/);
-    assert.match(js, /detail\.hidden = !open/);
-    assert.match(js, /top\.addEventListener\('click', toggle\)/);
-  });
-  test('verdict is semantic (correct/incorrect), user-vs-correct shown', () => {
-    assert.match(js, /is-correct['"] : ['"]is-incorrect/);
-    assert.match(css, /\.rr-card\.is-correct[\s\S]{0,80}var\(--av-success\)/);
-    assert.match(css, /\.rr-card\.is-incorrect[\s\S]{0,80}var\(--av-error\)/);
-    assert.match(js, /Bạn trả lời/);
-    assert.match(js, /Đáp án/);
-  });
-});
-
-
-describe('C — rich solution formatting (bullets / colour / bold / vocab)', () => {
-  test('steps render as a numbered list (split on "(n)")', () => {
-    assert.match(js, /function _stepsList\(steps\)/);
-    assert.match(js, /split\(\/\\s\*\\\(\\d\+\\\)\\s\*\/\)/);
-    assert.match(js, /rr-sol__steps/);
-  });
-  test('vocab renders as a definition list (term → meaning)', () => {
-    assert.match(js, /function _vocabList\(vocab\)/);
-    assert.match(js, /rr-sol__vocab/);
-    assert.match(css, /\.rr-sol__vocab-row dt/);
-  });
-  test('trap + tips are colour-coded, source is a quote block', () => {
-    assert.match(js, /rr-sol__sec--trap/);
-    assert.match(js, /rr-sol__sec--tip/);
-    assert.match(js, /rr-sol__sec--quote/);
-    assert.match(js, /'<blockquote>' \+ formatProse\(sol\.source_excerpt\)/);
-    assert.match(css, /\.rr-sol__sec--trap \.rr-sol__text[\s\S]{0,160}var\(--av-error-soft\)/);
-    assert.match(css, /\.rr-sol__sec--tip \.rr-sol__text[\s\S]{0,160}var\(--av-success-soft\)/);
-  });
-  test('formatProse bolds quoted spans AFTER escaping (XSS-safe)', () => {
-    const fn = js.slice(js.indexOf('function formatProse'), js.indexOf('function showState'));
-    assert.match(fn, /escapeHtml\(s\)\.replace/);
-    assert.match(fn, /<strong>/);
-    // it escapes first, so it never injects raw user HTML
-    assert.ok(!/innerHTML/.test(fn));
-  });
-});
-
-
-describe('D — source highlighting (text-match, no MD change)', () => {
-  test('splits source_excerpt on ellipsis + highlights matching paragraphs', () => {
+  test('source highlight + clear-on-collapse intact; VI via textContent', () => {
     assert.match(js, /function highlightSource\(excerpt\)/);
-    assert.match(js, /split\(\/\\s\*\(\?:…\|\\\.\\\.\\\.\)\\s\*\//);
     assert.match(js, /classList\.add\('rr-src-hl'\)/);
-    assert.match(js, /scrollIntoView/);
-    assert.match(css, /\.rr-src-hl/);
-  });
-  test('expanding a card highlights its source; collapsing clears it', () => {
     assert.match(js, /if \(open\) highlightSource\(sol\.source_excerpt\); else clearHighlight/);
-    // highlight needs the English body → expand forces original mode
-    assert.match(js, /passageMode !== 'original'\) setPassageMode\('original'\)/);
+    assert.match(js, /\.textContent = s;/);   // VI paragraphs
   });
-});
-
-
-describe('E — passage original / translation toggle (#372 reuse)', () => {
-  test('two toggle buttons: Văn bản gốc / Bài dịch', () => {
-    assert.match(html, /id="rr-mode-original"[\s\S]{0,80}Văn bản gốc/);
-    assert.match(html, /id="rr-mode-translation"[\s\S]{0,80}Bài dịch/);
-  });
-  test('setPassageMode swaps the body between English + VI translation', () => {
-    assert.match(js, /function setPassageMode\(mode\)/);
-    assert.match(js, /passageMode === 'translation'/);
-    assert.match(js, /translation_vi/);
-    assert.match(js, /\.textContent = s;/);   // VI paragraphs via textContent (XSS-safe)
-  });
-});
-
-
-describe('F — reuse + no regression', () => {
-  test('exam results panel still links to the chữa-bài review', () => {
+  test('exam results panel still links to the review', () => {
     assert.match(examHtml, /id="results-chuabai-link"/);
     assert.match(examJs, /reading-review\.html\?attempt_id=' \+ encodeURIComponent\(result\.attempt_id\)/);
   });
-  test('2-pane stacks on mobile; tokens only (no undefined --av-space)', () => {
-    assert.match(css, /@media \(max-width: 860px\)[\s\S]{0,400}\.rr-layout \{[\s\S]{0,120}grid-template-columns: 1fr/);
-    assert.ok(!/--av-space-(5|7|9|10|11|13|14|15)\b/.test(css.replace(/\/\*[\s\S]*?\*\//g, '')));
-    assert.ok(!/--av-fs-md\b/.test(css) && !/--av-on-primary\b/.test(css));
+  test('token-clean: no undefined --av-space, no --av-fs-md / --av-on-primary', () => {
+    const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.ok(!/--av-space-(5|7|9|10|11|13|14|15)\b/.test(live));
+    assert.ok(!/--av-fs-md\b/.test(live) && !/--av-on-primary\b/.test(live));
   });
 });
