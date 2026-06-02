@@ -11,6 +11,10 @@ SRS flashcards and fill-blank exercises.
 
 > Day-to-day collaboration rules live in `CLAUDE.md` (project guide for
 > Claude Code).  This README is the high-level orientation.
+>
+> For the full product map — every module, how they relate, and what each
+> sub-page does (purpose · audience · operation) — see
+> [`docs/SITE_OVERVIEW.md`](docs/SITE_OVERVIEW.md).
 
 ---
 
