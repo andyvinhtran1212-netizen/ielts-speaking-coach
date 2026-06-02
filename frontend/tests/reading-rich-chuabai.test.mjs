@@ -143,10 +143,12 @@ describe('header-notefill A — clean header, inline skills, sticky toggle', () 
     assert.ok(!/Kỹ năng ▾/.test(html), 'no "Kỹ năng ▾" dropdown summary');
     assert.match(css, /\.rr-skill-chip\.is-weak[\s\S]{0,120}var\(--av-error\)/);
   });
-  test('passage toggle is sticky + pinned FLUSH to the top (full-bleed)', () => {
+  test('passage toggle is sticky + pinned FLUSH to the top', () => {
     assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,260}position:\s*sticky/);
-    // full-bleed negative margins cancel the .exam-passage padding → no gap
-    assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,320}margin:\s*-20px -28px/);
+    // reading-review-toggle-fix Bug 1 — pane top padding zeroed + horizontal
+    // full-bleed (no -20px top margin) → truly flush, no gap.
+    assert.match(css, /#rr-passage-pane\s*\{[^}]*padding-top:\s*0/);
+    assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,320}margin:\s*0 -28px/);
   });
 });
 
@@ -196,5 +198,61 @@ describe('exam-format B2/B3 — Questions header + restriction bolding', () => {
     assert.match(fn, /NOT GIVEN\|TRUE\|FALSE\|YES\|NO/);
     assert.match(readExamCss, /\.exam-q-range\b[\s\S]{0,120}font-weight:\s*800/);
     assert.match(readExamCss, /\.exam-instr-em\b/);
+  });
+});
+
+
+/* ── reading-review-toggle-fix — expand/collapse regression + flush gap ── */
+describe('toggle-fix — "Xem/Ẩn lời giải" actually expands/collapses', () => {
+  test('CSS honours [hidden] (THE fix): hidden→display:none, shown→flex', () => {
+    // Regression #380: `.rr-card__detail { display: flex }` overrode the
+    // [hidden] UA `display:none`, so the solution was stuck visible + the
+    // toggle dead. This is the assertion the markup-only sentinels missed.
+    assert.match(css, /\.rr-card__detail\[hidden\]\s*\{[^}]*display:\s*none/);
+    assert.match(css, /\.rr-card__detail\s*\{[\s\S]{0,180}display:\s*flex/);
+  });
+
+  test('click flips detail.hidden + label + aria (JS click→state contract)', () => {
+    // Behaviour harness (logic duplicated from reading-review.js, per the
+    // repo's no-jsdom convention): assert the click sequence toggles STATE,
+    // not just that markup exists.
+    var detail = { hidden: true };
+    var top = { _a: {}, setAttribute: function (k, v) { this._a[k] = v; } };
+    var label = { textContent: 'Xem lời giải' };
+    var card = { _open: null, classList: { toggle: function (c, on) { card._open = on; } } };
+    var toggle = function () {
+      var open = detail.hidden;
+      detail.hidden = !open;
+      top.setAttribute('aria-expanded', open ? 'true' : 'false');
+      card.classList.toggle('is-open', open);
+      label.textContent = open ? 'Ẩn lời giải' : 'Xem lời giải';
+    };
+    assert.equal(detail.hidden, true);                       // collapsed initially
+    toggle();
+    assert.equal(detail.hidden, false);                      // → expanded
+    assert.equal(top._a['aria-expanded'], 'true');
+    assert.equal(card._open, true);
+    assert.equal(label.textContent, 'Ẩn lời giải');
+    toggle();
+    assert.equal(detail.hidden, true);                       // → collapsed again
+    assert.equal(label.textContent, 'Xem lời giải');
+  });
+
+  test('toggle handler is wired on click + flips detail.hidden in source', () => {
+    assert.match(js, /top\.addEventListener\('click', toggle\)/);
+    assert.match(js, /var toggle = function[\s\S]{0,200}detail\.hidden = !open/);
+  });
+
+  test('locate stays independent + functional (not re-coupled to the toggle)', () => {
+    assert.match(js, /locateBtn[\s\S]{0,120}highlightSource\(sol\.source_excerpt\)/);
+    const fn = js.slice(js.indexOf('var toggle = function'), js.indexOf("top.addEventListener('click', toggle)"));
+    assert.ok(!/highlightSource/.test(fn), 'expand toggle must still NOT auto-highlight');
+  });
+
+  test('Bug 1 — toggle pinned truly flush (no top gap): pane top padding zeroed', () => {
+    assert.match(css, /#rr-passage-pane\s*\{[^}]*padding-top:\s*0/);
+    assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,260}position:\s*sticky/);
+    // no leftover negative top margin (the finicky bit that left the gap)
+    assert.ok(!/\.rr-passage-toggle\s*\{[\s\S]{0,260}margin:\s*-20px/.test(css));
   });
 });
