@@ -44,7 +44,12 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
 
     # App config
-    MAX_SESSIONS_PER_USER_PER_DAY: int = 10
+    # speaking-daily-limit-24 — global per-account daily speaking-session cap
+    # (admins bypass; counted per UTC calendar day, resets at UTC midnight;
+    # enforced in routers/sessions.py). Env-overridable: if a
+    # MAX_SESSIONS_PER_USER_PER_DAY env var is set (e.g. on Railway) it WINS
+    # over this default, so update/remove that var to roll the production value.
+    MAX_SESSIONS_PER_USER_PER_DAY: int = 24
     MAX_AUDIO_DURATION_SECONDS: int = 300
 
     # Vocab Bank feature flags
