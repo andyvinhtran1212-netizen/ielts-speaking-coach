@@ -169,6 +169,25 @@
     });
   }
 
+  // reading-review-locate-exam-format B2/B3 — format a question-group
+  // instruction for display: enlarge/bold the "Questions X–Y" prefix and bold
+  // the format restrictions students lose marks on. Escapes FIRST, then layers
+  // <span>/<strong> on the safe string (the phrases contain only '/' which
+  // survives escaping), so it's XSS-safe. The instruction container is
+  // white-space: pre-wrap, so the T/F/NG line breaks survive.
+  function _formatInstruction(text) {
+    var s = escapeHtml(text);
+    s = s.replace(/^(Questions\s+[\d–—\-]+)/i,
+      '<span class="exam-q-range">$1</span>');
+    var emph = function (m) { return '<strong class="exam-instr-em">' + m + '</strong>'; };
+    s = s.replace(/NO MORE THAN (?:ONE|TWO|THREE|FOUR|FIVE|\d+) WORDS?(?:\s+AND\/OR A NUMBER)?/gi, emph);
+    s = s.replace(/ONE WORD ONLY/gi, emph);
+    // option keywords leading the T/F/NG · Y/N/NG explanation lines
+    s = s.replace(/(^|\n)(NOT GIVEN|TRUE|FALSE|YES|NO)(?=\s)/g,
+      function (_, pre, kw) { return pre + emph(kw); });
+    return s;
+  }
+
   // ── Sprint 20.13b — a11y shared helpers (Standards §4.3 + §4.9) ───
   // Shared modal lifecycle. One `openOverlay()` + `closeOverlay()` pair
   // wraps the 5 true modals (Help, Hide overlay, Submit-confirm,
@@ -585,9 +604,14 @@
         var optionsCount = (run[0].payload && Array.isArray(run[0].payload.options))
           ? run[0].payload.options.length : 0;
         var ctx = { part: part, optionsCount: optionsCount };
-        instructionEl.textContent = template
+        var instrText = template
           ? template(rangeLabel, ctx)
           : 'Questions ' + rangeLabel + '.';
+        // reading-review-locate-exam-format B2/B3 — bold/enlarge the
+        // "Questions X–Y" header + bold the format restrictions (word limits,
+        // T/F/NG · Y/N/NG option words). Render-time detection (no MD change);
+        // escapeHtml-first so this stays XSS-safe.
+        instructionEl.innerHTML = _formatInstruction(instrText);
         groupEl.appendChild(instructionEl);
 
         // Sprint 20.14a T1.2 + Sprint 20.14b — bank box for the matching
@@ -752,66 +776,89 @@
     box.className = 'exam-gap-box exam-gap-box--summary' + (isNotes ? ' exam-gap-box--notes' : '');
     box.setAttribute('data-question-type', first.question_type || 'summary_completion');
 
-    var prose = document.createElement('p');
-    prose.className = 'exam-summary__prose' + (isNotes ? ' exam-summary__prose--notes' : '');
-
-    // Walk the template; for each {{N}} marker emit a numbered gap
-    // (bold number badge + input/select). The non-marker text chunks
-    // are emitted as plain text nodes so prose flows normally and
-    // CSS `text-align: justify` can apply.
     var src = String(template || '');
-    var last = 0;
-    var match;
-    _SUMMARY_MARKER_RE.lastIndex = 0;
-    while ((match = _SUMMARY_MARKER_RE.exec(src)) !== null) {
-      if (match.index > last) {
-        prose.appendChild(document.createTextNode(src.slice(last, match.index)));
-      }
-      var qNum = parseInt(match[1], 10);
-      var q = byQNum[qNum];
-      // Number badge + control. Even if q is missing (unknown q_num)
-      // we still render the marker literally so the issue is visible.
-      if (!q) {
-        prose.appendChild(document.createTextNode(match[0]));
-      } else {
-        var numEl = document.createElement('span');
-        numEl.className = 'exam-summary__gnum';
-        numEl.textContent = String(qNum);
-        prose.appendChild(numEl);
-        prose.appendChild(document.createTextNode(' '));
-        if (wordBank) {
-          var sel = document.createElement('select');
-          sel.className = 'exam-q__select exam-q__select--inline';
-          sel.name = 'q-' + qNum;
-          sel.setAttribute('aria-label', 'Answer ' + qNum);
-          sel.dataset.q = String(qNum);
-          var ph = document.createElement('option');
-          ph.value = ''; ph.textContent = '— Select —';
-          sel.appendChild(ph);
-          wordBank.forEach(function (o) {
-            var val = o.label != null ? String(o.label) : String(o.text || '');
-            var opt = document.createElement('option');
-            opt.value = val; opt.textContent = val;
-            sel.appendChild(opt);
-          });
-          prose.appendChild(sel);
+
+    // Fill `container` from a template segment: plain text chunks become text
+    // nodes; each {{N}} marker becomes a numbered badge + input/select bound
+    // to that q_num (name="q-N" + dataset.q so the existing grading path is
+    // unchanged). Shared by the summary paragraph and each note line.
+    function _fillTemplate(container, text) {
+      var re = /\{\{\s*(\d{1,3})\s*\}\}/g;
+      var last = 0, m;
+      while ((m = re.exec(text)) !== null) {
+        if (m.index > last) container.appendChild(document.createTextNode(text.slice(last, m.index)));
+        var qNum = parseInt(m[1], 10);
+        var q = byQNum[qNum];
+        if (!q) {
+          container.appendChild(document.createTextNode(m[0]));
         } else {
-          var input = document.createElement('input');
-          input.type = 'text';
-          input.className = 'exam-q__gap exam-q__gap--inline';
-          input.name = 'q-' + qNum;
-          input.setAttribute('aria-label', 'Answer ' + qNum);
-          input.setAttribute('autocomplete', 'off');
-          input.dataset.q = String(qNum);
-          prose.appendChild(input);
+          var numEl = document.createElement('span');
+          numEl.className = 'exam-summary__gnum';
+          numEl.textContent = String(qNum);
+          container.appendChild(numEl);
+          container.appendChild(document.createTextNode(' '));
+          if (wordBank) {
+            var sel = document.createElement('select');
+            sel.className = 'exam-q__select exam-q__select--inline';
+            sel.name = 'q-' + qNum; sel.dataset.q = String(qNum);
+            sel.setAttribute('aria-label', 'Answer ' + qNum);
+            var ph = document.createElement('option');
+            ph.value = ''; ph.textContent = '— Select —';
+            sel.appendChild(ph);
+            wordBank.forEach(function (o) {
+              var val = o.label != null ? String(o.label) : String(o.text || '');
+              var opt = document.createElement('option');
+              opt.value = val; opt.textContent = val;
+              sel.appendChild(opt);
+            });
+            container.appendChild(sel);
+          } else {
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'exam-q__gap exam-q__gap--inline';
+            input.name = 'q-' + qNum; input.dataset.q = String(qNum);
+            input.setAttribute('aria-label', 'Answer ' + qNum);
+            input.setAttribute('autocomplete', 'off');
+            container.appendChild(input);
+          }
         }
+        last = m.index + m[0].length;
       }
-      last = match.index + match[0].length;
+      if (last < text.length) container.appendChild(document.createTextNode(text.slice(last)));
     }
-    if (last < src.length) {
-      prose.appendChild(document.createTextNode(src.slice(last)));
+
+    if (isNotes) {
+      // reading-review-locate-exam-format B1 — render notes as a STRUCTURED
+      // block: the first non-blank line is the title, bullet lines ("• …") get
+      // a styled marker, and other non-blank/no-blank lines are sub-headings —
+      // so it reads as a clean note, not a pre-wrap blob. Inline blanks + their
+      // q_num binding are unchanged (via _fillTemplate).
+      var sawTitle = false;
+      src.split("\n").forEach(function (line) {
+        var t = line.trim();
+        if (!t) return;
+        var lineEl = document.createElement('div');
+        var bm = /^[••\-*]\s+(.*)$/.exec(t);
+        if (bm) {
+          lineEl.className = 'exam-note__bullet';
+          _fillTemplate(lineEl, bm[1]);
+        } else if (!/\{\{/.test(t)) {
+          // a heading line (no fill-in blank): first one = title, rest = section
+          lineEl.className = sawTitle ? 'exam-note__heading' : 'exam-note__title';
+          sawTitle = true;
+          _fillTemplate(lineEl, t);
+        } else {
+          lineEl.className = 'exam-note__line';
+          _fillTemplate(lineEl, t);
+        }
+        box.appendChild(lineEl);
+      });
+    } else {
+      var prose = document.createElement('p');
+      prose.className = 'exam-summary__prose';
+      _fillTemplate(prose, src);
+      box.appendChild(prose);
     }
-    box.appendChild(prose);
 
     // The flowing summary uses the per-card change/input handlers via
     // delegation on the box. The `dataset.q` on each input + the

@@ -107,11 +107,14 @@ describe('Sprint 20.14e #2 — summary_completion flowing block', () => {
   test('flowing renderer builds `.exam-gap-box--summary` with `.exam-summary__prose`', () => {
     assert.match(
       js,
-      /_renderFlowingSummaryBlock[\s\S]{0,800}exam-gap-box exam-gap-box--summary/,
+      /function _renderFlowingSummaryBlock[\s\S]{0,900}exam-gap-box exam-gap-box--summary/,
     );
+    // (reading-review-locate-exam-format moved the prose creation below the
+    // shared _fillTemplate helper, so the window widened — still the same
+    // renderer building .exam-summary__prose for the summary branch.)
     assert.match(
       js,
-      /_renderFlowingSummaryBlock[\s\S]{0,1500}exam-summary__prose/,
+      /function _renderFlowingSummaryBlock[\s\S]{0,5000}exam-summary__prose/,
     );
   });
 

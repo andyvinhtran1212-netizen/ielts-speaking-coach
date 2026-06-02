@@ -111,10 +111,11 @@ describe('regression — endpoint reuse, security, results link, XSS, tokens', (
     assert.match(js, /\/api\/reading\/test\/attempts\/' \+ encodeURIComponent\(attemptId\) \+ '\/review/);
     assert.match(js, /status === 409[\s\S]{0,160}chưa nộp/i);
   });
-  test('source highlight + clear-on-collapse intact; VI via textContent', () => {
+  test('source highlight logic intact (now triggered by the locate button); VI via textContent', () => {
     assert.match(js, /function highlightSource\(excerpt\)/);
     assert.match(js, /classList\.add\('rr-src-hl'\)/);
-    assert.match(js, /if \(open\) highlightSource\(sol\.source_excerpt\); else clearHighlight/);
+    // A2: highlight is decoupled from the toggle → driven by the locate button
+    assert.match(js, /locateBtn[\s\S]{0,120}highlightSource\(sol\.source_excerpt\)/);
     assert.match(js, /\.textContent = s;/);   // VI paragraphs
   });
   test('exam results panel still links to the review', () => {
@@ -142,8 +143,23 @@ describe('header-notefill A — clean header, inline skills, sticky toggle', () 
     assert.ok(!/Kỹ năng ▾/.test(html), 'no "Kỹ năng ▾" dropdown summary');
     assert.match(css, /\.rr-skill-chip\.is-weak[\s\S]{0,120}var\(--av-error\)/);
   });
-  test('passage toggle is sticky (stays on scroll)', () => {
-    assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,200}position:\s*sticky/);
+  test('passage toggle is sticky + pinned FLUSH to the top (full-bleed)', () => {
+    assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,260}position:\s*sticky/);
+    // full-bleed negative margins cancel the .exam-passage padding → no gap
+    assert.match(css, /\.rr-passage-toggle\s*\{[\s\S]{0,320}margin:\s*-20px -28px/);
+  });
+});
+
+describe('locate-decouple A2 — toggle = solution only; locate is a separate button', () => {
+  test('the expand toggle NO LONGER auto-highlights the source', () => {
+    const fn = js.slice(js.indexOf('var toggle = function'), js.indexOf('top.addEventListener'));
+    assert.ok(!/highlightSource/.test(fn), 'expand toggle must not call highlightSource');
+  });
+  test('a "Locate trong bài đọc" button sits under the source excerpt', () => {
+    assert.match(js, /rr-locate-btn['"] data-locate>📍 Locate trong bài đọc/);
+  });
+  test('the locate button triggers the source highlight', () => {
+    assert.match(js, /locateBtn[\s\S]{0,120}highlightSource\(sol\.source_excerpt\)/);
   });
 });
 
@@ -151,14 +167,34 @@ describe('header-notefill B — exam note/summary completion as one inline-blank
   test('the flowing-block path now gates notes_completion too', () => {
     assert.match(examJs, /type === 'summary_completion' \|\| type === 'notes_completion'\)[\s\S]{0,300}_renderFlowingSummaryBlock/);
   });
-  test('notes preserve their line/bullet structure (pre-wrap), not justified', () => {
-    assert.match(examJs, /question_type === 'notes_completion'/);
-    assert.match(examJs, /exam-summary__prose--notes/);
-    assert.match(readExamCss, /\.exam-summary__prose--notes[\s\S]{0,120}white-space:\s*pre-wrap/);
+  test('notes render as a STRUCTURED block (title / heading / bullets)', () => {
+    // reading-review-locate-exam-format B1 — structured lines, not a pre-wrap blob
+    assert.match(examJs, /exam-note__bullet/);
+    assert.match(examJs, /exam-note__title|exam-note__heading/);
+    assert.match(readExamCss, /\.exam-note__bullet::before[\s\S]{0,80}content/);
   });
-  test('answer binding stays per q_num (grading intact)', () => {
+  test('answer binding stays per q_num (grading intact) via the shared fill helper', () => {
     // inline inputs carry name="q-N" + dataset.q=N → the existing per-q path
+    assert.match(examJs, /function _fillTemplate\(container, text\)/);
     assert.match(examJs, /name = 'q-' \+ qNum/);
     assert.match(examJs, /_summaryGapChanged\(qNum/);
+  });
+});
+
+describe('exam-format B2/B3 — Questions header + restriction bolding', () => {
+  test('instruction rendered via _formatInstruction (escape-first)', () => {
+    assert.match(examJs, /function _formatInstruction\(text\)/);
+    assert.match(examJs, /instructionEl\.innerHTML = _formatInstruction/);
+    const fn = examJs.slice(examJs.indexOf('function _formatInstruction'));
+    assert.match(fn, /escapeHtml\(text\)/);
+    assert.ok(/escapeHtml\(text\)/.test(fn.slice(0, fn.indexOf('return'))), 'escapes before layering tags');
+  });
+  test('Questions X–Y prefix wrapped (bigger/bold) + word-limit & T/F/NG bolded', () => {
+    const fn = examJs.slice(examJs.indexOf('function _formatInstruction'), examJs.indexOf('// ── Sprint 20.13b'));
+    assert.match(fn, /exam-q-range/);
+    assert.match(fn, /NO MORE THAN[\s\S]{0,80}WORDS/);
+    assert.match(fn, /NOT GIVEN\|TRUE\|FALSE\|YES\|NO/);
+    assert.match(readExamCss, /\.exam-q-range\b[\s\S]{0,120}font-weight:\s*800/);
+    assert.match(readExamCss, /\.exam-instr-em\b/);
   });
 });

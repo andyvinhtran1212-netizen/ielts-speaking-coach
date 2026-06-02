@@ -51,7 +51,10 @@
 .rr-passage-toggle {
   position: sticky; top: 0; z-index: 5;
   display: flex; gap: var(--av-space-2);
-  margin-bottom: var(--av-space-3); padding: var(--av-space-2) 0;
+  /* reading-review-locate-exam-format A1 — full-bleed to the pane edges
+     (cancel the .exam-passage 20px/28px padding) so the bar pins FLUSH to the
+     top with no gap, opaque, and the passage scrolls cleanly underneath. */
+  margin: -20px -28px var(--av-space-3); padding: var(--av-space-3) 28px;
   background: var(--exam-surface-card);
   border-bottom: 1px solid var(--exam-border-subtle, var(--exam-border-default));
 }
@@ -76,6 +79,16 @@
   border-radius: var(--av-radius-sm); padding-left: var(--av-space-3);
   transition: background 0.3s ease;
 }
+/* A2 — explicit "Locate trong bài đọc" button under the source excerpt */
+.rr-locate-btn {
+  margin-top: var(--av-space-2); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold);
+  padding: var(--av-space-1) var(--av-space-3); border-radius: var(--av-radius-pill);
+  border: 1px solid color-mix(in srgb, var(--exam-accent) 45%, transparent);
+  background: var(--exam-accent-soft); color: var(--exam-accent);
+}
+.rr-locate-btn:hover { background: color-mix(in srgb, var(--exam-accent) 18%, transparent); }
 
 /* ── Review pane (the .exam-questions column) ─────────────────────── */
 .rr-review__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--av-space-3); margin-bottom: var(--av-space-4); }
