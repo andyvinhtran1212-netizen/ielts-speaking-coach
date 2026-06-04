@@ -21,7 +21,9 @@ Thumbs.db
 frontend/.claude/
 frontend/graphify-out/
 frontend/js/graphify-out/
-CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md
+# Local-only archive of retired/personal docs (e.g. the former
+# CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md, superseded by docs/SITE_OVERVIEW.md).
+/_archive/
 frontend/CLAUDE.md
 frontend/app_rules_master.md
 frontend/known_bugs_and_failures.md
