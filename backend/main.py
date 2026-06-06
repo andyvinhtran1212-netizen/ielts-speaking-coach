@@ -2,6 +2,21 @@ import logging
 import sys
 from time import perf_counter
 
+# listening-fulltest-md-import hotfix — force UTF-8 stdio. Railway/Nixpacks can
+# launch Python with an ASCII locale (UTF-8 Mode OFF → sys.stdout.encoding ==
+# 'ascii'); under it ANY print()/stdout write of non-ASCII (e.g. Vietnamese
+# chữa-bài content flowing through a library that prints, or a stdout log) raises
+# `UnicodeEncodeError: 'ascii' codec can't encode …` and bubbles to a 500. This
+# was the prod-only failure of POST /admin/listening/import-fulltest/commit
+# (every local path passed; httpx bodies/headers are utf-8 either way — only the
+# ASCII stdout differed). Reconfiguring here makes stdout/stderr utf-8 regardless
+# of locale; PYTHONUTF8=1 (deploy env) covers locale-based encodes too.
+for _std in (sys.stdout, sys.stderr):
+    try:
+        _std.reconfigure(encoding="utf-8", errors="backslashreplace")
+    except Exception:        # pragma: no cover — non-reconfigurable stream
+        pass
+
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
