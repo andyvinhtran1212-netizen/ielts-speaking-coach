@@ -53,3 +53,6 @@ grammar-audit/
 data/auth/
 data/har/
 data/api-timings/
+
+# Listening sample full-test audio — large (26MB+); lives in Supabase Storage, not git (commission 2026-06-06)
+docs/content-samples/**/*.mp3

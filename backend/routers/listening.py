@@ -50,6 +50,7 @@ from services.listening_validator import (
     validate_upload as validate_upload_payload,
 )
 from services import listening_convert
+from services import listening_fulltest_import
 
 logger = logging.getLogger(__name__)
 
@@ -3289,6 +3290,40 @@ def _read_markdown_upload(upload: UploadFile, label: str) -> bytes:
     return data
 
 
+# listening-fulltest-md-import (Phase A) — JSON sidecar (timings.json) reader.
+_FULLTEST_MAX_TEXT_BYTES = 2 * 1024 * 1024   # Solution.md can run ~200KB+; allow headroom
+
+
+def _read_json_upload(upload: UploadFile, label: str) -> dict:
+    import json as _json
+    name = (upload.filename or "").lower()
+    if not name.endswith(".json"):
+        raise HTTPException(422, f"{label} phải là file .json (nhận: {upload.filename!r})")
+    data = upload.file.read()
+    if not data:
+        raise HTTPException(422, f"{label} rỗng — không đọc được nội dung.")
+    if len(data) > _FULLTEST_MAX_TEXT_BYTES:
+        raise HTTPException(422, f"{label} quá lớn ({len(data) // 1024} KB).")
+    try:
+        return _json.loads(data.decode("utf-8"))
+    except Exception as exc:
+        raise HTTPException(422, f"{label} không phải JSON hợp lệ: {exc}") from exc
+
+
+def _read_text_upload(upload: UploadFile, label: str, *, exts: tuple) -> bytes:
+    """Like _read_markdown_upload but with a higher size cap (Solution.md is
+    large) + caller-chosen extensions."""
+    name = (upload.filename or "").lower()
+    if not name.endswith(exts):
+        raise HTTPException(422, f"{label} phải là file {' / '.join(exts)} (nhận: {upload.filename!r})")
+    data = upload.file.read()
+    if not data:
+        raise HTTPException(422, f"{label} rỗng — không đọc được nội dung.")
+    if len(data) > _FULLTEST_MAX_TEXT_BYTES:
+        raise HTTPException(422, f"{label} quá lớn ({len(data) // 1024} KB).")
+    return data
+
+
 @admin_router.post("/convert")
 async def admin_convert_listening_dry_run(
     question_paper:    UploadFile = File(...),
@@ -3338,6 +3373,52 @@ async def admin_convert_listening_dry_run(
             result["duplicate_test_id"] = True
 
     return result
+
+
+@admin_router.post("/import-fulltest")
+async def admin_import_fulltest_dry_run(
+    question_paper: UploadFile = File(...),
+    solution:       UploadFile = File(...),
+    timings:        UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """listening-fulltest-md-import (Phase A) — ADDITIVE dry-run parse of the
+    full-test pack (Question_Paper.md + Solution.md + timings.json; the audio
+    mp3 is uploaded at commit). The legacy 2-file ``/convert`` flow is
+    untouched. Returns the merged 40-question preview + FAIL-LOUD validation
+    (every missing answer / missing audio window / audio↔timings divergence is
+    an explicit error). No DB writes — the admin reviews, then commits (A2)."""
+    await require_admin(authorization)
+
+    qp_bytes  = _read_text_upload(question_paper, "Question Paper", exts=(".md", ".markdown"))
+    sol_bytes = _read_text_upload(solution,       "Solution",       exts=(".md", ".markdown"))
+    timings_dict = _read_json_upload(timings, "timings.json")
+
+    try:
+        result = listening_fulltest_import.parse_fulltest(
+            qp_bytes.decode("utf-8"), sol_bytes.decode("utf-8"), timings_dict,
+        )
+    except Exception as exc:
+        logger.exception("Full-test import dry-run failed")
+        raise HTTPException(422, f"Lỗi khi phân tích full-test pack: {exc}") from exc
+
+    preview = result.as_preview()
+
+    # Surface a duplicate ACTIVE test_id (same convention as /convert).
+    test_id_external = (result.metadata or {}).get("test_id")
+    if test_id_external:
+        dup = (
+            supabase_admin.table("listening_tests")
+            .select("id,status").eq("test_id", test_id_external)
+            .neq("status", "archived").limit(1).execute()
+        )
+        if dup.data:
+            preview.setdefault("warnings", []).append(
+                f"Test ID '{test_id_external}' đang ACTIVE (status={dup.data[0].get('status')}) "
+                f"— archive bản cũ trước khi import lại, hoặc đổi test_id.")
+            preview["duplicate_test_id"] = True
+
+    return preview
 
 
 @admin_router.post("/convert/commit")
