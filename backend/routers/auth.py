@@ -44,6 +44,16 @@ async def get_supabase_user(authorization: str | None):
 
     token = authorization.replace("Bearer ", "").strip()
 
+    # A valid Supabase JWT is always ASCII. Reject a non-ASCII token (a garbled
+    # / placeholder header, e.g. a Vietnamese "DÁN_TOKEN_VÀO_ĐÂY" pasted into the
+    # curl) with a clean 401 — otherwise httpx ascii-encodes the downstream
+    # `Authorization` header below and raises UnicodeEncodeError → an opaque 500.
+    if not token or not token.isascii():
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header",
+        )
+
     auth_start = perf_counter()
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
