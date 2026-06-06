@@ -98,6 +98,34 @@ def parse_audio_link(url: str) -> dict | None:
 _QAK_CELL_RE = re.compile(r"\*\*(\d+)\.\*\*\s*([^|]+?)\s*(?=\||$)")
 
 
+def split_answer_variants(raw: str) -> tuple[str, list[str]]:
+    """A Quick-Answer-Key cell → (canonical, alternatives) for the grader.
+    Handles the two authoring conventions:
+      • `"12 / twelve"`   → ("12", ["twelve"])         — slash = accepted forms
+      • `"(the) police"`  → ("police", ["the police"]) — (x) = optional word
+    The grader normalises case/spacing, so we only enumerate word-level forms."""
+    raw = (raw or "").strip()
+    if not raw:
+        return "", []
+    parts = [p.strip() for p in raw.split("/") if p.strip()]
+    forms: list[str] = []
+    for p in parts:
+        # optional words in parentheses → both with and without
+        if "(" in p and ")" in p:
+            with_opt = re.sub(r"[()]", "", p)
+            with_opt = re.sub(r"\s+", " ", with_opt).strip()
+            without_opt = re.sub(r"\s*\([^)]*\)\s*", " ", p)
+            without_opt = re.sub(r"\s+", " ", without_opt).strip()
+            for f in (without_opt, with_opt):
+                if f and f not in forms:
+                    forms.append(f)
+        elif p not in forms:
+            forms.append(p)
+    if not forms:
+        return raw, []
+    return forms[0], forms[1:]
+
+
 def parse_quick_answer_key(solution_text: str) -> dict[int, str]:
     """The `## Quick Answer Key` table → {q_num: answer}. Cells look like
     `**1.** Brighton`. Robust to the 4-column section layout."""
@@ -263,6 +291,7 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
                 q_num = q["q_num"]
                 seen_q.add(q_num)
                 sec_qcount += 1
+                canonical, alternatives = split_answer_variants(qak.get(q_num) or "")
                 merged = {
                     "q_num":         q_num,
                     "section":       sec_id,
@@ -272,7 +301,8 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
                     "prompt":        q.get("prompt", ""),
                     "options":       q.get("options"),
                     "img_prompt":    (block.get("metadata") or {}).get("map_image_custom_prompt"),
-                    "answer":        qak.get(q_num),
+                    "answer":        canonical or None,
+                    "alternatives":  alternatives,
                     "solution":      sol_blocks.get(q_num, {}),
                 }
                 # Replay window: audio:// is authoritative; validate vs timings.
@@ -290,6 +320,104 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
     # ── Fail-loud validation ──
     _validate(res, qak, sol_blocks, tim, seen_q)
     return res
+
+
+# ── Persistence builders (A2) — pure; the router stamps ids + does I/O ──────
+
+_ACCENT_MAP = {"bre": "uk_rp", "ame": "us_general", "ame_": "us_general",
+               "use": "us_general", "us": "us_general", "ause": "au",
+               "aue": "au", "au": "au", "cae": "ca", "ca": "ca"}
+
+
+def _accent_tag(profile: list | None) -> str:
+    mapped = {_ACCENT_MAP.get(re.sub(r"[^a-z]", "", (a or "").lower()), "other")
+              for a in (profile or [])}
+    if not mapped:
+        return "other"
+    return mapped.pop() if len(mapped) == 1 else "other"
+
+
+def build_cue_points(section_offsets: dict) -> list[dict]:
+    """section_offsets {S1:31.22,…} → cue_points for the student player
+    (full_premixed mode highlights sections at these full_test timestamps)."""
+    out = []
+    for sid, off in (section_offsets or {}).items():
+        m = re.search(r"\d+", sid or "")
+        if not m:
+            continue
+        out.append({"type": "section", "section_num": int(m.group()),
+                    "timestamp_seconds": round(float(off), 2)})
+    return sorted(out, key=lambda c: c["section_num"])
+
+
+def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[dict]:
+    """Per section → {section_num, content_row, exercise_rows}. Exercises are
+    BLOCK-SHAPED (one row per Question-Paper block, via the existing
+    build_exercises) so the existing player + grader consume them unchanged;
+    each payload is ENRICHED with per-question audio_windows + solutions for the
+    review. The router stamps id / test_id / content_id and inserts."""
+    qp_sections = lc.split_qp_sections(qp_text)
+    by_q = {q["q_num"]: q for q in res.questions}
+    accent = _accent_tag(res.metadata.get("accent_profile"))
+    cefr = lc.infer_cefr_level(res.metadata.get("band_target"))
+    topic = res.metadata.get("topic_distribution") or {}
+    offsets = res.metadata.get("section_offsets") or {}
+    test_ext = res.metadata.get("test_id") or "test"
+
+    out: list[dict] = []
+    for section_num in sorted(qp_sections):
+        sec_id = f"S{section_num}"
+        sec_questions = [q for q in res.questions if q["section_num"] == section_num]
+        blocks = lc.parse_question_blocks(qp_sections[section_num])
+        answers = [{"q_num": q["q_num"], "answer": q["answer"] or "",
+                    "alternatives": q.get("alternatives") or []} for q in sec_questions]
+        exercises = lc.build_exercises(blocks, answers, section_num)
+        for ex in exercises:
+            lo, hi = ex["q_range"]
+            ex["payload"]["audio_windows"] = {
+                str(q): by_q[q]["audio_window"]
+                for q in range(lo, hi + 1) if by_q.get(q) and by_q[q].get("audio_window")
+            }
+            ex["payload"]["solutions"] = {
+                str(q): by_q[q]["solution"]
+                for q in range(lo, hi + 1) if by_q.get(q)
+            }
+
+        # The pack has no full per-section transcript — synthesise from the
+        # per-question script extracts (what we have); the review shows them
+        # per question anyway.
+        script_bits = [by_q[q]["solution"].get("script")
+                       for q in sorted(by_q) if by_q[q]["section_num"] == section_num]
+        transcript = "\n\n".join(s for s in script_bits if s) \
+            or "(Transcript chi tiết theo từng câu — xem bài chữa.)"
+        theme = topic.get(sec_id.lower()) or topic.get(f"s{section_num}") or ""
+        theme_slug = re.sub(r"[^a-z0-9]+", "-", theme.lower()).strip("-")
+
+        out.append({
+            "section_num": section_num,
+            "content_row": {
+                "source_type":            "test_section",
+                "section_num":            section_num,
+                "audio_storage_path":     None,    # full-premixed: audio on the test row
+                "audio_duration_seconds": 0,
+                "audio_size_bytes":       0,
+                "title":                  f"{test_ext} — Section {section_num}: {theme or 'Untitled'}",
+                "transcript":             transcript,
+                "accent_tag":             accent,
+                "cefr_level":             cefr,
+                "ielts_section":          section_num,
+                "topic_tags":             [test_ext, f"section-{section_num}"] + ([theme_slug] if theme_slug else []),
+                "status":                 "draft",
+                "is_premium":             False,
+                "metadata": {
+                    "source_format":  "listening-fulltest-v1.1",
+                    "theme":          theme,
+                    "section_offset": offsets.get(sec_id),
+                },
+            },
+            "exercise_rows": exercises,
+        })
+    return out
 
 
 def _validate(res: FullTestParseResult, qak: dict, sol_blocks: dict,

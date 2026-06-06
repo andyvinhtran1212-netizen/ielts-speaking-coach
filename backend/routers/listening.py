@@ -3421,6 +3421,161 @@ async def admin_import_fulltest_dry_run(
     return preview
 
 
+_FULLTEST_MAX_AUDIO_BYTES = 60 * 1024 * 1024   # 60MB headroom over the ~26MB pack
+
+
+@admin_router.post("/import-fulltest/commit")
+async def admin_import_fulltest_commit(
+    question_paper: UploadFile = File(...),
+    solution:       UploadFile = File(...),
+    timings:        UploadFile = File(...),
+    audio:          UploadFile = File(...),
+    authorization: str | None = Header(default=None),
+):
+    """listening-fulltest-md-import (Phase A2) — persist a full-test pack +
+    its premixed audio. RE-PARSES the 3 text files (authoritative, never trusts
+    client-sent parsed data) → fail-loud 422 on any validation error → uploads
+    the mp3 to the listening-audio bucket → writes 1 listening_tests
+    (full_premixed) + 4 listening_content + block-shaped listening_exercises
+    (payload enriched with per-question audio_windows + solutions). The rows are
+    the SAME shape the existing player + grader + attempt flow consume, so an
+    imported test is takeable / gradeable / reviewable with no other changes.
+    No migration (Pattern #15). The legacy 2-file /convert flow is untouched."""
+    from services import listening_audio
+
+    await require_admin(authorization)
+
+    qp_bytes  = _read_text_upload(question_paper, "Question Paper", exts=(".md", ".markdown"))
+    sol_bytes = _read_text_upload(solution,       "Solution",       exts=(".md", ".markdown"))
+    timings_dict = _read_json_upload(timings, "timings.json")
+
+    audio_name = (audio.filename or "").lower()
+    if not audio_name.endswith(".mp3"):
+        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+    audio_bytes = audio.file.read()
+    if len(audio_bytes) > _FULLTEST_MAX_AUDIO_BYTES:
+        raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 60 MB).")
+
+    # Parse + FAIL-LOUD validation (the accuracy gate).
+    try:
+        res = listening_fulltest_import.parse_fulltest(
+            qp_bytes.decode("utf-8"), sol_bytes.decode("utf-8"), timings_dict)
+    except Exception as exc:
+        logger.exception("Full-test commit parse failed")
+        raise HTTPException(422, f"Lỗi khi phân tích full-test pack: {exc}") from exc
+    if not res.ok:
+        raise HTTPException(422, {"message": "Pack không hợp lệ — sửa rồi import lại.",
+                                  "errors": res.errors, "warnings": res.warnings})
+
+    test_id_external = (res.metadata or {}).get("test_id")
+    if not test_id_external:
+        raise HTTPException(422, "Thiếu test_id (heading H1 của Question Paper).")
+
+    # Validate the audio (size/duration) the same way the full-audio upload does.
+    av = listening_audio.validate_full_audio(audio_bytes)
+    if av["errors"]:
+        raise HTTPException(422, "; ".join(av["errors"]))
+
+    # Duplicate ACTIVE test_id guard (archived rows are fine — convert parity).
+    dup = (
+        supabase_admin.table("listening_tests")
+        .select("id,status").eq("test_id", test_id_external)
+        .neq("status", "archived").limit(1).execute()
+    )
+    if dup.data:
+        raise HTTPException(
+            422, f"Test ID '{test_id_external}' đang ACTIVE (status={dup.data[0].get('status')}) "
+                 f"— archive bản cũ rồi import lại, hoặc đổi test_id.")
+
+    test_uuid = str(uuid.uuid4())
+    offsets = res.metadata.get("section_offsets") or {}
+
+    # 1) listening_tests row (full_premixed; audio path set after upload).
+    storage_path = f"tests/{test_uuid}/full.mp3"
+    test_payload = {
+        "id":                          test_uuid,
+        "test_id":                     test_id_external,
+        "title":                       res.metadata.get("title") or test_id_external,
+        "version":                     res.metadata.get("format_version") or "1.0",
+        "band_target":                 res.metadata.get("band_target"),
+        "accent_profile":              list(res.metadata.get("accent_profile") or []),
+        "themes":                      dict(res.metadata.get("topic_distribution") or {}),
+        "full_audio_storage_path":     storage_path,
+        "full_audio_duration_seconds": av["duration_seconds"],
+        "full_audio_size_bytes":       av["size_bytes"],
+        "cue_points":                  listening_fulltest_import.build_cue_points(offsets),
+        "audio_assembly_mode":         "full_premixed",
+        "metadata": {
+            "source_format":   "listening-fulltest-v1.1",
+            "section_offsets": offsets,
+            "band_conversion": res.metadata.get("band_conversion") or [],
+        },
+        "status":                      "draft",
+    }
+    try:
+        supabase_admin.table("listening_tests").insert(test_payload).execute()
+    except Exception as exc:
+        logger.exception("INSERT listening_tests (fulltest) failed")
+        raise HTTPException(422, f"Lỗi khi tạo test row: {exc}") from exc
+
+    # 2) upload the premixed mp3 (upsert; clean 503 if bucket missing).
+    try:
+        _upload_audio_to_bucket(storage_path, audio_bytes)
+    except HTTPException:
+        # roll back the test row so a failed upload doesn't leave an orphan.
+        supabase_admin.table("listening_tests").delete().eq("id", test_uuid).execute()
+        raise
+
+    # 3) per-section content + block-shaped (enriched) exercises.
+    sections = listening_fulltest_import.build_section_persistence(res, qp_bytes.decode("utf-8"))
+    sections_created = 0
+    exercises_created = 0
+    failed_sections: list[dict] = []
+    failed_exercises: list[dict] = []
+    for sec in sections:
+        content_row = dict(sec["content_row"])
+        content_row["id"] = str(uuid.uuid4())
+        content_row["test_id"] = test_uuid
+        try:
+            supabase_admin.table("listening_content").insert(content_row).execute()
+            sections_created += 1
+        except Exception as exc:
+            logger.exception("INSERT listening_content (fulltest) failed s=%s", sec["section_num"])
+            failed_sections.append({"section_num": sec["section_num"], "error": str(exc)})
+            continue
+        for ex in sec["exercise_rows"]:
+            try:
+                supabase_admin.table("listening_exercises").insert({
+                    "id":            str(uuid.uuid4()),
+                    "content_id":    content_row["id"],
+                    "exercise_type": ex.get("exercise_type", "dictation"),
+                    "payload":       ex.get("payload", {}),
+                    "order_num":     ex.get("order_num", 1),
+                    "cefr_level":    content_row.get("cefr_level"),
+                    "status":        "draft",
+                }).execute()
+                exercises_created += 1
+            except Exception as exc:
+                logger.exception("INSERT listening_exercises (fulltest) failed")
+                failed_exercises.append({"section_num": sec["section_num"],
+                                         "order_num": ex.get("order_num"), "error": str(exc)})
+
+    return {
+        "id":                test_uuid,
+        "test_id":           test_id_external,
+        "status":            "draft",
+        "sections_created":  sections_created,
+        "exercises_created": exercises_created,
+        "failed_sections":   failed_sections,
+        "failed_exercises":  failed_exercises,
+        "audio": {"storage_path": storage_path,
+                  "duration_seconds": av["duration_seconds"],
+                  "size_bytes": av["size_bytes"]},
+        "warnings":          res.warnings,
+        "next_step":         "Mở /admin/listening/tests → kiểm tra → đặt status='published' để mở cho học sinh.",
+    }
+
+
 @admin_router.post("/convert/commit")
 async def admin_convert_listening_commit(
     body: ConvertCommitRequest,
