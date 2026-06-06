@@ -275,7 +275,6 @@ def test_commit_endpoint_persists_fulltest(monkeypatch):
     assert out["sections_created"] == 4
     # one row per Question-Paper block: S1=3, S2=2, S3=2, S4=3 = 10 (carrying 40 answers)
     assert out["exercises_created"] == 10
-    assert out["failed_sections"] == [] and out["failed_exercises"] == []
 
     tests_rows = [p for (t, p) in stub.inserts if t == "listening_tests"]
     assert len(tests_rows) == 1
@@ -287,6 +286,64 @@ def test_commit_endpoint_persists_fulltest(monkeypatch):
     assert tr["status"] == "draft"
     content_rows = [p for (t, p) in stub.inserts if t == "listening_content"]
     assert len(content_rows) == 4
+
+
+class _RollbackStub:
+    """Raises on the configured table's INSERT; records deletes + storage
+    removes so the test can assert a FULL rollback (no orphan)."""
+    def __init__(self, fail_on):
+        self.fail_on = fail_on
+        self.inserts: list = []
+        self.deletes: list = []
+        self.removed: list = []
+        self.storage = self
+    def table(self, n): self._t = n; return self
+    def from_(self, b): return self
+    def select(self, *a, **k): return self
+    def eq(self, *a, **k): self._eq = a; return self
+    def neq(self, *a, **k): return self
+    def limit(self, *a, **k): return self
+    def insert(self, payload):
+        if self._t == self.fail_on:
+            raise RuntimeError(f"boom inserting {self._t}")
+        self.inserts.append((self._t, payload)); return self
+    def delete(self): self._del = True; return self
+    def remove(self, paths): self.removed.extend(paths); return self
+    def execute(self):
+        if getattr(self, "_del", False):
+            self._del = False
+            self.deletes.append((self._t, getattr(self, "_eq", None)))
+            return type("R", (), {"data": []})()
+        return type("R", (), {"data": []})()
+
+
+def test_commit_rolls_back_fully_on_insert_failure(monkeypatch):
+    """An insert failure mid-persist must leave NO orphan: test row, content,
+    exercises, and the uploaded mp3 are all removed (the prod-500 fix)."""
+    import io
+    from fastapi import UploadFile
+    from services import listening_audio
+    async def _ok(_a): return {"id": "admin", "role": "admin"}
+    monkeypatch.setattr(listening_module, "require_admin", _ok)
+    stub = _RollbackStub(fail_on="listening_exercises")     # fail on first exercise insert
+    monkeypatch.setattr(listening_module, "supabase_admin", stub)
+    monkeypatch.setattr(listening_module, "_upload_audio_to_bucket", lambda p, b: None)
+    monkeypatch.setattr(listening_audio, "validate_full_audio",
+                        lambda b: {"duration_seconds": 1657, "size_bytes": len(b), "errors": [], "warnings": []})
+    qp, sol, tim = _load()
+    with pytest.raises(HTTPException) as e:
+        _run(listening_module.admin_import_fulltest_commit(
+            question_paper=UploadFile(filename="qp.md", file=io.BytesIO(qp.encode())),
+            solution=UploadFile(filename="sol.md", file=io.BytesIO(sol.encode())),
+            timings=UploadFile(filename="t.json", file=io.BytesIO(json.dumps(tim).encode())),
+            audio=UploadFile(filename="a.mp3", file=io.BytesIO(b"x" * 5000)),
+            authorization="x"))
+    assert e.value.status_code == 500
+    deleted_tables = {d[0] for d in stub.deletes}
+    assert "listening_tests" in deleted_tables          # orphan test row removed
+    assert "listening_content" in deleted_tables        # content removed
+    assert "listening_exercises" in deleted_tables      # exercises removed
+    assert stub.removed and stub.removed[0].endswith("/full.mp3")   # mp3 removed
 
 
 def test_commit_endpoint_requires_admin(monkeypatch):

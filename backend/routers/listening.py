@@ -3512,39 +3512,45 @@ async def admin_import_fulltest_commit(
         },
         "status":                      "draft",
     }
-    try:
-        supabase_admin.table("listening_tests").insert(test_payload).execute()
-    except Exception as exc:
-        logger.exception("INSERT listening_tests (fulltest) failed")
-        raise HTTPException(422, f"Lỗi khi tạo test row: {exc}") from exc
-
-    # 2) upload the premixed mp3 (upsert; clean 503 if bucket missing).
-    try:
-        _upload_audio_to_bucket(storage_path, audio_bytes)
-    except HTTPException:
-        # roll back the test row so a failed upload doesn't leave an orphan.
-        supabase_admin.table("listening_tests").delete().eq("id", test_uuid).execute()
-        raise
-
-    # 3) per-section content + block-shaped (enriched) exercises.
-    sections = listening_fulltest_import.build_section_persistence(res, qp_bytes.decode("utf-8"))
+    # ── Persist ALL-OR-NOTHING with full rollback ────────────────────
+    # Postgres has no cross-statement transaction over PostgREST here, so on ANY
+    # failure we explicitly delete everything created (exercises → content →
+    # test row → uploaded object) and 422 with the failing stage. This is the
+    # fix for the prod 500 that left an orphan draft + mp3: never half-import,
+    # never block the next re-import with a stray ACTIVE row.
+    created_content_ids: list[str] = []
+    audio_uploaded = False
     sections_created = 0
     exercises_created = 0
-    failed_sections: list[dict] = []
-    failed_exercises: list[dict] = []
-    for sec in sections:
-        content_row = dict(sec["content_row"])
-        content_row["id"] = str(uuid.uuid4())
-        content_row["test_id"] = test_uuid
+
+    def _rollback() -> None:
         try:
+            for cid in created_content_ids:
+                supabase_admin.table("listening_exercises").delete().eq("content_id", cid).execute()
+            supabase_admin.table("listening_content").delete().eq("test_id", test_uuid).execute()
+            supabase_admin.table("listening_tests").delete().eq("id", test_uuid).execute()
+            if audio_uploaded:
+                try:
+                    supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).remove([storage_path])
+                except Exception:
+                    logger.warning("[fulltest] rollback: storage remove failed for %s", storage_path)
+        except Exception:
+            logger.exception("[fulltest] rollback cleanup itself failed for test %s", test_uuid)
+
+    try:
+        supabase_admin.table("listening_tests").insert(test_payload).execute()           # 1) test row
+        _upload_audio_to_bucket(storage_path, audio_bytes)                               # 2) mp3
+        audio_uploaded = True
+        sections = listening_fulltest_import.build_section_persistence(                  # 3) content + exercises
+            res, qp_bytes.decode("utf-8"))
+        for sec in sections:
+            content_row = dict(sec["content_row"])
+            content_row["id"] = str(uuid.uuid4())
+            content_row["test_id"] = test_uuid
             supabase_admin.table("listening_content").insert(content_row).execute()
+            created_content_ids.append(content_row["id"])
             sections_created += 1
-        except Exception as exc:
-            logger.exception("INSERT listening_content (fulltest) failed s=%s", sec["section_num"])
-            failed_sections.append({"section_num": sec["section_num"], "error": str(exc)})
-            continue
-        for ex in sec["exercise_rows"]:
-            try:
+            for ex in sec["exercise_rows"]:
                 supabase_admin.table("listening_exercises").insert({
                     "id":            str(uuid.uuid4()),
                     "content_id":    content_row["id"],
@@ -3555,10 +3561,17 @@ async def admin_import_fulltest_commit(
                     "status":        "draft",
                 }).execute()
                 exercises_created += 1
-            except Exception as exc:
-                logger.exception("INSERT listening_exercises (fulltest) failed")
-                failed_exercises.append({"section_num": sec["section_num"],
-                                         "order_num": ex.get("order_num"), "error": str(exc)})
+        if sections_created != 4 or exercises_created == 0:
+            raise RuntimeError(
+                f"persist incomplete (sections={sections_created}, exercises={exercises_created})")
+    except HTTPException:
+        _rollback()
+        raise
+    except Exception as exc:
+        logger.exception("[fulltest] commit persist failed — rolling back test %s", test_uuid)
+        _rollback()
+        raise HTTPException(
+            500, f"Lỗi khi lưu full-test (đã rollback sạch, không để lại rác): {exc}") from exc
 
     return {
         "id":                test_uuid,
@@ -3566,8 +3579,6 @@ async def admin_import_fulltest_commit(
         "status":            "draft",
         "sections_created":  sections_created,
         "exercises_created": exercises_created,
-        "failed_sections":   failed_sections,
-        "failed_exercises":  failed_exercises,
         "audio": {"storage_path": storage_path,
                   "duration_seconds": av["duration_seconds"],
                   "size_bytes": av["size_bytes"]},
