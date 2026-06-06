@@ -883,6 +883,13 @@ function renderResult(result) {
       </div>
     `;
   }).join('');
+
+  // listening-review-ui — point the chữa-bài CTA at this attempt's full-screen
+  // review (transcript + per-question solution + 🔊 audio-window replay).
+  const chuabai = $('res-chuabai');
+  if (chuabai && STATE.attemptId) {
+    chuabai.href = '/pages/listening-review.html?attempt_id=' + encodeURIComponent(STATE.attemptId);
+  }
 }
 
 
