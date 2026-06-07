@@ -277,6 +277,16 @@ export class AverAudioPlayer extends HTMLElement {
     this._audio.pause();
     this._audio.currentTime = this._segmentStart();
   }
+  // listening-review polish — full-track "locate": seek to an absolute second
+  // and keep playing to the end (no segment window). Caller should NOT set
+  // segment-start/-end when using this (otherwise segment-mode would constrain
+  // playback). Additive; existing segment-mode callers are unaffected.
+  seekTo(sec) {
+    if (!this._audio) return;
+    const t = Math.max(0, Number(sec) || 0);
+    try { this._audio.currentTime = t; } catch (e) { /* metadata not ready yet */ }
+    this._audio.play().catch(() => { /* error event handles it */ });
+  }
 
   // ── Segment helpers ────────────────────────────────────────────────
 
