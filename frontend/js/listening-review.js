@@ -285,8 +285,58 @@
     return card;
   }
 
+  // ── Item 9 — "Kĩ năng cần luyện" (skills to practise) ─────────────
+  // Aggregate the K-codes from the WRONG questions (solution.skills is free-text
+  // "K1, K2") → a thin panel above the per-question cards. Labels from Andy's
+  // K1–K8 legend. Link scope = option (i): a single generic CTA to the listening
+  // practice library (no per-skill recommender — content isn't skill-tagged yet).
+  var _K_LABELS = {
+    K1: 'Nghe số / ngày / đánh vần (numbers, dates, spelling, prices, phone)',
+    K2: 'Nhận diện paraphrase (synonym / đổi cấu trúc câu)',
+    K3: 'Bám signpost / chuyển ý (however, actually, in fact)',
+    K4: 'Theo dõi self-correction & number-correction (nói rồi sửa)',
+    K5: 'Phân biệt detail vs gist (chi tiết vs ý chính)',
+    K6: 'Suy luận / hàm ý (inference)',
+    K7: 'Thái độ / quan điểm / cảm xúc người nói (attitude / opinion)',
+    K8: 'Map / không gian (vị trí, hướng, plan labelling)',
+  };
+  function skillsToPractise(items) {
+    var tally = {};
+    items.forEach(function (it) {
+      if (it.correct) return;                                  // only weak (wrong) questions
+      var skills = (it.solution && it.solution.skills) || '';
+      (skills.match(/K[1-8]/g) || []).forEach(function (code) {
+        tally[code] = (tally[code] || 0) + 1;
+      });
+    });
+    return Object.keys(tally)
+      .map(function (code) { return { code: code, label: _K_LABELS[code] || code, count: tally[code] }; })
+      .sort(function (a, b) { return b.count - a.count || a.code.localeCompare(b.code); });
+  }
+  function renderSkillsPanel(items) {
+    var weak = skillsToPractise(items);
+    if (!weak.length) return null;
+    var panel = document.createElement('section');
+    panel.className = 'lr-skills-panel';
+    panel.setAttribute('aria-label', 'Kĩ năng cần luyện');
+    var chips = weak.map(function (s) {
+      return '<span class="lr-skill-chip" title="' + escapeHtml(s.label) + '">' +
+        '<span class="lr-skill-chip__code">' + escapeHtml(s.code) + '</span> ' +
+        escapeHtml(s.label) +
+        '<span class="lr-skill-chip__count">×' + s.count + '</span></span>';
+    }).join('');
+    panel.innerHTML =
+      '<h3 class="lr-skills-panel__title">🎯 Kĩ năng cần luyện</h3>' +
+      '<p class="lr-skills-panel__sub">Tổng hợp từ các câu sai — ưu tiên luyện kĩ năng xuất hiện nhiều nhất.</p>' +
+      '<div class="lr-skills-panel__chips">' + chips + '</div>' +
+      '<a class="lr-skills-panel__cta" href="/pages/listening.html">Luyện nghe thêm →</a>';
+    return panel;
+  }
+
   function renderReview(items) {
     var host = $('lr-review'); host.innerHTML = '';
+    var panel = renderSkillsPanel(items);
+    if (panel) host.appendChild(panel);
     items.forEach(function (it) { host.appendChild(renderCard(it)); });
   }
 

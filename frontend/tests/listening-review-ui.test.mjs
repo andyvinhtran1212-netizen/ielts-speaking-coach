@@ -166,6 +166,29 @@ describe('Phase B — CSS token-clean (no hardcoded hex)', () => {
 });
 
 
+describe('Item 9 — "Kĩ năng cần luyện" panel (skills to practise)', () => {
+  test('aggregates K-codes from WRONG questions only, sorted by count', () => {
+    const fn = js.slice(js.indexOf('function skillsToPractise'), js.indexOf('function renderSkillsPanel'));
+    assert.match(fn, /if \(it\.correct\) return/);            // wrong-only
+    assert.match(fn, /match\(\/K\[1-8\]\/g\)/);               // parse K-codes from free-text skills
+    assert.match(fn, /b\.count - a\.count/);                  // sorted by count
+  });
+  test('uses the K1–K8 legend labels (not raw codes)', () => {
+    assert.match(js, /K1: 'Nghe số/);
+    assert.match(js, /K8: 'Map/);
+  });
+  test('renders the panel above the cards with a single generic practice CTA (option i)', () => {
+    assert.match(js, /renderSkillsPanel\(items\)/);
+    assert.match(js, /host\.appendChild\(panel\)[\s\S]{0,80}renderCard/);   // panel before cards
+    assert.match(js, /lr-skills-panel__cta" href="\/pages\/listening\.html"/);  // generic CTA, no per-skill recommender
+  });
+  test('panel CSS is token-clean (no hex)', () => {
+    const block = css.slice(css.indexOf('.lr-skills-panel'), css.indexOf('/* solution accordion */'));
+    assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(block), 'skills panel CSS must use tokens');
+  });
+});
+
+
 describe('Phase B — backend review endpoint cross-ref', () => {
   test('review endpoint is submitted-gated + joins audio_window + solution per q', () => {
     assert.match(router, /@user_router\.get\("\/tests\/attempts\/\{attempt_id\}\/review"\)/);
