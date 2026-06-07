@@ -5376,3 +5376,109 @@ async def get_listening_test_attempt(
         "started_at":      attempt.get("started_at"),
         "submitted_at":    attempt.get("submitted_at"),
     }
+
+
+@user_router.get("/tests/attempts/{attempt_id}/review")
+async def get_listening_test_attempt_review(
+    attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
+    full test. Owner-only + HARD-gated on status=='submitted' (409 otherwise).
+    Joins the attempt's grading_details (q_num · correct · user_answer ·
+    expected) with each question's rich solution + audio replay window (stored
+    in listening_exercises.payload.solutions / .audio_windows by the import),
+    the per-section transcripts, the band-conversion table, the section offsets,
+    and a signed URL for the full premixed audio (so the review player can seek
+    each answer's window). Mirrors the reading review contract."""
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if attempt.get("status") != "submitted":
+        raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
+
+    test_id = attempt["test_id"]
+    test_res = (
+        supabase_admin.table("listening_tests")
+        .select("id,test_id,title,band_target,cue_points,metadata,"
+                "full_audio_storage_path,assembled_audio_storage_path,"
+                "full_audio_duration_seconds,themes")
+        .eq("id", test_id).limit(1).execute()
+    )
+    test_row = (test_res.data or [{}])[0]
+    audio_url, _, audio_duration = _student_audio_url_for_test(test_row)
+    meta = test_row.get("metadata") or {}
+
+    # Per-section transcripts (content rows).
+    content_res = (
+        supabase_admin.table("listening_content")
+        .select("id,section_num,title,transcript,metadata")
+        .eq("test_id", test_id).order("section_num").execute()
+    )
+    sections = []
+    section_ids = []
+    for c in (content_res.data or []):
+        section_ids.append(c["id"])
+        cmeta = c.get("metadata") or {}
+        sections.append({
+            "section_num": c.get("section_num"),
+            "title":       c.get("title"),
+            "theme":       cmeta.get("theme"),
+            "transcript":  c.get("transcript"),
+        })
+
+    # Per-question solution + audio window + prompt/type (from exercise payloads).
+    solutions_by_q: dict[int, dict] = {}
+    windows_by_q: dict[int, dict] = {}
+    prompt_by_q: dict[int, str] = {}
+    type_by_q: dict[int, str] = {}
+    if section_ids:
+        ex_res = (
+            supabase_admin.table("listening_exercises")
+            .select("payload").in_("content_id", section_ids).execute()
+        )
+        for row in (ex_res.data or []):
+            p = row.get("payload") or {}
+            for q, sol in (p.get("solutions") or {}).items():
+                solutions_by_q[int(q)] = sol
+            for q, w in (p.get("audio_windows") or {}).items():
+                windows_by_q[int(q)] = w
+            variant = p.get("variant")
+            for qq in (p.get("questions") or []):
+                if qq.get("q_num") is not None:
+                    prompt_by_q[qq["q_num"]] = qq.get("prompt")
+                    type_by_q[qq["q_num"]] = variant
+
+    # Join grading_details with the per-question solution + window.
+    review = []
+    for g in (attempt.get("grading_details") or []):
+        q = g.get("q_num")
+        win = windows_by_q.get(q)
+        review.append({
+            "q_num":         q,
+            "correct":       bool(g.get("correct")),
+            "user_answer":   g.get("user_answer") or "",
+            "expected":      g.get("expected") or "",
+            "question_type": type_by_q.get(q),
+            "prompt":        prompt_by_q.get(q),
+            "audio_window":  win,                       # {start, end, section} — full_test-absolute
+            "section":       (win or {}).get("section"),
+            "solution":      solutions_by_q.get(q) or {},
+        })
+
+    return {
+        "attempt_id":      attempt_id,
+        "test_id":         test_row.get("test_id"),
+        "title":           test_row.get("title"),
+        "status":          attempt.get("status"),
+        "score":           attempt.get("score"),
+        "max_score":       len(review),
+        "band_estimate":   attempt.get("band_estimate"),
+        "trap_analytics":  attempt.get("trap_analytics") or {},
+        "audio_url":       audio_url,
+        "audio_duration":  audio_duration,
+        "section_offsets": meta.get("section_offsets") or {},
+        "cue_points":      test_row.get("cue_points") or [],
+        "band_conversion": meta.get("band_conversion") or [],
+        "sections":        sections,
+        "review":          review,
+    }
