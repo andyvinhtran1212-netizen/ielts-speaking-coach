@@ -189,6 +189,62 @@ describe('Item 9 — "Kĩ năng cần luyện" panel (skills to practise)', () =
 });
 
 
+describe('r2 item 1 — tab gap root cause: pane padding-top zeroed so sticky bar is the top edge', () => {
+  test('the transcript pane drops its padding-top (sticky top:0 then sits flush)', () => {
+    assert.match(css, /#lr-transcript-pane\s*\{[^}]*padding-top:\s*0/);
+  });
+  test('section tabs no longer use the r1 negative top margin (the partial fix)', () => {
+    const fn = css.slice(css.indexOf('.lr-section-tabs'));
+    assert.match(fn, /position:\s*sticky;\s*top:\s*0/);
+    assert.match(fn, /margin:\s*0 -28px/);                 // bleed sides only, no -20px top pull
+    assert.ok(!/margin:\s*-20px -28px/.test(fn), 'the r1 negative top margin is gone');
+  });
+});
+
+
+describe('r2 item 2 — player fills its row; hint is a thin caption line, not a flex sibling', () => {
+  test('the hint span is OUTSIDE .lr-bottombar__player (so the player owns the width)', () => {
+    const start = html.indexOf('lr-bottombar__player');
+    const block = html.slice(start, html.indexOf('</div>', start));   // just the player div
+    assert.ok(!/lr-player-label/.test(block), 'hint must not sit inside the player flex row');
+    assert.match(html, /<\/div>\s*<span class="lr-player-label"/);   // sibling caption below player
+  });
+  test('the player audio-player flex-grows to full width', () => {
+    assert.match(css, /\.lr-bottombar__player audio-player\s*\{[^}]*flex:\s*1 1 auto/);
+    assert.match(css, /\.lr-bottombar__player audio-player\s*\{[^}]*width:\s*100%/);
+  });
+});
+
+
+describe('r2 item 3 — palette strip spreads to fill the screen width', () => {
+  test('q-buttons flex-grow equally (1 1 auto) instead of clustering left (0 0 auto)', () => {
+    const fn = css.slice(css.indexOf('.lr-nav-q {'));
+    assert.match(fn, /flex:\s*1 1 auto/);
+    assert.ok(!/\.lr-nav-q \{[^}]*flex:\s*0 0 auto/.test(css), 'no longer fixed-size/left-clustered');
+  });
+});
+
+
+describe('r2 item 5 — speaker labels = "Man:"/"Woman:" (no nationality), per-block disambiguation', () => {
+  test('_speakerLabel returns Man/Woman by gender, drops accent', () => {
+    const fn = js.slice(js.indexOf('function _speakerLabel'), js.indexOf('function _speakerMap'));
+    assert.match(fn, /'Woman'\s*:\s*'Man'/);              // F → Woman, else Man
+    assert.ok(!/Nam|Nữ|_ACCENT_VI/.test(fn), 'no Vietnamese gender / accent map');
+  });
+  test('_speakerMap numbers ≥2 same-gender speakers (Man 1 / Man 2) within one block', () => {
+    const fn = js.slice(js.indexOf('function _speakerMap'), js.indexOf('function renderScript'));
+    assert.match(fn, /byGender/);
+    assert.match(fn, /codes\.length > 1 \? g \+ ' ' \+ \(i \+ 1\)/);   // index only when >1 same gender
+  });
+  test('renderScript renders the label with a colon (Man: / Woman:) using the block map', () => {
+    const fn = js.slice(js.indexOf('function renderScript'), js.indexOf('function formatWhyCorrect'));
+    assert.match(fn, /var smap = _speakerMap\(text\)/);
+    assert.match(fn, /smap\[code\] \|\| _speakerLabel\(code\)/);
+    assert.match(fn, /escapeHtml\(lbl\) \+ ':<\/span>'/);
+  });
+});
+
+
 describe('Phase B — backend review endpoint cross-ref', () => {
   test('review endpoint is submitted-gated + joins audio_window + solution per q', () => {
     assert.match(router, /@user_router\.get\("\/tests\/attempts\/\{attempt_id\}\/review"\)/);

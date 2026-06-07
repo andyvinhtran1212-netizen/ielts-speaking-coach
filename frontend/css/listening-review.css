@@ -14,10 +14,15 @@
   color: var(--exam-text-primary); font-size: var(--av-fs-sm); }
 
 /* ── Transcript pane (left) ───────────────────────────────────────── */
-/* item 2 — tab bar is the pane's TOP edge: full-bleed + flush (cancel the
-   .exam-passage 20px/28px padding) + sticky, so transcript never sits above it. */
+/* r2 item 1 — ROOT CAUSE of the repeat "gap above the tabs": .exam-passage has
+   padding:20px 28px 24px (reading-exam-mockup.css), and `position:sticky; top:0`
+   pins relative to the PADDING box, so on scroll a 20px band of the pane shows
+   ABOVE the pinned bar and the heading/body scroll through it. The r1 negative
+   margin-top only moved the INITIAL position, not the sticky offset. Real fix:
+   remove the pane's padding-top so the tab bar IS the scroll-container top edge. */
+#lr-transcript-pane { padding-top: 0; }
 .lr-section-tabs { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap;
-  gap: var(--av-space-2); margin: -20px -28px var(--av-space-3); padding: var(--av-space-3) 28px;
+  gap: var(--av-space-2); margin: 0 -28px var(--av-space-3); padding: var(--av-space-3) 28px;
   background: var(--exam-surface-card); border-bottom: 1px solid var(--exam-border-subtle); }
 .lr-section-tab { font: inherit; font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
   cursor: pointer; padding: 4px 12px; border-radius: var(--av-radius-pill);
@@ -126,15 +131,19 @@
   background: var(--exam-surface-card); border-top: 1px solid var(--exam-border-default);
   box-shadow: 0 -2px 8px color-mix(in srgb, var(--exam-text-primary) 8%, transparent); }
 .lr-bottombar[hidden] { display: none; }
-.lr-bottombar__player { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap; }
-.lr-bottombar__player audio-player { flex: 1 1 320px; min-width: 0; }
-.lr-player-label { font-size: var(--av-fs-xs); color: var(--exam-text-muted); flex: 1 1 200px; }
-/* single horizontal strip — all 40 in a row, scrolls on narrow screens */
-.lr-palette-strip { display: flex; align-items: center; gap: 4px; overflow-x: auto;
+/* r2 item 2 — player owns the full width of its row (no element steals the right
+   edge); the hint is demoted to a thin caption line below it, not a flex sibling. */
+.lr-bottombar__player { display: flex; align-items: center; }
+.lr-bottombar__player audio-player { flex: 1 1 auto; min-width: 0; width: 100%; }
+.lr-player-label { display: block; font-size: var(--av-fs-xs); color: var(--exam-text-muted);
+  margin: 0; }
+/* r2 item 3 — one horizontal strip that SPREADS to fill the screen width: every
+   q-button flex-grows equally instead of clustering left; scrolls on narrow. */
+.lr-palette-strip { display: flex; align-items: stretch; gap: 4px; overflow-x: auto;
   padding-bottom: 2px; }
 .lr-palette-sep { flex: 0 0 auto; width: 1px; align-self: stretch; margin: 2px var(--av-space-2);
   background: var(--exam-border-default); }
-.lr-nav-q { flex: 0 0 auto; min-width: 30px; height: 30px; padding: 0 4px;
+.lr-nav-q { flex: 1 1 auto; min-width: 30px; height: 30px; padding: 0 4px;
   font-family: var(--av-font-mono); font-size: var(--av-fs-xs); cursor: pointer;
   border: 1px solid var(--exam-border-default); border-radius: var(--av-radius-sm);
   background: var(--exam-surface-card); color: var(--exam-text-secondary);
