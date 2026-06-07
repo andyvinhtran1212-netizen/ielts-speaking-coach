@@ -46,34 +46,115 @@
     var m = Math.floor(sec / 60), s = sec % 60;
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
+  function hasVietnamese(s) {
+    return /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i.test(s || '');
+  }
+
+  // ── TTS markup transform (item 3) — content stays in the data; we transform
+  // it for display. Speaker code → readable label; [stress:x] → emphasis (the
+  // answer word — a learning signal); [emotion]/[breath]/[chuckle]/[pause]/…
+  // directives + ``` fences → hidden. XSS-safe (escape, then layer markup). ──
+  var _ACCENT_VI = { bre: 'Anh', ame: 'Mỹ', use: 'Mỹ', us: 'Mỹ', ause: 'Úc',
+                     aue: 'Úc', cae: 'Canada', ca: 'Canada' };
+  function _speakerLabel(code) {
+    // [M-AusE-30s-professional] → "Nam (Úc)" ; [F-BrE-20s] → "Nữ (Anh)"
+    var m = /^\s*([MF])\s*-\s*([A-Za-z]+)/.exec(code || '');
+    if (!m) return null;
+    var who = m[1].toUpperCase() === 'F' ? 'Nữ' : 'Nam';
+    var acc = _ACCENT_VI[m[2].toLowerCase().replace(/[^a-z]/g, '')];
+    return who + (acc ? ' (' + acc + ')' : '');
+  }
+  function renderScript(raw) {
+    var text = String(raw || '').replace(/```/g, '').trim();   // never show fences
+    var out = [];
+    text.split(/\n/).forEach(function (line) {
+      line = line.trim();
+      if (!line) return;
+      // a line that is ONLY a [SPEAKER-CODE] → a speaker label
+      var only = /^\[([^\]]+)\]$/.exec(line);
+      if (only) {
+        var lbl = _speakerLabel(only[1]);
+        if (lbl) { out.push('<span class="lr-tx-speaker">' + escapeHtml(lbl) + '</span>'); return; }
+      }
+      var safe = escapeHtml(line);
+      // [stress:word] → emphasised answer word
+      safe = safe.replace(/\[stress:([^\]]+)\]/g, function (_, w) {
+        return '<strong class="lr-stress">' + w.trim() + '</strong>';
+      });
+      // (Qn) marker → subtle anchor chip (kept — helps locate)
+      safe = safe.replace(/\((Q\d+)\)/g, '<span class="lr-qmark">($1)</span>');
+      // every other directive [emotion:…] [breath] [pause:1s] [hesitate] … → hide
+      safe = safe.replace(/\[[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+      if (safe) out.push('<span class="lr-tx-text">' + safe + '</span>');
+    });
+    return out.join(' ');
+  }
+
+  // ── "Vì sao đúng" de-walling (item 6): strip the raw `_(From answer key
+  // notes):_` artifact, split EN vs VN blocks, bullet on list markers. ──
+  function formatWhyCorrect(raw) {
+    var text = String(raw || '').replace(/```/g, '')
+      .replace(/_\(From answer key notes\):_/gi, '').trim();
+    if (!text) return '';
+    var paras = text.split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean);
+    return paras.map(function (p) {
+      var lang = hasVietnamese(p) ? 'vi' : 'en';
+      var label = lang === 'vi' ? 'VN' : 'EN';
+      var listItems = p.split(/\n+|(?:;\s+)/).map(function (s) {
+        return s.trim().replace(/^[-•]\s*/, '');
+      }).filter(Boolean);
+      var inner = listItems.length > 1
+        ? '<ul class="lr-sol__bullets">' + listItems.map(function (s) {
+            return '<li>' + formatProse(s) + '</li>'; }).join('') + '</ul>'
+        : formatProse(p);
+      return '<div class="lr-why lr-why--' + lang + '">' +
+        '<span class="lr-why__lang">' + label + '</span>' + inner + '</div>';
+    }).join('');
+  }
 
   function showState(name) {
     $('state-loading').hidden = name !== 'loading';
     $('state-empty').hidden   = name !== 'empty';
     $('state-error').hidden   = name !== 'error';
     $('lr-content').hidden    = name !== 'ready';
-    $('lr-palette').hidden    = name !== 'ready';
-    $('lr-player-bar').hidden = name !== 'ready';
+    $('lr-bottombar').hidden  = name !== 'ready';
   }
   function showError(msg) { var el = $('error-msg'); if (el) el.textContent = msg; showState('error'); }
   function attemptIdFromUrl() {
     return (new URLSearchParams(window.location.search).get('attempt_id') || '').trim() || null;
   }
 
-  // ── Sticky audio player — window replay ───────────────────────────
-  // Drives the shared <audio-player> segment mode: set [segment-start,
-  // segment-end] (full_test-absolute seconds from the question's audio_window),
-  // rewind to start, then play — the component auto-pauses at segment-end.
-  function playWindow(win) {
+  // ── 🔊 locate — full-track seek + transcript highlight (items 4 + 7) ──
+  // Item 4: the player keeps the WHOLE track (free scrub); 🔊 seeks to the
+  // window start and plays on from there (no segment window, no auto-stop).
+  // Item 7: it also jumps the transcript pane to that question's section, scrolls
+  // to the script line, and highlights it (reading-review .src-hl behaviour).
+  function locate(qNum, win) {
     var player = $('lr-player');
-    if (!player || !win) return;
-    player.setAttribute('segment-start', String(win.start));
-    player.setAttribute('segment-end', String(win.end));
-    if (typeof player.reset === 'function') player.reset();   // seek to segment start
-    if (typeof player.play === 'function') player.play();     // play → auto-pause at end
-    var lbl = $('lr-player-label');
-    if (lbl) lbl.textContent = '🔊 Đang phát ' + (win.section ? win.section + ' · ' : '') +
-      clock(win.start) + '–' + clock(win.end);
+    if (player && win) {
+      // full track: ensure no segment constraint, then seek + continue.
+      player.removeAttribute('segment-start');
+      player.removeAttribute('segment-end');
+      if (typeof player.seekTo === 'function') player.seekTo(win.start);
+      var lbl = $('lr-player-label');
+      if (lbl) lbl.textContent = '🔊 Tua tới ' + (win.section ? win.section + ' · ' : '') +
+        clock(win.start) + '–' + clock(win.end) + ' (phát tiếp toàn bài)';
+    }
+    // switch section + highlight the script line for this question
+    var sec = win && win.section ? parseInt(String(win.section).replace(/\D/g, ''), 10) : null;
+    if (sec && sec !== SESSION.section) selectSection(sec);
+    highlightTranscriptLine(qNum);
+  }
+
+  function highlightTranscriptLine(qNum) {
+    var body = $('lr-transcript-body');
+    if (!body) return;
+    body.querySelectorAll('.lr-src-hl').forEach(function (el) { el.classList.remove('lr-src-hl'); });
+    var line = body.querySelector('.lr-tx-line[data-qs~="' + qNum + '"]');
+    if (line) {
+      line.classList.add('lr-src-hl');
+      if (line.scrollIntoView) line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   // ── Section transcript pane ───────────────────────────────────────
@@ -90,17 +171,49 @@
       host.appendChild(b);
     });
   }
+  // Build the per-section transcript lines from each question's script extract,
+  // DEDUPED (item 8a: Q7/Q8 share one turn → one line tagged data-qs="7 8"),
+  // each anchored by its q_num(s) for the 🔊 highlight (item 7). Render-layer
+  // only — we never touch the stored payload.
+  function buildTranscriptModel(review) {
+    var bySection = {};   // sectionNum → [{ qs:[...], scriptHtml }]
+    review.forEach(function (it) {
+      var sec = it.section ? parseInt(String(it.section).replace(/\D/g, ''), 10)
+                           : (Math.floor((it.q_num - 1) / 10) + 1);
+      var script = (it.solution && it.solution.script) || '';
+      var html = renderScript(script);
+      if (!html) return;
+      var lines = bySection[sec] = bySection[sec] || [];
+      // dedup: shared-window questions emit identical script → merge into one line
+      var existing = null;
+      for (var i = 0; i < lines.length; i++) { if (lines[i].html === html) { existing = lines[i]; break; } }
+      if (existing) existing.qs.push(it.q_num);
+      else lines.push({ qs: [it.q_num], html: html });
+    });
+    return bySection;
+  }
+
   function selectSection(num) {
     SESSION.section = num;
     var sec = (SESSION.data.sections || []).filter(function (s) { return s.section_num === num; })[0] || {};
     $('lr-transcript-title').textContent = sec.theme
       ? ('Section ' + num + ' — ' + sec.theme) : ('Section ' + num);
     var body = $('lr-transcript-body');
-    // transcript is plain text — render paragraphs via textContent (XSS-safe)
     body.innerHTML = '';
-    String(sec.transcript || '').split(/\n\s*\n/).forEach(function (para) {
-      var t = para.trim(); if (!t) return;
-      var p = document.createElement('p'); p.textContent = t; body.appendChild(p);
+    var lines = (SESSION.transcript || {})[num] || [];
+    if (!lines.length) {
+      var empty = document.createElement('p');
+      empty.className = 'lr-tx-empty';
+      empty.textContent = 'Transcript theo từng câu hiển thị khi bạn bấm 🔊 ở mỗi câu.';
+      body.appendChild(empty);
+    }
+    lines.forEach(function (ln) {
+      var p = document.createElement('p');
+      p.className = 'lr-tx-line';
+      p.setAttribute('data-qs', ln.qs.join(' '));
+      // ln.html is built by renderScript() — already escaped + safe markup
+      p.innerHTML = '<span class="lr-tx-qtag">Câu ' + ln.qs.join(', ') + '</span> ' + ln.html;
+      body.appendChild(p);
     });
     renderSectionTabs(SESSION.data.sections || []);
   }
@@ -129,13 +242,14 @@
       : '';
 
     var sol = item.solution || {};
+    // item 5 — skill chips (K1, K2…) removed from per-question cards (they're for
+    // the summary's "skills to practise", item 9 — not shown here).
     var detail =
-      _solSection('Kĩ năng', sol.skills ? escapeHtml(sol.skills) : '') +
       _solSection('Dịch đoạn chứa đáp án', sol.translation_vi ? formatProse(sol.translation_vi) : '') +
       _solSection('Từ vựng', sol.vocab_focus ? _bulletList(sol.vocab_focus) : (sol.vocab ? _bulletList(sol.vocab) : '')) +
       _solSection('Paraphrase', sol.paraphrase ? formatProse(sol.paraphrase) : '') +
-      _solSection('Vì sao đúng', sol.why_correct ? formatProse(sol.why_correct) : '') +
-      _solSection('Script', sol.script ? formatProse(sol.script) : '', 'script') +
+      _solSection('Vì sao đúng', sol.why_correct ? formatWhyCorrect(sol.why_correct) : '') +   // item 6 — de-walled
+      _solSection('Script', sol.script ? renderScript(sol.script) : '', 'script') +            // item 3 — TTS transform
       _solSection('Bẫy', sol.trap ? formatProse(sol.trap) : '', 'trap');
 
     card.innerHTML =
@@ -152,9 +266,9 @@
       (tsBtn ? '<div class="lr-card__tsrow">' + tsBtn + '</div>' : '') +
       '<div class="lr-card__detail" hidden>' + (detail || '<p class="lr-sol__empty">Chưa có lời giải chi tiết.</p>') + '</div>';
 
-    // wire: timestamp → window replay
+    // wire: timestamp → full-track seek + transcript highlight (items 4 + 7)
     var ts = card.querySelector('[data-action="play"]');
-    if (ts) ts.addEventListener('click', function (e) { e.stopPropagation(); playWindow(win); });
+    if (ts) ts.addEventListener('click', function (e) { e.stopPropagation(); locate(item.q_num, win); });
     // wire: expand/collapse solution
     var top = card.querySelector('.lr-card__top');
     var det = card.querySelector('.lr-card__detail');
@@ -187,43 +301,46 @@
     if (det && det.hidden) card.querySelector('.lr-card__top').click();
   }
 
-  // ── Palette: 40 Qs grouped by section (4 groups) ──────────────────
+  // ── Palette: ONE horizontal strip 1–40 (item 1), thin section markers ──
   function renderPalette(items) {
-    var grid = $('lr-nav-grid'); grid.innerHTML = '';
-    var bySection = {};
-    items.forEach(function (it) {
-      var s = (it.section) || ('S' + (Math.floor((it.q_num - 1) / 10) + 1));
-      (bySection[s] = bySection[s] || []).push(it);
-    });
-    Object.keys(bySection).sort().forEach(function (s) {
-      var group = document.createElement('div');
-      group.className = 'exam-palette__group';
-      var label = document.createElement('span');
-      label.className = 'exam-palette__group-label';
-      label.textContent = s;
-      group.appendChild(label);
-      bySection[s].forEach(function (it) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'exam-palette__q lr-nav-q ' + (it.correct ? 'is-correct' : 'is-incorrect');
-        b.setAttribute('data-q', String(it.q_num));
-        b.textContent = String(it.q_num);
-        b.addEventListener('click', function () { jumpToQ(it.q_num); });
-        group.appendChild(b);
-      });
-      grid.appendChild(group);
+    var strip = $('lr-nav-grid'); strip.innerHTML = '';
+    items.slice().sort(function (a, b) { return a.q_num - b.q_num; }).forEach(function (it, i) {
+      // a hairline gap before each new section of 10
+      if (i > 0 && it.q_num % 10 === 1) {
+        var sep = document.createElement('span');
+        sep.className = 'lr-palette-sep'; sep.setAttribute('aria-hidden', 'true');
+        strip.appendChild(sep);
+      }
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lr-nav-q ' + (it.correct ? 'is-correct' : 'is-incorrect');
+      b.setAttribute('data-q', String(it.q_num));
+      b.title = (it.correct ? 'Đúng' : 'Sai') + ' — Câu ' + it.q_num;
+      b.textContent = String(it.q_num);
+      b.addEventListener('click', function () { jumpToQ(it.q_num); });
+      strip.appendChild(b);
     });
   }
 
   function renderSummary(d) {
     $('lr-test-label').textContent = d.title || 'Chữa bài';
-    var band = (d.band_estimate != null) ? Number(d.band_estimate).toFixed(1) : '—';
-    $('lr-summary').textContent = 'Band ' + band + ' · ' +
+    var summary;
+    if (d.band_estimate != null) {
+      summary = 'Band ' + Number(d.band_estimate).toFixed(1);
+    } else {
+      // item 8b — below the band-conversion floor: show "< lowest band", not "—".
+      var bands = (d.band_conversion || []).map(function (r) { return Number(r.band); })
+        .filter(function (n) { return !isNaN(n); });
+      var floor = bands.length ? Math.min.apply(null, bands) : null;
+      summary = floor != null ? ('Dưới band ' + floor.toFixed(1)) : 'Chưa đủ band';
+    }
+    $('lr-summary').textContent = summary + ' · ' +
       (d.score != null ? d.score : '?') + '/' + (d.max_score || 40);
   }
 
   function render(d) {
     SESSION.data = d;
+    SESSION.transcript = buildTranscriptModel(d.review || []);   // per-section, deduped, anchored
     renderSummary(d);
     var player = $('lr-player');
     if (player && d.audio_url) player.setAttribute('src', d.audio_url);

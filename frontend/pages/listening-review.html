@@ -59,19 +59,13 @@
     <section class="exam-questions lr-review" id="lr-review" aria-label="Chữa từng câu"></section>
   </main>
 
-  <!-- ── STICKY AUDIO PLAYER (window replay per question) ───────────── -->
-  <div class="lr-player-bar" id="lr-player-bar" hidden>
-    <div class="lr-player-bar__label" id="lr-player-label">🔊 Bấm timestamp ở mỗi câu để nghe lại đúng đoạn chứa đáp án.</div>
-    <audio-player id="lr-player"></audio-player>
-  </div>
-
-  <!-- ── PALETTE: 40-question navigator grouped by section ──────────── -->
-  <footer class="exam-palette" id="lr-palette" hidden role="navigation" aria-label="Chọn câu để chữa">
-    <div class="exam-palette__grid" id="lr-nav-grid" role="group" aria-label="40 câu"></div>
-    <div class="lr-nav-legend" aria-hidden="true">
-      <span class="lr-nav-legend__item"><span class="lr-nav-legend__swatch is-correct"></span>Đúng</span>
-      <span class="lr-nav-legend__item"><span class="lr-nav-legend__swatch is-incorrect"></span>Sai</span>
+  <!-- ── BOTTOM CHROME: full-test player + a single horizontal 1–40 palette ── -->
+  <footer class="lr-bottombar" id="lr-bottombar" hidden role="navigation" aria-label="Phát lại + chọn câu">
+    <div class="lr-bottombar__player">
+      <audio-player id="lr-player"></audio-player>
+      <span class="lr-player-label" id="lr-player-label">🔊 Bấm timestamp ở mỗi câu để tua tới đúng đoạn chứa đáp án.</span>
     </div>
+    <div class="lr-palette-strip" id="lr-nav-grid" role="group" aria-label="40 câu — chọn để chữa"></div>
   </footer>
 
   <script src="/js/listening-review.js" defer></script>

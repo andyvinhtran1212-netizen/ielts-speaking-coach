@@ -14,8 +14,10 @@
   color: var(--exam-text-primary); font-size: var(--av-fs-sm); }
 
 /* ── Transcript pane (left) ───────────────────────────────────────── */
+/* item 2 — tab bar is the pane's TOP edge: full-bleed + flush (cancel the
+   .exam-passage 20px/28px padding) + sticky, so transcript never sits above it. */
 .lr-section-tabs { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap;
-  gap: var(--av-space-2); padding: var(--av-space-2) 0 var(--av-space-3);
+  gap: var(--av-space-2); margin: -20px -28px var(--av-space-3); padding: var(--av-space-3) 28px;
   background: var(--exam-surface-card); border-bottom: 1px solid var(--exam-border-subtle); }
 .lr-section-tab { font: inherit; font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
   cursor: pointer; padding: 4px 12px; border-radius: var(--av-radius-pill);
@@ -73,21 +75,51 @@
   padding: 0 4px; border-radius: var(--av-radius-sm); }
 .lr-sol__empty { color: var(--exam-text-muted); font-size: var(--av-fs-sm); }
 
-/* ── Sticky audio player bar ──────────────────────────────────────── */
-.lr-player-bar { position: sticky; bottom: 0; z-index: 40; display: flex; flex-direction: column;
-  gap: var(--av-space-2); padding: var(--av-space-3) var(--av-space-4);
+/* ── Transcript line markup (script transform: speaker / stress / Qn) ── */
+.lr-tx-line { margin: 0 0 var(--av-space-3); padding: var(--av-space-2) var(--av-space-3);
+  border-radius: var(--av-radius-md); color: var(--exam-text-secondary);
+  line-height: var(--av-lh-relaxed); border-left: 3px solid transparent; }
+.lr-tx-qtag { display: inline-block; font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+  color: var(--exam-text-muted); background: var(--exam-surface-sunken);
+  padding: 0 6px; border-radius: var(--av-radius-pill); margin-right: var(--av-space-2); }
+.lr-tx-speaker { font-weight: var(--av-fw-semibold); color: var(--exam-text-primary); margin-right: 4px; }
+.lr-tx-speaker::after { content: ':'; }
+.lr-stress { color: var(--exam-accent); font-weight: var(--av-fw-bold);
+  background: var(--exam-accent-soft); padding: 0 3px; border-radius: var(--av-radius-sm); }
+.lr-qmark { font-size: var(--av-fs-xs); color: var(--exam-text-muted); }
+.lr-tx-empty { color: var(--exam-text-muted); font-size: var(--av-fs-sm); }
+/* highlight the line the active 🔊 points at (mirrors reading .rr-src-hl) */
+.lr-src-hl { background: var(--exam-accent-soft); border-left-color: var(--exam-accent); }
+
+/* ── "Vì sao đúng" — EN / VN blocks (item 6) ──────────────────────── */
+.lr-why { margin-bottom: var(--av-space-2); padding-left: var(--av-space-3);
+  border-left: 2px solid var(--exam-border-default); }
+.lr-why:last-child { margin-bottom: 0; }
+.lr-why__lang { display: inline-block; font-size: 10px; font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-wide); color: var(--exam-text-muted);
+  border: 1px solid var(--exam-border-default); border-radius: var(--av-radius-sm);
+  padding: 0 4px; margin-right: var(--av-space-2); vertical-align: middle; }
+.lr-why--vi { border-left-color: var(--exam-accent); }
+
+/* ── Bottom chrome: full-test player + one horizontal 1–40 palette ──── */
+.lr-bottombar { position: sticky; bottom: 0; z-index: 40; display: flex; flex-direction: column;
+  gap: var(--av-space-2); padding: var(--av-space-2) var(--av-space-4) var(--av-space-3);
   background: var(--exam-surface-card); border-top: 1px solid var(--exam-border-default);
   box-shadow: 0 -2px 8px color-mix(in srgb, var(--exam-text-primary) 8%, transparent); }
-.lr-player-bar[hidden] { display: none; }
-.lr-player-bar__label { font-size: var(--av-fs-xs); color: var(--exam-text-muted); }
-
-/* ── Palette legend ───────────────────────────────────────────────── */
-.lr-nav-legend { display: flex; gap: var(--av-space-4); align-items: center; }
-.lr-nav-legend__item { display: inline-flex; align-items: center; gap: 6px;
-  font-size: var(--av-fs-xs); color: var(--exam-text-muted); }
-.lr-nav-legend__swatch { width: 12px; height: 12px; border-radius: var(--av-radius-sm); display: inline-block; }
-.lr-nav-legend__swatch.is-correct { background: var(--av-success); }
-.lr-nav-legend__swatch.is-incorrect { background: var(--av-error); }
-.lr-nav-q.is-correct { border-color: var(--av-success); color: var(--av-success); }
-.lr-nav-q.is-incorrect { border-color: var(--av-error); color: var(--av-error); }
+.lr-bottombar[hidden] { display: none; }
+.lr-bottombar__player { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap; }
+.lr-bottombar__player audio-player { flex: 1 1 320px; min-width: 0; }
+.lr-player-label { font-size: var(--av-fs-xs); color: var(--exam-text-muted); flex: 1 1 200px; }
+/* single horizontal strip — all 40 in a row, scrolls on narrow screens */
+.lr-palette-strip { display: flex; align-items: center; gap: 4px; overflow-x: auto;
+  padding-bottom: 2px; }
+.lr-palette-sep { flex: 0 0 auto; width: 1px; align-self: stretch; margin: 2px var(--av-space-2);
+  background: var(--exam-border-default); }
+.lr-nav-q { flex: 0 0 auto; min-width: 30px; height: 30px; padding: 0 4px;
+  font-family: var(--av-font-mono); font-size: var(--av-fs-xs); cursor: pointer;
+  border: 1px solid var(--exam-border-default); border-radius: var(--av-radius-sm);
+  background: var(--exam-surface-card); color: var(--exam-text-secondary);
+  border-bottom-width: 3px; }
+.lr-nav-q.is-correct { border-bottom-color: var(--av-success); color: var(--av-success); }
+.lr-nav-q.is-incorrect { border-bottom-color: var(--av-error); color: var(--av-error); }
 .lr-nav-q.is-current { outline: 2px solid var(--exam-accent); outline-offset: 1px; }
