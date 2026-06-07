@@ -54,18 +54,35 @@
   // it for display. Speaker code → readable label; [stress:x] → emphasis (the
   // answer word — a learning signal); [emotion]/[breath]/[chuckle]/[pause]/…
   // directives + ``` fences → hidden. XSS-safe (escape, then layer markup). ──
-  var _ACCENT_VI = { bre: 'Anh', ame: 'Mỹ', use: 'Mỹ', us: 'Mỹ', ause: 'Úc',
-                     aue: 'Úc', cae: 'Canada', ca: 'Canada' };
   function _speakerLabel(code) {
-    // [M-AusE-30s-professional] → "Nam (Úc)" ; [F-BrE-20s] → "Nữ (Anh)"
-    var m = /^\s*([MF])\s*-\s*([A-Za-z]+)/.exec(code || '');
+    // item 5 — gender only, no nationality: [M-AusE-30s] → "Man" ; [F-BrE-20s] → "Woman"
+    var m = /^\s*([MF])\b/.exec(code || '');
     if (!m) return null;
-    var who = m[1].toUpperCase() === 'F' ? 'Nữ' : 'Nam';
-    var acc = _ACCENT_VI[m[2].toLowerCase().replace(/[^a-z]/g, '')];
-    return who + (acc ? ' (' + acc + ')' : '');
+    return m[1].toUpperCase() === 'F' ? 'Woman' : 'Man';
+  }
+  // item 5 — within ONE rendered block, disambiguate ≥2 same-gender speakers as
+  // "Man 1 / Man 2" by first-appearance order; a lone speaker stays "Man"/"Woman".
+  function _speakerMap(text) {
+    var order = [], seen = {};
+    String(text || '').split(/\n/).forEach(function (ln) {
+      var m = /^\s*\[([^\]]+)\]\s*$/.exec(ln.trim());
+      if (!m) return;
+      var code = m[1].trim();
+      if (_speakerLabel(code) && !seen[code]) { seen[code] = 1; order.push(code); }
+    });
+    var byGender = {}, map = {};
+    order.forEach(function (code) {
+      var g = _speakerLabel(code); (byGender[g] = byGender[g] || []).push(code);
+    });
+    Object.keys(byGender).forEach(function (g) {
+      var codes = byGender[g];
+      codes.forEach(function (code, i) { map[code] = codes.length > 1 ? g + ' ' + (i + 1) : g; });
+    });
+    return map;
   }
   function renderScript(raw) {
     var text = String(raw || '').replace(/```/g, '').trim();   // never show fences
+    var smap = _speakerMap(text);
     var out = [];
     text.split(/\n/).forEach(function (line) {
       line = line.trim();
@@ -73,8 +90,9 @@
       // a line that is ONLY a [SPEAKER-CODE] → a speaker label
       var only = /^\[([^\]]+)\]$/.exec(line);
       if (only) {
-        var lbl = _speakerLabel(only[1]);
-        if (lbl) { out.push('<span class="lr-tx-speaker">' + escapeHtml(lbl) + '</span>'); return; }
+        var code = only[1].trim();
+        var lbl = smap[code] || _speakerLabel(code);
+        if (lbl) { out.push('<span class="lr-tx-speaker">' + escapeHtml(lbl) + ':</span>'); return; }
       }
       var safe = escapeHtml(line);
       // [stress:word] → emphasised answer word
