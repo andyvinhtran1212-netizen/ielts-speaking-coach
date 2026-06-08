@@ -47,7 +47,7 @@
        embedded, the parent must supply them — Sprint 7.3 → 7.6 migrations
        moved the page body into JS modules but didn't migrate the
        resource imports, causing an unstyled render regression. -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -71,7 +71,7 @@
 
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
        as Sprint 6.7+ functional microcopy). -->
-  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="https://unpkg.com/lucide@1.17.0" defer></script>
 
   <!-- Canonical chrome Web Component (Sprint 7.12). -->
   <script type="module" src="/js/components/aver-chrome.js"></script>
@@ -243,7 +243,7 @@
   </div>
 
   <!-- Scripts: supabase → api.js → page logic. Same pattern as home.html. -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="../js/api.js"></script>
   <script>
     // Same Supabase config as login.html / home.html.

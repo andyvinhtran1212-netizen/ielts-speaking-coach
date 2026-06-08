@@ -340,7 +340,7 @@ describe('writing-result.css / tier badge contract', () => {
 
 describe('writing-result.html / Lucide chrome swap', () => {
   test('Lucide CDN + hydration script present', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
     assert.match(html, /lucide\.createIcons/);
   });
 

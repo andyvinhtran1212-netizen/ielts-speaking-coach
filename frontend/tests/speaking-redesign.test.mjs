@@ -330,7 +330,7 @@ describe('speaking.html / Lucide icon swap', () => {
   });
 
   test('Lucide CDN script + hydration fallback are loaded', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
     // Fallback hydration: createIcons must be called both on
     // DOMContentLoaded and on window 'load' so a deferred CDN script
     // that finishes after DOMContentLoaded still gets a render.

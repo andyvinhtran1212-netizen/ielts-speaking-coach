@@ -236,7 +236,7 @@ describe('result.html / inline JS render contract', () => {
 
 describe('result.html / Lucide icon swap', () => {
   test('Lucide CDN + hydration script present', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
     assert.match(html, /lucide\.createIcons/);
   });
 
