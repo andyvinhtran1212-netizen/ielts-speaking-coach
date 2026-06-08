@@ -134,6 +134,79 @@ describe('Phase B — publish/archive on the tests list (replaces manual SQL)', 
 });
 
 
+describe('Phase A — 4 slots: all-four gating + multi-file auto-routing', () => {
+  test('Kiểm tra requires ALL 4 files (qp + solution + timings + audio)', () => {
+    const fn = js.slice(js.indexOf('function refreshCheckBtn'), js.indexOf('async function onCheck'));
+    assert.match(fn, /f\.question_paper && f\.solution && f\.timings && f\.audio/);
+  });
+  test('_routeField maps each dropped file to the right slot (real value)', () => {
+    const m = js.match(/function _routeField\(name\) \{[\s\S]*?\n  \}/);
+    assert.ok(m, '_routeField present');
+    const routeField = new Function(m[0] + '\nreturn _routeField;')();
+    assert.equal(routeField('ILR_LIS_001_Question_Paper.md'), 'question_paper');
+    assert.equal(routeField('ILR_LIS_001_Solution.md'), 'solution');
+    assert.equal(routeField('timings.json'), 'timings');
+    assert.equal(routeField('full_test.mp3'), 'audio');
+    assert.equal(routeField('notes.txt'), null);
+  });
+  test('a multi-file drop auto-routes each file (drag all 4 at once works)', () => {
+    const fn = js.slice(js.indexOf('function acceptFiles'), js.indexOf('function wireDrop'));
+    assert.match(fn, /files\.length === 1.*assignToSlot\(slotField, files\[0\]\)/s);
+    assert.match(fn, /assignToSlot\(_routeField\(f\.name\), f\)/);     // each routed
+  });
+  test('HTML guides dragging all 4 + numbered labels', () => {
+    assert.match(html, /class="fi-droptip"/);
+    assert.match(html, /1 · Đề/);
+    assert.match(html, /4 · Audio/);
+  });
+});
+
+
+describe('Phase B — content preview + IMG-PROMPT extraction (real value)', () => {
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  function loadPreview() {
+    const m = js.match(/function previewHtml\(p\) \{[\s\S]*?\n  \}/);
+    assert.ok(m, 'previewHtml present');
+    return new Function('escapeHtml', m[0] + '\nreturn previewHtml;')(esc);
+  }
+  test('renders the REAL question count + prompt + answer from the dry-run', () => {
+    const previewHtml = loadPreview();
+    const out = previewHtml({ questions: [
+      { q_num: 1, section: 'S1', prompt: 'Which city?', answer: 'Brighton' },
+      { q_num: 2, section: 'S1', prompt: 'Postcode?', answer: 'BN1 6QR' },
+    ] });
+    assert.match(out, /Preview nội dung — 2 câu/);
+    assert.match(out, /Câu 1/);
+    assert.match(out, /Which city\?/);
+    assert.match(out, /Brighton/);
+  });
+  test('a question WITH img_prompt produces a copyable IMG-PROMPT block; without → none', () => {
+    const previewHtml = loadPreview();
+    const out = previewHtml({ questions: [
+      { q_num: 1, section: 'S1', prompt: 'City?', answer: 'Brighton' },                         // no img
+      { q_num: 31, section: 'S4', prompt: 'Label the map', img_prompt: 'Top-down museum plan.' },
+    ] });
+    assert.match(out, /1 IMG-PROMPT/);                          // count in summary
+    assert.match(out, /IMG-PROMPT \(câu 31\)/);
+    assert.match(out, /data-copy="Top-down museum plan\."/);    // copyable real value
+    assert.match(out, /Top-down museum plan\./);
+    assert.equal((out.match(/class="fi-imgprompt"/g) || []).length, 1, 'only the q WITH img_prompt gets a block');
+  });
+  test('XSS-safe + empty questions render nothing', () => {
+    const previewHtml = loadPreview();
+    assert.equal(previewHtml({ questions: [] }), '');
+    const out = previewHtml({ questions: [{ q_num: 1, prompt: '<script>x</script>', answer: '"&<' }] });
+    assert.ok(!out.includes('<script>x'), 'prompt escaped');
+    assert.match(out, /&lt;script&gt;/);
+  });
+  test('renderResult wires the preview + HTML has the container', () => {
+    assert.match(js, /renderPreview\(p\);/);
+    assert.match(html, /id="fi-preview"/);
+  });
+});
+
+
 describe('cross-ref — the endpoints the UI drives exist + are admin-gated', () => {
   test('dry-run + commit + status-transition routes are present', () => {
     assert.match(router, /@admin_router\.post\("\/import-fulltest"\)/);

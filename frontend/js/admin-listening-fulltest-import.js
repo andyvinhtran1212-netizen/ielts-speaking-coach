@@ -48,42 +48,56 @@
     { field: 'audio',          input: 'fi-aud', name: 'fi-aud-name' },
   ];
 
-  function setFile(field, input, nameEl, file) {
-    STATE.files[field] = file || null;
-    var zone = input.closest('.fi-drop');
-    if (file) {
-      nameEl.textContent = file.name + ' · ' + mb(file.size);
-      if (zone) zone.classList.add('is-set');
-    } else {
-      nameEl.textContent = '';
-      if (zone) zone.classList.remove('is-set');
+  var SLOTS = {};   // field → { nameEl, zone }
+
+  // Route a dropped file to the correct slot by extension/name, so dragging all
+  // 4 files at once just works. (#408 bug: a multi-file drop on one zone kept
+  // only files[0] → 3 files silently lost = "không nhận đủ 4 file".)
+  function _routeField(name) {
+    var n = String(name || '').toLowerCase();
+    if (n.endsWith('.json')) return 'timings';
+    if (n.endsWith('.mp3')) return 'audio';
+    if (n.endsWith('.md') || n.endsWith('.markdown')) {
+      return /solution|answer|chua|chữa|giai|giải/.test(n) ? 'solution' : 'question_paper';
     }
+    return null;
+  }
+
+  function assignToSlot(field, file) {
+    if (!field || !file || !SLOTS[field]) return;
+    STATE.files[field] = file;
+    SLOTS[field].nameEl.textContent = file.name + ' · ' + mb(file.size);
+    SLOTS[field].zone.classList.add('is-set');
+  }
+
+  // single file → respect the slot it was dropped/picked on; multiple → auto-route each.
+  function acceptFiles(slotField, fileList) {
+    var files = fileList ? Array.prototype.slice.call(fileList) : [];
+    if (!files.length) return;
+    if (files.length === 1) assignToSlot(slotField, files[0]);
+    else files.forEach(function (f) { assignToSlot(_routeField(f.name), f); });
     refreshCheckBtn();
-    refreshImportBtns();   // audio choice can flip Import availability
+    refreshImportBtns();
   }
 
   function wireDrop(d) {
     var input = $(d.input);
-    var nameEl = $(d.name);
     var zone = input.closest('.fi-drop');
-    input.addEventListener('change', function () {
-      setFile(d.field, input, nameEl, input.files && input.files[0]);
-    });
+    SLOTS[d.field] = { nameEl: $(d.name), zone: zone };
+    input.addEventListener('change', function () { acceptFiles(d.field, input.files); });
     ['dragenter', 'dragover'].forEach(function (ev) {
       zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-drag'); });
     });
     ['dragleave', 'drop'].forEach(function (ev) {
       zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('is-drag'); });
     });
-    zone.addEventListener('drop', function (e) {
-      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) { input.files = e.dataTransfer.files; setFile(d.field, input, nameEl, f); }
-    });
+    zone.addEventListener('drop', function (e) { acceptFiles(d.field, e.dataTransfer && e.dataTransfer.files); });
   }
 
   function refreshCheckBtn() {
-    // dry-run needs the 3 text files (audio is only required at commit)
-    var ready = STATE.files.question_paper && STATE.files.solution && STATE.files.timings;
+    // Lesson 16 — require ALL 4 files before dry-run (đủ 4 file mới Kiểm tra).
+    var f = STATE.files;
+    var ready = f.question_paper && f.solution && f.timings && f.audio;
     $('fi-check').disabled = !ready || STATE.busy;
   }
 
@@ -150,8 +164,62 @@
     }
     host.innerHTML = html;
 
+    renderPreview(p);          // B — content preview + IMG-PROMPT extraction
     $('fi-import-actions').hidden = false;
     refreshImportBtns();
+  }
+
+  // ── B — content preview + IMG-PROMPT (render-only; data is in the dry-run) ──
+  // The dry-run already returns questions[] {q_num, prompt, options, answer,
+  // img_prompt, …}. Render a per-section eyeball preview + surface every
+  // question's IMG-PROMPT as a copyable block (β diagrams feeder). XSS-safe.
+  function previewHtml(p) {
+    var qs = (p && p.questions) || [];
+    if (!qs.length) return '';
+    var bySec = {};
+    qs.forEach(function (q) {
+      var sec = q.section ? String(q.section).replace(/\D/g, '')
+                          : String(Math.floor((((q.q_num || 1)) - 1) / 10) + 1);
+      (bySec[sec] = bySec[sec] || []).push(q);
+    });
+    var imgCount = qs.filter(function (q) { return q.img_prompt; }).length;
+    var out = '<details class="fi-preview-box" open><summary>Preview nội dung — '
+      + qs.length + ' câu' + (imgCount ? ' · ' + imgCount + ' IMG-PROMPT' : '') + '</summary>';
+    Object.keys(bySec).sort(function (a, b) { return a - b; }).forEach(function (sec) {
+      out += '<div class="fi-sec"><div class="fi-sec__h">Section ' + escapeHtml(sec) + '</div>';
+      bySec[sec].forEach(function (q) {
+        out += '<div class="fi-q"><span class="fi-q__num">Câu ' + escapeHtml(String(q.q_num)) + '</span> '
+          + '<span class="fi-q__prompt">' + escapeHtml(q.prompt || '') + '</span>';
+        if (Array.isArray(q.options) && q.options.length) {
+          out += '<ul class="fi-q__opts">' + q.options.map(function (o) {
+            return '<li>' + escapeHtml(o) + '</li>'; }).join('') + '</ul>';
+        }
+        if (q.answer != null && q.answer !== '') {
+          out += '<div class="fi-q__ans">Đáp án: <b>' + escapeHtml(String(q.answer)) + '</b></div>';
+        }
+        if (q.img_prompt) {
+          out += '<div class="fi-imgprompt"><div class="fi-imgprompt__h">IMG-PROMPT (câu '
+            + escapeHtml(String(q.q_num)) + ') <button type="button" class="fi-copy" data-copy="'
+            + escapeHtml(q.img_prompt) + '">Copy</button></div>'
+            + '<pre class="fi-imgprompt__body">' + escapeHtml(q.img_prompt) + '</pre></div>';
+        }
+        out += '</div>';
+      });
+      out += '</div>';
+    });
+    return out + '</details>';
+  }
+
+  function renderPreview(p) {
+    var host = $('fi-preview');
+    if (!host) return;
+    host.innerHTML = previewHtml(p);
+    host.querySelectorAll('.fi-copy').forEach(function (b) {
+      b.addEventListener('click', function () {
+        try { navigator.clipboard.writeText(b.getAttribute('data-copy') || ''); b.textContent = 'Đã copy'; }
+        catch (e) { b.textContent = 'Copy lỗi'; }
+      });
+    });
   }
 
   function refreshImportBtns() {
