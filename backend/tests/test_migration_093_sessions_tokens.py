@@ -1,8 +1,8 @@
-"""091 — sessions.tokens_used / estimated_cost_usd column migration (P2 audit).
+"""093 — sessions.tokens_used / estimated_cost_usd column migration (P2 audit).
 
 Guards the fix: routers/grading.py WRITES sessions.tokens_used and routers/admin.py
 READS it, but no migration ever created the column → every write silently failed.
-091 adds it. These pin the file + its two idempotent ADD COLUMN statements so a
+093 adds it. These pin the file + its two idempotent ADD COLUMN statements so a
 regression (file deleted, or a column dropped from the migration) is caught.
 """
 from __future__ import annotations
@@ -11,11 +11,11 @@ import re
 from pathlib import Path
 
 _BACKEND = Path(__file__).parent.parent
-_MIG = _BACKEND / "migrations" / "091_add_sessions_tokens_used.sql"
+_MIG = _BACKEND / "migrations" / "093_add_sessions_tokens_used.sql"
 
 
 def test_migration_file_exists():
-    assert _MIG.exists(), "091_add_sessions_tokens_used.sql missing"
+    assert _MIG.exists(), "093_add_sessions_tokens_used.sql missing"
 
 
 def test_adds_tokens_used_idempotently():

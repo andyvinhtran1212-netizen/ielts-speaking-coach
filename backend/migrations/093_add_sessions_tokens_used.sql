@@ -1,4 +1,4 @@
--- 091_add_sessions_tokens_used.sql
+-- 093_add_sessions_tokens_used.sql
 --
 -- P2 audit fix — sessions.tokens_used is READ + WRITTEN by the grading pipeline
 -- (routers/grading.py::_increment_tokens accumulates per-response token usage;
