@@ -80,6 +80,12 @@
     });
     return map;
   }
+  // One colon, always. The bản đọc labels are authored WITH a trailing colon
+  // ("Daniel (Customer):"); code labels ("Man") have none. Strip any trailing
+  // colon/space, then add exactly one — so neither path can render "::".
+  function _labelWithColon(label) {
+    return escapeHtml(String(label || '').replace(/[\s:]+$/, '')) + ':';
+  }
   function renderScript(raw) {
     var text = String(raw || '').replace(/```/g, '').trim();   // never show fences
     var smap = _speakerMap(text);
@@ -92,7 +98,7 @@
       if (only) {
         var code = only[1].trim();
         var lbl = smap[code] || _speakerLabel(code);
-        if (lbl) { out.push('<span class="lr-tx-speaker">' + escapeHtml(lbl) + ':</span>'); return; }
+        if (lbl) { out.push('<span class="lr-tx-speaker">' + _labelWithColon(lbl) + '</span>'); return; }
       }
       var safe = escapeHtml(line);
       // [stress:word] → emphasised answer word
@@ -205,7 +211,7 @@
     var text = (m ? m[2] : String(raw || '')).trim();
     // defensive: the bản đọc carries no cues/markers, but strip any stray [..].
     text = escapeHtml(text).replace(/\[[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
-    var sp = speaker ? '<span class="lr-tx-speaker">' + escapeHtml(speaker) + '</span> ' : '';
+    var sp = speaker ? '<span class="lr-tx-speaker">' + _labelWithColon(speaker) + '</span> ' : '';
     return sp + '<span class="lr-tx-text">' + text + '</span>';
   }
   function buildTranscript(sections) {
