@@ -465,6 +465,7 @@ async def grade_response_endpoint(
         # Full grading dict is serialised into the 'feedback' column.
         step = "db_save"
         response_id: str | None = None
+        partial: bool = False     # True if only the core row saved (full metadata lost)
 
         db_row: dict = {
             "session_id":                  session_id,
@@ -534,19 +535,13 @@ async def grade_response_endpoint(
             res = supabase_admin.table("responses").insert(row).execute()
             return res.data[0]["id"] if res.data else None
 
-        try:
-            response_id = _upsert_response(db_row)
-            logger.info("[grading] DB save OK (full row) — response_id=%s", response_id)
-        except Exception as e:
-            logger.warning("[grading] DB save failed with full row (%s) — retrying with core columns only", e)
-            # Retry with only the guaranteed base-schema columns so the response is still
-            # persisted even if optional migration columns (006/007/008) are not yet applied.
-            core_row = {k: v for k, v in db_row.items() if k in _CORE_COLUMNS}
-            try:
-                response_id = _upsert_response(core_row)
-                logger.info("[grading] DB save OK (core row) — response_id=%s — run migrations 006/007/008 to persist full metadata", response_id)
-            except Exception as e2:
-                logger.error("[grading] DB save FAILED even with core row: %s", e2)
+        # Persist with full-row → core-row fallback → FAIL LOUD if both fail.
+        # Extracted to a module-level helper so the exact branch semantics are
+        # unit-testable (P0-2). Same upsert + retry mechanism as before.
+        response_id, partial = _persist_response_with_fallback(
+            db_row, _CORE_COLUMNS, _upsert_response,
+            session_id=session_id, question_id=question_id,
+        )
 
         # ── Sprint 14.3 — orchestrator audit trail ───────────────────────────
         # Best-effort. Captures every provider attempt (success, retry,
@@ -604,6 +599,7 @@ async def grade_response_endpoint(
                 "_stub":               True,
                 "_error":              "AI grading is temporarily unavailable. Your recording and transcript were saved.",
                 "response_id":         response_id,
+                "partial":             partial,
                 "transcript":          transcript,
                 "duration_seconds":    round(duration_sec, 2),
                 "stt_confidence":      round(confidence, 4),
@@ -615,6 +611,7 @@ async def grade_response_endpoint(
         if is_practice:
             return {
                 "response_id":              response_id,
+                "partial":                  partial,
                 "transcript":               transcript,
                 "duration_seconds":         round(duration_sec, 2),
                 "stt_confidence":           round(confidence, 4),
@@ -633,6 +630,7 @@ async def grade_response_endpoint(
 
         return {
             "response_id":           response_id,
+            "partial":               partial,
             "transcript":            transcript,
             "duration_seconds":      round(duration_sec, 2),
             "stt_confidence":        round(confidence, 4),
@@ -661,6 +659,40 @@ async def grade_response_endpoint(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
+                                    session_id, question_id):
+    """Save the response row with full-row → core-row fallback (P0-2).
+
+    Returns ``(response_id, partial)``:
+      • full row saved      → (id, False)
+      • only core row saved → (id, True)   ← full metadata lost; caller flags partial
+      • BOTH inserts failed → raise HTTPException(500, response_persist_failed)
+
+    Failing loud is the whole point: the old code logged and returned 200/None,
+    so the grade was silently lost and PATCH /complete then saw 0 responses → 422.
+    ``upsert_fn`` is injected so the exact branch semantics are unit-testable.
+    """
+    try:
+        return upsert_fn(db_row), False
+    except Exception as e:
+        logger.warning("[grading] DB save failed with full row (%s) — retrying with core columns only", e)
+        core_row = {k: v for k, v in db_row.items() if k in core_columns}
+        try:
+            rid = upsert_fn(core_row)
+            # observability (Part D #2) — greppable metric; aggregate by tag.
+            logger.warning("[grading][metric] response_persist_partial=1 session=%s question=%s — core row only, full metadata lost; run migrations 006/007/008",
+                           session_id, question_id)
+            return rid, True
+        except Exception as e2:
+            logger.error("[grading][metric] response_persist_failed=1 session=%s question=%s: %s",
+                         session_id, question_id, e2, exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail={"error_code": "response_persist_failed",
+                        "message": "Lỗi lưu phản hồi, vui lòng thử lại."},
+            ) from e2
+
 
 def _compute_score_confidence(reliability: dict, duration_sec: float) -> str:
     """

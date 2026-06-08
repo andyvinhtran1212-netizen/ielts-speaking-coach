@@ -99,6 +99,7 @@ jobs:
             frontend/tests/design-fix-3-user-tokens.test.mjs \
             frontend/tests/home.test.js \
             frontend/tests/home-redesign.test.mjs \
+            frontend/tests/practice-persist-failure.test.mjs \
             frontend/tests/practice-redesign.test.mjs \
             frontend/tests/result-redesign.test.mjs \
             frontend/tests/speaking-redesign.test.mjs \

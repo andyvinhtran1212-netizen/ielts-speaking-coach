@@ -591,6 +591,14 @@
         _handleAudioTooShort(detail);
         return;
       }
+      // P0-2: the grade was NOT persisted (backend now fails loud with a 500 +
+      // error_code instead of the old silent 200/null). Show retry, never enter
+      // feedback — no silent data loss, and /complete won't see 0 responses.
+      if (err && err.status === 500 && detail && detail.error_code === 'response_persist_failed') {
+        if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+        _handlePersistFailure(detail);
+        return;
+      }
       var errMsg = err.message || 'Lỗi không xác định';
       if (errMsg === 'Failed to fetch' || errMsg.includes('NetworkError')) {
         errMsg = 'Không thể kết nối backend. Hãy kiểm tra server đang chạy.';
@@ -600,7 +608,62 @@
     } finally {
       if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
     }
+    // P0-2 tolerant guard: a server 200 with no response_id means the grade was
+    // NOT saved (old silent-fail backend, before this fix deployed). Treat it as
+    // a persistence failure → retry, don't enter feedback with empty data.
+    // Client-built error stubs carry `_error` and are exempt (legacy stub path).
+    if (!_testMode && _gradeMissingPersist(data)) {
+      _handlePersistFailure(null);
+      return;
+    }
     _showFeedback(data || { _stub: true, _error: 'Không có phản hồi từ server' });
+  }
+
+  // A server 200 whose payload has NO response_id = the grade was not saved (old
+  // silent-fail backend). Client-built error stubs carry `_error` and are exempt
+  // (they keep the legacy stub-feedback path). Pure → unit-testable (L20).
+  function _gradeMissingPersist(data) {
+    return !!(data && !data._error && !data.response_id);
+  }
+
+  // P0-2 — persistence failure: the grade was NOT saved. Keep the recording and
+  // route back to the recorded sub-state so the existing "Gửi" button re-submits
+  // (the retry), with a loud error banner. Never enter feedback (no silent loss).
+  // Mirrors _handleAudioTooShort's recovery shape.
+  function _handlePersistFailure(detail) {
+    if (_processingTimer) { clearInterval(_processingTimer); _processingTimer = null; }
+    var msg = (detail && detail.message)
+      || 'Lỗi lưu kết quả chấm — kết quả CHƯA được lưu.';
+    msg += ' Hãy bấm “Gửi” để thử lại.';
+    var part = _sessionData ? _sessionData.part : null;
+    if (part === 2) {
+      // P2 has no recorded sub-state to retry from → re-record (mirror P2 short-audio).
+      _resetRecorder();
+      showState('p2a');
+      try { window.alert(msg); } catch (_) {}
+      return;
+    }
+    showState('recording');
+    _showRecSub('recorded');
+    _renderRecordedPlayback();
+    _showRecError(msg);
+  }
+
+  // P0-2 — soft "partial save" banner at the top of the feedback view (color-free
+  // so it can't introduce a theme contrast bug). Idempotent: removed when !show.
+  function _showPartialNote(show) {
+    var host = $('state-feedback');
+    var note = $('feedback-partial-note');
+    if (!show) { if (note) note.parentNode.removeChild(note); return; }
+    if (!host) return;
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'feedback-partial-note';
+      note.className = 'card p-3 mb-4';
+      host.insertBefore(note, host.firstChild);
+    }
+    note.textContent = '⚠ Kết quả đã được lưu nhưng thiếu một số thông tin chi tiết. '
+      + 'Bạn vẫn xem được phần chấm bên dưới.';
   }
 
   // Sprint 14.2 — handle backend's HTTP 422 audio_too_short by returning
@@ -655,6 +718,10 @@
 
     // ── Capture response_id for on-demand pronunciation ───────────────────────
     _currentResponseId = (data && data.response_id) ? data.response_id : null;
+
+    // P0-2 — partial save (core row only, full metadata lost): show the feedback
+    // but with a soft warning. Tolerant: data.partial is absent on old backends.
+    _showPartialNote(!!(data && data.partial));
 
     // ── Overall band circle ──────────────────────────────────────────────────
     var bandWrapper = $('feedback-band-wrapper');
