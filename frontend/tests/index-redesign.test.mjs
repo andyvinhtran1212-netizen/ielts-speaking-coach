@@ -72,7 +72,7 @@ describe('index.html / foundation links', () => {
   });
 
   test('links Lucide CDN (chrome glyphs)', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
   });
 
   test('no inline <style> block (all styling lives in index.css)', () => {

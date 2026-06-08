@@ -66,7 +66,7 @@ describe('vocabulary.html / foundation links', () => {
   });
 
   test('links Lucide icons CDN (for chrome glyphs)', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
   });
 
   test('still loads Supabase CDN + api.js + vocab-landing.js (JS contract)', () => {

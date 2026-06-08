@@ -340,7 +340,7 @@ describe('Sprint 7.3 — /pages/vocabulary.html my-vocab tab uses mount containe
     // re-occurring (drop of any one import = test fail).
     assert.match(
       html,
-      /<script\s+src="https:\/\/cdn\.tailwindcss\.com"/,
+      /<script\s+src="https:\/\/cdn\.tailwindcss\.com[^"]*"/,
       'vocabulary.html must load Tailwind CDN so module templates that ' +
       'use `.hidden`, `.grid`, etc. render correctly when embedded',
     );

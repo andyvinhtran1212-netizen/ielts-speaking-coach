@@ -65,7 +65,7 @@ describe('full-test-result.html / foundation links', () => {
   });
 
   test('links Lucide icons (line glyphs replacing legacy SVGs)', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
   });
 
   test('loads Plus Jakarta Sans + JetBrains Mono', () => {

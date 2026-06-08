@@ -30,7 +30,7 @@
     })();
   </script>
 
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -67,12 +67,12 @@
   <link rel="stylesheet" href="/css/markdown.css" />
 
   <!-- Lucide icons (line glyphs replacing the legacy ✕ close button). -->
-  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="https://unpkg.com/lucide@1.17.0" defer></script>
 
   <!-- Sprint 19.1B — markdown render + sanitize for the "Mẹo viết" tab.
        Loaded only here + admin/writing/tips.html (not bundled app-wide). -->
-  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js" defer></script>
   <script src="/js/markdown.js" defer></script>
 
   <!-- Canonical chrome Web Component (Sprint 7.12). -->
@@ -271,7 +271,7 @@
   </div>
 
   <!-- ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="../js/api.js"></script>
   <script>
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';

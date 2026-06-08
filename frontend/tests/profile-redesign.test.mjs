@@ -72,7 +72,7 @@ describe('profile.html / foundation links', () => {
   });
 
   test('links Lucide CDN (chrome glyphs)', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
   });
 
   test('still loads Supabase + api.js (auth + PATCH /auth/profile)', () => {

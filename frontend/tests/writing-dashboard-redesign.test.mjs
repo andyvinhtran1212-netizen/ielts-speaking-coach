@@ -322,7 +322,7 @@ describe('writing-dashboard.html / submit modal IDs (Sprint 2.6.1)', () => {
 
 describe('writing-dashboard.html / Lucide icon swap', () => {
   test('Lucide CDN + hydration script present', () => {
-    assert.match(html, /unpkg\.com\/lucide@latest/);
+    assert.match(html, /unpkg\.com\/lucide@[0-9.]+/);
     assert.match(html, /lucide\.createIcons/);
   });
 

@@ -47,8 +47,8 @@ describe('Sprint 20.2 — L1 passage page (reading-vocab-passage.html)', () => {
 
   test('student chrome + markdown + lightbox + glossary wiring', () => {
     assert.match(html, /<aver-chrome active="reading">/);
-    assert.match(html, /marked@12\/marked\.min\.js/);
-    assert.match(html, /dompurify@3\/dist\/purify\.min\.js/);
+    assert.match(html, /marked@[0-9.]+\/marked\.min\.js/);
+    assert.match(html, /dompurify@[0-9.]+\/dist\/purify\.min\.js/);
     assert.match(html, /src="\/js\/markdown\.js"/);
     assert.match(html, /href="\/css\/image-lightbox\.css"/);
     assert.match(html, /src="\/js\/image-lightbox\.js"/);
