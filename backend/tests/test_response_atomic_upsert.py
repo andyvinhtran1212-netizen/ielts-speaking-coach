@@ -60,8 +60,12 @@ def test_save_does_not_use_on_conflict_against_partial_index():
 # ── Resilience + prior-sprint behaviour preserved ──────────────────────────────
 
 def test_core_column_fallback_retry_preserved():
+    # P0-2 moved the full→core fallback into _persist_response_with_fallback, but
+    # the mechanism is unchanged: _CORE_COLUMNS is passed in and the helper still
+    # filters the row down to the core columns before the retry insert.
     assert "_CORE_COLUMNS" in GRADING_PY
-    assert "if k in _CORE_COLUMNS" in GRADING_PY
+    assert "_persist_response_with_fallback" in GRADING_PY
+    assert "if k in core_columns" in GRADING_PY
 
 
 def test_f1_signal_persistence_regression_preserved():
