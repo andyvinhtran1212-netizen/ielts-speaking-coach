@@ -264,6 +264,48 @@ describe('Phase A — Archive & Import recovery-on-failure (no 0-published windo
 });
 
 
+describe('Phase A — commit enable-gate: both buttons enable after a passing dry-run', () => {
+  // Run the REAL refreshImportBtns with injected STATE + fake DOM and assert the
+  // actual .disabled values (L20 — not "element exists").
+  function gate(state) {
+    const m = js.match(/function refreshImportBtns\(\) \{[\s\S]*?\n  \}/);
+    assert.ok(m, 'refreshImportBtns present');
+    const els = {
+      'fi-import':         { disabled: true, hidden: false },
+      'fi-archive-import': { disabled: true, hidden: false },
+      'fi-import-note':    { hidden: true, textContent: '' },
+    };
+    const $ = (id) => els[id];
+    new Function('STATE', '$', m[0] + '\nreturn refreshImportBtns;')(state, $)();
+    return els;
+  }
+  const ready = (extra) => Object.assign({ preview: { ok: true }, busy: false, files: { audio: {} } }, extra);
+
+  test('no-dup + ok + 4 files + not busy → Import ENABLED (disabled === false)', () => {
+    const els = gate(ready({ preview: { ok: true, duplicate_test_id: false } }));
+    assert.equal(els['fi-import'].disabled, false);
+  });
+  test('dup + ok → "Archive & Import" ENABLED (disabled === false)', () => {
+    const els = gate(ready({ preview: { ok: true, duplicate_test_id: true } }));
+    assert.equal(els['fi-archive-import'].disabled, false);
+  });
+  test('dry-run FAIL → both commit buttons disabled (L16)', () => {
+    const els = gate(ready({ preview: { ok: false } }));
+    assert.equal(els['fi-import'].disabled, true);
+    assert.equal(els['fi-archive-import'].disabled, true);
+  });
+  test('regression guard: while busy=true the gate is false (so it MUST be recomputed after busy clears)', () => {
+    const els = gate(ready({ preview: { ok: true, duplicate_test_id: false }, busy: true }));
+    assert.equal(els['fi-import'].disabled, true);   // the exact bug condition
+  });
+  test('onCheck recomputes the import gate AFTER STATE.busy clears (the fix)', () => {
+    const fin = js.slice(js.indexOf('STATE.busy = false;', js.indexOf('async function onCheck')),
+                         js.indexOf('function errText'));
+    assert.match(fin, /refreshImportBtns\(\)/);   // recompute lives in the finally, after busy=false
+  });
+});
+
+
 describe('cross-ref — the endpoints the UI drives exist + are admin-gated', () => {
   test('dry-run + commit + status-transition routes are present', () => {
     assert.match(router, /@admin_router\.post\("\/import-fulltest"\)/);
