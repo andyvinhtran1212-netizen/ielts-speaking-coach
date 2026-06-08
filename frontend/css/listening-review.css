@@ -126,24 +126,30 @@
 .lr-why--vi { border-left-color: var(--exam-accent); }
 
 /* ── Bottom chrome: full-test player + one horizontal 1–40 palette ──── */
+/* r3 item C — COMPACT chrome. The bottom chrome was ~15-20% of the viewport
+   (tall 2-row player + a hint row + a 30px palette). Now: the player runs the
+   opt-in <audio-player compact> single-row variant, the hint is a hairline
+   caption, the palette buttons are shorter, and the outer paddings/gaps shrink
+   — roughly halving the chrome height. */
 .lr-bottombar { position: sticky; bottom: 0; z-index: 40; display: flex; flex-direction: column;
-  gap: var(--av-space-2); padding: var(--av-space-2) var(--av-space-4) var(--av-space-3);
+  gap: var(--av-space-1); padding: var(--av-space-1) var(--av-space-4) var(--av-space-2);
   background: var(--exam-surface-card); border-top: 1px solid var(--exam-border-default);
   box-shadow: 0 -2px 8px color-mix(in srgb, var(--exam-text-primary) 8%, transparent); }
 .lr-bottombar[hidden] { display: none; }
-/* r2 item 2 — player owns the full width of its row (no element steals the right
-   edge); the hint is demoted to a thin caption line below it, not a flex sibling. */
+/* player owns the full width of its row (no element steals the right edge). */
 .lr-bottombar__player { display: flex; align-items: center; }
 .lr-bottombar__player audio-player { flex: 1 1 auto; min-width: 0; width: 100%; }
-.lr-player-label { display: block; font-size: var(--av-fs-xs); color: var(--exam-text-muted);
-  margin: 0; }
-/* r2 item 3 — one horizontal strip that SPREADS to fill the screen width: every
-   q-button flex-grows equally instead of clustering left; scrolls on narrow. */
+/* hairline hint — one short line, not a full caption band. */
+.lr-player-label { display: block; font-size: var(--av-fs-xs); line-height: 1.2;
+  color: var(--exam-text-muted); margin: 0; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+/* one horizontal strip that SPREADS to fill the screen width: every q-button
+   flex-grows equally instead of clustering left; scrolls on narrow. */
 .lr-palette-strip { display: flex; align-items: stretch; gap: 4px; overflow-x: auto;
-  padding-bottom: 2px; }
+  padding-bottom: 1px; }
 .lr-palette-sep { flex: 0 0 auto; width: 1px; align-self: stretch; margin: 2px var(--av-space-2);
   background: var(--exam-border-default); }
-.lr-nav-q { flex: 1 1 auto; min-width: 30px; height: 30px; padding: 0 4px;
+.lr-nav-q { flex: 1 1 auto; min-width: 28px; height: 24px; padding: 0 4px;
   font-family: var(--av-font-mono); font-size: var(--av-fs-xs); cursor: pointer;
   border: 1px solid var(--exam-border-default); border-radius: var(--av-radius-sm);
   background: var(--exam-surface-card); color: var(--exam-text-secondary);

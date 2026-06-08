@@ -1,119 +1,115 @@
 {
   "test_id": "ILR-LIS-001",
-  "generated_at": "2026-06-05T11:15:37",
+  "generated_at": "2026-06-07T21:43:35",
   "timebase": "seconds",
-  "method": "post-hoc-estimate",
+  "method": "render-exact",
   "full_test": {
     "file": "full_test.mp3",
     "section_offsets": {
-      "S1": 31.22,
-      "S2": 452.6,
-      "S3": 845.66,
-      "S4": 1261.55
+      "S1": 29.34,
+      "S2": 444.78,
+      "S3": 840.8,
+      "S4": 1265.08
     }
   },
   "sections": [
     {
       "id": "S1",
       "file": "S1.mp3",
-      "duration": 421.38,
+      "duration": 415.44,
+      "method": "render-exact",
       "events": [
         {
-          "kind": "intro",
+          "kind": "announce",
           "start": 0.0,
-          "end": 15.12
+          "end": 4.96
+        },
+        {
+          "kind": "intro",
+          "start": 4.96,
+          "end": 15.17
         },
         {
           "kind": "preread",
-          "start": 15.12,
-          "end": 45.22
+          "start": 15.17,
+          "end": 45.17
+        },
+        {
+          "kind": "intro",
+          "start": 45.17,
+          "end": 48.24
         },
         {
           "kind": "midbreak",
-          "start": 211.48,
-          "end": 241.56
+          "start": 197.39,
+          "end": 237.51
+        },
+        {
+          "kind": "announce",
+          "start": 379.54,
+          "end": 385.44
         },
         {
           "kind": "endpause",
-          "start": 391.26,
-          "end": 421.34
-        },
-        {
-          "kind": "announce",
-          "start": 45.22,
-          "end": 47.88
-        },
-        {
-          "kind": "announce",
-          "start": 206.08,
-          "end": 211.48
-        },
-        {
-          "kind": "announce",
-          "start": 241.56,
-          "end": 244.2
-        },
-        {
-          "kind": "announce",
-          "start": 386.66,
-          "end": 391.26
+          "start": 385.44,
+          "end": 415.44
         }
       ],
       "turns": [
         {
           "idx": 0,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 47.88,
-          "end": 54.2,
+          "start": 48.24,
+          "end": 56.22,
           "questions": []
         },
         {
           "idx": 1,
           "speaker": "[M-AusE-30s]",
-          "start": 54.45,
-          "end": 63.72,
+          "start": 56.51,
+          "end": 63.57,
           "questions": []
         },
         {
           "idx": 2,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 64.23,
-          "end": 73.58,
+          "start": 63.89,
+          "end": 70.55,
           "questions": []
         },
         {
           "idx": 3,
           "speaker": "[M-AusE-30s]",
-          "start": 73.91,
-          "end": 81.66,
+          "start": 70.82,
+          "end": 77.23,
           "questions": []
         },
         {
           "idx": 4,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 81.97,
-          "end": 85.43,
+          "start": 77.56,
+          "end": 80.81,
           "questions": []
         },
         {
           "idx": 5,
           "speaker": "[M-AusE-30s]",
-          "start": 85.7,
-          "end": 93.4,
+          "start": 81.01,
+          "end": 86.68,
           "questions": []
         },
         {
           "idx": 6,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 93.64,
-          "end": 96.28,
+          "start": 86.95,
+          "end": 89.61,
           "questions": []
         },
         {
           "idx": 7,
           "speaker": "[M-AusE-30s]",
-          "start": 96.6,
-          "end": 103.42,
+          "start": 89.83,
+          "end": 94.32,
           "questions": [
             1
           ]
@@ -121,15 +117,15 @@
         {
           "idx": 8,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 103.9,
-          "end": 105.74,
+          "start": 94.61,
+          "end": 96.97,
           "questions": []
         },
         {
           "idx": 9,
           "speaker": "[M-AusE-30s]",
-          "start": 106.1,
-          "end": 119.12,
+          "start": 97.18,
+          "end": 110.63,
           "questions": [
             2
           ]
@@ -137,29 +133,29 @@
         {
           "idx": 10,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 119.5,
-          "end": 128.93,
+          "start": 110.9,
+          "end": 118.06,
           "questions": []
         },
         {
           "idx": 11,
           "speaker": "[M-AusE-30s]",
-          "start": 129.29,
-          "end": 137.51,
+          "start": 118.4,
+          "end": 123.68,
           "questions": []
         },
         {
           "idx": 12,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 137.74,
-          "end": 141.87,
+          "start": 123.95,
+          "end": 128.35,
           "questions": []
         },
         {
           "idx": 13,
           "speaker": "[M-AusE-30s]",
-          "start": 142.26,
-          "end": 151.29,
+          "start": 128.63,
+          "end": 136.9,
           "questions": [
             3
           ]
@@ -167,15 +163,15 @@
         {
           "idx": 14,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 151.8,
-          "end": 154.94,
+          "start": 137.25,
+          "end": 143.73,
           "questions": []
         },
         {
           "idx": 15,
           "speaker": "[M-AusE-30s]",
-          "start": 155.28,
-          "end": 178.16,
+          "start": 143.99,
+          "end": 168.17,
           "questions": [
             4
           ]
@@ -183,15 +179,15 @@
         {
           "idx": 16,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 178.55,
-          "end": 186.93,
+          "start": 168.43,
+          "end": 178.17,
           "questions": []
         },
         {
           "idx": 17,
           "speaker": "[M-AusE-30s]",
-          "start": 187.26,
-          "end": 197.53,
+          "start": 178.4,
+          "end": 185.96,
           "questions": [
             5
           ]
@@ -199,8 +195,8 @@
         {
           "idx": 18,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 197.96,
-          "end": 204.77,
+          "start": 186.29,
+          "end": 197.39,
           "questions": [
             6
           ]
@@ -208,71 +204,71 @@
         {
           "idx": 19,
           "speaker": "[M-AusE-30s]",
-          "start": 246.08,
-          "end": 256.07,
+          "start": 237.8,
+          "end": 250.3,
           "questions": []
         },
         {
           "idx": 20,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 256.43,
-          "end": 260.8,
+          "start": 250.58,
+          "end": 254.78,
           "questions": []
         },
         {
           "idx": 21,
           "speaker": "[M-AusE-30s]",
-          "start": 261.19,
-          "end": 265.51,
+          "start": 255.07,
+          "end": 259.06,
           "questions": []
         },
         {
           "idx": 22,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 265.87,
-          "end": 275.8,
+          "start": 259.31,
+          "end": 270.63,
           "questions": []
         },
         {
           "idx": 23,
           "speaker": "[M-AusE-30s]",
-          "start": 276.16,
-          "end": 280.79,
+          "start": 270.88,
+          "end": 276.2,
           "questions": []
         },
         {
           "idx": 24,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 281.19,
-          "end": 292.87,
+          "start": 276.49,
+          "end": 284.58,
           "questions": []
         },
         {
           "idx": 25,
           "speaker": "[M-AusE-30s]",
-          "start": 293.22,
-          "end": 296.26,
+          "start": 284.92,
+          "end": 287.25,
           "questions": []
         },
         {
           "idx": 26,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 296.53,
-          "end": 306.28,
+          "start": 287.49,
+          "end": 299.09,
           "questions": []
         },
         {
           "idx": 27,
           "speaker": "[M-AusE-30s]",
-          "start": 306.61,
-          "end": 309.22,
+          "start": 299.36,
+          "end": 302.18,
           "questions": []
         },
         {
           "idx": 28,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 309.6,
-          "end": 326.49,
+          "start": 302.43,
+          "end": 320.93,
           "questions": [
             7,
             8
@@ -281,15 +277,15 @@
         {
           "idx": 29,
           "speaker": "[M-AusE-30s]",
-          "start": 327.31,
-          "end": 335.49,
+          "start": 321.27,
+          "end": 327.7,
           "questions": []
         },
         {
           "idx": 30,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 335.84,
-          "end": 352.65,
+          "start": 327.97,
+          "end": 345.45,
           "questions": [
             9
           ]
@@ -297,15 +293,15 @@
         {
           "idx": 31,
           "speaker": "[M-AusE-30s]",
-          "start": 353.04,
-          "end": 361.88,
+          "start": 345.77,
+          "end": 354.7,
           "questions": []
         },
         {
           "idx": 32,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 362.29,
-          "end": 372.05,
+          "start": 354.99,
+          "end": 365.4,
           "questions": [
             10
           ]
@@ -313,140 +309,136 @@
         {
           "idx": 33,
           "speaker": "[M-AusE-30s]",
-          "start": 372.4,
-          "end": 377.53,
+          "start": 365.65,
+          "end": 371.92,
           "questions": []
         },
         {
           "idx": 34,
           "speaker": "[F-BrE-30s-professional]",
-          "start": 377.95,
-          "end": 385.37,
+          "start": 372.24,
+          "end": 379.54,
           "questions": []
         }
       ],
       "questions": {
         "1": {
-          "start": 95.1,
-          "end": 104.42,
+          "start": 88.33,
+          "end": 95.32,
           "turn": 7,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "2": {
-          "start": 104.6,
-          "end": 120.12,
+          "start": 95.68,
+          "end": 111.63,
           "turn": 9,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "3": {
-          "start": 140.76,
-          "end": 152.29,
+          "start": 127.13,
+          "end": 137.9,
           "turn": 13,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "4": {
-          "start": 153.78,
-          "end": 179.16,
+          "start": 142.49,
+          "end": 169.17,
           "turn": 15,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "5": {
-          "start": 185.76,
-          "end": 198.53,
+          "start": 176.9,
+          "end": 186.96,
           "turn": 17,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "6": {
-          "start": 196.46,
-          "end": 205.77,
+          "start": 184.79,
+          "end": 198.39,
           "turn": 18,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "7": {
-          "start": 308.1,
-          "end": 327.49,
+          "start": 300.93,
+          "end": 321.93,
           "turn": 28,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "8": {
-          "start": 308.1,
-          "end": 327.49,
+          "start": 300.93,
+          "end": 321.93,
           "turn": 28,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "9": {
-          "start": 334.34,
-          "end": 353.65,
+          "start": 326.47,
+          "end": 346.45,
           "turn": 30,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "10": {
-          "start": 360.79,
-          "end": 373.05,
+          "start": 353.49,
+          "end": 366.4,
           "turn": 32,
-          "confidence": "estimated"
+          "confidence": "exact"
         }
       }
     },
     {
       "id": "S2",
       "file": "S2.mp3",
-      "duration": 393.06,
+      "duration": 396.02,
+      "method": "render-exact",
       "events": [
         {
-          "kind": "intro",
+          "kind": "announce",
           "start": 0.0,
-          "end": 13.05
+          "end": 4.99
+        },
+        {
+          "kind": "intro",
+          "start": 4.99,
+          "end": 13.08
         },
         {
           "kind": "preread",
-          "start": 13.05,
-          "end": 43.13
+          "start": 13.08,
+          "end": 43.08
+        },
+        {
+          "kind": "intro",
+          "start": 43.08,
+          "end": 46.65
         },
         {
           "kind": "midbreak",
-          "start": 233.61,
-          "end": 263.69
+          "start": 231.37,
+          "end": 271.9
+        },
+        {
+          "kind": "announce",
+          "start": 359.84,
+          "end": 366.02
         },
         {
           "kind": "endpause",
-          "start": 362.97,
-          "end": 393.02
-        },
-        {
-          "kind": "announce",
-          "start": 43.13,
-          "end": 46.5
-        },
-        {
-          "kind": "announce",
-          "start": 228.04,
-          "end": 233.61
-        },
-        {
-          "kind": "announce",
-          "start": 263.69,
-          "end": 266.78
-        },
-        {
-          "kind": "announce",
-          "start": 358.29,
-          "end": 362.97
+          "start": 366.02,
+          "end": 396.02
         }
       ],
       "turns": [
         {
           "idx": 0,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 46.5,
-          "end": 62.23,
+          "start": 46.65,
+          "end": 63.45,
           "questions": []
         },
         {
           "idx": 1,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 62.83,
-          "end": 95.48,
+          "start": 63.97,
+          "end": 96.87,
           "questions": [
             11
           ]
@@ -454,8 +446,8 @@
         {
           "idx": 2,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 96.15,
-          "end": 119.81,
+          "start": 97.45,
+          "end": 122.06,
           "questions": [
             12
           ]
@@ -463,15 +455,15 @@
         {
           "idx": 3,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 120.46,
-          "end": 136.5,
+          "start": 122.61,
+          "end": 143.15,
           "questions": []
         },
         {
           "idx": 4,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 137.03,
-          "end": 159.29,
+          "start": 143.73,
+          "end": 169.56,
           "questions": [
             13
           ]
@@ -479,8 +471,8 @@
         {
           "idx": 5,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 159.94,
-          "end": 184.74,
+          "start": 170.12,
+          "end": 195.09,
           "questions": [
             14
           ]
@@ -488,15 +480,15 @@
         {
           "idx": 6,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 185.53,
-          "end": 203.2,
+          "start": 195.63,
+          "end": 210.84,
           "questions": []
         },
         {
           "idx": 7,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 203.91,
-          "end": 226.73,
+          "start": 211.37,
+          "end": 231.37,
           "questions": [
             15
           ]
@@ -504,15 +496,15 @@
         {
           "idx": 8,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 268.95,
-          "end": 280.06,
+          "start": 272.47,
+          "end": 284.1,
           "questions": []
         },
         {
           "idx": 9,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 280.75,
-          "end": 294.38,
+          "start": 284.69,
+          "end": 298.62,
           "questions": [
             16
           ]
@@ -520,8 +512,8 @@
         {
           "idx": 10,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 294.99,
-          "end": 309.88,
+          "start": 299.13,
+          "end": 313.23,
           "questions": [
             17
           ]
@@ -529,8 +521,8 @@
         {
           "idx": 11,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 310.5,
-          "end": 321.94,
+          "start": 313.76,
+          "end": 326.62,
           "questions": [
             18
           ]
@@ -538,8 +530,8 @@
         {
           "idx": 12,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 322.52,
-          "end": 336.83,
+          "start": 327.12,
+          "end": 340.74,
           "questions": [
             19
           ]
@@ -547,8 +539,8 @@
         {
           "idx": 13,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 337.42,
-          "end": 352.14,
+          "start": 341.26,
+          "end": 354.55,
           "questions": [
             20
           ]
@@ -556,168 +548,164 @@
         {
           "idx": 14,
           "speaker": "[M-BrE-40s-professional]",
-          "start": 352.77,
-          "end": 356.98,
+          "start": 355.11,
+          "end": 359.84,
           "questions": []
         }
       ],
       "questions": {
         "11": {
-          "start": 61.33,
-          "end": 96.48,
+          "start": 62.47,
+          "end": 97.87,
           "turn": 1,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "12": {
-          "start": 94.65,
-          "end": 120.81,
+          "start": 95.95,
+          "end": 123.06,
           "turn": 2,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "13": {
-          "start": 135.53,
-          "end": 160.29,
+          "start": 142.23,
+          "end": 170.56,
           "turn": 4,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "14": {
-          "start": 158.44,
-          "end": 185.74,
+          "start": 168.62,
+          "end": 196.09,
           "turn": 5,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "15": {
-          "start": 202.41,
-          "end": 227.73,
+          "start": 209.87,
+          "end": 232.37,
           "turn": 7,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "16": {
-          "start": 279.25,
-          "end": 295.38,
+          "start": 283.19,
+          "end": 299.62,
           "turn": 9,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "17": {
-          "start": 293.49,
-          "end": 310.88,
+          "start": 297.63,
+          "end": 314.23,
           "turn": 10,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "18": {
-          "start": 309.0,
-          "end": 322.94,
+          "start": 312.26,
+          "end": 327.62,
           "turn": 11,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "19": {
-          "start": 321.02,
-          "end": 337.83,
+          "start": 325.62,
+          "end": 341.74,
           "turn": 12,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "20": {
-          "start": 335.92,
-          "end": 353.14,
+          "start": 339.76,
+          "end": 355.55,
           "turn": 13,
-          "confidence": "estimated"
+          "confidence": "exact"
         }
       }
     },
     {
       "id": "S3",
       "file": "S3.mp3",
-      "duration": 415.9,
+      "duration": 424.28,
+      "method": "render-exact",
       "events": [
         {
-          "kind": "intro",
+          "kind": "announce",
           "start": 0.0,
-          "end": 17.67
+          "end": 4.9
+        },
+        {
+          "kind": "intro",
+          "start": 4.9,
+          "end": 17.11
         },
         {
           "kind": "preread",
-          "start": 17.67,
-          "end": 47.78
+          "start": 17.11,
+          "end": 47.11
+        },
+        {
+          "kind": "intro",
+          "start": 47.11,
+          "end": 51.16
         },
         {
           "kind": "midbreak",
-          "start": 226.75,
-          "end": 256.83
+          "start": 224.59,
+          "end": 265.75
+        },
+        {
+          "kind": "announce",
+          "start": 388.26,
+          "end": 394.28
         },
         {
           "kind": "endpause",
-          "start": 385.78,
-          "end": 415.85
-        },
-        {
-          "kind": "announce",
-          "start": 47.78,
-          "end": 50.91
-        },
-        {
-          "kind": "announce",
-          "start": 221.11,
-          "end": 226.75
-        },
-        {
-          "kind": "announce",
-          "start": 256.83,
-          "end": 259.96
-        },
-        {
-          "kind": "announce",
-          "start": 381.09,
-          "end": 385.78
+          "start": 394.28,
+          "end": 424.28
         }
       ],
       "turns": [
         {
           "idx": 0,
           "speaker": "[F-BrE-20s]",
-          "start": 50.91,
-          "end": 57.52,
+          "start": 51.16,
+          "end": 57.32,
           "questions": []
         },
         {
           "idx": 1,
           "speaker": "[F-BrE-20s]",
-          "start": 58.19,
-          "end": 68.38,
+          "start": 57.89,
+          "end": 67.83,
           "questions": []
         },
         {
           "idx": 2,
           "speaker": "[M-AusE-20s]",
-          "start": 68.63,
-          "end": 75.71,
+          "start": 68.08,
+          "end": 76.36,
           "questions": []
         },
         {
           "idx": 3,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 76.13,
-          "end": 87.94,
+          "start": 76.69,
+          "end": 83.22,
           "questions": []
         },
         {
           "idx": 4,
           "speaker": "[M-AusE-20s]",
-          "start": 88.38,
-          "end": 97.18,
+          "start": 83.56,
+          "end": 93.93,
           "questions": []
         },
         {
           "idx": 5,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 97.59,
-          "end": 107.57,
+          "start": 94.25,
+          "end": 104.93,
           "questions": []
         },
         {
           "idx": 6,
           "speaker": "[F-BrE-20s]",
-          "start": 107.93,
-          "end": 118.62,
+          "start": 105.19,
+          "end": 118.38,
           "questions": [
             21
           ]
@@ -725,29 +713,29 @@
         {
           "idx": 7,
           "speaker": "[M-AusE-20s]",
-          "start": 119.06,
-          "end": 125.69,
+          "start": 118.67,
+          "end": 125.28,
           "questions": []
         },
         {
           "idx": 8,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 126.11,
-          "end": 133.37,
+          "start": 125.58,
+          "end": 135.98,
           "questions": []
         },
         {
           "idx": 9,
           "speaker": "[F-BrE-20s]",
-          "start": 133.77,
-          "end": 140.95,
+          "start": 136.28,
+          "end": 144.11,
           "questions": []
         },
         {
           "idx": 10,
           "speaker": "[M-AusE-20s]",
-          "start": 141.35,
-          "end": 151.02,
+          "start": 144.41,
+          "end": 153.33,
           "questions": [
             22
           ]
@@ -755,15 +743,15 @@
         {
           "idx": 11,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 151.36,
-          "end": 156.49,
+          "start": 153.59,
+          "end": 159.99,
           "questions": []
         },
         {
           "idx": 12,
           "speaker": "[F-BrE-20s]",
-          "start": 156.8,
-          "end": 168.07,
+          "start": 160.24,
+          "end": 172.04,
           "questions": [
             23
           ]
@@ -771,15 +759,15 @@
         {
           "idx": 13,
           "speaker": "[M-AusE-20s]",
-          "start": 168.48,
-          "end": 178.75,
+          "start": 172.36,
+          "end": 182.52,
           "questions": []
         },
         {
           "idx": 14,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 179.12,
-          "end": 188.13,
+          "start": 182.79,
+          "end": 192.23,
           "questions": [
             24
           ]
@@ -787,8 +775,8 @@
         {
           "idx": 15,
           "speaker": "[F-BrE-20s]",
-          "start": 188.52,
-          "end": 197.56,
+          "start": 192.54,
+          "end": 201.8,
           "questions": [
             25
           ]
@@ -796,22 +784,22 @@
         {
           "idx": 16,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 197.93,
-          "end": 202.36,
+          "start": 202.14,
+          "end": 205.67,
           "questions": []
         },
         {
           "idx": 17,
           "speaker": "[M-AusE-20s]",
-          "start": 202.67,
-          "end": 215.97,
+          "start": 205.92,
+          "end": 219.3,
           "questions": []
         },
         {
           "idx": 18,
           "speaker": "[F-BrE-20s]",
-          "start": 216.33,
-          "end": 219.84,
+          "start": 219.65,
+          "end": 224.59,
           "questions": [
             26
           ]
@@ -819,57 +807,57 @@
         {
           "idx": 19,
           "speaker": "[M-AusE-20s]",
-          "start": 261.88,
-          "end": 275.02,
+          "start": 266.09,
+          "end": 280.11,
           "questions": []
         },
         {
           "idx": 20,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 275.35,
-          "end": 282.29,
+          "start": 280.4,
+          "end": 287.5,
           "questions": []
         },
         {
           "idx": 21,
           "speaker": "[F-BrE-20s]",
-          "start": 282.58,
-          "end": 291.88,
+          "start": 287.76,
+          "end": 297.94,
           "questions": []
         },
         {
           "idx": 22,
           "speaker": "[M-AusE-20s]",
-          "start": 292.27,
-          "end": 297.62,
+          "start": 298.23,
+          "end": 303.5,
           "questions": []
         },
         {
           "idx": 23,
           "speaker": "[M-AusE-20s]",
-          "start": 298.29,
-          "end": 304.6,
+          "start": 304.05,
+          "end": 314.53,
           "questions": []
         },
         {
           "idx": 24,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 305.15,
-          "end": 312.84,
+          "start": 314.85,
+          "end": 323.79,
           "questions": []
         },
         {
           "idx": 25,
           "speaker": "[F-BrE-20s]",
-          "start": 313.17,
-          "end": 318.08,
+          "start": 324.08,
+          "end": 329.62,
           "questions": []
         },
         {
           "idx": 26,
           "speaker": "[M-AusE-20s]",
-          "start": 318.47,
-          "end": 331.42,
+          "start": 329.88,
+          "end": 345.55,
           "questions": [
             27
           ]
@@ -877,15 +865,15 @@
         {
           "idx": 27,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 332.02,
-          "end": 337.94,
+          "start": 345.84,
+          "end": 350.58,
           "questions": []
         },
         {
           "idx": 28,
           "speaker": "[F-BrE-20s]",
-          "start": 338.3,
-          "end": 342.56,
+          "start": 350.81,
+          "end": 355.91,
           "questions": [
             28
           ]
@@ -893,15 +881,15 @@
         {
           "idx": 29,
           "speaker": "[M-AusE-20s]",
-          "start": 342.91,
-          "end": 347.89,
+          "start": 356.21,
+          "end": 359.62,
           "questions": []
         },
         {
           "idx": 30,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 348.27,
-          "end": 358.74,
+          "start": 359.9,
+          "end": 370.57,
           "questions": [
             29
           ]
@@ -909,15 +897,15 @@
         {
           "idx": 31,
           "speaker": "[F-BrE-20s]",
-          "start": 359.24,
-          "end": 369.99,
+          "start": 370.85,
+          "end": 378.02,
           "questions": []
         },
         {
           "idx": 32,
           "speaker": "[M-AusE-20s]",
-          "start": 370.31,
-          "end": 374.91,
+          "start": 378.23,
+          "end": 383.55,
           "questions": [
             30
           ]
@@ -925,118 +913,124 @@
         {
           "idx": 33,
           "speaker": "[F-AusE-20s-casual]",
-          "start": 375.33,
-          "end": 379.79,
+          "start": 383.85,
+          "end": 388.26,
           "questions": []
         }
       ],
       "questions": {
         "21": {
-          "start": 106.43,
-          "end": 119.62,
+          "start": 103.69,
+          "end": 119.38,
           "turn": 6,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "22": {
-          "start": 139.85,
-          "end": 152.02,
+          "start": 142.91,
+          "end": 154.33,
           "turn": 10,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "23": {
-          "start": 155.3,
-          "end": 169.07,
+          "start": 158.74,
+          "end": 173.04,
           "turn": 12,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "24": {
-          "start": 177.62,
-          "end": 189.13,
+          "start": 181.29,
+          "end": 193.23,
           "turn": 14,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "25": {
-          "start": 187.02,
-          "end": 198.56,
+          "start": 191.04,
+          "end": 202.8,
           "turn": 15,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "26": {
-          "start": 214.83,
-          "end": 220.84,
+          "start": 218.15,
+          "end": 225.59,
           "turn": 18,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "27": {
-          "start": 316.97,
-          "end": 332.42,
+          "start": 328.38,
+          "end": 346.55,
           "turn": 26,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "28": {
-          "start": 336.8,
-          "end": 343.56,
+          "start": 349.31,
+          "end": 356.91,
           "turn": 28,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "29": {
-          "start": 346.77,
-          "end": 359.74,
+          "start": 358.4,
+          "end": 371.57,
           "turn": 30,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "30": {
-          "start": 368.81,
-          "end": 375.91,
+          "start": 376.73,
+          "end": 384.55,
           "turn": 32,
-          "confidence": "estimated"
+          "confidence": "exact"
         }
       }
     },
     {
       "id": "S4",
       "file": "S4.mp3",
-      "duration": 396.3,
+      "duration": 396.43,
+      "method": "render-exact",
       "events": [
         {
-          "kind": "intro",
+          "kind": "announce",
           "start": 0.0,
-          "end": 14.2
+          "end": 4.98
+        },
+        {
+          "kind": "intro",
+          "start": 4.98,
+          "end": 13.65
         },
         {
           "kind": "preread",
-          "start": 14.2,
-          "end": 74.31
+          "start": 13.65,
+          "end": 73.65
+        },
+        {
+          "kind": "intro",
+          "start": 73.65,
+          "end": 77.13
+        },
+        {
+          "kind": "announce",
+          "start": 360.38,
+          "end": 366.43
         },
         {
           "kind": "endpause",
-          "start": 366.21,
-          "end": 396.27
-        },
-        {
-          "kind": "announce",
-          "start": 74.31,
-          "end": 77.22
-        },
-        {
-          "kind": "announce",
-          "start": 361.46,
-          "end": 366.21
+          "start": 366.43,
+          "end": 396.43
         }
       ],
       "turns": [
         {
           "idx": 0,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 77.22,
-          "end": 93.26,
+          "start": 77.13,
+          "end": 93.14,
           "questions": []
         },
         {
           "idx": 1,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 94.25,
-          "end": 115.31,
+          "start": 94.03,
+          "end": 115.0,
           "questions": [
             31
           ]
@@ -1044,8 +1038,8 @@
         {
           "idx": 2,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 116.35,
-          "end": 135.05,
+          "start": 115.94,
+          "end": 132.59,
           "questions": [
             32
           ]
@@ -1053,15 +1047,15 @@
         {
           "idx": 3,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 136.03,
-          "end": 159.03,
+          "start": 133.5,
+          "end": 157.19,
           "questions": []
         },
         {
           "idx": 4,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 160.02,
-          "end": 188.85,
+          "start": 158.09,
+          "end": 186.8,
           "questions": [
             33
           ]
@@ -1069,8 +1063,8 @@
         {
           "idx": 5,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 189.86,
-          "end": 206.38,
+          "start": 187.71,
+          "end": 204.99,
           "questions": [
             34
           ]
@@ -1078,8 +1072,8 @@
         {
           "idx": 6,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 207.43,
-          "end": 233.31,
+          "start": 205.94,
+          "end": 231.76,
           "questions": [
             35
           ]
@@ -1087,15 +1081,15 @@
         {
           "idx": 7,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 234.26,
-          "end": 250.93,
+          "start": 232.63,
+          "end": 249.29,
           "questions": []
         },
         {
           "idx": 8,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 251.86,
-          "end": 276.28,
+          "start": 250.16,
+          "end": 272.68,
           "questions": [
             36
           ]
@@ -1103,8 +1097,8 @@
         {
           "idx": 9,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 277.31,
-          "end": 295.31,
+          "start": 273.61,
+          "end": 291.94,
           "questions": [
             37
           ]
@@ -1112,8 +1106,8 @@
         {
           "idx": 10,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 296.28,
-          "end": 314.85,
+          "start": 292.82,
+          "end": 313.64,
           "questions": [
             38
           ]
@@ -1121,8 +1115,8 @@
         {
           "idx": 11,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 315.79,
-          "end": 334.8,
+          "start": 314.5,
+          "end": 334.24,
           "questions": [
             39
           ]
@@ -1130,8 +1124,8 @@
         {
           "idx": 12,
           "speaker": "[F-BrE-40s-professional]",
-          "start": 335.78,
-          "end": 360.16,
+          "start": 335.12,
+          "end": 360.38,
           "questions": [
             40
           ]
@@ -1139,64 +1133,64 @@
       ],
       "questions": {
         "31": {
-          "start": 92.75,
-          "end": 116.31,
+          "start": 92.53,
+          "end": 116.0,
           "turn": 1,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "32": {
-          "start": 114.85,
-          "end": 136.05,
+          "start": 114.44,
+          "end": 133.59,
           "turn": 2,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "33": {
-          "start": 158.52,
-          "end": 189.85,
+          "start": 156.59,
+          "end": 187.8,
           "turn": 4,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "34": {
-          "start": 188.36,
-          "end": 207.38,
+          "start": 186.21,
+          "end": 205.99,
           "turn": 5,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "35": {
-          "start": 205.93,
-          "end": 234.31,
+          "start": 204.44,
+          "end": 232.76,
           "turn": 6,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "36": {
-          "start": 250.36,
-          "end": 277.28,
+          "start": 248.66,
+          "end": 273.68,
           "turn": 8,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "37": {
-          "start": 275.81,
-          "end": 296.31,
+          "start": 272.11,
+          "end": 292.94,
           "turn": 9,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "38": {
-          "start": 294.78,
-          "end": 315.85,
+          "start": 291.32,
+          "end": 314.64,
           "turn": 10,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "39": {
-          "start": 314.29,
-          "end": 335.8,
+          "start": 313.0,
+          "end": 335.24,
           "turn": 11,
-          "confidence": "estimated"
+          "confidence": "exact"
         },
         "40": {
-          "start": 334.28,
-          "end": 361.16,
+          "start": 333.62,
+          "end": 361.38,
           "turn": 12,
-          "confidence": "estimated"
+          "confidence": "exact"
         }
       }
     }

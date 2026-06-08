@@ -47,6 +47,7 @@ _EXERCISES = [{"payload": {
                        "2": {"start": 135.82, "end": 151.34, "section": "S1"}},
     "solutions": {"1": {"answer": "Brighton", "translation_vi": "…", "skills": "K1, K2"},
                    "2": {"answer": "BN1 6QR"}},
+    "transcript_anchors": {"1": 7, "2": 9},
 }}]
 
 
@@ -99,6 +100,8 @@ def test_review_joins_window_and_solution_per_question(monkeypatch):
     assert by_q[1]["section"] == "S1"
     assert by_q[1]["solution"]["skills"] == "K1, K2"
     assert by_q[1]["prompt"] == "City:"
+    # v1.2: per-question transcript paragraph anchor flows through to the review
+    assert by_q[1]["transcript_anchor"] == 7
     # Q2: wrong, expected surfaced
     assert by_q[2]["correct"] is False and by_q[2]["expected"] == "BN1 6QR"
     # transcripts present

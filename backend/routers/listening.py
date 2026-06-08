@@ -5429,6 +5429,7 @@ async def get_listening_test_attempt_review(
     # Per-question solution + audio window + prompt/type (from exercise payloads).
     solutions_by_q: dict[int, dict] = {}
     windows_by_q: dict[int, dict] = {}
+    anchors_by_q: dict[int, int] = {}
     prompt_by_q: dict[int, str] = {}
     type_by_q: dict[int, str] = {}
     if section_ids:
@@ -5442,6 +5443,8 @@ async def get_listening_test_attempt_review(
                 solutions_by_q[int(q)] = sol
             for q, w in (p.get("audio_windows") or {}).items():
                 windows_by_q[int(q)] = w
+            for q, idx in (p.get("transcript_anchors") or {}).items():
+                anchors_by_q[int(q)] = idx
             variant = p.get("variant")
             for qq in (p.get("questions") or []):
                 if qq.get("q_num") is not None:
@@ -5462,6 +5465,7 @@ async def get_listening_test_attempt_review(
             "prompt":        prompt_by_q.get(q),
             "audio_window":  win,                       # {start, end, section} — full_test-absolute
             "section":       (win or {}).get("section"),
+            "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
             "solution":      solutions_by_q.get(q) or {},
         })
 
