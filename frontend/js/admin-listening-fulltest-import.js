@@ -290,9 +290,12 @@
       var res = await commitXhr(function (loaded, total) { setProgress(loaded, total); });
       STATE.newTest = res;
       renderDone(res);
+      return { ok: true };
     } catch (e) {
+      var msg = (e && e.message) || 'Import thất bại.';
       $('fi-import-note').hidden = false;
-      $('fi-import-note').textContent = '✗ ' + ((e && e.message) || 'Import thất bại.');
+      $('fi-import-note').textContent = '✗ ' + msg;
+      return { ok: false, error: msg };
     } finally {
       STATE.busy = false;
       $('fi-progress-wrap').hidden = true;
@@ -307,26 +310,67 @@
   }
 
   // dup-ACTIVE: archive the live bundle with the same test_id, then commit.
+  //
+  // RECOVERY-ON-FAILURE (no transaction across these rove HTTP calls): the
+  // archive PATCH runs BEFORE the commit, so a commit that fails afterwards
+  // (422 / 26MB-upload timeout / network) would leave the site with 0 published
+  // bundles. We therefore record what we archived and, if commit fails, restore
+  // each archived bundle to its PRIOR status — the site always ends with ≥1 live
+  // bundle (or a loud "publish manually" message if even the restore fails).
+  //
+  // The sequencing core is a pure, dependency-injected function so the recovery
+  // is unit-testable with real values (L20) without a DOM.
+  async function _archiveThenCommit(deps) {
+    var old = await deps.listOld();                  // [{id, status}] — non-archived same test_id
+    var archived = [];
+    for (var i = 0; i < old.length; i++) {
+      await deps.archive(old[i].id);
+      archived.push({ id: old[i].id, prevStatus: old[i].status });
+    }
+    var res = await deps.commit();                   // {ok, error?}
+    if (res && res.ok) return { committed: true, archived: archived, restored: [] };
+    var restored = [];
+    for (var j = 0; j < archived.length; j++) {
+      await deps.restore(archived[j].id, archived[j].prevStatus);   // throws → caller surfaces manual-fix msg
+      restored.push(archived[j].id);
+    }
+    return { committed: false, error: res && res.error, archived: archived, restored: restored };
+  }
+
   async function onArchiveImport() {
     if (STATE.busy) return;
     var testId = (STATE.preview && STATE.preview.metadata && STATE.preview.metadata.test_id) || '';
-    $('fi-import-note').hidden = false;
-    $('fi-import-note').textContent = 'Đang archive bản cũ…';
+    var note = $('fi-import-note');
+    note.hidden = false;
+    note.textContent = 'Đang archive bản cũ…';
+    var patchStatus = function (id, status) {
+      return window.api.patch('/admin/listening/tests/' + encodeURIComponent(id) + '/status', { status: status });
+    };
+    var deps = {
+      listOld: function () {
+        return window.api.get('/admin/listening/tests?status=all&limit=50&search=' + encodeURIComponent(testId))
+          .then(function (list) {
+            return (list.items || [])
+              .filter(function (t) { return t.test_id === testId && t.status !== 'archived'; })
+              .map(function (t) { return { id: t.id, status: t.status }; });
+          });
+      },
+      archive: function (id) { return patchStatus(id, 'archived'); },
+      commit:  function () { note.hidden = true; return doCommit(); },
+      restore: function (id, status) { return patchStatus(id, status || 'published'); },
+    };
     try {
-      var list = await window.api.get('/admin/listening/tests?status=all&limit=50&search='
-        + encodeURIComponent(testId));
-      var old = (list.items || []).filter(function (t) {
-        return t.test_id === testId && t.status !== 'archived';
-      });
-      for (var i = 0; i < old.length; i++) {
-        await window.api.patch('/admin/listening/tests/' + encodeURIComponent(old[i].id) + '/status',
-          { status: 'archived' });
+      var r = await _archiveThenCommit(deps);
+      if (!r.committed) {
+        note.hidden = false;
+        note.textContent = '✗ Import thất bại (' + (r.error || 'lỗi') + ') — đã KHÔI PHỤC '
+          + r.restored.length + ' bản cũ về trạng thái trước, site vẫn còn bản live. Sửa pack rồi thử lại.';
       }
-      $('fi-import-note').hidden = true;
-      await doCommit();
     } catch (e) {
-      $('fi-import-note').hidden = false;
-      $('fi-import-note').textContent = '✗ Archive bản cũ thất bại: ' + ((e && e.message) || '');
+      // archive OR restore itself failed → be loud + point to manual recovery
+      note.hidden = false;
+      note.textContent = '✗ Lỗi archive/khôi phục: ' + ((e && e.message) || '')
+        + ' — vào Quản lý Tests kiểm tra trạng thái, có thể cần Publish lại thủ công.';
     }
   }
 
