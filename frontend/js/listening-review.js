@@ -168,7 +168,9 @@
     var body = $('lr-transcript-body');
     if (!body) return;
     body.querySelectorAll('.lr-src-hl').forEach(function (el) { el.classList.remove('lr-src-hl'); });
-    var line = body.querySelector('.lr-tx-line[data-qs~="' + qNum + '"]');
+    var idx = SESSION.anchorByQ ? SESSION.anchorByQ[qNum] : null;
+    if (idx == null) return;                       // no anchor → don't guess a wrong line
+    var line = body.querySelector('.lr-tx-line[data-para="' + idx + '"]');
     if (line) {
       line.classList.add('lr-src-hl');
       if (line.scrollIntoView) line.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -189,26 +191,38 @@
       host.appendChild(b);
     });
   }
-  // Build the per-section transcript lines from each question's script extract,
-  // DEDUPED (item 8a: Q7/Q8 share one turn → one line tagged data-qs="7 8"),
-  // each anchored by its q_num(s) for the 🔊 highlight (item 7). Render-layer
+  // v1.2: the pane now shows the FULL display transcript (bản đọc) the pack
+  // ships in listening_content.transcript — one paragraph per dialogue turn,
+  // `**Name (role):** spoken text`. The 🔊 highlight maps each question to a
+  // paragraph index via the per-question `transcript_anchor` the importer
+  // computed (text-matched from the production "Script đầy đủ"). Render-layer
   // only — we never touch the stored payload.
-  function buildTranscriptModel(review) {
-    var bySection = {};   // sectionNum → [{ qs:[...], scriptHtml }]
-    review.forEach(function (it) {
-      var sec = it.section ? parseInt(String(it.section).replace(/\D/g, ''), 10)
-                           : (Math.floor((it.q_num - 1) / 10) + 1);
-      var script = (it.solution && it.solution.script) || '';
-      var html = renderScript(script);
-      if (!html) return;
-      var lines = bySection[sec] = bySection[sec] || [];
-      // dedup: shared-window questions emit identical script → merge into one line
-      var existing = null;
-      for (var i = 0; i < lines.length; i++) { if (lines[i].html === html) { existing = lines[i]; break; } }
-      if (existing) existing.qs.push(it.q_num);
-      else lines.push({ qs: [it.q_num], html: html });
+  function renderDisplayParagraph(raw) {
+    // "**Helen (Course coordinator):** Good afternoon…" → bold label + text.
+    // Labels are kept VERBATIM (no Man/Woman mapping for the v1.2 transcript).
+    var m = /^\*\*([^*]+?)\*\*\s*([\s\S]*)$/.exec(String(raw || '').trim());
+    var speaker = m ? m[1].trim() : '';
+    var text = (m ? m[2] : String(raw || '')).trim();
+    // defensive: the bản đọc carries no cues/markers, but strip any stray [..].
+    text = escapeHtml(text).replace(/\[[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+    var sp = speaker ? '<span class="lr-tx-speaker">' + escapeHtml(speaker) + '</span> ' : '';
+    return sp + '<span class="lr-tx-text">' + text + '</span>';
+  }
+  function buildTranscript(sections) {
+    var bySection = {};   // sectionNum → [paragraphHtml, …] (index = anchor target)
+    (sections || []).forEach(function (s) {
+      var paras = String(s.transcript || '')
+        .split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean);
+      bySection[s.section_num] = paras.map(renderDisplayParagraph);
     });
     return bySection;
+  }
+  function buildAnchors(review) {
+    var m = {};   // q_num → paragraph index within its section transcript
+    (review || []).forEach(function (it) {
+      if (it.transcript_anchor != null) m[it.q_num] = it.transcript_anchor;
+    });
+    return m;
   }
 
   function selectSection(num) {
@@ -218,19 +232,18 @@
       ? ('Section ' + num + ' — ' + sec.theme) : ('Section ' + num);
     var body = $('lr-transcript-body');
     body.innerHTML = '';
-    var lines = (SESSION.transcript || {})[num] || [];
-    if (!lines.length) {
+    var paras = (SESSION.transcript || {})[num] || [];
+    if (!paras.length) {
       var empty = document.createElement('p');
       empty.className = 'lr-tx-empty';
-      empty.textContent = 'Transcript theo từng câu hiển thị khi bạn bấm 🔊 ở mỗi câu.';
+      empty.textContent = 'Chưa có transcript cho section này.';
       body.appendChild(empty);
     }
-    lines.forEach(function (ln) {
+    paras.forEach(function (html, i) {
       var p = document.createElement('p');
       p.className = 'lr-tx-line';
-      p.setAttribute('data-qs', ln.qs.join(' '));
-      // ln.html is built by renderScript() — already escaped + safe markup
-      p.innerHTML = '<span class="lr-tx-qtag">Câu ' + ln.qs.join(', ') + '</span> ' + ln.html;
+      p.setAttribute('data-para', String(i));   // anchor target for the 🔊 highlight
+      p.innerHTML = html;                        // already escaped + safe markup
       body.appendChild(p);
     });
     renderSectionTabs(SESSION.data.sections || []);
@@ -408,7 +421,8 @@
 
   function render(d) {
     SESSION.data = d;
-    SESSION.transcript = buildTranscriptModel(d.review || []);   // per-section, deduped, anchored
+    SESSION.transcript = buildTranscript(d.sections || []);      // full bản đọc, per section
+    SESSION.anchorByQ = buildAnchors(d.review || []);            // q_num → paragraph index
     renderSummary(d);
     var player = $('lr-player');
     if (player && d.audio_url) player.setAttribute('src', d.audio_url);

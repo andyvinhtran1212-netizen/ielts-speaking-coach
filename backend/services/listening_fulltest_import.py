@@ -57,6 +57,8 @@ class FullTestParseResult:
     questions: list = field(default_factory=list)   # 40 merged question dicts
     errors: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
+    display_transcript: dict = field(default_factory=dict)   # section_num -> [paragraph str]
+    transcript_anchors: dict = field(default_factory=dict)    # q_num -> paragraph index
 
     @property
     def ok(self) -> bool:
@@ -251,6 +253,111 @@ def parse_timings(timings: dict) -> dict:
     return {"section_offsets": offsets, "questions": questions}
 
 
+# ── Full transcript (pack v1.2) ────────────────────────────────────────────
+# v1.2 Solution.md adds two blocks at the tail:
+#   `# Transcript (bản đọc …)`  — DISPLAY copy: `## Section N`, each turn a
+#       blank-line-separated paragraph `**Name (role):** spoken text`. No cues,
+#       no (Qn) markers. → what the review pane shows.
+#   `# Audio Transcript / Script đầy đủ` — SOURCE copy: `### SECTION N (SN)`,
+#       turns split by `**[VOICE-CODE]**` speaker lines, carrying `[cue]`
+#       directives + `(Qn)` answer markers. → used ONLY to anchor each Qn to a
+#       display paragraph (the two copies are the same dialogue, same order).
+_DISPLAY_BLOCK_RE = re.compile(
+    r"^#[ \t]+Transcript[ \t]*\(bản đọc[^\n]*\n(.*?)(?=^#[ \t])", re.MULTILINE | re.DOTALL)
+_FULLSCRIPT_BLOCK_RE = re.compile(
+    r"^#[ \t]+Audio Transcript[ \t]*/[ \t]*Script đầy đủ[^\n]*\n(.*?)(?=^#[ \t])",
+    re.MULTILINE | re.DOTALL)
+_DISPLAY_SEC_RE = re.compile(r"^##[ \t]+Section[ \t]+(\d+)\b[^\n]*$", re.MULTILINE)
+_FULL_SEC_RE = re.compile(r"^###[ \t]+SECTION[ \t]+(\d+)\b[^\n]*$", re.MULTILINE)
+_SPEAKER_LINE_RE = re.compile(r"^\*\*\[[^\]]+\]\*\*[ \t]*$", re.MULTILINE)
+_SPEAKER_PREFIX_RE = re.compile(r"^\*\*[^*]+\*\*")     # **Name (role):** at a display paragraph head
+
+
+def _spoken_tokens(text: str, strip_speaker: bool = False) -> list[str]:
+    """Normalise a turn/paragraph to its spoken words for matching: drop the
+    leading **speaker** label (display side), `[cue]` directives, `(Qn)` markers
+    and punctuation; lowercase; split. Spelled-out letters (B-R-I-G-H-T-O-N)
+    survive as single-char tokens — which makes the answer turn distinctive."""
+    if strip_speaker:
+        text = _SPEAKER_PREFIX_RE.sub(" ", text.strip())
+    text = re.sub(r"\[[^\]]*\]", " ", text)        # production cues
+    text = re.sub(r"\(Q\d+\)", " ", text)          # answer markers
+    text = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
+    return [t for t in text.lower().split() if t]
+
+
+def parse_display_transcript(solution_text: str) -> dict[int, list[str]]:
+    """`# Transcript (bản đọc)` → {section_num: [paragraph, …]} verbatim (label
+    + spoken text kept; the frontend renders the **bold** label). {} if absent."""
+    m = _DISPLAY_BLOCK_RE.search(solution_text)
+    if not m:
+        return {}
+    parts = _DISPLAY_SEC_RE.split(m.group(1))   # [pre, '1', body1, '2', body2, …]
+    out: dict[int, list[str]] = {}
+    for i in range(1, len(parts), 2):
+        sec = int(parts[i])
+        paras = [p.strip() for p in re.split(r"\n[ \t]*\n", parts[i + 1]) if p.strip()]
+        if paras:
+            out[sec] = paras
+    return out
+
+
+def parse_fullscript_qturns(solution_text: str) -> dict[int, list[str]]:
+    """`# Audio Transcript / Script đầy đủ` → {q_num: spoken_tokens_of_its_turn}.
+    A turn carrying two markers (e.g. Q7 & Q8 share one sentence) maps both to
+    the same tokens → both anchor to the same display paragraph (dedup falls out
+    naturally). {} if absent."""
+    m = _FULLSCRIPT_BLOCK_RE.search(solution_text)
+    if not m:
+        return {}
+    parts = _FULL_SEC_RE.split(m.group(1))
+    out: dict[int, list[str]] = {}
+    for i in range(1, len(parts), 2):
+        for turn in _SPEAKER_LINE_RE.split(parts[i + 1]):
+            qs = [int(x) for x in re.findall(r"\(Q(\d+)\)", turn)]
+            if not qs:
+                continue
+            toks = _spoken_tokens(turn)
+            for q in qs:
+                out[q] = toks
+    return out
+
+
+def compute_transcript_anchors(
+    display: dict[int, list[str]],
+    qturns: dict[int, list[str]],
+    questions: list[dict],
+) -> dict[int, int]:
+    """For each question, pick the display paragraph (within the question's
+    section) whose spoken words best contain the question's source turn → return
+    {q_num: paragraph_index}. Best = max shared-token count, tie-broken by
+    containment ratio. Questions with no usable turn are left unanchored (the
+    caller warns); we never emit a wrong index."""
+    para_tokens: dict[int, list[set]] = {
+        sec: [set(_spoken_tokens(p, strip_speaker=True)) for p in paras]
+        for sec, paras in display.items()
+    }
+    anchors: dict[int, int] = {}
+    for q in questions:
+        n = q["q_num"]
+        src = qturns.get(n)
+        sec = q.get("section_num")
+        paras = para_tokens.get(sec)
+        if not src or not paras:
+            continue
+        src_set = set(src)
+        best_i, best_overlap, best_ratio = -1, 0, 0.0
+        for i, pt in enumerate(paras):
+            overlap = len(src_set & pt)
+            ratio = overlap / max(1, len(src_set))
+            if overlap > best_overlap or (overlap == best_overlap and ratio > best_ratio):
+                best_i, best_overlap, best_ratio = i, overlap, ratio
+        # require a real match (≥4 shared tokens AND ≥40% of the turn present)
+        if best_i >= 0 and best_overlap >= 4 and best_ratio >= 0.4:
+            anchors[n] = best_i
+    return anchors
+
+
 # ── Public entry point ─────────────────────────────────────────────────────
 
 def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestParseResult:
@@ -317,6 +424,30 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
 
     res.questions.sort(key=lambda x: x["q_num"])
 
+    # ── Full transcript (v1.2) + per-question anchors ──
+    res.display_transcript = parse_display_transcript(solution_text)
+    if res.display_transcript:
+        qturns = parse_fullscript_qturns(solution_text)
+        res.transcript_anchors = compute_transcript_anchors(
+            res.display_transcript, qturns, res.questions)
+        res.metadata["format_version"] = "listening-fulltest-v1.2"
+        res.metadata["transcript_source"] = "fulltext"
+        missing = [q["q_num"] for q in res.questions
+                   if q["q_num"] not in res.transcript_anchors]
+        if missing:
+            res.warnings.append(
+                f"Transcript anchor thiếu cho câu {missing} — bản đọc highlight "
+                f"sẽ không nhảy tới đoạn cho các câu này (kiểm tra (Qn) trong "
+                f"'Script đầy đủ').")
+    else:
+        # Backward-compat: pack v1.1 has no transcript block → joined-extracts
+        # fallback (build_section_persistence) + a dry-run warning, not a hard fail.
+        res.metadata["transcript_source"] = "joined-extracts"
+        res.warnings.append(
+            "Pack không có block '# Transcript (bản đọc)' — dùng fallback "
+            "joined-extracts (v1.1). Transcript pane sẽ chỉ là các trích đoạn "
+            "theo câu, không phải bản đọc đầy đủ.")
+
     # ── Fail-loud validation ──
     _validate(res, qak, sol_blocks, tim, seen_q)
     return res
@@ -372,6 +503,7 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
         answers = [{"q_num": q["q_num"], "answer": q["answer"] or "",
                     "alternatives": q.get("alternatives") or []} for q in sec_questions]
         exercises = lc.build_exercises(blocks, answers, section_num)
+        anchors = res.transcript_anchors or {}
         for ex in exercises:
             lo, hi = ex["q_range"]
             ex["payload"]["audio_windows"] = {
@@ -382,14 +514,23 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
                 str(q): by_q[q]["solution"]
                 for q in range(lo, hi + 1) if by_q.get(q)
             }
+            # v1.2: per-question paragraph index into the section's display
+            # transcript (Pattern #15 — rides the payload JSONB, no migration).
+            ex["payload"]["transcript_anchors"] = {
+                str(q): anchors[q] for q in range(lo, hi + 1) if q in anchors
+            }
 
-        # The pack has no full per-section transcript — synthesise from the
-        # per-question script extracts (what we have); the review shows them
-        # per question anyway.
-        script_bits = [by_q[q]["solution"].get("script")
-                       for q in sorted(by_q) if by_q[q]["section_num"] == section_num]
-        transcript = "\n\n".join(s for s in script_bits if s) \
-            or "(Transcript chi tiết theo từng câu — xem bài chữa.)"
+        # v1.2: the full DISPLAY transcript (bản đọc) is the source of truth for
+        # the pane. v1.1 fallback: synthesise from the per-question script
+        # extracts (the review still shows them per question).
+        disp = (res.display_transcript or {}).get(section_num)
+        if disp:
+            transcript = "\n\n".join(disp)
+        else:
+            script_bits = [by_q[q]["solution"].get("script")
+                           for q in sorted(by_q) if by_q[q]["section_num"] == section_num]
+            transcript = "\n\n".join(s for s in script_bits if s) \
+                or "(Transcript chi tiết theo từng câu — xem bài chữa.)"
         theme = topic.get(sec_id.lower()) or topic.get(f"s{section_num}") or ""
         theme_slug = re.sub(r"[^a-z0-9]+", "-", theme.lower()).strip("-")
 
@@ -410,9 +551,10 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
                 "status":                 "draft",
                 "is_premium":             False,
                 "metadata": {
-                    "source_format":  "listening-fulltest-v1.1",
-                    "theme":          theme,
-                    "section_offset": offsets.get(sec_id),
+                    "source_format":     res.metadata.get("format_version", "listening-fulltest-v1.1"),
+                    "transcript_source": res.metadata.get("transcript_source", "joined-extracts"),
+                    "theme":             theme,
+                    "section_offset":    offsets.get(sec_id),
                 },
             },
             "exercise_rows": exercises,

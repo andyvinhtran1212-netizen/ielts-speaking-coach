@@ -167,6 +167,27 @@ const STYLE = /* css */ `
   letter-spacing: var(--av-tracking-widest);
 }
 
+/* OPT-IN compact variant (listening-review bottom chrome): collapse the two
+   stacked rows into ONE low row and blend into the host surface — roughly
+   halves the player height. Default (no [compact]) is unchanged, so every other
+   caller (the live test player, etc.) keeps the full two-row layout. */
+:host([compact]) .av-player {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-3);
+  padding: var(--av-space-2) 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+:host([compact]) .av-row--main { flex: 1 1 320px; min-width: 0; gap: var(--av-space-3); }
+:host([compact]) .av-btn { width: 36px; height: 36px; }
+:host([compact]) .av-btn--primary { width: 40px; height: 40px; }
+:host([compact]) .av-meta { flex: 0 0 auto; text-transform: none; letter-spacing: normal; }
+:host([compact]) .av-meta > span:first-child { display: none; }   /* hide the "Speed" word */
+
 [hidden] { display: none !important; }
 `;
 

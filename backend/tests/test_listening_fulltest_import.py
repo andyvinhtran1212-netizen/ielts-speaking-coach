@@ -64,13 +64,14 @@ def test_parse_answers_match_quick_answer_key():
 def test_parse_audio_windows_are_full_test_absolute():
     qp, sol, tim = _load()
     by_q = {q["q_num"]: q for q in imp.parse_fulltest(qp, sol, tim).questions}
-    # Q1 (S1, offset 31.22): 95.1+31.22 = 126.32
-    assert by_q[1]["audio_window"] == {"start": 126.32, "end": 135.64, "section": "S1"}
+    # v1.2 pack (render-exact, S1 offset 29.34): Q1 = 117.67–124.66
+    assert by_q[1]["audio_window"] == {"start": 117.67, "end": 124.66, "section": "S1"}
     # Q7 & Q8 share a window (two answers in one turn)
-    assert by_q[7]["audio_window"]["start"] == 339.32
+    assert by_q[7]["audio_window"]["start"] == 330.27
     assert by_q[8]["audio_window"] == by_q[7]["audio_window"]
-    # Q11 (S2, offset 452.6): 61.33+452.6 = 513.93
-    assert by_q[11]["audio_window"]["start"] == 513.93
+    # Q11 (S2): 507.25 ; Q31 (S4): 1357.61
+    assert by_q[11]["audio_window"]["start"] == 507.25
+    assert by_q[31]["audio_window"]["start"] == 1357.61
 
 
 def test_parse_map_question_keeps_img_prompt():
@@ -128,7 +129,7 @@ def test_validation_flags_missing_answer():
 def test_validation_flags_missing_audio_window():
     qp, sol, tim = _load()
     broken = sol.replace(
-        "audio://full_test.mp3?start=126.32&end=135.64&q=1&section=S1", "")
+        "audio://full_test.mp3?start=117.67&end=124.66&q=1&section=S1", "")
     r = imp.parse_fulltest(qp, broken, tim)
     assert not r.ok
     assert any("Q1" in e and "audio" in e.lower() for e in r.errors), r.errors
@@ -200,6 +201,69 @@ def test_build_section_persistence_shapes():
     assert [a["answer"] for a in ex0["payload"]["answers"]][0] == "Brighton"
     assert set(ex0["payload"]["audio_windows"].keys()) == {"1", "2", "3", "4", "5", "6"}
     assert "1" in ex0["payload"]["solutions"]
+
+
+def test_v12_full_transcript_parsed_per_section():
+    """v1.2: the `# Transcript (bản đọc)` block ingests as the per-section
+    display transcript — real values from the pack, not 'block exists'."""
+    qp, sol, tim = _load()
+    r = imp.parse_fulltest(qp, sol, tim)
+    assert r.metadata["format_version"] == "listening-fulltest-v1.2"
+    assert r.metadata["transcript_source"] == "fulltext"
+    disp = r.display_transcript
+    assert sorted(disp) == [1, 2, 3, 4]
+    assert all(len(disp[s]) > 0 for s in disp)            # every section non-empty
+    # real content from the pack
+    assert any("Daniel Brennan" in p for p in disp[1])
+    assert any(p.startswith("**Helen (Course coordinator):**") for p in disp[1])
+
+
+def test_v12_transcript_anchors_cover_all_40_and_point_to_the_right_paragraph():
+    """Lesson 20: each anchor must land on the CORRECT display paragraph,
+    verified by value — not merely present."""
+    qp, sol, tim = _load()
+    r = imp.parse_fulltest(qp, sol, tim)
+    anchors = r.transcript_anchors
+    assert len(anchors) == 40 and not [q["q_num"] for q in r.questions
+                                       if q["q_num"] not in anchors]
+    disp = r.display_transcript
+    # Q1 → the Daniel turn that spells Brighton
+    p1 = disp[1][anchors[1]]
+    assert "Brighton" in p1 and "B-R-I-G-H-T-O-N" in p1
+    # Q7 & Q8 share ONE turn → same paragraph index (structural dedup)
+    assert anchors[7] == anchors[8]
+    p78 = disp[1][anchors[7]].lower()
+    assert "meat" in p78 and "pastry" in p78
+
+
+def test_v12_anchor_stored_in_payload_and_transcript_is_full_copy():
+    qp, sol, tim = _load()
+    r = imp.parse_fulltest(qp, sol, tim)
+    secs = imp.build_section_persistence(r, qp)
+    s1 = secs[0]
+    # the section transcript is the full bản đọc (multi-paragraph), not joined extracts
+    assert s1["content_row"]["transcript"].count("**") >= 10      # many speaker labels
+    assert s1["content_row"]["metadata"]["transcript_source"] == "fulltext"
+    assert s1["content_row"]["metadata"]["source_format"] == "listening-fulltest-v1.2"
+    # per-question anchor rides the payload (Pattern #15, no migration)
+    ex0 = s1["exercise_rows"][0]
+    assert "1" in ex0["payload"]["transcript_anchors"]
+    assert isinstance(ex0["payload"]["transcript_anchors"]["1"], int)
+
+
+def test_v11_backward_compat_falls_back_when_no_transcript_block():
+    """A pack WITHOUT the v1.2 transcript block must not hard-fail: fallback to
+    joined-extracts + a dry-run warning (legacy v1.1 packs keep importing)."""
+    qp, sol, tim = _load()
+    # strip both transcript blocks (simulate a v1.1 pack)
+    cut = sol.split("\n# Transcript (bản đọc")[0]
+    r = imp.parse_fulltest(qp, cut, tim)
+    assert not r.errors                                   # still parses
+    assert r.display_transcript == {}
+    assert r.metadata["transcript_source"] == "joined-extracts"
+    assert any("fallback joined-extracts" in w for w in r.warnings)
+    secs = imp.build_section_persistence(r, qp)
+    assert secs[0]["content_row"]["transcript"]          # synthesised, non-empty
 
 
 def test_built_exercises_are_gradeable_by_existing_grader():

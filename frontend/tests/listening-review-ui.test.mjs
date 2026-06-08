@@ -37,7 +37,7 @@ describe('Phase B — review page (listening-review.html) reuses the exam chrome
   });
   test('mounts the shared <audio-player> in the bottom chrome + loads the page JS', () => {
     assert.match(html, /<script type="module" src="\/js\/components\/audio-player\.js">/);
-    assert.match(html, /<audio-player id="lr-player">/);
+    assert.match(html, /<audio-player id="lr-player" compact>/);
     assert.match(html, /id="lr-bottombar"/);                 // item 1 — one bottom chrome
     assert.match(html, /class="lr-palette-strip" id="lr-nav-grid"/);
     assert.match(html, /src="\/js\/listening-review\.js"/);
@@ -88,7 +88,8 @@ describe('Phase B — item 7: 🔊 syncs the transcript (section switch + highli
     assert.match(js, /selectSection\(sec\)/);
     assert.match(js, /highlightTranscriptLine\(qNum\)/);
     const hl = js.slice(js.indexOf('function highlightTranscriptLine'));
-    assert.match(hl, /\.lr-tx-line\[data-qs~="' \+ qNum \+ '"\]/);   // anchor by q_num
+    assert.match(hl, /SESSION\.anchorByQ\[qNum\]/);                  // v1.2 — anchor lookup
+    assert.match(hl, /\.lr-tx-line\[data-para="' \+ idx \+ '"\]/);  // highlight by paragraph index
     assert.match(hl, /classList\.add\('lr-src-hl'\)/);
     assert.match(hl, /scrollIntoView/);
   });
@@ -104,9 +105,10 @@ describe('Phase B — item 3: TTS markup transformed at render (kept in data)', 
     assert.match(fn, /lr-qmark/);                                      // (Qn) marker kept (subtle)
     assert.ok(/\[\^\\\]\]/.test(fn), 'strips remaining [..] directives');  // [^\]] in the strip regex
   });
-  test('renderScript used in BOTH the transcript pane and the card SCRIPT block', () => {
-    assert.match(js, /html = renderScript\(script\)/);    // transcript model (per-Q)
-    assert.match(js, /renderScript\(sol\.script\)/);      // card script block
+  test('renderScript drives the card SCRIPT block; the transcript pane uses the display copy', () => {
+    assert.match(js, /renderScript\(sol\.script\)/);          // card script block (production text)
+    assert.match(js, /renderDisplayParagraph/);               // transcript = bản đọc display copy
+    assert.ok(!/buildTranscriptModel/.test(js), 'old per-extract transcript model removed (v1.2)');
   });
   test('escape-then-format throughout (XSS-safe)', () => {
     const fn = js.slice(js.indexOf('function renderScript'), js.indexOf('function formatWhyCorrect'));
@@ -136,11 +138,14 @@ describe('Phase B — item 6: "Vì sao đúng" de-walled (EN/VN blocks, artifact
 });
 
 
-describe('Phase B — item 8: dedup shared-window scripts + band floor', () => {
-  test('buildTranscriptModel dedups shared-window questions into one line (Q7/Q8)', () => {
-    const fn = js.slice(js.indexOf('function buildTranscriptModel'), js.indexOf('function selectSection'));
-    assert.match(fn, /existing\.qs\.push/);              // merge duplicates by identical script
-    assert.match(js, /setAttribute\('data-qs', ln\.qs\.join/);   // line tagged with all its q_nums
+describe('Phase B — item 8: dedup shared-window questions + band floor', () => {
+  test('v1.2: shared-window questions resolve to the SAME paragraph via the anchor', () => {
+    // The importer maps Q7 & Q8 (one shared turn) to the same paragraph index,
+    // so highlighting either lands on the same line — dedup is now structural.
+    assert.ok(!/buildTranscriptModel/.test(js), 'no per-extract dedup model anymore');
+    assert.match(js, /SESSION\.anchorByQ = buildAnchors/);
+    const fn = js.slice(js.indexOf('function selectSection'), js.indexOf('renderSectionTabs(SESSION'));
+    assert.match(fn, /setAttribute\('data-para', String\(i\)\)/);   // one line per display paragraph
   });
   test('band below the conversion floor shows "Dưới band X", not "—"', () => {
     const fn = js.slice(js.indexOf('function renderSummary'));
@@ -241,6 +246,53 @@ describe('r2 item 5 — speaker labels = "Man:"/"Woman:" (no nationality), per-b
     assert.match(fn, /var smap = _speakerMap\(text\)/);
     assert.match(fn, /smap\[code\] \|\| _speakerLabel\(code\)/);
     assert.match(fn, /escapeHtml\(lbl\) \+ ':<\/span>'/);
+  });
+});
+
+
+describe('v1.2 item B — full display transcript + anchor-based highlight', () => {
+  test('transcript pane built from sections[].transcript (full bản đọc), not per-Q extracts', () => {
+    assert.match(js, /SESSION\.transcript = buildTranscript\(d\.sections/);
+    const fn = js.slice(js.indexOf('function buildTranscript('), js.indexOf('function buildAnchors'));
+    assert.match(fn, /String\(s\.transcript \|\| ''\)/);
+    assert.match(fn, /split\(\/\\n\\s\*\\n\//);                 // paragraph split on blank line
+    assert.match(fn, /renderDisplayParagraph/);
+  });
+  test('display paragraphs keep speaker labels VERBATIM (no Man/Woman mapping)', () => {
+    const fn = js.slice(js.indexOf('function renderDisplayParagraph'), js.indexOf('function buildTranscript('));
+    assert.match(fn, /lr-tx-speaker/);
+    assert.match(fn, /escapeHtml\(speaker\)/);
+    assert.ok(!/_speakerLabel|_speakerMap/.test(fn), 'transcript labels are verbatim, not gender-mapped');
+    assert.match(fn, /escapeHtml\(text\)/);                     // XSS-safe
+  });
+  test('anchors come from review[].transcript_anchor and drive the data-para highlight', () => {
+    const ba = js.slice(js.indexOf('function buildAnchors'), js.indexOf('function selectSection'));
+    assert.match(ba, /it\.transcript_anchor/);
+    assert.match(js, /data-para="' \+ idx \+ '"/);
+  });
+  test('review endpoint surfaces transcript_anchor per question (payload.transcript_anchors)', () => {
+    assert.match(router, /transcript_anchors/);
+    assert.match(router, /"transcript_anchor":\s*anchors_by_q\.get\(q\)/);
+  });
+});
+
+
+describe('v1.2 item C — compact bottom chrome (player redesign)', () => {
+  test('the review player opts into the <audio-player compact> single-row variant', () => {
+    assert.match(html, /<audio-player id="lr-player" compact>/);
+  });
+  test('the shared component ships a compact variant WITHOUT changing the default', () => {
+    const apjs = read('frontend/js/components/audio-player.js');
+    assert.match(apjs, /:host\(\[compact\]\) \.av-player/);
+    assert.match(apjs, /flex-direction: row/);                 // collapses the two stacked rows into one
+    assert.match(apjs, /:host\(\[compact\]\) \.av-meta > span:first-child \{ display: none/);
+  });
+  test('the live test player does NOT use compact (default full player preserved)', () => {
+    assert.ok(!/<audio-player[^>]*compact/.test(playerHtml), 'test player keeps the full 2-row player');
+  });
+  test('palette buttons + hint shrink (lower chrome height), token-clean', () => {
+    assert.match(css, /\.lr-nav-q \{[^}]*height: 24px/);        // was 30px
+    assert.match(css, /\.lr-player-label \{[^}]*font-size: var\(--av-fs-xs\)/);
   });
 });
 
