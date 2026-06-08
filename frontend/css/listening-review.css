@@ -107,7 +107,8 @@
   color: var(--exam-text-muted); background: var(--exam-surface-sunken);
   padding: 0 6px; border-radius: var(--av-radius-pill); margin-right: var(--av-space-2); }
 .lr-tx-speaker { font-weight: var(--av-fw-semibold); color: var(--exam-text-primary); margin-right: 4px; }
-.lr-tx-speaker::after { content: ':'; }
+/* the colon is rendered by _labelWithColon() (exactly one) — no ::after, which
+   would double-up on the bản đọc labels that already end in ":". */
 .lr-stress { color: var(--exam-accent); font-weight: var(--av-fw-bold);
   background: var(--exam-accent-soft); padding: 0 3px; border-radius: var(--av-radius-sm); }
 .lr-qmark { font-size: var(--av-fs-xs); color: var(--exam-text-muted); }

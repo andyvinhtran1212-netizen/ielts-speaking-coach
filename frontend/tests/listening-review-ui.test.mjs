@@ -245,7 +245,34 @@ describe('r2 item 5 — speaker labels = "Man:"/"Woman:" (no nationality), per-b
     const fn = js.slice(js.indexOf('function renderScript'), js.indexOf('function formatWhyCorrect'));
     assert.match(fn, /var smap = _speakerMap\(text\)/);
     assert.match(fn, /smap\[code\] \|\| _speakerLabel\(code\)/);
-    assert.match(fn, /escapeHtml\(lbl\) \+ ':<\/span>'/);
+    assert.match(fn, /_labelWithColon\(lbl\)/);
+  });
+});
+
+
+describe('speaker label colon — exactly one, never "::" (verbatim bản đọc labels)', () => {
+  // The display labels are authored WITH a colon ("Daniel (Customer):"); code
+  // labels ("Man") without. _labelWithColon must normalise both to one colon.
+  function loadHelper() {
+    const m = js.match(/function _labelWithColon\(label\) \{[\s\S]*?\n  \}/);
+    assert.ok(m, '_labelWithColon present');
+    return new Function('escapeHtml', m[0] + '\n  return _labelWithColon;')((s) => s);
+  }
+  test('a label that already ends in ":" renders ONE colon (real value)', () => {
+    const fn = loadHelper();
+    assert.equal(fn('Daniel (Customer):'), 'Daniel (Customer):');
+    assert.equal(fn('Helen (Course coordinator):'), 'Helen (Course coordinator):');
+    assert.ok(!fn('Daniel (Customer):').includes('::'), 'no double colon');
+  });
+  test('a label with no colon gets exactly one added', () => {
+    const fn = loadHelper();
+    assert.equal(fn('Man'), 'Man:');
+    assert.equal(fn('Woman 2'), 'Woman 2:');
+    assert.equal(fn('Tom (Student) :'), 'Tom (Student):');   // trailing space + colon
+  });
+  test('the CSS ::after colon is gone (render owns the single colon)', () => {
+    assert.ok(!/\.lr-tx-speaker::after\s*\{\s*content:\s*':'/.test(css),
+      'no ::after colon — it would double-up on the verbatim labels');
   });
 });
 
@@ -261,7 +288,7 @@ describe('v1.2 item B — full display transcript + anchor-based highlight', () 
   test('display paragraphs keep speaker labels VERBATIM (no Man/Woman mapping)', () => {
     const fn = js.slice(js.indexOf('function renderDisplayParagraph'), js.indexOf('function buildTranscript('));
     assert.match(fn, /lr-tx-speaker/);
-    assert.match(fn, /escapeHtml\(speaker\)/);
+    assert.match(fn, /_labelWithColon\(speaker\)/);             // verbatim label + exactly one colon
     assert.ok(!/_speakerLabel|_speakerMap/.test(fn), 'transcript labels are verbatim, not gender-mapped');
     assert.match(fn, /escapeHtml\(text\)/);                     // XSS-safe
   });
