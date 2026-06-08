@@ -83,8 +83,8 @@ describe('Phase A — dup-ACTIVE handled in one action (archive old → commit)'
     const fn = js.slice(js.indexOf('async function onArchiveImport'), js.indexOf('function renderDone'));
     assert.match(fn, /\/admin\/listening\/tests\?status=all/);                 // look up by test_id
     assert.match(fn, /t\.status !== 'archived'/);                              // the ACTIVE one
-    assert.match(fn, /\/status',\s*\{ status: 'archived' \}/);                 // PATCH archive
-    assert.match(fn, /await doCommit\(\)/);                                     // then import
+    assert.match(fn, /patchStatus\(id, 'archived'\)/);                         // PATCH archive (via helper)
+    assert.match(fn, /return doCommit\(\)/);                                    // commit dep calls doCommit
   });
 });
 
@@ -203,6 +203,63 @@ describe('Phase B — content preview + IMG-PROMPT extraction (real value)', () 
   test('renderResult wires the preview + HTML has the container', () => {
     assert.match(js, /renderPreview\(p\);/);
     assert.match(html, /id="fi-preview"/);
+  });
+});
+
+
+describe('Phase A — Archive & Import recovery-on-failure (no 0-published window)', () => {
+  function loadCore() {
+    const m = js.match(/async function _archiveThenCommit\(deps\) \{[\s\S]*?\n  \}/);
+    assert.ok(m, '_archiveThenCommit present');
+    return new Function(m[0] + '\nreturn _archiveThenCommit;')();
+  }
+  test('commit FAILS after archive → the archived bundle is RESTORED to its prior status', async () => {
+    const core = loadCore();
+    const calls = [];
+    const r = await core({
+      listOld: async () => [{ id: 'old1', status: 'published' }],
+      archive: async (id) => { calls.push(['archive', id]); },
+      commit:  async () => { calls.push(['commit']); return { ok: false, error: 'timeout' }; },
+      restore: async (id, status) => { calls.push(['restore', id, status]); },
+    });
+    assert.equal(r.committed, false);
+    assert.deepEqual(r.restored, ['old1']);
+    // real value + order: archive → commit → restore(back to published)
+    assert.deepEqual(calls, [['archive', 'old1'], ['commit'], ['restore', 'old1', 'published']]);
+  });
+  test('commit SUCCEEDS → NO restore (old stays archived, new committed)', async () => {
+    const core = loadCore();
+    const calls = [];
+    const r = await core({
+      listOld: async () => [{ id: 'old1', status: 'published' }],
+      archive: async (id) => { calls.push(['archive', id]); },
+      commit:  async () => { calls.push(['commit']); return { ok: true }; },
+      restore: async (id, status) => { calls.push(['restore', id, status]); },
+    });
+    assert.equal(r.committed, true);
+    assert.deepEqual(r.restored, []);
+    assert.ok(!calls.some((c) => c[0] === 'restore'), 'no restore on success');
+  });
+  test('restores EACH archived bundle to ITS OWN prior status (draft vs published)', async () => {
+    const core = loadCore();
+    const restored = [];
+    await core({
+      listOld: async () => [{ id: 'a', status: 'published' }, { id: 'b', status: 'draft' }],
+      archive: async () => {},
+      commit:  async () => ({ ok: false, error: 'x' }),
+      restore: async (id, status) => { restored.push([id, status]); },
+    });
+    assert.deepEqual(restored, [['a', 'published'], ['b', 'draft']]);
+  });
+  test('doCommit signals success/failure so the orchestrator can recover', () => {
+    assert.match(js, /return \{ ok: true \}/);
+    assert.match(js, /return \{ ok: false, error: msg \}/);
+  });
+  test('onArchiveImport wires the recovery + a "site still live" message', () => {
+    const fn = js.slice(js.indexOf('async function onArchiveImport'), js.indexOf('function renderDone'));
+    assert.match(fn, /_archiveThenCommit\(deps\)/);
+    assert.match(fn, /đã KHÔI PHỤC/);
+    assert.match(fn, /restore: function \(id, status\) \{ return patchStatus\(id, status \|\| 'published'\)/);
   });
 });
 
