@@ -88,6 +88,8 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 
 ### 4.4 Student — Listening
 
+> Deep reference: [`listening-architecture.md`](listening-architecture.md) — per-type schema/payload/endpoint/grading + the full-test pack pipeline + the convergence proposal.
+
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `pages/listening.html` | student | Listening hub. |
@@ -147,7 +149,7 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 |---|---|---|
 | `pages/admin/speaking/index.html` · `pages/admin/speaking/topics.html` · `pages/admin/speaking/sessions.html` | admin | Manage speaking topics + browse graded sessions (`/admin/*`). |
 | `pages/admin/writing/index.html` · `pages/admin/writing/grade.html` · `pages/admin/writing/new.html` · `pages/admin/writing/prompts.html` · `pages/admin/writing/assignments.html` · `pages/admin/writing/status.html` · `pages/admin/writing/tips.html` · `pages/admin/writing/cohorts.html` · `pages/admin/writing/instructor-queue.html` · `pages/admin/writing/regrade-requests.html` | admin / instructor | Writing authoring + grading workflow (`/api/admin/writing/*`, `admin_writing*.py`): compose, grade, prompt library, assign, status, tips, cohorts, instructor queue, regrade requests. |
-| `pages/admin/listening/index.html` · `pages/admin/listening/upload.html` · `pages/admin/listening/convert.html` · `pages/admin/listening/segments.html` · `pages/admin/listening/audio-cutter.html` · `pages/admin/listening/render.html` · `pages/admin/listening/content-detail.html` · `pages/admin/listening/content-meta.html` · `pages/admin/listening/gist.html` · `pages/admin/listening/tf.html` · `pages/admin/listening/mcq.html` · `pages/admin/listening/mini-test.html` · `pages/admin/listening/tests.html` · `pages/admin/listening/tests-detail.html` | admin | Listening authoring (`/admin/listening/*`): import/convert DOCX, cut/segment + AI-render audio, build per-type exercises + Cambridge tests. |
+| `pages/admin/listening/index.html` · `pages/admin/listening/upload.html` · `pages/admin/listening/convert.html` · `pages/admin/listening/import-fulltest.html` · `pages/admin/listening/segments.html` · `pages/admin/listening/audio-cutter.html` · `pages/admin/listening/render.html` · `pages/admin/listening/content-detail.html` · `pages/admin/listening/content-meta.html` · `pages/admin/listening/gist.html` · `pages/admin/listening/tf.html` · `pages/admin/listening/mcq.html` · `pages/admin/listening/mini-test.html` · `pages/admin/listening/tests.html` · `pages/admin/listening/tests-detail.html` | admin | Listening authoring (`/admin/listening/*`): import/convert DOCX, **4-file full-test pack import** (`import-fulltest.html`, #408), cut/segment + AI-render audio, build per-type exercises + Cambridge tests. Deep ref: [`listening-architecture.md`](listening-architecture.md). |
 | `pages/admin/reading/content.html` | admin | Reading content manager — import L1/L2/L3 (`POST /admin/reading/content/import`, `/import-bundle`); per-L3-row lock + share-link controls. |
 | `pages/admin/reading/preview.html` | admin | Per-test preview with answer keys + diagram-image upload. |
 | `pages/admin/grammar/index.html` · `pages/admin/grammar/articles.html` · `pages/admin/grammar/analytics.html` · `pages/admin/grammar/recommend-test.html` | admin | Grammar Wiki authoring + recommendation analytics/testing. |
