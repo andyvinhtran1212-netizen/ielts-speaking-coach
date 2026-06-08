@@ -126,8 +126,15 @@ app.add_middleware(
     allow_origins=origins,
     allow_origin_regex=_AVERLEARNING_ORIGIN_REGEX,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # C-4.2 hardening — tighten from "*" to the methods/headers the app actually
+    # uses (regex + credentials kept; see the intentional-regex note above).
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    # NB: beyond Authorization/Content-Type, the app sends X-Reading-Password /
+    # X-Reading-Anon (reading lock + share-link flows) and X-Request-ID
+    # (error-reporter). They MUST stay allowed or those flows' CORS preflight
+    # breaks — the audit's 2-header list would have regressed them.
+    allow_headers=["Authorization", "Content-Type",
+                   "X-Reading-Password", "X-Reading-Anon", "X-Request-ID"],
     # Cache the CORS preflight (OPTIONS) response for 24h.  Without this the
     # browser issues a fresh preflight before every authenticated request,
     # which on Railway adds ~300-500ms × N endpoints to first paint.  86400
