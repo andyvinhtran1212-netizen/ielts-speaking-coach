@@ -122,6 +122,11 @@
       STATE.busy = false;
       $('fi-check-note').hidden = true;
       refreshCheckBtn();
+      // renderResult() ran the import-button gate WHILE STATE.busy was still
+      // true (canBase = p.ok && !busy → false), and busy only clears here — so
+      // recompute now, or both commit buttons stay disabled after a passing
+      // dry-run. On failure STATE.preview is null → the gate early-returns.
+      refreshImportBtns();
     }
   }
 
