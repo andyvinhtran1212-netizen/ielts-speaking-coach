@@ -89,6 +89,35 @@
       transition: width 120ms linear; }
 
     .fi-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); }
+    .fi-droptip { margin: 0; font-size: var(--av-fs-sm); color: var(--av-text-muted); }
+
+    /* B — content preview + IMG-PROMPT */
+    .fi-preview:empty { display: none; }
+    .fi-preview-box { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken); padding: var(--av-space-3) var(--av-space-4); }
+    .fi-preview-box > summary { cursor: pointer; font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary); font-size: var(--av-fs-sm); }
+    .fi-sec { margin-top: var(--av-space-3); }
+    .fi-sec__h { font-size: var(--av-fs-xs); font-weight: var(--av-fw-bold); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-wide); color: var(--av-brand-teal-700); margin-bottom: var(--av-space-2); }
+    .fi-q { padding: var(--av-space-2) 0; border-top: 1px solid var(--av-border-default);
+      font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
+    .fi-q__num { font-family: var(--av-font-mono); font-weight: var(--av-fw-bold); color: var(--av-text-primary);
+      margin-right: var(--av-space-2); }
+    .fi-q__opts { margin: 2px 0 0; padding-left: var(--av-space-6); }
+    .fi-q__ans { margin-top: 2px; color: var(--av-text-primary); }
+    .fi-imgprompt { margin-top: var(--av-space-2); border-left: 3px solid var(--av-brand-teal-700);
+      background: var(--av-surface-card); border-radius: var(--av-radius-sm); padding: var(--av-space-2) var(--av-space-3); }
+    .fi-imgprompt__h { display: flex; align-items: center; gap: var(--av-space-2); font-size: var(--av-fs-xs);
+      font-weight: var(--av-fw-bold); text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      color: var(--av-brand-teal-700); }
+    .fi-imgprompt__body { margin: var(--av-space-2) 0 0; white-space: pre-wrap; word-break: break-word;
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-primary); }
+    .fi-copy { font: inherit; font-size: var(--av-fs-xs); cursor: pointer; padding: 2px 10px;
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-sm);
+      background: var(--av-surface-card); color: var(--av-text-secondary); }
+    .fi-copy:hover { border-color: var(--av-brand-teal-700); color: var(--av-brand-teal-700); }
+
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -111,30 +140,32 @@
 
       <!-- STEP 1 — choose files -->
       <section class="fi-card">
-        <div><span class="fi-step">Bước 1</span><h2>Chọn 4 file của pack</h2></div>
+        <div><span class="fi-step">Bước 1</span><h2>Chọn đủ 4 file của pack</h2></div>
+        <p class="fi-droptip">Mẹo: kéo cả 4 file vào đây cùng lúc — hệ thống tự xếp đúng ô theo loại file
+          (.md đề / .md bài giải / .json / .mp3). Hoặc chọn từng ô. Cần đủ 4 file mới bật “Kiểm tra”.</p>
         <div class="fi-drops">
           <label class="fi-drop" data-field="question_paper">
             <input type="file" id="fi-qp" accept=".md,.markdown" />
-            <div class="fi-drop__label">Question Paper</div>
+            <div class="fi-drop__label">1 · Đề (Question Paper)</div>
             <div class="fi-drop__hint">*_Question_Paper.md</div>
             <div class="fi-drop__file" id="fi-qp-name"></div>
           </label>
           <label class="fi-drop" data-field="solution">
             <input type="file" id="fi-sol" accept=".md,.markdown" />
-            <div class="fi-drop__label">Solution</div>
-            <div class="fi-drop__hint">*_Solution.md (đáp án · audio:// · transcript)</div>
+            <div class="fi-drop__label">2 · Bài giải chi tiết (Solution)</div>
+            <div class="fi-drop__hint">*_Solution.md · đáp án · audio:// · transcript</div>
             <div class="fi-drop__file" id="fi-sol-name"></div>
           </label>
           <label class="fi-drop" data-field="timings">
             <input type="file" id="fi-tim" accept=".json,application/json" />
-            <div class="fi-drop__label">Timings</div>
-            <div class="fi-drop__hint">timings.json (section_offsets + windows)</div>
+            <div class="fi-drop__label">3 · Timings (JSON)</div>
+            <div class="fi-drop__hint">timings.json · section_offsets + windows</div>
             <div class="fi-drop__file" id="fi-tim-name"></div>
           </label>
           <label class="fi-drop" data-field="audio">
             <input type="file" id="fi-aud" accept="audio/mpeg,.mp3" />
-            <div class="fi-drop__label">Audio (full premixed)</div>
-            <div class="fi-drop__hint">full_test.mp3 · ≤ 60 MB · chỉ cần cho bước Import</div>
+            <div class="fi-drop__label">4 · Audio (MP3)</div>
+            <div class="fi-drop__hint">full_test.mp3 · ≤ 60 MB</div>
             <div class="fi-drop__file" id="fi-aud-name"></div>
           </label>
         </div>
@@ -148,6 +179,7 @@
       <section class="fi-card" id="fi-result-card" hidden>
         <div><span class="fi-step">Bước 2</span><h2>Kết quả kiểm tra</h2></div>
         <div class="fi-result" id="fi-result"></div>
+        <div class="fi-preview" id="fi-preview"></div>
         <div class="fi-actions" id="fi-import-actions" hidden>
           <button class="fi-btn fi-btn--primary" id="fi-import" type="button" disabled>Import (lưu vào hệ thống)</button>
           <button class="fi-btn fi-btn--danger" id="fi-archive-import" type="button" hidden>Archive bản cũ &amp; Import</button>
