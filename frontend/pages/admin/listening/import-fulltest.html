@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Import đề full-test · Listening · Admin · Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    .fi-shell { max-width: 1024px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6); }
+    .fi-back a { color: var(--av-text-secondary); font-size: var(--av-fs-sm); text-decoration: none; }
+    .fi-back a:hover { color: var(--av-brand-teal-700); }
+    .fi-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
+    .fi-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: var(--av-lh-normal); }
+
+    .fi-card { border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4); }
+    .fi-card h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .fi-step { font-size: var(--av-fs-xs); font-weight: var(--av-fw-bold); color: var(--av-brand-teal-700);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
+
+    /* 4 dropzones */
+    .fi-drops { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--av-space-3); }
+    @media (max-width: 720px) { .fi-drops { grid-template-columns: 1fr; } }
+    .fi-drop { position: relative; border: 1.5px dashed var(--av-border-strong); border-radius: var(--av-radius-md);
+      padding: var(--av-space-4); background: var(--av-surface-sunken); cursor: pointer;
+      transition: border-color var(--av-duration-fast) var(--av-easing-default), background var(--av-duration-fast); }
+    .fi-drop:hover, .fi-drop.is-drag { border-color: var(--av-brand-teal-700); background: var(--av-surface-card); }
+    .fi-drop.is-set { border-style: solid; border-color: var(--av-success); }
+    .fi-drop input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .fi-drop__label { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
+    .fi-drop__hint { font-size: var(--av-fs-xs); color: var(--av-text-muted); margin-top: 2px; }
+    .fi-drop__file { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-success);
+      margin-top: var(--av-space-2); word-break: break-all; }
+    .fi-drop__file:empty { display: none; }
+
+    .fi-actions { display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: center; }
+    .fi-btn { padding: 10px 18px; border-radius: var(--av-radius-md); font-size: var(--av-fs-sm);
+      font-weight: var(--av-fw-semibold); font-family: inherit; cursor: pointer; border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card); color: var(--av-text-primary); }
+    .fi-btn:hover { border-color: var(--av-brand-teal-700); }
+    .fi-btn--primary { background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border-color: var(--av-brand-teal-700); }
+    .fi-btn--primary:hover { background: var(--av-brand-teal-800); }
+    .fi-btn--danger { background: var(--av-error); color: var(--av-text-on-primary); border-color: var(--av-error); }
+    .fi-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .fi-spinner-note { font-size: var(--av-fs-sm); color: var(--av-text-muted); }
+
+    /* validation result */
+    .fi-result { display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .fi-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm); border: 1px solid transparent; }
+    .fi-banner--ok   { background: var(--av-success-soft); color: var(--av-success); border-color: var(--av-success); }
+    .fi-banner--err  { background: var(--av-error-soft);   color: var(--av-error);   border-color: var(--av-error); }
+    .fi-banner--warn { background: var(--av-warning-soft, var(--av-surface-sunken)); color: var(--av-text-primary);
+      border-color: var(--av-border-strong); }
+    .fi-errlist { margin: var(--av-space-2) 0 0; padding-left: var(--av-space-6); display: flex; flex-direction: column; gap: 4px; }
+    .fi-errlist li { font-size: var(--av-fs-sm); }
+    .fi-summary { display: flex; flex-wrap: wrap; gap: var(--av-space-4); font-size: var(--av-fs-sm); }
+    .fi-summary b { font-variant-numeric: tabular-nums; }
+
+    /* upload progress */
+    .fi-progress { height: 8px; border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); overflow: hidden; }
+    .fi-progress__bar { height: 100%; width: 0; background: var(--av-brand-teal-700);
+      transition: width 120ms linear; }
+
+    .fi-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="listening" subsection="tests">
+
+    <main class="fi-shell">
+      <div class="fi-back">
+        <a href="/pages/admin/listening/tests.html">← Quản lý Tests</a>
+      </div>
+
+      <header class="fi-header">
+        <h1>Import đề full-test (4-file pack)</h1>
+        <p class="subtitle">
+          Kéo-thả hoặc chọn 4 file của một pack listening full-test → <b>Kiểm tra</b> để
+          chạy dry-run validation → <b>Import</b> để lưu (1 test · 4 sections · 10 exercises + audio).
+          Token tự động theo phiên admin — không cần dán JWT tay.
+        </p>
+      </header>
+
+      <!-- STEP 1 — choose files -->
+      <section class="fi-card">
+        <div><span class="fi-step">Bước 1</span><h2>Chọn 4 file của pack</h2></div>
+        <div class="fi-drops">
+          <label class="fi-drop" data-field="question_paper">
+            <input type="file" id="fi-qp" accept=".md,.markdown" />
+            <div class="fi-drop__label">Question Paper</div>
+            <div class="fi-drop__hint">*_Question_Paper.md</div>
+            <div class="fi-drop__file" id="fi-qp-name"></div>
+          </label>
+          <label class="fi-drop" data-field="solution">
+            <input type="file" id="fi-sol" accept=".md,.markdown" />
+            <div class="fi-drop__label">Solution</div>
+            <div class="fi-drop__hint">*_Solution.md (đáp án · audio:// · transcript)</div>
+            <div class="fi-drop__file" id="fi-sol-name"></div>
+          </label>
+          <label class="fi-drop" data-field="timings">
+            <input type="file" id="fi-tim" accept=".json,application/json" />
+            <div class="fi-drop__label">Timings</div>
+            <div class="fi-drop__hint">timings.json (section_offsets + windows)</div>
+            <div class="fi-drop__file" id="fi-tim-name"></div>
+          </label>
+          <label class="fi-drop" data-field="audio">
+            <input type="file" id="fi-aud" accept="audio/mpeg,.mp3" />
+            <div class="fi-drop__label">Audio (full premixed)</div>
+            <div class="fi-drop__hint">full_test.mp3 · ≤ 60 MB · chỉ cần cho bước Import</div>
+            <div class="fi-drop__file" id="fi-aud-name"></div>
+          </label>
+        </div>
+        <div class="fi-actions">
+          <button class="fi-btn fi-btn--primary" id="fi-check" type="button" disabled>Kiểm tra (dry-run)</button>
+          <span class="fi-spinner-note" id="fi-check-note" hidden>Đang phân tích pack…</span>
+        </div>
+      </section>
+
+      <!-- STEP 2 — validation result -->
+      <section class="fi-card" id="fi-result-card" hidden>
+        <div><span class="fi-step">Bước 2</span><h2>Kết quả kiểm tra</h2></div>
+        <div class="fi-result" id="fi-result"></div>
+        <div class="fi-actions" id="fi-import-actions" hidden>
+          <button class="fi-btn fi-btn--primary" id="fi-import" type="button" disabled>Import (lưu vào hệ thống)</button>
+          <button class="fi-btn fi-btn--danger" id="fi-archive-import" type="button" hidden>Archive bản cũ &amp; Import</button>
+          <span class="fi-spinner-note" id="fi-import-note" hidden></span>
+        </div>
+        <div id="fi-progress-wrap" hidden>
+          <div class="fi-progress"><div class="fi-progress__bar" id="fi-progress-bar"></div></div>
+          <div class="fi-spinner-note" id="fi-progress-label" style="margin-top:4px;"></div>
+        </div>
+      </section>
+
+      <!-- STEP 3 — commit result -->
+      <section class="fi-card" id="fi-done-card" hidden>
+        <div><span class="fi-step">Bước 3</span><h2>Đã import</h2></div>
+        <div class="fi-result" id="fi-done"></div>
+        <div class="fi-actions">
+          <button class="fi-btn fi-btn--primary" id="fi-publish" type="button">Publish ngay (mở cho học sinh)</button>
+          <a class="fi-btn" href="/pages/admin/listening/tests.html">Mở Quản lý Tests</a>
+        </div>
+      </section>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script src="/js/admin-listening-fulltest-import.js" defer></script>
+</body>
+</html>

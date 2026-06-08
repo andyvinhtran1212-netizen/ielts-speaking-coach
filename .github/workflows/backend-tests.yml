@@ -89,6 +89,7 @@ jobs:
       - name: Run frontend contract tests
         run: |
           node --test \
+            frontend/tests/admin-listening-fulltest-import.test.mjs \
             frontend/tests/anti-flash-iife-canonical.test.mjs \
             frontend/tests/brief-contrast-guidance.test.mjs \
             frontend/tests/brief-hardcoded-color-lesson.test.mjs \

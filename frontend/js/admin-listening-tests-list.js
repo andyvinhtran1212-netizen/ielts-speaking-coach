@@ -57,6 +57,12 @@ function init() {
     if (STATE.page * STATE.limit < STATE.total) { STATE.page += 1; fetchTests(); }
   });
 
+  // Phase B — delegated publish/archive/restore on the rows.
+  document.getElementById('tl-tbody').addEventListener('click', (e) => {
+    const b = e.target.closest('.tl-status-btn');
+    if (b) changeStatus(b.dataset.id, b.dataset.status);
+  });
+
   fetchTests();
 }
 
@@ -123,11 +129,37 @@ function renderRows(items) {
           <span class="tl-actions">
             <a href="${detailHref}">Mở test</a>
             <a href="/pages/admin/listening/index.html?test_id=${encodeURIComponent(t.id)}">4 sections</a>
+            ${statusActions(t)}
           </span>
         </td>
       </tr>
     `;
   }).join('');
+}
+
+
+// Phase B — publish/archive transitions per row (PATCH /tests/{id}/status),
+// replacing the manual SQL. draft → Publish/Archive ; published → Archive ;
+// archived → Khôi phục (→ draft). The button carries the target id + status.
+function statusActions(t) {
+  const btn = (status, label) =>
+    `<button type="button" class="tl-status-btn" data-id="${escapeHtml(t.id)}" data-status="${status}">${label}</button>`;
+  if (t.status === 'draft')     return btn('published', 'Publish') + btn('archived', 'Archive');
+  if (t.status === 'published') return btn('archived', 'Archive');
+  if (t.status === 'archived')  return btn('draft', 'Khôi phục');
+  return '';
+}
+
+
+async function changeStatus(id, status) {
+  if (status === 'archived' && !window.confirm('Archive bản này? Học sinh sẽ không còn thấy nó.')) return;
+  hideError();
+  try {
+    await window.api.patch(`/admin/listening/tests/${encodeURIComponent(id)}/status`, { status });
+    fetchTests();   // refetch canonical state — no optimistic divergence (CLAUDE.md)
+  } catch (e) {
+    showError(e.message || 'Không đổi được trạng thái.');
+  }
 }
 
 
