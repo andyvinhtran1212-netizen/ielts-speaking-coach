@@ -216,14 +216,20 @@ for (const [name, info] of Object.entries(PAGES)) {
       assert.ok(total < 200, `${name}: inline <style> total ${total}, expected < 200`);
     });
 
-    test('Tailwind CDN preserved (custom palette dependency, β-deferred)', () => {
-      assert.match(pageContents[name], /cdn\.tailwindcss\.com/);
+    test('Tailwind present — Play-CDN (legacy) OR static build (P0-3 C-3.4 migration)', () => {
+      const html = pageContents[name];
+      assert.ok(/cdn\.tailwindcss\.com/.test(html) || /css\/tailwind\.build\.css/.test(html),
+        `${name}: must load Tailwind via the Play-CDN or the static build`);
     });
 
-    test('Tailwind custom navy + teal palette preserved (renderer dependency)', () => {
+    test('Tailwind navy + teal palette available (inline config OR static build)', () => {
       const html = pageContents[name];
-      assert.match(html, /navy:\s*\{[^}]*DEFAULT/);
-      assert.match(html, /teal:\s*\{[^}]*DEFAULT/);
+      const inline = /navy:\s*\{[^}]*DEFAULT/.test(html) && /teal:\s*\{[^}]*DEFAULT/.test(html);
+      // when migrated, navy/teal are compiled into css/tailwind.build.css from
+      // tailwind.config.cjs (the static-build test asserts the CSS encodes them).
+      const staticBuild = /css\/tailwind\.build\.css/.test(html);
+      assert.ok(inline || staticBuild,
+        `${name}: navy/teal must come from the inline config or the static build`);
     });
 
     test('Tailwind custom fontFamily key dropped (grammar-wiki.css owns font)', () => {

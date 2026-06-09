@@ -28,23 +28,10 @@
     })();
   </script>
 
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            navy: { DEFAULT: '#0C2340', light: '#112d52' },
-            teal: { DEFAULT: '#0F766E', light: '#14b8a6' },
-          },
-          fontFamily: {
-            sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
-            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
-          },
-        },
-      },
-    };
-  </script>
+  <!-- P0-3 C-3.4: static pre-built Tailwind (Plus-Jakarta cluster) replaces the
+       407KB runtime Play-CDN. navy/teal + Plus Jakarta live in tailwind.config.cjs;
+       rebuild via `npm run build:css` (CI-diff-guarded). Same classes, no markup change. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link

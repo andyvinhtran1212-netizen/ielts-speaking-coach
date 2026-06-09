@@ -1,0 +1,6 @@
+/* tailwind.src.css — input for the static Tailwind v3 build (P0-3 C-3.4).
+   Built → css/tailwind.build.css (committed, CI-diff-guarded). Do NOT edit the
+   build output by hand; run `npm run build:css` (see frontend/package.json). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

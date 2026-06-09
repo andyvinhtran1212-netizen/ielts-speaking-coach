@@ -76,8 +76,12 @@ describe('practice.html / foundation links', () => {
     assert.ok(!/family=Inter[:&]/.test(html), 'Inter must not return on the redesigned page');
   });
 
-  test('Tailwind config fontFamily.sans is Plus Jakarta Sans', () => {
-    assert.match(html, /fontFamily\s*:\s*\{[\s\S]*?sans:\s*\[\s*'Plus Jakarta Sans'/);
+  test('Tailwind font is Plus Jakarta Sans (inline config OR static build)', () => {
+    // P0-3 C-3.4: migrated pages drop the inline config; font-sans=Plus Jakarta
+    // now lives in tailwind.config.cjs, compiled into css/tailwind.build.css.
+    const inline = /fontFamily\s*:\s*\{[\s\S]*?sans:\s*\[\s*'Plus Jakarta Sans'/.test(html);
+    const staticBuild = /css\/tailwind\.build\.css/.test(html);
+    assert.ok(inline || staticBuild, 'Plus Jakarta via inline config or the static build');
   });
 });
 
