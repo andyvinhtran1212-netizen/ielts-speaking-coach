@@ -20,6 +20,8 @@ for _std in (sys.stdout, sys.stderr):
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
@@ -268,14 +270,37 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         # No running loop (e.g. during shutdown) — swallow.
         pass
 
+    # P0-5: do NOT leak the raw exception to the client — return a safe dict
+    # ({error_code, message, ref}); the full exc is logged above + persisted to
+    # error_logs. `ref` == request_id so support can correlate.
     return JSONResponse(
         status_code=500,
         content={
-            "detail":     f"Internal server error: {exc}",
+            "detail":     {"error_code": "internal_error",
+                           "message": GENERIC_MESSAGE, "ref": request_id},
             "request_id": request_id,
         },
         headers={"X-Request-ID": request_id},
     )
+
+
+# ── P0-5 / C-1.3 — sanitize EXPLICIT HTTPExceptions before they reach the client.
+# The ~131 `raise HTTPException(500, f"…{e}")` sites are served by Starlette's
+# HTTPException handler (NOT the generic Exception handler above), so they bypass
+# the sanitization. This handler routes every HTTPException through safe_detail():
+# 4xx pass through unchanged (intentional client-error messages); 5xx string /
+# unstructured details are replaced with a safe {error_code, message, ref} + the
+# original is logged. Structured 5xx dicts that already carry an error_code (e.g.
+# response_persist_failed) pass through untouched.
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    import uuid as _uuid
+    request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
+    detail = safe_detail(exc.status_code, exc.detail, ref=request_id)
+    headers = dict(getattr(exc, "headers", None) or {})
+    headers.setdefault("X-Request-ID", request_id)
+    return JSONResponse(status_code=exc.status_code,
+                        content={"detail": detail}, headers=headers)
 
 
 @app.on_event("startup")
