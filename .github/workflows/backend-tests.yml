@@ -86,6 +86,21 @@ jobs:
         with:
           node-version: '20'
 
+      # P0-3 C-3.4 — the static Tailwind CSS (css/tailwind.build.css) is committed.
+      # Rebuild it from the SAME pinned version + config and fail if it differs:
+      # guards against a class being added to HTML/JS without regenerating the CSS
+      # (which would silently drop styling). Pinned 3.4.17 → deterministic output.
+      - name: Tailwind static CSS is not stale (rebuild + diff)
+        run: |
+          cd frontend
+          npx --yes tailwindcss@3.4.17 -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o /tmp/tw-ci.css --minify
+          if ! diff -q css/tailwind.build.css /tmp/tw-ci.css; then
+            echo "::error::css/tailwind.build.css is STALE — run 'npm run build:css' in frontend/ and commit the result."
+            diff css/tailwind.build.css /tmp/tw-ci.css | head -20 || true
+            exit 1
+          fi
+          echo "tailwind.build.css is fresh ✓"
+
       - name: Run frontend contract tests
         run: |
           node --test \

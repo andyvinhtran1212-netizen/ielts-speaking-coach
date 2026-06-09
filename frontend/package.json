@@ -4,7 +4,8 @@
   "private": true,
   "description": "Playwright browser smoke tests (F4). Bounded to frontend/tests/e2e/ — do NOT import @playwright elsewhere; the rest of the frontend stays zero-dependency.",
   "scripts": {
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:css": "npx --yes tailwindcss@3.4.17 -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o ./css/tailwind.build.css --minify"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"

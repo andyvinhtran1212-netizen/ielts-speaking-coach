@@ -32,19 +32,10 @@
        a future grammar-wiki-β sprint analogous to Sprint 6.14d-β.
        fontFamily key dropped — grammar-wiki.css owns font discipline
        under body.av-page (DM Sans + Lora sub-system preserved per § 14.2). -->
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            navy: { DEFAULT: '#0C2340', light: '#112d52', dark: '#081829' },
-            teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
-          },
-        },
-      },
-    }
-  </script>
+  <!-- P0-3 C-3.4: static pre-built Tailwind (Plus-Jakarta cluster) replaces the
+       407KB runtime Play-CDN. navy/teal + Plus Jakarta live in tailwind.config.cjs;
+       rebuild via `npm run build:css` (CI-diff-guarded). Same classes, no markup change. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <!-- DM Sans (body) + Lora (display) sub-system preserved per
        DESIGN_SYSTEM § 14.2 — Grammar Wiki = long-form reading content,
