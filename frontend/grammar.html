@@ -209,22 +209,24 @@
     </div><!-- /home-content -->
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"></script>
-  <script src="js/api.js"></script>
-  <!-- Sprint 7.13.1-hotfix: initSupabase() call added so <aver-chrome>'s
-       window.getSupabase poll resolves and the user pill populates. -->
+  <!-- C-3.2 defer: grammar.js is 52KB; defer it (+ its deps) off the parse path.
+       Defer preserves source order; consumers wait for DOMContentLoaded below. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/grammar.js" defer></script>
   <script>
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
-    initSupabase(SUPABASE_URL, SUPABASE_ANON);
-  </script>
-  <script src="js/grammar.js"></script>
-  <script>
-    // Search handler — Enter key + icon button click
-    grammarWiki.setupSearch('search-input', 'search-btn', grammarWiki.redirectToSearch);
-
-    // Load page content
-    grammarWiki.loadGrammarHome();
+    // initSupabase (Sprint 7.13.1-hotfix: resolves <aver-chrome>'s getSupabase
+    // poll) + grammarWiki calls now run after the deferred libs load. Same calls,
+    // same order; only timing moved.
+    document.addEventListener('DOMContentLoaded', function () {
+      initSupabase(SUPABASE_URL, SUPABASE_ANON);
+      // Search handler — Enter key + icon button click
+      grammarWiki.setupSearch('search-input', 'search-btn', grammarWiki.redirectToSearch);
+      // Load page content
+      grammarWiki.loadGrammarHome();
+    });
   </script>
 
   <!-- Sprint 7.12: theme-toggle binding + user-pill module moved into
