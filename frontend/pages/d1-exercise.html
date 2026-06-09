@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Fill the blank — IELTS Speaking Coach</title>
-  <!-- P0-3 C-3.4: static Tailwind (Inter cluster) — replaces 407KB Play-CDN. -->
-  <link rel="stylesheet" href="/css/tailwind.inter.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/ds.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.inter.css" />
   <style>
     body { background: #0a1628; }
 

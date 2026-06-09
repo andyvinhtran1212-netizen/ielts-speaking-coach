@@ -17,8 +17,6 @@
     })();
   </script>
 
-  <!-- P0-3 C-3.4: static Tailwind (Plus-Jakarta cluster) — replaces 407KB Play-CDN. -->
-  <link rel="stylesheet" href="/css/tailwind.build.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -27,6 +25,9 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/admin-reading.css" />
   <link rel="stylesheet" href="/css/markdown.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/api.js"></script>

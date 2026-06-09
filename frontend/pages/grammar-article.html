@@ -32,8 +32,6 @@
   <!-- Tailwind CDN + custom navy/teal palette preserved (Sprint 6.15 Phase B
        finding — js/grammar.js renderer depends on text-teal-light, bg-teal/15,
        etc.). fontFamily key dropped; grammar-wiki.css owns font discipline. -->
-  <!-- P0-3 C-3.4: static Tailwind (Plus-Jakarta cluster) — replaces 407KB Play-CDN. -->
-  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <!-- DM Sans + Lora sub-system preserved per § 14.2 -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -47,6 +45,9 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/ds.css" />
   <link rel="stylesheet" href="/css/grammar-wiki.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <!-- Canonical chrome Web Component (Sprint 7.13). -->
   <script type="module" src="/js/components/aver-chrome.js"></script>

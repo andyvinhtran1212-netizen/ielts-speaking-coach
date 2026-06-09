@@ -35,7 +35,6 @@
   <!-- P0-3 C-3.4: static pre-built Tailwind (Plus-Jakarta cluster) replaces the
        407KB runtime Play-CDN. navy/teal + Plus Jakarta live in tailwind.config.cjs;
        rebuild via `npm run build:css` (CI-diff-guarded). Same classes, no markup change. -->
-  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <!-- DM Sans (body) + Lora (display) sub-system preserved per
        DESIGN_SYSTEM § 14.2 — Grammar Wiki = long-form reading content,
@@ -55,6 +54,9 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/ds.css" />
   <link rel="stylesheet" href="/css/grammar-wiki.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <!-- Canonical chrome Web Component (Sprint 7.12). -->
   <script type="module" src="/js/components/aver-chrome.js"></script>
