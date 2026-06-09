@@ -5,7 +5,9 @@
   "description": "Playwright browser smoke tests (F4). Bounded to frontend/tests/e2e/ — do NOT import @playwright elsewhere; the rest of the frontend stays zero-dependency.",
   "scripts": {
     "test:e2e": "playwright test",
-    "build:css": "npx --yes tailwindcss@3.4.17 -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o ./css/tailwind.build.css --minify"
+    "build:css": "npm run build:css:plusjakarta && npm run build:css:inter",
+    "build:css:plusjakarta": "npx --yes tailwindcss@3.4.17 -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o ./css/tailwind.build.css --minify",
+    "build:css:inter": "npx --yes tailwindcss@3.4.17 -c ./tailwind.config.inter.cjs -i ./css/tailwind.src.css -o ./css/tailwind.inter.css --minify"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"

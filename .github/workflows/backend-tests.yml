@@ -90,16 +90,20 @@ jobs:
       # Rebuild it from the SAME pinned version + config and fail if it differs:
       # guards against a class being added to HTML/JS without regenerating the CSS
       # (which would silently drop styling). Pinned 3.4.17 → deterministic output.
-      - name: Tailwind static CSS is not stale (rebuild + diff)
+      - name: Tailwind static CSS is not stale (rebuild + diff, all clusters)
         run: |
           cd frontend
-          npx --yes tailwindcss@3.4.17 -c ./tailwind.config.cjs -i ./css/tailwind.src.css -o /tmp/tw-ci.css --minify
-          if ! diff -q css/tailwind.build.css /tmp/tw-ci.css; then
-            echo "::error::css/tailwind.build.css is STALE — run 'npm run build:css' in frontend/ and commit the result."
-            diff css/tailwind.build.css /tmp/tw-ci.css | head -20 || true
-            exit 1
-          fi
-          echo "tailwind.build.css is fresh ✓"
+          check() {  # $1=config $2=committed-css
+            npx --yes tailwindcss@3.4.17 -c "$1" -i ./css/tailwind.src.css -o /tmp/tw-ci.css --minify
+            if ! diff -q "$2" /tmp/tw-ci.css; then
+              echo "::error::$2 is STALE — run 'npm run build:css' in frontend/ and commit."
+              diff "$2" /tmp/tw-ci.css | head -20 || true
+              exit 1
+            fi
+            echo "$2 is fresh ✓"
+          }
+          check ./tailwind.config.cjs       css/tailwind.build.css
+          check ./tailwind.config.inter.cjs css/tailwind.inter.css
 
       - name: Run frontend contract tests
         run: |
