@@ -89,6 +89,29 @@ describe('home.html / foundation links', () => {
 });
 
 
+// ── CLS reservation (P0-3) ─────────────────────────────────────────
+// home.js renders short .skill-card.skeleton placeholders on first paint
+// then swaps in much taller hydrated cards. Without a reserved height the
+// grid row jumps ~140px on hydration (the page's dominant CLS source). The
+// base .skill-card rule must carry a min-height so skeleton and real card
+// occupy the same box. Measured real card height is 258–281px across widths.
+
+
+describe('home.css / skill-card CLS height reservation', () => {
+  test('.skill-card reserves a min-height so the skeleton swap does not shift layout', () => {
+    // Match the base `.skill-card {…}` rule only (not .skill-card.skeleton / :hover / .coming-soon).
+    const m = css.match(/\.skill-card\s*\{([^}]*)\}/);
+    assert.ok(m, 'base .skill-card rule must exist in home.css');
+    const minH = m[1].match(/min-height:\s*(\d+)px/);
+    assert.ok(minH, '.skill-card must declare a min-height to reserve card height (CLS guard)');
+    assert.ok(
+      Number(minH[1]) >= 240,
+      `min-height must be >= 240px to cover the rendered card (got ${minH[1]}px)`,
+    );
+  });
+});
+
+
 // ── Anti-flash bootstrap ───────────────────────────────────────────
 
 
