@@ -30,8 +30,6 @@
     })();
   </script>
 
-  <!-- P0-3 C-3.4: static Tailwind (Plus-Jakarta cluster) — replaces 407KB Play-CDN. -->
-  <link rel="stylesheet" href="/css/tailwind.build.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -50,6 +48,9 @@
   <link rel="stylesheet" href="/css/writing-dashboard.css" />
   <!-- Sprint 19.1B — rendered-markdown typography for the "Mẹo viết" tab. -->
   <link rel="stylesheet" href="/css/markdown.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <!-- Lucide icons (line glyphs replacing the legacy ✕ close button). -->
   <script src="https://unpkg.com/lucide@1.17.0" defer></script>

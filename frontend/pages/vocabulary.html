@@ -47,12 +47,13 @@
        embedded, the parent must supply them — Sprint 7.3 → 7.6 migrations
        moved the page body into JS modules but didn't migrate the
        resource imports, causing an unstyled render regression. -->
-  <!-- P0-3 C-3.4: static Tailwind (Plus-Jakarta cluster) — replaces 407KB Play-CDN. -->
-  <link rel="stylesheet" href="/css/tailwind.build.css" />
   <link rel="stylesheet" href="/css/my-vocabulary.css" />
   <link rel="stylesheet" href="/css/flashcards.css" />
   <link rel="stylesheet" href="/css/exercises.css" />
   <link rel="stylesheet" href="/css/needs-review.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
 
   <!-- Lucide icons (line glyphs for chrome only — tab icon emoji remain
        as Sprint 6.7+ functional microcopy). -->
