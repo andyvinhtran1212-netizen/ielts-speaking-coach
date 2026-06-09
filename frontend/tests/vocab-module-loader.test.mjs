@@ -338,17 +338,21 @@ describe('Sprint 7.3 — /pages/vocabulary.html my-vocab tab uses mount containe
     // migrations moved page bodies into modules but missed the resource
     // import migration — this pin prevents the regression from
     // re-occurring (drop of any one import = test fail).
-    assert.match(
-      html,
-      /<script\s+src="https:\/\/cdn\.tailwindcss\.com[^"]*"/,
-      'vocabulary.html must load Tailwind CDN so module templates that ' +
-      'use `.hidden`, `.grid`, etc. render correctly when embedded',
+    // P0-3 C-3.4: Tailwind utilities (.hidden/.grid/…) for embedded module
+    // templates now come from EITHER the Play-CDN (legacy) OR the static build.
+    assert.ok(
+      /cdn\.tailwindcss\.com/.test(html) || /css\/tailwind\.build\.css/.test(html),
+      'vocabulary.html must load Tailwind (Play-CDN or static build) so module ' +
+      'templates that use `.hidden`, `.grid`, etc. render correctly when embedded',
     );
-    assert.match(
-      html,
-      /tailwind\.config\s*=\s*\{[\s\S]{0,400}Plus Jakarta Sans/,
-      'vocabulary.html must declare the canonical Tailwind config ' +
-      '(navy/teal palette + Plus Jakarta Sans) — matches standalone shells',
+    // P0-3 C-3.4: the canonical palette/font (navy/teal + Plus Jakarta) is now
+    // in tailwind.config.cjs → css/tailwind.build.css when migrated, else still
+    // in the inline Play-CDN config.
+    assert.ok(
+      /tailwind\.config\s*=\s*\{[\s\S]{0,400}Plus Jakarta Sans/.test(html)
+        || /css\/tailwind\.build\.css/.test(html),
+      'vocabulary.html must declare the canonical Tailwind palette/font via the ' +
+      'inline config or the static build',
     );
     for (const css of ['my-vocabulary.css', 'flashcards.css', 'exercises.css']) {
       const re = new RegExp(`<link\\s+rel="stylesheet"\\s+href="/css/${css.replace('.', '\\.')}"`);
