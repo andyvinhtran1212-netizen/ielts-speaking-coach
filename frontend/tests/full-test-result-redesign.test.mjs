@@ -60,8 +60,9 @@ describe('full-test-result.html / foundation links', () => {
     assert.match(html, /cdn\.jsdelivr\.net\/npm\/chart\.js/);
   });
 
-  test('still links Tailwind CDN (utility classes still used)', () => {
-    assert.match(html, /cdn\.tailwindcss\.com/);
+  test('Tailwind present — Play-CDN (legacy) OR static build (P0-3 C-3.4)', () => {
+    assert.ok(/cdn\.tailwindcss\.com/.test(html) || /css\/tailwind\.build\.css/.test(html),
+      'utility classes need Tailwind via the Play-CDN or the static build');
   });
 
   test('links Lucide icons (line glyphs replacing legacy SVGs)', () => {

@@ -71,11 +71,12 @@ describe('writing-dashboard.html / foundation links', () => {
     assert.ok(!/family=Fraunces/.test(html), 'Fraunces was Sprint 6.2 — removed in 6.7 redesign');
   });
 
-  test('Tailwind config fontFamily.sans is Plus Jakarta Sans', () => {
-    assert.match(
-      html,
-      /fontFamily\s*:\s*\{[\s\S]*?sans:\s*\[\s*'Plus Jakarta Sans'/,
-    );
+  test('Tailwind font is Plus Jakarta Sans (inline config OR static build)', () => {
+    // P0-3 C-3.4: migrated pages drop the inline config; Plus Jakarta now lives
+    // in tailwind.config.cjs, compiled into css/tailwind.build.css.
+    const inline = /fontFamily\s*:\s*\{[\s\S]*?sans:\s*\[\s*'Plus Jakarta Sans'/.test(html);
+    assert.ok(inline || /css\/tailwind\.build\.css/.test(html),
+      'Plus Jakarta via inline config or the static build');
   });
 });
 

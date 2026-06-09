@@ -83,11 +83,12 @@ describe('speaking.html / foundation links', () => {
     assert.ok(!/family=Inter[:&]/.test(html), 'Inter must not return on the redesigned page');
   });
 
-  test('Tailwind config fontFamily.sans is Plus Jakarta Sans', () => {
-    // The Tailwind CDN config block was kept; only the font family
-    // changed. This pin catches a future "I migrated the <link> but
-    // forgot the config" regression.
-    assert.match(html, /fontFamily\s*:\s*\{[\s\S]*?sans:\s*\[\s*'Plus Jakarta Sans'/);
+  test('Tailwind font is Plus Jakarta Sans (inline config OR static build)', () => {
+    // P0-3 C-3.4: migrated pages drop the inline config; Plus Jakarta now lives
+    // in tailwind.config.cjs, compiled into css/tailwind.build.css.
+    const inline = /fontFamily\s*:\s*\{[\s\S]*?sans:\s*\[\s*'Plus Jakarta Sans'/.test(html);
+    assert.ok(inline || /css\/tailwind\.build\.css/.test(html),
+      'Plus Jakarta via inline config or the static build');
   });
 });
 
