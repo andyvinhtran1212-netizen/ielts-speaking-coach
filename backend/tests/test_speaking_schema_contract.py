@@ -58,7 +58,12 @@ BASELINE_SESSIONS_COLUMNS: set[str] = {
     "id", "user_id",
     "mode", "part", "topic", "status",
     "overall_band", "band_fc", "band_lr", "band_gra", "band_p",
-    "audio_url", "pdf_url", "tokens_used",
+    "audio_url", "pdf_url",
+    # NB: tokens_used was previously (wrongly) listed here as a base-schema
+    # column — but no migration created it, so prod lacked it and the grading
+    # token-tracking write silently failed (P2 audit). It is now created by
+    # migration 093 and therefore picked up from the ALTER-TABLE parser below,
+    # NOT from this baseline (keeping baseline ∩ migration-columns empty).
     "started_at", "completed_at",
     # error tracking added by migration 003 — also captured below from
     # the parser, but listing here for clarity.
