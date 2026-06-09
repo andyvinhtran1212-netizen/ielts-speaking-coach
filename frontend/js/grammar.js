@@ -16,7 +16,10 @@
     if (!res.ok) {
       var err = {};
       try { err = await res.json(); } catch (_) {}
-      throw new Error(err.detail || 'HTTP ' + res.status);
+      // P0-5: detail may now be a {error_code,message,ref} dict — read .message
+      // (raw fetch, so it doesn't go through api.js's dict→message coercion).
+      var d = err.detail;
+      throw new Error((d && d.message) || (typeof d === 'string' ? d : '') || 'HTTP ' + res.status);
     }
     return res.json();
   }
