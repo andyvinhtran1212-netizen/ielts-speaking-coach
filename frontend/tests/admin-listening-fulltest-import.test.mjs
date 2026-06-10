@@ -166,9 +166,14 @@ describe('Phase B — content preview + IMG-PROMPT extraction (real value)', () 
   const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   function loadPreview() {
+    // previewHtml now delegates block grouping to imgPromptBlocks/blockRangeLabel,
+    // so the isolated Function must carry all three.
+    const blocks = js.match(/function imgPromptBlocks\(qs\) \{[\s\S]*?\n  \}/);
+    const label = js.match(/function blockRangeLabel\(b\) \{[\s\S]*?\n  \}/);
     const m = js.match(/function previewHtml\(p\) \{[\s\S]*?\n  \}/);
-    assert.ok(m, 'previewHtml present');
-    return new Function('escapeHtml', m[0] + '\nreturn previewHtml;')(esc);
+    assert.ok(blocks && label && m, 'preview helpers present');
+    return new Function('escapeHtml',
+      blocks[0] + '\n' + label[0] + '\n' + m[0] + '\nreturn previewHtml;')(esc);
   }
   test('renders the REAL question count + prompt + answer from the dry-run', () => {
     const previewHtml = loadPreview();
@@ -192,6 +197,31 @@ describe('Phase B — content preview + IMG-PROMPT extraction (real value)', () 
     assert.match(out, /data-copy="Top-down museum plan\."/);    // copyable real value
     assert.match(out, /Top-down museum plan\./);
     assert.equal((out.match(/class="fi-imgprompt"/g) || []).length, 1, 'only the q WITH img_prompt gets a block');
+  });
+  test('β — IMG-PROMPT de-duped to ONE box per block (q_range), not per question', () => {
+    const previewHtml = loadPreview();
+    const out = previewHtml({ questions: [16, 17, 18, 19, 20].map((n) => (
+      { q_num: n, section: 'S2', prompt: 'opt ' + n, img_prompt: 'Floor plan of the library.' }
+    )) });
+    assert.equal((out.match(/class="fi-imgprompt"/g) || []).length, 1, 'one box for the whole map block, not 5');
+    assert.match(out, /IMG-PROMPT \(câu 16–20\)/);                 // ranged label
+    assert.match(out, /· 1 IMG-PROMPT/);                            // summary counts blocks, not questions
+    assert.equal((out.match(/data-copy="Floor plan of the library\."/g) || []).length, 1,
+      'one copyable prompt for the block, not one per question');
+  });
+  test('β — two DIFFERENT map prompts in a section stay SEPARATE (never merged)', () => {
+    const previewHtml = loadPreview();
+    const out = previewHtml({ questions: [
+      { q_num: 16, section: 'S2', prompt: 'A', img_prompt: 'Plan ONE.' },
+      { q_num: 17, section: 'S2', prompt: 'B', img_prompt: 'Plan TWO.' },
+    ] });
+    assert.equal((out.match(/class="fi-imgprompt"/g) || []).length, 2, 'distinct prompts → 2 blocks');
+  });
+  test('β — done-card surfaces a map-upload CTA linking to test-detail (no new endpoint, no AI)', () => {
+    assert.match(js, /function mapUploadCta/);
+    assert.match(js, /mapUploadCta\(d\)/);                          // wired into renderDone
+    assert.match(js, /tests-detail\.html\?id=/);                    // deep-link to the imported test
+    assert.ok(!/generate-map-image/.test(js), 'import flow must NOT call the AI generate path');
   });
   test('XSS-safe + empty questions render nothing', () => {
     const previewHtml = loadPreview();
