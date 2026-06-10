@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     LISTENING_AI_RENDER_ENABLED: bool = False
     LISTENING_AUDIO_BUCKET: str = "listening-audio"
 
+    # P0-1 (C-1.1) — async-DB migration kill switch. OFF = every path runs the
+    # sync supabase_admin singleton exactly as today (the scaffold is a no-op).
+    # ON = routers migrated to the db_async facade await the async client. Stays
+    # OFF until a phase is wired + load-validated; flip per-deploy in .env.
+    USE_ASYNC_DB: bool = False
+
     # C-* audit — Server-Timing observability gate. The W3C Server-Timing
     # middleware (main.py) runs on every non-/health request and exposes an
     # internal total/auth/db/app breakdown to all clients. Default OFF: in

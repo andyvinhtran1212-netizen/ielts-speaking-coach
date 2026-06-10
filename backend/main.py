@@ -315,6 +315,21 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 async def startup_event():
     logger.info("Server started")
 
+    # P0-1 (C-1.1) async-DB scaffold. The event-loop-lag monitor always runs —
+    # it's the baseline instrument (read it with USE_ASYNC_DB OFF = "before").
+    # The async client + its timing wrapper are built ONLY when the flag is on,
+    # so flag-off is a true no-op (no extra client, no patched async builders).
+    from services import loop_monitor
+    loop_monitor.start()
+    if settings.USE_ASYNC_DB:
+        from services.server_timing import install_supabase_async_timing
+        from database import init_supabase_async
+        install_supabase_async_timing()
+        await init_supabase_async()
+        logger.info("[async-db] USE_ASYNC_DB=on — async client initialised, timing wrapped")
+    else:
+        logger.info("[async-db] USE_ASYNC_DB=off — sync path only (scaffold no-op)")
+
 
 @app.get("/topics")
 async def get_topics(
