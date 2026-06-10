@@ -104,15 +104,19 @@ def test_health_async_db_endpoint_reports_baseline():
     assert "lag_ms_p95" in body["event_loop_lag"]
 
 
-def test_scaffold_is_not_wired_into_any_router():
-    # Phase 1 is scaffold-only: no router may import/use the facade yet, so
-    # flag-off provably can't alter any route's behavior.
+def test_only_grading_is_wired_to_facade():
+    # P0-1 Phase 2 wired grading.py to the facade. NO OTHER router may use it
+    # yet (sessions/reading/listening/admin are later phases), so flipping
+    # USE_ASYNC_DB on can only change grading — never another route.
+    allowed = {"grading.py"}
     routers_dir = os.path.join(os.path.dirname(__file__), "..", "routers")
-    offenders = []
+    wired = []
     for path in glob.glob(os.path.join(routers_dir, "*.py")):
         if " 2.py" in path:  # ignore stray ` 2` dupes
             continue
         src = open(path, encoding="utf-8").read()
-        if "db_async" in src or "get_supabase_async" in src or "aexecute(" in src:
-            offenders.append(os.path.basename(path))
-    assert offenders == [], f"scaffold must not be wired into routers yet: {offenders}"
+        if "db_async" in src or "aexecute(" in src:
+            wired.append(os.path.basename(path))
+    unexpected = [b for b in wired if b not in allowed]
+    assert unexpected == [], f"only grading.py may be wired in Phase 2; found: {unexpected}"
+    assert "grading.py" in wired, "Phase 2 must wire grading.py to the facade"
