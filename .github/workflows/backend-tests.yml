@@ -174,6 +174,7 @@ jobs:
             frontend/tests/sprint-20-14f-alpha-diagram-image.test.mjs \
             frontend/tests/sprint-20-15-admin-reading-mgmt.test.mjs \
             frontend/tests/reading-admin-preview-fix.test.mjs \
+            frontend/tests/admin-listening-render.test.mjs \
             frontend/tests/admin-dashboard-redesign.test.mjs \
             frontend/tests/admin-polish.test.mjs \
             frontend/tests/undefined-token-sentinel.test.mjs \

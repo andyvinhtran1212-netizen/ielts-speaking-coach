@@ -317,3 +317,39 @@ describe('Sprint 13.3.1 — placeholder row + backoff polling + failed banner', 
     );
   });
 });
+
+
+// ── word_count P2 — Unicode/non-breaking-space correctness ──────────────────
+// countWords previously used /[\w']+/g; \w is ASCII-only, so accented
+// Vietnamese words were shattered (count ~2× actual). Behavioral test:
+// extract the live function from source and run it on real strings, including
+// a non-breaking space ( , common when pasting Vietnamese).
+
+describe('word_count — countWords handles Vietnamese + unicode whitespace', () => {
+  const src = read('js', 'admin-listening-render.js');
+  const m = src.match(/function countWords\s*\([\s\S]*?\n\}/);
+  assert.ok(m, 'countWords function must exist in source');
+  const countWords = new Function(m[0] + '; return countWords;')();
+
+  test('counts accented Vietnamese words correctly (not 2x)', () => {
+    assert.equal(countWords('Tôi yêu tiếng Việt'), 4);
+    assert.equal(countWords('chào'), 1);
+  });
+
+  test('non-breaking space (\\u00a0) is treated as a word separator', () => {
+    assert.equal(countWords('Xin chào các bạn'), 4);
+    assert.equal(countWords('a b'), 2);
+  });
+
+  test('collapses runs of mixed whitespace + trims edges', () => {
+    assert.equal(countWords('  hai   từ  '), 2);
+    assert.equal(countWords('a\t\nb'), 2);
+  });
+
+  test('empty / whitespace-only / null → 0', () => {
+    assert.equal(countWords(''), 0);
+    assert.equal(countWords('   '), 0);
+    assert.equal(countWords(' '), 0);
+    assert.equal(countWords(null), 0);
+  });
+});
