@@ -178,6 +178,43 @@
   // The dry-run already returns questions[] {q_num, prompt, options, answer,
   // img_prompt, …}. Render a per-section eyeball preview + surface every
   // question's IMG-PROMPT as a copyable block (β diagrams feeder). XSS-safe.
+  // β: group questions into image BLOCKS. A block = a CONTIGUOUS run of
+  // questions (within one section) sharing the SAME img_prompt text. The
+  // full-test parser copies one block-level prompt onto every question in the
+  // block (backend listening_fulltest_import.py), so identical + adjacent
+  // prompts = one block = one map image. Returns [{sec, lo, hi, prompt, count}];
+  // questions without an img_prompt produce no block. Distinct prompts OR a
+  // q_num gap split blocks — two different map prompts are never merged.
+  function imgPromptBlocks(qs) {
+    var bySec = {};
+    (qs || []).forEach(function (q) {
+      var sec = q.section ? String(q.section).replace(/\D/g, '')
+                          : String(Math.floor((((q.q_num || 1)) - 1) / 10) + 1);
+      (bySec[sec] = bySec[sec] || []).push(q);
+    });
+    var blocks = [];
+    Object.keys(bySec).sort(function (a, b) { return a - b; }).forEach(function (sec) {
+      var list = bySec[sec].slice().sort(function (a, b) { return (a.q_num || 0) - (b.q_num || 0); });
+      var cur = null;
+      list.forEach(function (q) {
+        var pr = q.img_prompt || '';
+        if (cur && pr === cur.prompt && q.q_num === cur.hi + 1) {
+          cur.hi = q.q_num; cur.count++;
+          return;
+        }
+        if (cur) { blocks.push(cur); cur = null; }
+        if (pr) cur = { sec: sec, lo: q.q_num, hi: q.q_num, prompt: pr, count: 1 };
+      });
+      if (cur) blocks.push(cur);
+    });
+    return blocks;
+  }
+
+  // "câu 16–20" for a multi-question block, "câu 31" for a single.
+  function blockRangeLabel(b) {
+    return b.lo === b.hi ? ('câu ' + b.lo) : ('câu ' + b.lo + '–' + b.hi);
+  }
+
   function previewHtml(p) {
     var qs = (p && p.questions) || [];
     if (!qs.length) return '';
@@ -187,9 +224,13 @@
                           : String(Math.floor((((q.q_num || 1)) - 1) / 10) + 1);
       (bySec[sec] = bySec[sec] || []).push(q);
     });
-    var imgCount = qs.filter(function (q) { return q.img_prompt; }).length;
+    // β: IMG-PROMPT is surfaced once PER BLOCK (not per question). The parser
+    // repeats the same prompt on every question in a map block; de-dup here.
+    var blocksBySec = {};
+    var blocks = imgPromptBlocks(qs);
+    blocks.forEach(function (b) { (blocksBySec[b.sec] = blocksBySec[b.sec] || []).push(b); });
     var out = '<details class="fi-preview-box" open><summary>Preview nội dung — '
-      + qs.length + ' câu' + (imgCount ? ' · ' + imgCount + ' IMG-PROMPT' : '') + '</summary>';
+      + qs.length + ' câu' + (blocks.length ? ' · ' + blocks.length + ' IMG-PROMPT' : '') + '</summary>';
     Object.keys(bySec).sort(function (a, b) { return a - b; }).forEach(function (sec) {
       out += '<div class="fi-sec"><div class="fi-sec__h">Section ' + escapeHtml(sec) + '</div>';
       bySec[sec].forEach(function (q) {
@@ -202,13 +243,14 @@
         if (q.answer != null && q.answer !== '') {
           out += '<div class="fi-q__ans">Đáp án: <b>' + escapeHtml(String(q.answer)) + '</b></div>';
         }
-        if (q.img_prompt) {
-          out += '<div class="fi-imgprompt"><div class="fi-imgprompt__h">IMG-PROMPT (câu '
-            + escapeHtml(String(q.q_num)) + ') <button type="button" class="fi-copy" data-copy="'
-            + escapeHtml(q.img_prompt) + '">Copy</button></div>'
-            + '<pre class="fi-imgprompt__body">' + escapeHtml(q.img_prompt) + '</pre></div>';
-        }
         out += '</div>';
+      });
+      // One copyable IMG-PROMPT box per block (q_range), after the section's questions.
+      (blocksBySec[sec] || []).forEach(function (b) {
+        out += '<div class="fi-imgprompt"><div class="fi-imgprompt__h">IMG-PROMPT ('
+          + escapeHtml(blockRangeLabel(b)) + ') <button type="button" class="fi-copy" data-copy="'
+          + escapeHtml(b.prompt) + '">Copy</button></div>'
+          + '<pre class="fi-imgprompt__body">' + escapeHtml(b.prompt) + '</pre></div>';
       });
       out += '</div>';
     });
@@ -379,6 +421,24 @@
     }
   }
 
+  // β: after commit, list the map blocks that need an image and link to the
+  // EXISTING per-block manual-upload UI on the test-detail page. The commit
+  // response exposes the test row id (d.id) but NOT per-exercise ids, so we
+  // deep-link to the test (tests-detail.html?id=…) where every block's upload
+  // slot already lives — no new endpoint, no AI generation.
+  function mapUploadCta(d) {
+    var blocks = imgPromptBlocks((STATE.preview && STATE.preview.questions) || []);
+    if (!blocks.length || !d || !d.id) return '';
+    var href = '/pages/admin/listening/tests-detail.html?id=' + encodeURIComponent(d.id);
+    var list = blocks.map(function (b) {
+      return 'S' + escapeHtml(b.sec) + ' · ' + escapeHtml(blockRangeLabel(b));
+    }).join(' · ');
+    return '<div class="fi-banner fi-banner--warn">🖼 ' + blocks.length
+      + ' block cần ảnh map (upload tay, không AI): ' + list
+      + ' — <a class="fi-maps-link" href="' + href
+      + '">Mở trang chi tiết test để upload</a></div>';
+  }
+
   function renderDone(d) {
     $('fi-done-card').hidden = false;
     var a = d.audio || {};
@@ -391,6 +451,7 @@
       + '<span>Audio: <b>' + mb(a.size_bytes) + '</b></span>'
       + '<span class="fi-mono">id ' + escapeHtml(d.id || '') + '</span>'
       + '</div>'
+      + mapUploadCta(d)
       + ((d.warnings || []).length
           ? '<div class="fi-banner fi-banner--warn">⚠ ' + d.warnings.map(escapeHtml).join(' · ') + '</div>'
           : '');
