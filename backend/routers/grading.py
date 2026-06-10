@@ -240,7 +240,16 @@ async def grade_response_endpoint(
         audio_url: str | None = None
 
         try:
-            supabase_admin.storage.from_(_AUDIO_BUCKET).upload(
+            # BE-1: the synchronous Storage upload (HTTP PUT of up to ~50MB of
+            # audio) was the single largest event-loop blocker left on this hot
+            # grading route. Offload it to a worker thread so concurrent grading
+            # requests aren't serialized behind it. Object storage is its own
+            # httpx client per .from_() call — NOT the shared PostgREST singleton
+            # — so to_thread here carries no thread-safety risk (unlike the
+            # PostgREST .execute() sites, which stay on the parked async facade).
+            # Same call, same kwargs, same (ignored) return value.
+            await asyncio.to_thread(
+                supabase_admin.storage.from_(_AUDIO_BUCKET).upload,
                 path=storage_path,
                 file=audio_bytes,
                 file_options={

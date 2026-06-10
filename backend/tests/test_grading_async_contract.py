@@ -100,6 +100,23 @@ def test_converted_queries_byte_identical_off_vs_on(monkeypatch):
         assert log_off == log_on, f"{name}: builder chain differs off vs on"
 
 
+def test_storage_upload_is_offloaded_from_event_loop():
+    # BE-1: the audio Storage upload (a multi-MB blocking HTTP PUT) on the hot
+    # grading route must run via asyncio.to_thread, not synchronously on the
+    # event loop. Guard against a silent revert to the blocking call.
+    import inspect
+    from routers import grading
+
+    src = inspect.getsource(grading)
+    assert "await asyncio.to_thread(" in src, "to_thread offload missing"
+    # the .upload passed as a REFERENCE (trailing comma) — i.e. handed to
+    # to_thread — not invoked directly as a synchronous .upload(...) call.
+    assert "_AUDIO_BUCKET).upload," in src, \
+        "storage .upload must be offloaded via asyncio.to_thread(..., .upload, ...)"
+    assert "_AUDIO_BUCKET).upload(" not in src, \
+        "no bare synchronous .upload( should remain on the event loop"
+
+
 def test_flag_off_never_touches_async_client(monkeypatch):
     # The whole point of OFF being a no-op: the async client is never reached.
     monkeypatch.setattr(settings, "USE_ASYNC_DB", False)
