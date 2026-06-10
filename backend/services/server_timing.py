@@ -94,3 +94,44 @@ def install_supabase_timing() -> None:
         cls = getattr(rb, name, None)
         if isinstance(cls, type):
             _wrap_execute(cls)
+
+
+def _wrap_async_execute(cls: type[Any]) -> None:
+    original: Callable[..., Any] | None = getattr(cls, "execute", None)
+    if original is None or getattr(original, "_av_server_timing_wrapped", False):
+        return
+
+    async def wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
+        start = perf_counter()
+        try:
+            return await original(self, *args, **kwargs)
+        finally:
+            record_stage("db", (perf_counter() - start) * 1000)
+
+    wrapped._av_server_timing_wrapped = True  # type: ignore[attr-defined]
+    setattr(cls, "execute", wrapped)
+
+
+def install_supabase_async_timing() -> None:
+    """Patch postgrest ASYNC builders so the async client's ``execute`` time is
+    also counted toward Server-Timing ``db`` — the async parallel of
+    ``install_supabase_timing``. Called from startup ONLY when USE_ASYNC_DB is
+    on, so it never touches the default sync path.
+    """
+    try:
+        import postgrest._async.request_builder as rb
+    except Exception:
+        return
+
+    for name in (
+        "AsyncExplainRequestBuilder",
+        "AsyncFilterRequestBuilder",
+        "AsyncMaybeSingleRequestBuilder",
+        "AsyncQueryRequestBuilder",
+        "AsyncRPCFilterRequestBuilder",
+        "AsyncSelectRequestBuilder",
+        "AsyncSingleRequestBuilder",
+    ):
+        cls = getattr(rb, name, None)
+        if isinstance(cls, type):
+            _wrap_async_execute(cls)

@@ -165,6 +165,29 @@ async def health_runtime() -> dict:
     }
 
 
+@router.get("/health/async-db")
+async def health_async_db() -> dict:
+    """
+    P0-1 (C-1.1) async-DB scaffold status + event-loop-lag baseline.
+
+    Reads the USE_ASYNC_DB flag, whether the async client has been initialised,
+    and the rolling event-loop-lag stats from the monitor. With the flag OFF
+    this is the "before" baseline: under real concurrency a blocking sync
+    ``.execute()`` on the loop thread shows up as elevated lag_ms_p95/max here.
+    Unauthenticated by design (no PII; booleans + timings).
+    """
+    from services import loop_monitor
+    from database import async_client_initialised
+
+    return {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "use_async_db": settings.USE_ASYNC_DB,
+        "async_client_initialised": async_client_initialised(),
+        "event_loop_lag": loop_monitor.snapshot(),
+    }
+
+
 @router.get("/health/grammar-check")
 async def health_grammar_check() -> dict:
     """
