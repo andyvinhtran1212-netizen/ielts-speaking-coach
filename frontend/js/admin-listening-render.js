@@ -100,8 +100,14 @@ async function checkFeatureFlag() {
 
 
 function countWords(s) {
+  // Whitespace-split (NOT /[\w']+/ — \w is ASCII-only, so it shattered every
+  // accented Vietnamese word into pieces: "Tôi yêu tiếng Việt" counted 8, not
+  // 4). Trim + split on Unicode whitespace, which JS \s already covers —
+  // including the non-breaking space ( ) common in pasted Vietnamese.
+  // Matches the student-facing counters (writing-dashboard / writing-result).
   if (!s) return 0;
-  return (s.match(/[\w']+/g) || []).length;
+  var t = String(s).trim();
+  return t ? t.split(/\s+/).length : 0;
 }
 
 
