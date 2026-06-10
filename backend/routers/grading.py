@@ -26,6 +26,7 @@ from fastapi import APIRouter, BackgroundTasks, Form, Header, HTTPException, Upl
 
 from config import settings
 from database import supabase_admin
+from services.db_async import aexecute
 from routers.auth import get_supabase_user
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
@@ -168,13 +169,12 @@ async def grade_response_endpoint(
 
         step = "load_session"
         try:
-            s_res = (
-                supabase_admin.table("sessions")
+            s_res = await aexecute(
+                lambda db: db.table("sessions")
                 .select("id, part, topic, status, mode")
                 .eq("id", session_id)
                 .eq("user_id", user_id)
                 .limit(1)
-                .execute()
             )
         except Exception as e:
             raise HTTPException(500, f"Lỗi khi tải session: {e}")
@@ -188,13 +188,12 @@ async def grade_response_endpoint(
 
         step = "load_question"
         try:
-            q_res = (
-                supabase_admin.table("questions")
+            q_res = await aexecute(
+                lambda db: db.table("questions")
                 .select("id, question_text")
                 .eq("id", question_id)
                 .eq("session_id", session_id)
                 .limit(1)
-                .execute()
             )
         except Exception as e:
             raise HTTPException(500, f"Lỗi khi tải câu hỏi: {e}")
@@ -843,12 +842,11 @@ async def _run_vocab_extraction(
         from services.vocab_guards import run_all_guards
 
         # Per-user feature flag check
-        flag_row = (
-            supabase_admin.table("users")
+        flag_row = await aexecute(
+            lambda db: db.table("users")
             .select("feature_flags")
             .eq("id", user_id)
             .limit(1)
-            .execute()
         )
         feature_flags = (flag_row.data or [{}])[0].get("feature_flags") or {}
         if feature_flags.get("vocab_enabled") is not True:
@@ -866,12 +864,11 @@ async def _run_vocab_extraction(
         # populated going forward.  Failure is non-fatal — leave topic NULL.
         session_topic: str | None = None
         try:
-            sess_row = (
-                supabase_admin.table("sessions")
+            sess_row = await aexecute(
+                lambda db: db.table("sessions")
                 .select("topic")
                 .eq("id", session_id)
                 .limit(1)
-                .execute()
             )
             session_topic = (sess_row.data or [{}])[0].get("topic")
         except Exception as topic_err:
@@ -884,12 +881,11 @@ async def _run_vocab_extraction(
         # tolerate that gracefully — Guard 6 falls back to the legacy
         # heuristic checks when `existing_lemmas` doesn't contain a
         # matching entry.
-        existing_rows = (
-            supabase_admin.table("user_vocabulary")
+        existing_rows = await aexecute(
+            lambda db: db.table("user_vocabulary")
             .select("headword, lemma")
             .eq("user_id", user_id)
             .eq("is_archived", False)
-            .execute()
         )
         existing_headwords = [r["headword"].lower() for r in (existing_rows.data or [])]
         existing_lemmas = [
@@ -1038,7 +1034,7 @@ async def _run_vocab_extraction(
         inserted = 0
         for row in rows_to_insert:
             try:
-                supabase_admin.table("user_vocabulary").insert(row).execute()
+                await aexecute(lambda db, _row=row: db.table("user_vocabulary").insert(_row))
                 inserted += 1
             except Exception as insert_err:
                 err_str = str(insert_err).lower()
