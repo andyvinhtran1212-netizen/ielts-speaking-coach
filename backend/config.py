@@ -99,6 +99,14 @@ class Settings(BaseSettings):
     LISTENING_AI_RENDER_ENABLED: bool = False
     LISTENING_AUDIO_BUCKET: str = "listening-audio"
 
+    # C-* audit — Server-Timing observability gate. The W3C Server-Timing
+    # middleware (main.py) runs on every non-/health request and exposes an
+    # internal total/auth/db/app breakdown to all clients. Default OFF: in
+    # prod it adds a per-request header (minor overhead + internal-timing
+    # exposure) that is only useful while actively debugging. Flip to true in
+    # .env (ENABLE_SERVER_TIMING=true) to turn it on for a debugging session.
+    ENABLE_SERVER_TIMING: bool = False
+
     # Sprint 13.5.6 — map image generation for plan-label exercises
     # (S2 Q16-20 IELTS standard format). Admin-initiated only; the
     # student player renders the signed URL inline so the map is part
