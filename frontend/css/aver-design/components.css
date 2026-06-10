@@ -698,6 +698,23 @@
    still wrap content in <div class="shell">), not chrome.
    See aver-chrome.js STYLE constant for the new source of truth. */
 
+/* P0-3 CLS fix — reserve the chrome's height in LIGHT DOM.
+   <aver-chrome> is upgraded by a deferred ES module, so before it upgrades
+   the element is an undefined (display:inline) node of height 0. When the
+   shadow renders, the host jumps to its full footprint (topnav + the shadow
+   .topnav { margin-bottom } gap) and shoves its next sibling — <div class="shell">,
+   which holds the whole page — straight down. Measured drop: 137px at >=1024px,
+   176px below (nav wraps -> taller). That was the dominant CLS on every chrome
+   page (home 0.214, practice 0.184, etc.).
+
+   display:block is REQUIRED — min-height is ignored on the pre-upgrade inline
+   element without it. The :host{display:block} inside the shadow only applies
+   AFTER upgrade, too late to reserve space. Values are the measured footprint,
+   so post-upgrade the host fills the reserve exactly (no extra whitespace);
+   verified residual shift = 0px at 390/768/1280. Affects all <aver-chrome> pages. */
+aver-chrome { display: block; min-height: 137px; }
+@media (max-width: 1023px) { aver-chrome { min-height: 176px; } }
+
 @media (max-width: 720px) {
   .shell { padding: var(--av-space-4) var(--av-space-4) var(--av-space-16); }
 }
