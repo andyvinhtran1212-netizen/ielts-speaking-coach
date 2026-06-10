@@ -45,13 +45,18 @@
   <!-- Lucide icons (chrome glyphs only). -->
   <script src="https://unpkg.com/lucide@1.17.0" defer></script>
 
-  <!-- Scripts: supabase CDN → api.js → credentials + init (same order as all other pages) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
-  <script src="../js/api.js"></script>
+  <!-- Scripts: supabase CDN → api.js → credentials + init. Perf: supabase-js +
+       api.js are DEFERRED off the render-blocking path; deferred scripts run in
+       document order BEFORE DOMContentLoaded, so initSupabase (and the page's
+       init() below, also moved to DOMContentLoaded) find createClient ready. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="../js/api.js" defer></script>
   <script>
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
-    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+    document.addEventListener('DOMContentLoaded', function () {
+      initSupabase(SUPABASE_URL, SUPABASE_ANON);
+    });
   </script>
 
   <!-- Canonical chrome Web Component (Sprint 7.13). -->
@@ -376,7 +381,11 @@
       }
     }
 
-    init();
+    // Perf (supabase defer): run init on DOMContentLoaded so the deferred
+    // supabase-js + the inline initSupabase (also DCL) have run first —
+    // getSupabase() inside init() is then ready. DCL handlers fire in
+    // registration order, so the earlier inline initSupabase runs before this.
+    document.addEventListener('DOMContentLoaded', init);
   }());
   </script>
 </body>
