@@ -157,6 +157,21 @@ describe('writing-dashboard.html / state container IDs', () => {
     }
   });
 
+  // P0-3 LCP fix: the greeting h1 is the LCP element. It must render OUTSIDE
+  // the data-gated #content (which is display:none until 3 API calls resolve)
+  // so it paints at the CSS/font floor (~1s) instead of waiting ~7.6s for the
+  // data chain. Guard: #greeting-name must appear BEFORE the #content opener.
+  test('LCP greeting renders outside (before) the hidden #content container', () => {
+    const greetingIdx = html.indexOf('id="greeting-name"');
+    const contentIdx = html.search(/id="content"\s+class="[^"]*\bhidden\b/);
+    assert.ok(greetingIdx > -1, '#greeting-name must exist');
+    assert.ok(contentIdx > -1, '#content (hidden) must exist');
+    assert.ok(
+      greetingIdx < contentIdx,
+      'greeting h1 must come before #content so the LCP element is not gated by the data-load reveal',
+    );
+  });
+
   test('writing-permission preview banner ID preserved (Sprint 5.2 contract)', () => {
     assert.match(html, /id="writing-preview-banner"/);
   });

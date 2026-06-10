@@ -73,6 +73,26 @@
 
   <main class="max-w-3xl mx-auto px-4 pt-20 pb-6">
 
+    <!-- Greeting — P0-3 LCP fix. Rendered OUTSIDE #content (always visible)
+         so the LCP h1 paints at the CSS/font floor (~1s) instead of waiting
+         for the data chain (auth + my-assignments + my-essays + permissions)
+         that reveals #content (~7.6s before). Name/code fill progressively
+         via renderStudent() once loadEssays/loadAssignments resolve; the
+         placeholders default to renderStudent's own no-data fallbacks. -->
+    <section class="mb-8">
+      <p class="eyebrow">Writing</p>
+      <h1 class="text-2xl md:text-3xl font-semibold mb-2">
+        Chào em, <span id="greeting-name">em</span> 👋
+      </h1>
+      <p class="text-sm text-gray-300">
+        Mã học viên: <span id="student-code" class="font-mono text-gray-200">—</span>
+        <span id="target-band-section" class="hidden">
+          <span class="text-gray-500 mx-2">·</span>
+          Mục tiêu: Band <span id="target-band">—</span>
+        </span>
+      </p>
+    </section>
+
     <!-- Loading state -->
     <div id="loading" class="text-center py-16" role="status" aria-live="polite">
       <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-light border-t-transparent"></div>
@@ -106,21 +126,6 @@
           </p>
         </div>
       </div>
-
-      <!-- Greeting -->
-      <section class="mb-8">
-        <p class="eyebrow">Writing</p>
-        <h1 class="text-2xl md:text-3xl font-semibold mb-2">
-          Chào em, <span id="greeting-name">...</span> 👋
-        </h1>
-        <p class="text-sm text-gray-300">
-          Mã học viên: <span id="student-code" class="font-mono text-gray-200">...</span>
-          <span id="target-band-section" class="hidden">
-            <span class="text-gray-500 mx-2">·</span>
-            Mục tiêu: Band <span id="target-band">—</span>
-          </span>
-        </p>
-      </section>
 
       <!-- Phase 2.3b — tab nav -->
       <div class="flex border-b border-white/10 mb-6 gap-1">
