@@ -3,14 +3,31 @@
 from __future__ import annotations
 
 import re
+from contextlib import contextmanager
 from time import perf_counter
 
 from fastapi.testclient import TestClient
+
+from config import settings
 
 
 def _client() -> TestClient:
     from main import app
     return TestClient(app)
+
+
+@contextmanager
+def _server_timing_enabled():
+    """Server-Timing is gated OFF by default (C-* audit). Flip the shared
+    settings singleton on for the header-present assertions — the middleware
+    reads settings.ENABLE_SERVER_TIMING per request, so this takes effect
+    immediately without rebuilding the app."""
+    prev = settings.ENABLE_SERVER_TIMING
+    settings.ENABLE_SERVER_TIMING = True
+    try:
+        yield
+    finally:
+        settings.ENABLE_SERVER_TIMING = prev
 
 
 def _parse(header: str) -> dict[str, float]:
@@ -23,26 +40,37 @@ def _parse(header: str) -> dict[str, float]:
 
 
 def test_server_timing_header_present_and_parseable_on_api_response():
-    start = perf_counter()
-    r = _client().get("/api/reading/test")
-    elapsed_ms = (perf_counter() - start) * 1000
+    with _server_timing_enabled():
+        start = perf_counter()
+        r = _client().get("/api/reading/test")
+        elapsed_ms = (perf_counter() - start) * 1000
     assert r.status_code == 401
     header = r.headers.get("server-timing")
-    assert header, "API responses should expose Server-Timing"
+    assert header, "API responses should expose Server-Timing when enabled"
     stages = _parse(header)
     assert set(stages) == {"total", "auth", "db", "app"}
     assert 0 <= stages["total"] <= elapsed_ms + 25
     assert all(value >= 0 for value in stages.values())
 
 
+def test_server_timing_absent_when_disabled_by_default():
+    # C-* audit — gated OFF by default: no header on a normal API response.
+    assert settings.ENABLE_SERVER_TIMING is False
+    r = _client().get("/api/reading/test")
+    assert r.status_code == 401
+    assert "server-timing" not in r.headers
+
+
 def test_health_routes_skip_server_timing():
-    r = _client().get("/health")
+    with _server_timing_enabled():
+        r = _client().get("/health")
     assert r.status_code == 200
     assert "server-timing" not in r.headers
 
 
 def test_listening_boot_route_participates_in_server_timing():
-    r = _client().get("/api/listening/dictation/c1/boot")
+    with _server_timing_enabled():
+        r = _client().get("/api/listening/dictation/c1/boot")
     assert r.status_code == 401
     header = r.headers.get("server-timing")
     assert header

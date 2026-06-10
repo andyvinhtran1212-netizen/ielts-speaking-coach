@@ -196,7 +196,15 @@ async def server_timing_middleware(request: Request, call_next):
 
     Skip health probes so uptime checks stay minimal. All other routes get a
     total/auth/db/app breakdown; auth/db are accumulated by helper wrappers.
+
+    Gated behind settings.ENABLE_SERVER_TIMING (default OFF). When disabled the
+    request passes straight through — no timing bucket is started, so the
+    record_stage() helpers no-op (their ContextVar bucket stays None) and no
+    Server-Timing header is emitted. Flip ENABLE_SERVER_TIMING=true in .env to
+    re-enable for a debugging session.
     """
+    if not settings.ENABLE_SERVER_TIMING:
+        return await call_next(request)
     if request.url.path.startswith("/health"):
         return await call_next(request)
 
