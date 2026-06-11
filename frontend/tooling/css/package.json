@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "tailwindcss": "^3.4.17"
+  },
+  "name": "css-build-toolchain",
+  "private": true,
+  "description": "Isolated, lockfile-pinned Tailwind v3.4.17 for building the committed static CSS. Isolated from @playwright to keep dedup deterministic."
+}
