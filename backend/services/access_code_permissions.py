@@ -311,6 +311,79 @@ def get_user_total_session_limit(user_id: UUID | str) -> Optional[int]:
     return total
 
 
+# ── Canonical session quota (used / limit / remaining) ────────────────────────
+# ONE source of truth read by BOTH the admin display AND create_session
+# enforcement, so they can never disagree (the bug: admin showed "60 left" while
+# enforcement blocked the same student). Two things this fixes:
+#   1. "used" counts ONLY completed sessions — an abandoned in_progress (or a
+#      grading-failed analysis_failed) does NOT consume a paid lượt. Counting
+#      them locked students out unfairly.
+#   2. the count is accurate (count='exact' / a GROUP BY RPC) — never the old
+#      batched `.in_()` query that PostgREST truncated at db-max-rows (1000).
+SESSION_USED_STATUS = "completed"
+
+
+def get_user_completed_session_count(user_id: UUID | str) -> int:
+    """Accurate count of a user's COMPLETED sessions — the quota "used" unit.
+
+    Uses count='exact' so PostgREST returns the true total via the Content-Range
+    header WITHOUT fetching rows and WITHOUT the 1000-row cap. Raises on DB error
+    so the caller decides (enforcement surfaces a 500 rather than silently
+    allowing or blocking)."""
+    res = (
+        supabase_admin.table("sessions")
+        .select("id", count="exact")
+        .eq("user_id", str(user_id))
+        .eq("status", SESSION_USED_STATUS)
+        .execute()
+    )
+    return res.count if res.count is not None else len(res.data or [])
+
+
+def get_user_session_quota(user_id: UUID | str) -> dict:
+    """Canonical per-user session quota — the single source admin + enforcement
+    both read.
+
+      used      = completed-session count (accurate, completed-only)
+      limit     = SUM of session_limit across the user's live codes (None=unlimited)
+      remaining = None when unlimited, else max(0, limit - used)
+      unlimited = limit is None
+    """
+    used = get_user_completed_session_count(user_id)
+    limit = get_user_total_session_limit(user_id)
+    if limit is None:
+        return {"used": used, "limit": None, "remaining": None, "unlimited": True}
+    return {"used": used, "limit": limit, "remaining": max(0, limit - used), "unlimited": False}
+
+
+def get_completed_session_counts(user_ids: list) -> dict:
+    """Batched completed-session counts for many users — ONE GROUP BY query via
+    the fn_completed_session_counts RPC (no N+1, no 1000-row cap). Used by the
+    admin codes list so its "used" matches enforcement exactly.
+
+    Falls back to per-user count='exact' if the RPC is absent (pre-migration 098;
+    Lesson 11 — deploy & apply). Returns {user_id: completed_count}; users with
+    zero completed sessions are simply absent (callers default to 0)."""
+    uids = [str(u) for u in (user_ids or []) if u]
+    if not uids:
+        return {}
+    try:
+        res = supabase_admin.rpc("fn_completed_session_counts", {"p_uids": uids}).execute()
+        return {row["user_id"]: int(row["n"]) for row in (res.data or [])}
+    except Exception as e:
+        logger.warning(
+            "fn_completed_session_counts RPC unavailable, falling back to per-user "
+            "count='exact': %s", e,
+        )
+        counts: dict[str, int] = {}
+        for uid in uids:
+            try:
+                counts[uid] = get_user_completed_session_count(uid)
+            except Exception as e2:
+                logger.warning("completed-count fallback failed for %s: %s", uid, e2)
+        return counts
+
+
 def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     """Return the union of permissions across every active access code
     the user is associated with.
