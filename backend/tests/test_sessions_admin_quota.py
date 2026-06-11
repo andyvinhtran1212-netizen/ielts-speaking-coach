@@ -153,6 +153,14 @@ def _patch(monkeypatch, **client_kwargs):
 
     monkeypatch.setattr(sessions_module, "get_supabase_user", _fake_user)
     monkeypatch.setattr(sessions_module, "supabase_admin", client)
+    # PR1 single-source: _require_permission now reads the LIVE access-code
+    # query, not users.permissions. Stub it to the client's configured perms so
+    # these quota tests exercise the bypass/quota branches with a permitted user.
+    monkeypatch.setattr(
+        sessions_module,
+        "get_user_access_code_permissions_cached",
+        lambda _uid: list(client._permissions),
+    )
     return client
 
 

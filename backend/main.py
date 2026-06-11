@@ -189,6 +189,25 @@ app.include_router(dashboard_router)
 app.include_router(student_home_router)
 
 
+# ── PR1 single-source — per-request access-permission memo ────────────
+# Speaking + /auth/me + writing all read the LIVE access-code permissions
+# (get_user_access_code_permissions). This memo caches that lookup for the
+# duration of ONE request so duplicate gates don't re-query; it is reset per
+# request, so a revoke is always reflected on the next request (never cached
+# across requests).
+@app.middleware("http")
+async def access_perm_memo_middleware(request: Request, call_next):
+    from services.access_code_permissions import (
+        begin_request_permission_memo,
+        reset_request_permission_memo,
+    )
+    token = begin_request_permission_memo()
+    try:
+        return await call_next(request)
+    finally:
+        reset_request_permission_memo(token)
+
+
 # ── Sprint Perf-1 — Server-Timing observability ───────────────────────
 @app.middleware("http")
 async def server_timing_middleware(request: Request, call_next):

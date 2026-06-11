@@ -130,6 +130,14 @@ async def get_me(authorization: str | None = Header(default=None)):
         pass  # non-fatal
 
     flags = user.get("feature_flags") or {}
+    # PR1 single-source: /auth/me returns the LIVE access-code permissions (same
+    # source as /api/student/permissions), NOT the users.permissions snapshot —
+    # so the two agree and a revoke is reflected immediately. No snapshot
+    # fallback: an empty live list means no access (don't re-grant a default).
+    from services.access_code_permissions import (  # local — avoid import cycle
+        get_user_access_code_permissions_cached,
+    )
+    live_permissions = get_user_access_code_permissions_cached(user_id)
     return {
         "id": user["id"],
         "email": user["email"],
@@ -137,7 +145,7 @@ async def get_me(authorization: str | None = Header(default=None)):
         "avatar_url": user.get("avatar_url"),
         "role": user.get("role", "user"),
         "is_active": user.get("is_active", False),
-        "permissions": user.get("permissions") or ["practice_single", "practice_part", "practice_full"],
+        "permissions": live_permissions,
         "onboarding_completed": user.get("onboarding_completed", False),
         "target_band": user.get("target_band"),
         "exam_date": str(user["exam_date"]) if user.get("exam_date") else None,

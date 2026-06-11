@@ -28,6 +28,7 @@ Why query the live source on every gated request?
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -35,6 +36,39 @@ from uuid import UUID
 from database import supabase_admin
 
 logger = logging.getLogger(__name__)
+
+# ── Per-request memo (PR1 single-source) ─────────────────────────────────────
+# Speaking is a hot path; memoize the live permission lookup WITHIN a single
+# request so multiple gates in one request hit the DB once. The memo lives only
+# for the request (ContextVar set/reset by the middleware in main.py), so a
+# revoke is reflected on the NEXT request — NEVER cached across requests (that
+# would re-introduce the stale-revoke bug this PR fixes). Mirrors the proven
+# server_timing ContextVar pattern.
+_perm_memo: ContextVar[Optional[dict]] = ContextVar("access_perm_memo", default=None)
+
+
+def begin_request_permission_memo() -> object:
+    """Start a fresh per-request permission cache; returns a reset token."""
+    return _perm_memo.set({})
+
+
+def reset_request_permission_memo(token: object) -> None:
+    _perm_memo.reset(token)
+
+
+def get_user_access_code_permissions_cached(user_id: UUID | str) -> list[str]:
+    """Per-request-memoized wrapper over get_user_access_code_permissions.
+
+    Returns the same live list; only avoids a duplicate DB round-trip inside one
+    request. Falls back to a direct (un-memoized) query when no request memo is
+    active (e.g. background tasks, tests)."""
+    memo = _perm_memo.get()
+    if memo is None:
+        return get_user_access_code_permissions(user_id)
+    key = str(user_id)
+    if key not in memo:
+        memo[key] = get_user_access_code_permissions(user_id)
+    return memo[key]
 
 
 def _parse_expires_at(value) -> Optional[datetime]:
