@@ -87,16 +87,29 @@ jobs:
           node-version: '20'
 
       # P0-3 C-3.4 — the static Tailwind CSS (css/tailwind.build.css) is committed.
-      # Rebuild it from the SAME pinned version + config and fail if it differs:
+      # Rebuild it from the SAME pinned toolchain + config and fail if it differs:
       # guards against a class being added to HTML/JS without regenerating the CSS
-      # (which would silently drop styling). Pinned 3.4.17 → deterministic output.
+      # (which would silently drop styling).
+      #
+      # The toolchain is LOCKFILE-PINNED + ISOLATED (frontend/tooling/css) and
+      # installed via `npm ci` — NOT `npx --yes`. `npx --yes tailwindcss@3.4.17`
+      # re-resolved tailwind's transitive deps at run time, and resolving them in
+      # the main project tree (alongside @playwright) deduped them differently, so
+      # CI's CSS drifted from the committed build (random "STALE" failures that
+      # blocked every PR). The isolated lockfile freezes the exact tree that built
+      # the committed CSS → deterministic across machines/runs.
+      - name: Install pinned Tailwind toolchain (isolated lockfile)
+        working-directory: frontend/tooling/css
+        run: npm ci
+
       - name: Tailwind static CSS is not stale (rebuild + diff, all clusters)
         run: |
           cd frontend
+          BIN=./tooling/css/node_modules/.bin/tailwindcss
           check() {  # $1=config $2=committed-css
-            npx --yes tailwindcss@3.4.17 -c "$1" -i ./css/tailwind.src.css -o /tmp/tw-ci.css --minify
+            "$BIN" -c "$1" -i ./css/tailwind.src.css -o /tmp/tw-ci.css --minify
             if ! diff -q "$2" /tmp/tw-ci.css; then
-              echo "::error::$2 is STALE — run 'npm run build:css' in frontend/ and commit."
+              echo "::error::$2 is STALE — run 'npm run build:css:setup && npm run build:css' in frontend/ and commit."
               diff "$2" /tmp/tw-ci.css | head -20 || true
               exit 1
             fi
