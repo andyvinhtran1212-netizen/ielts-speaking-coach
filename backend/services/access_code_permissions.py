@@ -197,6 +197,120 @@ def validate_permissions_or_raise(permissions: list[str]) -> None:
 # ── Live permission lookup ────────────────────────────────────────────
 
 
+def _code_is_live(row: dict, now: datetime) -> bool:
+    """A code grants nothing once it is revoked, locked, or past expiry."""
+    if row.get("is_revoked"):
+        return False
+    if row.get("is_active") is False:
+        return False
+    if _is_expired(row.get("expires_at"), now):
+        return False
+    return True
+
+
+def _active_code_rows(user_id: UUID | str) -> list[dict]:
+    """The deduped set of LIVE access-code rows a user holds — the single
+    sourcing used by every request-time gate (permissions AND session_limit).
+
+    Sourcing (matches CLAUDE.md's modern/legacy split):
+      - Modern: user_code_assignments (is_active) → access_codes.
+      - Legacy: access_codes.used_by, but ONLY for codes the user has NO
+        assignment row for (#442 — an inactive assignment row means a deliberate
+        per-user revoke, so the immutable used_by must not re-grant).
+    Codes that are revoked / locked / expired are filtered out. Rows are deduped
+    by id so a code reachable via both routes is counted once (critical for
+    summing session_limit). Each row carries: id, permissions, session_limit.
+    A lookup failure logs and degrades to whatever the other path returned.
+    """
+    user_id_str = str(user_id)
+    # Compute `now` once — anti-pattern #28 (TOCTOU): don't re-read the clock
+    # between the modern and legacy paths.
+    now = datetime.now(timezone.utc)
+    assigned_code_ids: set = set()       # every code_id with ANY assignment row
+    rows_by_id: dict[str, dict] = {}
+
+    # ── Modern path: assignments → codes ─────────────────────────────
+    try:
+        assignments = (
+            supabase_admin.table("user_code_assignments")
+            .select("code_id, is_active")
+            .eq("user_id", user_id_str)
+            .execute()
+        )
+        code_ids: list = []
+        for row in (assignments.data or []):
+            cid = row.get("code_id")
+            if not cid:
+                continue
+            assigned_code_ids.add(cid)
+            if row.get("is_active"):
+                code_ids.append(cid)
+        if code_ids:
+            codes = (
+                supabase_admin.table("access_codes")
+                .select("id, permissions, session_limit, is_revoked, is_active, expires_at")
+                .in_("id", code_ids)
+                .execute()
+            )
+            for row in codes.data or []:
+                if _code_is_live(row, now):
+                    rows_by_id[row["id"]] = row
+    except Exception as e:
+        logger.warning(
+            "user_code_assignments lookup failed for user %s: %s", user_id_str, e,
+        )
+
+    # ── Legacy fallback: access_codes.used_by ────────────────────────
+    # Applies ONLY to codes with no assignment row at all (true legacy). An
+    # inactive row → deliberately revoked → the modern path is authoritative.
+    try:
+        legacy = (
+            supabase_admin.table("access_codes")
+            .select("id, permissions, session_limit, is_revoked, is_active, expires_at")
+            .eq("used_by", user_id_str)
+            .execute()
+        )
+        for row in legacy.data or []:
+            if row.get("id") in assigned_code_ids:
+                continue
+            if row.get("id") in rows_by_id:
+                continue
+            if _code_is_live(row, now):
+                rows_by_id[row["id"]] = row
+    except Exception as e:
+        logger.warning(
+            "legacy access_codes.used_by lookup failed for user %s: %s", user_id_str, e,
+        )
+
+    return list(rows_by_id.values())
+
+
+def get_user_total_session_limit(user_id: UUID | str) -> Optional[int]:
+    """Total lifetime session quota across the user's LIVE codes, or None for
+    "no per-code cap" (treat as unlimited — the daily cap still applies).
+
+    Sprint 5.2 wish #1 — session_limit becomes enforceable. Chốt C: a user with
+    multiple active codes gets the SUM of their limits ("thêm lượt" = raise one
+    code's limit and it adds up). Returns None when:
+      - the user holds NO live code (no per-code quota to enforce), OR
+      - ANY live code has a NULL limit (one unlimited code → unlimited overall).
+    A non-integer limit is treated as unlimited (defensive: never wrongly block).
+    """
+    rows = _active_code_rows(user_id)
+    if not rows:
+        return None
+    total = 0
+    for row in rows:
+        lim = row.get("session_limit")
+        if lim is None:
+            return None
+        try:
+            total += int(lim)
+        except (TypeError, ValueError):
+            return None
+    return total
+
+
 def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     """Return the union of permissions across every active access code
     the user is associated with.
@@ -220,112 +334,15 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
       Sorted, de-duplicated permission list. Empty list if the user has
       no active codes (treat as no-permissions).
     """
-    user_id_str = str(user_id)
+    # Sourcing (modern assignments + legacy used_by fallback, with the #442
+    # inactive-assignment suppression and live/revoked/expired filtering) lives
+    # in _active_code_rows — shared with get_user_total_session_limit so both
+    # gates read the exact same set of codes.
     permissions: set[str] = set()
-    # Every code_id the user has ANY assignment row for — active OR inactive.
-    # The legacy `used_by` fallback below is gated on this: if an assignment row
-    # exists, the modern path is authoritative (an inactive row means the user
-    # was deliberately revoked), so `used_by` must not silently re-grant. Only a
-    # TRUE legacy code — used_by set with no assignment row at all — falls back.
-    assigned_code_ids: set = set()
-    # Compute `now` once per request — anti-pattern #28 (TOCTOU) says
-    # don't re-read the clock between the modern and legacy paths.
-    now = datetime.now(timezone.utc)
-
-    # ── Modern path: assignments → codes ─────────────────────────────
-    try:
-        # Two queries (fetch the user's assignments, then fetch the codes
-        # by id) instead of a join. PostgREST supports nested selects but
-        # the column-name binding gets fragile — explicit two-step is
-        # easier to debug and keeps schema coupling minimal.
-        #
-        # Fetch ALL assignment rows (no is_active filter) so we can both (a)
-        # grant via the ACTIVE ones and (b) record every assigned code_id to
-        # suppress the legacy `used_by` fallback for codes the user has any
-        # assignment to.
-        assignments = (
-            supabase_admin.table("user_code_assignments")
-            .select("code_id, is_active")
-            .eq("user_id", user_id_str)
-            .execute()
-        )
-        code_ids: list = []
-        for row in (assignments.data or []):
-            cid = row.get("code_id")
-            if not cid:
-                continue
-            assigned_code_ids.add(cid)
-            if row.get("is_active"):
-                code_ids.append(cid)
-        if code_ids:
-            codes = (
-                supabase_admin.table("access_codes")
-                .select("id, permissions, is_revoked, is_active, expires_at")
-                .in_("id", code_ids)
-                .execute()
-            )
-            for row in codes.data or []:
-                if row.get("is_revoked"):
-                    continue
-                if row.get("is_active") is False:
-                    continue
-                # Sprint 5.2.1 RED hotfix — expired codes must not
-                # grant permissions even when is_active=true.
-                if _is_expired(row.get("expires_at"), now):
-                    continue
-                for p in row.get("permissions") or []:
-                    if isinstance(p, str):
-                        permissions.add(p)
-    except Exception as e:
-        # Don't fail the whole request if assignments lookup blows up —
-        # fall through to the legacy path. Log so the operator knows.
-        logger.warning(
-            "user_code_assignments lookup failed for user %s: %s",
-            user_id_str, e,
-        )
-
-    # ── Legacy fallback: access_codes.used_by ────────────────────────
-    # CLAUDE.md / this function's own contract: the `used_by` fallback applies
-    # ONLY to codes where NO assignment row exists for the user — a TRUE legacy
-    # code (pre-Sprint W backfill left some outside user_code_assignments).
-    #
-    # The fallback used to union unconditionally, which broke per-user revoke:
-    # `remove_user_from_code` only flips `user_code_assignments.is_active=false`
-    # (it intentionally never clears the immutable `used_by`), so an
-    # unconditional `used_by` union kept granting after a revoke. Gating on
-    # `assigned_code_ids` makes the modern path authoritative whenever an
-    # assignment row exists (active → granted above; inactive → deliberately
-    # revoked → denied here).
-    try:
-        legacy = (
-            supabase_admin.table("access_codes")
-            .select("id, permissions, is_revoked, is_active, expires_at")
-            .eq("used_by", user_id_str)
-            .execute()
-        )
-        for row in legacy.data or []:
-            # Suppress the fallback for any code the user has an assignment row
-            # for (active or inactive) — that code is governed by the modern
-            # path, not by the immutable `used_by` redemption marker.
-            if row.get("id") in assigned_code_ids:
-                continue
-            if row.get("is_revoked"):
-                continue
-            if row.get("is_active") is False:
-                continue
-            # Sprint 5.2.1 RED hotfix — same expiry guard as the modern
-            # path. A code reachable via either route gets the same gate.
-            if _is_expired(row.get("expires_at"), now):
-                continue
-            for p in row.get("permissions") or []:
-                if isinstance(p, str):
-                    permissions.add(p)
-    except Exception as e:
-        logger.warning(
-            "legacy access_codes.used_by lookup failed for user %s: %s",
-            user_id_str, e,
-        )
-
+    for row in _active_code_rows(user_id):
+        for p in row.get("permissions") or []:
+            if isinstance(p, str):
+                permissions.add(p)
     return sorted(permissions)
 
 

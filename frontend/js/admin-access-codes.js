@@ -135,13 +135,13 @@ function renderTable() {
     const refillBtn = (c.is_revoked || c.is_active === false)
       ? ''
       : `<button class="adm-btn-secondary adm-btn-sm" data-action="refill" data-id="${c.id}">Cấp mã mới</button>`;
-    // Sửa quyền (per-code): edit this code's permissions array. Applies to ALL
-    // users of the code; propagates live (PATCH code.permissions, read by every
-    // gate since #441/#442). Carries the current perms so the modal pre-checks.
-    const permsAttr = esc(JSON.stringify(c.permissions || []));
+    // Sửa quyền (per-code): edit this code's permissions + session_limit. Applies
+    // to ALL users of the code; propagates live (read by every gate since
+    // #441/#442). openEditPerms looks the row up in _allCodes by id (perms,
+    // limit, per-user usage), so the button only needs the id.
     const editPermsBtn = (c.is_revoked || c.is_active === false)
       ? ''
-      : `<button class="adm-btn-secondary adm-btn-sm" data-action="edit-perms" data-id="${c.id}" data-code="${esc(c.code)}" data-perms="${permsAttr}">Sửa quyền</button>`;
+      : `<button class="adm-btn-secondary adm-btn-sm" data-action="edit-perms" data-id="${c.id}">Sửa quyền</button>`;
     return `
       <tr>
         <td class="code-cell">${c.code}</td>
@@ -326,16 +326,34 @@ async function removeUser(codeId, userId, email) {
 
 let _editPermsCtx = null;  // { codeId, code }
 
-function openEditPerms(codeId, code, permsJson) {
-  let current = [];
-  try { current = JSON.parse(permsJson || '[]'); } catch (_e) { current = []; }
-  _editPermsCtx = { codeId, code };
-  $('ep-code-label').textContent = code || '';
+function openEditPerms(codeId) {
+  const code = _allCodes.find((c) => String(c.id) === String(codeId));
+  if (!code) return;
+  _editPermsCtx = { codeId, code: code.code };
+  $('ep-code-label').textContent = code.code || '';
   $('ep-error').hidden = true;
   // Pre-check the boxes to the code's current permissions.
+  const current = Array.isArray(code.permissions) ? code.permissions : [];
   document.querySelectorAll('#ep-perms input[type="checkbox"]').forEach((cb) => {
     cb.checked = current.includes(cb.value);
   });
+  // session_limit (empty input = unlimited / NULL).
+  $('ep-limit').value = (code.session_limit == null) ? '' : String(code.session_limit);
+  // Per-user usage (read-only): đã dùng / limit / còn lại, from the list payload.
+  const users = (code.assigned_users || []).filter((u) => u.quota);
+  if (users.length) {
+    $('ep-usage').innerHTML = users.map((u) => {
+      const q = u.quota || {};
+      const email = u.email ? esc(u.email) : '(không rõ)';
+      const lim = (q.limit == null) ? '∞' : String(q.limit);
+      const rem = (q.remaining == null) ? '∞' : String(q.remaining);
+      return `<div class="ep-usage-row">${email}: đã dùng <strong>${q.used == null ? 0 : q.used}</strong> / ${lim} (còn ${rem})</div>`;
+    }).join('');
+    $('ep-usage-wrap').hidden = false;
+  } else {
+    $('ep-usage').innerHTML = '';
+    $('ep-usage-wrap').hidden = true;
+  }
   $('editperms-backdrop').hidden = false;
 }
 function closeEditPerms() { $('editperms-backdrop').hidden = true; }
@@ -352,9 +370,18 @@ async function submitEditPerms() {
     $('ep-error').hidden = false;
     return;
   }
+  // session_limit: empty = unlimited (NULL); otherwise a positive integer.
+  const limitRaw = $('ep-limit').value.trim();
+  const session_limit = limitRaw === '' ? null : parseInt(limitRaw, 10);
+  if (limitRaw !== '' && (!Number.isInteger(session_limit) || session_limit < 1)) {
+    $('ep-error').textContent = 'Giới hạn lượt phải là số nguyên ≥ 1 (hoặc để trống = không giới hạn).';
+    $('ep-error').hidden = false;
+    return;
+  }
   $('btn-ep-submit').disabled = true;
   try {
-    await api.patch('/admin/access-codes/' + _editPermsCtx.codeId, { permissions });
+    // PATCH permissions + session_limit only — never touches used_*/used_by.
+    await api.patch('/admin/access-codes/' + _editPermsCtx.codeId, { permissions, session_limit });
     closeEditPerms();
     showBanner('Đã cập nhật quyền cho mã ' + (_editPermsCtx.code || '') +
                '. Áp dụng cho tất cả người dùng của mã ngay.', 'success');
@@ -414,7 +441,7 @@ function bind() {
     if (!btn) return;
     if (btn.dataset.action === 'revoke') revokeCode(btn.dataset.id);
     if (btn.dataset.action === 'refill') refillCode(btn.dataset.id);
-    if (btn.dataset.action === 'edit-perms') openEditPerms(btn.dataset.id, btn.dataset.code, btn.dataset.perms);
+    if (btn.dataset.action === 'edit-perms') openEditPerms(btn.dataset.id);
     if (btn.dataset.action === 'remove-user') removeUser(btn.dataset.code, btn.dataset.user, btn.dataset.email);
   });
   // Sửa quyền (per-code) modal.

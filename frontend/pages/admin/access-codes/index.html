@@ -90,6 +90,9 @@
     .ac-link-danger { color: var(--av-error); }
     .ep-notice { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
                  border-left: 3px solid var(--av-warning); padding-left: var(--av-space-3); margin: 0; }
+    .ep-hint { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: var(--av-space-2) 0 0; }
+    .ep-usage { display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .ep-usage-row { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
     .ac-radio-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
     .ac-radio-row label {
       display: flex; align-items: center; gap: 6px;
@@ -267,6 +270,15 @@
             <label><input type="checkbox" value="practice_full" /> Full Test</label>
             <label><input type="checkbox" value="admin" /> Admin</label>
           </div>
+        </div>
+        <div class="adm-field">
+          <label for="ep-limit">Giới hạn lượt (để trống = không giới hạn)</label>
+          <input id="ep-limit" type="number" min="1" placeholder="VD: 30" />
+          <p class="ep-hint">Tổng số lượt session mã cấp (cả đời). Tăng số = thêm lượt. Người dùng giữ nhiều mã = tổng giới hạn các mã.</p>
+        </div>
+        <div class="adm-field" id="ep-usage-wrap" hidden>
+          <label>Lượt đã dùng</label>
+          <div id="ep-usage" class="ep-usage"></div>
         </div>
         <div class="adm-banner" id="ep-error" hidden></div>
         <div class="adm-modal-actions">

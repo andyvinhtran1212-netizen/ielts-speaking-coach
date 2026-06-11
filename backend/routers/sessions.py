@@ -14,6 +14,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.access_code_permissions import (
     get_user_access_code_permissions_cached,
+    get_user_total_session_limit,
     has_permission,
 )
 from services.retention import compute_expiry, content_purge_cutoff, should_touch
@@ -305,6 +306,32 @@ async def create_session(
                     f"sessions hôm nay. Hãy thử lại vào ngày mai."
                 ),
             )
+
+        # Per-code lifetime quota (Sprint 5.2 wish #1). session_limit is the
+        # total number of sessions a code grants over its lifetime (NULL =
+        # unlimited). Multi-code = SUM of the user's live codes' limits. This is
+        # SEPARATE from the daily cap above — both must pass. None means no
+        # per-code cap (no codes, or an unlimited code) → skip.
+        total_limit = get_user_total_session_limit(user_id)
+        if total_limit is not None:
+            try:
+                lifetime = (
+                    supabase_admin.table("sessions")
+                    .select("id")
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quota: {e}")
+
+            if len(lifetime.data or []) >= total_limit:
+                raise HTTPException(
+                    status_code=429,
+                    detail=(
+                        f"Bạn đã dùng hết {total_limit} lượt của mã kích hoạt. "
+                        f"Liên hệ quản trị viên để được cấp thêm lượt."
+                    ),
+                )
 
     # Create session
     try:
