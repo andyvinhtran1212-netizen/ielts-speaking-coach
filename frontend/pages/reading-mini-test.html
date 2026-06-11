@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Full Tests — Aver Learning</title>
+  <title>Mini Tests — Aver Learning</title>
 
   <script>
     (function () {
@@ -37,16 +37,16 @@
     <main class="rv-shell">
       <header class="rv-header">
         <p class="eyebrow"><a href="/pages/home.html" style="color: var(--av-text-secondary);">← Trang chủ</a></p>
-        <h1>Full Tests <span class="accent">·</span> <span style="color: var(--av-text-muted);">Cambridge-style</span></h1>
-        <p class="subtitle">Bài thi đầy đủ 60 phút — 3 đoạn văn, 40 câu hỏi, kèm bảng điểm + band IELTS.</p>
+        <h1>Mini Tests <span class="accent">·</span> <span style="color: var(--av-text-muted);">1 đoạn văn</span></h1>
+        <p class="subtitle">Bài thi ngắn — 1 đoạn văn, số câu hỏi tùy bài, kèm bảng điểm + band IELTS. Cùng giao diện làm bài &amp; chữa bài như Full Test.</p>
       </header>
 
-      <!-- Library switcher: L1 ↔ L2 ↔ L3 (Sprint 20.6 adds the Full Test entry). -->
+      <!-- Library switcher: Vocab ↔ Skill ↔ Full Test ↔ Mini Test. -->
       <nav class="rv-libnav" aria-label="Reading libraries">
         <a class="rv-libnav__link" href="/pages/reading-vocab.html">Vocab Reading</a>
         <a class="rv-libnav__link" href="/pages/reading-skill.html">Skill Practice</a>
-        <a class="rv-libnav__link is-active" aria-current="page">Full Tests</a>
-        <a class="rv-libnav__link" href="/pages/reading-mini-test.html">Mini Tests</a>
+        <a class="rv-libnav__link" href="/pages/reading-test.html">Full Tests</a>
+        <a class="rv-libnav__link is-active" aria-current="page">Mini Tests</a>
       </nav>
 
       <div class="rv-filters">
@@ -60,13 +60,13 @@
       </div>
 
       <div class="rv-empty" id="state-loading">Đang tải…</div>
-      <div class="rv-empty" id="state-empty" hidden>Chưa có bài thi nào.</div>
+      <div class="rv-empty" id="state-empty" hidden>Chưa có mini test nào.</div>
       <div class="rv-error" id="state-error" hidden></div>
 
       <div class="rv-grid" id="rv-grid" hidden></div>
     </main>
   </div>
 
-  <script type="module" src="/js/reading-test.js"></script>
+  <script type="module" src="/js/reading-mini-test.js"></script>
 </body>
 </html>

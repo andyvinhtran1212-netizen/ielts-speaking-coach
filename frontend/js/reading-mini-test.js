@@ -1,5 +1,5 @@
 /**
- * frontend/js/reading-test.js — Sprint 20.6 L3 Full Test library.
+ * frontend/js/reading-mini-test.js — Reading mini test (1-passage L3 test) library.
  *
  * Browse published L3 tests (GET /api/reading/test). Card → deep-link to
  * /pages/reading-exam.html?test_id=<id>. Mirrors reading-vocab.js /
@@ -51,9 +51,9 @@ async function load() {
   const qs = new URLSearchParams();
   if (module) qs.set('module', module);
   qs.set('limit', '50');
-  // Full Tests library EXCLUDES mini tests (they have their own tab). Explicit
+  // Mini Tests library shows ONLY mini tests (the test_type='mini' flag). Explicit
   // so it can't regress if the endpoint default ever changes.
-  qs.set('test_type', 'full');
+  qs.set('test_type', 'mini');
 
   try {
     const res = await window.api.get(`/api/reading/test?${qs.toString()}`);
