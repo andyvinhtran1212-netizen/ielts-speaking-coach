@@ -88,6 +88,8 @@
     .ac-link  { background: none; border: none; padding: 0; cursor: pointer; font-size: var(--av-fs-xs);
                 color: var(--av-brand-teal-700); text-decoration: underline; font-family: inherit; }
     .ac-link-danger { color: var(--av-error); }
+    .ep-notice { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+                 border-left: 3px solid var(--av-warning); padding-left: var(--av-space-3); margin: 0; }
     .ac-radio-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
     .ac-radio-row label {
       display: flex; align-items: center; gap: 6px;
@@ -247,17 +249,29 @@
       </div>
     </div>
 
-    <!-- ── Reassign modal (Sprint 17.5) ─────────────────────────── -->
-    <div class="adm-modal-backdrop" id="reassign-backdrop" hidden>
+    <!-- ── Edit-permissions modal (per-code) ────────────────────── -->
+    <div class="adm-modal-backdrop" id="editperms-backdrop" hidden>
       <div class="adm-modal" role="dialog" aria-modal="true">
-        <h2>Đổi mã sang người dùng khác</h2>
-        <p style="color:var(--av-text-secondary);font-size:var(--av-fs-sm);margin:0;">Người dùng hiện tại sẽ mất quyền; người nhận được gán mã này. Lịch sử kích hoạt không đổi.</p>
-        <div class="adm-field"><label for="ra-to">User ID người nhận</label><input id="ra-to" type="text" placeholder="UUID người dùng" /></div>
-        <div class="adm-field"><label for="ra-reason">Lý do (tùy chọn)</label><input id="ra-reason" type="text" /></div>
-        <div class="adm-banner" id="ra-error" hidden></div>
+        <h2>Sửa quyền của mã</h2>
+        <p class="ep-notice" id="ep-notice">
+          ⚠ Quyền áp dụng cho <strong>TẤT CẢ người dùng của mã <span id="ep-code-label"></span></strong>.
+          Lưu xong, mọi user của mã đổi quyền ngay (không chỉ một người).
+        </p>
+        <div class="adm-field">
+          <label>Quyền</label>
+          <div class="ac-perms" id="ep-perms">
+            <label><input type="checkbox" value="all" /> Tất cả</label>
+            <label><input type="checkbox" value="writing" /> Writing</label>
+            <label><input type="checkbox" value="practice_single" /> Luyện tập đơn</label>
+            <label><input type="checkbox" value="practice_part" /> Luyện theo Part</label>
+            <label><input type="checkbox" value="practice_full" /> Full Test</label>
+            <label><input type="checkbox" value="admin" /> Admin</label>
+          </div>
+        </div>
+        <div class="adm-banner" id="ep-error" hidden></div>
         <div class="adm-modal-actions">
-          <button class="adm-btn-secondary" id="btn-ra-cancel" type="button">Hủy</button>
-          <button class="adm-btn-primary" id="btn-ra-submit" type="button">Đổi</button>
+          <button class="adm-btn-secondary" id="btn-ep-cancel" type="button">Hủy</button>
+          <button class="adm-btn-primary" id="btn-ep-submit" type="button">Lưu quyền</button>
         </div>
       </div>
     </div>
