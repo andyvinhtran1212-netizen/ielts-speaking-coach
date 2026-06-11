@@ -181,9 +181,8 @@ describe('Mã kích hoạt — in-place feedback (silent refetch, no full reload
 
 
 describe('Mã kích hoạt — per-code "Sửa quyền" (replaces reassign)', () => {
-  it('actions column renders a per-code Sửa quyền button carrying current perms', () => {
-    assert.match(JS, /data-action="edit-perms"[\s\S]*?data-perms="\$\{permsAttr\}"/);
-    assert.match(JS, /const permsAttr = esc\(JSON\.stringify\(c\.permissions/);
+  it('actions column renders a per-code Sửa quyền button (looks up by id)', () => {
+    assert.match(JS, /data-action="edit-perms" data-id="\$\{c\.id\}"/);
   });
   it('edit-perms modal exists with the permission checklist + per-code notice', () => {
     assert.match(HTML, /id="editperms-backdrop"/);
@@ -192,13 +191,14 @@ describe('Mã kích hoạt — per-code "Sửa quyền" (replaces reassign)', ()
     // The notice must state the change applies to ALL users of the code.
     assert.match(HTML, /TẤT CẢ người dùng của mã/);
   });
-  it('modal pre-checks the code current permissions on open', () => {
-    assert.match(JS, /function openEditPerms\(codeId, code, permsJson\)/);
+  it('opens by looking the code up in _allCodes + pre-checks its permissions', () => {
+    assert.match(JS, /function openEditPerms\(codeId\)/);
+    assert.match(JS, /_allCodes\.find\(\(c\) => String\(c\.id\) === String\(codeId\)\)/);
     assert.match(JS, /#ep-perms input\[type="checkbox"\][\s\S]*?cb\.checked = current\.includes\(cb\.value\)/);
   });
-  it('save PATCHes only the permissions array (not used_*/session_limit)', () => {
-    assert.match(JS, /api\.patch\('\/admin\/access-codes\/'\s*\+\s*_editPermsCtx\.codeId,\s*\{\s*permissions\s*\}\)/);
-    assert.doesNotMatch(JS, /api\.patch[\s\S]*?session_limit/);
+  it('save PATCHes permissions + session_limit (never used_*)', () => {
+    assert.match(JS, /api\.patch\('\/admin\/access-codes\/'\s*\+\s*_editPermsCtx\.codeId,\s*\{\s*permissions,\s*session_limit\s*\}\)/);
+    assert.doesNotMatch(JS, /api\.patch[\s\S]*?used_(by|at)|api\.patch[\s\S]*?is_used/);
   });
   it('requires at least one permission before saving', () => {
     assert.match(JS, /if \(!permissions\.length\)[\s\S]*?Phải chọn ít nhất một quyền/);
@@ -206,6 +206,19 @@ describe('Mã kích hoạt — per-code "Sửa quyền" (replaces reassign)', ()
   it('edit-perms modal cancel + backdrop wired', () => {
     assert.match(JS, /btn-ep-cancel'\)\.addEventListener\('click', closeEditPerms\)/);
     assert.match(JS, /editperms-backdrop'\)\.addEventListener/);
+  });
+  it('modal has a session_limit field + per-user usage area', () => {
+    assert.match(HTML, /id="ep-limit"\s+type="number"/);
+    assert.match(HTML, /id="ep-usage"/);
+  });
+  it('open prefills session_limit (empty = unlimited) + renders đã dùng/còn lại', () => {
+    assert.match(JS, /ep-limit'\)\.value = \(code\.session_limit == null\) \? '' : String\(code\.session_limit\)/);
+    assert.match(JS, /đã dùng[\s\S]*?q\.used/);
+    assert.match(JS, /\(còn \$\{rem\}\)/);
+  });
+  it('save validates session_limit as a positive integer or empty', () => {
+    assert.match(JS, /const session_limit = limitRaw === '' \? null : parseInt\(limitRaw, 10\)/);
+    assert.match(JS, /!Number\.isInteger\(session_limit\) \|\| session_limit < 1/);
   });
 });
 
