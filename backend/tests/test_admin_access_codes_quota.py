@@ -73,7 +73,7 @@ def _code(cid="c1", **kw):
 def test_quota_with_limit(monkeypatch):
     _install(monkeypatch, {
         "access_codes": [_code(session_limit=10)],
-        "user_code_assignments": [{"code_id": "c1", "user_id": "u1"}],
+        "user_code_assignments": [{"code_id": "c1", "user_id": "u1", "is_active": True}],
         "users": [{"id": "u1", "email": "a@x.com", "display_name": "A"}],
         "sessions": [{"user_id": "u1"}, {"user_id": "u1"}, {"user_id": "u1"}],  # 3 sessions
     })
@@ -86,7 +86,7 @@ def test_quota_with_limit(monkeypatch):
 def test_quota_unlimited_when_session_limit_null(monkeypatch):
     _install(monkeypatch, {
         "access_codes": [_code(session_limit=None)],
-        "user_code_assignments": [{"code_id": "c1", "user_id": "u1"}],
+        "user_code_assignments": [{"code_id": "c1", "user_id": "u1", "is_active": True}],
         "users": [{"id": "u1", "email": "a@x.com", "display_name": "A"}],
         "sessions": [{"user_id": "u1"}],
     })
@@ -99,7 +99,7 @@ def test_quota_unlimited_when_session_limit_null(monkeypatch):
 def test_quota_zero_remaining_clamped(monkeypatch):
     _install(monkeypatch, {
         "access_codes": [_code(session_limit=2)],
-        "user_code_assignments": [{"code_id": "c1", "user_id": "u1"}],
+        "user_code_assignments": [{"code_id": "c1", "user_id": "u1", "is_active": True}],
         "users": [{"id": "u1", "email": "a@x.com", "display_name": "A"}],
         "sessions": [{"user_id": "u1"}] * 5,  # over the limit
     })
@@ -111,8 +111,8 @@ def test_quota_zero_remaining_clamped(monkeypatch):
 def test_sessions_queried_once_no_n_plus_1(monkeypatch):
     calls = _install(monkeypatch, {
         "access_codes": [_code("c1"), _code("c2", code="BBB-222")],
-        "user_code_assignments": [{"code_id": "c1", "user_id": "u1"},
-                                  {"code_id": "c2", "user_id": "u2"}],
+        "user_code_assignments": [{"code_id": "c1", "user_id": "u1", "is_active": True},
+                                  {"code_id": "c2", "user_id": "u2", "is_active": True}],
         "users": [{"id": "u1", "email": "a@x.com", "display_name": "A"},
                   {"id": "u2", "email": "b@x.com", "display_name": "B"}],
         "sessions": [{"user_id": "u1"}, {"user_id": "u2"}, {"user_id": "u2"}],
@@ -122,6 +122,39 @@ def test_sessions_queried_once_no_n_plus_1(monkeypatch):
     by_code = {c["code"]: c for c in out}
     assert by_code["AAA-111"]["assigned_users"][0]["quota"]["used"] == 1
     assert by_code["BBB-222"]["assigned_users"][0]["quota"]["used"] == 2
+
+
+def test_removed_user_not_resynthesized_as_legacy_redeemer(monkeypatch):
+    """After per-user revoke, the code has only an INACTIVE assignment for the
+    redeemer (used_by). The list must NOT re-show them as the owner — they were
+    deliberately removed and (post #442) have no access. assigned_users empty.
+    """
+    _install(monkeypatch, {
+        "access_codes": [_code("c1", used_by="u1", is_used=True)],
+        "user_code_assignments": [{"code_id": "c1", "user_id": "u1", "is_active": False}],
+        "users": [{"id": "u1", "email": "a@x.com", "display_name": "A"}],
+        "sessions": [],
+    })
+    out = _run(admin_module.list_access_codes(authorization="Bearer x"))
+    assert out[0]["assigned_user_count"] == 0
+    assert out[0]["assigned_users"] == []
+
+
+def test_true_legacy_usedby_still_synthesized(monkeypatch):
+    """A real legacy code — used_by set, NO assignment row at all — still shows
+    the redeemer as a non-removable fallback entry."""
+    _install(monkeypatch, {
+        "access_codes": [_code("c1", used_by="u9", is_used=True)],
+        "user_code_assignments": [],  # no row at all
+        "users": [{"id": "u9", "email": "legacy@x.com", "display_name": "L"}],
+        "sessions": [],
+    })
+    out = _run(admin_module.list_access_codes(authorization="Bearer x"))
+    au = out[0]["assigned_users"]
+    assert len(au) == 1
+    assert au[0]["is_fallback_used_by"] is True
+    assert au[0]["removable"] is False
+    assert au[0]["email"] == "legacy@x.com"
 
 
 def test_admin_guard_invoked(monkeypatch):

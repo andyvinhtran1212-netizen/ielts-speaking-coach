@@ -62,7 +62,7 @@ function assignedCell(c) {
     // assignment to deactivate. Calls DELETE /access-codes/{id}/users/{uid},
     // which (post read-path fix) cuts the user's access immediately.
     const remove = u.removable
-      ? ` <button class="ac-link ac-link-danger" data-action="remove-user" data-code="${c.id}" data-user="${esc(u.user_id)}">Gỡ</button>`
+      ? ` <button class="ac-link ac-link-danger" data-action="remove-user" data-code="${c.id}" data-user="${esc(u.user_id)}" data-email="${esc(u.email || '')}">Gỡ</button>`
       : '';
     return `<div class="ac-user">${email}${qHtml}${reassign}${remove}</div>`;
   }).join('');
@@ -289,16 +289,20 @@ async function revokeCode(codeId) {
 // Per-user revoke: deactivate one user's assignment to a code. The user loses
 // access immediately (read-path fix #442 suppresses the legacy used_by
 // fallback once an assignment row exists). Never clears used_by/is_used.
-async function removeUser(codeId, userId) {
-  if (!confirm('Gỡ người dùng này khỏi mã? Họ sẽ mất quyền truy cập ngay.')) return;
+async function removeUser(codeId, userId, email) {
+  const who = email || 'người dùng này';
+  if (!confirm('Gỡ ' + who + ' khỏi mã? Họ sẽ mất quyền truy cập ngay.')) return;
   try {
     await api.delete(
       '/admin/access-codes/' + codeId + '/users/' + encodeURIComponent(userId),
     );
-    showBanner('Đã gỡ người dùng khỏi mã. Quyền truy cập bị thu hồi ngay.', 'success');
+    // The list endpoint no longer re-synthesizes a removed user as a legacy
+    // redeemer (admin.py fallback fix), so loadCodes() drops them from the
+    // active list — making the removal visible, not just the loss of a link.
+    showBanner('Đã gỡ ' + who + ' khỏi mã. Quyền truy cập bị thu hồi ngay.', 'success');
     await loadCodes();
   } catch (err) {
-    showBanner('Không gỡ được người dùng: ' + (err.message || err), 'error');
+    showBanner('Không gỡ được ' + who + ': ' + (err.message || err), 'error');
   }
 }
 
@@ -388,7 +392,7 @@ function bind() {
     if (btn.dataset.action === 'revoke') revokeCode(btn.dataset.id);
     if (btn.dataset.action === 'refill') refillCode(btn.dataset.id);
     if (btn.dataset.action === 'reassign') openReassign(btn.dataset.code, btn.dataset.user);
-    if (btn.dataset.action === 'remove-user') removeUser(btn.dataset.code, btn.dataset.user);
+    if (btn.dataset.action === 'remove-user') removeUser(btn.dataset.code, btn.dataset.user, btn.dataset.email);
   });
   // Sprint 17.5 — reassign modal.
   $('btn-ra-cancel').addEventListener('click', closeReassign);

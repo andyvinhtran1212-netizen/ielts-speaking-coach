@@ -833,30 +833,47 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
 
     code_ids = [c["id"] for c in codes]
 
-    # Fetch active assignments (user_id + code_id) in one query; derive count + identity.
-    code_user_ids: dict[str, list[str]] = {}  # code_id → [user_id, ...]
+    # Fetch ALL assignments (active + inactive) in one query; derive count +
+    # identity from the active ones, and record every (code_id, user_id) pair so
+    # the legacy used_by fallback below can tell a deliberately-removed user
+    # (inactive row) apart from a true legacy redeemer (no row at all).
+    code_user_ids: dict[str, list[str]] = {}      # code_id → [active user_id, ...]
+    code_any_assignment: dict[str, set] = {}      # code_id → {user_id with ANY row}
     try:
         asgn_res = (
             supabase_admin.table("user_code_assignments")
-            .select("code_id, user_id")
+            .select("code_id, user_id, is_active")
             .in_("code_id", code_ids)
-            .eq("is_active", True)
             .execute()
         )
         for row in (asgn_res.data or []):
             cid = row["code_id"]
-            code_user_ids.setdefault(cid, []).append(row["user_id"])
+            code_any_assignment.setdefault(cid, set()).add(row["user_id"])
+            if row.get("is_active"):
+                code_user_ids.setdefault(cid, []).append(row["user_id"])
     except Exception as exc:
         logger.warning("list_access_codes: assignment lookup failed: %s", exc)
         for c in codes:
             c["association_lookup_failed"] = True
         return codes
 
-    # Fallback: codes with used_by set but no active assignment rows (pre-migration data).
+    # Fallback: a TRUE legacy code — used_by set but the redeemer has NO
+    # assignment row at all. We must NOT synthesize the redeemer when an INACTIVE
+    # row exists: that means the admin deliberately removed them (per-user
+    # revoke), and post read-path fix #442 they no longer have access. Re-showing
+    # them as the "owner" made remove-user look like a no-op (they reappeared as
+    # a non-removable redeemer). Mirrors #442: an assignment row, even inactive,
+    # is authoritative over the immutable used_by marker.
     fallback_uid: dict[str, str] = {}  # code_id → used_by user_id
     for c in codes:
-        if not code_user_ids.get(c["id"]) and c.get("is_used") and c.get("used_by"):
-            fallback_uid[c["id"]] = c["used_by"]
+        ub = c.get("used_by")
+        if (
+            not code_user_ids.get(c["id"])
+            and c.get("is_used")
+            and ub
+            and ub not in code_any_assignment.get(c["id"], set())
+        ):
+            fallback_uid[c["id"]] = ub
 
     # Single users lookup covering both assignment UIDs and fallback UIDs.
     user_info: dict[str, dict] = {}

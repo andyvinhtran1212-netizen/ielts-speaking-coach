@@ -147,6 +147,11 @@ describe('Mã kích hoạt PR2 — per-user revoke button + toast', () => {
   it('per-user revoke shows a success toast on success', () => {
     assert.match(JS, /removeUser[\s\S]*?showBanner\([^,]+,\s*['"]success['"]\)/);
   });
+  it('remove button carries the user email + toast names the user', () => {
+    assert.match(JS, /data-action="remove-user"[\s\S]*?data-email="\$\{esc\(u\.email/);
+    assert.match(JS, /function removeUser\(codeId, userId, email\)/);
+    assert.match(JS, /const who = email \|\| ['"]người dùng này['"]/);
+  });
   it('per-user revoke shows an error toast on failure', () => {
     assert.match(JS, /removeUser[\s\S]*?catch[\s\S]*?showBanner\([^,]+,\s*['"]error['"]\)/);
   });
