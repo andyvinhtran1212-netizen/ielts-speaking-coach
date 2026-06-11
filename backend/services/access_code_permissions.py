@@ -222,28 +222,41 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     """
     user_id_str = str(user_id)
     permissions: set[str] = set()
+    # Every code_id the user has ANY assignment row for — active OR inactive.
+    # The legacy `used_by` fallback below is gated on this: if an assignment row
+    # exists, the modern path is authoritative (an inactive row means the user
+    # was deliberately revoked), so `used_by` must not silently re-grant. Only a
+    # TRUE legacy code — used_by set with no assignment row at all — falls back.
+    assigned_code_ids: set = set()
     # Compute `now` once per request — anti-pattern #28 (TOCTOU) says
     # don't re-read the clock between the modern and legacy paths.
     now = datetime.now(timezone.utc)
 
     # ── Modern path: assignments → codes ─────────────────────────────
     try:
-        # Two queries (fetch active assignments, then fetch the codes by
-        # id) instead of a join. PostgREST supports nested selects but
+        # Two queries (fetch the user's assignments, then fetch the codes
+        # by id) instead of a join. PostgREST supports nested selects but
         # the column-name binding gets fragile — explicit two-step is
         # easier to debug and keeps schema coupling minimal.
+        #
+        # Fetch ALL assignment rows (no is_active filter) so we can both (a)
+        # grant via the ACTIVE ones and (b) record every assigned code_id to
+        # suppress the legacy `used_by` fallback for codes the user has any
+        # assignment to.
         assignments = (
             supabase_admin.table("user_code_assignments")
-            .select("code_id")
+            .select("code_id, is_active")
             .eq("user_id", user_id_str)
-            .eq("is_active", True)
             .execute()
         )
-        code_ids = [
-            row["code_id"]
-            for row in (assignments.data or [])
-            if row.get("code_id")
-        ]
+        code_ids: list = []
+        for row in (assignments.data or []):
+            cid = row.get("code_id")
+            if not cid:
+                continue
+            assigned_code_ids.add(cid)
+            if row.get("is_active"):
+                code_ids.append(cid)
         if code_ids:
             codes = (
                 supabase_admin.table("access_codes")
@@ -272,19 +285,30 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
         )
 
     # ── Legacy fallback: access_codes.used_by ────────────────────────
-    # The CLAUDE.md guidance: "Legacy codes: fallback is
-    # access_codes.used_by — synthesized when no active assignment row
-    # exists." We unconditionally union here (don't gate on whether the
-    # modern path returned anything) because a user can plausibly have
-    # one modern + one legacy code at once.
+    # CLAUDE.md / this function's own contract: the `used_by` fallback applies
+    # ONLY to codes where NO assignment row exists for the user — a TRUE legacy
+    # code (pre-Sprint W backfill left some outside user_code_assignments).
+    #
+    # The fallback used to union unconditionally, which broke per-user revoke:
+    # `remove_user_from_code` only flips `user_code_assignments.is_active=false`
+    # (it intentionally never clears the immutable `used_by`), so an
+    # unconditional `used_by` union kept granting after a revoke. Gating on
+    # `assigned_code_ids` makes the modern path authoritative whenever an
+    # assignment row exists (active → granted above; inactive → deliberately
+    # revoked → denied here).
     try:
         legacy = (
             supabase_admin.table("access_codes")
-            .select("permissions, is_revoked, is_active, expires_at")
+            .select("id, permissions, is_revoked, is_active, expires_at")
             .eq("used_by", user_id_str)
             .execute()
         )
         for row in legacy.data or []:
+            # Suppress the fallback for any code the user has an assignment row
+            # for (active or inactive) — that code is governed by the modern
+            # path, not by the immutable `used_by` redemption marker.
+            if row.get("id") in assigned_code_ids:
+                continue
             if row.get("is_revoked"):
                 continue
             if row.get("is_active") is False:
