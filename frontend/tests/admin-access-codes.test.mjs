@@ -133,6 +133,33 @@ describe('Sprint 12.2 — admin-access-codes.js controller', () => {
 });
 
 
+describe('Mã kích hoạt PR2 — per-user revoke button + toast', () => {
+  it('assignedCell renders a remove-user button for removable assignments', () => {
+    assert.match(JS, /data-action="remove-user"/);
+    assert.match(JS, /u\.removable[\s\S]*?data-action="remove-user"/);
+  });
+  it('removeUser calls DELETE /admin/access-codes/{id}/users/{uid}', () => {
+    assert.match(
+      JS,
+      /api\.delete\([\s\S]*?\/admin\/access-codes\/[\s\S]*?\/users\/[\s\S]*?encodeURIComponent\(userId\)/,
+    );
+  });
+  it('per-user revoke shows a success toast on success', () => {
+    assert.match(JS, /removeUser[\s\S]*?showBanner\([^,]+,\s*['"]success['"]\)/);
+  });
+  it('per-user revoke shows an error toast on failure', () => {
+    assert.match(JS, /removeUser[\s\S]*?catch[\s\S]*?showBanner\([^,]+,\s*['"]error['"]\)/);
+  });
+  it('remove-user action is wired into the table click delegation', () => {
+    assert.match(JS, /dataset\.action\s*===\s*['"]remove-user['"]\)\s*removeUser\(/);
+  });
+  it('per-code revoke still toasts both success and error', () => {
+    assert.match(JS, /revokeCode[\s\S]*?showBanner\('Đã thu hồi mã\.', 'success'\)/);
+    assert.match(JS, /revokeCode[\s\S]*?showBanner\('Không thu hồi được[\s\S]*?'error'\)/);
+  });
+});
+
+
 describe('Sprint 12.2 — empty + loading + status banner states', () => {
   it('loading state present by default', () => {
     assert.match(HTML, /id="codes-loading"[^>]*>Đang tải/);
