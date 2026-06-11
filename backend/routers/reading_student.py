@@ -518,7 +518,10 @@ def _require_test_unlocked(test: dict, password: str | None) -> None:
     if not access.get("locked"):
         return
     expected = access.get("password")
-    if not expected or not password or str(password).strip() != str(expected):
+    # F1 — constant-time comparison (avoid a timing side channel on the lock
+    # password). compare_digest only runs once both are non-empty strings.
+    if (not expected or not password
+            or not secrets.compare_digest(str(password).strip(), str(expected))):
         raise HTTPException(403, "Bài thi đang khoá — cần nhập đúng mật khẩu để truy cập.")
 
 
