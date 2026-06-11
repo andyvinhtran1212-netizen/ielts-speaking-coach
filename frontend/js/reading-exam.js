@@ -374,6 +374,13 @@
       : '?';
     $('prestart-meta').textContent =
       pCount + ' parts · ' + qCount + ' questions · ' + minutes + ' minutes';
+    // Reading mini test — the rule line must reflect the REAL shape (a mini has
+    // 1 passage / fewer questions), not a hard-coded "3 đoạn và 40 câu hỏi".
+    var ruleNav = $('prestart-rule-nav');
+    if (ruleNav) {
+      ruleNav.textContent =
+        'Bạn có thể di chuyển tự do giữa ' + pCount + ' đoạn và ' + qCount + ' câu hỏi.';
+    }
     $('exam-test-label').textContent = test.title || 'Reading Test';
   }
 
@@ -1881,8 +1888,18 @@
     $('results-score').textContent = (result.score != null ? result.score : '—') + '/' + maxDisplay;
     $('results-band').textContent = result.band_estimate != null ? ('Band ' + result.band_estimate) : 'Band —';
 
+    // Reading mini test — iterate the parts that ACTUALLY exist in by_part
+    // (sorted), not a hard-coded p1/p2/p3. A mini yields only {p1}; this also
+    // future-proofs any N-passage test. The grader emits keys p1..pN dynamically.
     var byPartHost = $('results-by-part'); byPartHost.innerHTML = '';
-    ['p1', 'p2', 'p3'].forEach(function (key) {
+    var partKeys = Object.keys(result.by_part || {}).sort(function (a, b) {
+      return (parseInt(a.slice(1), 10) || 0) - (parseInt(b.slice(1), 10) || 0);
+    });
+    var byPartTitle = $('results-by-part-title');
+    if (byPartTitle) {
+      byPartTitle.textContent = 'Theo đoạn (' + partKeys.length + ' parts)';
+    }
+    partKeys.forEach(function (key) {
       var row = (result.by_part || {})[key];
       if (!row) return;
       var cell = document.createElement('div');

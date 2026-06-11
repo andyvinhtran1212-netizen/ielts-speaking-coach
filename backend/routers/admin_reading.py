@@ -325,6 +325,7 @@ async def import_reading_test_bundle(
     solution_file: UploadFile = File(...),
     dry_run: bool = Query(default=True),
     published: bool = Query(default=False),
+    mini: bool = Query(default=False),
     authorization: str | None = Header(None),
 ):
     """reading-rich-test-solution (Part A) — import a TEST + SOLUTION markdown
@@ -353,7 +354,12 @@ async def import_reading_test_bundle(
             "committed_id":      None,
             "action":            None,
         }
-    result = await _commit_l3_parsed(parsed, dry_run, admin)
+    # Reading mini test — the toggle flags this test as 'mini' (1-passage) vs
+    # 'full' in reading_tests.metadata.test_type, the field the student list
+    # endpoint segregates on. The prose pipeline is otherwise identical.
+    result = await _commit_l3_parsed(
+        parsed, dry_run, admin, test_type=("mini" if mini else "full"),
+    )
     # bundle-import-ui — surface what the prose parse extracted so the admin
     # dry-run preview can confirm fidelity (translation + IMG-PROMPT + rich
     # solution aren't in the generic as_preview()).
@@ -439,7 +445,7 @@ async def _import_l3_full_test(text: str, dry_run: bool, admin: dict) -> dict:
     return await _commit_l3_parsed(parse_reading_test(text), dry_run, admin)
 
 
-async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict) -> dict:
+async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict, test_type: str | None = None) -> dict:
     """Commit a pre-parsed ParsedReadingTest. Shared by the strict-YAML import
     (_import_l3_full_test) and the reading-rich-test-solution prose-bundle
     import, so both go through the SAME idempotent test_id/slug upsert +
@@ -481,6 +487,22 @@ async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict) -> dict:
             test_uuid = r.data[0]["id"]
             result["action"] = "created"
         result["committed_id"] = test_uuid
+
+        # Reading mini test — stamp metadata.test_type ('mini'|'full') WITHOUT
+        # clobbering other metadata keys (access lock / share live here too).
+        # test_row (plan) has no metadata key, so the upsert above left existing
+        # metadata intact; we read-merge-write just this one field. test_type is
+        # None for YAML imports (back-compat) → metadata untouched.
+        if test_type is not None:
+            cur = (
+                supabase_admin.table("reading_tests")
+                .select("metadata").eq("id", test_uuid).limit(1).execute()
+            )
+            md = dict((cur.data[0].get("metadata") if cur.data else None) or {})
+            md["test_type"] = test_type
+            supabase_admin.table("reading_tests").update({"metadata": md}).eq(
+                "id", test_uuid
+            ).execute()
 
         # 2a) Sprint 20.9 D1 — RECONCILE removed passages. List the passages
         #     currently attached to this test, compare with the incoming slugs,

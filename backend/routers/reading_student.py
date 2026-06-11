@@ -706,15 +706,27 @@ def _fetch_in_progress_payload(
 @router.get("/test")
 async def list_reading_tests(
     module: str | None = Query(default=None),
+    test_type: str | None = Query(default=None),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
 ):
-    """List published L3 full tests for the browse page. Returns card-shaped
-    metadata only — passage bodies + questions live behind GET .../{test_id}."""
+    """List published L3 tests for the browse page. Returns card-shaped metadata
+    only — passage bodies + questions live behind GET .../{test_id}.
+
+    test_type segregates the FULL-test and MINI-test libraries (Reading mini
+    test). It reads reading_tests.metadata->>test_type:
+      - "mini" → ONLY mini tests.
+      - "full" or omitted (default) → EXCLUDE mini. Legacy tests predate
+        test_type (value IS NULL) and are full, so the filter must be
+        `IS NULL OR != 'mini'` — a plain `!= 'mini'` would wrongly drop them.
+    A mini is just a full test the admin flagged at import; the rest of the
+    pipeline (passages/questions/grader) is identical."""
     await _require_auth(authorization)
     if module is not None and module not in _READING_MODULES:
         raise HTTPException(422, f"module must be one of {sorted(_READING_MODULES)}")
+    if test_type is not None and test_type not in ("mini", "full"):
+        raise HTTPException(422, "test_type must be 'mini' or 'full'")
 
     q = (
         supabase_admin.table("reading_tests")
@@ -727,6 +739,12 @@ async def list_reading_tests(
     )
     if module:
         q = q.eq("module", module)
+    if test_type == "mini":
+        q = q.eq("metadata->>test_type", "mini")
+    else:
+        # full (default): everything NOT a mini, INCLUDING legacy tests with no
+        # test_type (metadata->>test_type IS NULL).
+        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.neq.mini")
     res = q.execute()
     return {
         "items":  res.data or [],

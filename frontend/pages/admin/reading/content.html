@@ -87,6 +87,13 @@
           </label>
           <span id="ar-bundle-solution-name" class="ar-bundle__name" aria-live="polite"></span>
         </div>
+        <!-- Reading mini test — flag a 1-passage bundle as a Mini test. Same MD
+             format + pipeline; only sets reading_tests.metadata.test_type='mini'
+             so it lists under the student "Mini Tests" tab instead of Full Tests. -->
+        <label class="ar-bundle__mini">
+          <input id="ar-bundle-mini" type="checkbox" />
+          Đây là <strong>Mini test</strong> (1 đoạn văn) — hiện ở tab “Mini Tests”
+        </label>
       </div>
 
       <div id="ar-status" class="ar-status" hidden></div>

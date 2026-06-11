@@ -206,5 +206,6 @@ jobs:
             frontend/tests/reading-sharelink-url-fix.test.mjs \
             frontend/tests/reading-attempts-dashboard.test.mjs \
             frontend/tests/reading-l1l2-grammar-toggle.test.mjs \
+            frontend/tests/reading-mini-test.test.mjs \
             frontend/tests/listening-review-ui.test.mjs \
             frontend/tests/site-overview-coverage.test.mjs
