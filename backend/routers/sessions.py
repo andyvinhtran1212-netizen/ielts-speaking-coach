@@ -12,6 +12,10 @@ from pydantic import BaseModel, field_validator
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.access_code_permissions import (
+    get_user_access_code_permissions_cached,
+    has_permission,
+)
 from services.retention import compute_expiry, content_purge_cutoff, should_touch
 
 logger = logging.getLogger(__name__)
@@ -197,25 +201,25 @@ class FinalizeFullTestBody(BaseModel):
 # ── Shared guards ─────────────────────────────────────────────────────────────
 
 def _require_permission(user_id: str, mode: str) -> None:
-    """Assert user holds the scope required for the requested session mode."""
+    """Assert user holds the scope required for the requested session mode.
+
+    PR1 single-source: read the LIVE access-code permissions instead of the
+    users.permissions snapshot, so a revoke / access-change is instant. The
+    live query honors access_codes.is_revoked/is_active/expires_at AND
+    user_code_assignments.is_active (per-user revoke). has_permission honors the
+    "all" wildcard (ADMIN_OVERRIDE_PERMISSION="all"), so a live ["all"] code
+    keeps all modes.
+    """
     required = _MODE_SCOPE.get(mode)
     if not required:
         return  # unknown mode — field_validator above will reject it first
 
     try:
-        r = (
-            supabase_admin.table("users")
-            .select("permissions")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
+        perms = get_user_access_code_permissions_cached(user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quyền: {e}")
 
-    perms: list = (r.data[0].get("permissions") or []) if r.data else []
-
-    if "all" in perms or required in perms:
+    if has_permission(perms, required):
         return
 
     raise HTTPException(
