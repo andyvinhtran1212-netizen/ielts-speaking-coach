@@ -28,6 +28,31 @@ describe('P0-5 FE — api.js coerces a dict detail → message (contract safety 
 });
 
 
+describe('Mã kích hoạt FE — api.js must not res.json() a 204/empty body', () => {
+  const api = read('frontend/js/api.js');
+  test('helper guards 204 + empty text instead of blindly calling response.json()', () => {
+    assert.match(api, /if \(response\.status === 204\) return null/);
+    assert.match(api, /await response\.text\(\)/);
+    assert.match(api, /text \? JSON\.parse\(text\) : null/);
+    // The old blind tail (`return response.json();`) must be gone.
+    assert.ok(!/\n\s*return response\.json\(\);/.test(api),
+      'the unconditional return response.json() tail must be replaced');
+  });
+  test('parse tail returns null on 204/empty, object on JSON (real value)', async () => {
+    // Mirror the exact tail of _apiRequest.
+    const tail = async (response) => {
+      if (response.status === 204) return null;
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    };
+    const mk = (status, body) => ({ status, text: async () => body });
+    assert.equal(await tail(mk(204, '')), null);   // DELETE revoke / remove-user
+    assert.equal(await tail(mk(200, '')), null);   // empty 200
+    assert.deepEqual(await tail(mk(200, '{"ok":true}')), { ok: true });  // normal JSON
+  });
+});
+
+
 describe('P0-5 FE — grammar.js (raw fetch) reads detail.message, no [object Object]', () => {
   const js = read('frontend/js/grammar.js');
   const fn = js.slice(js.indexOf('function fetchGrammarAPI'), js.indexOf('return res.json();'));
