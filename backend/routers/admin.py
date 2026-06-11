@@ -75,6 +75,40 @@ async def require_admin(authorization: str | None) -> dict:
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+def _actor_id(admin) -> str | None:
+    """The admin's user id from the auth context (require_admin's return) — NEVER
+    from the request body, so the actor can't be spoofed."""
+    return admin.get("id") if isinstance(admin, dict) else None
+
+
+def _audit_entitlement(
+    actor_user_id: str | None,
+    action: str,
+    code_id: str | None,
+    *,
+    target_user_id: str | None = None,
+    before: dict | None = None,
+    after: dict | None = None,
+) -> None:
+    """Append one row to access_code_audit. BEST-EFFORT: never raises — a logging
+    failure must not break the entitlement action it records (the action has
+    already happened by the time this is called)."""
+    try:
+        supabase_admin.table("access_code_audit").insert({
+            "actor_user_id":  actor_user_id,
+            "action":         action,
+            "code_id":        code_id,
+            "target_user_id": target_user_id,
+            "before":         before,
+            "after":          after,
+        }).execute()
+    except Exception as exc:
+        logger.warning(
+            "access_code_audit insert failed (action=%s code=%s): %s",
+            action, code_id, exc,
+        )
+
+
 def _gen_code() -> str:
     """Generate a random access code in the format XXXX-XXXX."""
     chars = string.ascii_uppercase + string.digits
@@ -770,7 +804,7 @@ async def generate_access_codes(
     authorization: str | None = Header(default=None),
 ):
     """Generate N new unused access codes and persist them."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     # Sprint 5.2 — fail loudly on typo'd permission strings instead of
     # silently inserting a code that grants nothing-and-no-one. Allowed
@@ -804,6 +838,17 @@ async def generate_access_codes(
         result = supabase_admin.table("access_codes").insert(rows).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tạo access codes: {exc}")
+
+    actor = _actor_id(admin)
+    for row in (result.data or []):
+        _audit_entitlement(actor, "create", row.get("id"), after={
+            "code":          row.get("code"),
+            "permissions":   row.get("permissions"),
+            "session_limit": row.get("session_limit"),
+            "expires_at":    row.get("expires_at"),
+            "code_type":     row.get("code_type"),
+            "cohort_id":     row.get("cohort_id"),
+        })
 
     return {"created": len(result.data or rows), "codes": codes}
 
@@ -1239,7 +1284,7 @@ async def patch_access_code(
     authorization: str | None = Header(default=None),
 ):
     """Update permissions on an existing access code."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     # Sprint 5.2 — same allowlist guard as the generate endpoint.
     if "permissions" in body.model_fields_set and body.permissions is not None:
@@ -1280,6 +1325,22 @@ async def patch_access_code(
     if not update:
         raise HTTPException(400, "Không có trường nào để cập nhật")
 
+    # Snapshot the BEFORE-state of ONLY the fields being changed (for the audit
+    # diff) — fetched before the write, best-effort.
+    before: dict = {}
+    try:
+        cur = (
+            supabase_admin.table("access_codes")
+            .select(", ".join(update.keys()))
+            .eq("id", code_id)
+            .limit(1)
+            .execute()
+        )
+        if cur.data:
+            before = {k: cur.data[0].get(k) for k in update}
+    except Exception:
+        before = {}
+
     try:
         res = (
             supabase_admin.table("access_codes")
@@ -1293,6 +1354,7 @@ async def patch_access_code(
     if not res.data:
         raise HTTPException(404, "Access code không tồn tại")
 
+    _audit_entitlement(_actor_id(admin), "edit", code_id, before=before, after=update)
     return res.data[0]
 
 
@@ -1309,7 +1371,7 @@ async def delete_access_code(
     Blocked if any active user assignments exist — admin must remove all users first.
     Sets is_revoked=true on the code (preserving audit trail).
     """
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     # Fetch the code first
     try:
@@ -1355,6 +1417,12 @@ async def delete_access_code(
         supabase_admin.table("access_codes").update({"is_revoked": True, "is_active": False}).eq("id", code_id).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi thu hồi access code: {exc}")
+
+    _audit_entitlement(
+        _actor_id(admin), "revoke", code_id,
+        before={"is_revoked": bool(row.get("is_revoked"))},
+        after={"is_revoked": True, "is_active": False},
+    )
 
 
 # ── GET /admin/access-codes/{code_id} ─────────────────────────────────────────
@@ -1455,7 +1523,7 @@ async def remove_user_from_code(
     Deactivate a user's assignment to a code.
     Never deletes session history. Does NOT deactivate the user account.
     """
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     try:
         res = (
@@ -1473,6 +1541,11 @@ async def remove_user_from_code(
         raise HTTPException(404, "Không tìm thấy assignment này")
     # access_codes.used_by / used_at / is_used are intentionally NOT cleared here.
     # Redemption history must remain immutable so the code cannot be reused.
+    _audit_entitlement(
+        _actor_id(admin), "remove_user", code_id,
+        target_user_id=user_id,
+        before={"is_active": True}, after={"is_active": False},
+    )
 
 
 # ── Sprint 17.5 — reassignment / refill (Direction E) ────────────────────────────
@@ -1565,6 +1638,12 @@ async def reassign_code(code_id: str, body: ReassignRequest,
         "is_active": False, "revoked_at": _now_iso(), "assigned_by": admin_id, "reason": body.reason,
     }).eq("code_id", code_id).eq("user_id", body.from_user_id).eq("is_active", True).execute()
 
+    _audit_entitlement(
+        admin_id, "reassign", code_id,
+        target_user_id=body.to_user_id,
+        before={"assigned_user": body.from_user_id},
+        after={"assigned_user": body.to_user_id},
+    )
     return {"ok": True, "code_id": code_id,
             "from_user_id": body.from_user_id, "to_user_id": body.to_user_id}
 
@@ -1593,6 +1672,17 @@ async def refill_code(code_id: str, body: RefillRequest,
         permissions=src.get("permissions"), session_limit=src.get("session_limit"),
         expires_at=src.get("expires_at"),
     )
+    # Audit both the refill on the source code and the creation of the new code.
+    _audit_entitlement(
+        admin_id, "refill", code_id, target_user_id=target,
+        after={"new_code_id": new_code.get("id"), "new_code": new_code.get("code")},
+    )
+    _audit_entitlement(
+        admin_id, "create", new_code.get("id"), target_user_id=target,
+        after={"permissions": new_code.get("permissions"),
+               "session_limit": new_code.get("session_limit"),
+               "via": "refill", "source_code_id": code_id},
+    )
     return {"ok": True, "user_id": target,
             "new_code": new_code.get("code"), "new_code_id": new_code.get("id")}
 
@@ -1609,13 +1699,13 @@ async def hard_delete_access_code(
     Blocked if any active user assignments exist.
     Cascades to delete all assignments for this code first (since no active ones exist).
     """
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
-    # Verify code exists
+    # Verify code exists (and snapshot a little config for the audit before-state)
     try:
         code_res = (
             supabase_admin.table("access_codes")
-            .select("id")
+            .select("id, code, permissions, session_limit")
             .eq("id", code_id)
             .limit(1)
             .execute()
@@ -1657,6 +1747,41 @@ async def hard_delete_access_code(
         supabase_admin.table("access_codes").delete().eq("id", code_id).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi xóa access code: {exc}")
+
+    # The audit row OUTLIVES the code (code_id has no FK), so the deletion is
+    # recorded with what was removed.
+    _snap = code_res.data[0]
+    _audit_entitlement(
+        _actor_id(admin), "hard_delete", code_id,
+        before={"code": _snap.get("code"), "permissions": _snap.get("permissions"),
+                "session_limit": _snap.get("session_limit")},
+        after=None,
+    )
+
+
+# ── GET /admin/access-codes/{code_id}/audit ──────────────────────────────────
+
+@router.get("/access-codes/{code_id}/audit")
+async def get_access_code_audit(
+    code_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Read-only entitlement-edit history for one code (admin), newest first.
+    Records who changed what and when: create / edit / revoke / remove_user /
+    reassign / refill / hard_delete."""
+    await require_admin(authorization)
+    try:
+        res = (
+            supabase_admin.table("access_code_audit")
+            .select("id, actor_user_id, action, code_id, target_user_id, before, after, created_at")
+            .eq("code_id", code_id)
+            .order("created_at", desc=True)
+            .limit(200)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải lịch sử chỉnh sửa: {exc}")
+    return res.data or []
 
 
 # ── GET /admin/topics ──────────────────────────────────────────────────────────
