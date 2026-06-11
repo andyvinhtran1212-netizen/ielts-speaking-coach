@@ -165,6 +165,36 @@ describe('Mã kích hoạt PR2 — per-user revoke button + toast', () => {
 });
 
 
+describe('Mã kích hoạt — per-code "Sửa quyền" (replaces reassign)', () => {
+  it('actions column renders a per-code Sửa quyền button carrying current perms', () => {
+    assert.match(JS, /data-action="edit-perms"[\s\S]*?data-perms="\$\{permsAttr\}"/);
+    assert.match(JS, /const permsAttr = esc\(JSON\.stringify\(c\.permissions/);
+  });
+  it('edit-perms modal exists with the permission checklist + per-code notice', () => {
+    assert.match(HTML, /id="editperms-backdrop"/);
+    assert.match(HTML, /id="ep-perms"/);
+    assert.match(HTML, /class="ep-notice"/);
+    // The notice must state the change applies to ALL users of the code.
+    assert.match(HTML, /TẤT CẢ người dùng của mã/);
+  });
+  it('modal pre-checks the code current permissions on open', () => {
+    assert.match(JS, /function openEditPerms\(codeId, code, permsJson\)/);
+    assert.match(JS, /#ep-perms input\[type="checkbox"\][\s\S]*?cb\.checked = current\.includes\(cb\.value\)/);
+  });
+  it('save PATCHes only the permissions array (not used_*/session_limit)', () => {
+    assert.match(JS, /api\.patch\('\/admin\/access-codes\/'\s*\+\s*_editPermsCtx\.codeId,\s*\{\s*permissions\s*\}\)/);
+    assert.doesNotMatch(JS, /api\.patch[\s\S]*?session_limit/);
+  });
+  it('requires at least one permission before saving', () => {
+    assert.match(JS, /if \(!permissions\.length\)[\s\S]*?Phải chọn ít nhất một quyền/);
+  });
+  it('edit-perms modal cancel + backdrop wired', () => {
+    assert.match(JS, /btn-ep-cancel'\)\.addEventListener\('click', closeEditPerms\)/);
+    assert.match(JS, /editperms-backdrop'\)\.addEventListener/);
+  });
+});
+
+
 describe('Sprint 12.2 — empty + loading + status banner states', () => {
   it('loading state present by default', () => {
     assert.match(HTML, /id="codes-loading"[^>]*>Đang tải/);

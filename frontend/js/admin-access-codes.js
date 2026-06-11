@@ -53,18 +53,16 @@ function assignedCell(c) {
     const email = u.email ? esc(u.email) : '(không rõ)';
     const q = quotaLabel(u.quota);
     const qHtml = q ? ` <span class="ac-quota">${esc(q)}</span>` : '';
-    // Sprint 17.5 — reassign only for a real active assignment (removable).
-    const reassign = u.removable
-      ? ` <button class="ac-link" data-action="reassign" data-code="${c.id}" data-user="${esc(u.user_id)}">Đổi</button>`
-      : '';
     // Per-user revoke: deactivate this user's assignment. Only for a real
     // active assignment (removable) — a legacy used_by fallback row has no
     // assignment to deactivate. Calls DELETE /access-codes/{id}/users/{uid},
     // which (post read-path fix) cuts the user's access immediately.
+    // (The old per-user "Đổi"/reassign button was dropped — permissions are now
+    // edited per-code via the "Sửa quyền" action in the actions column.)
     const remove = u.removable
       ? ` <button class="ac-link ac-link-danger" data-action="remove-user" data-code="${c.id}" data-user="${esc(u.user_id)}" data-email="${esc(u.email || '')}">Gỡ</button>`
       : '';
-    return `<div class="ac-user">${email}${qHtml}${reassign}${remove}</div>`;
+    return `<div class="ac-user">${email}${qHtml}${remove}</div>`;
   }).join('');
 }
 
@@ -137,6 +135,13 @@ function renderTable() {
     const refillBtn = (c.is_revoked || c.is_active === false)
       ? ''
       : `<button class="adm-btn-secondary adm-btn-sm" data-action="refill" data-id="${c.id}">Cấp mã mới</button>`;
+    // Sửa quyền (per-code): edit this code's permissions array. Applies to ALL
+    // users of the code; propagates live (PATCH code.permissions, read by every
+    // gate since #441/#442). Carries the current perms so the modal pre-checks.
+    const permsAttr = esc(JSON.stringify(c.permissions || []));
+    const editPermsBtn = (c.is_revoked || c.is_active === false)
+      ? ''
+      : `<button class="adm-btn-secondary adm-btn-sm" data-action="edit-perms" data-id="${c.id}" data-code="${esc(c.code)}" data-perms="${permsAttr}">Sửa quyền</button>`;
     return `
       <tr>
         <td class="code-cell">${c.code}</td>
@@ -148,7 +153,7 @@ function renderTable() {
         <td>${expires}</td>
         <td>${created}</td>
         <td>${fmt(c.notes)}</td>
-        <td><div class="adm-action-group">${usageLink}${refillBtn}${revokeBtn}</div></td>
+        <td><div class="adm-action-group">${usageLink}${editPermsBtn}${refillBtn}${revokeBtn}</div></td>
       </tr>
     `;
   }).join('');
@@ -306,41 +311,52 @@ async function removeUser(codeId, userId, email) {
   }
 }
 
-// ── Sprint 17.5 — reassign + refill ─────────────────────────────────────────
+// ── Sửa quyền (per-code) + refill ───────────────────────────────────────────
+// Replaces the Sprint 17.5 per-user reassign ("Đổi"). Andy: reassign not needed
+// — admins edit the code's permissions instead, which apply to ALL users of the
+// code and propagate live (PATCH code.permissions, read by every gate post
+// #441/#442). Never touches used_*/session_limit — permissions array only.
 
-let _reassignCtx = null;  // { codeId, fromUserId }
+let _editPermsCtx = null;  // { codeId, code }
 
-function openReassign(codeId, fromUserId) {
-  _reassignCtx = { codeId, fromUserId };
-  $('ra-error').hidden = true;
-  $('ra-to').value = '';
-  $('ra-reason').value = '';
-  $('reassign-backdrop').hidden = false;
+function openEditPerms(codeId, code, permsJson) {
+  let current = [];
+  try { current = JSON.parse(permsJson || '[]'); } catch (_e) { current = []; }
+  _editPermsCtx = { codeId, code };
+  $('ep-code-label').textContent = code || '';
+  $('ep-error').hidden = true;
+  // Pre-check the boxes to the code's current permissions.
+  document.querySelectorAll('#ep-perms input[type="checkbox"]').forEach((cb) => {
+    cb.checked = current.includes(cb.value);
+  });
+  $('editperms-backdrop').hidden = false;
 }
-function closeReassign() { $('reassign-backdrop').hidden = true; }
+function closeEditPerms() { $('editperms-backdrop').hidden = true; }
 
-async function submitReassign() {
-  const to_user_id = $('ra-to').value.trim();
-  if (!to_user_id) {
-    $('ra-error').textContent = 'Cần nhập user_id người nhận.';
-    $('ra-error').hidden = false;
+function _selectedEditPerms() {
+  return Array.from(document.querySelectorAll('#ep-perms input[type="checkbox"]:checked'))
+    .map((cb) => cb.value);
+}
+
+async function submitEditPerms() {
+  const permissions = _selectedEditPerms();
+  if (!permissions.length) {
+    $('ep-error').textContent = 'Phải chọn ít nhất một quyền.';
+    $('ep-error').hidden = false;
     return;
   }
-  $('btn-ra-submit').disabled = true;
+  $('btn-ep-submit').disabled = true;
   try {
-    await api.post('/admin/access-codes/' + _reassignCtx.codeId + '/reassign', {
-      from_user_id: _reassignCtx.fromUserId,
-      to_user_id,
-      reason: $('ra-reason').value.trim() || null,
-    });
-    closeReassign();
-    showBanner('Đã đổi mã sang người dùng khác.', 'success');
+    await api.patch('/admin/access-codes/' + _editPermsCtx.codeId, { permissions });
+    closeEditPerms();
+    showBanner('Đã cập nhật quyền cho mã ' + (_editPermsCtx.code || '') +
+               '. Áp dụng cho tất cả người dùng của mã ngay.', 'success');
     await loadCodes();
   } catch (err) {
-    $('ra-error').textContent = 'Không đổi được: ' + (err.message || err);
-    $('ra-error').hidden = false;
+    $('ep-error').textContent = 'Không lưu được quyền: ' + (err.message || err);
+    $('ep-error').hidden = false;
   } finally {
-    $('btn-ra-submit').disabled = false;
+    $('btn-ep-submit').disabled = false;
   }
 }
 
@@ -391,14 +407,14 @@ function bind() {
     if (!btn) return;
     if (btn.dataset.action === 'revoke') revokeCode(btn.dataset.id);
     if (btn.dataset.action === 'refill') refillCode(btn.dataset.id);
-    if (btn.dataset.action === 'reassign') openReassign(btn.dataset.code, btn.dataset.user);
+    if (btn.dataset.action === 'edit-perms') openEditPerms(btn.dataset.id, btn.dataset.code, btn.dataset.perms);
     if (btn.dataset.action === 'remove-user') removeUser(btn.dataset.code, btn.dataset.user, btn.dataset.email);
   });
-  // Sprint 17.5 — reassign modal.
-  $('btn-ra-cancel').addEventListener('click', closeReassign);
-  $('btn-ra-submit').addEventListener('click', submitReassign);
-  $('reassign-backdrop').addEventListener('click', (e) => {
-    if (e.target === $('reassign-backdrop')) closeReassign();
+  // Sửa quyền (per-code) modal.
+  $('btn-ep-cancel').addEventListener('click', closeEditPerms);
+  $('btn-ep-submit').addEventListener('click', submitEditPerms);
+  $('editperms-backdrop').addEventListener('click', (e) => {
+    if (e.target === $('editperms-backdrop')) closeEditPerms();
   });
 }
 

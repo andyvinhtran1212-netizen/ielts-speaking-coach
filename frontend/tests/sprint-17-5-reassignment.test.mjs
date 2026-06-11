@@ -19,28 +19,28 @@ const CODES_HTML = front('pages', 'admin', 'access-codes', 'index.html');
 const COHORTS_HTML = front('pages', 'admin', 'cohorts', 'index.html');
 
 
-describe('Sprint 17.5 — codes UI reassign + refill', () => {
-  test('reassign action only on removable assignments + calls /reassign', () => {
-    assert.match(CODES, /u\.removable[\s\S]*?data-action="reassign"/);
-    assert.match(CODES, /\/admin\/access-codes\/'\s*\+\s*_reassignCtx\.codeId\s*\+\s*'\/reassign/);
-    assert.match(CODES, /from_user_id:\s*_reassignCtx\.fromUserId/);
+describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', () => {
+  // The per-user reassign ("Đổi") was removed — Andy: not needed; permissions
+  // are now edited PER-CODE via "Sửa quyền". Pin that the reassign wiring is
+  // gone so it can't silently regress, and that refill is untouched.
+  test('reassign action + modal fully removed', () => {
+    assert.doesNotMatch(CODES, /data-action="reassign"/);
+    assert.doesNotMatch(CODES, /_reassignCtx/);
+    assert.doesNotMatch(CODES_HTML, /id="reassign-backdrop"/);
+    assert.doesNotMatch(CODES_HTML, /id="ra-to"/);
   });
   test('refill button calls /refill', () => {
     assert.match(CODES, /data-action="refill"/);
     assert.match(CODES, /\/admin\/access-codes\/'\s*\+\s*codeId\s*\+\s*'\/refill/);
   });
-  test('click handler dispatches reassign + refill', () => {
-    assert.match(CODES, /dataset\.action === 'reassign'/);
+  test('click handler dispatches edit-perms + refill', () => {
+    assert.match(CODES, /dataset\.action === 'edit-perms'/);
     assert.match(CODES, /dataset\.action === 'refill'/);
   });
   test('Pattern #26 — no inline colour/bg/hex', () => {
     assert.doesNotMatch(CODES, /style\s*=\s*["'][^"']*color\s*:/);
     assert.doesNotMatch(CODES, /style\s*=\s*["'][^"']*background/);
     assert.doesNotMatch(CODES, /rgba\(\s*\d+\s*,/);
-  });
-  test('reassign modal present in page', () => {
-    assert.match(CODES_HTML, /id="reassign-backdrop"/);
-    assert.match(CODES_HTML, /id="ra-to"/);
   });
 });
 
