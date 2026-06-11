@@ -174,15 +174,22 @@ async function loadCohorts() {
     + _cohorts.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-async function loadCodes() {
-  $('codes-loading').hidden = false;
-  $('codes-table-wrap').hidden = true;
-  $('codes-empty').hidden = true;
+// `silent` = refetch canonical state and re-render WITHOUT the "Đang tải" flash
+// or hiding the table. Used after a mutation (Gỡ / Thu hồi / Sửa quyền) so the
+// affected row updates in place from backend truth — no full-page reload, no
+// optimistic local state that could diverge (CLAUDE.md). The initial load uses
+// silent=false to show the loading state.
+async function loadCodes(silent) {
+  if (!silent) {
+    $('codes-loading').hidden = false;
+    $('codes-table-wrap').hidden = true;
+    $('codes-empty').hidden = true;
+  }
   try {
     const r = await api.get('/admin/access-codes');
     _allCodes = Array.isArray(r) ? r : [];
   } catch (err) {
-    _allCodes = [];
+    if (!silent) _allCodes = [];
     showBanner('Không tải được danh sách mã: ' + (err.message || err), 'error');
   }
   renderTable();
@@ -285,7 +292,7 @@ async function revokeCode(codeId) {
   try {
     await api.delete('/admin/access-codes/' + codeId);
     showBanner('Đã thu hồi mã.', 'success');
-    await loadCodes();
+    await loadCodes(true);  // silent refetch → row shows revoked in place
   } catch (err) {
     showBanner('Không thu hồi được: ' + (err.message || err), 'error');
   }
@@ -305,7 +312,7 @@ async function removeUser(codeId, userId, email) {
     // redeemer (admin.py fallback fix), so loadCodes() drops them from the
     // active list — making the removal visible, not just the loss of a link.
     showBanner('Đã gỡ ' + who + ' khỏi mã. Quyền truy cập bị thu hồi ngay.', 'success');
-    await loadCodes();
+    await loadCodes(true);  // silent refetch → user drops from the row in place
   } catch (err) {
     showBanner('Không gỡ được ' + who + ': ' + (err.message || err), 'error');
   }
@@ -351,7 +358,7 @@ async function submitEditPerms() {
     closeEditPerms();
     showBanner('Đã cập nhật quyền cho mã ' + (_editPermsCtx.code || '') +
                '. Áp dụng cho tất cả người dùng của mã ngay.', 'success');
-    await loadCodes();
+    await loadCodes(true);  // silent refetch → row reflects new perms in place
   } catch (err) {
     $('ep-error').textContent = 'Không lưu được quyền: ' + (err.message || err);
     $('ep-error').hidden = false;

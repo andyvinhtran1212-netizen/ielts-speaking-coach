@@ -165,6 +165,21 @@ describe('Mã kích hoạt PR2 — per-user revoke button + toast', () => {
 });
 
 
+describe('Mã kích hoạt — in-place feedback (silent refetch, no full reload)', () => {
+  it('loadCodes accepts a silent flag that skips the loading-state flash', () => {
+    assert.match(JS, /async function loadCodes\(silent\)/);
+    assert.match(JS, /if \(!silent\) \{[\s\S]*?codes-loading'\)\.hidden = false/);
+  });
+  it('Gỡ / Thu hồi / Sửa quyền refetch silently (loadCodes(true)), not full reload', () => {
+    // All three mutation handlers use the silent refetch.
+    const silentCalls = JS.match(/await loadCodes\(true\)/g) || [];
+    assert.ok(silentCalls.length >= 3, `expected >=3 silent refetches, got ${silentCalls.length}`);
+    // And nobody triggers a full page reload.
+    assert.doesNotMatch(JS, /location\.reload|window\.location\s*=/);
+  });
+});
+
+
 describe('Mã kích hoạt — per-code "Sửa quyền" (replaces reassign)', () => {
   it('actions column renders a per-code Sửa quyền button carrying current perms', () => {
     assert.match(JS, /data-action="edit-perms"[\s\S]*?data-perms="\$\{permsAttr\}"/);

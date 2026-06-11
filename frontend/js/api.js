@@ -81,7 +81,14 @@
       throw thrown;
     }
 
-    return response.json();
+    // Empty-body responses (204 No Content, or a 200 with no payload) have
+    // nothing to parse — calling response.json() on them throws "Unexpected end
+    // of JSON input" (seen on DELETE revoke + remove-user, which return 204).
+    // Read the body as text and only JSON.parse when there's something, so a
+    // successful empty response resolves to null instead of a fake error toast.
+    if (response.status === 204) return null;
+    var text = await response.text();
+    return text ? JSON.parse(text) : null;
   }
 
   var api = {
