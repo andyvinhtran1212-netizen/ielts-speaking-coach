@@ -17,6 +17,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from database import supabase_admin
+from services.pg_search import ilike_or_filter
 
 logger = logging.getLogger(__name__)
 
@@ -92,9 +93,9 @@ def list_students(
     """
     q = supabase_admin.table("students").select("*").order("created_at", desc=True)
     if search:
-        # Escape % and _ so a search term containing them matches literally
-        safe = search.replace("%", r"\%").replace("_", r"\_")
-        q = q.or_(f"student_code.ilike.%{safe}%,full_name.ilike.%{safe}%")
+        # F2 — PostgREST-safe or_(): the value is double-quoted so commas/parens
+        # in the term don't break the logic tree, and LIKE wildcards are escaped.
+        q = q.or_(ilike_or_filter(["student_code", "full_name"], search))
     r = q.range(offset, offset + limit - 1).execute()
     return r.data or []
 

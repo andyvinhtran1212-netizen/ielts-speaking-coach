@@ -27,6 +27,7 @@ from supabase import create_client
 from config import settings
 from routers.auth import get_supabase_user
 from services.feature_flags import is_flashcard_enabled
+from services.pg_search import ilike_or_filter
 from services.rate_limit import rate_limit_flashcard
 from services.srs import update_srs
 
@@ -211,13 +212,11 @@ def _apply_filter(builder, filter_config: dict):
     if "added_after" in filter_config:
         builder = builder.gte("created_at", filter_config["added_after"])
     if "search" in filter_config:
-        # PostgREST or() with ilike — escape commas/parens by relying on
-        # supabase-py's serialization.  Search both headword and definition_vi
-        # per spec §6.
-        needle = filter_config["search"].replace(",", " ")
-        builder = builder.or_(
-            f"headword.ilike.*{needle}*,definition_vi.ilike.*{needle}*"
-        )
+        # F2 — PostgREST-safe or_(): double-quotes the value so commas/parens in
+        # the term don't break the logic tree (the old comma->space replace was
+        # lossy). Searches headword + definition_vi per spec section 6.
+        builder = builder.or_(ilike_or_filter(["headword", "definition_vi"],
+                                              filter_config["search"]))
     return builder
 
 
