@@ -56,8 +56,24 @@ def _install(monkeypatch, tables):
     async def _ok(_authz):  # admin guard passes
         return {"id": "admin", "role": "admin"}
 
+    # The list now reads the canonical completed-session counts via
+    # get_completed_session_counts (one GROUP BY RPC, no cap). Stub it to count
+    # the seeded `sessions` rows per user (the tests treat each seeded row as a
+    # completed session) and record the call so the no-N+1 test can assert it
+    # ran exactly once over all uids.
+    def _counts(uids):
+        calls.append(("get_completed_session_counts", list(uids)))
+        cc: dict = {}
+        wanted = set(uids)
+        for row in tables.get("sessions", []):
+            u = row.get("user_id")
+            if u in wanted:
+                cc[u] = cc.get(u, 0) + 1
+        return cc
+
     monkeypatch.setattr(admin_module, "require_admin", _ok)
     monkeypatch.setattr(admin_module, "supabase_admin", _Stub(tables, calls))
+    monkeypatch.setattr(admin_module, "get_completed_session_counts", _counts)
     return calls
 
 
@@ -108,7 +124,7 @@ def test_quota_zero_remaining_clamped(monkeypatch):
     assert q["used"] == 5 and q["remaining"] == 0   # clamped, not negative
 
 
-def test_sessions_queried_once_no_n_plus_1(monkeypatch):
+def test_completed_counts_batched_once_no_n_plus_1(monkeypatch):
     calls = _install(monkeypatch, {
         "access_codes": [_code("c1"), _code("c2", code="BBB-222")],
         "user_code_assignments": [{"code_id": "c1", "user_id": "u1", "is_active": True},
@@ -118,7 +134,10 @@ def test_sessions_queried_once_no_n_plus_1(monkeypatch):
         "sessions": [{"user_id": "u1"}, {"user_id": "u2"}, {"user_id": "u2"}],
     })
     out = _run(admin_module.list_access_codes(authorization="Bearer x"))
-    assert calls.count("sessions") == 1   # ONE batched query for all users
+    # ONE batched completed-count call over all uids (no per-user N+1).
+    batch_calls = [c for c in calls if c[0] == "get_completed_session_counts"]
+    assert len(batch_calls) == 1
+    assert set(batch_calls[0][1]) == {"u1", "u2"}
     by_code = {c["code"]: c for c in out}
     assert by_code["AAA-111"]["assigned_users"][0]["quota"]["used"] == 1
     assert by_code["BBB-222"]["assigned_users"][0]["quota"]["used"] == 2

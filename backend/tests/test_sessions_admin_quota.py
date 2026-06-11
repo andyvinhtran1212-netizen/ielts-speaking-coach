@@ -161,6 +161,15 @@ def _patch(monkeypatch, **client_kwargs):
         "get_user_access_code_permissions_cached",
         lambda _uid: list(client._permissions),
     )
+    # These tests pin the DAILY cap + admin bypass, not the per-code lifetime
+    # quota. Stub the canonical quota to "unlimited" so create_session's quota
+    # check is a no-op (and never touches the real DB). The lifetime-quota path
+    # has its own dedicated tests in test_session_limit_enforcement.py.
+    monkeypatch.setattr(
+        sessions_module,
+        "get_user_session_quota",
+        lambda _uid: {"used": 0, "limit": None, "remaining": None, "unlimited": True},
+    )
     return client
 
 

@@ -21,7 +21,12 @@ from fastapi import HTTPException
 
 import services.access_code_permissions as perms_mod
 from routers import sessions as sessions_module
-from services.access_code_permissions import get_user_total_session_limit
+from services.access_code_permissions import (
+    get_completed_session_counts,
+    get_user_completed_session_count,
+    get_user_session_quota,
+    get_user_total_session_limit,
+)
 
 
 def _run(coro):
@@ -127,12 +132,12 @@ def test_revoked_assignment_excluded(monkeypatch):
 
 
 class _SessionsStub:
-    """Routes the two sessions counts: the daily check uses .gte('started_at'),
-    the lifetime check does not. Returns `daily`/`lifetime` row lists so each
-    branch is isolated. role → student. insert → a row."""
+    """Daily-cap count uses .gte('started_at') → returns `daily` rows. role →
+    student. insert → a row. The lifetime/used quota is no longer read from
+    sessions here — create_session reads get_user_session_quota (monkeypatched)."""
 
-    def __init__(self, *, daily, lifetime, role="student"):
-        self._daily, self._lifetime, self._role = daily, lifetime, role
+    def __init__(self, *, daily, role="student"):
+        self._daily, self._role = daily, role
 
     def table(self, name):
         return _SBuilder(self, name)
@@ -141,9 +146,9 @@ class _SessionsStub:
 class _SBuilder:
     def __init__(self, stub, name):
         self._s, self._name = stub, name
-        self._has_gte, self._cols, self._insert = False, "", None
+        self._has_gte, self._insert = False, None
 
-    def select(self, cols, *a, **k): self._cols = cols; return self
+    def select(self, cols, *a, **k): return self
     def eq(self, *a, **k): return self
     def gte(self, *a, **k): self._has_gte = True; return self
     def limit(self, *a, **k): return self
@@ -159,51 +164,142 @@ class _SBuilder:
                        "status": "in_progress"}]
         elif self._name == "users":
             r.data = [{"role": self._s._role}]
-        elif self._name == "sessions":
-            n = self._s._daily if self._has_gte else self._s._lifetime
-            r.data = [{"id": f"s{i}"} for i in range(n)]
+        elif self._name == "sessions":  # the daily-cap count
+            r.data = [{"id": f"s{i}"} for i in range(self._s._daily)]
         else:
             r.data = []
         return r
 
 
-def _wire(monkeypatch, *, limit, daily=0, lifetime=0, role="student"):
+def _quota(used, limit):
+    if limit is None:
+        return {"used": used, "limit": None, "remaining": None, "unlimited": True}
+    return {"used": used, "limit": limit, "remaining": max(0, limit - used), "unlimited": False}
+
+
+def _wire(monkeypatch, *, limit, used=0, daily=0, role="student"):
     async def _user(_a): return {"id": "u1"}
     monkeypatch.setattr(sessions_module, "get_supabase_user", _user)
     monkeypatch.setattr(sessions_module, "_require_active", lambda *_a, **_k: None)
     monkeypatch.setattr(sessions_module, "_require_permission", lambda *_a, **_k: None)
-    monkeypatch.setattr(sessions_module, "get_user_total_session_limit", lambda _uid: limit)
+    # create_session reads the canonical quota (used = completed-only count).
+    monkeypatch.setattr(sessions_module, "get_user_session_quota", lambda _uid: _quota(used, limit))
     monkeypatch.setattr(sessions_module, "supabase_admin",
-                        _SessionsStub(daily=daily, lifetime=lifetime, role=role))
+                        _SessionsStub(daily=daily, role=role))
 
 
 def _body():
     return sessions_module.CreateSessionBody(mode="practice", part=1, topic="X")
 
 
-def test_blocked_when_lifetime_quota_reached(monkeypatch):
-    # Under the daily cap (daily=0) but at the per-code lifetime limit.
-    _wire(monkeypatch, limit=3, daily=0, lifetime=3)
+def test_blocked_when_completed_quota_reached(monkeypatch):
+    # Under the daily cap (daily=0) but completed `used` is at the limit.
+    _wire(monkeypatch, limit=3, used=3, daily=0)
     with pytest.raises(HTTPException) as ei:
         _run(sessions_module.create_session(_body(), authorization="Bearer x"))
     assert ei.value.status_code == 429
     assert "lượt" in ei.value.detail  # the per-code message, not the daily one
 
 
-def test_allowed_under_lifetime_quota(monkeypatch):
-    _wire(monkeypatch, limit=5, daily=0, lifetime=2)
+def test_allowed_under_completed_quota(monkeypatch):
+    # The mylanh case: 87 completed < 90 limit → allowed (abandoned not counted).
+    _wire(monkeypatch, limit=90, used=87, daily=0)
     out = _run(sessions_module.create_session(_body(), authorization="Bearer x"))
     assert out["session_id"] == "new-sess"
 
 
 def test_unlimited_when_limit_none(monkeypatch):
-    # No per-code cap → lifetime check skipped even with many sessions.
-    _wire(monkeypatch, limit=None, daily=0, lifetime=9999)
+    # No per-code cap → quota check skipped even with many completed sessions.
+    _wire(monkeypatch, limit=None, used=9999, daily=0)
     out = _run(sessions_module.create_session(_body(), authorization="Bearer x"))
     assert out["session_id"] == "new-sess"
 
 
-def test_admin_bypasses_lifetime_quota(monkeypatch):
-    _wire(monkeypatch, limit=1, daily=0, lifetime=9999, role="admin")
+def test_admin_bypasses_completed_quota(monkeypatch):
+    _wire(monkeypatch, limit=1, used=9999, daily=0, role="admin")
     out = _run(sessions_module.create_session(_body(), authorization="Bearer x"))
     assert out["session_id"] == "new-sess"
+
+
+# ── 3. canonical quota: completed-only count + batch RPC/fallback ─────────────
+
+
+class _QExec:
+    def __init__(self, data, count=None):
+        self.data, self.count = data, count
+
+
+class _QBuilder:
+    def __init__(self, rows):
+        self._rows, self._preds, self._count = rows, [], False
+
+    def select(self, cols, count=None, *a, **k):
+        self._count = (count == "exact")
+        return self
+
+    def eq(self, col, val):
+        self._preds.append((col, val))
+        return self
+
+    def execute(self):
+        out = [r for r in self._rows if all(r.get(c) == v for c, v in self._preds)]
+        return _QExec(out, count=(len(out) if self._count else None))
+
+
+class _QFake:
+    def __init__(self, sessions, rpc_result=None, rpc_raises=False):
+        self._sessions, self._rpc_result, self._rpc_raises = sessions, rpc_result, rpc_raises
+
+    def table(self, name):
+        return _QBuilder(self._sessions if name == "sessions" else [])
+
+    def rpc(self, name, params):
+        fake = self
+        class _Call:
+            def execute(self_inner):
+                if fake._rpc_raises:
+                    raise RuntimeError("function fn_completed_session_counts does not exist")
+                return _QExec(fake._rpc_result or [])
+        return _Call()
+
+
+def _sess(uid, status):
+    return {"user_id": uid, "status": status}
+
+
+def test_completed_count_excludes_in_progress(monkeypatch):
+    monkeypatch.setattr(perms_mod, "supabase_admin", _QFake(
+        [_sess("u", "completed"), _sess("u", "completed"),
+         _sess("u", "in_progress"), _sess("u", "in_progress"), _sess("u", "in_progress")]))
+    assert get_user_completed_session_count("u") == 2  # 3 in_progress not counted
+
+
+def test_quota_combines_used_and_limit(monkeypatch):
+    # mylanh shape: 87 completed, limit 90 → remaining 3, not blocked.
+    monkeypatch.setattr(perms_mod, "supabase_admin",
+                        _QFake([_sess("u", "completed")] * 87 + [_sess("u", "in_progress")] * 26))
+    monkeypatch.setattr(perms_mod, "get_user_total_session_limit", lambda _uid: 90)
+    q = get_user_session_quota("u")
+    assert q == {"used": 87, "limit": 90, "remaining": 3, "unlimited": False}
+
+
+def test_quota_unlimited_when_no_limit(monkeypatch):
+    monkeypatch.setattr(perms_mod, "supabase_admin", _QFake([_sess("u", "completed")] * 5))
+    monkeypatch.setattr(perms_mod, "get_user_total_session_limit", lambda _uid: None)
+    q = get_user_session_quota("u")
+    assert q["unlimited"] is True and q["used"] == 5 and q["remaining"] is None
+
+
+def test_batch_counts_use_rpc(monkeypatch):
+    monkeypatch.setattr(perms_mod, "supabase_admin",
+                        _QFake([], rpc_result=[{"user_id": "u1", "n": 5}, {"user_id": "u2", "n": 2}]))
+    assert get_completed_session_counts(["u1", "u2"]) == {"u1": 5, "u2": 2}
+
+
+def test_batch_counts_fallback_when_rpc_absent(monkeypatch):
+    # RPC missing (pre-migration) → per-user count='exact', completed-only.
+    monkeypatch.setattr(perms_mod, "supabase_admin", _QFake(
+        [_sess("u1", "completed"), _sess("u1", "completed"), _sess("u1", "completed"),
+         _sess("u1", "in_progress"), _sess("u2", "completed")],
+        rpc_raises=True))
+    assert get_completed_session_counts(["u1", "u2"]) == {"u1": 3, "u2": 1}

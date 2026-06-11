@@ -26,7 +26,10 @@ from config import settings
 from database import supabase_admin
 from services import admin_dashboard
 from services import admin_reading_dashboard
-from services.access_code_permissions import validate_permissions_or_raise
+from services.access_code_permissions import (
+    get_completed_session_counts,
+    validate_permissions_or_raise,
+)
 from routers.auth import get_supabase_user
 from services.gemini import (
     generate_part1_questions,
@@ -898,24 +901,18 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
         except Exception as exc:
             logger.warning("list_access_codes: user lookup failed: %s", exc)
 
-    # Sprint 17.1 — per-user quota remaining. ONE batched sessions query over all
-    # assigned users (no N+1); `used` is the user's lifetime session count compared
-    # to the assigned code's session_limit (NULL = unlimited). `sessions` has no
-    # code_id, so the count is per-user (Andy q-user default). Graceful: a failed
-    # count omits quota rather than failing the whole list.
+    # Per-user quota "used" — the CANONICAL count: COMPLETED sessions only (an
+    # abandoned in_progress does not consume a lượt) via the
+    # fn_completed_session_counts GROUP BY RPC (one query, no N+1, no 1000-row
+    # cap). This is the SAME semantic create_session enforces (get_user_session_
+    # quota), so the admin display can no longer disagree with enforcement — the
+    # old batched `.in_()` count was truncated at db-max-rows (1000) and counted
+    # all statuses, showing inflated "remaining" while students were blocked.
+    # Graceful: a failed count omits quota rather than failing the whole list.
     session_counts: dict[str, int] = {}
     if all_uids:
         try:
-            scr = (
-                supabase_admin.table("sessions")
-                .select("user_id")
-                .in_("user_id", all_uids)
-                .execute()
-            )
-            for row in (scr.data or []):
-                uid = row.get("user_id")
-                if uid:
-                    session_counts[uid] = session_counts.get(uid, 0) + 1
+            session_counts = get_completed_session_counts(all_uids)
         except Exception as exc:
             logger.warning("list_access_codes: session count lookup failed: %s", exc)
 
