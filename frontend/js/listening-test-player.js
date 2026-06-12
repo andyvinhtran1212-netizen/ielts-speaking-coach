@@ -76,6 +76,11 @@ function computeTestShape(test) {
   STATE.totalQuestions = total || 40;
   STATE.sectionCount   = sections.length || 4;
   STATE.sectionQCounts = counts;
+  // The first section's REAL number (a full test starts at 1, but a mini may be
+  // a single "Section 3" → section_num=3). Used to seed the active tab; seeding
+  // it to a hardcoded 1 would hide the only panel (applyActiveTab hides every
+  // section whose num != activeTab) and the test looks blank.
+  STATE.firstSection = sections.length ? Number(sections[0].section_num) : 1;
 }
 
 // Q-number → section number — from the test's actual data (handles a mini's
@@ -139,8 +144,8 @@ async function loadTest(testId) {
     const test = await window.api.get(`/api/listening/tests/${encodeURIComponent(testId)}`);
     STATE.testId = testId;
     STATE.test   = test;
-    computeTestShape(test);            // sets sectionCount / totalQuestions / qToSection
-    STATE.activeTab = 1;
+    computeTestShape(test);            // sets sectionCount / totalQuestions / qToSection / firstSection
+    STATE.activeTab = STATE.firstSection;   // a mini may start at Section 3, not 1
     $('ft-title').textContent = test.title || test.test_id || 'Untitled';
     $('ft-subtitle').textContent =
       `${STATE.sectionCount} section${STATE.sectionCount > 1 ? 's' : ''} · ${STATE.totalQuestions} câu`;
@@ -275,7 +280,9 @@ function applyActiveTab() {
 }
 
 function setActiveTab(tabNum) {
-  if (!Number.isInteger(tabNum) || tabNum < 1 || tabNum > (STATE.sectionCount || 4)) return;
+  // Valid tabs are the REAL section numbers (a mini may be just {3}), not 1..count.
+  const known = STATE.sectionQCounts && Object.prototype.hasOwnProperty.call(STATE.sectionQCounts, tabNum);
+  if (!Number.isInteger(tabNum) || (!known && (tabNum < 1 || tabNum > (STATE.sectionCount || 4)))) return;
   if (STATE.activeTab === tabNum) return;
   STATE.activeTab = tabNum;
   applyActiveTab();

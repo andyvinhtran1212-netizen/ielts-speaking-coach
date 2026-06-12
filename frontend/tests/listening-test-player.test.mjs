@@ -144,8 +144,9 @@ describe('Sprint 13.5 — player JS contract', () => {
     assert.match(JS, /clearTimeout\(STATE\.saveTimers\.get\(qNum\)\)/);
   });
 
-  it('rejects q_num outside 1..40 client-side as well', () => {
-    assert.match(JS, /qNum\s*<\s*1\s*\|\|\s*qNum\s*>\s*40/);
+  it('rejects q_num outside 1..total client-side as well', () => {
+    // #454 param-ized the upper bound from a literal 40 to the real total.
+    assert.match(JS, /qNum\s*<\s*1\s*\|\|\s*qNum\s*>\s*\(STATE\.totalQuestions\s*\|\|\s*40\)/);
   });
 
   it('NEVER seeks the audio (no audio.currentTime = ...)', () => {
@@ -179,7 +180,8 @@ describe('Sprint 13.5 — player JS contract', () => {
 
   it('confirms before submit + shows answered count in the dialog', () => {
     assert.match(JS, /Nộp bài bây giờ\?/);
-    assert.match(JS, /\$\{answered\}\/40/);
+    // #454 param-ized the denominator from a literal 40 to the real total.
+    assert.match(JS, /\$\{answered\}\/\$\{STATE\.totalQuestions\s*\|\|\s*40\}/);
   });
 
   it('flushes pending debounced saves before submitting', () => {
@@ -196,8 +198,12 @@ describe('Sprint 13.5 — player JS contract', () => {
     assert.match(JS, /result\.per_question/);
   });
 
-  it('renders all four section cells (s1..s4)', () => {
-    assert.match(JS, /\['s1','s2','s3','s4'\]/);
+  it('renders one result cell per ACTUAL section (not a fixed s1..s4)', () => {
+    // #454 param-ized the breakdown off the grader keys / real section count;
+    // a mini renders just s1, a full test s1..s4.
+    assert.match(JS, /result\.section_breakdown/);
+    assert.match(JS, /Array\.from\(\{\s*length:\s*STATE\.sectionCount\s*\|\|\s*4\s*\}[\s\S]*?`s\$\{i \+ 1\}`/);
+    assert.doesNotMatch(JS, /\['s1','s2','s3','s4'\]/);
   });
 
   it('shows "Dưới band 4" when band_estimate is null', () => {
@@ -483,9 +489,11 @@ describe('Sprint 13.5.5 — tab navigation markup + controller', () => {
     assert.match(JS, /cuePointsByTab/);
   });
 
-  it('sectionForQ() maps Q-num to Cambridge section (1-10 → 1, …)', () => {
+  it('sectionForQ() uses the real q→section map, falling back to Cambridge /10', () => {
     assert.match(JS, /function sectionForQ\(/);
-    assert.match(JS, /Math\.floor\(\(qNum\s*-\s*1\)\s*\/\s*10\)\s*\+\s*1/);
+    // #454 prefers the data map; the /10 formula is now the FALLBACK (var n).
+    assert.match(JS, /STATE\.qToSection && STATE\.qToSection\.has/);
+    assert.match(JS, /Math\.floor\(\(n\s*-\s*1\)\s*\/\s*10\)\s*\+\s*1/);
   });
 
   it('applyActiveTab toggles [hidden] on .ielts-section per active tab', () => {
@@ -493,9 +501,12 @@ describe('Sprint 13.5.5 — tab navigation markup + controller', () => {
     assert.match(JS, /el\.hidden\s*=\s*\(n\s*!==\s*STATE\.activeTab\)/);
   });
 
-  it('setActiveTab guards range 1..4 and short-circuits no-ops', () => {
+  it('setActiveTab guards to the real section set and short-circuits no-ops', () => {
     assert.match(JS, /function setActiveTab\(tabNum\)/);
-    assert.match(JS, /tabNum\s*<\s*1\s*\|\|\s*tabNum\s*>\s*4/);
+    // #454 param-ized the upper bound off sectionCount; the follow-up PR also
+    // admits any REAL section number (a mini may be {3}) via sectionQCounts.
+    assert.match(JS, /tabNum\s*<\s*1\s*\|\|\s*tabNum\s*>\s*\(STATE\.sectionCount\s*\|\|\s*4\)/);
+    assert.match(JS, /hasOwnProperty\.call\(STATE\.sectionQCounts,\s*tabNum\)/);
     assert.match(JS, /STATE\.activeTab\s*===\s*tabNum/);
   });
 
@@ -534,9 +545,10 @@ describe('Sprint 13.5.5 — sticky progress tracker (40 squares)', () => {
     assert.match(HTML, /class="btn-submit-final"/);
   });
 
-  it('renderProgressTracker generates a button per question 1..40', () => {
+  it('renderProgressTracker generates a button per question 1..total', () => {
     assert.match(JS, /function renderProgressTracker\(/);
-    assert.match(JS, /for \(let q\s*=\s*1;\s*q\s*<=\s*40;\s*q\+\+\)/);
+    // #454 param-ized the loop bound from a literal 40 to the real total.
+    assert.match(JS, /for \(let q\s*=\s*1;\s*q\s*<=\s*\(STATE\.totalQuestions\s*\|\|\s*40\);\s*q\+\+\)/);
     assert.match(JS, /class="progress-square"/);
     assert.match(JS, /data-q-num="\$\{q\}"/);
     assert.match(JS, /data-section="\$\{section\}"/);
