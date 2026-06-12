@@ -307,7 +307,11 @@
       Promise.resolve(window.getSupabase().auth.getSession()).then(function (r) {
         var token = r && r.data && r.data.session ? r.data.session.access_token : null;
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', window.api.base + '/admin/listening/import-fulltest/commit');
+        // mini flag → reading_tests-style metadata.test_type ('mini' vs 'full'),
+        // so the pack lands in the student Mini-Tests page vs Full-Tests.
+        var miniEl = document.getElementById('fi-mini');
+        var miniQs = (miniEl && miniEl.checked) ? '?mini=true' : '';
+        xhr.open('POST', window.api.base + '/admin/listening/import-fulltest/commit' + miniQs);
         if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
         xhr.upload.onprogress = function (e) {
           if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);

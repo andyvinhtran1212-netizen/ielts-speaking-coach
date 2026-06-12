@@ -3430,6 +3430,7 @@ async def admin_import_fulltest_commit(
     solution:       UploadFile = File(...),
     timings:        UploadFile = File(...),
     audio:          UploadFile = File(...),
+    mini:           bool = Query(default=False),
     authorization: str | None = Header(default=None),
 ):
     """listening-fulltest-md-import (Phase A2) — persist a full-test pack +
@@ -3509,6 +3510,10 @@ async def admin_import_fulltest_commit(
             "source_format":   "listening-fulltest-v1.1",
             "section_offsets": offsets,
             "band_conversion": res.metadata.get("band_conversion") or [],
+            # Listening mini test — 'mini' (1 section) vs 'full' (4); the student
+            # list endpoint segregates on metadata.test_type. No migration: the
+            # metadata JSONB column already exists (mig 065).
+            "test_type":       "mini" if mini else "full",
         },
         "status":                      "draft",
     }
@@ -3561,7 +3566,10 @@ async def admin_import_fulltest_commit(
                     "status":        "draft",
                 }).execute()
                 exercises_created += 1
-        if sections_created != 4 or exercises_created == 0:
+        # Mini test: a mini has 1 section, a full test has 4. The loader already
+        # validated the section count (1–4); here we only guard against a partial
+        # write (0 sections / 0 exercises).
+        if sections_created < 1 or exercises_created == 0:
             raise RuntimeError(
                 f"persist incomplete (sections={sections_created}, exercises={exercises_created})")
     except HTTPException:
@@ -4984,6 +4992,7 @@ def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None,
 
 @user_router.get("/tests")
 async def list_published_listening_tests(
+    test_type: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -4994,17 +5003,29 @@ async def list_published_listening_tests(
     assembled present). Each row carries the calling user's best score
     + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
     CTAs without a follow-up round-trip.
+
+    test_type segregates the full-test and mini-test libraries (listening mini
+    test), reading metadata->>test_type:
+      - "mini" → ONLY mini tests.
+      - "full" / omitted (default) → EXCLUDE mini, but KEEP legacy tests whose
+        test_type IS NULL (a plain != 'mini' would drop them).
     """
     user = await _require_auth(authorization)
+    if test_type is not None and test_type not in ("mini", "full"):
+        raise HTTPException(422, "test_type must be 'mini' or 'full'")
 
-    res = (
+    q = (
         supabase_admin.table("listening_tests")
         .select("*", count="exact")
         .eq("status", "published")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
-        .execute()
     )
+    if test_type == "mini":
+        q = q.eq("metadata->>test_type", "mini")
+    else:
+        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.neq.mini")
+    res = q.execute()
     raw_rows = res.data or []
     # Filter to rows with audio satisfied (full OR assembled).
     rows = [

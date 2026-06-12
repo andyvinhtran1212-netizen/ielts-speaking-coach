@@ -368,9 +368,13 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
     # ── Question Paper (REUSE the existing convert parser) ──
     qp_meta = lc.parse_test_metadata(qp_text, solution_text)
     qp_sections = lc.split_qp_sections(qp_text)
-    if len(qp_sections) != _EXPECTED_SECTIONS:
+    # Mini test: accept 1–4 sections (a full test is exactly 4, a mini is 1).
+    # The DB CHECK is section_num BETWEEN 1 AND 4, so 1–4 is always valid; the
+    # rest of the pipeline (questions, persistence) is already data-driven.
+    if not (1 <= len(qp_sections) <= _EXPECTED_SECTIONS):
         res.errors.append(
-            f"Question Paper có {len(qp_sections)} section (kỳ vọng {_EXPECTED_SECTIONS} dòng `## SECTION N`).")
+            f"Question Paper có {len(qp_sections)} section (kỳ vọng 1–{_EXPECTED_SECTIONS} "
+            f"dòng `## SECTION N`).")
 
     qak = parse_quick_answer_key(solution_text)
     sol_blocks = parse_solution_blocks(solution_text)
@@ -564,12 +568,17 @@ def build_section_persistence(res: "FullTestParseResult", qp_text: str) -> list[
 
 def _validate(res: FullTestParseResult, qak: dict, sol_blocks: dict,
               tim: dict, seen_q: set[int]) -> None:
-    # 40 questions present in the Question Paper
-    missing_qp = [q for q in range(1, _EXPECTED_QUESTIONS + 1) if q not in seen_q]
+    # Questions must be contiguous from 1..max (no gaps). A full test runs 1..40;
+    # a mini runs 1..M (M = however many the QP declares). Don't hard-require 40
+    # so a 1-section mini imports cleanly.
+    last_q = max(seen_q) if seen_q else 0
+    missing_qp = [q for q in range(1, last_q + 1) if q not in seen_q]
     if missing_qp:
-        res.errors.append(f"Question Paper thiếu câu: {missing_qp} (kỳ vọng 1–{_EXPECTED_QUESTIONS}).")
-    if len(seen_q) != _EXPECTED_QUESTIONS:
-        res.warnings.append(f"Question Paper có {len(seen_q)} câu (kỳ vọng {_EXPECTED_QUESTIONS}).")
+        res.errors.append(f"Question Paper thiếu câu: {missing_qp} (kỳ vọng liên tục 1–{last_q}).")
+    if not seen_q:
+        res.errors.append("Question Paper không có câu hỏi nào.")
+    elif len(seen_q) > _EXPECTED_QUESTIONS:
+        res.warnings.append(f"Question Paper có {len(seen_q)} câu (> {_EXPECTED_QUESTIONS}).")
 
     for q in res.questions:
         n = q["q_num"]
