@@ -44,14 +44,48 @@ const STATE = {
   // Sprint 13.5.7 — Cambridge single-shot play guard: once true, the
   // Play button is locked for the rest of the attempt.
   playbackStarted: false,
+  // Listening mini test — the real shape, derived from the loaded test (a full
+  // test = 4 sections / 40 Q; a mini = 1 section / M Q). Replaces the hardcoded
+  // 4/40 so the player renders both. Set by computeTestShape() at load.
+  qToSection:    new Map(),   // q_num → section_num (from the test data)
+  totalQuestions: 40,
+  sectionCount:   4,
+  sectionQCounts: {},         // section_num → question count (for tab "n/m")
 };
 
-// Q-number → section number mapping (Cambridge convention: 1-10 → s1,
-// 11-20 → s2, 21-30 → s3, 31-40 → s4). Used by the progress tracker
-// to assign squares to tabs.
+// Derive the test's real shape (section count, total questions, q→section map,
+// per-section counts) from the loaded payload — NOT a hardcoded 4×10.
+function computeTestShape(test) {
+  const sections = (test && test.sections) || [];
+  const qToSection = new Map();
+  const counts = {};
+  let total = 0;
+  sections.forEach((sec) => {
+    const sn = Number(sec.section_num);
+    (sec.exercises || []).forEach((e) => {
+      ((e.payload && e.payload.questions) || []).forEach((q) => {
+        if (q && q.q_num != null) {
+          qToSection.set(Number(q.q_num), sn);
+          counts[sn] = (counts[sn] || 0) + 1;
+          total += 1;
+        }
+      });
+    });
+  });
+  STATE.qToSection    = qToSection;
+  STATE.totalQuestions = total || 40;
+  STATE.sectionCount   = sections.length || 4;
+  STATE.sectionQCounts = counts;
+}
+
+// Q-number → section number — from the test's actual data (handles a mini's
+// single section as well as a full 4-section test). Falls back to the Cambridge
+// 10-per-section convention only if the map is unavailable.
 function sectionForQ(qNum) {
-  if (!Number.isFinite(qNum) || qNum < 1 || qNum > 40) return null;
-  return Math.floor((qNum - 1) / 10) + 1;
+  const n = Number(qNum);
+  if (STATE.qToSection && STATE.qToSection.has(n)) return STATE.qToSection.get(n);
+  if (!Number.isFinite(n) || n < 1 || n > (STATE.totalQuestions || 40)) return null;
+  return Math.floor((n - 1) / 10) + 1;
 }
 
 const VIEWS = {
@@ -105,9 +139,18 @@ async function loadTest(testId) {
     const test = await window.api.get(`/api/listening/tests/${encodeURIComponent(testId)}`);
     STATE.testId = testId;
     STATE.test   = test;
+    computeTestShape(test);            // sets sectionCount / totalQuestions / qToSection
+    STATE.activeTab = 1;
     $('ft-title').textContent = test.title || test.test_id || 'Untitled';
     $('ft-subtitle').textContent =
-      `${(test.sections || []).length} sections · 40 câu · ~30 phút`;
+      `${STATE.sectionCount} section${STATE.sectionCount > 1 ? 's' : ''} · ${STATE.totalQuestions} câu`;
+    // Mirror the real counts into the static prestart rule + answered-denominator.
+    var ruleEl = $('ft-prestart-rule-count');
+    if (ruleEl) ruleEl.textContent = STATE.totalQuestions + ' câu trên ' + STATE.sectionCount +
+      ' section' + (STATE.sectionCount > 1 ? 's' : '');
+    document.querySelectorAll('[data-total-q]').forEach(function (el) {
+      el.textContent = String(STATE.totalQuestions);
+    });
     $('ft-prestart-title').textContent = `Sẵn sàng bắt đầu — ${test.title || test.test_id || ''}`;
     showState('prestart');
   } catch (e) {
@@ -191,12 +234,30 @@ function renderPaper() {
   root.innerHTML = out.join('');
   if (totalQs) { /* total Q count not displayed; preserve for future stats */ }
   attachQuestionHandlers();
+  // Listening mini test — render ONE tab per real section (a mini has 1, a full
+  // test has 4) instead of the static 4 in the HTML.
+  renderTabs();
   // Sprint 13.5.5 — tab navigation: show only the active tab's section.
   applyActiveTab();
   // Sprint 13.5.5 — render the 40-square progress tracker.
   renderProgressTracker();
   attachTabHandlers();
   attachProgressHandlers();
+}
+
+// Listening mini test — build one tab per real section from the test data.
+function renderTabs() {
+  const tabs = $('ft-tabs');
+  if (!tabs) return;
+  const sections = (STATE.test && STATE.test.sections) || [];
+  tabs.innerHTML = sections.map((sec) => {
+    const sn = Number(sec.section_num);
+    const cnt = STATE.sectionQCounts[sn] || 0;
+    const active = sn === STATE.activeTab;
+    return `<button class="ielts-tab${active ? ' active' : ''}" data-tab="${sn}" type="button" role="tab" aria-selected="${active ? 'true' : 'false'}">`
+      + `<span class="tab-label">PART ${sn}</span>`
+      + `<span class="tab-progress" data-tab-progress="${sn}">0/${cnt}</span></button>`;
+  }).join('');
 }
 
 function applyActiveTab() {
@@ -214,7 +275,7 @@ function applyActiveTab() {
 }
 
 function setActiveTab(tabNum) {
-  if (!Number.isInteger(tabNum) || tabNum < 1 || tabNum > 4) return;
+  if (!Number.isInteger(tabNum) || tabNum < 1 || tabNum > (STATE.sectionCount || 4)) return;
   if (STATE.activeTab === tabNum) return;
   STATE.activeTab = tabNum;
   applyActiveTab();
@@ -260,7 +321,7 @@ function renderProgressTracker() {
   const bar = $('ft-progress-bar');
   if (!bar) return;
   const html = [];
-  for (let q = 1; q <= 40; q++) {
+  for (let q = 1; q <= (STATE.totalQuestions || 40); q++) {
     const section = sectionForQ(q);
     html.push(
       `<button class="progress-square" type="button" `
@@ -631,7 +692,7 @@ function attachQuestionHandlers() {
 
 function onAnswerChange(el) {
   const qNum = Number(el.getAttribute('data-q-num'));
-  if (!Number.isFinite(qNum) || qNum < 1 || qNum > 40) return;
+  if (!Number.isFinite(qNum) || qNum < 1 || qNum > (STATE.totalQuestions || 40)) return;
   const val = (el.type === 'radio')
     ? (el.checked ? el.value : null)
     : el.value;
@@ -663,14 +724,15 @@ function updateProgressTrackerSquares() {
 }
 
 function updateTabProgressCounts() {
-  const perSection = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const perSection = {};
   for (const qNum of STATE.answers.keys()) {
     const s = sectionForQ(qNum);
     if (s) perSection[s] = (perSection[s] || 0) + 1;
   }
-  for (const s of [1, 2, 3, 4]) {
+  const sectionNums = Object.keys(STATE.sectionQCounts).map(Number);
+  for (const s of (sectionNums.length ? sectionNums : [1, 2, 3, 4])) {
     const el = document.querySelector(`[data-tab-progress="${s}"]`);
-    if (el) el.textContent = `${perSection[s]}/10`;
+    if (el) el.textContent = `${perSection[s] || 0}/${STATE.sectionQCounts[s] || 10}`;
   }
 }
 
@@ -800,7 +862,7 @@ async function confirmSubmit() {
   if (STATE.submitting) return;
   const answered = STATE.answers.size;
   const ok = window.confirm(
-    `Nộp bài bây giờ? Bạn đã trả lời ${answered}/40 câu. ` +
+    `Nộp bài bây giờ? Bạn đã trả lời ${answered}/${STATE.totalQuestions || 40} câu. ` +
     'Sau khi nộp, bạn không thể chỉnh sửa đáp án.',
   );
   if (!ok) return;
@@ -835,7 +897,7 @@ async function confirmSubmit() {
 
 function renderResult(result) {
   const score = result.score ?? 0;
-  const max   = result.max_score ?? 40;
+  const max   = result.max_score ?? (STATE.totalQuestions || 40);
   $('res-score').textContent = `${score}/${max}`;
   $('res-band').textContent  = result.band_estimate != null
     ? Number(result.band_estimate).toFixed(1)
@@ -843,10 +905,15 @@ function renderResult(result) {
   const pct = max > 0 ? Math.round((score / max) * 100) : 0;
   $('res-pct').textContent = `${pct}%`;
 
-  // Section breakdown.
+  // Section breakdown — one cell per ACTUAL section (a mini has just s1), not a
+  // fixed s1..s4. Prefer the keys the grader returned; fall back to the test's
+  // real section count.
   const sb = result.section_breakdown || {};
+  const sbKeys = Object.keys(sb).length
+    ? Object.keys(sb).sort()
+    : Array.from({ length: STATE.sectionCount || 4 }, (_, i) => `s${i + 1}`);
   const sbRoot = $('res-sections');
-  sbRoot.innerHTML = ['s1','s2','s3','s4'].map((k) => {
+  sbRoot.innerHTML = sbKeys.map((k) => {
     const cell = sb[k] || { correct: 0, total: 0 };
     return `<div class="ft-section-cell">
       ${esc(k.toUpperCase())}<br>

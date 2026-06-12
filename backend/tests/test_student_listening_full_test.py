@@ -181,6 +181,10 @@ class _Q:
     def delete(self): self._mode = "delete"; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
     def in_(self, c, vs): self._in.append((c, list(vs))); return self
+    # Listening mini test — the list endpoint now adds a metadata->>test_type
+    # filter via .or_(); these seed rows carry no test_type (legacy), which the
+    # real "IS NULL OR != mini" keeps, so a no-op here preserves their behaviour.
+    def or_(self, *_a, **_kw): return self
     def limit(self, *_a, **_kw): return self
     def order(self, *_a, **_kw): return self
     def range(self, s, e): self._range = (s, e); return self

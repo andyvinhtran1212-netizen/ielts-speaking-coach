@@ -171,6 +171,13 @@
             <div class="fi-drop__file" id="fi-aud-name"></div>
           </label>
         </div>
+        <!-- Listening mini test — flag a 1-section pack as a Mini test. Same
+             4-file format + pipeline; only sets metadata.test_type='mini' so it
+             lists under the student "Mini Tests" page instead of Full Tests. -->
+        <label class="fi-mini">
+          <input type="checkbox" id="fi-mini" />
+          Đây là <strong>Mini test</strong> (1 section) — hiện ở trang “Mini Tests”
+        </label>
         <div class="fi-actions">
           <button class="fi-btn fi-btn--primary" id="fi-check" type="button" disabled>Kiểm tra (dry-run)</button>
           <span class="fi-spinner-note" id="fi-check-note" hidden>Đang phân tích pack…</span>
