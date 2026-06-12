@@ -123,6 +123,30 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// Render inline markdown emphasis (**bold**, *italic*) in user-facing prose so
+// generator-emitted markdown doesn't show up literally (e.g. "**NO MORE THAN
+// TWO WORDS**", "*(ONE WORD)*"). XSS-safe: HTML is escaped FIRST, so the only
+// tags that ever reach the DOM are the <strong>/<em> we introduce here. Use
+// for PROSE only (prompts, instructions, option text) — never attribute values.
+function mdInline(raw) {
+  let s = esc(raw);
+  s = s.replace(/\*\*([^*]+)\*\*/g, (_, t) => `<strong>${t}</strong>`);
+  s = s.replace(/\*([^*\n]+)\*/g,   (_, t) => `<em>${t}</em>`);
+  return s;
+}
+
+// Gap-fill prompt → render the answer input INLINE at the blank token (____ /
+// …… / ....) instead of appended at the end, for ANY gap-fill type that reaches
+// the fallback. Falls back to appending only when the prompt has no blank.
+const _GAP_TOKEN_RE = /_{2,}|…+|\.{4,}/;
+function renderGapPrompt(prompt, qNum) {
+  const html = mdInline(prompt || '');
+  if (_GAP_TOKEN_RE.test(html)) {
+    return html.replace(_GAP_TOKEN_RE, () => gapInput(qNum));
+  }
+  return html + ' ' + gapInput(qNum);
+}
+
 function getTestIdFromUrl() {
   const sp = new URLSearchParams(window.location.search);
   return (sp.get('id') || '').trim() || null;
@@ -430,8 +454,8 @@ function formatInstruction(raw) {
     .split(/(?<=\.)\s+(?=[A-Z])/)
     .map((s) => s.trim())
     .filter(Boolean);
-  if (parts.length <= 1) return `<p>${esc(raw)}</p>`;
-  return parts.map((p) => `<p>${esc(p)}</p>`).join('');
+  if (parts.length <= 1) return `<p>${mdInline(raw)}</p>`;
+  return parts.map((p) => `<p>${mdInline(p)}</p>`).join('');
 }
 
 
@@ -446,16 +470,16 @@ function renderFormCompletion(tmpl, questions) {
       ${heading ? `<div class="ielts-form-heading">${esc(heading)}</div>` : ''}
       <div class="ielts-form-grid">
         ${rows.map((r) => {
-          const label = `<span class="ielts-form-label">${esc(r.label || '')}:</span>`;
+          const label = `<span class="ielts-form-label">${mdInline(r.label || '')}:</span>`;
           if (r.example != null) {
             return `<div class="ielts-form-row">
               ${label}
-              <span class="ielts-form-example">${esc(r.example)} (Example)</span>
+              <span class="ielts-form-example">${mdInline(r.example)} (Example)</span>
             </div>`;
           }
           if (r.q_num != null) {
             const pref = r.prefix
-              ? `<span class="ielts-form-prefix">${esc(r.prefix)}</span>`
+              ? `<span class="ielts-form-prefix">${mdInline(r.prefix)}</span>`
               : '';
             return `<div class="ielts-form-row">
               ${label}
@@ -466,7 +490,7 @@ function renderFormCompletion(tmpl, questions) {
           }
           return `<div class="ielts-form-row">
             ${label}
-            <span>${esc(r.text || '')}</span>
+            <span>${mdInline(r.text || '')}</span>
           </div>`;
         }).join('')}
       </div>
@@ -484,10 +508,10 @@ function renderTableCompletion(tmpl, questions) {
   if (!headers.length || !rows.length) return renderFallback(questions);
   return `
     <div class="ielts-table-container">
-      ${heading ? `<div class="ielts-table-heading">${esc(heading)}</div>` : ''}
+      ${heading ? `<div class="ielts-table-heading">${mdInline(heading)}</div>` : ''}
       <table class="ielts-table">
         <thead>
-          <tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>
+          <tr>${headers.map((h) => `<th>${mdInline(h)}</th>`).join('')}</tr>
         </thead>
         <tbody>
           ${rows.map((row) => `<tr>${row.map((c) => {
@@ -497,7 +521,7 @@ function renderTableCompletion(tmpl, questions) {
                 ${gapInput(c.q_num)}
               </td>`;
             }
-            return `<td>${esc(c == null ? '' : c)}</td>`;
+            return `<td>${mdInline(c == null ? '' : c)}</td>`;
           }).join('')}</tr>`).join('')}
         </tbody>
       </table>
@@ -514,23 +538,23 @@ function renderNotesCompletion(tmpl, questions) {
   if (!groups.length) return renderFallback(questions);
   return `
     <div class="ielts-notes-container">
-      ${heading ? `<div class="ielts-notes-heading">${esc(heading)}</div>` : ''}
+      ${heading ? `<div class="ielts-notes-heading">${mdInline(heading)}</div>` : ''}
       ${groups.map((g) => `
         <div class="ielts-notes-group">
           ${g.heading
-            ? `<div class="ielts-notes-group-heading">${esc(g.heading)}</div>`
+            ? `<div class="ielts-notes-group-heading">${mdInline(g.heading)}</div>`
             : ''}
           <ul class="ielts-notes-list">
             ${(g.items || []).map((it) => {
               if (it && typeof it === 'object' && it.q_num != null) {
                 return `<li>
-                  ${esc(it.prefix || '')}
+                  ${mdInline(it.prefix || '')}
                   <span class="ielts-question-num">${esc(it.q_num)}</span>
                   ${gapInput(it.q_num)}
-                  ${it.suffix ? ' ' + esc(it.suffix) : ''}
+                  ${it.suffix ? ' ' + mdInline(it.suffix) : ''}
                 </li>`;
               }
-              return `<li>${esc((it && it.text) || '')}</li>`;
+              return `<li>${mdInline((it && it.text) || '')}</li>`;
             }).join('')}
           </ul>
         </div>
@@ -553,7 +577,7 @@ function renderSummaryCompletion(tmpl, questions) {
       const n = Number(m[1]);
       return `<span class="ielts-question-num">${esc(n)}</span>${gapInput(n)}`;
     }
-    return esc(p);
+    return mdInline(p);
   }).join('');
   return `<div class="ielts-summary-paragraph">${rendered}</div>`;
 }
@@ -567,9 +591,9 @@ function renderSentenceCompletion(tmpl, questions) {
   return sentences.map((s) => `
     <div class="ielts-sentence-row">
       <span class="ielts-question-num">${esc(s.q_num)}</span>
-      <span>${esc(s.prefix || '')}</span>
+      <span>${mdInline(s.prefix || '')}</span>
       ${gapInput(s.q_num)}
-      <span>${esc(s.suffix || '')}</span>
+      <span>${mdInline(s.suffix || '')}</span>
     </div>
   `).join('');
 }
@@ -581,7 +605,7 @@ function renderShortAnswer(questions) {
   return questions.map((q) => `
     <div class="ielts-short-row">
       <span class="ielts-question-num">${esc(q.q_num)}</span>
-      <span>${esc(q.prompt || '')}</span>
+      <span>${mdInline(q.prompt || '')}</span>
       ${gapInput(q.q_num)}
     </div>
   `).join('');
@@ -598,7 +622,7 @@ function renderMCQ(questions) {
     <div class="ielts-mcq-question">
       <div class="ielts-mcq-stem">
         <span class="ielts-question-num">${esc(q.q_num)}</span>
-        ${esc(q.prompt || '')}
+        ${mdInline(q.prompt || '')}
       </div>
       <div class="ielts-mcq-options">
         ${(q.options || []).map((o) => {
@@ -608,7 +632,7 @@ function renderMCQ(questions) {
             <input type="radio" name="q-${esc(q.q_num)}" value="${esc(letter)}"
                    class="ft-q-input" data-q-num="${esc(q.q_num)}" />
             <strong>${esc(letter)}</strong>
-            <span class="ielts-mcq-option-text">${esc(text)}</span>
+            <span class="ielts-mcq-option-text">${mdInline(text)}</span>
           </label>`;
         }).join('')}
       </div>
@@ -654,7 +678,7 @@ function renderPlanLabel(payload, questions) {
         ${questions.map((q) => `
           <div class="ielts-plan-row">
             <span class="ielts-question-num">${esc(q.q_num)}</span>
-            <span class="ielts-plan-name">${esc(q.prompt || '')}</span>
+            <span class="ielts-plan-name">${mdInline(q.prompt || '')}</span>
             <select class="ft-q-input ielts-gap-input" data-q-num="${esc(q.q_num)}">
               <option value="">—</option>
               ${letters.map((L) => `<option value="${esc(L)}">${esc(L)}</option>`).join('')}
@@ -673,8 +697,7 @@ function renderFallback(questions) {
   return questions.map((q) => `
     <div class="ielts-short-row">
       <span class="ielts-question-num">${esc(q.q_num)}</span>
-      <span>${esc(q.prompt || '')}</span>
-      ${gapInput(q.q_num)}
+      <span class="ielts-gap-prompt">${renderGapPrompt(q.prompt, q.q_num)}</span>
     </div>
   `).join('');
 }

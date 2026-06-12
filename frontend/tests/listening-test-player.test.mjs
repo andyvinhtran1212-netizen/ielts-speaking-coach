@@ -215,10 +215,12 @@ describe('Sprint 13.5 — player JS contract', () => {
     assert.match(JS, /Mắc bẫy/);
   });
 
-  it('escapes user/test text via an esc() helper', () => {
+  it('escapes user/test text via esc()/mdInline (escape-first)', () => {
     assert.match(JS, /function esc\(/);
-    // Sprint 13.5.2 — MCQ renderer reads q.prompt rather than item.prompt.
-    assert.match(JS, /esc\(q\.prompt/);
+    // PR #455 polish — prompts render through mdInline (escape THEN emphasis),
+    // not bare esc; mdInline calls esc() first so user text is still escaped.
+    assert.match(JS, /function mdInline\(raw\)/);
+    assert.match(JS, /mdInline\(q\.prompt/);
   });
 
   it('declares the MISSING / ERROR fallback states', () => {
@@ -447,8 +449,9 @@ describe('Sprint 13.5.2 — visual structure markers in renderers', () => {
 
   it('sentence renderer wraps prefix + gap + suffix on one row', () => {
     assert.match(JS, /class="ielts-sentence-row"/);
-    assert.match(JS, /esc\(s\.prefix/);
-    assert.match(JS, /esc\(s\.suffix/);
+    // PR #455 polish — prefix/suffix render emphasis via mdInline (escape-first).
+    assert.match(JS, /mdInline\(s\.prefix/);
+    assert.match(JS, /mdInline\(s\.suffix/);
   });
 
   it('short answer renderer renders prompt + circled num + gap', () => {

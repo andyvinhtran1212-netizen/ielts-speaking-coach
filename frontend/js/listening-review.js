@@ -27,11 +27,13 @@
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
     });
   }
-  // Escape first, THEN render **bold** / `code` — XSS-safe (#381 pattern).
+  // Escape first, THEN render `code` / **bold** / *italic* — XSS-safe (#381
+  // pattern). Bold runs before italic so `**x**` isn't eaten by the single-* rule.
   function formatProse(s) {
     var out = escapeHtml(s);
     out = out.replace(/`([^`]+)`/g, function (_, t) { return '<code class="lr-code">' + t + '</code>'; });
     out = out.replace(/\*\*([^*]+)\*\*/g, function (_, t) { return '<strong>' + t + '</strong>'; });
+    out = out.replace(/\*([^*\n]+)\*/g, function (_, t) { return '<em>' + t + '</em>'; });
     return out;
   }
   function _bulletList(text) {
@@ -295,7 +297,7 @@
         '<span class="lr-card__verdict">' + (item.correct ? '✓ Đúng' : '✗ Sai') + '</span>' +
         '<span class="lr-card__toggle">Lời giải ▸</span>' +
       '</div>' +
-      (item.prompt ? '<div class="lr-card__prompt">' + escapeHtml(item.prompt) + '</div>' : '') +
+      (item.prompt ? '<div class="lr-card__prompt">' + formatProse(item.prompt) + '</div>' : '') +
       '<div class="lr-card__answers">' +
         '<div class="lr-card__ans is-user"><span>Bạn:</span> <code>' + escapeHtml(item.user_answer || '—') + '</code></div>' +
         '<div class="lr-card__ans is-correct"><span>Đáp án:</span> <code>' + escapeHtml(item.expected || '') + '</code></div>' +

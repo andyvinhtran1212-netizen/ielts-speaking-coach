@@ -38,6 +38,14 @@
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
     });
   }
+  // Escape first, THEN render **bold** / *italic* so generator-emitted markdown
+  // in prompts/options previews the way the student player renders it (XSS-safe).
+  function mdInline(s) {
+    var out = escapeHtml(s);
+    out = out.replace(/\*\*([^*]+)\*\*/g, function (_, t) { return '<strong>' + t + '</strong>'; });
+    out = out.replace(/\*([^*\n]+)\*/g, function (_, t) { return '<em>' + t + '</em>'; });
+    return out;
+  }
   function mb(bytes) { return (Number(bytes || 0) / (1024 * 1024)).toFixed(1) + ' MB'; }
 
   // ── File pickers (drag-drop + click) ──────────────────────────────────────
@@ -235,7 +243,7 @@
       out += '<div class="fi-sec"><div class="fi-sec__h">Section ' + escapeHtml(sec) + '</div>';
       bySec[sec].forEach(function (q) {
         out += '<div class="fi-q"><span class="fi-q__num">Câu ' + escapeHtml(String(q.q_num)) + '</span> '
-          + '<span class="fi-q__prompt">' + escapeHtml(q.prompt || '') + '</span>';
+          + '<span class="fi-q__prompt">' + mdInline(q.prompt || '') + '</span>';
         if (Array.isArray(q.options) && q.options.length) {
           out += '<ul class="fi-q__opts">' + q.options.map(function (o) {
             // Options parse to {letter,text} objects; escapeHtml(object) → "[object Object]".
@@ -243,9 +251,9 @@
             if (o && typeof o === 'object') {
               var lt = o.letter || o.label || '';
               return '<li>' + (lt ? '<b>' + escapeHtml(lt) + '.</b> ' : '')
-                + escapeHtml(o.text != null ? o.text : '') + '</li>';
+                + mdInline(o.text != null ? o.text : '') + '</li>';
             }
-            return '<li>' + escapeHtml(o) + '</li>';
+            return '<li>' + mdInline(o) + '</li>';
           }).join('') + '</ul>';
         }
         if (q.answer != null && q.answer !== '') {
