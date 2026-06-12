@@ -5011,7 +5011,10 @@ async def list_published_listening_tests(
         test_type IS NULL (a plain != 'mini' would drop them).
     """
     user = await _require_auth(authorization)
-    if test_type is not None and test_type not in ("mini", "full"):
+    # Validate only a real string value. When the handler is called directly
+    # (unit tests), an omitted Query() param arrives as its FieldInfo sentinel,
+    # not None — `isinstance str` keeps that from tripping a false 422.
+    if isinstance(test_type, str) and test_type not in ("mini", "full"):
         raise HTTPException(422, "test_type must be 'mini' or 'full'")
 
     q = (
