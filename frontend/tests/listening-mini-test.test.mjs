@@ -16,6 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 
 const MINI_HTML  = read('pages', 'listening-mini-test.html');
+const PLAYER_HTML = read('pages', 'listening-test.html');
 const MINI_JS    = read('js', 'listening-mini-test.js');
 const LIST_JS    = read('js', 'listening-tests-list.js');
 const PLAYER_JS  = read('js', 'listening-test-player.js');
@@ -65,6 +66,44 @@ describe('Mini test — player param-ized off the real shape (no hardcoded 4/40)
   });
   it('setActiveTab guard uses sectionCount', () => {
     assert.match(PLAYER_JS, /tabNum > \(STATE\.sectionCount \|\| 4\)/);
+  });
+});
+
+
+// ── PR follow-up: render bugs that only surface with REAL 1-section content
+//    (a mini may be "Section 3" → section_num=3, not 1). Pin the fixes so the
+//    full 4-section path can't regress and the 1-section path can't re-break.
+describe('Mini test — 1-section render fixes (#454 follow-up)', () => {
+  it('computeTestShape captures the FIRST real section number (mini may start at 3)', () => {
+    // CRITICAL blank-render root: a single "Section 3" panel was hidden because
+    // applyActiveTab hides every section whose num != activeTab, and activeTab
+    // was hardcoded to 1. Seed it from the real first section instead.
+    assert.match(PLAYER_JS, /STATE\.firstSection\s*=\s*sections\.length\s*\?\s*Number\(sections\[0\]\.section_num\)/);
+  });
+  it('activeTab is seeded from the first real section, NOT a hardcoded 1', () => {
+    assert.match(PLAYER_JS, /STATE\.activeTab\s*=\s*STATE\.firstSection/);
+    assert.doesNotMatch(PLAYER_JS, /STATE\.activeTab\s*=\s*1;/);
+  });
+  it('setActiveTab accepts any REAL section number (a mini section set may be {3})', () => {
+    assert.match(PLAYER_JS, /STATE\.sectionQCounts[\s\S]*?hasOwnProperty\.call\(STATE\.sectionQCounts,\s*tabNum\)/);
+  });
+  it('footer answered-count denominator is param-ized (data-total-q), not a static "/ 40 câu"', () => {
+    assert.match(PLAYER_HTML, /id="ft-answered-foot"[\s\S]*?data-total-q/);
+    assert.doesNotMatch(PLAYER_HTML, /id="ft-answered-foot"[^<]*<\/strong>\s*\/\s*40 câu/);
+  });
+  it('taking-player MCQ renders option {letter,text}, never [object Object]', () => {
+    // renderMCQ must read o.letter/o.text — escapeHtml(object) would print
+    // "[object Object]" as it did in the admin preview.
+    assert.match(PLAYER_JS, /const letter\s*=\s*o\.letter\s*\|\|\s*o\.label/);
+    assert.match(PLAYER_JS, /const text\s*=\s*o\.text/);
+  });
+  it('admin import preview renders MCQ option letter+text, not escapeHtml(object)', () => {
+    assert.match(ADMIN_JS, /o\.letter\s*\|\|\s*o\.label/);
+    assert.doesNotMatch(ADMIN_JS, /return '<li>' \+ escapeHtml\(o\) \+ '<\/li>'; \}\)\.join/);
+  });
+  it('admin import preview drops the misleading /4 and /40 fixed denominators', () => {
+    assert.doesNotMatch(ADMIN_JS, /question_count[^)]*\) \+ '\/40<\/b>/);
+    assert.doesNotMatch(ADMIN_JS, /section_count[^)]*\) \+ '\/4<\/b>/);
   });
 });
 
