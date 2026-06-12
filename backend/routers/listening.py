@@ -5402,6 +5402,26 @@ async def get_listening_test_attempt(
     }
 
 
+def _rebase_audio_window(win: dict | None, is_mini: bool, section_offsets: dict) -> dict | None:
+    """Rebase a per-question replay window for the review player.
+
+    Stored windows are full-test-ABSOLUTE (= section-relative + section_offset),
+    correct for a full test whose premixed audio holds every section at its
+    absolute position. A MINI test's audio is its single section premixed alone
+    (the mp3 starts at ~0), so seeking the absolute time lands `section_offset`
+    seconds too late — every replay misses its answer. For a mini, subtract the
+    section's offset to get a section-relative seek. Full tests pass through.
+    """
+    if not win or not is_mini:
+        return win
+    off = (section_offsets or {}).get(win.get("section")) or 0
+    if not off:
+        return win
+    return {**win,
+            "start": round(win["start"] - off, 2),
+            "end":   round(win["end"]   - off, 2)}
+
+
 @user_router.get("/tests/attempts/{attempt_id}/review")
 async def get_listening_test_attempt_review(
     attempt_id: str,
@@ -5475,11 +5495,21 @@ async def get_listening_test_attempt_review(
                     prompt_by_q[qq["q_num"]] = qq.get("prompt")
                     type_by_q[qq["q_num"]] = variant
 
+    # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
+    # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
+    # section_offset). Seeking the absolute time in a section-only mp3 lands
+    # section_offset seconds too late (every replay misses its answer). Rebase the
+    # window to section-relative for a mini so the review player seeks the right
+    # spot. Full tests keep absolute windows — their premixed audio holds every
+    # section at its absolute position, so no rebase.
+    is_mini = meta.get("test_type") == "mini"
+    sec_offsets = meta.get("section_offsets") or {}
+
     # Join grading_details with the per-question solution + window.
     review = []
     for g in (attempt.get("grading_details") or []):
         q = g.get("q_num")
-        win = windows_by_q.get(q)
+        win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
         review.append({
             "q_num":         q,
             "correct":       bool(g.get("correct")),
@@ -5487,7 +5517,7 @@ async def get_listening_test_attempt_review(
             "expected":      g.get("expected") or "",
             "question_type": type_by_q.get(q),
             "prompt":        prompt_by_q.get(q),
-            "audio_window":  win,                       # {start, end, section} — full_test-absolute
+            "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
             "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
             "solution":      solutions_by_q.get(q) or {},
