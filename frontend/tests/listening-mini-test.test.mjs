@@ -108,6 +108,44 @@ describe('Mini test — 1-section render fixes (#454 follow-up)', () => {
 });
 
 
+// ── PR #455 polish: generator-emitted markdown + gap placement. Andy's packs
+//    carry **bold**/*italic* in prompts/instructions/options and sentence-style
+//    gap-fill prompts (`___` inline). Pin: emphasis renders (XSS-safe), and the
+//    fallback gap input lands AT the blank, not appended.
+describe('Mini test — markdown emphasis + inline gap (polish)', () => {
+  it('player has an XSS-safe mdInline helper (escape THEN emphasis)', () => {
+    assert.match(PLAYER_JS, /function mdInline\(raw\)/);
+    // esc() must run BEFORE any emphasis tag is introduced (XSS-safe ordering).
+    assert.match(PLAYER_JS, /let s = esc\(raw\)/);
+    assert.match(PLAYER_JS, /<strong>\$\{t\}<\/strong>/);
+    assert.match(PLAYER_JS, /<em>\$\{t\}<\/em>/);
+  });
+  it('player renders emphasis in instruction + MCQ stem/option + sentence prefix/suffix', () => {
+    assert.match(PLAYER_JS, /<p>\$\{mdInline\(raw\)\}<\/p>/);
+    assert.match(PLAYER_JS, /ielts-mcq-stem[\s\S]*?\$\{mdInline\(q\.prompt/);
+    assert.match(PLAYER_JS, /ielts-mcq-option-text">\$\{mdInline\(text\)\}/);
+    assert.match(PLAYER_JS, /\$\{mdInline\(s\.prefix \|\| ''\)\}/);
+  });
+  it('fallback gap-fill renders the input INLINE at the blank, not appended', () => {
+    assert.match(PLAYER_JS, /const _GAP_TOKEN_RE = \/_\{2,\}/);
+    assert.match(PLAYER_JS, /function renderGapPrompt\(prompt, qNum\)/);
+    assert.match(PLAYER_JS, /\.replace\(_GAP_TOKEN_RE, \(\) => gapInput\(qNum\)\)/);
+    // renderFallback must delegate to renderGapPrompt (no bare esc(prompt)+gapInput).
+    assert.match(PLAYER_JS, /renderGapPrompt\(q\.prompt, q\.q_num\)/);
+    assert.doesNotMatch(PLAYER_JS, /<span>\$\{esc\(q\.prompt \|\| ''\)\}<\/span>\s*\$\{gapInput\(q\.q_num\)\}/);
+  });
+  it('review formatProse renders *italic* (not just bold) + prompt uses it', () => {
+    assert.match(REVIEW_JS, /<em>' \+ t \+ '<\/em>/);
+    assert.match(REVIEW_JS, /lr-card__prompt">' \+ formatProse\(item\.prompt\)/);
+  });
+  it('admin import preview renders emphasis in prompt + option text', () => {
+    assert.match(ADMIN_JS, /function mdInline\(s\)/);
+    assert.match(ADMIN_JS, /fi-q__prompt">' \+ mdInline\(q\.prompt/);
+    assert.match(ADMIN_JS, /\+ mdInline\(o\.text != null/);
+  });
+});
+
+
 describe('Mini test — review palette is section-driven (not %10)', () => {
   it('palette inserts a separator on SECTION change, not q_num % 10', () => {
     assert.match(REVIEW_JS, /sec != null && sec !== prevSec/);

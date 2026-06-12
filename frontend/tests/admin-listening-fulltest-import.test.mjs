@@ -170,10 +170,11 @@ describe('Phase B — content preview + IMG-PROMPT extraction (real value)', () 
     // so the isolated Function must carry all three.
     const blocks = js.match(/function imgPromptBlocks\(qs\) \{[\s\S]*?\n  \}/);
     const label = js.match(/function blockRangeLabel\(b\) \{[\s\S]*?\n  \}/);
+    const md = js.match(/function mdInline\(s\) \{[\s\S]*?\n  \}/);
     const m = js.match(/function previewHtml\(p\) \{[\s\S]*?\n  \}/);
-    assert.ok(blocks && label && m, 'preview helpers present');
+    assert.ok(blocks && label && md && m, 'preview helpers present');
     return new Function('escapeHtml',
-      blocks[0] + '\n' + label[0] + '\n' + m[0] + '\nreturn previewHtml;')(esc);
+      blocks[0] + '\n' + label[0] + '\n' + md[0] + '\n' + m[0] + '\nreturn previewHtml;')(esc);
   }
   test('renders the REAL question count + prompt + answer from the dry-run', () => {
     const previewHtml = loadPreview();
