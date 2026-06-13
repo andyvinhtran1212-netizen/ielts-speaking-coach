@@ -375,6 +375,23 @@
     var panel = renderSkillsPanel(items);
     if (panel) host.appendChild(panel);
     items.forEach(function (it) { host.appendChild(renderCard(it)); });
+
+    // Feedback (PR-2) — show-once survey (rating_de + rating_audio for listening)
+    // + per-card "flag bài giải". Listening review is logged-in only (no anon).
+    if (window.AverFeedback) {
+      var qNums = (items || []).map(function (r) { return r.q_num; })
+        .filter(function (n) { return n != null; }).sort(function (a, b) { return a - b; });
+      window.AverFeedback.mountSurvey(host, {
+        skill: 'listening', attemptId: SESSION.attemptId, hasAudio: true,
+        anonId: null, qNums: qNums,
+      });
+      host.querySelectorAll('.lr-card').forEach(function (c) {
+        window.AverFeedback.attachCardFlag({
+          card: c, top: c.querySelector('.lr-card__top'), skill: 'listening',
+          attemptId: SESSION.attemptId, qNum: Number(c.dataset.q), anonId: null,
+        });
+      });
+    }
   }
 
   function jumpToQ(qNum) {

@@ -369,6 +369,27 @@
       btn.setAttribute('aria-pressed', open ? 'true' : 'false');
       btn.textContent = open ? 'Thu gọn tất cả' : 'Mở tất cả';
     });
+
+    // Feedback (PR-2) — show-once survey at the top of the review + a per-card
+    // "flag bài giải" button. Reading rebuilds #rr-review per part, so re-mount
+    // each time (both calls are idempotent + the survey is show-once per attempt).
+    if (window.AverFeedback) {
+      var anonId = anonIdFromUrl();
+      var qNums = ((SESSION.data && SESSION.data.review) || [])
+        .map(function (r) { return r.q_num; })
+        .filter(function (n) { return n != null; })
+        .sort(function (a, b) { return a - b; });
+      window.AverFeedback.mountSurvey(review, {
+        skill: 'reading', attemptId: SESSION.attemptId, hasAudio: false,
+        anonId: anonId, qNums: qNums,
+      });
+      cards.querySelectorAll('.rr-card').forEach(function (c) {
+        window.AverFeedback.attachCardFlag({
+          card: c, top: c.querySelector('.rr-card__top'), skill: 'reading',
+          attemptId: SESSION.attemptId, qNum: Number(c.dataset.q), anonId: anonId,
+        });
+      });
+    }
   }
 
   function render(d) {
