@@ -1,0 +1,107 @@
+/* frontend/css/admin-feedback.css — Feedback PR-3 admin inbox (mockup §04).
+ * Real aver-design tokens (--av-*, light+dark inherited). Scoped border-box on
+ * the inbox root only (we deliberately do NOT link admin-components.css, whose
+ * global *{box-sizing} reset would flip the reading/listening admin box model).
+ * The terracotta report/flag accent has no DS token → scoped --fbx-flag. */
+
+.fbx {
+  --fbx-surface:    var(--av-surface-card);
+  --fbx-surface-2:  var(--av-surface-sunken);
+  --fbx-ink:        var(--av-text-primary);
+  --fbx-ink-soft:   var(--av-text-secondary);
+  --fbx-ink-faint:  var(--av-text-faint);
+  --fbx-line:       var(--av-border-default);
+  --fbx-line-soft:  var(--av-border-subtle);
+  --fbx-brand:      var(--av-primary);
+  --fbx-brand-ink:  var(--av-primary-active);
+  --fbx-brand-wash: var(--av-primary-soft);
+  --fbx-good:       var(--av-success);
+  --fbx-flag:       #d8643b;
+  --fbx-flag-wash:  #fcefe9;
+
+  max-width: 980px; margin: 0 auto; padding: var(--av-space-6, 24px) var(--av-space-4, 16px) 80px;
+  color: var(--fbx-ink);
+}
+[data-theme="dark"] .fbx { --fbx-flag: #e8794f; --fbx-flag-wash: #2e1d15; }
+.fbx, .fbx * { box-sizing: border-box; }
+
+.fbx__head h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.fbx__head p { margin: 4px 0 0; font-size: 14px; color: var(--fbx-ink-soft); max-width: 64ch; }
+
+/* toolbar ------------------------------------------------------------------ */
+.fbx-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 22px 0 16px; padding-bottom: 14px; border-bottom: 1px solid var(--fbx-line-soft);
+}
+.fbx-seg { display: inline-flex; border: 1px solid var(--fbx-line); border-radius: 999px; overflow: hidden; }
+.fbx-seg button {
+  border: none; background: transparent; color: var(--fbx-ink-soft); font: inherit; font-size: 13px;
+  font-weight: 600; padding: 6px 14px; cursor: pointer;
+  transition: background var(--av-duration-fast, .12s) ease, color var(--av-duration-fast, .12s) ease;
+}
+.fbx-seg button:hover { color: var(--fbx-ink); }
+.fbx-seg button[aria-pressed="true"] { background: var(--fbx-brand); color: var(--av-text-on-primary, #fff); }
+.fbx-select {
+  border: 1px solid var(--fbx-line); background: var(--fbx-surface); color: var(--fbx-ink);
+  font: inherit; font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+}
+.fbx-count { margin-left: auto; font-size: 12.5px; color: var(--fbx-ink-faint); display: inline-flex; align-items: center; }
+.fbx-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fbx-flag); display: inline-block; margin-right: 6px; }
+
+.fbx-loading, .fbx-empty { padding: 28px 4px; color: var(--fbx-ink-faint); font-size: 14px; }
+.adm-banner.is-error { color: var(--av-error); }
+
+/* group-by-test ------------------------------------------------------------ */
+.fbx-group {
+  background: var(--fbx-surface); border: 1px solid var(--fbx-line); border-radius: 14px;
+  box-shadow: var(--av-shadow-sm, 0 1px 2px rgba(0,0,0,.05)); overflow: hidden; margin-bottom: 16px;
+}
+.fbx-group__head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 13px 18px; background: var(--fbx-surface-2); border-bottom: 1px solid var(--fbx-line-soft);
+}
+.fbx-group__skill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--fbx-brand-wash); color: var(--fbx-brand-ink); }
+.fbx-skill--listening { background: var(--fbx-brand-wash); color: var(--fbx-brand-ink); }
+.fbx-skill--reading { background: var(--av-info-soft, var(--fbx-surface)); color: var(--av-info, var(--fbx-ink-soft)); }
+.fbx-group__id { font-weight: 650; font-size: 14px; font-family: var(--av-font-mono, monospace); }
+.fbx-group__stat { font-size: 12.5px; color: var(--fbx-ink-soft); }
+.fbx-group__new { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fbx-flag); display: inline-flex; align-items: center; }
+
+/* rows --------------------------------------------------------------------- */
+.fbx-row {
+  display: grid; grid-template-columns: 84px 1fr auto; gap: 14px; align-items: center;
+  padding: 13px 18px; border-bottom: 1px solid var(--fbx-line-soft);
+}
+.fbx-row:last-child { border-bottom: none; }
+.fbx-row:hover { background: var(--fbx-surface-2); }
+.fbx-row.is-resolved { opacity: .62; }
+.fbx-tag { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px; text-align: center; align-self: start; margin-top: 2px; }
+.fbx-tag.is-rating { background: var(--fbx-brand-wash); color: var(--fbx-brand-ink); }
+.fbx-tag.is-flag { background: var(--fbx-flag-wash); color: var(--fbx-flag); }
+.fbx-row__main { font-size: 13.5px; color: var(--fbx-ink-soft); }
+.fbx-row__loc { font-weight: 650; color: var(--fbx-ink); text-decoration: none; }
+.fbx-row__loc:hover { color: var(--fbx-brand-ink); text-decoration: underline; }
+.fbx-row__detail { color: var(--fbx-ink-soft); }
+.fbx-row__who { font-size: 12px; color: var(--fbx-ink-faint); margin-top: 3px; }
+.fbx-stars { color: var(--fbx-brand); font-size: 13px; letter-spacing: 1px; }
+.fbx-stars i { color: var(--fbx-line); font-style: normal; }
+
+.fbx-status {
+  border: 1px solid var(--fbx-line); background: var(--fbx-surface); color: var(--fbx-ink-soft);
+  border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: border-color var(--av-duration-fast, .12s) ease, color var(--av-duration-fast, .12s) ease;
+}
+.fbx-status:hover { border-color: var(--fbx-ink-faint); color: var(--fbx-ink); }
+.fbx-status.is-done { border-color: var(--fbx-good); color: var(--fbx-good); background: transparent; }
+
+/* keyboard focus */
+.fbx button:focus-visible, .fbx a:focus-visible, .fbx select:focus-visible {
+  outline: none; box-shadow: var(--av-shadow-focus, 0 0 0 3px var(--fbx-brand-wash)); border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .fbx-row { grid-template-columns: 64px 1fr; }
+  .fbx-status { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { .fbx * { transition: none !important; } }

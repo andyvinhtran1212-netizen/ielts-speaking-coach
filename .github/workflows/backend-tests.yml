@@ -209,6 +209,7 @@ jobs:
             frontend/tests/reading-mini-test.test.mjs \
             frontend/tests/listening-review-ui.test.mjs \
             frontend/tests/feedback-widgets.test.mjs \
+            frontend/tests/feedback-admin-inbox.test.mjs \
             frontend/tests/listening-mini-test.test.mjs \
             frontend/tests/listening-test-player.test.mjs \
             frontend/tests/site-overview-coverage.test.mjs
