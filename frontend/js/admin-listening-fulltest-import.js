@@ -38,6 +38,14 @@
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
     });
   }
+  // Escape first, THEN render **bold** / *italic* so generator-emitted markdown
+  // in prompts/options previews the way the student player renders it (XSS-safe).
+  function mdInline(s) {
+    var out = escapeHtml(s);
+    out = out.replace(/\*\*([^*]+)\*\*/g, function (_, t) { return '<strong>' + t + '</strong>'; });
+    out = out.replace(/\*([^*\n]+)\*/g, function (_, t) { return '<em>' + t + '</em>'; });
+    return out;
+  }
   function mb(bytes) { return (Number(bytes || 0) / (1024 * 1024)).toFixed(1) + ' MB'; }
 
   // ── File pickers (drag-drop + click) ──────────────────────────────────────
@@ -155,8 +163,8 @@
     // summary (only meaningful when parsed)
     if (p.section_count != null || p.question_count != null) {
       html += '<div class="fi-summary">'
-        + '<span>Sections: <b>' + (p.section_count != null ? p.section_count : '?') + '/4</b></span>'
-        + '<span>Câu: <b>' + (p.question_count != null ? p.question_count : '?') + '/40</b></span>'
+        + '<span>Sections: <b>' + (p.section_count != null ? p.section_count : '?') + '</b></span>'
+        + '<span>Câu: <b>' + (p.question_count != null ? p.question_count : '?') + '</b></span>'
         + '<span>Transcript: <b>' + escapeHtml(meta.transcript_source || '—') + '</b></span>'
         + '<span class="fi-mono">' + escapeHtml(meta.format_version || '') + '</span>'
         + (meta.test_id ? '<span>Test ID: <b class="fi-mono">' + escapeHtml(meta.test_id) + '</b></span>' : '')
@@ -235,10 +243,18 @@
       out += '<div class="fi-sec"><div class="fi-sec__h">Section ' + escapeHtml(sec) + '</div>';
       bySec[sec].forEach(function (q) {
         out += '<div class="fi-q"><span class="fi-q__num">Câu ' + escapeHtml(String(q.q_num)) + '</span> '
-          + '<span class="fi-q__prompt">' + escapeHtml(q.prompt || '') + '</span>';
+          + '<span class="fi-q__prompt">' + mdInline(q.prompt || '') + '</span>';
         if (Array.isArray(q.options) && q.options.length) {
           out += '<ul class="fi-q__opts">' + q.options.map(function (o) {
-            return '<li>' + escapeHtml(o) + '</li>'; }).join('') + '</ul>';
+            // Options parse to {letter,text} objects; escapeHtml(object) → "[object Object]".
+            // Render letter + text; tolerate a plain-string option too.
+            if (o && typeof o === 'object') {
+              var lt = o.letter || o.label || '';
+              return '<li>' + (lt ? '<b>' + escapeHtml(lt) + '.</b> ' : '')
+                + mdInline(o.text != null ? o.text : '') + '</li>';
+            }
+            return '<li>' + mdInline(o) + '</li>';
+          }).join('') + '</ul>';
         }
         if (q.answer != null && q.answer !== '') {
           out += '<div class="fi-q__ans">Đáp án: <b>' + escapeHtml(String(q.answer)) + '</b></div>';
@@ -307,7 +323,11 @@
       Promise.resolve(window.getSupabase().auth.getSession()).then(function (r) {
         var token = r && r.data && r.data.session ? r.data.session.access_token : null;
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', window.api.base + '/admin/listening/import-fulltest/commit');
+        // mini flag → reading_tests-style metadata.test_type ('mini' vs 'full'),
+        // so the pack lands in the student Mini-Tests page vs Full-Tests.
+        var miniEl = document.getElementById('fi-mini');
+        var miniQs = (miniEl && miniEl.checked) ? '?mini=true' : '';
+        xhr.open('POST', window.api.base + '/admin/listening/import-fulltest/commit' + miniQs);
         if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
         xhr.upload.onprogress = function (e) {
           if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);

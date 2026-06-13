@@ -44,14 +44,53 @@ const STATE = {
   // Sprint 13.5.7 — Cambridge single-shot play guard: once true, the
   // Play button is locked for the rest of the attempt.
   playbackStarted: false,
+  // Listening mini test — the real shape, derived from the loaded test (a full
+  // test = 4 sections / 40 Q; a mini = 1 section / M Q). Replaces the hardcoded
+  // 4/40 so the player renders both. Set by computeTestShape() at load.
+  qToSection:    new Map(),   // q_num → section_num (from the test data)
+  totalQuestions: 40,
+  sectionCount:   4,
+  sectionQCounts: {},         // section_num → question count (for tab "n/m")
 };
 
-// Q-number → section number mapping (Cambridge convention: 1-10 → s1,
-// 11-20 → s2, 21-30 → s3, 31-40 → s4). Used by the progress tracker
-// to assign squares to tabs.
+// Derive the test's real shape (section count, total questions, q→section map,
+// per-section counts) from the loaded payload — NOT a hardcoded 4×10.
+function computeTestShape(test) {
+  const sections = (test && test.sections) || [];
+  const qToSection = new Map();
+  const counts = {};
+  let total = 0;
+  sections.forEach((sec) => {
+    const sn = Number(sec.section_num);
+    (sec.exercises || []).forEach((e) => {
+      ((e.payload && e.payload.questions) || []).forEach((q) => {
+        if (q && q.q_num != null) {
+          qToSection.set(Number(q.q_num), sn);
+          counts[sn] = (counts[sn] || 0) + 1;
+          total += 1;
+        }
+      });
+    });
+  });
+  STATE.qToSection    = qToSection;
+  STATE.totalQuestions = total || 40;
+  STATE.sectionCount   = sections.length || 4;
+  STATE.sectionQCounts = counts;
+  // The first section's REAL number (a full test starts at 1, but a mini may be
+  // a single "Section 3" → section_num=3). Used to seed the active tab; seeding
+  // it to a hardcoded 1 would hide the only panel (applyActiveTab hides every
+  // section whose num != activeTab) and the test looks blank.
+  STATE.firstSection = sections.length ? Number(sections[0].section_num) : 1;
+}
+
+// Q-number → section number — from the test's actual data (handles a mini's
+// single section as well as a full 4-section test). Falls back to the Cambridge
+// 10-per-section convention only if the map is unavailable.
 function sectionForQ(qNum) {
-  if (!Number.isFinite(qNum) || qNum < 1 || qNum > 40) return null;
-  return Math.floor((qNum - 1) / 10) + 1;
+  const n = Number(qNum);
+  if (STATE.qToSection && STATE.qToSection.has(n)) return STATE.qToSection.get(n);
+  if (!Number.isFinite(n) || n < 1 || n > (STATE.totalQuestions || 40)) return null;
+  return Math.floor((n - 1) / 10) + 1;
 }
 
 const VIEWS = {
@@ -84,6 +123,30 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// Render inline markdown emphasis (**bold**, *italic*) in user-facing prose so
+// generator-emitted markdown doesn't show up literally (e.g. "**NO MORE THAN
+// TWO WORDS**", "*(ONE WORD)*"). XSS-safe: HTML is escaped FIRST, so the only
+// tags that ever reach the DOM are the <strong>/<em> we introduce here. Use
+// for PROSE only (prompts, instructions, option text) — never attribute values.
+function mdInline(raw) {
+  let s = esc(raw);
+  s = s.replace(/\*\*([^*]+)\*\*/g, (_, t) => `<strong>${t}</strong>`);
+  s = s.replace(/\*([^*\n]+)\*/g,   (_, t) => `<em>${t}</em>`);
+  return s;
+}
+
+// Gap-fill prompt → render the answer input INLINE at the blank token (____ /
+// …… / ....) instead of appended at the end, for ANY gap-fill type that reaches
+// the fallback. Falls back to appending only when the prompt has no blank.
+const _GAP_TOKEN_RE = /_{2,}|…+|\.{4,}/;
+function renderGapPrompt(prompt, qNum) {
+  const html = mdInline(prompt || '');
+  if (_GAP_TOKEN_RE.test(html)) {
+    return html.replace(_GAP_TOKEN_RE, () => gapInput(qNum));
+  }
+  return html + ' ' + gapInput(qNum);
+}
+
 function getTestIdFromUrl() {
   const sp = new URLSearchParams(window.location.search);
   return (sp.get('id') || '').trim() || null;
@@ -105,9 +168,18 @@ async function loadTest(testId) {
     const test = await window.api.get(`/api/listening/tests/${encodeURIComponent(testId)}`);
     STATE.testId = testId;
     STATE.test   = test;
+    computeTestShape(test);            // sets sectionCount / totalQuestions / qToSection / firstSection
+    STATE.activeTab = STATE.firstSection;   // a mini may start at Section 3, not 1
     $('ft-title').textContent = test.title || test.test_id || 'Untitled';
     $('ft-subtitle').textContent =
-      `${(test.sections || []).length} sections · 40 câu · ~30 phút`;
+      `${STATE.sectionCount} section${STATE.sectionCount > 1 ? 's' : ''} · ${STATE.totalQuestions} câu`;
+    // Mirror the real counts into the static prestart rule + answered-denominator.
+    var ruleEl = $('ft-prestart-rule-count');
+    if (ruleEl) ruleEl.textContent = STATE.totalQuestions + ' câu trên ' + STATE.sectionCount +
+      ' section' + (STATE.sectionCount > 1 ? 's' : '');
+    document.querySelectorAll('[data-total-q]').forEach(function (el) {
+      el.textContent = String(STATE.totalQuestions);
+    });
     $('ft-prestart-title').textContent = `Sẵn sàng bắt đầu — ${test.title || test.test_id || ''}`;
     showState('prestart');
   } catch (e) {
@@ -191,12 +263,30 @@ function renderPaper() {
   root.innerHTML = out.join('');
   if (totalQs) { /* total Q count not displayed; preserve for future stats */ }
   attachQuestionHandlers();
+  // Listening mini test — render ONE tab per real section (a mini has 1, a full
+  // test has 4) instead of the static 4 in the HTML.
+  renderTabs();
   // Sprint 13.5.5 — tab navigation: show only the active tab's section.
   applyActiveTab();
   // Sprint 13.5.5 — render the 40-square progress tracker.
   renderProgressTracker();
   attachTabHandlers();
   attachProgressHandlers();
+}
+
+// Listening mini test — build one tab per real section from the test data.
+function renderTabs() {
+  const tabs = $('ft-tabs');
+  if (!tabs) return;
+  const sections = (STATE.test && STATE.test.sections) || [];
+  tabs.innerHTML = sections.map((sec) => {
+    const sn = Number(sec.section_num);
+    const cnt = STATE.sectionQCounts[sn] || 0;
+    const active = sn === STATE.activeTab;
+    return `<button class="ielts-tab${active ? ' active' : ''}" data-tab="${sn}" type="button" role="tab" aria-selected="${active ? 'true' : 'false'}">`
+      + `<span class="tab-label">PART ${sn}</span>`
+      + `<span class="tab-progress" data-tab-progress="${sn}">0/${cnt}</span></button>`;
+  }).join('');
 }
 
 function applyActiveTab() {
@@ -214,7 +304,9 @@ function applyActiveTab() {
 }
 
 function setActiveTab(tabNum) {
-  if (!Number.isInteger(tabNum) || tabNum < 1 || tabNum > 4) return;
+  // Valid tabs are the REAL section numbers (a mini may be just {3}), not 1..count.
+  const known = STATE.sectionQCounts && Object.prototype.hasOwnProperty.call(STATE.sectionQCounts, tabNum);
+  if (!Number.isInteger(tabNum) || (!known && (tabNum < 1 || tabNum > (STATE.sectionCount || 4)))) return;
   if (STATE.activeTab === tabNum) return;
   STATE.activeTab = tabNum;
   applyActiveTab();
@@ -260,7 +352,7 @@ function renderProgressTracker() {
   const bar = $('ft-progress-bar');
   if (!bar) return;
   const html = [];
-  for (let q = 1; q <= 40; q++) {
+  for (let q = 1; q <= (STATE.totalQuestions || 40); q++) {
     const section = sectionForQ(q);
     html.push(
       `<button class="progress-square" type="button" `
@@ -362,8 +454,8 @@ function formatInstruction(raw) {
     .split(/(?<=\.)\s+(?=[A-Z])/)
     .map((s) => s.trim())
     .filter(Boolean);
-  if (parts.length <= 1) return `<p>${esc(raw)}</p>`;
-  return parts.map((p) => `<p>${esc(p)}</p>`).join('');
+  if (parts.length <= 1) return `<p>${mdInline(raw)}</p>`;
+  return parts.map((p) => `<p>${mdInline(p)}</p>`).join('');
 }
 
 
@@ -378,16 +470,16 @@ function renderFormCompletion(tmpl, questions) {
       ${heading ? `<div class="ielts-form-heading">${esc(heading)}</div>` : ''}
       <div class="ielts-form-grid">
         ${rows.map((r) => {
-          const label = `<span class="ielts-form-label">${esc(r.label || '')}:</span>`;
+          const label = `<span class="ielts-form-label">${mdInline(r.label || '')}:</span>`;
           if (r.example != null) {
             return `<div class="ielts-form-row">
               ${label}
-              <span class="ielts-form-example">${esc(r.example)} (Example)</span>
+              <span class="ielts-form-example">${mdInline(r.example)} (Example)</span>
             </div>`;
           }
           if (r.q_num != null) {
             const pref = r.prefix
-              ? `<span class="ielts-form-prefix">${esc(r.prefix)}</span>`
+              ? `<span class="ielts-form-prefix">${mdInline(r.prefix)}</span>`
               : '';
             return `<div class="ielts-form-row">
               ${label}
@@ -398,7 +490,7 @@ function renderFormCompletion(tmpl, questions) {
           }
           return `<div class="ielts-form-row">
             ${label}
-            <span>${esc(r.text || '')}</span>
+            <span>${mdInline(r.text || '')}</span>
           </div>`;
         }).join('')}
       </div>
@@ -416,10 +508,10 @@ function renderTableCompletion(tmpl, questions) {
   if (!headers.length || !rows.length) return renderFallback(questions);
   return `
     <div class="ielts-table-container">
-      ${heading ? `<div class="ielts-table-heading">${esc(heading)}</div>` : ''}
+      ${heading ? `<div class="ielts-table-heading">${mdInline(heading)}</div>` : ''}
       <table class="ielts-table">
         <thead>
-          <tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>
+          <tr>${headers.map((h) => `<th>${mdInline(h)}</th>`).join('')}</tr>
         </thead>
         <tbody>
           ${rows.map((row) => `<tr>${row.map((c) => {
@@ -429,7 +521,7 @@ function renderTableCompletion(tmpl, questions) {
                 ${gapInput(c.q_num)}
               </td>`;
             }
-            return `<td>${esc(c == null ? '' : c)}</td>`;
+            return `<td>${mdInline(c == null ? '' : c)}</td>`;
           }).join('')}</tr>`).join('')}
         </tbody>
       </table>
@@ -446,23 +538,23 @@ function renderNotesCompletion(tmpl, questions) {
   if (!groups.length) return renderFallback(questions);
   return `
     <div class="ielts-notes-container">
-      ${heading ? `<div class="ielts-notes-heading">${esc(heading)}</div>` : ''}
+      ${heading ? `<div class="ielts-notes-heading">${mdInline(heading)}</div>` : ''}
       ${groups.map((g) => `
         <div class="ielts-notes-group">
           ${g.heading
-            ? `<div class="ielts-notes-group-heading">${esc(g.heading)}</div>`
+            ? `<div class="ielts-notes-group-heading">${mdInline(g.heading)}</div>`
             : ''}
           <ul class="ielts-notes-list">
             ${(g.items || []).map((it) => {
               if (it && typeof it === 'object' && it.q_num != null) {
                 return `<li>
-                  ${esc(it.prefix || '')}
+                  ${mdInline(it.prefix || '')}
                   <span class="ielts-question-num">${esc(it.q_num)}</span>
                   ${gapInput(it.q_num)}
-                  ${it.suffix ? ' ' + esc(it.suffix) : ''}
+                  ${it.suffix ? ' ' + mdInline(it.suffix) : ''}
                 </li>`;
               }
-              return `<li>${esc((it && it.text) || '')}</li>`;
+              return `<li>${mdInline((it && it.text) || '')}</li>`;
             }).join('')}
           </ul>
         </div>
@@ -485,7 +577,7 @@ function renderSummaryCompletion(tmpl, questions) {
       const n = Number(m[1]);
       return `<span class="ielts-question-num">${esc(n)}</span>${gapInput(n)}`;
     }
-    return esc(p);
+    return mdInline(p);
   }).join('');
   return `<div class="ielts-summary-paragraph">${rendered}</div>`;
 }
@@ -499,9 +591,9 @@ function renderSentenceCompletion(tmpl, questions) {
   return sentences.map((s) => `
     <div class="ielts-sentence-row">
       <span class="ielts-question-num">${esc(s.q_num)}</span>
-      <span>${esc(s.prefix || '')}</span>
+      <span>${mdInline(s.prefix || '')}</span>
       ${gapInput(s.q_num)}
-      <span>${esc(s.suffix || '')}</span>
+      <span>${mdInline(s.suffix || '')}</span>
     </div>
   `).join('');
 }
@@ -513,7 +605,7 @@ function renderShortAnswer(questions) {
   return questions.map((q) => `
     <div class="ielts-short-row">
       <span class="ielts-question-num">${esc(q.q_num)}</span>
-      <span>${esc(q.prompt || '')}</span>
+      <span>${mdInline(q.prompt || '')}</span>
       ${gapInput(q.q_num)}
     </div>
   `).join('');
@@ -530,7 +622,7 @@ function renderMCQ(questions) {
     <div class="ielts-mcq-question">
       <div class="ielts-mcq-stem">
         <span class="ielts-question-num">${esc(q.q_num)}</span>
-        ${esc(q.prompt || '')}
+        ${mdInline(q.prompt || '')}
       </div>
       <div class="ielts-mcq-options">
         ${(q.options || []).map((o) => {
@@ -540,7 +632,7 @@ function renderMCQ(questions) {
             <input type="radio" name="q-${esc(q.q_num)}" value="${esc(letter)}"
                    class="ft-q-input" data-q-num="${esc(q.q_num)}" />
             <strong>${esc(letter)}</strong>
-            <span class="ielts-mcq-option-text">${esc(text)}</span>
+            <span class="ielts-mcq-option-text">${mdInline(text)}</span>
           </label>`;
         }).join('')}
       </div>
@@ -586,7 +678,7 @@ function renderPlanLabel(payload, questions) {
         ${questions.map((q) => `
           <div class="ielts-plan-row">
             <span class="ielts-question-num">${esc(q.q_num)}</span>
-            <span class="ielts-plan-name">${esc(q.prompt || '')}</span>
+            <span class="ielts-plan-name">${mdInline(q.prompt || '')}</span>
             <select class="ft-q-input ielts-gap-input" data-q-num="${esc(q.q_num)}">
               <option value="">—</option>
               ${letters.map((L) => `<option value="${esc(L)}">${esc(L)}</option>`).join('')}
@@ -605,8 +697,7 @@ function renderFallback(questions) {
   return questions.map((q) => `
     <div class="ielts-short-row">
       <span class="ielts-question-num">${esc(q.q_num)}</span>
-      <span>${esc(q.prompt || '')}</span>
-      ${gapInput(q.q_num)}
+      <span class="ielts-gap-prompt">${renderGapPrompt(q.prompt, q.q_num)}</span>
     </div>
   `).join('');
 }
@@ -631,7 +722,7 @@ function attachQuestionHandlers() {
 
 function onAnswerChange(el) {
   const qNum = Number(el.getAttribute('data-q-num'));
-  if (!Number.isFinite(qNum) || qNum < 1 || qNum > 40) return;
+  if (!Number.isFinite(qNum) || qNum < 1 || qNum > (STATE.totalQuestions || 40)) return;
   const val = (el.type === 'radio')
     ? (el.checked ? el.value : null)
     : el.value;
@@ -663,14 +754,15 @@ function updateProgressTrackerSquares() {
 }
 
 function updateTabProgressCounts() {
-  const perSection = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const perSection = {};
   for (const qNum of STATE.answers.keys()) {
     const s = sectionForQ(qNum);
     if (s) perSection[s] = (perSection[s] || 0) + 1;
   }
-  for (const s of [1, 2, 3, 4]) {
+  const sectionNums = Object.keys(STATE.sectionQCounts).map(Number);
+  for (const s of (sectionNums.length ? sectionNums : [1, 2, 3, 4])) {
     const el = document.querySelector(`[data-tab-progress="${s}"]`);
-    if (el) el.textContent = `${perSection[s]}/10`;
+    if (el) el.textContent = `${perSection[s] || 0}/${STATE.sectionQCounts[s] || 10}`;
   }
 }
 
@@ -800,7 +892,7 @@ async function confirmSubmit() {
   if (STATE.submitting) return;
   const answered = STATE.answers.size;
   const ok = window.confirm(
-    `Nộp bài bây giờ? Bạn đã trả lời ${answered}/40 câu. ` +
+    `Nộp bài bây giờ? Bạn đã trả lời ${answered}/${STATE.totalQuestions || 40} câu. ` +
     'Sau khi nộp, bạn không thể chỉnh sửa đáp án.',
   );
   if (!ok) return;
@@ -835,7 +927,7 @@ async function confirmSubmit() {
 
 function renderResult(result) {
   const score = result.score ?? 0;
-  const max   = result.max_score ?? 40;
+  const max   = result.max_score ?? (STATE.totalQuestions || 40);
   $('res-score').textContent = `${score}/${max}`;
   $('res-band').textContent  = result.band_estimate != null
     ? Number(result.band_estimate).toFixed(1)
@@ -843,10 +935,15 @@ function renderResult(result) {
   const pct = max > 0 ? Math.round((score / max) * 100) : 0;
   $('res-pct').textContent = `${pct}%`;
 
-  // Section breakdown.
+  // Section breakdown — one cell per ACTUAL section (a mini has just s1), not a
+  // fixed s1..s4. Prefer the keys the grader returned; fall back to the test's
+  // real section count.
   const sb = result.section_breakdown || {};
+  const sbKeys = Object.keys(sb).length
+    ? Object.keys(sb).sort()
+    : Array.from({ length: STATE.sectionCount || 4 }, (_, i) => `s${i + 1}`);
   const sbRoot = $('res-sections');
-  sbRoot.innerHTML = ['s1','s2','s3','s4'].map((k) => {
+  sbRoot.innerHTML = sbKeys.map((k) => {
     const cell = sb[k] || { correct: 0, total: 0 };
     return `<div class="ft-section-cell">
       ${esc(k.toUpperCase())}<br>

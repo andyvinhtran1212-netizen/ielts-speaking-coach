@@ -79,7 +79,9 @@ function renderCard(t) {
 async function load() {
   showState('loading');
   try {
-    const res = await window.api.get('/api/listening/tests?limit=50');
+    // Full Tests library EXCLUDES mini tests (they have their own page). Explicit
+    // so it can't regress if the endpoint default ever changes.
+    const res = await window.api.get('/api/listening/tests?test_type=full&limit=50');
     const items = Array.isArray(res && res.items) ? res.items : [];
     if (!items.length) {
       showState('empty');

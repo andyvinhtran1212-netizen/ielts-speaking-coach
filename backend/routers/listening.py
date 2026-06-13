@@ -3430,6 +3430,7 @@ async def admin_import_fulltest_commit(
     solution:       UploadFile = File(...),
     timings:        UploadFile = File(...),
     audio:          UploadFile = File(...),
+    mini:           bool = Query(default=False),
     authorization: str | None = Header(default=None),
 ):
     """listening-fulltest-md-import (Phase A2) — persist a full-test pack +
@@ -3509,6 +3510,10 @@ async def admin_import_fulltest_commit(
             "source_format":   "listening-fulltest-v1.1",
             "section_offsets": offsets,
             "band_conversion": res.metadata.get("band_conversion") or [],
+            # Listening mini test — 'mini' (1 section) vs 'full' (4); the student
+            # list endpoint segregates on metadata.test_type. No migration: the
+            # metadata JSONB column already exists (mig 065).
+            "test_type":       "mini" if mini else "full",
         },
         "status":                      "draft",
     }
@@ -3561,7 +3566,10 @@ async def admin_import_fulltest_commit(
                     "status":        "draft",
                 }).execute()
                 exercises_created += 1
-        if sections_created != 4 or exercises_created == 0:
+        # Mini test: a mini has 1 section, a full test has 4. The loader already
+        # validated the section count (1–4); here we only guard against a partial
+        # write (0 sections / 0 exercises).
+        if sections_created < 1 or exercises_created == 0:
             raise RuntimeError(
                 f"persist incomplete (sections={sections_created}, exercises={exercises_created})")
     except HTTPException:
@@ -4984,6 +4992,7 @@ def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None,
 
 @user_router.get("/tests")
 async def list_published_listening_tests(
+    test_type: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
@@ -4994,17 +5003,32 @@ async def list_published_listening_tests(
     assembled present). Each row carries the calling user's best score
     + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
     CTAs without a follow-up round-trip.
+
+    test_type segregates the full-test and mini-test libraries (listening mini
+    test), reading metadata->>test_type:
+      - "mini" → ONLY mini tests.
+      - "full" / omitted (default) → EXCLUDE mini, but KEEP legacy tests whose
+        test_type IS NULL (a plain != 'mini' would drop them).
     """
     user = await _require_auth(authorization)
+    # Validate only a real string value. When the handler is called directly
+    # (unit tests), an omitted Query() param arrives as its FieldInfo sentinel,
+    # not None — `isinstance str` keeps that from tripping a false 422.
+    if isinstance(test_type, str) and test_type not in ("mini", "full"):
+        raise HTTPException(422, "test_type must be 'mini' or 'full'")
 
-    res = (
+    q = (
         supabase_admin.table("listening_tests")
         .select("*", count="exact")
         .eq("status", "published")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
-        .execute()
     )
+    if test_type == "mini":
+        q = q.eq("metadata->>test_type", "mini")
+    else:
+        q = q.or_("metadata->>test_type.is.null,metadata->>test_type.neq.mini")
+    res = q.execute()
     raw_rows = res.data or []
     # Filter to rows with audio satisfied (full OR assembled).
     rows = [
@@ -5378,6 +5402,26 @@ async def get_listening_test_attempt(
     }
 
 
+def _rebase_audio_window(win: dict | None, is_mini: bool, section_offsets: dict) -> dict | None:
+    """Rebase a per-question replay window for the review player.
+
+    Stored windows are full-test-ABSOLUTE (= section-relative + section_offset),
+    correct for a full test whose premixed audio holds every section at its
+    absolute position. A MINI test's audio is its single section premixed alone
+    (the mp3 starts at ~0), so seeking the absolute time lands `section_offset`
+    seconds too late — every replay misses its answer. For a mini, subtract the
+    section's offset to get a section-relative seek. Full tests pass through.
+    """
+    if not win or not is_mini:
+        return win
+    off = (section_offsets or {}).get(win.get("section")) or 0
+    if not off:
+        return win
+    return {**win,
+            "start": round(win["start"] - off, 2),
+            "end":   round(win["end"]   - off, 2)}
+
+
 @user_router.get("/tests/attempts/{attempt_id}/review")
 async def get_listening_test_attempt_review(
     attempt_id: str,
@@ -5451,11 +5495,21 @@ async def get_listening_test_attempt_review(
                     prompt_by_q[qq["q_num"]] = qq.get("prompt")
                     type_by_q[qq["q_num"]] = variant
 
+    # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
+    # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
+    # section_offset). Seeking the absolute time in a section-only mp3 lands
+    # section_offset seconds too late (every replay misses its answer). Rebase the
+    # window to section-relative for a mini so the review player seeks the right
+    # spot. Full tests keep absolute windows — their premixed audio holds every
+    # section at its absolute position, so no rebase.
+    is_mini = meta.get("test_type") == "mini"
+    sec_offsets = meta.get("section_offsets") or {}
+
     # Join grading_details with the per-question solution + window.
     review = []
     for g in (attempt.get("grading_details") or []):
         q = g.get("q_num")
-        win = windows_by_q.get(q)
+        win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
         review.append({
             "q_num":         q,
             "correct":       bool(g.get("correct")),
@@ -5463,7 +5517,7 @@ async def get_listening_test_attempt_review(
             "expected":      g.get("expected") or "",
             "question_type": type_by_q.get(q),
             "prompt":        prompt_by_q.get(q),
-            "audio_window":  win,                       # {start, end, section} — full_test-absolute
+            "audio_window":  win,                       # {start,end,section} — absolute (full) / section-relative (mini)
             "section":       (win or {}).get("section"),
             "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
             "solution":      solutions_by_q.get(q) or {},

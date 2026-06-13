@@ -65,6 +65,7 @@
     if ($('ar-bundle-solution')) $('ar-bundle-solution').value = '';
     if ($('ar-bundle-test-name')) $('ar-bundle-test-name').textContent = '';
     if ($('ar-bundle-solution-name')) $('ar-bundle-solution-name').textContent = '';
+    if ($('ar-bundle-mini')) $('ar-bundle-mini').checked = false;
     $('ar-preview').hidden = true;
     $('ar-commit').disabled = true;
     setStatus('', null);
@@ -115,7 +116,11 @@
     setStatus('Đang lưu full test…', 'loading');
     // published=true: the prose format carries no `published` field, and the
     // admin clicking "Lưu" intends the test to go live (gradeable after import).
-    window.api.upload('/admin/reading/content/import-bundle?dry_run=false&published=true', _bundleFormData())
+    // mini flag → reading_tests.metadata.test_type ('mini' vs 'full') so the
+    // test lands in the student Mini-Tests tab vs Full-Tests (same pipeline).
+    var miniEl = $('ar-bundle-mini');
+    var miniQs = (miniEl && miniEl.checked) ? '&mini=true' : '';
+    window.api.upload('/admin/reading/content/import-bundle?dry_run=false&published=true' + miniQs, _bundleFormData())
       .then(function (res) {
         if (res && res.validation_errors && res.validation_errors.length) {
           renderPreview(res); // re-show errors

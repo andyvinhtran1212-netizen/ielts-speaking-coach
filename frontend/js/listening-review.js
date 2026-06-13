@@ -27,11 +27,13 @@
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
     });
   }
-  // Escape first, THEN render **bold** / `code` — XSS-safe (#381 pattern).
+  // Escape first, THEN render `code` / **bold** / *italic* — XSS-safe (#381
+  // pattern). Bold runs before italic so `**x**` isn't eaten by the single-* rule.
   function formatProse(s) {
     var out = escapeHtml(s);
     out = out.replace(/`([^`]+)`/g, function (_, t) { return '<code class="lr-code">' + t + '</code>'; });
     out = out.replace(/\*\*([^*]+)\*\*/g, function (_, t) { return '<strong>' + t + '</strong>'; });
+    out = out.replace(/\*([^*\n]+)\*/g, function (_, t) { return '<em>' + t + '</em>'; });
     return out;
   }
   function _bulletList(text) {
@@ -295,7 +297,7 @@
         '<span class="lr-card__verdict">' + (item.correct ? '✓ Đúng' : '✗ Sai') + '</span>' +
         '<span class="lr-card__toggle">Lời giải ▸</span>' +
       '</div>' +
-      (item.prompt ? '<div class="lr-card__prompt">' + escapeHtml(item.prompt) + '</div>' : '') +
+      (item.prompt ? '<div class="lr-card__prompt">' + formatProse(item.prompt) + '</div>' : '') +
       '<div class="lr-card__answers">' +
         '<div class="lr-card__ans is-user"><span>Bạn:</span> <code>' + escapeHtml(item.user_answer || '—') + '</code></div>' +
         '<div class="lr-card__ans is-correct"><span>Đáp án:</span> <code>' + escapeHtml(item.expected || '') + '</code></div>' +
@@ -405,16 +407,21 @@
     if (det && det.hidden) card.querySelector('.lr-card__top').click();
   }
 
-  // ── Palette: ONE horizontal strip 1–40 (item 1), thin section markers ──
+  // ── Palette: ONE horizontal strip 1–N (item 1), thin section markers ──
   function renderPalette(items) {
     var strip = $('lr-nav-grid'); strip.innerHTML = '';
+    var prevSec = null;
     items.slice().sort(function (a, b) { return a.q_num - b.q_num; }).forEach(function (it, i) {
-      // a hairline gap before each new section of 10
-      if (i > 0 && it.q_num % 10 === 1) {
+      // a hairline gap whenever the section CHANGES (mini = 1 section → no gap;
+      // a full test → a gap between each section). Section-driven, not %10, so a
+      // mini whose questions aren't 10-aligned still renders correctly.
+      var sec = (it.audio_window && it.audio_window.section) || it.section_num || null;
+      if (i > 0 && sec != null && sec !== prevSec) {
         var sep = document.createElement('span');
         sep.className = 'lr-palette-sep'; sep.setAttribute('aria-hidden', 'true');
         strip.appendChild(sep);
       }
+      prevSec = sec;
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'lr-nav-q ' + (it.correct ? 'is-correct' : 'is-incorrect');
@@ -439,7 +446,8 @@
       summary = floor != null ? ('Dưới band ' + floor.toFixed(1)) : 'Chưa đủ band';
     }
     $('lr-summary').textContent = summary + ' · ' +
-      (d.score != null ? d.score : '?') + '/' + (d.max_score || 40);
+      (d.score != null ? d.score : '?') + '/' +
+      (d.max_score != null ? d.max_score : ((d.review || []).length || 40));
   }
 
   function render(d) {
