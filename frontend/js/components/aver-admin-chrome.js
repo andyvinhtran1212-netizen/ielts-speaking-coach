@@ -46,7 +46,7 @@ const VALID_ACTIVE = [
   'speaking', 'writing', 'listening', 'vocab', 'grammar',
   'students', 'users', 'cohorts',
   'access-codes', 'usage', 'foot-traffic',
-  'error-logs',
+  'error-logs', 'feedback',
   'system',
 ];
 
@@ -440,6 +440,10 @@ const NAV_GROUPS = [
     title: null,
     items: [
       { section: 'error-logs', label: 'Báo lỗi',   href: '/pages/admin/error-logs/index.html', icon: 'alert' },
+      // Feedback feature — cross-skill inbox (đánh giá đề + báo lỗi đề + flag bài
+      // giải) for reading + listening, grouped by test. Not under a skill since
+      // it spans both. Endpoint: GET/PATCH /api/admin/feedback (#458).
+      { section: 'feedback',   label: 'Feedback',  href: '/pages/admin/feedback/index.html', icon: 'message' },
       // Sprint 18.2 — "Hệ thống" folded into the Dashboard (AI Usage is the
       // cost-card drill-down). system / ai-usage / alerts stay in VALID_ACTIVE.
     ],
@@ -468,6 +472,7 @@ const ICONS = {
   key:         '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>',
   activity:    '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
   alert:       '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+  message:     '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
   settings:    '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
 

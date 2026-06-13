@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feedback — Admin · averlearning</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Box-sizing gotcha: link admin-status.css (side-effect-free pill primitive)
+       — NOT admin-components.css (its global *{box-sizing} reset). This page
+       scopes its own border-box in admin-feedback.css. -->
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-status.css" />
+  <link rel="stylesheet" href="/css/admin-feedback.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/api.js"></script>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="feedback">
+    <main class="fbx">
+      <header class="fbx__head">
+        <h1>Feedback</h1>
+        <p>Đánh giá đề + báo lỗi đề + flag bài giải từ học viên (Reading &amp; Listening), gom theo đề.</p>
+      </header>
+
+      <div class="fbx-toolbar">
+        <div class="fbx-seg" role="tablist" id="fbx-type" aria-label="Lọc theo loại">
+          <button type="button" role="tab" data-type="" aria-pressed="true">Tất cả</button>
+          <button type="button" role="tab" data-type="report">Báo lỗi đề</button>
+          <button type="button" role="tab" data-type="flag">Flag bài giải</button>
+          <button type="button" role="tab" data-type="rating">Đánh giá</button>
+        </div>
+        <select class="fbx-select" id="fbx-skill" aria-label="Lọc theo kỹ năng">
+          <option value="">Mọi kỹ năng</option>
+          <option value="reading">Reading</option>
+          <option value="listening">Listening</option>
+        </select>
+        <select class="fbx-select" id="fbx-status" aria-label="Lọc theo trạng thái">
+          <option value="">Mọi trạng thái</option>
+          <option value="new">Mới</option>
+          <option value="resolved">Đã xử lý</option>
+        </select>
+        <span class="fbx-count" id="fbx-count">
+          <span class="fbx-dot" aria-hidden="true"></span>
+          <span id="fbx-count-n">0</span> mục mới
+        </span>
+      </div>
+
+      <div class="adm-banner" id="fbx-banner" role="alert" hidden></div>
+      <div class="fbx-loading" id="fbx-loading">Đang tải…</div>
+      <div class="fbx-empty" id="fbx-empty" hidden>Chưa có feedback nào khớp bộ lọc.</div>
+      <div class="fbx-groups" id="fbx-groups" hidden></div>
+    </main>
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/admin-feedback.js" defer></script>
+</body>
+</html>
