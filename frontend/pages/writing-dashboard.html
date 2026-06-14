@@ -264,6 +264,7 @@
   <!-- ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/analytics-beacon.js" defer></script>
   <script>
     var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
     var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
@@ -525,6 +526,16 @@
         var goToDetail = function () {
           var essayId = card.getAttribute('data-essay-id');
           if (!essayId) return;
+          // analytics — opening a graded essay from the dashboard (prompt_view).
+          // Fire-and-forget; never block navigation (Pattern #29).
+          try {
+            if (window.api && window.api.post) {
+              window.api.post('/api/analytics/events', {
+                event_name: 'prompt_view',
+                event_data: { essay_id: essayId, source: 'writing-dashboard' },
+              }).catch(function () {});
+            }
+          } catch (e) {}
           window.location.href =
             '/writing/result?essay_id=' + encodeURIComponent(essayId);
         };
@@ -807,6 +818,16 @@
     function openTipModal(tip) {
       if (!tip) return;
       var ctype = tip.content_type || 'tip';
+      // analytics — viewing a writing tip (writing_tip_view). Fire-and-forget at
+      // the modal-open seam so it covers every caller; never block the UI.
+      try {
+        if (window.api && window.api.post) {
+          window.api.post('/api/analytics/events', {
+            event_name: 'writing_tip_view',
+            event_data: { tip_id: tip.id, content_type: ctype, task_type: tip.task_type },
+          }).catch(function () {});
+        }
+      } catch (e) {}
       document.getElementById('tip-modal-title').textContent = tip.title || '';
       var meta = [TIP_TYPE_LABELS[ctype] || ctype, TIP_TASK_LABELS[tip.task_type] || tip.task_type];
       if (tip.category) meta.push(tip.category);
