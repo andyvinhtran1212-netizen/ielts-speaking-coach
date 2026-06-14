@@ -313,6 +313,22 @@ main { position: relative; z-index: 1; }
 .essay-band-pill.band-good { background: var(--av-primary-soft); color: var(--av-primary); }
 .essay-band-pill.band-high { background: var(--av-primary-soft); color: var(--av-success); }
 
+/* R2b — "Mới" badge: a delivered essay the student hasn't opened/exported yet.
+   Small accent pill next to the "✓ Đã chấm" status pill. Clears server-side on
+   detail-open or .docx export. Uses the brand accent so it reads as "new". */
+.essay-new-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.5rem;
+  border-radius: var(--av-radius-pill);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  background: var(--av-primary);
+  color: var(--av-text-on-primary, #fff);
+}
+
 
 /* ── Submit modal (Sprint 2.6.1) ─────────────────────────────────── *
  * The modal is a full-screen overlay opened on "Làm bài" click. The
