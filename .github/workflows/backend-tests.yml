@@ -144,6 +144,7 @@ jobs:
             frontend/tests/vocab-landing.test.js \
             frontend/tests/writing-dashboard-redesign.test.mjs \
             frontend/tests/writing-analytics-instrument.test.mjs \
+            frontend/tests/writing-prompt-bank-ui.test.mjs \
             frontend/tests/writing-result-redesign.test.mjs \
             frontend/tests/writing-tips-redesign.test.mjs \
             frontend/tests/writing-cohorts-admin.test.mjs \
