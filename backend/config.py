@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     # local dev working.
     READING_ANON_SALT: str = ""
 
+    # Feature flags
+    # Writing prompt-bank (R1): public-read library browse on the student
+    # dashboard. Default off until the prompts are launch-ready; flip to true
+    # via env to expose the "Kho đề" tab + the /api/writing/prompt-bank data.
+    WRITING_PROMPT_BANK_ENABLED: bool = False
+
     # AI APIs
     ANTHROPIC_API_KEY: str = ""
     GEMINI_API_KEY: str = ""

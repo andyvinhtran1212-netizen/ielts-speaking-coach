@@ -28,14 +28,17 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
+from services.public_cache import cacheable_json
 from services import essay_service
 from services.access_code_permissions import (
     get_user_access_code_permissions,
@@ -131,6 +134,65 @@ async def require_writing_permission(
             ),
         )
     return student
+
+
+# ── Prompt bank (R1) — PUBLIC browse, no auth ──────────────────────────────────
+
+_PROMPT_BANK_TASK_TYPES = {"task1_academic", "task1_general", "task2"}
+
+
+@router.get("/prompt-bank")
+async def get_prompt_bank(
+    request: Request,
+    task_type: Optional[str] = Query(default=None),
+):
+    """Public-read writing prompt library for students to browse.
+
+    Deliberately NO auth / NO get_current_student: mass-code students have no
+    `students` row, so an auth gate would 403 most learners (mirrors the Reading
+    /Grammar anon pattern). Returns ACTIVE prompts with only browse-safe fields
+    (no created_by / lifecycle internals). Gated by WRITING_PROMPT_BANK_ENABLED —
+    when off it returns {enabled: false} + no prompts (nothing leaked pre-launch).
+    Classification is the existing structured `task_type` (task1_academic =
+    graph/chart, task1_general = letter, task2 = essay) — no inferred field.
+    """
+    if not settings.WRITING_PROMPT_BANK_ENABLED:
+        return {"enabled": False, "prompts": []}
+
+    if task_type is not None and task_type not in _PROMPT_BANK_TASK_TYPES:
+        raise HTTPException(422, f"task_type must be one of {sorted(_PROMPT_BANK_TASK_TYPES)}")
+
+    q = (
+        supabase_admin.table("writing_prompts")
+        .select("id, title, prompt_text, task_type, difficulty, prompt_image_url, updated_at")
+        .eq("is_active", True)
+        .order("created_at", desc=True)
+    )
+    if task_type:
+        q = q.eq("task_type", task_type)
+    rows = q.execute().data or []
+
+    # Last-Modified for ETag/304 validation: newest prompt updated_at as HTTP-date
+    # (DB-backed, so derived from the rows — not file mtimes like grammar).
+    newest = max((r.get("updated_at") for r in rows if r.get("updated_at")), default=None)
+    try:
+        dt = datetime.fromisoformat(newest.replace("Z", "+00:00")) if newest else datetime.now(timezone.utc)
+    except (ValueError, AttributeError):
+        dt = datetime.now(timezone.utc)
+    last_modified = format_datetime(dt, usegmt=True)
+
+    prompts = [
+        {
+            "id":               r["id"],
+            "title":            r.get("title"),
+            "prompt_text":      r.get("prompt_text"),
+            "task_type":        r.get("task_type"),
+            "difficulty":       r.get("difficulty"),
+            "prompt_image_url": r.get("prompt_image_url"),
+        }
+        for r in rows
+    ]
+    return cacheable_json({"enabled": True, "prompts": prompts}, request, last_modified=last_modified)
 
 
 @router.get("/my-essays")
