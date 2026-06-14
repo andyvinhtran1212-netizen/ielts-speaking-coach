@@ -59,6 +59,7 @@ def _fetch_essays_by_ids(essay_ids: list[str]) -> dict[str, dict]:
         supabase_admin.table("writing_essays")
         .select("id, status, is_flagged, overall_band_score")
         .in_("id", essay_ids)
+        .is_("deleted_at", "null")          # exclude soft-deleted from cohort stats
         .execute()
     ).data or []
     return {e["id"]: e for e in rows}

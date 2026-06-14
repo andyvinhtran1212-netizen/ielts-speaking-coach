@@ -110,6 +110,10 @@ class _FakeQuery:
         self._filters.append(("eq", col, val))
         return self
 
+    def is_(self, col, val):
+        self._filters.append(("is_", col, val))
+        return self
+
     def order(self, *a, **kw):
         return self
 

@@ -183,7 +183,10 @@ def compute_dashboard_overview(visitors_window_days: int = DEFAULT_VISITOR_WINDO
             ),
             "writing_pending": _metric(
                 "writing_pending",
-                lambda: _count("writing_essays", lambda q: q.is_("delivered_at", "null")),
+                lambda: _count(
+                    "writing_essays",
+                    lambda q: q.is_("delivered_at", "null").is_("deleted_at", "null"),
+                ),
             ),
         },
         "computed_at": now.isoformat(),

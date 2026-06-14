@@ -450,6 +450,7 @@ def list_essays(
             "id, student_id, task_type, status, analysis_level, "
             "selected_model, word_count, created_at, delivered_at, error_message"
         )
+        .is_("deleted_at", "null")          # hide soft-deleted essays
         .order("created_at", desc=True)
     )
     if status:
@@ -467,6 +468,7 @@ def get_essay_with_feedback(essay_id: str) -> dict:
         supabase_admin.table("writing_essays")
         .select("*")
         .eq("id", essay_id)
+        .is_("deleted_at", "null")          # soft-deleted → 404
         .limit(1)
         .execute()
     )
@@ -520,6 +522,7 @@ def get_essay_render_context(essay_id: str) -> dict:
             "admin_edits_json, status"
         )
         .eq("id", essay_id)
+        .is_("deleted_at", "null")          # soft-deleted → 404 (no render/export)
         .limit(1)
         .execute()
     )
@@ -577,6 +580,7 @@ def get_essay_status(essay_id: str) -> dict:
             "selected_model, grading_tier, created_at"
         )
         .eq("id", essay_id)
+        .is_("deleted_at", "null")          # soft-deleted → 404
         .limit(1)
         .execute()
     )

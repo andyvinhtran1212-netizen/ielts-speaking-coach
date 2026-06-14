@@ -81,6 +81,11 @@ class _TableQuery:
         self.limit_n = n
         return self
 
+    def is_(self, field, value):
+        # R2a soft-delete: .is_("deleted_at","null") → keep rows where field IS NULL
+        self.filters.append((field, "is_null", value))
+        return self
+
     @property
     def not_(self):
         return _NotProxy(self)
@@ -110,6 +115,8 @@ class _TableQuery:
             if op == "lte" and (v is None or v > value):
                 return False
             if op == "not_null" and v is None:
+                return False
+            if op == "is_null" and v is not None:
                 return False
         return True
 

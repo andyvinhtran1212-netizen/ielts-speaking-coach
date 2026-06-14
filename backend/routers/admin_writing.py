@@ -92,11 +92,15 @@ def _now_iso() -> str:
 
 
 def _fetch_status_or_404(essay_id: str) -> str:
-    """Return the current status of an essay, or raise 404 when missing."""
+    """Return the current status of an essay, or raise 404 when missing.
+    Soft-deleted essays (deleted_at set) are treated as gone → 404, so admin
+    mutations (feedback / mark-delivered / instructor-note / regrade) refuse to
+    act on a deleted essay."""
     r = (
         supabase_admin.table("writing_essays")
         .select("status")
         .eq("id", essay_id)
+        .is_("deleted_at", "null")
         .limit(1)
         .execute()
     )
@@ -335,9 +339,23 @@ async def mark_delivered(
 
 @router.delete("/essays/{essay_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_essay(essay_id: UUID, authorization: str | None = Header(None)):
-    """Soft delete essay. (Sprint W3)"""
+    """SOFT delete an essay — sets writing_essays.deleted_at = now() so it drops
+    out of every list/count/queue but stays recoverable. This is an UPDATE, NOT a
+    DELETE: no row is removed and the `writing_feedback ON DELETE CASCADE` never
+    fires, so the AI/admin feedback is preserved (DELETE-freeze §8 respected).
+    Idempotent + 404 on a missing OR already-deleted essay."""
     await require_admin(authorization)
-    raise HTTPException(501, "Not implemented yet — Sprint W3")
+    r = (
+        supabase_admin.table("writing_essays")
+        .update({"deleted_at": _now_iso()})
+        .eq("id", str(essay_id))
+        .is_("deleted_at", "null")          # only act on a live row (no-op on re-delete)
+        .execute()
+    )
+    if not r.data:
+        # either the id doesn't exist, or it's already soft-deleted
+        raise HTTPException(404, "Essay not found")
+    return None
 
 
 @router.get("/essays/{essay_id}/render")
@@ -497,6 +515,7 @@ async def trigger_regrade(
             "is_flagged, status, regrade_count"
         )
         .eq("id", str(essay_id))
+        .is_("deleted_at", "null")          # soft-deleted → 404 (no regrade)
         .limit(1)
         .execute()
     )
@@ -629,6 +648,7 @@ async def get_student_summary(
             "writing_feedback(overall_band_score)"
         )
         .eq("student_id", str(student_id))
+        .is_("deleted_at", "null")
         .order("created_at", desc=True)
         .limit(20)
         .execute()

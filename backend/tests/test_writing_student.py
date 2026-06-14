@@ -83,6 +83,9 @@ class _Builder:
     def limit(self, *_a, **_kw):
         return self
 
+    def is_(self, *_a, **_kw):   # R2a soft-delete passthrough (deleted_at IS NULL)
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,

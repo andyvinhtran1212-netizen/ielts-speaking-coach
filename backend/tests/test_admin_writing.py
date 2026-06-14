@@ -501,7 +501,8 @@ def _fake_supabase(*, status: str | None, update_data: list | None = None) -> Ma
     table = fake.table.return_value
 
     select_data = [{"status": status}] if status is not None else []
-    table.select.return_value.eq.return_value.limit.return_value.execute.return_value = (
+    # R2a soft-delete: _fetch_status_or_404 now chains .eq().is_("deleted_at","null").limit()
+    table.select.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value = (
         MagicMock(data=select_data)
     )
 
@@ -709,14 +710,27 @@ def test_mark_delivered_409_for_pre_review_states(blocked_status):
 
 # ── W3 placeholders still 501 ────────────────────────────────────────
 
-def test_w3_endpoints_still_return_501():
-    """Sanity: DELETE + /stats stay 501 (deferred past W3)."""
+def test_stats_endpoint_still_501():
+    """Sanity: /stats stays 501 (separate PR). DELETE is now implemented as a
+    soft-delete (R2a, PR-A) — covered by test_writing_soft_delete.py."""
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().get("/admin/writing/stats", headers=_ADMIN_AUTH)
+        assert r.status_code == 501
+
+
+def test_delete_essay_soft_deletes_via_endpoint():
+    """DELETE → 204 + an UPDATE setting deleted_at (never a hard .delete())."""
+    db = MagicMock()
+    db.table.return_value.update.return_value.eq.return_value.is_.return_value.execute.return_value.data = [{"id": _ESSAY_ID}]
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", db):
         r = _client().delete(
             f"/admin/writing/essays/{_ESSAY_ID}",
             headers=_ADMIN_AUTH,
         )
-        assert r.status_code == 501
-        r = _client().get("/admin/writing/stats", headers=_ADMIN_AUTH)
-        assert r.status_code == 501
+        assert r.status_code == 204
+        update_arg = db.table.return_value.update.call_args[0][0]
+        assert "deleted_at" in update_arg
+        db.table.return_value.delete.assert_not_called()
