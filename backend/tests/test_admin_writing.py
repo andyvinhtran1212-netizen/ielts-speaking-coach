@@ -501,7 +501,8 @@ def _fake_supabase(*, status: str | None, update_data: list | None = None) -> Ma
     table = fake.table.return_value
 
     select_data = [{"status": status}] if status is not None else []
-    table.select.return_value.eq.return_value.limit.return_value.execute.return_value = (
+    # R2a soft-delete: _fetch_status_or_404 now chains .eq().is_("deleted_at","null").limit()
+    table.select.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value = (
         MagicMock(data=select_data)
     )
 

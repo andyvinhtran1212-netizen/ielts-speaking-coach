@@ -113,6 +113,7 @@ class _Builder:
         self._filters.append((col, val))
         return self
 
+    def is_(self, *_a, **_kw):    return self   # R2a soft-delete passthrough (deleted_at IS NULL)
     def order(self, *_a, **_kw):  return self
     def limit(self, *_a, **_kw):  return self
     def in_(self, *_a, **_kw):    return self

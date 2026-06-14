@@ -95,7 +95,7 @@ def test_student_regrade_reason_too_short_422():
 def test_student_regrade_happy_path():
     mock_db = MagicMock()
     tbl = mock_db.table.return_value
-    tbl.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+    tbl.select.return_value.eq.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{"id": _ESSAY, "status": "delivered"}])
     tbl.insert.return_value.execute.return_value = MagicMock(data=[{"id": _REQ, "status": "pending"}])
     app = _override_student()
@@ -114,7 +114,7 @@ def test_student_regrade_happy_path():
 def test_student_regrade_blocked_when_not_delivered():
     mock_db = MagicMock()
     tbl = mock_db.table.return_value
-    tbl.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+    tbl.select.return_value.eq.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{"id": _ESSAY, "status": "graded"}])   # not delivered
     app = _override_student()
     try:
@@ -128,7 +128,7 @@ def test_student_regrade_blocked_when_not_delivered():
 def test_student_regrade_not_owner_404():
     mock_db = MagicMock()
     tbl = mock_db.table.return_value
-    tbl.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+    tbl.select.return_value.eq.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[])   # essay not owned by this student
     app = _override_student()
     try:
@@ -142,7 +142,7 @@ def test_student_regrade_not_owner_404():
 def test_student_regrade_duplicate_409():
     mock_db = MagicMock()
     tbl = mock_db.table.return_value
-    tbl.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = \
+    tbl.select.return_value.eq.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{"id": _ESSAY, "status": "delivered"}])
     tbl.insert.return_value.execute.side_effect = Exception("duplicate key value (23505)")
     app = _override_student()
