@@ -455,6 +455,13 @@
               ' aria-label="Tải bài đã chấm định dạng Word">⬇ .docx</button>'
           : '';
 
+        // R2b — "Mới" badge: delivered essay the student hasn't opened/exported
+        // yet (server computes has_new_feedback; clears on detail-open or .docx
+        // export). Sits next to the "✓ Đã chấm" pill.
+        var newBadge = e.has_new_feedback
+          ? '<span class="essay-new-badge" title="Bạn có nhận xét mới chưa xem">Mới</span>'
+          : '';
+
         var footerLeft  = bandPill;
         var hasFooter   = footerLeft || dlBtn || arrow;
 
@@ -463,6 +470,7 @@
             '<div class="flex items-center justify-between gap-3 mb-2">' +
               '<span class="text-xs text-gray-300 font-medium">' + escapeHtml(task) + ' · ' + escapeHtml(date) + '</span>' +
               '<div class="flex items-center gap-1">' +
+                newBadge +
                 '<span class="pill ' + status.pill + '">' + escapeHtml(status.text) + '</span>' +
               '</div>' +
             '</div>' +

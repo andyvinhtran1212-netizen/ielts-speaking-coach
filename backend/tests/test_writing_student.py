@@ -65,6 +65,11 @@ class _Builder:
         self._select_cols = cols
         return self
 
+    def update(self, payload, *_a, **_kw):   # R2b — clear-hook UPDATE (student_first_viewed_at)
+        self._action = "update"
+        self._payload = payload
+        return self
+
     def eq(self, col, val):
         self._filters.append((col, val))
         return self
@@ -92,6 +97,7 @@ class _Builder:
             "action":  self._action,
             "select":  self._select_cols,
             "filters": list(self._filters),
+            "payload": getattr(self, "_payload", None),
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -543,3 +549,93 @@ def test_export_docx_403_when_not_yet_delivered(monkeypatch):
         _run(ws_module.export_my_essay_docx(_ESSAY_ID, student=student))
     assert exc.value.status_code == 403
     assert "duyệt" in exc.value.detail or "delivered" in exc.value.detail.lower()
+
+
+# ── R2b — "Mới" badge: clear-on-view + list flag ─────────────────────
+
+
+def _writing_essay_update_calls(client):
+    return [c for c in client.calls
+            if c["table"] == "writing_essays" and c["action"] == "update"
+            and "student_first_viewed_at" in (c.get("payload") or {})]
+
+
+def test_get_essay_clears_new_badge_on_detail_open(monkeypatch):
+    """Opening a delivered essay stamps student_first_viewed_at (clear "Mới")."""
+    client = _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[{
+            "id": _ESSAY_ID, "task_type": "task2", "prompt_text": "Q",
+            "essay_text": "E", "status": "delivered",
+            "created_at": "2026-05-05T10:00:00Z", "delivered_at": "2026-05-05T11:00:00Z",
+        }],
+        feedback_data=[{"feedback_json": {}, "overall_band_score": 7.0,
+                        "created_at": "2026-05-05T11:00:00Z"}],
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    _run(ws_module.get_my_essay(_ESSAY_ID, student=student))
+    assert _writing_essay_update_calls(client), "delivered detail-open must stamp student_first_viewed_at"
+
+
+def test_get_essay_does_not_clear_when_not_delivered(monkeypatch):
+    """A non-delivered essay has no badge → no clear write."""
+    client = _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[{
+            "id": _ESSAY_ID, "task_type": "task2", "prompt_text": "Q",
+            "essay_text": "E", "status": "graded",
+            "created_at": "2026-05-05T10:00:00Z", "delivered_at": None,
+        }],
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    _run(ws_module.get_my_essay(_ESSAY_ID, student=student))
+    assert not _writing_essay_update_calls(client)
+
+
+def test_export_clears_new_badge(monkeypatch):
+    """Downloading the .docx (the dashboard bypass path) also clears "Mới"."""
+    client = _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[{"id": _ESSAY_ID, "status": "delivered"}],
+    )
+    monkeypatch.setattr(
+        ws_module.essay_service, "get_essay_render_context",
+        lambda _eid: {"feedback": {}, "essay_text": "E", "prompt_text": "Q",
+                      "task_type": "task2", "student_name": "N", "student_code": "STU123"},
+    )
+    monkeypatch.setattr(
+        "services.writing_word_exporter.render_essay_to_docx",
+        lambda **_kw: (b"docx-bytes", "essay.docx"),
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    _run(ws_module.export_my_essay_docx(_ESSAY_ID, student=student))
+    assert _writing_essay_update_calls(client), "export must stamp student_first_viewed_at"
+
+
+def test_my_essays_has_new_feedback_flag(monkeypatch):
+    """List computes has_new_feedback: delivered+unviewed=True; viewed=False;
+    not-delivered=False."""
+    _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[
+            {"id": "e-new", "task_type": "task2", "prompt_text": "Q", "status": "delivered",
+             "created_at": "2026-05-05T10:00:00Z", "delivered_at": "2026-05-05T11:00:00Z",
+             "student_first_viewed_at": None},
+            {"id": "e-seen", "task_type": "task2", "prompt_text": "Q", "status": "delivered",
+             "created_at": "2026-05-04T10:00:00Z", "delivered_at": "2026-05-04T11:00:00Z",
+             "student_first_viewed_at": "2026-05-04T12:00:00Z"},
+            {"id": "e-grading", "task_type": "task2", "prompt_text": "Q", "status": "grading",
+             "created_at": "2026-05-03T10:00:00Z", "delivered_at": None,
+             "student_first_viewed_at": None},
+        ],
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    out = _run(ws_module.list_my_essays(student=student))
+    by_id = {e["id"]: e for e in out["essays"]}
+    assert by_id["e-new"]["has_new_feedback"] is True
+    assert by_id["e-seen"]["has_new_feedback"] is False
+    assert by_id["e-grading"]["has_new_feedback"] is False

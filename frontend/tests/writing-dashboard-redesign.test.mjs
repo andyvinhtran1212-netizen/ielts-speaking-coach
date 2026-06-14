@@ -752,3 +752,20 @@ describe('writing-dashboard / Sprint 19.1C content types', () => {
     assert.match(css, /\.tip-card__type--sample/);
   });
 });
+
+
+// R2b — "Mới" badge for delivered essays the student hasn't opened/exported.
+describe('R2b — delivered "Mới" badge', () => {
+  test('card render derives the badge from server has_new_feedback', () => {
+    assert.match(html, /e\.has_new_feedback/);
+    assert.match(html, /class="essay-new-badge"/);
+  });
+  test('badge sits next to the status pill', () => {
+    // newBadge rendered immediately before the status pill in the flex row
+    assert.match(html, /newBadge \+\s*\n?\s*'<span class="pill '/);
+  });
+  test('badge CSS uses real --av-* tokens (no raw hex)', () => {
+    assert.match(css, /\.essay-new-badge\s*\{[\s\S]*?background:\s*var\(--av-primary\)/);
+    assert.match(css, /\.essay-new-badge\s*\{[\s\S]*?var\(--av-radius-pill\)/);
+  });
+});

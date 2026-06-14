@@ -204,7 +204,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
 
     essays_res = (
         sb.table("writing_essays")
-        .select("id, created_at, status", count="exact")
+        .select("id, created_at, status, student_first_viewed_at", count="exact")
         .eq("student_id", student_id)
         .is_("deleted_at", "null")          # exclude soft-deleted from home counts
         .order("created_at", desc=True)
@@ -213,6 +213,13 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
     )
     rows = essays_res.data or []
     total = essays_res.count if essays_res.count is not None else len(rows)
+
+    # R2b — "N bài mới": delivered essays the student hasn't opened/exported yet
+    # (deleted already excluded by the filter above).
+    new_feedback = sum(
+        1 for r in rows
+        if r.get("status") == "delivered" and r.get("student_first_viewed_at") is None
+    )
 
     # "in progress" = anything that hasn't been delivered to the student yet
     # (pending/grading/graded/reviewed). 'failed' is excluded — those need
@@ -259,6 +266,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
         "last_band": last_band,
         "essays_count": int(total),
         "essays_in_progress": in_progress,
+        "new_feedback_count": new_feedback,
         "primary_cta": "Submit new essay",
         "primary_cta_url": "/pages/writing-dashboard.html",
     }

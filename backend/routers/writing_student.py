@@ -147,7 +147,7 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
             supabase_admin.table("writing_essays")
             .select(
                 "id, task_type, prompt_text, status, "
-                "created_at, delivered_at, "
+                "created_at, delivered_at, student_first_viewed_at, "
                 "is_flagged, flag_reasons"
             )
             .eq("student_id", student["id"])
@@ -207,6 +207,8 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
             "is_flagged":         bool(e.get("is_flagged")),
             "flag_reasons":       e.get("flag_reasons") or [],
             "overall_band_score": band_by_essay.get(e["id"]),
+            # R2b — "Mới" badge: delivered + the student hasn't opened/exported it yet.
+            "has_new_feedback":   e["status"] == "delivered" and e.get("student_first_viewed_at") is None,
         })
 
     return {
@@ -263,6 +265,18 @@ async def get_my_essay(
         raise HTTPException(status_code=404, detail="Essay không tìm thấy")
 
     essay = essay_result.data[0]
+
+    # R2b — opening a delivered essay clears its "Mới" badge. Idempotent
+    # (only stamps when still NULL, via the .is_ guard) + best-effort (a
+    # failure must never block the feedback render). Mirrored in the .docx
+    # export path so downloading-without-opening also clears the badge.
+    if essay.get("status") == "delivered":
+        try:
+            supabase_admin.table("writing_essays").update(
+                {"student_first_viewed_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", essay_id).is_("student_first_viewed_at", "null").execute()
+        except Exception:
+            pass
 
     feedback = None
     instructor_note = None
@@ -371,6 +385,16 @@ async def export_my_essay_docx(
             status_code=403,
             detail="Bài chưa được giảng viên duyệt — chưa thể tải xuống.",
         )
+
+    # R2b — downloading the graded .docx counts as "seen" → clear the "Mới"
+    # badge (this is the dashboard's per-card download path that bypasses
+    # detail-open). Idempotent (.is_ guard) + best-effort.
+    try:
+        supabase_admin.table("writing_essays").update(
+            {"student_first_viewed_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", essay_id).is_("student_first_viewed_at", "null").execute()
+    except Exception:
+        pass
 
     ctx = essay_service.get_essay_render_context(essay_id)
     docx_bytes, filename = render_essay_to_docx(
