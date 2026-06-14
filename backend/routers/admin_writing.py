@@ -11,7 +11,7 @@ inline, matching the established convention in routers/admin.py.
 from __future__ import annotations
 
 import io
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -407,11 +407,131 @@ async def export_essay_docx(
     )
 
 
+def _percentiles(values: list[float]) -> dict:
+    """p50/p90 (nearest-rank) + n over a sample. Empty → nulls + n=0. Each
+    latency metric reports its OWN n: the three delivery paths are measured
+    separately (an instructor delivery never sets admin_reviewed_at), so mixing
+    them would NULL-skew — we never pool the samples."""
+    vals = sorted(v for v in values if v is not None)
+    n = len(vals)
+    if not n:
+        return {"p50": None, "p90": None, "n": 0}
+
+    def _pct(p: float):
+        # nearest-rank: index = ceil(p/100 * n) - 1, clamped
+        idx = max(0, min(n - 1, int(-(-p * n // 100)) - 1))
+        return round(vals[idx], 2)
+
+    return {"p50": _pct(50), "p90": _pct(90), "n": n}
+
+
 @router.get("/stats")
 async def get_writing_stats(authorization: str | None = Header(None)):
-    """Volume, cost, queue length. (Sprint W3)"""
+    """Operator dashboard for the writing pipeline: volume, queue backlogs,
+    grading latency (3 paths, kept SEPARATE), and AI cost. All counts exclude
+    soft-deleted essays (deleted_at IS NULL — matches every read path). This is
+    a launch-readiness instrument: pre-launch the numbers are tiny by design.
+    Read-only; no migration."""
     await require_admin(authorization)
-    raise HTTPException(501, "Not implemented yet — Sprint W3")
+
+    now = datetime.now(timezone.utc)
+    cutoff_7d = (now - timedelta(days=7)).isoformat()
+
+    # ── live essays (the join base for everything; deleted excluded) ──────────
+    live = (
+        supabase_admin.table("writing_essays")
+        .select("id, status, student_id, created_at, admin_reviewed_at")
+        .is_("deleted_at", "null")
+        .execute()
+    ).data or []
+    live_ids = [e["id"] for e in live]
+
+    by_status: dict[str, int] = {}
+    for e in live:
+        by_status[e["status"]] = by_status.get(e["status"], 0) + 1
+    essays_last_7d = sum(1 for e in live if (e.get("created_at") or "") >= cutoff_7d)
+    students_with_essays = len({e["student_id"] for e in live if e.get("student_id")})
+
+    prompts_count = len((
+        supabase_admin.table("writing_prompts").select("id").execute()
+    ).data or [])
+
+    # ── per-question feedback (AI time, cost, admin-turnaround base) ──────────
+    fb_rows: list[dict] = []
+    if live_ids:
+        fb_rows = (
+            supabase_admin.table("writing_feedback")
+            .select("essay_id, grading_duration_ms, created_at, cost_usd, tokens_input, tokens_output")
+            .in_("essay_id", live_ids)
+            .execute()
+        ).data or []
+    fb_created_by_essay = {f["essay_id"]: f.get("created_at") for f in fb_rows}
+
+    ai_grade_ms = [f.get("grading_duration_ms") for f in fb_rows]
+
+    # admin turnaround = admin_reviewed_at − writing_feedback.created_at (per essay)
+    admin_turnaround_s: list[float] = []
+    for e in live:
+        rev, made = e.get("admin_reviewed_at"), fb_created_by_essay.get(e["id"])
+        if rev and made:
+            try:
+                admin_turnaround_s.append(
+                    (datetime.fromisoformat(rev) - datetime.fromisoformat(made)).total_seconds()
+                )
+            except (ValueError, TypeError):
+                pass
+
+    # ── instructor path — wholly separate table; turnaround + pending ────────
+    ir_rows = (
+        supabase_admin.table("instructor_reviews")
+        .select("essay_id, created_at, delivered_at, status")
+        .execute()
+    ).data or []
+    live_set = set(live_ids)
+    instructor_turnaround_s: list[float] = []
+    instructor_pending = 0
+    for r in ir_rows:
+        if r.get("essay_id") not in live_set:
+            continue
+        if r.get("status") in ("queued", "claimed"):
+            instructor_pending += 1
+        made, deliv = r.get("created_at"), r.get("delivered_at")
+        if made and deliv:
+            try:
+                instructor_turnaround_s.append(
+                    (datetime.fromisoformat(deliv) - datetime.fromisoformat(made)).total_seconds()
+                )
+            except (ValueError, TypeError):
+                pass
+
+    total_cost_usd = round(sum(float(f.get("cost_usd") or 0) for f in fb_rows), 4)
+    total_tokens = sum((f.get("tokens_input") or 0) + (f.get("tokens_output") or 0) for f in fb_rows)
+
+    return {
+        "generated_at": now.isoformat(),
+        "window": "volume.essays_last_7d = trailing 7 days; latency/cost = all-time over live (non-deleted) essays",
+        "volume": {
+            "total_live_essays":    len(live),
+            "by_status":            by_status,
+            "essays_last_7d":       essays_last_7d,
+            "prompts":              prompts_count,
+            "students_with_essays": students_with_essays,
+        },
+        "queue": {
+            "awaiting_review":    by_status.get("graded", 0),    # AI-graded, needs admin review
+            "awaiting_delivery":  by_status.get("reviewed", 0),  # reviewed, not yet delivered
+            "instructor_pending": instructor_pending,            # instructor_reviews queued/claimed
+        },
+        "latency": {
+            "ai_grade_ms":             _percentiles(ai_grade_ms),
+            "admin_turnaround_s":      _percentiles(admin_turnaround_s),
+            "instructor_turnaround_s": _percentiles(instructor_turnaround_s),
+        },
+        "cost": {
+            "total_cost_usd": total_cost_usd,
+            "total_tokens":   total_tokens,
+        },
+    }
 
 
 # ── Phase 2.5 — instructor view + regrade ────────────────────────────
