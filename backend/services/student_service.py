@@ -118,6 +118,7 @@ def get_student_with_history(student_id: str) -> dict:
         supabase_admin.table("writing_essays")
         .select("id, task_type, status, analysis_level, created_at, delivered_at")
         .eq("student_id", student_id)
+        .is_("deleted_at", "null")          # exclude soft-deleted from student history
         .order("created_at", desc=True)
         .limit(50)
         .execute()

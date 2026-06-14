@@ -366,7 +366,7 @@ def get_queue(
     essay_ids = [row["essay_id"] for row in response.data]
     essays_resp = supabase_admin.table("writing_essays").select(
         "id, student_id, analysis_level, task_type, created_at",
-    ).in_("id", essay_ids).execute()
+    ).in_("id", essay_ids).is_("deleted_at", "null").execute()   # exclude soft-deleted
     essays_by_id = {e["id"]: e for e in (essays_resp.data or [])}
 
     student_ids = list({
@@ -393,6 +393,10 @@ def get_queue(
 
     items: list[InstructorQueueItem] = []
     for row in response.data:
+        # A soft-deleted essay drops out of essays_by_id → skip its queue item
+        # (don't surface a review row pointing at a deleted essay).
+        if row["essay_id"] not in essays_by_id:
+            continue
         review = _row_to_review(row)
         essay = essays_by_id.get(row["essay_id"], {})
         student = students_by_id.get(essay.get("student_id"), {})

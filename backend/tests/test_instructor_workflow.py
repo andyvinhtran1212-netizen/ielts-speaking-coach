@@ -78,6 +78,10 @@ class _Query:
         self.in_filters.append((field, list(values)))
         return self
 
+    def is_(self, field, value):
+        self.filters.append((field, "is_", value))
+        return self
+
     def limit(self, n):
         self.limit_n = n
         return self
@@ -88,6 +92,11 @@ class _Query:
 
     def _matches(self, row):
         for field, op, value in self.filters:
+            if op == "is_":
+                # R2a soft-delete: .is_(field,"null") → keep rows where field IS NULL
+                if value == "null" and row.get(field) is not None:
+                    return False
+                continue
             if row.get(field) != value:
                 return False
         for field, values in self.in_filters:

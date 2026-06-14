@@ -86,6 +86,7 @@ def _decorate(requests: list[dict]) -> list[dict]:
             supabase_admin.table("writing_essays")
             .select("id, prompt_text, task_type, status")
             .in_("id", essay_ids)
+            .is_("deleted_at", "null")          # exclude soft-deleted from regrade-request list
             .execute()
         ).data or []
         essays = {e["id"]: e for e in erows}

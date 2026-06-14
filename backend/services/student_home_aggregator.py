@@ -206,6 +206,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
         sb.table("writing_essays")
         .select("id, created_at, status", count="exact")
         .eq("student_id", student_id)
+        .is_("deleted_at", "null")          # exclude soft-deleted from home counts
         .order("created_at", desc=True)
         .limit(50)
         .execute()
@@ -230,6 +231,7 @@ def _build_writing(sb, user_id: str) -> Dict[str, Any]:
             .select("id")
             .eq("student_id", student_id)
             .eq("status", "delivered")
+            .is_("deleted_at", "null")          # exclude soft-deleted
             .order("created_at", desc=True)
             .limit(1)
             .execute()

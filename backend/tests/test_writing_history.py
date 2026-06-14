@@ -13,7 +13,7 @@ Plus two formatter tests:
      + examples + the recurringPatterns output schema instruction.
 
 The supabase_admin mock chains exactly the call the service makes:
-.table().select().eq().order().limit().execute() — any deviation
+.table().select().eq().is_().order().limit().execute() — any deviation
 should fail the test (real signal that the service started using a
 different query shape).
 """
@@ -43,7 +43,8 @@ def _mock_db_returning(rows: list[dict] | None = None, *, raises: Exception | No
     """Build a mock supabase_admin whose chained query returns `rows`
     (or raises on .execute() if `raises` is set)."""
     mock_db = MagicMock()
-    chain = mock_db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value
+    # R2a soft-delete: the service now chains .eq().is_("writing_essays.deleted_at","null").order().limit()
+    chain = mock_db.table.return_value.select.return_value.eq.return_value.is_.return_value.order.return_value.limit.return_value
     if raises is not None:
         chain.execute.side_effect = raises
     else:

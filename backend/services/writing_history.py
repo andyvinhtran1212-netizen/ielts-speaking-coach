@@ -132,6 +132,7 @@ def get_recurring_patterns(student_id: str) -> dict | None:
                 "writing_essays!inner(student_id)"
             )
             .eq("writing_essays.student_id", student_id)
+            .is_("writing_essays.deleted_at", "null")   # exclude soft-deleted from grader context
             .order("created_at", desc=True)
             .limit(HISTORY_WINDOW)
             .execute()
@@ -238,6 +239,7 @@ def get_band_trajectory(student_id: str) -> dict | None:
                 "writing_essays!inner(student_id)"
             )
             .eq("writing_essays.student_id", student_id)
+            .is_("writing_essays.deleted_at", "null")   # exclude soft-deleted from band trajectory
             .order("created_at", desc=True)
             .limit(HISTORY_WINDOW)
             .execute()
@@ -455,6 +457,7 @@ def get_sentence_structure_history(student_id: str) -> dict | None:
                 "writing_essays!inner(student_id, essay_text)"
             )
             .eq("writing_essays.student_id", student_id)
+            .is_("writing_essays.deleted_at", "null")   # exclude soft-deleted from sentence-structure history
             .order("created_at", desc=True)
             .limit(HISTORY_WINDOW)
             .execute()

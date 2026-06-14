@@ -151,6 +151,7 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
                 "is_flagged, flag_reasons"
             )
             .eq("student_id", student["id"])
+            .is_("deleted_at", "null")          # hide soft-deleted essays
             .order("created_at", desc=True)
             .execute()
         )
@@ -245,6 +246,7 @@ async def get_my_essay(
             )
             .eq("id", essay_id)
             .eq("student_id", student["id"])
+            .is_("deleted_at", "null")          # soft-deleted → 404
             .limit(1)
             .execute()
         )
@@ -350,6 +352,7 @@ async def export_my_essay_docx(
             .select("status")
             .eq("id", essay_id)
             .eq("student_id", student["id"])
+            .is_("deleted_at", "null")          # soft-deleted → 404 (no export)
             .limit(1)
             .execute()
         )
@@ -1589,6 +1592,7 @@ async def request_regrade(
         .select("id, status")
         .eq("id", str(essay_id))
         .eq("student_id", student["id"])
+        .is_("deleted_at", "null")          # soft-deleted → 404 (no regrade request)
         .limit(1)
         .execute()
     )

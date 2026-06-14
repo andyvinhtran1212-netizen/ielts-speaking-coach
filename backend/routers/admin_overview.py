@@ -133,12 +133,16 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     essays_recent = _safe_select(
         supabase_admin.table("writing_essays")
         .select("id, student_id, status, delivered_at, created_at")
+        .is_("deleted_at", "null")          # exclude soft-deleted
         .gte("created_at", iso_30d)
     )
-    essays_total_row = _safe_select(supabase_admin.table("writing_essays").select("id"))
+    essays_total_row = _safe_select(
+        supabase_admin.table("writing_essays").select("id").is_("deleted_at", "null")
+    )
     essays_pending = _safe_select(
         supabase_admin.table("writing_essays")
         .select("id")
+        .is_("deleted_at", "null")
         .is_("delivered_at", "null")
     )
 
