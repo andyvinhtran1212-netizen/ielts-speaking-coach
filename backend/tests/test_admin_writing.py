@@ -708,15 +708,34 @@ def test_mark_delivered_409_for_pre_review_states(blocked_status):
     assert r.status_code == 409
 
 
-# ── W3 placeholders still 501 ────────────────────────────────────────
+# ── /stats now implemented (PR-1 instrument) ─────────────────────────
 
-def test_stats_endpoint_still_501():
-    """Sanity: /stats stays 501 (separate PR). DELETE is now implemented as a
-    soft-delete (R2a, PR-A) — covered by test_writing_soft_delete.py."""
+class _StatsDB:
+    """Every table query returns no rows → /stats yields a valid empty shape."""
+    class _Q:
+        def select(self, *a, **k): return self
+        def is_(self, *a, **k): return self
+        def in_(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def execute(self): return type("R", (), {"data": []})()
+    def table(self, _n): return self._Q()
+
+
+def test_stats_endpoint_returns_operator_shape():
+    """/stats (was 501) now returns volume/queue/latency/cost. Logic-level
+    aggregation is covered in test_writing_stats.py; here we pin the wiring +
+    response shape end-to-end (empty DB)."""
     with patch("routers.admin_writing.require_admin",
-               new=AsyncMock(return_value=_ADMIN_USER)):
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", _StatsDB()):
         r = _client().get("/admin/writing/stats", headers=_ADMIN_AUTH)
-        assert r.status_code == 501
+        assert r.status_code == 200
+        body = r.json()
+        assert set(body["volume"]) >= {"total_live_essays", "by_status", "prompts"}
+        assert set(body["queue"]) == {"awaiting_review", "awaiting_delivery", "instructor_pending"}
+        assert set(body["latency"]) == {"ai_grade_ms", "admin_turnaround_s", "instructor_turnaround_s"}
+        assert body["latency"]["ai_grade_ms"]["n"] == 0
+        assert set(body["cost"]) == {"total_cost_usd", "total_tokens"}
 
 
 def test_delete_essay_soft_deletes_via_endpoint():
