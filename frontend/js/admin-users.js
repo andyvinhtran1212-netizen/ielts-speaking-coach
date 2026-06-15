@@ -111,6 +111,17 @@ function applyFilters() {
   });
   rows.sort(compareUsers);
   render(rows);
+  reflectSort();
+}
+
+// a11y — mirror the real sort state onto aria-sort for the sortable headers
+// (purely reflective: reads _sort, changes no sort logic).
+function reflectSort() {
+  document.querySelectorAll('th.usr-sortable[data-sort]').forEach((th) => {
+    const f = th.dataset.sort;
+    th.setAttribute('aria-sort',
+      _sort.field === f ? (_sort.order === 'asc' ? 'ascending' : 'descending') : 'none');
+  });
 }
 
 function render(rows) {
@@ -162,14 +173,16 @@ function render(rows) {
             : '<span class="usr-chip">active</span>'}</td>
       <td><span class="usr-mono">${fmtDate(u.created_at)}</span></td>
       <td>
-        <select class="usr-role-select" data-id="${escapeHtml(u.id)}" data-current="${escapeHtml(u.role || 'student')}">
-          ${ROLES.map((r) => `<option value="${r}" ${(u.role || 'student') === r ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>
-        <button class="usr-convert-btn" data-convert="${escapeHtml(u.id)}"
-                data-name="${escapeHtml(u.display_name || '')}"
-                data-email="${escapeHtml(u.email || '')}">→ Học viên</button>
-        ${genBtn}
-        ${removeBtn}
+        <div class="usr-actions">
+          <select class="usr-role-select" data-id="${escapeHtml(u.id)}" data-current="${escapeHtml(u.role || 'student')}">
+            ${ROLES.map((r) => `<option value="${r}" ${(u.role || 'student') === r ? 'selected' : ''}>${r}</option>`).join('')}
+          </select>
+          <button class="usr-convert-btn" data-convert="${escapeHtml(u.id)}"
+                  data-name="${escapeHtml(u.display_name || '')}"
+                  data-email="${escapeHtml(u.email || '')}">→ Học viên</button>
+          ${genBtn}
+          ${removeBtn}
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -381,6 +394,10 @@ function wire() {
       const field = th.dataset.sort;
       _sort = { field, order: (_sort.field === field && _sort.order === 'desc') ? 'asc' : 'desc' };
       applyFilters();
+    });
+    // a11y — keyboard activation (Enter / Space) reuses the click path above.
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); th.click(); }
     });
   });
   $('btn-cv-cancel').addEventListener('click', closeConvert);

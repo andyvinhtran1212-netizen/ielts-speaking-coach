@@ -94,14 +94,30 @@ function chipForStatus(row) {
 
 function rowMatchesFilters(row, f) {
   if (f.type && row.code_type !== f.type) return false;
+  // Revoked codes are hidden from the default ("Tất cả") view — they clutter
+  // the active roster — but remain reachable via the explicit "Đã thu hồi"
+  // filter for audit. DB row + audit + statusRank are untouched (display only).
+  if (!f.status && row.is_revoked) return false;
   if (f.status === 'active' && (row.is_revoked || row.is_active === false)) return false;
   if (f.status === 'revoked' && !row.is_revoked) return false;
   if (f.cohort && row.cohort_id !== f.cohort) return false;
   return true;
 }
 
+// a11y — mirror the real sort state onto aria-sort. Scoped to `.ac-sortable`
+// so it never touches the user-tab headers that share this page. Reflective
+// only: reads _sort, changes no sort logic.
+function reflectSort() {
+  document.querySelectorAll('th.ac-sortable[data-sort]').forEach((th) => {
+    const f = th.dataset.sort;
+    th.setAttribute('aria-sort',
+      _sort.field === f ? (_sort.order === 'asc' ? 'ascending' : 'descending') : 'none');
+  });
+}
+
 function renderTable() {
   const tbody = $('codes-tbody');
+  reflectSort();
   const f = {
     type:   $('filter-type').value,
     status: $('filter-status').value,
@@ -434,6 +450,13 @@ function bind() {
       const field = th.dataset.sort;
       _sort = { field, order: (_sort.field === field && _sort.order === 'desc') ? 'asc' : 'desc' };
       renderTable();
+    });
+  });
+  // a11y — keyboard activation for the code-tab sortable headers (scoped to
+  // .ac-sortable; reuses the click path above). Enter / Space to sort.
+  document.querySelectorAll('th.ac-sortable[data-sort]').forEach((th) => {
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); th.click(); }
     });
   });
   $('codes-tbody').addEventListener('click', (e) => {
