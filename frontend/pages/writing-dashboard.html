@@ -140,6 +140,10 @@
         <button id="tab-tips" type="button" class="tab-btn">
           💡 Mẹo viết
         </button>
+        <!-- R1 — "Kho đề": hidden until the prompt-bank endpoint returns enabled:true -->
+        <button id="tab-prompt-bank" type="button" class="tab-btn" hidden>
+          📚 Kho đề
+        </button>
       </div>
 
       <!-- Tab 1 — Bài giao (active assignments awaiting submission) -->
@@ -240,6 +244,26 @@
         <div id="tips-error" class="wd-empty wd-empty--compact hidden">
           <p class="wd-empty__hint" id="tips-error-msg">Không tải được mẹo viết.</p>
         </div>
+      </section>
+
+      <!-- Tab 4 — Kho đề (R1: public prompt-bank browse, flag-gated). Browse-only. -->
+      <section id="content-prompt-bank" class="hidden">
+        <nav id="pb-filter-tabs" class="flex gap-1 mb-4 border-b border-white/5 pb-1 overflow-x-auto"
+             aria-label="Lọc đề theo loại task">
+          <button type="button" class="essay-filter-btn is-active" data-pb-filter="all">
+            <span class="filter-label">Tất cả</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-pb-filter="task1_academic">
+            <span class="filter-label">Task 1 Academic</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-pb-filter="task1_general">
+            <span class="filter-label">Task 1 General</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-pb-filter="task2">
+            <span class="filter-label">Task 2</span>
+          </button>
+        </nav>
+        <div id="pb-list" class="space-y-3"></div>
       </section>
     </div>
   </main>
@@ -664,16 +688,22 @@
       var assignBtn = document.getElementById('tab-assignments');
       var essayBtn  = document.getElementById('tab-essays');
       var tipsBtn   = document.getElementById('tab-tips');
+      var pbBtn = document.getElementById('tab-prompt-bank');
       assignBtn.classList.toggle('active', tab === 'assignments');
       essayBtn.classList.toggle('active',  tab === 'essays');
       if (tipsBtn) tipsBtn.classList.toggle('active', tab === 'tips');
+      if (pbBtn) pbBtn.classList.toggle('active', tab === 'prompt-bank');
       document.getElementById('content-assignments').classList.toggle('hidden', tab !== 'assignments');
       document.getElementById('content-essays').classList.toggle('hidden',      tab !== 'essays');
       document.getElementById('content-tips').classList.toggle('hidden',        tab !== 'tips');
+      document.getElementById('content-prompt-bank').classList.toggle('hidden', tab !== 'prompt-bank');
 
       // Sprint 19.1B — lazy-load tips on first open of the "Mẹo viết"
       // tab, then serve from the in-memory cache on subsequent opens.
       if (tab === 'tips' && !_tipsLoaded) { loadTips(); }
+      // R1 — prompts are already fetched at init (to decide tab visibility);
+      // first open just renders the cache.
+      if (tab === 'prompt-bank' && !_pbRendered) { renderPromptBank(); }
     }
 
     // ── Sprint 19.1B — "Mẹo viết" tab (admin-published writing tips) ──
@@ -860,6 +890,108 @@
 
     function closeTipModal() {
       document.getElementById('tip-modal').classList.add('hidden');
+    }
+
+    // ── R1 — "Kho đề" (public prompt-bank browse, flag-gated, browse-only) ──
+    var PB_TASK_LABELS = {
+      task1_academic: 'Task 1 Academic', task1_general: 'Task 1 General', task2: 'Task 2',
+    };
+    var _allPrompts = [];
+    var _pbRendered = false;
+    var _pbFilter   = 'all';
+
+    // Fetch once at init to DECIDE tab visibility (single source of truth = the
+    // backend WRITING_PROMPT_BANK_ENABLED flag). Tab stays hidden unless the
+    // endpoint returns enabled:true AND there is ≥1 prompt to browse.
+    async function loadPromptBank() {
+      try {
+        var data = await window.api.get('/api/writing/prompt-bank');
+        if (!data || data.enabled !== true) return;          // flag off → tab hidden
+        _allPrompts = (data.prompts) || [];
+        if (!_allPrompts.length) return;                      // nothing to browse → tab hidden
+        var btn = document.getElementById('tab-prompt-bank');
+        if (btn) btn.hidden = false;                          // reveal the tab
+      } catch (e) { /* network/disabled → tab stays hidden */ }
+    }
+
+    function renderPromptBank() {
+      _pbRendered = true;
+      var list = document.getElementById('pb-list');
+      var filtered = _pbFilter === 'all'
+        ? _allPrompts
+        : _allPrompts.filter(function (p) { return p.task_type === _pbFilter; });
+      if (!filtered.length) {
+        list.innerHTML = '<div class="wd-empty wd-empty--compact">' +
+          '<p class="wd-empty__hint">Không có đề nào trong nhóm này.</p></div>';
+        return;
+      }
+      list.innerHTML = filtered.map(function (p) {
+        var taskPill = '<span class="pill pill-wait">' +
+          escapeHtml(PB_TASK_LABELS[p.task_type] || p.task_type) + '</span>';
+        var diff = p.difficulty
+          ? '<span class="tip-card__cat">' + escapeHtml(p.difficulty) + '</span>' : '';
+        var imgFlag = p.prompt_image_url ? ' 🖼️' : '';
+        return (
+          '<div class="essay-card tip-card clickable rounded-lg p-4" role="link" tabindex="0"' +
+              ' data-pb-id="' + escapeHtml(p.id) + '">' +
+            '<div class="flex items-center justify-between gap-3 mb-2">' +
+              '<h3 class="tip-card__title font-semibold">' + escapeHtml(p.title || '(Đề bài)') + imgFlag + '</h3>' +
+              '<div class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">' + diff + taskPill + '</div>' +
+            '</div>' +
+            '<p class="tip-card__preview text-sm text-gray-300 line-clamp-2">' + escapeHtml(p.prompt_text || '') + '</p>' +
+            '<div class="flex justify-end mt-2"><span class="essay-card__view">Đọc đề →</span></div>' +
+          '</div>'
+        );
+      }).join('');
+
+      list.querySelectorAll('.tip-card').forEach(function (card) {
+        var go = function () {
+          var id = card.getAttribute('data-pb-id');
+          var p  = _allPrompts.find(function (x) { return String(x.id) === id; });
+          openPromptModal(p);
+        };
+        card.addEventListener('click', go);
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+        });
+      });
+    }
+
+    function wirePromptFilterTabs() {
+      var btns = document.querySelectorAll('[data-pb-filter]');
+      btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          _pbFilter = btn.getAttribute('data-pb-filter');
+          btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+          renderPromptBank();
+        });
+      });
+    }
+
+    // Reuses the tip-modal DOM. Browse-only — NO start-essay button.
+    function openPromptModal(p) {
+      if (!p) return;
+      // analytics — browsing a prompt in the library (prompt_bank_view, distinct
+      // from prompt_view which is an essay-open). Fire-and-forget; never block.
+      try {
+        if (window.api && window.api.post) {
+          window.api.post('/api/analytics/events', {
+            event_name: 'prompt_bank_view',
+            event_data: { prompt_id: p.id, task_type: p.task_type },
+          }).catch(function () {});
+        }
+      } catch (e) {}
+      document.getElementById('tip-modal-title').textContent = p.title || '(Đề bài)';
+      var meta = [PB_TASK_LABELS[p.task_type] || p.task_type];
+      if (p.difficulty) meta.push(p.difficulty);
+      document.getElementById('tip-modal-meta').textContent = meta.join(' · ');
+      // prompt_text is plain text → escape + preserve line breaks (no markdown).
+      var img = p.prompt_image_url
+        ? '<img src="' + escapeHtml(p.prompt_image_url) + '" alt="Đề Task 1" class="pb-modal-img" />'
+        : '';
+      document.getElementById('tip-modal-body').innerHTML =
+        img + '<p class="pb-modal-text">' + escapeHtml(p.prompt_text || '') + '</p>';
+      document.getElementById('tip-modal').classList.remove('hidden');
     }
 
     // ── Deliverable 2 (Sprint 19.1A) — deadline surface ─────────────
@@ -1467,9 +1599,17 @@
     document.getElementById('tab-tips').addEventListener('click', function () {
       setTabActive('tips');
     });
+    // R1 — "Kho đề" tab (the button is hidden until loadPromptBank reveals it).
+    document.getElementById('tab-prompt-bank').addEventListener('click', function () {
+      setTabActive('prompt-bank');
+    });
 
     // Sprint 2.5.5 — filter sub-tabs within the "Bài đã nộp" view.
     wireEssayFilterTabs();
+
+    // R1 — prompt-bank: wire filter chips + fetch once to decide tab visibility.
+    wirePromptFilterTabs();
+    loadPromptBank();
 
     // Sprint 19.1B — "Mẹo viết" filter chips + detail modal close wiring.
     wireTipFilterTabs();

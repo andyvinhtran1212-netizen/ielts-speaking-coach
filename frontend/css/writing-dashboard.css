@@ -767,3 +767,18 @@ body.av-page .hover\:text-white:hover {
   font-size: var(--av-fs-sm);
 }
 .tip-modal-outline > ol > li { margin-bottom: var(--av-space-2); }
+
+/* R1 — "Kho đề" prompt modal (reuses the tip-modal shell): Task 1 chart image
+   + plain prompt text with line breaks preserved. Tokens only (light+dark). */
+.pb-modal-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--av-radius-md);
+  border: 1px solid var(--av-border-subtle);
+  margin-bottom: var(--av-space-3);
+}
+.pb-modal-text {
+  white-space: pre-wrap;
+  color: var(--av-text-secondary);
+  line-height: var(--av-lh-relaxed);
+}
