@@ -115,6 +115,7 @@ class _DispatchClient:
         students_lookup: list[dict] | None = None,
         students_update_raises: Exception | None = None,
         students_lookup_raises: Exception | None = None,
+        code_cohort_id: str | None = None,
     ):
         # access_codes select returns one valid, unused, unrevoked code.
         self._access_code_row = {
@@ -124,6 +125,9 @@ class _DispatchClient:
             "is_revoked":  False,
             "permissions": ["practice_single", "practice_part", "practice_full"],
         }
+        # WF-1: a cohort-linked direct code carries access_codes.cohort_id.
+        if code_cohort_id is not None:
+            self._access_code_row["cohort_id"] = code_cohort_id
         # users select returns existing user (Step 2 takes the
         # already-exists path).
         self._existing_user = [{"id": _USER_ID}]
@@ -201,6 +205,41 @@ def test_links_student_when_code_matches_and_unlinked(monkeypatch):
     assert student_updates[0]["payload"] == {"user_id": _USER_ID}
     # Filter targeted the matched student row by id.
     assert ("id", _STUDENT_ID) in student_updates[0]["filters"]
+
+
+def test_cohort_linked_code_enrolls_student_into_cohort(monkeypatch):
+    """WF-1 bridge — when the activated code is cohort-linked
+    (access_codes.cohort_id set), the same UPDATE that links user_id also
+    sets students.cohort_id, enrolling the student into the class roster."""
+    client = _patch(
+        monkeypatch,
+        students_lookup=[{"id": _STUDENT_ID, "user_id": None}],
+        code_cohort_id="cohort-xyz",
+    )
+
+    out = _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    assert out["success"] is True
+
+    student_updates = [
+        c for c in client.calls
+        if c["table"] == "students" and c["action"] == "update"
+    ]
+    assert len(student_updates) == 1
+    assert student_updates[0]["payload"] == {"user_id": _USER_ID, "cohort_id": "cohort-xyz"}
+    assert ("id", _STUDENT_ID) in student_updates[0]["filters"]
+
+
+def test_mass_code_no_cohort_does_not_set_cohort_id(monkeypatch):
+    """Mass code (no access_codes.cohort_id) ⇒ link user_id only, never
+    touch students.cohort_id."""
+    client = _patch(
+        monkeypatch,
+        students_lookup=[{"id": _STUDENT_ID, "user_id": None}],
+        # code_cohort_id omitted → no cohort on the code
+    )
+    _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
+    su = [c for c in client.calls if c["table"] == "students" and c["action"] == "update"]
+    assert len(su) == 1 and su[0]["payload"] == {"user_id": _USER_ID}   # no cohort_id key
 
 
 def test_does_not_overwrite_existing_link(monkeypatch):
