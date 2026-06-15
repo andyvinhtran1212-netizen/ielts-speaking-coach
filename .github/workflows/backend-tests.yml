@@ -217,4 +217,5 @@ jobs:
             frontend/tests/site-overview-coverage.test.mjs \
             frontend/tests/admin-students-redesign.test.mjs \
             frontend/tests/merge-codes-users-tabs.test.mjs \
-            frontend/tests/generate-and-assign-code.test.mjs
+            frontend/tests/generate-and-assign-code.test.mjs \
+            frontend/tests/admin-users-codes-reskin.test.mjs

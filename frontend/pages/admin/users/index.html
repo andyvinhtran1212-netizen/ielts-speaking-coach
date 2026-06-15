@@ -23,183 +23,229 @@
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
-  <link rel="stylesheet" href="/css/aver-design/admin-buttons.css" />
+  <!-- admin-components.css carries the canonical .adm-* primitives (table /
+       status-pill / chip / modal / subtab) + admin border-box, and @imports
+       admin-buttons.css (so .adm-btn-* / .btn-* bridges still resolve). The
+       relocated code tab needs these; PR-2 had only linked admin-buttons.css,
+       leaving the code table / pills / modals unstyled on this page. -->
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
 
   <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
   <script src="/js/api.js"></script>
 
   <style>
-    body.av-page { font-family: var(--av-font-sans); margin: 0; }
+    /* ===================================================================
+       Admin · Người dùng + Mã kích hoạt — re-skin (layout/CSS only).
+       Token-driven (--av-*), light + dark. All JS ids / handlers / emitted
+       class names are preserved; this only restyles structure + folds a11y.
+       =================================================================== */
+    body.av-page { font-family: var(--av-font-sans); margin: 0; color: var(--av-text-primary); }
+
     .usr-shell {
       max-width: 1280px; margin: 0 auto;
       padding: var(--av-space-6);
       display: flex; flex-direction: column; gap: var(--av-space-4);
     }
-    .usr-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-1); }
-    .usr-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .usr-header h1 {
+      font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+      letter-spacing: var(--av-tracking-tight); margin: 0 0 var(--av-space-1);
+    }
+    .usr-header .subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); max-width: 70ch; }
 
-    .usr-filter-bar {
-      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
-      align-items: flex-end;
+    /* ── Sub-tabs row (Người dùng / Mã kích hoạt) ───────────────────── */
+    .merge-tabs {
+      display: flex; gap: var(--av-space-2);
+      border-bottom: 1px solid var(--av-border-subtle);
+      padding-bottom: var(--av-space-3);
+    }
+
+    /* ── Filter / toolbar cards (shared visual language, both tabs) ──── */
+    .usr-filter-bar, .ac-toolbar {
       padding: var(--av-space-4);
       border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
+      border-radius: var(--av-radius-lg);
       background: var(--av-surface-card);
+      box-shadow: var(--av-shadow-sm);
     }
-    .usr-filter { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
-    .usr-filter label {
-      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+    .usr-filter-bar { display: flex; gap: var(--av-space-3); flex-wrap: wrap; align-items: flex-end; }
+    .ac-toolbar { display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .ac-toolbar-actions { display: flex; justify-content: flex-end; }
+    .ac-filter-bar { display: flex; gap: var(--av-space-3); flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+
+    .usr-filter { display: flex; flex-direction: column; gap: 6px; min-width: 160px; }
+    .ac-filter  { display: flex; flex-direction: column; gap: 6px; flex: 1 1 160px; min-width: 0; }
+    .usr-filter label, .ac-filter label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted); font-weight: var(--av-fw-medium);
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
     }
-    .usr-filter input, .usr-filter select {
-      padding: 8px 12px;
+    .usr-filter input, .usr-filter select,
+    .ac-filter select, .ac-filter input[type="search"],
+    .usr-modal .field input, .usr-modal .field select {
+      padding: 9px 12px;
       border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md);
       background: var(--av-surface-page, var(--av-surface-card));
       color: var(--av-text-primary);
-      font-size: var(--av-fs-sm);
-      font-family: inherit;
+      font-size: var(--av-fs-sm); font-family: inherit;
+      width: 100%; min-width: 0; max-width: 100%;
+      transition: border-color var(--av-duration-fast) var(--av-easing-default);
     }
-    /* admin buttons → admin-buttons.css bridge (design-fix-2 B3) */
+    .usr-filter input:hover, .usr-filter select:hover,
+    .ac-filter select:hover, .ac-filter input[type="search"]:hover { border-color: var(--av-border-strong); }
 
-    .usr-table-wrap {
+    /* ── Tables — identical look on both tabs ────────────────────────── */
+    .usr-table-wrap, .adm-table-wrap {
       border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md);
+      border-radius: var(--av-radius-lg);
       background: var(--av-surface-card);
       overflow-x: auto;
+      box-shadow: var(--av-shadow-sm);
     }
-    table.usr-table { width: 100%; border-collapse: collapse; }
-    table.usr-table th, table.usr-table td {
+    table.usr-table, table.adm-table { width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm); }
+    table.usr-table th, table.usr-table td,
+    table.adm-table th, table.adm-table td {
       padding: var(--av-space-3) var(--av-space-4);
       text-align: left;
-      font-size: var(--av-fs-sm);
-      border-bottom: 1px solid var(--av-border-default);
-      vertical-align: top;
+      border-bottom: 1px solid var(--av-border-subtle);
+      vertical-align: middle;
     }
-    table.usr-table th {
-      font-weight: var(--av-fw-semibold);
-      color: var(--av-text-secondary);
+    table.usr-table thead th, table.adm-table thead th {
       background: var(--av-surface-sunken);
-      font-size: var(--av-fs-xs);
-      text-transform: uppercase;
-      letter-spacing: var(--av-tracking-wide);
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      white-space: nowrap;
     }
+    table.usr-table tbody tr, table.adm-table tbody tr {
+      transition: background var(--av-duration-fast) var(--av-easing-default);
+    }
+    table.usr-table tbody tr:hover, table.adm-table tbody tr:hover { background: var(--av-surface-sunken); }
+    table.usr-table tbody tr:last-child td, table.adm-table tbody tr:last-child td { border-bottom: none; }
+
+    /* Sortable headers + aria-sort glyph (rendered by CSS, not markup) */
+    th.usr-sortable, th.ac-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.usr-sortable:hover, th.ac-sortable:hover { color: var(--av-text-primary); }
+    th.usr-sortable::after, th.ac-sortable::after {
+      content: "↕"; margin-inline-start: 6px;
+      color: var(--av-text-faint); font-weight: var(--av-fw-regular);
+    }
+    th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--av-brand-teal-800); }
+    th.usr-sortable[aria-sort="ascending"]::after,  th.ac-sortable[aria-sort="ascending"]::after  { content: "↑"; color: var(--av-brand-teal-600); }
+    th.usr-sortable[aria-sort="descending"]::after, th.ac-sortable[aria-sort="descending"]::after { content: "↓"; color: var(--av-brand-teal-600); }
+
+    /* ── Badges / chips — one unified system ─────────────────────────── */
     .usr-chip {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: var(--av-radius-pill);
-      font-size: var(--av-fs-xs);
-      background: var(--av-surface-sunken);
-      color: var(--av-text-secondary);
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); white-space: nowrap;
+      background: var(--av-surface-sunken); color: var(--av-text-secondary);
       border: 1px solid var(--av-border-default);
     }
     .usr-chip.is-admin      { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
-    .usr-chip.is-instructor { background: #EEF2FF; color: #3730A3; border-color: #C7D2FE; }
-    .usr-chip.is-inactive   { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
+    .usr-chip.is-instructor { background: var(--av-info-soft);  color: var(--av-info);  border-color: color-mix(in srgb, var(--av-info) 30%, transparent); }
+    .usr-chip.is-inactive   { background: var(--av-error-soft); color: var(--av-error); border-color: color-mix(in srgb, var(--av-error) 30%, transparent); }
+
     .usr-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
-
-    .usr-role-select {
-      padding: 4px 8px;
-      border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-sm);
-      background: var(--av-surface-card);
-      color: var(--av-text-primary);
-      font-size: var(--av-fs-xs);
-      font-family: inherit;
+    .usr-code-mono {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-primary);
+      background: var(--av-surface-sunken); padding: 2px 6px; border-radius: var(--av-radius-sm);
     }
-
-    .usr-banner {
-      padding: var(--av-space-3) var(--av-space-4);
-      border-radius: var(--av-radius-md);
-      font-size: var(--av-fs-sm);
-    }
-    .usr-banner.is-success { background: #ECFDF5; color: var(--av-brand-teal-800); border: 1px solid var(--av-brand-teal-200); }
-    .usr-banner.is-error   { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-
-    .usr-loading, .usr-empty {
-      padding: var(--av-space-6); text-align: center;
-      color: var(--av-text-muted); font-size: var(--av-fs-sm);
-    }
-
-    /* Sprint 18.1 — "Convert thành học viên" modal (mirrors cohorts modal). */
-    .usr-convert-btn { padding: 4px 10px; border-radius: var(--av-radius-sm);
-      background: transparent; color: var(--av-text-secondary);
-      border: 1px solid var(--av-border-default); cursor: pointer;
-      font-size: var(--av-fs-xs); font-family: inherit; white-space: nowrap; }
-    .usr-convert-btn:hover { background: var(--av-surface-sunken); color: var(--av-text-primary); }
-    .usr-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
-      display: flex; align-items: center; justify-content: center; padding: var(--av-space-4); }
-    .usr-modal { background: var(--av-surface-card); border-radius: var(--av-radius-lg);
-      border: 1px solid var(--av-border-default); max-width: 460px; width: 100%;
-      padding: var(--av-space-6); display: flex; flex-direction: column; gap: var(--av-space-4); }
-    .usr-modal h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
-    .usr-modal .field { display: flex; flex-direction: column; gap: 4px; }
-    .usr-modal .field label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    .usr-modal .field input, .usr-modal .field select { padding: 8px 12px; border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md); background: var(--av-surface-page, var(--av-surface-card));
-      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
-    /* group label for radio/checkbox blocks (not a styled .field input) */
-    .usr-modal-grouplabel { font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
-      display: block; margin-bottom: 4px; }
-    .usr-modal-sub { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: 0; }
-    .usr-modal-actions { display: flex; gap: var(--av-space-2); justify-content: flex-end; }
-    /* btn-primary moved to admin-buttons.css bridge */
-
-    /* merge-tabs spacing */
-    .merge-tabs { margin-bottom: var(--av-space-4); }
-
-    /* ── Access-code module styles (relocated VERBATIM from access-codes/index.html) ── */
-    .ac-toolbar { display: flex; flex-direction: column; gap: var(--av-space-3); }
-    .ac-toolbar-actions { display: flex; justify-content: flex-end; }
-    .ac-filter-bar { display: flex; gap: var(--av-space-3); flex-wrap: wrap;
-      flex: 1 1 auto; min-width: 0; }
-    .ac-filter { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; min-width: 0; }
-    .ac-filter label {
-      font-size: var(--av-fs-xs); color: var(--av-text-muted);
-      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
-    }
-    .ac-filter select, .ac-filter input[type="search"] {
-      padding: 8px 12px; border: 1px solid var(--av-border-default);
-      border-radius: var(--av-radius-md); background: var(--av-surface-card);
-      color: var(--av-text-primary); font-size: var(--av-fs-sm);
-      width: 100%; min-width: 0; max-width: 100%;
-    }
-    th.ac-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
-    th.ac-sortable:hover { color: var(--av-text-primary); }
-    .ac-user { font-size: var(--av-fs-sm); color: var(--av-text-primary); line-height: 1.5; }
-    .ac-quota { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
-    .ac-muted { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
-    .ac-warn  { color: var(--av-warning); font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); }
-    .ac-link  { background: none; border: none; padding: 0; cursor: pointer; font-size: var(--av-fs-xs);
-                color: var(--av-brand-teal-700); text-decoration: underline; font-family: inherit; }
-    .ac-link-danger { color: var(--av-error); }
-    .ep-notice { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
-                 border-left: 3px solid var(--av-warning); padding-left: var(--av-space-3); margin: 0; }
-    .ep-hint { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: var(--av-space-2) 0 0; }
-    .ep-usage { display: flex; flex-direction: column; gap: var(--av-space-1); }
-    .ep-usage-row { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
-    .ac-radio-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
-    .ac-radio-row label {
-      display: flex; align-items: center; gap: 6px; padding: 6px 12px;
-      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
-      cursor: pointer; font-size: var(--av-fs-sm); color: var(--av-text-secondary);
-      text-transform: none; letter-spacing: normal;
-    }
-    .ac-radio-row input { margin: 0; }
-    .ac-perms { display: flex; flex-direction: column; gap: 4px; }
-    .ac-perms label {
-      display: flex; align-items: center; gap: 8px; font-size: var(--av-fs-sm);
-      color: var(--av-text-primary); text-transform: none; letter-spacing: normal;
-    }
-    /* user-tab merged code columns */
-    .usr-code-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); }
     .usr-perms { color: var(--av-text-secondary); font-size: var(--av-fs-xs); }
     .usr-code-badge { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     .usr-code-none { color: var(--av-text-muted); font-size: var(--av-fs-xs); font-style: italic; }
-    th.usr-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
-    th.usr-sortable:hover { color: var(--av-text-primary); }
+    .code-cell { font-family: var(--av-font-mono); font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); color: var(--av-text-primary); }
+
+    /* ── Row action controls ─────────────────────────────────────────── */
+    .usr-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--av-space-2); }
+    .usr-role-select {
+      padding: 5px 8px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm); background: var(--av-surface-card);
+      color: var(--av-text-primary); font-size: var(--av-fs-xs); font-family: inherit;
+    }
+    .usr-convert-btn {
+      padding: 5px 10px; border-radius: var(--av-radius-md);
+      background: transparent; color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); cursor: pointer;
+      font-size: var(--av-fs-xs); font-family: inherit; font-weight: var(--av-fw-medium); white-space: nowrap;
+      transition: background var(--av-duration-fast) var(--av-easing-default),
+                  color var(--av-duration-fast) var(--av-easing-default),
+                  border-color var(--av-duration-fast) var(--av-easing-default);
+    }
+    .usr-convert-btn:hover { background: var(--av-surface-sunken); color: var(--av-text-primary); border-color: var(--av-border-strong); }
+    .ac-link {
+      background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+      font-size: var(--av-fs-xs); color: var(--av-brand-teal-700);
+      text-decoration: underline; text-underline-offset: 2px;
+    }
+    .ac-link:hover { color: var(--av-brand-teal-800); }
+    .ac-link-danger { color: var(--av-error); }
+
+    /* ── Banners ─────────────────────────────────────────────────────── */
+    .usr-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); }
+    .usr-banner.is-success { background: var(--av-success-soft); color: var(--av-success);
+      border: 1px solid color-mix(in srgb, var(--av-success) 30%, transparent); }
+    .usr-banner.is-error   { background: var(--av-error-soft); color: var(--av-error);
+      border: 1px solid color-mix(in srgb, var(--av-error) 30%, transparent); }
+
+    .usr-loading, .usr-empty { padding: var(--av-space-8); text-align: center;
+      color: var(--av-text-muted); font-size: var(--av-fs-sm); }
+
+    /* ── Modals (Convert + Tạo+gán mã) ───────────────────────────────── */
+    .usr-modal-backdrop {
+      position: fixed; inset: 0; z-index: var(--av-z-modal);
+      background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px);
+      display: flex; align-items: center; justify-content: center; padding: var(--av-space-4);
+    }
+    .usr-modal {
+      background: var(--av-surface-card); border-radius: var(--av-radius-xl);
+      border: 1px solid var(--av-border-default); box-shadow: var(--av-shadow-xl);
+      max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto;
+      padding: var(--av-space-6); display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .usr-modal h2 { font-size: var(--av-fs-lg); font-weight: var(--av-fw-semibold); margin: 0; }
+    .usr-modal .field { display: flex; flex-direction: column; gap: 6px; }
+    .usr-modal .field label, .usr-modal-grouplabel {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted); font-weight: var(--av-fw-medium);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide); display: block;
+    }
+    .usr-modal-grouplabel { margin-bottom: 6px; }
+    .usr-modal-sub { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: 0; }
+    .usr-modal-actions { display: flex; gap: var(--av-space-2); justify-content: flex-end; margin-top: var(--av-space-2); }
+
+    /* ── Code-tab cell content (ac-* / ep-*) ─────────────────────────── */
+    .ac-user { font-size: var(--av-fs-sm); color: var(--av-text-primary); line-height: 1.5; }
+    .ac-quota { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .ac-muted { color: var(--av-text-muted); font-size: var(--av-fs-xs); font-style: italic; }
+    .ac-warn  { color: var(--av-warning); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
+    .ep-notice { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+      border-left: 3px solid var(--av-warning); background: var(--av-warning-soft);
+      padding: var(--av-space-2) var(--av-space-3); border-radius: 0 var(--av-radius-sm) var(--av-radius-sm) 0; margin: 0; }
+    .ep-hint { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: var(--av-space-2) 0 0; }
+    .ep-usage { display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .ep-usage-row { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+
+    .ac-radio-row { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    .ac-radio-row label {
+      display: flex; align-items: center; gap: 6px; padding: 7px 12px;
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      cursor: pointer; font-size: var(--av-fs-sm); color: var(--av-text-secondary);
+      text-transform: none; letter-spacing: normal; font-weight: var(--av-fw-medium);
+      transition: border-color var(--av-duration-fast) var(--av-easing-default),
+                  background var(--av-duration-fast) var(--av-easing-default);
+    }
+    .ac-radio-row label:hover { border-color: var(--av-border-strong); background: var(--av-surface-sunken); }
+    .ac-radio-row input { margin: 0; accent-color: var(--av-primary); }
+    .ac-perms { display: flex; flex-direction: column; gap: var(--av-space-2); }
+    .ac-perms label {
+      display: flex; align-items: center; gap: 8px; font-size: var(--av-fs-sm);
+      color: var(--av-text-primary); text-transform: none; letter-spacing: normal; cursor: pointer;
+    }
+    .ac-perms input { accent-color: var(--av-primary); }
+
+    /* ── a11y: focus-visible halo (--av-shadow-focus) on interactive ──── */
+    body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+    th.usr-sortable:focus-visible, th.ac-sortable:focus-visible { box-shadow: inset var(--av-shadow-focus); }
 
     [hidden] { display: none !important; }
   </style>
@@ -251,17 +297,17 @@
         <table class="usr-table">
           <thead>
             <tr>
-              <th class="usr-sortable" data-sort="display_name">Tên ↕</th>
+              <th class="usr-sortable" data-sort="display_name" tabindex="0" aria-sort="none">Tên</th>
               <th>Email</th>
               <th>Mã</th>
-              <th class="usr-sortable" data-sort="code_type">Loại ↕</th>
+              <th class="usr-sortable" data-sort="code_type" tabindex="0" aria-sort="none">Loại</th>
               <th>Quyền</th>
-              <th class="usr-sortable" data-sort="code_status">Trạng-thái ↕</th>
-              <th class="usr-sortable" data-sort="cohort_name">Lớp ↕</th>
-              <th class="usr-sortable" data-sort="role">Role ↕</th>
+              <th class="usr-sortable" data-sort="code_status" tabindex="0" aria-sort="none">Trạng-thái</th>
+              <th class="usr-sortable" data-sort="cohort_name" tabindex="0" aria-sort="none">Lớp</th>
+              <th class="usr-sortable" data-sort="role" tabindex="0" aria-sort="none">Role</th>
               <th>Sessions hôm nay</th>
               <th>Active</th>
-              <th class="usr-sortable" data-sort="created_at">Created ↕</th>
+              <th class="usr-sortable" data-sort="created_at" tabindex="0" aria-sort="none">Created</th>
               <th></th>
             </tr>
           </thead>
@@ -322,10 +368,10 @@
                 <th>Loại</th>
                 <th>Lớp</th>
                 <th>Người dùng</th>
-                <th class="ac-sortable" data-sort="status">Trạng thái ↕</th>
+                <th class="ac-sortable" data-sort="status" tabindex="0" aria-sort="none">Trạng thái</th>
                 <th>Giới hạn</th>
-                <th class="ac-sortable" data-sort="expires_at">Hết hạn ↕</th>
-                <th class="ac-sortable" data-sort="created_at">Ngày tạo ↕</th>
+                <th class="ac-sortable" data-sort="expires_at" tabindex="0" aria-sort="none">Hết hạn</th>
+                <th class="ac-sortable" data-sort="created_at" tabindex="0" aria-sort="none">Ngày tạo</th>
                 <th>Ghi chú</th>
                 <th></th>
               </tr>
