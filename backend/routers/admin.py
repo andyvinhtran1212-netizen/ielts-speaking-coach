@@ -1756,6 +1756,84 @@ async def refill_code(code_id: str, body: RefillRequest,
             "new_code": new_code.get("code"), "new_code_id": new_code.get("id")}
 
 
+class GenerateAndAssignRequest(BaseModel):
+    user_id:       str
+    permissions:   list[str]  = Field(default=["all"], description="Quyền cấp cho mã")
+    session_limit: int | None = Field(default=None, ge=1, description="Giới hạn sessions (null = không giới hạn)")
+    expires_at:    str | None = Field(default=None, description="Ngày hết hạn ISO 8601 (null = không hết hạn)")
+    code_type:     str        = Field(default="mass", description='"mass" | "direct" | "staff"')
+    cohort_id:     str | None = Field(default=None, description="UUID lớp (bắt buộc khi code_type='direct')")
+
+
+@router.post("/access-codes/generate-and-assign")
+async def generate_and_assign_code(
+    body: GenerateAndAssignRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Admin-side activation: create ONE fresh code dedicated to a single user and
+    immediately assign it — onboards an existing account that has no active code
+    WITHOUT the student having to enter a code. Reuses `_issue_code_and_assign`
+    (the same activation core as /refill): it sets is_used/used_by/used_at AT
+    ISSUANCE (first write on a brand-new code, NOT a mutation of a used code) and
+    upserts an active user_code_assignment, so the immutability invariant and the
+    code-derived entitlement both stay canonical."""
+    admin = await require_admin(authorization)
+    actor = _actor_id(admin)
+
+    # Same validation as POST /generate so the combos can't drift.
+    try:
+        validate_permissions_or_raise(body.permissions)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _validate_code_type_combo(body.code_type, body.cohort_id)
+
+    # Target must be a real user row.
+    target = (
+        supabase_admin.table("users").select("id").eq("id", body.user_id).limit(1).execute().data
+    ) or []
+    if not target:
+        raise HTTPException(404, "Không tìm thấy người dùng")
+
+    new_code = _issue_code_and_assign(
+        user_id=body.user_id, admin_id=actor, reason="admin tạo + gán trực tiếp",
+        code_type=body.code_type, cohort_id=body.cohort_id,
+        permissions=body.permissions, session_limit=body.session_limit,
+        expires_at=body.expires_at,
+    )
+
+    # WF-1 class-roster bridge: a direct (cohort-linked) code enrolls the user
+    # into that class via students.cohort_id — the SAME column the roster /
+    # writing fan-out / grade-matrix read, mirroring /auth/activate. Defensive:
+    # a failure (or a user with no students row) never blocks the assignment.
+    if body.cohort_id:
+        try:
+            srow = (
+                supabase_admin.table("students").select("id")
+                .eq("user_id", body.user_id).limit(1).execute().data
+            ) or []
+            if srow:
+                supabase_admin.table("students").update(
+                    {"cohort_id": body.cohort_id}
+                ).eq("id", srow[0]["id"]).execute()
+        except Exception as e:
+            logger.warning(
+                "[admin] cohort bridge failed for user=%s code=%s: %s",
+                body.user_id, new_code.get("id"), e,
+            )
+
+    _audit_entitlement(
+        actor, "create", new_code.get("id"), target_user_id=body.user_id,
+        after={"code":          new_code.get("code"),
+               "permissions":   new_code.get("permissions"),
+               "session_limit": new_code.get("session_limit"),
+               "code_type":     body.code_type,
+               "cohort_id":     body.cohort_id,
+               "via":           "generate-and-assign"},
+    )
+    return {"ok": True, "user_id": body.user_id,
+            "code": new_code.get("code"), "code_id": new_code.get("id")}
+
+
 # ── DELETE /admin/access-codes/{code_id}/remove (hard delete) ─────────────────
 
 @router.delete("/access-codes/{code_id}/remove", status_code=204)
