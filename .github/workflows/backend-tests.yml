@@ -215,4 +215,5 @@ jobs:
             frontend/tests/listening-mini-test.test.mjs \
             frontend/tests/listening-test-player.test.mjs \
             frontend/tests/site-overview-coverage.test.mjs \
-            frontend/tests/admin-students-redesign.test.mjs
+            frontend/tests/admin-students-redesign.test.mjs \
+            frontend/tests/merge-codes-users-tabs.test.mjs

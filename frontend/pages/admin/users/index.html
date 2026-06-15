@@ -143,6 +143,60 @@
     .usr-modal-actions { display: flex; gap: var(--av-space-2); justify-content: flex-end; }
     /* btn-primary moved to admin-buttons.css bridge */
 
+    /* merge-tabs spacing */
+    .merge-tabs { margin-bottom: var(--av-space-4); }
+
+    /* ── Access-code module styles (relocated VERBATIM from access-codes/index.html) ── */
+    .ac-toolbar { display: flex; flex-direction: column; gap: var(--av-space-3); }
+    .ac-toolbar-actions { display: flex; justify-content: flex-end; }
+    .ac-filter-bar { display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      flex: 1 1 auto; min-width: 0; }
+    .ac-filter { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; min-width: 0; }
+    .ac-filter label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+    }
+    .ac-filter select, .ac-filter input[type="search"] {
+      padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-card);
+      color: var(--av-text-primary); font-size: var(--av-fs-sm);
+      width: 100%; min-width: 0; max-width: 100%;
+    }
+    th.ac-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.ac-sortable:hover { color: var(--av-text-primary); }
+    .ac-user { font-size: var(--av-fs-sm); color: var(--av-text-primary); line-height: 1.5; }
+    .ac-quota { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .ac-muted { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .ac-warn  { color: var(--av-warning); font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium); }
+    .ac-link  { background: none; border: none; padding: 0; cursor: pointer; font-size: var(--av-fs-xs);
+                color: var(--av-brand-teal-700); text-decoration: underline; font-family: inherit; }
+    .ac-link-danger { color: var(--av-error); }
+    .ep-notice { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+                 border-left: 3px solid var(--av-warning); padding-left: var(--av-space-3); margin: 0; }
+    .ep-hint { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: var(--av-space-2) 0 0; }
+    .ep-usage { display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .ep-usage-row { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+    .ac-radio-row { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .ac-radio-row label {
+      display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      cursor: pointer; font-size: var(--av-fs-sm); color: var(--av-text-secondary);
+      text-transform: none; letter-spacing: normal;
+    }
+    .ac-radio-row input { margin: 0; }
+    .ac-perms { display: flex; flex-direction: column; gap: 4px; }
+    .ac-perms label {
+      display: flex; align-items: center; gap: 8px; font-size: var(--av-fs-sm);
+      color: var(--av-text-primary); text-transform: none; letter-spacing: normal;
+    }
+    /* user-tab merged code columns */
+    .usr-code-mono { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); }
+    .usr-perms { color: var(--av-text-secondary); font-size: var(--av-fs-xs); }
+    .usr-code-badge { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+    .usr-code-none { color: var(--av-text-muted); font-size: var(--av-fs-xs); font-style: italic; }
+    th.usr-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.usr-sortable:hover { color: var(--av-text-primary); }
+
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -158,8 +212,17 @@
         </p>
       </header>
 
+      <!-- Shared banner — both the users module + the relocated access-code
+           module write to #status-banner (verbatim: neither JS changed). -->
       <div class="usr-banner" id="status-banner" hidden></div>
 
+      <nav class="adm-subtabs merge-tabs" role="tablist" aria-label="Người dùng và Mã kích hoạt">
+        <button type="button" class="adm-subtab is-active" data-merge-tab="users" role="tab" aria-selected="true">Người dùng</button>
+        <button type="button" class="adm-subtab" data-merge-tab="codes" role="tab" aria-selected="false">Mã kích hoạt</button>
+      </nav>
+
+      <!-- ── Tab: Người dùng ──────────────────────────────────────── -->
+      <section id="tab-users" class="merge-tab" role="tabpanel">
       <section class="usr-filter-bar" aria-label="Bộ lọc">
         <div class="usr-filter">
           <label for="usr-role">Role</label>
@@ -184,19 +247,89 @@
         <table class="usr-table">
           <thead>
             <tr>
-              <th>Display name</th>
+              <th class="usr-sortable" data-sort="display_name">Tên ↕</th>
               <th>Email</th>
-              <th>Lớp</th>
-              <th>Role</th>
+              <th>Mã</th>
+              <th class="usr-sortable" data-sort="code_type">Loại ↕</th>
+              <th>Quyền</th>
+              <th class="usr-sortable" data-sort="code_status">Trạng-thái ↕</th>
+              <th class="usr-sortable" data-sort="cohort_name">Lớp ↕</th>
+              <th class="usr-sortable" data-sort="role">Role ↕</th>
               <th>Sessions hôm nay</th>
               <th>Active</th>
-              <th>Created</th>
+              <th class="usr-sortable" data-sort="created_at">Created ↕</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="usr-tbody"></tbody>
         </table>
       </div>
+      </section><!-- /tab-users -->
+
+      <!-- ── Tab: Mã kích hoạt (relocated VERBATIM from access-codes/index.html;
+           only the duplicate #status-banner was dropped — the shared one above
+           is reused so admin-access-codes.js needs no change) ──────────── -->
+      <section id="tab-codes" class="merge-tab" role="tabpanel" hidden>
+        <div class="ac-toolbar">
+          <div class="ac-filter-bar">
+            <div class="ac-filter">
+              <label for="filter-type">Loại mã</label>
+              <select id="filter-type">
+                <option value="">Tất cả</option>
+                <option value="mass">Đại trà</option>
+                <option value="direct">Trực tiếp</option>
+                <option value="staff">Nhân viên</option>
+              </select>
+            </div>
+            <div class="ac-filter">
+              <label for="filter-status">Trạng thái</label>
+              <select id="filter-status">
+                <option value="">Tất cả</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="revoked">Đã thu hồi</option>
+              </select>
+            </div>
+            <div class="ac-filter">
+              <label for="filter-cohort">Lớp</label>
+              <select id="filter-cohort">
+                <option value="">Tất cả</option>
+              </select>
+            </div>
+            <div class="ac-filter">
+              <label for="search-input">Tìm kiếm</label>
+              <input id="search-input" type="search" placeholder="Mã hoặc email…" />
+            </div>
+          </div>
+          <div class="ac-toolbar-actions">
+            <button class="adm-btn-primary" id="btn-create" type="button">+ Tạo mã mới</button>
+          </div>
+        </div>
+
+        <div class="adm-loading" id="codes-loading">Đang tải…</div>
+        <div class="adm-empty" id="codes-empty" hidden>
+          Chưa có mã. Bấm "Tạo mã mới" ở trên để bắt đầu.
+        </div>
+
+        <div class="adm-table-wrap" id="codes-table-wrap" hidden>
+          <table class="adm-table">
+            <thead>
+              <tr>
+                <th>Mã</th>
+                <th>Loại</th>
+                <th>Lớp</th>
+                <th>Người dùng</th>
+                <th class="ac-sortable" data-sort="status">Trạng thái ↕</th>
+                <th>Giới hạn</th>
+                <th class="ac-sortable" data-sort="expires_at">Hết hạn ↕</th>
+                <th class="ac-sortable" data-sort="created_at">Ngày tạo ↕</th>
+                <th>Ghi chú</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="codes-tbody"></tbody>
+          </table>
+        </div>
+      </section><!-- /tab-codes -->
     </main>
 
     <!-- Sprint 18.1 — Convert an auth user into a Writing-Coach học viên. -->
@@ -220,10 +353,132 @@
       </div>
     </div>
 
+    <!-- ── Access-code modals (relocated VERBATIM): create + edit-perms ─── -->
+    <div class="adm-modal-backdrop" id="modal-backdrop" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title">Tạo mã mới</h2>
+
+        <div class="adm-field">
+          <label for="m-count">Số lượng</label>
+          <input id="m-count" type="number" min="1" max="100" value="1" />
+        </div>
+
+        <div class="adm-field">
+          <label>Loại mã</label>
+          <div class="ac-radio-row">
+            <label><input type="radio" name="m-type" value="mass" checked /> Đại trà</label>
+            <label><input type="radio" name="m-type" value="direct" /> Trực tiếp</label>
+            <label><input type="radio" name="m-type" value="staff" /> Nhân viên</label>
+          </div>
+        </div>
+
+        <div class="adm-field" id="m-cohort-row" hidden>
+          <label for="m-cohort">Lớp (bắt buộc cho mã Trực tiếp)</label>
+          <select id="m-cohort">
+            <option value="">— Chọn lớp —</option>
+          </select>
+        </div>
+
+        <div class="adm-field">
+          <label>Quyền</label>
+          <div class="ac-perms" id="m-perms">
+            <label><input type="checkbox" value="all" checked /> Tất cả</label>
+            <label><input type="checkbox" value="writing" /> Writing</label>
+            <label><input type="checkbox" value="practice_single" /> Luyện tập đơn</label>
+            <label><input type="checkbox" value="practice_part" /> Luyện theo Part</label>
+            <label><input type="checkbox" value="practice_full" /> Full Test</label>
+            <label><input type="checkbox" value="admin" /> Admin</label>
+          </div>
+        </div>
+
+        <div class="adm-field">
+          <label for="m-limit">Giới hạn sessions (để trống = không giới hạn)</label>
+          <input id="m-limit" type="number" min="1" placeholder="VD: 30" />
+        </div>
+
+        <div class="adm-field">
+          <label for="m-expires">Hết hạn (để trống = không hết hạn)</label>
+          <input id="m-expires" type="date" />
+        </div>
+
+        <div class="adm-field">
+          <label for="m-notes">Ghi chú</label>
+          <textarea id="m-notes" placeholder="Ví dụ: Lớp tháng 5 / chương trình staff"></textarea>
+        </div>
+
+        <div class="adm-banner" id="modal-error" hidden></div>
+
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-cancel" type="button">Hủy</button>
+          <button class="adm-btn-primary" id="btn-submit" type="button">Tạo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Edit-permissions modal (per-code) — scope-warning preserved ── -->
+    <div class="adm-modal-backdrop" id="editperms-backdrop" hidden>
+      <div class="adm-modal" role="dialog" aria-modal="true">
+        <h2>Sửa quyền của mã</h2>
+        <p class="ep-notice" id="ep-notice">
+          ⚠ Quyền áp dụng cho <strong>TẤT CẢ người dùng của mã <span id="ep-code-label"></span></strong>.
+          Lưu xong, mọi user của mã đổi quyền ngay (không chỉ một người).
+        </p>
+        <div class="adm-field">
+          <label>Quyền</label>
+          <div class="ac-perms" id="ep-perms">
+            <label><input type="checkbox" value="all" /> Tất cả</label>
+            <label><input type="checkbox" value="writing" /> Writing</label>
+            <label><input type="checkbox" value="practice_single" /> Luyện tập đơn</label>
+            <label><input type="checkbox" value="practice_part" /> Luyện theo Part</label>
+            <label><input type="checkbox" value="practice_full" /> Full Test</label>
+            <label><input type="checkbox" value="admin" /> Admin</label>
+          </div>
+        </div>
+        <div class="adm-field">
+          <label for="ep-limit">Giới hạn lượt (để trống = không giới hạn)</label>
+          <input id="ep-limit" type="number" min="1" placeholder="VD: 30" />
+          <p class="ep-hint">Tổng số lượt session mã cấp (cả đời). Tăng số = thêm lượt. Người dùng giữ nhiều mã = tổng giới hạn các mã.</p>
+        </div>
+        <div class="adm-field" id="ep-usage-wrap" hidden>
+          <label>Lượt đã dùng</label>
+          <div id="ep-usage" class="ep-usage"></div>
+        </div>
+        <div class="adm-banner" id="ep-error" hidden></div>
+        <div class="adm-modal-actions">
+          <button class="adm-btn-secondary" id="btn-ep-cancel" type="button">Hủy</button>
+          <button class="adm-btn-primary" id="btn-ep-submit" type="button">Lưu quyền</button>
+        </div>
+      </div>
+    </div>
+
   </aver-admin-chrome>
 
   <script type="module" src="/js/components/aver-admin-chrome.js"></script>
   <script src="/js/error-reporter.js"></script>
   <script type="module" src="/js/admin-users.js"></script>
+  <!-- Relocated access-code module (self-imports admin-codes-util.js). Inits +
+       loads its data on its own; the tab toggle below only shows/hides panels. -->
+  <script type="module" src="/js/admin-access-codes.js"></script>
+  <script>
+    // merge-codes PR-2 — 2-tab toggle. ?tab=codes deep-links the code tab
+    // (used by the PR-3 redirect from /admin/access-codes).
+    (function () {
+      function setTab(name) {
+        document.querySelectorAll('.merge-tab').forEach(function (p) {
+          p.hidden = (p.id !== 'tab-' + name);
+        });
+        document.querySelectorAll('[data-merge-tab]').forEach(function (b) {
+          var on = b.getAttribute('data-merge-tab') === name;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+      }
+      document.querySelectorAll('[data-merge-tab]').forEach(function (b) {
+        b.addEventListener('click', function () { setTab(b.getAttribute('data-merge-tab')); });
+      });
+      var initial = new URLSearchParams(location.search).get('tab') === 'codes' ? 'codes' : 'users';
+      setTab(initial);
+    })();
+  </script>
 </body>
 </html>

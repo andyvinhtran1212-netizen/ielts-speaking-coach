@@ -491,7 +491,9 @@ def get_users_code_summary(user_ids: list) -> dict:
                 if isinstance(p, str):
                     perms.add(p)
         summary[u] = {
-            "codes": [{"code": r.get("code"), "code_type": r.get("code_type")} for r in rows],
+            # `id` lets the merged users tab target the per-user "Gỡ khỏi mã"
+            # action (DELETE /access-codes/{id}/users/{uid}); newest code first.
+            "codes": [{"id": r.get("id"), "code": r.get("code"), "code_type": r.get("code_type")} for r in rows],
             "code_count": len(rows),
             "code_type": rows[0].get("code_type") if rows else None,
             "permissions": sorted(perms),
