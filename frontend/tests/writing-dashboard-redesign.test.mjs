@@ -18,7 +18,7 @@
 
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -828,5 +828,64 @@ describe('writing-dashboard.html / W-UI 2-pane submit modal', () => {
     assert.match(css, /\.wd-modal-2pane\s*\{[\s\S]*?grid-template-columns:\s*minmax/);
     assert.match(css, /\.wd-modal-pane-left\s*\{[\s\S]*?overflow-y:\s*auto/);
     assert.match(css, /@media\s*\(max-width:\s*860px\)[\s\S]*?\.wd-modal-2pane\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
+  });
+
+  test('reorder: prompt_text renders ABOVE the Task-1 chart image (left pane)', () => {
+    const left = html.match(/wd-modal-pane-left[\s\S]*?wd-modal-pane-right/);
+    assert.ok(left);
+    assert.ok(
+      left[0].indexOf('id="modal-prompt-text"') < left[0].indexOf('id="modal-prompt-image"'),
+      'prompt_text must come before the chart image',
+    );
+  });
+});
+
+
+describe('writing-dashboard.html / W-SOFTCHECK pre-submit spell check', () => {
+  test('spell panel DOM (soft: Quay lại sửa / Nộp luôn)', () => {
+    assert.match(html, /id="spell-panel"/);
+    assert.match(html, /id="spell-list"/);
+    assert.match(html, /id="spell-btn-back"/);
+    assert.match(html, /id="spell-btn-submit"/);
+  });
+
+  test('gated by allow_soft_check, runs BEFORE the submit confirms', () => {
+    assert.match(html, /modalState\.allowSoftCheck\s*=\s*!!assignment\.allow_soft_check/);
+    // the gate sits at the top of submitFromModal, before the wc<100 confirm
+    const fn = html.match(/async function submitFromModal\(force\)[\s\S]*?if \(!force\) \{/);
+    assert.ok(fn, 'submitFromModal head not found');
+    assert.match(fn[0], /modalState\.allowSoftCheck/);
+    assert.match(fn[0], /showSpellPanel\(spellIssues\);\s*return/);
+  });
+
+  test('SOFT: "Nộp luôn" submits with force (never hard-blocks)', () => {
+    assert.match(html, /spellSubmit\.addEventListener\([\s\S]*?submitFromModal\(true\)/);
+  });
+
+  test('self-hosted + lazy: import vendor bundle + fetch dict on-demand only', () => {
+    assert.match(html, /import\('\/assets\/vendor\/nspell\.bundle\.js'\)/);
+    assert.match(html, /fetch\('\/assets\/dict\/en\.aff'\)/);
+    assert.match(html, /fetch\('\/assets\/dict\/en\.dic'\)/);
+    // load is inside loadSpell (cached) — not at page load
+    assert.match(html, /function loadSpell\(\)/);
+  });
+
+  test('SPELL-ONLY: no grammar lib embedded (mention in a comment is fine)', () => {
+    // ban actual loading/import — not the honest "why no grammar lib" comment
+    assert.doesNotMatch(html, /(import\(|src=|require\()[^\n]*(write-good|retext|languagetool)/i);
+  });
+
+  test('vendored assets exist + self-hosted (no external CDN host)', () => {
+    const base = path.join(__dirname, '..', 'assets');
+    assert.ok(existsSync(path.join(base, 'vendor', 'nspell.bundle.js')), 'nspell bundle missing');
+    assert.ok(existsSync(path.join(base, 'dict', 'en.aff')), 'en.aff missing');
+    const dic = path.join(base, 'dict', 'en.dic');
+    assert.ok(existsSync(dic), 'en.dic missing');
+    assert.ok(statSync(dic).size > 100000, 'en.dic looks too small');
+  });
+
+  test('layout-only on textarea: 7 anti-spellcheck attrs still present', () => {
+    const ta = html.match(/<textarea id="modal-essay-textarea"[\s\S]*?>/);
+    assert.ok(ta && ta[0].includes('spellcheck="false"') && ta[0].includes('data-gramm="false"'));
   });
 });
