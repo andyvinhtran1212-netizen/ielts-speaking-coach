@@ -28,6 +28,7 @@ from services import admin_dashboard
 from services import admin_reading_dashboard
 from services.access_code_permissions import (
     get_completed_session_counts,
+    get_users_code_summary,
     validate_permissions_or_raise,
 )
 from routers.auth import get_supabase_user
@@ -753,6 +754,18 @@ async def list_users(authorization: str | None = Header(default=None)):
     for u in users:
         u["cohort_name"] = cohort_name_by_user.get(u["id"])
 
+    # Merge access-codes (the merged "Người dùng" tab): each user's LIVE
+    # code(s) — code/type/permissions-union/status — via a BATCHED summary
+    # (no N+1; honors the #442 used_by fallback + excludes revoked codes).
+    # READ-ONLY here: code-wide mutations stay on the "Mã kích hoạt" tab.
+    code_summary = get_users_code_summary(user_ids)
+    for u in users:
+        u["code_summary"] = code_summary.get(
+            u["id"],
+            {"codes": [], "code_count": 0, "code_type": None,
+             "permissions": [], "has_active_code": False},
+        )
+
     return users
 
 
@@ -1047,6 +1060,29 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
             c["cohort_name"] = None
 
     return codes
+
+
+# Declared BEFORE GET /access-codes/{code_id} so the matcher doesn't read
+# "pool" as a code_id (mirrors the prompts/upload-image + fan-out ordering).
+@router.get("/access-codes/pool")
+async def list_unassigned_codes(authorization: str | None = Header(default=None)):
+    """The 'sẵn-sàng-gán' pool for the Mã-kích-hoạt tab: codes never redeemed
+    AND not revoked (is_used=false AND is_revoked=false) — the canonical flags
+    for 'ready to issue'. Re-issuable (used-but-no-active-assignment) is
+    intentionally excluded to keep the pool unambiguous."""
+    await require_admin(authorization)
+    try:
+        r = (
+            supabase_admin.table("access_codes")
+            .select("id, code, code_type, permissions, session_limit, expires_at, cohort_id, created_at")
+            .eq("is_used", False)
+            .eq("is_revoked", False)
+            .order("created_at", desc=True)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi tải pool mã: {exc}")
+    return r.data or []
 
 
 # ── Sprint 17.2 — usage log (per-user + per-code activity rollups) ────────────────

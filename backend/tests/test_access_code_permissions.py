@@ -433,3 +433,55 @@ class TestExpiryEnforcementInLookup:
 
         result = perms.get_user_access_code_permissions(user_id)
         assert result == ["practice_full"]
+
+
+class TestGetUsersCodeSummary:
+    """Batched user→active-code summary for the merged admin "Người dùng" tab.
+    Same sourcing as the per-user gate (modern + #442 legacy fallback +
+    live-only), but for many users in a fixed number of queries."""
+
+    def test_batched_union_status_and_type(self, fake_db, perms):
+        u1, u2 = str(uuid4()), str(uuid4())
+        c1, c2 = str(uuid4()), str(uuid4())
+        _seed_assignment(fake_db, u1, c1)
+        _seed_code(fake_db, c1, ["writing", "practice_single"], code="W-1", code_type="direct")
+        _seed_assignment(fake_db, u2, c2)
+        _seed_code(fake_db, c2, ["practice_part"], code="S-1", code_type="mass")
+
+        out = perms.get_users_code_summary([u1, u2])
+        assert out[u1]["has_active_code"] is True
+        assert set(out[u1]["permissions"]) == {"writing", "practice_single"}
+        assert out[u1]["code_type"] == "direct"
+        assert out[u1]["code_count"] == 1
+        assert out[u1]["codes"][0]["code"] == "W-1"
+        assert set(out[u2]["permissions"]) == {"practice_part"}
+
+    def test_revoked_code_not_counted_active(self, fake_db, perms):
+        u, c = str(uuid4()), str(uuid4())
+        _seed_assignment(fake_db, u, c)
+        _seed_code(fake_db, c, ["writing"], is_revoked=True, code="X")
+        out = perms.get_users_code_summary([u])
+        assert out[u]["has_active_code"] is False
+        assert out[u]["codes"] == [] and out[u]["permissions"] == []
+
+    def test_442_inactive_assignment_blocks_used_by_fallback(self, fake_db, perms):
+        # Inactive assignment row + code.used_by=user → deliberate per-user
+        # revoke → must NOT re-grant via the immutable used_by.
+        u, c = str(uuid4()), str(uuid4())
+        _seed_assignment(fake_db, u, c, is_active=False)
+        _seed_code(fake_db, c, ["writing"], used_by=u, is_used=True, code="L")
+        out = perms.get_users_code_summary([u])
+        assert out[u]["has_active_code"] is False
+
+    def test_legacy_used_by_fallback_when_no_assignment_row(self, fake_db, perms):
+        u, c = str(uuid4()), str(uuid4())
+        _seed_code(fake_db, c, ["writing"], used_by=u, is_used=True, code="L2")  # no uca row
+        out = perms.get_users_code_summary([u])
+        assert out[u]["has_active_code"] is True
+        assert set(out[u]["permissions"]) == {"writing"}
+
+    def test_user_with_no_code_present_and_empty(self, fake_db, perms):
+        u = str(uuid4())
+        out = perms.get_users_code_summary([u])
+        assert out[u] == {"codes": [], "code_count": 0, "code_type": None,
+                          "permissions": [], "has_active_code": False}

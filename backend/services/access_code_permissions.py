@@ -384,6 +384,122 @@ def get_completed_session_counts(user_ids: list) -> dict:
         return counts
 
 
+def get_users_code_summary(user_ids: list) -> dict:
+    """BATCHED per-user LIVE access-code summary for the admin users table.
+
+    Mirrors _active_code_rows' sourcing for MANY users in a FIXED number of
+    queries (no N+1, regardless of user count):
+      - Modern: user_code_assignments(is_active) → access_codes.
+      - Legacy used_by fallback ONLY for codes the user has NO assignment row
+        for (#442 — an inactive row is a deliberate per-user revoke and must
+        never re-grant from the immutable used_by).
+    Revoked / locked / expired codes are excluded (not "active"), via the same
+    _code_is_live filter the request-time gates use.
+
+    Returns {user_id: {
+        "codes":           [{"code","code_type"} ...]  # live, newest-first
+        "code_count":      int,
+        "code_type":       <newest live code's type> | None,   # the column value
+        "permissions":     [sorted union across live codes],
+        "has_active_code": bool,                                # status: active/inactive
+    }}. Users with no live code are present with empty/zeroed fields.
+    """
+    uids = [str(u) for u in (user_ids or []) if u]
+    summary: dict = {
+        u: {"codes": [], "code_count": 0, "code_type": None,
+            "permissions": [], "has_active_code": False}
+        for u in uids
+    }
+    if not uids:
+        return summary
+    now = datetime.now(timezone.utc)
+
+    # 1) all assignment rows for these users (ONE query)
+    active_by_user: dict = {}     # user → [active code_id]
+    assigned_pairs: set = set()   # (user, code_id) with ANY row → #442 guard
+    try:
+        asg = (
+            supabase_admin.table("user_code_assignments")
+            .select("user_id, code_id, is_active")
+            .in_("user_id", uids)
+            .execute()
+        ).data or []
+        for r in asg:
+            u, cid = r.get("user_id"), r.get("code_id")
+            if not u or not cid:
+                continue
+            assigned_pairs.add((u, cid))
+            if r.get("is_active"):
+                active_by_user.setdefault(u, []).append(cid)
+    except Exception as e:
+        logger.warning("batched user_code_assignments lookup failed: %s", e)
+
+    # 2) fetch the referenced codes (ONE query)
+    code_by_id: dict = {}
+    active_code_ids = {cid for cids in active_by_user.values() for cid in cids}
+    if active_code_ids:
+        try:
+            rows = (
+                supabase_admin.table("access_codes")
+                .select("id, code, code_type, permissions, is_revoked, is_active, expires_at, created_at")
+                .in_("id", list(active_code_ids))
+                .execute()
+            ).data or []
+            for row in rows:
+                code_by_id[row["id"]] = row
+        except Exception as e:
+            logger.warning("batched access_codes lookup failed: %s", e)
+
+    # 3) legacy used_by fallback (ONE query) — #442-honored
+    legacy_by_user: dict = {}
+    try:
+        legacy = (
+            supabase_admin.table("access_codes")
+            .select("id, code, code_type, permissions, is_revoked, is_active, expires_at, created_at, used_by")
+            .in_("used_by", uids)
+            .execute()
+        ).data or []
+        for row in legacy:
+            u = row.get("used_by")
+            if not u:
+                continue
+            if (u, row["id"]) in assigned_pairs:   # #442: deliberate revoke → skip
+                continue
+            legacy_by_user.setdefault(u, []).append(row)
+            code_by_id.setdefault(row["id"], row)
+    except Exception as e:
+        logger.warning("batched legacy used_by lookup failed: %s", e)
+
+    # 4) assemble each user's LIVE, deduped code set
+    for u in uids:
+        live: dict = {}
+        for cid in active_by_user.get(u, []):
+            row = code_by_id.get(cid)
+            if row and _code_is_live(row, now):
+                live[cid] = row
+        for row in legacy_by_user.get(u, []):
+            if row["id"] in live:
+                continue
+            if _code_is_live(row, now):
+                live[row["id"]] = row
+        rows = sorted(
+            live.values(), key=lambda r: (r.get("created_at") or ""), reverse=True
+        )
+        perms: set = set()
+        for r in rows:
+            for p in (r.get("permissions") or []):
+                if isinstance(p, str):
+                    perms.add(p)
+        summary[u] = {
+            "codes": [{"code": r.get("code"), "code_type": r.get("code_type")} for r in rows],
+            "code_count": len(rows),
+            "code_type": rows[0].get("code_type") if rows else None,
+            "permissions": sorted(perms),
+            "has_active_code": bool(rows),
+        }
+    return summary
+
+
 def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     """Return the union of permissions across every active access code
     the user is associated with.

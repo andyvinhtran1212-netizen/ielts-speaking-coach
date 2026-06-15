@@ -42,6 +42,9 @@ class _TableQuery:
         self.filters.append((field, value))
         return self
 
+    def order(self, *_args, **_kw):
+        return self
+
     def execute(self):
         rows = self.fake.tables.setdefault(self.table_name, [])
         matched = [r for r in rows if all(r.get(f) == v for f, v in self.filters)]
@@ -162,3 +165,19 @@ class TestRoleChange:
         )
         assert r.status_code == 200
         assert fake_db.tables["users"][0]["role"] == "admin"
+
+
+class TestUnassignedCodesPool:
+    """GET /admin/access-codes/pool — the 'ready to assign' pool. Declared
+    before /access-codes/{code_id} so 'pool' isn't parsed as a code_id."""
+
+    def test_pool_returns_only_unused_unrevoked_codes(self, client, fake_db):
+        fake_db.tables["access_codes"] = [
+            {"id": "c1", "code": "FREE-1",  "is_used": False, "is_revoked": False, "code_type": "mass"},
+            {"id": "c2", "code": "USED-1",  "is_used": True,  "is_revoked": False, "code_type": "mass"},
+            {"id": "c3", "code": "REVK-1",  "is_used": False, "is_revoked": True,  "code_type": "mass"},
+        ]
+        r = client.get("/admin/access-codes/pool", headers=_ADMIN_AUTH)
+        assert r.status_code == 200, r.text   # NOT 422 (route ordering correct)
+        codes = {row["code"] for row in r.json()}
+        assert codes == {"FREE-1"}            # used + revoked excluded
