@@ -1,21 +1,21 @@
 /**
  * frontend/tests/listening-mcq-sessions-pages.test.mjs
  *
- * Sprint 11.5 — pin the 6 new pages (DEBT-LISTENING-MODULE 5/5 cluster
- * closure):
+ * Sprint 11.5 — pin the MCQ / browse / analytics pages (DEBT-LISTENING-
+ * MODULE 5/5 cluster closure):
  *
  *   - frontend/pages/listening-mcq.html             (user)
  *   - frontend/js/listening-mcq.js                  (user)
  *   - frontend/pages/admin/listening/mcq.html       (admin)
  *   - frontend/js/admin-listening-mcq.js            (admin)
- *   - frontend/pages/listening-mini-test.html       (user runner)
- *   - frontend/js/listening-mini-test.js            (user runner)
- *   - frontend/pages/admin/listening/mini-test.html (admin builder)
- *   - frontend/js/admin-listening-mini-test.js      (admin builder)
  *   - frontend/pages/listening-browse.html          (content browse)
  *   - frontend/js/listening-browse.js
  *   - frontend/pages/listening-analytics.html       (analytics)
  *   - frontend/js/listening-analytics.js
+ *
+ * The Mini-Test session-mixer (admin builder + user session runner) was
+ * repurposed away into a graded 1-section test (test_type=mini); its
+ * pages/JS were deleted, so those contract blocks were removed here.
  *
  * Sentinel match against the static source — same pattern as Sprint
  * 11.4 page tests. Catches API endpoint drift, missing UI affordances,
@@ -35,10 +35,6 @@ const USER_MCQ_HTML        = read('pages', 'listening-mcq.html');
 const USER_MCQ_JS          = read('js',    'listening-mcq.js');
 const ADMIN_MCQ_HTML       = read('pages', 'admin/listening/mcq.html');
 const ADMIN_MCQ_JS         = read('js',    'admin-listening-mcq.js');
-const USER_MT_HTML         = read('pages', 'listening-mini-test.html');
-const USER_MT_JS           = read('js',    'listening-mini-test.js');
-const ADMIN_MT_HTML        = read('pages', 'admin/listening/mini-test.html');
-const ADMIN_MT_JS          = read('js',    'admin-listening-mini-test.js');
 const BROWSE_HTML          = read('pages', 'listening-browse.html');
 const BROWSE_JS            = read('js',    'listening-browse.js');
 const ANALYTICS_HTML       = read('pages', 'listening-analytics.html');
@@ -120,80 +116,6 @@ describe('Sprint 11.5 — admin MCQ editor contract', () => {
 });
 
 
-/* ── User Mini Test runner ──────────────────────────────────────── */
-
-describe('Sprint 11.5 — user Mini Test runner contract', () => {
-  it('mounts <aver-chrome active="listening"> + <audio-player>', () => {
-    assert.match(USER_MT_HTML, /<aver-chrome\s+active=["']listening["']/);
-    assert.match(USER_MT_HTML, /<audio-player\s+id="player"/);
-  });
-
-  it('ships progress bar + step frame + summary frame', () => {
-    assert.match(USER_MT_HTML, /id="mt-progress-bar"/);
-    assert.match(USER_MT_HTML, /id="mt-step"/);
-    assert.match(USER_MT_HTML, /id="mt-summary"/);
-    assert.match(USER_MT_HTML, /id="btn-next"/);
-  });
-
-  it('reads ?session_id and GETs /api/listening/sessions/{id}', () => {
-    assert.match(USER_MT_JS, /URLSearchParams\(\s*window\.location\.search\s*\)/);
-    assert.match(USER_MT_JS, /\/api\/listening\/sessions\//);
-    assert.match(USER_MT_JS, /session_id/);
-  });
-
-  it('POSTs attempts with listening_session_id linkage', () => {
-    assert.match(USER_MT_JS, /listening_session_id:\s*STATE\.sessionId/);
-  });
-
-  it('POSTs /api/listening/sessions/{id}/complete at end of run', () => {
-    assert.match(USER_MT_JS, /\/api\/listening\/sessions\/.*\/complete/);
-  });
-
-  it('summary shows correct/total + score % + band estimate', () => {
-    assert.match(USER_MT_HTML, /id="sum-correct"/);
-    assert.match(USER_MT_HTML, /id="sum-score"/);
-    assert.match(USER_MT_HTML, /id="sum-band"/);
-  });
-
-  it('dispatches by exercise_type for dictation/gist/true_false/mcq', () => {
-    assert.match(USER_MT_JS, /exercise_type === 'dictation'/);
-    assert.match(USER_MT_JS, /exercise_type === 'gist'/);
-    assert.match(USER_MT_JS, /exercise_type === 'true_false'/);
-    assert.match(USER_MT_JS, /exercise_type === 'mcq'/);
-  });
-});
-
-
-/* ── Admin Mini Test builder ────────────────────────────────────── */
-
-describe('Sprint 11.5 — admin Mini Test builder contract', () => {
-  it('ships title input + pool + lineup + save', () => {
-    assert.match(ADMIN_MT_HTML, /id="title-input"/);
-    assert.match(ADMIN_MT_HTML, /id="pool-list"/);
-    assert.match(ADMIN_MT_HTML, /id="lineup-list"/);
-    assert.match(ADMIN_MT_HTML, /id="btn-save"/);
-  });
-
-  it('fetches pool from admin endpoints + lists existing sessions', () => {
-    assert.match(ADMIN_MT_JS, /\/admin\/listening\/content\?status=published/);
-    assert.match(ADMIN_MT_JS, /\/admin\/listening\/exercises\?content_id=/);
-    assert.match(ADMIN_MT_JS, /\/admin\/listening\/sessions/);
-  });
-
-  it('POSTs to /admin/listening/sessions with exercise_ids[] + ordered_position[]', () => {
-    assert.match(ADMIN_MT_JS, /api\.post\(\s*['"]\/admin\/listening\/sessions['"]/);
-    assert.match(ADMIN_MT_JS, /exercise_ids:/);
-    assert.match(ADMIN_MT_JS, /ordered_position:/);
-  });
-
-  it('supports lineup reorder (up / down / remove)', () => {
-    assert.match(ADMIN_MT_JS, /data-action="up"/);
-    assert.match(ADMIN_MT_JS, /data-action="down"/);
-    assert.match(ADMIN_MT_JS, /data-action="remove"/);
-  });
-});
-
-
 /* ── Content browse ─────────────────────────────────────────────── */
 
 describe('Sprint 11.5 — content browse page contract', () => {
@@ -261,13 +183,11 @@ describe('Sprint 11.5 — analytics dashboard contract', () => {
 
 /* ── Cross-cutting design-token discipline ──────────────────────── */
 
-describe('Sprint 11.5 — design-token discipline across the 6 new pages', () => {
+describe('Sprint 11.5 — design-token discipline across the MCQ/browse/analytics pages', () => {
   it('every page references --av-brand-teal-700 (canonical brand)', () => {
     for (const [name, html] of [
       ['user mcq',      USER_MCQ_HTML],
       ['admin mcq',     ADMIN_MCQ_HTML],
-      ['user mt',       USER_MT_HTML],
-      ['admin mt',      ADMIN_MT_HTML],
       ['browse',        BROWSE_HTML],
       ['analytics',     ANALYTICS_HTML],
     ]) {
@@ -283,8 +203,6 @@ describe('Sprint 11.5 — design-token discipline across the 6 new pages', () =>
     for (const [name, html] of [
       ['user mcq',      USER_MCQ_HTML],
       ['admin mcq',     ADMIN_MCQ_HTML],
-      ['user mt',       USER_MT_HTML],
-      ['admin mt',      ADMIN_MT_HTML],
       ['browse',        BROWSE_HTML],
       ['analytics',     ANALYTICS_HTML],
     ]) {

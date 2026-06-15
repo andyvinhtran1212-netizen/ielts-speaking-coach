@@ -7,10 +7,10 @@
  * Sentinel-string match against the static source. Catches:
  *   - Nav roster drift (a sprint that removes/renames a section)
  *   - Phase B placeholders losing their "Sắp ra mắt" tag
- *   - 13 page moves regressing (any moved page reverting to flat path)
- *   - 13 redirects in vercel.json regressing
+ *   - 12 page moves regressing (any moved page reverting to flat path)
+ *   - 12 redirects in vercel.json regressing
  *   - admin.html legacy banner being lost
- *   - aver-admin-chrome embedding on the 13 moved pages regressing
+ *   - aver-admin-chrome embedding on the 12 moved pages regressing
  */
 
 import { describe, it } from 'node:test';
@@ -105,7 +105,7 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
 
 /* ── New routes exist ──────────────────────────────────────────── */
 
-describe('Sprint 12.1 — 13 moved admin pages exist at new nested paths', () => {
+describe('Sprint 12.1 — 12 moved admin pages exist at new nested paths', () => {
   const moves = [
     ['admin-writing.html',             'admin/writing/index.html'],
     ['admin-writing-new.html',         'admin/writing/new.html'],
@@ -119,7 +119,6 @@ describe('Sprint 12.1 — 13 moved admin pages exist at new nested paths', () =>
     ['admin-listening-gist.html',      'admin/listening/gist.html'],
     ['admin-listening-tf.html',        'admin/listening/tf.html'],
     ['admin-listening-mcq.html',       'admin/listening/mcq.html'],
-    ['admin-listening-mini-test.html', 'admin/listening/mini-test.html'],
   ];
 
   for (const [oldName, newPath] of moves) {
@@ -149,7 +148,6 @@ describe('Sprint 12.1 — every moved page embeds <aver-admin-chrome>', () => {
     ['listening/gist.html',           'listening'],
     ['listening/tf.html',             'listening'],
     ['listening/mcq.html',            'listening'],
-    ['listening/mini-test.html',      'listening'],
   ];
   for (const [rel, active] of pages) {
     it(`${rel} has <aver-admin-chrome active="${active}">`, () => {
@@ -329,7 +327,7 @@ describe('Sprint 12.1 — section index pages (all graduated from placeholders)'
 
 /* ── vercel.json redirects ─────────────────────────────────────── */
 
-describe('Sprint 12.1 — vercel.json carries 13 admin redirects', () => {
+describe('Sprint 12.1 — vercel.json carries 12 admin redirects', () => {
   let json;
   it('parses as valid JSON', () => {
     json = JSON.parse(VERCEL_JSON);
@@ -343,12 +341,12 @@ describe('Sprint 12.1 — vercel.json carries 13 admin redirects', () => {
     assert.equal(found.destination, '/pages/speaking.html');
   });
 
-  it('adds 13 admin page redirects', () => {
+  it('adds 12 admin page redirects', () => {
     const json = JSON.parse(VERCEL_JSON);
     const adminRedirects = json.redirects.filter((r) =>
       r.source.startsWith('/pages/admin-'));
-    assert.equal(adminRedirects.length, 13,
-      `expected 13 admin redirects; got ${adminRedirects.length}`);
+    assert.equal(adminRedirects.length, 12,
+      `expected 12 admin redirects; got ${adminRedirects.length}`);
     for (const r of adminRedirects) {
       assert.equal(r.permanent, true, `${r.source} must be permanent (301)`);
       assert.match(r.destination, /^\/pages\/admin\//,

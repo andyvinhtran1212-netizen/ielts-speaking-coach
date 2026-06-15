@@ -255,7 +255,6 @@ describe('Sprint 13.1 — editor cancel/back links no longer point to /admin.htm
     'pages/admin/listening/gist.html',
     'pages/admin/listening/tf.html',
     'pages/admin/listening/mcq.html',
-    'pages/admin/listening/mini-test.html',
   ];
 
   for (const rel of editors) {
@@ -282,8 +281,9 @@ describe('Sprint 13.1 — editor cancel/back links no longer point to /admin.htm
     // re-routes to the content list.
     assert.match(chrome, /slug:\s*['"]content['"]/);
     assert.match(chrome, /slug:\s*['"]create['"]/);
-    // Existing 5 editor slugs MUST stay in place.
-    for (const s of ['segments', 'gist', 'tf', 'mcq', 'mini-test']) {
+    // Existing editor slugs MUST stay in place. (The mini-test session-mixer
+    // slug was retired when that builder was repurposed away.)
+    for (const s of ['segments', 'gist', 'tf', 'mcq']) {
       assert.match(
         chrome,
         new RegExp(`slug:\\s*['"]${s}['"]`),
