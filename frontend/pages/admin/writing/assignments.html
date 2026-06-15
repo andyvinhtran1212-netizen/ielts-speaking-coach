@@ -222,6 +222,7 @@
     var _allPrompts          = [];
     var _allStudents         = [];
     var _selectedStudentIds  = new Set();
+    var _preselectStudentId  = null;   // Student Hub deep-link (?assign_student=<id>)
     var _selectedPromptIds   = new Set();   // W-ASSIGN — multi-prompt give
     // Sprint 19.2 — cohort fan-out state.
     var _allCohorts          = [];
@@ -407,6 +408,18 @@
 
         renderPromptList('');
         renderStudentList('');
+        // Student Hub deep-link (?assign_student=<id>): pre-select that one
+        // student so admin only picks prompt(s) + submits. Same flow/endpoint
+        // as a manual individual assignment — no rebuilt assign UI.
+        if (_preselectStudentId) {
+          var exists = _allStudents.some(function (s) { return s.id === _preselectStudentId; });
+          if (exists) {
+            _selectedStudentIds.add(_preselectStudentId);
+            renderStudentList(document.getElementById('student-search').value || '');
+            updateSelectedCount();
+          }
+          _preselectStudentId = null;
+        }
       } catch (err) {
         showModalError('Lỗi tải dữ liệu: ' + (err.message || 'không xác định'));
       }
@@ -689,6 +702,14 @@
 
     loadCohorts();        // Sprint 19.2 — populate cohort filter + fan-out picker
     loadAssignments();
+
+    // Student Hub deep-link: open the create modal pre-filled for one student.
+    (function () {
+      try {
+        var sid = new URLSearchParams(window.location.search).get('assign_student');
+        if (sid) { _preselectStudentId = sid; openCreateModal(); }
+      } catch (e) { /* ignore malformed query */ }
+    })();
   </script>
 
   <!-- Lucide hydration + theme toggle binding (Sprint 6.14b) -->
