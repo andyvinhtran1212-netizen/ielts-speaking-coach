@@ -1,6 +1,7 @@
 """Tests for Sprint 19.2 cohort admin views + fan-out.
 
-  • services/cohort_assignment_service.fan_out_assignment — idempotency
+  • services/cohort_assignment_service.fan_out_assignment — multi-prompt,
+    grouping, allow+warn (W-ASSIGN: re-giving in a new Buổi is allowed)
   • routers/admin_writing_cohorts — list aggregation, matrix, auth
   • POST /admin/writing/assignments/fan-out — auth, empty-cohort, happy
 
@@ -67,50 +68,66 @@ def test_cell_status_derivation():
 
 
 def _fanout_db(student_ids, already_ids, created_rows):
-    """Build a db where students→student_ids, the existing-check→already_ids,
-    and the insert→created_rows."""
+    """Build a db where students→student_ids (select.eq chain), the
+    existing-overlap check→already_ids (select.in_.in_ chain), and the
+    insert→created_rows."""
     db = MagicMock()
     students_chain = db.table.return_value.select.return_value.eq.return_value
     students_chain.execute.return_value = MagicMock(data=[{"id": s} for s in student_ids])
-    existing_chain = db.table.return_value.select.return_value.eq.return_value.in_.return_value
+    existing_chain = db.table.return_value.select.return_value.in_.return_value.in_.return_value
     existing_chain.execute.return_value = MagicMock(data=[{"student_id": s} for s in already_ids])
     insert_chain = db.table.return_value.insert.return_value
     insert_chain.execute.return_value = MagicMock(data=created_rows)
     return db
 
 
-def test_fanout_creates_for_all_new_students():
+def test_fanout_creates_for_all_students():
     db = _fanout_db(["s1", "s2", "s3"], [], [{"id": "a1"}, {"id": "a2"}, {"id": "a3"}])
-    r = fan_out_assignment(db, prompt_id=uuid.uuid4(), cohort_id=uuid.uuid4(), assigned_by="admin")
+    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=uuid.uuid4(), assigned_by="admin")
     assert r["student_count"] == 3
     assert r["created_count"] == 3
-    assert r["skipped_count"] == 0
+    assert r["duplicates_warning"] == []
+    assert r["group_id"] is not None
     assert len(r["assignment_ids"]) == 3
 
 
-def test_fanout_skips_students_who_already_have_the_prompt():
-    # s1 already assigned → only s2 is created.
-    db = _fanout_db(["s1", "s2"], ["s1"], [{"id": "a2"}])
-    r = fan_out_assignment(db, prompt_id=uuid.uuid4(), cohort_id=uuid.uuid4(), assigned_by="admin")
-    assert r["created_count"] == 1
-    assert r["skipped_count"] == 1
-    # The insert payload must contain only the new student.
+def test_fanout_allow_and_warn_when_student_already_has_a_prompt():
+    # W-ASSIGN: re-giving is ALLOWED (a new Buổi) — s1 already had it → still
+    # created, just surfaced in duplicates_warning (no skip).
+    db = _fanout_db(["s1", "s2"], ["s1"], [{"id": "a1"}, {"id": "a2"}])
+    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=uuid.uuid4(), assigned_by="admin")
+    assert r["created_count"] == 2                 # BOTH created — no skip
+    assert r["duplicates_warning"] == ["s1"]
     sent = db.table.return_value.insert.call_args[0][0]
-    assert len(sent) == 1
+    assert len(sent) == 2                           # both students in the payload
+
+
+def test_fanout_multi_prompt_creates_students_times_prompts_in_one_group():
+    db = _fanout_db(["s1", "s2"], [],
+                    [{"id": "a1"}, {"id": "a2"}, {"id": "a3"}, {"id": "a4"}])
+    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4(), uuid.uuid4()],
+                           cohort_id=uuid.uuid4(), assigned_by="admin")
+    sent = db.table.return_value.insert.call_args[0][0]
+    assert len(sent) == 4                           # 2 students × 2 prompts
+    assert len({row["assignment_group_id"] for row in sent}) == 1   # one shared group
+    assert r["group_id"] == sent[0]["assignment_group_id"]
+
+
+def test_fanout_carries_name_and_allow_soft_check():
+    db = _fanout_db(["s1"], [], [{"id": "a1"}])
+    fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=uuid.uuid4(),
+                       assigned_by="admin", name="Buổi 5", allow_soft_check=True)
+    sent = db.table.return_value.insert.call_args[0][0]
+    assert sent[0]["name"] == "Buổi 5"
+    assert sent[0]["allow_soft_check"] is True
 
 
 def test_fanout_empty_cohort_creates_nothing():
     db = _fanout_db([], [], [])
-    r = fan_out_assignment(db, prompt_id=uuid.uuid4(), cohort_id=uuid.uuid4(), assigned_by="admin")
-    assert r == {"student_count": 0, "created_count": 0, "skipped_count": 0, "assignment_ids": []}
-    db.table.return_value.insert.assert_not_called()
-
-
-def test_fanout_all_already_assigned_is_idempotent():
-    db = _fanout_db(["s1", "s2"], ["s1", "s2"], [])
-    r = fan_out_assignment(db, prompt_id=uuid.uuid4(), cohort_id=uuid.uuid4(), assigned_by="admin")
+    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=uuid.uuid4(), assigned_by="admin")
+    assert r["student_count"] == 0
     assert r["created_count"] == 0
-    assert r["skipped_count"] == 2
+    assert r["group_id"] is None
     db.table.return_value.insert.assert_not_called()
 
 

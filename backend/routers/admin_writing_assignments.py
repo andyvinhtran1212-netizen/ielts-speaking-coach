@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, model_validator
@@ -104,21 +104,46 @@ def _now_iso() -> str:
 
 
 class AssignmentCreate(BaseModel):
-    """One prompt → one or more students.  When `student_ids` has a
-    single entry this is a single-assignment create; multi-entry is
-    bulk.  Cap at 100 to keep the insert payload bounded.
+    """N prompts → one or more students.  Every (prompt × student) pair
+    becomes its own writing_assignments row (each prompt is graded
+    separately — IELTS T1/T2 are distinct essays).  The rows created by
+    one call share an `assignment_group_id` + `name` so the UIs can
+    group them ("Buổi 5: Task 1 + Task 2").  Cap at 100 students.
+
+    W-ASSIGN: `prompt_ids` (multi) is the new field; `prompt_id` (single)
+    is accepted for back-compat with the pre-W-ASSIGN admin UI — exactly
+    one of the two must be provided, and both normalize to `prompt_ids`.
 
     Phase 2.3c-3: `is_timed` + `time_limit_minutes` opt the assignment
     into IELTS-exam mode.  The pair is enforced together (one without
     the other is a 422) — the same invariant the migration's CHECK
     constraint enforces at the DB layer.
     """
-    prompt_id:           UUID
+    prompt_id:           Optional[UUID]       = None   # legacy single (back-compat)
+    prompt_ids:          Optional[list[UUID]] = Field(None, max_length=20)
     student_ids:         list[UUID]         = Field(..., min_length=1, max_length=100)
+    name:                Optional[str]      = Field(None, max_length=200)
+    allow_soft_check:    bool               = False
     deadline:            Optional[datetime] = None
     instructions:        Optional[str]      = Field(None, max_length=2000)
     is_timed:            bool               = False
     time_limit_minutes:  Optional[int]      = Field(None, ge=1, le=180)
+
+    @model_validator(mode="after")
+    def _coalesce_prompts(self):
+        """Normalize `prompt_id` (legacy) + `prompt_ids` (new) into a
+        single non-empty, de-duplicated `prompt_ids` list. Exactly one
+        source must be provided."""
+        ids = list(self.prompt_ids) if self.prompt_ids else []
+        if self.prompt_id is not None:
+            ids.append(self.prompt_id)
+        # de-dup preserving order
+        seen: set = set()
+        deduped = [p for p in ids if not (p in seen or seen.add(p))]
+        if not deduped:
+            raise ValueError("provide prompt_id or prompt_ids (at least one prompt)")
+        self.prompt_ids = deduped
+        return self
 
     @model_validator(mode="after")
     def _validate_timer_pairing(self):
@@ -198,6 +223,7 @@ async def list_assignments(
             "id, status, deadline, instructions, created_at, "
             "submitted_at, graded_at, delivered_at, "
             "essay_id, prompt_id, student_id, "
+            "assignment_group_id, name, allow_soft_check, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, task_type, difficulty), "
             "students(id, student_code, full_name)"
@@ -223,53 +249,64 @@ async def create_assignments(
     body: AssignmentCreate,
     authorization: str | None = Header(None),
 ):
-    """Create one or more assignments.
+    """Create assignments for N prompts × M students as one group.
+
+    Every (prompt × student) pair becomes its own row; all rows from
+    this call share a fresh `assignment_group_id` + the given `name` +
+    `allow_soft_check`.  Each prompt is still its own row/essay/feedback
+    — grouping is only a label, the downstream pipeline is unchanged.
 
     Returns:
         {
             "created":             [<row>, ...],
             "count":               <int>,
+            "group_id":            <uuid>,
             "duplicates_warning":  [<student_id>, ...],
         }
 
-    `duplicates_warning` lists the student_ids that ALREADY had at
-    least one assignment for this prompt before this insert — those
-    rows are still created (allow + warn policy from 2026-05-06).
+    `duplicates_warning` lists student_ids that ALREADY had at least one
+    assignment for ANY of these prompts before this insert — rows are
+    still created (allow + warn policy from 2026-05-06).
     """
     admin = await require_admin(authorization)
 
     student_id_strs = [str(s) for s in body.student_ids]
+    prompt_id_strs = [str(p) for p in body.prompt_ids]
 
-    # Detect existing duplicates (same prompt + student) for warning.
-    # We only need student_id back; one row per duplicate is enough.
+    # Detect existing duplicates (any of these prompts + student) for the
+    # advisory warning. Best-effort — never blocks the insert.
     duplicate_student_ids: set[str] = set()
     try:
         existing = (
             supabase_admin.table("writing_assignments")
             .select("student_id")
-            .eq("prompt_id", str(body.prompt_id))
+            .in_("prompt_id", prompt_id_strs)
             .in_("student_id", student_id_strs)
             .execute()
         )
         duplicate_student_ids = {row["student_id"] for row in (existing.data or [])
                                   if row.get("student_id")}
     except Exception:
-        # Don't block create on a duplicate-check failure — the warning
-        # is advisory; the bulk insert below is the source of truth.
         duplicate_student_ids = set()
 
+    # One group id for this give-action, shared across every row.
+    group_id = str(uuid4())
     deadline_iso = body.deadline.isoformat() if body.deadline else None
     payload = [
         {
-            "prompt_id":          str(body.prompt_id),
-            "student_id":         sid,
-            "assigned_by":        admin["id"],
-            "deadline":           deadline_iso,
-            "instructions":       body.instructions,
-            "is_timed":           body.is_timed,
-            "time_limit_minutes": body.time_limit_minutes,
+            "prompt_id":           pid,
+            "student_id":          sid,
+            "assignment_group_id": group_id,
+            "name":                body.name,
+            "allow_soft_check":    body.allow_soft_check,
+            "assigned_by":         admin["id"],
+            "deadline":            deadline_iso,
+            "instructions":        body.instructions,
+            "is_timed":            body.is_timed,
+            "time_limit_minutes":  body.time_limit_minutes,
         }
         for sid in student_id_strs
+        for pid in prompt_id_strs
     ]
 
     r = supabase_admin.table("writing_assignments").insert(payload).execute()
@@ -279,6 +316,7 @@ async def create_assignments(
     return {
         "created":            r.data,
         "count":              len(r.data),
+        "group_id":           group_id,
         "duplicates_warning": sorted(duplicate_student_ids),
     }
 
@@ -287,16 +325,34 @@ async def create_assignments(
 
 
 class FanOutCreate(BaseModel):
-    """One prompt → every student in a cohort. Cohort membership is
-    derived from students.cohort_id (Discovery D1). Idempotent by
-    (student_id, prompt_id) — students who already have this prompt are
-    skipped, not re-assigned."""
-    prompt_id:          UUID
+    """N prompts → every student in a cohort. Cohort membership is
+    derived from students.cohort_id (Discovery D1). W-ASSIGN: the rows
+    share an `assignment_group_id` + `name`; the give is allow + warn
+    (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
+
+    `prompt_id` (single) is accepted for back-compat; both normalize to
+    `prompt_ids`."""
+    prompt_id:          Optional[UUID]       = None   # legacy single (back-compat)
+    prompt_ids:         Optional[list[UUID]] = Field(None, max_length=20)
     cohort_id:          UUID
+    name:               Optional[str]      = Field(None, max_length=200)
+    allow_soft_check:   bool               = False
     deadline:           Optional[datetime] = None
     instructions:       Optional[str]      = Field(None, max_length=2000)
     is_timed:           bool               = False
     time_limit_minutes: Optional[int]      = Field(None, ge=1, le=180)
+
+    @model_validator(mode="after")
+    def _coalesce_prompts(self):
+        ids = list(self.prompt_ids) if self.prompt_ids else []
+        if self.prompt_id is not None:
+            ids.append(self.prompt_id)
+        seen: set = set()
+        deduped = [p for p in ids if not (p in seen or seen.add(p))]
+        if not deduped:
+            raise ValueError("provide prompt_id or prompt_ids (at least one prompt)")
+        self.prompt_ids = deduped
+        return self
 
     @model_validator(mode="after")
     def _validate_timer_pairing(self):
@@ -314,16 +370,19 @@ async def fan_out_to_cohort(
     body: FanOutCreate,
     authorization: str | None = Header(None),
 ):
-    """Create one assignment per student in the cohort from a single
-    template. Returns counts so the UI can confirm "Đã giao cho X học
-    viên" and surface how many were skipped (already assigned)."""
+    """Create assignments for N prompts × every student in the cohort,
+    as one group. Returns counts so the UI can confirm "Đã giao cho X
+    học viên" + a duplicates_warning for students who already had any of
+    these prompts (allow + warn — re-giving in a new Buổi is intended)."""
     admin = await require_admin(authorization)
 
     result = fan_out_assignment(
         supabase_admin,
-        prompt_id=body.prompt_id,
+        prompt_ids=body.prompt_ids,
         cohort_id=body.cohort_id,
         assigned_by=admin["id"],
+        name=body.name,
+        allow_soft_check=body.allow_soft_check,
         deadline=body.deadline,
         instructions=body.instructions,
         is_timed=body.is_timed,
