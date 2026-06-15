@@ -1,20 +1,22 @@
-"""Sprint 11.5 — pin MCQ + session + browse + analytics contracts
+"""Sprint 11.5 — pin MCQ + browse + analytics contracts
 (DEBT-LISTENING-MODULE 5/5 cluster closure).
+
+The Mini-Test session-mixer (admin /sessions composer + user session
+runner/complete) was repurposed away — the "Mini Test" slot is now a
+graded 1-section listening test served via /api/listening/tests?test_type
+=mini. Its endpoints + the _band_from_correct helper were removed, so the
+session tests that pinned them are gone too. The _first_attempt_only
+helper survives (shared with analytics) and is still covered below.
 
 Coverage:
   1. listening_grader.grade_mcq pure helper (exact, partial, missing,
      malformed indices).
   2. Admin _validate_mcq_payload (range, contiguous idx, 4 options, range).
   3. POST /api/listening/attempts mcq dispatch (happy + 404).
-  4. Admin POST /admin/listening/sessions (validates draft exclusion,
-     unknown exercise_ids, lineup persists in order).
-  5. User GET /api/listening/sessions/{id} (mini_test only, exercises
-     populated in exercise_ids order).
-  6. POST /api/listening/sessions/{id}/complete (aggregates score +
-     band estimate).
-  7. GET /api/listening/content with filters.
-  8. GET /api/listening/analytics — by_mode aggregation + weakest-mode
+  4. GET /api/listening/content with filters.
+  5. GET /api/listening/analytics — by_mode aggregation + weakest-mode
      ≥3-attempt rule + recent_attempts shape.
+  6. _first_attempt_only dedupe helper (shared by analytics).
 """
 
 from __future__ import annotations
@@ -347,165 +349,6 @@ def test_attempt_mcq_requires_answers(monkeypatch):
     assert exc.value.status_code == 422
 
 
-# ── Admin session create ─────────────────────────────────────────────
-
-
-def test_admin_session_create_happy(monkeypatch):
-    canned = {
-        "listening_exercises": [
-            {"id": "e1", "status": "published", "content_id": "c1"},
-            {"id": "e2", "status": "published", "content_id": "c2"},
-        ],
-        "listening_sessions": [],
-    }
-    fake = _FakeAdminClient(canned)
-    _patch_admin_client(monkeypatch, fake)
-    authz = _patch_admin(monkeypatch)
-
-    body = listening_router.ListeningSessionUpsertRequest(
-        title="MT1",
-        exercise_ids=["e1", "e2"],
-        ordered_position=[{"exercise_id": "e1", "section": 1}, {"exercise_id": "e2", "section": 2}],
-    )
-    out = _run(listening_router.admin_create_listening_session(body=body, authorization=authz))
-    assert out["ok"] is True
-    assert out["created"] is True
-    # Inserted row has session_type=mini_test + exercise_ids in body order.
-    inserted = fake.inserts[0][1]
-    assert inserted["session_type"] == "mini_test"
-    assert inserted["exercise_ids"] == ["e1", "e2"]
-    assert inserted["total_questions"] == 2
-
-
-def test_admin_session_create_rejects_draft_exercise(monkeypatch):
-    canned = {
-        "listening_exercises": [
-            {"id": "e1", "status": "published", "content_id": "c1"},
-            {"id": "e2", "status": "draft",     "content_id": "c2"},  # draft
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_admin(monkeypatch)
-    body = listening_router.ListeningSessionUpsertRequest(
-        title="MT1", exercise_ids=["e1", "e2"],
-    )
-    with pytest.raises(HTTPException) as exc:
-        _run(listening_router.admin_create_listening_session(body=body, authorization=authz))
-    assert exc.value.status_code == 422
-    assert "draft" in str(exc.value.detail).lower() or "publish" in str(exc.value.detail).lower()
-
-
-def test_admin_session_create_rejects_unknown_exercise(monkeypatch):
-    canned = {
-        "listening_exercises": [
-            {"id": "e1", "status": "published", "content_id": "c1"},
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_admin(monkeypatch)
-    body = listening_router.ListeningSessionUpsertRequest(
-        title="MT1", exercise_ids=["e1", "ghost"],
-    )
-    with pytest.raises(HTTPException) as exc:
-        _run(listening_router.admin_create_listening_session(body=body, authorization=authz))
-    assert exc.value.status_code == 422
-    assert "not found" in str(exc.value.detail).lower()
-
-
-def test_admin_session_create_rejects_empty_lineup(monkeypatch):
-    _patch_admin_client(monkeypatch, _FakeAdminClient({}))
-    authz = _patch_admin(monkeypatch)
-    body = listening_router.ListeningSessionUpsertRequest(
-        title="MT1", exercise_ids=[],
-    )
-    with pytest.raises(HTTPException) as exc:
-        _run(listening_router.admin_create_listening_session(body=body, authorization=authz))
-    assert exc.value.status_code == 422
-
-
-# ── User GET session ─────────────────────────────────────────────────
-
-
-def test_user_get_session_returns_exercises_in_order(monkeypatch):
-    canned = {
-        "listening_sessions": [{
-            "id": "s1", "session_type": "mini_test",
-            "exercise_ids": ["e2", "e1"],  # ordering
-            "user_id": "admin-1", "total_questions": 2,
-        }],
-        "listening_exercises": [
-            {"id": "e1", "status": "published", "content_id": "c1", "exercise_type": "gist"},
-            {"id": "e2", "status": "published", "content_id": "c2", "exercise_type": "mcq"},
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.get_listening_session(session_id="s1", authorization=authz))
-    assert [e["id"] for e in out["exercises"]] == ["e2", "e1"]
-
-
-def test_user_get_session_rejects_non_mini_test(monkeypatch):
-    canned = {
-        "listening_sessions": [{
-            "id": "s1", "session_type": "free_practice", "exercise_ids": [],
-            "user_id": "u1",
-        }],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    with pytest.raises(HTTPException) as exc:
-        _run(listening_router.get_listening_session(session_id="s1", authorization=authz))
-    assert exc.value.status_code == 404
-
-
-# ── User session complete ────────────────────────────────────────────
-
-
-def test_session_complete_band_estimate(monkeypatch):
-    canned = {
-        "listening_sessions": [{
-            "id": "s1", "session_type": "mini_test", "exercise_ids": ["e1", "e2", "e3", "e4"],
-            "total_questions": 4,
-        }],
-        "listening_attempts": [
-            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True},
-            {"exercise_id": "e2", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True},
-            {"exercise_id": "e3", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True},
-            {"exercise_id": "e4", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 0.0, "is_correct": False},
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
-    assert out["correct_count"] == 3
-    assert out["total"] == 4
-    # 75% → 6.5 per _band_from_correct table.
-    assert out["band_estimate"] == 6.5
-
-
-def test_session_complete_404_unknown_session(monkeypatch):
-    _patch_admin_client(monkeypatch, _FakeAdminClient({"listening_sessions": []}))
-    authz = _patch_user(monkeypatch)
-    with pytest.raises(HTTPException) as exc:
-        _run(listening_router.complete_listening_session(session_id="ghost", authorization=authz))
-    assert exc.value.status_code == 404
-
-
-def test_band_from_correct_table():
-    assert listening_router._band_from_correct(10, 10) == 8.5
-    assert listening_router._band_from_correct(8, 10) == 7.5
-    assert listening_router._band_from_correct(7, 10) == 6.5
-    assert listening_router._band_from_correct(6, 10) == 6.0
-    assert listening_router._band_from_correct(5, 10) == 5.5
-    assert listening_router._band_from_correct(4, 10) == 5.0
-    assert listening_router._band_from_correct(0, 10) == 4.5
-    assert listening_router._band_from_correct(0, 0) == 0.0
-
-
 # ── GET /api/listening/content browse ────────────────────────────────
 
 
@@ -777,124 +620,6 @@ def test_analytics_recent_attempts_unaffected_by_dedup(monkeypatch):
     authz = _patch_user(monkeypatch)
     out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
     assert len(out["recent_attempts"]) == 8
-
-
-def test_session_complete_dedupes_retries(monkeypatch):
-    """Mini Test session complete must dedupe retries — only first
-    attempt per (exercise_id, segment_idx) counts toward correct_count
-    + score_avg."""
-    canned = {
-        "listening_sessions": [{
-            "id": "s1", "session_type": "mini_test",
-            "exercise_ids": ["e1", "e2", "e3", "e4"],
-            "total_questions": 4,
-        }],
-        "listening_attempts": [
-            # e1 first attempt correct (kept)
-            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(2)},
-            # e1 retry wrong (dropped)
-            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 0.0, "is_correct": False, "created_at": _iso_days_ago(1)},
-            # e2-e4 first attempts (3 correct, 1 wrong)
-            {"exercise_id": "e2", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(2)},
-            {"exercise_id": "e3", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(2)},
-            {"exercise_id": "e4", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 0.0, "is_correct": False, "created_at": _iso_days_ago(2)},
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
-    # 4 exercises, 3 first-attempts correct (e1/e2/e3), 1 wrong (e4).
-    # The e1 retry must NOT distort this — without dedup correct_count
-    # would be 3 (because retry was wrong + first was right), or score
-    # would average to 0.6 instead of 0.75.
-    assert out["correct_count"] == 3
-    assert out["total"] == 4
-    assert out["score_avg"] == 0.75
-
-
-def test_session_complete_dedupes_by_segment_idx(monkeypatch):
-    """Within a single exercise, different segment_idx values count
-    as separate first attempts (each dictation segment is its own
-    canonical answer)."""
-    canned = {
-        "listening_sessions": [{
-            "id": "s1", "session_type": "mini_test",
-            "exercise_ids": ["e1"], "total_questions": 3,
-        }],
-        "listening_attempts": [
-            {"exercise_id": "e1", "segment_idx": 0, "user_id": "user-1",
-             "listening_session_id": "s1", "score": 1.0, "is_correct": True,
-             "created_at": _iso_days_ago(2)},
-            {"exercise_id": "e1", "segment_idx": 1, "user_id": "user-1",
-             "listening_session_id": "s1", "score": 1.0, "is_correct": True,
-             "created_at": _iso_days_ago(2)},
-            {"exercise_id": "e1", "segment_idx": 2, "user_id": "user-1",
-             "listening_session_id": "s1", "score": 0.0, "is_correct": False,
-             "created_at": _iso_days_ago(2)},
-            # retry of segment 2 — should be dropped
-            {"exercise_id": "e1", "segment_idx": 2, "user_id": "user-1",
-             "listening_session_id": "s1", "score": 1.0, "is_correct": True,
-             "created_at": _iso_days_ago(1)},
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
-    # 3 first-attempt segments: 2 correct + 1 wrong (retry doesn't count)
-    assert out["correct_count"] == 2
-
-
-def test_session_complete_single_exercise_no_retry(monkeypatch):
-    canned = {
-        "listening_sessions": [{
-            "id": "s1", "session_type": "mini_test",
-            "exercise_ids": ["e1"], "total_questions": 1,
-        }],
-        "listening_attempts": [
-            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(1)},
-        ],
-    }
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
-    authz = _patch_user(monkeypatch)
-    out = _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
-    assert out["correct_count"] == 1
-    assert out["score_avg"] == 1.0
-
-
-def test_session_complete_writes_iso_completed_at(monkeypatch):
-    """Sprint 11.5.1 Bug C — completed_at must be a proper ISO
-    timestamp, NOT the literal string 'now()' (Codex falsification
-    #78)."""
-    canned = {
-        "listening_sessions": [{
-            "id": "s1", "session_type": "mini_test",
-            "exercise_ids": ["e1"], "total_questions": 1,
-        }],
-        "listening_attempts": [
-            {"exercise_id": "e1", "user_id": "user-1", "listening_session_id": "s1",
-             "score": 1.0, "is_correct": True, "created_at": _iso_days_ago(1)},
-        ],
-    }
-    fake = _FakeAdminClient(canned)
-    _patch_admin_client(monkeypatch, fake)
-    authz = _patch_user(monkeypatch)
-    _run(listening_router.complete_listening_session(session_id="s1", authorization=authz))
-    # Find the update on listening_sessions and check completed_at shape.
-    updates = [u for u in fake.updates if u[0] == "listening_sessions"]
-    assert updates, "expected an update to listening_sessions"
-    payload = updates[-1][2]
-    completed_at = payload.get("completed_at")
-    assert completed_at != "now()", "completed_at must NOT be literal 'now()'"
-    # ISO-8601 shape: YYYY-MM-DDTHH:MM:SS+...
-    assert isinstance(completed_at, str)
-    assert "T" in completed_at and completed_at.startswith("20"), \
-        f"completed_at not ISO format: {completed_at!r}"
 
 
 def test_first_attempt_helper_handles_missing_segment_idx():

@@ -22,11 +22,11 @@
 | **Gist** (nghe ý chính) | ✅ Production | `pages/admin/listening/gist.html` → `POST /admin/listening/exercises` | `payload {prompt_text, model_answer, rubric_keywords[]}` | Haiku AI, `listening_gist_grader.grade_gist_response` |
 | **True/False/Not-Given** | ✅ Production | `pages/admin/listening/tf.html` → `POST /admin/listening/exercises` | `payload {statements:[{idx,text,answer:T/F/NG}]}` | exact match, `listening_grader.grade_true_false` |
 | **MCQ** (trắc nghiệm) | ✅ Production | `pages/admin/listening/mcq.html` → `POST /admin/listening/exercises` | `payload {questions:[{idx,stem,options[4],answer_idx}]}` | index match, `listening_grader.grade_mcq` |
-| **Mini-test** | ✅ Production (as a **session**) | `pages/admin/listening/mini-test.html` → `POST /admin/listening/sessions` | `listening_sessions` (composes published exercises) | aggregate score + heuristic band |
+| **Mini-test** | ✅ Production (graded **1-section test**) | served at `pages/listening-mini-test.html` → played via `pages/listening-test.html` | `listening_tests` `test_type=mini` (reuses the full-test pipeline) | per-question, `listening_test_grader` |
 | **Full-test** (Cambridge-style) | ✅ Production | **4-file pack upload** `pages/admin/listening/import-fulltest.html` → `POST /admin/listening/import-fulltest[/commit]` | `listening_tests` bundle → 4 `listening_content` → block-shaped `listening_exercises` | per-question, `listening_test_grader` |
 
 **Two important nuances [MEASURED]:**
-- `mini_test` is a value in the `exercise_type` CHECK, **but no admin path creates an individual `mini_test` exercise** — mini-tests are `listening_sessions` rows (`session_type='mini_test'`) that *compose* already-published dictation/gist/tf/mcq exercises.
+- `mini_test` is a value in the `exercise_type` CHECK, but no admin path creates an individual `mini_test` exercise. **The original Mini-Test session-mixer (admin `/sessions` composer + user session runner) was removed** — the "Mini Test" slot is now a graded 1-section `listening_tests` row (`test_type=mini`) served through the full-test player. The `listening_sessions` table + `listening_attempts.listening_session_id` column are retained for data (no longer written by any live path).
 - The four single-exercise types (dictation/gist/tf/mcq) are **authored through interactive admin forms** — one exercise at a time. **Only the full-test path uses a file-pack upload.** (This is the gap the convergence proposal in §7 addresses.)
 
 ---
@@ -39,8 +39,8 @@ listening_content   — one "section"/audio item: transcript, audio_storage_path
                       (For a full test: 4 rows, each FK'd to a listening_tests row via test_id.)
 listening_exercises — the question granule: content_id FK, exercise_type, payload JSONB,
                       segments (dictation only), status, order_num.
-listening_sessions  — mini-test composition: session_type, exercise_ids[], ordered_position[].
-listening_attempts  — a student answer: exercise_id (+ optional listening_session_id), score,
+listening_sessions  — RETIRED (session-mixer removed): session_type, exercise_ids[], ordered_position[]. Data kept, no live writer.
+listening_attempts  — a student answer: exercise_id (+ vestigial listening_session_id, now always null), score,
                       is_correct, first-attempt-canonical (Sprint 10.3).
 listening_tests     — full-test bundle: test_id (external), title, version, band_target,
                       accent_profile[], themes{}, full_audio_storage_path,
@@ -65,7 +65,6 @@ Audio: stored in the Supabase `LISTENING_AUDIO_BUCKET`. Full tests use one premi
 | Path | Admin UI | Endpoint | Produces |
 |------|----------|----------|----------|
 | Per-type exercise form | `segments` / `gist` / `tf` / `mcq` `.html` | `POST /admin/listening/exercises` | one `listening_exercises` row |
-| Mini-test builder | `mini-test.html` | `POST /admin/listening/sessions` | one `listening_sessions` row (composes existing exercises) |
 | **Full-test pack** | `import-fulltest.html` (#408) | `POST /admin/listening/import-fulltest` (dry-run) → `/commit` | 1 `listening_tests` + 4 `listening_content` + block exercises + mp3 |
 | **Convert DOCX → test** | `convert.html` (still live, linked from `index.html` + `tests.html`) | `POST /admin/listening/convert[/commit]` (`services/listening_convert.py`) | a test bundle from a 2-file DOCX/text source |
 | Status transitions | `tests.html` list (#408) | `PATCH /admin/listening/tests/{id}/status` | draft ⇄ published ⇄ archived (publish has an audio gate) |
@@ -83,7 +82,7 @@ Audio: stored in the Supabase `LISTENING_AUDIO_BUCKET`. Full tests use one premi
   - `true_false` → `grade_true_false` (exact match)
   - `mcq` → `grade_mcq` (index match; answer key hidden from the client)
 - **Full-test:** `POST /api/listening/tests/{test_id}/attempts` (`:5184`); answer key from `listening_test_grader.collect_answer_key` (reads `payload.answers`). Post-submit review: `GET /api/listening/tests/attempts/{id}/review` (owner-only, joins grading_details + per-Q audio window + solution + `transcript_anchor` + signed audio; renders the full bản đọc transcript with anchored highlight — pack v1.2).
-- **Mini-test:** `GET /api/listening/sessions/{id}` serves the composed lineup; `POST …/complete` aggregates the member attempts into a session score + heuristic band.
+- **Mini-test:** a graded 1-section test — `GET /api/listening/tests?test_type=mini` lists them (`listening-mini-test.js`), played + graded through the same full-test endpoints above. *(The old session-mixer endpoints `GET /api/listening/sessions/{id}` + `POST …/complete` were removed.)*
 - **First-attempt rule (Sprint 10.3) [MEASURED]:** all attempts are stored, but the *canonical* score per (user, exercise[, segment]) is the first attempt.
 
 Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{dictation,gist,tf,mcq}.html` · `listening-mini-test.html` · `listening-test.html` (full) · `listening-review.html` (chữa-bài) · `listening-analytics.html`.
@@ -110,7 +109,7 @@ Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{
 
 1. **Import UI has no content preview / IMG-PROMPT surfacing.** The dry-run response already returns `questions[]` (with `prompt`, `options`, `answer`, **`img_prompt`** [`listening_fulltest_import.py:410`], `solution`, `audio_window`) + `warnings`, but `admin-listening-fulltest-import.js` `renderResult` shows only the validation banner + counts. Rendering a question/transcript preview and extracting/displaying the per-question IMG-PROMPT is a **render-layer** addition (no backend change). Natural feeder for the β AI-generated-diagrams stream (IMG-PROMPT → image).
 2. **Two parallel full-test ingestion paths** (convert DOCX 2-file vs full-test 4-file pack) coexist; no doc previously stated which is canonical. They produce the same `listening_tests` shape.
-3. **`mini_test` enum value is unused as an exercise** (it's a `session_type`) — a latent inconsistency in the CHECK, harmless today.
+3. **`mini_test` enum value is unused as an exercise** (it was a `session_type`) — a latent inconsistency in the CHECK, harmless today. The `listening_sessions` table + `listening_attempts.listening_session_id` column are likewise retired-but-retained (session-mixer removed).
 
 ---
 
@@ -118,7 +117,7 @@ Student pages: `listening.html` (hub) · `listening-browse.html` · `listening-{
 
 > Everything in this section is a **proposal**. None of it exists yet. Andy's idea: author *all* listening types via a file-pack upload like the full-test, instead of per-type interactive forms.
 
-**Today [MEASURED]:** only full-test uses pack-upload; dictation/gist/tf/mcq are form-authored one at a time; mini-test is composed from existing exercises.
+**Today [MEASURED]:** only full-test uses pack-upload; dictation/gist/tf/mcq are form-authored one at a time; mini-test is a graded 1-section `listening_tests` row (`test_type=mini`) built through the full-test pipeline.
 
 **Proposed model [INTENDED]:** a generalized "listening pack" reusing the full-test pipeline shape (dry-run → preview → commit → status + the #408 UI), where a pack = audio + transcript + a per-type exercise spec the parser maps onto the existing `exercise_type` payloads:
 

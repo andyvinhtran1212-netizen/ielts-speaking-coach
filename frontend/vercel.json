@@ -42,7 +42,6 @@
     { "source": "/pages/admin-listening-segments.html",     "destination": "/pages/admin/listening/segments.html",       "permanent": true },
     { "source": "/pages/admin-listening-gist.html",         "destination": "/pages/admin/listening/gist.html",           "permanent": true },
     { "source": "/pages/admin-listening-tf.html",           "destination": "/pages/admin/listening/tf.html",             "permanent": true },
-    { "source": "/pages/admin-listening-mcq.html",          "destination": "/pages/admin/listening/mcq.html",            "permanent": true },
-    { "source": "/pages/admin-listening-mini-test.html",    "destination": "/pages/admin/listening/mini-test.html",      "permanent": true }
+    { "source": "/pages/admin-listening-mcq.html",          "destination": "/pages/admin/listening/mcq.html",            "permanent": true }
   ]
 }
