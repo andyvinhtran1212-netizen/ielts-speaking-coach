@@ -427,14 +427,11 @@ const NAV_GROUPS = [
       { section: 'cohorts',  label: 'Lớp & Học viên',     href: '/pages/admin/cohorts/index.html',  icon: 'layers' },
     ],
   },
-  {
-    title: 'Truy cập',
-    items: [
-      { section: 'access-codes', label: 'Mã kích hoạt', href: '/pages/admin/access-codes/index.html', icon: 'key' },
-      // Sprint 18.2 — "Usage logs" + "Lưu lượng" folded into the Dashboard as
-      // drill-downs. Pages remain reachable + in VALID_ACTIVE for deep links.
-    ],
-  },
+  // merge-codes PR-3 — the standalone "Mã kích hoạt" nav entry is removed:
+  // access codes now live as the "Mã kích hoạt" tab inside the Users page
+  // ("Tất cả người dùng" above), and /admin/access-codes redirects there
+  // (vercel.json). 'access-codes' stays in VALID_ACTIVE for any deep link.
+  // (Sprint 18.2 "Usage logs" + "Lưu lượng" remain folded into the Dashboard.)
   {
     title: null,
     items: [
