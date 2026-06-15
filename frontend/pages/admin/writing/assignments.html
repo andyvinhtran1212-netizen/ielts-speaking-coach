@@ -109,11 +109,15 @@
         <div>
           <label class="aw-modal-step-label">
             Bước 1 — Chọn đề từ thư viện
+            <span id="selected-prompt-count" class="aw-modal-step-label__count">(0 chọn)</span>
           </label>
-          <select id="form-prompt" class="aw-input">
-            <option value="">— Chọn đề bài —</option>
-          </select>
-          <div id="prompt-preview" class="aw-prompt-preview hidden mt-2 p-3 text-sm"></div>
+          <div class="flex items-center gap-2 mb-2">
+            <input id="prompt-search" type="text" placeholder="Tìm đề theo tiêu đề…" class="aw-input" style="flex:1" />
+          </div>
+          <p class="aw-help-text text-xs mb-1">Chọn nhiều đề để giao trong 1 lần (VD: 1 Task 1 + 1 Task 2). Mỗi đề là 1 bài chấm riêng.</p>
+          <div id="prompts-list" class="aw-student-picker max-h-56 overflow-y-auto p-2">
+            <p id="prompts-empty" class="aw-student-picker__empty hidden text-xs p-2">Không có đề trùng bộ lọc.</p>
+          </div>
         </div>
 
         <!-- Step 2a — pick students (individual mode) -->
@@ -151,6 +155,19 @@
             <label class="aw-modal-step-label">Ghi chú cho học viên (tùy chọn)</label>
             <textarea id="form-instructions" class="aw-input" placeholder="VD: Tập trung vào câu phức + linking words."></textarea>
           </div>
+          <div>
+            <label class="aw-modal-step-label">Tên bài tập (tùy chọn)</label>
+            <input id="form-name" type="text" maxlength="200" placeholder="VD: Buổi 5 — Task 1 + Task 2" class="aw-input" />
+            <p class="aw-help-text text-xs mt-1">Nhãn buổi học — gom các đề giao chung 1 lần.</p>
+          </div>
+        </div>
+
+        <!-- W-ASSIGN — opt-in client-side grammar/spell soft-check -->
+        <div class="aw-modal-step-divider">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input id="form-allow-soft-check" type="checkbox" class="cursor-pointer" />
+            <span class="text-sm font-medium">Cho phép người dùng soft check grammar và spelling</span>
+          </label>
         </div>
 
         <!-- Step 4 — IELTS-mode timer (Phase 2.3c-3) -->
@@ -205,6 +222,7 @@
     var _allPrompts          = [];
     var _allStudents         = [];
     var _selectedStudentIds  = new Set();
+    var _selectedPromptIds   = new Set();   // W-ASSIGN — multi-prompt give
     // Sprint 19.2 — cohort fan-out state.
     var _allCohorts          = [];
     var _assignMode          = 'individual';   // 'individual' | 'cohort'
@@ -276,45 +294,98 @@
         return;
       }
 
-      list.innerHTML = rows.map(function (a) {
-        var prompt   = a.writing_prompts || {};
-        var student  = a.students        || {};
-        var statusKey = a.status || 'pending';
+      // W-ASSIGN — group rows by assignment_group_id (preserving the
+      // newest-first order of first appearance). Rows without a group_id
+      // (legacy, pre-W-ASSIGN) render standalone like before.
+      var groups = [];          // [{ key, name, rows[] }]
+      var byKey = {};
+      rows.forEach(function (a) {
+        var gid = a.assignment_group_id;
+        var key = gid ? ('g:' + gid) : ('s:' + a.id);
+        if (!byKey[key]) {
+          byKey[key] = { key: key, grouped: !!gid, name: a.name || null, rows: [] };
+          groups.push(byKey[key]);
+        }
+        byKey[key].rows.push(a);
+      });
 
-        var studentLabel = student.full_name || student.student_code || '—';
-        var taskLabel    = TASK_LABELS[prompt.task_type] || prompt.task_type || '—';
+      list.innerHTML = groups.map(function (g) {
+        // A standalone legacy row keeps the original single-card layout.
+        if (!g.grouped && g.rows.length === 1) return renderAssignmentCard(g.rows[0]);
 
-        var timerPill = a.is_timed && a.time_limit_minutes
-          ? '<span class="aw-assign-pill aw-assign-pill--timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
-          : '';
-        var autoSubmittedHint = a.auto_submitted
-          ? '<span class="aw-assign-auto-submitted text-xs">⚠ Nộp tự động (hết giờ)</span>'
-          : '';
-
+        // Grouped give-action: a header (name) + the member rows inside.
+        var head = escapeHtml(g.name || 'Bài giao')
+          + ' <span class="aw-assign-meta text-xs">· ' + g.rows.length + ' bài · '
+          + formatDate(g.rows[0].created_at) + '</span>';
         return ''
           + '<div class="aw-card p-4">'
-          +   '<div class="flex items-start justify-between gap-3 mb-2">'
-          +     '<div class="min-w-0">'
-          +       '<h3 class="aw-prompt-row__title font-semibold text-base truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>'
-          +       '<p class="aw-assign-meta text-xs mt-1">→ ' + escapeHtml(studentLabel) + '</p>'
-          +     '</div>'
-          +     '<div class="flex flex-col items-end gap-1 flex-shrink-0">'
-          +       '<span class="aw-assign-pill" data-status="' + escapeHtml(statusKey) + '">' + escapeHtml(STATUS_LABELS[statusKey] || statusKey) + '</span>'
-          +       '<span class="aw-assign-pill aw-assign-pill--task">' + escapeHtml(taskLabel) + '</span>'
-          +       timerPill
-          +     '</div>'
-          +   '</div>'
-          +   (autoSubmittedHint ? '<div class="mb-2">' + autoSubmittedHint + '</div>' : '')
-          +   '<div class="aw-assign-meta flex items-center justify-between flex-wrap gap-2 text-xs">'
-          +     '<span>Giao: ' + formatDate(a.created_at) + '</span>'
-          +     (a.deadline     ? '<span>Hạn: '       + formatDate(a.deadline)     + '</span>' : '')
-          +     (a.submitted_at ? '<span>Nộp: '       + formatDate(a.submitted_at) + '</span>' : '')
-          +     (a.delivered_at ? '<span class="aw-assign-meta__delivered">Trả: ' + formatDate(a.delivered_at) + '</span>' : '')
+          +   '<h3 class="aw-prompt-row__title font-semibold text-base mb-2">📚 ' + head + '</h3>'
+          +   '<div class="space-y-2">'
+          +     g.rows.map(renderAssignmentRow).join('')
           +   '</div>'
           + '</div>';
       }).join('');
 
       show('assignments-list');
+    }
+
+    // Compact one-line row used inside a grouped give-action card.
+    function renderAssignmentRow(a) {
+      var prompt   = a.writing_prompts || {};
+      var student  = a.students        || {};
+      var statusKey = a.status || 'pending';
+      var studentLabel = student.full_name || student.student_code || '—';
+      var taskLabel    = TASK_LABELS[prompt.task_type] || prompt.task_type || '—';
+      return ''
+        + '<div class="flex items-center justify-between gap-3 flex-wrap border-t pt-2">'
+        +   '<div class="min-w-0">'
+        +     '<span class="font-medium truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</span>'
+        +     '<span class="aw-assign-meta text-xs"> → ' + escapeHtml(studentLabel) + '</span>'
+        +   '</div>'
+        +   '<div class="flex items-center gap-1 flex-shrink-0">'
+        +     '<span class="aw-assign-pill aw-assign-pill--task">' + escapeHtml(taskLabel) + '</span>'
+        +     '<span class="aw-assign-pill" data-status="' + escapeHtml(statusKey) + '">' + escapeHtml(STATUS_LABELS[statusKey] || statusKey) + '</span>'
+        +   '</div>'
+        + '</div>';
+    }
+
+    // Full single card — legacy standalone assignments (no group_id).
+    function renderAssignmentCard(a) {
+      var prompt   = a.writing_prompts || {};
+      var student  = a.students        || {};
+      var statusKey = a.status || 'pending';
+
+      var studentLabel = student.full_name || student.student_code || '—';
+      var taskLabel    = TASK_LABELS[prompt.task_type] || prompt.task_type || '—';
+
+      var timerPill = a.is_timed && a.time_limit_minutes
+        ? '<span class="aw-assign-pill aw-assign-pill--timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
+        : '';
+      var autoSubmittedHint = a.auto_submitted
+        ? '<span class="aw-assign-auto-submitted text-xs">⚠ Nộp tự động (hết giờ)</span>'
+        : '';
+
+      return ''
+        + '<div class="aw-card p-4">'
+        +   '<div class="flex items-start justify-between gap-3 mb-2">'
+        +     '<div class="min-w-0">'
+        +       '<h3 class="aw-prompt-row__title font-semibold text-base truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>'
+        +       '<p class="aw-assign-meta text-xs mt-1">→ ' + escapeHtml(studentLabel) + '</p>'
+        +     '</div>'
+        +     '<div class="flex flex-col items-end gap-1 flex-shrink-0">'
+        +       '<span class="aw-assign-pill" data-status="' + escapeHtml(statusKey) + '">' + escapeHtml(STATUS_LABELS[statusKey] || statusKey) + '</span>'
+        +       '<span class="aw-assign-pill aw-assign-pill--task">' + escapeHtml(taskLabel) + '</span>'
+        +       timerPill
+        +     '</div>'
+        +   '</div>'
+        +   (autoSubmittedHint ? '<div class="mb-2">' + autoSubmittedHint + '</div>' : '')
+        +   '<div class="aw-assign-meta flex items-center justify-between flex-wrap gap-2 text-xs">'
+        +     '<span>Giao: ' + formatDate(a.created_at) + '</span>'
+        +     (a.deadline     ? '<span>Hạn: '       + formatDate(a.deadline)     + '</span>' : '')
+        +     (a.submitted_at ? '<span>Nộp: '       + formatDate(a.submitted_at) + '</span>' : '')
+        +     (a.delivered_at ? '<span class="aw-assign-meta__delivered">Trả: ' + formatDate(a.delivered_at) + '</span>' : '')
+        +   '</div>'
+        + '</div>';
     }
 
     // ── Modal: data load ──────────────────────────────────────────
@@ -334,21 +405,55 @@
         _allPrompts  = (promptsResp && promptsResp.prompts) || [];
         _allStudents = Array.isArray(studentsResp) ? studentsResp : [];
 
-        renderPromptOptions();
+        renderPromptList('');
         renderStudentList('');
       } catch (err) {
         showModalError('Lỗi tải dữ liệu: ' + (err.message || 'không xác định'));
       }
     }
 
-    function renderPromptOptions() {
-      var sel = document.getElementById('form-prompt');
-      var html = '<option value="">— Chọn đề bài —</option>'
-        + _allPrompts.map(function (p) {
-            var label = '[' + (TASK_LABELS[p.task_type] || p.task_type) + '] ' + (p.title || '');
-            return '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(label) + '</option>';
-          }).join('');
-      sel.innerHTML = html;
+    function renderPromptList(filter) {
+      var box = document.getElementById('prompts-list');
+      var empty = document.getElementById('prompts-empty');
+      var f = (filter || '').toLowerCase();
+
+      var filtered = _allPrompts.filter(function (p) {
+        if (!f) return true;
+        return (p.title || '').toLowerCase().indexOf(f) !== -1;
+      });
+
+      if (filtered.length === 0) {
+        box.innerHTML = '';
+        box.appendChild(empty);
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+      box.innerHTML = filtered.map(function (p) {
+        var checked = _selectedPromptIds.has(p.id) ? 'checked' : '';
+        var task = TASK_LABELS[p.task_type] || p.task_type || '';
+        return ''
+          + '<label class="aw-student-row flex items-center gap-2">'
+          +   '<input type="checkbox" class="aw-student-row__checkbox" data-prompt-id="' + escapeHtml(p.id) + '" ' + checked + '>'
+          +   '<span class="aw-student-row__name">' + escapeHtml(p.title || '(Đề bài)') + '</span>'
+          +   '<span class="aw-student-row__code">' + escapeHtml(task) + '</span>'
+          + '</label>';
+      }).join('');
+
+      box.querySelectorAll('input[type="checkbox"][data-prompt-id]').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          var id = cb.getAttribute('data-prompt-id');
+          if (cb.checked) _selectedPromptIds.add(id);
+          else            _selectedPromptIds.delete(id);
+          updateSelectedPromptCount();
+        });
+      });
+    }
+
+    function updateSelectedPromptCount() {
+      document.getElementById('selected-prompt-count').textContent =
+        '(' + _selectedPromptIds.size + ' chọn)';
     }
 
     function renderStudentList(filter) {
@@ -401,7 +506,10 @@
     // ── Modal: open / close / save ────────────────────────────────
     function openCreateModal() {
       _selectedStudentIds.clear();
-      document.getElementById('form-prompt').value       = '';
+      _selectedPromptIds.clear();
+      document.getElementById('prompt-search').value     = '';
+      document.getElementById('form-name').value         = '';
+      document.getElementById('form-allow-soft-check').checked = false;
       document.getElementById('form-instructions').value = '';
       document.getElementById('form-deadline').value     = '';
       document.getElementById('student-search').value    = '';
@@ -411,9 +519,9 @@
       document.getElementById('timer-fields').classList.add('hidden');
       document.getElementById('form-cohort').value = '';
       setAssignMode('individual');   // Sprint 19.2 — default to per-student
-      hide('prompt-preview');
       hide('modal-error');
       updateSelectedCount();
+      updateSelectedPromptCount();
       show('modal');
       loadModalData();
     }
@@ -429,14 +537,16 @@
     async function saveAssignment() {
       hide('modal-error');
 
-      var promptId    = document.getElementById('form-prompt').value;
+      var promptIds   = Array.from(_selectedPromptIds);
+      var name        = document.getElementById('form-name').value.trim();
+      var allowSoftCheck = document.getElementById('form-allow-soft-check').checked;
       var deadlineRaw = document.getElementById('form-deadline').value;
       var instructions = document.getElementById('form-instructions').value.trim();
       var isTimed     = document.getElementById('form-is-timed').checked;
       var timeLimitRaw = document.getElementById('form-time-limit').value;
 
-      if (!promptId) {
-        showModalError('Vui lòng chọn đề bài.');
+      if (promptIds.length === 0) {
+        showModalError('Vui lòng chọn ít nhất 1 đề bài.');
         return;
       }
 
@@ -464,15 +574,19 @@
         if (!confirm('Sắp giao đề này cho ' + ccount + ' học viên trong lớp "' + cname + '". Tiếp tục?')) return;
         try {
           var fr = await window.api.post('/admin/writing/assignments/fan-out', {
-            prompt_id:          promptId,
+            prompt_ids:         promptIds,
             cohort_id:          cohortId,
+            name:               name || null,
+            allow_soft_check:   allowSoftCheck,
             deadline:           deadlineIso,
             instructions:       instructions || null,
             is_timed:           isTimed,
             time_limit_minutes: timeLimit,
           });
-          var fmsg = '✓ Đã giao bài cho ' + (fr.created_count || 0) + ' học viên trong lớp "' + cname + '".';
-          if (fr.skipped_count) fmsg += '\n\n(' + fr.skipped_count + ' học viên đã có đề này — bỏ qua.)';
+          var fmsg = '✓ Đã giao ' + promptIds.length + ' đề cho ' + (fr.created_count || 0) + ' bài trong lớp "' + cname + '".';
+          if (fr.duplicates_warning && fr.duplicates_warning.length) {
+            fmsg += '\n\n⚠ ' + fr.duplicates_warning.length + ' học viên đã từng có 1 trong các đề này (vẫn giao lại).';
+          }
           alert(fmsg);
           closeModal();
           await loadAssignments();
@@ -488,8 +602,10 @@
         return;
       }
       var payload = {
-        prompt_id:          promptId,
+        prompt_ids:         promptIds,
         student_ids:        Array.from(_selectedStudentIds),
+        name:               name || null,
+        allow_soft_check:   allowSoftCheck,
         deadline:           deadlineIso,
         instructions:       instructions || null,
         is_timed:           isTimed,
@@ -498,7 +614,7 @@
 
       try {
         var result = await window.api.post('/admin/writing/assignments', payload);
-        var msg = '✓ Đã giao bài cho ' + (result.count || 0) + ' học viên.';
+        var msg = '✓ Đã giao ' + promptIds.length + ' đề (' + (result.count || 0) + ' bài).';
         if (result.duplicates_warning && result.duplicates_warning.length > 0) {
           msg += '\n\n⚠ ' + result.duplicates_warning.length
             + ' học viên đã từng được giao đề này (vẫn tạo assignment mới).';
@@ -558,15 +674,8 @@
       renderStudentList(document.getElementById('student-search').value);
       updateSelectedCount();
     });
-    document.getElementById('form-prompt').addEventListener('change', function (e) {
-      var p = _allPrompts.find(function (x) { return x.id === e.target.value; });
-      var box = document.getElementById('prompt-preview');
-      if (p) {
-        box.textContent = p.prompt_text || '';
-        show('prompt-preview');
-      } else {
-        hide('prompt-preview');
-      }
+    document.getElementById('prompt-search').addEventListener('input', function (e) {
+      renderPromptList(e.target.value);
     });
 
     loadCohorts();        // Sprint 19.2 — populate cohort filter + fan-out picker

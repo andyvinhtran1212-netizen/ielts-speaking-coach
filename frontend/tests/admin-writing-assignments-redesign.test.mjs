@@ -76,14 +76,15 @@ describe('admin-writing-assignments.html / outlier — does NOT use WC.bootstrap
 });
 
 
-describe('admin-writing-assignments.html / 21 JS-coupled IDs preserved', () => {
+describe('admin-writing-assignments.html / JS-coupled IDs preserved', () => {
   const REQUIRED_IDS = [
     'filter-status', 'btn-create',
     'state-loading', 'state-error', 'state-empty', 'assignments-list',
     'modal', 'btn-close-modal', 'modal-error',
-    'form-prompt', 'prompt-preview',
+    'prompts-list', 'prompts-empty', 'prompt-search', 'selected-prompt-count',
     'student-search', 'btn-select-all', 'btn-clear-all',
     'students-list', 'students-empty', 'selected-count',
+    'form-name', 'form-allow-soft-check',
     'form-deadline', 'form-instructions',
     'form-is-timed', 'timer-fields', 'form-time-limit',
     'btn-cancel', 'btn-save',
@@ -135,7 +136,9 @@ describe('admin-writing-assignments.html / endpoints + payload preserved', () =>
 
   test('POST /admin/writing/assignments payload shape preserved', () => {
     assert.match(html, /window\.api\.post\(\s*['"]\/admin\/writing\/assignments['"]/);
-    for (const key of ['prompt_id', 'student_ids', 'deadline', 'instructions', 'is_timed', 'time_limit_minutes']) {
+    // W-ASSIGN: multi-prompt (prompt_ids) + name + allow_soft_check.
+    for (const key of ['prompt_ids', 'student_ids', 'name', 'allow_soft_check',
+                       'deadline', 'instructions', 'is_timed', 'time_limit_minutes']) {
       assert.match(html, new RegExp(`${key}\\s*:`), `Missing payload key: ${key}`);
     }
   });
@@ -291,5 +294,33 @@ describe('admin-writing-assignments.html / Sprint 19.2 cohort', () => {
 
   test('assign-mode toggle CSS declared', () => {
     assert.match(css, /\.aw-assign-mode__btn/);
+  });
+});
+
+
+describe('admin-writing-assignments.html / W-ASSIGN multi-prompt + group', () => {
+  test('multi-prompt checkbox picker (not a single select)', () => {
+    assert.match(html, /data-prompt-id=/);                       // checkbox list
+    assert.match(html, /_selectedPromptIds\s*=\s*new Set\(\)/);
+    assert.doesNotMatch(html, /id=["']form-prompt["']/);         // old single select gone
+  });
+
+  test('name + allow_soft_check inputs + read in save', () => {
+    assert.match(html, /id=["']form-name["']/);
+    assert.match(html, /id=["']form-allow-soft-check["']/);
+    assert.match(html, /allow_soft_check:\s*allowSoftCheck/);
+  });
+
+  test('fan-out also sends prompt_ids + name + allow_soft_check', () => {
+    const fanout = html.match(/assignments\/fan-out['"][\s\S]{0,400}?\}\)/);
+    assert.ok(fanout, 'fan-out call not found');
+    assert.match(fanout[0], /prompt_ids:/);
+    assert.match(fanout[0], /allow_soft_check:/);
+  });
+
+  test('admin list groups rows by assignment_group_id', () => {
+    assert.match(html, /assignment_group_id/);
+    assert.match(html, /function\s+renderAssignmentRow\s*\(/);
+    assert.match(html, /function\s+renderAssignmentCard\s*\(/);   // legacy standalone
   });
 });
