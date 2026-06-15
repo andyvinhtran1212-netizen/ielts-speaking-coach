@@ -136,9 +136,13 @@
     .usr-modal .field { display: flex; flex-direction: column; gap: 4px; }
     .usr-modal .field label { font-size: var(--av-fs-xs); color: var(--av-text-muted);
       text-transform: uppercase; letter-spacing: var(--av-tracking-wide); }
-    .usr-modal .field input { padding: 8px 12px; border: 1px solid var(--av-border-default);
+    .usr-modal .field input, .usr-modal .field select { padding: 8px 12px; border: 1px solid var(--av-border-default);
       border-radius: var(--av-radius-md); background: var(--av-surface-page, var(--av-surface-card));
       color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
+    /* group label for radio/checkbox blocks (not a styled .field input) */
+    .usr-modal-grouplabel { font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-wide);
+      display: block; margin-bottom: 4px; }
     .usr-modal-sub { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin: 0; }
     .usr-modal-actions { display: flex; gap: var(--av-space-2); justify-content: flex-end; }
     /* btn-primary moved to admin-buttons.css bridge */
@@ -349,6 +353,61 @@
         <div class="usr-modal-actions">
           <button class="btn-secondary" id="btn-cv-cancel" type="button">Hủy</button>
           <button class="btn-primary" id="btn-cv-submit" type="button">Tạo hồ sơ học viên</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tạo + gán mã: admin-side activation for a user with no active code.
+         Distinct ids (ga-*) so it never collides with the relocated access-code
+         create modal (m-*/modal-backdrop) owned by admin-access-codes.js. -->
+    <div class="usr-modal-backdrop" id="ga-backdrop" hidden>
+      <div class="usr-modal" role="dialog" aria-modal="true" aria-labelledby="ga-title">
+        <h2 id="ga-title">Tạo + gán mã</h2>
+        <p class="usr-modal-sub" id="ga-who">—</p>
+
+        <div>
+          <span class="usr-modal-grouplabel">Loại mã</span>
+          <div class="ac-radio-row">
+            <label><input type="radio" name="ga-type" value="mass" checked /> Đại trà</label>
+            <label><input type="radio" name="ga-type" value="direct" /> Trực tiếp</label>
+            <label><input type="radio" name="ga-type" value="staff" /> Nhân viên</label>
+          </div>
+        </div>
+
+        <div class="field" id="ga-cohort-row" hidden>
+          <label for="ga-cohort">Lớp (bắt buộc cho mã Trực tiếp)</label>
+          <select id="ga-cohort">
+            <option value="">— Chọn lớp —</option>
+          </select>
+        </div>
+
+        <div>
+          <span class="usr-modal-grouplabel">Quyền</span>
+          <div class="ac-perms" id="ga-perms">
+            <label><input type="checkbox" value="all" checked /> Tất cả</label>
+            <label><input type="checkbox" value="writing" /> Writing</label>
+            <label><input type="checkbox" value="practice_single" /> Luyện tập đơn</label>
+            <label><input type="checkbox" value="practice_part" /> Luyện theo Part</label>
+            <label><input type="checkbox" value="practice_full" /> Full Test</label>
+            <label><input type="checkbox" value="admin" /> Admin</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="ga-limit">Giới hạn sessions (để trống = không giới hạn)</label>
+          <input id="ga-limit" type="number" min="1" placeholder="VD: 30" />
+        </div>
+
+        <div class="field">
+          <label for="ga-expires">Hết hạn (để trống = không hết hạn)</label>
+          <input id="ga-expires" type="date" />
+        </div>
+
+        <div class="usr-banner is-error" id="ga-error" hidden></div>
+
+        <div class="usr-modal-actions">
+          <button class="btn-secondary" id="btn-ga-cancel" type="button">Hủy</button>
+          <button class="btn-primary" id="btn-ga-submit" type="button">Tạo + gán mã</button>
         </div>
       </div>
     </div>

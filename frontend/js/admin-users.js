@@ -24,6 +24,8 @@ const $ = (id) => document.getElementById(id);
 
 const ROLES = ['admin', 'instructor', 'student'];
 let _all = [];
+let _cohorts = [];        // active cohorts for the "Tạo + gán mã" cohort select
+let _genCtx = null;       // { userId } while the generate-and-assign modal is open
 // merge-codes PR-2 — sort across BOTH user + code criteria. For a user with
 // N active codes, code_type/status reflect their NEWEST active code (the
 // backend code_summary is built newest-first), so sorting "by code" uses it.
@@ -138,6 +140,12 @@ function render(rows) {
     const removeBtn = (cs.has_active_code && codes[0] && codes[0].id)
       ? `<button class="ac-link ac-link-danger" data-removecode="${escapeHtml(codes[0].id)}" data-user="${escapeHtml(u.id)}">Gỡ khỏi mã</button>`
       : '';
+    // "Tạo + gán mã": admin-side activation — only for accounts with NO active
+    // code (mirror of the table's "không có mã active" state). A user who
+    // already has an active code shows none of this (use the code tab instead).
+    const genBtn = !cs.has_active_code
+      ? `<button class="usr-convert-btn" data-gencode="${escapeHtml(u.id)}" data-email="${escapeHtml(u.email || '')}">+ Tạo + gán mã</button>`
+      : '';
     return `
     <tr data-id="${escapeHtml(u.id)}">
       <td>${escapeHtml(u.display_name || '—')}</td>
@@ -160,6 +168,7 @@ function render(rows) {
         <button class="usr-convert-btn" data-convert="${escapeHtml(u.id)}"
                 data-name="${escapeHtml(u.display_name || '')}"
                 data-email="${escapeHtml(u.email || '')}">→ Học viên</button>
+        ${genBtn}
         ${removeBtn}
       </td>
     </tr>`;
@@ -260,6 +269,94 @@ async function removeFromCode(codeId, userId) {
   }
 }
 
+// ── "Tạo + gán mã" (admin-side activation) ───────────────────────────
+// Creates ONE fresh code dedicated to a single user and assigns it server-side
+// (POST /admin/access-codes/generate-and-assign) so an existing account with no
+// active code is onboarded WITHOUT entering a code. Reuses the backend
+// activation core; entitlement is code-derived, so we refetch (no optimistic).
+
+async function loadCohorts() {
+  try {
+    const r = await api.get('/admin/cohorts?is_active=true');
+    _cohorts = (r && r.cohorts) || [];
+  } catch (e) {
+    _cohorts = [];
+    console.warn('[users] cohort fetch failed:', e);
+  }
+  const sel = $('ga-cohort');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Chọn lớp —</option>'
+      + _cohorts.map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
+  }
+}
+
+function openGen(userId, email) {
+  _genCtx = { userId };
+  $('ga-who').textContent = email ? `User: ${email}` : `User: ${userId}`;
+  $('ga-error').hidden = true;
+  // Default type = mass (no cohort needed); cohort row hidden.
+  document.querySelectorAll('input[name="ga-type"]').forEach((r) => { r.checked = r.value === 'mass'; });
+  $('ga-cohort-row').hidden = true;
+  $('ga-cohort').value = '';
+  // Default permissions: "all" checked.
+  $('ga-perms').querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = cb.value === 'all'; });
+  $('ga-limit').value = '';
+  $('ga-expires').value = '';
+  $('ga-backdrop').hidden = false;
+}
+
+function closeGen() { $('ga-backdrop').hidden = true; _genCtx = null; }
+
+function gaType() {
+  const c = document.querySelector('input[name="ga-type"]:checked');
+  return c ? c.value : 'mass';
+}
+
+function gaPerms() {
+  return Array.from($('ga-perms').querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+}
+
+function gaError(msg) { $('ga-error').textContent = msg; $('ga-error').hidden = false; }
+
+async function submitGen() {
+  if (!_genCtx) return;
+  const code_type = gaType();
+  const cohort_id = $('ga-cohort').value || null;
+  const permissions = gaPerms();
+  const limitRaw = ($('ga-limit').value || '').trim();
+  const session_limit = limitRaw === '' ? null : parseInt(limitRaw, 10);
+  const expires_raw = $('ga-expires').value;
+
+  // Client-side guards mirror the server combo rules for instant feedback.
+  if (code_type === 'direct' && !cohort_id) return gaError('Mã trực tiếp bắt buộc phải chọn lớp.');
+  if (code_type !== 'direct' && cohort_id) return gaError('Chỉ mã Trực tiếp mới được gán lớp.');
+  if (!permissions.length) return gaError('Phải chọn ít nhất một quyền.');
+  if (limitRaw !== '' && (!Number.isInteger(session_limit) || session_limit < 1)) {
+    return gaError('Giới hạn lượt phải là số nguyên ≥ 1 (hoặc để trống = không giới hạn).');
+  }
+
+  const body = {
+    user_id: _genCtx.userId,
+    permissions,
+    code_type,
+    cohort_id,
+    session_limit,
+    expires_at: expires_raw ? new Date(expires_raw).toISOString() : null,
+  };
+
+  $('btn-ga-submit').disabled = true;
+  try {
+    const r = await api.post('/admin/access-codes/generate-and-assign', body);
+    closeGen();
+    showBanner('Đã tạo + gán mã ' + (r && r.code || '') + ' cho người dùng.', 'success');
+    await loadList();   // canonical refetch — has_active_code flips to true
+  } catch (e) {
+    gaError('Không tạo được mã: ' + (e && e.message || 'lỗi'));
+  } finally {
+    $('btn-ga-submit').disabled = false;
+  }
+}
+
 function wire() {
   $('usr-role').addEventListener('change', applyFilters);
   $('usr-search').addEventListener('input', applyFilters);
@@ -274,7 +371,9 @@ function wire() {
     const convertBtn = e.target.closest('button[data-convert]');
     if (convertBtn) { openConvert(convertBtn.dataset.convert, convertBtn.dataset.name, convertBtn.dataset.email); return; }
     const rmBtn = e.target.closest('button[data-removecode]');
-    if (rmBtn) removeFromCode(rmBtn.dataset.removecode, rmBtn.dataset.user);
+    if (rmBtn) { removeFromCode(rmBtn.dataset.removecode, rmBtn.dataset.user); return; }
+    const genCodeBtn = e.target.closest('button[data-gencode]');
+    if (genCodeBtn) openGen(genCodeBtn.dataset.gencode, genCodeBtn.dataset.email);
   });
   // Sortable headers (2-criteria: user + code). Toggle dir on re-click.
   document.querySelectorAll('th.usr-sortable[data-sort]').forEach((th) => {
@@ -289,6 +388,20 @@ function wire() {
   $('convert-backdrop').addEventListener('click', (e) => {
     if (e.target === $('convert-backdrop')) closeConvert();
   });
+  // "Tạo + gán mã" modal: type radios toggle the cohort row (direct ⇒ lớp).
+  document.querySelectorAll('input[name="ga-type"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      const isDirect = gaType() === 'direct';
+      $('ga-cohort-row').hidden = !isDirect;
+      if (!isDirect) $('ga-cohort').value = '';
+    });
+  });
+  $('btn-ga-cancel').addEventListener('click', closeGen);
+  $('btn-ga-submit').addEventListener('click', submitGen);
+  $('ga-backdrop').addEventListener('click', (e) => {
+    if (e.target === $('ga-backdrop')) closeGen();
+  });
+  loadCohorts();
   loadList();
 }
 
