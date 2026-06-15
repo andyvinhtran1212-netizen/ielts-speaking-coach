@@ -363,7 +363,7 @@ class GraderConfig(BaseModel):
     sentence_structure: Optional[dict] = None
 
     # Sprint 19.3.5 — Task 1 Academic chart/graph/diagram image. The
-    # essay-level snapshot URL (writing_essays.prompt_image_url, Cloudinary).
+    # essay-level snapshot URL (writing_essays.prompt_image_url, Supabase Storage).
     # When present + task_type=='task1_academic', the grader fetches the
     # bytes and sends them to Gemini as a multimodal Part so the AI can
     # judge description accuracy. Missing/fetch-failure → text-only +
