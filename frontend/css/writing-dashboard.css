@@ -383,6 +383,49 @@ main { position: relative; z-index: 1; }
 }
 .wd-modal-file-label:hover { color: var(--av-primary-hover, var(--av-primary)); }
 
+/* W-UI — 2-pane làm bài: đề (TRÁI, scrollable) · khung viết (PHẢI).
+   Adapts .rv-passage-layout (reading-vocab): viewport-bounded, each pane
+   scrolls independently so the prompt stays readable while writing.
+   Layout-only — no JS/handler touched. Mobile (≤860px) stacks. */
+.wd-modal-2pane {
+  display: grid;
+  gap: var(--av-space-6);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: start;
+  height: calc(100dvh - var(--wd-modal-pane-offset, 8rem));
+}
+.wd-modal-2pane > .wd-modal-pane-left {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+}
+.wd-modal-2pane > .wd-modal-pane-right {
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-3);
+}
+/* Textarea fills the remaining right-pane height (still user-resizable). */
+.wd-modal-2pane .wd-modal-pane-right .wd-modal-textarea {
+  flex: 1 1 auto;
+  min-height: 12rem;
+}
+
+@media (max-width: 860px) {
+  .wd-modal-2pane {
+    grid-template-columns: 1fr;
+    height: auto;
+    gap: var(--av-space-4);
+  }
+  .wd-modal-2pane > .wd-modal-pane-left,
+  .wd-modal-2pane > .wd-modal-pane-right {
+    max-height: none;
+    overflow-y: visible;
+  }
+  .wd-modal-2pane .wd-modal-pane-right .wd-modal-textarea { min-height: 18rem; }
+}
+
 .wd-modal-textarea {
   background: var(--av-surface-card);
   border: 1px solid var(--av-border-subtle);

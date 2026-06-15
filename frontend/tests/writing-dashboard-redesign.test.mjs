@@ -788,3 +788,45 @@ describe('writing-dashboard.html / W-ASSIGN grouped my-assignments', () => {
     assert.match(html, /if \(!g\.grouped\) return cards/);
   });
 });
+
+
+describe('writing-dashboard.html / W-UI 2-pane submit modal', () => {
+  test('submit modal uses a 2-pane container with left/right panes', () => {
+    assert.match(html, /class="wd-modal-2pane"/);
+    assert.match(html, /class="wd-modal-pane-left"/);
+    assert.match(html, /class="wd-modal-pane-right"/);
+  });
+
+  test('đề (prompt + instructions) on the LEFT pane', () => {
+    const left = html.match(/wd-modal-pane-left[\s\S]*?wd-modal-pane-right/);
+    assert.ok(left, 'left pane not found');
+    assert.match(left[0], /id="modal-prompt-text"/);
+    assert.match(left[0], /id="modal-prompt-image"/);
+    assert.match(left[0], /id="modal-instructions"/);
+  });
+
+  test('khung viết (textarea + timer + upload + submit) on the RIGHT pane', () => {
+    const right = html.match(/wd-modal-pane-right[\s\S]*?<\/textarea>[\s\S]*?modal-btn-submit[\s\S]*?<\/div>\s*<\/div>/);
+    assert.ok(right, 'right pane not found');
+    assert.match(right[0], /id="modal-essay-textarea"/);
+    assert.match(right[0], /id="modal-timer"/);
+    assert.match(right[0], /id="modal-file-input"/);
+    assert.match(right[0], /id="modal-word-counter"/);
+  });
+
+  test('layout-only: 7 anti-spellcheck attrs preserved on the textarea', () => {
+    const ta = html.match(/<textarea id="modal-essay-textarea"[\s\S]*?>/);
+    assert.ok(ta);
+    for (const attr of ['autocomplete="off"', 'autocorrect="off"', 'autocapitalize="off"',
+                        'spellcheck="false"', 'data-gramm="false"', 'data-gramm_editor="false"',
+                        'data-enable-grammarly="false"']) {
+      assert.ok(ta[0].includes(attr), `textarea missing ${attr}`);
+    }
+  });
+
+  test('2-pane CSS: grid + independent scroll + mobile stack', () => {
+    assert.match(css, /\.wd-modal-2pane\s*\{[\s\S]*?grid-template-columns:\s*minmax/);
+    assert.match(css, /\.wd-modal-pane-left\s*\{[\s\S]*?overflow-y:\s*auto/);
+    assert.match(css, /@media\s*\(max-width:\s*860px\)[\s\S]*?\.wd-modal-2pane\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
+  });
+});
