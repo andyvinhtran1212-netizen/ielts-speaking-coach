@@ -38,16 +38,14 @@ class Settings(BaseSettings):
     AZURE_SPEECH_KEY: str = ""
     AZURE_SPEECH_REGION: str = ""   # e.g. "eastus", "southeastasia"
 
-    # Cloudinary (Phase 2.3c-1) — image hosting for Task 1 Academic
-    # writing prompts. cloud_name + api_key are non-secret (they
-    # appear in every signed upload URL); api_secret is server-only
-    # and must NEVER be sent to the browser. All three default to
-    # empty so the rest of the app starts cleanly when the feature
-    # is unused — services/cloudinary_service.py raises a clear
-    # error on first upload if credentials are missing.
-    CLOUDINARY_CLOUD_NAME: str = ""
-    CLOUDINARY_API_KEY:    str = ""
-    CLOUDINARY_API_SECRET: str = ""
+    # Supabase Storage bucket holding Task 1 Academic writing-prompt
+    # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
+    # LISTENING_IMAGES_BUCKET — created out-of-band BEFORE the first
+    # admin upload works (Supabase dashboard → Storage → New bucket →
+    # name `writing-images` → Public ✓). PUBLIC so the persisted
+    # prompt_image_url renders directly as <img src> with no signed-URL
+    # minting on the read side. (Replaced the Cloudinary integration.)
+    WRITING_IMAGES_BUCKET: str = "writing-images"
 
     # App config
     # speaking-daily-limit-24 — global per-account daily speaking-session cap

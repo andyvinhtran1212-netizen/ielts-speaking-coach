@@ -395,7 +395,7 @@
       try {
         var fd = new FormData();
         fd.append('file', file);
-        // Reuse the existing prompts image-upload endpoint (Cloudinary).
+        // Reuse the existing prompts image-upload endpoint (Supabase Storage).
         var res = await window.api.upload('/admin/writing/prompts/upload-image', fd);
         setPromptImageState(res.url);
         _promptImageStatus('');

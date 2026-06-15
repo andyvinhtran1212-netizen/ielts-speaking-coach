@@ -29,8 +29,7 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin
-from services.cloudinary_service import (
-    CloudinaryConfigError,
+from services.writing_prompt_image import (
     delete_prompt_image,
     upload_prompt_image,
 )
@@ -84,10 +83,11 @@ class PromptUpdate(BaseModel):
 
 
 class UploadImageResponse(BaseModel):
-    """Response shape for `POST .../upload-image`. Mirrors the
-    `cloudinary_service.upload_prompt_image` return contract so the
-    admin UI can stash both `url` and `public_id` in hidden form
-    fields and pass them to the subsequent prompt create/update."""
+    """Response shape for `POST .../upload-image`. `url` is the public
+    Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
+    is the storage path (persisted into `prompt_image_public_id`, used to
+    delete the object on prompt delete). `width`/`height` are null — we
+    don't decode dimensions server-side (no Pillow dependency)."""
     url:       str
     public_id: str
     width:     Optional[int] = None
@@ -157,7 +157,8 @@ async def upload_image(
     file: UploadFile = File(...),
     authorization: str | None = Header(None),
 ):
-    """Upload one image to Cloudinary, return its `url` + `public_id`.
+    """Upload one image to Supabase Storage, return its `url` +
+    `public_id` (the storage path).
 
     The admin UI then stashes both values in hidden form fields and
     sends them through the next prompt create/PATCH — image upload
@@ -167,16 +168,16 @@ async def upload_image(
 
     Validation:
       • Content-Type must start with `image/` (rejects .txt / .pdf
-        before paying for a Cloudinary round-trip).
-      • Size cap enforced server-side inside
-        `cloudinary_service.upload_prompt_image` (5MB).
+        before reading the body).
+      • Magic-byte sniff (PNG/JPG/WebP) + size cap (5MB) enforced
+        server-side in `writing_prompt_image.upload_prompt_image`.
 
     Failure modes:
-      • Missing Cloudinary env credentials → 503 (config error,
-        Andy needs to set Railway env vars).
-      • Oversize / empty / decode-fail → 400 with the exact
+      • Oversize / empty / unsupported-format → 400 with the exact
         ValueError message.
-      • Cloudinary API error → 500.
+      • Storage error (e.g. the `writing-images` bucket doesn't exist
+        yet — a one-time Supabase dashboard step) → 500, with the REAL
+        exception logged server-side (incl. traceback) for diagnosis.
     """
     await require_admin(authorization)
 
@@ -192,13 +193,11 @@ async def upload_image(
         result = upload_prompt_image(file_bytes, filename_hint=file.filename)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
-    except CloudinaryConfigError as exc:
-        # 503 reads more accurately than 500 for "the service is not
-        # configured" — Andy should consult the README + Railway env,
-        # not assume Cloudinary is down.
-        raise HTTPException(503, str(exc))
     except Exception as exc:
-        logger.error("upload_image endpoint: %s", exc)
+        # Don't swallow the real cause — log it (with traceback) so an
+        # operational failure (missing bucket, RLS, network) is
+        # diagnosable, then return a friendly 500 to the user.
+        logger.error("upload_image endpoint failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Upload failed. Please try again.")
 
     return result
@@ -261,17 +260,16 @@ async def soft_delete_prompt(
     the row, so old assignments / submissions referencing this prompt
     keep their context.  PATCH with is_active=true to restore.
 
-    Phase 2.3c-1: also deletes the Cloudinary asset and clears the
-    image columns. Soft-deleted prompts are never re-shown to admins
-    (filter dropdown was removed in Sprint 2.3a-1.1) and Cloudinary
-    free-tier storage is the binding cost — keeping orphan assets
-    "just in case" of restore would steadily eat the quota. If a
-    restore is ever needed, admin can re-upload the image alongside
-    the PATCH `is_active=true`."""
+    Phase 2.3c-1: also deletes the Supabase Storage object and clears
+    the image columns. Soft-deleted prompts are never re-shown to admins
+    (filter dropdown was removed in Sprint 2.3a-1.1), so keeping orphan
+    image objects "just in case" of restore would steadily accumulate
+    storage. If a restore is ever needed, admin can re-upload the image
+    alongside the PATCH `is_active=true`."""
     await require_admin(authorization)
 
     # Read the existing public_id BEFORE updating so we can clean up
-    # Cloudinary even if the row is missing afterwards (race-safe).
+    # the storage object even if the row is missing afterwards (race-safe).
     existing = (
         supabase_admin.table("writing_prompts")
         .select("prompt_image_public_id")
@@ -299,7 +297,7 @@ async def soft_delete_prompt(
         # but treat it as "not found" rather than 500.
         raise HTTPException(404, "Prompt not found")
 
-    # Best-effort Cloudinary cleanup — never blocks the soft-delete.
+    # Best-effort storage cleanup — never blocks the soft-delete.
     if public_id:
         delete_prompt_image(public_id)
 

@@ -20,9 +20,6 @@ reportlab==4.4.10
 jinja2==3.1.4
 python-docx==1.1.2
 
-# Phase 2.3c-1 — Cloudinary integration for Task 1 Academic image prompts.
-cloudinary>=1.42.0
-
 # Sprint 10.1 — server-side lemmatization for vocab dedup. Used by
 # services/lemmatizer.py (lazy singleton; en_core_web_sm downloaded
 # at build time via nixpacks.toml [phases.install] step). Local dev
