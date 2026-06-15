@@ -643,6 +643,7 @@
       assignmentId:      null,
       autoSaveTimer:     null,
       countdownInterval: null,
+      allowSoftCheck:    false,   // W-SOFTCHECK — per-assignment opt-in flag
     };
     var PASTE_BLOCK_THRESHOLD = 200;
     var PASTE_LOG_THRESHOLD   = 50;
@@ -1199,6 +1200,9 @@
       var draft      = data.draft || {};
       var timer      = freshTimer || data.timer || {};
 
+      // W-SOFTCHECK — stash the per-assignment opt-in so submit can gate on it.
+      modalState.allowSoftCheck = !!assignment.allow_soft_check;
+
       // Header + prompt panel
       document.getElementById('modal-title').textContent = prompt.title || 'Làm bài';
       var meta = (TASK_LABELS[prompt.task_type] || prompt.task_type || '—')
@@ -1411,11 +1415,81 @@
       });
     }
 
+    // ── W-SOFTCHECK — pre-submit spell check (nspell, spell-only) ────
+    //
+    // Self-hosted + lazy: the bundle (~4KB gz) + the en dictionary
+    // (~187KB gz) are fetched on-demand ONLY when an assignment has
+    // allow_soft_check=true — sessions without it pay nothing. Spell
+    // ONLY (no grammar lib — write-good/retext give IELTS-wrong advice).
+    // SOFT: surfaces suspect words + suggestions; the student can fix or
+    // submit anyway. The textarea's 7 anti-spellcheck attrs stay — this
+    // is the platform's controlled check, gated by the admin's opt-in.
+    var _spellInstance = null;
+    var _spellLoading  = null;
+    function loadSpell() {
+      if (_spellInstance) return Promise.resolve(_spellInstance);
+      if (_spellLoading) return _spellLoading;
+      _spellLoading = (async function () {
+        var mod = await import('/assets/vendor/nspell.bundle.js');
+        var nspell = mod.default || mod;
+        var pair = await Promise.all([
+          fetch('/assets/dict/en.aff').then(function (r) { return r.text(); }),
+          fetch('/assets/dict/en.dic').then(function (r) { return r.text(); }),
+        ]);
+        _spellInstance = nspell(pair[0], pair[1]);
+        return _spellInstance;
+      })();
+      return _spellLoading;
+    }
+
+    async function runSpellCheck(text) {
+      var spell = await loadSpell();
+      // ASCII words only (the dict is English); apostrophes kept (don't).
+      var words = (text.match(/[A-Za-z][A-Za-z']*/g) || []);
+      var seen = Object.create(null);
+      var issues = [];
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        var key = w.toLowerCase();
+        if (seen[key]) continue;
+        seen[key] = true;
+        if (!spell.correct(w)) {
+          issues.push({ word: w, suggestions: spell.suggest(w).slice(0, 3) });
+          if (issues.length >= 60) break;   // cap the panel; soft anyway
+        }
+      }
+      return issues;
+    }
+
+    function showSpellPanel(issues) {
+      document.getElementById('spell-count').textContent = issues.length;
+      document.getElementById('spell-list').innerHTML = issues.map(function (it) {
+        var sug = (it.suggestions && it.suggestions.length)
+          ? '<span class="wd-spell-sug"> → ' + it.suggestions.map(escapeHtml).join(', ') + '</span>'
+          : '<span class="wd-spell-sug wd-spell-sug--none"> (không có gợi ý)</span>';
+        return '<li class="wd-spell-item"><strong>' + escapeHtml(it.word) + '</strong>' + sug + '</li>';
+      }).join('');
+      document.getElementById('spell-panel').classList.remove('hidden');
+    }
+    function hideSpellPanel() {
+      document.getElementById('spell-panel').classList.add('hidden');
+    }
+
     async function submitFromModal(force) {
       if (!modalState.assignmentId) return;
       var textarea = document.getElementById('modal-essay-textarea');
       var text     = textarea.value;
       var wc       = countWords(text);
+
+      // W-SOFTCHECK — opt-in pre-submit SPELL check (soft, never hard-blocks).
+      // Runs before the word-count/finality confirms so "Nộp luôn" (which
+      // re-enters with force=true) goes straight through. A lib/dict load
+      // failure must never block submit, so errors fall through silently.
+      if (!force && modalState.allowSoftCheck) {
+        var spellIssues = [];
+        try { spellIssues = await runSpellCheck(text); } catch (e) { spellIssues = []; }
+        if (spellIssues.length) { showSpellPanel(spellIssues); return; }
+      }
 
       if (!force) {
         if (wc < 100) {
@@ -1684,6 +1758,13 @@
       if (saveBtn)   saveBtn.addEventListener('click',   function () { saveDraft(); });
       if (submitBtn) submitBtn.addEventListener('click', function () { submitFromModal(false); });
 
+      // W-SOFTCHECK panel — "Quay lại sửa" closes it + focuses the editor;
+      // "Nộp luôn" submits with force (bypasses the spell gate, soft).
+      var spellBack   = document.getElementById('spell-btn-back');
+      var spellSubmit = document.getElementById('spell-btn-submit');
+      if (spellBack)   spellBack.addEventListener('click',   function () { hideSpellPanel(); textarea.focus(); });
+      if (spellSubmit) spellSubmit.addEventListener('click', function () { hideSpellPanel(); submitFromModal(true); });
+
       textarea.addEventListener('input', function () {
         updateModalWordCount();
         scheduleModalAutoSave();
@@ -1854,6 +1935,23 @@
             </div>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- W-SOFTCHECK — pre-submit spell-check panel (soft, opt-in). Suspect
+         words + suggestions; student fixes or submits anyway. -->
+    <div id="spell-panel" class="wd-spell-panel hidden" role="dialog" aria-modal="true" aria-labelledby="spell-panel-title">
+      <div class="wd-spell-panel__box">
+        <h3 id="spell-panel-title" class="wd-spell-panel__title">Kiểm tra chính tả</h3>
+        <p class="wd-spell-panel__hint">
+          Có <strong><span id="spell-count">0</span> từ</strong> có thể sai chính tả.
+          Em có thể quay lại sửa, hoặc nộp luôn.
+        </p>
+        <ul id="spell-list" class="wd-spell-panel__list"></ul>
+        <div class="wd-spell-panel__actions">
+          <button id="spell-btn-back" type="button" class="wd-spell-btn-back text-sm rounded px-4 py-2">← Quay lại sửa</button>
+          <button id="spell-btn-submit" type="button" class="wd-spell-btn-submit text-sm font-medium rounded px-4 py-2">Nộp luôn</button>
         </div>
       </div>
     </div>

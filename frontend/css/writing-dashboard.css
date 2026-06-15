@@ -825,3 +825,67 @@ body.av-page .hover\:text-white:hover {
   color: var(--av-text-secondary);
   line-height: var(--av-lh-relaxed);
 }
+
+/* W-SOFTCHECK — pre-submit spell-check panel (soft, opt-in). Overlay over
+   the submit modal; suspect words + suggestions. Tokens only (light+dark). */
+.wd-spell-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 60;                 /* above the submit modal (z-50) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--av-space-4);
+  background: var(--av-surface-overlay);
+}
+.wd-spell-panel.hidden { display: none; }
+.wd-spell-panel__box {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  color: var(--av-text-primary);
+  max-width: 32rem;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--av-space-6);
+}
+.wd-spell-panel__title { font-size: var(--av-fs-lg); font-weight: 600; margin-bottom: var(--av-space-2); }
+.wd-spell-panel__hint  { font-size: var(--av-fs-sm); color: var(--av-text-secondary); margin-bottom: var(--av-space-4); }
+.wd-spell-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.wd-spell-item {
+  padding: var(--av-space-2) 0;
+  border-top: 1px solid var(--av-border-subtle);
+  font-size: var(--av-fs-sm);
+}
+.wd-spell-item strong { color: var(--av-warning); }
+.wd-spell-sug { color: var(--av-text-secondary); }
+.wd-spell-sug--none { color: var(--av-text-muted); font-style: italic; }
+.wd-spell-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-4);
+}
+.wd-spell-btn-back {
+  background: transparent;
+  border: 1px solid var(--av-border-subtle);
+  color: var(--av-text-secondary);
+  cursor: pointer;
+}
+.wd-spell-btn-back:hover { color: var(--av-text-primary); }
+.wd-spell-btn-submit {
+  background: var(--av-primary);
+  border: 1px solid var(--av-primary);
+  color: var(--av-text-on-primary);
+  cursor: pointer;
+}
+.wd-spell-btn-submit:hover { background: var(--av-primary-hover, var(--av-primary)); }
