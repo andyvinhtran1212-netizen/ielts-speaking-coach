@@ -381,13 +381,26 @@ async def activate_account(
         if student_match.data:
             student_row = student_match.data[0]
             existing_link = student_row.get("user_id")
+
+            # WF-1 — class-roster bridge: if this code is cohort-linked
+            # (access_codes.cohort_id set), enroll the matched student into
+            # that cohort by setting students.cohort_id. This is the SAME
+            # column the cohort roster / writing fan-out / grade-matrix read,
+            # so activating a class code auto-adds the student to the class.
+            # Mass codes (no cohort_id) skip this. Folded into the same UPDATE
+            # as the user_id link when possible; otherwise a standalone set.
+            code_cohort_id = access_code_row.get("cohort_id")
+
             if not existing_link:
-                supabase_admin.table("students").update({
-                    "user_id": user_id,
-                }).eq("id", student_row["id"]).execute()
+                link_update = {"user_id": user_id}
+                if code_cohort_id:
+                    link_update["cohort_id"] = code_cohort_id
+                supabase_admin.table("students").update(
+                    link_update
+                ).eq("id", student_row["id"]).execute()
                 logger.info(
-                    "[auth] linked student=%s to user=%s via code=%s",
-                    student_row["id"], user_id, code,
+                    "[auth] linked student=%s to user=%s via code=%s (cohort=%s)",
+                    student_row["id"], user_id, code, code_cohort_id,
                 )
             elif existing_link != user_id:
                 # Don't overwrite — surfaces a real conflict (same

@@ -121,15 +121,23 @@ async def update_cohort(
     return r.data[0]
 
 
+_ZERO_USAGE = {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}
+
+
 @router.get("/{cohort_id}/members")
 async def cohort_members(cohort_id: str, authorization: str | None = Header(default=None)):
-    """Members of a cohort = users with an ACTIVE assignment to one of the cohort's
-    codes (access_codes.cohort_id == cohort_id). Sprint 17.3: this is CODE-DERIVED —
-    it covers every such user and needs no schema change, rather than relying on the
-    writing-roster `students.cohort_id` (which only exists for users matched by a
-    student_code). Per-member activity reuses the Sprint 17.2 usage aggregation
-    (one batched sessions + one ai_usage query — no N+1). A user assigned to two of
-    the cohort's codes is listed once."""
+    """WF-1 — a cohort's CLASS ROSTER = students WHERE `students.cohort_id` =
+    cohort_id. This is the single source of truth: the SAME column writing
+    fan-out (`cohort_assignment_service`) and the grade-by-class matrix
+    (`admin_writing_cohorts`) read, so what the admin sees here is exactly who
+    gets writing assigned + graded (no split-brain).
+
+    Each member carries `student_code` + `full_name`; per-member activity
+    (sessions / last_active / ai_cost) is joined via `students.user_id` when the
+    student has activated (one batched usage query — no N+1). Students without a
+    linked user show zero usage. ENTITLEMENT (which access code a user holds) is
+    a SEPARATE concern handled by POST/DELETE `/members` (code issue/revoke),
+    which is unchanged."""
     await require_admin(authorization)
 
     cohort_rows = (
@@ -140,51 +148,28 @@ async def cohort_members(cohort_id: str, authorization: str | None = Header(defa
     cohort = cohort_rows[0]
 
     try:
-        code_rows = (
-            supabase_admin.table("access_codes").select("id, code").eq("cohort_id", cohort_id).execute().data
+        students = (
+            supabase_admin.table("students")
+            .select("id, student_code, full_name, user_id")
+            .eq("cohort_id", cohort_id)
+            .order("full_name")
+            .execute()
+            .data
         ) or []
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải mã của lớp: {exc}")
-    code_ids = [c["id"] for c in code_rows]
-    code_value_by_id = {c["id"]: c.get("code") for c in code_rows}
+        raise HTTPException(500, f"Lỗi khi tải thành viên: {exc}")
 
-    uids: list[str] = []
-    user_code: dict[str, str | None] = {}
-    if code_ids:
-        try:
-            asgn = (
-                supabase_admin.table("user_code_assignments")
-                .select("user_id, code_id")
-                .in_("code_id", code_ids)
-                .eq("is_active", True)
-                .execute()
-                .data
-            ) or []
-        except Exception as exc:
-            raise HTTPException(500, f"Lỗi khi tải thành viên: {exc}")
-        for a in asgn:
-            uid = a["user_id"]
-            if uid not in user_code:
-                user_code[uid] = code_value_by_id.get(a["code_id"])
-                uids.append(uid)
-
-    users: dict[str, dict] = {}
-    if uids:
-        for u in (
-            supabase_admin.table("users").select("id, email, display_name").in_("id", uids).execute().data or []
-        ):
-            users[u["id"]] = u
-
-    agg = _aggregate_usage_for_users(uids)
+    user_ids = [s["user_id"] for s in students if s.get("user_id")]
+    agg = _aggregate_usage_for_users(user_ids) if user_ids else {}
     members = [
         {
-            "user_id": uid,
-            "email": (users.get(uid) or {}).get("email") or "",
-            "name": (users.get(uid) or {}).get("display_name") or "",
-            "code": user_code.get(uid),
-            **agg.get(uid, {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}),
+            "student_id":   s["id"],
+            "student_code": s.get("student_code"),
+            "name":         s.get("full_name") or "",
+            "user_id":      s.get("user_id"),
+            **(agg.get(s["user_id"], _ZERO_USAGE) if s.get("user_id") else _ZERO_USAGE),
         }
-        for uid in uids
+        for s in students
     ]
     return {"cohort": cohort, "member_count": len(members), "members": members}
 
@@ -248,3 +233,74 @@ async def remove_cohort_member(
         }).in_("code_id", code_ids).eq("user_id", user_id).eq("is_active", True).execute()
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi gỡ thành viên: {exc}")
+
+
+# ── WF-1 — CLASS ROSTER (students.cohort_id) ─────────────────────────────────
+# Distinct from the code-issue /members endpoints above: these manage the
+# canonical class roster (the column writing fan-out + grade-matrix read) by
+# directly assigning EXISTING students, WITHOUT issuing any access code.
+# Entitlement (who can log in / what they can do) stays in user_code_assignments.
+
+
+class AssignStudentRequest(BaseModel):
+    student_id: str
+
+
+@router.post("/{cohort_id}/students")
+async def assign_student_to_cohort(
+    cohort_id: str,
+    body: AssignStudentRequest,
+    authorization: str | None = Header(default=None),
+):
+    """WF-1 — add an EXISTING student to this cohort's roster by setting
+    `students.cohort_id`. Issues NO access code (entitlement is separate).
+    Idempotent. The student then appears in GET /members and receives writing
+    fan-out + shows in the grade-by-class matrix."""
+    await require_admin(authorization)
+
+    cohort = (
+        supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
+    ) or []
+    if not cohort:
+        raise HTTPException(404, "Không tìm thấy lớp")
+
+    srow = (
+        supabase_admin.table("students").select("id").eq("id", body.student_id).limit(1).execute().data
+    ) or []
+    if not srow:
+        raise HTTPException(404, "Không tìm thấy học viên")
+
+    try:
+        supabase_admin.table("students").update(
+            {"cohort_id": cohort_id}
+        ).eq("id", body.student_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
+
+    return {"ok": True, "student_id": body.student_id, "cohort_id": cohort_id}
+
+
+@router.delete("/{cohort_id}/students/{student_id}", status_code=204)
+async def remove_student_from_cohort(
+    cohort_id: str,
+    student_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """WF-1 — remove a student from this cohort's roster (clear
+    `students.cohort_id`). Only clears when the student is currently in THIS
+    cohort (no-op otherwise, so a stale request can't yank a student out of a
+    different class). Access codes / entitlement are NOT touched."""
+    await require_admin(authorization)
+
+    srow = (
+        supabase_admin.table("students").select("id, cohort_id").eq("id", student_id).limit(1).execute().data
+    ) or []
+    if not srow or srow[0].get("cohort_id") != cohort_id:
+        return   # not found or not in this cohort → nothing to clear
+
+    try:
+        supabase_admin.table("students").update(
+            {"cohort_id": None}
+        ).eq("id", student_id).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi gỡ học viên khỏi lớp: {exc}")

@@ -116,7 +116,7 @@
       <div class="adm-table-wrap" id="members-table-wrap" hidden>
         <table class="adm-table">
           <thead>
-            <tr><th>Thành viên</th><th>Tổng phiên</th><th>Hoạt động gần nhất</th><th>Chi phí AI</th><th>Mã</th><th></th></tr>
+            <tr><th>Thành viên</th><th>Tổng phiên</th><th>Hoạt động gần nhất</th><th>Chi phí AI</th><th>Mã HV</th><th></th></tr>
           </thead>
           <tbody id="members-tbody"></tbody>
         </table>
@@ -127,9 +127,8 @@
     <div class="adm-modal-backdrop" id="addmember-backdrop" hidden>
       <div class="adm-modal" role="dialog" aria-modal="true">
         <h2>Thêm học viên vào lớp</h2>
-        <p class="co-meta" style="margin:0;">Cấp một mã trực tiếp mới cho học viên và gán vào lớp này.</p>
-        <div class="adm-field"><label for="am-user">Học viên</label><select id="am-user"><option value="">— Chọn người dùng —</option></select></div>
-        <div class="adm-field"><label for="am-reason">Lý do (tùy chọn)</label><input id="am-reason" type="text" /></div>
+        <p class="co-meta" style="margin:0;">Gán một học viên sẵn có vào lớp này (đặt lớp cho hồ sơ học viên — không cấp mã mới).</p>
+        <div class="adm-field"><label for="am-user">Học viên</label><select id="am-user"><option value="">— Chọn học viên —</option></select></div>
         <div class="adm-banner" id="am-error" hidden></div>
         <div class="adm-modal-actions">
           <button class="adm-btn-secondary" id="btn-am-cancel" type="button">Hủy</button>

@@ -45,9 +45,10 @@ describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', ()
 });
 
 describe('Sprint 17.5 — cohort UI member add/remove', () => {
-  test('add member POSTs to cohort members + remove DELETEs', () => {
-    assert.match(COHORTS, /api\.post\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/members'/);
-    assert.match(COHORTS, /api\.delete\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/members\/'/);
+  test('add assigns existing student (POST /students) + remove DELETEs /students', () => {
+    // WF-1: roster add/remove sets/clears students.cohort_id (no code issued).
+    assert.match(COHORTS, /api\.post\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/students'/);
+    assert.match(COHORTS, /api\.delete\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/students\/'/);
   });
   test('remove-member button per row + confirm', () => {
     assert.match(COHORTS, /data-action="remove-member"/);

@@ -55,9 +55,9 @@ describe('Sprint 18.1 D — cohort add-member user dropdown', () => {
     assert.match(COHORTS_HTML, /<select id="am-user">/);
     assert.doesNotMatch(COHORTS_HTML, /<input id="am-user"/);
   });
-  test('dropdown is populated from GET /admin/users', () => {
-    assert.match(COHORTS_JS, /populateUserDropdown/);
-    assert.match(COHORTS_JS, /api\.get\('\/admin\/users'\)/);
+  test('dropdown is populated from GET /admin/students (WF-1 roster picker)', () => {
+    assert.match(COHORTS_JS, /populateStudentDropdown/);
+    assert.match(COHORTS_JS, /api\.get\('\/admin\/students/);
   });
   test('Pattern #26 — no inline colour/bg in admin-cohorts.js', () => {
     assert.doesNotMatch(COHORTS_JS, /style\s*=\s*["'][^"']*color\s*:/);

@@ -3,10 +3,12 @@
  *
  * Cohort/class management (replaces the Phase-B placeholder). Two views off one page:
  *   - default        → cohort list (create / archive / view members)
- *   - ?cohort_id=<id> → cohort detail: member roster (CODE-DERIVED — the cohort's
- *                       active code assignees, via GET /admin/cohorts/{id}/members)
- * Member add/remove is deferred to Sprint 17.5 (= issuing/reassigning a code).
- * Class-based styling only (Pattern #26); reuses Sprint 17.2 usage formatters.
+ *   - ?cohort_id=<id> → cohort detail: CLASS ROSTER (WF-1 — students WHERE
+ *                       cohort_id=id, the source of truth writing fan-out +
+ *                       grade-matrix read, via GET /admin/cohorts/{id}/members)
+ * Add/remove assign an EXISTING student to the roster (POST/DELETE
+ * /admin/cohorts/{id}/students — sets/clears students.cohort_id, no code issued;
+ * entitlement/codes are a separate concern). Reuses 17.2 usage formatters.
  */
 
 import { usdLabel, countLabel, lastActiveLabel } from './admin-usage-util.js';
@@ -148,66 +150,72 @@ async function loadDetail(cohortId) {
   $('members-empty').hidden = (data.members || []).length > 0;
   const members = data.members || [];
   $('members-table-wrap').hidden = members.length === 0;
+  // WF-1: roster row = a student (students.cohort_id). Usage columns are
+  // zero for students who haven't activated (no linked user). The status
+  // sub-line replaces the old per-user code (entitlement is separate now).
   $('members-tbody').innerHTML = members.map((m) => {
-    const who = m.email ? esc(m.email) : '(không rõ)';
     const name = m.name ? `<div class="u-name">${esc(m.name)}</div>` : '';
+    const status = m.user_id
+      ? '<div class="u-email">Đã kích hoạt</div>'
+      : '<div class="u-email">Chưa kích hoạt</div>';
     return `<tr>
-      <td>${name}<div class="u-email">${who}</div></td>
+      <td>${name}${status}</td>
       <td class="u-num">${countLabel(m.sessions)}</td>
       <td>${esc(lastActiveLabel(m.last_active))}</td>
       <td class="u-num">${esc(usdLabel(m.ai_cost_usd))}</td>
-      <td class="code-cell">${esc(m.code) || '—'}</td>
-      <td><button class="adm-btn-secondary" data-action="remove-member" data-user="${esc(m.user_id)}">Xóa khỏi lớp</button></td>
+      <td class="code-cell">${esc(m.student_code) || '—'}</td>
+      <td><button class="adm-btn-secondary" data-action="remove-member" data-student="${esc(m.student_id)}">Xóa khỏi lớp</button></td>
     </tr>`;
   }).join('');
 }
 
 // ── Member add / remove (Sprint 17.5) ───────────────────────────────────────────
 
-// Sprint 18.1 — the add-member picker is a user dropdown (was a raw UUID
-// text input). Lazy-loaded + cached the first time the modal opens.
-let _usersLoaded = false;
+// WF-1 — the add-member picker lists STUDENTS (roster = students.cohort_id).
+// Assigning sets students.cohort_id; it does NOT issue any access code
+// (entitlement is a separate concern). Lazy-loaded + cached on first open.
+let _studentsLoaded = false;
 
-async function populateUserDropdown() {
+async function populateStudentDropdown() {
   const sel = $('am-user');
-  if (_usersLoaded) return;
+  if (_studentsLoaded) return;
   try {
-    const users = (await api.get('/admin/users')) || [];
-    const opts = users
-      .map((u) => {
-        const label = u.display_name ? `${u.display_name} (${u.email || '—'})` : (u.email || u.id);
-        return `<option value="${esc(u.id)}">${esc(label)}</option>`;
+    const res = await api.get('/admin/students?limit=200');
+    const students = Array.isArray(res) ? res : (res.students || res.items || []);
+    const opts = students
+      .map((s) => {
+        const label = s.full_name ? `${s.full_name} (${s.student_code || '—'})` : (s.student_code || s.id);
+        return `<option value="${esc(s.id)}">${esc(label)}</option>`;
       })
       .join('');
-    sel.innerHTML = '<option value="">— Chọn người dùng —</option>' + opts;
-    _usersLoaded = true;
+    sel.innerHTML = '<option value="">— Chọn học viên —</option>' + opts;
+    _studentsLoaded = true;
   } catch (err) {
-    sel.innerHTML = '<option value="">Không tải được danh sách người dùng</option>';
+    sel.innerHTML = '<option value="">Không tải được danh sách học viên</option>';
   }
 }
 
 function openAddMember() {
   $('am-error').hidden = true;
   $('am-user').value = '';
-  $('am-reason').value = '';
   $('addmember-backdrop').hidden = false;
-  populateUserDropdown();
+  populateStudentDropdown();
 }
 function closeAddMember() { $('addmember-backdrop').hidden = true; }
 
 async function submitAddMember() {
-  const user_id = $('am-user').value.trim();
-  if (!user_id) {
+  const student_id = $('am-user').value.trim();
+  if (!student_id) {
     $('am-error').textContent = 'Cần chọn học viên từ danh sách.';
     $('am-error').hidden = false;
     return;
   }
   $('btn-am-submit').disabled = true;
   try {
-    const r = await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/members',
-      { user_id, reason: $('am-reason').value.trim() || null });
+    await api.post('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/students',
+      { student_id });
     closeAddMember();
-    showBanner('Đã thêm học viên (cấp mã ' + (r.new_code || '') + ').', 'success');
+    showBanner('Đã thêm học viên vào lớp.', 'success');
     loadDetail(_cohortId);
   } catch (err) {
     $('am-error').textContent = 'Không thêm được học viên: ' + (err.message || err);
@@ -217,10 +225,10 @@ async function submitAddMember() {
   }
 }
 
-async function removeMember(userId) {
-  if (!confirm('Xóa học viên này khỏi lớp? Các mã của lớp gắn với họ sẽ bị vô hiệu.')) return;
+async function removeMember(studentId) {
+  if (!confirm('Xóa học viên này khỏi lớp? (Không ảnh hưởng mã đăng nhập của họ.)')) return;
   try {
-    await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/members/' + encodeURIComponent(userId));
+    await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/students/' + encodeURIComponent(studentId));
     showBanner('Đã xóa học viên khỏi lớp.', 'success');
     loadDetail(_cohortId);
   } catch (err) {
@@ -237,7 +245,7 @@ function bindDetail() {
   });
   $('members-tbody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action="remove-member"]');
-    if (btn) removeMember(btn.dataset.user);
+    if (btn) removeMember(btn.dataset.student);
   });
 }
 

@@ -44,8 +44,9 @@ describe('Sprint 17.3 — admin-cohorts.js wiring', () => {
     assert.match(CTRL, /is_active:\s*isActive/);
     assert.match(CTRL, /data-action="archive"|data-action="restore"/);
   });
-  test('renders member roster with escaped email + formatters', () => {
-    assert.match(CTRL, /esc\(m\.email\)/);
+  test('renders member roster from students (student_code) + formatters', () => {
+    // WF-1: roster = students.cohort_id; rows show student_code (not user email).
+    assert.match(CTRL, /esc\(m\.student_code\)/);
     assert.match(CTRL, /countLabel\(m\.sessions\)/);
     assert.match(CTRL, /usdLabel\(m\.ai_cost_usd\)/);
   });
