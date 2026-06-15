@@ -149,7 +149,7 @@
       <table id="students-table" class="adm-table">
         <thead>
           <tr>
-            <th class="th-check"><input type="checkbox" id="select-all" aria-label="Chọn tất cả" /></th>
+            <th class="th-check"><input type="checkbox" id="bulk-select-all" aria-label="Chọn tất cả" /></th>
             <th>Code</th>
             <th>Name</th>
             <th>Lớp</th>
@@ -280,7 +280,7 @@
       // may no longer be present after a search/refresh.
       _selectedIds.clear();
       updateBulkBar();
-      var sa = document.getElementById('select-all');
+      var sa = document.getElementById('bulk-select-all');
       if (sa) sa.checked = false;
       document.getElementById('row-count').textContent = rows.length + ' học viên';
       if (!rows.length) {
@@ -566,7 +566,7 @@
       document.getElementById('students-tbody').addEventListener('click', handleTableClick);
       document.getElementById('csv-input').addEventListener('change', handleCsvImport);
 
-      // WF-1 bulk-assign: per-row checkbox (delegated), select-all, assign.
+      // WF-1 bulk-assign: per-row checkbox (delegated), choose-all, assign.
       document.getElementById('students-tbody').addEventListener('change', function (e) {
         var cb = e.target.closest('input.row-check[data-id]');
         if (!cb) return;
@@ -574,7 +574,7 @@
         if (cb.checked) _selectedIds.add(id); else _selectedIds.delete(id);
         updateBulkBar();
       });
-      document.getElementById('select-all').addEventListener('change', function (e) {
+      document.getElementById('bulk-select-all').addEventListener('change', function (e) {
         var on = e.target.checked;
         document.querySelectorAll('#students-tbody input.row-check[data-id]').forEach(function (cb) {
           cb.checked = on;

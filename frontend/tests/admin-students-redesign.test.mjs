@@ -355,7 +355,7 @@ describe('admin-students.html / WF-1 Lớp column + bulk-assign', () => {
   });
 
   test('per-row checkbox + select-all + selection Set', () => {
-    assert.match(html, /id="select-all"/);
+    assert.match(html, /id="bulk-select-all"/);
     assert.match(html, /class="row-check"\s+data-id=/);
     assert.match(html, /_selectedIds\s*=\s*new Set\(\)/);
   });
