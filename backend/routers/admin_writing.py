@@ -33,6 +33,7 @@ from services.file_extract_service import (
 from services.access_code_permissions import (
     get_student_access_code_permissions,
     has_writing_permission,
+    student_has_writing_assignment,
 )
 from services.writing_render import render_feedback_html, render_plain_text
 from services.writing_word_exporter import render_essay_to_docx
@@ -148,8 +149,11 @@ async def create_essay(
     # permissions, not the admin's. This means an admin can't bypass
     # the gate by submitting under their own auth — billing/access
     # intent follows the essay owner, not the requester.
+    # WF entitlement bridge (c): the student's code grants Writing OR they
+    # already have a writing assignment — symmetric with the self-submit gate.
     student_perms = get_student_access_code_permissions(body.student_id)
-    if not has_writing_permission(student_perms):
+    if (not has_writing_permission(student_perms)
+            and not student_has_writing_assignment(body.student_id)):
         raise HTTPException(
             status_code=403,
             detail=(

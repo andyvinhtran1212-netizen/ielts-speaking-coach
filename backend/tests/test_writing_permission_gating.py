@@ -84,6 +84,29 @@ def test_admin_essay_create_blocked_when_student_lacks_writing():
     assert called_with_student == _STUDENT_ID
 
 
+def test_admin_essay_create_succeeds_when_student_has_assignment_no_code_perm():
+    """WF entitlement bridge (c): the student's code grants NO writing, but they
+    have a writing assignment → the gate lets the admin submit on their behalf
+    (202). Proves the bridge is additive, not a code.permissions change."""
+    with patch(
+        "routers.admin_writing.require_admin",
+        new=AsyncMock(return_value=_ADMIN_USER),
+    ), patch(
+        "routers.admin_writing.get_student_access_code_permissions",
+        return_value=["practice_single"],   # Speaking-only — no writing
+    ), patch(
+        "routers.admin_writing.student_has_writing_assignment",
+        return_value=True,                    # …but they were assigned writing
+    ), patch(
+        "services.essay_service.create_essay_with_job",
+        return_value={"essay_id": str(uuid4()), "job_id": str(uuid4()), "eta_seconds": 30},
+    ):
+        r = _client().post(
+            "/admin/writing/essays", headers=_ADMIN_AUTH, json=_essay_payload(),
+        )
+    assert r.status_code == 202, r.text
+
+
 def test_admin_essay_create_succeeds_with_writing_permission():
     """Permission present → handler proceeds past the gate. We mock the
     essay_service so the test doesn't touch Supabase; a 202 response is
@@ -477,3 +500,48 @@ def test_activate_accepts_null_expiry_code():
     # Same logic as test_activate_accepts_unexpired_code — assert no
     # expiry-specific 400.
     assert r.status_code != 400 or "hết hạn" not in r.json().get("detail", ""), r.text
+
+
+# ── WF entitlement bridge — /api/student/permissions summary flag ────────────
+
+def test_permissions_summary_writing_true_when_assignment_exists_no_code_perm():
+    """The Writing card / dashboard read GET /api/student/permissions `.writing`.
+    WF bridge: code grants no writing, but the student has a writing assignment
+    → summary.writing flips True so the FE unlocks (consistent with the gates)."""
+    with patch(
+        "routers.student_home.get_supabase_user",
+        new=AsyncMock(return_value={"id": "user-1"}),
+    ), patch(
+        "routers.student_home.get_user_access_code_permissions",
+        return_value=["practice_single"],          # no writing
+    ), patch(
+        "routers.student_home.student_id_for_user",
+        return_value="student-1",
+    ), patch(
+        "routers.student_home.student_has_writing_assignment",
+        return_value=True,
+    ):
+        r = _client().get("/api/student/permissions", headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    assert r.json()["writing"] is True
+
+
+def test_permissions_summary_writing_false_when_no_perm_and_no_assignment():
+    """No writing code-perm AND no assignment → writing stays False (bridge is
+    additive, never grants without one of the two sources)."""
+    with patch(
+        "routers.student_home.get_supabase_user",
+        new=AsyncMock(return_value={"id": "user-1"}),
+    ), patch(
+        "routers.student_home.get_user_access_code_permissions",
+        return_value=["practice_single"],
+    ), patch(
+        "routers.student_home.student_id_for_user",
+        return_value="student-1",
+    ), patch(
+        "routers.student_home.student_has_writing_assignment",
+        return_value=False,
+    ):
+        r = _client().get("/api/student/permissions", headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    assert r.json()["writing"] is False

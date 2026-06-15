@@ -23,6 +23,8 @@ from routers.auth import get_supabase_user
 from services.access_code_permissions import (
     get_user_access_code_permissions,
     get_user_permissions_summary,
+    student_has_writing_assignment,
+    student_id_for_user,
 )
 from services.student_home_aggregator import get_home_summary
 
@@ -61,5 +63,12 @@ async def my_permissions(authorization: str | None = Header(default=None)):
     re-checked at request time on the relevant POST.
     """
     auth_user = await get_supabase_user(authorization)
-    permissions = get_user_access_code_permissions(auth_user["id"])
-    return get_user_permissions_summary(permissions)
+    user_id = auth_user["id"]
+    permissions = get_user_access_code_permissions(user_id)
+    summary = get_user_permissions_summary(permissions)
+    # WF entitlement bridge (c): if the code doesn't grant Writing but the
+    # student has a writing assignment, surface writing=true so the Writing
+    # card + dashboard unlock — consistent with the backend request-time gates.
+    if not summary["writing"] and student_has_writing_assignment(student_id_for_user(user_id)):
+        summary["writing"] = True
+    return summary
