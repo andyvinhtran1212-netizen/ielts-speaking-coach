@@ -830,6 +830,14 @@ describe('writing-dashboard.html / W-UI 2-pane submit modal', () => {
     assert.match(css, /@media\s*\(max-width:\s*860px\)[\s\S]*?\.wd-modal-2pane\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
   });
 
+  test('reorder: prompt_text renders ABOVE the Task-1 chart image (left pane)', () => {
+    const left = html.match(/wd-modal-pane-left[\s\S]*?wd-modal-pane-right/);
+    assert.ok(left);
+    assert.ok(
+      left[0].indexOf('id="modal-prompt-text"') < left[0].indexOf('id="modal-prompt-image"'),
+      'prompt_text must come before the chart image',
+    );
+  });
 });
 
 

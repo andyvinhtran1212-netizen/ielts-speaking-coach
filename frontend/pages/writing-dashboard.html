@@ -1871,9 +1871,11 @@
             <div class="wd-modal-prompt-panel mb-4 p-4 rounded">
               <div class="wd-modal-prompt__meta text-xs uppercase tracking-wider mb-2" id="modal-prompt-meta">— · —</div>
               <h2 class="wd-modal-prompt__title text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
-              <img id="modal-prompt-image" class="wd-modal-prompt__image hidden max-w-full rounded mb-3"
+              <!-- W-UI follow-up — đề (prompt_text) ABOVE the Task-1 chart so the
+                   question reads first, then the chart it refers to. -->
+              <p class="wd-modal-prompt__body text-sm leading-relaxed whitespace-pre-line mb-3" id="modal-prompt-text">—</p>
+              <img id="modal-prompt-image" class="wd-modal-prompt__image hidden max-w-full rounded"
                    alt="" loading="lazy" />
-              <p class="wd-modal-prompt__body text-sm leading-relaxed whitespace-pre-line" id="modal-prompt-text">—</p>
             </div>
 
             <!-- Optional admin instructions -->
