@@ -414,7 +414,7 @@
 
     function renderPromptList(filter) {
       var box = document.getElementById('prompts-list');
-      var empty = document.getElementById('prompts-empty');
+      if (!box) return;
       var f = (filter || '').toLowerCase();
 
       var filtered = _allPrompts.filter(function (p) {
@@ -423,13 +423,16 @@
       });
 
       if (filtered.length === 0) {
-        box.innerHTML = '';
-        box.appendChild(empty);
-        empty.classList.remove('hidden');
+        // Inline empty state — same fix as renderStudentList: a nested
+        // #prompts-empty node gets destroyed by `box.innerHTML = …` in the
+        // populated branch, so toggling its .classList on the next call
+        // crashes on null. Render it inline instead.
+        box.innerHTML =
+          '<p id="prompts-empty" class="aw-student-picker__empty text-xs p-2">'
+          + 'Không có đề trùng bộ lọc.</p>';
         return;
       }
 
-      empty.classList.add('hidden');
       box.innerHTML = filtered.map(function (p) {
         var checked = _selectedPromptIds.has(p.id) ? 'checked' : '';
         var task = TASK_LABELS[p.task_type] || p.task_type || '';
@@ -458,7 +461,7 @@
 
     function renderStudentList(filter) {
       var box = document.getElementById('students-list');
-      var empty = document.getElementById('students-empty');
+      if (!box) return;
       var f = (filter || '').toLowerCase();
 
       var filtered = _allStudents.filter(function (s) {
@@ -469,13 +472,19 @@
       });
 
       if (filtered.length === 0) {
-        box.innerHTML = '';
-        box.appendChild(empty);
-        empty.classList.remove('hidden');
+        // Render the empty state INLINE. The previous code kept a persistent
+        // #students-empty <p> nested INSIDE #students-list and toggled its
+        // .classList — but the populated branch below does
+        // `box.innerHTML = …`, which DESTROYS that nested node. The next call
+        // then hit `getElementById('students-empty')` === null → "Cannot read
+        // properties of null (reading 'classList')". Rendering inline removes
+        // that fragile shared node entirely.
+        box.innerHTML =
+          '<p id="students-empty" class="aw-student-picker__empty text-xs p-2">'
+          + 'Không có học viên trùng bộ lọc.</p>';
         return;
       }
 
-      empty.classList.add('hidden');
       box.innerHTML = filtered.map(function (s) {
         var checked = _selectedStudentIds.has(s.id) ? 'checked' : '';
         var label = s.full_name || s.student_code || '(Chưa đặt tên)';
