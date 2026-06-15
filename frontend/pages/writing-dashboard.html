@@ -1765,7 +1765,7 @@
     IELTS exercise.
   -->
   <div id="submit-modal" class="wd-submit-modal hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="max-w-3xl mx-auto px-4 py-6">
+    <div class="max-w-6xl mx-auto px-4 py-6">
       <header class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-semibold" id="modal-title">Làm bài</h1>
         <button id="modal-close" type="button"
@@ -1778,68 +1778,82 @@
       <div id="modal-loading" class="wd-modal-loading text-center py-12">Đang tải…</div>
 
       <div id="modal-content" class="hidden">
-        <!-- Timer banner — only shown for IELTS-mode assignments -->
-        <div id="modal-timer" class="wd-modal-timer hidden mb-4 p-3 rounded flex items-center justify-between">
-          <div>
-            <div class="wd-modal-timer__label text-xs uppercase tracking-wider mb-1">⏱️ IELTS-mode</div>
-            <div class="wd-modal-timer__total text-xs" id="modal-timer-total">Tổng thời gian: — phút</div>
+        <!-- W-UI 2-pane: đề bài (TRÁI, scrollable) · khung viết (PHẢI).
+             Layout-only — every id + handler below is unchanged; the DOM is
+             just re-nested into two columns (adapts .rv-passage-layout).
+             Mobile (≤860px) stacks: đề trên / viết dưới. -->
+        <div class="wd-modal-2pane">
+
+          <!-- ── LEFT — đề bài ───────────────────────────────────────── -->
+          <div class="wd-modal-pane-left">
+            <!-- Prompt panel -->
+            <div class="wd-modal-prompt-panel mb-4 p-4 rounded">
+              <div class="wd-modal-prompt__meta text-xs uppercase tracking-wider mb-2" id="modal-prompt-meta">— · —</div>
+              <h2 class="wd-modal-prompt__title text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
+              <img id="modal-prompt-image" class="wd-modal-prompt__image hidden max-w-full rounded mb-3"
+                   alt="" loading="lazy" />
+              <p class="wd-modal-prompt__body text-sm leading-relaxed whitespace-pre-line" id="modal-prompt-text">—</p>
+            </div>
+
+            <!-- Optional admin instructions -->
+            <div id="modal-instructions" class="wd-modal-instructions hidden mb-4 p-3 rounded text-xs leading-relaxed">
+              📌 <span id="modal-instructions-text"></span>
+            </div>
           </div>
-          <div id="modal-timer-display" class="wd-modal-timer__display text-3xl font-mono font-bold">--:--</div>
-        </div>
 
-        <!-- Prompt panel -->
-        <div class="wd-modal-prompt-panel mb-4 p-4 rounded">
-          <div class="wd-modal-prompt__meta text-xs uppercase tracking-wider mb-2" id="modal-prompt-meta">— · —</div>
-          <h2 class="wd-modal-prompt__title text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
-          <img id="modal-prompt-image" class="wd-modal-prompt__image hidden max-w-full rounded mb-3"
-               alt="" loading="lazy" />
-          <p class="wd-modal-prompt__body text-sm leading-relaxed whitespace-pre-line" id="modal-prompt-text">—</p>
-        </div>
+          <!-- ── RIGHT — khung viết ──────────────────────────────────── -->
+          <div class="wd-modal-pane-right">
+            <!-- Timer banner — only shown for IELTS-mode assignments -->
+            <div id="modal-timer" class="wd-modal-timer hidden p-3 rounded flex items-center justify-between">
+              <div>
+                <div class="wd-modal-timer__label text-xs uppercase tracking-wider mb-1">⏱️ IELTS-mode</div>
+                <div class="wd-modal-timer__total text-xs" id="modal-timer-total">Tổng thời gian: — phút</div>
+              </div>
+              <div id="modal-timer-display" class="wd-modal-timer__display text-3xl font-mono font-bold">--:--</div>
+            </div>
 
-        <!-- Optional admin instructions -->
-        <div id="modal-instructions" class="wd-modal-instructions hidden mb-4 p-3 rounded text-xs leading-relaxed">
-          📌 <span id="modal-instructions-text"></span>
-        </div>
+            <!-- File upload -->
+            <div class="flex items-center gap-3">
+              <label class="wd-modal-file-label inline-flex items-center gap-1 text-sm cursor-pointer">
+                <span>📎 Tải file (.docx, .txt)</span>
+                <input id="modal-file-input" type="file" class="hidden" accept=".docx,.txt" />
+              </label>
+              <span id="modal-upload-status" class="hidden text-xs"></span>
+            </div>
 
-        <!-- File upload -->
-        <div class="mb-3 flex items-center gap-3">
-          <label class="wd-modal-file-label inline-flex items-center gap-1 text-sm cursor-pointer">
-            <span>📎 Tải file (.docx, .txt)</span>
-            <input id="modal-file-input" type="file" class="hidden" accept=".docx,.txt" />
-          </label>
-          <span id="modal-upload-status" class="hidden text-xs"></span>
-        </div>
+            <!-- Essay textarea — Grammarly + autocorrect + spellcheck disabled -->
+            <textarea id="modal-essay-textarea"
+                      class="wd-modal-textarea w-full rounded p-3 text-sm"
+                      rows="20"
+                      placeholder="Bắt đầu viết bài…"
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                      data-gramm="false"
+                      data-gramm_editor="false"
+                      data-enable-grammarly="false"></textarea>
 
-        <!-- Essay textarea — Grammarly + autocorrect + spellcheck disabled -->
-        <textarea id="modal-essay-textarea"
-                  class="wd-modal-textarea w-full rounded p-3 text-sm"
-                  rows="20"
-                  placeholder="Bắt đầu viết bài…"
-                  autocomplete="off"
-                  autocorrect="off"
-                  autocapitalize="off"
-                  spellcheck="false"
-                  data-gramm="false"
-                  data-gramm_editor="false"
-                  data-enable-grammarly="false"></textarea>
-
-        <!-- Footer -->
-        <div class="flex flex-wrap items-center justify-between gap-3 mt-3">
-          <div class="wd-modal-footer-meta text-xs flex items-center gap-3">
-            <span><span id="modal-word-counter">0</span> từ</span>
-            <span id="modal-save-status" class="wd-modal-save-status hidden">✓ Đã lưu draft</span>
-            <span id="modal-save-pending" class="wd-modal-save-pending hidden">💾 Đang lưu…</span>
+            <!-- Footer -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="wd-modal-footer-meta text-xs flex items-center gap-3">
+                <span><span id="modal-word-counter">0</span> từ</span>
+                <span id="modal-save-status" class="wd-modal-save-status hidden">✓ Đã lưu draft</span>
+                <span id="modal-save-pending" class="wd-modal-save-pending hidden">💾 Đang lưu…</span>
+              </div>
+              <div class="flex gap-2">
+                <button id="modal-btn-save" type="button"
+                        class="wd-modal-btn-save text-sm rounded px-4 py-2">
+                  Lưu bản nháp
+                </button>
+                <button id="modal-btn-submit" type="button"
+                        class="wd-modal-btn-submit text-sm font-medium rounded px-4 py-2">
+                  Nộp bài
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="flex gap-2">
-            <button id="modal-btn-save" type="button"
-                    class="wd-modal-btn-save text-sm rounded px-4 py-2">
-              Lưu bản nháp
-            </button>
-            <button id="modal-btn-submit" type="button"
-                    class="wd-modal-btn-submit text-sm font-medium rounded px-4 py-2">
-              Nộp bài
-            </button>
-          </div>
+
         </div>
       </div>
     </div>
