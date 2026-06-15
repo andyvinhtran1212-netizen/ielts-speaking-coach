@@ -769,3 +769,22 @@ describe('R2b — delivered "Mới" badge', () => {
     assert.match(css, /\.essay-new-badge\s*\{[\s\S]*?var\(--av-radius-pill\)/);
   });
 });
+
+
+describe('writing-dashboard.html / W-ASSIGN grouped my-assignments', () => {
+  test('groups assignment cards by assignment_group_id under the name', () => {
+    assert.match(html, /assignment_group_id/);
+    assert.match(html, /class="assignment-group"/);
+  });
+  test('per-prompt card extracted to a reusable builder', () => {
+    assert.match(html, /function\s+buildAssignmentCardHtml\s*\(/);
+  });
+  test('each prompt keeps its own "Làm bài" start button (graded separately)', () => {
+    const builder = html.match(/function\s+buildAssignmentCardHtml[\s\S]*?\n    \}/);
+    assert.ok(builder, 'builder not found');
+    assert.match(builder[0], /btn-start-assignment/);
+  });
+  test('legacy rows (no group_id) render standalone cards', () => {
+    assert.match(html, /if \(!g\.grouped\) return cards/);
+  });
+});

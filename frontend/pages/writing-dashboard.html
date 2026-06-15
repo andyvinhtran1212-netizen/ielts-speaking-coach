@@ -1055,6 +1055,51 @@
       });
     }
 
+    // One assignment = one prompt → one card with its own "Làm bài →".
+    function buildAssignmentCardHtml(a) {
+      var prompt = a.writing_prompts || {};
+      var statusKey = a.status || 'pending';
+      var statusCfg = ASSIGNMENT_STATUS[statusKey] || ASSIGNMENT_STATUS.pending;
+      var taskLabel = TASK_LABELS[prompt.task_type] || 'Bài viết';
+
+      var draftHint = '';
+      if (a.has_draft) {
+        var rel = a.draft_updated_at ? ' · ' + formatRelativeTime(a.draft_updated_at) : '';
+        draftHint =
+          '<p class="text-xs text-gray-400 mb-3">📝 Bản nháp: ' +
+            (a.draft_word_count || 0) + ' từ' + escapeHtml(rel) +
+          '</p>';
+      }
+
+      var deadlineLine = a.deadline
+        ? '<span class="text-xs text-amber-300">Hạn: ' + formatDate(a.deadline) + '</span>'
+        : '';
+
+      var startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
+
+      return (
+        '<div class="assignment-card rounded-lg p-4" data-assignment-id="' + escapeHtml(a.id) + '">' +
+          '<div class="flex items-start justify-between gap-3 mb-2">' +
+            '<div class="min-w-0">' +
+              '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
+              '<div class="flex items-center gap-2 mt-1 flex-wrap">' +
+                '<span class="pill ' + statusCfg.pill + '">' + escapeHtml(statusCfg.text) + '</span>' +
+                '<span class="text-xs text-gray-400">' + escapeHtml(taskLabel) + '</span>' +
+                (a.is_timed && a.time_limit_minutes
+                  ? '<span class="pill pill-timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
+                  : '') +
+              '</div>' +
+            '</div>' +
+            deadlineLine +
+          '</div>' +
+          draftHint +
+          '<button type="button" class="btn-start-assignment text-sm px-4 py-2 rounded font-medium">' +
+            escapeHtml(startLabel) + ' →' +
+          '</button>' +
+        '</div>'
+      );
+    }
+
     function renderAssignments(assignments) {
       var list  = document.getElementById('assignments-list');
       var empty = document.getElementById('assignments-empty');
@@ -1066,53 +1111,32 @@
       }
       empty.classList.add('hidden');
 
-      // Sprint 2.6.1: card now shows TITLE ONLY (no prompt preview).
-      // The prompt body is revealed inside the modal once the
-      // student commits to "Làm bài" — keeps the dashboard list a
-      // pure index and prevents passive-reading the prompt before
-      // the timer starts.
-      list.innerHTML = assignments.map(function (a) {
-        var prompt = a.writing_prompts || {};
-        var statusKey = a.status || 'pending';
-        var statusCfg = ASSIGNMENT_STATUS[statusKey] || ASSIGNMENT_STATUS.pending;
-        var taskLabel = TASK_LABELS[prompt.task_type] || 'Bài viết';
-
-        var draftHint = '';
-        if (a.has_draft) {
-          var rel = a.draft_updated_at ? ' · ' + formatRelativeTime(a.draft_updated_at) : '';
-          draftHint =
-            '<p class="text-xs text-gray-400 mb-3">📝 Bản nháp: ' +
-              (a.draft_word_count || 0) + ' từ' + escapeHtml(rel) +
-            '</p>';
+      // Sprint 2.6.1: card shows TITLE ONLY (no prompt preview) — the body
+      // is revealed inside the modal once the student commits to "Làm bài".
+      // W-ASSIGN: rows that share an assignment_group_id are shown under the
+      // give's `name` ("📚 Buổi 5"); each prompt keeps its OWN "Làm bài →"
+      // (its own essay, graded separately). Legacy rows (no group) render
+      // standalone exactly as before.
+      var groups = [];
+      var byKey = {};
+      assignments.forEach(function (a) {
+        var gid = a.assignment_group_id;
+        var key = gid ? ('g:' + gid) : ('s:' + a.id);
+        if (!byKey[key]) {
+          byKey[key] = { grouped: !!gid, name: a.name || null, rows: [] };
+          groups.push(byKey[key]);
         }
+        byKey[key].rows.push(a);
+      });
 
-        var deadlineLine = a.deadline
-          ? '<span class="text-xs text-amber-300">Hạn: ' + formatDate(a.deadline) + '</span>'
-          : '';
-
-        var startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
-
-        return (
-          '<div class="assignment-card rounded-lg p-4" data-assignment-id="' + escapeHtml(a.id) + '">' +
-            '<div class="flex items-start justify-between gap-3 mb-2">' +
-              '<div class="min-w-0">' +
-                '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
-                '<div class="flex items-center gap-2 mt-1 flex-wrap">' +
-                  '<span class="pill ' + statusCfg.pill + '">' + escapeHtml(statusCfg.text) + '</span>' +
-                  '<span class="text-xs text-gray-400">' + escapeHtml(taskLabel) + '</span>' +
-                  (a.is_timed && a.time_limit_minutes
-                    ? '<span class="pill pill-timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
-                    : '') +
-                '</div>' +
-              '</div>' +
-              deadlineLine +
-            '</div>' +
-            draftHint +
-            '<button type="button" class="btn-start-assignment text-sm px-4 py-2 rounded font-medium">' +
-              escapeHtml(startLabel) + ' →' +
-            '</button>' +
-          '</div>'
-        );
+      list.innerHTML = groups.map(function (g) {
+        var cards = g.rows.map(buildAssignmentCardHtml).join('');
+        if (!g.grouped) return cards;            // legacy standalone card(s)
+        var head = '<h3 class="font-semibold text-gray-200 mb-2 mt-1">📚 '
+          + escapeHtml(g.name || 'Bài giao')
+          + ' <span class="text-xs text-gray-400">· ' + g.rows.length + ' bài</span></h3>';
+        return '<div class="assignment-group">' + head
+          + '<div class="space-y-3 pl-1">' + cards + '</div></div>';
       }).join('');
 
       // Wire the start buttons via delegation (anti-pattern #18 still
