@@ -84,3 +84,26 @@ describe('merge-codes — user tab merged code columns (READ-ONLY)', () => {
     assert.match(JS, /th\.usr-sortable\[data-sort\]/);
   });
 });
+
+
+describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
+  const vercel = JSON.parse(read('vercel.json'));
+  const chrome = read('js', 'components', 'aver-admin-chrome.js');
+
+  test('/admin/access-codes redirects to the users page codes tab', () => {
+    const r = (vercel.redirects || []).find((x) => x.source === '/admin/access-codes');
+    assert.ok(r, 'missing /admin/access-codes redirect');
+    assert.match(r.destination, /\/pages\/admin\/users\/index\.html\?tab=codes/);
+    assert.equal(r.permanent, true);
+  });
+  test('the old access-codes page path also redirects to the codes tab', () => {
+    const r = (vercel.redirects || []).find((x) => x.source === '/pages/admin/access-codes/index.html');
+    assert.ok(r);
+    assert.match(r.destination, /users\/index\.html\?tab=codes/);
+  });
+  test('nav no longer carries a standalone access-codes entry', () => {
+    assert.doesNotMatch(chrome, /href:\s*'\/pages\/admin\/access-codes\/index\.html'/);
+    // the users entry remains the single door into both tabs
+    assert.match(chrome, /href:\s*'\/pages\/admin\/users\/index\.html'/);
+  });
+});
