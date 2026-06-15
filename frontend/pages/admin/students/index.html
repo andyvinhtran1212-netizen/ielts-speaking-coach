@@ -96,6 +96,50 @@
       font-size: var(--av-fs-xs); background: var(--av-surface-sunken); color: var(--av-text-secondary);
       border: 1px solid var(--av-border-default); }
     .st-pill--flagged, .st-flagged { color: var(--av-error); }
+
+    /* ── Student Hub V1 — slide-over drawer (evolves #summary-modal in place) ── */
+    .st-namebtn { background: none; border: none; padding: 0; cursor: pointer;
+      font: inherit; color: var(--av-primary, var(--av-brand-teal-700));
+      text-align: left; text-decoration: none; }
+    .st-namebtn:hover { text-decoration: underline; }
+
+    .st-drawer {
+      position: fixed; top: 0; right: 0; height: 100vh;
+      width: 100%; max-width: 32rem;
+      background: var(--av-surface-card);
+      border-left: 1px solid var(--av-border-default);
+      box-shadow: var(--av-shadow-xl);
+      padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+      overflow-y: auto;
+      animation: stDrawerIn var(--av-duration-base) var(--av-easing-default);
+    }
+    @keyframes stDrawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @media (prefers-reduced-motion: reduce) { .st-drawer { animation: none; } }
+
+    .st-drawer-head { display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--av-space-3); }
+    .st-drawer-title { font-size: var(--av-fs-lg); font-weight: var(--av-fw-bold); margin: 0; }
+    .st-drawer-meta { display: flex; flex-wrap: wrap; gap: var(--av-space-2); margin-top: var(--av-space-2); }
+    .st-badge { display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: var(--av-radius-pill);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
+      background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default); }
+    .st-badge.is-account   { background: var(--av-success-soft); color: var(--av-success);
+      border-color: color-mix(in srgb, var(--av-success) 30%, transparent); }
+    .st-badge.is-noaccount { background: var(--av-warning-soft); color: var(--av-warning);
+      border-color: color-mix(in srgb, var(--av-warning) 30%, transparent); }
+    .st-empty-note { background: var(--av-warning-soft); color: var(--av-text-secondary);
+      border: 1px solid color-mix(in srgb, var(--av-warning) 30%, transparent);
+      border-radius: var(--av-radius-md); padding: var(--av-space-3) var(--av-space-4);
+      font-size: var(--av-fs-sm); }
+    .st-drawer-actions { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    /* 4 stat cards are cramped in a narrow drawer → 2 columns */
+    .st-drawer .st-stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* a11y — focus-visible halo (--av-shadow-focus) on interactive controls */
+    body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
   </style>
 </head>
 <body class="av-page">
@@ -166,34 +210,46 @@
     </div>
   </main>
 
-  <!-- Per-student instructor summary modal -->
-  <div id="summary-modal" class="adm-modal-backdrop hidden">
-    <div class="adm-modal st-modal-wide">
-      <div class="st-modal-head">
+  <!-- Per-student Hub V1 — slide-over drawer (profile + progress + writing
+       history + giao bài). Keeps the Phase 2.5 summary ids/contract; the panel
+       is now a right slide-over instead of a centered modal. -->
+  <div id="summary-modal" class="adm-modal-backdrop hidden" role="presentation">
+    <div class="st-drawer" role="dialog" aria-modal="true" aria-labelledby="summary-title">
+      <div class="st-drawer-head">
         <div>
-          <h2 id="summary-title">—</h2>
+          <h2 id="summary-title" class="st-drawer-title">—</h2>
           <p id="summary-subtitle" class="st-subtitle">—</p>
+          <div class="st-drawer-meta">
+            <span id="summary-account-badge" class="st-badge" hidden></span>
+            <span id="summary-cohort" class="st-badge" hidden></span>
+          </div>
         </div>
         <button id="summary-close" class="adm-btn-secondary">Đóng</button>
       </div>
 
+      <!-- has_account=false → explicit "chưa kích hoạt" notice (never a silent inactive state) -->
+      <div id="summary-noaccount" class="st-empty-note" hidden></div>
+
+      <div class="st-drawer-actions">
+        <a id="summary-assign" class="adm-btn-primary" href="#">📝 Giao writing</a>
+      </div>
+
+      <h3 class="st-section-heading">Tiến độ (writing)</h3>
       <div class="st-stat-grid">
         <div class="adm-card"><div class="adm-card-label">Tổng bài</div><div id="stat-total" class="adm-card-num">—</div></div>
         <div class="adm-card"><div class="adm-card-label">Đã chấm</div><div id="stat-graded" class="adm-card-num">—</div></div>
         <div class="adm-card"><div class="adm-card-label">Flagged</div><div id="stat-flagged" class="adm-card-num st-flagged">—</div></div>
-        <div class="adm-card"><div class="adm-card-label">Avg band 5 bài gần nhất</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
+        <div class="adm-card"><div class="adm-card-label">Avg band 5 bài</div><div id="stat-avg-band" class="adm-card-num">—</div></div>
       </div>
 
-      <div class="st-cols">
-        <div>
-          <h3 class="st-section-heading">Bài viết gần đây</h3>
-          <ul id="summary-essays" class="st-list"></ul>
-        </div>
-        <div>
-          <h3 class="st-section-heading">Đề bài giao gần đây</h3>
-          <ul id="summary-assignments" class="st-list"></ul>
-        </div>
-      </div>
+      <h3 class="st-section-heading">Bài viết gần đây</h3>
+      <ul id="summary-essays" class="st-list"></ul>
+
+      <h3 class="st-section-heading">Lịch sử nộp bài</h3>
+      <ul id="summary-history" class="st-list"></ul>
+
+      <h3 class="st-section-heading">Đề bài giao gần đây</h3>
+      <ul id="summary-assignments" class="st-list"></ul>
     </div>
   </div>
 
@@ -248,6 +304,9 @@
     var _searchValue = '';
     var _selectedIds = new Set();   // WF-1 bulk-assign selection
     var _cohortsLoaded = false;
+    var _drawerCohortName = '';     // cohort_name from the clicked row (detail endpoint lacks it)
+    var _drawerLastFocus = null;    // element to restore focus to when the drawer closes
+    var _TASK_LABELS = { task1_academic: 'Task 1 (Academic)', task1_general: 'Task 1 (General)', task2: 'Task 2' };
 
     // ── Local helpers (replace the removed WC.* utilities) ──────
     function esc(s) {
@@ -295,16 +354,17 @@
         var cBand = r.current_band_estimate == null ? '—' : r.current_band_estimate;
         var date  = r.target_date ? esc(r.target_date) : '—';
         var checked = _selectedIds.has(r.id) ? ' checked' : '';
+        var cohortAttr = r.cohort_name ? esc(r.cohort_name) : '';
         return '<tr>' +
           '<td class="th-check"><input type="checkbox" class="row-check" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
           '<td class="code-cell">' + code + '</td>' +
-          '<td>' + name + '</td>' +
+          '<td><button class="st-namebtn" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">' + name + '</button></td>' +
           '<td>' + lop + '</td>' +
           '<td>' + tBand + '</td>' +
           '<td>' + cBand + '</td>' +
           '<td>' + date + '</td>' +
           '<td><div class="st-row-actions">' +
-            '<button class="adm-btn-secondary" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '">📊 Tổng quan</button>' +
+            '<button class="adm-btn-secondary" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">📊 Tổng quan</button>' +
             '<button class="adm-btn-secondary" data-act="essay" data-id="' + esc(r.id) + '">📝 New Essay</button>' +
             '<button class="adm-btn-secondary" data-act="edit" data-id="' + esc(r.id) + '">Edit</button>' +
             '<button class="adm-btn-danger" data-act="delete" data-id="' + esc(r.id) + '" data-code="' + code + '">Delete</button>' +
@@ -422,6 +482,8 @@
       var act = btn.dataset.act;
 
       if (act === 'summary') {
+        _drawerCohortName = btn.dataset.cohort || '';
+        _drawerLastFocus = btn;   // return focus here when the drawer closes
         await openSummary(id, btn.dataset.name || '');
         return;
       }
@@ -467,75 +529,140 @@
       return null;
     }
 
+    // Student Hub drawer. Consumes two existing endpoints (0 backend new):
+    //   GET /admin/students/{id}            → profile + bands + user_id + essay_history
+    //   GET /admin/writing/students/{id}/summary → writing stats + recent essays/assignments
+    // Signature kept as (studentId, fallbackName) — tested contract.
     async function openSummary(studentId, fallbackName) {
       var modal = document.getElementById('summary-modal');
+      if (!_drawerLastFocus) _drawerLastFocus = document.activeElement;
+
+      // Reset to a loading state.
       document.getElementById('summary-title').textContent = fallbackName || 'Đang tải…';
       document.getElementById('summary-subtitle').textContent = '';
+      var accBadge = document.getElementById('summary-account-badge');
+      var cohBadge = document.getElementById('summary-cohort');
+      var noAcc    = document.getElementById('summary-noaccount');
+      accBadge.hidden = true; cohBadge.hidden = true; noAcc.hidden = true;
       document.getElementById('stat-total').textContent = '—';
       document.getElementById('stat-graded').textContent = '—';
       document.getElementById('stat-flagged').textContent = '—';
       document.getElementById('stat-avg-band').textContent = '—';
-      document.getElementById('summary-essays').innerHTML =
-        '<li class="st-list-empty">Đang tải…</li>';
+      document.getElementById('summary-essays').innerHTML = '<li class="st-list-empty">Đang tải…</li>';
+      document.getElementById('summary-history').innerHTML = '<li class="st-list-empty">Đang tải…</li>';
       document.getElementById('summary-assignments').innerHTML = '';
+      document.getElementById('summary-assign').setAttribute(
+        'href', '/pages/admin/writing/assignments.html?assign_student=' + encodeURIComponent(studentId));
+
+      // Lớp comes from the clicked row — the detail endpoint returns cohort_id
+      // but not cohort_name.
+      if (_drawerCohortName) { cohBadge.textContent = '🏫 ' + _drawerCohortName; cohBadge.hidden = false; }
+
       modal.classList.remove('hidden');
+      var closeBtn = document.getElementById('summary-close');
+      if (closeBtn) closeBtn.focus();   // focus-trap entry point
 
-      try {
-        var s = await window.api.get('/admin/writing/students/' + studentId + '/summary');
-        var stu = s.student || {};
-        document.getElementById('summary-title').textContent =
-          (stu.student_code ? stu.student_code + ' — ' : '') + (stu.full_name || '');
-        var subtitle = [];
-        if (stu.target_band       != null) subtitle.push('Target: ' + stu.target_band);
-        if (stu.current_band_estimate != null) subtitle.push('Current: ' + stu.current_band_estimate);
-        if (stu.target_date)               subtitle.push('Target date: ' + stu.target_date);
-        if (stu.is_under_review)           subtitle.push('🚩 Under review');
-        document.getElementById('summary-subtitle').textContent = subtitle.join(' · ') || '—';
+      // Both endpoints in parallel; tolerate partial failure (no silent fail).
+      var results = await Promise.allSettled([
+        window.api.get('/admin/students/' + studentId),
+        window.api.get('/admin/writing/students/' + studentId + '/summary'),
+      ]);
+      var detail  = results[0].status === 'fulfilled' ? results[0].value : null;
+      var summary = results[1].status === 'fulfilled' ? results[1].value : null;
 
-        var st = s.stats || {};
+      if (!detail && !summary) {
+        setAlert('error', 'Không tải được dữ liệu học viên.');
+        closeSummary();
+        return;
+      }
+
+      // ── Header: profile + target-vs-current + account state ──────────
+      var stu  = (summary && summary.student) || {};
+      var code = (detail && detail.student_code) || stu.student_code || '';
+      var name = (detail && detail.full_name) || stu.full_name || fallbackName || '';
+      document.getElementById('summary-title').textContent = (code ? code + ' — ' : '') + name;
+
+      var tBand = detail && detail.target_band != null ? detail.target_band
+                : (stu.target_band != null ? stu.target_band : null);
+      var cBand = detail && detail.current_band_estimate != null ? detail.current_band_estimate
+                : (stu.current_band_estimate != null ? stu.current_band_estimate : null);
+      var sub = ['🎯 Target: ' + _formatBand(tBand) + ' · Hiện tại: ' + _formatBand(cBand)];
+      var tDate = (detail && detail.target_date) || stu.target_date;
+      if (tDate) sub.push('Hạn: ' + tDate);
+      if (stu.is_under_review || (detail && detail.is_under_review)) sub.push('🚩 Under review');
+      document.getElementById('summary-subtitle').textContent = sub.join(' · ');
+
+      // has_account derived from user_id; absence shows an explicit "chưa kích
+      // hoạt" notice (never a silent inactive state).
+      if (detail) {
+        var hasAccount = !!detail.user_id;
+        if (hasAccount) {
+          accBadge.textContent = '✓ Đã kích hoạt tài khoản';
+          accBadge.className = 'st-badge is-account';
+        } else {
+          accBadge.textContent = '○ Chưa kích hoạt';
+          accBadge.className = 'st-badge is-noaccount';
+          noAcc.textContent = 'Học viên chưa kích hoạt tài khoản (mã: ' + (code || '—') +
+            '). Dữ liệu các kỹ năng khác sẽ hiện sau khi kích hoạt.';
+          noAcc.hidden = false;
+        }
+        accBadge.hidden = false;
+      }
+
+      // ── Tiến độ (writing) + recent essays/assignments — from summary ──
+      if (summary) {
+        var st = summary.stats || {};
         document.getElementById('stat-total').textContent    = st.total_essays || 0;
         document.getElementById('stat-graded').textContent   = st.graded_count || 0;
         document.getElementById('stat-flagged').textContent  = st.flagged_count || 0;
         document.getElementById('stat-avg-band').textContent = _formatBand(st.average_band_last5);
 
-        var essays = s.recent_essays || [];
-        var essaysHtml = essays.length
+        var essays = summary.recent_essays || [];
+        document.getElementById('summary-essays').innerHTML = essays.length
           ? essays.map(function (e) {
               var band = _bandFromEssay(e);
               var bandLabel = band != null ? 'Band ' + band : esc(e.status || '—');
-              var flagged = e.is_flagged
-                ? ' <span class="st-pill st-pill--flagged">⚠ Flagged</span>'
-                : '';
-              var regraded = (e.regrade_count || 0) > 0
-                ? ' <span class="st-pill">🔄 ×' + e.regrade_count + '</span>'
-                : '';
-              return '<li>' +
-                '<a href="/pages/admin/writing/grade.html?essay_id=' + esc(e.id) + '">' +
-                  _formatDateShort(e.created_at) + ' · ' + esc(bandLabel) +
-                '</a>' + flagged + regraded +
-              '</li>';
+              var flagged = e.is_flagged ? ' <span class="st-pill st-pill--flagged">⚠ Flagged</span>' : '';
+              var regraded = (e.regrade_count || 0) > 0 ? ' <span class="st-pill">🔄 ×' + e.regrade_count + '</span>' : '';
+              return '<li><a href="/pages/admin/writing/grade.html?essay_id=' + esc(e.id) + '">' +
+                _formatDateShort(e.created_at) + ' · ' + esc(bandLabel) + '</a>' + flagged + regraded + '</li>';
             }).join('')
           : '<li class="st-list-empty">Chưa có bài viết.</li>';
-        document.getElementById('summary-essays').innerHTML = essaysHtml;
 
-        var assigns = s.recent_assignments || [];
-        var assignsHtml = assigns.length
+        var assigns = summary.recent_assignments || [];
+        document.getElementById('summary-assignments').innerHTML = assigns.length
           ? assigns.map(function (a) {
               var p = a.writing_prompts || {};
-              return '<li>' +
-                esc(p.title || '—') +
-                ' <span class="st-pill">' + esc(a.status || '—') + '</span>' +
-              '</li>';
+              return '<li>' + esc(p.title || '—') + ' <span class="st-pill">' + esc(a.status || '—') + '</span></li>';
             }).join('')
           : '<li class="st-list-empty">Chưa có bài giao.</li>';
-        document.getElementById('summary-assignments').innerHTML = assignsHtml;
-      } catch (err) {
-        setAlert('error', 'Không tải được tổng quan: ' + err.message);
-        modal.classList.add('hidden');
+      } else {
+        document.getElementById('summary-essays').innerHTML = '<li class="st-list-empty">Không tải được tổng quan writing.</li>';
+        document.getElementById('summary-assignments').innerHTML = '<li class="st-list-empty">—</li>';
+      }
+
+      // ── Lịch sử nộp bài — essay_history from the detail endpoint ──────
+      if (detail) {
+        var hist = detail.essay_history || [];
+        document.getElementById('summary-history').innerHTML = hist.length
+          ? hist.map(function (h) {
+              var task = _TASK_LABELS[h.task_type] || h.task_type || '—';
+              return '<li><a href="/pages/admin/writing/grade.html?essay_id=' + esc(h.id) + '">' +
+                _formatDateShort(h.created_at) + ' · ' + esc(task) + '</a> ' +
+                '<span class="st-pill">' + esc(h.status || '—') + '</span></li>';
+            }).join('')
+          : '<li class="st-list-empty">Chưa có bài nộp.</li>';
+      } else {
+        document.getElementById('summary-history').innerHTML = '<li class="st-list-empty">Không tải được hồ sơ.</li>';
       }
     }
     function closeSummary() {
       document.getElementById('summary-modal').classList.add('hidden');
+      // a11y — return focus to the row control that opened the drawer.
+      if (_drawerLastFocus && typeof _drawerLastFocus.focus === 'function') {
+        try { _drawerLastFocus.focus(); } catch (e) { /* element gone */ }
+      }
+      _drawerLastFocus = null;
     }
 
     async function handleCsvImport(e) {
@@ -592,6 +719,19 @@
       document.getElementById('summary-close').addEventListener('click', closeSummary);
       document.getElementById('summary-modal').addEventListener('click', function (e) {
         if (e.target.id === 'summary-modal') closeSummary();
+      });
+      // a11y — focus-trap: keep Tab within the open drawer.
+      document.getElementById('summary-modal').addEventListener('keydown', function (e) {
+        if (e.key !== 'Tab') return;
+        var dr = document.getElementById('summary-modal');
+        if (dr.classList.contains('hidden')) return;
+        var f = Array.prototype.slice.call(dr.querySelectorAll(
+          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )).filter(function (el) { return el.offsetParent !== null; });
+        if (!f.length) return;
+        var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       });
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
