@@ -24,6 +24,31 @@ const $ = (id) => document.getElementById(id);
 
 const ROLES = ['admin', 'instructor', 'student'];
 let _all = [];
+// merge-codes PR-2 — sort across BOTH user + code criteria. For a user with
+// N active codes, code_type/status reflect their NEWEST active code (the
+// backend code_summary is built newest-first), so sorting "by code" uses it.
+let _sort = { field: 'created_at', order: 'desc' };
+
+function _sortVal(u, f) {
+  switch (f) {
+    case 'display_name': return (u.display_name || '').toLowerCase();
+    case 'role':         return (u.role || '').toLowerCase();
+    case 'cohort_name':  return (u.cohort_name || '').toLowerCase();
+    case 'code_type':    return ((u.code_summary || {}).code_type || '').toLowerCase();
+    case 'code_status':  return (u.code_summary || {}).has_active_code ? 0 : 1;  // active first
+    case 'created_at':
+    default:             return u.created_at || '';
+  }
+}
+
+function compareUsers(a, b) {
+  const dir = _sort.order === 'asc' ? 1 : -1;
+  const av = _sortVal(a, _sort.field);
+  const bv = _sortVal(b, _sort.field);
+  if (av < bv) return -1 * dir;
+  if (av > bv) return 1 * dir;
+  return 0;   // stable sort → ties keep prior (created-desc) order
+}
 
 function escapeHtml(s) {
   if (s == null) return '';
@@ -82,6 +107,7 @@ function applyFilters() {
     }
     return true;
   });
+  rows.sort(compareUsers);
   render(rows);
 }
 
@@ -94,12 +120,34 @@ function render(rows) {
   $('usr-empty').hidden = true;
   $('usr-table-wrap').hidden = false;
   const tbody = $('usr-tbody');
-  tbody.innerHTML = rows.map((u) => `
+  tbody.innerHTML = rows.map((u) => {
+    const cs = u.code_summary || {};
+    const codes = cs.codes || [];
+    // Mã: primary (newest) code + "(+N)" badge; READ-ONLY here.
+    const codeCell = codes.length
+      ? `<span class="usr-code-mono">${escapeHtml(codes[0].code || '—')}</span>`
+        + (codes.length > 1 ? ` <span class="usr-code-badge">(+${codes.length - 1})</span>` : '')
+      : '<span class="usr-code-none">— chưa có mã</span>';
+    const typeCell = cs.code_type ? escapeHtml(cs.code_type) : '—';
+    const permsCell = (cs.permissions && cs.permissions.length)
+      ? `<span class="usr-perms">${escapeHtml(cs.permissions.join(', '))}</span>` : '—';
+    const codeStatus = cs.has_active_code
+      ? '<span class="usr-chip">có mã</span>'
+      : '<span class="usr-code-none">không có mã active</span>';
+    // "Gỡ khỏi mã" targets the newest active code (DELETE /access-codes/{id}/users/{uid}).
+    const removeBtn = (cs.has_active_code && codes[0] && codes[0].id)
+      ? `<button class="ac-link ac-link-danger" data-removecode="${escapeHtml(codes[0].id)}" data-user="${escapeHtml(u.id)}">Gỡ khỏi mã</button>`
+      : '';
+    return `
     <tr data-id="${escapeHtml(u.id)}">
       <td>${escapeHtml(u.display_name || '—')}</td>
       <td>${escapeHtml(u.email || '—')}</td>
+      <td>${codeCell}</td>
+      <td>${typeCell}</td>
+      <td>${permsCell}</td>
+      <td>${codeStatus}</td>
       <td>${escapeHtml(u.cohort_name || '—')}</td>
-      <td>${roleChip(u.role)}</td>
+      <td class="usr-role-cell">${roleChip(u.role)}</td>
       <td style="font-family: var(--av-font-mono); text-align: center;">${u.sessions_today || 0}</td>
       <td>${u.is_active === false
             ? '<span class="usr-chip is-inactive">inactive</span>'
@@ -112,9 +160,10 @@ function render(rows) {
         <button class="usr-convert-btn" data-convert="${escapeHtml(u.id)}"
                 data-name="${escapeHtml(u.display_name || '')}"
                 data-email="${escapeHtml(u.email || '')}">→ Học viên</button>
+        ${removeBtn}
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 
   tbody.querySelectorAll('select.usr-role-select').forEach((sel) => {
     sel.addEventListener('change', () => {
@@ -139,12 +188,11 @@ async function changeRole(userId, role, previous, selectEl) {
     // Update local cache so subsequent filter operations see the new role.
     const row = _all.find((u) => u.id === userId);
     if (row) row.role = role;
-    // Re-render the chip column without reloading.
+    // Re-render the chip cell without reloading (target by class — column
+    // index shifted when the merged code columns were added).
     const tr = selectEl.closest('tr');
-    if (tr) {
-      const chipCell = tr.children[2];
-      if (chipCell) chipCell.innerHTML = roleChip(role);
-    }
+    const chipCell = tr && tr.querySelector('.usr-role-cell');
+    if (chipCell) chipCell.innerHTML = roleChip(role);
   } catch (e) {
     showBanner('Đổi role thất bại: ' + (e && e.message || 'lỗi'), 'error');
     selectEl.value = previous;
@@ -197,6 +245,21 @@ async function submitConvert() {
   }
 }
 
+// merge-codes PR-2 — per-user "Gỡ khỏi mã": deactivate this user's assignment
+// to their newest active code (the same canonical endpoint the code tab uses).
+// Refetch after (NOT optimistic) so the merged code columns reflect DB truth.
+async function removeFromCode(codeId, userId) {
+  if (!confirm('Gỡ học viên này khỏi mã đang dùng? (Không xoá user; chỉ vô hiệu gán mã.)')) return;
+  try {
+    await api.delete('/admin/access-codes/' + encodeURIComponent(codeId)
+      + '/users/' + encodeURIComponent(userId));
+    showBanner('Đã gỡ khỏi mã.', 'success');
+    await loadList();   // canonical refetch
+  } catch (e) {
+    showBanner('Gỡ khỏi mã thất bại: ' + (e && e.message || 'lỗi'), 'error');
+  }
+}
+
 function wire() {
   $('usr-role').addEventListener('change', applyFilters);
   $('usr-search').addEventListener('input', applyFilters);
@@ -208,8 +271,18 @@ function wire() {
   // Convert button is rendered per-row; delegate off the tbody (rebuilt on
   // every render) so a single listener survives re-renders.
   $('usr-tbody').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-convert]');
-    if (btn) openConvert(btn.dataset.convert, btn.dataset.name, btn.dataset.email);
+    const convertBtn = e.target.closest('button[data-convert]');
+    if (convertBtn) { openConvert(convertBtn.dataset.convert, convertBtn.dataset.name, convertBtn.dataset.email); return; }
+    const rmBtn = e.target.closest('button[data-removecode]');
+    if (rmBtn) removeFromCode(rmBtn.dataset.removecode, rmBtn.dataset.user);
+  });
+  // Sortable headers (2-criteria: user + code). Toggle dir on re-click.
+  document.querySelectorAll('th.usr-sortable[data-sort]').forEach((th) => {
+    th.addEventListener('click', () => {
+      const field = th.dataset.sort;
+      _sort = { field, order: (_sort.field === field && _sort.order === 'desc') ? 'asc' : 'desc' };
+      applyFilters();
+    });
   });
   $('btn-cv-cancel').addEventListener('click', closeConvert);
   $('btn-cv-submit').addEventListener('click', submitConvert);

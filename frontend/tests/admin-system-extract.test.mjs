@@ -161,10 +161,10 @@ describe('Sprint 12.8 — Users page (promoted from placeholder)', () => {
     }
   });
 
-  it('renders users table with role-change select column', () => {
+  it('renders users table with merged code columns + role-change select', () => {
     assert.match(USERS, /id=["']usr-tbody["']/);
-    // 7-column header includes "Display name", "Email", "Role", and an actions column.
-    assert.match(USERS, /<th>Display name<\/th>[\s\S]*?<th>Email<\/th>[\s\S]*?<th>Role<\/th>/);
+    // merge-codes PR-2: header gained Mã/Loại/Quyền/Trạng-thái + sortable cols.
+    assert.match(USERS, /data-sort="display_name"[\s\S]*?<th>Email<\/th>[\s\S]*?<th>Mã<\/th>[\s\S]*?data-sort="code_type"[\s\S]*?data-sort="role"/);
   });
 
   it('loads admin-users.js as type=module', () => {
