@@ -324,3 +324,31 @@ describe('admin-writing-assignments.html / W-ASSIGN multi-prompt + group', () =>
     assert.match(html, /function\s+renderAssignmentCard\s*\(/);   // legacy standalone
   });
 });
+
+
+describe('admin-writing-assignments.html / picker empty-state null-crash regression', () => {
+  // BUG: #students-empty / #prompts-empty were nested INSIDE their list box;
+  // `box.innerHTML = …` (populated branch) destroyed the node, so the next
+  // render hit getElementById(...) === null → "Cannot read properties of null
+  // (reading 'classList')". Fix renders the empty state inline.
+  function sliceFn(name) {
+    const m = html.match(new RegExp('function\\s+' + name + '\\([\\s\\S]*?\\n    \\}'));
+    assert.ok(m, name + ' not found');
+    return m[0];
+  }
+  for (const fn of ['renderStudentList', 'renderPromptList']) {
+    test(`${fn}: no fragile empty.classList toggle on a re-fetched node`, () => {
+      const body = sliceFn(fn);
+      assert.doesNotMatch(body, /empty\.classList/);          // the crash site is gone
+      assert.doesNotMatch(body, /box\.appendChild\(empty\)/); // no re-attach dance
+    });
+  }
+  test('renderStudentList renders the empty state inline (#students-empty)', () => {
+    const body = sliceFn('renderStudentList');
+    assert.match(body, /box\.innerHTML\s*=\s*[\s\S]*id="students-empty"/);
+  });
+  test('renderPromptList renders the empty state inline (#prompts-empty)', () => {
+    const body = sliceFn('renderPromptList');
+    assert.match(body, /box\.innerHTML\s*=\s*[\s\S]*id="prompts-empty"/);
+  });
+});
