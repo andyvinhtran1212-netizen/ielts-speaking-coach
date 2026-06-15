@@ -835,6 +835,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, "
             "essay_id, prompt_id, "
+            "assignment_group_id, name, allow_soft_check, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )
@@ -870,6 +871,7 @@ async def list_my_assignments(
         .select(
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, essay_id, "
+            "assignment_group_id, name, allow_soft_check, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )

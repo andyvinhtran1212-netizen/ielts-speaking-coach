@@ -114,7 +114,7 @@ def test_create_single_assignment_returns_count_one_no_duplicates():
     mock_db = MagicMock()
     # Duplicate-check returns no existing rows.
     dup_chain = (mock_db.table.return_value
-                 .select.return_value.eq.return_value.in_.return_value)
+                 .select.return_value.in_.return_value.in_.return_value)
     dup_chain.execute.return_value = MagicMock(data=[])
     # Insert succeeds.
     insert_chain = mock_db.table.return_value.insert.return_value
@@ -150,7 +150,7 @@ def test_create_bulk_assignment_surfaces_duplicate_warning():
     mock_db = MagicMock()
     # One existing duplicate against the first student id.
     dup_chain = (mock_db.table.return_value
-                 .select.return_value.eq.return_value.in_.return_value)
+                 .select.return_value.in_.return_value.in_.return_value)
     dup_chain.execute.return_value = MagicMock(data=[
         {"student_id": _STUDENT_ID},
     ])
@@ -178,6 +178,91 @@ def test_create_bulk_assignment_surfaces_duplicate_warning():
     assert body["count"] == 2
     assert _STUDENT_ID    in body["duplicates_warning"]
     assert _STUDENT_ID_2 not in body["duplicates_warning"]
+
+
+def test_create_multi_prompt_groups_rows_with_name_and_soft_check():
+    """W-ASSIGN: N prompts × M students → N×M rows that all share one
+    assignment_group_id + the given name + allow_soft_check. Each prompt
+    stays its own row (own essay later) — grouping is just a label."""
+    prompt_2 = "00000000-0000-0000-0000-00000000bbbc"
+    mock_db = MagicMock()
+    dup_chain = (mock_db.table.return_value
+                 .select.return_value.in_.return_value.in_.return_value)
+    dup_chain.execute.return_value = MagicMock(data=[])
+    insert_chain = mock_db.table.return_value.insert.return_value
+    insert_chain.execute.return_value = MagicMock(data=[
+        {"id": "r1"}, {"id": "r2"}, {"id": "r3"}, {"id": "r4"},
+    ])
+
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={
+                "prompt_ids":       [_PROMPT_ID, prompt_2],
+                "student_ids":      [_STUDENT_ID, _STUDENT_ID_2],
+                "name":             "Buổi 5",
+                "allow_soft_check": True,
+            },
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 201
+    body = r.json()
+    assert body["count"] == 4                       # 2 prompts × 2 students
+    assert body["group_id"]                         # a group id is returned
+
+    sent = mock_db.table.return_value.insert.call_args[0][0]
+    assert len(sent) == 4
+    # all rows share ONE group_id + carry the name + flag
+    assert len({row["assignment_group_id"] for row in sent}) == 1
+    assert sent[0]["assignment_group_id"] == body["group_id"]
+    assert all(row["name"] == "Buổi 5" for row in sent)
+    assert all(row["allow_soft_check"] is True for row in sent)
+    # both prompts present (each its own row per student)
+    assert {row["prompt_id"] for row in sent} == {_PROMPT_ID, prompt_2}
+
+
+def test_create_legacy_single_prompt_id_still_works():
+    """Back-compat: the pre-W-ASSIGN UI sends `prompt_id` (singular).
+    It must still create rows (one group, allow_soft_check defaults
+    false) so PR-1 can merge before the admin UI (PR-2)."""
+    mock_db = MagicMock()
+    dup_chain = (mock_db.table.return_value
+                 .select.return_value.in_.return_value.in_.return_value)
+    dup_chain.execute.return_value = MagicMock(data=[])
+    insert_chain = mock_db.table.return_value.insert.return_value
+    insert_chain.execute.return_value = MagicMock(data=[{"id": "r1"}])
+
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 201
+    sent = mock_db.table.return_value.insert.call_args[0][0]
+    assert len(sent) == 1
+    assert sent[0]["prompt_id"] == _PROMPT_ID
+    assert sent[0]["allow_soft_check"] is False
+    assert sent[0]["assignment_group_id"]           # still grouped
+
+
+def test_create_requires_at_least_one_prompt():
+    """Neither prompt_id nor prompt_ids → 422 from the coalesce validator."""
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", MagicMock()):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"student_ids": [_STUDENT_ID]},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 422
 
 
 def test_patch_status_submitted_auto_stamps_submitted_at():
@@ -404,7 +489,7 @@ def test_create_assignment_with_timer_persists_fields():
     rejects the row with an opaque error."""
     mock_db = MagicMock()
     dup_chain = (mock_db.table.return_value
-                 .select.return_value.eq.return_value.in_.return_value)
+                 .select.return_value.in_.return_value.in_.return_value)
     dup_chain.execute.return_value = MagicMock(data=[])
     insert_chain = mock_db.table.return_value.insert.return_value
     insert_chain.execute.return_value = MagicMock(data=[
