@@ -64,6 +64,13 @@
     .st-meta { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
     .st-empty { padding: var(--av-space-6); text-align: center; color: var(--av-text-muted); font-size: var(--av-fs-sm); }
     .st-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    /* WF-1 bulk-assign bar + row-select checkbox column */
+    .st-bulk-bar { display: flex; align-items: center; gap: var(--av-space-3);
+      flex-wrap: wrap; margin: var(--av-space-3) 0;
+      padding: var(--av-space-2) var(--av-space-3);
+      background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-md); }
+    .th-check { width: 2.5rem; text-align: center; }
     .th-right { text-align: right; }
 
     /* Modals (panels + behaviours from .adm-modal / .adm-modal-backdrop). */
@@ -129,14 +136,23 @@
       <span id="row-count" class="st-meta"></span>
     </div>
 
+    <!-- WF-1 bulk-assign bar — shown when ≥1 student is selected -->
+    <div id="bulk-bar" class="st-bulk-bar" hidden>
+      <span id="bulk-count" class="st-meta">0 đã chọn</span>
+      <select id="bulk-cohort" class="st-input" style="width:auto;"><option value="">— Chọn lớp —</option></select>
+      <button id="bulk-assign" class="adm-btn-primary" type="button">Gán vào lớp</button>
+    </div>
+
     <div id="alert-area"></div>
 
     <div class="adm-table-wrap">
       <table id="students-table" class="adm-table">
         <thead>
           <tr>
+            <th class="th-check"><input type="checkbox" id="bulk-select-all" aria-label="Chọn tất cả" /></th>
             <th>Code</th>
             <th>Name</th>
+            <th>Lớp</th>
             <th>Target</th>
             <th>Current</th>
             <th>Date</th>
@@ -144,7 +160,7 @@
           </tr>
         </thead>
         <tbody id="students-tbody">
-          <tr><td colspan="6" class="st-empty">Đang tải…</td></tr>
+          <tr><td colspan="8" class="st-empty">Đang tải…</td></tr>
         </tbody>
       </table>
     </div>
@@ -230,6 +246,8 @@
 
     var _editingId = null;  // null = creating new
     var _searchValue = '';
+    var _selectedIds = new Set();   // WF-1 bulk-assign selection
+    var _cohortsLoaded = false;
 
     // ── Local helpers (replace the removed WC.* utilities) ──────
     function esc(s) {
@@ -258,20 +276,30 @@
 
     function renderRows(rows) {
       var tb = document.getElementById('students-tbody');
+      // Each (re)load starts with a clean selection — ids from a prior list
+      // may no longer be present after a search/refresh.
+      _selectedIds.clear();
+      updateBulkBar();
+      var sa = document.getElementById('bulk-select-all');
+      if (sa) sa.checked = false;
       document.getElementById('row-count').textContent = rows.length + ' học viên';
       if (!rows.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="st-empty">Chưa có học viên.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="8" class="st-empty">Chưa có học viên.</td></tr>';
         return;
       }
       tb.innerHTML = rows.map(function (r) {
         var code  = esc(r.student_code);
         var name  = esc(r.full_name);
+        var lop   = r.cohort_name ? esc(r.cohort_name) : '—';   // unassigned → "—" (no silent-fail)
         var tBand = r.target_band == null ? '—' : r.target_band;
         var cBand = r.current_band_estimate == null ? '—' : r.current_band_estimate;
         var date  = r.target_date ? esc(r.target_date) : '—';
+        var checked = _selectedIds.has(r.id) ? ' checked' : '';
         return '<tr>' +
+          '<td class="th-check"><input type="checkbox" class="row-check" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
           '<td class="code-cell">' + code + '</td>' +
           '<td>' + name + '</td>' +
+          '<td>' + lop + '</td>' +
           '<td>' + tBand + '</td>' +
           '<td>' + cBand + '</td>' +
           '<td>' + date + '</td>' +
@@ -283,6 +311,51 @@
           '</div></td>' +
         '</tr>';
       }).join('');
+    }
+
+    // ── WF-1 bulk-assign-to-cohort ───────────────────────────────────
+    function updateBulkBar() {
+      var bar = document.getElementById('bulk-bar');
+      if (!bar) return;
+      bar.hidden = _selectedIds.size === 0;
+      var c = document.getElementById('bulk-count');
+      if (c) c.textContent = _selectedIds.size + ' đã chọn';
+    }
+
+    async function populateBulkCohorts() {
+      if (_cohortsLoaded) return;
+      var sel = document.getElementById('bulk-cohort');
+      try {
+        var res = await window.api.get('/admin/cohorts');
+        var cohorts = (res && res.cohorts) || [];
+        sel.innerHTML = '<option value="">— Chọn lớp —</option>'
+          + cohorts.map(function (c) {
+              return '<option value="' + esc(c.id) + '">' + esc(c.name || '(Lớp)') + '</option>';
+            }).join('');
+        _cohortsLoaded = true;
+      } catch (e) {
+        sel.innerHTML = '<option value="">Không tải được lớp</option>';
+      }
+    }
+
+    async function doBulkAssign() {
+      var cohortId = document.getElementById('bulk-cohort').value;
+      if (!cohortId) { setAlert('error', 'Chọn lớp để gán.'); return; }
+      if (!_selectedIds.size) { setAlert('error', 'Chọn ít nhất 1 học viên.'); return; }
+      var ids = Array.from(_selectedIds);
+      var btn = document.getElementById('bulk-assign');
+      btn.disabled = true;
+      try {
+        var r = await window.api.post(
+          '/admin/cohorts/' + encodeURIComponent(cohortId) + '/students/bulk',
+          { student_ids: ids });
+        setAlert('success', 'Đã gán ' + (r.assigned != null ? r.assigned : ids.length) + ' học viên vào lớp.');
+        loadStudents();   // refetch → cột Lớp + selection reset (canonical state)
+      } catch (e) {
+        setAlert('error', 'Gán lớp thất bại: ' + (e.message || e));
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     async function loadStudents() {
@@ -492,6 +565,26 @@
       document.getElementById('student-form').addEventListener('submit', handleSave);
       document.getElementById('students-tbody').addEventListener('click', handleTableClick);
       document.getElementById('csv-input').addEventListener('change', handleCsvImport);
+
+      // WF-1 bulk-assign: per-row checkbox (delegated), choose-all, assign.
+      document.getElementById('students-tbody').addEventListener('change', function (e) {
+        var cb = e.target.closest('input.row-check[data-id]');
+        if (!cb) return;
+        var id = cb.getAttribute('data-id');
+        if (cb.checked) _selectedIds.add(id); else _selectedIds.delete(id);
+        updateBulkBar();
+      });
+      document.getElementById('bulk-select-all').addEventListener('change', function (e) {
+        var on = e.target.checked;
+        document.querySelectorAll('#students-tbody input.row-check[data-id]').forEach(function (cb) {
+          cb.checked = on;
+          var id = cb.getAttribute('data-id');
+          if (on) _selectedIds.add(id); else _selectedIds.delete(id);
+        });
+        updateBulkBar();
+      });
+      document.getElementById('bulk-assign').addEventListener('click', doBulkAssign);
+      populateBulkCohorts();
       document.getElementById('modal').addEventListener('click', function (e) {
         if (e.target.id === 'modal') closeModal();
       });

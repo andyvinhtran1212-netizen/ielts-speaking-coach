@@ -720,6 +720,39 @@ async def list_users(authorization: str | None = Header(default=None)):
     for u in users:
         u["sessions_today"] = today_counts.get(u["id"], 0)
 
+    # WF-1 — class label per user: user → students.user_id → students.cohort_id
+    # → cohorts.name. TWO batched queries (students-by-user + cohorts), no N+1.
+    # Users without a linked student or unassigned class → cohort_name None
+    # (UI shows "—"). Lookup failure is non-fatal (the list still renders).
+    cohort_name_by_user: dict[str, str] = {}
+    user_ids = [u["id"] for u in users]
+    if user_ids:
+        try:
+            srows = (
+                supabase_admin.table("students")
+                .select("user_id, cohort_id")
+                .in_("user_id", user_ids)
+                .execute()
+            ).data or []
+            cohort_ids = list({s["cohort_id"] for s in srows if s.get("cohort_id")})
+            names: dict[str, str] = {}
+            if cohort_ids:
+                cr = (
+                    supabase_admin.table("cohorts")
+                    .select("id, name")
+                    .in_("id", cohort_ids)
+                    .execute()
+                ).data or []
+                names = {c["id"]: (c.get("name") or "") for c in cr}
+            for s in srows:
+                if s.get("user_id") and s.get("cohort_id"):
+                    cohort_name_by_user[s["user_id"]] = names.get(s["cohort_id"])
+        except Exception as exc:
+            logger.warning("list_users: cohort lookup failed: %s", exc)
+
+    for u in users:
+        u["cohort_name"] = cohort_name_by_user.get(u["id"])
+
     return users
 
 

@@ -97,7 +97,35 @@ def list_students(
         # in the term don't break the logic tree, and LIKE wildcards are escaped.
         q = q.or_(ilike_or_filter(["student_code", "full_name"], search))
     r = q.range(offset, offset + limit - 1).execute()
-    return r.data or []
+    rows = r.data or []
+
+    # WF-1 — enrich each row with its class name (students.cohort_id →
+    # cohorts.name) via ONE batched lookup (no N+1; mirrors the access-code
+    # list's cohort_name precedent). Unassigned → cohort_name None so the UI
+    # renders "—" rather than silently dropping it.
+    _attach_cohort_names(rows)
+    return rows
+
+
+def _attach_cohort_names(rows: list[dict]) -> None:
+    """Set `cohort_name` on each row from its `cohort_id` (in place). One
+    batched cohorts query; a lookup failure leaves cohort_name=None (UI shows
+    "—") and never blocks the list."""
+    cohort_ids = list({r.get("cohort_id") for r in rows if r.get("cohort_id")})
+    names: dict[str, str] = {}
+    if cohort_ids:
+        try:
+            cr = (
+                supabase_admin.table("cohorts")
+                .select("id, name")
+                .in_("id", cohort_ids)
+                .execute()
+            )
+            names = {c["id"]: (c.get("name") or "") for c in (cr.data or [])}
+        except Exception:
+            names = {}
+    for r in rows:
+        r["cohort_name"] = names.get(r.get("cohort_id"))
 
 
 def get_student_with_history(student_id: str) -> dict:

@@ -174,3 +174,26 @@ def test_remove_student_noop_when_in_other_cohort(monkeypatch):
     })
     _run(cohorts_module.remove_student_from_cohort("co1", "s1", authorization="x"))
     assert not [w for w in stub.writes if w["table"] == "students"]
+
+
+def test_bulk_assign_sets_cohort_id_for_all_no_code(monkeypatch):
+    stub = _install(monkeypatch, {
+        "cohorts":  [{"id": "co1"}],
+        "students": [{"id": "s1", "cohort_id": None}, {"id": "s2", "cohort_id": None}],
+    })
+    body = cohorts_module.BulkAssignStudentsRequest(student_ids=["s1", "s2"])
+    out = _run(cohorts_module.bulk_assign_students_to_cohort("co1", body, authorization="x"))
+    assert out["ok"] and out["cohort_id"] == "co1"
+    sw = [w for w in stub.writes if w["table"] == "students"]
+    assert len(sw) == 1 and sw[0]["payload"] == {"cohort_id": "co1"}    # ONE atomic update
+    # entitlement tables never touched
+    assert not [w for w in stub.writes if w["table"] in ("user_code_assignments", "access_codes")]
+
+
+def test_bulk_assign_404_when_cohort_missing(monkeypatch):
+    from fastapi import HTTPException
+    _install(monkeypatch, {"cohorts": [], "students": [{"id": "s1"}]})
+    body = cohorts_module.BulkAssignStudentsRequest(student_ids=["s1"])
+    with pytest.raises(HTTPException) as ei:
+        _run(cohorts_module.bulk_assign_students_to_cohort("nope", body, authorization="x"))
+    assert ei.value.status_code == 404

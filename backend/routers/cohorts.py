@@ -280,6 +280,40 @@ async def assign_student_to_cohort(
     return {"ok": True, "student_id": body.student_id, "cohort_id": cohort_id}
 
 
+class BulkAssignStudentsRequest(BaseModel):
+    student_ids: list[str] = Field(..., min_length=1, max_length=500)
+
+
+@router.post("/{cohort_id}/students/bulk")
+async def bulk_assign_students_to_cohort(
+    cohort_id: str,
+    body: BulkAssignStudentsRequest,
+    authorization: str | None = Header(default=None),
+):
+    """WF-1 — assign MANY existing students to this cohort in one atomic
+    UPDATE (set students.cohort_id for all given ids). No codes issued.
+    Re-assigning students already in the cohort is a harmless no-op."""
+    await require_admin(authorization)
+
+    cohort = (
+        supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
+    ) or []
+    if not cohort:
+        raise HTTPException(404, "Không tìm thấy lớp")
+
+    try:
+        r = (
+            supabase_admin.table("students")
+            .update({"cohort_id": cohort_id})
+            .in_("id", body.student_ids)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
+
+    return {"ok": True, "cohort_id": cohort_id, "assigned": len(r.data or [])}
+
+
 @router.delete("/{cohort_id}/students/{student_id}", status_code=204)
 async def remove_student_from_cohort(
     cohort_id: str,

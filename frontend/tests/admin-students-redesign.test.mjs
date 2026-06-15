@@ -340,3 +340,47 @@ describe('admin-writing.css / token discipline (students page)', () => {
     assert.ok(total <= 10, `--av-text-faint on this page ≤ 10, got ${total}`);
   });
 });
+
+
+// ── WF-1 — "Lớp" column + bulk-assign-to-cohort ─────────────────────────────
+
+import { readFileSync as _rf } from 'node:fs';
+const USERS_HTML = _rf(path.join(REPO_ROOT, 'frontend/pages/admin/users/index.html'), 'utf8');
+const USERS_JS   = _rf(path.join(REPO_ROOT, 'frontend/js/admin-users.js'), 'utf8');
+
+describe('admin-students.html / WF-1 Lớp column + bulk-assign', () => {
+  test('Lớp column header + cell renders cohort_name with "—" fallback', () => {
+    assert.match(html, /<th>Lớp<\/th>/);
+    assert.match(html, /r\.cohort_name\s*\?\s*esc\(r\.cohort_name\)\s*:\s*'—'/);
+  });
+
+  test('per-row checkbox + select-all + selection Set', () => {
+    assert.match(html, /id="bulk-select-all"/);
+    assert.match(html, /class="row-check"\s+data-id=/);
+    assert.match(html, /_selectedIds\s*=\s*new Set\(\)/);
+  });
+
+  test('bulk bar + assign POSTs to /students/bulk with student_ids[]', () => {
+    assert.match(html, /id="bulk-bar"/);
+    assert.match(html, /id="bulk-cohort"/);
+    assert.match(html, /\/students\/bulk'/);
+    assert.match(html, /student_ids:\s*ids/);
+  });
+
+  test('colspan updated to 8 (checkbox + Lớp added)', () => {
+    assert.doesNotMatch(html, /colspan="6"/);
+    assert.match(html, /colspan="8"/);
+  });
+
+  test('cohort dropdown batched once from GET /admin/cohorts (no N+1)', () => {
+    assert.match(html, /api\.get\('\/admin\/cohorts'\)/);
+    assert.match(html, /_cohortsLoaded/);
+  });
+});
+
+describe('admin/users — WF-1 Lớp column', () => {
+  test('users table has a Lớp header + admin-users.js renders cohort_name with "—"', () => {
+    assert.match(USERS_HTML, /<th>Lớp<\/th>/);
+    assert.match(USERS_JS, /escapeHtml\(u\.cohort_name\s*\|\|\s*'—'\)/);
+  });
+});
