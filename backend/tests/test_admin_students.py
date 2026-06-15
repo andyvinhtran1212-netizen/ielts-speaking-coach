@@ -204,3 +204,45 @@ def test_import_csv_rejects_non_utf8():
         )
     assert r.status_code == 400
     assert "UTF-8" in r.json()["detail"]
+
+
+# ── WF-1 — list_students attaches cohort_name (batched, no N+1) ──────────────
+
+def test_list_students_attaches_cohort_name(monkeypatch):
+    """student_service.list_students enriches each row with cohort_name from
+    students.cohort_id → cohorts.name via ONE batched lookup; unassigned →
+    cohort_name None (UI renders "—")."""
+    from services import student_service as ss
+
+    class _Q:
+        def __init__(self, name, tables):
+            self.name, self.t, self._in = name, tables, None
+        def select(self, *a, **k): return self
+        def order(self, *a, **k): return self
+        def or_(self, *a, **k): return self
+        def range(self, *a, **k): return self
+        def in_(self, col, vals): self._in = (col, vals); return self
+        def execute(self):
+            rows = list(self.t.get(self.name, []))
+            if self._in:
+                col, vals = self._in
+                rows = [r for r in rows if r.get(col) in vals]
+            return type("R", (), {"data": rows})()
+
+    class _C:
+        def __init__(self, tables): self.t = tables
+        def table(self, n): return _Q(n, self.t)
+
+    tables = {
+        "students": [
+            {"id": "s1", "student_code": "S1", "full_name": "A", "cohort_id": "co1"},
+            {"id": "s2", "student_code": "S2", "full_name": "B", "cohort_id": None},
+        ],
+        "cohorts": [{"id": "co1", "name": "Lớp A"}],
+    }
+    monkeypatch.setattr(ss, "supabase_admin", _C(tables))
+
+    rows = ss.list_students()
+    by = {r["id"]: r for r in rows}
+    assert by["s1"]["cohort_name"] == "Lớp A"
+    assert by["s2"]["cohort_name"] is None   # unassigned → None → UI "—"

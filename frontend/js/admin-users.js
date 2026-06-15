@@ -98,6 +98,7 @@ function render(rows) {
     <tr data-id="${escapeHtml(u.id)}">
       <td>${escapeHtml(u.display_name || '—')}</td>
       <td>${escapeHtml(u.email || '—')}</td>
+      <td>${escapeHtml(u.cohort_name || '—')}</td>
       <td>${roleChip(u.role)}</td>
       <td style="font-family: var(--av-font-mono); text-align: center;">${u.sessions_today || 0}</td>
       <td>${u.is_active === false
