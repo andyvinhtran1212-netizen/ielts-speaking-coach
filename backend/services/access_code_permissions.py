@@ -419,6 +419,60 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     return sorted(permissions)
 
 
+def student_has_writing_assignment(student_id: Optional[UUID | str]) -> bool:
+    """WF entitlement bridge: True when the student has ≥1 writing assignment
+    (ANY status — incl. graded/delivered, so a finished student keeps access to
+    review feedback).
+
+    Rationale: a student who was GIVEN writing must be able to DO it, even if
+    the access code they logged in with doesn't carry the `writing` permission
+    (e.g. a shared mass code). Additive, implicit grant — never touches
+    `code.permissions` (code-wide) and adds no per-user permission row.
+
+    Read LIVE on every gated request (no cache — same TOCTOU discipline as the
+    permission lookup), so assigning/un-assigning takes effect on the next
+    request. A query failure degrades to False, leaving the code-permission
+    path authoritative (fail-closed for the bridge)."""
+    if not student_id:
+        return False
+    try:
+        r = (
+            supabase_admin.table("writing_assignments")
+            .select("id")
+            .eq("student_id", str(student_id))
+            .limit(1)
+            .execute()
+        )
+        return bool(r.data)
+    except Exception as e:
+        logger.warning(
+            "writing_assignments existence check failed for student %s: %s",
+            student_id, e,
+        )
+        return False
+
+
+def student_id_for_user(user_id: Optional[UUID | str]) -> Optional[str]:
+    """users.id → students.id (reverse of get_student_access_code_permissions'
+    mapping). Returns None when no linked student row exists. Lets the writing
+    gate resolve a student_id when only the auth user is known."""
+    if not user_id:
+        return None
+    try:
+        r = (
+            supabase_admin.table("students")
+            .select("id")
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+        )
+        rows = r.data or []
+        return rows[0]["id"] if rows else None
+    except Exception as e:
+        logger.warning("student lookup by user_id failed for %s: %s", user_id, e)
+        return None
+
+
 def get_student_access_code_permissions(student_id: UUID | str) -> list[str]:
     """Resolve permissions for a Writing-side `students.id`.
 

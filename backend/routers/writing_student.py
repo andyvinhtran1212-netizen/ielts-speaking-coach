@@ -43,6 +43,7 @@ from services import essay_service
 from services.access_code_permissions import (
     get_user_access_code_permissions,
     has_writing_permission,
+    student_has_writing_assignment,
 )
 from services.file_extract_service import FileExtractError, extract_text
 from services.spam_detector import detect_flags, format_flag_explanation_vi
@@ -125,7 +126,10 @@ async def require_writing_permission(
         a handler-level Depends(get_current_student) coexist.
     """
     user_id = student.get("user_id") or student.get("id")
-    if not has_writing_permission(get_user_access_code_permissions(user_id)):
+    # WF entitlement bridge (approach c): code grants Writing OR the student has
+    # a writing assignment (being given writing = may do it). Live, additive.
+    if (not has_writing_permission(get_user_access_code_permissions(user_id))
+            and not student_has_writing_assignment(student.get("id"))):
         raise HTTPException(
             status_code=403,
             detail=(
@@ -1086,7 +1090,10 @@ async def submit_my_assignment(
     # is the essay owner, so we check their own access-code permissions.
     # Admin path is gated symmetrically in routers/admin_writing.py;
     # both flows must pass the same check so neither becomes a backdoor.
-    if not has_writing_permission(get_user_access_code_permissions(user_id)):
+    # WF entitlement bridge (c): OR having a writing assignment, consistent
+    # with require_writing_permission so opening ≠ being able to submit.
+    if (not has_writing_permission(get_user_access_code_permissions(user_id))
+            and not student_has_writing_assignment(student_id)):
         raise HTTPException(
             status_code=403,
             detail=(
