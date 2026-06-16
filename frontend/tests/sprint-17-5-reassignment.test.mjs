@@ -50,9 +50,10 @@ describe('Sprint 17.5 — cohort UI member add/remove', () => {
     assert.match(COHORTS, /api\.post\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/students'/);
     assert.match(COHORTS, /api\.delete\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/students\/'/);
   });
-  test('remove-member button per row + confirm', () => {
+  test('remove-member button per row + confirm gate', () => {
     assert.match(COHORTS, /data-action="remove-member"/);
-    assert.match(COHORTS, /confirm\(/);
+    // Notification PR-2: native confirm() → styled confirmDanger (gate preserved).
+    assert.match(COHORTS, /confirmDanger\(/);
   });
   test('Pattern #26 — no inline colour/bg/hex', () => {
     assert.doesNotMatch(COHORTS, /style\s*=\s*["'][^"']*color\s*:/);

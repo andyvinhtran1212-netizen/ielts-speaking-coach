@@ -265,16 +265,22 @@ async function submitConvert() {
 // merge-codes PR-2 — per-user "Gỡ khỏi mã": deactivate this user's assignment
 // to their newest active code (the same canonical endpoint the code tab uses).
 // Refetch after (NOT optimistic) so the merged code columns reflect DB truth.
-async function removeFromCode(codeId, userId) {
-  if (!confirm('Gỡ học viên này khỏi mã đang dùng? (Không xoá user; chỉ vô hiệu gán mã.)')) return;
-  try {
-    await api.delete('/admin/access-codes/' + encodeURIComponent(codeId)
-      + '/users/' + encodeURIComponent(userId));
-    showBanner('Đã gỡ khỏi mã.', 'success');
-    await loadList();   // canonical refetch
-  } catch (e) {
-    showBanner('Gỡ khỏi mã thất bại: ' + (e && e.message || 'lỗi'), 'error');
-  }
+function removeFromCode(codeId, userId) {
+  confirmDanger({
+    title: 'Gỡ khỏi mã',
+    body: 'Gỡ học viên này khỏi mã đang dùng? (Không xoá user; chỉ vô hiệu gán mã.)',
+    confirmLabel: 'Gỡ khỏi mã',
+    onConfirm: async () => {
+      try {
+        await api.delete('/admin/access-codes/' + encodeURIComponent(codeId)
+          + '/users/' + encodeURIComponent(userId));
+        showBanner('Đã gỡ khỏi mã.', 'success');
+        await loadList();   // canonical refetch
+      } catch (e) {
+        showBanner('Gỡ khỏi mã thất bại: ' + (e && e.message || 'lỗi'), 'error');
+      }
+    },
+  });
 }
 
 // ── "Tạo + gán mã" (admin-side activation) ───────────────────────────

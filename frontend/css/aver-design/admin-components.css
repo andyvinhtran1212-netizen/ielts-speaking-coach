@@ -243,3 +243,9 @@ th.adm-sortable:hover { color: var(--av-text-primary); }
 .av-toast-info    { border-left-color: var(--av-info);    background: var(--av-info-soft);    color: var(--av-info); }
 .av-toast-warn    { border-left-color: var(--av-warning); background: var(--av-warning-soft); color: var(--av-warning); }
 @media (prefers-reduced-motion: reduce) { .av-toast { transition: none; } }
+
+/* ── Danger-confirm modal (shared window.confirmDanger — js/confirm-danger.js) ── */
+.av-confirm { max-width: 26rem; border-top: 3px solid var(--av-error); }
+.av-confirm h2 { color: var(--av-text-primary); }
+.av-confirm__body { color: var(--av-text-secondary); font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-normal); margin: 0; }
