@@ -88,6 +88,12 @@ class MarkDeliveredRequest(BaseModel):
     method: str = Field(default="google_docs_paste", max_length=32)
 
 
+class BulkMarkDeliveredRequest(BaseModel):
+    # Cap mirrors the list endpoint page size — a bulk-deliver acts on a queue page.
+    essay_ids: list[UUID] = Field(..., min_length=1, max_length=200)
+    method: str = Field(default="google_docs_paste", max_length=32)
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -108,6 +114,60 @@ def _fetch_status_or_404(essay_id: str) -> str:
     if not r.data:
         raise HTTPException(404, "Essay not found")
     return r.data[0]["status"]
+
+
+def _deliver_essay(essay_id: str, method: str) -> dict:
+    """Core reviewed→delivered transition for ONE essay — the single source of the
+    deliver guard, shared by the per-essay endpoint and the bulk endpoint.
+
+    Returns a structured outcome instead of raising for status/not-found, so the
+    bulk caller can skip+report and the single caller can map to 404/409:
+        {"essay_id", "ok": bool, "status": <current|'delivered'|None>,
+         "reason": None | 'not_found' | 'not_reviewed'}
+    Only `reviewed` → `delivered` is allowed (mirrors the immutable state machine);
+    on success it stamps delivered_at/delivery_method/status and closes any accepted
+    regrade request. Raises only on a real DB failure (HTTPException 500).
+    """
+    row = (
+        supabase_admin.table("writing_essays")
+        .select("status")
+        .eq("id", essay_id)
+        .is_("deleted_at", "null")
+        .limit(1)
+        .execute()
+    )
+    if not row.data:
+        return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
+    current = row.data[0]["status"]
+    if current != "reviewed":
+        return {"essay_id": essay_id, "ok": False, "status": current, "reason": "not_reviewed"}
+
+    try:
+        r = (
+            supabase_admin.table("writing_essays")
+            .update({
+                "delivered_at":     _now_iso(),
+                "delivery_method":  method,
+                "status":           "delivered",
+            })
+            .eq("id", essay_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Database update failed: {exc}")
+    if not r.data:
+        return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
+
+    # Close the re-grade loop: a delivery that fulfils an accepted regrade request
+    # marks it fulfilled. Best-effort — never block delivery on the bookkeeping.
+    try:
+        supabase_admin.table("essay_regrade_requests").update(
+            {"status": "fulfilled", "fulfilled_at": _now_iso()}
+        ).eq("essay_id", essay_id).eq("status", "accepted").execute()
+    except Exception as exc:
+        _logger.warning("[regrade] fulfil bookkeeping failed essay=%s: %s", essay_id, exc)
+
+    return {"essay_id": essay_id, "ok": True, "status": "delivered", "reason": None}
 
 
 # ── Endpoints (W2) ────────────────────────────────────────────────────
@@ -176,17 +236,20 @@ async def create_essay(
 
 @router.get("/essays")
 async def list_essays(
-    status: Optional[str]    = Query(default=None, max_length=32),
+    status: Optional[str]      = Query(default=None, max_length=32),
     student_id: Optional[UUID] = Query(default=None),
-    limit:  int               = Query(default=50, ge=1, le=200),
-    offset: int               = Query(default=0, ge=0),
-    authorization: str | None = Header(None),
+    cohort_id: Optional[UUID]  = Query(default=None),
+    limit:  int                = Query(default=50, ge=1, le=200),
+    offset: int                = Query(default=0, ge=0),
+    authorization: str | None  = Header(None),
 ):
-    """List essays with optional status / student filters. Newest first."""
+    """List essays with optional status / student / cohort filters. Newest first.
+    Enriched with student name+code, band, and deadline for the grade-queue UI."""
     await require_admin(authorization)
     return essay_service.list_essays(
         status=status,
         student_id=str(student_id) if student_id else None,
+        cohort_id=str(cohort_id) if cohort_id else None,
         limit=limit,
         offset=offset,
     )
@@ -300,45 +363,66 @@ async def mark_delivered(
             f"Allowed: {sorted(_ALLOWED_DELIVERY_METHODS)}",
         )
 
-    current_status = _fetch_status_or_404(str(essay_id))
-    if current_status != "reviewed":
+    # Reuse the shared transition guard; map its outcome back to the existing
+    # HTTP contract (404 missing / 409 not-reviewed / 200 delivered).
+    outcome = _deliver_essay(str(essay_id), body.method)
+    if outcome["reason"] == "not_found":
+        raise HTTPException(404, "Essay not found")
+    if outcome["reason"] == "not_reviewed":
         raise HTTPException(
             status_code=409,
             detail=(
-                f"Cannot mark delivered: essay status is {current_status!r}. "
+                f"Cannot mark delivered: essay status is {outcome['status']!r}. "
                 f"Required: reviewed. Save edits first."
             ),
         )
-
-    try:
-        r = (
-            supabase_admin.table("writing_essays")
-            .update({
-                "delivered_at":     _now_iso(),
-                "delivery_method":  body.method,
-                "status":           "delivered",
-            })
-            .eq("id", str(essay_id))
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
-
-    if not r.data:
-        raise HTTPException(404, "Essay not found")
-
-    # Sprint 19.4 — close the re-grade loop: if this delivery fulfils an
-    # accepted regrade request, mark it fulfilled. Best-effort — never
-    # block delivery on the bookkeeping.
-    try:
-        supabase_admin.table("essay_regrade_requests").update(
-            {"status": "fulfilled", "fulfilled_at": _now_iso()}
-        ).eq("essay_id", str(essay_id)).eq("status", "accepted").execute()
-    except Exception as exc:
-        _logger.warning("[regrade] fulfil bookkeeping failed essay=%s: %s", essay_id, exc)
     # TODO(19.4 email deferred): notify the student their essay is graded.
-
     return {"essay_id": str(essay_id), "status": "delivered", "method": body.method}
+
+
+@router.post("/essays/bulk-mark-delivered")
+async def bulk_mark_delivered(
+    body: BulkMarkDeliveredRequest,
+    authorization: str | None = Header(None),
+):
+    """Bulk-deliver many essays in one call (the grade-queue "Chờ trả" lane).
+
+    Reuses the SAME per-essay `_deliver_essay` guard — only `reviewed` → `delivered`.
+    Partial-success by design: a missing or non-reviewed essay is skipped and
+    reported, never 500-ing the whole batch (e.g. a `graded` essay still needs a
+    manual review/save first). Order/atomicity isn't required — each essay's
+    transition is independent and idempotent under the guard.
+    """
+    await require_admin(authorization)
+
+    if body.method not in _ALLOWED_DELIVERY_METHODS:
+        raise HTTPException(
+            400,
+            f"Invalid delivery method: {body.method!r}. "
+            f"Allowed: {sorted(_ALLOWED_DELIVERY_METHODS)}",
+        )
+
+    delivered: list[str] = []
+    skipped: list[dict]  = []
+    seen: set[str]       = set()
+    for eid in body.essay_ids:
+        sid = str(eid)
+        if sid in seen:          # de-dupe a repeated id defensively
+            continue
+        seen.add(sid)
+        outcome = _deliver_essay(sid, body.method)
+        if outcome["ok"]:
+            delivered.append(sid)
+        else:
+            skipped.append({"id": sid, "status": outcome["status"], "reason": outcome["reason"]})
+
+    return {
+        "delivered":       delivered,
+        "skipped":         skipped,
+        "delivered_count": len(delivered),
+        "skipped_count":   len(skipped),
+        "method":          body.method,
+    }
 
 
 @router.delete("/essays/{essay_id}", status_code=status.HTTP_204_NO_CONTENT)
