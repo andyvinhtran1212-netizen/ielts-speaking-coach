@@ -130,3 +130,23 @@
 @media (prefers-reduced-motion: reduce) {
   .cohort-row { transition: none; }
 }
+
+/* Grade-flow PR-2 — lightweight matrix status filter. */
+.cohorts-matrix-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  margin: 0 0 var(--av-space-2);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-secondary);
+}
+.cohorts-matrix-filter select {
+  padding: 4px 8px;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-page, var(--av-surface-card));
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+  font-family: inherit;
+}
+.matrix-cell--dim { opacity: 0.18; }
