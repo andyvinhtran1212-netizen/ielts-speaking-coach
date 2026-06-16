@@ -437,10 +437,18 @@ def list_essays(
     *,
     status: Optional[str] = None,
     student_id: Optional[str] = None,
+    cohort_id: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
-    """List essays with optional status / student filters. Newest first."""
+    """List essays (newest first) with optional status / student / cohort filters,
+    enriched for the grade-queue UI with student name+code, overall band, and the
+    assignment deadline.
+
+    Enrichment is BATCHED — exactly three extra queries regardless of page size
+    (students, feedback, assignments), so there is no N+1. `cohort_id` scopes to
+    essays whose student is in that cohort (students.cohort_id, WF-1).
+    """
     if status and status not in _ALLOWED_STATUSES:
         raise HTTPException(400, f"Invalid status: {status!r}")
 
@@ -457,9 +465,70 @@ def list_essays(
         q = q.eq("status", status)
     if student_id:
         q = q.eq("student_id", student_id)
+    if cohort_id:
+        # Cohort scope = essays whose student is in this cohort. students.cohort_id
+        # is the single source of class membership (WF-1).
+        sc = (
+            supabase_admin.table("students")
+            .select("id").eq("cohort_id", cohort_id).execute()
+        )
+        cohort_student_ids = [row["id"] for row in (sc.data or [])]
+        if not cohort_student_ids:
+            return []
+        q = q.in_("student_id", cohort_student_ids)
 
     r = q.range(offset, offset + limit - 1).execute()
-    return r.data or []
+    rows = r.data or []
+    if not rows:
+        return rows
+
+    essay_ids   = [e["id"] for e in rows]
+    student_ids = list({e["student_id"] for e in rows if e.get("student_id")})
+
+    # Batch 1 — student name + code.
+    students_map: dict = {}
+    if student_ids:
+        sr = (
+            supabase_admin.table("students")
+            .select("id, full_name, student_code")
+            .in_("id", student_ids).execute()
+        )
+        students_map = {s["id"]: s for s in (sr.data or [])}
+
+    # Batch 2 — overall band (writing_feedback.essay_id → writing_essays.id).
+    band_map: dict = {}
+    fr = (
+        supabase_admin.table("writing_feedback")
+        .select("essay_id, overall_band_score")
+        .in_("essay_id", essay_ids).execute()
+    )
+    for f in (fr.data or []):
+        eid = f.get("essay_id")
+        if eid and eid not in band_map:
+            band_map[eid] = f.get("overall_band_score")
+
+    # Batch 3 — deadline (writing_assignments.essay_id → writing_essays.id;
+    # assignment points to the essay). Earliest non-null deadline wins.
+    deadline_map: dict = {}
+    ar = (
+        supabase_admin.table("writing_assignments")
+        .select("essay_id, deadline")
+        .in_("essay_id", essay_ids).execute()
+    )
+    for a in (ar.data or []):
+        eid, dl = a.get("essay_id"), a.get("deadline")
+        if not eid or dl is None:
+            continue
+        if eid not in deadline_map or dl < deadline_map[eid]:
+            deadline_map[eid] = dl
+
+    for e in rows:
+        stu = students_map.get(e["student_id"]) or {}
+        e["student_full_name"] = stu.get("full_name")
+        e["student_code"]      = stu.get("student_code")
+        e["band"]              = band_map.get(e["id"])
+        e["deadline"]          = deadline_map.get(e["id"])
+    return rows
 
 
 def get_essay_with_feedback(essay_id: str) -> dict:

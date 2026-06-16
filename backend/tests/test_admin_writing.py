@@ -315,9 +315,26 @@ def test_list_essays_passes_filters():
     assert kwargs == {
         "status": "graded",
         "student_id": _STUDENT_ID,
+        "cohort_id": None,
         "limit": 10,
         "offset": 20,
     }
+
+
+def test_list_essays_passes_cohort_id():
+    rows = [{"id": _ESSAY_ID, "status": "reviewed", "student_full_name": "Nguyễn A"}]
+    cohort = "00000000-0000-0000-0000-0000000000c0"
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.essay_service.list_essays",
+               return_value=rows) as mock_list:
+        r = _client().get(
+            f"/admin/writing/essays?status=reviewed&cohort_id={cohort}",
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert mock_list.call_args.kwargs["cohort_id"] == cohort
+    assert mock_list.call_args.kwargs["status"] == "reviewed"
 
 
 def test_list_essays_no_filters_passes_none():
@@ -362,6 +379,86 @@ def test_get_essay_status_returns_eta_payload():
         )
     assert r.status_code == 200
     assert r.json()["eta_seconds"] == 45
+
+
+# ── Bulk mark-delivered (grade-flow PR-1) ────────────────────────────
+
+_E1 = "00000000-0000-0000-0000-0000000000e1"
+_E2 = "00000000-0000-0000-0000-0000000000e2"
+_E3 = "00000000-0000-0000-0000-0000000000e3"
+
+
+def test_bulk_mark_delivered_requires_auth_header():
+    r = _client().post("/admin/writing/essays/bulk-mark-delivered",
+                       json={"essay_ids": [_E1]})
+    assert r.status_code == 401
+
+
+def test_bulk_mark_delivered_rejects_empty_list():
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post("/admin/writing/essays/bulk-mark-delivered",
+                           json={"essay_ids": []}, headers=_ADMIN_AUTH)
+    assert r.status_code == 422   # pydantic min_length=1
+
+
+def test_bulk_mark_delivered_rejects_invalid_method():
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post("/admin/writing/essays/bulk-mark-delivered",
+                           json={"essay_ids": [_E1], "method": "carrier_pigeon"},
+                           headers=_ADMIN_AUTH)
+    assert r.status_code == 400
+
+
+def test_bulk_mark_delivered_partial_success_skips_non_reviewed():
+    """reviewed → delivered; graded + missing are skipped+reported (no 500)."""
+    def fake_deliver(essay_id, method):
+        if essay_id == _E1:
+            return {"essay_id": _E1, "ok": True, "status": "delivered", "reason": None}
+        if essay_id == _E2:
+            return {"essay_id": _E2, "ok": False, "status": "graded", "reason": "not_reviewed"}
+        return {"essay_id": _E3, "ok": False, "status": None, "reason": "not_found"}
+
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing._deliver_essay", side_effect=fake_deliver) as mock_d:
+        r = _client().post("/admin/writing/essays/bulk-mark-delivered",
+                           json={"essay_ids": [_E1, _E2, _E3]}, headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["delivered"] == [_E1]
+    assert body["delivered_count"] == 1
+    assert body["skipped_count"] == 2
+    reasons = {s["id"]: s["reason"] for s in body["skipped"]}
+    assert reasons == {_E2: "not_reviewed", _E3: "not_found"}
+    # Reuses the shared per-essay guard once per id (transition not rewritten).
+    assert mock_d.call_count == 3
+
+
+def test_bulk_mark_delivered_dedupes_repeated_ids():
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing._deliver_essay",
+               return_value={"essay_id": _E1, "ok": True, "status": "delivered", "reason": None}) as mock_d:
+        r = _client().post("/admin/writing/essays/bulk-mark-delivered",
+                           json={"essay_ids": [_E1, _E1, _E1]}, headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    assert r.json()["delivered"] == [_E1]
+    assert mock_d.call_count == 1
+
+
+def test_single_mark_delivered_maps_not_reviewed_to_409():
+    """The single endpoint still surfaces 409 for a non-reviewed essay (contract
+    preserved after factoring the guard into _deliver_essay)."""
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing._deliver_essay",
+               return_value={"essay_id": _E1, "ok": False, "status": "graded", "reason": "not_reviewed"}):
+        r = _client().post(f"/admin/writing/essays/{_E1}/mark-delivered",
+                           json={}, headers=_ADMIN_AUTH)
+    assert r.status_code == 409
+    assert "reviewed" in r.json()["detail"]
 
 
 # ── W3 render endpoint ───────────────────────────────────────────────
