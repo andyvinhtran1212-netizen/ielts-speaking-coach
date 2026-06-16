@@ -701,6 +701,65 @@ def test_mark_delivered_word_download_method():
     assert r.json()["method"] == "word_download"
 
 
+# ── T3·1 hide-subbands flag at deliver ───────────────────────────────
+
+
+def test_mark_delivered_hide_subbands_true_persists():
+    """T3·1: hide_subbands=true is persisted onto the delivery update and
+    echoed back. The 4 sub-bands will be hidden from the student (overall
+    band still shown — the flag never touches feedback)."""
+    fake = _fake_supabase(status="reviewed")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={"hide_subbands": True},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert r.json()["hide_subbands"] is True
+    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
+    delivery = next(p for p in payloads if "delivery_method" in p)
+    assert delivery["hide_subbands"] is True
+
+
+def test_mark_delivered_hide_subbands_defaults_false():
+    """T3·1: an omitted flag defaults to false = SHOW the sub-bands, the
+    pre-T3·1 behaviour. Zero regression for callers that don't send it."""
+    fake = _fake_supabase(status="reviewed")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200
+    assert r.json()["hide_subbands"] is False
+    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
+    delivery = next(p for p in payloads if "delivery_method" in p)
+    assert delivery["hide_subbands"] is False
+
+
+def test_mark_delivered_hide_subbands_does_not_bypass_review_guard():
+    """T3·1: the flag is just an extra body field — the reviewed→delivered
+    guard still 409s a graded (not-yet-reviewed) essay and persists nothing."""
+    fake = _fake_supabase(status="graded")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/mark-delivered",
+            json={"hide_subbands": True},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
+    assert not any("delivery_method" in p for p in payloads)
+
+
 def test_mark_delivered_400_on_invalid_method():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):

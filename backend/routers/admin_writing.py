@@ -86,6 +86,10 @@ _ALLOWED_DELIVERY_METHODS = {
 
 class MarkDeliveredRequest(BaseModel):
     method: str = Field(default="google_docs_paste", max_length=32)
+    # T3·1 — when true, the student view hides the 4 criterion sub-bands
+    # (overall band always shown). Default false = show, the pre-T3·1
+    # behaviour, so an omitted flag is a no-op.
+    hide_subbands: bool = Field(default=False)
 
 
 class BulkMarkDeliveredRequest(BaseModel):
@@ -125,7 +129,7 @@ def _fetch_status_or_404(essay_id: str) -> str:
     return r.data[0]["status"]
 
 
-def _deliver_essay(essay_id: str, method: str) -> dict:
+def _deliver_essay(essay_id: str, method: str, hide_subbands: bool = False) -> dict:
     """Core reviewed→delivered transition for ONE essay — the single source of the
     deliver guard, shared by the per-essay endpoint and the bulk endpoint.
 
@@ -134,8 +138,10 @@ def _deliver_essay(essay_id: str, method: str) -> dict:
         {"essay_id", "ok": bool, "status": <current|'delivered'|None>,
          "reason": None | 'not_found' | 'not_reviewed'}
     Only `reviewed` → `delivered` is allowed (mirrors the immutable state machine);
-    on success it stamps delivered_at/delivery_method/status and closes any accepted
-    regrade request. Raises only on a real DB failure (HTTPException 500).
+    on success it stamps delivered_at/delivery_method/status, persists the
+    hide_subbands flag (T3·1 — default False = show the 4 sub-bands, the legacy
+    behaviour), and closes any accepted regrade request. Raises only on a real DB
+    failure (HTTPException 500).
     """
     row = (
         supabase_admin.table("writing_essays")
@@ -158,6 +164,7 @@ def _deliver_essay(essay_id: str, method: str) -> dict:
                 "delivered_at":     _now_iso(),
                 "delivery_method":  method,
                 "status":           "delivered",
+                "hide_subbands":    hide_subbands,
             })
             .eq("id", essay_id)
             .execute()
@@ -374,7 +381,7 @@ async def mark_delivered(
 
     # Reuse the shared transition guard; map its outcome back to the existing
     # HTTP contract (404 missing / 409 not-reviewed / 200 delivered).
-    outcome = _deliver_essay(str(essay_id), body.method)
+    outcome = _deliver_essay(str(essay_id), body.method, body.hide_subbands)
     if outcome["reason"] == "not_found":
         raise HTTPException(404, "Essay not found")
     if outcome["reason"] == "not_reviewed":
@@ -386,7 +393,12 @@ async def mark_delivered(
             ),
         )
     # TODO(19.4 email deferred): notify the student their essay is graded.
-    return {"essay_id": str(essay_id), "status": "delivered", "method": body.method}
+    return {
+        "essay_id":      str(essay_id),
+        "status":        "delivered",
+        "method":        body.method,
+        "hide_subbands": body.hide_subbands,
+    }
 
 
 @router.post("/essays/bulk-mark-delivered")
