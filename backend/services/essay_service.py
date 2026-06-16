@@ -42,6 +42,7 @@ from services.writing_history import (
     get_sentence_structure_history,
 )
 from services.band_rounding import overall_from_criteria
+from services.mistake_authenticity import drop_noncorrection_mistakes
 
 logger = logging.getLogger(__name__)
 
@@ -344,6 +345,19 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
 
         # Persist feedback (1:1 with essay)
         fb = result.feedback
+
+        # P-2a — enforce the mistake authenticity rule (output_schema §6.1) in
+        # the backend: drop any mistakeAnalysis entry whose `original ==
+        # suggestion` after Unicode/whitespace normalisation (a "flag" with an
+        # identical fix is not a real correction). Was prompt-only; this makes
+        # it deterministic. Apply-forward; never touches bands/transition.
+        fb.mistakeAnalysis, _dropped = drop_noncorrection_mistakes(fb.mistakeAnalysis)
+        if _dropped:
+            logger.info(
+                "[authenticity] dropped %d non-correction mistake(s) essay=%s",
+                _dropped, essay_id,
+            )
+
         b_tr  = float(fb.criteriaFeedback.mainCriterion.bandScore)
         b_cc  = float(fb.criteriaFeedback.coherenceCohesion.bandScore)
         b_lr  = float(fb.criteriaFeedback.lexicalResource.bandScore)

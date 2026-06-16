@@ -706,3 +706,39 @@ async def test_bg_grade_essay_overrides_model_overall_with_ielts_round():
     # feedback_json carries the backend value + preserves the model's emission
     assert payload["feedback_json"]["overallBandScore"] == 6.5
     assert payload["feedback_json"]["overallBandScoreModel"] == 6.0
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_drops_noncorrection_mistakes():
+    """P-2a: a mistakeAnalysis entry whose original==suggestion (after norm) is
+    dropped before persist; real corrections survive in feedback_json."""
+    fb = _valid_feedback_obj()
+    from models.writing_feedback import MistakeAnalysis
+    fb.mistakeAnalysis = [
+        MistakeAnalysis(original="teh", suggestion="The", mistakeType="spelling",
+                        explanation="capitalise + fix typo", criterion="GRA"),
+        MistakeAnalysis(original="the cat", suggestion="the cat", mistakeType="x",
+                        explanation="junk", criterion="LR"),  # junk: original==suggestion
+    ]
+
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        return MagicMock(
+            feedback=fb, model_used="gemini-2.5-pro",
+            tokens_input=3000, tokens_output=2000, cost_usd=0.025,
+            grading_duration_ms=5000, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    fb_insert = next(c for c in fake.calls
+                     if c["table"] == "writing_feedback" and c["op"] == "insert")
+    mistakes = fb_insert["payload"]["feedback_json"]["mistakeAnalysis"]
+    assert [m["original"] for m in mistakes] == ["teh"]   # junk dropped, real kept
