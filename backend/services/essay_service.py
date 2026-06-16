@@ -41,6 +41,7 @@ from services.writing_history import (
     get_recurring_patterns,
     get_sentence_structure_history,
 )
+from services.band_rounding import overall_from_criteria
 
 logger = logging.getLogger(__name__)
 
@@ -343,14 +344,30 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
 
         # Persist feedback (1:1 with essay)
         fb = result.feedback
+        b_tr  = float(fb.criteriaFeedback.mainCriterion.bandScore)
+        b_cc  = float(fb.criteriaFeedback.coherenceCohesion.bandScore)
+        b_lr  = float(fb.criteriaFeedback.lexicalResource.bandScore)
+        b_gra = float(fb.criteriaFeedback.grammaticalRange.bandScore)
+
+        # P-1 — the overall band is computed + IELTS-rounded by the BACKEND
+        # (deterministic, verified), NOT trusted to the model's self-round
+        # which mis-handles the .25/.75 boundaries. The model's emitted value
+        # is preserved in feedback_json (overallBandScoreModel) for audit / a
+        # future holistic A/B — never discarded.
+        model_overall   = float(fb.overallBandScore)
+        backend_overall = overall_from_criteria(b_tr, b_cc, b_lr, b_gra)
+        feedback_json = fb.model_dump(mode="json")
+        feedback_json["overallBandScore"]      = backend_overall
+        feedback_json["overallBandScoreModel"] = model_overall
+
         feedback_row = {
             "essay_id":                 essay_id,
-            "overall_band_score":       float(fb.overallBandScore),
-            "band_main_criterion":      float(fb.criteriaFeedback.mainCriterion.bandScore),
-            "band_coherence_cohesion":  float(fb.criteriaFeedback.coherenceCohesion.bandScore),
-            "band_lexical_resource":    float(fb.criteriaFeedback.lexicalResource.bandScore),
-            "band_grammatical_range":   float(fb.criteriaFeedback.grammaticalRange.bandScore),
-            "feedback_json":            fb.model_dump(mode="json"),
+            "overall_band_score":       backend_overall,
+            "band_main_criterion":      b_tr,
+            "band_coherence_cohesion":  b_cc,
+            "band_lexical_resource":    b_lr,
+            "band_grammatical_range":   b_gra,
+            "feedback_json":            feedback_json,
             "prompt_version":           result.prompt_version,
             "model_used":               result.model_used,
             "tokens_input":             result.tokens_input,
