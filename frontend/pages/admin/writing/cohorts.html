@@ -90,6 +90,16 @@
           <h2 id="detail-name" class="cohorts-detail__name"></h2>
           <div id="detail-stats" class="cohorts-detail__stats"></div>
           <div id="detail-matrix-empty" class="aw-state-empty hidden text-center py-8">Lớp này chưa có bài giao hoặc học viên nào.</div>
+          <div id="matrix-filter-row" class="cohorts-matrix-filter hidden">
+            <label for="matrix-status-filter">Lọc ô:</label>
+            <select id="matrix-status-filter">
+              <option value="">Tất cả</option>
+              <option value="graded">Cần chấm</option>
+              <option value="reviewed">Chờ trả</option>
+              <option value="delivered">Đã trả</option>
+              <option value="overdue">Quá hạn</option>
+            </select>
+          </div>
           <div id="detail-matrix-wrap" class="cohorts-matrix-wrap hidden">
             <table class="cohorts-matrix">
               <thead><tr id="matrix-head"></tr></thead>
@@ -254,6 +264,8 @@
                     (cell.band != null ? ' · Band ' + cell.band : '');
           var clickable = cell.essay_id ? ' matrix-cell--link' : '';
           var attrs = cell.essay_id ? ' role="link" tabindex="0" data-essay-id="' + escapeHtml(cell.essay_id) + '"' : '';
+          // data-status / data-overdue drive the lightweight status filter below.
+          attrs += ' data-status="' + escapeHtml(cell.status) + '"' + (overdue ? ' data-overdue="1"' : '');
           return '<td class="matrix-cell ' + cfg.cls + clickable + (overdue ? ' matrix-cell--overdue' : '') +
                  '" title="' + escapeHtml(tip) + '"' + attrs + '>' + cfg.glyph + '</td>';
         }).join('');
@@ -262,6 +274,8 @@
       }).join('');
       document.getElementById('matrix-body').innerHTML = bodyHtml;
       show('detail-matrix-wrap');
+      show('matrix-filter-row');
+      applyMatrixFilter();   // re-apply the active status filter to the new cells
 
       // Cell click → existing admin grading interface.
       document.querySelectorAll('.matrix-cell--link').forEach(function (td) {
@@ -275,6 +289,24 @@
         });
       });
     }
+
+    // ── Lightweight matrix status filter (dim non-matching cells) ──────
+    // "overdue" is cross-cutting (matches any non-delivered cell past deadline),
+    // mirroring the global queue overlay. Dims rather than removes so the grid
+    // shape (students × prompts) stays readable.
+    function applyMatrixFilter() {
+      var sel = document.getElementById('matrix-status-filter');
+      var f = sel ? sel.value : '';
+      document.querySelectorAll('#matrix-body .matrix-cell').forEach(function (td) {
+        var match;
+        if (!f) match = true;
+        else if (f === 'overdue') match = td.getAttribute('data-overdue') === '1';
+        else match = td.getAttribute('data-status') === f;
+        td.classList.toggle('matrix-cell--dim', !match);
+      });
+    }
+    var _matrixFilterSel = document.getElementById('matrix-status-filter');
+    if (_matrixFilterSel) _matrixFilterSel.addEventListener('change', applyMatrixFilter);
 
     // ── Wire up ────────────────────────────────────────────────────
     document.querySelectorAll('[data-cohort-filter]').forEach(function (btn) {

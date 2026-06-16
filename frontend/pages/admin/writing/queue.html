@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Hàng chờ chấm · Admin</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/aver-design/admin-components.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/api.js"></script>
+
+  <style>
+    /* Grade-queue — token-driven (--av-*), matches the #483 admin re-skin.
+       Tables / pills / buttons / banner come from admin-components.css. */
+    body.av-page { font-family: var(--av-font-sans); margin: 0; color: var(--av-text-primary); }
+    .q-shell { max-width: 1280px; margin: 0 auto; padding: var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-4); }
+    .q-header h1 { font-size: var(--av-fs-2xl); font-weight: var(--av-fw-bold);
+      letter-spacing: var(--av-tracking-tight); margin: 0 0 var(--av-space-1); }
+    .q-header .q-subtitle { color: var(--av-text-secondary); font-size: var(--av-fs-sm); max-width: 70ch; }
+
+    .q-toolbar { display: flex; align-items: center; gap: var(--av-space-4); flex-wrap: wrap;
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); box-shadow: var(--av-shadow-sm); }
+    .q-overdue { display: inline-flex; align-items: center; gap: 8px;
+      font-size: var(--av-fs-sm); color: var(--av-text-secondary); cursor: pointer; }
+    .q-overdue input { accent-color: var(--av-warning); margin: 0; }
+    .q-toolbar select { padding: 8px 12px; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); background: var(--av-surface-page, var(--av-surface-card));
+      color: var(--av-text-primary); font-size: var(--av-fs-sm); font-family: inherit; }
+    .q-meta { color: var(--av-text-muted); font-size: var(--av-fs-xs); margin-inline-start: auto; }
+
+    .q-bulk-bar { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap;
+      padding: var(--av-space-2) var(--av-space-4);
+      background: var(--av-brand-teal-50); border: 1px solid var(--av-brand-teal-200);
+      border-radius: var(--av-radius-md); }
+    .q-bulk-count { font-size: var(--av-fs-sm); color: var(--av-brand-teal-800); font-weight: var(--av-fw-medium); }
+
+    table.adm-table tbody tr.q-row { cursor: pointer; }
+    table.adm-table tbody tr.q-row:hover { background: var(--av-surface-sunken); }
+    .q-check-col { width: 2.5rem; text-align: center; }
+    .q-name { font-weight: var(--av-fw-medium); }
+    .q-code { font-family: var(--av-font-mono); font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+    .q-deadline-overdue { color: var(--av-error); font-weight: var(--av-fw-semibold); }
+    .q-muted { color: var(--av-text-muted); }
+
+    /* Status pills (token-driven; one per essay status) */
+    .q-pill { display: inline-flex; align-items: center; padding: 2px 10px;
+      border-radius: var(--av-radius-pill); font-size: var(--av-fs-xs); font-weight: var(--av-fw-medium);
+      background: var(--av-surface-sunken); color: var(--av-text-secondary); border: 1px solid var(--av-border-default); }
+    .q-pill.is-graded   { background: var(--av-warning-soft); color: var(--av-warning);
+      border-color: color-mix(in srgb, var(--av-warning) 30%, transparent); }
+    .q-pill.is-reviewed { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800); border-color: var(--av-brand-teal-200); }
+    .q-pill.is-delivered{ background: var(--av-success-soft); color: var(--av-success);
+      border-color: color-mix(in srgb, var(--av-success) 30%, transparent); }
+    .q-pill.is-failed   { background: var(--av-error-soft); color: var(--av-error);
+      border-color: color-mix(in srgb, var(--av-error) 30%, transparent); }
+
+    body.av-page :focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body class="av-page">
+  <aver-admin-chrome active="writing" subsection="queue">
+
+    <main class="q-shell">
+      <header class="q-header">
+        <h1>Hàng chờ chấm</h1>
+        <p class="q-subtitle">Tất cả bài viết cần xử — lọc theo trạng thái, trả nhiều bài một lần.</p>
+      </header>
+
+      <div class="adm-banner" id="status-banner" hidden></div>
+
+      <!-- Status tabs (mutually-exclusive lane). "Quá hạn" is a cross-cutting
+           overlay below, NOT a tab — a reviewed-overdue essay shows in both
+           "Chờ trả" and (with the toggle on) the overdue view. -->
+      <nav class="adm-subtabs" role="tablist" aria-label="Trạng thái bài viết">
+        <button type="button" class="adm-subtab is-active" data-status="graded"    role="tab" aria-selected="true">Cần chấm</button>
+        <button type="button" class="adm-subtab"           data-status="reviewed"  role="tab" aria-selected="false">Chờ trả</button>
+        <button type="button" class="adm-subtab"           data-status="delivered" role="tab" aria-selected="false">Đã trả</button>
+        <button type="button" class="adm-subtab"           data-status=""          role="tab" aria-selected="false">Tất cả</button>
+      </nav>
+
+      <div class="q-toolbar">
+        <label class="q-overdue"><input type="checkbox" id="q-overdue" /> Chỉ quá hạn</label>
+        <select id="q-cohort" aria-label="Lọc theo lớp"><option value="">Tất cả lớp</option></select>
+        <span id="q-count" class="q-meta"></span>
+      </div>
+
+      <!-- Bulk-deliver bar — only on the "Chờ trả" (reviewed) lane -->
+      <div id="q-bulk-bar" class="q-bulk-bar" hidden>
+        <span id="q-bulk-count" class="q-bulk-count">0 đã chọn</span>
+        <button id="q-bulk-deliver" class="adm-btn-primary adm-btn-sm" type="button">Trả bài đã chọn</button>
+      </div>
+
+      <div class="adm-loading" id="q-loading">Đang tải…</div>
+      <div class="adm-empty"   id="q-empty"   hidden>Không có bài nào khớp bộ lọc.</div>
+
+      <div class="adm-table-wrap" id="q-table-wrap" hidden>
+        <table class="adm-table">
+          <thead>
+            <tr>
+              <th class="q-check-col" id="q-check-th" hidden><input type="checkbox" id="q-select-all" aria-label="Chọn tất cả" /></th>
+              <th>Học viên</th>
+              <th>Task</th>
+              <th>Trạng thái</th>
+              <th>Band</th>
+              <th>Tuổi</th>
+              <th>Hạn</th>
+            </tr>
+          </thead>
+          <tbody id="q-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+
+  </aver-admin-chrome>
+
+  <script type="module" src="/js/components/aver-admin-chrome.js"></script>
+  <script src="/js/error-reporter.js"></script>
+  <script type="module" src="/js/admin-writing-queue.js"></script>
+</body>
+</html>
