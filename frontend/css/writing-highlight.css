@@ -1,0 +1,114 @@
+/* writing-highlight.css — T4·1 inline error highlight (student view).
+ *
+ * A restrained, editorial treatment: each flagged span carries a wavy
+ * underline tinted to its error type, lifts to a soft tinted ground on
+ * hover/focus, and reveals a compact popover that reads as a correction
+ * card — a struck "before" → a confident "after", then the why.
+ *
+ * Theme-aware via --av-* tokens (works in light + dark). Type → colour:
+ *   grammar=warning · spelling=error · lexical=info · coherence=primary
+ *   punctuation/other=muted. Component is self-contained; T1 only aligns
+ *   surrounding-page tokens, it does NOT restyle this. */
+
+/* Per-type accent — one custom prop drives underline, ring, and popover bar. */
+.wh-mark.wh-type-grammar     { --wh-accent: var(--av-warning); }
+.wh-mark.wh-type-spelling    { --wh-accent: var(--av-error); }
+.wh-mark.wh-type-lexical     { --wh-accent: var(--av-info); }
+.wh-mark.wh-type-coherence   { --wh-accent: var(--av-primary); }
+.wh-mark.wh-type-punctuation { --wh-accent: var(--av-text-muted); }
+.wh-mark.wh-type-other       { --wh-accent: var(--av-text-muted); }
+
+.wh-mark {
+  --wh-accent: var(--av-text-muted);
+  background: transparent;
+  color: inherit;                       /* keep the essay's own colour */
+  text-decoration: underline wavy var(--wh-accent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  border-radius: var(--av-radius-sm, 4px);
+  padding: 0 1px;
+  cursor: pointer;
+  transition: background-color var(--av-duration-fast, 120ms) var(--av-easing-default, ease);
+}
+
+.wh-mark:hover,
+.wh-mark:focus-visible {
+  background: color-mix(in srgb, var(--wh-accent) 16%, transparent);
+}
+
+.wh-mark:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--wh-accent) 60%, transparent);
+  outline-offset: 1px;
+}
+
+/* ── Popover ──────────────────────────────────────────────────────── */
+
+.wh-popover {
+  position: fixed;
+  z-index: 2000;
+  max-width: min(22rem, calc(100vw - 1rem));
+  background: var(--av-surface-card, #fff);
+  color: var(--av-text-primary);
+  border: 1px solid var(--av-border-default);
+  border-left: 3px solid var(--wh-accent, var(--av-text-muted));
+  border-radius: var(--av-radius-md, 8px);
+  box-shadow: 0 10px 30px color-mix(in srgb, #000 22%, transparent);
+  padding: 0.7rem 0.85rem;
+  font-size: var(--av-fs-sm, 0.875rem);
+  line-height: var(--av-lh-normal, 1.5);
+  animation: wh-pop-in var(--av-duration-fast, 120ms) var(--av-easing-default, ease);
+}
+
+.wh-popover[hidden] { display: none; }
+
+.wh-popover.wh-type-grammar     { --wh-accent: var(--av-warning); }
+.wh-popover.wh-type-spelling    { --wh-accent: var(--av-error); }
+.wh-popover.wh-type-lexical     { --wh-accent: var(--av-info); }
+.wh-popover.wh-type-coherence   { --wh-accent: var(--av-primary); }
+.wh-popover.wh-type-punctuation { --wh-accent: var(--av-text-muted); }
+.wh-popover.wh-type-other       { --wh-accent: var(--av-text-muted); }
+
+@keyframes wh-pop-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wh-popover__type {
+  display: inline-block;
+  font-size: var(--av-fs-xs, 0.75rem);
+  font-weight: var(--av-fw-semibold, 600);
+  letter-spacing: var(--av-tracking-wide, 0.02em);
+  text-transform: uppercase;
+  color: var(--wh-accent);
+  margin-bottom: 0.4rem;
+}
+
+.wh-popover__diff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--av-font-mono, ui-monospace, monospace);
+  font-size: var(--av-fs-sm, 0.875rem);
+  margin-bottom: 0.45rem;
+}
+
+.wh-popover__from {
+  color: var(--av-error);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--av-error) 65%, transparent);
+}
+
+.wh-popover__arrow { color: var(--av-text-faint); }
+
+.wh-popover__to {
+  color: var(--av-success);
+  font-weight: var(--av-fw-semibold, 600);
+}
+
+.wh-popover__explain {
+  margin: 0;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-sm, 0.875rem);
+  line-height: var(--av-lh-relaxed, 1.6);
+}

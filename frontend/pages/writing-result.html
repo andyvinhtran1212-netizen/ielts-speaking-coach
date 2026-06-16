@@ -44,6 +44,7 @@
   <link rel="stylesheet" href="/css/aver-design/components.css" />
   <link rel="stylesheet" href="/css/writing-renderers.css" />
   <link rel="stylesheet" href="/css/writing-result.css" />
+  <link rel="stylesheet" href="/css/writing-highlight.css" />
   <!-- Sprint 19.3.5 — Task 1 Academic chart display + lightbox. -->
   <link rel="stylesheet" href="/css/image-lightbox.css" />
   <script src="/js/image-lightbox.js" defer></script>
@@ -300,6 +301,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/api.js"></script>
   <script src="/js/writing-renderers.js"></script>
+  <script src="/js/writing-highlight.js"></script>
   <script>
     'use strict';
 
@@ -512,8 +514,17 @@
         tierBadge.className = 'tier-badge tier-' + tier;
       }
 
-      // Body — original essay
-      document.getElementById('essay-text').textContent = essay.essay_text || '—';
+      // Body — original essay. T4·1: inline error highlight when we have
+      // mistakeAnalysis; on ANY failure WritingHighlight.render falls back to
+      // plain textContent, and the mistake cards (rendered below) always stay.
+      var essayEl = document.getElementById('essay-text');
+      var rawEssay = essay.essay_text || '—';
+      if (window.WritingHighlight && essay.essay_text &&
+          Array.isArray(fj.mistakeAnalysis) && fj.mistakeAnalysis.length) {
+        window.WritingHighlight.render(essayEl, rawEssay, fj.mistakeAnalysis);
+      } else {
+        essayEl.textContent = rawEssay;
+      }
       document.getElementById('word-count').textContent = wordCount(essay.essay_text) + ' từ';
 
       // Sprint 19.3.5 — Task 1 Academic chart alongside the essay, so the
