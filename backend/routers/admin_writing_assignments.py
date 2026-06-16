@@ -128,6 +128,10 @@ class AssignmentCreate(BaseModel):
     instructions:        Optional[str]      = Field(None, max_length=2000)
     is_timed:            bool               = False
     time_limit_minutes:  Optional[int]      = Field(None, ge=1, le=180)
+    # AI feedback depth L1–L5 (mig 104). Default 3 = the value the student-submit
+    # path hardcoded before this feature → back-compat for callers that omit it
+    # (incl. the Student-Hub deep-link create-modal reuse, #484).
+    analysis_level:      int                = Field(3, ge=1, le=5)
 
     @model_validator(mode="after")
     def _coalesce_prompts(self):
@@ -304,6 +308,7 @@ async def create_assignments(
             "instructions":        body.instructions,
             "is_timed":            body.is_timed,
             "time_limit_minutes":  body.time_limit_minutes,
+            "analysis_level":      body.analysis_level,
         }
         for sid in student_id_strs
         for pid in prompt_id_strs
@@ -341,6 +346,7 @@ class FanOutCreate(BaseModel):
     instructions:       Optional[str]      = Field(None, max_length=2000)
     is_timed:           bool               = False
     time_limit_minutes: Optional[int]      = Field(None, ge=1, le=180)
+    analysis_level:     int                = Field(3, ge=1, le=5)   # AI depth L1–L5 (mig 104)
 
     @model_validator(mode="after")
     def _coalesce_prompts(self):
@@ -387,6 +393,7 @@ async def fan_out_to_cohort(
         instructions=body.instructions,
         is_timed=body.is_timed,
         time_limit_minutes=body.time_limit_minutes,
+        analysis_level=body.analysis_level,
     )
     if result["student_count"] == 0:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")

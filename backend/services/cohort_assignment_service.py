@@ -41,6 +41,7 @@ def fan_out_assignment(
     instructions: Optional[str] = None,
     is_timed: bool = False,
     time_limit_minutes: Optional[int] = None,
+    analysis_level: int = 3,
 ) -> dict:
     """Fan N prompts out to every student in `cohort_id` as one group.
 
@@ -92,6 +93,7 @@ def fan_out_assignment(
             "instructions":        instructions,
             "is_timed":            is_timed,
             "time_limit_minutes":  time_limit_minutes,
+            "analysis_level":      analysis_level,
         }
         for sid in student_ids
         for pid in prompt_strs

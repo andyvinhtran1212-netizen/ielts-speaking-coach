@@ -127,8 +127,9 @@ class _Client:
     timestamps which is flaky."""
 
     def __init__(self, *, assignment_status="in_progress", drafts_data=None,
-                 student_row=None):
+                 student_row=None, analysis_level=None):
         self._assignment_status = assignment_status
+        self._analysis_level    = analysis_level
         self._drafts            = drafts_data or []
         self._student_row       = student_row or {"flag_count": 0, "is_under_review": False}
         self.calls: list[tuple] = []
@@ -156,6 +157,7 @@ class _Client:
                     "time_limit_minutes": None,
                     "started_at":  None,
                     "auto_submitted": False,
+                    "analysis_level": self._analysis_level,
                     "writing_prompts": {
                         "id":          _PROMPT_ID,
                         "title":       "T",
@@ -424,3 +426,49 @@ def test_saga_flagged_path_creates_row_first_then_claims(monkeypatch):
     assert len(a_updates) == 1, "flagged SAGA: exactly one assignment UPDATE"
     assert a_updates[0]["payload"]["status"]   == "delivered"
     assert a_updates[0]["payload"]["essay_id"] == _ESSAY_ID
+
+
+# ── analysis_level wire (mig 104): assignment level → essay + grading job ──
+
+def test_submit_uses_assignment_analysis_level(monkeypatch):
+    """The submitted essay + grading job are created at the assignment's
+    analysis_level (mig 104), not the old hardcoded 3."""
+    captured = {}
+    client = _Client(assignment_status="in_progress", analysis_level=5)
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    _patch_saga_service(
+        monkeypatch,
+        on_row_only=lambda kw: captured.update(row=kw),
+        on_schedule=lambda kw: captured.update(sched=kw),
+    )
+    bg = MagicMock(); bg.add_task = MagicMock()
+    _run(submit_my_assignment(
+        assignment_id=_ASSIGNMENT_ID,
+        body=SubmitEssay(essay_text=_LONG),
+        background_tasks=bg,
+        student=_student(),
+    ))
+    assert captured["row"]["data"]["analysis_level"] == 5
+    assert captured["sched"]["analysis_level"] == 5
+
+
+def test_submit_falls_back_to_level_3_when_assignment_has_none(monkeypatch):
+    """Defensive: an assignment row without analysis_level → essay graded at 3
+    (preserves pre-mig-104 behavior)."""
+    captured = {}
+    client = _Client(assignment_status="in_progress", analysis_level=None)
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    _patch_saga_service(
+        monkeypatch,
+        on_row_only=lambda kw: captured.update(row=kw),
+        on_schedule=lambda kw: captured.update(sched=kw),
+    )
+    bg = MagicMock(); bg.add_task = MagicMock()
+    _run(submit_my_assignment(
+        assignment_id=_ASSIGNMENT_ID,
+        body=SubmitEssay(essay_text=_LONG),
+        background_tasks=bg,
+        student=_student(),
+    ))
+    assert captured["row"]["data"]["analysis_level"] == 3
+    assert captured["sched"]["analysis_level"] == 3
