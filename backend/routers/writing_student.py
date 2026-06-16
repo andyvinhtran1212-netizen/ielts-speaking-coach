@@ -664,7 +664,7 @@ def _persist_flagged_submission(
                 "task_type":        task_type,
                 "prompt_text":      prompt_text,
                 "essay_text":       essay_text or "",
-                "analysis_level":   3,
+                "analysis_level":   int((assignment or {}).get("analysis_level") or 3),
                 "form_of_address":  "em",
                 "selected_model":   "gemini-2.5-pro",
                 "status":           "delivered",
@@ -839,7 +839,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, "
             "essay_id, prompt_id, "
-            "assignment_group_id, name, allow_soft_check, "
+            "assignment_group_id, name, allow_soft_check, analysis_level, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )
@@ -1182,6 +1182,11 @@ async def submit_my_assignment(
     timer               = _compute_timer_state(assignment)
     auto_submitted_flag = bool(timer["is_expired"])
 
+    # Analysis level (feedback depth) chosen at assign time (mig 104). Falls
+    # back to 3 = the pre-feature hardcoded default. Flows into the essay row so
+    # the grader (which reads essay.analysis_level) grades at the assigned level.
+    level = int(assignment.get("analysis_level") or 3)
+
     # SAGA 1 — create the essay row with no grading job, no link.
     try:
         row_info = essay_service.create_essay_row_only(
@@ -1191,7 +1196,7 @@ async def submit_my_assignment(
                 "prompt_text":      prompt_text,
                 "prompt_image_url": prompt_image_url,
                 "essay_text":       essay_text,
-                "analysis_level":   3,
+                "analysis_level":   level,
                 "form_of_address":  "em",
                 "selected_model":   "gemini-2.5-pro",
                 "status":           "pending",
@@ -1279,7 +1284,7 @@ async def submit_my_assignment(
     try:
         job_info = essay_service.schedule_grading_job(
             essay_id       = essay_id,
-            analysis_level = 3,
+            analysis_level = level,
             selected_model = "gemini-2.5-pro",
         )
         job_id = job_info["job_id"]

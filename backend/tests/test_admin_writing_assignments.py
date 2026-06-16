@@ -574,3 +574,84 @@ def test_create_timed_assignment_minutes_out_of_range_rejects_422():
         )
 
     assert r.status_code == 422
+
+
+# ── analysis_level at assign time (mig 104) ──────────────────────────────
+
+_COHORT_ID = "00000000-0000-0000-0000-00000000eeee"
+
+
+def _dup_none(mock_db):
+    chain = (mock_db.table.return_value
+             .select.return_value.in_.return_value.in_.return_value)
+    chain.execute.return_value = MagicMock(data=[])
+
+
+def test_create_assignment_persists_analysis_level():
+    """analysis_level passed in the body lands on every inserted row."""
+    mock_db = MagicMock()
+    _dup_none(mock_db)
+    mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(
+        data=[{"id": "r1"}])
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID],
+                  "analysis_level": 5},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 201
+    sent = mock_db.table.return_value.insert.call_args[0][0]
+    assert all(row["analysis_level"] == 5 for row in sent)
+
+
+def test_create_assignment_defaults_analysis_level_3():
+    """Omitting analysis_level → default 3 (back-compat, e.g. Hub deep-link)."""
+    mock_db = MagicMock()
+    _dup_none(mock_db)
+    mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(
+        data=[{"id": "r1"}])
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 201
+    sent = mock_db.table.return_value.insert.call_args[0][0]
+    assert all(row["analysis_level"] == 3 for row in sent)
+
+
+def test_create_assignment_rejects_out_of_range_level():
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID],
+                  "analysis_level": 6},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 422
+
+
+def test_fanout_threads_analysis_level_to_service():
+    """Cohort fan-out forwards analysis_level into fan_out_assignment."""
+    fake = MagicMock(return_value={
+        "student_count": 2, "created_count": 2, "group_id": "g1",
+        "duplicates_warning": [], "assignment_ids": ["a1", "a2"],
+    })
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.fan_out_assignment", fake):
+        r = _client().post(
+            "/admin/writing/assignments/fan-out",
+            json={"prompt_id": _PROMPT_ID, "cohort_id": _COHORT_ID,
+                  "analysis_level": 4},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 201
+    assert fake.call_args.kwargs["analysis_level"] == 4
