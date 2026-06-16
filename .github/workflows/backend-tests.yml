@@ -223,4 +223,5 @@ jobs:
             frontend/tests/grade-queue.test.mjs \
             frontend/tests/grade-submit-next.test.mjs \
             frontend/tests/admin-toast.test.mjs \
-            frontend/tests/admin-confirm-danger.test.mjs
+            frontend/tests/admin-confirm-danger.test.mjs \
+            frontend/tests/admin-a11y-labels.test.mjs
