@@ -123,7 +123,7 @@
       <div class="instructor-panel-title" id="instructor-panel-title"></div>
       <div class="instructor-panel-meta"  id="instructor-panel-meta"></div>
 
-      <textarea
+      <textarea aria-label="Tin nhắn cho học viên (tùy chọn)"
         id="instructor-note-input"
         placeholder="Tin nhắn cho học viên (tùy chọn) — sẽ hiện trên trang kết quả sau khi deliver..."
         maxlength="1000"
@@ -168,7 +168,7 @@
           </header>
           <div id="prompt-box" class="aw-subtitle text-xs mb-2"></div>
           <!-- Sprint 19.3.5 — Task 1 Academic chart (shown only when present). -->
-          <img id="prompt-image" class="prompt-chart-img hidden" role="button" tabindex="0" alt="" />
+          <img id="prompt-image" class="prompt-chart-img hidden" role="button" tabindex="0" alt="" aria-label="Xem ảnh đề bài Task 1 (phóng to)" />
           <pre id="essay-text" class="essay-original">—</pre>
         </section>
 
@@ -178,7 +178,7 @@
             <header class="section-header"><h2>🎯 4 tiêu chí IELTS</h2><button class="btn-edit" data-edit="criteria">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-criteria"></div>
             <div class="section-edit hidden" id="edit-criteria">
-              <textarea class="json-edit" rows="14" data-input="criteria" placeholder='{"mainCriterion": {...}, ...}'></textarea>
+              <textarea aria-label="Sửa JSON: 4 tiêu chí IELTS" class="json-edit" rows="14" data-input="criteria" placeholder='{"mainCriterion": {...}, ...}'></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="criteria">Lưu vào draft</button>
                 <button class="btn" data-cancel="criteria">Hủy</button>
@@ -191,7 +191,7 @@
             <header class="section-header"><h2>📊 Tổng quan</h2><button class="btn-edit" data-edit="overview">✏ Sửa</button></header>
             <div class="section-content" id="content-overview"></div>
             <div class="section-edit hidden" id="edit-overview">
-              <textarea class="text-edit" rows="5" data-input="overview" placeholder="Tóm tắt tổng quan band score..."></textarea>
+              <textarea aria-label="Sửa: Tổng quan" class="text-edit" rows="5" data-input="overview" placeholder="Tóm tắt tổng quan band score..."></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="overview">Lưu vào draft</button>
                 <button class="btn" data-cancel="overview">Hủy</button>
@@ -204,7 +204,7 @@
             <header class="section-header"><h2>📈 Diễn biến band</h2><button class="btn-edit" data-edit="trajectory">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-trajectory"></div>
             <div class="section-edit hidden" id="edit-trajectory">
-              <textarea class="json-edit" rows="10" data-input="trajectory"></textarea>
+              <textarea aria-label="Sửa JSON: Diễn biến band" class="json-edit" rows="10" data-input="trajectory"></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="trajectory">Lưu vào draft</button>
                 <button class="btn" data-cancel="trajectory">Hủy</button>
@@ -220,7 +220,7 @@
             <header class="section-header"><h2>❌ Lỗi sai</h2><button class="btn-edit" data-edit="mistakes">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-mistakes"></div>
             <div class="section-edit hidden" id="edit-mistakes">
-              <textarea class="json-edit" rows="16" data-input="mistakes" placeholder='[{"original": "...", "mistakeType": "...", ...}]'></textarea>
+              <textarea aria-label="Sửa JSON: Lỗi sai" class="json-edit" rows="16" data-input="mistakes" placeholder='[{"original": "...", "mistakeType": "...", ...}]'></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="mistakes">Lưu vào draft</button>
                 <button class="btn" data-cancel="mistakes">Hủy</button>
@@ -233,7 +233,7 @@
             <header class="section-header"><h2>🔁 Lỗi lặp lại</h2><button class="btn-edit" data-edit="recurring">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-recurring"></div>
             <div class="section-edit hidden" id="edit-recurring">
-              <textarea class="json-edit" rows="10" data-input="recurring"></textarea>
+              <textarea aria-label="Sửa JSON: Lỗi lặp lại" class="json-edit" rows="10" data-input="recurring"></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="recurring">Lưu vào draft</button>
                 <button class="btn" data-cancel="recurring">Hủy</button>
@@ -249,7 +249,7 @@
             <header class="section-header"><h2>📚 Lexical</h2><button class="btn-edit" data-edit="lexical">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-lexical"></div>
             <div class="section-edit hidden" id="edit-lexical">
-              <textarea class="json-edit" rows="12" data-input="lexical"></textarea>
+              <textarea aria-label="Sửa JSON: Lexical" class="json-edit" rows="12" data-input="lexical"></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="lexical">Lưu vào draft</button>
                 <button class="btn" data-cancel="lexical">Hủy</button>
@@ -262,7 +262,7 @@
             <header class="section-header"><h2>🏗 Cấu trúc câu</h2><button class="btn-edit" data-edit="sentence-structure">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-sentence-structure"></div>
             <div class="section-edit hidden" id="edit-sentence-structure">
-              <textarea class="json-edit" rows="12" data-input="sentence-structure"></textarea>
+              <textarea aria-label="Sửa JSON: Cấu trúc câu" class="json-edit" rows="12" data-input="sentence-structure"></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="sentence-structure">Lưu vào draft</button>
                 <button class="btn" data-cancel="sentence-structure">Hủy</button>
@@ -275,7 +275,7 @@
             <header class="section-header"><h2>🧩 Coherence</h2><button class="btn-edit" data-edit="coherence">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-coherence"></div>
             <div class="section-edit hidden" id="edit-coherence">
-              <textarea class="json-edit" rows="12" data-input="coherence"></textarea>
+              <textarea aria-label="Sửa JSON: Coherence" class="json-edit" rows="12" data-input="coherence"></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="coherence">Lưu vào draft</button>
                 <button class="btn" data-cancel="coherence">Hủy</button>
@@ -288,7 +288,7 @@
             <header class="section-header"><h2>💡 Idea Development</h2><button class="btn-edit" data-edit="idea-development">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-idea-development"></div>
             <div class="section-edit hidden" id="edit-idea-development">
-              <textarea class="json-edit" rows="12" data-input="idea-development"></textarea>
+              <textarea aria-label="Sửa JSON: Idea Development" class="json-edit" rows="12" data-input="idea-development"></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="idea-development">Lưu vào draft</button>
                 <button class="btn" data-cancel="idea-development">Hủy</button>
@@ -301,7 +301,7 @@
             <header class="section-header"><h2>⚖ Counterargument</h2><button class="btn-edit" data-edit="counterargument">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-counterargument"></div>
             <div class="section-edit hidden" id="edit-counterargument">
-              <textarea class="json-edit" rows="10" data-input="counterargument"></textarea>
+              <textarea aria-label="Sửa JSON: Counterargument" class="json-edit" rows="10" data-input="counterargument"></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="counterargument">Lưu vào draft</button>
                 <button class="btn" data-cancel="counterargument">Hủy</button>
@@ -320,7 +320,7 @@
             </p>
             <div class="section-content" id="content-instructor-note"></div>
             <div class="section-edit hidden" id="edit-instructor-note">
-              <textarea class="text-edit" rows="6" data-input="instructor-note" placeholder="VD: Em viết tốt phần coherence, cần thêm linking words..."></textarea>
+              <textarea aria-label="Sửa: Note giảng viên" class="text-edit" rows="6" data-input="instructor-note" placeholder="VD: Em viết tốt phần coherence, cần thêm linking words..."></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save-note="1">Lưu note</button>
                 <button class="btn" data-cancel="instructor-note">Hủy</button>
@@ -333,7 +333,7 @@
             <header class="section-header"><h2>✨ Bài cải thiện</h2><button class="btn-edit" data-edit="improved">✏ Sửa</button></header>
             <div class="section-content" id="content-improved"></div>
             <div class="section-edit hidden" id="edit-improved">
-              <textarea class="text-edit" rows="20" data-input="improved" placeholder="Bài cải thiện band 8.0+ ..."></textarea>
+              <textarea aria-label="Sửa: Bài cải thiện" class="text-edit" rows="20" data-input="improved" placeholder="Bài cải thiện band 8.0+ ..."></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="improved">Lưu vào draft</button>
                 <button class="btn" data-cancel="improved">Hủy</button>
@@ -346,7 +346,7 @@
             <header class="section-header"><h2>🤖 AI check</h2><button class="btn-edit" data-edit="ai-content">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-ai-content"></div>
             <div class="section-edit hidden" id="edit-ai-content">
-              <textarea class="json-edit" rows="6" data-input="ai-content" placeholder='{"likelihood": 5, "explanation": "Natural"}'></textarea>
+              <textarea aria-label="Sửa JSON: AI check" class="json-edit" rows="6" data-input="ai-content" placeholder='{"likelihood": 5, "explanation": "Natural"}'></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="ai-content">Lưu vào draft</button>
                 <button class="btn" data-cancel="ai-content">Hủy</button>
@@ -359,7 +359,7 @@
             <header class="section-header"><h2>🎓 Key takeaways</h2><button class="btn-edit" data-edit="key-takeaways">✏ Sửa JSON</button></header>
             <div class="section-content" id="content-key-takeaways"></div>
             <div class="section-edit hidden" id="edit-key-takeaways">
-              <textarea class="json-edit" rows="8" data-input="key-takeaways" placeholder='{"strengths": [...], "areasForImprovement": [...]}'></textarea>
+              <textarea aria-label="Sửa JSON: Key takeaways" class="json-edit" rows="8" data-input="key-takeaways" placeholder='{"strengths": [...], "areasForImprovement": [...]}'></textarea>
               <div class="edit-actions">
                 <button class="btn btn-primary" data-save="key-takeaways">Lưu vào draft</button>
                 <button class="btn" data-cancel="key-takeaways">Hủy</button>

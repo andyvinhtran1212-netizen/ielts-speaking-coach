@@ -356,7 +356,7 @@ describe('admin-students.html / WF-1 Lớp column + bulk-assign', () => {
 
   test('per-row checkbox + select-all + selection Set', () => {
     assert.match(html, /id="bulk-select-all"/);
-    assert.match(html, /class="row-check"\s+data-id=/);
+    assert.match(html, /class="row-check"[^>]*\bdata-id=/);   // a11y aria-label may sit between
     assert.match(html, /_selectedIds\s*=\s*new Set\(\)/);
   });
 

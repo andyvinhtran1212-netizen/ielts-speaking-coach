@@ -176,14 +176,14 @@
     </div>
 
     <div class="st-toolbar">
-      <input id="search-input" class="st-input" placeholder="Tìm theo mã hoặc tên…" />
+      <input id="search-input" class="st-input" placeholder="Tìm theo mã hoặc tên…" aria-label="Tìm học viên theo mã hoặc tên" />
       <span id="row-count" class="st-meta"></span>
     </div>
 
     <!-- WF-1 bulk-assign bar — shown when ≥1 student is selected -->
     <div id="bulk-bar" class="st-bulk-bar" hidden>
       <span id="bulk-count" class="st-meta">0 đã chọn</span>
-      <select id="bulk-cohort" class="st-input" style="width:auto;"><option value="">— Chọn lớp —</option></select>
+      <select id="bulk-cohort" class="st-input" style="width:auto;" aria-label="Chọn lớp để gán học viên"><option value="">— Chọn lớp —</option></select>
       <button id="bulk-assign" class="adm-btn-primary" type="button">Gán vào lớp</button>
     </div>
 
@@ -355,7 +355,7 @@
         var checked = _selectedIds.has(r.id) ? ' checked' : '';
         var cohortAttr = r.cohort_name ? esc(r.cohort_name) : '';
         return '<tr>' +
-          '<td class="th-check"><input type="checkbox" class="row-check" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
+          '<td class="th-check"><input type="checkbox" class="row-check" aria-label="Chọn học viên" data-id="' + esc(r.id) + '"' + checked + ' /></td>' +
           '<td class="code-cell">' + code + '</td>' +
           '<td><button class="st-namebtn" data-act="summary" data-id="' + esc(r.id) + '" data-name="' + name + '" data-cohort="' + cohortAttr + '">' + name + '</button></td>' +
           '<td>' + lop + '</td>' +
