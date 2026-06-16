@@ -42,12 +42,7 @@ function escapeHtml(s) {
 }
 
 function showBanner(msg, kind) {
-  const el = $('status-banner');
-  if (!el) return;
-  el.className = 'vex-banner is-' + (kind === 'error' ? 'error' : 'success');
-  el.textContent = msg;
-  el.hidden = false;
-  setTimeout(() => { el.hidden = true; }, 4000);
+  showToast(msg, kind === 'error' ? 'error' : 'success', { timeout: 4000 });
 }
 
 async function loadList() {

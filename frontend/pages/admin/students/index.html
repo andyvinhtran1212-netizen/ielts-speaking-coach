@@ -294,6 +294,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
   <script>
     'use strict';
 
@@ -327,10 +328,8 @@
     function _hide(id) { var el = document.getElementById(id); if (el) el.classList.add('hidden'); }
 
     function setAlert(kind, msg) {
-      var area = document.getElementById('alert-area');
-      var mod  = kind === 'error' ? 'is-error' : kind === 'success' ? 'is-success' : 'is-warn';
-      area.innerHTML = '<div class="adm-banner ' + mod + '">' + esc(msg) + '</div>';
-      if (kind !== 'error') setTimeout(function () { area.innerHTML = ''; }, 4000);
+      if (kind === 'error') showToast(msg, 'error', { persist: true });
+      else showToast(msg, kind === 'success' ? 'success' : 'warn', { timeout: 4000 });
     }
 
     function renderRows(rows) {

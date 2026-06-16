@@ -374,6 +374,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
   <script src="/js/writing-admin.js"></script>
   <script>
     'use strict';
@@ -426,15 +427,8 @@
 
     // ── Alerts ───────────────────────────────────────────────────
     function setAlert(kind, msg) {
-      var area = document.getElementById('alert-area');
-      var cls = kind === 'error' ? 'aw-alert--error'
-              : kind === 'success' ? 'aw-alert--success'
-              : kind === 'warn' ? 'aw-alert--warn'
-              : 'aw-alert--info';
-      area.innerHTML = '<div class="aw-alert ' + cls + '">' + WC.escapeHtml(msg) + '</div>';
-      if (kind !== 'error') {
-        setTimeout(function () { if (area.firstChild) area.innerHTML = ''; }, 4000);
-      }
+      if (kind === 'error') { showToast(msg, 'error', { persist: true }); }
+      else { showToast(msg, kind === 'success' ? 'success' : kind === 'warn' ? 'warn' : 'info', { timeout: 4000 }); }
     }
 
     // ── Status pill colour ───────────────────────────────────────

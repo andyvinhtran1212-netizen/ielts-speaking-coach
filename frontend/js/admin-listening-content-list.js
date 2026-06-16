@@ -56,10 +56,7 @@ function escapeHtml(s) {
 
 
 function showBanner(text) {
-  const b = $('status-banner');
-  if (!b) return;
-  b.textContent = text;
-  b.hidden = false;
+  showToast(text, 'info', { persist: true });
 }
 
 

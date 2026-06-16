@@ -46,12 +46,8 @@ function escapeHtml(s) {
 }
 
 function showBanner(msg, kind) {
-  const el = $('status-banner');
-  if (!el) return;
-  el.className = 'adm-banner ' + (kind === 'error' ? 'is-error' : kind === 'warn' ? 'is-warn' : 'is-success');
-  el.textContent = msg;
-  el.hidden = false;
-  if (kind !== 'error') setTimeout(() => { el.hidden = true; }, 5000);
+  if (kind === 'error') showToast(msg, 'error', { persist: true });
+  else showToast(msg, kind === 'warn' ? 'warn' : 'success', { timeout: 5000 });
 }
 
 function fmtDate(iso) {

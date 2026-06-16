@@ -49,8 +49,12 @@ function fmtWhen(iso) {
 
 let _reqId = 0;   // monotonic — drops stale responses on rapid window switches
 
-function showBanner(msg) { const el = $('rd-banner'); if (el) { el.textContent = msg; el.hidden = false; } }
-function clearBanner() { const el = $('rd-banner'); if (el) el.hidden = true; }
+function showBanner(msg) {
+  showToast(msg, 'error', { persist: true });
+}
+function clearBanner() {
+  clearToasts();
+}
 
 function setLoading(on) {
   document.querySelectorAll('.db-card--windowed').forEach((c) => c.classList.toggle('is-loading', on));

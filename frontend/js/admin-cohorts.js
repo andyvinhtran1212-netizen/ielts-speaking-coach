@@ -36,12 +36,7 @@ function statusChip(c) {
 }
 
 function showBanner(msg, kind) {
-  const el = $('co-banner');
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.toggle('is-error', kind === 'error');
-  el.hidden = false;
-  setTimeout(() => { el.hidden = true; }, 4000);
+  showToast(msg, kind === 'error' ? 'error' : 'success', { timeout: 4000 });
 }
 
 // ── List view ────────────────────────────────────────────────────────────────

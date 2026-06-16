@@ -195,3 +195,51 @@ th.adm-sortable:hover { color: var(--av-text-primary); }
 .adm-subtab:hover { color: var(--av-text-primary); }
 .adm-subtab.is-active { background: var(--av-brand-teal-50); color: var(--av-brand-teal-800);
   border-color: var(--av-brand-teal-200); font-weight: var(--av-fw-semibold); }
+
+/* ── Toast notifications (shared window.showToast helper — js/toast.js) ──────── */
+.av-toast-stack {
+  position: fixed;
+  right: var(--av-space-4);
+  bottom: var(--av-space-4);
+  z-index: var(--av-z-toast, 9999);
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-2);
+  max-width: min(92vw, 28rem);
+  pointer-events: none;
+}
+.av-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--av-space-2);
+  padding: var(--av-space-3) var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-left-width: 4px;
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-medium);
+  line-height: var(--av-lh-snug);
+  box-shadow: var(--av-shadow-lg);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--av-duration-base) var(--av-easing-default),
+              transform var(--av-duration-base) var(--av-easing-default);
+  word-break: break-word;
+}
+.av-toast.is-show { opacity: 1; transform: translateY(0); }
+.av-toast__msg { flex: 1 1 auto; }
+.av-toast__close {
+  flex: 0 0 auto;
+  background: none; border: none; cursor: pointer;
+  color: inherit; font-size: var(--av-fs-lg); line-height: 1;
+  padding: 0 2px; opacity: 0.7;
+}
+.av-toast__close:hover { opacity: 1; }
+.av-toast-success { border-left-color: var(--av-success); background: var(--av-success-soft); color: var(--av-success); }
+.av-toast-error   { border-left-color: var(--av-error);   background: var(--av-error-soft);   color: var(--av-error); }
+.av-toast-info    { border-left-color: var(--av-info);    background: var(--av-info-soft);    color: var(--av-info); }
+.av-toast-warn    { border-left-color: var(--av-warning); background: var(--av-warning-soft); color: var(--av-warning); }
+@media (prefers-reduced-motion: reduce) { .av-toast { transition: none; } }

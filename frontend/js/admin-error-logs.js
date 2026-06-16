@@ -31,12 +31,7 @@ let _rows = [];
 const _expanded = new Set();
 
 function showBanner(msg, kind) {
-  const el = $('status-banner');
-  el.textContent = msg;
-  el.classList.remove('is-success', 'is-error');
-  el.classList.add(kind === 'error' ? 'is-error' : 'is-success');
-  el.hidden = false;
-  setTimeout(() => { el.hidden = true; }, 4000);
+  showToast(msg, kind === 'error' ? 'error' : 'success', { timeout: 4000 });
 }
 
 function fmtTime(iso) {

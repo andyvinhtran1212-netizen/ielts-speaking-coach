@@ -23,13 +23,7 @@ const api = window.api;
 const $ = (id) => document.getElementById(id);
 
 function showBanner(msg, kind) {
-  const el = $('status-banner');
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.remove('is-success', 'is-error');
-  el.classList.add(kind === 'error' ? 'is-error' : 'is-success');
-  el.hidden = false;
-  setTimeout(() => { el.hidden = true; }, 4000);
+  showToast(msg, kind === 'error' ? 'error' : 'success', { timeout: 4000 });
 }
 
 function fmt(n, suffix) {
