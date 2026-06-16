@@ -105,6 +105,12 @@
         <button id="btn-copy"     class="btn" title="Sao chép feedback có định dạng — dán (Cmd/Ctrl+V) vào Google Docs của học viên">📋 Sao chép (Google Docs)</button>
         <button id="btn-download" class="btn" title="Tải feedback về file Word (.docx)">⬇ Tải .docx</button>
         <button id="btn-regrade"  class="btn btn-warn" title="Chấm lại bằng AI">🔄 Chấm lại</button>
+        <!-- T3·2: ẩn 4 điểm tiêu chí khỏi học viên khi giao (overall vẫn hiện). -->
+        <label id="hide-subbands-wrap" class="hide-subbands-toggle"
+               title="Khi giao: ẩn 4 điểm tiêu chí khỏi học viên (overall band vẫn hiện)">
+          <input type="checkbox" id="hide-subbands-toggle" />
+          Ẩn điểm thành phần
+        </label>
         <button id="btn-deliver"  class="btn btn-success">✓ Mark delivered</button>
         <span id="last-saved"></span>
         <span id="header-email" class="aw-header__email hidden text-xs"></span>
@@ -1338,13 +1344,17 @@
         return;
       }
       if (!confirm('Đánh dấu bài này đã giao cho học viên? Trạng thái sẽ chuyển sang "delivered".')) return;
+      // T3·2 — optional: hide the 4 criterion sub-bands from the student
+      // (overall band always shown). Unchecked → false = show (legacy).
+      var hideToggle = document.getElementById('hide-subbands-toggle');
+      var hideSubbands = !!(hideToggle && hideToggle.checked);
       try {
         var res = await window.api.post(
           '/admin/writing/essays/' + _essayId + '/mark-delivered',
-          { method: 'google_docs_paste' }
+          { method: 'google_docs_paste', hide_subbands: hideSubbands }
         );
         setStatusPill(res.status);
-        setAlert('success', 'Đã đánh dấu delivered.');
+        setAlert('success', 'Đã đánh dấu delivered.' + (hideSubbands ? ' (Đã ẩn điểm thành phần)' : ''));
       } catch (err) {
         setAlert('error', 'Mark delivered failed: ' + err.message);
       }
