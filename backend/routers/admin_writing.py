@@ -94,6 +94,15 @@ class BulkMarkDeliveredRequest(BaseModel):
     method: str = Field(default="google_docs_paste", max_length=32)
 
 
+class RegradeRequest(BaseModel):
+    # T2·1 — optional per-essay analysis-level override for a regrade. None
+    # (the default) means "regrade at the essay's current level" so the
+    # pre-T2·1 empty-body POST keeps its exact behaviour. A 1–5 value is
+    # persisted into writing_essays.analysis_level (the column the BG grader
+    # re-reads) so the re-run grades at the chosen level.
+    analysis_level: Optional[int] = Field(default=None, ge=1, le=5)
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -690,6 +699,7 @@ async def update_instructor_note(
 async def trigger_regrade(
     essay_id: UUID,
     background_tasks: BackgroundTasks,
+    body: RegradeRequest = RegradeRequest(),
     authorization: str | None = Header(None),
 ):
     """Re-run AI grading on an existing essay.
@@ -765,6 +775,16 @@ async def trigger_regrade(
 
     now_iso = _now_iso()
     new_count = (essay.get("regrade_count") or 0) + 1
+
+    # T2·1 — optional per-essay level override. When the body omits
+    # analysis_level we keep the essay's current level (pre-T2·1 behaviour);
+    # when it supplies 1–5 we persist it into the same column the BG grader
+    # re-reads in _bg_grade_essay, so the re-run grades at the chosen level.
+    effective_level = (
+        body.analysis_level
+        if body.analysis_level is not None
+        else (essay.get("analysis_level") or 3)
+    )
     try:
         (
             supabase_admin.table("writing_essays")
@@ -773,6 +793,7 @@ async def trigger_regrade(
                 "regrade_count":      new_count,
                 "last_regraded_at":   now_iso,
                 "last_regraded_by":   admin["id"],
+                "analysis_level":     effective_level,
                 # The new AI grade supersedes any prior manual edit, so
                 # both fields reset to a clean slate.
                 "admin_edits_json":   None,
@@ -790,7 +811,7 @@ async def trigger_regrade(
     # submit path use.
     job_info = essay_service.schedule_grading_job(
         essay_id       = str(essay_id),
-        analysis_level = essay.get("analysis_level") or 3,
+        analysis_level = effective_level,
         selected_model = essay.get("selected_model") or "gemini-2.5-pro",
     )
     background_tasks.add_task(
@@ -800,11 +821,12 @@ async def trigger_regrade(
     )
 
     return {
-        "essay_id":      str(essay_id),
-        "job_id":        job_info["job_id"],
-        "regrade_count": new_count,
-        "eta_seconds":   job_info["eta_seconds"],
-        "message":       "Đang chấm lại bài. Refresh sau ~30s để xem kết quả.",
+        "essay_id":       str(essay_id),
+        "job_id":         job_info["job_id"],
+        "regrade_count":  new_count,
+        "analysis_level": effective_level,
+        "eta_seconds":    job_info["eta_seconds"],
+        "message":        "Đang chấm lại bài. Refresh sau ~30s để xem kết quả.",
     }
 
 

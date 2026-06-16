@@ -422,6 +422,87 @@ def test_regrade_requires_auth():
     assert r.status_code == 401
 
 
+# ── POST /regrade — T2·1 analysis-level override ─────────────────────
+
+
+def test_regrade_with_level_override_persists_and_grades_at_it():
+    """T2·1: a regrade body carrying analysis_level=5 (essay is currently
+    level 3) persists 5 into writing_essays.analysis_level — the column the
+    BG grader re-reads — so the re-run grades at level 5.  The ETA estimate
+    and the response also reflect the override.  Transition/guards/counter
+    are unchanged."""
+    fake = _Dispatcher(essays=[_graded_essay()])           # current level = 3
+    schedule_mock = MagicMock(return_value={"job_id": _JOB_ID, "eta_seconds": 90})
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.schedule_grading_job", schedule_mock), \
+         patch("services.essay_service._bg_grade_essay",
+               new=AsyncMock(return_value=None)):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/regrade",
+            json={"analysis_level": 5},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 202, r.text
+    assert r.json()["analysis_level"] == 5
+
+    # Persisted into the column the grader re-reads.
+    update = next(c for c in fake.calls
+                  if c["table"] == "writing_essays" and c["action"] == "update")
+    payload = update["payload"]
+    assert payload["analysis_level"] == 5
+    # Existing contract unchanged by the override.
+    assert payload["status"]        == "grading"
+    assert payload["regrade_count"] == 1
+
+    # ETA estimate is computed for the chosen level.
+    assert schedule_mock.call_args.kwargs["analysis_level"] == 5
+
+
+def test_regrade_without_level_keeps_current():
+    """T2·1: an empty body (the pre-T2·1 shape) keeps the essay's current
+    level — no behaviour change for callers that don't send a level."""
+    fake = _Dispatcher(essays=[_graded_essay()])           # current level = 3
+    schedule_mock = MagicMock(return_value={"job_id": _JOB_ID, "eta_seconds": 45})
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.schedule_grading_job", schedule_mock), \
+         patch("services.essay_service._bg_grade_essay",
+               new=AsyncMock(return_value=None)):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/regrade",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 202, r.text
+    assert r.json()["analysis_level"] == 3
+
+    update = next(c for c in fake.calls
+                  if c["table"] == "writing_essays" and c["action"] == "update")
+    assert update["payload"]["analysis_level"] == 3
+    assert schedule_mock.call_args.kwargs["analysis_level"] == 3
+
+
+def test_regrade_rejects_out_of_range_level():
+    """analysis_level is bounded 1–5 (mirrors CreateEssayRequest); a 9
+    is a 422 at the Pydantic boundary and never queues a job."""
+    fake = _Dispatcher(essays=[_graded_essay()])
+    schedule_mock = MagicMock()
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.schedule_grading_job", schedule_mock):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/regrade",
+            json={"analysis_level": 9},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 422
+    schedule_mock.assert_not_called()
+
+
 # ── GET /students/{id}/summary ───────────────────────────────────────
 
 
