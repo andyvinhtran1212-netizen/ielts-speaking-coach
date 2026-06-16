@@ -1170,3 +1170,21 @@
   gap: 0.5rem;
   margin-top: 1.1rem;
 }
+
+
+/* ── Hide-subbands deliver toggle (T3·2) ───────────────────────────── */
+/* Minimal styling — T1 redesign will polish. */
+
+.hide-subbands-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.hide-subbands-toggle input {
+  cursor: pointer;
+}

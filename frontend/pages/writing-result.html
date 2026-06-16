@@ -396,6 +396,15 @@
       section.style.display = _isEmptyValue(value) ? 'none' : '';
     }
 
+    // T3·2 — collapse the 4-criterion sub-band section when the admin chose
+    // to hide it at deliver time (essay.hide_subbands). The OVERALL band lives
+    // in the sticky header (#band-display) and is never affected by this.
+    function maybeHideSubbands(hide) {
+      var section = document.getElementById('section-criteria');
+      if (!section) return;
+      section.style.display = hide ? 'none' : '';
+    }
+
     // Sprint 2.7c — student-facing hide-empty for L2+ optional sections.
     // Without this, an L1 essay (where the prompt explicitly nulls
     // L2+ sections) would still render Coherence/Lexical/etc. cards
@@ -526,11 +535,22 @@
         promptImg.removeAttribute('src');
       }
 
+      // T3·2 — deliver-time flag: hide the 4 criterion sub-bands from the
+      // student (overall band, in the sticky header, always stays). Default
+      // false → render everything (legacy behaviour).
+      var hideSubbands = !!essay.hide_subbands;
+
       // Render every section via shared dispatch.
       Object.keys(WritingRenderers.SECTION_KEYS).forEach(function (sectionKey) {
+        // Skip rendering the 4-criterion cards when hidden — don't even
+        // inject them into the DOM.
+        if (sectionKey === 'criteria' && hideSubbands) return;
         var dataKey = WritingRenderers.SECTION_KEYS[sectionKey];
         renderSection(sectionKey, fj[dataKey]);
       });
+
+      // T3·2 — collapse the sub-band section container when hidden.
+      maybeHideSubbands(hideSubbands);
 
       // Auto-hide Counterargument when AI returned null/empty (Task 1
       // essays don't have it; Task 2 may legitimately omit).
