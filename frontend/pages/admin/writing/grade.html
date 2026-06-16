@@ -89,6 +89,10 @@
               <span class="separator">·</span>
               <span id="tier-badge" class="tier-badge tier-standard" title="Grading tier">Standard</span>
             </span>
+            <span id="level-wrap" class="hidden">
+              <span class="separator">·</span>
+              <span id="level-badge" class="tier-badge" title="Cấp độ phân tích AI (đặt khi giao bài)">L3</span>
+            </span>
           </p>
         </div>
       </div>
@@ -1424,6 +1428,14 @@
       tierWrap.classList.toggle('hidden', tier === 'standard');
       tierBadge.textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
       tierBadge.className = 'tier-badge tier-' + tier;
+
+      // Read-only analysis level (feedback depth) — set at assign time (mig 104).
+      var lvl = detail.analysis_level;
+      var levelWrap = document.getElementById('level-wrap');
+      if (levelWrap) {
+        if (lvl) { document.getElementById('level-badge').textContent = 'L' + lvl; levelWrap.classList.remove('hidden'); }
+        else { levelWrap.classList.add('hidden'); }
+      }
 
       // Sprint 2.7d.2 — Instructor tier panel. Loaded async so the
       // rest of populate() doesn't block on a queue fetch. Standard /

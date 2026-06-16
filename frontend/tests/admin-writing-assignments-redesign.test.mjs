@@ -312,10 +312,11 @@ describe('admin-writing-assignments.html / W-ASSIGN multi-prompt + group', () =>
   });
 
   test('fan-out also sends prompt_ids + name + allow_soft_check', () => {
-    const fanout = html.match(/assignments\/fan-out['"][\s\S]{0,400}?\}\)/);
+    const fanout = html.match(/assignments\/fan-out['"][\s\S]{0,600}?\}\)/);
     assert.ok(fanout, 'fan-out call not found');
     assert.match(fanout[0], /prompt_ids:/);
     assert.match(fanout[0], /allow_soft_check:/);
+    assert.match(fanout[0], /analysis_level:/);   // PR-2: level sent in fan-out too
   });
 
   test('admin list groups rows by assignment_group_id', () => {
