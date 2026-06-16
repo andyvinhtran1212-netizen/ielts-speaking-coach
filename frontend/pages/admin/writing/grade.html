@@ -428,6 +428,7 @@
     var _currentNote = '';       // working copy of writing_essays.instructor_note
     var _serverNote  = '';       // last-known server value, for dirty comparison
     var _isDirty = false;        // any section saved to draft → true; PATCH /feedback clears it
+    var _currentLevel = 3;       // detail.analysis_level — seeds the regrade-level picker default (T2·2)
 
     // ── Alerts ───────────────────────────────────────────────────
     function setAlert(kind, msg) {
@@ -1349,25 +1350,139 @@
       }
     }
 
+    // Regrade-level picker (T2·2). Labels mirror the assign-time picker
+    // (#493) verbatim for consistency. Built-on-the-fly modal (grade.html
+    // doesn't load admin-components.css, so confirmDanger's .adm-modal
+    // primitive isn't available here); follows the same a11y pattern as
+    // confirmDanger — focus-trap, Esc-cancel, return-focus, role=dialog.
+    // Resolves to a chosen level (1–5) on confirm, or null on cancel/Esc.
+    var _REGRADE_LEVELS = [
+      { v: 1, label: 'L1 — Ngữ pháp cơ bản (~B4–5.5)' },
+      { v: 2, label: 'L2 — Liên kết / mạch lạc (~B5.5–6.5)' },
+      { v: 3, label: 'L3 — Ý tưởng / lập luận (~B6.5–7.5)' },
+      { v: 4, label: 'L4 — Từ vựng / cấu trúc câu (~B7.5–8.5)' },
+      { v: 5, label: 'L5 — Khắt khe, tinh tế (~B9)' }
+    ];
+
+    function _openRegradeLevelModal(currentLevel) {
+      return new Promise(function (resolve) {
+        var prevFocus = document.activeElement;
+        var cur = (currentLevel >= 1 && currentLevel <= 5) ? currentLevel : 3;
+
+        var backdrop = document.createElement('div');
+        backdrop.className = 'regrade-modal-backdrop';
+
+        var modal = document.createElement('div');
+        modal.className = 'regrade-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'regrade-modal-title');
+
+        var h = document.createElement('h2');
+        h.id = 'regrade-modal-title';
+        h.className = 'regrade-modal__title';
+        h.textContent = 'Chấm lại bằng AI';
+        modal.appendChild(h);
+
+        var warn = document.createElement('p');
+        warn.className = 'regrade-modal__body';
+        warn.textContent = 'Xóa AI feedback hiện tại + chỉnh sửa thủ công của admin, giữ nguyên note giảng viên, tăng regrade_count.';
+        modal.appendChild(warn);
+
+        var fieldLabel = document.createElement('label');
+        fieldLabel.className = 'regrade-modal__field-label';
+        fieldLabel.setAttribute('for', 'regrade-level-select');
+        fieldLabel.textContent = 'Cấp độ phân tích AI';
+        modal.appendChild(fieldLabel);
+
+        var select = document.createElement('select');
+        select.id = 'regrade-level-select';
+        select.className = 'regrade-modal__select';
+        _REGRADE_LEVELS.forEach(function (L) {
+          var opt = document.createElement('option');
+          opt.value = String(L.v);
+          opt.textContent = L.label;
+          if (L.v === cur) opt.selected = true;
+          select.appendChild(opt);
+        });
+        modal.appendChild(select);
+
+        var hint = document.createElement('p');
+        hint.className = 'regrade-modal__hint';
+        hint.textContent = 'Mặc định = cấp hiện tại của bài (L' + cur + '). L4–L5 chấm gắt hơn.';
+        modal.appendChild(hint);
+
+        var actions = document.createElement('div');
+        actions.className = 'regrade-modal__actions';
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn';
+        cancelBtn.textContent = 'Hủy';
+        var confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'btn btn-warn';
+        confirmBtn.textContent = 'Chấm lại';
+        actions.appendChild(cancelBtn);
+        actions.appendChild(confirmBtn);
+        modal.appendChild(actions);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        var closed = false;
+        function close() {
+          if (closed) return;
+          closed = true;
+          document.removeEventListener('keydown', onKey, true);
+          if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+          if (prevFocus && typeof prevFocus.focus === 'function') {
+            try { prevFocus.focus(); } catch (e) { /* opener gone */ }
+          }
+        }
+        function doCancel()  { close(); resolve(null); }
+        function doConfirm() {
+          var v = parseInt(select.value, 10);
+          close();
+          resolve(v >= 1 && v <= 5 ? v : cur);
+        }
+
+        cancelBtn.addEventListener('click', doCancel);
+        confirmBtn.addEventListener('click', doConfirm);
+        backdrop.addEventListener('click', function (e) { if (e.target === backdrop) doCancel(); });
+
+        function onKey(e) {
+          if (e.key === 'Escape') { e.preventDefault(); doCancel(); return; }
+          if (e.key === 'Tab') {
+            var f = [select, cancelBtn, confirmBtn];
+            var first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          }
+        }
+        document.addEventListener('keydown', onKey, true);
+        select.focus();
+      });
+    }
+
     async function handleRegrade() {
       if (_isDirty && !confirm(
             'Có thay đổi chưa lưu. Tiếp tục regrade sẽ XÓA chỉnh sửa của bạn ' +
             'và thay bằng bản AI mới. Tiếp tục?'
           )) return;
-      if (!confirm(
-            'Chấm lại bằng AI? Hành động này:\n' +
-            '• Xóa AI feedback hiện tại\n' +
-            '• Xóa các chỉnh sửa thủ công của admin\n' +
-            '• GIỮ NGUYÊN note giảng viên (instructor_note)\n' +
-            '• Tăng regrade_count'
-          )) return;
+      // Replaces the old native confirm() — the modal carries the warning
+      // text AND the level picker. Cancel / Esc → no regrade.
+      var level = await _openRegradeLevelModal(_currentLevel);
+      if (level == null) return;
       var btn = document.getElementById('btn-regrade');
       var orig = btn.textContent;
       btn.disabled = true; btn.textContent = 'Đang queue…';
       try {
-        var res = await window.api.post('/admin/writing/essays/' + _essayId + '/regrade', {});
+        var res = await window.api.post('/admin/writing/essays/' + _essayId + '/regrade',
+                                        { analysis_level: level });
         var eta = res.eta_seconds ? (' (~' + res.eta_seconds + 's)') : '';
-        setAlert('success', 'Đã queue regrade #' + res.regrade_count + '.' + eta + ' Refresh trang để xem feedback mới.');
+        var gradedAt = res.analysis_level || level;
+        setAlert('success', 'Đã queue regrade #' + res.regrade_count + ' (L' + gradedAt + ').' + eta +
+                            ' Refresh trang để xem feedback mới.');
         clearDirty();
         await loadEssay();
       } catch (err) {
@@ -1431,6 +1546,7 @@
 
       // Read-only analysis level (feedback depth) — set at assign time (mig 104).
       var lvl = detail.analysis_level;
+      _currentLevel = (lvl >= 1 && lvl <= 5) ? lvl : 3;   // seed the regrade picker default (T2·2)
       var levelWrap = document.getElementById('level-wrap');
       if (levelWrap) {
         if (lvl) { document.getElementById('level-badge').textContent = 'L' + lvl; levelWrap.classList.remove('hidden'); }

@@ -1091,3 +1091,82 @@
   .tab-btn   { padding: 0.45rem 0.75rem; }
   .tab-icon  { font-size: 1.15rem; }
 }
+
+
+/* ── Regrade-level picker modal (T2·2) ────────────────────────────── */
+/* Minimal styling — T1 redesign will polish. Built on --av-* tokens so it
+   reads as part of grade.html; reuses the existing .btn / .btn-warn. */
+
+.regrade-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, #000 45%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.regrade-modal {
+  width: 100%;
+  max-width: 26rem;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 24%, transparent);
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.regrade-modal__title {
+  font-size: var(--av-fs-base);
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.regrade-modal__body {
+  font-size: var(--av-fs-sm);
+  line-height: var(--av-lh-normal);
+  color: var(--av-text-secondary);
+  margin: 0 0 0.85rem;
+}
+
+.regrade-modal__field-label {
+  display: block;
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  color: var(--av-text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.regrade-modal__select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  font-size: var(--av-fs-sm);
+  font-family: var(--av-font-sans);
+  color: var(--av-text-primary);
+  background: var(--av-surface-sunken);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+}
+
+.regrade-modal__select:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+
+.regrade-modal__hint {
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-faint);
+  margin: 0.4rem 0 0;
+}
+
+.regrade-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+}
