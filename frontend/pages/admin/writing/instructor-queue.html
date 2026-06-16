@@ -96,6 +96,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
   <script src="/js/writing-admin.js"></script>
   <script>
     'use strict';
@@ -127,9 +128,7 @@
     // ── Helpers ───────────────────────────────────────────────────────
 
     function setAlert(kind, msg) {
-      var area = document.getElementById('alert-area');
-      var cls = kind === 'error' ? 'aw-alert--error' : kind === 'success' ? 'aw-alert--success' : 'aw-alert--warn';
-      area.innerHTML = '<div class="aw-alert ' + cls + '">' + WC.escapeHtml(msg) + '</div>';
+      showToast(msg, kind === 'error' ? 'error' : kind === 'success' ? 'success' : 'warn', { persist: true });
     }
 
     function clearAlert() {

@@ -58,12 +58,7 @@ function escapeHtml(s) {
 
 
 function showBanner(text, kind = 'success') {
-  const b = $('status-banner');
-  if (!b) return;
-  b.textContent = text;
-  b.classList.remove('is-success', 'is-error');
-  b.classList.add(`is-${kind}`);
-  b.hidden = false;
+  showToast(text, kind, { persist: true });
 }
 
 

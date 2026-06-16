@@ -29,11 +29,7 @@ const STATE = {
 
 
 function showBanner(text, kind = 'info') {
-  const b = $('status-banner');
-  b.textContent = text;
-  b.classList.remove('is-info', 'is-success', 'is-error');
-  b.classList.add(`is-${kind}`);
-  b.hidden = false;
+  showToast(text, kind, { persist: true });
 }
 
 

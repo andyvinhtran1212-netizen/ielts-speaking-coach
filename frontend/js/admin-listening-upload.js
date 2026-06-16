@@ -43,18 +43,12 @@ function escapeHtml(s) {
 
 
 function showBanner(text, kind = 'error') {
-  const b = $('status-banner');
-  if (!b) return;
-  b.textContent = text;
-  b.classList.remove('is-success', 'is-error', 'is-info');
-  b.classList.add(`is-${kind}`);
-  b.hidden = false;
+  showToast(text, kind, { persist: true });
 }
 
 
 function hideBanner() {
-  const b = $('status-banner');
-  if (b) b.hidden = true;
+  clearToasts();
 }
 
 

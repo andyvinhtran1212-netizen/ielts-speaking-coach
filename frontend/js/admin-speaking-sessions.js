@@ -74,12 +74,7 @@ function errorLabel(code) {
 }
 
 function showBanner(msg, kind) {
-  const el = $('status-banner');
-  el.textContent = msg;
-  el.classList.remove('is-success', 'is-error');
-  el.classList.add(kind === 'error' ? 'is-error' : 'is-success');
-  el.hidden = false;
-  setTimeout(() => { el.hidden = true; }, 5000);
+  showToast(msg, kind === 'error' ? 'error' : 'success', { timeout: 5000 });
 }
 
 

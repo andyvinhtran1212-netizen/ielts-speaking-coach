@@ -53,14 +53,10 @@ let _activeSeries = 'practices';
 let _reqId = 0;   // monotonic — drops stale responses (Item 3 race guard)
 
 function showBanner(msg) {
-  const el = $('db-banner');
-  if (!el) return;
-  el.textContent = msg;
-  el.hidden = false;
+  showToast(msg, 'error', { persist: true });
 }
 function clearBanner() {
-  const el = $('db-banner');
-  if (el) el.hidden = true;
+  clearToasts();
 }
 
 // scope: 'windowed' → only the windowed value-tiles + chart; 'all' → every tile.
