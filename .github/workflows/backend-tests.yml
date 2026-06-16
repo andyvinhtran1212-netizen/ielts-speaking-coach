@@ -220,4 +220,5 @@ jobs:
             frontend/tests/generate-and-assign-code.test.mjs \
             frontend/tests/admin-users-codes-reskin.test.mjs \
             frontend/tests/student-hub-drawer.test.mjs \
-            frontend/tests/grade-queue.test.mjs
+            frontend/tests/grade-queue.test.mjs \
+            frontend/tests/grade-submit-next.test.mjs

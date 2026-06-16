@@ -93,7 +93,11 @@
         </div>
       </div>
       <div class="header-actions">
+        <!-- Grade-flow PR-3: shown only when opened from the queue (sessionStorage
+             queue-context). Direct opens keep just the normal Save edits. -->
+        <a id="btn-back-queue" class="btn" href="/pages/admin/writing/queue.html" hidden>← Quay lại queue</a>
         <button id="btn-save"     class="btn btn-primary">💾 Save edits</button>
+        <button id="btn-save-next" class="btn btn-primary" hidden>💾 Lưu &amp; bài kế</button>
         <button id="btn-copy"     class="btn" title="Sao chép feedback có định dạng — dán (Cmd/Ctrl+V) vào Google Docs của học viên">📋 Sao chép (Google Docs)</button>
         <button id="btn-download" class="btn" title="Tải feedback về file Word (.docx)">⬇ Tải .docx</button>
         <button id="btn-regrade"  class="btn btn-warn" title="Chấm lại bằng AI">🔄 Chấm lại</button>
@@ -1191,6 +1195,52 @@
       }
     }
 
+    // ── Grade-flow PR-3: submit-&-next ───────────────────────────────
+    // Navigation-only over the queue-context written by queue.html (PR-2):
+    // sessionStorage.gradeQueue = {ids:[…filter order…], i, status}. No
+    // grade-logic change — "Lưu & bài kế" reuses handleSave() then navigates.
+    var QUEUE_KEY = 'gradeQueue';
+    function _readQueue() {
+      try {
+        var raw = sessionStorage.getItem(QUEUE_KEY);
+        if (!raw) return null;
+        var q = JSON.parse(raw);
+        if (!q || !Array.isArray(q.ids) || !q.ids.length) return null;
+        return q;
+      } catch (e) { return null; }
+    }
+    function _nextEssayId() {
+      var q = _readQueue();
+      if (!q) return null;
+      var idx = q.ids.indexOf(_essayId);   // recompute — a stored index may be stale
+      if (idx === -1) return null;
+      return (idx + 1 < q.ids.length) ? q.ids[idx + 1] : null;
+    }
+    async function handleSaveNext() {
+      var ok = await handleSave();
+      if (!ok) return;                     // save failed → stay put, don't navigate
+      var nxt = _nextEssayId();
+      if (nxt) {
+        window.location.href = '/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(nxt);
+      } else {
+        window.location.href = '/pages/admin/writing/queue.html';   // last in queue → back to queue
+      }
+    }
+    // Reveal the queue controls only when this essay was opened from the queue;
+    // a direct open degrades to the normal single-essay Save edits.
+    function _initQueueNav() {
+      var q = _readQueue();
+      var inQueue = !!(q && q.ids.indexOf(_essayId) !== -1);
+      var back = document.getElementById('btn-back-queue');
+      var next = document.getElementById('btn-save-next');
+      if (back) back.hidden = !inQueue;
+      if (next) {
+        next.hidden = !inQueue;
+        // Last-in-queue: relabel so it's clear save returns to the queue.
+        if (inQueue) next.textContent = _nextEssayId() ? '💾 Lưu & bài kế' : '💾 Lưu & về queue';
+      }
+    }
+
     // Save instructor note via the dedicated endpoint — the note is
     // a sibling column on writing_essays, NOT inside feedback_json,
     // so it bypasses the WritingFeedback Pydantic validation that
@@ -1669,6 +1719,7 @@
         wireNav();
         wireSectionEdits();
         document.getElementById('btn-save').addEventListener('click',     handleSave);
+        document.getElementById('btn-save-next').addEventListener('click', handleSaveNext);
         document.getElementById('btn-copy').addEventListener('click',     handleCopy);
         document.getElementById('btn-download').addEventListener('click', handleDownload);
         document.getElementById('btn-deliver').addEventListener('click',  handleDeliver);
@@ -1681,6 +1732,7 @@
         document.getElementById('btn-instructor-release')
           .addEventListener('click', handleInstructorRelease);
 
+        _initQueueNav();   // PR-3: reveal queue controls when opened from the queue
         loadEssay();
       },
     });
