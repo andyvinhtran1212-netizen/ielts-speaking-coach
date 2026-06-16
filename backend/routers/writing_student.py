@@ -309,7 +309,7 @@ async def get_my_essay(
             supabase_admin.table("writing_essays")
             .select(
                 "id, task_type, prompt_text, prompt_image_url, essay_text, "
-                "status, created_at, delivered_at, "
+                "status, created_at, delivered_at, hide_subbands, "
                 "is_flagged, flag_reasons, flagged_at, error_message"
             )
             .eq("id", essay_id)

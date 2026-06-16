@@ -338,6 +338,66 @@ def test_get_essay_returns_feedback_when_delivered(monkeypatch):
     assert out["feedback"] == fb_payload
 
 
+def test_get_essay_signals_hide_subbands_overall_still_present(monkeypatch):
+    """T3·1: GET surfaces essay.hide_subbands so the FE can conditionally
+    render the 4 sub-bands (T3·2). The flag lives on the essay and never
+    touches feedback — the OVERALL band is returned regardless of the flag."""
+    fb_payload = {
+        "feedback_json":      {"overallBandScore": 7.0},
+        "overall_band_score": 7.0,
+        "created_at":         "2026-05-05T11:00:00Z",
+    }
+    client = _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[{
+            "id": _ESSAY_ID, "task_type": "task2",
+            "prompt_text": "Q", "essay_text": "E",
+            "status": "delivered",
+            "created_at": "2026-05-05T10:00:00Z",
+            "delivered_at": "2026-05-05T11:00:00Z",
+            "hide_subbands": True,
+        }],
+        feedback_data=[fb_payload],
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    out = _run(ws_module.get_my_essay(_ESSAY_ID, student=student))
+
+    assert out["essay"]["hide_subbands"] is True             # signal for the FE
+    assert out["feedback"]["overall_band_score"] == 7.0      # overall ALWAYS present
+    # The detail projection actually fetches the column.
+    detail_select = next(
+        c["select"] for c in client.calls
+        if c["table"] == "writing_essays" and c["action"] == "select"
+        and "essay_text" in (c["select"] or "")
+    )
+    assert "hide_subbands" in detail_select
+
+
+def test_get_essay_hide_subbands_defaults_false(monkeypatch):
+    """T3·1: an essay delivered without the flag (or pre-migration apply-
+    forward) reads false = show — the legacy behaviour, zero regression."""
+    _patch(
+        monkeypatch,
+        students_data=[_student_row()],
+        essays_data=[{
+            "id": _ESSAY_ID, "task_type": "task2",
+            "prompt_text": "Q", "essay_text": "E",
+            "status": "delivered",
+            "created_at": "2026-05-05T10:00:00Z",
+            "delivered_at": "2026-05-05T11:00:00Z",
+            "hide_subbands": False,
+        }],
+        feedback_data=[{"feedback_json": {"overallBandScore": 7.0},
+                        "overall_band_score": 7.0,
+                        "created_at": "2026-05-05T11:00:00Z"}],
+    )
+    student = _run(ws_module.get_current_student(authorization="Bearer x"))
+    out = _run(ws_module.get_my_essay(_ESSAY_ID, student=student))
+
+    assert out["essay"]["hide_subbands"] is False
+
+
 def test_get_essay_feedback_fetch_failure_degrades_to_none(monkeypatch):
     """Feedback table outage on a delivered essay ⇒ essay still
     returned with feedback=None. The UI can show body + a 'feedback
