@@ -669,3 +669,40 @@ def test_render_context_404_when_feedback_missing():
         with pytest.raises(HTTPException) as exc:
             essay_service.get_essay_render_context(_ESSAY_ID)
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_bg_grade_essay_overrides_model_overall_with_ielts_round():
+    """P-1: the persisted overall is BACKEND-computed (IELTS-round of the 4
+    criteria), not the model's self-round. Criteria {6,6,7,6} → mean 6.25 → 6.5,
+    even though the model emitted 6.0. The model value is preserved in
+    feedback_json.overallBandScoreModel."""
+    fb = _valid_feedback_obj()
+    fb.overallBandScore = 6.0   # model self-round (wrong / different)
+
+    fake = _FakeSupabase(responses=_bg_essay_responses())
+    fake_grader = MagicMock()
+
+    async def fake_grade(_config):
+        return MagicMock(
+            feedback=fb,
+            model_used="gemini-2.5-pro",
+            tokens_input=3000, tokens_output=2000, cost_usd=0.025,
+            grading_duration_ms=5000, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    fb_insert = next(c for c in fake.calls
+                     if c["table"] == "writing_feedback" and c["op"] == "insert")
+    payload = fb_insert["payload"]
+    # Column = backend IELTS-round of mean(6,6,7,6)=6.25 → 6.5 (NOT model's 6.0)
+    assert payload["overall_band_score"] == 6.5
+    # feedback_json carries the backend value + preserves the model's emission
+    assert payload["feedback_json"]["overallBandScore"] == 6.5
+    assert payload["feedback_json"]["overallBandScoreModel"] == 6.0
