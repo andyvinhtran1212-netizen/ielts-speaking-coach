@@ -220,15 +220,21 @@ async function submitAddMember() {
   }
 }
 
-async function removeMember(studentId) {
-  if (!confirm('Xóa học viên này khỏi lớp? (Không ảnh hưởng mã đăng nhập của họ.)')) return;
-  try {
-    await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/students/' + encodeURIComponent(studentId));
-    showBanner('Đã xóa học viên khỏi lớp.', 'success');
-    loadDetail(_cohortId);
-  } catch (err) {
-    showBanner('Không xóa được: ' + (err.message || err), 'error');
-  }
+function removeMember(studentId) {
+  confirmDanger({
+    title: 'Gỡ khỏi lớp',
+    body: 'Xóa học viên này khỏi lớp? (Không ảnh hưởng mã đăng nhập của họ.)',
+    confirmLabel: 'Gỡ khỏi lớp',
+    onConfirm: async () => {
+      try {
+        await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId) + '/students/' + encodeURIComponent(studentId));
+        showBanner('Đã xóa học viên khỏi lớp.', 'success');
+        loadDetail(_cohortId);
+      } catch (err) {
+        showBanner('Không xóa được: ' + (err.message || err), 'error');
+      }
+    },
+  });
 }
 
 function bindDetail() {

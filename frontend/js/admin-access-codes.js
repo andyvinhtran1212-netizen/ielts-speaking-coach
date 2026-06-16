@@ -298,35 +298,47 @@ async function submitCreate() {
   }
 }
 
-async function revokeCode(codeId) {
-  if (!confirm('Thu hồi mã này? Hành động này không thể khôi phục.')) return;
-  try {
-    await api.delete('/admin/access-codes/' + codeId);
-    showBanner('Đã thu hồi mã.', 'success');
-    await loadCodes(true);  // silent refetch → row shows revoked in place
-  } catch (err) {
-    showBanner('Không thu hồi được: ' + (err.message || err), 'error');
-  }
+function revokeCode(codeId) {
+  confirmDanger({
+    title: 'Thu hồi mã',
+    body: 'Thu hồi mã này? Hành động này không thể khôi phục.',
+    confirmLabel: 'Thu hồi',
+    onConfirm: async () => {
+      try {
+        await api.delete('/admin/access-codes/' + codeId);
+        showBanner('Đã thu hồi mã.', 'success');
+        await loadCodes(true);  // silent refetch → row shows revoked in place
+      } catch (err) {
+        showBanner('Không thu hồi được: ' + (err.message || err), 'error');
+      }
+    },
+  });
 }
 
 // Per-user revoke: deactivate one user's assignment to a code. The user loses
 // access immediately (read-path fix #442 suppresses the legacy used_by
 // fallback once an assignment row exists). Never clears used_by/is_used.
-async function removeUser(codeId, userId, email) {
+function removeUser(codeId, userId, email) {
   const who = email || 'người dùng này';
-  if (!confirm('Gỡ ' + who + ' khỏi mã? Họ sẽ mất quyền truy cập ngay.')) return;
-  try {
-    await api.delete(
-      '/admin/access-codes/' + codeId + '/users/' + encodeURIComponent(userId),
-    );
-    // The list endpoint no longer re-synthesizes a removed user as a legacy
-    // redeemer (admin.py fallback fix), so loadCodes() drops them from the
-    // active list — making the removal visible, not just the loss of a link.
-    showBanner('Đã gỡ ' + who + ' khỏi mã. Quyền truy cập bị thu hồi ngay.', 'success');
-    await loadCodes(true);  // silent refetch → user drops from the row in place
-  } catch (err) {
-    showBanner('Không gỡ được ' + who + ': ' + (err.message || err), 'error');
-  }
+  confirmDanger({
+    title: 'Gỡ khỏi mã',
+    body: 'Gỡ ' + who + ' khỏi mã? Họ sẽ mất quyền truy cập ngay.',
+    confirmLabel: 'Gỡ khỏi mã',
+    onConfirm: async () => {
+      try {
+        await api.delete(
+          '/admin/access-codes/' + codeId + '/users/' + encodeURIComponent(userId),
+        );
+        // The list endpoint no longer re-synthesizes a removed user as a legacy
+        // redeemer (admin.py fallback fix), so loadCodes() drops them from the
+        // active list — making the removal visible, not just the loss of a link.
+        showBanner('Đã gỡ ' + who + ' khỏi mã. Quyền truy cập bị thu hồi ngay.', 'success');
+        await loadCodes(true);  // silent refetch → user drops from the row in place
+      } catch (err) {
+        showBanner('Không gỡ được ' + who + ': ' + (err.message || err), 'error');
+      }
+    },
+  });
 }
 
 // ── Sửa quyền (per-code) + refill ───────────────────────────────────────────
