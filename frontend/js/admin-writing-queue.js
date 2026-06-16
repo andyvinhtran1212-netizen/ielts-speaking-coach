@@ -129,6 +129,8 @@ function render() {
     const name = e.student_full_name || '(không rõ)';
     const code = e.student_code ? `<span class="q-code">${escapeHtml(e.student_code)}</span>` : '';
     const task = TASK_LABELS[e.task_type] || e.task_type || '—';
+    // Read-only feedback-depth level set at assign time (mig 104).
+    const lvl = e.analysis_level ? ` <span class="q-lvl" title="Cấp độ phân tích AI">L${escapeHtml(e.analysis_level)}</span>` : '';
     const pillCls = ['graded', 'reviewed', 'delivered', 'failed'].includes(e.status) ? ' is-' + e.status : '';
     const pill = `<span class="q-pill${pillCls}">${escapeHtml(STATUS_LABELS[e.status] || e.status)}</span>`;
     const band = e.band != null ? e.band : '<span class="q-muted">—</span>';
@@ -139,7 +141,7 @@ function render() {
     return `<tr class="q-row" data-id="${escapeHtml(e.id)}">
       ${checkCell}
       <td><span class="q-name">${escapeHtml(name)}</span> ${code}</td>
-      <td>${escapeHtml(task)}</td>
+      <td>${escapeHtml(task)}${lvl}</td>
       <td>${pill}</td>
       <td>${band}</td>
       <td class="q-muted">${ageLabel(e.created_at)}</td>

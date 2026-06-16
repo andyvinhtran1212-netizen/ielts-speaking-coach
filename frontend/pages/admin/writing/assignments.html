@@ -160,6 +160,17 @@
             <input id="form-name" type="text" maxlength="200" placeholder="VD: Buổi 5 — Task 1 + Task 2" class="aw-input" />
             <p class="aw-help-text text-xs mt-1">Nhãn buổi học — gom các đề giao chung 1 lần.</p>
           </div>
+          <div>
+            <label class="aw-modal-step-label" for="form-analysis-level">Cấp độ phân tích (AI)</label>
+            <select id="form-analysis-level" class="aw-input">
+              <option value="1">L1 — Ngữ pháp cơ bản (~B4–5.5)</option>
+              <option value="2">L2 — Liên kết / mạch lạc (~B5.5–6.5)</option>
+              <option value="3" selected>L3 — Ý tưởng / lập luận (~B6.5–7.5)</option>
+              <option value="4">L4 — Từ vựng / cấu trúc câu (~B7.5–8.5)</option>
+              <option value="5">L5 — Khắt khe, tinh tế (~B9)</option>
+            </select>
+            <p class="aw-help-text text-xs mt-1">Độ sâu feedback AI khi chấm. Mặc định L3.</p>
+          </div>
         </div>
 
         <!-- W-ASSIGN — opt-in client-side grammar/spell soft-check -->
@@ -539,6 +550,7 @@
       document.getElementById('form-is-timed').checked   = false;
       document.getElementById('form-time-limit').value   = '';
       document.getElementById('timer-fields').classList.add('hidden');
+      document.getElementById('form-analysis-level').value = '3';   // default L3
       document.getElementById('form-cohort').value = '';
       setAssignMode('individual');   // Sprint 19.2 — default to per-student
       hide('modal-error');
@@ -566,6 +578,7 @@
       var instructions = document.getElementById('form-instructions').value.trim();
       var isTimed     = document.getElementById('form-is-timed').checked;
       var timeLimitRaw = document.getElementById('form-time-limit').value;
+      var analysisLevel = parseInt(document.getElementById('form-analysis-level').value, 10) || 3;
 
       if (promptIds.length === 0) {
         showModalError('Vui lòng chọn ít nhất 1 đề bài.');
@@ -604,6 +617,7 @@
             instructions:       instructions || null,
             is_timed:           isTimed,
             time_limit_minutes: timeLimit,
+            analysis_level:     analysisLevel,
           });
           var fmsg = '✓ Đã giao ' + promptIds.length + ' đề cho ' + (fr.created_count || 0) + ' bài trong lớp "' + cname + '".';
           if (fr.duplicates_warning && fr.duplicates_warning.length) {
@@ -632,6 +646,7 @@
         instructions:       instructions || null,
         is_timed:           isTimed,
         time_limit_minutes: timeLimit,
+        analysis_level:     analysisLevel,
       };
 
       try {
