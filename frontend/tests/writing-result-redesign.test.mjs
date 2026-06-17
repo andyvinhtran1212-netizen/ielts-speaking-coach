@@ -619,3 +619,39 @@ describe('writing-result.css / contrast discipline', () => {
     );
   });
 });
+
+
+describe('writing-result.css / T1·2 re-skin treatment', () => {
+  test('sections read as elevated cards (matches admin #501)', () => {
+    const sec = css.match(/\.grade-section\s*\{[^}]*\}/);
+    assert.ok(sec, '.grade-section rule present');
+    assert.match(sec[0], /background:\s*var\(--av-surface-card\)/);
+    assert.match(sec[0], /border-radius:\s*var\(--av-radius-lg\)/);
+    assert.match(sec[0], /box-shadow:\s*var\(--av-shadow-sm\)/);
+    const essay = css.match(/\.essay-section\s*\{[^}]*\}/);
+    assert.match(essay[0], /box-shadow:\s*var\(--av-shadow-sm\)/);
+  });
+
+  test('overall band rendered as a hero pill', () => {
+    const band = css.match(/\.band-display\s*\{[^}]*\}/);
+    assert.match(band[0], /border-radius:\s*var\(--av-radius-pill\)/);
+    assert.match(band[0], /background:\s*var\(--av-primary-soft\)/);
+  });
+
+  test('feedback-card family gets the shared depth + hover treatment', () => {
+    assert.match(css, /\.mistake-card:hover[\s\S]{0,400}?translateY/);
+    assert.match(css, /box-shadow:\s*var\(--av-shadow-md\)/);
+  });
+
+  test('load reveal is motion-safe (prefers-reduced-motion gate)', () => {
+    assert.match(css, /@media\s*\(prefers-reduced-motion:\s*no-preference\)/);
+    assert.match(css, /@keyframes result-rise/);
+  });
+
+  test('T4 highlight component is NOT restyled here (only the page around it)', () => {
+    // .wh-* lives in writing-highlight.css; T1·2 must not redefine it.
+    assert.doesNotMatch(css, /\.wh-mark\b/);
+    assert.doesNotMatch(css, /\.wh-popover\b/);
+    assert.doesNotMatch(renderersCss, /\.wh-mark\b/);
+  });
+});
