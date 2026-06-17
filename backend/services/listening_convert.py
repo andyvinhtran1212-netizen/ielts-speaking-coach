@@ -500,10 +500,12 @@ _INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
     # completion instructions say "write … for each answer" — so it's excluded.
     (re.compile(r"match each\b|match the following\b", re.IGNORECASE),
         "matching",                "matching"),
-    (re.compile(r"write the correct letter\b", re.IGNORECASE),
-    (re.compile(r"match each\b|match the following\b", re.IGNORECASE),
-        "matching",                "matching"),
-    (re.compile(r"write the correct letter[, ].{0,15}next to", re.IGNORECASE),
+    # "Write the correct letter …" — matching-specific. Two real phrasings:
+    #   standard block:  "Write the correct letter, A-G, next to questions 16-20"
+    #   057 sub-group:   "Write the correct letter, A-E."  (no "next to")
+    # Require "next to" OR a letter-range (A-E/A-H) so completions that merely
+    # say "write … letter" can't false-match, while both real forms classify.
+    (re.compile(r"write the correct letter[,. ].{0,20}(?:next to|[a-h]\s*[-–]\s*[a-h]\b)", re.IGNORECASE),
         "matching",                "matching"),
     (re.compile(r"any letter more than once", re.IGNORECASE),
         "matching",                "matching"),
@@ -679,28 +681,6 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
             out.append(_build_block(sub_body, sub_lo, sub_hi))
     return out
 
-        instruction = _first_blockquote(body)
-        # P2 — explicit marker wins; regex classify is the fallback.
-        marker = _read_qtype_marker(body)
-        q_type, template_kind = marker if marker else _classify_instruction(instruction)
-
-        meta: dict[str, Any] = {}
-        if q_type == "matching":
-            # A1 — the shared option bank ("**List of roles:** - **A** …" A-G).
-            bank = _extract_matching_bank(body)
-            if bank:
-                meta["match_options"] = bank
-                meta["letter_options"] = [o["letter"] for o in bank]
-        if q_type == "mcq_letter_label":
-            meta["map_description"] = _extract_map_description(body)
-            meta["letter_options"] = list("ABCDEFGH")
-            # Sprint 13.5.9 — pick up Andy's curated AI image-generation
-            # prompt from the `<details>` block immediately after the
-            # question block (if present). ``None`` means the image-gen
-            # service will fall back to its template prompt.
-            custom_prompt = _extract_custom_image_prompt(body)
-            if custom_prompt:
-                meta["map_image_custom_prompt"] = custom_prompt
 
 def _build_block(body: str, lo: int, hi: int) -> dict[str, Any]:
     """Build one question-block dict from a (possibly sub-) block body."""
