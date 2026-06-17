@@ -382,3 +382,37 @@ describe('admin-writing-grade.html / Vietnamese microcopy preserved', () => {
     });
   }
 });
+
+
+describe('admin-writing-grade.css / T1·1 re-skin treatment', () => {
+  // Sections read as elevated cards (not flat bottom-border blocks).
+  test('grade-section + essay-section are elevated cards', () => {
+    const sec = css.match(/\.grade-section\s*\{[^}]*\}/);
+    assert.ok(sec, '.grade-section rule present');
+    assert.match(sec[0], /background:\s*var\(--av-surface-card\)/);
+    assert.match(sec[0], /border-radius:\s*var\(--av-radius-lg\)/);
+    assert.match(sec[0], /box-shadow:\s*var\(--av-shadow-sm\)/);
+    const essay = css.match(/\.essay-section\s*\{[^}]*\}/);
+    assert.match(essay[0], /box-shadow:\s*var\(--av-shadow-sm\)/);
+  });
+
+  test('content-card family gets the shared depth + hover treatment', () => {
+    assert.match(css, /\.mistake-card:hover[\s\S]{0,400}?translateY/);
+    assert.match(css, /box-shadow:\s*var\(--av-shadow-md\)/);
+  });
+
+  test('regrade modal re-skinned (elevated surface + shadow-xl + entrance)', () => {
+    const modal = css.match(/\.regrade-modal\s*\{[^}]*\}/);
+    assert.match(modal[0], /box-shadow:\s*var\(--av-shadow-xl\)/);
+    assert.match(css, /@keyframes grade-modal-in/);
+  });
+
+  test('deliver toggle armed-state tints teal via :has(input:checked)', () => {
+    assert.match(css, /\.hide-subbands-toggle:has\(input:checked\)/);
+  });
+
+  test('load reveal is motion-safe (prefers-reduced-motion gate)', () => {
+    assert.match(css, /@media\s*\(prefers-reduced-motion:\s*no-preference\)/);
+    assert.match(css, /@keyframes grade-rise/);
+  });
+});
