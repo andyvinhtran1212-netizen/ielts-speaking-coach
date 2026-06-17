@@ -52,16 +52,37 @@ def _cell_status(assignment: dict, essay: dict | None) -> str:
     return "not_submitted"
 
 
+def _fetch_bands_by_essay_ids(essay_ids: list[str]) -> dict[str, float | None]:
+    """overall_band_score lives on writing_feedback (one row per essay —
+    essay_id is UNIQUE there), NOT on writing_essays. Fetch the bands
+    separately so cohort views can show them without selecting a column the
+    essays table never had (that mismatch 500-ed the class-list endpoints)."""
+    if not essay_ids:
+        return {}
+    rows = (
+        supabase_admin.table("writing_feedback")
+        .select("essay_id, overall_band_score")
+        .in_("essay_id", essay_ids)
+        .execute()
+    ).data or []
+    return {r["essay_id"]: r.get("overall_band_score") for r in rows}
+
+
 def _fetch_essays_by_ids(essay_ids: list[str]) -> dict[str, dict]:
     if not essay_ids:
         return {}
     rows = (
         supabase_admin.table("writing_essays")
-        .select("id, status, is_flagged, overall_band_score")
+        .select("id, status, is_flagged")
         .in_("id", essay_ids)
         .is_("deleted_at", "null")          # exclude soft-deleted from cohort stats
         .execute()
     ).data or []
+    # Merge the band from writing_feedback (its canonical home) under the
+    # same key callers already read.
+    bands = _fetch_bands_by_essay_ids([e["id"] for e in rows])
+    for e in rows:
+        e["overall_band_score"] = bands.get(e["id"])
     return {e["id"]: e for e in rows}
 
 
@@ -246,9 +267,13 @@ async def cohort_student_essays(
 
     essays = (
         supabase_admin.table("writing_essays")
-        .select("id, task_type, status, is_flagged, overall_band_score, created_at")
+        .select("id, task_type, status, is_flagged, created_at")
         .eq("student_id", str(student_id))
         .order("created_at", desc=True)
         .execute()
     ).data or []
+    # Band lives on writing_feedback, not writing_essays — merge it in.
+    bands = _fetch_bands_by_essay_ids([e["id"] for e in essays])
+    for e in essays:
+        e["overall_band_score"] = bands.get(e["id"])
     return {"essays": essays}
