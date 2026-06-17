@@ -119,16 +119,19 @@ describe('grade-queue — chrome nav entry', () => {
 });
 
 
-describe('F3 — dead bare-nav entries repointed to the queue', () => {
-  test('"Chấm bài viết" (slug grade) → queue.html (not bare grade.html)', () => {
-    assert.match(CHROME, /slug: 'grade',\s*label: 'Chấm bài viết',\s*href: '\/pages\/admin\/writing\/queue\.html'/);
+describe('F3/F4 — dead bare-nav entries fixed', () => {
+  test('F4 nav-dedup: "Chấm bài viết" removed (was a duplicate of Hàng chờ chấm)', () => {
+    assert.doesNotMatch(CHROME, /label: 'Chấm bài viết'/);
+    assert.doesNotMatch(CHROME, /slug: 'grade'/);
   });
   test('"Trạng thái chấm" (slug status) → queue.html?status=grading (F1 lane)', () => {
     assert.match(CHROME, /slug: 'status',\s*label: 'Trạng thái chấm',\s*href: '\/pages\/admin\/writing\/queue\.html\?status=grading'/);
   });
-  test('neither still points at the bare param-required pages', () => {
-    assert.doesNotMatch(CHROME, /label: 'Chấm bài viết',\s*href: '\/pages\/admin\/writing\/grade\.html'/);
+  test('"Trạng thái chấm" no longer points at the bare status.html', () => {
     assert.doesNotMatch(CHROME, /label: 'Trạng thái chấm',\s*href: '\/pages\/admin\/writing\/status\.html'/);
+  });
+  test('"Hàng chờ chấm" remains the canonical queue entry', () => {
+    assert.match(CHROME, /slug: 'queue',\s*label: 'Hàng chờ chấm',\s*href: '\/pages\/admin\/writing\/queue\.html'/);
   });
   test('queue reads ?status= deep-link → lands on that lane', () => {
     assert.match(JS, /function _readUrlStatus\(\)/);
