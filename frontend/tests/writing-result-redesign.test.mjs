@@ -672,6 +672,9 @@ describe('writing-result.html / U2 hide-all scores (overall band gated)', () => 
   // gated pill is absent in @media print as well.
   test('.hidden is display:none !important (covers screen + print)', () => {
     assert.match(css, /\.hidden\s*\{\s*display:\s*none\s*!important/);
+  });
+});
+
 describe('writing-result.css / U3 layout aligned to nav width (1180)', () => {
   test('shared gutter centers content to the 1180 nav column', () => {
     assert.match(css, /--rg:\s*max\(var\(--av-space-8\),\s*calc\(\(100% - 1180px\) \/ 2\)\)/);
