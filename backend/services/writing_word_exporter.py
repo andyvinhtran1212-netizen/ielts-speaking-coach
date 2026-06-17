@@ -91,8 +91,16 @@ def render_essay_to_docx(
     task_type: str,
     student_name: str,
     student_code: str,
+    hide_scores: bool = False,
 ) -> tuple[bytes, str]:
-    """Build .docx bytes + suggested filename for one essay's feedback."""
+    """Build .docx bytes + suggested filename for one essay's feedback.
+
+    U2 — when hide_scores is True (student download of an essay delivered with
+    the "Ẩn điểm" flag), the numeric scores are omitted from the Word file too:
+    the 72pt overall band block AND the per-criterion Criteria Breakdown table.
+    The qualitative narrative (Overall Band Score summary, Key Takeaways,
+    per-section feedback) is kept. Default False = full export (admin path).
+    """
     doc = Document()
     _build_document(
         doc=doc,
@@ -101,6 +109,7 @@ def render_essay_to_docx(
         prompt_text=prompt_text,
         task_type=task_type,
         student_name=student_name,
+        hide_scores=hide_scores,
     )
     buf = io.BytesIO()
     doc.save(buf)
@@ -125,6 +134,7 @@ def _build_document(
     prompt_text: str,
     task_type: str,
     student_name: str,
+    hide_scores: bool = False,
 ) -> None:
     # 2.1 Title
     title = doc.add_heading(_TASK_LABELS.get(task_type, "Writing Analysis"), level=1)
@@ -140,11 +150,14 @@ def _build_document(
         m_run.font.color.rgb = _RGB_MUTED
         m_run.font.size = Pt(10)
 
-    _add_overall_band_block(
-        doc,
-        feedback.overallBandScore,
-        feedback.overallBandScoreSummary,
-    )
+    # U2 — the big 72pt numeric band is a score → omit when hidden. The
+    # narrative summary below is kept.
+    if not hide_scores:
+        _add_overall_band_block(
+            doc,
+            feedback.overallBandScore,
+            feedback.overallBandScoreSummary,
+        )
 
     # ── Overall Band Score heading (kept for backwards-compat with
     # callers that scan for it; rendered as a small spacer label
@@ -161,9 +174,10 @@ def _build_document(
     doc.add_heading("Key Takeaways", level=2)
     _build_takeaways_table(doc, _build_takeaways_ctx(_takeaways_dict(feedback)))
 
-    # 2.3 Criteria Breakdown: 2×2 grid
+    # 2.3 Criteria Breakdown: 2×2 grid — the per-criterion band scores;
+    # omit entirely when hidden (mirrors the FE hiding the 4 sub-band cards).
     criteria_rows = _build_criteria_grid_rows(_criteria_list(feedback))
-    if criteria_rows:
+    if criteria_rows and not hide_scores:
         doc.add_heading("Criteria Breakdown", level=2)
         _build_criteria_grid_table(doc, criteria_rows)
 

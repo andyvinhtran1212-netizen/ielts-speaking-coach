@@ -21,9 +21,10 @@ const C = read('css', 'admin-writing-grade.css');
 
 
 describe('hide-subbands — admin toggle at deliver', () => {
-  test('checkbox exists next to the deliver action', () => {
+  test('checkbox exists next to the deliver action (U2 relabel "Ẩn điểm")', () => {
     assert.match(G, /id="hide-subbands-toggle"[^>]*type="checkbox"|type="checkbox"[^>]*id="hide-subbands-toggle"/);
-    assert.match(G, /Ẩn điểm thành phần/);
+    assert.match(G, /Ẩn điểm\s*<\/label>/);            // U2: hides ALL scores
+    assert.doesNotMatch(G, /Ẩn điểm thành phần/);       // old sub-only label gone
   });
   test('handleDeliver reads the checkbox and sends hide_subbands in the body', () => {
     assert.match(G, /getElementById\('hide-subbands-toggle'\)/);
@@ -59,12 +60,14 @@ describe('hide-subbands — student conditional render', () => {
 });
 
 
-describe('hide-subbands — overall band ALWAYS shown', () => {
-  test('overall band lives in the sticky header, untouched by the flag', () => {
+describe('hide-subbands → U2: overall band now ALSO hidden by the flag', () => {
+  test('overall band pill is gated on hide_subbands (T3 invariant lifted in U2)', () => {
     assert.match(R, /id="band-display"/);
-    // The band-display assignment is not gated on hideSubbands.
-    assert.match(R, /getElementById\('band-display'\)\.textContent = bandText/);
-    assert.doesNotMatch(R, /hideSubbands[\s\S]{0,40}band-display/);
+    // U2 — the flag now hides ALL scores: the band pill is gated.
+    assert.match(R, /var hideScores = !!essay\.hide_subbands/);
+    assert.match(R, /if \(hideScores\)[\s\S]*?bandEl\.classList\.add\('hidden'\)/);
+    // …but only when the flag is set — default still renders it.
+    assert.match(R, /else\s*\{[\s\S]*?bandEl\.textContent = bandText/);
   });
 });
 
