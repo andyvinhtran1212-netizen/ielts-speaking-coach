@@ -437,6 +437,9 @@ function renderExercise(ex) {
       case 'notes_completion':    return renderNotesCompletion(tmpl, questions);
       case 'summary_completion':  return renderSummaryCompletion(tmpl, questions);
       case 'sentence_completion': return renderSentenceCompletion(tmpl, questions);
+      // A3 (P2) — flow-chart completion reuses the gap-fill renderer: each step
+      // is a prompt + text gap (graded as text via answer_matches, unchanged).
+      case 'flow_chart_completion': return renderShortAnswer(questions);
       case 'short_answer':        return renderShortAnswer(questions);
       case 'mcq_3option':         return renderMCQ(questions);
       case 'mcq_letter_label':

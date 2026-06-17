@@ -349,6 +349,10 @@ describe('Sprint 13.5.2 — variant routing in the JS controller', () => {
     assert.match(JS, /case\s*['"]form_completion['"]\s*:\s*return\s+renderFormCompletion/);
   });
 
+  it('P2 — dispatches flow_chart_completion to the reused gap renderer', () => {
+    assert.match(JS, /case\s*['"]flow_chart_completion['"]\s*:\s*return\s+renderShortAnswer/);
+  });
+
   it('dispatches to renderTableCompletion for table_completion', () => {
     assert.match(JS, /case\s*['"]table_completion['"]\s*:\s*return\s+renderTableCompletion/);
   });
