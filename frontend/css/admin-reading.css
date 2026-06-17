@@ -121,6 +121,19 @@
 }
 .ar-errors ul { margin: var(--av-space-2) 0 0; padding-left: var(--av-space-4); }
 .ar-errors code { font-family: var(--av-font-mono); }
+
+/* W-0 — import warnings (dropped rows). Red, prominent; left accent bar marks
+   it as "data lost, check this" without blocking commit. */
+.ar-warnings {
+  margin-bottom: var(--av-space-3);
+  padding: var(--av-space-3);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-error-soft);
+  color: var(--av-error);
+  border-left: 3px solid var(--av-error);
+  font-size: var(--av-fs-sm);
+}
+.ar-warnings ul { margin: var(--av-space-2) 0 0; padding-left: var(--av-space-4); }
 .ar-kv {
   width: 100%; border-collapse: collapse; font-size: var(--av-fs-sm);
 }
