@@ -655,3 +655,17 @@ describe('writing-result.css / T1·2 re-skin treatment', () => {
     assert.doesNotMatch(renderersCss, /\.wh-mark\b/);
   });
 });
+
+
+describe('writing-result.css / U3 layout aligned to nav width (1180)', () => {
+  test('shared gutter centers content to the 1180 nav column', () => {
+    assert.match(css, /--rg:\s*max\(var\(--av-space-8\),\s*calc\(\(100% - 1180px\) \/ 2\)\)/);
+  });
+  test('header + tabs + content + tips all use the shared gutter (no more 920 block)', () => {
+    assert.match(css, /\.result-header\s*\{[^}]*padding:\s*var\(--av-space-4\)\s+var\(--rg\)/);
+    assert.match(css, /\.result-tabs\s*\{[^}]*padding:\s*0\.625rem\s+var\(--rg\)/);
+    assert.match(css, /main\.result-content\s*\{[^}]*var\(--rg\)/);
+    // The old narrower centered column is gone (header was full-bleed → mismatch).
+    assert.doesNotMatch(css, /main\.result-content\s*\{[^}]*max-width:\s*920px/);
+  });
+});
