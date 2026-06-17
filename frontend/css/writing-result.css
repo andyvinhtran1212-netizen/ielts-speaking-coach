@@ -62,9 +62,12 @@ body.av-page {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--av-surface-elevated);
-  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--av-surface-elevated) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-bottom: 1px solid var(--av-border-subtle);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--av-border-subtle) 60%, transparent),
+              0 6px 18px -12px color-mix(in srgb, #000 50%, transparent);
   padding: var(--av-space-4) var(--av-space-6);
   display: flex;
   justify-content: space-between;
@@ -109,11 +112,18 @@ body.av-page {
   color: var(--av-text-faint);
 }
 
+/* T1·2 — the overall band is the hero number: a confident teal pill. */
 .band-display {
+  display: inline-block;
   color: var(--av-primary);
-  font-weight: var(--av-fw-semibold);
-  font-size: 1rem;
+  font-weight: var(--av-fw-bold);
+  font-size: 0.95rem;
   font-family: var(--av-font-mono);
+  font-feature-settings: 'tnum';
+  padding: 2px 12px;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary-soft);
+  box-shadow: inset 0 0 0 1px var(--av-primary-border);
 }
 
 
@@ -158,7 +168,9 @@ body.av-page {
   background: var(--av-surface-elevated);
   border-color: var(--av-border-default);
 }
+.btn-icon:active { transform: translateY(1px); }
 .btn-icon[disabled] { opacity: 0.5; cursor: not-allowed; }
+.btn-icon[disabled]:active { transform: none; }
 .btn-icon i,
 .btn-icon svg { width: 14px; height: 14px; }
 
@@ -172,11 +184,14 @@ body.av-page {
   display: flex;
   gap: var(--av-space-1);
   padding: 0.625rem var(--av-space-6);
-  background: var(--av-surface-elevated);
-  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--av-surface-elevated) 86%, transparent);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-bottom: 1px solid var(--av-border-subtle);
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.result-tabs::-webkit-scrollbar { display: none; }
 
 .tab-btn {
   display: flex;
@@ -201,6 +216,7 @@ body.av-page {
   background: var(--av-primary-soft);
   color: var(--av-primary);
   border-color: var(--av-primary-border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--av-primary) 22%, transparent);
 }
 .tab-btn.hidden { display: none; }
 .tab-icon { font-size: 1rem; }
@@ -223,12 +239,27 @@ main.result-content {
   z-index: 1;
 }
 
+/* T1·2 re-skin — the essay + every feedback section read as elevated cards
+   on the page ground, matching the admin re-skin (#501). */
 .essay-section {
-  margin-bottom: var(--av-space-8);
-  padding-bottom: 1.75rem;
-  border-bottom: 2px solid var(--av-border-subtle);
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: 1.25rem 1.5rem 1.375rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--av-shadow-sm);
 }
-.grade-section { margin-bottom: 2.5rem; }
+.grade-section {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: 1.25rem 1.5rem 1.375rem;
+  margin-bottom: 1.25rem;
+  scroll-margin-top: 92px;
+  box-shadow: var(--av-shadow-sm);
+  transition: box-shadow var(--av-duration-fast) var(--av-easing-default);
+}
+.grade-section:hover { box-shadow: var(--av-shadow-md); }
 
 .section-header {
   display: flex;
@@ -236,14 +267,27 @@ main.result-content {
   align-items: baseline;
   gap: 0.75rem;
   padding-bottom: var(--av-space-2);
-  margin-bottom: 0.875rem;
+  margin-bottom: var(--av-space-4);
   border-bottom: 1px solid var(--av-border-subtle);
 }
+/* A short teal marker before the title anchors each card (matches #501). */
 .section-header h2 {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   font-size: 1.05rem;
   font-weight: var(--av-fw-semibold);
   color: var(--av-text-primary);
+  letter-spacing: -0.01em;
+}
+.section-header h2::before {
+  content: "";
+  flex-shrink: 0;
+  width: 3px;
+  height: 1.05em;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary);
 }
 
 .word-count {
@@ -270,7 +314,7 @@ main.result-content {
 }
 
 .essay-original {
-  background: var(--av-surface-card);
+  background: var(--av-surface-sunken);
   border: 1px solid var(--av-border-subtle);
   padding: var(--av-space-4) 1.125rem;
   border-radius: var(--av-radius-md);
@@ -513,4 +557,73 @@ main.result-content {
 
 @media (max-width: 640px) {
   .tips-reco { padding: 0 var(--av-space-4) var(--av-space-8); }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   T1·2 cohesion layer — depth, motion, finish, in sync with admin #501.
+   Page-only (writing-result.css is not loaded by the grammar pages that
+   share writing-renderers.css), so these card enhancements never leak.
+   Additive: no renderer class renamed, no handler/markup contract, and
+   the T4 highlight component (.wh-* in writing-highlight.css) is NOT
+   touched — only the page around it is aligned.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Feedback cards lift off the section panel with a soft shadow + gentle
+   hover, the same card language as the admin grade page. */
+.card-criterion,
+.mistake-card,
+.idea-card,
+.coherence-card,
+.lexical-card,
+.issue-card,
+.stat-tile,
+.criterion-mini {
+  box-shadow: var(--av-shadow-sm);
+  transition: box-shadow var(--av-duration-fast) var(--av-easing-default),
+              transform var(--av-duration-fast) var(--av-easing-default);
+}
+.card-criterion:hover,
+.mistake-card:hover,
+.idea-card:hover,
+.coherence-card:hover,
+.lexical-card:hover,
+.issue-card:hover {
+  box-shadow: var(--av-shadow-md);
+  transform: translateY(-1px);
+}
+
+/* The per-criterion band pill reads as a deliberate token, not a swatch. */
+.band-pill {
+  font-feature-settings: 'tnum';
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+/* Quiet, on-brand scrollbars inside the long read-only panels. */
+.essay-original,
+.essay-improved-block { scrollbar-width: thin; scrollbar-color: var(--av-border-default) transparent; }
+.essay-original::-webkit-scrollbar,
+.essay-improved-block::-webkit-scrollbar { width: 10px; }
+.essay-original::-webkit-scrollbar-thumb,
+.essay-improved-block::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--av-border-default) 80%, transparent);
+  border-radius: var(--av-radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* One orchestrated reveal on load — essay then visible sections rise in
+   sequence. Motion-safe: disabled for reduced-motion users. */
+@media (prefers-reduced-motion: no-preference) {
+  .essay-section,
+  .tab-panel.is-active .grade-section {
+    animation: result-rise var(--av-duration-slow) var(--av-easing-default) both;
+  }
+  .tab-panel.is-active .grade-section:nth-child(2) { animation-delay: 40ms; }
+  .tab-panel.is-active .grade-section:nth-child(3) { animation-delay: 80ms; }
+  .tab-panel.is-active .grade-section:nth-child(4) { animation-delay: 120ms; }
+}
+@keyframes result-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
