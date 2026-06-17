@@ -362,6 +362,48 @@ async def test_bg_grade_essay_passes_recurring_patterns_to_grader():
 
 
 @pytest.mark.asyncio
+async def test_bg_grade_essay_passes_authoritative_word_count_to_grader():
+    """Bug-2 fix: _bg_grade_essay computes the deterministic body word count
+    and puts it on GraderConfig.word_count, so the grader applies Rule 2 caps
+    to the real number instead of the LLM's self-count."""
+    responses = {
+        ("writing_essays", "select"): [{
+            "task_type":       "task2",
+            "prompt_text":     "P",
+            "essay_text":      "one two three four five six seven",   # 7 words
+            "analysis_level":  3,
+            "form_of_address": "em",
+            "selected_model":  "gemini-2.5-pro",
+            "student_id":      _STUDENT_ID,
+        }],
+    }
+    fake = _FakeSupabase(responses=responses)
+    fake_grader = MagicMock()
+    captured: dict = {}
+
+    async def fake_grade(config):
+        captured["config"] = config
+        return MagicMock(
+            feedback=_valid_feedback_obj(),
+            model_used="gemini-2.5-pro",
+            tokens_input=1, tokens_output=1, cost_usd=0.001,
+            grading_duration_ms=10, prompt_version="v1.0",
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    assert captured["config"].word_count == 7
+    assert captured["config"].word_count == essay_service._word_count(
+        "one two three four five six seven"
+    )
+
+
+@pytest.mark.asyncio
 async def test_bg_grade_essay_history_none_when_student_below_threshold():
     """New students (<5 essays) ⇒ aggregators return None ⇒ GraderConfig
     .history AND .trajectory both stay None so prompt is unchanged

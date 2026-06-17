@@ -182,6 +182,38 @@ def test_pricing_table_has_both_models(grader):
 # ── Phase 1.5a: history injection in user prompt ─────────────────────
 
 
+def test_build_user_prompt_injects_authoritative_word_count(grader):
+    """Bug-2 fix: the prompt carries the backend-computed word count and
+    tells the model NOT to self-count, so Rule 2 caps apply to the real
+    number (LLM self-counting under-counts → unfair Task Response penalty)."""
+    config = GraderConfig(
+        task_type="task2",
+        prompt_text="P",
+        essay_text="one two three four five",
+        analysis_level=3,
+        word_count=287,
+    )
+    prompt = grader._build_user_prompt(config)
+    assert "287 từ" in prompt
+    assert "Số từ (đã đếm chính xác)" in prompt
+    assert "không tự đếm" in prompt.lower()
+
+
+def test_build_user_prompt_word_count_falls_back_to_split(grader):
+    """A direct caller that omits word_count (None) still gets a count —
+    the builder splits essay_text itself, so the LLM is never asked to
+    self-count."""
+    config = GraderConfig(
+        task_type="task2",
+        prompt_text="P",
+        essay_text="alpha beta gamma delta",   # 4 words
+        analysis_level=3,
+        word_count=None,
+    )
+    prompt = grader._build_user_prompt(config)
+    assert "4 từ" in prompt
+
+
 def test_build_user_prompt_omits_history_when_none(grader):
     """No history → prompt has only essay sections, no Vietnamese
     history block. Pinning this protects the new-student path

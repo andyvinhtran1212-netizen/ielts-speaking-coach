@@ -313,6 +313,10 @@ async def _bg_grade_essay(essay_id: str, job_id: str) -> None:
             task_type=essay["task_type"],
             prompt_text=essay["prompt_text"],
             essay_text=essay["essay_text"],
+            # Bug-2 fix — authoritative deterministic count (body only), so the
+            # grader applies word-count caps to the real number, not the LLM's
+            # tokenizer guess.
+            word_count=_word_count(essay["essay_text"]),
             analysis_level=essay["analysis_level"],
             form_of_address=essay["form_of_address"],
             selected_model=essay["selected_model"],
