@@ -166,6 +166,35 @@ def test_doc_contains_overall_band_text():
     assert "Trần Trọng Vinh" in full
 
 
+def test_doc_hide_scores_omits_band_and_criteria_keeps_narrative():
+    """U2 — the .docx leak fix: when hide_scores=True the numeric scores are
+    gone (no 72pt band, no Criteria Breakdown table), but the qualitative
+    narrative (Overall Band Score summary + Key Takeaways) stays."""
+    fb = WritingFeedback(**_l1_payload())
+    docx_bytes, _ = render_essay_to_docx(
+        feedback=fb, essay_text="My essay.", prompt_text="P",
+        task_type="task2", student_name="Trần Trọng Vinh", student_code="S001",
+        hide_scores=True,
+    )
+    doc = _open(docx_bytes)
+    full = "\n".join(p.text for p in doc.paragraphs)
+    headings = [p.text for p in doc.paragraphs
+                if p.style and p.style.name.startswith("Heading")]
+    # Scores gone.
+    assert "6.0 / 9.0" not in full, "72pt overall band must be omitted"
+    assert "Criteria Breakdown" not in headings, "per-criterion scores must be omitted"
+    # Narrative kept.
+    assert "Bài đạt mức Band 6.0." in full          # overall summary
+    assert "Key Takeaways" in headings
+
+
+def test_doc_default_shows_scores_apply_forward():
+    """Default (hide_scores omitted/False) = full export, unchanged."""
+    docx_bytes, _ = _build(_l1_payload())          # _build passes no hide_scores
+    full = "\n".join(p.text for p in _open(docx_bytes).paragraphs)
+    assert "6.0 / 9.0" in full
+
+
 def test_doc_contains_mistake_table_rows():
     docx_bytes, _ = _build(_l1_payload())
     doc = _open(docx_bytes)

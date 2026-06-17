@@ -429,7 +429,7 @@ async def export_my_essay_docx(
     try:
         owner_result = (
             supabase_admin.table("writing_essays")
-            .select("status")
+            .select("status, hide_subbands")
             .eq("id", essay_id)
             .eq("student_id", student["id"])
             .is_("deleted_at", "null")          # soft-deleted → 404 (no export)
@@ -470,6 +470,9 @@ async def export_my_essay_docx(
         task_type=ctx["task_type"],
         student_name=ctx["student_name"],
         student_code=ctx["student_code"],
+        # U2 — honor the "Ẩn điểm" flag in the Word file too (was the leak:
+        # the student could download and still see every score).
+        hide_scores=bool(owner_result.data[0].get("hide_subbands")),
     )
     return StreamingResponse(
         io.BytesIO(docx_bytes),

@@ -657,6 +657,21 @@ describe('writing-result.css / T1·2 re-skin treatment', () => {
 });
 
 
+describe('writing-result.html / U2 hide-all scores (overall band gated)', () => {
+  test('overall band pill is gated on essay.hide_subbands (hidden when set)', () => {
+    assert.match(html, /var hideScores = !!essay\.hide_subbands/);
+    assert.match(html, /if \(hideScores\)\s*\{[\s\S]*?bandEl\.classList\.add\('hidden'\)/);
+  });
+  test('default (flag false) still renders the band pill (apply-forward)', () => {
+    assert.match(html, /else\s*\{[\s\S]*?bandEl\.textContent = bandText/);
+  });
+  test('hidden band omitted from the document title too (no tab-title leak)', () => {
+    assert.match(html, /document\.title = 'Phân tích bài viết';/);
+  });
+  // Print needs no separate rule: .hidden is display:none !important, so the
+  // gated pill is absent in @media print as well.
+  test('.hidden is display:none !important (covers screen + print)', () => {
+    assert.match(css, /\.hidden\s*\{\s*display:\s*none\s*!important/);
 describe('writing-result.css / U3 layout aligned to nav width (1180)', () => {
   test('shared gutter centers content to the 1180 nav column', () => {
     assert.match(css, /--rg:\s*max\(var\(--av-space-8\),\s*calc\(\(100% - 1180px\) \/ 2\)\)/);

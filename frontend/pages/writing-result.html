@@ -493,12 +493,24 @@
       document.getElementById('prompt-title').textContent = essay.prompt_text || '—';
       document.getElementById('essay-task').textContent = TASK_LABELS[essay.task_type] || (essay.task_type || '—');
       document.getElementById('essay-date').textContent = formatDate(essay.created_at);
-      var bandText = (feedback.overall_band_score != null)
-        ? 'Band ' + feedback.overall_band_score
-        : (fj.overallBandScore != null ? 'Band ' + fj.overallBandScore : 'Band —');
-      document.getElementById('band-display').textContent = bandText;
-      document.title = 'Phân tích bài viết — Band ' +
-        (feedback.overall_band_score != null ? feedback.overall_band_score : '—');
+      // U2 — hide_subbands now hides ALL scores (overall + 4 sub-bands), not
+      // just the sub-bands. Gate the overall band pill here; .hidden is
+      // display:none !important so it's gone on screen AND in print. The
+      // qualitative "Tổng quan" narrative is intentionally kept (Andy).
+      var hideScores = !!essay.hide_subbands;
+      var bandEl = document.getElementById('band-display');
+      if (hideScores) {
+        bandEl.classList.add('hidden');
+        bandEl.textContent = '';
+        document.title = 'Phân tích bài viết';
+      } else {
+        var bandText = (feedback.overall_band_score != null)
+          ? 'Band ' + feedback.overall_band_score
+          : (fj.overallBandScore != null ? 'Band ' + fj.overallBandScore : 'Band —');
+        bandEl.textContent = bandText;
+        document.title = 'Phân tích bài viết — Band ' +
+          (feedback.overall_band_score != null ? feedback.overall_band_score : '—');
+      }
 
       // Sprint 2.7a — grading tier badge. Hidden for default 'standard';
       // shown for any non-standard tier (Deep/Instructor when those land,
