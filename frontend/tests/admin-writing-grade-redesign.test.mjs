@@ -439,3 +439,22 @@ describe('admin-writing-grade / F2 deliver-button UX', () => {
     assert.match(html, /không bắt buộc sửa/);
   });
 });
+
+
+describe('admin-writing-grade / U1 revoke (admin pulls a delivered essay back)', () => {
+  test('revoke button present, Vietnamese, hidden by default', () => {
+    assert.match(html, /id="btn-revoke"[^>]*class="btn btn-warn hidden"[^>]*>↩ Thu hồi bài/);
+  });
+  test('revoke button shown only when status is delivered', () => {
+    assert.match(html, /var rev = document\.getElementById\('btn-revoke'\)[\s\S]*?rev\.classList\.toggle\('hidden', status !== 'delivered'\)/);
+  });
+  test('handleRevoke posts to revoke-delivery (no AI, feedback kept) + re-syncs status', () => {
+    assert.match(html, /function handleRevoke\(\)/);
+    assert.match(html, /\/revoke-delivery'/);
+    assert.match(html, /handleRevoke[\s\S]*?setStatusPill\(res\.status\)/);
+    assert.match(html, /getElementById\('btn-revoke'\)\.addEventListener\('click',\s*handleRevoke\)/);
+  });
+  test('re-deliver toggle pre-populates from essay.hide_subbands (not silently reset)', () => {
+    assert.match(html, /hideToggle0\.checked = !!detail\.hide_subbands/);
+  });
+});
