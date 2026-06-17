@@ -38,6 +38,25 @@ let _cohort = '';
 let _rows = [];           // raw rows for the current status
 let _selected = new Set();
 
+// F1 — the "Đang chấm" (grading) lane shows essays the AI is grading right
+// now (a 15–240s window). Those flip to graded/failed on their own, so this
+// lane auto-refreshes; other lanes stay one-shot (no needless churn).
+const GRADING_POLL_MS = 8000;
+let _pollTimer = null;
+
+function _stopPoll() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+function _startPollIfGrading() {
+  _stopPoll();
+  if (_status !== 'grading') return;
+  _pollTimer = setInterval(() => {
+    // Skip while backgrounded — resume on next visible tick.
+    if (typeof document !== 'undefined' && document.hidden) return;
+    load();
+  }, GRADING_POLL_MS);
+}
+
 function escapeHtml(s) {
   if (s == null) return '';
   return String(s)
@@ -112,7 +131,8 @@ function render() {
 
   $('q-count').textContent = rows.length + ' bài'
     + (_overdue ? ' quá hạn' : '')
-    + (_status ? ' · ' + (STATUS_LABELS[_status] || _status) : '');
+    + (_status ? ' · ' + (STATUS_LABELS[_status] || _status) : '')
+    + (_status === 'grading' ? ' · tự động làm mới' : '');
 
   if (!rows.length) {
     $('q-empty').hidden = false;
@@ -168,6 +188,15 @@ function writeQueueContext(essayId) {
 }
 
 function openEssay(essayId) {
+  // In-flight essays (pending/grading) have no feedback yet — send them to
+  // the live status poller, not the (empty) grade view. Graded+ rows open
+  // the grade page with submit-&-next context.
+  const row = _rows.find((e) => e.id === essayId);
+  const st = row && row.status;
+  if (st === 'pending' || st === 'grading') {
+    window.location.href = '/pages/admin/writing/status.html?essay_id=' + encodeURIComponent(essayId);
+    return;
+  }
   writeQueueContext(essayId);
   window.location.href = '/pages/admin/writing/grade.html?essay_id=' + encodeURIComponent(essayId);
 }
@@ -205,6 +234,7 @@ function setStatus(status) {
   const sa = $('q-select-all');
   if (sa) sa.checked = false;
   load();
+  _startPollIfGrading();   // auto-refresh only on the grading lane
 }
 
 function wire() {
