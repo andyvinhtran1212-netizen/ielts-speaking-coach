@@ -593,6 +593,54 @@ def test_p2_marker_wins_over_regex_fallback():
     assert blk2["q_type"] != "unknown"
 
 
+# ── P3 — Matching (A1), spec ILR-LIS-056 verbatim format ──────────────
+
+_MATCHING_FIXTURE = (
+    "### Questions 16-20\n"
+    "> Which role is each volunteer given?\n"
+    "> Match each volunteer (Questions 16-20) with the correct role (A-G).\n"
+    "> Write the correct letter, A-G, next to questions 16-20.\n"
+    "\n"
+    "**List of roles:**\n"
+    "   - **A** running the fundraising stall\n"
+    "   - **B** managing social media\n"
+    "   - **C** booking the venue\n"
+    "   - **D** designing posters\n"
+    "   - **E** contacting sponsors\n"
+    "   - **F** organising transport\n"
+    "   - **G** keeping accounts\n"
+    "**Questions:**\n"
+    "**16.** Marcus ___________\n"
+    "**17.** Bryony ___________\n"
+    "**18.** Carla ___________\n"
+    "**19.** Devon ___________\n"
+    "**20.** Esme ___________\n"
+)
+
+
+def test_p3_matching_classify_and_bank():
+    blk = lc.parse_question_blocks(_MATCHING_FIXTURE)[0]
+    assert blk["q_type"] == "matching"
+    assert blk["template_kind"] == "matching"
+    # Shared A-G bank extracted into metadata for the player dropdown.
+    bank = blk["metadata"]["match_options"]
+    assert [o["letter"] for o in bank] == list("ABCDEFG")
+    assert bank[0]["text"] == "running the fundraising stall"
+    assert blk["metadata"]["letter_options"] == list("ABCDEFG")
+    # Each volunteer extracted as a question (prompt = the name).
+    q_nums = [q["q_num"] for q in blk["questions"]]
+    assert q_nums == [16, 17, 18, 19, 20]
+    assert "Marcus" in blk["questions"][0]["prompt"]
+
+
+def test_p3_matching_grades_letter_via_existing_answer_matches():
+    """Reuse — a matching answer is a letter, graded case-insensitively by the
+    existing grader (no grader change in P3)."""
+    from services.listening_test_grader import answer_matches
+    assert answer_matches("c", "C", []) is True
+    assert answer_matches("A", "C", []) is False
+
+
 def test_table_cell_gap_captures_q7_q8():
     sections = lc.split_qp_sections(QUESTION_PAPER_MD)
     blocks = lc.parse_question_blocks(sections[1])

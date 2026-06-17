@@ -442,6 +442,7 @@ function renderExercise(ex) {
       case 'flow_chart_completion': return renderShortAnswer(questions);
       case 'short_answer':        return renderShortAnswer(questions);
       case 'mcq_3option':         return renderMCQ(questions);
+      case 'matching':            return renderMatching(payload, questions);
       case 'mcq_letter_label':
       case 'plan_label':          return renderPlanLabel(payload, questions);
       default:                    return renderFallback(questions);
@@ -682,6 +683,41 @@ function renderPlanLabel(payload, questions) {
           <div class="ielts-plan-row">
             <span class="ielts-question-num">${esc(q.q_num)}</span>
             <span class="ielts-plan-name">${mdInline(q.prompt || '')}</span>
+            <select class="ft-q-input ielts-gap-input" data-q-num="${esc(q.q_num)}">
+              <option value="">—</option>
+              ${letters.map((L) => `<option value="${esc(L)}">${esc(L)}</option>`).join('')}
+            </select>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+
+// ── Matching (A1, P3) — shared option bank + a letter dropdown per Q ──
+
+function renderMatching(payload, questions) {
+  const meta = (payload && payload.metadata) || {};
+  const bank = Array.isArray(meta.match_options) ? meta.match_options : [];
+  const letters = (Array.isArray(meta.letter_options) && meta.letter_options.length)
+    ? meta.letter_options
+    : (bank.length ? bank.map((o) => o.letter) : ['A','B','C','D','E','F','G']);
+  const bankBlock = bank.length
+    ? `<div class="ielts-match-bank">
+         <ul class="ielts-match-bank__list">
+           ${bank.map((o) => `<li><strong>${esc(o.letter)}</strong> ${mdInline(o.text || '')}</li>`).join('')}
+         </ul>
+       </div>`
+    : '';
+  return `
+    <div class="ielts-matching">
+      ${bankBlock}
+      <div class="ielts-match-rows">
+        ${questions.map((q) => `
+          <div class="ielts-match-row">
+            <span class="ielts-question-num">${esc(q.q_num)}</span>
+            <span class="ielts-match-name">${mdInline(q.prompt || '')}</span>
             <select class="ft-q-input ielts-gap-input" data-q-num="${esc(q.q_num)}">
               <option value="">—</option>
               ${letters.map((L) => `<option value="${esc(L)}">${esc(L)}</option>`).join('')}
