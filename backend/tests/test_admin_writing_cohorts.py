@@ -12,6 +12,7 @@ call returns self, .execute() returns the canned data for that table.
 
 from __future__ import annotations
 
+import re
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -196,7 +197,9 @@ def test_cohort_detail_builds_matrix():
              "status": "pending", "deadline": None, "created_at": "2026-01-01", "updated_at": "2026-01-01"},
         ],
         "writing_prompts": [{"id": "p1", "title": "Đề 1", "task_type": "task_2"}],
-        "writing_essays": [{"id": "e1", "status": "delivered", "is_flagged": False, "overall_band_score": 7.0}],
+        "writing_essays": [{"id": "e1", "status": "delivered", "is_flagged": False}],
+        # Band lives on writing_feedback (essay_id UNIQUE), NOT writing_essays.
+        "writing_feedback": [{"essay_id": "e1", "overall_band_score": 7.0}],
     }
     cid = "11111111-1111-1111-1111-111111111111"  # path needs a valid UUID
     with patch("routers.admin_writing_cohorts.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -208,9 +211,36 @@ def test_cohort_detail_builds_matrix():
     assert [c["prompt_id"] for c in data["assignments"]] == ["p1"]
     # s1 has a delivered essay; s2 hasn't submitted.
     assert data["matrix"]["s1"]["p1"]["status"] == "delivered"
-    assert data["matrix"]["s1"]["p1"]["band"] == 7.0
+    assert data["matrix"]["s1"]["p1"]["band"] == 7.0   # sourced from writing_feedback
     assert data["matrix"]["s2"]["p1"]["status"] == "not_submitted"
     assert data["stats"]["essays_delivered"] == 1
+
+
+def test_cohort_essay_selects_never_reference_overall_band_score():
+    """Regression (Bug 1, the 500): overall_band_score is a writing_feedback
+    column, never on writing_essays. The canned-data mocks can't catch a bad
+    column, so pin the corrected query shape at the source: no writing_essays
+    SELECT may project overall_band_score, and the band must be fetched from
+    writing_feedback."""
+    import inspect
+    import routers.admin_writing_cohorts as mod
+
+    src = inspect.getsource(mod)
+    # Every writing_essays projection in this module.
+    essay_selects = re.findall(
+        r'table\(\s*["\']writing_essays["\']\s*\)\s*\.select\(\s*["\']([^"\']+)["\']',
+        src,
+    )
+    assert essay_selects, "expected writing_essays selects to be present"
+    for cols in essay_selects:
+        assert "overall_band_score" not in cols, (
+            f"writing_essays select must NOT project overall_band_score: {cols!r}"
+        )
+    # Band is sourced from writing_feedback.
+    assert re.search(
+        r'table\(\s*["\']writing_feedback["\']\s*\)\s*\.select\(\s*["\'][^"\']*overall_band_score',
+        src,
+    ), "band must be fetched from writing_feedback"
 
 
 def test_cohort_detail_missing_cohort_404():
