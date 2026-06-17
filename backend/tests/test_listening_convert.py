@@ -542,6 +542,57 @@ def test_form_bullet_skips_example_and_captures_six_questions():
     assert "Mobile number" in prompts[2]
 
 
+# ── P2 — classifier hardening: flow-chart, B1 labelling, qtype marker ──
+
+def test_p2_flow_chart_classify_regex():
+    """A3 — 'Complete the flow-chart' → flow_chart_completion (gap-fill grade)."""
+    assert lc._classify_instruction("Complete the flow-chart below.") == (
+        "dictation_gap_fill", "flow_chart_completion")
+    assert lc._classify_instruction("Complete the flowchart") == (
+        "dictation_gap_fill", "flow_chart_completion")
+
+
+def test_p2_b1_labelling_regex_widened():
+    """B1 — a describing word between 'the' and the noun no longer falls to
+    unknown ('campus map', 'venue plan')."""
+    assert lc._classify_instruction("Label the campus map")[0] == "mcq_letter_label"
+    assert lc._classify_instruction("Label the venue plan")[0] == "mcq_letter_label"
+    assert lc._classify_instruction("Label the plan")[0] == "mcq_letter_label"   # still works
+
+
+def test_p2_qtype_marker_read_both_forms():
+    """Marker read covers both authoring forms; unknown marker → None (fallback)."""
+    assert lc._read_qtype_marker("<!-- qtype: flow_chart -->") == (
+        "dictation_gap_fill", "flow_chart_completion")
+    assert lc._read_qtype_marker("> [type: flow-chart]") == (
+        "dictation_gap_fill", "flow_chart_completion")
+    assert lc._read_qtype_marker("no marker here") is None
+    assert lc._read_qtype_marker("<!-- qtype: nonsense -->") is None
+
+
+def test_p2_marker_wins_over_regex_fallback():
+    """parse_question_blocks: an explicit marker overrides what the regex would
+    have guessed; with no marker the regex still classifies (web never depends
+    on the marker existing)."""
+    with_marker = (
+        "### Questions 1-3\n"
+        "> Complete the notes below.\n"
+        "<!-- qtype: flow_chart -->\n"
+        "**1.** Step one ___\n**2.** Step two ___\n**3.** Step three ___\n"
+    )
+    blk = lc.parse_question_blocks(with_marker)[0]
+    assert blk["template_kind"] == "flow_chart_completion"   # marker beat 'notes'
+
+    no_marker = (
+        "### Questions 1-3\n"
+        "> Complete the flow-chart below.\n"
+        "**1.** Step one ___\n**2.** Step two ___\n**3.** Step three ___\n"
+    )
+    blk2 = lc.parse_question_blocks(no_marker)[0]
+    assert blk2["template_kind"] == "flow_chart_completion"  # regex fallback
+    assert blk2["q_type"] != "unknown"
+
+
 def test_table_cell_gap_captures_q7_q8():
     sections = lc.split_qp_sections(QUESTION_PAPER_MD)
     blocks = lc.parse_question_blocks(sections[1])

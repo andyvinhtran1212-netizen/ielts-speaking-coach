@@ -483,7 +483,9 @@ _INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
     # template_kind drives the renderer layout — Sprint 13.5.2 adds the
     # finer split so the gap-fill family stops collapsing 5 distinct
     # IELTS layouts into one generic form.
-    (re.compile(r"label the (?:plan|diagram|map)", re.IGNORECASE),
+    # B1 fix — allow a describing word between "the" and the noun:
+    # "label the campus map", "label the venue plan" (was plan|diagram|map only).
+    (re.compile(r"label the (?:[\w-]+\s+){0,3}(?:plan|diagram|map)\b", re.IGNORECASE),
         "mcq_letter_label",        "plan_label"),
     (re.compile(r"choose the correct letter", re.IGNORECASE),
         "mcq_3option",             "mcq_3option"),
@@ -499,7 +501,47 @@ _INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
         "dictation_gap_fill",      "sentence_completion"),
     (re.compile(r"complete the summary", re.IGNORECASE),
         "dictation_gap_fill",      "summary_completion"),
+    # A3 (P2) — flow-chart completion reuses the gap-fill grading + a dedicated
+    # renderer layout. "complete the flow-chart/flow chart/flowchart".
+    (re.compile(r"complete the flow[\s-]?chart", re.IGNORECASE),
+        "dictation_gap_fill",      "flow_chart_completion"),
 ]
+
+
+# qtype marker (web reads this FIRST; regex above is the fallback). Content may
+# author `<!-- qtype: flow_chart -->` OR `> [type: flow_chart]` under the
+# `### Questions N-M` heading. The web NEVER depends on the marker existing —
+# the regex hints still classify. Map extended as render lands per type
+# (P2 flow_chart + the existing kinds; P3 matching; P4 mcq_multi).
+_MARKER_TO_TYPE: dict[str, tuple[str, str]] = {
+    "flow_chart":            ("dictation_gap_fill",     "flow_chart_completion"),
+    "flow_chart_completion": ("dictation_gap_fill",     "flow_chart_completion"),
+    "form_completion":       ("dictation_gap_fill",     "form_completion"),
+    "table_completion":      ("dictation_gap_fill",     "table_completion"),
+    "notes_completion":      ("dictation_gap_fill",     "notes_completion"),
+    "summary_completion":    ("dictation_gap_fill",     "summary_completion"),
+    "sentence_completion":   ("dictation_gap_fill",     "sentence_completion"),
+    "short_answer":          ("dictation_short_answer",  "short_answer"),
+    "mcq_3option":           ("mcq_3option",             "mcq_3option"),
+    "plan_label":            ("mcq_letter_label",        "plan_label"),
+}
+
+_QTYPE_MARKER_RE = re.compile(
+    r"(?:<!--\s*qtype:\s*([\w\- ]+?)\s*-->|\[type:\s*([\w\- ]+?)\s*\])",
+    re.IGNORECASE,
+)
+
+
+def _read_qtype_marker(body: str) -> tuple[str, str] | None:
+    """Read an explicit qtype marker from a question block. Returns
+    (q_type, template_kind) or None when there's no marker / an unrecognised
+    marker value (→ caller falls back to regex classify)."""
+    m = _QTYPE_MARKER_RE.search(body or "")
+    if not m:
+        return None
+    raw = (m.group(1) or m.group(2) or "").strip().lower()
+    key = re.sub(r"[\s\-]+", "_", raw)
+    return _MARKER_TO_TYPE.get(key)
 
 
 def _classify_instruction(instruction: str) -> tuple[str, str]:
@@ -604,7 +646,9 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
         body = qp_section_text[start:end]
 
         instruction = _first_blockquote(body)
-        q_type, template_kind = _classify_instruction(instruction)
+        # P2 — explicit marker wins; regex classify is the fallback.
+        marker = _read_qtype_marker(body)
+        q_type, template_kind = marker if marker else _classify_instruction(instruction)
 
         meta: dict[str, Any] = {}
         if q_type == "mcq_letter_label":
