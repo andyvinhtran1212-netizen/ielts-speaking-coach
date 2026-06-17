@@ -53,6 +53,11 @@ body.av-page {
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
   color: var(--av-text-primary);
+  /* U3 — shared horizontal gutter so the header, tabs, content and tips all
+     center to the SAME 1180px column as the nav chrome (aver-chrome
+     .topnav-wrap). Full-width sticky bars keep their edge-to-edge background;
+     only their content is inset. Falls back to space-8 (32px) below ~1244px. */
+  --rg: max(var(--av-space-8), calc((100% - 1180px) / 2));
 }
 
 
@@ -68,7 +73,8 @@ body.av-page {
   border-bottom: 1px solid var(--av-border-subtle);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--av-border-subtle) 60%, transparent),
               0 6px 18px -12px color-mix(in srgb, #000 50%, transparent);
-  padding: var(--av-space-4) var(--av-space-6);
+  /* Full-width bar; content inset to the shared 1180 column (U3). */
+  padding: var(--av-space-4) var(--rg);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -183,7 +189,7 @@ body.av-page {
   z-index: 40;
   display: flex;
   gap: var(--av-space-1);
-  padding: 0.625rem var(--av-space-6);
+  padding: 0.625rem var(--rg);
   background: color-mix(in srgb, var(--av-surface-elevated) 86%, transparent);
   backdrop-filter: blur(12px) saturate(1.4);
   -webkit-backdrop-filter: blur(12px) saturate(1.4);
@@ -228,13 +234,14 @@ body.av-page {
 /* ── Content area ────────────────────────────────────────────────── */
 
 main.result-content {
-  max-width: 920px;
-  margin: 0 auto;
+  /* U3 — align to the SAME 1180 column as the header/tabs/nav via the shared
+     gutter (was a narrower 920px centered block, which mismatched the
+     full-bleed header). Full-width element, content inset by --rg. */
   width: 100%;
   /* Sprint 6.18: top padding lifted to --av-space-20 (80px) so content
      clears the sticky .result-tabs band (top:80px from viewport) and
      matches the canonical chrome-to-content rhythm. */
-  padding: var(--av-space-20) var(--av-space-8) var(--av-space-16);
+  padding: var(--av-space-20) var(--rg) var(--av-space-16);
   position: relative;
   z-index: 1;
 }
@@ -534,8 +541,8 @@ main.result-content {
 
 /* ── Tips recommendation section ───────────────────────────────────── */
 .tips-reco {
-  max-width: 920px; margin: 0 auto;
-  padding: 0 var(--av-space-8) var(--av-space-16);
+  /* U3 — same 1180 column as content/header. */
+  padding: 0 var(--rg) var(--av-space-16);
 }
 .tips-reco.hidden { display: none; }
 .tips-reco__list { display: flex; flex-direction: column; gap: var(--av-space-2); }

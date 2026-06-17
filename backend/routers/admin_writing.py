@@ -186,6 +186,56 @@ def _deliver_essay(essay_id: str, method: str, hide_subbands: bool = False) -> d
     return {"essay_id": essay_id, "ok": True, "status": "delivered", "reason": None}
 
 
+def _revoke_essay(essay_id: str) -> dict:
+    """Core delivered→reviewed REVERSE transition (U1 — admin pulls a delivered
+    essay back to fix a mistake). Mirrors _deliver_essay's guard shape.
+
+    This is NOT a regrade: no AI re-run, feedback row + admin_edits_json +
+    hide_subbands column are all preserved. Clearing delivered_at + reverting
+    status to 'reviewed' drops the essay out of the student's delivered-only
+    feedback gate, so they stop seeing it; the admin can edit and re-deliver
+    (reuses _deliver_essay). Precedent: accepting a student regrade request
+    already does delivered→reviewed (admin_writing_regrade.py).
+
+    Returns the same structured outcome as _deliver_essay:
+        {"essay_id", "ok": bool, "status": <current|'reviewed'|None>,
+         "reason": None | 'not_found' | 'not_delivered'}
+    Only `delivered` → `reviewed` is allowed. Raises only on real DB failure.
+    """
+    row = (
+        supabase_admin.table("writing_essays")
+        .select("status")
+        .eq("id", essay_id)
+        .is_("deleted_at", "null")
+        .limit(1)
+        .execute()
+    )
+    if not row.data:
+        return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
+    current = row.data[0]["status"]
+    if current != "delivered":
+        return {"essay_id": essay_id, "ok": False, "status": current, "reason": "not_delivered"}
+
+    try:
+        r = (
+            supabase_admin.table("writing_essays")
+            .update({
+                "status":       "reviewed",
+                "delivered_at": None,
+                # delivery_method + hide_subbands intentionally LEFT as-is so a
+                # re-deliver can keep the same settings; feedback is untouched.
+            })
+            .eq("id", essay_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Database update failed: {exc}")
+    if not r.data:
+        return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
+
+    return {"essay_id": essay_id, "ok": True, "status": "reviewed", "reason": None}
+
+
 # ── Endpoints (W2) ────────────────────────────────────────────────────
 
 @router.post("/essays", status_code=status.HTTP_202_ACCEPTED)
@@ -398,6 +448,36 @@ async def mark_delivered(
         "status":        "delivered",
         "method":        body.method,
         "hide_subbands": body.hide_subbands,
+    }
+
+
+@router.post("/essays/{essay_id}/revoke-delivery")
+async def revoke_delivery(
+    essay_id: UUID,
+    authorization: str | None = Header(None),
+):
+    """U1 — Revoke a delivered essay back to `reviewed` so the admin can fix a
+    mistake. No AI re-run, feedback preserved; the student stops seeing it.
+
+    Guard: only `delivered` → `reviewed` (409 otherwise, 404 if missing).
+    Re-deliver afterwards via the normal mark-delivered (reviewed→delivered)."""
+    await require_admin(authorization)
+
+    outcome = _revoke_essay(str(essay_id))
+    if outcome["reason"] == "not_found":
+        raise HTTPException(404, "Essay not found")
+    if outcome["reason"] == "not_delivered":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot revoke: essay status is {outcome['status']!r}. "
+                f"Required: delivered."
+            ),
+        )
+    return {
+        "essay_id": str(essay_id),
+        "status":   "reviewed",
+        "message":  "Đã thu hồi bài. Feedback được giữ nguyên; học viên không còn thấy bài.",
     }
 
 
