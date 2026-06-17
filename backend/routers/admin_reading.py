@@ -372,6 +372,9 @@ async def import_reading_test_bundle(
             1 for p in parsed.passages for q in (p.get("questions") or [])
             if q.get("solution")),
     }
+    # W-0 — surface non-fatal parse warnings (dropped rows / unmapped labels) so
+    # the admin preview can show a red banner instead of losing answers silently.
+    result["warnings"] = list(getattr(parsed, "warnings", []) or [])
     return result
 
 

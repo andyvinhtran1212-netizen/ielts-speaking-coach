@@ -398,6 +398,16 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
         sec_id = f"S{section_num}"
         sec_qcount = 0
         for block in blocks:
+            # W-0 — never classify a block as a guess silently. An `unknown`
+            # q_type means the instruction matched no marker + no regex; warn so
+            # the admin preview shows a red banner instead of mis-rendering.
+            if block.get("q_type") == "unknown":
+                q_nums = [q.get("q_num") for q in block.get("questions", [])]
+                res.warnings.append(
+                    f"Câu {q_nums}: không nhận diện được dạng câu hỏi "
+                    f"(thiếu marker <!-- qtype --> và không khớp regex) — "
+                    f"web sẽ render fallback, cần kiểm tra."
+                )
             for q in block.get("questions", []):
                 q_num = q["q_num"]
                 seen_q.add(q_num)

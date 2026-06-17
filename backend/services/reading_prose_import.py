@@ -55,6 +55,13 @@ _TYPE_LABEL_TO_ENUM = {
     "matching sentence endings": "matching_sentence_endings",
     "multiple choice":           "mcq_single",
     "short answer":              "short_answer",
+    # P1 (B3) — content uses these exact labels; they were missing → ~290 answer
+    # rows were silently dropped at `if not enum: continue`. All map to enums
+    # that already exist + already render/grade (reading-exam.js + grader).
+    "summary completion (with box)":    "summary_completion",
+    "summary completion (without box)": "summary_completion",
+    "short-answer questions":           "short_answer",
+    "flow-chart completion":            "flow_chart_completion",
 }
 
 # Solution skill codes → the reading_questions.skill_tag enum (best-effort; the
@@ -109,7 +116,10 @@ def _split_answer_cell(cell: str) -> tuple[str, list[str]]:
     return primary, alts
 
 
-def parse_quick_answers(sol_text: str) -> dict:
+def parse_quick_answers(sol_text: str, warnings: list | None = None) -> dict:
+    """Parse the Quick-answer table. P1/W-0: an unrecognised type label no longer
+    silently drops the row — it appends a warning (so the admin preview shows a
+    red banner) and skips, instead of losing answers without a trace."""
     out: dict[int, dict] = {}
     for line in sol_text.splitlines():
         m = _QA_ROW_RE.match(line)
@@ -121,6 +131,11 @@ def parse_quick_answers(sol_text: str) -> dict:
             continue
         enum = _TYPE_LABEL_TO_ENUM.get(type_label.lower())
         if not enum:
+            if warnings is not None:
+                warnings.append(
+                    f"Câu {q_num}: nhãn loại '{type_label}' không nhận diện được "
+                    f"(đáp án bị bỏ qua) — thêm vào _TYPE_LABEL_TO_ENUM."
+                )
             continue
         answer, alts = _split_answer_cell(m.group(3))
         try:
@@ -476,7 +491,8 @@ def build_parsed_reading_test_from_prose(
     """Merge the test + solution prose into a ParsedReadingTest (content_type
     reading_full_test) carrying answers, per-Q rich solution (payload.solution),
     per-passage VI translation + IMG-PROMPT (passage metadata)."""
-    qa = parse_quick_answers(sol_text)
+    warnings: list[str] = []
+    qa = parse_quick_answers(sol_text, warnings)
     skills = parse_skill_distribution(sol_text)
     rich = parse_rich_solutions(sol_text)
     trans = parse_translations(sol_text)
@@ -491,6 +507,10 @@ def build_parsed_reading_test_from_prose(
         a = qa[q_num]
         order = q_to_passage.get(q_num)
         if order is None:
+            warnings.append(
+                f"Câu {q_num}: không ánh xạ được vào passage nào "
+                f"(thiếu nhóm '### Questions N-M' chứa câu này) — đáp án bị bỏ qua."
+            )
             continue
         r = rich.get(q_num, {})
         # prompt: prefer the test-extracted statement/MCQ stem; else the
@@ -557,4 +577,5 @@ def build_parsed_reading_test_from_prose(
         published          = published,
         passages           = passages,
         raw_frontmatter    = {},
+        warnings           = warnings,
     )
