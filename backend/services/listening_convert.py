@@ -487,6 +487,15 @@ _INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
     # "label the campus map", "label the venue plan" (was plan|diagram|map only).
     (re.compile(r"label the (?:[\w-]+\s+){0,3}(?:plan|diagram|map)\b", re.IGNORECASE),
         "mcq_letter_label",        "plan_label"),
+    # A1 (P3) — matching: pick a letter from a shared bank per question. Strong
+    # signals, placed before mcq_3option ("choose the correct letter") which is
+    # a different verb. q_type 'matching' → graded as a letter via answer_matches.
+    (re.compile(r"match each\b|match the following\b", re.IGNORECASE),
+        "matching",                "matching"),
+    (re.compile(r"write the correct letter[, ].{0,15}next to", re.IGNORECASE),
+        "matching",                "matching"),
+    (re.compile(r"any letter more than once", re.IGNORECASE),
+        "matching",                "matching"),
     (re.compile(r"choose the correct letter", re.IGNORECASE),
         "mcq_3option",             "mcq_3option"),
     (re.compile(r"answer the questions?", re.IGNORECASE),
@@ -524,6 +533,7 @@ _MARKER_TO_TYPE: dict[str, tuple[str, str]] = {
     "short_answer":          ("dictation_short_answer",  "short_answer"),
     "mcq_3option":           ("mcq_3option",             "mcq_3option"),
     "plan_label":            ("mcq_letter_label",        "plan_label"),
+    "matching":              ("matching",                "matching"),   # P3
 }
 
 _QTYPE_MARKER_RE = re.compile(
@@ -651,6 +661,12 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
         q_type, template_kind = marker if marker else _classify_instruction(instruction)
 
         meta: dict[str, Any] = {}
+        if q_type == "matching":
+            # A1 — the shared option bank ("**List of roles:** - **A** …" A-G).
+            bank = _extract_matching_bank(body)
+            if bank:
+                meta["match_options"] = bank
+                meta["letter_options"] = [o["letter"] for o in bank]
         if q_type == "mcq_letter_label":
             meta["map_description"] = _extract_map_description(body)
             meta["letter_options"] = list("ABCDEFGH")
@@ -945,6 +961,26 @@ def _extract_custom_image_prompt(body: str) -> str | None:
             return None
         return prompt
     return None
+
+
+# A1 — option bank rows: "- **A** running the fundraising stall" (A-G).
+# The single-letter `**X**` guard means it never matches numbered questions
+# (`**16.**`) or the bold header (`**List of roles:**`).
+_MATCH_BANK_RE = re.compile(r"^\s*[-*]?\s*\*\*([A-Z])\*\*\s+(\S.*?)\s*$", re.MULTILINE)
+
+
+def _extract_matching_bank(body: str) -> list[dict[str, str]]:
+    """The shared A-G option bank for a matching block → [{letter, text}].
+    De-dups by letter, preserves source order."""
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for m in _MATCH_BANK_RE.finditer(body):
+        letter = m.group(1)
+        if letter in seen:
+            continue
+        seen.add(letter)
+        out.append({"letter": letter, "text": m.group(2).strip()})
+    return out
 
 
 def _extract_map_description(body: str) -> str:

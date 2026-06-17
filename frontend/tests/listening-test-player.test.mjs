@@ -353,6 +353,15 @@ describe('Sprint 13.5.2 — variant routing in the JS controller', () => {
     assert.match(JS, /case\s*['"]flow_chart_completion['"]\s*:\s*return\s+renderShortAnswer/);
   });
 
+  it('P3 — dispatches matching to renderMatching (bank + letter dropdowns)', () => {
+    assert.match(JS, /case\s*['"]matching['"]\s*:\s*return\s+renderMatching/);
+    assert.match(JS, /function renderMatching/);
+    // shared option bank + a letter <select> per question
+    assert.match(JS, /meta\.match_options/);
+    assert.match(JS, /ielts-match-bank/);
+    assert.match(JS, /letters\.map\(\(L\) => `<option value="\$\{esc\(L\)\}"/);
+  });
+
   it('dispatches to renderTableCompletion for table_completion', () => {
     assert.match(JS, /case\s*['"]table_completion['"]\s*:\s*return\s+renderTableCompletion/);
   });
