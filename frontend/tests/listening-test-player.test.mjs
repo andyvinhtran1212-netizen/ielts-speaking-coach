@@ -362,6 +362,21 @@ describe('Sprint 13.5.2 — variant routing in the JS controller', () => {
     assert.match(JS, /letters\.map\(\(L\) => `<option value="\$\{esc\(L\)\}"/);
   });
 
+  it('P4 — dispatches mcq_multi to renderMultiSelect (checkbox group)', () => {
+    assert.match(JS, /case\s*['"]mcq_multi['"]\s*:\s*return\s+renderMultiSelect/);
+    assert.match(JS, /function renderMultiSelect/);
+    assert.match(JS, /type="checkbox" class="ft-mc-box"/);
+    assert.match(JS, /data-mm-slots=/);
+    assert.match(JS, /data-mm-choose=/);
+  });
+
+  it('P4 — multi-select handler: limit-N soft-lock + maps N picks to N slots', () => {
+    assert.match(JS, /function attachMultiSelectHandlers/);
+    assert.match(JS, /attachMultiSelectHandlers\(\)/);   // wired into attachQuestionHandlers
+    assert.match(JS, /const lock = checked\.length >= choose/);
+    assert.match(JS, /slots\.forEach\(\(slot, i\)[\s\S]*?scheduleAutoSave\(slot/);
+  });
+
   it('dispatches to renderTableCompletion for table_completion', () => {
     assert.match(JS, /case\s*['"]table_completion['"]\s*:\s*return\s+renderTableCompletion/);
   });

@@ -641,6 +641,65 @@ def test_p3_matching_grades_letter_via_existing_answer_matches():
     assert answer_matches("A", "C", []) is False
 
 
+# ── P4 — Multi-select (A2) + heterogeneous sub-block split (real 057 shape) ──
+
+_HETERO_FIXTURE = (
+    "### Questions 26-30\n"
+    "**List of steps:**\n"
+    "   - **A** run a small pilot study\n"
+    "   - **B** set quotas for age groups\n"
+    "   - **C** give participants an information sheet\n"
+    "   - **D** check the scoring against the manual\n"
+    "   - **E** report results as a confidence interval\n"
+    "\n"
+    "> **Questions 26 and 27**\n"
+    "> Choose **TWO** letters, A-E.\n"
+    "> Which **TWO** steps do the students take **before** collecting data?\n"
+    "\n"
+    "**26.** ___________\n"
+    "**27.** ___________\n"
+    "\n"
+    "> **Questions 28, 29 and 30**\n"
+    "> Choose the correct step (A-E) for each stage. Write the correct letter, A-E.\n"
+    "\n"
+    "**28.** What they give each participant ___________\n"
+    "**29.** What they do when responses are in ___________\n"
+    "**30.** How they report the comparison ___________\n"
+)
+
+
+def test_p4_heterogeneous_block_splits_into_multi_plus_matching():
+    """One `### Questions 26-30` heading → a mcq_multi pair (26-27) AND a
+    matching trio (28-30), sharing the A-E bank (real ILR-LIS-057 shape)."""
+    by_range = {b["q_range"]: b for b in lc.parse_question_blocks(_HETERO_FIXTURE)}
+    assert (26, 27) in by_range and (28, 30) in by_range
+    mm = by_range[(26, 27)]
+    assert mm["template_kind"] == "mcq_multi"
+    assert mm["metadata"]["choose"] == 2
+    assert [o["letter"] for o in mm["metadata"]["match_options"]] == list("ABCDE")
+    assert [q["q_num"] for q in mm["questions"]] == [26, 27]      # 2 slots
+    mt = by_range[(28, 30)]
+    assert mt["template_kind"] == "matching"
+    assert [q["q_num"] for q in mt["questions"]] == [28, 29, 30]
+
+
+def test_p4_clean_single_multi_block_still_works():
+    """A clean standalone Choose-TWO block (076-style, no sub-markers) → one
+    mcq_multi block (the sub-split is a no-op for single-instruction blocks)."""
+    clean = (
+        "### Questions 21-22\n"
+        "> Choose **TWO** letters, A-E.\n"
+        "> Which TWO jobs will the students do?\n"
+        "- **A** alpha\n- **B** beta\n- **C** gamma\n- **D** delta\n- **E** epsilon\n"
+        "**21.** ___\n**22.** ___\n"
+    )
+    blocks = lc.parse_question_blocks(clean)
+    assert len(blocks) == 1
+    assert blocks[0]["template_kind"] == "mcq_multi"
+    assert blocks[0]["metadata"]["choose"] == 2
+    assert [q["q_num"] for q in blocks[0]["questions"]] == [21, 22]
+
+
 def test_table_cell_gap_captures_q7_q8():
     sections = lc.split_qp_sections(QUESTION_PAPER_MD)
     blocks = lc.parse_question_blocks(sections[1])
