@@ -500,7 +500,12 @@ _INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
     # completion instructions say "write … for each answer" — so it's excluded.
     (re.compile(r"match each\b|match the following\b", re.IGNORECASE),
         "matching",                "matching"),
-    (re.compile(r"write the correct letter\b", re.IGNORECASE),
+    # "Write the correct letter …" — matching-specific. Two real phrasings:
+    #   standard block:  "Write the correct letter, A-G, next to questions 16-20"
+    #   057 sub-group:   "Write the correct letter, A-E."  (no "next to")
+    # Require "next to" OR a letter-range (A-E/A-H) so completions that merely
+    # say "write … letter" can't false-match, while both real forms classify.
+    (re.compile(r"write the correct letter[,. ].{0,20}(?:next to|[a-h]\s*[-–]\s*[a-h]\b)", re.IGNORECASE),
         "matching",                "matching"),
     (re.compile(r"any letter more than once", re.IGNORECASE),
         "matching",                "matching"),

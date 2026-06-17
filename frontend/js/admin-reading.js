@@ -188,6 +188,27 @@
       commit.disabled = false;
     }
 
+    // W-0 — non-fatal import warnings (e.g. an answer-type label not recognised
+    // → that row's answer was dropped). RED banner so dropped data is never
+    // silent; does NOT block commit (admin may still want the recovered rows).
+    var warns = (res && res.warnings) || [];
+    var warnBox = $('ar-warnings');
+    if (!warnBox) {
+      warnBox = document.createElement('div');
+      warnBox.id = 'ar-warnings';
+      warnBox.className = 'ar-warnings';
+      errors.parentNode.insertBefore(warnBox, errors.nextSibling);
+    }
+    if (warns.length) {
+      warnBox.hidden = false;
+      warnBox.innerHTML = '<strong>⚠ Cảnh báo (' + warns.length +
+        ' — câu bị bỏ qua, KHÔNG render/chấm):</strong><ul>' +
+        warns.map(function (w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul>';
+    } else {
+      warnBox.hidden = true;
+      warnBox.innerHTML = '';
+    }
+
     var d = (res && res.parsed_data) || {};
     var isL3 = d.content_type === 'reading_full_test';
 

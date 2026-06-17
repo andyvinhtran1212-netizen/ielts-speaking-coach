@@ -682,6 +682,10 @@ class ParsedReadingTest:
     published:          bool
     passages:           list                       # list of raw passage dicts
     raw_frontmatter:    dict = field(default_factory=dict)
+    # P1/W-0 — non-fatal import warnings (e.g. unrecognised answer-type label
+    # → row dropped). Surfaced to the admin preview as a red banner so nothing
+    # is ever dropped/graded silently.
+    warnings:           list = field(default_factory=list)
 
     @property
     def library(self) -> Optional[str]:
@@ -715,6 +719,7 @@ class ParsedReadingTest:
             "published":          self.published,
             "passages":           passage_summary,
             "question_count":     total_qs,
+            "warnings":           list(self.warnings or []),
         }
 
 

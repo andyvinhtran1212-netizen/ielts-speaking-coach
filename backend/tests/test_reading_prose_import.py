@@ -67,6 +67,48 @@ def test_quick_answers_table():
     assert qa[27]["question_type"] == "mcq_single" and qa[27]["answer"] == "B"
 
 
+# ── P1 / W-0 — recovered labels + no-silent-drop ──────────────────────
+
+def test_p1_recovered_labels_map_without_drop():
+    """The 4 content labels that were silently dropped now map to existing
+    enums (B3 fix). No drop, no warnings for recognised labels."""
+    sol = "\n".join([
+        "| 1 | Summary Completion (with box) | answer one | 6.0 |",
+        "| 2 | Summary Completion (without box) | answer two | 6.5 |",
+        "| 3 | Short-Answer Questions | answer three | 7.0 |",
+        "| 4 | Flow-chart Completion | answer four | 7.5 |",
+    ])
+    warns: list = []
+    qa = parse_quick_answers(sol, warns)
+    assert len(qa) == 4, "all 4 previously-dropped labels must now parse"
+    assert qa[1]["question_type"] == "summary_completion"
+    assert qa[2]["question_type"] == "summary_completion"
+    assert qa[3]["question_type"] == "short_answer"
+    assert qa[4]["question_type"] == "flow_chart_completion"
+    assert warns == [], "recognised labels emit no warning"
+
+
+def test_p1_unknown_label_warns_not_silent():
+    """W-0: an unrecognised type label is NOT silently dropped — it appends a
+    warning so the admin preview shows a red banner."""
+    sol = "| 7 | Totally Made Up Type | x | 6.0 |"
+    warns: list = []
+    qa = parse_quick_answers(sol, warns)
+    assert 7 not in qa, "unmapped row still skipped (no enum)…"
+    assert len(warns) == 1 and "7" in warns[0] and "Totally Made Up Type" in warns[0], \
+        "…but a warning is emitted (not silent)"
+
+
+def test_p1_warnings_surface_on_parsed_and_preview():
+    """build_parsed_reading_test_from_prose carries warnings; as_preview()
+    exposes them for the admin banner."""
+    test_md = "# T\nTest ID: TST-X\nTarget band: 7.0\n\n## PASSAGE 1 — A\n### P1\nbody\n"
+    sol_md = "| 99 | Totally Made Up Type | x | 6.0 |"
+    parsed = build_parsed_reading_test_from_prose(test_md, sol_md)
+    assert any("99" in w for w in parsed.warnings), "warning carried on ParsedReadingTest"
+    assert any("99" in w for w in parsed.as_preview()["warnings"]), "warning in preview payload"
+
+
 @_skip
 def test_skill_distribution_expands_ranges():
     skills = parse_skill_distribution(_read(_SOL_MD))
