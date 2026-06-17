@@ -760,6 +760,68 @@ def test_mark_delivered_hide_subbands_does_not_bypass_review_guard():
     assert not any("delivery_method" in p for p in payloads)
 
 
+# ── U1 revoke-delivery (delivered → reviewed) ────────────────────────
+
+
+def test_revoke_delivery_reverts_to_reviewed_preserving_feedback():
+    """U1: a delivered essay reverts to reviewed; the update clears
+    delivered_at and sets status=reviewed but NEVER touches the feedback,
+    admin_edits_json, or hide_subbands (no AI re-run, nothing deleted)."""
+    fake = _fake_supabase(status="delivered")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/revoke-delivery",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "reviewed"
+    payload = fake.table.return_value.update.call_args.args[0]
+    assert payload["status"] == "reviewed"
+    assert payload["delivered_at"] is None
+    # Preserve everything else — revoke is not a regrade.
+    assert "hide_subbands" not in payload
+    assert "admin_edits_json" not in payload
+    assert "delivery_method" not in payload
+
+
+def test_revoke_delivery_409_when_not_delivered():
+    """Only delivered → reviewed is allowed; a reviewed (or any non-delivered)
+    essay 409s and persists nothing."""
+    fake = _fake_supabase(status="reviewed")
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/revoke-delivery",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    assert "delivered" in r.json()["detail"].lower()
+    fake.table.return_value.update.assert_not_called()
+
+
+def test_revoke_delivery_404_when_essay_missing():
+    fake = _fake_supabase(status=None)  # SELECT returns []
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake):
+        r = _client().post(
+            f"/admin/writing/essays/{_ESSAY_ID}/revoke-delivery",
+            json={},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 404
+
+
+def test_revoke_delivery_requires_auth():
+    r = _client().post(f"/admin/writing/essays/{_ESSAY_ID}/revoke-delivery", json={})
+    assert r.status_code == 401
+
+
 def test_mark_delivered_400_on_invalid_method():
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)):

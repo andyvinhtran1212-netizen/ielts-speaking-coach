@@ -112,6 +112,9 @@
           Ẩn điểm thành phần
         </label>
         <button id="btn-deliver"  class="btn btn-success">✓ Trả bài cho học viên</button>
+        <!-- U1 — shown only when delivered: pull the essay back from the student
+             to fix a mistake (no re-grade, feedback kept). -->
+        <button id="btn-revoke"   class="btn btn-warn hidden" title="Thu hồi bài khỏi học viên để sửa (giữ nguyên feedback, không chấm lại)">↩ Thu hồi bài</button>
         <span id="last-saved"></span>
         <span id="header-email" class="aw-header__email hidden text-xs"></span>
         <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
@@ -466,13 +469,16 @@
         btn.title = 'Trả bài đã duyệt cho học viên. Ẩn/hiện điểm thành phần ở ô bên cạnh.';
       } else if (status === 'delivered') {
         btn.disabled = true;
-        btn.title = 'Bài đã được trả cho học viên.';
+        btn.title = 'Bài đã được trả cho học viên. Dùng "Thu hồi bài" để rút về sửa.';
       } else {
         // graded / grading / pending / failed — not reviewed yet.
         btn.disabled = true;
         btn.title = 'Bấm "💾 Lưu & duyệt" trước khi trả bài. ' +
                     '(Bài AI ưng ý có thể Lưu & duyệt luôn — không bắt buộc sửa gì.)';
       }
+      // U1 — the revoke button only makes sense once the essay is delivered.
+      var rev = document.getElementById('btn-revoke');
+      if (rev) rev.classList.toggle('hidden', status !== 'delivered');
     }
 
     // ── Dirty indicator ──────────────────────────────────────────
@@ -1383,6 +1389,32 @@
       }
     }
 
+    // U1 — Revoke (admin pulls a delivered essay back to fix a mistake).
+    // delivered → reviewed, feedback + hide_subbands preserved (NOT a regrade:
+    // no AI re-run, nothing deleted). The student stops seeing it immediately
+    // (their gate is status==='delivered'). After revoke, the "Trả bài" button
+    // re-enables (via setStatusPill→_syncDeliverBtn) for a re-deliver.
+    async function handleRevoke() {
+      if (!confirm('Thu hồi bài này khỏi học viên? ' +
+                   'Học viên sẽ KHÔNG còn thấy bài cho tới khi bạn trả lại. ' +
+                   '(Feedback được giữ nguyên, không chấm lại.)')) return;
+      var btn = document.getElementById('btn-revoke');
+      var orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Đang thu hồi…';
+      try {
+        var res = await window.api.post(
+          '/admin/writing/essays/' + _essayId + '/revoke-delivery', {}
+        );
+        setStatusPill(res.status);   // → reviewed: hides revoke, re-enables deliver
+        if (_essay) _essay.status = res.status;
+        setAlert('success', 'Đã thu hồi bài. Sửa xong bấm "Trả bài cho học viên" để trả lại.');
+      } catch (err) {
+        setAlert('error', 'Thu hồi thất bại: ' + err.message);
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
     // Regrade-level picker (T2·2). Labels mirror the assign-time picker
     // (#493) verbatim for consistency. Built-on-the-fly modal (grade.html
     // doesn't load admin-components.css, so confirmDanger's .adm-modal
@@ -1553,6 +1585,12 @@
       document.getElementById('header-meta-text').textContent =
         taskLabel + ' · ' + _formatDate(detail.created_at);
       setStatusPill(detail.status);
+
+      // U1 — pre-populate the hide-scores toggle from the essay's current flag
+      // so a re-deliver after a revoke keeps the same setting (the toggle
+      // defaults unchecked, which would otherwise silently reset it).
+      var hideToggle0 = document.getElementById('hide-subbands-toggle');
+      if (hideToggle0) hideToggle0.checked = !!detail.hide_subbands;
 
       var fb = detail.feedback || {};
       var band = fb.overall_band_score != null ? fb.overall_band_score : _currentFeedback.overallBandScore;
@@ -1878,6 +1916,7 @@
         document.getElementById('btn-copy').addEventListener('click',     handleCopy);
         document.getElementById('btn-download').addEventListener('click', handleDownload);
         document.getElementById('btn-deliver').addEventListener('click',  handleDeliver);
+        document.getElementById('btn-revoke').addEventListener('click',   handleRevoke);
         document.getElementById('btn-regrade').addEventListener('click',  handleRegrade);
 
         // Sprint 2.7d.2 — instructor panel buttons. Wired even when
