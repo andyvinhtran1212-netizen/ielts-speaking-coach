@@ -426,8 +426,12 @@ describe('Sprint 12.2 F2 — <aver-admin-chrome> subsection attribute', () => {
     assert.match(CHROME_JS, /_normalizeSubsection\s*\(/);
   });
 
-  it('writing subsections include grade (canonical Sprint 12.5 target)', () => {
-    assert.match(CHROME_JS, /slug:\s*['"]grade['"][^}]*label:\s*['"]Chấm bài viết['"]/);
+  it('writing subsections: queue is the canonical grading entry (F4 dropped the dup "grade")', () => {
+    // F4 nav-dedup: the old "Chấm bài viết" (slug grade) duplicated the queue
+    // and pointed at a param-required page; it was removed. The queue is now
+    // the single grading entry; grade.html sets subsection="queue".
+    assert.match(CHROME_JS, /slug:\s*['"]queue['"][^}]*label:\s*['"]Hàng chờ chấm['"]/);
+    assert.doesNotMatch(CHROME_JS, /slug:\s*['"]grade['"]/);
   });
 });
 
