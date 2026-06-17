@@ -1933,3 +1933,74 @@ def test_narrator_intro_only_strips_markers_from_real_pilot_fixture():
     assert "[pause:30s]" not in intro
     # Raw script body untouched.
     assert "[pause:30s]" in sections[1]
+
+
+# ── Lesson L02 — singular `### Question N` headings + het MCQ block (fix L02) ──
+
+_LESSON_L02_SECTION = (
+    "## SECTION 3\n"
+    "*Group project planning tutorial*\n"
+    "\n"
+    "### Questions 1-2\n"
+    "> Complete the form below. Write **NO MORE THAN TWO WORDS** for each answer.\n"
+    "\n"
+    "**1.**  The group project will focus on classroom __________.\n"
+    "**2.**  The fieldwork visit is scheduled for Tuesday at __________.\n"
+    "\n"
+    "### Questions 3-4\n"
+    "> Choose the correct letter, **A**, **B** or **C**.\n"
+    "\n"
+    "**3.**  According to Priya, what proportion of teachers prefer interviews?\n"
+    "    - A Around 50%\n"
+    "    - B About 80%\n"
+    "    - C Roughly 40%\n"
+    "\n"
+    "**4.**  Tom's surname is __________.\n"
+    "\n"
+    "### Question 5\n"
+    "> Choose the correct letter, **A**, **B** or **C**.\n"
+    "\n"
+    "**5.**  According to Priya, extracurricular activities are:\n"
+    "    - A an optional addition\n"
+    "    - B central to development\n"
+    "    - C less important\n"
+    "\n"
+    "### Question 6\n"
+    "> Answer the question below. Write **ONE WORD**.\n"
+    "\n"
+    "**6.**  The students focus their analysis on __________. *(ONE WORD)*\n"
+)
+
+
+def test_l02_singular_question_heading_parses_all_six():
+    """A lesson authors one heading per item ("### Question 5"). The singular
+    heading must produce a block (was: only "### Questions N-M" ranges matched,
+    so Q5/Q6 silently dropped → 4 of 6 on web)."""
+    blocks = lc.parse_question_blocks(_LESSON_L02_SECTION)
+    q_nums = sorted(q["q_num"] for b in blocks for q in b["questions"])
+    assert q_nums == [1, 2, 3, 4, 5, 6]          # all six, none dropped
+    by_range = {b["q_range"]: b for b in blocks}
+    assert (5, 5) in by_range and (6, 6) in by_range   # singular → lo == hi
+
+
+def test_l02_het_mcq_block_q4_falls_back_to_short_answer():
+    """Q3-4 share ONE "Choose the correct letter" heading (no `> **Questions**`
+    sub-marker). Q3 is MCQ; Q4 ("Tom's surname is ___") has no A/B/C options →
+    must be typed short-answer, not an empty MCQ. Scoped to the MCQ branch."""
+    blocks = lc.parse_question_blocks(_LESSON_L02_SECTION)
+    by_num = {q["q_num"]: q for b in blocks for q in b["questions"]}
+    assert by_num[3]["q_type"] == "mcq_3option" and len(by_num[3]["options"]) == 3
+    assert by_num[4]["q_type"] == "dictation_short_answer"
+    assert not by_num[4].get("options")
+    assert "_" not in by_num[4]["prompt"]          # trailing gap underscores stripped
+    # The option-leak is gone: Q4 must NOT inherit Q5's A/B/C options.
+    assert by_num[5]["q_type"] == "mcq_3option" and len(by_num[5]["options"]) == 3
+
+
+def test_find_orphan_question_headings_flags_unparseable_heading():
+    """W-0 — a `### Question(s) …` heading the strict parser can't read is an
+    orphan (items under it would vanish). Well-formed range/singular = no orphan."""
+    assert lc.find_orphan_question_headings(_LESSON_L02_SECTION) == []
+    bad = "### Questions 5 and 6\n> Choose the correct letter.\n**5.** x\n**6.** y\n"
+    orphans = lc.find_orphan_question_headings(bad)
+    assert orphans == ["### Questions 5 and 6"]

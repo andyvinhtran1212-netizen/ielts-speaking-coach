@@ -394,6 +394,15 @@ def parse_fulltest(qp_text: str, solution_text: str, timings: dict) -> FullTestP
     # ── Per-section question blocks → merged questions ──
     seen_q: set[int] = set()
     for section_num in sorted(qp_sections):
+        # W-0 — a `### Question(s) …` heading the parser can't read yields NO
+        # block, so its items vanish with no trace. Surface it as a hard error
+        # (data loss has no fallback) instead of silently dropping questions.
+        for orphan in lc.find_orphan_question_headings(qp_sections[section_num]):
+            res.errors.append(
+                f"Section {section_num}: heading '{orphan}' không tạo được câu hỏi "
+                f"nào (sai định dạng — kỳ vọng `### Questions N-M` hoặc `### Question N`). "
+                f"Các câu dưới nó sẽ bị bỏ qua — sửa heading rồi import lại."
+            )
         blocks = lc.parse_question_blocks(qp_sections[section_num])
         sec_id = f"S{section_num}"
         sec_qcount = 0
@@ -589,6 +598,18 @@ def _validate(res: FullTestParseResult, qak: dict, sol_blocks: dict,
         res.errors.append("Question Paper không có câu hỏi nào.")
     elif len(seen_q) > _EXPECTED_QUESTIONS:
         res.warnings.append(f"Question Paper có {len(seen_q)} câu (> {_EXPECTED_QUESTIONS}).")
+
+    # W-0 — the contiguity check above only catches HOLES (1..max). A TAIL-drop
+    # (e.g. L02 Q5/Q6 lost to an unreadable heading) leaves 1..max contiguous and
+    # passes silently. Cross-check the Answer Key: any answered q_num with no
+    # parsed question is a dropped item → hard error, not a silent loss.
+    orphan_keys = sorted(set(qak) - seen_q)
+    if orphan_keys:
+        res.errors.append(
+            f"Answer Key có đáp án cho câu {orphan_keys} nhưng Question Paper không "
+            f"tạo được câu hỏi tương ứng — câu bị bỏ qua (kiểm tra heading "
+            f"`### Question(s) N`). Sửa rồi import lại."
+        )
 
     for q in res.questions:
         n = q["q_num"]
