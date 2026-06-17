@@ -341,8 +341,8 @@ describe('admin-writing-grade.html / Vietnamese microcopy preserved', () => {
     'Đang kiểm tra quyền truy cập…',
     'Admin Access Required',
     'Quay lại trang chủ',
-    'Save edits',
-    'Mark delivered',
+    'Lưu & duyệt',
+    'Trả bài cho học viên',
     'Chấm lại',
     'Bài viết gốc',
     'Tổng quan',
@@ -414,5 +414,28 @@ describe('admin-writing-grade.css / T1·1 re-skin treatment', () => {
   test('load reveal is motion-safe (prefers-reduced-motion gate)', () => {
     assert.match(css, /@media\s*\(prefers-reduced-motion:\s*no-preference\)/);
     assert.match(css, /@keyframes grade-rise/);
+  });
+});
+
+
+describe('admin-writing-grade / F2 deliver-button UX', () => {
+  test('deliver button is Vietnamese "Trả bài cho học viên" (no English "Mark delivered")', () => {
+    assert.match(html, /id="btn-deliver"[^>]*>\s*✓ Trả bài cho học viên/);
+    assert.doesNotMatch(html, /Mark delivered/);
+  });
+  test('save button relabelled "Lưu & duyệt" (Save = approve)', () => {
+    assert.match(html, /id="btn-save"[^>]*>\s*💾 Lưu &amp; duyệt/);
+    assert.doesNotMatch(html, /Save edits/);
+    assert.match(html, /btn\.textContent = '💾 Lưu & duyệt'/);   // _refreshSaveBtn clean state
+  });
+  test('deliver button disabled+hinted unless status === reviewed (guard not broken)', () => {
+    // _syncDeliverBtn drives disabled state off status; routed through setStatusPill.
+    assert.match(html, /function _syncDeliverBtn\(status\)/);
+    assert.match(html, /status === 'reviewed'[\s\S]*?btn\.disabled = false/);
+    assert.match(html, /btn\.disabled = true;[\s\S]*?Lưu & duyệt[^]*?trước khi trả bài/);
+    assert.match(html, /function setStatusPill[\s\S]*?_syncDeliverBtn\(status\)/);
+  });
+  test('hint clarifies Lưu = duyệt (not forced to edit)', () => {
+    assert.match(html, /không bắt buộc sửa/);
   });
 });

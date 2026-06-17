@@ -98,9 +98,9 @@
       </div>
       <div class="header-actions">
         <!-- Grade-flow PR-3: shown only when opened from the queue (sessionStorage
-             queue-context). Direct opens keep just the normal Save edits. -->
+             queue-context). Direct opens keep just the normal Lưu & duyệt. -->
         <a id="btn-back-queue" class="btn" href="/pages/admin/writing/queue.html" hidden>← Quay lại queue</a>
-        <button id="btn-save"     class="btn btn-primary">💾 Save edits</button>
+        <button id="btn-save"     class="btn btn-primary" title="Lưu chỉnh sửa và duyệt bài (chuyển sang 'reviewed' để có thể trả). Bài AI ưng ý có thể Lưu & duyệt luôn — không bắt buộc sửa.">💾 Lưu &amp; duyệt</button>
         <button id="btn-save-next" class="btn btn-primary" hidden>💾 Lưu &amp; bài kế</button>
         <button id="btn-copy"     class="btn" title="Sao chép feedback có định dạng — dán (Cmd/Ctrl+V) vào Google Docs của học viên">📋 Sao chép (Google Docs)</button>
         <button id="btn-download" class="btn" title="Tải feedback về file Word (.docx)">⬇ Tải .docx</button>
@@ -111,7 +111,7 @@
           <input type="checkbox" id="hide-subbands-toggle" />
           Ẩn điểm thành phần
         </label>
-        <button id="btn-deliver"  class="btn btn-success">✓ Mark delivered</button>
+        <button id="btn-deliver"  class="btn btn-success">✓ Trả bài cho học viên</button>
         <span id="last-saved"></span>
         <span id="header-email" class="aw-header__email hidden text-xs"></span>
         <button class="av-theme-toggle" type="button" aria-label="Chuyển giao diện sáng/tối">
@@ -140,13 +140,13 @@
       ></textarea>
 
       <div class="instructor-panel-actions" id="instructor-panel-actions">
-        <button id="btn-instructor-deliver" class="btn btn-primary" type="button">✓ Mark delivered</button>
+        <button id="btn-instructor-deliver" class="btn btn-primary" type="button">✓ Trả bài cho học viên</button>
         <button id="btn-instructor-release" class="btn"            type="button">↩ Release claim</button>
       </div>
 
       <p class="instructor-panel-hint">
-        Lưu các edit bằng nút <strong>💾 Save edits</strong> ở header trước. Khi sẵn sàng,
-        bấm <strong>Mark delivered</strong> — học viên sẽ thấy feedback + tin nhắn ngay sau đó.
+        Lưu các edit bằng nút <strong>💾 Lưu &amp; duyệt</strong> ở header trước. Khi sẵn sàng,
+        bấm <strong>Trả bài</strong> — học viên sẽ thấy feedback + tin nhắn ngay sau đó.
       </p>
     </aside>
 
@@ -326,7 +326,7 @@
           <section id="section-instructor-note" class="grade-section" data-section="instructor-note">
             <header class="section-header"><h2>📝 Note giảng viên</h2><button class="btn-edit" data-edit="instructor-note">✏ Sửa</button></header>
             <p class="aw-subtitle text-xs mb-2">
-              Personalized feedback — sibling column on writing_essays. Survives regrade. Lưu qua endpoint riêng (không dính vào JSON validation của Save edits).
+              Personalized feedback — sibling column on writing_essays. Survives regrade. Lưu qua endpoint riêng (không dính vào JSON validation của Lưu & duyệt).
             </p>
             <div class="section-content" id="content-instructor-note"></div>
             <div class="section-edit hidden" id="edit-instructor-note">
@@ -450,17 +450,40 @@
       var pill = document.getElementById('status-pill');
       pill.textContent = status || '—';
       pill.setAttribute('data-status', status || '');
+      _syncDeliverBtn(status);
+    }
+
+    // F2 — deliver is only valid on `reviewed` (backend guard 409s otherwise).
+    // Disable + explain instead of letting the green button silently 409.
+    // Routed through setStatusPill so every transition (load / save / regrade /
+    // deliver) keeps the button in sync. Instructor-tier hides btn-deliver via
+    // the panel takeover; disabling a hidden button is harmless.
+    function _syncDeliverBtn(status) {
+      var btn = document.getElementById('btn-deliver');
+      if (!btn) return;
+      if (status === 'reviewed') {
+        btn.disabled = false;
+        btn.title = 'Trả bài đã duyệt cho học viên. Ẩn/hiện điểm thành phần ở ô bên cạnh.';
+      } else if (status === 'delivered') {
+        btn.disabled = true;
+        btn.title = 'Bài đã được trả cho học viên.';
+      } else {
+        // graded / grading / pending / failed — not reviewed yet.
+        btn.disabled = true;
+        btn.title = 'Bấm "💾 Lưu & duyệt" trước khi trả bài. ' +
+                    '(Bài AI ưng ý có thể Lưu & duyệt luôn — không bắt buộc sửa gì.)';
+      }
     }
 
     // ── Dirty indicator ──────────────────────────────────────────
     function _refreshSaveBtn() {
       var btn = document.getElementById('btn-save');
       if (_isDirty) {
-        btn.textContent = '💾 Save edits *';
+        btn.textContent = '💾 Lưu & duyệt *';
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-dirty');
       } else {
-        btn.textContent = '💾 Save edits';
+        btn.textContent = '💾 Lưu & duyệt';
         btn.classList.remove('btn-dirty');
         btn.classList.add('btn-primary');
       }
@@ -1176,7 +1199,7 @@
       _setEditOpen(sectionKey, false);
     }
 
-    // ── Save edits — full-feedback PATCH ─────────────────────────
+    // ── Lưu & duyệt — full-feedback PATCH ─────────────────────────
     async function handleSave() {
       var btn = document.getElementById('btn-save');
       var orig = btn.textContent;
@@ -1232,7 +1255,7 @@
       }
     }
     // Reveal the queue controls only when this essay was opened from the queue;
-    // a direct open degrades to the normal single-essay Save edits.
+    // a direct open degrades to the normal single-essay Lưu & duyệt.
     function _initQueueNav() {
       var q = _readQueue();
       var inQueue = !!(q && q.ids.indexOf(_essayId) !== -1);
@@ -1340,10 +1363,10 @@
 
     async function handleDeliver() {
       if (_isDirty) {
-        alert('Vui lòng lưu các thay đổi trước khi đánh dấu đã giao.');
+        alert('Có chỉnh sửa chưa lưu. Bấm "💾 Lưu & duyệt" trước khi trả bài.');
         return;
       }
-      if (!confirm('Đánh dấu bài này đã giao cho học viên? Trạng thái sẽ chuyển sang "delivered".')) return;
+      if (!confirm('Trả bài này cho học viên? Trạng thái sẽ chuyển sang "delivered".')) return;
       // T3·2 — optional: hide the 4 criterion sub-bands from the student
       // (overall band always shown). Unchecked → false = show (legacy).
       var hideToggle = document.getElementById('hide-subbands-toggle');
@@ -1356,7 +1379,7 @@
         setStatusPill(res.status);
         setAlert('success', 'Đã đánh dấu delivered.' + (hideSubbands ? ' (Đã ẩn điểm thành phần)' : ''));
       } catch (err) {
-        setAlert('error', 'Mark delivered failed: ' + err.message);
+        setAlert('error', 'Trả bài thất bại: ' + err.message);
       }
     }
 
@@ -1738,7 +1761,7 @@
       }
       var note = (document.getElementById('instructor-note-input').value || '').trim();
       var msg = 'Deliver bài này cho học viên? Họ sẽ thấy feedback + tin nhắn ngay sau đó. ' +
-                'Đảm bảo bạn đã Save edits qua nút 💾 ở header.';
+                'Đảm bảo bạn đã Lưu & duyệt qua nút 💾 ở header.';
       if (!confirm(msg)) return;
 
       try {
