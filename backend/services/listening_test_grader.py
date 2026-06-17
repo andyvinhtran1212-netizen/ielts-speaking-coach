@@ -258,10 +258,46 @@ def grade_attempt(
     user_by_q = {ua.get("q_num"): ua for ua in user_answers if ua.get("q_num")}
     per_question: list[dict[str, Any]] = []
 
+    # A2 (P4) — pre-group mcq_multi answer-key rows by their shared group_key so
+    # a "Choose TWO" pair is graded as a set (any-order), not slot-by-slot.
+    mm_groups: dict[str, list] = {}
+    for ak in answer_key:
+        gk = ak.get("group_key")
+        if gk and ak.get("template_kind") == "mcq_multi":
+            mm_groups.setdefault(gk, []).append(ak)
+    graded_mm: set[str] = set()
+
     for ak in sorted(answer_key, key=lambda r: r.get("q_num") or 0):
         q_num = ak.get("q_num")
         if not isinstance(q_num, int):
             continue
+        gk = ak.get("group_key")
+        if gk and ak.get("template_kind") == "mcq_multi":
+            # Score the whole group once (per-letter 1pt, any-order): a slot is
+            # correct iff its pick is in the group's expected set, consuming each
+            # expected letter at most once (handles duplicate picks).
+            if gk in graded_mm:
+                continue
+            graded_mm.add(gk)
+            grp = sorted(mm_groups[gk], key=lambda r: r.get("q_num") or 0)
+            remaining = [normalize_answer(g.get("answer") or "") for g in grp]
+            for g in grp:
+                gq = g.get("q_num")
+                pick = normalize_answer((user_by_q.get(gq) or {}).get("user_answer"))
+                ok = bool(pick) and pick in remaining
+                if ok:
+                    remaining.remove(pick)
+                per_question.append({
+                    "q_num":            gq,
+                    "correct":          ok,
+                    "user_answer":      (user_by_q.get(gq) or {}).get("user_answer") or "",
+                    "expected":         g.get("answer") or "",
+                    "alternatives":     g.get("alternatives") or [],
+                    "trap_mechanisms":  g.get("trap_mechanisms") or [],
+                    "group":            "mcq_multi",
+                })
+            continue
+
         expected = ak.get("answer") or ""
         alternatives = ak.get("alternatives") or []
         trap_mechanisms = ak.get("trap_mechanisms") or []
@@ -279,6 +315,7 @@ def grade_attempt(
             "trap_mechanisms":  trap_mechanisms,
         })
 
+    per_question.sort(key=lambda r: r.get("q_num") or 0)
     score = sum(1 for r in per_question if r["correct"])
     return {
         "score":             score,
@@ -304,13 +341,24 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
     out: list[dict[str, Any]] = []
     for row in exercise_rows:
         payload = row.get("payload") or {}
-        for ans in payload.get("answers") or []:
+        tk = payload.get("template_kind")
+        answers = payload.get("answers") or []
+        # A2 (P4) — a "Choose TWO" pair is ONE exercise spanning N q-slots,
+        # graded any-order. Tag every entry of an mcq_multi exercise with a
+        # shared group_key so grade_attempt can score the set, not slot-by-slot.
+        group_key = (
+            f"mm-{answers[0].get('q_num')}"
+            if tk == "mcq_multi" and answers else None
+        )
+        for ans in answers:
             out.append({
                 "q_num":           ans.get("q_num"),
                 "answer":          ans.get("answer") or "",
                 "alternatives":    ans.get("alternatives") or [],
                 "notes":           ans.get("notes") or "",
                 "trap_mechanisms": ans.get("trap_mechanisms") or [],
+                "template_kind":   tk,
+                "group_key":       group_key,
             })
     return out
 

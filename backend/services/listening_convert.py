@@ -490,9 +490,17 @@ _INSTRUCTION_HINTS: list[tuple[re.Pattern[str], str, str]] = [
     # A1 (P3) — matching: pick a letter from a shared bank per question. Strong
     # signals, placed before mcq_3option ("choose the correct letter") which is
     # a different verb. q_type 'matching' → graded as a letter via answer_matches.
+    # A2 (P4) — multi-select FIRST (a Choose-N pick spans N q-slots). Must beat
+    # the matching "for each" / "write the correct letter" rules below.
+    (re.compile(r"choose\s+(?:two|three)\s+letters|which\s+(?:two|three)\b", re.IGNORECASE),
+        "mcq_multi",               "mcq_multi"),
+    # A1 — matching signals (bold already stripped by _classify_instruction).
+    # "write the correct LETTER" is matching-specific (completions write words,
+    # not letters); "for each" was tried but is a false-positive magnet —
+    # completion instructions say "write … for each answer" — so it's excluded.
     (re.compile(r"match each\b|match the following\b", re.IGNORECASE),
         "matching",                "matching"),
-    (re.compile(r"write the correct letter[, ].{0,15}next to", re.IGNORECASE),
+    (re.compile(r"write the correct letter\b", re.IGNORECASE),
         "matching",                "matching"),
     (re.compile(r"any letter more than once", re.IGNORECASE),
         "matching",                "matching"),
@@ -534,6 +542,7 @@ _MARKER_TO_TYPE: dict[str, tuple[str, str]] = {
     "mcq_3option":           ("mcq_3option",             "mcq_3option"),
     "plan_label":            ("mcq_letter_label",        "plan_label"),
     "matching":              ("matching",                "matching"),   # P3
+    "mcq_multi":             ("mcq_multi",               "mcq_multi"),   # P4
 }
 
 _QTYPE_MARKER_RE = re.compile(
@@ -563,8 +572,11 @@ def _classify_instruction(instruction: str) -> tuple[str, str]:
     "notes_completion", "summary_completion", "sentence_completion",
     "short_answer", "mcq_3option", "plan_label"). Sprint 13.5.2.
     """
+    # Strip markdown emphasis so "Choose **TWO** letters" / "**for each**"
+    # classify the same as their plain-text form.
+    instr = re.sub(r"[*_`]", "", instruction or "")
     for pattern, q_slug, t_slug in _INSTRUCTION_HINTS:
-        if pattern.search(instruction):
+        if pattern.search(instr):
             return q_slug, t_slug
     return "unknown", "unknown"
 
@@ -655,42 +667,90 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
         )
         body = qp_section_text[start:end]
 
-        instruction = _first_blockquote(body)
-        # P2 — explicit marker wins; regex classify is the fallback.
-        marker = _read_qtype_marker(body)
-        q_type, template_kind = marker if marker else _classify_instruction(instruction)
-
-        meta: dict[str, Any] = {}
-        if q_type == "matching":
-            # A1 — the shared option bank ("**List of roles:** - **A** …" A-G).
-            bank = _extract_matching_bank(body)
-            if bank:
-                meta["match_options"] = bank
-                meta["letter_options"] = [o["letter"] for o in bank]
-        if q_type == "mcq_letter_label":
-            meta["map_description"] = _extract_map_description(body)
-            meta["letter_options"] = list("ABCDEFGH")
-            # Sprint 13.5.9 — pick up Andy's curated AI image-generation
-            # prompt from the `<details>` block immediately after the
-            # question block (if present). ``None`` means the image-gen
-            # service will fall back to its template prompt.
-            custom_prompt = _extract_custom_image_prompt(body)
-            if custom_prompt:
-                meta["map_image_custom_prompt"] = custom_prompt
-
-        questions = _extract_questions(body, q_type, lo, hi)
-        template = _extract_template(body, template_kind, lo, hi)
-
-        out.append({
-            "q_range":       (lo, hi),
-            "instruction":   instruction,
-            "q_type":        q_type,
-            "template_kind": template_kind,
-            "template":      template,
-            "questions":     questions,
-            "metadata":      meta,
-        })
+        # P4 — a single `### Questions N-M` heading can hold MULTIPLE typed
+        # sub-groups under `> **Questions X and Y**` markers (e.g. a Choose-TWO
+        # pair + a matching trio sharing one A-E bank). Split into sub-blocks,
+        # each classified independently; a block with no sub-markers stays one
+        # block (unchanged — P2/P3 / all existing single-instruction blocks).
+        for sub_lo, sub_hi, sub_body in _split_subgroups(body, lo, hi):
+            out.append(_build_block(sub_body, sub_lo, sub_hi))
     return out
+
+
+def _build_block(body: str, lo: int, hi: int) -> dict[str, Any]:
+    """Build one question-block dict from a (possibly sub-) block body."""
+    instruction = _first_blockquote(body)
+    # P2 — explicit marker wins; regex classify is the fallback.
+    marker = _read_qtype_marker(body)
+    q_type, template_kind = marker if marker else _classify_instruction(instruction)
+
+    meta: dict[str, Any] = {}
+    if q_type in ("matching", "mcq_multi"):
+        # A1/A2 — shared option bank ("**List of roles/steps:** - **A** …").
+        bank = _extract_matching_bank(body)
+        if bank:
+            meta["match_options"] = bank
+            meta["letter_options"] = [o["letter"] for o in bank]
+    if q_type == "mcq_multi":
+        # A2 — how many letters to pick (Choose TWO/THREE → 2/3).
+        meta["choose"] = _extract_choose_count(instruction)
+    if q_type == "mcq_letter_label":
+        meta["map_description"] = _extract_map_description(body)
+        meta["letter_options"] = list("ABCDEFGH")
+        custom_prompt = _extract_custom_image_prompt(body)
+        if custom_prompt:
+            meta["map_image_custom_prompt"] = custom_prompt
+
+    questions = _extract_questions(body, q_type, lo, hi)
+    template = _extract_template(body, template_kind, lo, hi)
+
+    return {
+        "q_range":       (lo, hi),
+        "instruction":   instruction,
+        "q_type":        q_type,
+        "template_kind": template_kind,
+        "template":      template,
+        "questions":     questions,
+        "metadata":      meta,
+    }
+
+
+# A sub-group marker inside a `### Questions N-M` block: "> **Questions 26 and
+# 27**" / "> **Questions 28, 29 and 30**". Only present in heterogeneous blocks.
+_SUBGROUP_MARKER_RE = re.compile(
+    r"^>\s*\*\*\s*Questions?\s+([\d][\d,\s]*(?:and\s+\d+)?)\s*\*\*\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def _split_subgroups(body: str, lo: int, hi: int):
+    """Yield (sub_lo, sub_hi, sub_body) for each `> **Questions X…**` sub-group.
+
+    Single-instruction blocks (no sub-markers, or just one) yield exactly one
+    (lo, hi, body) — identical to the pre-P4 behaviour. Heterogeneous blocks
+    yield one tuple per sub-group; the shared PREAMBLE (option bank etc. before
+    the first marker) is prepended to every sub-body so each keeps the bank."""
+    markers = list(_SUBGROUP_MARKER_RE.finditer(body))
+    if len(markers) < 2:
+        return [(lo, hi, body)]
+    preamble = body[: markers[0].start()]
+    out = []
+    for i, mk in enumerate(markers):
+        seg_start = mk.start()
+        seg_end = markers[i + 1].start() if i + 1 < len(markers) else len(body)
+        nums = [int(n) for n in re.findall(r"\d+", mk.group(1))]
+        if not nums:
+            continue
+        out.append((min(nums), max(nums), preamble + body[seg_start:seg_end]))
+    return out or [(lo, hi, body)]
+
+
+def _extract_choose_count(instruction: str) -> int:
+    """'Choose TWO/THREE letters' → 2/3 (default 2)."""
+    low = (instruction or "").lower()
+    if "three" in low:
+        return 3
+    return 2
 
 
 # ── Structural template extractors (Sprint 13.5.2) ─────────────────────────

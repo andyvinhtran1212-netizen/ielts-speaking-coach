@@ -442,6 +442,7 @@ function renderExercise(ex) {
       case 'flow_chart_completion': return renderShortAnswer(questions);
       case 'short_answer':        return renderShortAnswer(questions);
       case 'mcq_3option':         return renderMCQ(questions);
+      case 'mcq_multi':           return renderMultiSelect(payload, questions);
       case 'matching':            return renderMatching(payload, questions);
       case 'mcq_letter_label':
       case 'plan_label':          return renderPlanLabel(payload, questions);
@@ -695,6 +696,30 @@ function renderPlanLabel(payload, questions) {
 }
 
 
+// ── Multi-select (A2, P4) — one checkbox group, N picks → N q-slots ──
+
+function renderMultiSelect(payload, questions) {
+  const meta = (payload && payload.metadata) || {};
+  const opts = Array.isArray(meta.match_options) ? meta.match_options : [];
+  const choose = Number(meta.choose) || questions.length || 2;
+  const slots = questions.map((q) => q.q_num);
+  const boxes = opts.map((o) => `
+    <label class="ielts-mc-opt">
+      <input type="checkbox" class="ft-mc-box" value="${esc(o.letter)}" />
+      <span><strong>${esc(o.letter)}</strong> ${mdInline(o.text || '')}</span>
+    </label>`).join('');
+  // The group spans N q-slots; the N checked letters map to those slots
+  // (any-order — the grader scores the set). data-q-num is intentionally absent
+  // on the checkboxes (not 1:1 with a q_num); a dedicated handler assigns slots.
+  return `
+    <div class="ielts-mc-group" data-mm-slots="${esc(slots.join(','))}" data-mm-choose="${esc(choose)}">
+      <p class="ielts-mc-hint">Chọn ${esc(choose)} đáp án (${esc(slots.join(' + '))}).</p>
+      ${boxes}
+    </div>
+  `;
+}
+
+
 // ── Matching (A1, P3) — shared option bank + a letter dropdown per Q ──
 
 function renderMatching(payload, questions) {
@@ -756,6 +781,31 @@ function attachQuestionHandlers() {
   inputs.forEach((el) => {
     el.addEventListener('input',  () => onAnswerChange(el));
     el.addEventListener('change', () => onAnswerChange(el));
+  });
+  attachMultiSelectHandlers();
+}
+
+// A2 (P4) — a multi-select checkbox group: enforce the N-pick soft-lock and map
+// the N checked letters onto the group's N q-slots (any-order; the grader scores
+// the set). Each slot still flows through STATE.answers + the debounced save.
+function attachMultiSelectHandlers() {
+  document.querySelectorAll('.ielts-mc-group').forEach((grp) => {
+    const slots = (grp.getAttribute('data-mm-slots') || '')
+      .split(',').map(Number).filter(Number.isFinite);
+    const choose = Number(grp.getAttribute('data-mm-choose')) || slots.length || 2;
+    const boxes = Array.from(grp.querySelectorAll('.ft-mc-box'));
+    grp.addEventListener('change', () => {
+      const checked = boxes.filter((b) => b.checked).map((b) => b.value);
+      const lock = checked.length >= choose;          // soft-lock at N
+      boxes.forEach((b) => { if (!b.checked) b.disabled = lock; });
+      slots.forEach((slot, i) => {
+        const v = checked[i];
+        if (v == null) STATE.answers.delete(slot);
+        else STATE.answers.set(slot, v);
+        scheduleAutoSave(slot, v == null ? '' : v);
+      });
+      updateAnsweredCount();
+    });
   });
 }
 

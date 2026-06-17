@@ -69,6 +69,50 @@ def test_grader_empty_user_answer_is_incorrect():
     assert not grader.answer_matches(None, "anything", [])
 
 
+def _mm_key():
+    """collect_answer_key over a single mcq_multi exercise (Choose TWO: 21=B,
+    22=D) → both rows tagged with a shared group_key + template_kind."""
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 21, "answer": "B"},
+                {"q_num": 22, "answer": "D"},
+            ],
+        },
+    }]
+    return grader.collect_answer_key(rows)
+
+
+def test_p4_mcq_multi_collect_tags_group_key():
+    ak = _mm_key()
+    assert [a["q_num"] for a in ak] == [21, 22]
+    assert all(a["template_kind"] == "mcq_multi" for a in ak)
+    assert ak[0]["group_key"] == ak[1]["group_key"] and ak[0]["group_key"]
+
+
+def test_p4_mcq_multi_any_order_full_credit():
+    """Both letters correct in EITHER order → 2 points (any-order set)."""
+    ak = _mm_key()
+    res = grader.grade_attempt(
+        [{"q_num": 21, "user_answer": "D"}, {"q_num": 22, "user_answer": "B"}], ak)
+    assert res["score"] == 2, "swapped B/D still scores 2 (order-independent)"
+
+
+def test_p4_mcq_multi_one_right_one_wrong_is_one_point():
+    ak = _mm_key()
+    res = grader.grade_attempt(
+        [{"q_num": 21, "user_answer": "B"}, {"q_num": 22, "user_answer": "X"}], ak)
+    assert res["score"] == 1, "per-letter: 1 correct + 1 wrong = 1 point"
+
+
+def test_p4_mcq_multi_duplicate_pick_not_double_counted():
+    ak = _mm_key()
+    res = grader.grade_attempt(
+        [{"q_num": 21, "user_answer": "B"}, {"q_num": 22, "user_answer": "B"}], ak)
+    assert res["score"] == 1, "picking B twice consumes the single expected B once"
+
+
 def test_grader_band_estimate_full_score():
     assert grader.band_estimate(40) == 9.0
     assert grader.band_estimate(39) == 9.0
