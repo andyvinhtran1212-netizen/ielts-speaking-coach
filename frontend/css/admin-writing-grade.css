@@ -35,11 +35,13 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: color-mix(in srgb, var(--av-surface-elevated) 95%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--av-surface-elevated) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-bottom: 1px solid var(--av-border-subtle);
-  padding: 0.625rem 1.25rem;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--av-border-subtle) 60%, transparent),
+              0 6px 18px -12px color-mix(in srgb, #000 50%, transparent);
+  padding: 0.75rem 1.5rem;
   display: flex;
   gap: 1rem;
   align-items: center;
@@ -188,7 +190,7 @@
   background: var(--av-surface-card);
   border: 1px solid var(--av-border-default);
   color: var(--av-text-primary);
-  padding: 6px 11px;
+  padding: 6px 12px;
   border-radius: var(--av-radius-md);
   font-size: var(--av-fs-sm);
   font-weight: var(--av-fw-medium);
@@ -196,18 +198,27 @@
   font-family: var(--av-font-sans);
   transition:
     background var(--av-duration-fast) var(--av-easing-default),
-    border-color var(--av-duration-fast) var(--av-easing-default);
+    border-color var(--av-duration-fast) var(--av-easing-default),
+    box-shadow var(--av-duration-fast) var(--av-easing-default),
+    transform var(--av-duration-fast) var(--av-easing-default);
 }
 .btn:hover    { background: var(--av-surface-sunken); }
+.btn:active   { transform: translateY(1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled:active { transform: none; }
 .btn:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
 
 .btn-primary {
   background: var(--av-primary);
   border-color: var(--av-primary);
   color: var(--av-text-on-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--av-primary) 35%, transparent);
 }
-.btn-primary:hover { background: var(--av-primary-hover); border-color: var(--av-primary-hover); }
+.btn-primary:hover {
+  background: var(--av-primary-hover);
+  border-color: var(--av-primary-hover);
+  box-shadow: 0 3px 10px -3px color-mix(in srgb, var(--av-primary) 55%, transparent);
+}
 
 .btn-success {
   background: color-mix(in srgb, var(--av-success) 16%, transparent);
@@ -248,12 +259,14 @@
   display: flex;
   gap: 0.25rem;
   padding: 0.625rem 2.5rem;
-  background: color-mix(in srgb, var(--av-surface-elevated) 95%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--av-surface-elevated) 86%, transparent);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-bottom: 1px solid var(--av-border-subtle);
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.grade-tabs::-webkit-scrollbar { display: none; }
 
 .tab-btn {
   display: flex;
@@ -279,7 +292,9 @@
   background: var(--av-primary-soft);
   color: var(--av-primary);
   border-color: var(--av-primary-border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--av-primary) 22%, transparent);
 }
+.tab-btn:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
 .tab-icon  { font-size: 1rem; }
 
 .tab-panel { display: none; }
@@ -297,29 +312,58 @@
 
 #alert-area { margin-bottom: 0.75rem; }
 
+/* T1·1 re-skin — the essay + every feedback section reads as an elevated
+   card on the page ground (was flat blocks split by bottom borders). */
 .essay-section {
-  margin-bottom: 2rem;
-  padding-bottom: 1.75rem;
-  border-bottom: 2px solid var(--av-border-subtle);
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: 1.25rem 1.5rem 1.375rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--av-shadow-sm);
 }
 
 
-/* ── Section card structure ───────────────────────────────────────── */
+/* ── Section card structure (T1·1 re-skin) ────────────────────────── */
 
-.grade-section { margin-bottom: 2.75rem; scroll-margin-top: 80px; }
+.grade-section {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-subtle);
+  border-radius: var(--av-radius-lg);
+  padding: 1.25rem 1.5rem 1.375rem;
+  margin-bottom: 1.25rem;
+  scroll-margin-top: 92px;
+  box-shadow: var(--av-shadow-sm);
+  transition: box-shadow var(--av-duration-fast) var(--av-easing-default);
+}
+.grade-section:hover { box-shadow: var(--av-shadow-md); }
+
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.875rem;
+  padding-bottom: 0.625rem;
+  margin-bottom: 1rem;
   border-bottom: 1px solid var(--av-border-subtle);
 }
+/* A short teal marker before the title gives each card a confident anchor. */
 .section-header h2 {
-  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.075rem;
   font-weight: var(--av-fw-semibold);
   color: var(--av-text-primary);
+  letter-spacing: -0.01em;
+}
+.section-header h2::before {
+  content: "";
+  flex-shrink: 0;
+  width: 3px;
+  height: 1.05em;
+  border-radius: var(--av-radius-pill);
+  background: var(--av-primary);
 }
 
 .btn-edit {
@@ -1093,9 +1137,8 @@
 }
 
 
-/* ── Regrade-level picker modal (T2·2) ────────────────────────────── */
-/* Minimal styling — T1 redesign will polish. Built on --av-* tokens so it
-   reads as part of grade.html; reuses the existing .btn / .btn-warn. */
+/* ── Regrade-level picker modal (T2·2 · re-skinned in T1·1) ────────── */
+/* Built on --av-* tokens; reuses the existing .btn / .btn-warn. */
 
 .regrade-modal-backdrop {
   position: fixed;
@@ -1105,26 +1148,38 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: color-mix(in srgb, #000 45%, transparent);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: color-mix(in srgb, #000 52%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: grade-fade-in var(--av-duration-fast) var(--av-easing-default);
 }
 
 .regrade-modal {
   width: 100%;
   max-width: 26rem;
-  background: var(--av-surface-card);
+  background: var(--av-surface-elevated);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-lg);
-  box-shadow: 0 12px 32px color-mix(in srgb, #000 24%, transparent);
-  padding: 1.25rem 1.25rem 1rem;
+  box-shadow: var(--av-shadow-xl);
+  padding: 1.375rem 1.375rem 1.125rem;
+  animation: grade-modal-in var(--av-duration-fast) var(--av-easing-default);
+}
+
+@keyframes grade-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes grade-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .regrade-modal__title {
-  font-size: var(--av-fs-base);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: var(--av-fs-lg, 1.0625rem);
   font-weight: var(--av-fw-bold);
   color: var(--av-text-primary);
   margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
 }
 
 .regrade-modal__body {
@@ -1144,17 +1199,21 @@
 
 .regrade-modal__select {
   width: 100%;
-  padding: 0.5rem 0.6rem;
+  padding: 0.55rem 0.7rem;
   font-size: var(--av-fs-sm);
   font-family: var(--av-font-sans);
   color: var(--av-text-primary);
   background: var(--av-surface-sunken);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-md);
+  transition: border-color var(--av-duration-fast) var(--av-easing-default),
+              box-shadow var(--av-duration-fast) var(--av-easing-default);
 }
 
+.regrade-modal__select:hover { border-color: var(--av-primary-border); }
 .regrade-modal__select:focus-visible {
   outline: none;
+  border-color: var(--av-primary);
   box-shadow: var(--av-shadow-focus);
 }
 
@@ -1172,19 +1231,104 @@
 }
 
 
-/* ── Hide-subbands deliver toggle (T3·2) ───────────────────────────── */
-/* Minimal styling — T1 redesign will polish. */
+/* ── Hide-subbands deliver toggle (T3·2 · re-skinned in T1·1) ───────── */
+/* Reads as a quiet pill next to the deliver button; tints teal when armed. */
 
 .hide-subbands-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  padding: 5px 10px;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-card);
   font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-medium);
   color: var(--av-text-secondary);
   cursor: pointer;
   user-select: none;
+  transition: background var(--av-duration-fast) var(--av-easing-default),
+              border-color var(--av-duration-fast) var(--av-easing-default),
+              color var(--av-duration-fast) var(--av-easing-default);
 }
+.hide-subbands-toggle:hover { border-color: var(--av-primary-border); color: var(--av-text-primary); }
+.hide-subbands-toggle:has(input:checked) {
+  background: var(--av-primary-soft);
+  border-color: var(--av-primary-border);
+  color: var(--av-primary);
+}
+.hide-subbands-toggle:focus-within { box-shadow: var(--av-shadow-focus); }
 
 .hide-subbands-toggle input {
   cursor: pointer;
+  accent-color: var(--av-primary);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   T1·1 cohesion layer — depth, motion, and finish across the re-skin.
+   Additive only: no class renamed, no handler/markup contract touched.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Inner content cards lift off the section panel with a soft shadow and a
+   gentle hover response — a consistent, tactile card language. */
+.mistake-card,
+.card-criterion,
+.criterion-card,
+.idea-card,
+.coherence-card,
+.counter-block,
+.lexical-card,
+.issue-card,
+.stat-tile,
+.criterion-mini {
+  box-shadow: var(--av-shadow-sm);
+  transition: box-shadow var(--av-duration-fast) var(--av-easing-default),
+              transform var(--av-duration-fast) var(--av-easing-default);
+}
+.mistake-card:hover,
+.card-criterion:hover,
+.criterion-card:hover,
+.idea-card:hover,
+.coherence-card:hover,
+.lexical-card:hover,
+.issue-card:hover {
+  box-shadow: var(--av-shadow-md);
+  transform: translateY(-1px);
+}
+
+/* The band pill gets a hairline ring so the score reads as a deliberate
+   token rather than a flat swatch. */
+.band-pill { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent); }
+
+/* Quiet, on-brand scrollbars inside the long read-only panels. */
+.essay-original,
+.essay-improved-block,
+.json-view { scrollbar-width: thin; scrollbar-color: var(--av-border-default) transparent; }
+.essay-original::-webkit-scrollbar,
+.essay-improved-block::-webkit-scrollbar,
+.json-view::-webkit-scrollbar { width: 10px; }
+.essay-original::-webkit-scrollbar-thumb,
+.essay-improved-block::-webkit-scrollbar-thumb,
+.json-view::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--av-border-default) 80%, transparent);
+  border-radius: var(--av-radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* One orchestrated reveal on load — the essay then each visible section
+   rise in sequence. Motion-safe: disabled for reduced-motion users. */
+@media (prefers-reduced-motion: no-preference) {
+  .essay-section,
+  .tab-panel.is-active .grade-section {
+    animation: grade-rise var(--av-duration-slow) var(--av-easing-default) both;
+  }
+  .tab-panel.is-active .grade-section:nth-child(2) { animation-delay: 40ms; }
+  .tab-panel.is-active .grade-section:nth-child(3) { animation-delay: 80ms; }
+  .tab-panel.is-active .grade-section:nth-child(4) { animation-delay: 120ms; }
+}
+@keyframes grade-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
