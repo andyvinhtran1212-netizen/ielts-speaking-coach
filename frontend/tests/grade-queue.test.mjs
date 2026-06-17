@@ -37,11 +37,14 @@ describe('queue.html — aver-design shell (not the .aw-* island)', () => {
 
 
 describe('queue.html — status tabs + overdue overlay (cross-cutting)', () => {
-  test('four mutually-exclusive status tabs', () => {
-    for (const s of ['graded', 'reviewed', 'delivered']) {
+  test('status tabs incl. the F1 grading lane', () => {
+    for (const s of ['grading', 'graded', 'reviewed', 'delivered']) {
       assert.match(HTML, new RegExp(`data-status="${s}"`), `Missing tab ${s}`);
     }
     assert.match(HTML, /data-status=""/);   // "Tất cả"
+  });
+  test('default active lane stays "Cần chấm" (graded), not grading', () => {
+    assert.match(HTML, /class="adm-subtab is-active"\s+data-status="graded"/);
   });
   test('overdue is a separate toggle, NOT a tab', () => {
     assert.match(HTML, /id="q-overdue"/);
@@ -50,6 +53,14 @@ describe('queue.html — status tabs + overdue overlay (cross-cutting)', () => {
   test('overdue derived deadline<now && status!=delivered (cross-cutting)', () => {
     assert.match(JS, /function isOverdue[\s\S]*?deadline[\s\S]*?!==\s*['"]delivered['"]/);
     assert.match(JS, /function visibleRows[\s\S]*?_overdue\s*\?[\s\S]*?isOverdue/);
+  });
+  test('F1: grading lane auto-refreshes (poll only when _status === grading)', () => {
+    assert.match(JS, /_startPollIfGrading/);
+    assert.match(JS, /_status !== 'grading'[\s\S]*?return/);
+    assert.match(JS, /setInterval\(/);
+  });
+  test('F1: in-flight rows (pending/grading) open the status poller, not grade', () => {
+    assert.match(JS, /st === 'pending' \|\| st === 'grading'[\s\S]*?status\.html\?essay_id=/);
   });
 });
 
