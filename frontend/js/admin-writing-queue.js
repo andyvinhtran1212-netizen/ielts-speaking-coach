@@ -268,7 +268,22 @@ function wire() {
   $('q-bulk-deliver').addEventListener('click', bulkDeliver);
 
   loadCohorts();
-  load();
+  // F3 — honour a ?status= deep-link (e.g. nav "Trạng thái chấm" →
+  // queue.html?status=grading lands on the "Đang chấm" lane). Falls back to
+  // the default "Cần chấm" lane when absent/invalid.
+  const urlStatus = _readUrlStatus();
+  if (urlStatus !== null) setStatus(urlStatus);   // sets lane + tab + load + poll
+  else load();
+}
+
+// Returns a valid lane from ?status= (incl. '' = "Tất cả"), or null when the
+// param is absent/unrecognised. null vs '' matters: absent → default lane.
+function _readUrlStatus() {
+  try {
+    const v = new URLSearchParams(window.location.search).get('status');
+    if (v === null) return null;
+    return ['grading', 'graded', 'reviewed', 'delivered', ''].includes(v) ? v : null;
+  } catch { return null; }
 }
 
 if (document.readyState === 'loading') {
