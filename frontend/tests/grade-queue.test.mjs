@@ -119,6 +119,25 @@ describe('grade-queue — chrome nav entry', () => {
 });
 
 
+describe('F3 — dead bare-nav entries repointed to the queue', () => {
+  test('"Chấm bài viết" (slug grade) → queue.html (not bare grade.html)', () => {
+    assert.match(CHROME, /slug: 'grade',\s*label: 'Chấm bài viết',\s*href: '\/pages\/admin\/writing\/queue\.html'/);
+  });
+  test('"Trạng thái chấm" (slug status) → queue.html?status=grading (F1 lane)', () => {
+    assert.match(CHROME, /slug: 'status',\s*label: 'Trạng thái chấm',\s*href: '\/pages\/admin\/writing\/queue\.html\?status=grading'/);
+  });
+  test('neither still points at the bare param-required pages', () => {
+    assert.doesNotMatch(CHROME, /label: 'Chấm bài viết',\s*href: '\/pages\/admin\/writing\/grade\.html'/);
+    assert.doesNotMatch(CHROME, /label: 'Trạng thái chấm',\s*href: '\/pages\/admin\/writing\/status\.html'/);
+  });
+  test('queue reads ?status= deep-link → lands on that lane', () => {
+    assert.match(JS, /function _readUrlStatus\(\)/);
+    assert.match(JS, /\['grading', 'graded', 'reviewed', 'delivered', ''\]\.includes\(v\)/);
+    assert.match(JS, /if \(urlStatus !== null\) setStatus\(urlStatus\)/);
+  });
+});
+
+
 describe('cohorts.html — secondary matrix status filter (small)', () => {
   test('status-filter select + dim class wired', () => {
     assert.match(COHORTS, /id="matrix-status-filter"/);

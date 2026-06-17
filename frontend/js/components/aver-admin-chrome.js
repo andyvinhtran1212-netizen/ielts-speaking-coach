@@ -372,8 +372,14 @@ const NAV_GROUPS = [
       { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen',
         subsections: [
           { slug: 'new',              label: 'Soạn bài viết',     href: '/pages/admin/writing/new.html' },
-          { slug: 'grade',            label: 'Chấm bài viết',     href: '/pages/admin/writing/grade.html' },
-          { slug: 'status',           label: 'Trạng thái chấm',   href: '/pages/admin/writing/status.html' },
+          // F3 — "Chấm bài viết" + "Trạng thái chấm" used to point at
+          // grade.html / status.html, which require an ?essay_id and render an
+          // error when opened bare from the nav. Repoint both to the queue —
+          // the real grading entry (row-click → grade.html). "Trạng thái chấm"
+          // deep-links to the F1 "Đang chấm" lane. status.html stays for the
+          // post-submit poll (new.html redirect).
+          { slug: 'grade',            label: 'Chấm bài viết',     href: '/pages/admin/writing/queue.html' },
+          { slug: 'status',           label: 'Trạng thái chấm',   href: '/pages/admin/writing/queue.html?status=grading' },
           { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
           { slug: 'prompts',          label: 'Thư viện prompt',   href: '/pages/admin/writing/prompts.html' },
           { slug: 'tips',             label: 'Mẹo viết',          href: '/pages/admin/writing/tips.html' },
