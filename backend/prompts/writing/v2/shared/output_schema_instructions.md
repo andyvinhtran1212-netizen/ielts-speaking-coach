@@ -169,7 +169,11 @@ Read the entire essay once without judgment. Note overall impression: clear or
 unclear? Coherent or disjointed? Adequate length?
 
 ### Step 2: Word count + structure check
-- Count words. Apply word count caps from Rule 2.
+- Use the **provided word count** from the "## Số từ (đã đếm chính xác)" block —
+  it is the authoritative, exact body count. **Do NOT count words yourself**
+  (self-counting is unreliable and under-counts, which would wrongly penalise
+  Task Response / Task Achievement). Apply the word count caps from Rule 2 to
+  THIS number.
 - Identify paragraph count. Task 2 should have 4–5 paragraphs.
 - Note opening/conclusion presence.
 

@@ -326,6 +326,14 @@ class GraderConfig(BaseModel):
     prompt_text: str = Field(..., max_length=5000)
     essay_text:  str = Field(..., max_length=10000)
 
+    # Bug-2 fix — authoritative, deterministic body word count computed in
+    # backend code (len(text.split())). Fed to the grader so the LLM applies
+    # the Rule 2 word-count caps to the REAL count instead of self-counting
+    # (LLMs tokenize, not word-split → under-count → unfair Task Response /
+    # Task Achievement penalty). None → the grader falls back to counting
+    # essay_text itself (keeps pre-fix direct callers / tests working).
+    word_count: int | None = None
+
     analysis_level: conint(ge=1, le=5)
     form_of_address: Literal['bạn', 'em', 'anh', 'chị'] = 'em'
     selected_model: Literal['gemini-2.5-pro', 'gemini-2.5-flash'] = 'gemini-2.5-pro'

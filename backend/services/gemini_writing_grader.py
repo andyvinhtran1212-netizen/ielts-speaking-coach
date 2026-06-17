@@ -559,6 +559,22 @@ class GeminiWritingGrader:
 
         parts.append(f"## Loại bài (Task Type)\n{config.task_type}")
         parts.append(f"## Đề bài (Prompt)\n{config.prompt_text}")
+
+        # Bug-2 fix — authoritative body word count. The model is told to USE
+        # this number for the Rule 2 word-count caps and NOT to count words
+        # itself (LLMs tokenize → under-count → unfair Task Response/Achievement
+        # penalty). Fallback to a local split() count if a direct caller omits it.
+        wc = (
+            config.word_count
+            if config.word_count is not None
+            else len((config.essay_text or "").split())
+        )
+        parts.append(
+            f"## Số từ (đã đếm chính xác)\n{wc} từ.\n"
+            f"DÙNG con số này khi áp Rule 2 (word count caps). "
+            f"TUYỆT ĐỐI không tự đếm lại số từ."
+        )
+
         parts.append(f"## Bài viết của học viên\n{config.essay_text}")
         parts.append("Hãy phân tích bài viết theo schema JSON đã quy định.")
 
