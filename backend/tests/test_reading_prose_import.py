@@ -22,6 +22,8 @@ from services.reading_prose_import import (
     parse_skill_distribution,
     parse_rich_solutions,
     parse_translations,
+    _parse_test_md,
+    _HEADING_OPT_RE,
 )
 from services.content_import_service import (
     validate_reading_test,
@@ -297,3 +299,64 @@ def test_import_bundle_dry_run_validates_without_db():
     assert summary["passages_with_translation"] == 3
     assert summary["img_prompt_blocks"] == 1
     assert summary["questions_with_solution"] == 40
+
+
+# ── Reading lesson L02 — matching_headings "i." (period) format (fix) ──
+
+# Lessons punctuate the heading numerals ("> i. Text"); full-tests align them
+# with spaces ("> i    Text"). The bug: the heading-option regex required
+# whitespace right after the numeral, so the period format matched nothing →
+# Q1-4 got empty options → validator §4.2 ("options rỗng") failed red.
+_L02_MATCHING_HEADINGS_MD = (
+    "# ILR-RDG-LSN-L02 — Education\n"
+    "| Field | Value |\n"
+    "| --- | --- |\n"
+    "| Test ID | ILR-RDG-LSN-L02 |\n"
+    "| Target band | 5.5 |\n"
+    "\n"
+    "## READING PASSAGE 1\n"
+    "### Learning Outdoors\n"
+    "Body paragraph text for the passage.\n"
+    "\n"
+    "### Questions 1-4\n"
+    "> Choose the correct heading for paragraphs B, D, E and F from the list below.\n"
+    ">\n"
+    "> **List of headings:**\n"
+    "> i. Why outdoor accidents make the news\n"
+    "> ii. Earlier thinkers and a Scandinavian habit\n"
+    "> iii. A first attempt by anxious parents\n"
+    "> iv. Evidence from a long-term study\n"
+    "> v. Costs that limit who can attend\n"
+    "> vi. The future of the standard classroom\n"
+    "> vii. Common doubts and practical worries\n"
+    "> viii. A description of a normal morning\n"
+    "\n"
+    "**1**  Paragraph B ____\n"
+    "**2**  Paragraph D ____\n"
+    "**3**  Paragraph E ____\n"
+    "**4**  Paragraph F ____\n"
+)
+
+
+def test_l02_period_format_headings_fan_out_to_each_question():
+    """The period format ("> i. Text") must yield the shared 8-heading bank on
+    EACH of Q1-4 as {label, text} — so matching_headings passes validator §4.2."""
+    parsed = _parse_test_md(_L02_MATCHING_HEADINGS_MD)
+    opts = parsed["options"]
+    for q in (1, 2, 3, 4):
+        assert len(opts.get(q, [])) == 8, f"Q{q} options: {opts.get(q)}"
+        labels = [o["label"] for o in opts[q]]
+        assert labels == ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"]
+        # §4.2 shape: every option is a non-empty {label, text}.
+        assert all(o.get("label") and o.get("text") for o in opts[q])
+    # Labels are clean (no trailing period — the [.)]? is outside the capture).
+    assert opts[1][0] == {"label": "i", "text": "Why outdoor accidents make the news"}
+
+
+def test_heading_opt_regex_accepts_both_period_and_space_formats():
+    """Backward-compat lock: full-test space format AND lesson period format both
+    match, and the captured label never includes the separator."""
+    period = _HEADING_OPT_RE.match("> viii. A description of a normal morning")
+    space = _HEADING_OPT_RE.match("> viii The role of insurance markets in drug pricing")
+    assert period and period.group(1) == "viii"
+    assert space and space.group(1) == "viii"
