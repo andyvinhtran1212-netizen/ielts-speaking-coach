@@ -401,6 +401,14 @@ describe('Sprint 13.5.2 — variant routing in the JS controller', () => {
     assert.match(JS, /case\s*['"]mcq_3option['"]\s*:\s*return\s+renderMCQ/);
   });
 
+  it('L02 fix — renderMCQ renders a text gap for an optionless (het-block) question', () => {
+    // A short-answer item under one "Choose the correct letter" heading (no
+    // A/B/C options) must render gapInput, never an empty radio group.
+    const fn = JS.slice(JS.indexOf('function renderMCQ'), JS.indexOf('function renderPlanLabel'));
+    assert.match(fn, /!Array\.isArray\(q\.options\)\s*\|\|\s*!q\.options\.length/);
+    assert.match(fn, /gapInput\(q\.q_num\)/);
+  });
+
   it('dispatches to renderPlanLabel for plan_label / mcq_letter_label', () => {
     assert.match(JS, /case\s*['"]plan_label['"]\s*:|case\s*['"]mcq_letter_label['"]\s*:/);
     assert.match(JS, /return\s+renderPlanLabel/);

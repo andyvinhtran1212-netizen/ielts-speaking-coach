@@ -467,11 +467,35 @@ def extract_transcript(section_text: str) -> str:
 # ── Question-block parsing ─────────────────────────────────────────────────
 
 
-# H3 question block: "### Questions 1-6" / "### Questions 11-15"
+# H3 question block: "### Questions 1-6" / "### Questions 11-15" (range) OR a
+# single-question heading "### Question 5" (lessons author one heading per item).
+# The range is optional: group(2) is None for a singular heading → lo == hi.
 _QUESTION_BLOCK_RE = re.compile(
-    r"^###\s+Questions?\s+(\d+)\s*[-–]\s*(\d+)\s*$",
+    r"^###\s+Questions?\s+(\d+)(?:\s*[-–]\s*(\d+))?\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
+
+# Lenient "is this a question-block heading at all?" — the W-0 safety net uses it
+# to flag `### Question(s) …` headings the STRICT parser could not turn into a
+# block (so items under them would silently vanish).
+_ANY_Q_HEADING_RE = re.compile(
+    r"^###\s+Questions?\b[^\n]*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def find_orphan_question_headings(qp_section_text: str) -> list[str]:
+    """W-0 safety net — return `### Question(s) …` heading lines the strict block
+    parser could NOT parse into a question block. A non-empty result means the
+    items under those headings would be silently dropped; the importer turns each
+    into an explicit error so the admin sees it instead of losing questions.
+    Empty list = every question heading produced a block."""
+    orphans: list[str] = []
+    for m in _ANY_Q_HEADING_RE.finditer(qp_section_text):
+        line = m.group(0).strip()
+        if not _QUESTION_BLOCK_RE.match(line):
+            orphans.append(line)
+    return orphans
 
 # Instruction blockquote(s) immediately under the question-block heading.
 _BLOCKQUOTE_LINE_RE = re.compile(r"^>\s?(.*)$", re.MULTILINE)
@@ -663,7 +687,8 @@ def parse_question_blocks(qp_section_text: str) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
 
     for i, m in enumerate(block_matches):
-        lo, hi = int(m.group(1)), int(m.group(2))
+        lo = int(m.group(1))
+        hi = int(m.group(2)) if m.group(2) else lo   # singular heading → lo == hi
         start = m.end()
         end = (
             block_matches[i + 1].start()
@@ -1191,6 +1216,22 @@ def _extract_mcq(body: str, in_range) -> list[dict[str, Any]]:
                 "letter": opt.group(1),
                 "text":   opt.group(2).strip().rstrip(".").strip(),
             })
+        if not options:
+            # Het-block (no `> **Questions**` sub-marker): one "Choose the
+            # correct letter" heading can still carry a non-MCQ item, e.g.
+            # L02 Q4 "Tom's surname is ___" under the Q3-4 heading. With no
+            # A/B/C options it is NOT an MCQ → fall back to short-answer so it
+            # renders a text gap, never an empty radio group. Scoped to the MCQ
+            # branch ONLY — matching/completion never reach _extract_mcq.
+            clean = prompt.strip().rstrip("_").rstrip(".").strip()
+            clean = re.sub(r"_+$", "", clean).strip()
+            out.append({
+                "q_num":   n,
+                "prompt":  clean,
+                "q_type":  "dictation_short_answer",
+                "variant": "short_answer",
+            })
+            continue
         out.append({
             "q_num":   n,
             "prompt":  prompt,

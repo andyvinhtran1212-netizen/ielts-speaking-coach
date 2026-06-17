@@ -623,7 +623,23 @@ function renderMCQ(questions) {
   // Sprint 13.5.8 — radio / letter / option-text each in their own
   // slot (was: letter + text bundled in a single <span>) so CSS can
   // align them on the same baseline with a fixed inline gap.
-  return questions.map((q) => `
+  return questions.map((q) => {
+    // Het-block: an MCQ-typed block can hold a non-MCQ item (a short-answer
+    // with no A/B/C options, e.g. L02 Q4 under one "Choose the correct letter"
+    // heading). Render a text gap, never an empty radio group. The backend
+    // re-types it to short_answer; here we key off options presence so the
+    // gap uses the same .ft-q-input/data-q-num contract the harness collects.
+    if (!Array.isArray(q.options) || !q.options.length) {
+      return `
+    <div class="ielts-mcq-question">
+      <div class="ielts-mcq-stem">
+        <span class="ielts-question-num">${esc(q.q_num)}</span>
+        ${mdInline(q.prompt || '')}
+      </div>
+      ${gapInput(q.q_num)}
+    </div>`;
+    }
+    return `
     <div class="ielts-mcq-question">
       <div class="ielts-mcq-stem">
         <span class="ielts-question-num">${esc(q.q_num)}</span>
@@ -641,8 +657,8 @@ function renderMCQ(questions) {
           </label>`;
         }).join('')}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 

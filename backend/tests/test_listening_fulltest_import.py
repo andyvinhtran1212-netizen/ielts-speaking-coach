@@ -423,3 +423,41 @@ def test_commit_endpoint_requires_admin(monkeypatch):
             audio=UploadFile(filename="a.mp3", file=io.BytesIO(b"x")),
             authorization=None))
     assert e.value.status_code == 403
+
+
+# ── W-0 no-silent-drop (fix L02) ──────────────────────────────────────
+
+def test_orphan_heading_is_a_hard_error_not_a_silent_drop():
+    """A `### Question(s) …` heading the parser can't read drops every item
+    under it. The importer must FAIL LOUD (red banner / blocked commit), never
+    swallow the questions."""
+    import re
+    qp, sol, tim = _load()
+    # Corrupt the first range heading "### Questions 1-6" → "### Questions 1 to 6"
+    # (lenient heading match, but the strict block parser rejects "to").
+    broken_qp = re.sub(r"^(###\s+Questions?\s+\d+)\s*-\s*(\d+)\s*$",
+                       r"\1 to \2", qp, count=1, flags=re.MULTILINE)
+    assert broken_qp != qp, "fixture did not corrupt a heading"
+    r = imp.parse_fulltest(broken_qp, sol, tim)
+    assert not r.ok
+    assert any("không tạo được câu hỏi" in e for e in r.errors), r.errors
+
+
+def test_tail_truncation_surfaces_via_answer_key_cross_check():
+    """The contiguity check only catches HOLES (1..max). A TAIL-drop (Q5/Q6 lost)
+    leaves 1..max contiguous and passes silently — the Answer-Key cross-check is
+    what makes it loud. Orphan answered q_num with no parsed question → error."""
+    res = imp.FullTestParseResult()
+    qak = {1: "a", 2: "b", 3: "c"}      # answer key declares 3 answers
+    seen_q = {1, 2}                       # but only 2 questions parsed (tail-drop of 3)
+    imp._validate(res, qak, {}, {"questions": {}}, seen_q)
+    assert any("Answer Key" in e and "3" in e for e in res.errors), res.errors
+
+
+def test_clean_pack_has_no_orphan_drop_errors():
+    """Regression — the real 001 pack (all `### Questions N-M` ranges) must stay
+    error-free under the new W-0 checks (optional-group widening is backward-compat)."""
+    qp, sol, tim = _load()
+    r = imp.parse_fulltest(qp, sol, tim)
+    assert r.ok, r.errors
+    assert not any("không tạo được câu hỏi" in e or "Answer Key" in e for e in r.errors)
