@@ -317,7 +317,11 @@ _TEST_PASSAGE_RE = re.compile(r"^##\s+READING PASSAGE\s+(\d+)\s*$", re.MULTILINE
 _QGROUP_RE = re.compile(rf"^###\s+Questions\s+(\d+)\s*{_DASH}\s*(\d+)\s*$", re.MULTILINE)
 _STATEMENT_RE = re.compile(r"^\*\*(\d+)\*\*\s+(.*)$")
 _MCQ_OPT_RE = re.compile(r"^\*\*([A-D])\*\*\s+(.*)$")
-_HEADING_OPT_RE = re.compile(r"^>\s*([ivxIVX]+)\s+(\S.*)$")
+# Heading-bank option line. Two real authoring formats: full-tests align the
+# numerals with spaces ("> i    Text"), lessons punctuate them ("> i. Text").
+# The optional ./)/period sits OUTSIDE the capture so the label stays clean
+# (i / viii / ix) in both. (See reading L02 lesson import fix.)
+_HEADING_OPT_RE = re.compile(r"^>\s*([ivxIVX]+)[.)]?\s+(\S.*)$")
 # A fenced ```text``` block (note/summary template or ASCII diagram).
 _TEXT_BLOCK_RE = re.compile(r"```text\s*\n(.*?)\n```", re.DOTALL)
 # reading-header-notefill B — note/summary blank marker "20 ____" → "{{20}}"
