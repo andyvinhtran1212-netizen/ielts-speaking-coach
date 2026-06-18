@@ -159,11 +159,18 @@ ROUTES = [
     ("GET",    "/instructor/essays",                   "list",   None, None, EA),
     ("GET",    "/instructor/essays/{id}",              "read1",  EA, None, None),
     ("PATCH",  "/instructor/essays/{id}/feedback",     "write1", EA, {"overall_band": 6}, None),
+    ("PATCH",  "/instructor/essays/{id}/instructor-note", "write1", EA, {"instructor_note": "hacked"}, None),
+    ("GET",    "/instructor/essays/{id}/status",        "read1",  EA, None, None),
+    ("GET",    "/instructor/essays/{id}/render",        "read1",  EA, None, None),
+    ("GET",    "/instructor/essays/{id}/export.docx",   "read1",  EA, None, None),
+    ("POST",   "/instructor/essays/{id}/regrade",       "action", EA, None, None),
+    ("POST",   "/instructor/essays/{id}/revoke-delivery", "action", EA, None, None),
     ("GET",    "/instructor/cohorts",                  "list",   None, None, CA),
     ("POST",   "/instructor/cohorts",                  "create", None, {"name": "newlop"}, None),
     ("GET",    "/instructor/cohorts/{id}",             "read1",  CA, None, None),
     ("GET",    "/instructor/students",                 "list",   None, None, SA),
     ("GET",    "/instructor/students/{id}",            "read1",  SA, None, None),
+    ("GET",    "/instructor/students/{id}/summary",     "read1",  SA, None, None),
     ("GET",    "/instructor/reviews/queue",            "list",   None, None, RA),
     ("POST",   "/instructor/reviews/{id}/claim",       "action", RA, None, None),
     ("POST",   "/instructor/reviews/{id}/release",     "action", RA, None, None),
@@ -319,3 +326,59 @@ def test_non_instructor_blocked():
         with pytest.raises(HTTPException) as ei:
             asyncio.new_event_loop().run_until_complete(require_instructor("Bearer x"))
     assert ei.value.status_code == 403
+
+
+# ── W-6a: AI-immutability + teacher-comment + Bucket-C owner-success ──────────
+
+def test_feedback_route_rejects_ai_edit_immutability():
+    """Even the OWNER (and API-direct) cannot mutate AI feedback → 403."""
+    store = _seed()
+    with _as(A, store) as (client, st):
+        r = client.patch(f"/instructor/essays/{EA}/feedback",
+                         json={"overall_band": 9}, headers={"Authorization": "Bearer x"})
+    assert r.status_code == 403, r.text
+    assert "bất biến" in r.json()["detail"]
+    # AI feedback untouched (no admin_edits_json written).
+    assert "admin_edits_json" not in st["writing_essays"][0]
+
+
+def test_instructor_note_sets_teacher_comment_without_touching_ai():
+    """Teacher-comment writes instructor_note (student-visible) + graded→reviewed,
+    and leaves AI feedback (admin_edits_json) untouched (immutable)."""
+    store = _seed()
+    with _as(A, store) as (client, st):
+        r = client.patch(f"/instructor/essays/{EA}/instructor-note",
+                         json={"instructor_note": "Good intro, fix conclusion."},
+                         headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    row = [e for e in st["writing_essays"] if e["id"] == EA][0]
+    assert row["instructor_note"] == "Good intro, fix conclusion."
+    assert row["status"] == "reviewed"                 # graded → reviewed
+    assert "admin_edits_json" not in row               # AI untouched
+
+
+def test_revoke_owner_delivered_to_reviewed():
+    store = _seed()
+    store["writing_essays"][0]["status"] = "delivered"   # EA delivered
+    with _as(A, store) as (client, st):
+        r = client.post(f"/instructor/essays/{EA}/revoke-delivery",
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    assert [e for e in st["writing_essays"] if e["id"] == EA][0]["status"] == "reviewed"
+
+
+def test_regrade_owner_preserves_teacher_comment():
+    """Regrade clears AI/admin_edits → status grading, but PRESERVES instructor_note."""
+    from unittest.mock import AsyncMock
+    store = _seed()
+    store["writing_essays"][0]["instructor_note"] = "keep me"   # teacher-comment
+    with _as(A, store) as (client, st), \
+         patch("services.essay_service._bg_grade_essay", new=AsyncMock()):
+        r = client.post(f"/instructor/essays/{EA}/regrade",
+                        json={"analysis_level": 5}, headers={"Authorization": "Bearer x"})
+    assert r.status_code == 202, r.text
+    row = [e for e in st["writing_essays"] if e["id"] == EA][0]
+    assert row["status"] == "grading"
+    assert row["analysis_level"] == 5
+    assert row.get("instructor_note") == "keep me"     # teacher-comment survives regrade
+    assert row.get("admin_edits_json") is None         # AI edits cleared

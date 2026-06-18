@@ -568,7 +568,8 @@ def test_student_summary_aggregates_essays_and_assignments():
     )
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+              patch("services.essay_service.supabase_admin", fake):
         r = _client().get(
             f"/admin/writing/students/{_STUDENT_ID}/summary",
             headers=_ADMIN_AUTH,
@@ -602,7 +603,8 @@ def test_student_summary_handles_no_essays():
     fake = _Dispatcher(students=[_student_row()])
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+              patch("services.essay_service.supabase_admin", fake):
         r = _client().get(
             f"/admin/writing/students/{_STUDENT_ID}/summary",
             headers=_ADMIN_AUTH,
@@ -621,7 +623,8 @@ def test_student_summary_404_when_student_missing():
     fake = _Dispatcher(students=[])
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+              patch("services.essay_service.supabase_admin", fake):
         r = _client().get(
             f"/admin/writing/students/{_STUDENT_ID}/summary",
             headers=_ADMIN_AUTH,

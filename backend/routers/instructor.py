@@ -29,26 +29,32 @@ DEFERRAL LEDGER — tracked so nothing silently drops; the meta-gate
     roster create/import/edit/delete · cohort-member management · tips ·
     regrade-request moderation queue · drafts.
 
-  W-6-DEFERRED (UI-triggered; add WITH isolation test when the page needs it):
-    GET /essays/{id}/status · GET /essays/{id}/render · GET /essays/{id}/export.docx
-    · PATCH /essays/{id}/instructor-note · GET /students/{id}/summary.
+  WIRED in W-6a (was Bucket B): GET /essays/{id}/status · GET /essays/{id}/render
+    · GET /essays/{id}/export.docx · PATCH /essays/{id}/instructor-note
+    (= teacher-comment, student-visible, AI-immutable) · GET /students/{id}/summary.
 
-  W-6-DEFERRED — GRADE-LOOP ACTIONS (intended IN, explicitly tracked, do NOT lose):
-    POST /essays/{id}/regrade · POST /essays/{id}/revoke-delivery.
+  WIRED in W-6a (was Bucket C, grade-loop): POST /essays/{id}/regrade ·
+    POST /essays/{id}/revoke-delivery.
+
+  AI-IMMUTABILITY: PATCH /essays/{id}/feedback (AI-mutate) is REJECTED for
+    instructors (403) — the instructor's input is the SEPARATE teacher-comment
+    (instructor_note); the AI grade is never mutated.
 
 The admin_instructor.py review-queue (admin-only) and admin_writing* are untouched.
 """
 
 from __future__ import annotations
 
+import io
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
-from models.writing_feedback import WritingFeedback
 from routers.admin import require_instructor
 from services import essay_service, instructor_workflow
 from services.instructor_access import (
@@ -58,6 +64,8 @@ from services.instructor_access import (
     assert_essay_owned,
 )
 from services.instructor_workflow import ConflictError, NotFoundError
+from services.writing_render import render_feedback_html, render_plain_text
+from services.writing_word_exporter import render_essay_to_docx
 
 router = APIRouter(prefix="/instructor", tags=["instructor"])
 
@@ -215,37 +223,153 @@ async def get_essay(essay_id: UUID, authorization: str | None = Header(None)):
     return essay_service.get_essay_with_feedback(str(essay_id))
 
 
+class InstructorNoteBody(BaseModel):
+    instructor_note: str = Field(default="", description="teacher-comment (student-visible)")
+
+
+class RegradeBody(BaseModel):
+    analysis_level: Optional[int] = Field(default=None, ge=1, le=5)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 @router.patch("/essays/{essay_id}/feedback")
 async def update_feedback(essay_id: UUID, edits: dict, authorization: str | None = Header(None)):
+    """AI-IMMUTABILITY enforce (W-6a): an instructor can NEVER mutate the AI
+    feedback (admin_edits_json), even API-direct. The instructor's grading
+    contribution is the SEPARATE teacher-comment via /instructor-note (which
+    leaves the AI grade exactly as graded). Reject unconditionally → 403."""
+    await _me(authorization)
+    raise HTTPException(
+        403, "Giảng viên không được sửa AI feedback (bất biến). Dùng teacher-comment "
+             "qua PATCH /instructor/essays/{id}/instructor-note.",
+    )
+
+
+@router.patch("/essays/{essay_id}/instructor-note")
+async def update_instructor_note(essay_id: UUID, body: InstructorNoteBody,
+                                 authorization: str | None = Header(None)):
+    """Teacher-comment (W-6a): set writing_essays.instructor_note — a STUDENT-
+    VISIBLE sibling column, SEPARATE from AI feedback (survives regrade). This is
+    the instructor's review action; it transitions graded→reviewed WITHOUT
+    touching admin_edits_json (AI immutable)."""
     me = await _me(authorization)
     assert_essay_owned(me, essay_id)               # → 403 if not owned
-    try:
-        validated = WritingFeedback(**edits)
-    except Exception as exc:
-        raise HTTPException(422, f"Edits fail schema: {exc}")
-
     cur = (supabase_admin.table("writing_essays").select("status")
            .eq("id", str(essay_id)).limit(1).execute().data or [None])[0]
     if not cur:
         raise HTTPException(404, "Không tìm thấy.")
-    if cur.get("status") not in ("graded", "reviewed"):
-        raise HTTPException(409, f"Không thể sửa khi status={cur.get('status')!r} (cần graded/reviewed).")
+    if cur.get("status") in ("pending", "grading", "failed"):
+        raise HTTPException(409, f"Không thể ghi nhận xét khi status={cur.get('status')!r}.")
+    # writing_essays = DERIVED-owner (no accessor); assert_essay_owned is the gate.
+    # admin_edits_json/feedback_json intentionally UNTOUCHED → AI immutable.
+    upd = {"instructor_note": body.instructor_note,
+           "last_edited_by": me, "last_edited_at": _now_iso()}
+    if cur.get("status") == "graded":
+        upd["status"] = "reviewed"                 # instructor reviewed it
+    supabase_admin.table("writing_essays").update(upd).eq("id", str(essay_id)).execute()
+    return {"essay_id": str(essay_id), "instructor_note": body.instructor_note,
+            "status": upd.get("status", cur.get("status"))}
 
-    from datetime import datetime, timezone
-    now_iso = datetime.now(timezone.utc).isoformat()
-    # writing_essays is the DERIVED-owner table (no accessor path); the
-    # assert_essay_owned gate above is the ownership control.
-    r = (supabase_admin.table("writing_essays").update({
-            "admin_edits_json":   validated.model_dump(mode="json"),
-            "admin_reviewed_at":  now_iso,
-            "status":             "reviewed",
-            "is_manually_edited": True,
-            "last_edited_by":     me,
-            "last_edited_at":     now_iso,
-         }).eq("id", str(essay_id)).execute())
-    if not r.data:
+
+@router.get("/essays/{essay_id}/status")
+async def essay_status(essay_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization)
+    assert_essay_owned(me, essay_id)
+    return essay_service.get_essay_status(str(essay_id))
+
+
+@router.get("/essays/{essay_id}/render")
+async def render_essay(essay_id: UUID, authorization: str | None = Header(None)):
+    """Render feedback as self-contained HTML. The teacher-comment
+    (instructor_note) is carried in the render context SEPARATELY from the AI
+    feedback (writing_render shows it in its own block — never merged into AI)."""
+    me = await _me(authorization)
+    assert_essay_owned(me, essay_id)
+    ctx = essay_service.get_essay_render_context(str(essay_id))
+    html_doc = render_feedback_html(
+        feedback=ctx["feedback"], essay_text=ctx["essay_text"],
+        prompt_text=ctx["prompt_text"], task_type=ctx["task_type"],
+        student_name=ctx["student_name"],
+    )
+    return {"html": html_doc, "plain_text": render_plain_text(html_doc)}
+
+
+@router.get("/essays/{essay_id}/export.docx")
+async def export_docx(essay_id: UUID, authorization: str | None = Header(None)):
+    me = await _me(authorization)
+    assert_essay_owned(me, essay_id)
+    ctx = essay_service.get_essay_render_context(str(essay_id))
+    docx_bytes, filename = render_essay_to_docx(
+        feedback=ctx["feedback"], essay_text=ctx["essay_text"],
+        prompt_text=ctx["prompt_text"], task_type=ctx["task_type"],
+        student_name=ctx["student_name"], student_code=ctx["student_code"],
+    )
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/essays/{essay_id}/regrade", status_code=status.HTTP_202_ACCEPTED)
+async def regrade_essay(essay_id: UUID, background_tasks: BackgroundTasks,
+                        body: RegradeBody = RegradeBody(),
+                        authorization: str | None = Header(None)):
+    """Re-run AI grading on an OWNED essay (Bucket C). Clears AI feedback +
+    admin_edits_json (new AI grade supersedes); instructor_note (teacher-comment)
+    is PRESERVED (survives regrade by design). analysis_level lever kept."""
+    me = await _me(authorization)
+    assert_essay_owned(me, essay_id)
+    essay = (supabase_admin.table("writing_essays")
+             .select("id, status, is_flagged, task_type, analysis_level, "
+                     "form_of_address, selected_model, grading_tier")
+             .eq("id", str(essay_id)).is_("deleted_at", "null").limit(1).execute().data or [None])[0]
+    if not essay:
         raise HTTPException(404, "Không tìm thấy.")
-    return {"essay_id": str(essay_id), "status": "reviewed"}
+    if essay.get("is_flagged"):
+        raise HTTPException(409, "Không thể chấm lại bài bị gắn cờ.")
+    if essay.get("status") not in ("graded", "reviewed", "delivered", "failed"):
+        raise HTTPException(409, f"Không thể chấm lại khi status={essay.get('status')!r}.")
+    try:
+        supabase_admin.table("writing_feedback").delete().eq("essay_id", str(essay_id)).execute()
+    except Exception as exc:
+        raise HTTPException(500, f"Failed to clear prior feedback: {exc}")
+    effective_level = body.analysis_level if body.analysis_level is not None else (essay.get("analysis_level") or 3)
+    supabase_admin.table("writing_essays").update({
+        "status": "grading", "analysis_level": effective_level,
+        "admin_edits_json": None, "is_manually_edited": False,
+    }).eq("id", str(essay_id)).execute()   # instructor_note NOT cleared (preserved)
+    job_info = essay_service.schedule_grading_job(
+        essay_id=str(essay_id), analysis_level=effective_level,
+        selected_model=essay.get("selected_model") or "gemini-2.5-pro",
+        grading_tier=essay.get("grading_tier") or "standard",
+    )
+    background_tasks.add_task(essay_service._bg_grade_essay, str(essay_id), job_info["job_id"])
+    return {"essay_id": str(essay_id), "status": "grading",
+            "analysis_level": effective_level, "eta_seconds": job_info.get("eta_seconds")}
+
+
+@router.post("/essays/{essay_id}/revoke-delivery")
+async def revoke_delivery(essay_id: UUID, authorization: str | None = Header(None)):
+    """Pull an OWNED delivered essay back to 'reviewed' (Bucket C). No AI re-run,
+    feedback + teacher-comment preserved; student stops seeing it. delivered→reviewed
+    only (mirrors admin _revoke_essay)."""
+    me = await _me(authorization)
+    assert_essay_owned(me, essay_id)
+    cur = (supabase_admin.table("writing_essays").select("status")
+           .eq("id", str(essay_id)).is_("deleted_at", "null").limit(1).execute().data or [None])[0]
+    if not cur:
+        raise HTTPException(404, "Không tìm thấy.")
+    if cur.get("status") != "delivered":
+        raise HTTPException(409, f"Chỉ thu hồi được bài đã giao (status={cur.get('status')!r}).")
+    supabase_admin.table("writing_essays").update(
+        {"status": "reviewed", "delivered_at": None}
+    ).eq("id", str(essay_id)).execute()
+    return {"essay_id": str(essay_id), "status": "reviewed",
+            "message": "Đã thu hồi bài. Feedback giữ nguyên; học viên không còn thấy bài."}
 
 
 # ── Cohorts (owner = created_by) ─────────────────────────────────────────────
@@ -292,6 +416,18 @@ async def get_student(student_id: UUID, authorization: str | None = Header(None)
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
     return r.data[0]
+
+
+@router.get("/students/{student_id}/summary")
+async def student_summary(student_id: UUID, authorization: str | None = Header(None)):
+    """Roster-detail aggregate. Owner-gated: the student must be mine (accessor
+    scope) BEFORE the shared aggregation runs → non-owned student → 404 (empty)."""
+    me = await _me(authorization)
+    owned = (instructor_db(me).table("students").select("id")
+             .eq("id", str(student_id)).limit(1).execute())
+    if not owned.data:
+        raise HTTPException(404, "Không tìm thấy.")     # not my student (uniform w/ non-existent)
+    return essay_service.get_student_summary(str(student_id))
 
 
 # ── Reviews (queue scoped by essay-ownership; claim = essay-owner check) ──────
