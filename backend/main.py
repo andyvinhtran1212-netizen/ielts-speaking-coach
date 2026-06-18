@@ -49,6 +49,7 @@ from routers.admin_writing_regrade import router as admin_writing_regrade_router
 from routers.admin_writing_assignments import router as admin_writing_assignments_router
 from routers.admin_instructor import router as admin_instructor_router
 from routers.instructor import router as instructor_router
+from routers.admin_instructors import router as admin_instructors_router
 from routers.admin_students import router as admin_students_router
 from routers.writing_student import router as writing_student_router
 from routers.grammar import router as grammar_router
@@ -171,6 +172,7 @@ app.include_router(admin_writing_regrade_router)
 app.include_router(admin_writing_assignments_router)
 app.include_router(admin_instructor_router)
 app.include_router(instructor_router)
+app.include_router(admin_instructors_router)
 app.include_router(admin_students_router)
 app.include_router(writing_student_router)
 app.include_router(grammar_router)

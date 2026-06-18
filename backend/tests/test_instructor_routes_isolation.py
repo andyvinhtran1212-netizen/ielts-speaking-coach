@@ -39,6 +39,8 @@ SA, SB = _u(41), _u(42)        # students
 EA, EB = _u(51), _u(52)        # essays
 RA, RB = _u(61), _u(62)        # reviews
 KA, KB = _u(71), _u(72)        # access codes (issued_by)
+ADM = _u(80)                   # an admin (impersonation tests)
+SU  = _u(81)                   # a non-instructor user (role=student)
 
 
 # ── filtering fake supabase ──────────────────────────────────────────────────
@@ -111,7 +113,8 @@ class _FakeSB:
 
 def _seed():
     return {
-        "users": [{"id": A, "role": "instructor"}, {"id": B, "role": "instructor"}],
+        "users": [{"id": A, "role": "instructor"}, {"id": B, "role": "instructor"},
+                  {"id": ADM, "role": "admin"}, {"id": SU, "role": "student"}],
         "writing_prompts": [
             {"id": PA, "created_by": A, "title": "A", "task_type": "task2", "prompt_text": "x"},
             {"id": PB, "created_by": B, "title": "B", "task_type": "task2", "prompt_text": "y"},
@@ -140,6 +143,7 @@ def _seed():
             {"id": KB, "issued_by": B, "code": "BBBB-BBBB", "is_used": False, "grants_role": None},
         ],
         "access_code_audit": [],
+        "governance_audit": [],
         "instructor_reviews": [
             {"id": RA, "essay_id": EA, "status": "queued", "claimed_by": None,
              "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"},
@@ -485,3 +489,49 @@ def test_fanout_deadline_is_wired():
     assert r.status_code == 201, r.text
     created = [a for a in st["writing_assignments"] if a.get("prompt_id") == PB and a.get("deadline")]
     assert created and created[0]["deadline"].startswith("2026-11-15")  # deadline now flows through fan-out
+
+
+# ── W-8-core: impersonation (seam-3) — single override + mandatory audit ──────
+
+def test_admin_impersonation_acts_as_target_and_audits_each_request():
+    store = _seed()
+    with _as(ADM, store) as (client, st):     # caller resolved to ADM (admin)
+        r = client.get('/instructor/students?as_instructor=' + A,
+                       headers={'Authorization': 'Bearer x'})
+    assert r.status_code == 200, r.text
+    ids = {row.get('id') for row in r.json()}
+    assert SA in ids and SB not in ids        # sees A's roster (acting as A)
+    aud = st['governance_audit']
+    assert len(aud) == 1                       # EXACTLY one audit row per impersonated request
+    assert aud[0]['action'] == 'impersonate'
+    assert aud[0]['admin_id'] == ADM and aud[0]['target_instructor'] == A
+    assert aud[0]['detail'] == '/instructor/students'   # forensic path
+
+
+def test_non_admin_as_instructor_param_is_ignored_acts_as_self():
+    store = _seed()
+    with _as(B, store) as (client, st):       # caller is instructor B (not admin)
+        r = client.get('/instructor/students?as_instructor=' + A,
+                       headers={'Authorization': 'Bearer x'})
+    assert r.status_code == 200, r.text        # NOT 500
+    ids = {row.get('id') for row in r.json()}
+    assert SB in ids and SA not in ids         # acted as SELF (B), not A
+    assert st['governance_audit'] == []        # no impersonation → no audit
+
+
+def test_admin_impersonate_non_instructor_403():
+    store = _seed()
+    with _as(ADM, store) as (client, st):
+        r = client.get('/instructor/students?as_instructor=' + SU,   # SU = student role
+                       headers={'Authorization': 'Bearer x'})
+    assert r.status_code == 403, r.text
+    assert st['governance_audit'] == []        # rejected → no audit
+
+
+def test_admin_impersonate_missing_user_403():
+    store = _seed()
+    with _as(ADM, store) as (client, st):
+        r = client.get('/instructor/students?as_instructor=' + _u(999),  # not in users
+                       headers={'Authorization': 'Bearer x'})
+    assert r.status_code == 403, r.text
+    assert st['governance_audit'] == []

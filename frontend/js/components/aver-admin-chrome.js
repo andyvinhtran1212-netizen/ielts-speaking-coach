@@ -387,6 +387,7 @@ const NAV_GROUPS = [
           { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/pages/admin/writing/instructor-queue.html' },
         ],
       },
+      { section: 'instructors', label: 'Giảng viên', href: '/pages/admin/instructors.html', icon: 'users' },
       { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones',
         subsections: [
           { slug: 'content',   label: 'Quản lý nội dung', href: '/pages/admin/listening/index.html' },

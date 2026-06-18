@@ -10,7 +10,21 @@
  * is redirected out before any data loads.
  */
 
-const api = window.api;
+// ⭐ Impersonation propagation: when an admin opened this shell with
+// ?as_instructor=X, EVERY /instructor/* fetch must carry it (a forgotten one →
+// me=self=admin → empty panel). Making `api` itself append it covers all calls
+// (and is a no-op on non-/instructor paths like /auth/me).
+const _api = window.api;
+const _AS = new URLSearchParams(location.search).get('as_instructor');
+function IMP(p) {
+  if (!_AS || !p.startsWith('/instructor')) return p;
+  return p + (p.includes('?') ? '&' : '?') + 'as_instructor=' + encodeURIComponent(_AS);
+}
+const api = {
+  get:   (p)    => _api.get(IMP(p)),
+  post:  (p, b) => _api.post(IMP(p), b),
+  patch: (p, b) => _api.patch(IMP(p), b),
+};
 const $ = (id) => document.getElementById(id);
 
 function esc(s) {
@@ -38,6 +52,10 @@ async function boot() {
     $('gate-msg').hidden = false;
     setTimeout(() => { window.location.href = '/pages/home.html'; }, 1200);
     return;
+  }
+  if (_AS) {
+    const b = $('imp-banner');
+    if (b) { b.hidden = false; }
   }
   wireChrome();
   await loadClasses();                   // builds cohort-name map first
@@ -363,7 +381,8 @@ async function onAssign(ev) {
 
 const _GRADE_URL = (essayId, reviewId) =>
   '/pages/instructor/grade.html?essay_id=' + encodeURIComponent(essayId) +
-  '&review_id=' + encodeURIComponent(reviewId);
+  '&review_id=' + encodeURIComponent(reviewId) +
+  (_AS ? '&as_instructor=' + encodeURIComponent(_AS) : '');   // carry impersonation
 
 async function loadQueue() {
   const body = $('queue-body');
