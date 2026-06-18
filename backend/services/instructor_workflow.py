@@ -116,7 +116,20 @@ def create_review(essay_id: UUID) -> InstructorReview:
     return _row_to_review(inserted.data[0])
 
 
-def claim(review_id: UUID, instructor_id: UUID) -> InstructorReview:
+def get_instructor_queue(
+    me, status_filter: Optional[Iterable[InstructorReviewStatus]] = None,
+) -> list[InstructorQueueItem]:
+    """W-4 — instructor-ROLE queue: reviews on essays I own (2-branch), NOT just
+    reviews I've claimed. This surfaces the claimable (queued) rows for my essays
+    plus the ones I've already claimed. Admin uses get_queue() (see-all) — unchanged."""
+    from services.instructor_access import instructor_owned_essay_ids  # local — avoid cycle
+    owned = instructor_owned_essay_ids(me)
+    if not owned:
+        return []
+    return get_queue(status_filter=status_filter, essay_ids=owned)
+
+
+def claim(review_id: UUID, instructor_id: UUID, *, owner_id=None) -> InstructorReview:
     """Atomically lock a queued review for `instructor_id`.
 
     The Postgres UPDATE WHERE behaviour is the lock: two concurrent
@@ -124,7 +137,22 @@ def claim(review_id: UUID, instructor_id: UUID) -> InstructorReview:
     only the first transaction's UPDATE matches (the second now sees
     `status='claimed'` and matches zero rows). The loser raises
     ConflictError so the queue UI can surface "already claimed".
+
+    W-4 — when `owner_id` is set (instructor-role path), assert the review's
+    essay is owned by that instructor BEFORE the lock (seam-defect #2). Raises
+    PermissionError on a non-owned essay → 403. `owner_id=None` = admin path
+    (admin_instructor.py), unchanged.
     """
+    if owner_id is not None:
+        rev = supabase_admin.table("instructor_reviews").select(
+            "id, essay_id",
+        ).eq("id", str(review_id)).limit(1).execute()
+        essay_id = (rev.data or [{}])[0].get("essay_id")
+        from services.instructor_access import instructor_owned_essay_ids  # local — avoid cycle
+        if not essay_id or str(essay_id) not in set(instructor_owned_essay_ids(owner_id)):
+            # uniform with non-existent review → no existence leak
+            raise PermissionError("review's essay not owned by this instructor")
+
     response = supabase_admin.table("instructor_reviews").update({
         "status":     InstructorReviewStatus.CLAIMED.value,
         "claimed_by": str(instructor_id),
@@ -314,6 +342,7 @@ def get_queue(
     status_filter: Optional[Iterable[InstructorReviewStatus]] = None,
     instructor_id: Optional[UUID] = None,
     essay_id: Optional[UUID] = None,
+    essay_ids: Optional[list] = None,
 ) -> list[InstructorQueueItem]:
     """Return queue items joined with student email + essay metadata.
 
@@ -348,6 +377,11 @@ def get_queue(
         q = q.eq("claimed_by", str(instructor_id))
     if essay_id is not None:
         q = q.eq("essay_id", str(essay_id))
+    if essay_ids is not None:
+        # W-4 — instructor-role queue: scope to reviews on essays I own. The
+        # claimable view (status='queued', claimed_by NULL) is NOT reachable via
+        # claimed_by, so essay-ownership is the scope. Empty owned-set → no rows.
+        q = q.in_("essay_id", essay_ids or ["00000000-0000-0000-0000-000000000000"])
     response = q.order("created_at", desc=False).execute()
 
     if not response.data:
