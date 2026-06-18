@@ -473,6 +473,7 @@ def list_essays(
     status: Optional[str] = None,
     student_id: Optional[str] = None,
     cohort_id: Optional[str] = None,
+    owner_id: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
@@ -483,9 +484,27 @@ def list_essays(
     Enrichment is BATCHED — exactly three extra queries regardless of page size
     (students, feedback, assignments), so there is no N+1. `cohort_id` scopes to
     essays whose student is in that cohort (students.cohort_id, WF-1).
+
+    W-3 — `owner_id` None = admin see-all (unchanged). When set (instructor mode),
+    the result is scoped to owned essays (2-branch: assignment ∪ student) and any
+    student_id/cohort_id filter must belong to the owner (else PermissionError).
     """
     if status and status not in _ALLOWED_STATUSES:
         raise HTTPException(400, f"Invalid status: {status!r}")
+
+    # W-3 — instructor ownership gate on the requested filters (fail-closed).
+    if owner_id is not None:
+        owner = str(owner_id)
+        if student_id:
+            srow = (supabase_admin.table("students").select("id, instructor_id")
+                    .eq("id", student_id).limit(1).execute().data or [None])[0]
+            if not srow or srow.get("instructor_id") != owner:
+                raise PermissionError(f"list_essays: student {student_id} không thuộc instructor {owner}")
+        if cohort_id:
+            crow = (supabase_admin.table("cohorts").select("id, created_by")
+                    .eq("id", cohort_id).limit(1).execute().data or [None])[0]
+            if not crow or crow.get("created_by") != owner:
+                raise PermissionError(f"list_essays: cohort {cohort_id} không thuộc instructor {owner}")
 
     q = (
         supabase_admin.table("writing_essays")
@@ -511,6 +530,15 @@ def list_essays(
         if not cohort_student_ids:
             return []
         q = q.in_("student_id", cohort_student_ids)
+
+    # W-3 — scope to owned essays (2-branch) in instructor mode. Fail-closed:
+    # no owned essays → empty result (never an unscoped list).
+    if owner_id is not None:
+        from services.instructor_access import instructor_owned_essay_ids  # local — avoid cycle
+        owned_ids = instructor_owned_essay_ids(owner_id)
+        if not owned_ids:
+            return []
+        q = q.in_("id", owned_ids)
 
     r = q.range(offset, offset + limit - 1).execute()
     rows = r.data or []
