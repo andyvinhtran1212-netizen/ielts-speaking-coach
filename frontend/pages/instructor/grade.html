@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chấm bài · Aver Learning</title>
+
+  <script>
+    (function () {
+      try { document.documentElement.setAttribute('data-theme',
+        localStorage.getItem('aver-theme') || 'light'); } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <!-- shared read-only feedback + highlight styles (DO NOT restyle here). -->
+  <link rel="stylesheet" href="/css/writing-renderers.css" />
+  <link rel="stylesheet" href="/css/writing-highlight.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body.av-page { margin: 0; min-height: 100vh; color: var(--av-text-primary);
+      font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+      --rg: max(var(--av-space-6), calc((100% - 1180px) / 2)); }
+    .ig-top { display: flex; align-items: center; gap: var(--av-space-4);
+      padding: var(--av-space-4) var(--rg); border-bottom: 1px solid var(--av-border-subtle);
+      background: var(--av-surface-elevated); position: sticky; top: 0; z-index: 30; }
+    .ig-link { color: var(--av-text-secondary); text-decoration: none; font-size: .85rem; }
+    .ig-link:hover { color: var(--av-primary); text-decoration: underline; }
+    .ig-band { margin-left: auto; font-family: var(--av-font-mono); font-weight: var(--av-fw-bold);
+      color: var(--av-primary); background: var(--av-primary-soft); padding: 2px 12px;
+      border-radius: var(--av-radius-pill); }
+    main.ig-main { padding: var(--av-space-6) var(--rg) var(--av-space-12); }
+    .ig-card { background: var(--av-surface-card); border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-lg); padding: var(--av-space-6); margin-bottom: var(--av-space-6);
+      box-shadow: var(--av-shadow-sm); }
+    .ig-h { font-size: 1rem; font-weight: var(--av-fw-semibold); margin: 0 0 var(--av-space-3); }
+    .ig-essay { white-space: pre-wrap; line-height: 1.7; font-size: 14.5px; color: var(--av-text-primary); }
+    .ig-sec { margin-bottom: var(--av-space-4); }
+    .ig-sec > h4 { font-size: .9rem; font-weight: var(--av-fw-semibold); color: var(--av-text-secondary);
+      margin: 0 0 var(--av-space-2); }
+    .ig-readonly-note { font-size: .78rem; color: var(--av-text-muted); margin-bottom: var(--av-space-3); }
+    textarea.ig-comment { width: 100%; min-height: 120px; padding: var(--av-space-3);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); color: var(--av-text-primary); font: inherit; line-height: 1.6; }
+    .ig-actions { display: flex; flex-wrap: wrap; gap: var(--av-space-3); margin-top: var(--av-space-4); }
+    .ig-btn { padding: var(--av-space-2) var(--av-space-4); border-radius: var(--av-radius-md);
+      border: 1px solid var(--av-primary-border); background: var(--av-primary); color: var(--av-text-on-primary);
+      font-weight: var(--av-fw-medium); cursor: pointer; }
+    .ig-btn:hover { filter: brightness(1.05); }
+    .ig-btn--ghost { background: var(--av-surface-card); color: var(--av-text-primary); border-color: var(--av-border-default); }
+    .ig-btn--danger { background: var(--av-surface-card); color: var(--av-error); border-color: var(--av-error); }
+    .ig-banner { padding: var(--av-space-3); border-radius: var(--av-radius-md); margin-bottom: var(--av-space-4); font-size: .85rem; }
+    .ig-banner--ok  { background: var(--av-success-soft); color: var(--av-success); }
+    .ig-banner--err { background: var(--av-error-soft);   color: var(--av-error); }
+    .ig-muted { color: var(--av-text-muted); }
+  </style>
+</head>
+
+<body class="av-page font-sans">
+  <header class="ig-top">
+    <a href="/pages/instructor/index.html" class="ig-link">← Danh sách chấm</a>
+    <span id="ig-student" class="ig-muted" style="font-size:.9rem;"></span>
+    <span class="ig-band" id="ig-band">—</span>
+  </header>
+
+  <main class="ig-main">
+    <div id="ig-banner"></div>
+    <div id="ig-loading" class="ig-muted">Đang tải…</div>
+
+    <div id="ig-body" hidden>
+      <!-- Teacher-comment (the instructor's contribution — student-visible, AI untouched) -->
+      <div class="ig-card">
+        <h3 class="ig-h">Nhận xét của giảng viên</h3>
+        <p class="ig-readonly-note">Nhận xét này hiển thị cho học viên, TÁCH BIỆT với phần AI (AI giữ nguyên).</p>
+        <textarea class="ig-comment" id="ig-comment" placeholder="Nhận xét cho học viên…"></textarea>
+        <div class="ig-actions">
+          <button class="ig-btn ig-btn--ghost" id="ig-save">Lưu nhận xét</button>
+          <button class="ig-btn" id="ig-deliver">Trả bài cho học viên</button>
+          <button class="ig-btn ig-btn--ghost" id="ig-regrade">Chấm lại (AI)</button>
+          <button class="ig-btn ig-btn--danger" id="ig-revoke" hidden>Thu hồi</button>
+        </div>
+      </div>
+
+      <!-- Essay text (read-only, with highlight) -->
+      <div class="ig-card">
+        <h3 class="ig-h">Bài viết</h3>
+        <div class="ig-essay" id="ig-essay"></div>
+      </div>
+
+      <!-- AI feedback — READ-ONLY (no band/feedback edit; mirrors backend 403) -->
+      <div class="ig-card">
+        <h3 class="ig-h">Phân tích của AI <span class="ig-muted" style="font-weight:normal;font-size:.8rem;">(chỉ đọc)</span></h3>
+        <div id="ig-ai"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/writing-renderers.js"></script>
+  <script src="/js/writing-highlight.js"></script>
+  <script>
+    var SUPABASE_URL  = 'https://nqhrtqspznepmveyurzm.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_a_vDrA0c3mT-QlASPW7yhw_YZnUsfT4';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+  </script>
+  <script type="module" src="/js/instructor-grade.js"></script>
+</body>
+</html>

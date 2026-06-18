@@ -117,7 +117,7 @@
     <button class="ins-tab is-active" data-tab="roster">Học viên</button>
     <button class="ins-tab" data-tab="classes">Lớp &amp; Mã</button>
     <button class="ins-tab" data-tab="assign">Giao bài</button>
-    <button class="ins-tab" data-tab="grade" disabled title="Sắp ra mắt">Chấm bài</button>
+    <button class="ins-tab" data-tab="grade">Chấm bài</button>
   </nav>
 
   <main class="ins-main">
@@ -230,6 +230,18 @@
           <span class="ins-pill" style="background:var(--av-success-soft);color:var(--av-success);">Đã nộp</span> đã làm ·
           <span class="ins-pill" style="background:var(--av-error-soft);color:var(--av-error);">Trễ</span> quá hạn ·
           “Đã trả” = đã gửi nhận xét cho học viên.</p>
+      </div>
+    </section>
+
+    <!-- ── Chấm bài (queue) ─────────────────────────────────── -->
+    <section class="ins-section" id="section-grade" hidden>
+      <h2 class="ins-h2">Hàng chờ chấm</h2>
+      <div id="queue-banner"></div>
+      <div class="ins-card">
+        <table class="ins-table">
+          <thead><tr><th>Học viên</th><th>Dạng</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody id="queue-body"><tr><td colspan="4" class="ins-muted">Đang tải…</td></tr></tbody>
+        </table>
       </div>
     </section>
   </main>
