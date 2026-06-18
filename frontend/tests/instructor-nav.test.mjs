@@ -19,14 +19,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CHROME = readFileSync(join(__dirname, '..', 'js', 'components', 'aver-chrome.js'), 'utf8');
 const SPEAKING = readFileSync(join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
 
-describe('W-2 — instructor nav item (aver-chrome)', () => {
-  it('renders a hidden, href-less placeholder item (never 404s)', () => {
-    const m = CHROME.match(/id="instructor-link"[^>]*>/);
-    assert.ok(m, 'instructor-link element must exist');
+describe('W-6b — instructor nav item (aver-chrome)', () => {
+  it('renders a hidden, role-gated link to the instructor area', () => {
+    const m = CHROME.match(/<a[^>]*id="instructor-link"[^>]*>/);
+    assert.ok(m, 'instructor-link <a> element must exist');
     const tag = m[0];
-    assert.match(tag, /\bhidden\b/, 'hidden by default');
-    assert.match(tag, /aria-disabled="true"/, 'marked disabled');
-    assert.doesNotMatch(tag, /href=/, 'NO href → cannot navigate/404 (placeholder until W-6)');
+    assert.match(tag, /\bhidden\b/, 'hidden by default (role-gated)');
+    // W-6b: now a REAL link to the instructor area (no longer a placeholder).
+    assert.match(tag, /href="\/pages\/instructor\/index\.html"/, 'links to the instructor area');
   });
 
   it('setRole un-hides ONLY for instructor or admin', () => {
@@ -54,4 +54,36 @@ describe('W-2 — instructor nav item (aver-chrome)', () => {
   it('speaking.html passes the /auth/me role into setUser', () => {
     assert.match(SPEAKING, /chrome\.setUser\(\{ name: displayName, role: user\.role \}\)/);
   });
+});
+
+
+// ── W-6b-1: FE cross-tenant grep-gate — instructor pages must NEVER call /admin/* ──
+
+import { readdirSync, statSync } from 'node:fs';
+
+function _walk(dir) {
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) out.push(..._walk(p));
+    else out.push(p);
+  }
+  return out;
+}
+
+describe('W-6b-1 — instructor shell never calls /admin/*', () => {
+  const FILES = [
+    ..._walk(join(__dirname, '..', 'pages', 'instructor')),
+    join(__dirname, '..', 'js', 'instructor-app.js'),
+  ];
+  // a quoted admin-path literal in a fetch/api call (',",` then /admin) = cross-tenant leak
+  const ADMIN_CALL = /['"`]\/admin\//;
+
+  for (const f of FILES) {
+    it(`${f.split('/frontend/')[1]} has zero quoted /admin/ call literals`, () => {
+      const src = readFileSync(f, 'utf8');
+      const m = src.match(ADMIN_CALL);
+      assert.equal(m, null, `cross-tenant leak: ${f} references ${m && m[0]} — must use /instructor/*`);
+    });
+  }
 });

@@ -343,11 +343,11 @@ const TEMPLATE = /* html */ `
         </button>
         <div class="user-menu-dropdown" role="menu" hidden>
           <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
-          <!-- W-2: role-gated (instructor/admin). Disabled PLACEHOLDER — the
-               destination page lands in W-6, so NO href → never 404. setRole()
-               un-hides it. -->
-          <span class="user-menu-item" id="instructor-link" role="menuitem"
-                aria-disabled="true" title="Sắp ra mắt" hidden>Trang Instructor (sắp ra mắt)</span>
+          <!-- W-6b: role-gated (instructor/admin) link to the instructor area.
+               setRole() un-hides it ONLY for instructor/admin (default-hidden =
+               mirrors the backend require_instructor guard). -->
+          <a href="/pages/instructor/index.html" class="user-menu-item"
+             id="instructor-link" role="menuitem" hidden>Trang giảng viên</a>
           <button type="button" class="user-menu-item user-menu-item--danger"
                   id="user-menu-logout" role="menuitem">Đăng xuất</button>
         </div>

@@ -38,6 +38,7 @@ CA, CB = _u(31), _u(32)        # cohorts
 SA, SB = _u(41), _u(42)        # students
 EA, EB = _u(51), _u(52)        # essays
 RA, RB = _u(61), _u(62)        # reviews
+KA, KB = _u(71), _u(72)        # access codes (issued_by)
 
 
 # ── filtering fake supabase ──────────────────────────────────────────────────
@@ -134,6 +135,11 @@ def _seed():
              "analysis_level": 3, "task_type": "task2", "created_at": "2026-01-01T00:00:00Z"},
         ],
         "writing_feedback": [],
+        "access_codes": [
+            {"id": KA, "issued_by": A, "code": "AAAA-AAAA", "is_used": False, "grants_role": None},
+            {"id": KB, "issued_by": B, "code": "BBBB-BBBB", "is_used": False, "grants_role": None},
+        ],
+        "access_code_audit": [],
         "instructor_reviews": [
             {"id": RA, "essay_id": EA, "status": "queued", "claimed_by": None,
              "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"},
@@ -168,6 +174,8 @@ ROUTES = [
     ("GET",    "/instructor/cohorts",                  "list",   None, None, CA),
     ("POST",   "/instructor/cohorts",                  "create", None, {"name": "newlop"}, None),
     ("GET",    "/instructor/cohorts/{id}",             "read1",  CA, None, None),
+    ("GET",    "/instructor/codes",                    "list",   None, None, KA),
+    ("POST",   "/instructor/codes",                    "create", None, {}, None),
     ("GET",    "/instructor/students",                 "list",   None, None, SA),
     ("GET",    "/instructor/students/{id}",            "read1",  SA, None, None),
     ("GET",    "/instructor/students/{id}/summary",     "read1",  SA, None, None),
@@ -382,3 +390,58 @@ def test_regrade_owner_preserves_teacher_comment():
     assert row["analysis_level"] == 5
     assert row.get("instructor_note") == "keep me"     # teacher-comment survives regrade
     assert row.get("admin_edits_json") is None         # AI edits cleared
+
+
+# ── W-6b-1: /instructor/codes (student-enroll only) ──────────────────────────
+
+def test_codes_list_scoped_to_me():
+    store = _seed()
+    with _as(B, store) as (client, _st):
+        r = client.get("/instructor/codes", headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    ids = {row.get("id") for row in r.json()}
+    assert KA not in ids and KB in ids        # B sees only B's codes
+
+
+def test_mint_code_stamps_issued_by_caller_grants_role_null():
+    store = _seed()
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/codes", json={"count": 1}, headers={"Authorization": "Bearer x"})
+    assert r.status_code == 201, r.text
+    minted = [c for c in st["access_codes"] if c.get("issued_by") == B and c["id"] not in (KA, KB)]
+    assert len(minted) == 1
+    assert minted[0].get("grants_role") is None        # student-enroll only
+    assert minted[0]["issued_by"] == B                 # from auth-context, not body
+    assert "all" not in minted[0]["permissions"] and "admin" not in minted[0]["permissions"]
+
+
+def test_mint_code_rejects_grants_role_escalation():
+    store = _seed()
+    before = len(store["access_codes"])
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/codes", json={"grants_role": "instructor"},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 403, r.text
+    assert len(st["access_codes"]) == before           # nothing minted
+    rej = [a for a in st["access_code_audit"] if a["action"] == "code_mint_escalation_rejected"]
+    assert len(rej) == 1
+
+
+def test_mint_code_rejects_cross_tenant_cohort():
+    store = _seed()
+    before = len(store["access_codes"])
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/codes", json={"cohort_id": CA},   # A's cohort
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 403, r.text
+    assert len(st["access_codes"]) == before           # nothing minted
+
+
+def test_mint_code_allows_own_cohort():
+    store = _seed()
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/codes", json={"cohort_id": CB},   # B's cohort
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 201, r.text
+    minted = [c for c in st["access_codes"] if c.get("issued_by") == B and c.get("cohort_id") == CB]
+    assert len(minted) == 1
