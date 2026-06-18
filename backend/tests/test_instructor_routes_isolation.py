@@ -161,6 +161,7 @@ ROUTES = [
     ("GET",    "/instructor/assignments/{id}",         "read1",  AA, None, None),
     ("PATCH",  "/instructor/assignments/{id}",         "write1", AA, {"instructions": "hacked"}, None),
     ("DELETE", "/instructor/assignments/{id}",         "write1", AA, None, None),
+    ("POST",   "/instructor/assignments",              "action", None, {"prompt_id": PA, "student_id": SA}, None),
     ("POST",   "/instructor/assignments/fan-out",      "action", None, {"prompt_ids": [PA], "cohort_id": CA}, None),
     ("GET",    "/instructor/essays",                   "list",   None, None, EA),
     ("GET",    "/instructor/essays/{id}",              "read1",  EA, None, None),
@@ -445,3 +446,42 @@ def test_mint_code_allows_own_cohort():
     assert r.status_code == 201, r.text
     minted = [c for c in st["access_codes"] if c.get("issued_by") == B and c.get("cohort_id") == CB]
     assert len(minted) == 1
+
+
+# ── W-6b-2: assign (single + fan-out deadline) ───────────────────────────────
+
+def test_assign_own_prompt_and_student_with_deadline():
+    store = _seed()
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/assignments",
+                        json={"prompt_id": PB, "student_id": SB,
+                              "deadline": "2026-12-01T00:00:00+00:00"},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 201, r.text
+    rows = [a for a in st["writing_assignments"] if a.get("prompt_id") == PB and a.get("student_id") == SB]
+    assert rows and rows[-1]["assigned_by"] == B           # stamped from auth-context
+    assert rows[-1]["deadline"].startswith("2026-12-01")   # deadline persisted
+
+
+def test_assign_cross_tenant_student_403():
+    store = _seed()
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/assignments",
+                        json={"prompt_id": PB, "student_id": SA},   # B's prompt, A's student
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 403, r.text
+    # B created nothing for A's student (the pre-existing seed row AA is A's own).
+    assert not any(a.get("assigned_by") == B and a.get("student_id") == SA
+                   for a in st["writing_assignments"])
+
+
+def test_fanout_deadline_is_wired():
+    store = _seed()
+    with _as(B, store) as (client, st):
+        r = client.post("/instructor/assignments/fan-out",
+                        json={"prompt_ids": [PB], "cohort_id": CB,    # B's prompt + B's cohort
+                              "deadline": "2026-11-15T00:00:00+00:00"},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 201, r.text
+    created = [a for a in st["writing_assignments"] if a.get("prompt_id") == PB and a.get("deadline")]
+    assert created and created[0]["deadline"].startswith("2026-11-15")  # deadline now flows through fan-out

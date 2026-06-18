@@ -137,7 +137,16 @@ class FanOutBody(BaseModel):
     cohort_id: UUID
     name: Optional[str] = None
     allow_soft_check: bool = False
-    deadline: Optional[str] = None
+    deadline: Optional[datetime] = None      # ISO string auto-parsed → datetime
+    instructions: Optional[str] = None
+    analysis_level: int = 3
+
+
+class AssignBody(BaseModel):
+    """Single-student assign (one prompt → one of MY students)."""
+    prompt_id: UUID
+    student_id: UUID
+    deadline: Optional[datetime] = None
     instructions: Optional[str] = None
     analysis_level: int = 3
 
@@ -179,6 +188,31 @@ async def delete_assignment(assignment_id: UUID, authorization: str | None = Hea
     return None
 
 
+@router.post("/assignments", status_code=status.HTTP_201_CREATED)
+async def create_assignment(body: AssignBody, authorization: str | None = Header(None)):
+    """Assign ONE prompt to ONE of my students, with an optional deadline.
+    Owner-guarded: both the prompt and the student must be mine (else 403).
+    The accessor stamps assigned_by=me."""
+    me = await _me(authorization)
+    p = (instructor_db(me).table("writing_prompts").select("id")
+         .eq("id", str(body.prompt_id)).limit(1).execute())
+    if not p.data:
+        raise HTTPException(403, "Đề bài không thuộc bạn.")
+    s = (instructor_db(me).table("students").select("id")
+         .eq("id", str(body.student_id)).limit(1).execute())
+    if not s.data:
+        raise HTTPException(403, "Học viên không thuộc bạn.")
+    payload = {
+        "prompt_id":      str(body.prompt_id),
+        "student_id":     str(body.student_id),
+        "deadline":       body.deadline.isoformat() if body.deadline else None,
+        "instructions":   body.instructions,
+        "analysis_level": body.analysis_level,
+    }
+    r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
+    return (r.data or [{}])[0]
+
+
 @router.post("/assignments/fan-out", status_code=status.HTTP_201_CREATED)
 async def fan_out(body: FanOutBody, authorization: str | None = Header(None)):
     me = await _me(authorization)
@@ -187,7 +221,8 @@ async def fan_out(body: FanOutBody, authorization: str | None = Header(None)):
         me, supabase_admin,
         prompt_ids=body.prompt_ids, cohort_id=body.cohort_id,
         name=body.name, allow_soft_check=body.allow_soft_check,
-        deadline=None, instructions=body.instructions, analysis_level=body.analysis_level,
+        deadline=body.deadline, instructions=body.instructions,   # W-6b-2: deadline now wired
+        analysis_level=body.analysis_level,
     )
     if result["student_count"] == 0:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")

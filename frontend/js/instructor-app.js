@@ -19,6 +19,9 @@ function esc(s) {
 }
 
 let _cohortNameById = {};
+let _cohorts = [];
+let _students = [];
+let _prompts = [];
 
 // ── boot + role gate ─────────────────────────────────────────────────
 
@@ -39,6 +42,7 @@ async function boot() {
   wireChrome();
   await loadClasses();                   // builds cohort-name map first
   await loadRoster();
+  await loadAssign();
 }
 
 function wireChrome() {
@@ -68,6 +72,15 @@ function wireChrome() {
   // forms
   $('cohort-form').addEventListener('submit', onCreateCohort);
   $('code-form').addEventListener('submit', onMintCode);
+  $('assign-form').addEventListener('submit', onAssign);
+  $('prompt-form').addEventListener('submit', onCreatePrompt);
+  // assign target toggle (cohort fan-out vs single student)
+  document.querySelectorAll('input[name="atarget"]').forEach((r) =>
+    r.addEventListener('change', () => {
+      const isCohort = document.querySelector('input[name="atarget"]:checked').value === 'cohort';
+      $('assign-cohort-wrap').hidden = !isCohort;
+      $('assign-student-wrap').hidden = isCohort;
+    }));
 }
 
 function selectTab(tab) {
@@ -75,6 +88,7 @@ function selectTab(tab) {
     b.classList.toggle('is-active', b.dataset.tab === tab));
   $('section-roster').hidden = tab !== 'roster';
   $('section-classes').hidden = tab !== 'classes';
+  $('section-assign').hidden = tab !== 'assign';
 }
 
 // ── Roster ───────────────────────────────────────────────────────────
@@ -83,6 +97,7 @@ async function loadRoster() {
   const body = $('roster-body');
   try {
     const rows = (await api.get('/instructor/students')) || [];
+    _students = rows;
     if (!rows.length) {
       body.innerHTML = '<tr><td colspan="4" class="ins-muted">Chưa có học viên. Tạo mã ghi danh ở tab "Lớp &amp; Mã".</td></tr>';
       return;
@@ -152,6 +167,7 @@ async function loadClasses() {
   // cohorts (also builds the id→name map used by the roster)
   try {
     const cohorts = (await api.get('/instructor/cohorts')) || [];
+    _cohorts = cohorts;
     _cohortNameById = {};
     cohorts.forEach((c) => { _cohortNameById[c.id] = c.name; });
     $('cohort-body').innerHTML = cohorts.length
@@ -210,6 +226,134 @@ async function onMintCode(ev) {
     await loadCodes();
   } catch (e) {
     classesBanner('Lỗi tạo mã: ' + e.message, 'err');
+  }
+}
+
+// ── Giao bài + ma-trận ───────────────────────────────────────────────
+
+function assignBanner(msg, kind) {
+  $('assign-banner').innerHTML = msg ? `<div class="ins-banner ins-banner--${kind}">${esc(msg)}</div>` : '';
+}
+
+async function loadAssign() {
+  // prompts (created_by=me)
+  try {
+    _prompts = (await api.get('/instructor/prompts')) || [];
+  } catch (e) { _prompts = []; }
+
+  const psel = $('assign-prompt');
+  $('assign-empty').hidden = _prompts.length > 0;
+  psel.innerHTML = _prompts.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('');
+
+  // cohort + student target pickers (reuse roster/cohort caches)
+  $('assign-cohort').innerHTML = _cohorts.length
+    ? _cohorts.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')
+    : '<option value="">(chưa có lớp)</option>';
+  $('assign-student').innerHTML = _students.length
+    ? _students.map((s) => `<option value="${esc(s.id)}">${esc(s.full_name)} (${esc(s.student_code)})</option>`).join('')
+    : '<option value="">(chưa có học viên)</option>';
+
+  await renderMatrix();
+}
+
+function cellFor(a) {
+  // a = the writing_assignments row for (student, prompt), or undefined.
+  if (!a) return '<span class="ins-muted">—</span>';
+  const submitted = a.essay_id != null ||
+    ['submitted', 'grading', 'graded', 'reviewed', 'delivered'].includes(a.status);
+  if (a.status === 'delivered') {
+    return '<span class="ins-pill" style="background:var(--av-success-soft);color:var(--av-success);">Đã trả</span>';
+  }
+  if (submitted) {
+    return '<span class="ins-pill" style="background:var(--av-success-soft);color:var(--av-success);">Đã nộp</span>';
+  }
+  // not submitted yet — late if past deadline (client now; trial-acceptable)
+  const late = a.deadline && new Date(a.deadline) < new Date();
+  return late
+    ? '<span class="ins-pill" style="background:var(--av-error-soft);color:var(--av-error);">Trễ</span>'
+    : '<span class="ins-pill">Chưa nộp</span>';
+}
+
+async function renderMatrix() {
+  const head = $('matrix-head');
+  const body = $('matrix-body');
+  let assignments = [];
+  try {
+    assignments = (await api.get('/instructor/assignments')) || [];
+  } catch (e) {
+    body.innerHTML = `<tr><td class="ins-banner--err">Lỗi tải: ${esc(e.message)}</td></tr>`;
+    return;
+  }
+  if (!assignments.length) {
+    head.innerHTML = '';
+    body.innerHTML = '<tr><td class="ins-muted">Chưa giao bài nào.</td></tr>';
+    return;
+  }
+  // columns = distinct assigned prompts (by id, in first-seen order)
+  const promptTitle = {};
+  _prompts.forEach((p) => { promptTitle[p.id] = p.title; });
+  const colIds = [];
+  const byStudentPrompt = {};   // student_id → prompt_id → assignment
+  assignments.forEach((a) => {
+    if (!colIds.includes(a.prompt_id)) colIds.push(a.prompt_id);
+    (byStudentPrompt[a.student_id] = byStudentPrompt[a.student_id] || {})[a.prompt_id] = a;
+  });
+  // rows = my students who appear in assignments (fallback: full roster)
+  const rowStudents = _students.length ? _students
+    : Object.keys(byStudentPrompt).map((id) => ({ id, full_name: id, student_code: '' }));
+
+  head.innerHTML = '<tr><th>Học viên</th>'
+    + colIds.map((pid) => `<th>${esc(promptTitle[pid] || 'Đề bài')}</th>`).join('') + '</tr>';
+  body.innerHTML = rowStudents.map((s) => {
+    const cells = colIds.map((pid) => `<td>${cellFor((byStudentPrompt[s.id] || {})[pid])}</td>`).join('');
+    return `<tr><td>${esc(s.full_name)}</td>${cells}</tr>`;
+  }).join('');
+}
+
+async function onCreatePrompt(ev) {
+  ev.preventDefault();
+  assignBanner('', 'ok');
+  try {
+    await api.post('/instructor/prompts', {
+      title: $('prompt-title').value.trim(),
+      task_type: $('prompt-type').value,
+      prompt_text: $('prompt-text').value.trim(),
+    });
+    $('prompt-title').value = ''; $('prompt-text').value = '';
+    assignBanner('Đã tạo đề bài.', 'ok');
+    await loadAssign();
+  } catch (e) {
+    assignBanner('Lỗi tạo đề bài: ' + e.message, 'err');
+  }
+}
+
+async function onAssign(ev) {
+  ev.preventDefault();
+  assignBanner('', 'ok');
+  const prompt_id = $('assign-prompt').value;
+  if (!prompt_id) { assignBanner('Chưa chọn đề bài.', 'err'); return; }
+  const target = document.querySelector('input[name="atarget"]:checked').value;
+  const dl = $('assign-deadline').value;            // local datetime or ''
+  const deadline = dl ? dl : null;
+  try {
+    if (target === 'cohort') {
+      const cohort_id = $('assign-cohort').value;
+      if (!cohort_id) { assignBanner('Chưa chọn lớp.', 'err'); return; }
+      const body = { prompt_ids: [prompt_id], cohort_id };
+      if (deadline) body.deadline = deadline;
+      const res = await api.post('/instructor/assignments/fan-out', body);
+      assignBanner(`Đã giao cho ${res.created_count} bài (${res.student_count} học viên).`, 'ok');
+    } else {
+      const student_id = $('assign-student').value;
+      if (!student_id) { assignBanner('Chưa chọn học viên.', 'err'); return; }
+      const body = { prompt_id, student_id };
+      if (deadline) body.deadline = deadline;
+      await api.post('/instructor/assignments', body);
+      assignBanner('Đã giao bài.', 'ok');
+    }
+    await renderMatrix();
+  } catch (e) {
+    assignBanner('Lỗi giao bài: ' + e.message, 'err');
   }
 }
 
