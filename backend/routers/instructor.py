@@ -55,7 +55,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
-from routers.admin import require_instructor
+from routers.admin import require_instructor, _gen_code
 from services import essay_service, instructor_workflow
 from services.instructor_access import (
     instructor_db,
@@ -428,6 +428,82 @@ async def student_summary(student_id: UUID, authorization: str | None = Header(N
     if not owned.data:
         raise HTTPException(404, "Không tìm thấy.")     # not my student (uniform w/ non-existent)
     return essay_service.get_student_summary(str(student_id))
+
+
+# ── Codes (owner = issued_by) — STUDENT-ENROLL ONLY (W-6b) ───────────────────
+# An instructor mints student-enroll codes (grants_role NULL). On activation, W-5
+# stamps students.instructor_id = issued_by = me. Instructors can NEVER mint an
+# instructor-promote code (grants_role='instructor' = admin-only escalation path).
+
+_STUDENT_ENROLL_PERMISSIONS = ["writing", "practice_single", "practice_part", "practice_full"]
+
+
+class CodeMintBody(BaseModel):
+    cohort_id: Optional[UUID] = None
+    notes: Optional[str] = None
+    count: int = Field(default=1, ge=1, le=50)
+    # Captured ONLY to reject — instructors cannot set a role grant (anti-escalation).
+    grants_role: Optional[str] = None
+
+
+def _audit_code(actor: str, code_id, action: str, *, cohort_id=None) -> None:
+    """Best-effort audit to access_code_audit (not an owner-scoped table). Never raises."""
+    try:
+        supabase_admin.table("access_code_audit").insert({
+            "actor_user_id": actor, "action": action, "code_id": code_id,
+            "target_user_id": None,
+            "after": {"grants_role": None, "cohort_id": cohort_id} if action == "code_mint" else None,
+        }).execute()
+    except Exception:
+        pass
+
+
+@router.get("/codes")
+async def list_codes(authorization: str | None = Header(None)):
+    me = await _me(authorization)
+    r = (instructor_db(me).table("access_codes")
+         .select("id, code, is_used, used_by, used_at, is_active, cohort_id, "
+                 "notes, grants_role, permissions, created_at")
+         .order("created_at", desc=True).execute())
+    return r.data or []
+
+
+@router.post("/codes", status_code=status.HTTP_201_CREATED)
+async def mint_codes(body: CodeMintBody, authorization: str | None = Header(None)):
+    me = await _me(authorization)
+    # ANTI-ESCALATION: an instructor mints STUDENT-ENROLL codes only. grants_role
+    # is hard-NULL server-side; ANY caller attempt to set it → 403 + audit.
+    if body.grants_role is not None:
+        _audit_code(me, None, "code_mint_escalation_rejected")
+        raise HTTPException(
+            403, "Giảng viên chỉ tạo được mã ghi danh học viên — không tạo được mã "
+                 "cấp quyền giảng viên (chỉ admin).",
+        )
+    # cohort_id (optional) must be MY cohort — cross-tenant attach guard.
+    if body.cohort_id is not None:
+        owned = (instructor_db(me).table("cohorts").select("id")
+                 .eq("id", str(body.cohort_id)).limit(1).execute())
+        if not owned.data:
+            raise HTTPException(403, "Lớp không thuộc bạn.")
+
+    codes = [_gen_code() for _ in range(body.count)]
+    rows = [{
+        "code":        c,
+        "is_used":     False,
+        "is_active":   True,
+        "permissions": list(_STUDENT_ENROLL_PERMISSIONS),   # NO admin cap
+        "code_type":   "direct" if body.cohort_id else "mass",
+        # grants_role intentionally OMITTED → NULL (student-enroll). issued_by is
+        # stamped to `me` by the accessor (never from the body).
+        **({"cohort_id": str(body.cohort_id)} if body.cohort_id else {}),
+        **({"notes": body.notes} if body.notes else {}),
+    } for c in codes]
+    r = instructor_db(me).table("access_codes").insert(rows).execute()   # stamps issued_by=me
+    created = r.data or []
+    for row in created:
+        _audit_code(me, row.get("id"), "code_mint",
+                    cohort_id=str(body.cohort_id) if body.cohort_id else None)
+    return {"created": len(created), "codes": codes}
 
 
 # ── Reviews (queue scoped by essay-ownership; claim = essay-owner check) ──────
