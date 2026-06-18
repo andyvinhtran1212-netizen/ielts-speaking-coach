@@ -48,6 +48,7 @@ from routers.admin_writing_cohorts import router as admin_writing_cohorts_router
 from routers.admin_writing_regrade import router as admin_writing_regrade_router
 from routers.admin_writing_assignments import router as admin_writing_assignments_router
 from routers.admin_instructor import router as admin_instructor_router
+from routers.instructor import router as instructor_router
 from routers.admin_students import router as admin_students_router
 from routers.writing_student import router as writing_student_router
 from routers.grammar import router as grammar_router
@@ -169,6 +170,7 @@ app.include_router(admin_writing_cohorts_router)
 app.include_router(admin_writing_regrade_router)
 app.include_router(admin_writing_assignments_router)
 app.include_router(admin_instructor_router)
+app.include_router(instructor_router)
 app.include_router(admin_students_router)
 app.include_router(writing_student_router)
 app.include_router(grammar_router)
@@ -330,6 +332,20 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     headers.setdefault("X-Request-ID", request_id)
     return JSONResponse(status_code=exc.status_code,
                         content={"detail": detail}, headers=headers)
+
+
+# W-4 — owner-scope violations from the instructor accessor/services raise
+# PermissionError; map them to a generic 403 (never 500, never name the object so
+# B can't infer A's resource exists). The instructor route layer relies on this.
+@app.exception_handler(PermissionError)
+async def permission_error_handler(request: Request, exc: PermissionError):
+    import uuid as _uuid
+    request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
+    return JSONResponse(
+        status_code=403,
+        content={"detail": "Bạn không có quyền với tài nguyên này."},
+        headers={"X-Request-ID": request_id},
+    )
 
 
 @app.on_event("startup")

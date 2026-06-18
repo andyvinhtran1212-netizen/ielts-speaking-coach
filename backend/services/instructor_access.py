@@ -171,6 +171,17 @@ def instructor_essays(me: Any) -> _EssayScoped:
     return _EssayScoped(instructor_owned_essay_ids(_require_me(me)))
 
 
+def assert_essay_owned(me: Any, essay_id: Any) -> None:
+    """Raise PermissionError unless `essay_id` is in the instructor's owned set
+    (2-branch). Used by every single-essay /instructor endpoint BEFORE acting.
+
+    Membership-based on purpose: a non-owned-existing essay AND a non-existent
+    essay both fail the same way → no existence leak (403 is uniform)."""
+    me = _require_me(me)
+    if str(essay_id) not in set(instructor_owned_essay_ids(me)):
+        raise PermissionError("essay not owned by this instructor")
+
+
 # ── Thin can't-forget wrappers — the ONLY entry points /instructor/* routes use ─
 #
 # The raw service fns keep an OPTIONAL owner_id (None = admin/legacy, unchanged).
