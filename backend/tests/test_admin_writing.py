@@ -770,7 +770,9 @@ def test_revoke_delivery_reverts_to_reviewed_preserving_feedback():
     fake = _fake_supabase(status="delivered")
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing.supabase_admin", fake):
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("routers.admin_writing.instructor_workflow.sync_revoke_review",
+               return_value=None) as sync_mock:
         r = _client().post(
             f"/admin/writing/essays/{_ESSAY_ID}/revoke-delivery",
             json={},
@@ -778,6 +780,9 @@ def test_revoke_delivery_reverts_to_reviewed_preserving_feedback():
         )
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "reviewed"
+    # Fix-1 (D2): admin revoke also syncs the review row so an instructor-tier
+    # essay can be re-delivered (0-row no-op for standard essays).
+    sync_mock.assert_called_once_with(_ESSAY_ID)
     payload = fake.table.return_value.update.call_args.args[0]
     assert payload["status"] == "reviewed"
     assert payload["delivered_at"] is None

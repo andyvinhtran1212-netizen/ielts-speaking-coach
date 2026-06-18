@@ -448,6 +448,9 @@ async def revoke_delivery(request: Request, essay_id: UUID, authorization: str |
     supabase_admin.table("writing_essays").update(
         {"status": "reviewed", "delivered_at": None}
     ).eq("id", str(essay_id)).execute()
+    # Fix-1 (D2) — bring the review row back into the active queue so the
+    # essay can be re-delivered (delivered→claimed; no-op if no review row).
+    instructor_workflow.sync_revoke_review(essay_id)
     return {"essay_id": str(essay_id), "status": "reviewed",
             "message": "Đã thu hồi bài. Feedback giữ nguyên; học viên không còn thấy bài."}
 
